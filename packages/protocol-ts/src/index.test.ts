@@ -1043,7 +1043,7 @@ describe("@cartulary/protocol-ts family conformance", () => {
       {
         ...envelope,
         type: "session_revoked",
-        payload: { reason_code: "membership_removed" },
+        payload: { reason_code: "incident_access_revoked" },
       },
     ] as const;
 
@@ -1066,6 +1066,38 @@ describe("@cartulary/protocol-ts family conformance", () => {
         expect(result.value).not.toBe(message);
         expect(result.value.payload).not.toBe(message.payload);
       }
+    }
+    for (const reason of [
+      "session_expired",
+      "session_revoked",
+      "incident_access_revoked",
+      "concurrency_limit",
+    ]) {
+      const message = {
+        ...envelope,
+        type: "session_revoked",
+        payload: { reason_code: reason, future_member: "ignored" },
+      };
+      expect(incidentStreamMessageDecoder.decode(message)).toEqual({
+        ok: true,
+        value: { ...message, payload: { reason_code: reason } },
+      });
+    }
+    for (const payload of [
+      {},
+      { reason_code: "membership_removed" },
+      { reason_code: "future_reason" },
+      { reason_code: "" },
+      { reason_code: null },
+      { reason_code: 42 },
+    ]) {
+      expect(
+        incidentStreamMessageDecoder.decode({
+          ...envelope,
+          type: "session_revoked",
+          payload,
+        }).ok,
+      ).toBe(false);
     }
   });
 

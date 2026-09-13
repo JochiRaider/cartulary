@@ -885,7 +885,12 @@ export function App({
   });
   importControllerRef.current = incidentImport.controller;
   const handleIncidentAccessLost = useCallback(() => {
-    if (readAppRouteState().incidentId !== route.incidentId) return;
+    if (
+      !route.incidentId ||
+      readAppRouteState().incidentId !== route.incidentId ||
+      sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime
+    )
+      return;
     membershipManagementRef.current?.retire();
     metadataRef.current?.retire();
     lifecycleRef.current?.retire();
@@ -899,7 +904,16 @@ export function App({
     };
     setLandingNotice(accessLostLandingNotice);
     commitRoute({ incidentId: "", deploymentAdministration: false }, "replace");
-  }, [accountNavigationIdentity, commitRoute, route.incidentId]);
+    // Account authority outlives the removed workbook. A transient read failure
+    // cannot restore incident presentation or turn this into session loss.
+    void sessionController.refreshSession();
+  }, [
+    accountNavigationIdentity,
+    commitRoute,
+    route.incidentId,
+    sessionController,
+    sessionSnapshot.lifetime,
+  ]);
 
   const [incidentResources] = useState(
     () =>

@@ -35,9 +35,10 @@ import { safelyRemoveRoute as safeUnroute } from "../transport/requestIntercepti
 import { createViewRow, patchRecord, queryViewRows } from "../workbook/query";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
-  const accountMenuTrigger = page.getByLabel(
-    "Account and application navigation",
-  );
+  const accountMenuTrigger = page.getByRole("button", {
+    name: "Account and application navigation",
+    exact: true,
+  });
   await accountMenuTrigger.click();
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     roleText,

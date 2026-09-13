@@ -17,7 +17,7 @@ import {
   getNetworkFlowBindingSourceRowLimit,
   linkNetworkFlowIndicator,
 } from "./networkFlowClient";
-import { interpretNetworkFlowCollaborationMessage } from "./networkFlowCollaborationInterpreter";
+import { interpretNetworkFlowCollaborationEvent } from "./networkFlowCollaborationInterpreter";
 import type { IndicatorLinkAuthority } from "./networkFlowIndicatorLinkOperation";
 
 /** The workbook, independently of its lazy surface, owns volatile link recovery. */
@@ -95,21 +95,10 @@ export function useNetworkFlowIndicatorLinkOwner(options: {
         if (event.kind === "message") {
           const targetChange = indicatorTargetChange(event.message);
           if (targetChange !== null) controller.onTargetChange(targetChange);
-          const change = interpretNetworkFlowCollaborationMessage(
-            event.message,
-          );
-          if (change !== null) controller.onResourceChange(change);
-        } else if (
-          event.kind === "authorization_lost" ||
-          event.kind === "session_revoked" ||
-          event.kind === "incident_closed"
-        ) {
-          controller.onResourceChange({
-            resourceKind: "*",
-            resourceId: "*",
-            changeKind: "remove",
-            reasonCode: event.kind,
-          });
+        }
+        const change = interpretNetworkFlowCollaborationEvent(event);
+        if (change !== null) {
+          controller.onResourceChange(change);
         } else if (event.kind === "reset_required") {
           controller.onResourceChange({
             resourceKind: "*",

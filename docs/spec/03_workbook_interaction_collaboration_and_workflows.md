@@ -281,6 +281,29 @@ Verified by: AC-482
 
 **REQ-03-299**
 Workbook grids MUST model query data state independently from interaction permission. The closed data-state vocabulary is `initial_loading`, `ready`, `refreshing`, `empty`, `filtered_empty`, `stale_error`, `unavailable`, and `permission_denied`; the interaction vocabulary is `editable` and `read_only`. Refreshing and stale-error states preserve prior authorized rows and dirty drafts; permission or incident-access loss clears protected rows and follows the existing access-loss path. Closed incidents retain readable rows and copy behavior, display the exact lifecycle text `Closed, read-only`, and prohibit editor, paste, fill, create, and bulk-command dispatch. These states are status or overlay presentation and MUST NOT be synthetic record rows.
+
+A validated `session_revoked` message with `reason_code='incident_access_revoked'`
+MUST immediately invalidate the addressed incident's protected presentation,
+including rows, previews, inspectors and dependent extension projections, and
+return to the incident directory. The client MUST preserve the otherwise valid
+account session, refresh account authorization independently of the removed
+workbook, and require explicit incident reentry. A transient refresh failure MUST
+NOT restore protected content, reopen the incident or imply account-session loss.
+An authoritative session failure follows REQ-03-100 instead. Pending work follows
+its existing owner lifetime; leaving an incident does not reverse committed
+operations or create a cross-incident archive.
+
+Terminal outcomes MUST be scoped to the current incident, socket generation and
+account lifetime. The first accepted terminal message is authoritative for that
+connection; duplicate messages and the subsequent close MUST NOT repeat or
+replace its outcome. Foreign-incident messages and obsolete callbacks MUST NOT
+alter stream state, authorization or presentation. A policy close without an
+accepted terminal envelope, or a recognizable same-incident terminal envelope
+with invalid reason data, MUST suspend protected presentation and mutations and
+use bounded authoritative authorization recovery. Such uncertainty alone MUST
+NOT end the account session. Transient recovery failure retains suspension and
+permits read-only retry. Automatic reconnect and resume MUST remain suppressed
+until applicable authorization and refresh requirements are satisfied.
 Profiles: base
 Verified by: AC-483, AC-484
 
@@ -1027,6 +1050,14 @@ Verified by: AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-
 
 **REQ-03-100**
 An authentication failure on a queued write, or a `session_revoked` event on the collaboration stream, MUST NOT discard unresolved same-field local drafts or queued unsent writes. This requirement applies when `session_revoked` is caused by self-service password change, self-service TOTP replacement, administrator password reset, administrator TOTP reset, or explicit session revoke-all. The client MUST preserve that client-local unsaved work and prompt for re-authentication when required.
+
+The client MUST preserve the canonical revocation reason and distinguish its
+scope using Core 01 §3.3.6.2. `session_expired`, `session_revoked`, and
+`concurrency_limit` require account-session recovery; `incident_access_revoked`
+MUST NOT trigger account-session termination or account-wide retirement. The
+latter follows REQ-03-299's immediate incident exit. Uncertain authorization
+suspends protected work and requires an authoritative read rather than assuming
+either successful authorization or global session loss.
 
 The pending work retained across session loss MUST remain associated with its
 originating account within the same browser runtime. Reauthentication by that same

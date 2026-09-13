@@ -13,7 +13,7 @@ import {
   queryNetworkFlowSavedGraphContributors,
   submitNetworkFlowSavedGraphMutation,
 } from "./networkFlowClient";
-import { interpretNetworkFlowCollaborationMessage } from "./networkFlowCollaborationInterpreter";
+import { interpretNetworkFlowCollaborationEvent } from "./networkFlowCollaborationInterpreter";
 import type { SavedGraphTransport } from "./SavedGraphController";
 import { SavedGraphController } from "./SavedGraphController";
 import { readSavedGraphJob } from "./savedGraphObservation";
@@ -130,22 +130,9 @@ export function useNetworkFlowSavedGraphOwner(options: {
   useLayoutEffect(
     () =>
       collaboration.subscribe((event) => {
-        if (event.kind === "message") {
-          const change = interpretNetworkFlowCollaborationMessage(
-            event.message,
-          );
-          if (change !== null) void controller.onResourceChange(change);
-        } else if (
-          event.kind === "authorization_lost" ||
-          event.kind === "session_revoked" ||
-          event.kind === "incident_closed"
-        ) {
-          void controller.onResourceChange({
-            resourceKind: "*",
-            resourceId: "*",
-            changeKind: "remove",
-            reasonCode: event.kind,
-          });
+        const change = interpretNetworkFlowCollaborationEvent(event);
+        if (change !== null) {
+          void controller.onResourceChange(change);
         } else if (event.kind === "reset_required") {
           void controller
             .onResourceChange({

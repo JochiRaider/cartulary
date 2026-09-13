@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { interpretNetworkFlowCollaborationMessage } from "./networkFlowCollaborationInterpreter";
+import {
+  interpretNetworkFlowCollaborationEvent,
+  interpretNetworkFlowCollaborationMessage,
+} from "./networkFlowCollaborationInterpreter";
 
 describe("interpretNetworkFlowCollaborationMessage", () => {
   it("preserves table and saved graph identities and rejects unrelated resources", () => {
@@ -61,4 +64,50 @@ describe("interpretNetworkFlowCollaborationMessage", () => {
       }),
     ).toBeNull();
   });
+});
+
+it("preserves normalized authorization scope in every Network Flow owner lifecycle", () => {
+  for (const reasonCode of [
+    "session_expired",
+    "session_revoked",
+    "concurrency_limit",
+  ] as const) {
+    expect(
+      interpretNetworkFlowCollaborationEvent({
+        kind: "authorization_revoked",
+        incidentId: "incident",
+        scope: "session",
+        reasonCode,
+      }),
+    ).toMatchObject({
+      changeKind: "remove",
+      resourceKind: "*",
+      reasonCode: "session_revoked",
+    });
+  }
+  for (const event of [
+    {
+      kind: "authorization_revoked",
+      incidentId: "incident",
+      scope: "incident",
+      reasonCode: "incident_access_revoked",
+    },
+    { kind: "authorization_lost" },
+  ] as const) {
+    expect(interpretNetworkFlowCollaborationEvent(event)).toMatchObject({
+      changeKind: "remove",
+      resourceKind: "*",
+      reasonCode: "authorization_lost",
+    });
+  }
+  expect(
+    interpretNetworkFlowCollaborationEvent({ kind: "incident_closed" }),
+  ).toMatchObject({ reasonCode: "incident_closed" });
+  expect(
+    interpretNetworkFlowCollaborationEvent({
+      kind: "reset_required",
+      generation: 1,
+      reason: "sequence_gap",
+    }),
+  ).toBeNull();
 });

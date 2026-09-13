@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useIncidentCollaborationSession } from "../collaboration/IncidentCollaborationSession";
 import { networkAnalysisSheetRef } from "./networkFlowClient";
 import {
-  interpretNetworkFlowCollaborationMessage,
+  interpretNetworkFlowCollaborationEvent,
   type NetworkFlowExtensionResourceChange,
 } from "./networkFlowCollaborationInterpreter";
 
@@ -32,22 +32,6 @@ export function useNetworkFlowExtensionEvents({
       mode: "viewing",
     });
     return session.subscribe((event) => {
-      if (
-        event.kind === "authorization_lost" ||
-        event.kind === "session_revoked" ||
-        event.kind === "incident_closed"
-      ) {
-        void onResourceChange({
-          resourceKind: "*",
-          changeKind: "remove",
-          reasonCode:
-            event.kind === "incident_closed"
-              ? "incident_closed"
-              : "authorization_lost",
-          resourceId: "*",
-        });
-        return;
-      }
       if (event.kind === "reset_required") {
         void Promise.resolve(
           onResourceChange({
@@ -59,10 +43,7 @@ export function useNetworkFlowExtensionEvents({
         ).then(() => session.completeReset(event.generation));
         return;
       }
-      if (event.kind !== "message") {
-        return;
-      }
-      const change = interpretNetworkFlowCollaborationMessage(event.message);
+      const change = interpretNetworkFlowCollaborationEvent(event);
       if (change !== null) {
         void onResourceChange(change);
       }

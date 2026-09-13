@@ -131,6 +131,18 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		})
 		otherIncidentID := otherIncident["incident_id"].(string)
 		incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, otherIncidentID, member.ID.String(), member.Email, "editor")
+		otherUserSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+			SessionToken:     admin.SessionCookie.Value,
+			ClientInstanceID: "collaboration-membership-other-user",
+			Presence:         timelinePresence(),
+		})
+		defer otherUserSocket.Close(wstest.StatusNormalClosure, "test_complete")
+		otherIncidentSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, otherIncidentID, incidentwstest.ConnectOptions{
+			SessionToken:     memberSession.Value,
+			ClientInstanceID: "collaboration-membership-other-incident",
+			Presence:         timelinePresence(),
+		})
+		defer otherIncidentSocket.Close(wstest.StatusNormalClosure, "test_complete")
 		memberSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     memberSession.Value,
 			ClientInstanceID: "collaboration-support-socket-membership",
@@ -138,6 +150,20 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		})
 		incidentscenariotest.DeleteMembershipVersion(t, harness.Server, admin, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()))
 		incidentwstest.ExpectSessionRevoked(t, memberSocket, "incident_access_revoked")
+
+		// Both already-established, unaffected subscriptions still receive real
+		// committed records after the targeted subscription has terminated.
+		for _, survivor := range []struct {
+			incidentID string
+			client     *incidentwstest.Client
+		}{{incidentID, otherUserSocket}, {otherIncidentID, otherIncidentSocket}} {
+			created := timelineroutetest.CreateRow(t, harness.Server, admin, survivor.incidentID, map[string]any{
+				"client_txn_id":                   "txn-revocation-survivor-" + survivor.incidentID,
+				"timeline.activity_synopsis_text": "Unaffected subscription remains authorized",
+			})
+			row := created["row"].(map[string]any)
+			incidentwstest.RequireRecordChanged(t, survivor.client, row["record_id"].(string), int64(row["row_version"].(float64)))
+		}
 
 		removedIncidentResponse := httptestx.DoJSON(
 			t,

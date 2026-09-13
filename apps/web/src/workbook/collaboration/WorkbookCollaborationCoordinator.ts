@@ -86,6 +86,7 @@ type LifecycleEventPlan = Extract<
       | "reset"
       | "recover_authorization"
       | "session_lost"
+      | "incident_access_lost"
       | "incident_closed";
   }
 >;
@@ -259,7 +260,14 @@ class WorkbookCollaborationCoordinatorRuntime {
     this.sessionUnsubscribe?.();
     this.session = session;
     this.sessionUnsubscribe = session.subscribe((event) => {
-      if (this.session !== session || this.disposed) return;
+      if (
+        this.session !== session ||
+        this.disposed ||
+        this.authorizationRecoveryMachine.phase === "terminal" ||
+        (event.kind === "authorization_revoked" &&
+          event.incidentId !== this.options.incidentId)
+      )
+        return;
       if (
         event.kind === "established" &&
         typeof event.payload.connection_id === "string"
@@ -961,15 +969,23 @@ class WorkbookCollaborationCoordinatorRuntime {
       case "reset":
         this.beginReset(plan.eventGeneration, plan.reason);
         return;
+      case "incident_access_lost":
       case "session_lost":
         this.cancelReset();
         this.cancelAuthorizationWork();
-        this.applyInvalidationPlan({ kind: "session_unavailable" });
+        this.applyInvalidationPlan({
+          kind:
+            plan.kind === "incident_access_lost"
+              ? "incident_access_lost"
+              : "session_unavailable",
+        });
         this.authorizationRecoveryMachine =
           terminateWorkbookAuthorizationRecovery(
             this.authorizationRecoveryMachine,
           );
-        this.options.onSessionLost?.();
+        if (plan.kind === "incident_access_lost")
+          this.options.onIncidentAccessLost?.();
+        else this.options.onSessionLost?.();
         return;
       case "recover_authorization":
         this.requestAuthorizationRecovery();

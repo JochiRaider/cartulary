@@ -469,7 +469,12 @@ describe("WorkbookCollaborationCoordinator", () => {
       { kind: "view_schema", id: "cartulary.view.timeline.v2" },
       { recover },
     );
-    fixture.emit({ kind: "session_revoked" });
+    fixture.emit({
+      kind: "authorization_revoked",
+      scope: "session",
+      incidentId: "incident-1",
+      reasonCode: "session_revoked",
+    });
     expect(fixture.onSessionLost).toHaveBeenCalledOnce();
     expect(fixture.onIncidentAccessLost).not.toHaveBeenCalled();
     expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
@@ -477,6 +482,93 @@ describe("WorkbookCollaborationCoordinator", () => {
     expect(recover).not.toHaveBeenCalled();
     fixture.projection.dispose();
   });
+  it("conceals a revoked incident immediately once and rejects obsolete recovery without ending the account session", async () => {
+    let resolveRecovery!: (result: {
+      kind: "authorized";
+      role: "admin";
+      userId: string;
+    }) => void;
+    const recover = vi.fn(
+      () =>
+        new Promise<{ kind: "authorized"; role: "admin"; userId: string }>(
+          (resolve) => {
+            resolveRecovery = resolve;
+          },
+        ),
+    );
+    const fixture = projectionFixture(
+      { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+      { recover },
+    );
+    const revoked = {
+      kind: "authorization_revoked",
+      scope: "incident",
+      incidentId: "incident-1",
+      reasonCode: "incident_access_revoked",
+    } as const;
+    fixture.emit({ ...revoked, incidentId: "foreign" });
+    expect(fixture.mutationInvalidation).not.toHaveBeenCalled();
+    fixture.emit({ kind: "authorization_lost" });
+    await fixture.timing.advanceBy(1000);
+    expect(
+      fixture.mutationRuntime.enqueuePatch({
+        baseRowVersion: 1,
+        changes: [
+          {
+            field_key: "timeline.activity_synopsis_text",
+            value: "Retained private draft",
+          },
+        ],
+        fieldKey: "timeline.activity_synopsis_text",
+        localValue: "Retained private draft",
+        recordId: "record-1",
+        rowLabel: "Timeline row",
+        surfaceLabel: "Timeline",
+        viewSchemaId: "cartulary.view.timeline.v2",
+      }),
+    ).toEqual({ kind: "accepted" });
+    const retainedUnits = fixture.mutationRuntime
+      .pendingQueue()
+      .model.snapshot().units;
+    expect(retainedUnits).toHaveLength(1);
+    fixture.emit(revoked);
+    expect(fixture.onIncidentAccessLost).toHaveBeenCalledOnce();
+    for (const owner of [
+      fixture.mutationInvalidation,
+      fixture.queryInvalidation,
+      fixture.extensionInvalidation,
+      fixture.evidenceInvalidation,
+      fixture.inspectorInvalidation,
+    ]) {
+      expect(owner).toHaveBeenLastCalledWith({ kind: "incident_access_lost" });
+    }
+    const invalidations = fixture.mutationInvalidation.mock.calls.length;
+    fixture.emit(revoked);
+    fixture.emit({ kind: "authorization_lost" });
+    fixture.emit({
+      kind: "authorization_revoked",
+      scope: "session",
+      incidentId: "incident-1",
+      reasonCode: "session_expired",
+    });
+    resolveRecovery({ kind: "authorized", role: "admin", userId: "user-1" });
+    await fixture.timing.advanceBy(30000);
+    expect(fixture.onIncidentAccessLost).toHaveBeenCalledOnce();
+    expect(fixture.onSessionLost).not.toHaveBeenCalled();
+    expect(fixture.onAuthorizationRecovered).not.toHaveBeenCalled();
+    expect(fixture.mutationInvalidation).toHaveBeenCalledTimes(invalidations);
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    expect(
+      fixture.mutationRuntime.pendingQueue().model.snapshot().units,
+    ).toEqual(retainedUnits);
+    expect(fixture.session.reconnect).not.toHaveBeenCalled();
+    expect(recover).toHaveBeenCalledOnce();
+    fixture.projection.dispose();
+    expect(fixture.mutationInvalidation).not.toHaveBeenCalledWith({
+      kind: "runtime_disposed",
+    });
+  });
+
   it("retries transient recovery but pauses cancellation and contract defects without access-loss navigation", async () => {
     for (const outcome of [
       { kind: "cancelled" },

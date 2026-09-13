@@ -80,7 +80,12 @@ describe("incident collaboration session plan", () => {
     ).toEqual({
       kind: "terminate",
       nextStreamSeq: 8,
-      reason: "session_revoked",
+      event: {
+        kind: "authorization_revoked",
+        scope: "session",
+        reasonCode: "session_revoked",
+        incidentId: "incident-1",
+      },
     });
   });
 

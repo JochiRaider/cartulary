@@ -451,7 +451,205 @@ describe("IncidentCollaborationSession", () => {
     });
 
     expect(screen.getByRole("button").textContent).toBe("authorization_lost");
-    expect(onEvent).toHaveBeenCalledWith({ kind: "session_revoked" });
+    expect(onEvent).toHaveBeenCalledWith({
+      kind: "authorization_revoked",
+      scope: "session",
+      reasonCode: "session_revoked",
+      incidentId: "incident-1",
+    });
     expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+});
+
+function connectionFixture() {
+  vi.useFakeTimers();
+  vi.stubGlobal("WebSocket", FakeWebSocket);
+  const onEvent = vi.fn();
+  function Controls() {
+    const session = useIncidentCollaborationSession();
+    useEffect(() => session.subscribe(onEvent), [session]);
+    return (
+      <button onClick={session.reconnect} type="button">
+        Authorized reconnect
+      </button>
+    );
+  }
+  const element = (incidentId = "incident-1", account = "account-1") => (
+    <IncidentCollaborationSession
+      key={account}
+      incidentId={incidentId}
+      initialPresence={{
+        mode: "viewing",
+        sheet_ref: { kind: "view_schema", id: "timeline" },
+      }}
+    >
+      <Controls />
+    </IncidentCollaborationSession>
+  );
+  const view = render(element());
+  const socket = FakeWebSocket.instances.at(-1);
+  if (!socket) throw new Error("Missing socket");
+  const send = (message: Record<string, unknown>, target = socket) =>
+    act(() => {
+      target.onmessage?.({ data: JSON.stringify(serverMessage(message)) });
+    });
+  act(() => {
+    socket.readyState = FakeWebSocket.OPEN;
+    socket.onopen?.();
+  });
+  send({
+    type: "hello_ack",
+    payload: {
+      connection_id: "connection-1",
+      resume_token: "private-resume",
+      server_time: "2026-07-13T12:00:00Z",
+      heartbeat_interval_ms: 15_000,
+      presence_ttl_ms: 45_000,
+      resume_window_ms: 300_000,
+    },
+  });
+  onEvent.mockClear();
+  return { view, element, socket, send, onEvent };
+}
+
+describe("Scoped connection termination", () => {
+  afterEach(() => {
+    cleanup();
+    FakeWebSocket.instances = [];
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  it("preserves each canonical scope once across duplicate terminal messages and close", () => {
+    for (const reasonCode of [
+      "incident_access_revoked",
+      "session_expired",
+      "session_revoked",
+      "concurrency_limit",
+    ]) {
+      const f = connectionFixture();
+      f.send({
+        type: "session_revoked",
+        payload: { reason_code: reasonCode, future_member: true },
+      });
+      f.send({
+        type: "session_revoked",
+        payload: { reason_code: "concurrency_limit" },
+      });
+      f.send({
+        type: "error",
+        payload: {
+          code: "incident_closed",
+          message: "closed",
+          retryable: false,
+        },
+      });
+      act(() => {
+        f.socket.onclose?.({ code: 1008, reason: "session_revoked" });
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(f.onEvent.mock.calls).toEqual([
+        [
+          {
+            kind: "authorization_revoked",
+            incidentId: "incident-1",
+            reasonCode,
+            scope:
+              reasonCode === "incident_access_revoked" ? "incident" : "session",
+          },
+        ],
+      ]);
+      expect(FakeWebSocket.instances).toHaveLength(1);
+      f.view.unmount();
+      FakeWebSocket.instances = [];
+    }
+  });
+  it("recovers uncertain terminals without promoting invalid reasons or close-only hints to session loss", () => {
+    for (const reasonCode of [undefined, null, 42, "future_reason", ""]) {
+      const f = connectionFixture();
+      f.send({ type: "session_revoked", payload: { reason_code: reasonCode } });
+      act(() => f.socket.onclose?.({ code: 1008, reason: "session_revoked" }));
+      expect(f.onEvent.mock.calls).toEqual([[{ kind: "authorization_lost" }]]);
+      f.view.unmount();
+      FakeWebSocket.instances = [];
+    }
+    const f = connectionFixture();
+    act(() =>
+      f.socket.onclose?.({ code: 1008, reason: "authorization_denied" }),
+    );
+    f.send({
+      type: "session_revoked",
+      payload: { reason_code: "session_revoked" },
+    });
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(f.onEvent.mock.calls).toEqual([[{ kind: "authorization_lost" }]]);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Authorized reconnect" }),
+    );
+    const next = FakeWebSocket.instances[1];
+    act(() => {
+      if (next) {
+        next.readyState = FakeWebSocket.OPEN;
+        next.onopen?.();
+      }
+    });
+    expect(JSON.parse(next?.sent[0] ?? "{}").type).toBe("hello");
+    expect(next?.sent[0]).not.toContain("private-resume");
+  });
+  it("fences foreign incidents replaced sockets account lifetimes and disposal before stream mutation", () => {
+    const f = connectionFixture();
+    f.send({
+      incident_id: "foreign",
+      type: "session_revoked",
+      payload: { reason_code: "session_revoked" },
+    });
+    const change = {
+      type: "extension_resource_changed",
+      stream_seq: 100,
+      payload: {
+        extension_profile_id: "network_flow_activity",
+        resource_kind: "network_flow_table",
+        resource_id: "table-1",
+        change_kind: "invalidate",
+        reason_code: "changed",
+      },
+    };
+    f.send({ ...change, incident_id: "foreign" });
+    f.send({ ...change, stream_seq: 1 });
+    expect(f.onEvent.mock.calls).toHaveLength(1);
+    expect(f.onEvent.mock.calls[0]?.[0]).toMatchObject({
+      kind: "message",
+      message: { stream_seq: 1 },
+    });
+    f.onEvent.mockClear();
+    f.view.rerender(f.element("incident-2"));
+    f.send({
+      type: "session_revoked",
+      payload: { reason_code: "session_revoked" },
+    });
+    act(() => f.socket.onclose?.({ code: 1008, reason: "session_revoked" }));
+    const second = FakeWebSocket.instances.at(-1);
+    if (!second) throw new Error("Missing second socket");
+    f.view.rerender(f.element("incident-2", "account-2"));
+    f.send(
+      {
+        incident_id: "incident-2",
+        type: "session_revoked",
+        payload: { reason_code: "session_revoked" },
+      },
+      second,
+    );
+    const third = FakeWebSocket.instances.at(-1);
+    if (!third) throw new Error("Missing third socket");
+    f.view.unmount();
+    f.send(
+      {
+        incident_id: "incident-2",
+        type: "session_revoked",
+        payload: { reason_code: "session_revoked" },
+      },
+      third,
+    );
+    expect(f.onEvent).not.toHaveBeenCalled();
   });
 });

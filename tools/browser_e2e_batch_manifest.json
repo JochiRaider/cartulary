@@ -2512,6 +2512,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
+            "module.evidence.browser_stateful.incident_access_revocation",
             "module.evidence.browser_stateful.verify_evidence_attach_preview_download_blocked_b2c37d6c7b"
           ],
           "specs": [
@@ -3544,6 +3545,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
+            "module.evidence.browser_stateful.incident_access_revocation",
             "module.evidence.browser_stateful.verify_evidence_attach_preview_download_blocked_b2c37d6c7b"
           ],
           "specs": [

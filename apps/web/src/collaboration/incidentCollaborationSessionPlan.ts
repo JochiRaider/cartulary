@@ -1,5 +1,47 @@
 import type { IncidentStreamMessage } from "@cartulary/protocol-ts/collaboration";
 
+type RevocationMessage = Extract<
+  IncidentStreamMessage,
+  { type: "session_revoked" }
+>;
+type RevocationReason = RevocationMessage["payload"]["reason_code"];
+
+export type IncidentAuthorizationRevocation = {
+  readonly kind: "authorization_revoked";
+  readonly incidentId: string;
+} & (
+  | {
+      readonly scope: "incident";
+      readonly reasonCode: "incident_access_revoked";
+    }
+  | {
+      readonly scope: "session";
+      readonly reasonCode: Exclude<RevocationReason, "incident_access_revoked">;
+    }
+);
+
+function authorizationRevocation(
+  message: RevocationMessage,
+): IncidentAuthorizationRevocation {
+  const reasonCode = message.payload.reason_code;
+  const identity = {
+    kind: "authorization_revoked",
+    incidentId: message.incident_id,
+  } as const;
+  switch (reasonCode) {
+    case "incident_access_revoked":
+      return { ...identity, scope: "incident", reasonCode };
+    case "session_expired":
+    case "session_revoked":
+    case "concurrency_limit":
+      return { ...identity, scope: "session", reasonCode };
+    default: {
+      const exhaustive: never = reasonCode;
+      return exhaustive;
+    }
+  }
+}
+
 export type IncidentCollaborationSessionMessagePlan =
   | { readonly kind: "ignore"; readonly nextStreamSeq: number }
   | { readonly kind: "pong"; readonly nextStreamSeq: number }
@@ -16,7 +58,9 @@ export type IncidentCollaborationSessionMessagePlan =
   | {
       readonly kind: "terminate";
       readonly nextStreamSeq: number;
-      readonly reason: "session_revoked" | "incident_closed";
+      readonly event:
+        | IncidentAuthorizationRevocation
+        | { readonly kind: "incident_closed" };
     }
   | {
       readonly kind: "reset";
@@ -72,14 +116,14 @@ export function planIncidentCollaborationSessionMessage(input: {
     return {
       kind: "terminate",
       nextStreamSeq: input.lastSeenStreamSeq,
-      reason: "session_revoked",
+      event: authorizationRevocation(message),
     };
   }
   if (message.type === "error" && message.payload.code === "incident_closed") {
     return {
       kind: "terminate",
       nextStreamSeq: input.lastSeenStreamSeq,
-      reason: "incident_closed",
+      event: { kind: "incident_closed" },
     };
   }
   const sequence = replaySequence(message);

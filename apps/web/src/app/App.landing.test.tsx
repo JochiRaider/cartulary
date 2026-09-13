@@ -2787,7 +2787,92 @@ describe("Incident landing", () => {
       screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 7);
+  });
+
+  it("leaves revoked incident content before independent account refresh settles and never reopens it", async () => {
+    for (const outcome of ["success", "transient", "session_lost"] as const) {
+      const first = incidentResource(
+        "00000000-0000-4000-8000-000000001005",
+        "IR-205",
+        "Revoked incident",
+      );
+      const second = incidentResource(
+        "00000000-0000-4000-8000-000000001006",
+        "IR-206",
+        "Other incident",
+      );
+      const member = sessionResource({
+        display_name: "Member",
+        memberships: [first, second].map((incident) => ({
+          incident_id: incident.incident_id,
+          role: "editor",
+        })),
+      });
+      let revoked = false;
+      const late = deferred<Response>();
+      let refreshes = 0;
+      installLandingShellFetch(fetchMock, {
+        session: () => {
+          if (!revoked) return member;
+          if (++refreshes === 1) return late.promise;
+          return {
+            ...member,
+            memberships: member.memberships.filter(
+              (m) => m.incident_id !== first.incident_id,
+            ),
+          };
+        },
+        incidents: () => (revoked ? [second] : [first, second]),
+      });
+      window.history.replaceState({}, "", `/?incident_id=${first.incident_id}`);
+      renderApp();
+      await screen.findByTestId("mock-workbook");
+      await expectStableFetchCount(fetchMock, 5);
+      revoked = true;
+      fireEvent.click(screen.getByTestId("mock-access-lost"));
+      await screen.findByTestId(
+        landingIncidentOpenButtonTestId(second.incident_id),
+      );
+      expect(screen.queryByTestId("mock-workbook")).toBeNull();
+      expect(screen.queryByTestId(authTestId("login-submit"))).toBeNull();
+      expect(window.location.search).not.toContain("incident_id");
+      expect(refreshes).toBe(1);
+      await act(async () => {
+        if (outcome === "transient") late.reject(new TypeError("offline"));
+        else if (outcome === "session_lost")
+          late.resolve(
+            jsonResponse(
+              { error: { code: "session_required", status: 401 } },
+              401,
+            ),
+          );
+        else
+          late.resolve(
+            jsonResponse({
+              data: { ...member, memberships: [member.memberships[1]] },
+              meta: { request_id: "refreshed" },
+            }),
+          );
+      });
+      if (outcome === "session_lost") {
+        await screen.findByTestId(authTestId("login-submit"));
+      } else {
+        expect(screen.queryByTestId("mock-workbook")).toBeNull();
+        expect(screen.queryByTestId(authTestId("login-submit"))).toBeNull();
+        fireEvent.click(
+          screen.getByTestId(
+            landingIncidentOpenButtonTestId(second.incident_id),
+          ),
+        );
+        await screen.findByTestId("mock-workbook");
+        expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
+          second.incident_id,
+        );
+      }
+      cleanup();
+      fetchMock.mockReset();
+    }
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {

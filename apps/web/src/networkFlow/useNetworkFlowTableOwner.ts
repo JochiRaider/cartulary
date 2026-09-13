@@ -14,7 +14,7 @@ import {
   submitNetworkFlowTableMutation,
 } from "./networkFlowClient";
 import {
-  interpretNetworkFlowCollaborationMessage,
+  interpretNetworkFlowCollaborationEvent,
   type NetworkFlowExtensionResourceChange,
 } from "./networkFlowCollaborationInterpreter";
 import type { TableAuthority } from "./networkFlowTableOperation";
@@ -91,22 +91,9 @@ export function useNetworkFlowTableOwner(options: {
   useLayoutEffect(
     () =>
       collaboration.subscribe((event) => {
-        if (event.kind === "message") {
-          const change = interpretNetworkFlowCollaborationMessage(
-            event.message,
-          );
-          if (change !== null) void controller.onResourceChange(change);
-        } else if (
-          event.kind === "authorization_lost" ||
-          event.kind === "session_revoked" ||
-          event.kind === "incident_closed"
-        ) {
-          void controller.onResourceChange({
-            resourceKind: "*",
-            resourceId: "*",
-            changeKind: "remove",
-            reasonCode: event.kind,
-          });
+        const change = interpretNetworkFlowCollaborationEvent(event);
+        if (change !== null) {
+          void controller.onResourceChange(change);
         } else if (event.kind === "reset_required") {
           void controller
             .onResourceChange({

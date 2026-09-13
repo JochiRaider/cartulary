@@ -7,13 +7,14 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import type { SheetRef } from "../shared/sheetRef";
 import {
+  type IncidentAuthorizationRevocation,
   type IncidentCollaborationSessionMessagePlan,
   planIncidentCollaborationSessionMessage,
 } from "./incidentCollaborationSessionPlan";
@@ -42,7 +43,7 @@ export type IncidentCollaborationEvent =
       readonly reason: "resume_reset" | "sequence_gap";
     }
   | { readonly kind: "authorization_lost" }
-  | { readonly kind: "session_revoked" }
+  | IncidentAuthorizationRevocation
   | { readonly kind: "incident_closed" };
 
 export type IncidentCollaborationMessage = IncidentStreamMessage;
@@ -202,7 +203,7 @@ export function IncidentCollaborationSession({
     connectRef.current();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (incidentId.trim() === "" || typeof WebSocket === "undefined") {
       return;
     }
@@ -213,6 +214,10 @@ export function IncidentCollaborationSession({
     setConnectionId(null);
     let disposed = false;
     let reconnectTimer: number | null = null;
+    const terminalOutcomes = new WeakMap<
+      WebSocket,
+      IncidentCollaborationEvent
+    >();
     const url = websocketPath(apiBase, `/ws/v1/incidents/${incidentId}`);
 
     const scheduleReconnect = () => {
@@ -230,15 +235,29 @@ export function IncidentCollaborationSession({
     };
 
     const terminate = (
+      socket: WebSocket,
       nextStatus: "authorization_lost" | "incident_closed",
       event: IncidentCollaborationEvent,
     ) => {
+      if (
+        disposed ||
+        socketRef.current !== socket ||
+        terminalOutcomes.has(socket)
+      )
+        return;
+      terminalOutcomes.set(socket, event);
       reconnectSuppressedRef.current = true;
       resumeTokenRef.current = null;
+      lastSeenStreamSeqRef.current = 0;
+      resetGenerationRef.current += 1;
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       setConnectionId(null);
       updateStatus(nextStatus);
       emit(event);
-      socketRef.current?.close();
+      socket.close();
     };
 
     const beginReset = (
@@ -296,17 +315,14 @@ export function IncidentCollaborationSession({
         applyEstablishmentPlan(plan);
         return;
       }
-      if (plan.kind === "terminate" && plan.reason === "session_revoked") {
-        reconnectSuppressedRef.current = true;
-        resumeTokenRef.current = null;
-        setConnectionId(null);
-        updateStatus("authorization_lost");
-        emit({ kind: "session_revoked" });
-        socket.close();
-        return;
-      }
       if (plan.kind === "terminate") {
-        terminate("incident_closed", { kind: "incident_closed" });
+        terminate(
+          socket,
+          plan.event.kind === "incident_closed"
+            ? "incident_closed"
+            : "authorization_lost",
+          plan.event,
+        );
         return;
       }
       if (plan.kind === "reset") {
@@ -318,7 +334,22 @@ export function IncidentCollaborationSession({
 
     const handleMessage = (socket: WebSocket, raw: unknown) => {
       const decoded = incidentStreamMessageDecoder.decode(raw);
-      if (!decoded.ok) return;
+      if (!decoded.ok) {
+        if (
+          raw !== null &&
+          typeof raw === "object" &&
+          "type" in raw &&
+          raw.type === "session_revoked" &&
+          "incident_id" in raw &&
+          raw.incident_id === incidentId
+        ) {
+          terminate(socket, "authorization_lost", {
+            kind: "authorization_lost",
+          });
+        }
+        return;
+      }
+      if (decoded.value.incident_id !== incidentId) return;
       applyMessagePlan(
         socket,
         planIncidentCollaborationSessionMessage({
@@ -337,7 +368,11 @@ export function IncidentCollaborationSession({
       socketRef.current = socket;
       updateStatus("connecting");
       socket.onopen = () => {
-        if (socketRef.current !== socket) {
+        if (
+          disposed ||
+          socketRef.current !== socket ||
+          terminalOutcomes.has(socket)
+        ) {
           return;
         }
         const resumeToken = resumeTokenRef.current;
@@ -358,7 +393,12 @@ export function IncidentCollaborationSession({
         );
       };
       socket.onmessage = (event) => {
-        if (socketRef.current !== socket || typeof event.data !== "string") {
+        if (
+          disposed ||
+          socketRef.current !== socket ||
+          terminalOutcomes.has(socket) ||
+          typeof event.data !== "string"
+        ) {
           return;
         }
         try {
@@ -369,15 +409,18 @@ export function IncidentCollaborationSession({
       };
       socket.onclose = (event) => {
         if (disposed || socketRef.current !== socket) return;
-        socketRef.current = null;
-        if (
-          event.code === 1008 &&
-          (event.reason === "session_revoked" ||
-            event.reason === "authorization_denied")
-        ) {
-          terminate("authorization_lost", { kind: "authorization_lost" });
+        if (terminalOutcomes.has(socket)) {
+          socketRef.current = null;
           return;
         }
+        if (event.code === 1008) {
+          terminate(socket, "authorization_lost", {
+            kind: "authorization_lost",
+          });
+          socketRef.current = null;
+          return;
+        }
+        socketRef.current = null;
         if (!reconnectSuppressedRef.current) {
           updateStatus("disconnected");
           scheduleReconnect();

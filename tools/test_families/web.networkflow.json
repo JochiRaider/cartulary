@@ -625,7 +625,8 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowCollaborationInterpreter.test.ts",
         "titles": [
-          "interpretNetworkFlowCollaborationMessage preserves table and saved graph identities and rejects unrelated resources"
+          "interpretNetworkFlowCollaborationMessage preserves table and saved graph identities and rejects unrelated resources",
+          "preserves normalized authorization scope in every Network Flow owner lifecycle"
         ]
       },
       "evidence_class": "unit",

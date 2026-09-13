@@ -393,6 +393,44 @@
       ]
     },
     {
+      "row_id": "module.evidence.browser_stateful.incident_access_revocation",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.collaboration",
+        "web.application",
+        "web.collaboration",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence-integration.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_c82ad80f79a1"
+        ],
+        "titles": [
+          "Incident membership revocation conceals Evidence and returns to the authenticated directory without ending the account session."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.browser_stateful.verify_evidence_attach_preview_download_blocked_b2c37d6c7b",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser_stateful",
@@ -412,7 +450,7 @@
           "scenario_3bf2f954a282"
         ],
         "titles": [
-          "Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles."
+          "Verify evidence attach, preview, download, and blocked preview through same-origin public handles."
         ]
       },
       "evidence_class": "browser",

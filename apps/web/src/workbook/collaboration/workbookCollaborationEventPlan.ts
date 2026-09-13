@@ -10,6 +10,7 @@ export type WorkbookCollaborationEventPlan =
     }
   | { readonly kind: "recover_authorization" }
   | { readonly kind: "session_lost" }
+  | { readonly kind: "incident_access_lost" }
   | { readonly kind: "incident_closed" }
   | { readonly kind: "presence_snapshot"; readonly payload: unknown }
   | { readonly kind: "presence_delta"; readonly payload: unknown }
@@ -33,8 +34,11 @@ export function planWorkbookCollaborationEvent(
       };
     case "authorization_lost":
       return { kind: "recover_authorization" };
-    case "session_revoked":
-      return { kind: "session_lost" };
+    case "authorization_revoked":
+      return {
+        kind:
+          event.scope === "incident" ? "incident_access_lost" : "session_lost",
+      };
     case "incident_closed":
       return { kind: "incident_closed" };
     case "message":

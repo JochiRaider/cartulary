@@ -12,6 +12,7 @@ import type {
 } from "@cartulary/protocol-ts/http";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
+  authTestId,
   dataTestIdSelector,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
@@ -19,6 +20,8 @@ import {
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   gridShellTestId,
+  incidentLandingTestId,
+  landingIncidentOpenButtonTestId,
 } from "@cartulary/ui-contracts";
 import { evidenceViewSchemaId } from "@cartulary/view-contracts";
 import type { APIRequestContext, Page, Request } from "@playwright/test";
@@ -29,13 +32,17 @@ import {
   resolveObjectUploadTarget,
 } from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
-import { createIncidentMemberUser } from "./support/incidents/memberships";
+import {
+  createIncidentMembership,
+  createIncidentMemberUser,
+} from "./support/incidents/memberships";
 import { apiBase, webBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import {
   createViewRow,
   patchRecord,
@@ -228,11 +235,8 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
   );
 });
 
-test("Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.", async ({
+test("Verify evidence attach, preview, download, and blocked preview through same-origin public handles.", async ({
   page,
-  browser,
-  sessionTracker,
-  workerAdminRequest,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -251,15 +255,6 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     contentType: "text/html",
     body: Buffer.from(
       "<script>window.__fee_p6_blocked = true</script>",
-      "utf8",
-    ),
-  });
-  const authRow = await createUploadedEvidence(page, incidentId, {
-    title: "end-to-end.evidence-workflow current authorization evidence",
-    filename: "end-to-end.evidence-workflow-current-auth.txt",
-    contentType: "text/plain",
-    body: Buffer.from(
-      "end-to-end.evidence-workflow current authorization body",
       "utf8",
     ),
   });
@@ -430,110 +425,6 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   );
   await expectActiveEvidenceSurface(page, workbookURL);
 
-  const memberPassword = "MemberEvidence1!";
-  const member = await createIncidentMemberUser(page, incidentId, {
-    email: uniqueEmail("end-to-end.evidence-workflow-member"),
-    display_name: "end-to-end.evidence-workflow member",
-    initial_password: memberPassword,
-    role: "editor",
-    is_deployment_admin: false,
-    mfa_required: false,
-  });
-  const memberContext = await browser.newContext();
-  const memberPage = await memberContext.newPage();
-  failOnUnexpectedPageError(memberPage);
-  try {
-    await sessionTracker.loginTrackedUser(memberPage, {
-      createdBy: "end-to-end.evidence-workflow.row-01",
-      email: member.email,
-      password: memberPassword,
-      purpose: "current evidence handle authorization denial",
-      userId: member.user_id,
-    });
-    const memberObserved = collectEvidenceRouteRequests(memberPage);
-    await openEvidenceSurface(memberPage, incidentId);
-    const memberWorkbookURL = memberPage.url();
-    await expectStableEvidenceActionControls(memberPage, authRow.record_id);
-    await memberPage
-      .getByTestId(evidencePreviewButtonTestId(authRow.record_id))
-      .click();
-    const authPreviewFrame = memberPage.getByTestId(
-      evidencePreviewFrameTestId(authRow.record_id),
-    );
-    await expect(authPreviewFrame).toBeVisible();
-    await expect(
-      memberPage
-        .frameLocator(
-          dataTestIdSelector(evidencePreviewFrameTestId(authRow.record_id)),
-        )
-        .locator("body"),
-    ).toContainText("end-to-end.evidence-workflow current authorization body");
-    const authPreviewHandleRequest = await memberObserved.requirePost(
-      (request) =>
-        new URL(request.url()).pathname ===
-        `/api/v1/evidence-records/${authRow.record_id}/preview-handle`,
-      "end-to-end.evidence-workflow member preview handle request",
-    );
-    const authPreviewHandleEnvelope =
-      await memberObserved.requireJsonResponse<IssueEvidencePreviewHandleResponse>(
-        authPreviewHandleRequest,
-        "end-to-end.evidence-workflow member preview handle envelope",
-      );
-    const currentAuthHref = authPreviewHandleEnvelope.data.href;
-    expectSameOriginEvidenceHandle(currentAuthHref);
-    await expectActiveEvidenceSurface(memberPage, memberWorkbookURL);
-
-    const memberMembership = await loadIncidentMembership(
-      workerAdminRequest,
-      incidentId,
-      member.user_id,
-    );
-    await deleteIncidentMembership(
-      workerAdminRequest,
-      incidentId,
-      member.user_id,
-      memberMembership.membership_version,
-    );
-
-    const redemptionDenied = await fetchPublicJSONFromPage(memberPage, {
-      href: currentAuthHref,
-      method: "GET",
-    });
-    expectSameOriginEvidenceHandle(redemptionDenied.url);
-    expectPublicErrorEnvelope(
-      redemptionDenied,
-      404,
-      "handle_not_found_or_revoked",
-    );
-
-    const issuanceDenied = await fetchPublicJSONFromPage(memberPage, {
-      href: `/api/v1/evidence-records/${authRow.record_id}/preview-handle`,
-      method: "POST",
-      data: {},
-    });
-    expectSameOriginPublicRouteURL(
-      issuanceDenied.url,
-      new RegExp(
-        `^/api/v1/evidence-records/${escapeRegExp(
-          authRow.record_id,
-        )}/preview-handle$`,
-        "u",
-      ),
-    );
-    expectPublicErrorEnvelope(issuanceDenied, 404, "evidence_record_not_found");
-    await expectActiveEvidenceSurface(memberPage, memberWorkbookURL);
-    await expectNoRawStorageDetails(memberPage, [
-      currentAuthHref,
-      redemptionDenied.url,
-      redemptionDenied.bodyText,
-      issuanceDenied.url,
-      issuanceDenied.bodyText,
-      ...memberObserved.requests().map((request) => request.url()),
-    ]);
-  } finally {
-    await memberContext.close();
-  }
-
   const handlePaths = observed
     .evidenceHandleRequests()
     .map((request) => new URL(request.url()).pathname);
@@ -562,6 +453,179 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   expect(attachedSafeRow.cells["evidence.lifecycle_state"]?.value).toBe(
     "available",
   );
+});
+
+test("Incident membership revocation conceals Evidence and returns to the authenticated directory without ending the account session.", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("EVIDENCEREVOCATION"),
+    "Evidence revocation source",
+  );
+  const otherIncidentId = await createIncident(
+    page,
+    uniqueIncidentKey("EVIDENCEOTHER"),
+    "Other authorized incident",
+  );
+  const authRow = await createUploadedEvidence(page, incidentId, {
+    title: "end-to-end.evidence-workflow current authorization evidence",
+    filename: "end-to-end.evidence-workflow-current-auth.txt",
+    contentType: "text/plain",
+    body: Buffer.from(
+      "end-to-end.evidence-workflow current authorization body",
+      "utf8",
+    ),
+  });
+  const memberPassword = "MemberEvidence1!";
+  const member = await createIncidentMemberUser(page, incidentId, {
+    email: uniqueEmail("end-to-end.evidence-workflow-member"),
+    display_name: "end-to-end.evidence-workflow member",
+    initial_password: memberPassword,
+    role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
+  });
+  await createIncidentMembership(page, otherIncidentId, member.email, "editor");
+  // Observe the member's primary page before navigation; diagnostics retain this
+  // actor through assertion and fixture teardown.
+  const sockets = installIncidentSocketMonitor(page, incidentId);
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "incident-revocation.evidence",
+    email: member.email,
+    password: memberPassword,
+    purpose: "current evidence handle authorization denial",
+    userId: member.user_id,
+  });
+  const memberObserved = collectEvidenceRouteRequests(page);
+  await openEvidenceSurface(page, incidentId);
+  const memberWorkbookURL = page.url();
+  const accepted = await sockets.waitForAcceptedSocket();
+  await expectStableEvidenceActionControls(page, authRow.record_id);
+  await page
+    .getByTestId(evidencePreviewButtonTestId(authRow.record_id))
+    .click();
+  const authPreviewFrame = page.getByTestId(
+    evidencePreviewFrameTestId(authRow.record_id),
+  );
+  await expect(authPreviewFrame).toBeVisible();
+  await expect(
+    page
+      .frameLocator(
+        dataTestIdSelector(evidencePreviewFrameTestId(authRow.record_id)),
+      )
+      .locator("body"),
+  ).toContainText("end-to-end.evidence-workflow current authorization body");
+  const authPreviewHandleRequest = await memberObserved.requirePost(
+    (request) =>
+      new URL(request.url()).pathname ===
+      `/api/v1/evidence-records/${authRow.record_id}/preview-handle`,
+    "end-to-end.evidence-workflow member preview handle request",
+  );
+  const authPreviewHandleEnvelope =
+    await memberObserved.requireJsonResponse<IssueEvidencePreviewHandleResponse>(
+      authPreviewHandleRequest,
+      "end-to-end.evidence-workflow member preview handle envelope",
+    );
+  const currentAuthHref = authPreviewHandleEnvelope.data.href;
+  expectSameOriginEvidenceHandle(currentAuthHref);
+  await expectActiveEvidenceSurface(page, memberWorkbookURL);
+
+  const memberMembership = await loadIncidentMembership(
+    workerAdminRequest,
+    incidentId,
+    member.user_id,
+  );
+  await deleteIncidentMembership(
+    workerAdminRequest,
+    incidentId,
+    member.user_id,
+    memberMembership.membership_version,
+  );
+
+  const redemptionDenied = await fetchPublicJSONFromPage(page, {
+    href: currentAuthHref,
+    method: "GET",
+  });
+  expectSameOriginEvidenceHandle(redemptionDenied.url);
+  expectPublicErrorEnvelope(
+    redemptionDenied,
+    404,
+    "handle_not_found_or_revoked",
+  );
+
+  const issuanceDenied = await fetchPublicJSONFromPage(page, {
+    href: `/api/v1/evidence-records/${authRow.record_id}/preview-handle`,
+    method: "POST",
+    data: {},
+  });
+  expectSameOriginPublicRouteURL(
+    issuanceDenied.url,
+    new RegExp(
+      `^/api/v1/evidence-records/${escapeRegExp(
+        authRow.record_id,
+      )}/preview-handle$`,
+      "u",
+    ),
+  );
+  expectPublicErrorEnvelope(issuanceDenied, 404, "evidence_record_not_found");
+  const terminal = await sockets.waitForMessageOnSocket(
+    "session_revoked",
+    accepted.socketIndex,
+  );
+  expect(terminal.payload.reason_code).toBe("incident_access_revoked");
+  await sockets.waitForClose(accepted.socketIndex);
+  await expect(
+    page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(evidencePreviewFrameTestId(authRow.record_id)),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(incidentLandingTestId("shell"))).toBeVisible();
+  await expect(page.getByTestId(authTestId("shell"))).toHaveCount(0);
+  await expect(page).not.toHaveURL(/incident_id=/u);
+  const notice = page.getByTestId(incidentLandingTestId("status"));
+  await expect(notice).toContainText(
+    "The current incident is no longer visible",
+  );
+  await expect(notice).toHaveAttribute("role", "status");
+  await expect(notice).toHaveAttribute("aria-live", "polite");
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  await expect(
+    page.getByTestId(landingIncidentOpenButtonTestId(incidentId)),
+  ).toHaveCount(0);
+  const sessionAfter = await fetchPublicJSONFromPage(page, {
+    href: "/api/v1/auth/session",
+    method: "GET",
+  });
+  expect(sessionAfter.status).toBe(200);
+  const sessionData = JSON.parse(sessionAfter.bodyText).data;
+  expect(sessionData.user_id).toBe(member.user_id);
+  expect(
+    sessionData.memberships.map((m: { incident_id: string }) => m.incident_id),
+  ).toEqual([otherIncidentId]);
+  const otherSocket = installIncidentSocketMonitor(page, otherIncidentId);
+  const openOther = page.getByTestId(
+    landingIncidentOpenButtonTestId(otherIncidentId),
+  );
+  await openOther.focus();
+  await openOther.press("Enter");
+  await otherSocket.waitForAcceptedSocket();
+  await expect(page).toHaveURL(
+    new RegExp(`incident_id=${otherIncidentId}`, "u"),
+  );
+  await expect(page.getByTestId(authTestId("shell"))).toHaveCount(0);
+  expect(sockets.socketCount()).toBe(1);
+  await expectNoRawStorageDetails(page, [
+    currentAuthHref,
+    redemptionDenied.url,
+    redemptionDenied.bodyText,
+    issuanceDenied.url,
+    issuanceDenied.bodyText,
+    ...memberObserved.requests().map((request) => request.url()),
+  ]);
 });
 
 async function openEvidenceSurface(page: Page, incidentId: string) {

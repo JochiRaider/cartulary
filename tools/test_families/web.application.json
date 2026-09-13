@@ -1149,6 +1149,7 @@
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
+          "Incident landing leaves revoked incident content before independent account refresh settles and never reopens it",
           "Incident landing returns to the landing screen when workbook access is lost"
         ]
       },

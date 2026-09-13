@@ -5658,6 +5658,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 
       await new IncidentDirectory(page).open();
       await new IncidentDirectory(page).openIncident(selectedIncidentId);
+      const staleIncidentURL = page.url();
 
       const selectedMembership = await loadIncidentMembership(
         workerAdminRequest,
@@ -5670,7 +5671,9 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         user.user_id,
         selectedMembership.membership_version,
       );
-      await page.reload();
+      // Exercise explicit stale-route entry even if live revocation already
+      // returned this page to the directory before the next browser action.
+      await page.goto(staleIncidentURL);
       await expect(page).not.toHaveURL(
         new RegExp(`incident_id=${selectedIncidentId}`),
       );

@@ -1,4 +1,7 @@
-import type { IncidentCollaborationMessage } from "../collaboration/IncidentCollaborationSession";
+import type {
+  IncidentCollaborationEvent,
+  IncidentCollaborationMessage,
+} from "../collaboration/IncidentCollaborationSession";
 import { networkFlowActivityProfileId } from "./networkFlowClient";
 
 export type NetworkFlowExtensionResourceChange = {
@@ -35,5 +38,31 @@ export function interpretNetworkFlowCollaborationMessage(
     changeKind: payload.change_kind,
     reasonCode: payload.reason_code,
     resourceId: payload.resource_id,
+  };
+}
+
+// Translate the normalized authorization scope once into existing owner lifecycle
+// effects. Consumers never infer account-session loss from a wire reason string.
+export function interpretNetworkFlowCollaborationEvent(
+  event: IncidentCollaborationEvent,
+): NetworkFlowExtensionResourceChange | null {
+  if (event.kind === "message")
+    return interpretNetworkFlowCollaborationMessage(event.message);
+  if (
+    event.kind !== "authorization_revoked" &&
+    event.kind !== "authorization_lost" &&
+    event.kind !== "incident_closed"
+  )
+    return null;
+  return {
+    resourceKind: "*",
+    resourceId: "*",
+    changeKind: "remove",
+    reasonCode:
+      event.kind === "authorization_revoked"
+        ? event.scope === "session"
+          ? "session_revoked"
+          : "authorization_lost"
+        : event.kind,
   };
 }

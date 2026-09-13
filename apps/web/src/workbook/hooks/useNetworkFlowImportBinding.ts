@@ -68,7 +68,10 @@ export function useNetworkFlowImportBinding(options: {
           });
           void callbacks.current.recoverIncident();
         }
-        if (event.kind === "session_revoked") controller.retire();
+        if (event.kind === "authorization_revoked") {
+          if (event.scope === "session") controller.retire();
+          else controller.pause();
+        }
         if (event.kind === "authorization_lost") {
           controller.pause();
           void callbacks.current.recoverAccess();

@@ -44,7 +44,10 @@
           "IncidentCollaborationSession builds hello and resume session messages from socket resume state",
           "IncidentCollaborationSession ignores duplicate stream sequences and refreshes on sequence gaps",
           "IncidentCollaborationSession keeps replayable events unsynchronized until the owner completes reset",
-          "IncidentCollaborationSession suppresses reconnect and clears connection state after revocation"
+          "IncidentCollaborationSession suppresses reconnect and clears connection state after revocation",
+          "Scoped connection termination fences foreign incidents replaced sockets account lifetimes and disposal before stream mutation",
+          "Scoped connection termination preserves each canonical scope once across duplicate terminal messages and close",
+          "Scoped connection termination recovers uncertain terminals without promoting invalid reasons or close-only hints to session loss"
         ]
       },
       "evidence_class": "unit",
@@ -192,6 +195,7 @@
           "WorkbookCollaborationCoordinator cancels late authorization recovery when the incident closes",
           "WorkbookCollaborationCoordinator classifies failed surface confirmation without replaying or retrying contract defects",
           "WorkbookCollaborationCoordinator clears protected owners again when recovery confirms incident access loss",
+          "WorkbookCollaborationCoordinator conceals a revoked incident immediately once and rejects obsolete recovery without ending the account session",
           "WorkbookCollaborationCoordinator confirms access loss without replay and rejects late recovery after disposal",
           "WorkbookCollaborationCoordinator disposes shell projections without disposing the borrowed mutation runtime",
           "WorkbookCollaborationCoordinator excludes the accepted connection before React session attachment catches up",

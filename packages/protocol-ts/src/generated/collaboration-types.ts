@@ -380,7 +380,7 @@ export interface SessionRevokedMessage {
   event_id: string;
   emitted_at: string;
   payload: {
-    reason_code: string;
+    reason_code: "session_expired" | "session_revoked" | "incident_access_revoked" | "concurrency_limit";
     message?: string;
   };
 }
