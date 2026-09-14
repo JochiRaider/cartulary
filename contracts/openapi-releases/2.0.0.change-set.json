@@ -1718,6 +1718,30 @@
       "classification": "breaking",
       "owner_id": "module.workbook",
       "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "feae47232d86327a24a95305257a8de6aefb59a845dd73e7b8229f0cd44a2a23",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Reconcile adopted Core 01 batch envelopes and Core 03 attributed same-field conflict objects. Existing routes and stored receipts remain; Entity replay supplies the previously omitted empty conflict array without rewriting historical receipts."
+    },
+    {
+      "fingerprint": "e5fd885c3a3ef68b1994d8bee76790b82036a9032f220a3faf3f65ab287ace11",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Reconcile adopted Core 01 batch envelopes and Core 03 attributed same-field conflict objects. Existing routes and stored receipts remain; Entity replay supplies the previously omitted empty conflict array without rewriting historical receipts."
+    },
+    {
+      "fingerprint": "0485e39a131c640dbf61b4c285276816dcadbc8c130fc5644ea618bf81a3a898",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Reconcile adopted Core 01 batch envelopes and Core 03 attributed same-field conflict objects. Existing routes and stored receipts remain; Entity replay supplies the previously omitted empty conflict array without rewriting historical receipts."
+    },
+    {
+      "fingerprint": "b6cd5c0148f773ee928b26b0730876114f8adb6a5697cef771811fdf822034a7",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Reconcile adopted Core 01 batch envelopes and Core 03 attributed same-field conflict objects. Existing routes and stored receipts remain; Entity replay supplies the previously omitted empty conflict array without rewriting historical receipts."
     }
   ]
 }

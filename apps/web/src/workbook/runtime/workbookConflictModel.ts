@@ -36,6 +36,7 @@ type WorkbookCollectionAction =
   WorkbookProtocolCollectionActions["actions"][number];
 
 export type WorkbookConflictEntry = {
+  readonly batchOperationId?: string | undefined;
   readonly compoundOperationId?: string | undefined;
   readonly focusOrigin?: "grid" | "inspector" | undefined;
   readonly key: string;
@@ -76,6 +77,7 @@ export function workbookConflictQueueKey(
 }
 
 export function workbookConflictEntry({
+  batchOperationId,
   compoundOperationId,
   focusOrigin,
   conflict,
@@ -85,6 +87,7 @@ export function workbookConflictEntry({
   viewSchemaId,
   sheetRef,
 }: {
+  readonly batchOperationId?: string | undefined;
   readonly compoundOperationId?: string | undefined;
   readonly focusOrigin?: "grid" | "inspector" | undefined;
   readonly conflict: WorkbookSameFieldConflictPayload;
@@ -95,6 +98,7 @@ export function workbookConflictEntry({
   readonly sheetRef?: SheetRef | undefined;
 }): WorkbookConflictEntry {
   return {
+    batchOperationId,
     compoundOperationId,
     focusOrigin,
     key: workbookConflictQueueKey(conflict),

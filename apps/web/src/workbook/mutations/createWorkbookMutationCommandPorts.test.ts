@@ -195,6 +195,7 @@ describe("semantic mutation command ports", () => {
     const fetchMock = vi.fn(async () => successResponse());
     vi.stubGlobal("fetch", fetchMock);
     const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
       apiBase: undefined,
       incidentId: "incident-1",
       transactionIds: {
@@ -365,6 +366,7 @@ describe("semantic mutation command ports", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
       apiBase: undefined,
       incidentId: "00000000-0000-4000-8000-000000000001",
       transactionIds: { create: (prefix) => `${prefix}-id` },
@@ -418,6 +420,7 @@ describe("semantic mutation command ports", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
       apiBase: undefined,
       incidentId: "incident-1",
       transactionIds: {
@@ -466,6 +469,7 @@ describe("semantic mutation command ports", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
       apiBase: undefined,
       incidentId: "10000000-0000-4000-8000-000000000001",
       transactionIds: { create: (prefix) => `${prefix}-id` },
@@ -547,6 +551,7 @@ describe("semantic mutation command ports", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
       apiBase: undefined,
       incidentId: "incident-1",
       transactionIds: { create: (prefix) => `${prefix}-id` },
@@ -599,6 +604,7 @@ describe("semantic mutation command ports", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
       apiBase: undefined,
       incidentId: "00000000-0000-4000-8000-000000000001",
       transactionIds: { create: (prefix) => `${prefix}-id` },

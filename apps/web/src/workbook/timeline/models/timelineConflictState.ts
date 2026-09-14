@@ -15,7 +15,3 @@ export type LocalConflictState = {
   readonly localValue: unknown;
   readonly mergedDraft: string;
 };
-
-export type PasteConflictGroupState = {
-  readonly keys: string[];
-};

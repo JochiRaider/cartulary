@@ -3,8 +3,13 @@ package workbook_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -204,6 +209,85 @@ func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 	}
 	requireChangeSetSource(t, harness, identityPaste["change_set_id"].(string), "entities.identities.clipboard_paste", "txn-workbook_interaction-i-9-01-identity-paste")
 	requireEntityOriginAndNoMentions(t, harness, identityRows[0].(map[string]any)["record_id"].(string), "identities", "entity_sheet")
+
+	// Two source rows may reuse one entity. One paste still owns only one
+	// row revision for that record, and exact replay returns its original receipt.
+	repeatedRequest := map[string]any{
+		"view_schema_id":  entitycontract.HostsViewSchemaID,
+		"client_txn_id":   "txn-repeated-host-paste",
+		"clipboard_text":  "First name\tshared-gateway\nFinal name\tshared-gateway",
+		"format":          "tsv",
+		"start_field_key": "host.display_name",
+		"columns":         []string{"host.display_name", "host.hostname"},
+		"targets":         []map[string]any{{"kind": "create"}, {"kind": "create"}},
+	}
+	repeated := requireClipboardPaste(t, harness, adminLogin, incidentID, entitycontract.HostsViewSchemaID, repeatedRequest, http.StatusOK)
+	var revisionCount int
+	if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*) FROM record_revisions WHERE change_set_id = $1 AND record_id = $2`, repeated["change_set_id"], existingHostID).Scan(&revisionCount); err != nil {
+		t.Fatal(err)
+	}
+	if revisionCount != 1 {
+		t.Fatalf("one paste must create one revision per reused entity, got %d", revisionCount)
+	}
+	replayed := requireClipboardPaste(t, harness, adminLogin, incidentID, entitycontract.HostsViewSchemaID, repeatedRequest, http.StatusOK)
+	if replayed["change_set_id"] != repeated["change_set_id"] {
+		t.Fatalf("replay created another change set")
+	}
+	repeatedRows := repeated["rows"].([]any)
+	for _, value := range repeatedRows {
+		row := value.(map[string]any)
+		if row["record_id"] != existingHostID || row["row_version"] != hostRows[0].(map[string]any)["row_version"].(float64)+1 {
+			t.Fatalf("repeated reuse must return the final version once advanced: %#v", repeatedRows)
+		}
+	}
+	requireChangeSetSource(t, harness, repeated["change_set_id"].(string), "entities.hosts.clipboard_paste", "txn-repeated-host-paste")
+	for _, entityCase := range []struct{ view, display, identifier, text string }{
+		{entitycontract.IdentitiesViewSchemaID, "identity.display_name", "identity.email", "First identity\tanalyst.one@example.test\nFinal identity\tanalyst.one@example.test"},
+		{entitycontract.HostsViewSchemaID, "host.display_name", "host.hostname", "First new host\tnew-repeated-host\nFinal new host\tnew-repeated-host"},
+	} {
+		request := map[string]any{"view_schema_id": entityCase.view, "client_txn_id": "txn-repeated-" + entityCase.identifier, "clipboard_text": entityCase.text, "format": "tsv", "start_field_key": entityCase.display, "columns": []string{entityCase.display, entityCase.identifier}, "targets": []map[string]any{{"kind": "create"}, {"kind": "create"}}}
+		result := requireClipboardPaste(t, harness, adminLogin, incidentID, entityCase.view, request, http.StatusOK)
+		rows := result["rows"].([]any)
+		first, last := rows[0].(map[string]any), rows[1].(map[string]any)
+		if first["record_id"] != last["record_id"] || first["row_version"] != last["row_version"] {
+			t.Fatalf("repeated identity must return one committed record/version: %#v", rows)
+		}
+		if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*) FROM record_revisions WHERE change_set_id = $1 AND record_id = $2`, result["change_set_id"], first["record_id"]).Scan(&revisionCount); err != nil {
+			t.Fatal(err)
+		}
+		if revisionCount != 1 {
+			t.Fatalf("expected one final revision, got %d", revisionCount)
+		}
+		var mutationCount int
+		if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND target_id = $2`, result["change_set_id"], first["record_id"]).Scan(&mutationCount); err != nil {
+			t.Fatal(err)
+		}
+		if mutationCount != 2 {
+			t.Fatalf("ordered source mutations lost: %d", mutationCount)
+		}
+		replayed := requireClipboardPaste(t, harness, adminLogin, incidentID, entityCase.view, request, http.StatusOK)
+		if replayed["change_set_id"] != result["change_set_id"] {
+			t.Fatal("replay changed attribution")
+		}
+
+		recordID := appsupport.MustUUID(t, first["record_id"].(string))
+		requireWorkbookPatch(t, harness, adminLogin, recordID, map[string]any{
+			"view_schema_id": entityCase.view, "client_txn_id": "txn-after-" + entityCase.identifier,
+			"base_row_version": first["row_version"], "changes": []map[string]any{{"field_key": entityCase.display, "value": "Intervening entity name"}},
+		})
+		replayed = requireClipboardPaste(t, harness, adminLogin, incidentID, entityCase.view, request, http.StatusOK)
+		if !reflect.DeepEqual(replayed, result) {
+			t.Fatalf("replay reconstructed a historical receipt: %#v", replayed)
+		}
+		var currentVersion int64
+		if err := harness.DB.QueryRowContext(t.Context(), `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&currentVersion); err != nil {
+			t.Fatal(err)
+		}
+		if currentVersion != int64(first["row_version"].(float64))+1 {
+			t.Fatalf("replay advanced entity revision: %d", currentVersion)
+		}
+	}
+
 }
 
 func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
@@ -337,6 +421,120 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 	requireNoRecordTag(t, harness, localID.String(), "should-not-tag")
 	requireNoRecordTag(t, harness, foreignID.String(), "should-not-tag")
 	requireNoChangeSetForClientTxn(t, harness, "txn-workbook_interaction-i-9-01-cross-tag")
+}
+
+func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, "workbook-batch-admission-recovery")
+	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "batch-admission-incident", "incident_key": "IR-BATCH-ADMISSION", "title": "Batch admission"})
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "batch-viewer@example.test", "Batch Viewer", "BatchViewerPass1!", false, false, true)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", actor)
+	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "BatchViewerPass1!")
+	local := requireWorkbookCreate(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"client_txn_id": "batch-admission-local", "timeline.activity_synopsis_text": "Unchanged local"})
+	localID := appsupport.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))
+	host := requireWorkbookCreate(t, harness, login, incidentID, entitycontract.HostsViewSchemaID, map[string]any{"client_txn_id": "batch-admission-host", "host.display_name": "Wrong target type"})
+	hostID := appsupport.MustUUID(t, host["row"].(map[string]any)["record_id"].(string))
+	deleted := requireWorkbookCreate(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"client_txn_id": "batch-admission-deleted", "timeline.activity_synopsis_text": "Deleted target"})
+	deletedID := appsupport.MustUUID(t, deleted["row"].(map[string]any)["record_id"].(string))
+	httptestx.RequireSuccessEnvelope(t, deleteRecordViaWorkbookRoute(t, harness, login, deletedID, map[string]any{"client_txn_id": "batch-admission-delete", "base_row_version": 1}), http.StatusOK)
+	for _, invalid := range []struct {
+		name string
+		id   uuid.UUID
+	}{{"missing", uuid.New()}, {"deleted", deletedID}, {"wrong-type", hostID}} {
+		for _, kind := range []string{"paste", "fill_down_v1", "multi_row_tag_assignment_v1"} {
+			t.Run(invalid.name+"/"+kind, func(t *testing.T) {
+				txn := "batch-invalid-" + invalid.name + "-" + kind
+				body := map[string]any{"view_schema_id": timeline.TimelineViewSchemaID, "client_txn_id": txn}
+				targets := []map[string]any{{"record_id": localID.String(), "base_row_version": 1}, {"record_id": invalid.id.String(), "base_row_version": 99}}
+				var result map[string]any
+				if kind == "paste" {
+					targets[0]["kind"], targets[1]["kind"] = "record", "record"
+					body["targets"], body["clipboard_text"], body["format"] = targets, "Forbidden first\nForbidden second", "tsv"
+					body["start_field_key"], body["columns"] = "timeline.activity_synopsis_text", []string{"timeline.activity_synopsis_text"}
+					result = requireClipboardPaste(t, harness, login, incidentID, timeline.TimelineViewSchemaID, body, http.StatusNotFound)
+				} else {
+					body["targets"], body["kind"] = targets, kind
+					if kind == "fill_down_v1" {
+						body["field_key"], body["value"] = "timeline.raw_activity_text", "Forbidden fill"
+					} else {
+						body["tag_name"] = "forbidden-tag"
+					}
+					result = requireBulkMutationStatus(t, harness, login, incidentID, timeline.TimelineViewSchemaID, body, http.StatusNotFound)
+				}
+				requireNoVersionOracle(t, result)
+				requireNoChangeSetForClientTxn(t, harness, txn)
+				requireTimelineSummaryAndVersion(t, harness, localID, "Unchanged local", 1)
+				requireNoRecordTag(t, harness, localID.String(), "forbidden-tag")
+			})
+		}
+	}
+	// Authorization precedes parsing, target lookup, limits, and receipt lookup.
+	// Entity-origin targets are create/upsert intents, never client record IDs.
+	for _, action := range []struct{ view, field, kind string }{
+		{timeline.TimelineViewSchemaID, "timeline.activity_synopsis_text", "paste"},
+		{entitycontract.HostsViewSchemaID, "host.display_name", "paste"},
+		{entitycontract.IdentitiesViewSchemaID, "identity.display_name", "paste"},
+		{timeline.TimelineViewSchemaID, "timeline.raw_activity_text", "fill_down_v1"},
+		{timeline.TimelineViewSchemaID, "timeline.tags", "multi_row_tag_assignment_v1"},
+	} {
+		for _, mode := range []string{"excessive", "wrong-view"} {
+			txn := fmt.Sprintf("batch-%s-%s-%s", mode, action.view, action.kind)
+			targets := make([]map[string]any, 501)
+			for i := range targets {
+				targets[i] = map[string]any{"record_id": uuid.NewString(), "base_row_version": 1}
+			}
+			body := map[string]any{"view_schema_id": action.view, "client_txn_id": txn, "targets": targets}
+			if action.kind == "paste" {
+				for i := range targets {
+					targets[i] = map[string]any{"kind": "create"}
+				}
+				body["clipboard_text"], body["format"], body["start_field_key"], body["columns"] = strings.TrimSuffix(strings.Repeat("Forbidden row\n", 501), "\n"), "tsv", action.field, []string{action.field}
+			} else {
+				body["kind"] = action.kind
+				if action.kind == "fill_down_v1" {
+					body["field_key"], body["value"] = action.field, "Forbidden fill"
+				} else {
+					body["tag_name"] = "forbidden-tag"
+				}
+			}
+			if mode == "wrong-view" {
+				body["view_schema_id"] = "cartulary.view.notes.v1"
+			}
+			for _, role := range []struct {
+				login  appsupport.LoginResult
+				status int
+			}{{viewerLogin, http.StatusForbidden}, {login, http.StatusBadRequest}} {
+				var result map[string]any
+				if action.kind == "paste" {
+					result = requireClipboardPaste(t, harness, role.login, incidentID, action.view, body, role.status)
+				} else {
+					result = requireBulkMutationStatus(t, harness, role.login, incidentID, action.view, body, role.status)
+				}
+				errorBody := result["error"].(map[string]any)
+				expectedCode := "invalid_mutation_payload"
+				if role.status == http.StatusForbidden {
+					expectedCode = "authorization_denied"
+				}
+				if errorBody["code"] != expectedCode {
+					t.Fatalf("unexpected admission error: %#v", result)
+				}
+				for _, key := range []string{"rows", "conflicts", "current_row_version", "server_value"} {
+					if _, present := result[key]; present {
+						t.Fatalf("protected batch member %s disclosed", key)
+					}
+					if details, ok := errorBody["details"].(map[string]any); ok {
+						if _, present := details[key]; present {
+							t.Fatalf("protected error member %s disclosed", key)
+						}
+					}
+				}
+				requireNoChangeSetForClientTxn(t, harness, txn)
+			}
+		}
+	}
+	requireNoTimelineSummary(t, harness, incidentID, "Forbidden row")
+	requireTimelineSummaryAndVersion(t, harness, localID, "Unchanged local", 1)
 }
 
 func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {

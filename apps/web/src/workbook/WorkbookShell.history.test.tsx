@@ -1144,8 +1144,22 @@ describe("workbook history support coverage", () => {
     );
     const summary = screen.getByTestId(workbookConflictSummaryTestId());
     await waitFor(() => {
-      expect(document.activeElement).toBe(summary);
+      expect(document.activeElement).toBe(
+        screen.getByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: "20000000-0000-4000-8000-000000000001",
+            surface: "grid",
+          }),
+        ),
+      );
     });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open conflict recovery",
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(summary));
 
     fireEvent.keyDown(summary, { key: "Enter" });
     expect(fetchMock).toHaveBeenCalledTimes(2);

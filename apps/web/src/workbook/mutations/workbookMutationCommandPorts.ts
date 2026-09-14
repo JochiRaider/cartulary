@@ -4,6 +4,7 @@ import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookPro
 import type { AssessmentAppendTransport } from "../features/assessments/assessmentOperation";
 import type { WorkbookRecordHistoryPort } from "../history/workbookHistoryOperation";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type { WorkbookBatchAdmission } from "../runtime/workbookBatchOperation";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 export type GenericViewMutationAccepted = {
@@ -47,28 +48,18 @@ export interface TimelineMutationIdentityPort {
   createConflictRecoveryId(): string;
 }
 
-export type TimelineFillAccepted = {
-  readonly affectedRowCount: number;
-  readonly changeSetId: string | null;
-  readonly conflictCount: number;
-};
-
-export type TimelineFillOutcome =
-  WorkbookOperationOutcome<TimelineFillAccepted>;
-
 export interface TimelineFillMutationPort {
-  fillDown(input: {
-    readonly fieldKey: string;
-    readonly onClientTxnId: (clientTxnId: string) => void;
-    readonly value: string;
-    readonly targets: readonly {
-      readonly recordId: string;
-      readonly baseRowVersion: number;
-    }[];
-  }): Promise<{
-    readonly clientTxnId: string | null;
-    readonly outcome: TimelineFillOutcome;
-  }>;
+  fillDown(
+    input: {
+      readonly fieldKey: string;
+      readonly value: string;
+      readonly targets: readonly {
+        readonly recordId: string;
+        readonly baseRowVersion: number;
+      }[];
+    },
+    admission: WorkbookBatchAdmission,
+  ): string | null;
 }
 
 export type TimelineRelatedRecordCreated = {

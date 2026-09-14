@@ -419,15 +419,27 @@ export function EntityWorkbookSurface({
             .map((column) => column.fieldKey),
     [createFields, entityDraftRow, visibleEntityAnchorColumns],
   );
+  const surfaceCallbacks = useRef({
+    onRefreshEntities,
+    entityFocusPort: entityFocus.port,
+  });
+  surfaceCallbacks.current = {
+    onRefreshEntities,
+    entityFocusPort: entityFocus.port,
+  };
   useEffect(
     () =>
       mutationRuntime.registerSurface(
         contract.viewSchemaId,
-        () => onRefreshEntities({ requireAcceptance: true }),
+        () =>
+          surfaceCallbacks.current.onRefreshEntities({
+            requireAcceptance: true,
+          }),
         async (_payload, conflict) => {
-          await onRefreshEntities();
+          await surfaceCallbacks.current.onRefreshEntities();
+          if (conflict.batchOperationId) return;
           window.setTimeout(() => {
-            entityFocus.port.focus({
+            surfaceCallbacks.current.entityFocusPort.focus({
               fieldKey: conflict.conflict.field_key,
               recordId: conflict.conflict.record_id,
               viewSchemaId: contract.viewSchemaId,
@@ -452,7 +464,7 @@ export function EntityWorkbookSurface({
                 value: conflict.localValue,
               })
             ) {
-              entityFocus.port.focus({
+              surfaceCallbacks.current.entityFocusPort.focus({
                 fieldKey: anchor.fieldKey,
                 recordId: conflict.conflict.record_id,
                 viewSchemaId: contract.viewSchemaId,
@@ -461,12 +473,7 @@ export function EntityWorkbookSurface({
           }, 0);
         },
       ),
-    [
-      contract.viewSchemaId,
-      entityFocus.port,
-      mutationRuntime,
-      onRefreshEntities,
-    ],
+    [contract.viewSchemaId, mutationRuntime],
   );
   const commitGridEdit = useCallback(
     async (
@@ -535,22 +542,14 @@ export function EntityWorkbookSurface({
       ),
     [contract.fields],
   );
-  const beginMutation = useCallback(
-    () => mutationRuntime.beginExplicitMutation(),
-    [mutationRuntime],
-  );
   const { handlePaste: handleEntityPaste } = useEntityClipboardPasteController({
-    beginMutation,
     canCreateRows,
     clipboardPaste: clipboardPastePort,
     commitGridEdit,
-    entityType,
     grouped: grouping !== null,
-    onRefreshEntities,
     rows,
     setActionFeedback: setEntityActionFeedback,
     setMutationError,
-    setSelectedRecordId,
     viewSchemaId: contract.viewSchemaId,
     writableFieldKeys: writablePasteFieldKeys,
   });

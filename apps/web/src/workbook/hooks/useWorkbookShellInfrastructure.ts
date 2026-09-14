@@ -15,6 +15,7 @@ import { createPartyCreationTransport } from "../adapters/createPartyCreationTra
 import { createPartyLinkReader } from "../adapters/createPartyLinkReader";
 import { createTimelineRelatedEvidenceTransport } from "../adapters/createTimelineRelatedEvidenceTransport";
 import { createWorkbookAuthoringReader } from "../adapters/createWorkbookAuthoringReader";
+import { createWorkbookBatchTransport } from "../adapters/createWorkbookBatchTransport";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
@@ -200,25 +201,34 @@ export function useWorkbookShellInfrastructure({
     [apiBase, mutationRuntime, onIncidentAccessLost],
   );
   const clipboardPastePort = useMemo(
+    () => createWorkbookClipboardPasteAdapter(mutationRuntime.batches),
+    [mutationRuntime],
+  );
+  useMemo(
     () =>
-      createWorkbookClipboardPasteAdapter({
-        apiBase,
-        incidentId,
-        transactionIds,
-        entityWrites,
-      }),
-    [apiBase, incidentId, transactionIds, entityWrites],
+      mutationRuntime.batches.configure(
+        createWorkbookBatchTransport({ apiBase, incidentId }),
+      ),
+    [apiBase, incidentId, mutationRuntime],
   );
   const mutationCommands = useMemo(
     () =>
       createWorkbookMutationCommandPorts({
+        batches: mutationRuntime.batches,
         apiBase,
         incidentId,
         transactionIds,
         entityWrites,
         decisionWrites,
       }),
-    [apiBase, incidentId, transactionIds, entityWrites, decisionWrites],
+    [
+      apiBase,
+      incidentId,
+      transactionIds,
+      entityWrites,
+      decisionWrites,
+      mutationRuntime,
+    ],
   );
   useMemo(
     () => mutationRuntime.history.configure(mutationCommands.records),

@@ -8400,3 +8400,116 @@ test("a11y.coordination all target fields source review and uncertain recovery s
     }
   }
 });
+
+test("a11y.workbook-batch retained paste retry remains reachable across narrow layouts", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("A11YBATCH"),
+    "Workbook batch recovery",
+  );
+  const field = "timeline.activity_synopsis_text";
+  const created = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("batch-a11y-seed"),
+    [field]: "Batch anchor",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  const anchor = await mountedGridCell(
+    page,
+    timelineViewSchemaId,
+    created.record_id,
+    field,
+  );
+  await anchor.click();
+  await page.keyboard.press("Escape");
+  const path = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
+  let fail = true;
+  const attempts: string[] = [];
+  await page.route(path, async (route) => {
+    attempts.push(route.request().postData() ?? "");
+    const response = await route.fetch();
+    if (fail) await route.abort("connectionfailed");
+    else await route.fulfill({ response });
+  });
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(() =>
+    navigator.clipboard.writeText("Retained update\nRetained create"),
+  );
+  await page.keyboard.press("Control+v");
+  await expect(
+    page.getByRole("status", { name: "Batch action updates", exact: true }),
+  ).toHaveText("Batch outcome unknown. Retry is available.");
+  const trigger = page.getByRole("button", { name: /^Batch actions/ });
+  await expectDecisionControlReachable(page, trigger);
+  await trigger.press("Enter");
+  const recovery = page.getByRole("complementary", {
+    name: "Batch action recovery",
+  });
+  const retry = recovery.getByRole("button", {
+    name: "Retry paste",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectDecisionControlReachable(page, retry);
+    await expectVisibleFocus(retry);
+    await expectAllInteractiveControlsNamed(page);
+    await expect(
+      recovery.getByRole("textbox", { name: "Original batch input" }),
+    ).toHaveValue("Retained update\nRetained create");
+    await testInfo.attach(`batch-recovery-${viewport.width}`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectDecisionControlReachable(page, retry);
+  await expectVisibleFocus(retry);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  const textSpacing = await page.addStyleTag({
+    content: `
+      #root * {
+        letter-spacing: 0.12em !important;
+        line-height: 1.5 !important;
+        word-spacing: 0.16em !important;
+      }
+      #root p { margin-bottom: 2em !important; }
+    `,
+  });
+  await expectDecisionControlReachable(page, retry);
+  await expectVisibleFocus(retry);
+  await expectDecisionControlReachable(
+    page,
+    recovery.getByRole("button", { name: "Close", exact: true }),
+  );
+  await textSpacing.evaluate((element) => {
+    element.parentNode?.removeChild(element);
+  });
+  await expectDecisionControlReachable(page, retry);
+  await retry.press("Escape");
+  await expect(trigger).toBeFocused();
+  await trigger.press("Enter");
+  await expectDecisionControlReachable(page, retry);
+  fail = false;
+  await retry.press("Enter");
+  await expect(recovery).toContainText("Accepted work is saved.");
+  expect(attempts).toHaveLength(2);
+  expect(attempts[0]).toBe(attempts[1]);
+  await testInfo.attach("batch-recovery-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.unroute(path);
+});

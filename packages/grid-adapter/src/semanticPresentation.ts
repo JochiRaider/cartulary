@@ -66,7 +66,11 @@ export function gridClipboardInputDimensions(
   ) {
     return null;
   }
-  return { columnCount, rowCount: input.values.length };
+  return {
+    columnCount,
+    rowCount: input.values.length,
+    ...(input.fieldKeys ? { fieldKeys: input.fieldKeys } : {}),
+  };
 }
 
 export function coreRecordId<Row>(row: GridDataRow<Row>): string | null {
@@ -341,20 +345,25 @@ export function planSemanticPasteTargets<Row>(
     gridRowIdentitiesEqual(identity, current.rowIdentity),
   );
   if (startColumnIndex < 0 || startRowIndex < 0) return null;
-  const targetColumns = model.fieldKeys.slice(
-    startColumnIndex,
-    startColumnIndex + dimensions.columnCount,
-  );
+  const targetColumns =
+    dimensions.fieldKeys ??
+    model.fieldKeys.slice(
+      startColumnIndex,
+      startColumnIndex + dimensions.columnCount,
+    );
   if (
     targetColumns.length !== dimensions.columnCount ||
-    !targetColumns.every((fieldKey) =>
-      model.columns.some(
-        (column) =>
-          column.fieldKey === fieldKey &&
-          column.contractWritable === true &&
-          column.editor !== undefined,
-      ),
-    )
+    new Set(targetColumns).size !== targetColumns.length ||
+    targetColumns.some((fieldKey) => !fieldKey.trim()) ||
+    (!dimensions.fieldKeys &&
+      !targetColumns.every((fieldKey) =>
+        model.columns.some(
+          (column) =>
+            column.fieldKey === fieldKey &&
+            column.contractWritable === true &&
+            column.editor !== undefined,
+        ),
+      ))
   ) {
     return null;
   }

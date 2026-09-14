@@ -10,6 +10,7 @@ export type WorkbookConflictRefresh = () => Promise<
 >;
 
 export type WorkbookConflictRegistration = {
+  readonly batchOperationId?: string | undefined;
   readonly compoundOperationId?: string | undefined;
   readonly focusOrigin?: "grid" | "inspector" | undefined;
   readonly sheetRef?: SheetRef | undefined;

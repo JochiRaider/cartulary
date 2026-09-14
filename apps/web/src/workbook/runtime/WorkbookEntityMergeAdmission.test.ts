@@ -73,6 +73,7 @@ function setup(type: "host" | "identity") {
     return attempt;
   };
   const commands = createWorkbookMutationCommandPorts({
+    batches: runtime.batches,
     apiBase: undefined,
     incidentId: mergeIncidentId,
     transactionIds,

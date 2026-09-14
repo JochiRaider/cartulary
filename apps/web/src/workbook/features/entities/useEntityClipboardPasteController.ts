@@ -8,8 +8,6 @@ import {
   type WorkbookInspectorErrorPresentation,
   type WorkbookInspectorFeedback,
   workbookInspectorLocalErrorPresentation,
-  workbookInspectorMessageFeedback,
-  workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import {
   type EntityClipboardPastePlan,
@@ -27,33 +25,25 @@ type CommitEntityGridEdit = (
 ) => Promise<GridEditCommitOutcome>;
 
 export function useEntityClipboardPasteController({
-  beginMutation,
   canCreateRows,
   clipboardPaste,
   commitGridEdit,
-  entityType,
   grouped,
-  onRefreshEntities,
   rows,
   setActionFeedback,
   setMutationError,
-  setSelectedRecordId,
   viewSchemaId,
   writableFieldKeys,
 }: {
-  readonly beginMutation: () => () => void;
   readonly canCreateRows: boolean;
   readonly clipboardPaste: WorkbookClipboardPastePort;
   readonly commitGridEdit: CommitEntityGridEdit;
-  readonly entityType: EntityRow["entityType"];
   readonly grouped: boolean;
-  readonly onRefreshEntities: () => Promise<void>;
   readonly rows: readonly EntityRow[];
   readonly setActionFeedback: (value: WorkbookInspectorFeedback | null) => void;
   readonly setMutationError: (
     value: WorkbookInspectorErrorPresentation | null,
   ) => void;
-  readonly setSelectedRecordId: (recordId: string) => void;
   readonly viewSchemaId: string;
   readonly writableFieldKeys: ReadonlySet<string>;
 }) {
@@ -78,42 +68,6 @@ export function useEntityClipboardPasteController({
     [commitGridEdit, rejectLocally],
   );
 
-  const executeBatchPlan = useCallback(
-    async (plan: Extract<EntityClipboardPastePlan, { kind: "batch" }>) => {
-      setActionFeedback(null);
-      const finish = beginMutation();
-      try {
-        const { outcome } = await clipboardPaste.paste(plan.input);
-        if (outcome.kind === "rejected") {
-          setActionFeedback(
-            workbookInspectorOperationFailureFeedback(outcome.failure),
-          );
-          return;
-        }
-        const firstRow = outcome.value.rows[0];
-        await onRefreshEntities();
-        if (firstRow !== undefined) setSelectedRecordId(firstRow.record_id);
-        const count = outcome.value.rows.length;
-        setActionFeedback(
-          workbookInspectorMessageFeedback(
-            `Paste applied to ${count} ${entityType === "host" ? "host" : "identity"} row${count === 1 ? "" : "s"}.`,
-            "none",
-          ),
-        );
-      } finally {
-        finish();
-      }
-    },
-    [
-      beginMutation,
-      clipboardPaste,
-      entityType,
-      onRefreshEntities,
-      setActionFeedback,
-      setSelectedRecordId,
-    ],
-  );
-
   const handlePaste = useCallback(
     (intent: GridCellPasteIntent) => {
       const plan = entityClipboardPastePlan(intent, {
@@ -131,12 +85,14 @@ export function useEntityClipboardPasteController({
           void executeScalarPlan(plan);
           return;
         case "batch":
-          void executeBatchPlan(plan);
+          setActionFeedback(null);
+          clipboardPaste.paste(plan.input, { delivery: intent });
       }
     },
     [
       canCreateRows,
-      executeBatchPlan,
+      clipboardPaste,
+      setActionFeedback,
       executeScalarPlan,
       grouped,
       rejectLocally,

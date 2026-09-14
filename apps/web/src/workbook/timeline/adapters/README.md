@@ -13,7 +13,7 @@ tracking.
 
 | File | Responsibility |
 | --- | --- |
-| [createTimelineBulkTagCommandAdapter.ts](createTimelineBulkTagCommandAdapter.ts) | Owns the exact Timeline bulk-tag request, transaction identity, and response-row validation boundary. |
+| [createTimelineBulkTagCommandAdapter.ts](createTimelineBulkTagCommandAdapter.ts) | Maps source-owned tag targets/value into the retained batch admission contract. |
 | [createTimelineCandidateReader.ts](createTimelineCandidateReader.ts) | Adapts validated workbook queries to Timeline capture-action candidate pages. |
 | [createTimelineEvidenceAttachmentAdapter.ts](createTimelineEvidenceAttachmentAdapter.ts) | Creates an uploaded Evidence object and row, then links it to Timeline with stable transaction identity. |
 | [createTimelineMentionCandidateReader.ts](createTimelineMentionCandidateReader.ts) | Adapts Entity workbook queries to mention-resolution candidate pages. |

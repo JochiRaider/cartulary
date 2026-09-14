@@ -6,15 +6,14 @@ import type {
 import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence";
 import { createAssessmentAppendTransport } from "../adapters/createAssessmentAppendTransport";
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
-import type { WorkbookOperationExecutor } from "../adapters/workbookOperationContract";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
 import type { DecisionRecordWriteBoundary } from "../features/coordination/decisionSupersessionOperation";
 import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
 import { createGenericMutationCommandPort } from "../features/generic/createGenericMutationCommandPort";
 import { buildPatchRecordRequest } from "../models/workbookRequestDecoders";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookBatchOperationOwner } from "../runtime/WorkbookBatchOperationOwner";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
-import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 import type {
   EntityRecordWriteBoundary,
   EntityRecordWriteTarget,
@@ -23,12 +22,12 @@ import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
   EntityPatchOutcome,
   GenericViewMutationAccepted,
-  TimelineFillOutcome,
   WorkbookMutationCommandPorts,
 } from "./workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 type CommandContext = {
+  readonly batches: Pick<WorkbookBatchOperationOwner, "admit">;
   readonly apiBase: string | undefined;
   readonly incidentId: string;
   readonly transactionIds: SecureTransactionIdPort;
@@ -50,7 +49,7 @@ async function executeEntityWrite(
       failure: {
         kind: "stale_target",
         message:
-          "Recover the pending merge in Merge actions before changing these records.",
+          "Finish the earlier batch or recover the pending merge before changing these records.",
       },
     };
   try {
@@ -91,63 +90,6 @@ function invalidOperationContract<T>(): WorkbookOperationOutcome<T> {
       message: "The server returned an inconsistent Workbook operation result.",
     },
   };
-}
-
-function retryableOperationFailure<T>(): WorkbookOperationOutcome<T> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "retryable",
-      message: "The Workbook operation could not be sent.",
-    },
-  };
-}
-
-async function executeTimelineBulkMutation(options: {
-  readonly incidentId: string;
-  readonly input: ApplyWorkbookBulkMutationRequest;
-  readonly operations: WorkbookOperationExecutor;
-}): Promise<TimelineFillOutcome> {
-  if (
-    options.input.client_txn_id === "" ||
-    options.input.targets.length === 0
-  ) {
-    return options.input.client_txn_id === ""
-      ? operationIdentityFailure()
-      : invalidOperationPayload();
-  }
-  try {
-    const outcome = await options.operations.execute({
-      operationID: "applyWorkbookBulkMutation",
-      pathParameters: {
-        incident_id: options.incidentId,
-        view_schema_id: timelineViewSchemaId,
-      },
-      request: options.input,
-    });
-    if (outcome.kind === "rejected") return outcome;
-    const data = outcome.value.data;
-    if (data.view_schema_id !== timelineViewSchemaId) {
-      return invalidOperationContract();
-    }
-    try {
-      for (const row of data.rows) {
-        normalizeTimelineFullRow(row, "bulk mutation response row");
-      }
-    } catch {
-      return invalidOperationContract();
-    }
-    return {
-      kind: "accepted",
-      value: {
-        affectedRowCount: data.rows.length,
-        changeSetId: data.change_set_id ?? null,
-        conflictCount: data.conflicts?.length ?? 0,
-      },
-    };
-  } catch {
-    return retryableOperationFailure();
-  }
 }
 
 function normalizeEntityPatchOutcome(
@@ -245,35 +187,23 @@ export function createWorkbookMutationCommandPorts(
         },
       },
       fill: {
-        async fillDown(input) {
-          const clientTxnId = createId(
-            context.transactionIds,
-            "timeline-client",
-          );
-          if (clientTxnId === null) {
-            return {
-              clientTxnId: null,
-              outcome: operationIdentityFailure(),
-            };
-          }
-          input.onClientTxnId(clientTxnId);
+        fillDown(input, admission) {
           const targets = timelineBulkTargets(input.targets);
-          if (targets === null) {
-            return { clientTxnId, outcome: invalidOperationPayload() };
-          }
-          const outcome = await executeTimelineBulkMutation({
-            input: {
-              client_txn_id: clientTxnId,
-              field_key: input.fieldKey,
-              kind: "fill_down_v1",
-              targets,
-              value: input.value,
-              view_schema_id: timelineViewSchemaId,
+          if (!targets) return null;
+          return context.batches.admit(
+            {
+              operation: "applyWorkbookBulkMutation",
+              request: {
+                field_key: input.fieldKey,
+                kind: "fill_down_v1",
+                targets,
+                value: input.value,
+                view_schema_id: timelineViewSchemaId,
+              },
+              recordIds: input.targets.map((target) => target.recordId),
             },
-            incidentId: context.incidentId,
-            operations,
-          });
-          return { clientTxnId, outcome };
+            admission,
+          );
         },
       },
       related: createTimelineRelatedRecordCommandAdapter({
@@ -292,7 +222,15 @@ export function createWorkbookMutationCommandPorts(
       patchRecord(input) {
         return executeEntityWrite(
           context,
-          { recordIds: [input.recordId] },
+          {
+            recordIds: [input.recordId],
+            entityType:
+              input.viewSchemaId === "cartulary.view.hosts.v1"
+                ? "host"
+                : input.viewSchemaId === "cartulary.view.identities.v1"
+                  ? "identity"
+                  : undefined,
+          },
           () => {
             const clientTxnId = createId(
               context.transactionIds,

@@ -407,6 +407,8 @@ export type GridCellCopyIntent = {
 };
 
 export type GridClipboardDimensions = {
+  /** Optional ordered mapping validated by the source clipboard owner. */
+  readonly fieldKeys?: readonly string[] | undefined;
   readonly columnCount: number;
   readonly rowCount: number;
 };
@@ -418,6 +420,7 @@ export type GridClipboardInput =
       readonly value: string;
     }
   | {
+      readonly fieldKeys?: readonly string[] | undefined;
       readonly format: "csv" | "tsv";
       readonly kind: "table";
       readonly rawText: string;

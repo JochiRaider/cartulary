@@ -95,8 +95,9 @@ func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (Cli
 			return ClipboardPasteRequest{}, invalidClipboardPastePayload("columns", "unsupported_field_key")
 		}
 	}
-	request.CreateOnlyRows = -1
-	if value, ok := raw["targets"]; ok {
+	if value, ok := raw["targets"]; !ok {
+		return ClipboardPasteRequest{}, invalidClipboardPastePayload("targets", "missing_required_field")
+	} else {
 		var targets []map[string]json.RawMessage
 		if err := json.Unmarshal(value, &targets); err != nil || len(targets) == 0 || len(targets) > tabularingest.MaxClipboardRows {
 			return ClipboardPasteRequest{}, invalidClipboardPastePayload("targets", "invalid_value")

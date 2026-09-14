@@ -602,13 +602,23 @@ function useGridPasteController<Row>({
   readonly presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>;
   readonly updateRange: (range: GridCellRange | null) => void;
 }) {
+  const delivered = useRef(new WeakSet<object>());
   return useCallback(
     (
       row: GridDataRow<Row>,
       fieldKey: string,
       clipboardText: string,
+      delivery?: object,
     ): boolean => {
       if (!editable) return true;
+      const event =
+        delivery &&
+        "nativeEvent" in delivery &&
+        typeof delivery.nativeEvent === "object" &&
+        delivery.nativeEvent !== null
+          ? delivery.nativeEvent
+          : delivery;
+      if (event && delivered.current.has(event)) return true;
       const target = semanticTarget(row, fieldKey, columns, surface);
       if (target === null) return false;
       if (clipboardPaste === undefined) return true;
@@ -618,6 +628,7 @@ function useGridPasteController<Row>({
         target,
       });
       if (intent === null) return true;
+      if (event) delivered.current.add(event);
       updateRange(intent.range);
       clipboardPaste.onPaste(intent);
       return true;
@@ -1434,7 +1445,10 @@ function useSemanticDataGrid<Row>(
     },
     onCellPaste: ({ column, row }, event) => {
       const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
-      if (!editable || handleSemanticPaste(row, column.key, clipboardText)) {
+      if (
+        !editable ||
+        handleSemanticPaste(row, column.key, clipboardText, event)
+      ) {
         event.preventDefault();
       }
       return row;

@@ -4,16 +4,12 @@ import type { WorkbookRow } from "./timelineRowModel";
 export type TimelineBulkTagContext = {
   readonly authorized: boolean;
   readonly capabilityAvailable: boolean;
-  readonly surfaceKey: string;
 };
 
 export type TimelineBulkTagPlan =
   | {
       readonly kind: "dispatch";
       readonly normalizedTagName: string;
-      readonly selectedCount: number;
-      readonly selectedRecordIds: readonly string[];
-      readonly surfaceKey: string;
       readonly targets: readonly {
         readonly baseRowVersion: number;
         readonly recordId: string;
@@ -60,32 +56,11 @@ export function planTimelineBulkTag(options: {
   return {
     kind: "dispatch",
     normalizedTagName,
-    selectedCount: selectedRows.length,
-    selectedRecordIds: selectedRows.map((row) => row.recordId as string),
-    surfaceKey: options.context.surfaceKey,
     targets: selectedRows.map((row) => ({
       baseRowVersion: row.rowVersion as number,
       recordId: row.recordId as string,
     })),
   };
-}
-
-export function timelineBulkTagSubmissionIsCurrent(options: {
-  readonly context: TimelineBulkTagContext;
-  readonly plan: Extract<TimelineBulkTagPlan, { kind: "dispatch" }>;
-  readonly selectedRecordIds: ReadonlySet<string>;
-  readonly tagName: string;
-}): boolean {
-  return (
-    options.context.authorized &&
-    options.context.capabilityAvailable &&
-    options.context.surfaceKey === options.plan.surfaceKey &&
-    options.tagName.trim() === options.plan.normalizedTagName &&
-    options.selectedRecordIds.size === options.plan.selectedRecordIds.length &&
-    options.plan.selectedRecordIds.every((recordId) =>
-      options.selectedRecordIds.has(recordId),
-    )
-  );
 }
 
 function dispatchableTagTarget(row: WorkbookRow): boolean {

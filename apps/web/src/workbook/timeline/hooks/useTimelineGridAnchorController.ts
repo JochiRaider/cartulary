@@ -40,21 +40,21 @@ function timelinePasteColumnsFromStart(
 function resolveDraftTimelinePasteTargets({
   columns,
   pastedColumnCount,
+  mappedFields,
   pastedRowCount,
   startFieldKey,
   viewSchemaId,
 }: {
   readonly columns: readonly GridColumn<WorkbookRow>[];
+  readonly mappedFields?: readonly string[] | undefined;
   readonly pastedColumnCount: number;
   readonly pastedRowCount: number;
   readonly startFieldKey: string;
   readonly viewSchemaId: string;
 }): GridPasteTargetResolution | null {
-  const targetColumns = timelinePasteColumnsFromStart(
-    columns,
-    startFieldKey,
-    pastedColumnCount,
-  );
+  const targetColumns =
+    mappedFields ??
+    timelinePasteColumnsFromStart(columns, startFieldKey, pastedColumnCount);
   if (targetColumns === null || pastedRowCount < 1) {
     return null;
   }
@@ -69,6 +69,7 @@ function resolveDraftTimelinePasteTargets({
 }
 
 type TimelinePasteDimensions = {
+  readonly fieldKeys?: readonly string[] | undefined;
   readonly columnCount: number;
   readonly rowCount: number;
 };
@@ -78,6 +79,7 @@ function timelinePasteDimensions(
 ): TimelinePasteDimensions | null {
   return input.kind === "table"
     ? {
+        fieldKeys: input.fieldKeys,
         columnCount: input.values[0]?.length ?? 0,
         rowCount: input.values.length,
       }
@@ -196,6 +198,7 @@ export function useTimelineGridAnchorController({
         updateWorkbookFocusAnchor(null);
         const targetResolution = resolveDraftTimelinePasteTargets({
           columns: timelineAnchorColumnsRef.current,
+          mappedFields: dimensions.fieldKeys,
           pastedColumnCount: dimensions.columnCount,
           pastedRowCount: dimensions.rowCount,
           startFieldKey: fieldKey,

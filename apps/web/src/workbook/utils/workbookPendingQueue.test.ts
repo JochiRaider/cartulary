@@ -23,6 +23,39 @@ function createQueue() {
   return createWorkbookPendingQueueModel({ incidentId, clientInstanceId });
 }
 
+it("preserves autosave FIFO and prevents coalescing across explicit batch boundaries", () => {
+  const queue = createQueue();
+  const first = expectAccepted(
+    queue.admit(
+      patchUnit({
+        clientTxnId: "before",
+        recordId: "row",
+        order: 1,
+        value: "before",
+      }),
+    ),
+  );
+  queue.sealPending();
+  const later = expectAccepted(
+    queue.admit(
+      patchUnit({
+        clientTxnId: "after",
+        recordId: "row",
+        order: 2,
+        value: "after",
+      }),
+    ),
+  );
+  expect(later.id).not.toBe(first.id);
+  expect(queue.snapshot().units).toHaveLength(2);
+  queue.setDispatchGuard(() => false);
+  expect(queue.peekNextQueued()).toBeNull();
+  expect(queue.markDispatched(first.id)).toBeNull();
+  queue.setDispatchGuard((unit) => unit.id === first.id);
+  expect(queue.peekNextQueued()?.unit.id).toBe(first.id);
+  expect(queue.markDispatched(later.id)).toBeNull();
+});
+
 function expectAccepted(
   result: PendingQueueAdmissionResult,
 ): PendingReplayUnitState {

@@ -2,7 +2,6 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
@@ -11,7 +10,6 @@ import {
   rowFromApi,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import type { TimelineBulkTagCommandPort } from "../ports/TimelineBulkTagCommandPort";
 import { useTimelineBulkTagController } from "./useTimelineBulkTagController";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -20,7 +18,6 @@ function actionContext(authorized: boolean) {
   return {
     authorized,
     capabilityAvailable: true,
-    surfaceKey: "view_schema:cartulary.view.timeline.v2",
   };
 }
 
@@ -35,17 +32,6 @@ function committedRow(recordId: string, rowVersion: number): WorkbookRow {
   );
 }
 
-function acceptedBulkResult(affectedRowCount: number, conflictCount = 0) {
-  return {
-    kind: "accepted" as const,
-    value: {
-      affectedRowCount,
-      changeSetId: "30000000-0000-4000-8000-000000000001",
-      conflictCount,
-    },
-  };
-}
-
 describe("useTimelineBulkTagController", () => {
   it("keeps selection record-keyed, page-scoped, and pruned by accepted rows", async () => {
     const first = committedRow("11111111-1111-4111-8111-111111111111", 3);
@@ -55,13 +41,13 @@ describe("useTimelineBulkTagController", () => {
       pendingSignature: "pending",
     };
     const rowsRef = { current: [first, second, pending, createDraftRow(1)] };
-    const port = { assignTag: vi.fn(async () => acceptedBulkResult(2)) };
+    const port = { assignTag: vi.fn(() => "batch") };
     const { result, rerender } = renderHook(
       ({ canAssign, rows }) =>
         useTimelineBulkTagController({
           context: actionContext(canAssign),
           port,
-          refreshRows: async () => undefined,
+          precedingSaves: async () => undefined,
           rows,
           rowsRef,
         }),
@@ -106,162 +92,58 @@ describe("useTimelineBulkTagController", () => {
     );
   });
 
-  it("submits one versioned command, refreshes, and retains valid selection and draft", async () => {
+  it("captures one versioned action per gesture and retains selection and draft", async () => {
     const first = committedRow("11111111-1111-4111-8111-111111111111", 3);
-    const second = committedRow("22222222-2222-4222-8222-222222222222", 4);
-    const rowsRef = { current: [first, second] };
-    const pending = deferred<ReturnType<typeof acceptedBulkResult>>();
-    const assignTag = vi.fn(() => pending.promise);
-    const refreshRows = vi.fn(async () => undefined);
-    const port: TimelineBulkTagCommandPort = { assignTag };
-    const { result } = renderHook(
-      () =>
+    const rowsRef = { current: [first] };
+    const assignTag = vi.fn(() => "batch");
+    const ready = Promise.resolve();
+    const { result, rerender, unmount } = renderHook(
+      ({ authorized }) =>
         useTimelineBulkTagController({
-          context: actionContext(true),
-          port,
-          refreshRows,
+          context: actionContext(authorized),
+          port: { assignTag },
+          precedingSaves: () => ready,
           rows: rowsRef.current,
           rowsRef,
         }),
-      { wrapper: StrictMode },
+      { wrapper: StrictMode, initialProps: { authorized: true } },
     );
     act(() => {
-      result.current.snapshot.gridSelection.onSelectedRecordIdsChange(
-        new Set([first.recordId ?? "", second.recordId ?? ""]),
+      result.current.commands.changeSelectedRecordIds(
+        new Set([first.recordId ?? ""]),
       );
-      result.current.commands.changeTagName("  bulk-tag  ");
+      result.current.commands.changeTagName("  triaged  ");
     });
-
-    let firstSubmission: Promise<void> | undefined;
     act(() => {
-      firstSubmission = result.current.commands.assignTag();
+      void result.current.commands.assignTag();
       void result.current.commands.assignTag();
     });
     expect(assignTag).toHaveBeenCalledOnce();
-    expect(assignTag).toHaveBeenCalledWith({
-      tagName: "bulk-tag",
-      targets: [
-        {
-          recordId: "11111111-1111-4111-8111-111111111111",
-          baseRowVersion: 3,
-        },
-        {
-          recordId: "22222222-2222-4222-8222-222222222222",
-          baseRowVersion: 4,
-        },
-      ],
-    });
-    await act(async () => {
-      pending.resolve(acceptedBulkResult(2));
-      await firstSubmission;
-    });
-    expect(refreshRows).toHaveBeenCalledOnce();
-    expect(result.current.snapshot.message).toEqual({
-      kind: "success",
-      message: "Assigned tag to 2 selected records.",
-    });
-    expect(result.current.snapshot.tagName).toBe("  bulk-tag  ");
-    expect(result.current.snapshot.selectedRecordIds.size).toBe(2);
-  });
-
-  it("retains recoverable state for rejection and reports only bounded conflict counts", async () => {
-    const row = committedRow("11111111-1111-4111-8111-111111111111", 3);
-    const rowsRef = { current: [row] };
-    const assignTag = vi
-      .fn<TimelineBulkTagCommandPort["assignTag"]>()
-      .mockResolvedValueOnce({
-        kind: "rejected",
-        failure: {
-          kind: "authorization_lost",
-          message: "Your access changed.",
-        },
-      })
-      .mockResolvedValueOnce(acceptedBulkResult(0, 1));
-    const refreshRows = vi.fn(async () => undefined);
-    const { result } = renderHook(() =>
-      useTimelineBulkTagController({
-        context: actionContext(true),
-        port: { assignTag },
-        refreshRows,
-        rows: rowsRef.current,
-        rowsRef,
-      }),
+    expect(assignTag).toHaveBeenCalledWith(
+      {
+        tagName: "triaged",
+        targets: [{ recordId: first.recordId, baseRowVersion: 3 }],
+      },
+      { delivery: expect.any(Object), ready },
     );
-    act(() => {
-      result.current.commands.changeSelectedRecordIds(
-        new Set([row.recordId ?? ""]),
-      );
-      result.current.commands.changeTagName("review-tag");
+    await act(async () => {
+      await Promise.resolve();
     });
-
-    await act(async () => result.current.commands.assignTag());
-    expect(refreshRows).not.toHaveBeenCalled();
-    expect(result.current.snapshot.message).toEqual({
-      kind: "error",
-      message: "Your access changed.",
-    });
-    expect(result.current.snapshot.tagName).toBe("review-tag");
+    expect(result.current.snapshot.tagName).toBe("  triaged  ");
     expect(result.current.snapshot.selectedRecordIds.size).toBe(1);
-
-    await act(async () => result.current.commands.assignTag());
-    expect(refreshRows).toHaveBeenCalledOnce();
-    expect(result.current.snapshot.message).toEqual({
-      kind: "error",
-      message:
-        "Assigned tag to 0 selected records; 1 record changed and needs review.",
-    });
-  });
-
-  it("rejects stale selection and ignores late completion after authorization loss", async () => {
-    const row = committedRow("11111111-1111-4111-8111-111111111111", 3);
-    const rowsRef = { current: [row] };
-    const pending = deferred<ReturnType<typeof acceptedBulkResult>>();
-    const assignTag = vi.fn(() => pending.promise);
-    const refreshRows = vi.fn(async () => undefined);
-    const { result, rerender } = renderHook(
-      ({ canAssign, rows }) =>
-        useTimelineBulkTagController({
-          context: actionContext(canAssign),
-          port: { assignTag },
-          refreshRows,
-          rows,
-          rowsRef,
-        }),
-      { initialProps: { canAssign: true, rows: rowsRef.current } },
-    );
     act(() => {
-      result.current.commands.changeSelectedRecordIds(
-        new Set([row.recordId ?? ""]),
-      );
-      result.current.commands.changeTagName("tag");
+      void result.current.commands.assignTag();
     });
-
-    rowsRef.current = [];
-    await act(async () => result.current.commands.assignTag());
-    expect(assignTag).not.toHaveBeenCalled();
-    expect(result.current.snapshot.message?.message).toContain(
-      "Selection changed",
-    );
-
-    rowsRef.current = [row];
-    rerender({ canAssign: true, rows: rowsRef.current });
-    act(() => {
-      result.current.commands.changeSelectedRecordIds(
-        new Set([row.recordId ?? ""]),
-      );
-    });
-    let submission: Promise<void> | undefined;
-    act(() => {
-      submission = result.current.commands.assignTag();
-    });
-    rerender({ canAssign: false, rows: rowsRef.current });
+    expect(assignTag).toHaveBeenCalledTimes(2);
+    expect(assignTag.mock.calls[0]).not.toBe(assignTag.mock.calls[1]);
     await act(async () => {
-      pending.resolve(acceptedBulkResult(1));
-      await submission;
+      await Promise.resolve();
     });
-    expect(refreshRows).not.toHaveBeenCalled();
-    expect(result.current.snapshot.message).toBeNull();
-    expect(result.current.snapshot.tagName).toBe("tag");
-    expect(result.current.snapshot.submitting).toBe(false);
+    rerender({ authorized: false });
+    act(() => {
+      void result.current.commands.assignTag();
+    });
+    expect(assignTag).toHaveBeenCalledTimes(2);
+    unmount();
   });
 });

@@ -109,100 +109,40 @@ export function planTimelineFill({
   };
 }
 
-export function useTimelineFillController({
-  beginViewportContinuity,
-  clearViewportContinuity,
-  contract,
-  enqueueSaveWork,
-  groupBy,
-  getVisibleFieldKeys,
-  interactionMode,
-  loadRows,
-  port,
-  resolvePendingSocketTxn,
-  restoreFocusAnchor,
-  rowsRef,
-  setError,
-  trackPendingSocketTxn,
-}: {
-  readonly beginViewportContinuity: (request: {
-    readonly kind: "scroll-only";
-  }) => number;
-  readonly clearViewportContinuity: (token: number) => void;
+export function useTimelineFillController(input: {
   readonly contract: ViewContract;
-  readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly getVisibleFieldKeys: () => ReadonlySet<string>;
   readonly groupBy: string | null;
   readonly interactionMode: GridInteractionMode;
-  readonly loadRows: (options: {
-    readonly showLoading: false;
-    readonly viewportContinuityToken: number;
-  }) => Promise<void>;
   readonly port: TimelineFillMutationPort;
-  readonly resolvePendingSocketTxn: (
-    clientTxnId: string | null | undefined,
-  ) => unknown;
-  readonly restoreFocusAnchor: (anchor: GridCellAnchor) => unknown;
+  readonly precedingSaves: () => Promise<void>;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
   readonly setError: (message: string | null) => void;
-  readonly trackPendingSocketTxn: (clientTxnId: string) => void;
 }) {
   const onFillCells = useCallback(
     (intent: GridFillIntent) => {
       const plan = planTimelineFill({
-        contract,
-        groupBy,
-        interactionMode,
+        ...input,
         intent,
-        rows: rowsRef.current,
-        visibleFieldKeys: getVisibleFieldKeys(),
+        rows: input.rowsRef.current,
+        visibleFieldKeys: input.getVisibleFieldKeys(),
       });
       if (plan.kind === "rejected") {
-        setError(plan.message);
+        input.setError(plan.message);
         return;
       }
-
-      const viewportContinuityToken = beginViewportContinuity({
-        kind: "scroll-only",
-      });
-      enqueueSaveWork(async () => {
-        const result = await port.fillDown({
+      input.setError(null);
+      input.port.fillDown(
+        {
           fieldKey: plan.command.fieldKey,
-          onClientTxnId: trackPendingSocketTxn,
           targets: plan.command.targets,
           value: plan.command.value,
-        });
-        resolvePendingSocketTxn(result.clientTxnId);
-        if (result.outcome.kind === "rejected") {
-          clearViewportContinuity(viewportContinuityToken);
-          setError(result.outcome.failure.message);
-          return;
-        }
-        await loadRows({
-          showLoading: false,
-          viewportContinuityToken,
-        });
-        restoreFocusAnchor(plan.command.sourceAnchor);
-      });
+        },
+        { delivery: intent, ready: input.precedingSaves() },
+      );
     },
-    [
-      beginViewportContinuity,
-      clearViewportContinuity,
-      contract,
-      enqueueSaveWork,
-      getVisibleFieldKeys,
-      groupBy,
-      interactionMode,
-      loadRows,
-      port,
-      resolvePendingSocketTxn,
-      restoreFocusAnchor,
-      rowsRef,
-      setError,
-      trackPendingSocketTxn,
-    ],
+    [input],
   );
-
   return { commands: { onFillCells } };
 }
 

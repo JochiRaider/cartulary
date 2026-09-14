@@ -42,6 +42,7 @@ import type {
   PendingReplayRecoveryRefusal,
   PendingReplayScope,
 } from "../utils/workbookPendingQueue";
+import { WorkbookBatchOperationOwner } from "./WorkbookBatchOperationOwner";
 import { WorkbookClientTransactionLedger } from "./WorkbookClientTransactionLedger";
 import {
   createWorkbookConflictStore,
@@ -64,6 +65,7 @@ import {
 import { WorkbookRetryScheduler } from "./WorkbookRetryScheduler";
 import { WorkbookRuntimeLifecycle } from "./WorkbookRuntimeLifecycle";
 import {
+  type WorkbookSurfaceBatchApply,
   type WorkbookSurfaceBlockedEditDiscard,
   type WorkbookSurfaceConflictFocusRestore,
   type WorkbookSurfaceRefresh,
@@ -132,6 +134,7 @@ export class WorkbookMutationRuntime {
   private timelineMentionOperations: WorkbookTimelineActionRuntimePort | null =
     null;
   readonly ordinaryCreate: WorkbookOrdinaryCreateOwner;
+  readonly batches: WorkbookBatchOperationOwner;
   readonly noteCreate: WorkbookNoteCreateOwner;
   readonly coordinationCreate: WorkbookCoordinationCreateOwner;
   readonly contextualCreate: WorkbookContextualTaskDecisionCreateOwner;
@@ -465,7 +468,9 @@ export class WorkbookMutationRuntime {
       scope.incidentId,
       transactionIds,
       {
-        canReserve: () => !this.lifecycle.disposed,
+        canReserve: (review) =>
+          !this.lifecycle.disposed &&
+          !this.batches.blocksEntityType(review.entityType),
         coordinate: (review, signal) =>
           this.coordinateEntityMerge(review, signal),
       },
@@ -546,13 +551,85 @@ export class WorkbookMutationRuntime {
     this.transactionIds = transactionIds;
     this.pendingMutationPort = pendingMutationPort;
     this.pendingRuntime = createWorkbookPendingQueueRuntime(this.scope);
+    this.batches = new WorkbookBatchOperationOwner(
+      scope.incidentId,
+      transactionIds,
+      {
+        authorityChanged: () => this.surfaces.invalidateAuthority(),
+        pending: () => this.pendingRuntime.model.snapshot().units,
+        sealPending: () => this.pendingRuntime.model.sealPending(),
+        available: (plan) =>
+          !this.entityLifetimeRetired &&
+          !this.pendingRuntime.model.snapshot().authPaused &&
+          !this.conflicts
+            .entries()
+            .some((entry) =>
+              plan.recordIds.includes(entry.conflict.record_id),
+            ) &&
+          !plan.recordIds.some(
+            (id) =>
+              this.entityMerge.blocksRecord(id) ||
+              this.timelineActionBlocksRecord(id),
+          ) &&
+          !(
+            plan.entityType &&
+            (this.entityMerge.blocksEntityType(plan.entityType) ||
+              [...this.entityWrites.values()].some(
+                (write) =>
+                  write.unknownEntityType === plan.entityType ||
+                  write.entityType === plan.entityType ||
+                  (!write.entityType && write.recordIds.length > 0),
+              ))
+          ),
+        reserve: (plan) =>
+          plan.entityType
+            ? this.reserveEntityWrite({
+                recordIds: plan.recordIds,
+                unknownEntityType: plan.entityType,
+              })
+            : () => {},
+        conflicts: (id) =>
+          this.conflicts
+            .entries()
+            .some((entry) => entry.batchOperationId === id),
+        accepted: (receipt, attempt) => {
+          this.rememberClientTransaction(attempt.id);
+          this.surfaces.invalidate(receipt.viewSchemaId);
+          for (const row of receipt.rows) {
+            this.history.acceptVersion(row.record_id, row.row_version);
+            if (attempt.plan.entityType)
+              this.acceptEntityVersion(row.record_id, row.row_version);
+          }
+          for (const conflict of receipt.conflicts)
+            this.registerConflict({
+              batchOperationId: attempt.id,
+              conflict,
+              focusOrigin: "grid",
+              rowLabel: "Affected row",
+              surfaceLabel: "Timeline",
+              viewSchemaId: receipt.viewSchemaId,
+            });
+          if (this.batches.getSnapshot().authority)
+            this.surfaces.applyBatch(receipt.viewSchemaId, receipt.rows);
+        },
+        refresh: (receipt) =>
+          this.surfaces.refreshRequired(receipt.viewSchemaId),
+      },
+    );
+    this.pendingRuntime.model.setDispatchGuard((unit) =>
+      this.batches.allowsPending(unit),
+    );
     this.scheduler = dependencies.scheduler;
     this.conflicts = createWorkbookConflictStore();
     this.drivers = createWorkbookMutationDriverRegistry();
     this.ledger = new WorkbookClientTransactionLedger();
     this.lifecycle = new WorkbookRuntimeLifecycle(dependencies.scheduler);
     this.retryScheduler = new WorkbookRetryScheduler(dependencies.scheduler);
-    this.surfaces = new WorkbookSurfaceRegistry(() => this.emit());
+    this.surfaces = new WorkbookSurfaceRegistry((viewSchemaId) => {
+      if (!this.surfaces.requiresRefresh(viewSchemaId))
+        this.batches.surfaceRefreshed(viewSchemaId);
+      this.emit();
+    });
     this.managedPatches = createWorkbookManagedPatchDriver({
       beginMutationReport: () => this.beginExplicitMutation(),
       clock: dependencies.clock,
@@ -575,6 +652,10 @@ export class WorkbookMutationRuntime {
       throw new Error("managed-patch mutation driver registration failed");
     }
     this.snapshot = this.calculateSnapshot();
+    this.batches.subscribe(() => {
+      this.emit();
+      this.requestDrain();
+    });
     this.explicitPatches.subscribe(() => this.emit());
     this.partyLinks.subscribe(() => this.emit());
     this.assessmentAuthoring.subscribe(() => this.emit());
@@ -867,7 +948,23 @@ export class WorkbookMutationRuntime {
     return null;
   }
 
-  beginEntityWrite(target: EntityRecordWriteTarget): (() => void) | null {
+  beginEntityWrite(
+    target: EntityRecordWriteTarget,
+    recoveryBatchId?: string,
+  ): (() => void) | null {
+    const entityType = target.entityType ?? target.unknownEntityType;
+    if (
+      target.recordIds.some((id) =>
+        this.batches.blocksRecord(id, recoveryBatchId),
+      ) ||
+      (entityType && this.batches.blocksEntityType(entityType))
+    )
+      return null;
+    return this.reserveEntityWrite(target);
+  }
+  private reserveEntityWrite(
+    target: EntityRecordWriteTarget,
+  ): (() => void) | null {
     if (
       this.entityLifetimeRetired ||
       this.lifecycle.disposed ||
@@ -880,6 +977,7 @@ export class WorkbookMutationRuntime {
     this.entityWrites.set(token, target);
     return () => {
       this.entityWrites.delete(token);
+      this.batches.wake();
     };
   }
 
@@ -953,6 +1051,7 @@ export class WorkbookMutationRuntime {
       conflicts: this.conflicts.entries(),
       explicitInFlightCount:
         this.explicitInFlightCount +
+        this.batches.pendingCount +
         this.history.pendingCount +
         this.entityMerge.pendingCount +
         this.decisionSupersession.pendingCount +
@@ -970,6 +1069,7 @@ export class WorkbookMutationRuntime {
         (this.timelineActions?.pendingCount ?? 0) +
         (this.timelineMentionOperations?.pendingCount ?? 0),
       explicitRecoveryBlocked:
+        this.batches.blockedCount > 0 ||
         this.history.blockedCount > 0 ||
         this.entityMerge.blockedCount > 0 ||
         this.decisionSupersession.blockedCount > 0 ||
@@ -1019,6 +1119,12 @@ export class WorkbookMutationRuntime {
   ): ReturnType<WorkbookPendingMutationPort["execute"]> {
     this.ledger.remember(input.unit.clientTxnId);
     return this.pendingMutationPort.execute(input).then((outcome) => {
+      if (outcome.kind === "accepted")
+        this.batches.acceptPrerequisiteRow(
+          input.unit.id,
+          outcome.value.row.record_id,
+          outcome.value.row.row_version,
+        );
       if (outcome.kind === "accepted")
         this.timelineRelatedEvidence.observe(
           outcome.value.row.record_id,
@@ -1084,6 +1190,7 @@ export class WorkbookMutationRuntime {
     applyResolvedMutation?: WorkbookSurfaceResolvedMutationApply,
     restoreConflictFocus?: WorkbookSurfaceConflictFocusRestore,
     discardBlockedEdit?: WorkbookSurfaceBlockedEditDiscard,
+    applyBatch?: WorkbookSurfaceBatchApply,
   ): () => void {
     return this.surfaces.register(
       viewSchemaId,
@@ -1091,6 +1198,7 @@ export class WorkbookMutationRuntime {
       applyResolvedMutation,
       restoreConflictFocus,
       discardBlockedEdit,
+      applyBatch,
     );
   }
 
@@ -1172,6 +1280,7 @@ export class WorkbookMutationRuntime {
     sheetRef,
     conflict,
     compoundOperationId,
+    batchOperationId,
     focusOrigin,
     focusKey = null,
     refresh,
@@ -1183,6 +1292,7 @@ export class WorkbookMutationRuntime {
       sheetRef,
       conflict,
       compoundOperationId,
+      batchOperationId,
       focusOrigin,
       focusKey,
       refresh,
@@ -1209,10 +1319,11 @@ export class WorkbookMutationRuntime {
     this.emit();
   }
 
-  dismissConflict(key: string): void {
+  dismissConflict(key: string, restoreFocus = true): void {
     const conflict = this.conflicts.dismiss(key);
     if (conflict === undefined) return;
     this.emit();
+    if (conflict.batchOperationId || !restoreFocus) return;
     const restore = this.surfaces.restoreConflictFocus(
       conflict.origin.viewSchemaId,
     );
@@ -1286,9 +1397,12 @@ export class WorkbookMutationRuntime {
     const releaseRecord =
       entry.origin.viewSchemaId === decisionViewId
         ? this.beginDecisionWrite([entry.conflict.record_id])
-        : this.beginEntityWrite({ recordIds: [entry.conflict.record_id] });
+        : this.beginEntityWrite(
+            { recordIds: [entry.conflict.record_id] },
+            entry.batchOperationId,
+          );
     if (releaseRecord === null)
-      return "Recover this record's pending merge before resolving its edit.";
+      return "Finish the earlier batch or merge before resolving this edit.";
     let transactionId: string;
     try {
       transactionId = this.transactionIds.create(
@@ -1315,6 +1429,12 @@ export class WorkbookMutationRuntime {
         recordId: entry.conflict.record_id,
         request: body,
       });
+      if (
+        this.conflicts.get(key) !== entry ||
+        this.entityLifetimeRetired ||
+        this.lifecycle.disposed
+      )
+        return "This conflict is no longer available.";
       if (outcome.kind === "rejected") {
         if (outcome.failure.kind === "same_field_conflict") {
           this.timelineRelatedEvidence.conflictChanged(
@@ -1332,6 +1452,7 @@ export class WorkbookMutationRuntime {
           this.conflicts.replace({
             ...refreshedEntry,
             compoundOperationId: entry.compoundOperationId,
+            batchOperationId: entry.batchOperationId,
             focusOrigin: entry.focusOrigin,
             mergedDraft: entry.mergedDraft,
           });
@@ -1347,6 +1468,19 @@ export class WorkbookMutationRuntime {
         return outcome.failure.message;
       }
       const resolvedRow = outcome.value.row;
+      if (entry.batchOperationId) {
+        const accepted = normalizeRecordMutationRow(
+          resolvedRow,
+          entry.origin.viewSchemaId,
+          entry.conflict.record_id,
+        );
+        if (accepted)
+          this.batches.acceptBatchRow(
+            entry.batchOperationId,
+            accepted.record_id,
+            accepted.row_version,
+          );
+      }
       if (
         entry.conflict.field_key === "timeline.attached_evidence_ids" &&
         outcome.value.receipt
@@ -1413,6 +1547,7 @@ export class WorkbookMutationRuntime {
   }
 
   requestDrain(): void {
+    if (this.entityLifetimeRetired) return;
     this.lifecycle.requestDrain(async () => {
       const candidate = this.pendingRuntime.model.peekNextQueued();
       if (candidate === null) return;
@@ -1430,6 +1565,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.suspend();
       this.assessmentAuthoring.suspend();
       this.noteCreate.suspend();
+      this.batches.suspend();
       this.ordinaryCreate.suspend();
       this.coordinationCreate.suspend();
       this.contextualCreate.suspend();
@@ -1473,6 +1609,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.retire();
       this.assessmentAuthoring.retire();
       this.noteCreate.retire();
+      this.batches.retire();
       this.ordinaryCreate.retire();
       this.coordinationCreate.retire();
       this.contextualCreate.retire();
@@ -1503,6 +1640,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.closeIncident();
       this.assessmentAuthoring.closeIncident();
       this.noteCreate.closeIncident();
+      this.batches.closeIncident();
       this.ordinaryCreate.closeIncident();
       this.coordinationCreate.closeIncident();
       this.contextualCreate.closeIncident();
@@ -1526,6 +1664,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.retire();
       this.assessmentAuthoring.retire();
       this.noteCreate.retire();
+      this.batches.retire();
       this.ordinaryCreate.retire();
       this.coordinationCreate.retire();
       this.contextualCreate.retire();
@@ -1544,6 +1683,7 @@ export class WorkbookMutationRuntime {
     this.indicatorCreate.suspend();
     this.assessmentAuthoring.suspend();
     this.noteCreate.suspend();
+    this.batches.suspend();
     this.ordinaryCreate.suspend();
     this.coordinationCreate.suspend();
     this.contextualCreate.suspend();
@@ -1571,6 +1711,7 @@ export class WorkbookMutationRuntime {
   }
 
   private emit(): void {
+    this.batches.wake();
     const previousLabel = this.snapshot.primaryLabel;
     this.snapshot = this.calculateSnapshot();
     if (this.snapshot.primaryLabel !== previousLabel) {
@@ -1630,6 +1771,7 @@ export class WorkbookMutationRuntime {
     this.conflicts.replace({
       ...refreshedEntry,
       compoundOperationId: entry.compoundOperationId,
+      batchOperationId: entry.batchOperationId,
       focusOrigin: entry.focusOrigin,
       mergedDraft: entry.mergedDraft,
     });

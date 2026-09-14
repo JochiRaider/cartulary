@@ -7,7 +7,6 @@ import {
   planTimelineBulkTag,
   type TimelineBulkTagContext,
   type TimelineBulkTagPlan,
-  timelineBulkTagSubmissionIsCurrent,
 } from "../models/timelineBulkTagPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineBulkTagCommandPort } from "../ports/TimelineBulkTagCommandPort";
@@ -20,7 +19,7 @@ type TimelineBulkTagMessage = {
 type TimelineBulkTagControllerInput = {
   readonly context: TimelineBulkTagContext;
   readonly port: TimelineBulkTagCommandPort;
-  readonly refreshRows: () => Promise<void>;
+  readonly precedingSaves: () => Promise<void>;
   readonly rows: readonly WorkbookRow[];
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
 };
@@ -34,7 +33,6 @@ export function useTimelineBulkTagController(
   const [tagName, setTagName] = useState("");
   const [message, setMessage] = useState<TimelineBulkTagMessage | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const activeRef = useRef(false);
   const inputRef = useRef(input);
   const selectedRecordIdsRef = useRef(selectedRecordIds);
   const tagNameRef = useRef(tagName);
@@ -42,13 +40,6 @@ export function useTimelineBulkTagController(
   inputRef.current = input;
   selectedRecordIdsRef.current = selectedRecordIds;
   tagNameRef.current = tagName;
-
-  useEffect(() => {
-    activeRef.current = true;
-    return () => {
-      activeRef.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     const selectableIds = new Set(
@@ -114,15 +105,13 @@ export function useTimelineBulkTagController(
     submissionInFlightRef.current = true;
     setSubmitting(true);
     setMessage(null);
-    await executeBulkTagSubmission({
-      activeRef,
-      inputRef,
-      plan,
-      selectedRecordIdsRef,
-      setMessage,
-      setSubmitting,
-      submissionInFlightRef,
-      tagNameRef,
+    current.port.assignTag(
+      { tagName: plan.normalizedTagName, targets: plan.targets },
+      { delivery: {}, ready: current.precedingSaves() },
+    );
+    queueMicrotask(() => {
+      submissionInFlightRef.current = false;
+      setSubmitting(false);
     });
   }, []);
 
@@ -144,54 +133,6 @@ export function useTimelineBulkTagController(
   };
 }
 
-async function executeBulkTagSubmission(options: {
-  readonly activeRef: { readonly current: boolean };
-  readonly inputRef: { readonly current: TimelineBulkTagControllerInput };
-  readonly plan: Extract<TimelineBulkTagPlan, { kind: "dispatch" }>;
-  readonly selectedRecordIdsRef: { readonly current: ReadonlySet<string> };
-  readonly setMessage: (message: TimelineBulkTagMessage | null) => void;
-  readonly setSubmitting: (submitting: boolean) => void;
-  readonly submissionInFlightRef: { current: boolean };
-  readonly tagNameRef: { readonly current: string };
-}): Promise<void> {
-  const result = await options.inputRef.current.port.assignTag({
-    tagName: options.plan.normalizedTagName,
-    targets: options.plan.targets,
-  });
-  options.submissionInFlightRef.current = false;
-  if (!options.activeRef.current) return;
-  const current = options.inputRef.current;
-  const stillAuthorized =
-    current.context.authorized &&
-    current.context.capabilityAvailable &&
-    current.context.surfaceKey === options.plan.surfaceKey;
-  options.setSubmitting(false);
-  if (!stillAuthorized) return;
-  if (result.kind === "rejected") {
-    if (submissionIsCurrent(options)) {
-      options.setMessage({ kind: "error", message: result.failure.message });
-    }
-    return;
-  }
-  await current.refreshRows();
-  if (!options.activeRef.current || !submissionIsCurrent(options)) return;
-  options.setMessage(bulkTagAcceptedMessage(result.value, options.plan));
-}
-
-function submissionIsCurrent(options: {
-  readonly inputRef: { readonly current: TimelineBulkTagControllerInput };
-  readonly plan: Extract<TimelineBulkTagPlan, { kind: "dispatch" }>;
-  readonly selectedRecordIdsRef: { readonly current: ReadonlySet<string> };
-  readonly tagNameRef: { readonly current: string };
-}): boolean {
-  return timelineBulkTagSubmissionIsCurrent({
-    context: options.inputRef.current.context,
-    plan: options.plan,
-    selectedRecordIds: options.selectedRecordIdsRef.current,
-    tagName: options.tagNameRef.current,
-  });
-}
-
 function publishBulkTagRejection(
   reason: Extract<TimelineBulkTagPlan, { kind: "reject" }>["reason"],
   setMessage: (message: TimelineBulkTagMessage | null) => void,
@@ -204,23 +145,4 @@ function publishBulkTagRejection(
         ? "Selection changed before the command could be submitted. Review the selected rows and try again."
         : "Tag assignment is no longer available.",
   });
-}
-
-function bulkTagAcceptedMessage(
-  accepted: {
-    readonly affectedRowCount: number;
-    readonly conflictCount: number;
-  },
-  plan: Extract<TimelineBulkTagPlan, { kind: "dispatch" }>,
-): TimelineBulkTagMessage {
-  if (accepted.conflictCount > 0) {
-    return {
-      kind: "error",
-      message: `Assigned tag to ${accepted.affectedRowCount} selected record${accepted.affectedRowCount === 1 ? "" : "s"}; ${accepted.conflictCount} ${accepted.conflictCount === 1 ? "record changed and needs" : "records changed and need"} review.`,
-    };
-  }
-  return {
-    kind: "success",
-    message: `Assigned tag to ${plan.selectedCount} selected record${plan.selectedCount === 1 ? "" : "s"}.`,
-  };
 }

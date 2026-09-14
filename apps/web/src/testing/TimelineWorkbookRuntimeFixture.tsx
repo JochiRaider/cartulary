@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { SheetRef } from "../shared/sheetRef";
+import { createWorkbookBatchTransport } from "../workbook/adapters/createWorkbookBatchTransport";
 import { createWorkbookClipboardPasteAdapter } from "../workbook/adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
@@ -20,6 +21,7 @@ import {
   systemWorkbookCollaborationClock,
   systemWorkbookCollaborationScheduler,
 } from "../workbook/collaboration/workbookCollaborationTiming";
+import { WorkbookBatchRecovery } from "../workbook/components/WorkbookBatchRecovery";
 import { WorkbookEditRecoveryPanel } from "../workbook/components/WorkbookEditRecoveryPanel";
 import { WorkbookQueueOverflowNotice } from "../workbook/components/WorkbookQueueOverflowNotice";
 import { WorkbookSameFieldConflictResolver } from "../workbook/components/WorkbookSameFieldConflictResolver";
@@ -199,28 +201,44 @@ export function TimelineWorkbookRuntimeFixture({
       apiBase,
       incidentId,
     });
+    const mutationRuntime = new WorkbookMutationRuntime(
+      { clientInstanceId: "timeline-runtime-fixture", incidentId },
+      transactionIds,
+      pendingMutationPort,
+    );
+    mutationRuntime.batches.configure(
+      createWorkbookBatchTransport({ apiBase, incidentId }),
+    );
     return {
-      clipboardPaste: createWorkbookClipboardPasteAdapter({
-        apiBase,
-        incidentId,
-        transactionIds,
-      }),
-      mutationRuntime: new WorkbookMutationRuntime(
-        {
-          clientInstanceId: "timeline-runtime-fixture",
-          incidentId,
-        },
-        transactionIds,
-        pendingMutationPort,
+      clipboardPaste: createWorkbookClipboardPasteAdapter(
+        mutationRuntime.batches,
       ),
+      mutationRuntime,
       mutationCommands: createWorkbookMutationCommandPorts({
         apiBase,
         incidentId,
         transactionIds,
+        batches: mutationRuntime.batches,
       }),
     };
   });
   const { clipboardPaste, mutationCommands, mutationRuntime } = runtimeAssembly;
+  useLayoutEffect(() => {
+    mutationRuntime.batches.setAuthority({
+      actorId: currentUserId ?? "fixture-actor",
+      sessionIdentity: "fixture-session",
+      incidentId,
+      role: currentIncidentRole ?? "",
+      closed: incidentClosed,
+    });
+    return () => mutationRuntime.batches.suspend();
+  }, [
+    mutationRuntime,
+    currentUserId,
+    incidentId,
+    currentIncidentRole,
+    incidentClosed,
+  ]);
   const timelineMentions = useMemo(
     () => timelineMentionOwnerFor(mutationRuntime),
     [mutationRuntime],
@@ -361,6 +379,10 @@ export function TimelineWorkbookRuntimeFixture({
 
   return (
     <WorkbookHistoryContext.Provider value={mutationRuntime}>
+      <WorkbookBatchRecovery
+        runtime={mutationRuntime}
+        activateConflict={recoveryFocus.activate}
+      />
       <TimelineCaptureRecovery owner={timelineCapture} />
       <TimelineMentionRecovery owner={timelineMentions} />
       <div

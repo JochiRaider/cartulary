@@ -655,7 +655,9 @@
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59",
+            "module.workbook.browser.host_paste_recovery",
             "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d",
+            "module.workbook.browser.identity_paste_recovery",
             "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9",
             "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
             "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3"
@@ -939,6 +941,10 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
+            "module.timeline.browser.spreadsheet_batch_conflicts",
+            "module.timeline.browser.spreadsheet_batch_headers",
+            "module.timeline.browser.spreadsheet_batch_replay",
             "module.timeline.browser.spreadsheet_bulk",
             "module.timeline.browser.spreadsheet_creation",
             "module.timeline.browser.spreadsheet_keyboard",
@@ -1909,7 +1915,9 @@
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59",
+            "module.workbook.browser.host_paste_recovery",
             "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d",
+            "module.workbook.browser.identity_paste_recovery",
             "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9",
             "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
             "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3"
@@ -2193,6 +2201,10 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
+            "module.timeline.browser.spreadsheet_batch_conflicts",
+            "module.timeline.browser.spreadsheet_batch_headers",
+            "module.timeline.browser.spreadsheet_batch_replay",
             "module.timeline.browser.spreadsheet_bulk",
             "module.timeline.browser.spreadsheet_creation",
             "module.timeline.browser.spreadsheet_keyboard",
@@ -3252,6 +3264,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+            "module.workbook.accessibility.batch_recovery",
             "module.workbook.accessibility.canonical_indicator_authoring_recovery",
             "module.workbook.accessibility.contextual_task_decision_creation",
             "module.workbook.accessibility.coordination_create_authoring_recovery",
@@ -4271,6 +4284,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+            "module.workbook.accessibility.batch_recovery",
             "module.workbook.accessibility.canonical_indicator_authoring_recovery",
             "module.workbook.accessibility.contextual_task_decision_creation",
             "module.workbook.accessibility.coordination_create_authoring_recovery",

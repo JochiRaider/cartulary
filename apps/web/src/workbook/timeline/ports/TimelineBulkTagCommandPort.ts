@@ -1,17 +1,13 @@
-import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-
-export type TimelineBulkTagAccepted = {
-  readonly affectedRowCount: number;
-  readonly changeSetId: string | null;
-  readonly conflictCount: number;
-};
-
+import type { WorkbookBatchAdmission } from "../../runtime/workbookBatchOperation";
 export interface TimelineBulkTagCommandPort {
-  assignTag(input: {
-    readonly tagName: string;
-    readonly targets: readonly {
-      readonly recordId: string;
-      readonly baseRowVersion: number;
-    }[];
-  }): Promise<WorkbookOperationOutcome<TimelineBulkTagAccepted>>;
+  assignTag(
+    input: {
+      readonly tagName: string;
+      readonly targets: readonly {
+        readonly recordId: string;
+        readonly baseRowVersion: number;
+      }[];
+    },
+    admission: WorkbookBatchAdmission,
+  ): string | null;
 }

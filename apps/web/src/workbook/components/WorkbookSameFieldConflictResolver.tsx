@@ -117,7 +117,11 @@ export function WorkbookSameFieldConflictResolver({
       if (resolverRef.current?.contains(document.activeElement)) return;
       // Timeline correction retains grid focus even during an editor remount.
       // Explicit recovery activation owns focus through useWorkbookRecoveryFocus.
-      if (conflict.origin.viewSchemaId === timelineViewSchemaId) return;
+      if (
+        conflict.origin.viewSchemaId === timelineViewSchemaId ||
+        conflict.batchOperationId
+      )
+        return;
       focusSummary();
     }
   }, [conflict, focusSummary, snapshot.conflictPanelOpen]);
@@ -157,7 +161,10 @@ export function WorkbookSameFieldConflictResolver({
   const isText = conflict.resolutionClass === "text_compare_merge";
   const isCollection = conflict.resolutionClass === "collection_review";
   const suggestion = conflict.conflict.suggested_merged_value;
-  const activeConflictIndex = snapshot.conflicts.findIndex(
+  const groupedConflicts = snapshot.conflicts.filter(
+    (entry) => entry.batchOperationId === conflict.batchOperationId,
+  );
+  const activeConflictIndex = groupedConflicts.findIndex(
     (entry) => entry.key === conflict.key,
   );
   const dismiss = () => mutationRuntime.dismissConflict(conflict.key);
@@ -217,7 +224,7 @@ export function WorkbookSameFieldConflictResolver({
         Close
       </button>
 
-      {snapshot.conflicts.length > 1 ? (
+      {groupedConflicts.length > 1 ? (
         <nav
           aria-label="Workbook conflict navigator"
           data-testid={workbookConflictControlTestId("paste-navigator")}
@@ -227,14 +234,14 @@ export function WorkbookSameFieldConflictResolver({
             data-testid={workbookConflictControlTestId("paste-position")}
             style={bodyStyle}
           >
-            {activeConflictIndex + 1} of {snapshot.conflicts.length}
+            {activeConflictIndex + 1} of {groupedConflicts.length}
           </p>
           <div style={buttonRowStyle}>
             <button
               data-testid={workbookConflictControlTestId("paste-previous")}
               disabled={activeConflictIndex <= 0}
               onClick={() => {
-                const previous = snapshot.conflicts[activeConflictIndex - 1];
+                const previous = groupedConflicts[activeConflictIndex - 1];
                 if (previous !== undefined) setActiveKey(previous.key);
               }}
               style={secondaryButtonStyle}
@@ -244,9 +251,9 @@ export function WorkbookSameFieldConflictResolver({
             </button>
             <button
               data-testid={workbookConflictControlTestId("paste-next")}
-              disabled={activeConflictIndex >= snapshot.conflicts.length - 1}
+              disabled={activeConflictIndex >= groupedConflicts.length - 1}
               onClick={() => {
-                const next = snapshot.conflicts[activeConflictIndex + 1];
+                const next = groupedConflicts[activeConflictIndex + 1];
                 if (next !== undefined) setActiveKey(next.key);
               }}
               style={secondaryButtonStyle}
@@ -256,7 +263,7 @@ export function WorkbookSameFieldConflictResolver({
             </button>
           </div>
           <div style={buttonRowStyle}>
-            {snapshot.conflicts.map((entry, index) => (
+            {groupedConflicts.map((entry, index) => (
               <button
                 aria-current={entry.key === conflict.key ? "true" : undefined}
                 data-testid={pasteConflictItemTestId(entry.key)}

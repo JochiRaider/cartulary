@@ -55,13 +55,8 @@ export function useTimelineSurfaceFoundation({
     [apiBase, incidentId, mutationCommands.identity],
   );
   const bulkTagPort = useMemo(
-    () =>
-      createTimelineBulkTagCommandAdapter({
-        apiBase,
-        createClientTxnId: mutationCommands.identity.createLogicalActionId,
-        incidentId,
-      }),
-    [apiBase, incidentId, mutationCommands.identity],
+    () => createTimelineBulkTagCommandAdapter(mutationRuntime.batches),
+    [mutationRuntime],
   );
   const runtime = useTimelineWorkbookRuntime({
     filterDraft: query.filterDraft,

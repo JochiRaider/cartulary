@@ -2,12 +2,13 @@ import type {
   GridClipboardInput,
   GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
+import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
+  decodeTimelineClipboardInput,
   type TimelinePasteAuthority,
   timelinePastePlanAdmission,
-  timelinePasteRequestTargetsMatchResolution,
   timelinePasteTargetPlansMatch,
 } from "./timelineClipboardPastePlan";
 
@@ -144,24 +145,24 @@ describe("timelineClipboardPastePlan", () => {
     ).toBe(false);
   });
 
-  it("matches dispatch targets to the final record identities and versions", () => {
+  it("maps only exact schema headers and counts data rows while preserving scalar comma text", () => {
+    const fields = requireViewContract(timelineViewSchemaId).fields.filter(
+      (field) => !field.defaultHidden && field.gridEditable,
+    );
+    const header = fields.map((field) => field.label).join("\t");
+    const data = fields.map((_, index) => `value-${index}`).join("\t");
+    expect(decodeTimelineClipboardInput(`${header}\n${data}`)).toMatchObject({
+      kind: "table",
+      fieldKeys: fields.map((field) => field.fieldKey),
+      values: [fields.map((_, index) => `value-${index}`)],
+    });
     expect(
-      timelinePasteRequestTargetsMatchResolution(
-        [
-          { base_row_version: 2, kind: "record", record_id: "record-1" },
-          { kind: "create" },
-        ],
-        resolution,
-      ),
-    ).toBe(true);
-    expect(
-      timelinePasteRequestTargetsMatchResolution(
-        [
-          { base_row_version: 1, kind: "record", record_id: "record-1" },
-          { kind: "create" },
-        ],
-        resolution,
-      ),
-    ).toBe(false);
+      decodeTimelineClipboardInput(` ${header}\n${data}`),
+    ).not.toHaveProperty("fieldKeys");
+    expect(decodeTimelineClipboardInput("ordinary, scalar text")).toEqual({
+      kind: "scalar",
+      rawText: "ordinary, scalar text",
+      value: "ordinary, scalar text",
+    });
   });
 });

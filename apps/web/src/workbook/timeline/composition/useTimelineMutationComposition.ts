@@ -155,16 +155,27 @@ export function useTimelineMutationComposition({
     rowStoreCommands: foundation.rowStoreCommands,
     setSelectedRowId: inspector.selectRow,
   });
-  const { activeConflict, commonMutationSnapshot, conflictQueue } =
-    rowMutations.snapshot;
+  const { activeConflict, commonMutationSnapshot } = rowMutations.snapshot;
+  const conflictQueue = useMemo(
+    () =>
+      Object.fromEntries(
+        commonMutationSnapshot.conflicts
+          .filter((entry) => entry.origin.viewSchemaId === timelineViewSchemaId)
+          .map((entry) => [entry.key, entry]),
+      ),
+    [commonMutationSnapshot.conflicts],
+  );
   const conflictCellKeys = useMemo(
     () =>
       new Set(
-        Object.values(conflictQueue).map(
-          (entry) => `${entry.anchor.record_id}\u0000${entry.anchor.field_key}`,
-        ),
+        commonMutationSnapshot.conflicts
+          .filter((entry) => entry.origin.viewSchemaId === timelineViewSchemaId)
+          .map(
+            (entry) =>
+              `${entry.conflict.record_id}\u0000${entry.conflict.field_key}`,
+          ),
       ),
-    [conflictQueue],
+    [commonMutationSnapshot.conflicts],
   );
   const getCellState = useCallback(
     ({

@@ -249,48 +249,29 @@ it("owns entity mention creation and resolution transport behind semantic outcom
   });
 });
 
-it("owns the exact Timeline bulk-tag transport and validates response rows", async () => {
-  const fetchMock = vi.fn(async () =>
-    successEnvelope({
-      change_set_id: changeSetId,
-      conflicts: [],
-      rows: [
-        timelineRow({
-          captureState: "enriched",
-          recordId,
-          rowVersion: 5,
-        }),
-      ],
-      view_schema_id: timelineViewSchemaId,
-    }),
-  );
-  vi.stubGlobal("fetch", fetchMock);
-  const port = createTimelineBulkTagCommandAdapter({
-    apiBase: "/base",
-    createClientTxnId: () => "txn-bulk-tag",
-    incidentId,
-  });
-
-  await expect(
-    port.assignTag({
-      tagName: "triaged",
-      targets: [{ baseRowVersion: 4, recordId }],
-    }),
-  ).resolves.toEqual({
-    kind: "accepted",
-    value: {
-      affectedRowCount: 1,
-      changeSetId,
-      conflictCount: 0,
+it("admits the exact Timeline bulk-tag plan to retained ownership", () => {
+  const admit = vi.fn(() => "batch-tag");
+  const port = createTimelineBulkTagCommandAdapter({ admit });
+  const admission = { delivery: {} };
+  expect(
+    port.assignTag(
+      { tagName: "triaged", targets: [{ baseRowVersion: 4, recordId }] },
+      admission,
+    ),
+  ).toBe("batch-tag");
+  expect(admit).toHaveBeenCalledWith(
+    {
+      operation: "applyWorkbookBulkMutation",
+      recordIds: [recordId],
+      request: {
+        kind: "multi_row_tag_assignment_v1",
+        tag_name: "triaged",
+        targets: [{ base_row_version: 4, record_id: recordId }],
+        view_schema_id: timelineViewSchemaId,
+      },
     },
-  });
-  expect(requestBody(fetchMock, 0)).toEqual({
-    client_txn_id: "txn-bulk-tag",
-    kind: "multi_row_tag_assignment_v1",
-    tag_name: "triaged",
-    targets: [{ base_row_version: 4, record_id: recordId }],
-    view_schema_id: timelineViewSchemaId,
-  });
+    admission,
+  );
 });
 
 it("creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty", async () => {

@@ -42,10 +42,10 @@ and typed contracts rather than grid coordinates.
 
 | File | Responsibility |
 | --- | --- |
-| [timelineBulkTagPlan.test.ts](timelineBulkTagPlan.test.ts) | Covers authorization, capability, stable selection, current versions, partial rejection, and stale settlement. |
-| [timelineBulkTagPlan.ts](timelineBulkTagPlan.ts) | Pure current-page stable-target validation and subject-keyed bulk-tag settlement policy. |
+| [timelineBulkTagPlan.test.ts](timelineBulkTagPlan.test.ts) | Tests authorization, capability, ordered selected records, versions and invalid/partial target rejection. |
+| [timelineBulkTagPlan.ts](timelineBulkTagPlan.ts) | Pure current-page stable-target validation and submitted tag-value normalization; completion belongs to the retained runtime. |
 | [timelineClipboardPastePlan.test.ts](timelineClipboardPastePlan.test.ts) | Tests exact editable paste batches, target identity, and fail-closed authority/shape validation. |
-| [timelineClipboardPastePlan.ts](timelineClipboardPastePlan.ts) | Pure Timeline paste authority, shape, field, surface, and stable-target admission policy. |
+| [timelineClipboardPastePlan.ts](timelineClipboardPastePlan.ts) | Timeline table admission and exact schema-header mapping through the shared clipboard decoder; captures stable semantic targets. |
 | [timelineCollectionPresentation.ts](timelineCollectionPresentation.ts) | Discriminated relationship/tag collection items, overflow identity, and accessible hidden labels. |
 | [timelineControllerPorts.ts](timelineControllerPorts.ts) | Neutral capability-port, row-store, committed-record-idle, context-menu-position, and replay contracts shared by isolated Timeline controllers. |
 | [timelineFieldRegistry.ts](timelineFieldRegistry.ts) | Exhaustive Timeline scalar, collection, readonly, inspector, and focus binding registry. |

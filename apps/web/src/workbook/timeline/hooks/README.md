@@ -13,7 +13,7 @@ Hooks execute owner-local effects over semantic capabilities and pure
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineClipboardPasteController.ts](useTimelineClipboardPasteController.ts) | Coordinates semantic Timeline paste targets/outcomes, conflict registration, scalar fallback, and post-paste focus/viewport restoration. |
+| [useTimelineClipboardPasteController.ts](useTimelineClipboardPasteController.ts) | Captures and admits semantic table targets and preceding autosaves; preserves scalar paste with its editor/creation owner. |
 | [useTimelineGridAnchorController.ts](useTimelineGridAnchorController.ts) | Resolves Timeline grid anchors, paste targets, selected cells, and focus anchors across committed and draft rows. |
 | [useTimelineGridInteractions.ts](useTimelineGridInteractions.ts) | Coordinates Timeline grid refs, keyboard helpers, and grid interaction commands. |
 | [useTimelineKeyboardController.ts](useTimelineKeyboardController.ts) | Owns Timeline scalar/collection editor keys, grid navigation/range commands, work-area shortcuts, event consumption, and focus priority. |

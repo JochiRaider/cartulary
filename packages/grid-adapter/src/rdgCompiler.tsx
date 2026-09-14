@@ -102,6 +102,7 @@ type CompileGridColumnsInput<Row> = {
         row: GridDataRow<Row>,
         fieldKey: string,
         clipboardText: string,
+        delivery?: object,
       ) => boolean)
     | undefined;
 };
@@ -326,8 +327,13 @@ export function compileGridColumns<Row>({
             rangeSelected={isCellRangeSelected(row, column)}
             registerSemanticCell={registerSemanticCell}
             semanticState={semanticState}
-            onPaste={(clipboardText) =>
-              onPasteCellContent?.(row, column.fieldKey, clipboardText) === true
+            onPaste={(clipboardText, delivery) =>
+              onPasteCellContent?.(
+                row,
+                column.fieldKey,
+                clipboardText,
+                delivery,
+              ) === true
             }
           >
             {column.renderCell({
@@ -841,7 +847,9 @@ function SemanticGridCellContent({
   readonly onSelectCapture?:
     | ((event: import("react").SyntheticEvent<HTMLSpanElement>) => void)
     | undefined;
-  readonly onPaste?: ((clipboardText: string) => boolean) | undefined;
+  readonly onPaste?:
+    | ((clipboardText: string, delivery: object) => boolean)
+    | undefined;
   readonly rangeSelected?: boolean | undefined;
   readonly registerSemanticCell: (
     anchor: GridCellAnchor,
@@ -881,7 +889,9 @@ function SemanticGridCellContent({
         if (onPaste === undefined) {
           return;
         }
-        if (onPaste(event.clipboardData.getData("text/plain"))) {
+        if (
+          onPaste(event.clipboardData.getData("text/plain"), event.nativeEvent)
+        ) {
           event.preventDefault();
           event.stopPropagation();
         }

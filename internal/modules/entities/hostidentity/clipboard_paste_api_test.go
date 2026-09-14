@@ -75,6 +75,12 @@ func TestClipboardPasteRequestDecodeRejectsWorkbookInvalidPayloads(t *testing.T)
 		reasonCode string
 	}{
 		{
+			name:       "missing targets",
+			body:       `{"view_schema_id":"cartulary.view.hosts.v1","client_txn_id":"missing-targets","clipboard_text":"Gateway","start_field_key":"host.display_name","columns":["host.display_name"]}`,
+			field:      "targets",
+			reasonCode: "missing_required_field",
+		},
+		{
 			name: "unknown field",
 			body: `{
 				"view_schema_id":"cartulary.view.hosts.v1",

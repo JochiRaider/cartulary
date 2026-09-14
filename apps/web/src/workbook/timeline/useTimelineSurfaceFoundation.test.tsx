@@ -46,13 +46,7 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
       return useTimelineSurfaceFoundation({
         apiBase,
         clipboardPaste: {
-          paste: async () => ({
-            clientTxnId: null,
-            outcome: {
-              kind: "rejected",
-              failure: { kind: "terminal", message: "not used" },
-            },
-          }),
+          paste: () => null,
         },
         incidentId: "incident-1",
         mutationCommands,

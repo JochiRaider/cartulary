@@ -2048,3 +2048,104 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
   }
   expect(postURLs.some((url) => url.includes("/imports"))).toBeFalsy();
 });
+
+async function verifyEntityPasteRecovery(
+  page: Page,
+  entityType: "host" | "identity",
+) {
+  const viewSchemaId =
+    entityType === "host" ? hostsViewSchemaId : identitiesViewSchemaId;
+  const identifier = entityType === "host" ? "host.hostname" : "identity.upn";
+  const display = `${entityType}.display_name`;
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("ENTITY-PASTE-RECOVERY"),
+    "Retained Entity paste",
+  );
+  const key = "reused-entity@example.test";
+  const existing = await createViewRow(page, incidentId, viewSchemaId, {
+    client_txn_id: uniqueTxn("entity-reuse-seed"),
+    [display]: "Original entity",
+    [identifier]: key,
+  });
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(viewSchemaId)}`,
+  );
+  const target = page.getByTestId(rowCellTestId(existing.record_id, display));
+  await expect(target).toHaveText("Original entity");
+  await activateSemanticGridCell(target);
+  const path = `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/clipboard-paste`;
+  const attempts: string[] = [];
+  const changes: string[] = [];
+  let reportLoss!: () => void;
+  const lost = new Promise<void>((resolve) => {
+    reportLoss = resolve;
+  });
+  await page.route(`**${path}`, async (route) => {
+    attempts.push(route.request().postData() ?? "");
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    const payload = await response.json();
+    changes.push(payload.data.change_set_id);
+    if (attempts.length === 1) {
+      await route.abort("connectionfailed");
+      reportLoss();
+    } else await route.fulfill({ response });
+  });
+  try {
+    await target.evaluate((element, value) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", value);
+      element.dispatchEvent(
+        new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: data,
+        }),
+      );
+    }, `First name\t${key}\nFinal name\t${key}`);
+    await lost;
+    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    const retry = page.getByRole("button", {
+      name: "Retry paste",
+      exact: true,
+    });
+    await retry.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("status", { name: "Batch action updates", exact: true }),
+    ).toHaveText("Batch accepted. Refresh is still needed.");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", {
+        name: entityType === "host" ? "Hosts" : "Identities",
+        exact: true,
+      })
+      .click();
+    await expect(target).toHaveText("Final name");
+    await expect(
+      page.getByRole("status", { name: "Batch action updates", exact: true }),
+    ).toHaveText("Batch complete.");
+    const rows = await queryViewRows(page, incidentId, viewSchemaId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.record_id).toBe(existing.record_id);
+    expect(rows[0]?.row_version).toBe(2);
+    expect(attempts).toEqual([attempts[0], attempts[0]]);
+    expect(changes).toEqual([changes[0], changes[0]]);
+  } finally {
+    await page.unroute(`**${path}`);
+  }
+}
+
+test("Host paste retains exact repeated reuse through response loss and surface navigation", async ({
+  page,
+}) => {
+  await verifyEntityPasteRecovery(page, "host");
+});
+
+test("Identity paste retains exact repeated reuse through response loss and surface navigation", async ({
+  page,
+}) => {
+  await verifyEntityPasteRecovery(page, "identity");
+});

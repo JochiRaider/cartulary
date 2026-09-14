@@ -1,3 +1,4 @@
+import type { WorkbookViewApiRow } from "../models/workbookContractRows";
 import type { WorkbookResolvedMutation } from "../mutations/workbookConflictResolutionAdapter";
 import type { WorkbookConflictEntry } from "./workbookConflictModel";
 
@@ -13,7 +14,12 @@ export type WorkbookSurfaceBlockedEditDiscard = (
   unitId: string,
 ) => Promise<boolean> | boolean;
 
+export type WorkbookSurfaceBatchApply = (
+  rows: readonly WorkbookViewApiRow[],
+) => void;
+
 type WorkbookSurfaceRegistration = {
+  readonly applyBatch: WorkbookSurfaceBatchApply | null;
   readonly applyResolvedMutation: WorkbookSurfaceResolvedMutationApply | null;
   readonly discardBlockedEdit: WorkbookSurfaceBlockedEditDiscard | null;
   readonly refresh: WorkbookSurfaceRefresh;
@@ -22,12 +28,14 @@ type WorkbookSurfaceRegistration = {
 
 /** Owns mounted surface callbacks and retained refresh debt. */
 export class WorkbookSurfaceRegistry {
+  #authorityGeneration = 0;
   readonly #registrations = new Map<string, WorkbookSurfaceRegistration>();
   readonly #dirtySurfaces = new Set<string>();
+  readonly #debtGenerations = new Map<string, number>();
   readonly #refreshing = new Map<string, Promise<void>>();
-  readonly #onDebtChanged: () => void;
+  readonly #onDebtChanged: (viewSchemaId: string) => void;
 
-  constructor(onDebtChanged: () => void) {
+  constructor(onDebtChanged: (viewSchemaId: string) => void) {
     this.#onDebtChanged = onDebtChanged;
   }
 
@@ -37,20 +45,23 @@ export class WorkbookSurfaceRegistry {
     applyResolvedMutation?: WorkbookSurfaceResolvedMutationApply,
     restoreConflictFocus?: WorkbookSurfaceConflictFocusRestore,
     discardBlockedEdit?: WorkbookSurfaceBlockedEditDiscard,
+    applyBatch?: WorkbookSurfaceBatchApply,
   ): () => void {
-    this.#registrations.set(viewSchemaId, {
+    const registration = {
+      applyBatch: applyBatch ?? null,
       applyResolvedMutation: applyResolvedMutation ?? null,
       discardBlockedEdit: discardBlockedEdit ?? null,
       refresh,
       restoreConflictFocus: restoreConflictFocus ?? null,
-    });
+    };
+    this.#registrations.set(viewSchemaId, registration);
     if (this.#dirtySurfaces.has(viewSchemaId)) {
       void this.refreshRequired(viewSchemaId).catch(() => {
-        this.#onDebtChanged();
+        this.#onDebtChanged(viewSchemaId);
       });
     }
     return () => {
-      if (this.#registrations.get(viewSchemaId)?.refresh === refresh) {
+      if (this.#registrations.get(viewSchemaId) === registration) {
         this.#registrations.delete(viewSchemaId);
       }
     };
@@ -74,35 +85,61 @@ export class WorkbookSurfaceRegistry {
       this.#dirtySurfaces.has(viewSchemaId)
     );
   }
+  applyBatch(viewSchemaId: string, rows: readonly WorkbookViewApiRow[]) {
+    this.#registrations.get(viewSchemaId)?.applyBatch?.(rows);
+  }
+  invalidateAuthority(): void {
+    this.#authorityGeneration++;
+  }
+  invalidate(viewSchemaId: string): void {
+    this.#debtGenerations.set(
+      viewSchemaId,
+      (this.#debtGenerations.get(viewSchemaId) ?? 0) + 1,
+    );
+    this.#dirtySurfaces.add(viewSchemaId);
+  }
   async refreshRequired(viewSchemaId: string): Promise<void> {
+    this.invalidate(viewSchemaId);
+    return this.reconcile(viewSchemaId);
+  }
+  private async reconcile(viewSchemaId: string): Promise<void> {
     const pending = this.#refreshing.get(viewSchemaId);
-    if (pending) return pending;
-    const refresh = this.#registrations.get(viewSchemaId)?.refresh;
-    if (!refresh) {
-      this.#dirtySurfaces.add(viewSchemaId);
-      throw new Error("The originating surface needs a refresh.");
+    if (pending) {
+      await pending;
+      if (this.#dirtySurfaces.has(viewSchemaId))
+        return this.reconcile(viewSchemaId);
+      return;
     }
+    const registration = this.#registrations.get(viewSchemaId);
+    if (!registration)
+      throw new Error("The originating surface needs a refresh.");
+    const generation = this.#debtGenerations.get(viewSchemaId);
+    const authorityGeneration = this.#authorityGeneration;
     const running = Promise.resolve()
-      .then(refresh)
+      .then(registration.refresh)
       .then(() => {
-        this.#dirtySurfaces.delete(viewSchemaId);
-      })
-      .catch((error: unknown) => {
-        this.#dirtySurfaces.add(viewSchemaId);
-        throw error;
+        if (authorityGeneration !== this.#authorityGeneration)
+          throw new Error("Authorization changed during refresh.");
+        if (this.#registrations.get(viewSchemaId) !== registration)
+          throw new Error("The surface changed during refresh.");
+        if (this.#debtGenerations.get(viewSchemaId) === generation)
+          this.#dirtySurfaces.delete(viewSchemaId);
       })
       .finally(() => {
         if (this.#refreshing.get(viewSchemaId) === running)
           this.#refreshing.delete(viewSchemaId);
+        this.#onDebtChanged(viewSchemaId);
       });
     this.#refreshing.set(viewSchemaId, running);
-    return running;
+    await running;
+    if (this.#dirtySurfaces.has(viewSchemaId))
+      return this.reconcile(viewSchemaId);
   }
   async refreshIfMounted(viewSchemaId: string): Promise<void> {
     if (this.#registrations.has(viewSchemaId))
       return this.refreshRequired(viewSchemaId);
     this.#dirtySurfaces.add(viewSchemaId);
-    this.#onDebtChanged();
+    this.#onDebtChanged(viewSchemaId);
   }
   async refresh(viewSchemaId: string): Promise<void> {
     try {

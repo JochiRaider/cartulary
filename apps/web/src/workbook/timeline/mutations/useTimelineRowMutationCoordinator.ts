@@ -34,7 +34,6 @@ import { reconcileDiscardedTimelineUnit } from "../models/timelineDiscardedRecon
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import {
   rowFromApi,
-  type TimelineApiRow,
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/timelineRowModel";
@@ -191,10 +190,8 @@ export function useTimelineRowMutationCoordinator({
     mutationRuntime,
     sheetRef,
   );
-  const { activeConflictKey, conflictQueue, pasteConflictGroup } =
-    conflicts.snapshot;
-  const { setActiveConflictKey, setConflictQueueState, setPasteConflictGroup } =
-    conflicts.commands;
+  const { activeConflictKey, conflictQueue } = conflicts.snapshot;
+  const { setActiveConflictKey, setConflictQueueState } = conflicts.commands;
 
   useEffect(() => {
     const commonKeys = new Set(
@@ -374,18 +371,6 @@ export function useTimelineRowMutationCoordinator({
     ],
   );
 
-  const applyClipboardResponseRows = useCallback(
-    (responseRows: readonly TimelineApiRow[]) => {
-      for (const row of responseRows) {
-        applyAcceptedRowMutation(row.record_id, {
-          row,
-          viewSchemaId: timelineViewSchemaId,
-        });
-      }
-    },
-    [applyAcceptedRowMutation],
-  );
-
   const socketTransactions = useMemo(
     () => createTimelineSocketTransactionAdapter(mutationRuntime),
     [mutationRuntime],
@@ -503,7 +488,6 @@ export function useTimelineRowMutationCoordinator({
       acceptTimelineRecordVersion,
       activateConflict,
       applyAcceptedRowMutation,
-      applyClipboardResponseRows,
       beginRefreshInFlight,
       beginSave,
       currentCommittedTimelineRow,
@@ -521,7 +505,6 @@ export function useTimelineRowMutationCoordinator({
       registerSameFieldConflict,
       resolvePendingSocketTxn,
       setActiveConflictKey,
-      setPasteConflictGroup,
       trackPendingSocketTxn,
     },
     ports: {
@@ -543,7 +526,6 @@ export function useTimelineRowMutationCoordinator({
       activeConflictKey,
       commonMutationSnapshot,
       conflictQueue,
-      pasteConflictGroup,
     },
   };
 }

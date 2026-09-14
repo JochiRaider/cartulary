@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -47,29 +47,50 @@ export function useTimelineMutationRuntimeBindings({
   }) => Promise<void>;
   readonly mutationRuntime: WorkbookMutationRuntime;
 }) {
+  const current = useRef({
+    applyAcceptedRowMutation,
+    discardBlockedEdit,
+    editorDraftRegistry,
+    editorPort,
+    loadRows,
+  });
+  current.current = {
+    applyAcceptedRowMutation,
+    discardBlockedEdit,
+    editorDraftRegistry,
+    editorPort,
+    loadRows,
+  };
   useLayoutEffect(
     () =>
       mutationRuntime.entityMerge.registerTimelineRefresh(() =>
-        loadRows({ showLoading: false, requireAcceptance: true }),
+        current.current.loadRows({
+          showLoading: false,
+          requireAcceptance: true,
+        }),
       ),
-    [mutationRuntime, loadRows],
+    [mutationRuntime],
   );
   useEffect(
     () =>
       mutationRuntime.registerSurface(
         timelineViewSchemaId,
-        () => loadRows({ showLoading: false, requireAcceptance: true }),
+        () =>
+          current.current.loadRows({
+            showLoading: false,
+            requireAcceptance: true,
+          }),
         async (mutation, conflict) => {
           const recordId = conflict.conflict.record_id;
           const binding = timelineScalarBindingForField(
             conflict.conflict.field_key,
           );
-          if (binding !== null) {
-            editorDraftRegistry.clearScalarDraftsForField(
+          if (binding !== null && !conflict.batchOperationId) {
+            current.current.editorDraftRegistry.clearScalarDraftsForField(
               recordId,
               binding.key,
             );
-            editorPort.cancelEdit({
+            current.current.editorPort.cancelEdit({
               fieldKey: binding.fieldKey,
               recordId,
             });
@@ -80,13 +101,16 @@ export function useTimelineMutationRuntimeBindings({
             viewSchemaId: mutation.viewSchemaId,
           });
           if (outcome !== null) {
-            applyAcceptedRowMutation(recordId, outcome);
+            current.current.applyAcceptedRowMutation(recordId, outcome);
           } else {
-            await loadRows({ showLoading: false });
+            await current.current.loadRows({ showLoading: false });
           }
-          if (binding !== null) {
+          if (binding !== null && !conflict.batchOperationId) {
             window.setTimeout(() => {
-              editorPort.focus({ fieldKey: binding.fieldKey, recordId });
+              current.current.editorPort.focus({
+                fieldKey: binding.fieldKey,
+                recordId,
+              });
             }, 0);
           }
         },
@@ -95,29 +119,29 @@ export function useTimelineMutationRuntimeBindings({
             const existingEditor =
               conflict.focusKey === null
                 ? null
-                : editorDraftRegistry.inputElementForFocusKey(
+                : current.current.editorDraftRegistry.inputElementForFocusKey(
                     conflict.focusKey,
                   );
             if (existingEditor !== null) {
               existingEditor.focus({ preventScroll: true });
               return;
             }
-            editorPort.activateEdit({
+            current.current.editorPort.activateEdit({
               fieldKey: conflict.conflict.field_key,
               recordId: conflict.conflict.record_id,
               value: conflict.localValue,
             });
           }, 0);
         },
-        discardBlockedEdit,
+        (unitId) => current.current.discardBlockedEdit(unitId),
+        (rows) => {
+          for (const row of rows)
+            current.current.applyAcceptedRowMutation(row.record_id, {
+              row: normalizeTimelineFullRow(row, "batch receipt"),
+              viewSchemaId: timelineViewSchemaId,
+            });
+        },
       ),
-    [
-      applyAcceptedRowMutation,
-      discardBlockedEdit,
-      editorDraftRegistry,
-      editorPort,
-      loadRows,
-      mutationRuntime,
-    ],
+    [mutationRuntime],
   );
 }

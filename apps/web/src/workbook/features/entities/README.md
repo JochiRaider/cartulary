@@ -16,7 +16,7 @@ attempts. Paste execution consumes the shared private
 | [entityMergeOperation.ts](entityMergeOperation.ts) | Captured Entity merge attempts, receipts, transport outcomes, and owner bindings. |
 | [entityMergeReview.ts](entityMergeReview.ts) | Entity merge authority and reviewed survivor/loser identities and versions. |
 | [EntityWorkbookInspector.tsx](EntityWorkbookInspector.tsx) | Entity inspector facade over feature-owned composition and presentation. |
-| [useEntityClipboardPasteController.ts](useEntityClipboardPasteController.ts) | Executes pure Entity paste plans through scalar mutation or the shared exact clipboard transport, then projects owner-local feedback and refresh. |
+| [useEntityClipboardPasteController.ts](useEntityClipboardPasteController.ts) | Preserves scalar editing and admits Entity-origin table plans to retained batch ownership, coordinated with existing merge/write reservations. |
 | [useEntityMergeController.ts](useEntityMergeController.ts) | Entity merge selection, eligibility, review, and confirmation controller. |
 | [useEntityWorkbookInspectorComposition.tsx](useEntityWorkbookInspectorComposition.tsx) | Assembles Entity inspector sections, merge actions, and owner-local workflows. |
 | [WorkbookEntityMergeOwner.ts](WorkbookEntityMergeOwner.ts) | Entity merge participant reservation, retained operation, acknowledgement, and recovery ownership. |

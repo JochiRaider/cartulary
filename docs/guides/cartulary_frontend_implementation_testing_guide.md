@@ -202,13 +202,19 @@ never mixes source, catalog, verification, or profile digests.
   one exact closed-envelope driver and keep payload revalidation, projection,
   conflict, and discard plans owner-local. Missing drivers pause work; duplicate
   registration fails closed without replacing the active driver.
-- Grid Adapter decodes clipboard text and plans semantic grid targets. Paste-capable
-  Workbook surface owners revalidate the active surface, authority, writable
-  fields, stable record identities, committed versions, grouping, and create
-  capability immediately before invoking the one private Workbook clipboard
-  transport. Timeline and Entity decode or apply typed results locally. Native
-  editor paste updates its editor draft and save command directly; it does not
-  synthesize or forward a grid clipboard event.
+- Grid Adapter translates clipboard gestures and plans semantic grid targets.
+  Source owners use the shared clipboard decoder, apply schema-derived exact
+  headers and validate fields, committed records, grouping and create capability.
+  They admit captured paste/fill/tag plans into `WorkbookBatchOperationOwner`.
+  That incident/account owner coordinates preceding autosaves and Entity merge
+  reservations, retains exact requests and full validated receipts, registers
+  source-ordered conflicts and owns explicit uncertain retry/read debt. Targets
+  are not rebuilt from later selection, sorting or filtering. Native editor
+  paste stays with its editor/save owner, including scalar comma text.
+  Surface registrations retain mounted identity while invoking current callbacks;
+  reads are fenced by registration, authority and debt generation. Browser tests
+  exercise the production grid; runtime/adapter tests inject transport loss and
+  malformed receipts without a second parser or ingest engine.
 - Timeline query loading is governed by a pure state machine keyed by incident,
   semantic sheet, canonical query, request generation, accepted-mutation epoch,
   and any source-version obligation. The controller interprets explicit request,

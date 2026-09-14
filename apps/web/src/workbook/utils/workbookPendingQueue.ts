@@ -1090,6 +1090,8 @@ class WorkbookPendingQueueState {
 
   private units: PendingReplayUnitState[] = [];
   private readonly dispatchedUnits = new WeakSet<PendingReplayUnitState>();
+  private readonly boundaryUnits = new WeakSet<PendingReplayUnitState>();
+  private dispatchGuard: (unit: PendingReplayUnitState) => boolean = () => true;
   private halted: PendingReplayHalt | null = null;
   private authPaused = false;
   private terminalReplayPaused = false;
@@ -1101,6 +1103,14 @@ class WorkbookPendingQueueState {
 
   constructor(scope: PendingReplayScope) {
     this.scope = { ...scope };
+  }
+
+  sealPending(): void {
+    for (const unit of this.units) this.boundaryUnits.add(unit);
+  }
+
+  setDispatchGuard(guard: (unit: PendingReplayUnitState) => boolean): void {
+    this.dispatchGuard = guard;
   }
 
   snapshot(): PendingQueueSnapshot {
@@ -1179,7 +1189,7 @@ class WorkbookPendingQueueState {
       latestForRow?.mutationSignature === unit.mutationSignature
         ? latestForRow
         : undefined;
-    if (duplicate) {
+    if (duplicate && !this.boundaryUnits.has(duplicate)) {
       return {
         accepted: false,
         status: "duplicate",
@@ -1192,6 +1202,7 @@ class WorkbookPendingQueueState {
     const lastUnit = this.units[this.units.length - 1];
     if (
       lastUnit !== undefined &&
+      !this.boundaryUnits.has(lastUnit) &&
       !this.dispatchedUnits.has(lastUnit) &&
       canCoalescePendingReplayUnits(lastUnit, unit)
     ) {
@@ -1253,7 +1264,7 @@ class WorkbookPendingQueueState {
       return null;
     }
     const unit = this.units.find((candidate) => candidate.status === "queued");
-    if (unit === undefined) {
+    if (unit === undefined || !this.dispatchGuard(unit)) {
       return null;
     }
     return {
@@ -1269,7 +1280,7 @@ class WorkbookPendingQueueState {
       return null;
     }
     const unit = this.units.find((candidate) => candidate.status === "queued");
-    if (unit === undefined || unit.id !== unitId) {
+    if (unit === undefined || unit.id !== unitId || !this.dispatchGuard(unit)) {
       return null;
     }
     this.dispatchedUnits.add(unit);
@@ -1624,6 +1635,9 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
   const state = new WorkbookPendingQueueState(scope);
   return {
     scope: state.scope,
+    sealPending: () => state.sealPending(),
+    setDispatchGuard: (guard: (unit: PendingReplayUnitState) => boolean) =>
+      state.setDispatchGuard(guard),
     retire: () => state.retire(),
     snapshot: () => state.snapshot(),
     admit: (input: PendingReplayUnitInput) => state.admit(input),

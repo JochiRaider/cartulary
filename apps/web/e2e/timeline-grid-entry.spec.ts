@@ -29,7 +29,10 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { holdBrowserRequest } from "./support/transport/requestInterception";
-import { fetchRecordHistoryCount } from "./support/workbook/history";
+import {
+  fetchFullRecordHistory,
+  fetchRecordHistoryCount,
+} from "./support/workbook/history";
 import {
   createViewRow,
   queryViewRows,
@@ -262,7 +265,7 @@ test("Timeline rectangle paste keyboard fill and pointer fill preserve targets",
   await expect(page.getByTestId(rowCellTestId(second, source))).toHaveText(
     "Shared source",
   );
-  await expect(cell(page, first, source)).toBeFocused();
+  await expect(cell(page, second, source)).toBeFocused();
   await selectCell(page, first, source);
   const handle = page.locator(gridFillHandleSelector());
   await expect(handle).toHaveAttribute("aria-label", "Drag to fill this value");
@@ -932,5 +935,357 @@ test("Timeline uncertain creation replays exactly through refresh without losing
   } finally {
     releaseReplay();
     if (!page.isClosed()) await page.unroute(`**${path}`);
+  }
+});
+
+test("Timeline paste retains committed creates through lost response navigation and failed refresh", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 2);
+  const unrelated = required(rows[0]).record_id;
+  const target = required(rows[1]).record_id;
+  const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
+  const queryPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
+  const attempts: string[] = [];
+  const changes: string[] = [];
+  let failReads = false;
+  let reportLoss!: () => void;
+  const lost = new Promise<void>((resolve) => {
+    reportLoss = resolve;
+  });
+  let releaseReplay!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    releaseReplay = resolve;
+  });
+  await page.route(`**${queryPath}`, async (route) => {
+    if (!failReads) {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "internal_error", message: "Temporary read failure" },
+      }),
+    });
+  });
+  await page.route(`**${path}`, async (route) => {
+    attempts.push(required(route.request().postData()));
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    const result = await response.json();
+    changes.push(result.data.change_set_id);
+    if (attempts.length === 1) {
+      await route.abort("connectionfailed");
+      reportLoss();
+    } else {
+      await gate;
+      failReads = true;
+      await route.fulfill({ response });
+    }
+  });
+  try {
+    await selectCell(page, target);
+    await clipboard(page, "Captured update\nCaptured new record");
+    await lost;
+    await page.getByRole("button", { name: "Hosts", exact: true }).click();
+    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    await expect(
+      page.getByTestId(timelineMutationSubstrateReadyTestId()),
+    ).toBeVisible();
+    await externalPatch(page, incidentId, target, source, "Intervening source");
+    const before = await fetchRecordHistoryCount(page, target);
+    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    const retry = page.getByRole("button", {
+      name: "Retry paste",
+      exact: true,
+    });
+    await tabTo(page, retry);
+    await page.keyboard.press("Enter");
+    await expect.poll(() => attempts.length).toBe(2);
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await scrollGridCellIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      recordId: unrelated,
+      cellKey: synopsis,
+    });
+    await page.getByTestId(rowCellTestId(unrelated, synopsis)).click();
+    await editor(page, unrelated).fill("Newer typing survives");
+    releaseReplay();
+    await expect(
+      page.getByRole("status", { name: "Batch action updates", exact: true }),
+    ).toHaveText("Batch accepted. Refresh is still needed.");
+    await expect(editor(page, unrelated)).toBeFocused();
+    await expect(editor(page, unrelated)).toHaveValue("Newer typing survives");
+    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    failReads = false;
+    const refresh = page.getByRole("button", {
+      name: "Retry refresh",
+      exact: true,
+    });
+    await tabTo(page, refresh);
+    await page.keyboard.press("Enter");
+    await expect(refresh).toHaveCount(0);
+    expect(attempts).toEqual([attempts[0], attempts[0]]);
+    expect(changes).toEqual([changes[0], changes[0]]);
+    const saved = await queryViewRows(page, incidentId, timelineViewSchemaId);
+    expect(saved).toHaveLength(3);
+    expect(
+      saved.find((row) => row.record_id === target)?.cells[source]?.value,
+    ).toBe("Intervening source");
+    expect(await fetchRecordHistoryCount(page, target)).toBe(before);
+    expect(attempts).toHaveLength(2);
+  } finally {
+    releaseReplay();
+    if (!page.isClosed()) {
+      await page.unroute(`**${path}`);
+      await page.unroute(`**${queryPath}`);
+    }
+  }
+});
+
+test("Timeline paste keeps ordered grouped conflicts and per-cell attributed correction", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 2);
+  const first = required(rows[0]).record_id;
+  const second = required(rows[1]).record_id;
+  const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
+  const held = await holdBrowserRequest(page, { method: "POST", path });
+  try {
+    await selectCell(page, first);
+    await clipboard(page, "Client first\nClient second\nAccepted create");
+    await held.waitForHit;
+    await externalPatch(page, incidentId, first, synopsis, "Server first");
+    await externalPatch(page, incidentId, second, synopsis, "Server second");
+    held.release();
+    await expect(
+      page.getByRole("navigation", { name: "Workbook conflict navigator" }),
+    ).toBeVisible();
+    await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
+    await expect(
+      page.getByTestId(conflictMarkerTestId(second, synopsis)),
+    ).toBeVisible();
+    const saved = await queryViewRows(page, incidentId, timelineViewSchemaId);
+    expect(saved).toHaveLength(3);
+    expect(
+      saved.find((row) => row.record_id === first)?.cells[synopsis]?.value,
+    ).toBe("Server first");
+    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    await page
+      .getByRole("button", { name: "Review conflicts", exact: true })
+      .click();
+    const useMine = page.getByRole("button", {
+      name: "Use my unsaved value",
+      exact: true,
+    });
+    await tabTo(page, useMine);
+    await page.keyboard.press("Enter");
+    await waitForViewRowByCell(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      synopsis,
+      "Client first",
+    );
+    await expect(
+      page
+        .getByRole("region", { name: "Your unsaved value", exact: true })
+        .getByRole("code"),
+    ).toBeVisible();
+    await tabTo(page, useMine);
+    await page.keyboard.press("Enter");
+    await waitForViewRowByCell(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      synopsis,
+      "Client second",
+    );
+    expect(await fetchRecordHistoryCount(page, first)).toBe(3);
+    expect(await fetchRecordHistoryCount(page, second)).toBe(3);
+    await expect(
+      page.getByRole("button", { name: /for all conflicts/ }),
+    ).toHaveCount(0);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline exact headers and duplicate clipboard delivery preserve one semantic action", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 2);
+  const first = required(rows[0]).record_id;
+  const fields = requireViewContract(timelineViewSchemaId).fields.filter(
+    (field) => !field.defaultHidden && field.gridEditable,
+  );
+  const text = [
+    fields.map((field) => field.label).join("\t"),
+    ...["Header first", "Header second"].map((value) =>
+      fields
+        .map((field) => (field.fieldKey === synopsis ? value : ""))
+        .join("\t"),
+    ),
+  ].join("\n");
+  const attempts: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/clipboard-paste"))
+      attempts.push(required(request.postData()));
+  });
+  await selectCell(page, first, source);
+  await cell(page, first, source).evaluate((element, clipboardText) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", clipboardText);
+    const event = new ClipboardEvent("paste", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: data,
+    });
+    element.dispatchEvent(event);
+    element.dispatchEvent(event);
+  }, text);
+  await waitForViewRowByCell(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    synopsis,
+    "Header second",
+  );
+  expect(attempts).toHaveLength(1);
+  expect(JSON.parse(required(attempts[0])).targets).toHaveLength(2);
+  expect(JSON.parse(required(attempts[0])).columns).toEqual(
+    fields.map((field) => field.fieldKey),
+  );
+  await selectCell(page, first);
+  await clipboard(page, "Deliberate repeat\nAnother deliberate row");
+  await waitForViewRowByCell(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    synopsis,
+    "Another deliberate row",
+  );
+  expect(attempts).toHaveLength(2);
+  expect(JSON.parse(required(attempts[0])).client_txn_id).not.toBe(
+    JSON.parse(required(attempts[1])).client_txn_id,
+  );
+  expect(
+    await queryViewRows(page, incidentId, timelineViewSchemaId),
+  ).toHaveLength(2);
+});
+
+test("Timeline fill and tagging retain conflicts-only receipts and independent local recovery", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 3);
+  const first = required(rows[0]).record_id;
+  const fillTarget = required(rows[1]).record_id;
+  const tagTarget = required(rows[2]).record_id;
+  const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`;
+  let held = await holdBrowserRequest(page, { method: "POST", path });
+  const responseForBatch = () =>
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith(path) && response.request().method() === "POST",
+    );
+  try {
+    await selectCell(page, first, source);
+    await page.keyboard.press("Shift+ArrowDown");
+    const fillResponse = responseForBatch();
+    await page.keyboard.press("Control+d");
+    await held.waitForHit;
+    await externalPatch(
+      page,
+      incidentId,
+      fillTarget,
+      source,
+      "Concurrent fill target",
+    );
+    held.release();
+    const filled = await (await fillResponse).json();
+    expect(filled.data.rows).toEqual([]);
+    expect(filled.data.change_set_id).toBeUndefined();
+    expect(filled.data.conflicts).toHaveLength(1);
+    await held.dispose();
+    await page.getByRole("button", { name: "Close conflict recovery" }).click();
+    held = await holdBrowserRequest(page, { method: "POST", path });
+    await page
+      .getByRole("checkbox", { name: `Select record ${tagTarget}` })
+      .check();
+    await page
+      .getByRole("textbox", { name: "Tag for selected Timeline records" })
+      .fill("client-tag");
+    const tagResponse = responseForBatch();
+    await page.getByRole("button", { name: "Assign tag", exact: true }).click();
+    await held.waitForHit;
+    const current = required(
+      (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+        (row) => row.record_id === tagTarget,
+      ),
+    );
+    const patched = await page.request.patch(
+      `${apiBase}/api/v1/records/${tagTarget}`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          view_schema_id: timelineViewSchemaId,
+          client_txn_id: uniqueTxn("concurrent-tag"),
+          base_row_version: current.row_version,
+          changes: [
+            {
+              field_key: "timeline.tags",
+              action_payload: {
+                kind: "collection_actions_v1",
+                actions: [{ op: "add_tag", tag_name: "server-tag" }],
+              },
+            },
+          ],
+        },
+      },
+    );
+    expect(patched.ok()).toBe(true);
+    held.release();
+    const tagged = await (await tagResponse).json();
+    expect(tagged.data.rows).toEqual([]);
+    expect(tagged.data.change_set_id).toBeUndefined();
+    expect(tagged.data.conflicts[0].conflict_resolution_class).toBe(
+      "collection_review",
+    );
+    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    const tagSection = page.getByRole("region", { name: "Tag assignment 2" });
+    await tagSection.getByRole("button", { name: "Review conflicts" }).click();
+    const apply = page.getByRole("button", {
+      name: "Apply reviewed collection",
+      exact: true,
+    });
+    await tabTo(page, apply);
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(async () =>
+        JSON.stringify(
+          (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+            (row) => row.record_id === tagTarget,
+          )?.cells["timeline.tags"]?.value,
+        ),
+      )
+      .toContain("client-tag");
+    const history = await fetchFullRecordHistory(page, tagTarget);
+    expect(history.row_version).toBe(3);
+    expect(new Set(history.items.map((item) => item.change_set_id)).size).toBe(
+      3,
+    );
+    expect(history.items.every((item) => item.actor_user_id.length > 0)).toBe(
+      true,
+    );
+    expect(
+      (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+        (row) => row.record_id === fillTarget,
+      )?.cells[source]?.value,
+    ).toBe("Concurrent fill target");
+  } finally {
+    await held.dispose();
   }
 });

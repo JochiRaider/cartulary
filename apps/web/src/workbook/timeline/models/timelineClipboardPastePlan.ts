@@ -3,9 +3,9 @@ import type {
   GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
-import type { WorkbookClipboardPasteInput } from "../../adapters/WorkbookClipboardPastePort";
 import { workbookPasteResolutionMatchesSurface } from "../../models/workbookClipboardPaste";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { decodeWorkbookClipboardInput } from "../../utils/workbookClipboard";
 import { timelineScalarBindingForField } from "./timelineFieldRegistry";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -95,22 +95,31 @@ export function timelinePasteTargetPlansMatch(
     return target.kind === "create"
       ? current.kind === "create" && target.createIndex === current.createIndex
       : current.kind === "record" &&
-          target.rowIdentity.recordId === current.rowIdentity.recordId;
+          target.rowIdentity.recordId === current.rowIdentity.recordId &&
+          target.mutationIdentity.baseRowVersion ===
+            current.mutationIdentity.baseRowVersion;
   });
 }
 
-export function timelinePasteRequestTargetsMatchResolution(
-  targets: readonly WorkbookClipboardPasteInput["targets"][number][],
-  resolution: GridPasteTargetResolution,
-): boolean {
-  if (targets.length !== resolution.rowTargets.length) return false;
-  return targets.every((target, index) => {
-    const current = resolution.rowTargets[index];
-    if (current === undefined || target.kind !== current.kind) return false;
-    return target.kind === "create"
-      ? current.kind === "create"
-      : current.kind === "record" &&
-          target.record_id === current.rowIdentity.recordId &&
-          target.base_row_version === current.mutationIdentity.baseRowVersion;
-  });
+/** Schema-derived exact-header mapping; the shared decoder still owns parsing. */
+export function decodeTimelineClipboardInput(
+  rawText: string,
+): GridClipboardInput {
+  const input = decodeWorkbookClipboardInput(rawText);
+  if (input.kind !== "table") return input;
+  const fields = timelineContract.fields.filter(
+    (field) => !field.defaultHidden && field.gridEditable,
+  );
+  const header = input.values[0];
+  if (
+    !header ||
+    header.length !== fields.length ||
+    header.some((label, index) => label !== fields[index]?.label)
+  )
+    return input;
+  return {
+    ...input,
+    fieldKeys: fields.map((field) => field.fieldKey),
+    values: input.values.slice(1),
+  };
 }

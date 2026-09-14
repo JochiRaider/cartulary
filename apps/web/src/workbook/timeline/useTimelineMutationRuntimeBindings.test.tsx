@@ -5,7 +5,7 @@ import type { TimelineEditorDraftRegistry } from "./editing/useTimelineEditorDra
 import { useTimelineMutationRuntimeBindings } from "./hooks/useTimelineMutationRuntimeBindings";
 import type { TimelineRowMutationEditorPort } from "./models/timelineControllerPorts";
 
-it("useTimelineMutationRuntimeBindings registers concrete commands and cleans up on change and unmount", async () => {
+it("useTimelineMutationRuntimeBindings retains registration through callback changes and cleans up on unmount", async () => {
   const unregister = vi.fn();
   const registerSurface = vi.fn<WorkbookMutationRuntime["registerSurface"]>(
     () => unregister,
@@ -64,17 +64,19 @@ it("useTimelineMutationRuntimeBindings registers concrete commands and cleans up
   expect(discardBlockedEdit).toHaveBeenCalledWith("unit-1");
 
   rerender({ loadRows: secondLoadRows });
-  expect(unregister).toHaveBeenCalledTimes(1);
-  expect(registerSurface).toHaveBeenCalledTimes(2);
-  expect(unregisterMerge).toHaveBeenCalledTimes(1);
-  expect(registerTimelineRefresh).toHaveBeenCalledTimes(2);
-  await registerTimelineRefresh.mock.calls[1]?.[0]();
+  expect(unregister).not.toHaveBeenCalled();
+  expect(registerSurface).toHaveBeenCalledTimes(1);
+  expect(unregisterMerge).not.toHaveBeenCalled();
+  expect(registerTimelineRefresh).toHaveBeenCalledTimes(1);
+  await firstRegistration?.[1]();
+  await registerTimelineRefresh.mock.calls[0]?.[0]();
+  expect(secondLoadRows).toHaveBeenCalledTimes(2);
   expect(secondLoadRows).toHaveBeenLastCalledWith({
     showLoading: false,
     requireAcceptance: true,
   });
 
   unmount();
-  expect(unregister).toHaveBeenCalledTimes(2);
-  expect(unregisterMerge).toHaveBeenCalledTimes(2);
+  expect(unregister).toHaveBeenCalledTimes(1);
+  expect(unregisterMerge).toHaveBeenCalledTimes(1);
 });

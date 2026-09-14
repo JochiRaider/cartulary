@@ -44,7 +44,12 @@ Root tests characterize composition boundaries and cross-directory interactions.
 | [useTimelineInspectorLifecycle.test.tsx](useTimelineInspectorLifecycle.test.tsx) | Characterizes the shared explicit/layout inspector close command. |
 | [useTimelineKeyboardController.test.tsx](useTimelineKeyboardController.test.tsx) | Characterizes scalar/collection commit, navigation, range, draft, inspector, work-area, and event-consumption keyboard ownership. |
 | [useTimelineMentionActions.test.tsx](useTimelineMentionActions.test.tsx) | Characterizes auto-resolution undo identity, committed-version refresh/continuity sequencing, and rejection behavior. |
-| [useTimelineMutationRuntimeBindings.test.tsx](useTimelineMutationRuntimeBindings.test.tsx) | Characterizes concrete mutation-runtime command registration, replacement, and cleanup. |
+| [useTimelineMutationRuntimeBindings.test.tsx](useTimelineMutationRuntimeBindings.test.tsx) | Tests stable mounted registration, current callback dispatch and unmount cleanup. |
 | [useTimelineObservationSource.test.tsx](useTimelineObservationSource.test.tsx) | Tests exact committed Observation source text and rejection after saved or local source changes. |
 | [useTimelineRows.test.tsx](useTimelineRows.test.tsx) | Characterizes initial draft-row identity, stable row refs, and monotonic draft allocation. |
 | [useTimelineSurfaceFoundation.test.tsx](useTimelineSurfaceFoundation.test.tsx) | Characterizes stable adapter, row/query, pending-save, and semantic foundation identities. |
+
+Conflict cell state and local recovery buttons project the retained Workbook
+conflict store, including batch groups. Timeline's local conflict draft queue
+remains with scalar mutation coordination; it does not own batch presentation
+or determine which retained batch conflicts remain actionable.

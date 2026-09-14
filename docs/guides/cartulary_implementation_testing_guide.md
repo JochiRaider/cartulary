@@ -439,3 +439,19 @@ A handoff must record:
 Do not declare closure after modifying tracked bytes used by the validation.
 Final release and audit evidence must be collected from the exact committed tree
 named by the handoff.
+
+## Workbook paste and bulk recovery verification
+
+Workbook owns existing route dispatch; Timeline and Entity source implementations
+own target validation, mutation semantics and receipt persistence. Shared
+`internal/modules/tabularingest` remains the parser/mapping owner. Entity-origin
+batch upserts under `internal/modules/entities/hostidentity` retain ordered source
+mutation entries while advancing each affected record once and appending its
+final revision/publication. Ordinary upsert paths retain their existing behavior.
+Historical request hashes and accepted receipts must remain replayable.
+
+Use the Workbook shared-ingest service row and Entity create/exact-match owner
+rows to check database-visible reuse, revisions, attribution and atomic rejection.
+The frontend batch owner and production spreadsheet rows exercise response loss,
+complete receipt validation, conflict retention and reads-only recovery. Routing
+is in authored test families; these guide paragraphs are not executable inputs.

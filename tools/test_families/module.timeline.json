@@ -325,6 +325,146 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-grid-entry.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_spreadsheet_batch_bulk_conflicts"
+        ],
+        "titles": [
+          "Timeline fill and tagging retain conflicts-only receipts and independent local recovery"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser.spreadsheet_batch_conflicts",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-grid-entry.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_spreadsheet_batch_conflicts"
+        ],
+        "titles": [
+          "Timeline paste keeps ordered grouped conflicts and per-cell attributed correction"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser.spreadsheet_batch_headers",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-grid-entry.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_spreadsheet_batch_headers"
+        ],
+        "titles": [
+          "Timeline exact headers and duplicate clipboard delivery preserve one semantic action"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser.spreadsheet_batch_replay",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-grid-entry.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_spreadsheet_batch_replay"
+        ],
+        "titles": [
+          "Timeline paste retains committed creates through lost response navigation and failed refresh"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.spreadsheet_bulk",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -1277,10 +1417,10 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/adapters/createTimelineActionAdapters.test.ts",
         "titles": [
+          "admits the exact Timeline bulk-tag plan to retained ownership",
           "derives history routes and rejects target-inconsistent history responses",
           "normalizes Timeline review outcomes and fails closed on supersede replacement drift",
-          "owns entity mention creation and resolution transport behind semantic outcomes",
-          "owns the exact Timeline bulk-tag transport and validates response rows"
+          "owns entity mention creation and resolution transport behind semantic outcomes"
         ]
       },
       "evidence_class": "unit",
@@ -1306,10 +1446,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/bulk/useTimelineBulkTagController.test.tsx",
         "titles": [
-          "useTimelineBulkTagController keeps selection record-keyed, page-scoped, and pruned by accepted rows",
-          "useTimelineBulkTagController rejects stale selection and ignores late completion after authorization loss",
-          "useTimelineBulkTagController retains recoverable state for rejection and reports only bounded conflict counts",
-          "useTimelineBulkTagController submits one versioned command, refreshes, and retains valid selection and draft"
+          "useTimelineBulkTagController captures one versioned action per gesture and retains selection and draft",
+          "useTimelineBulkTagController keeps selection record-keyed, page-scoped, and pruned by accepted rows"
         ]
       },
       "evidence_class": "unit",
@@ -1335,7 +1473,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineBulkTagPlan.test.ts",
         "titles": [
-          "Timeline bulk-tag plan builds one ordered versioned command and binds settlement to its subject",
+          "Timeline bulk-tag plan builds one ordered versioned command from the selected records",
           "Timeline bulk-tag plan rejects access loss, missing capability, partial selection, and stale targets"
         ]
       },
@@ -1365,7 +1503,7 @@
         "titles": [
           "timelineClipboardPastePlan admits exact editable mixed batches",
           "timelineClipboardPastePlan fails closed for authority, grouping, field, shape, and surface drift",
-          "timelineClipboardPastePlan matches dispatch targets to the final record identities and versions",
+          "timelineClipboardPastePlan maps only exact schema headers and counts data rows while preserving scalar comma text",
           "timelineClipboardPastePlan matches only stable fields, surfaces, row identities, and create positions"
         ]
       },

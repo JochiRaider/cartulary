@@ -245,7 +245,8 @@ describe("Workbook runtime responsibilities", () => {
     unregisterFirst();
     await surfaces.refresh("surface-1");
     expect(replacementRefresh).toHaveBeenCalledOnce();
-    expect(onDebtChanged).not.toHaveBeenCalled();
+    expect(surfaces.requiresRefresh("surface-1")).toBe(false);
+    expect(onDebtChanged).toHaveBeenLastCalledWith("surface-1");
   });
 
   it("preserves compatible conflict drafts and tracks transaction settlement", () => {

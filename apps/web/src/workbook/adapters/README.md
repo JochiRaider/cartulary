@@ -9,8 +9,9 @@ into queries, startup, preferences, saved views, and mutation owners. Transport
 status, routes, envelopes, and failures are converted here.
 
 [WorkbookClipboardPastePort.ts](WorkbookClipboardPastePort.ts) is the private
-paste capability that intentionally carries generated request vocabulary and
-typed rows/conflicts for surface-specific validation. General semantic
+paste admission capability that carries exact request vocabulary and a logical
+delivery identity into the retained batch owner. The shared batch transport
+captures bytes and validates complete source-specific receipts. General semantic
 capabilities live in [ports](../ports/README.md).
 
 ## Feature mutation transport
@@ -53,8 +54,8 @@ capabilities live in [ports](../ports/README.md).
 
 | File | Responsibility |
 | --- | --- |
-| [createWorkbookClipboardPasteAdapter.test.ts](createWorkbookClipboardPasteAdapter.test.ts) | Tests exact request projection, raw typed results, invalid input, response correlation, secure-ID failure, and transport containment. |
-| [createWorkbookClipboardPasteAdapter.ts](createWorkbookClipboardPasteAdapter.ts) | Executes the sole generated clipboard-paste operation with secure transaction identity and exact response-surface validation. |
+| [createWorkbookClipboardPasteAdapter.test.ts](createWorkbookClipboardPasteAdapter.test.ts) | Tests retained transport capture, exact replay, complete/malformed receipts, conflicts-only batches, no-op targets and repeated Entity reuse. |
+| [createWorkbookClipboardPasteAdapter.ts](createWorkbookClipboardPasteAdapter.ts) | Admits captured Timeline and Entity paste plans into the retained batch owner; does not allocate IDs or own completion. |
 | [createWorkbookDecisionSupersessionAdapter.test.ts](createWorkbookDecisionSupersessionAdapter.test.ts) | Tests complete supersession receipts, exact replay with current credentials, and candidate boundaries. |
 | [createWorkbookDecisionSupersessionAdapter.ts](createWorkbookDecisionSupersessionAdapter.ts) | Executes captured Decision supersession requests through validated generated operations. |
 | [createWorkbookEntityMergeAdapter.test.ts](createWorkbookEntityMergeAdapter.test.ts) | Tests exact Entity merge replay, current CSRF, full receipts, and uncertain malformed outcomes. |
@@ -72,7 +73,7 @@ capabilities live in [ports](../ports/README.md).
 | [createWorkbookStartupAndIncidentAdapters.test.ts](createWorkbookStartupAndIncidentAdapters.test.ts) | Tests startup, incident, membership, and preference operation boundaries. |
 | [createWorkbookViewQueryAdapter.test.ts](createWorkbookViewQueryAdapter.test.ts) | Tests projected query requests, aborts, malformed responses, and cross-context rejection. |
 | [createWorkbookViewQueryAdapter.ts](createWorkbookViewQueryAdapter.ts) | Executes one abortable Workbook query boundary with exact incident/schema correlation and contract-row normalization. |
-| [WorkbookClipboardPastePort.ts](WorkbookClipboardPastePort.ts) | Exact private generated-vocabulary transport capability shared by paste-capable Workbook surface owners. |
+| [WorkbookClipboardPastePort.ts](WorkbookClipboardPastePort.ts) | Exact private paste-plan admission with delivery identity and preceding-save readiness. |
 | [workbookOperationExecutor.ts](workbookOperationExecutor.ts) | Executes the closed Workbook operation-ID set and converts validated success/error envelopes to semantic outcomes. |
 
 ## Contracts and result validation
@@ -97,3 +98,13 @@ capabilities live in [ports](../ports/README.md).
 | File | Responsibility |
 | --- | --- |
 | [workbookStringContracts.ts](workbookStringContracts.ts) | Packaged Core timezone registry membership for authoring. |
+
+## Retained table and bulk transport
+
+| File | Responsibility |
+| --- | --- |
+| [createWorkbookBatchTransport.ts](createWorkbookBatchTransport.ts) | Captures route, authority, transaction identity and serialized bytes; sends existing paste/bulk operations and validates full source-specific receipts. |
+
+Historical Entity receipts may lack the empty conflicts member. Timeline no-op
+record targets may be absent from rows; create coverage remains exact. Invalid
+success data is uncertain. Accepted recovery delegates reads to the runtime.

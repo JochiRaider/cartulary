@@ -1,4 +1,5 @@
 import type {
+  ApplyWorkbookBulkMutationRequest,
   AttachBlobToEvidenceRecordRequest,
   CollectionActionsV1,
   CreateObjectBlobSlotRequest,
@@ -8,6 +9,7 @@ import type {
   CreateViewRowResponse,
   MergeEntityRecordRequest,
   MergeEntityRecordResponse,
+  PasteWorkbookClipboardRequest,
   PatchRecordRequest,
   QueryWorkbookViewRequest,
   ResolveEntityMentionResponse,
@@ -43,3 +45,6 @@ export type WorkbookProtocolMentionReceipt =
 export type WorkbookProtocolCreateViewRowReceipt = CreateViewRowResponse;
 export type WorkbookProtocolConflictResolutionReceipt =
   ResolveRecordSameFieldConflictResponse;
+
+export type WorkbookProtocolBulkRequest = ApplyWorkbookBulkMutationRequest;
+export type WorkbookProtocolPasteRequest = PasteWorkbookClipboardRequest;

@@ -3,6 +3,42 @@
   "owner_id": "module.workbook",
   "rows": [
     {
+      "row_id": "module.workbook.accessibility.batch_recovery",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_workbook_batch_recovery_accessibility"
+        ],
+        "titles": [
+          "a11y.workbook-batch retained paste retry remains reachable across narrow layouts"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.accessibility.canonical_indicator_authoring_recovery",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -987,6 +1023,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.host_paste_recovery",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_host_paste_recovery"
+        ],
+        "titles": [
+          "Host paste retains exact repeated reuse through response loss and surface navigation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -1007,6 +1078,41 @@
         ],
         "titles": [
           "Identity entity-origin clipboard paste reuses exact matches and creates stubs"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.identity_paste_recovery",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_identity_paste_recovery"
+        ],
+        "titles": [
+          "Identity paste retains exact repeated reuse through response loss and surface navigation"
         ]
       },
       "evidence_class": "browser",
@@ -3296,6 +3402,7 @@
           "halts non-retryable public failures with Table G anchors and queued units behind the blocker",
           "keeps pending queues isolated by incident and client instance scope",
           "preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
+          "preserves autosave FIFO and prevents coalescing across explicit batch boundaries",
           "preserves same-runtime retryable failures and does not survive a new page instance",
           "rejects invalid recovery transitions without changing queue state",
           "rekeys only a client transaction blocker and preserves FIFO intent"
@@ -3752,7 +3859,8 @@
           "TestBulkMutationsPersistOneVisibleBatch_Integration",
           "TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration",
           "TestEntityOriginClipboardPasteUsesSharedIngest_Integration",
-          "TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration"
+          "TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration",
+          "TestWorkbookBatchAdmissionHasNoPartialEffects_Integration"
         ]
       },
       "evidence_class": "integration",

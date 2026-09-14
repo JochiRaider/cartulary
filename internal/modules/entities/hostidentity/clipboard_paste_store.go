@@ -69,6 +69,9 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		if err != nil {
 			return ClipboardPasteResult{}, fmt.Errorf("decode replayed entity clipboard paste payload: %w", err)
 		}
+		if _, present := payload["conflicts"]; !present {
+			payload["conflicts"] = []any{}
+		}
 		return ClipboardPasteResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, IncidentID: incidentID, ClientTxnID: plan.ClientTxnID}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return ClipboardPasteResult{}, fmt.Errorf("query entity clipboard paste idempotency: %w", err)
@@ -97,6 +100,19 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 
 	resultRows := make([]ClipboardPasteRowResult, 0, len(plan.Rows))
 	payloadRows := make([]map[string]any, 0, len(plan.Rows))
+	// Mutation entries retain source order. A record revision and collaboration
+	// publication describe the complete committed effect on each reused entity.
+	type revisionEffect struct {
+		recordID            uuid.UUID
+		rowVersion          int64
+		beforeRow, afterRow map[string]any
+		beforeSnapshot      *revisions.RecordSnapshot
+		afterSnapshot       revisions.RecordSnapshot
+		mutationOrdinal     int
+	}
+	effects := make(map[uuid.UUID]*revisionEffect)
+	var effectOrder []uuid.UUID
+	versions := make(map[uuid.UUID]int64)
 	sequenceNo := 1
 	for _, rowPlan := range plan.Rows {
 		request, err := entityCreateRequestFromRowPlan(plan.ClientTxnID, rowPlan)
@@ -114,7 +130,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		)
 		switch viewSchemaID {
 		case entitycontract.HostsViewSchemaID:
-			record, before, operation, _, snapshot, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now.UTC())
+			record, before, operation, _, snapshot, err := s.upsertHostBatchTx(ctx, tx, actor, incidentID, request, now.UTC(), versions)
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
@@ -129,7 +145,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			operationKind = operation
 			aliasMutations = record.AliasMutations
 		case entitycontract.IdentitiesViewSchemaID:
-			record, before, operation, _, snapshot, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now.UTC())
+			record, before, operation, _, snapshot, err := s.upsertIdentityBatchTx(ctx, tx, actor, incidentID, request, now.UTC(), versions)
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
@@ -150,10 +166,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		}
 		var beforeVersionID *string
 		if beforeRow != nil {
-			beforeVersion := rowVersion
-			if !reflect.DeepEqual(beforeRow, afterRow) && rowVersion > 1 {
-				beforeVersion = rowVersion - 1
-			}
+			beforeVersion := beforeRow["row_version"].(int64)
 			value := entityVersionID(targetKind, recordID, beforeVersion)
 			beforeVersionID = &value
 		}
@@ -177,21 +190,13 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		}
 		sequenceNo += len(aliasMutations)
 		if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-			changedFields := entityChangedFieldKeys(beforeRow, afterRow)
-			mutationOrdinal := sequenceNo - len(aliasMutations) - 2
-			if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
-				ChangeSetID:    changeSetID,
-				RecordID:       recordID,
-				RowVersion:     rowVersion,
-				BeforeSnapshot: beforeSnapshot,
-				AfterSnapshot:  &afterSnapshot,
-				ConflictFacts:  entityRevisionFacts(beforeRow, afterRow, changedFields),
-			}); err != nil {
-				return ClipboardPasteResult{}, err
+			effect := effects[recordID]
+			if effect == nil {
+				effect = &revisionEffect{recordID: recordID, beforeRow: beforeRow, beforeSnapshot: beforeSnapshot, mutationOrdinal: sequenceNo - len(aliasMutations) - 2}
+				effects[recordID] = effect
+				effectOrder = append(effectOrder, recordID)
 			}
-			if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, plan.ClientTxnID, changeSetID, recordID, rowVersion, mutationOrdinal, now, viewSchemaID, afterRow, changedFields); err != nil {
-				return ClipboardPasteResult{}, err
-			}
+			effect.rowVersion, effect.afterRow, effect.afterSnapshot = rowVersion, afterRow, afterSnapshot
 		}
 		changed := entityChangedFieldKeys(beforeRow, afterRow)
 		resultRows = append(resultRows, ClipboardPasteRowResult{
@@ -203,10 +208,37 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		payloadRows = append(payloadRows, afterRow)
 	}
 
+	for _, recordID := range effectOrder {
+		effect := effects[recordID]
+		changedFields := entityChangedFieldKeys(effect.beforeRow, effect.afterRow)
+		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+			ChangeSetID: changeSetID, RecordID: recordID, RowVersion: effect.rowVersion,
+			BeforeSnapshot: effect.beforeSnapshot, AfterSnapshot: &effect.afterSnapshot,
+			ConflictFacts: entityRevisionFacts(effect.beforeRow, effect.afterRow, changedFields),
+		}); err != nil {
+			return ClipboardPasteResult{}, err
+		}
+		if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, plan.ClientTxnID, changeSetID, recordID, effect.rowVersion, effect.mutationOrdinal, now, viewSchemaID, effect.afterRow, changedFields); err != nil {
+			return ClipboardPasteResult{}, err
+		}
+	}
+
+	// Each source position returns the final committed row, including when
+	// several positions resolve to the same entity at the same row version.
+	for index := range resultRows {
+		if effect := effects[resultRows[index].RecordID]; effect != nil {
+			resultRows[index].Row = effect.afterRow
+			resultRows[index].RowVersion = effect.rowVersion
+			resultRows[index].ChangedFieldKeys = entityChangedFieldKeys(effect.beforeRow, effect.afterRow)
+			payloadRows[index] = effect.afterRow
+		}
+	}
+
 	payload := map[string]any{
 		"view_schema_id": viewSchemaID,
 		"change_set_id":  changeSetID.String(),
 		"rows":           payloadRows,
+		"conflicts":      []any{},
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {

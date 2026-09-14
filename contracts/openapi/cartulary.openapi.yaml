@@ -19300,7 +19300,7 @@
           },
           "conflicts": {
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/WorkbookBatchSameFieldConflict"
             },
             "type": "array"
           },
@@ -19316,7 +19316,8 @@
         },
         "required": [
           "view_schema_id",
-          "rows"
+          "rows",
+          "conflicts"
         ],
         "type": "object"
       },
@@ -19333,6 +19334,62 @@
         "required": [
           "data",
           "meta"
+        ],
+        "type": "object"
+      },
+      "WorkbookBatchSameFieldConflict": {
+        "properties": {
+          "base_row_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "base_value": {},
+          "client_value": {},
+          "conflict_resolution_class": {
+            "enum": [
+              "atomic_replace",
+              "collection_review",
+              "text_compare_merge"
+            ],
+            "type": "string"
+          },
+          "conflict_token": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "current_row_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "field_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "server_updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "server_updated_by": {
+            "type": "string"
+          },
+          "server_value": {},
+          "suggested_merged_value": {}
+        },
+        "required": [
+          "conflict_token",
+          "record_id",
+          "field_key",
+          "conflict_resolution_class",
+          "base_row_version",
+          "current_row_version",
+          "client_value",
+          "server_value",
+          "server_updated_by",
+          "server_updated_at"
         ],
         "type": "object"
       },

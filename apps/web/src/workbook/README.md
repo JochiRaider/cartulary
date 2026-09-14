@@ -70,3 +70,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | [WorkbookShell.support.test.tsx](WorkbookShell.support.test.tsx) | Tests Timeline collection helpers preserve manual/auto-resolution state and nullable confidence. |
 | [WorkbookShell.surfaces.test.tsx](WorkbookShell.surfaces.test.tsx) | Multi-surface workbook shell tests. |
 | [WorkbookShell.timelineQuery.test.tsx](WorkbookShell.timelineQuery.test.tsx) | Tests Timeline query integration preserves owner row identity. |
+
+Table paste and Timeline bulk actions use [retained batch ownership](runtime/README.md).
+Controllers prepare source-specific intent; Workbook retains immutable requests,
+complete outcomes, conflicts and read obligations through presentation changes.

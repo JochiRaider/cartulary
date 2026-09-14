@@ -5140,11 +5140,28 @@ export interface WorkbookBatchMutationEnvelope {
  */
 export interface WorkbookBatchMutationData {
   change_set_id?: string;
-  conflicts?: {
-    [k: string]: unknown;
-  }[];
+  conflicts: WorkbookBatchSameFieldConflict[];
   rows: ViewRow[];
   view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookBatchSameFieldConflict".
+ */
+export interface WorkbookBatchSameFieldConflict {
+  base_row_version: number;
+  base_value?: unknown;
+  client_value: unknown;
+  conflict_resolution_class: "atomic_replace" | "collection_review" | "text_compare_merge";
+  conflict_token: string;
+  current_row_version: number;
+  field_key: string;
+  record_id: string;
+  server_updated_at: string;
+  server_updated_by: string;
+  server_value: unknown;
+  suggested_merged_value?: unknown;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

@@ -1,4 +1,3 @@
-import { sheetRefKey } from "../../../shared/sheetRef";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
 import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
@@ -176,10 +175,6 @@ export function useTimelineWorkbookComposition({
       setSelectedMentionRef: foundation.commands.mentions.setSelectedMentionRef,
     },
     grid: {
-      beginViewportContinuity:
-        grid.commands.viewportContinuity.beginViewportContinuity,
-      clearViewportContinuity:
-        grid.commands.viewportContinuity.clearViewportContinuity,
       currentTimelineAnchorFor: grid.commands.anchors.currentTimelineAnchorFor,
       focusDraftRow: grid.commands.focusDraftRow,
       navigateTimelineDraftFocus:
@@ -208,26 +203,13 @@ export function useTimelineWorkbookComposition({
     loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
     mutation: {
       activateConflict: mutation.commands.save.activateConflict,
-      applyClipboardResponseRows:
-        mutation.commands.save.applyClipboardResponseRows,
-      beginSave: mutation.commands.save.beginSave,
       commitScalarGridEdit: mutation.commands.mutation.commitScalarGridEdit,
-      enqueueSaveWork: mutation.commands.save.enqueueSaveWork,
-      loadRows: mutation.commands.query.loadRows,
       mutationCommands: runtime.mutationCommands,
       queueCollectionSave: mutation.commands.mutation.queueCollectionSave,
       queueScalarSave: mutation.commands.mutation.queueScalarSave,
-      registerSameFieldConflict:
-        mutation.commands.save.registerSameFieldConflict,
-      resolvePendingSocketTxn: mutation.commands.save.resolvePendingSocketTxn,
-      setActiveConflictKey: mutation.commands.save.setActiveConflictKey,
-      setPasteConflictGroup: mutation.commands.save.setPasteConflictGroup,
-      trackPendingSocketTxn: mutation.commands.save.trackPendingSocketTxn,
-      waitForCommittedRecordIdle: mutation.ports.waitForCommittedRecordIdle,
     },
     queryState: foundation.snapshot.query.queryState,
     role: runtime.incident.currentRole,
-    surfaceKey: sheetRefKey(mutation.ports.activeSheetRef),
     workflow: {
       handleTimelineGridContextKeyDown:
         workflow.commands.rowInteractions.handleTimelineGridContextKeyDown,

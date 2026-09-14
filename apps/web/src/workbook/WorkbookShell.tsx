@@ -32,6 +32,7 @@ import type {
 } from "../shared/workbookShellContracts";
 import { WorkbookActiveSurfaceFrame } from "./components/WorkbookActiveSurfaceFrame";
 import { WorkbookActiveSurfacePresentation } from "./components/WorkbookActiveSurfacePresentation";
+import { WorkbookBatchRecovery } from "./components/WorkbookBatchRecovery";
 import { WorkbookIncidentControlsPresentation } from "./components/WorkbookIncidentControlsPresentation";
 import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncements";
 import { workbookShellId } from "./components/WorkbookShellSlots";
@@ -275,6 +276,7 @@ function WorkbookShellContent({
     );
     infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.noteCreate.setAuthority(mergeAuthority);
+    infrastructure.mutationRuntime.batches.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.ordinaryCreate.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.coordinationCreate.setAuthority(
       mergeAuthority,
@@ -312,6 +314,7 @@ function WorkbookShellContent({
       infrastructure.mutationRuntime.indicatorCreate.suspend();
       infrastructure.mutationRuntime.assessmentAuthoring.suspend();
       infrastructure.mutationRuntime.noteCreate.suspend();
+      infrastructure.mutationRuntime.batches.suspend();
       infrastructure.mutationRuntime.ordinaryCreate.suspend();
       infrastructure.mutationRuntime.coordinationCreate.suspend();
       infrastructure.mutationRuntime.contextualCreate.suspend();
@@ -926,6 +929,10 @@ function WorkbookShellContent({
                         <WorkbookShellTopBar
                           importRecovery={
                             <>
+                              <WorkbookBatchRecovery
+                                runtime={infrastructure.mutationRuntime}
+                                activateConflict={recoveryFocus.activate}
+                              />
                               <WorkbookHistoryRecovery />
                               <TimelineRelatedEvidenceRecovery
                                 owner={

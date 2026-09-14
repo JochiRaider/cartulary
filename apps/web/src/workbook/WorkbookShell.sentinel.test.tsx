@@ -1228,7 +1228,10 @@ describe("keyboard and grid anchor coverage", () => {
         successEnvelope({
           change_set_id: "30000000-0000-4000-8000-000000000001",
           conflicts: [],
-          rows: selectedRows,
+          rows: selectedRows.map((row) => ({
+            ...row,
+            row_version: row.row_version + 1,
+          })),
           view_schema_id: timelineViewSchemaId,
         }),
       )
@@ -1236,7 +1239,10 @@ describe("keyboard and grid anchor coverage", () => {
         successEnvelope({
           incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
-          rows: selectedRows,
+          rows: selectedRows.map((row) => ({
+            ...row,
+            row_version: row.row_version + 1,
+          })),
         }),
       );
 
@@ -1289,7 +1295,7 @@ describe("keyboard and grid anchor coverage", () => {
         },
       ],
     });
-    await screen.findByText("Assigned tag to 2 selected records.");
+    await screen.findByText("Batch complete.");
     expect(screen.getByText("2 selected")).toBeTruthy();
   });
 

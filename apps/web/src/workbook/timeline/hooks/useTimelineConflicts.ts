@@ -1,8 +1,5 @@
 import { useCallback, useState } from "react";
-import type {
-  LocalConflictState,
-  PasteConflictGroupState,
-} from "../models/timelineConflictState";
+import type { LocalConflictState } from "../models/timelineConflictState";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -21,8 +18,6 @@ export function useTimelineConflicts({
   const [activeConflictKey, setActiveConflictKey] = useState<string | null>(
     null,
   );
-  const [pasteConflictGroup, setPasteConflictGroup] =
-    useState<PasteConflictGroupState | null>(null);
   const setConflictQueueState = useCallback(
     (
       updater: (
@@ -42,7 +37,6 @@ export function useTimelineConflicts({
     commands: {
       setActiveConflictKey,
       setConflictQueueState,
-      setPasteConflictGroup,
     },
     refs: {
       conflictQueueRef,
@@ -50,7 +44,6 @@ export function useTimelineConflicts({
     snapshot: {
       activeConflictKey,
       conflictQueue,
-      pasteConflictGroup,
     },
   };
 }

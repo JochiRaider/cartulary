@@ -40,3 +40,27 @@ surface-specific commands enter through registered semantic capabilities.
 | [WorkbookExplicitPatchOwner.test.ts](WorkbookExplicitPatchOwner.test.ts) | Tests explicit Task patch reservation, guarded-field review, and exact uncertain replay. |
 | [WorkbookMutationRuntime.test.ts](WorkbookMutationRuntime.test.ts) | Tests for shell-lifetime queue retention, autosave, refresh debt, conflicts, and mutation coordination. |
 | [WorkbookRuntimeResponsibilities.test.ts](WorkbookRuntimeResponsibilities.test.ts) | Deterministic tests for responsibility boundaries, injected time/scheduling, registration cleanup, conflict drafts, transaction settlement, and disposal. |
+
+## Retained workbook batches
+
+| File | Responsibility |
+| --- | --- |
+| [workbookBatchOperation.ts](workbookBatchOperation.ts) | Gesture admission, prepared plan, immutable attempt, complete receipt and presentation-independent lifecycle contracts. |
+| [WorkbookBatchOperationOwner.ts](WorkbookBatchOperationOwner.ts) | Incident/account retention, delivery deduplication, record/type reservations, prerequisite autosaves, explicit exact retry and reads-only acknowledged recovery. |
+| [WorkbookBatchOperationOwner.test.ts](WorkbookBatchOperationOwner.test.ts) | Exact capture/replay, overlap, conflicts-only acceptance, read debt, role/closure/session changes and obsolete callbacks. |
+| [WorkbookSurfaceRegistry.test.ts](WorkbookSurfaceRegistry.test.ts) | Registration, authorization and debt generation fencing plus failed-read/remount recovery. |
+
+The owner serves Timeline paste, Hosts/Identities paste, fill and collection tagging.
+Source planners retain semantic fields, rows, values and create/reuse rules.
+Later overlapping actions wait through uncertainty and unresolved conflicts.
+Batch boundaries prevent pending autosave coalescing across admission; preceding
+local writes may advance only undispatched versions. The prerequisite identity
+set is fixed at admission, even while an explicit preceding save is unfinished;
+later edits cannot become prerequisites or overtake an overlapping batch. The conflict store keeps
+batch grouping separate from compound-operation restrictions. Unresolved payloads
+are never evicted. Settled receipts may be released after their read/conflict
+obligations; the latest completed receipt per surface remains available.
+
+Surface registrations follow mounted lifetime and dereference current callbacks.
+Refresh completion must match registration, authority and debt generations.
+Late effects do not restore old selection or overwrite newer editor drafts.

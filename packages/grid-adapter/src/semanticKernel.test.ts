@@ -355,6 +355,28 @@ describe("shared semantic grid kernel", () => {
       range,
       targetResolution: { columns: ["label"] },
     });
+    expect(
+      planSemanticPaste({
+        input: {
+          kind: "table",
+          format: "tsv",
+          rawText: "A\nB",
+          values: [["A"], ["B"]],
+          fieldKeys: ["label"],
+        },
+        model: { ...model, fieldKeys: ["state", "label"] },
+        target: {
+          ...start,
+          mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        },
+      })?.targetResolution,
+    ).toMatchObject({
+      columns: ["label"],
+      rowTargets: [
+        { rowIdentity: { recordId: "record-1" } },
+        { rowIdentity: { recordId: "record-2" } },
+      ],
+    });
     const fill = planSemanticFillFromRange({
       columns,
       dataRows: rows,

@@ -202,111 +202,36 @@ describe("useTimelineFillController", () => {
     }
   });
 
-  it("dispatches only the semantic bulk port and preserves save, refresh, focus, and conflict sequencing", async () => {
-    const sequence: string[] = [];
-    let queuedWork: (() => Promise<void>) | null = null;
-    const fillDown = vi
-      .fn<TimelineFillMutationPort["fillDown"]>()
-      .mockImplementationOnce(async (input) => {
-        input.onClientTxnId("txn-accepted");
-        sequence.push("dispatch-accepted");
-        return {
-          clientTxnId: "txn-accepted",
-          outcome: {
-            kind: "accepted",
-            value: {
-              affectedRowCount: 2,
-              changeSetId: "change-set-accepted",
-              conflictCount: 0,
-            },
-          },
-        };
-      })
-      .mockImplementationOnce(async (input) => {
-        input.onClientTxnId("txn-rejected");
-        sequence.push("dispatch-rejected");
-        return {
-          clientTxnId: "txn-rejected",
-          outcome: {
-            kind: "rejected",
-            failure: { kind: "terminal", message: "Version conflict" },
-          },
-        };
-      });
+  it("captures semantic fill and preceding saves without local completion effects", () => {
+    const fillDown = vi.fn<TimelineFillMutationPort["fillDown"]>(() => "batch");
+    const ready = Promise.resolve();
     const rowsRef = { current: planInput().rows };
     const setError = vi.fn();
-    const clearViewportContinuity = vi.fn(() =>
-      sequence.push("clear-continuity"),
-    );
-    const loadRows = vi.fn(async () => {
-      sequence.push("refresh");
-    });
-    const restoreFocusAnchor = vi.fn(() => sequence.push("restore-focus"));
     const { result } = renderHook(() =>
       useTimelineFillController({
-        beginViewportContinuity: () => {
-          sequence.push("begin-continuity");
-          return 17;
-        },
-        clearViewportContinuity,
         contract: timelineContract,
-        enqueueSaveWork: (work) => {
-          sequence.push("enqueue");
-          queuedWork = work;
-        },
+        precedingSaves: () => ready,
         getVisibleFieldKeys: () => new Set([summaryFieldKey]),
         groupBy: null,
         interactionMode: { kind: "editable" },
-        loadRows,
         port: { fillDown },
-        resolvePendingSocketTxn: (clientTxnId) =>
-          sequence.push(`resolve-${clientTxnId}`),
-        restoreFocusAnchor,
         rowsRef,
         setError,
-        trackPendingSocketTxn: (clientTxnId) =>
-          sequence.push(`track-${clientTxnId}`),
       }),
     );
-
-    act(() => result.current.commands.onFillCells(fillIntent()));
-    expect(sequence).toEqual(["begin-continuity", "enqueue"]);
-    await act(async () => queuedWork?.());
-    expect(fillDown).toHaveBeenNthCalledWith(1, {
-      fieldKey: summaryFieldKey,
-      onClientTxnId: expect.any(Function),
-      targets: [
-        { recordId: firstTargetId, baseRowVersion: 4 },
-        { recordId: secondTargetId, baseRowVersion: 5 },
-      ],
-      value: "  leading source value",
-    });
-    expect(sequence).toEqual([
-      "begin-continuity",
-      "enqueue",
-      "track-txn-accepted",
-      "dispatch-accepted",
-      "resolve-txn-accepted",
-      "refresh",
-      "restore-focus",
-    ]);
-
-    sequence.length = 0;
-    act(() => result.current.commands.onFillCells(fillIntent()));
-    await act(async () => queuedWork?.());
-    expect(sequence).toEqual([
-      "begin-continuity",
-      "enqueue",
-      "track-txn-rejected",
-      "dispatch-rejected",
-      "resolve-txn-rejected",
-      "clear-continuity",
-    ]);
-    expect(setError).toHaveBeenCalledWith("Version conflict");
-    expect(loadRows).toHaveBeenCalledOnce();
-    expect(restoreFocusAnchor).toHaveBeenCalledOnce();
-
-    sequence.length = 0;
+    const intent = fillIntent();
+    act(() => result.current.commands.onFillCells(intent));
+    expect(fillDown).toHaveBeenCalledWith(
+      {
+        fieldKey: summaryFieldKey,
+        targets: [
+          { recordId: firstTargetId, baseRowVersion: 4 },
+          { recordId: secondTargetId, baseRowVersion: 5 },
+        ],
+        value: "  leading source value",
+      },
+      { delivery: intent, ready },
+    );
     act(() =>
       result.current.commands.onFillCells(
         fillIntent([
@@ -316,7 +241,6 @@ describe("useTimelineFillController", () => {
       ),
     );
     expect(setError).toHaveBeenLastCalledWith(timelineFillRejectedMessage);
-    expect(sequence).toEqual([]);
-    expect(fillDown).toHaveBeenCalledTimes(2);
+    expect(fillDown).toHaveBeenCalledOnce();
   });
 });

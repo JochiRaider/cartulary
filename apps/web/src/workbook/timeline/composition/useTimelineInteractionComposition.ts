@@ -8,12 +8,12 @@ import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinui
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { workbookClipboardPasteContract } from "../../utils/workbookClipboard";
 import { useTimelineBulkTagController } from "../bulk/useTimelineBulkTagController";
 import { useTimelineFillController } from "../bulk/useTimelineFillController";
 import { useTimelineClipboardPasteController } from "../hooks/useTimelineClipboardPasteController";
 import { useTimelineKeyboardController } from "../hooks/useTimelineKeyboardController";
 import type { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
+import { decodeTimelineClipboardInput } from "../models/timelineClipboardPastePlan";
 import { timelineScalarBindingForField } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
@@ -22,7 +22,6 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 
 type BulkInput = Parameters<typeof useTimelineBulkTagController>[0];
 type ClipboardInput = Parameters<typeof useTimelineClipboardPasteController>[0];
-type FillInput = Parameters<typeof useTimelineFillController>[0];
 type KeyboardInput = Parameters<typeof useTimelineKeyboardController>[0];
 type MutationCommandOutput = ReturnType<
   typeof useTimelineMutationCommands
@@ -43,8 +42,6 @@ type TimelineInteractionCompositionInput = {
     readonly setSelectedMentionRef: KeyboardInput["setSelectedMentionRef"];
   };
   readonly grid: {
-    readonly beginViewportContinuity: ClipboardInput["beginViewportContinuity"];
-    readonly clearViewportContinuity: ClipboardInput["clearViewportContinuity"];
     readonly currentTimelineAnchorFor: KeyboardInput["currentTimelineAnchorFor"];
     readonly focusDraftRow: () => void;
     readonly navigateTimelineDraftFocus?: KeyboardInput["navigateTimelineDraftFocus"];
@@ -75,24 +72,13 @@ type TimelineInteractionCompositionInput = {
   readonly loadAccessLost: boolean;
   readonly mutation: {
     readonly activateConflict: (key: string | null) => void;
-    readonly applyClipboardResponseRows: ClipboardInput["applyResponseRows"];
-    readonly beginSave: ClipboardInput["beginSave"];
     readonly commitScalarGridEdit: MutationCommandOutput["commitScalarGridEdit"];
-    readonly enqueueSaveWork: FillInput["enqueueSaveWork"];
-    readonly loadRows: ClipboardInput["loadRows"];
     readonly mutationCommands: TimelineWorkbookSurfaceRuntime["mutationCommands"];
     readonly queueCollectionSave: KeyboardInput["queueCollectionSave"];
     readonly queueScalarSave: KeyboardInput["queueScalarSave"];
-    readonly registerSameFieldConflict: ClipboardInput["registerSameFieldConflict"];
-    readonly resolvePendingSocketTxn: ClipboardInput["resolvePendingSocketTxn"];
-    readonly setActiveConflictKey: ClipboardInput["setActiveConflictKey"];
-    readonly setPasteConflictGroup: ClipboardInput["setPasteConflictGroup"];
-    readonly trackPendingSocketTxn: ClipboardInput["trackPendingSocketTxn"];
-    readonly waitForCommittedRecordIdle: ClipboardInput["waitForCommittedRecordIdle"];
   };
   readonly queryState: WorkbookQueryState;
   readonly role: TimelineWorkbookSurfaceRuntime["incident"]["currentRole"];
-  readonly surfaceKey: string;
   readonly workflow: {
     readonly handleTimelineGridContextKeyDown: KeyboardInput["handleTimelineGridContextKeyDown"];
     readonly openRowHistory: KeyboardInput["openRowHistory"];
@@ -117,25 +103,19 @@ export function useTimelineInteractionComposition({
   mutation,
   queryState,
   role,
-  surfaceKey,
   workflow,
 }: TimelineInteractionCompositionInput) {
   const canEdit =
     interactionMode.kind === "editable" &&
     (role === "editor" || role === "reviewer" || role === "admin");
   const canBulkTag = canEdit;
-  const refreshRowsForBulkTag = useCallback(
-    () => mutation.loadRows({ showLoading: false }),
-    [mutation.loadRows],
-  );
   const bulk = useTimelineBulkTagController({
     context: {
       authorized: canBulkTag && !loadAccessLost,
       capabilityAvailable: timelineBulkTagCapabilityAvailable,
-      surfaceKey,
     },
     port: foundation.bulkTagPort,
-    refreshRows: refreshRowsForBulkTag,
+    precedingSaves: () => foundation.pendingSavesRefs.saveQueueRef.current,
     rows: foundation.rows,
     rowsRef: foundation.rowsRef,
   });
@@ -181,27 +161,15 @@ export function useTimelineInteractionComposition({
     workbookFocusAnchorRef: grid.workbookFocusAnchorRef,
   });
   const clipboard = useTimelineClipboardPasteController({
-    applyResponseRows: mutation.applyClipboardResponseRows,
-    beginSave: mutation.beginSave,
-    beginViewportContinuity: grid.beginViewportContinuity,
     canCreateRows: canEdit,
-    clearViewportContinuity: grid.clearViewportContinuity,
     clipboardPaste: foundation.clipboardPastePort,
     editable: canEdit,
     grouped: queryState.groupBy !== null,
-    loadRows: mutation.loadRows,
     pendingSavesRefs: foundation.pendingSavesRefs,
     queueScalarSave: mutation.queueScalarSave,
-    registerSameFieldConflict: mutation.registerSameFieldConflict,
-    resolvePendingSocketTxn: mutation.resolvePendingSocketTxn,
     resolveTimelinePasteTargetResolution:
       grid.resolveTimelinePasteTargetResolution,
-    restoreTimelineFocusAnchor: grid.restoreTimelineFocusAnchor,
-    setActiveConflictKey: mutation.setActiveConflictKey,
     setError: foundation.setRefreshError,
-    setPasteConflictGroup: mutation.setPasteConflictGroup,
-    trackPendingSocketTxn: mutation.trackPendingSocketTxn,
-    waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   }).commands;
   const handleTimelineGridPaste = useCallback(
     (intent: Parameters<typeof clipboard.handleGridPaste>[0]) => {
@@ -226,27 +194,24 @@ export function useTimelineInteractionComposition({
     [clipboard.handleGridPaste, foundation.setRefreshError, mutation],
   );
   const clipboardPaste = useMemo(
-    () => workbookClipboardPasteContract(handleTimelineGridPaste),
+    () => ({
+      decode: decodeTimelineClipboardInput,
+      onPaste: handleTimelineGridPaste,
+    }),
     [handleTimelineGridPaste],
   );
   const fill = useTimelineFillController({
-    beginViewportContinuity: grid.beginViewportContinuity,
-    clearViewportContinuity: grid.clearViewportContinuity,
     contract: timelineContract,
-    enqueueSaveWork: mutation.enqueueSaveWork,
+    precedingSaves: () => foundation.pendingSavesRefs.saveQueueRef.current,
     getVisibleFieldKeys: () =>
       new Set(
         grid.timelineAnchorColumnsRef.current.map((column) => column.fieldKey),
       ),
     groupBy: queryState.groupBy,
     interactionMode,
-    loadRows: mutation.loadRows,
     port: mutation.mutationCommands.fill,
-    resolvePendingSocketTxn: mutation.resolvePendingSocketTxn,
-    restoreFocusAnchor: grid.restoreTimelineFocusAnchor,
     rowsRef: foundation.rowsRef,
     setError: foundation.setRefreshError,
-    trackPendingSocketTxn: mutation.trackPendingSocketTxn,
   }).commands;
   const handleCreateBlankDraftRow = useCallback(
     (row: WorkbookRow) => {

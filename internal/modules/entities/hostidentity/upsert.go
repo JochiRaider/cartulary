@@ -13,6 +13,10 @@ import (
 )
 
 func (s *mutationCore) upsertHostTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (HostRecord, map[string]any, string, int, *revisions.RecordSnapshot, error) {
+	return s.upsertHostBatchTx(ctx, tx, actor, incidentID, request, now, nil)
+}
+
+func (s *mutationCore) upsertHostBatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time, versions map[uuid.UUID]int64) (HostRecord, map[string]any, string, int, *revisions.RecordSnapshot, error) {
 	input, err := hostInputFromCreateRequest(request)
 	if err != nil {
 		return HostRecord{}, nil, "", 0, nil, err
@@ -29,11 +33,15 @@ func (s *mutationCore) upsertHostTx(ctx context.Context, tx pgx.Tx, actor authn.
 		}
 		beforeSnapshot = &snapshot
 	}
-	record, before, operation, status, err := s.applyHostUpsertTx(ctx, tx, actor, incidentID, input, current, matched, now)
+	record, before, operation, status, err := s.applyHostUpsertTx(ctx, tx, actor, incidentID, input, current, matched, now, versions)
 	return record, before, operation, status, beforeSnapshot, err
 }
 
 func (s *mutationCore) upsertIdentityTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (IdentityRecord, map[string]any, string, int, *revisions.RecordSnapshot, error) {
+	return s.upsertIdentityBatchTx(ctx, tx, actor, incidentID, request, now, nil)
+}
+
+func (s *mutationCore) upsertIdentityBatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time, versions map[uuid.UUID]int64) (IdentityRecord, map[string]any, string, int, *revisions.RecordSnapshot, error) {
 	input, err := identityInputFromCreateRequest(request)
 	if err != nil {
 		return IdentityRecord{}, nil, "", 0, nil, err
@@ -50,11 +58,11 @@ func (s *mutationCore) upsertIdentityTx(ctx context.Context, tx pgx.Tx, actor au
 		}
 		beforeSnapshot = &snapshot
 	}
-	record, before, operation, status, err := s.applyIdentityUpsertTx(ctx, tx, actor, incidentID, input, current, matched, now)
+	record, before, operation, status, err := s.applyIdentityUpsertTx(ctx, tx, actor, incidentID, input, current, matched, now, versions)
 	return record, before, operation, status, beforeSnapshot, err
 }
 
-func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input hostUpsertInput, current HostRecord, matched bool, now time.Time) (HostRecord, map[string]any, string, int, error) {
+func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input hostUpsertInput, current HostRecord, matched bool, now time.Time, versions map[uuid.UUID]int64) (HostRecord, map[string]any, string, int, error) {
 	if !matched {
 		record := HostRecord{
 			IncidentID:    incidentID,
@@ -104,6 +112,9 @@ func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor a
 		record.AliasMutations = aliasResult.Added
 		if err := hydrateHostRecordTx(ctx, tx, &record); err != nil {
 			return HostRecord{}, nil, "", 0, err
+		}
+		if versions != nil {
+			versions[record.RecordID] = record.RowVersion
 		}
 		return record, nil, "create", httpStatusCreated, nil
 	}
@@ -162,7 +173,7 @@ func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor a
 	}
 
 	if fieldChanged || identifierChanged || aliasChanged {
-		next.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		next.RowVersion, err = s.advanceEntityBatchVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC(), versions)
 		if err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
@@ -186,7 +197,7 @@ func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor a
 	return next, beforeRow, "patch", httpStatusOK, nil
 }
 
-func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input identityUpsertInput, current IdentityRecord, matched bool, now time.Time) (IdentityRecord, map[string]any, string, int, error) {
+func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input identityUpsertInput, current IdentityRecord, matched bool, now time.Time, versions map[uuid.UUID]int64) (IdentityRecord, map[string]any, string, int, error) {
 	if !matched {
 		record := IdentityRecord{
 			IncidentID:     incidentID,
@@ -234,6 +245,9 @@ func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, act
 		record.AliasMutations = aliasResult.Added
 		if err := hydrateIdentityRecordTx(ctx, tx, &record); err != nil {
 			return IdentityRecord{}, nil, "", 0, err
+		}
+		if versions != nil {
+			versions[record.RecordID] = record.RowVersion
 		}
 		return record, nil, "create", httpStatusCreated, nil
 	}
@@ -292,7 +306,7 @@ func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, act
 	}
 
 	if fieldChanged || identifierChanged || aliasChanged {
-		next.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		next.RowVersion, err = s.advanceEntityBatchVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC(), versions)
 		if err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
@@ -314,4 +328,17 @@ func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, act
 		return IdentityRecord{}, nil, "", 0, err
 	}
 	return next, beforeRow, "patch", httpStatusOK, nil
+}
+
+// One committed batch advances each reused entity once; ordered source-row
+// mutations still use the normal matching, preservation, and projection paths.
+func (s *mutationCore) advanceEntityBatchVersionTx(ctx context.Context, tx pgx.Tx, recordID, actorID uuid.UUID, now time.Time, versions map[uuid.UUID]int64) (int64, error) {
+	if version, ok := versions[recordID]; ok {
+		return version, nil
+	}
+	version, err := s.ports.records.AdvanceVersionTx(ctx, tx, recordID, actorID, now)
+	if err == nil && versions != nil {
+		versions[recordID] = version
+	}
+	return version, err
 }

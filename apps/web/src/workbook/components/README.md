@@ -68,3 +68,13 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [WorkbookSameFieldConflictResolver.tsx](WorkbookSameFieldConflictResolver.tsx) | Same-field conflict comparison and explicit resolution controls. |
 | [WorkbookSaveAnnouncements.tsx](WorkbookSaveAnnouncements.tsx) | Accessible announcements derived from workbook save and recovery state. |
 | [WorkbookStatusStrip.tsx](WorkbookStatusStrip.tsx) | Status strip presentation for save/load/selection state. |
+
+## Batch recovery
+
+| File | Responsibility |
+| --- | --- |
+| [WorkbookBatchRecovery.tsx](WorkbookBatchRecovery.tsx) | Compact non-color batch status, original-input recovery, keyboard Retry, reads-only Retry refresh and activation of retained per-cell conflict groups. |
+
+The presentation subscribes to retained runtime state. Opening batch recovery
+closes conflict presentation; reviewing conflicts activates the existing resolver
+and focus owner. Routine acceptance opens no panel.
