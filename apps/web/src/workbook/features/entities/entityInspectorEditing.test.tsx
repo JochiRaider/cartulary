@@ -65,7 +65,12 @@ function fixture() {
       row: { ...row(input.recordId, 2).rawRow, view_schema_id: schema },
     },
   }));
-  runtime.explicitPatches.configure({ send: patch });
+  runtime.explicitPatches.configure(
+    { send: patch },
+    undefined,
+    async (_view, id) =>
+      runtime.explicitPatches.latestRow(id) ?? row(id, 1).rawRow,
+  );
   const query = {
     query: vi.fn(async () => ({
       kind: "accepted" as const,

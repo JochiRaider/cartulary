@@ -72,14 +72,14 @@ function queryResponse(viewSchemaId: string, rows: readonly unknown[]) {
 }
 
 function EntityQueryHarness({
-  onIncidentAccessLost,
+  onAuthorityUncertain,
 }: {
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
 }) {
   const query = useEntitySurfaceQuery({
     hostQueryState: emptyWorkbookQueryState(),
     identityQueryState: emptyWorkbookQueryState(),
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     viewQuery,
   });
   return (
@@ -142,7 +142,7 @@ function EntityQueryHarness({
 
 describe("useEntitySurfaceQuery", () => {
   it("requires an accepted current query before authorization recovery can resume", async () => {
-    const onIncidentAccessLost = vi.fn();
+    const onAuthorityUncertain = vi.fn();
     const query = vi.fn().mockResolvedValue({
       kind: "rejected",
       failure: { kind: "invalid_contract", message: "Malformed query" },
@@ -151,7 +151,7 @@ describe("useEntitySurfaceQuery", () => {
       useEntitySurfaceQuery({
         hostQueryState: emptyWorkbookQueryState(),
         identityQueryState: emptyWorkbookQueryState(),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
         viewQuery: { query },
       }),
     );
@@ -162,7 +162,7 @@ describe("useEntitySurfaceQuery", () => {
         recovery: { kind: "unavailable", failure: "contract" },
       });
     });
-    expect(onIncidentAccessLost).not.toHaveBeenCalled();
+    expect(onAuthorityUncertain).not.toHaveBeenCalled();
     query.mockResolvedValue({ kind: "aborted" });
     await act(async () => {
       await expect(
@@ -289,7 +289,7 @@ describe("useEntitySurfaceQuery", () => {
   });
 
   it("clears protected rows on access loss and aborts both queries on teardown", async () => {
-    const onIncidentAccessLost = vi.fn();
+    const onAuthorityUncertain = vi.fn();
     const pendingSignals: AbortSignal[] = [];
     let accessDenied = false;
     vi.stubGlobal(
@@ -316,7 +316,7 @@ describe("useEntitySurfaceQuery", () => {
       }),
     );
     const rendered = render(
-      <EntityQueryHarness onIncidentAccessLost={onIncidentAccessLost} />,
+      <EntityQueryHarness onAuthorityUncertain={onAuthorityUncertain} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
@@ -332,7 +332,7 @@ describe("useEntitySurfaceQuery", () => {
         "permission_denied",
       ),
     );
-    expect(onIncidentAccessLost).toHaveBeenCalledOnce();
+    expect(onAuthorityUncertain).toHaveBeenCalledOnce();
     expect(screen.getByLabelText("entity-index").textContent).toBe("");
 
     accessDenied = false;
@@ -343,7 +343,7 @@ describe("useEntitySurfaceQuery", () => {
     expect(teardownSignals.every((signal) => signal.aborted)).toBe(true);
   });
   it("conceals protected rows before rejecting an acceptance-required merge refresh", async () => {
-    const onIncidentAccessLost = vi.fn();
+    const onAuthorityUncertain = vi.fn();
     const fetch = vi.fn((input: RequestInfo | URL) =>
       Promise.resolve(
         String(input).includes(`/views/${hostsViewSchemaId}/query`)
@@ -360,7 +360,7 @@ describe("useEntitySurfaceQuery", () => {
       useEntitySurfaceQuery({
         hostQueryState: emptyWorkbookQueryState(),
         identityQueryState: emptyWorkbookQueryState(),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
         viewQuery,
       }),
     );
@@ -378,6 +378,6 @@ describe("useEntitySurfaceQuery", () => {
     expect(query.result.current.hostRows).toEqual([]);
     expect(query.result.current.identityRows).toEqual([]);
     expect(query.result.current.loadState.kind).toBe("permission_denied");
-    expect(onIncidentAccessLost).toHaveBeenCalledOnce();
+    expect(onAuthorityUncertain).toHaveBeenCalledOnce();
   });
 });

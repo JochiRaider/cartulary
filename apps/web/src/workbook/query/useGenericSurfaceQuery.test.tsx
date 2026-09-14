@@ -76,17 +76,17 @@ function queryResponse(viewSchemaId: string, rows: readonly unknown[]) {
 
 function GenericQueryHarness({
   active = true,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   viewSchemaId = notesViewSchemaId,
 }: {
   readonly active?: boolean;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly viewSchemaId?: string;
 }) {
   const query = useGenericSurfaceQuery({
     active,
     contract: requireViewContract(viewSchemaId),
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     queryState: emptyWorkbookQueryState(),
     viewQuery,
     viewSchemaId,
@@ -157,7 +157,7 @@ function GenericQueryHarness({
 
 describe("useGenericSurfaceQuery", () => {
   it("requires an accepted current query before authorization recovery can resume", async () => {
-    const onIncidentAccessLost = vi.fn();
+    const onAuthorityUncertain = vi.fn();
     const query = vi.fn().mockResolvedValue({
       kind: "rejected",
       failure: { kind: "invalid_contract", message: "Malformed query" },
@@ -168,7 +168,7 @@ describe("useGenericSurfaceQuery", () => {
         contract: notesContract,
         viewSchemaId: notesViewSchemaId,
         queryState: emptyWorkbookQueryState(),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
         viewQuery: { query },
       }),
     );
@@ -179,7 +179,7 @@ describe("useGenericSurfaceQuery", () => {
         recovery: { kind: "unavailable", failure: "contract" },
       });
     });
-    expect(onIncidentAccessLost).not.toHaveBeenCalled();
+    expect(onAuthorityUncertain).not.toHaveBeenCalled();
     query.mockResolvedValue({ kind: "aborted" });
     await act(async () => {
       await expect(
@@ -320,7 +320,7 @@ describe("useGenericSurfaceQuery", () => {
   });
 
   it("clears access-protected rows, stays idle while inactive, and aborts on teardown", async () => {
-    const onIncidentAccessLost = vi.fn();
+    const onAuthorityUncertain = vi.fn();
     const pending = deferred<Response>();
     let responseKind: "ready" | "denied" | "pending" = "ready";
     let pendingSignal: AbortSignal | null | undefined;
@@ -340,7 +340,7 @@ describe("useGenericSurfaceQuery", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const rendered = render(
-      <GenericQueryHarness onIncidentAccessLost={onIncidentAccessLost} />,
+      <GenericQueryHarness onAuthorityUncertain={onAuthorityUncertain} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
@@ -356,13 +356,13 @@ describe("useGenericSurfaceQuery", () => {
         "permission_denied",
       ),
     );
-    expect(onIncidentAccessLost).toHaveBeenCalledOnce();
+    expect(onAuthorityUncertain).toHaveBeenCalledOnce();
     expect(screen.getByLabelText("generic-rows").textContent).toBe("");
 
     rendered.rerender(
       <GenericQueryHarness
         active={false}
-        onIncidentAccessLost={onIncidentAccessLost}
+        onAuthorityUncertain={onAuthorityUncertain}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
@@ -370,7 +370,7 @@ describe("useGenericSurfaceQuery", () => {
 
     responseKind = "pending";
     rendered.rerender(
-      <GenericQueryHarness onIncidentAccessLost={onIncidentAccessLost} />,
+      <GenericQueryHarness onAuthorityUncertain={onAuthorityUncertain} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
@@ -384,7 +384,10 @@ it("fences Task committed rows across receipts queries and filtered departures",
     taskAuthority.incidentId,
     { create: () => "query-test-id" },
     {
-      coordinate: async () => true,
+      coordinate: async () => ({
+        kind: "settled" as const,
+        minimumRowVersion: 0,
+      }),
       registerConflict: () => {},
       accepted: () => {},
     },
@@ -405,7 +408,7 @@ it("fences Task committed rows across receipts queries and filtered departures",
       explicitPatchOwner: owner,
       active: true,
       contract: requireViewContract(taskViewId),
-      onIncidentAccessLost: undefined,
+      onAuthorityUncertain: undefined,
       queryState: emptyWorkbookQueryState(),
       viewQuery: { query },
       viewSchemaId: taskViewId,

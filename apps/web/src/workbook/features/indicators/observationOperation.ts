@@ -15,17 +15,6 @@ import type {
   ObservationType,
 } from "./observationModel";
 
-/** A stale child or target requires local review, not incident retirement. */
-export function observationFailureIsAccessLoss(
-  failure: WorkbookOperationFailure,
-): boolean {
-  return (
-    failure.kind === "authentication_required" ||
-    failure.kind === "authorization_lost" ||
-    failure.publicCode === "incident_not_found"
-  );
-}
-
 export type ObservationAuthority = Readonly<{
   actorId: string;
   incidentId: string;

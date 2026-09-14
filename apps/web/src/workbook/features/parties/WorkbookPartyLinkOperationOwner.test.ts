@@ -9,6 +9,7 @@ import {
   type PartyCreationTransport,
 } from "../../adapters/createPartyCreationTransport";
 import type { RecordPatchTransport } from "../../adapters/workbookRecordPatchTransport";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { WorkbookExplicitPatchOwner } from "../../runtime/WorkbookExplicitPatchOwner";
 import {
@@ -63,12 +64,14 @@ function fixture(pair: PartyPair = partyPairs[0]) {
   const create = vi.fn(
     (prefix: string) => `${prefix}-${create.mock.calls.length}`,
   );
-  const coordinate = vi.fn(async () => true),
+  const coordinate = vi.fn<() => Promise<WorkbookSourceWriteSettlement>>(
+      async () => ({ kind: "settled", minimumRowVersion: 0 }),
+    ),
     refresh = vi.fn(async () => {}),
     remember = vi.fn(),
     settle = vi.fn(),
     registerConflict = vi.fn(),
-    accessLost = vi.fn();
+    authorityUncertain = vi.fn();
   const patches = new WorkbookExplicitPatchOwner(
     taskAuthority.incidentId,
     { create },
@@ -106,7 +109,11 @@ function fixture(pair: PartyPair = partyPairs[0]) {
       },
     };
   });
-  patches.configure({ send: patchSend }, accessLost);
+  patches.configure(
+    { send: patchSend },
+    authorityUncertain,
+    async () => source,
+  );
   patches.setAuthority(taskAuthority);
   patches.observeQuery(source);
   const owner = new WorkbookPartyLinkOperationOwner(
@@ -152,7 +159,7 @@ function fixture(pair: PartyPair = partyPairs[0]) {
     read,
     recheck,
     settle,
-    accessLost,
+    authorityUncertain,
     source: () => source,
     setSource: (row: WorkbookQueryRow) => {
       source = row;
@@ -213,24 +220,24 @@ it("retains both Party receipts and exact independent source changes for all thr
 
 it("reserves Party creation and source patch before coordination and fences stale reviews", async () => {
   const f = fixture(),
-    gate = deferred<boolean>();
+    gate = deferred<WorkbookSourceWriteSettlement>();
   f.coordinate.mockReturnValue(gate.promise);
   const first = f.owner.create(f.review, f.draft);
   await f.owner.create(f.review, f.draft);
   expect(f.create).toHaveBeenCalledTimes(1);
   f.owner.setPresentation("new-row-field-sheet");
-  gate.resolve(true);
+  gate.resolve({ kind: "settled", minimumRowVersion: 0 });
   await first;
   expect(f.send).not.toHaveBeenCalled();
   expect(f.owner.getSnapshot().creations[0]?.phase).toBe("preparation_failed");
   const patch = fixture(),
-    patchGate = deferred<boolean>();
+    patchGate = deferred<WorkbookSourceWriteSettlement>();
   patch.coordinate.mockReturnValue(patchGate.promise);
   const pending = patch.owner.patch(patch.review, "clear_both");
   await patch.owner.patch(patch.review, "clear_both");
   expect(patch.create).toHaveBeenCalledTimes(1);
   patch.patches.acceptVersion(patch.review.source.record_id, 9);
-  patchGate.resolve(true);
+  patchGate.resolve({ kind: "settled", minimumRowVersion: 0 });
   await pending;
   expect(patch.patchSend).not.toHaveBeenCalled();
   expect(patch.patches.getSnapshot().entries[0]?.request).toBeNull();
@@ -354,7 +361,7 @@ it("retains late accepted source receipts while hiding suspended and retired Par
   expect(f.owner.getSnapshot().patches[0]?.receipt).not.toBeNull();
   f.patches.setAuthority({ ...taskAuthority, actorId: "another-account" });
   f.owner.setAuthority({ ...taskAuthority, actorId: "another-account" });
-  expect(f.accessLost).not.toHaveBeenCalled();
+  expect(f.authorityUncertain).not.toHaveBeenCalled();
 });
 
 it("rechecks Party authority without reporting target rejection as incident access loss", async () => {
@@ -365,8 +372,8 @@ it("rechecks Party authority without reporting target rejection as incident acce
   });
   await f.owner.patch(f.review, "clear_link");
   expect(f.recheck).toHaveBeenCalledTimes(2);
-  expect(f.accessLost).not.toHaveBeenCalled();
-  expect(f.accessLost).not.toHaveBeenCalled();
+  expect(f.authorityUncertain).not.toHaveBeenCalled();
+  expect(f.authorityUncertain).not.toHaveBeenCalled();
 });
 
 it("keeps a selected pair review actionable and detaches callbacks when another pair is selected", async () => {
@@ -450,7 +457,7 @@ it("unavailable Party targets fail preparation without source writes or incident
   });
   await f.owner.patch(f.review, "link", "unavailable-party");
   expect(f.patchSend).not.toHaveBeenCalled();
-  expect(f.accessLost).not.toHaveBeenCalled();
+  expect(f.authorityUncertain).not.toHaveBeenCalled();
   expect(f.owner.getSnapshot().patches[0]?.phase).toBe("preparation_failed");
   expect(f.owner.canSubmit()).toBe(true);
 });

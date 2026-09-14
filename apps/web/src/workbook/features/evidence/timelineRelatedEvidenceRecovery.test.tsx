@@ -12,6 +12,7 @@ import { readWorkbookAuthoringRecord } from "../../adapters/readWorkbookAuthorin
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookAuthoringReadPort } from "../../ports/WorkbookAuthoringReadPort";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import { TimelineRelatedEvidenceContext } from "./TimelineRelatedEvidenceContext";
 import type {
   RelatedEvidenceOutcome,
@@ -41,7 +42,9 @@ function fixture() {
   let sequence = 0;
   const ids = { create: vi.fn((prefix: string) => `${prefix}-${++sequence}`) };
   const effects = {
-    coordinate: vi.fn(async () => true),
+    coordinate: vi.fn<() => Promise<WorkbookSourceWriteSettlement>>(
+      async () => ({ kind: "settled", minimumRowVersion: 0 }),
+    ),
     accepted: vi.fn(),
     refresh: vi.fn(async () => {}),
     conflict: vi.fn(),
@@ -202,13 +205,13 @@ function fixture() {
 describe("Timeline related Evidence recovery", () => {
   it("reserves duplicate activation and captures two immutable exact requests with independent full receipts", async () => {
     const f = fixture(),
-      gate = deferred<boolean>();
+      gate = deferred<WorkbookSourceWriteSettlement>();
     f.effects.coordinate.mockReturnValueOnce(gate.promise);
     const submit = f.owner.submit(attachment);
     void f.owner.submit(attachment);
     f.owner.update("evidence.title", "Ignored during preparation");
     expect(f.transport.send).not.toHaveBeenCalled();
-    gate.resolve(true);
+    gate.resolve({ kind: "settled", minimumRowVersion: 0 });
     await submit;
     await waitFor(() =>
       expect(f.checkpoint().links[0]?.refresh).toBe("complete"),
@@ -341,11 +344,11 @@ describe("Timeline related Evidence recovery", () => {
       expect(f.transport.send).toHaveBeenCalledTimes(1);
     }
     const f = fixture(),
-      saves = deferred<boolean>();
+      saves = deferred<WorkbookSourceWriteSettlement>();
     f.effects.coordinate.mockReturnValueOnce(saves.promise);
     const submit = f.owner.submit(attachment);
     f.owner.detach(attachment);
-    saves.resolve(true);
+    saves.resolve({ kind: "settled", minimumRowVersion: 0 });
     await submit;
     expect(f.transport.send).not.toHaveBeenCalled();
     expect(f.owner.getSnapshot().draft?.source.recordId).toBe(sourceId);

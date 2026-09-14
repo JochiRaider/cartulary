@@ -6,6 +6,7 @@ import {
 } from "../../collaboration/workbookSurfacePort";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import {
   abortLatestQuery,
@@ -81,7 +82,7 @@ type TimelineRowsLoaderInput = {
   readonly loadIdentity: TimelineLoadIdentity;
   readonly markRowsLoaded: () => void;
   readonly nextDraftIndex: () => number;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly pruneAutoResolutionNoticesForRows: (
     rows: readonly WorkbookRow[],
   ) => void;
@@ -127,14 +128,6 @@ function convergenceFailureMessage(options: LoadRowsOptions): string {
   return requirement === undefined
     ? "Timeline projection did not converge."
     : `Timeline row ${requirement.recordId} did not reach version ${requirement.minimumRowVersion}.`;
-}
-
-function isAccessLossFailure(kind: string): boolean {
-  return (
-    kind === "authentication_required" ||
-    kind === "authorization_lost" ||
-    kind === "stale_target"
-  );
 }
 
 function currentSourceRecordEvidence(
@@ -185,7 +178,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
     loadIdentity,
     markRowsLoaded,
     nextDraftIndex,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     pruneAutoResolutionNoticesForRows,
     publishSaveStatePresentation,
     queryState,
@@ -278,10 +271,9 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
             publishLoadStatus(effect);
             break;
           case "clear_protected_rows":
-            editorDraftRegistry.clearAll();
             rowsRef.current = [];
             replaceRows([]);
-            onIncidentAccessLost?.();
+            onAuthorityUncertain?.();
             break;
           case "fail_continuity":
             if (options?.viewportContinuityToken !== undefined) {
@@ -297,9 +289,8 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       }
     },
     [
-      editorDraftRegistry,
       failViewportContinuity,
-      onIncidentAccessLost,
+      onAuthorityUncertain,
       publishLoadStatus,
       replaceRows,
       rowsRef,
@@ -527,20 +518,20 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       if (options.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
       if (result.kind === "aborted") return;
       if (result.kind === "rejected") {
-        const event: TimelineLoadEvent = isAccessLossFailure(
-          result.failure.kind,
-        )
-          ? {
-              kind: "access_loss",
-              message: result.failure.message,
-              subject,
-            }
-          : {
-              hasLoadedRows: hasLoadedRows(),
-              kind: "failure",
-              message: result.failure.message,
-              subject,
-            };
+        const event: TimelineLoadEvent =
+          workbookFailureLifecycle(result.failure).kind ===
+          "authority_unavailable"
+            ? {
+                kind: "access_loss",
+                message: result.failure.message,
+                subject,
+              }
+            : {
+                hasLoadedRows: hasLoadedRows(),
+                kind: "failure",
+                message: result.failure.message,
+                subject,
+              };
         applyLifecycleEffects(dispatchLoadEvent(event), options);
         return;
       }

@@ -20,6 +20,7 @@ import {
 } from "../../models/assessmentWorkbookModel";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
   type AssessmentAppendEntry,
@@ -477,9 +478,8 @@ export class WorkbookAssessmentAuthoringOwner {
       );
       this.publish();
       if (
-        ["authorization_lost", "authentication_required"].includes(
-          outcome.failure.kind,
-        )
+        workbookFailureLifecycle(outcome.failure).kind ===
+        "authority_unavailable"
       )
         void this.recheckAuthority();
     } else {

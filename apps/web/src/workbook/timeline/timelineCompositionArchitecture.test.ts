@@ -75,7 +75,7 @@ describe("Timeline workbook composition architecture", () => {
       "mutationRuntime",
       "pendingMutationPort",
       "collaborationProjection",
-      "onIncidentAccessLost",
+      "onAuthorityUncertain",
     ]) {
       expect(presentationSource).not.toContain(forbiddenCapability);
     }

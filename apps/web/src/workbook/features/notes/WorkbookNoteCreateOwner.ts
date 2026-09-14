@@ -15,6 +15,8 @@ import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookAuthoringAuthorityReader } from "../../ports/WorkbookAuthoringReadPort";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
 import {
   type NoteCreateReader,
@@ -88,7 +90,10 @@ export class WorkbookNoteCreateOwner {
     readonly incidentId: string,
     private readonly ids: SecureTransactionIdPort,
     private readonly effects?: {
-      coordinate(source: NoteSource, signal: AbortSignal): Promise<boolean>;
+      coordinate(
+        source: NoteSource,
+        signal: AbortSignal,
+      ): Promise<WorkbookSourceWriteSettlement>;
       accepted(receipt: NoteReceipt, id: string): void;
       refresh(
         views: readonly string[],
@@ -523,7 +528,17 @@ export class WorkbookNoteCreateOwner {
             !(await this.sourceCoordinator(source.recordId, signal))
           )
             return false;
-          return this.effects ? this.effects.coordinate(source, signal) : true;
+          if (!this.effects) return true;
+          const settlement = await this.effects.coordinate(source, signal);
+          if (settlement.kind !== "settled") return false;
+          this.versions.set(
+            source.recordId,
+            Math.max(
+              this.versions.get(source.recordId) ?? 0,
+              settlement.minimumRowVersion,
+            ),
+          );
+          return true;
         }, new AbortController().signal);
         if (!coordinated)
           throw new Error(
@@ -652,9 +667,7 @@ export class WorkbookNoteCreateOwner {
       });
     if (
       outcome.kind === "rejected" &&
-      ["authentication_required", "authorization_lost"].includes(
-        outcome.failure.kind,
-      )
+      workbookFailureLifecycle(outcome.failure).kind === "authority_unavailable"
     )
       void this.recheckAuthority();
     this.publish();

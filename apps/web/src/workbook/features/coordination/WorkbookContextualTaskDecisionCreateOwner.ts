@@ -7,11 +7,14 @@ import {
   observeAsyncOperation,
 } from "../../../services/asyncObservation";
 import type { SheetRef } from "../../../shared/sheetRef";
+import { readWorkbookAuthoringRecord } from "../../adapters/readWorkbookAuthoringRecord";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookInspectorLiveRowBinding } from "../../inspector/workbookInspectorSubject";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
   type ContextualCreateDraft,
@@ -87,7 +90,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       readonly coordinate: (
         draft: ContextualCreateDraft,
         signal: AbortSignal,
-      ) => Promise<boolean>;
+      ) => Promise<WorkbookSourceWriteSettlement>;
       readonly accepted: (
         receipt: ContextualCreateReceipt,
         clientTxnId: string,
@@ -349,14 +352,30 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       payload.change_set_id !== entry.receipt.data.change_set_id
     )
       return;
+    const knownViews = new Set([
+      entry.attempt.review.draft.source.viewSchemaId,
+      entry.attempt.review.draft.target.viewSchemaId,
+      ...entry.observations.flatMap((event) =>
+        event.payload.affected_views.map((view) => view.view_schema_id),
+      ),
+    ]);
+    const additionalViews = payload.affected_views.some(
+      (view) =>
+        getViewContract(view.view_schema_id) &&
+        !knownViews.has(view.view_schema_id),
+    );
+    const extendCompletedRefresh =
+      entry.receipt && entry.refresh === "complete" && additionalViews;
     this.replace(payload.client_txn_id, {
       observations: [
         ...entry.observations,
         freezeContextualCreate(structuredClone(message)),
       ],
-      ...(entry.receipt ? { refresh: "required" as const } : {}),
+      ...(extendCompletedRefresh ? { refresh: "required" as const } : {}),
     });
-    if (entry.receipt) void this.retryRefresh(payload.client_txn_id);
+    // An echo cannot restart a failed refresh or race the explicit recovery action.
+    // An in-flight refresh incorporates additional views before it completes.
+    if (extendCompletedRefresh) void this.retryRefresh(payload.client_txn_id);
   }
   async recheckAuthority() {
     const baseline = this.authority,
@@ -373,7 +392,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       /* Only the authority reader can establish incident/session access loss. */
     }
   }
-  async review() {
+  async review(acceptSourceVersion = true) {
     const reader = this.reader,
       authorityReader = this.authorityReader;
     const draft = this.draft,
@@ -398,12 +417,41 @@ export class WorkbookContextualTaskDecisionCreateOwner {
         (signal) => reader.verify(draft, signal),
         new AbortController().signal,
       );
+      const row = await readWorkbookAuthoringRecord(
+        reader,
+        draft.source.viewSchemaId,
+        draft.source.recordId,
+        new AbortController().signal,
+      );
+      if (
+        !row ||
+        row.record_id !== draft.source.recordId ||
+        row.row_version <
+          Math.max(
+            draft.source.rowVersion,
+            this.versions.get(draft.source.recordId) ?? 0,
+          ) ||
+        row.row_version <=
+          (this.removedViews.get(
+            `${draft.source.viewSchemaId}:${draft.source.recordId}`,
+          ) ?? 0)
+      )
+        throw new Error("The retained source could not be verified.");
+      if (!acceptSourceVersion && row.row_version !== draft.source.rowVersion)
+        throw new Error("Source changed. Review before creating.");
       if (
         this.draft !== draft ||
         generation !== this.generation ||
         revision !== this.reviewRevision
       )
         return false;
+      if (row.row_version !== draft.source.rowVersion) {
+        this.draft = freezeContextualCreate({
+          ...draft,
+          source: { ...draft.source, rowVersion: row.row_version },
+        });
+      }
+      this.versions.set(row.record_id, row.row_version);
       this.reviewedRevision = this.reviewRevision;
       this.errors = contextualCreateErrors(draft);
       this.message = Object.keys(this.errors).length
@@ -472,10 +520,17 @@ export class WorkbookContextualTaskDecisionCreateOwner {
         (signal) => this.effects.coordinate(draft, signal),
         new AbortController().signal,
       );
-      if (!ready)
+      if (ready.kind !== "settled")
         throw new Error(
           "Resolve earlier source saves before creating. Your draft is retained.",
         );
+      this.versions.set(
+        draft.source.recordId,
+        Math.max(
+          this.versions.get(draft.source.recordId) ?? 0,
+          ready.minimumRowVersion,
+        ),
+      );
       if (
         this.lifetime !== lifetime ||
         this.draft !== draft ||
@@ -484,13 +539,36 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       )
         return;
       if (
-        !(await this.review()) ||
+        !(await this.review(false)) ||
         this.draft !== draft ||
         this.attachment !== attachment ||
         !this.authority ||
         lifetime !== this.lifetime
       )
         return;
+      const finalSettlement = await boundedRead(
+        (signal) => this.effects.coordinate(draft, signal),
+        new AbortController().signal,
+      );
+      if (
+        this.lifetime !== lifetime ||
+        this.draft !== draft ||
+        this.attachment !== attachment ||
+        !this.authority ||
+        reviewedRevision !== this.reviewRevision
+      )
+        return;
+      if (
+        finalSettlement.kind !== "settled" ||
+        finalSettlement.minimumRowVersion > draft.source.rowVersion ||
+        (this.versions.get(draft.source.recordId) ?? 0) >
+          draft.source.rowVersion
+      ) {
+        this.reviewRevision++;
+        throw new Error(
+          "The source changed during preparation. Your values are retained; review again.",
+        );
+      }
       const attempt = this.transport.capture(
         { authority: this.authority, draft },
         this.ids.create("contextual-create"),
@@ -596,9 +674,8 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       this.reviewRevision++;
       this.publish();
       if (
-        ["authorization_lost", "authentication_required"].includes(
-          outcome.failure.kind,
-        )
+        workbookFailureLifecycle(outcome.failure).kind ===
+        "authority_unavailable"
       )
         void this.recheckAuthority();
     } else {

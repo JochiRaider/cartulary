@@ -19,6 +19,7 @@ import {
   taskViewId,
 } from "../features/coordination/taskLifecycleModel";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
 import { WorkbookExplicitPatchOwner } from "./WorkbookExplicitPatchOwner";
 import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 
@@ -32,7 +33,9 @@ function deferred<T>() {
   return { promise, resolve };
 }
 function fixture() {
-  const coordinate = vi.fn(async () => true),
+  const coordinate = vi.fn<() => Promise<WorkbookSourceWriteSettlement>>(
+      async () => ({ kind: "settled", minimumRowVersion: 0 }),
+    ),
     registerConflict = vi.fn(),
     accepted = vi.fn(),
     create = vi.fn((prefix: string) => `${prefix}-${create.mock.calls.length}`);
@@ -56,7 +59,11 @@ function fixture() {
       receipt: taskReceipt(),
     }),
   );
-  owner.configure({ send });
+  owner.configure(
+    { send },
+    undefined,
+    async (_view, id) => owner.latestRow(id) ?? taskRow(),
+  );
   owner.setAuthority(taskAuthority);
   owner.observeQuery(taskRow());
   return {
@@ -76,13 +83,13 @@ afterEach(() => {
 });
 it("reserves explicit Task patches synchronously outside the autosave queue", async () => {
   const f = fixture(),
-    gate = deferred<boolean>();
+    gate = deferred<WorkbookSourceWriteSettlement>();
   f.coordinate.mockReturnValue(gate.promise);
   const first = f.owner.submit(taskIntent());
   expect(f.owner.blocksRecord(taskRecordId)).toBe(true);
   expect(await f.owner.submit(taskIntent())).toBeNull();
   expect(f.send).not.toHaveBeenCalled();
-  gate.resolve(true);
+  gate.resolve({ kind: "settled", minimumRowVersion: 0 });
   expect((await first)?.phase).toBe("acknowledged");
   expect(f.create).toHaveBeenCalledTimes(1);
   expect(f.send).toHaveBeenCalledTimes(1);
@@ -94,7 +101,7 @@ it("coordinates disjoint writes but preserves drafts when guard siblings moved",
       ...taskRow(8),
       cells: { ...taskRow().cells, "task.title": { value: "New title" } },
     });
-    return true;
+    return { kind: "settled", minimumRowVersion: 0 };
   });
   await f.owner.submit(taskIntent());
   expect(
@@ -109,7 +116,7 @@ it("coordinates disjoint writes but preserves drafts when guard siblings moved",
         "task.owner_user_id": { value: "other-member" },
       },
     });
-    return true;
+    return { kind: "settled", minimumRowVersion: 0 };
   });
   const rejected = await next.owner.submit(taskIntent());
   expect(rejected?.phase).toBe("preparation_failed");
@@ -299,7 +306,7 @@ it("validates complete ordinary patch receipts and treats malformed success as u
   expect(fetch.mock.calls[0]?.[1]?.body).toBe(captured.body);
 });
 
-it("waits for Task autosave receipt and refresh before explicit dispatch", async () => {
+it("waits for Task autosave receipt and source verification without waiting for presentation", async () => {
   const pending =
     deferred<Awaited<ReturnType<WorkbookPendingMutationPort["execute"]>>>();
   let sequence = 0;
@@ -314,7 +321,9 @@ it("waits for Task autosave receipt and refresh before explicit dispatch", async
     kind: "acknowledged",
     receipt: { ...taskReceipt(), row: taskRow(9, "blocked") },
   }));
-  runtime.explicitPatches.configure({ send });
+  const verified = deferred<ReturnType<typeof taskRow>>();
+  const readSource = vi.fn(async () => verified.promise);
+  runtime.explicitPatches.configure({ send }, undefined, readSource);
   const refreshing = deferred<void>();
   let refreshStarted = false;
   runtime.registerSurface(taskViewId, async () => {
@@ -352,6 +361,9 @@ it("waits for Task autosave receipt and refresh before explicit dispatch", async
   });
   await vi.waitFor(() => expect(refreshStarted).toBe(true));
   expect(send).not.toHaveBeenCalled();
+  await vi.waitFor(() => expect(readSource).toHaveBeenCalledOnce());
+  verified.resolve(taskRow(8));
+  await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
   refreshing.resolve();
   await explicit;
   expect(send).toHaveBeenCalledTimes(1);

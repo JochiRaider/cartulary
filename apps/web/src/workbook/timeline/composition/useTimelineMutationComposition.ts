@@ -101,7 +101,7 @@ type TimelineMutationCompositionInput = {
   };
   readonly mutationCommands: TimelineMutationCommandPorts;
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
   readonly query: {
     readonly queryState: WorkbookQueryState;
     readonly viewQuery: WorkbookViewQueryPort;
@@ -116,7 +116,7 @@ export function useTimelineMutationComposition({
   inspector,
   mutationCommands,
   mutationRuntime,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   query,
 }: TimelineMutationCompositionInput) {
   const timelineQueryIdentity = useMemo(
@@ -223,7 +223,7 @@ export function useTimelineMutationComposition({
     markRowsLoaded: queryAdmission.markRowsLoaded,
     loadIdentity: timelineLoadIdentity,
     nextDraftIndex: foundation.nextDraftIndex,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     pruneAutoResolutionNoticesForRows:
       rowMutations.commands.pruneAutoResolutionNoticesForRows,
     publishSaveStatePresentation:

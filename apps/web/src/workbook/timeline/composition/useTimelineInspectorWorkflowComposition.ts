@@ -96,7 +96,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly loadRows: HistoryInput["loadRows"];
     readonly publishViewingPresence: InspectorRowInteractionsInput["publishViewingPresence"];
   };
-  readonly onIncidentAccessLost: TimelineWorkbookSurfaceRuntime["onIncidentAccessLost"];
+  readonly onAuthorityUncertain: TimelineWorkbookSurfaceRuntime["onAuthorityUncertain"];
   readonly activeSheetRef: TimelineWorkbookSurfaceRuntime["incident"]["sheetRef"];
 };
 
@@ -110,7 +110,7 @@ export function useTimelineInspectorWorkflowComposition({
   incident,
   inspector,
   mutation,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
 }: TimelineInspectorWorkflowCompositionInput) {
   const actionContext = {
     authorized:
@@ -154,7 +154,7 @@ export function useTimelineInspectorWorkflowComposition({
   const { options: incidentMemberOptions } = useIncidentMemberReferenceOptions({
     enabled: createRelatedNeedsIncidentMembers,
     incidentPort: incident.incidentPort,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
   });
   const createRelatedReferenceOptions = useMemo(
     () => ({

@@ -8,7 +8,7 @@ import {
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { IndicatorLifecycleDraftStore } from "./IndicatorLifecycleDraftStore";
 import {
@@ -56,7 +56,7 @@ export class WorkbookIndicatorLifecycleOwner
   private readonly reviews = new Set<string>();
   private port: IndicatorLifecycleTransportPort | null = null;
   private reconcile: Reconcile | null = null;
-  private accessLost: (() => void) | undefined;
+  private authorityUncertain: (() => void) | undefined;
   readonly drafts = new IndicatorLifecycleDraftStore(() => this.publish());
   constructor(
     readonly incidentId: string,
@@ -81,9 +81,12 @@ export class WorkbookIndicatorLifecycleOwner
     };
   };
   getSnapshot = () => this.snapshot;
-  configure(port: IndicatorLifecycleTransportPort, accessLost?: () => void) {
+  configure(
+    port: IndicatorLifecycleTransportPort,
+    authorityUncertain?: () => void,
+  ) {
     this.port = port;
-    this.accessLost = accessLost;
+    this.authorityUncertain = authorityUncertain;
   }
   registerReconciliation(reconcile: Reconcile) {
     this.reconcile = reconcile;
@@ -126,9 +129,9 @@ export class WorkbookIndicatorLifecycleOwner
   closeIncident() {
     if (this.authority) this.setAuthority({ ...this.authority, closed: true });
   }
-  loseAccess() {
+  suspendForAuthorityRecovery() {
     this.suspend();
-    this.accessLost?.();
+    this.authorityUncertain?.();
   }
   retire() {
     this.generation++;
@@ -193,9 +196,9 @@ export class WorkbookIndicatorLifecycleOwner
       return { kind: "aborted" as const };
     if (
       result.kind === "rejected" &&
-      workbookOperationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     )
-      this.loseAccess();
+      this.suspendForAuthorityRecovery();
     return result;
   }
   async records(
@@ -211,9 +214,9 @@ export class WorkbookIndicatorLifecycleOwner
       return { kind: "aborted" as const };
     if (
       result.kind === "rejected" &&
-      workbookOperationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     )
-      this.loseAccess();
+      this.suspendForAuthorityRecovery();
     return result;
   }
   private blocks(entry: LifecycleOperation) {
@@ -375,8 +378,11 @@ export class WorkbookIndicatorLifecycleOwner
         });
         if (outcome.failure.publicCode === "incident_closed")
           this.closeIncident();
-        if (workbookOperationFailureIsAccessLoss(outcome.failure))
-          this.loseAccess();
+        if (
+          workbookFailureLifecycle(outcome.failure).kind ===
+          "authority_unavailable"
+        )
+          this.suspendForAuthorityRecovery();
       } else this.update(attempt.id, { phase: "uncertain" });
     });
     this.observations.set(attempt.id, observation);

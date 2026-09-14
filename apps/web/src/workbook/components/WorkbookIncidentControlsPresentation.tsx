@@ -27,7 +27,7 @@ type WorkbookIncidentControlsPresentationProps = {
   readonly onClose: (options: {
     readonly restoreTriggerFocus: boolean;
   }) => void;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
   readonly onNavigateToView: (viewSchemaId: string) => void;
   readonly onSessionRoleChange: () => Promise<void>;
   readonly renderIncidentControls:
@@ -49,7 +49,7 @@ export function WorkbookIncidentControlsPresentation({
   importAssistantAvailable,
   incidentId,
   onClose,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   onNavigateToView,
   onSessionRoleChange,
   renderIncidentControls,
@@ -74,7 +74,7 @@ export function WorkbookIncidentControlsPresentation({
         apiBase,
         currentIncidentRole,
         incidentId,
-        onIncidentAccessLost,
+        onIncidentAccessLost: onAuthorityUncertain,
         onSessionRoleChange,
       }) ?? null)
     );

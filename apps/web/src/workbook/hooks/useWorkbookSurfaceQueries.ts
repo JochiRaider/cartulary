@@ -42,7 +42,7 @@ type WorkbookSurfaceQueriesOptions = {
   readonly generic: QueryStateOwner;
   readonly hosts: QueryStateOwner;
   readonly identities: QueryStateOwner;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
   readonly referenceBroker: ReferenceQueryBrokerPort;
   readonly sheetRef: SheetRef;
   readonly surface: string;
@@ -62,7 +62,7 @@ export function useWorkbookSurfaceQueries({
   generic,
   hosts,
   identities,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   referenceBroker,
   sheetRef,
   surface,
@@ -96,7 +96,7 @@ export function useWorkbookSurfaceQueries({
     indicatorOwner,
     active: genericSurfaceActive,
     contract: activeContract,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     queryState: generic.state,
     viewQuery,
     viewSchemaId: surface,
@@ -104,7 +104,7 @@ export function useWorkbookSurfaceQueries({
   const assessmentQuery = useAssessmentSurfaceQuery({
     committedRecords: assessmentOwner,
     active: surface === assessmentsViewSchemaId,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     queryState: assessment.state,
     viewQuery,
   });
@@ -113,7 +113,7 @@ export function useWorkbookSurfaceQueries({
     editOwner: explicitPatchOwner,
     hostQueryState: hosts.state,
     identityQueryState: identities.state,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     viewQuery,
   });
   const {

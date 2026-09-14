@@ -2575,7 +2575,7 @@ describe("WorkbookShell surface selection", () => {
     ]);
   });
 
-  it("keeps generic surface access loss routed through the shell access-lost callback", async () => {
+  it("rechecks generic surface denial without exiting an authorized incident", async () => {
     const onIncidentAccessLost = vi.fn();
     scenario.evidenceRows = [
       evidenceRow("00000000-0000-4000-8000-000000000604", 2, "protected"),
@@ -2605,13 +2605,18 @@ describe("WorkbookShell surface selection", () => {
     applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "denied");
 
     await waitFor(() => {
-      expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).endsWith("/api/v1/auth/session"),
+        ).length,
+      ).toBeGreaterThan(1);
     });
     expect(await screen.findByText("authorization_denied")).toBeTruthy();
+    expect(onIncidentAccessLost).not.toHaveBeenCalled();
     expect(currentRecordIds(evidenceViewSchemaId)).toEqual([]);
   });
 
-  it("keeps entity surface access loss routed through the shell access-lost callback", async () => {
+  it("rechecks entity surface denial without exiting an authorized incident", async () => {
     const onIncidentAccessLost = vi.fn();
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
@@ -2632,12 +2637,17 @@ describe("WorkbookShell surface selection", () => {
     );
 
     await waitFor(() => {
-      expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).endsWith("/api/v1/auth/session"),
+        ).length,
+      ).toBeGreaterThan(1);
     });
     expect(await screen.findByText("authorization_denied")).toBeTruthy();
+    expect(onIncidentAccessLost).not.toHaveBeenCalled();
   });
 
-  it("keeps assessment surface access loss routed through the shell access-lost callback", async () => {
+  it("rechecks assessment surface denial without exiting an authorized incident", async () => {
     const onIncidentAccessLost = vi.fn();
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: assessmentsViewSchemaId },
@@ -2658,9 +2668,14 @@ describe("WorkbookShell surface selection", () => {
     );
 
     await waitFor(() => {
-      expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).endsWith("/api/v1/auth/session"),
+        ).length,
+      ).toBeGreaterThan(1);
     });
     expect(await screen.findByText("authorization_denied")).toBeTruthy();
+    expect(onIncidentAccessLost).not.toHaveBeenCalled();
   });
 
   it("dispatches entity-origin paste through create targets while preserving exact-match reuse results", async () => {

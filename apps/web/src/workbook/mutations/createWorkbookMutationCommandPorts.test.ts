@@ -446,12 +446,15 @@ describe("semantic mutation command ports", () => {
         },
       },
       {
-        coordinate: async () => true,
+        coordinate: async () => ({
+          kind: "settled" as const,
+          minimumRowVersion: 0,
+        }),
         accepted: () => {},
         registerConflict: () => {},
       },
     );
-    owner.configure({ send });
+    owner.configure({ send }, undefined, async () => taskIntent().baseline);
     owner.setAuthority(taskAuthority);
     expect(await owner.submit(taskIntent())).toBeNull();
     expect(send).not.toHaveBeenCalled();

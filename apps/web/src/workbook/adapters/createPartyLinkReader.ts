@@ -11,6 +11,7 @@ import {
   buildQueryRequest,
   emptyWorkbookQueryState,
 } from "../models/workbookQuery";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 export function createPartyLinkReader(options: {
@@ -41,9 +42,8 @@ export function createPartyLinkReader(options: {
     if (signal.aborted) throw new Error("Read interrupted.");
     if (result.kind === "rejected") {
       if (
-        ["authentication_required", "authorization_lost"].includes(
-          result.failure.kind,
-        )
+        workbookFailureLifecycle(result.failure).kind ===
+        "authority_unavailable"
       )
         options.recheckAuthority?.();
       throw new Error("Current records could not be loaded. Retry the read.");

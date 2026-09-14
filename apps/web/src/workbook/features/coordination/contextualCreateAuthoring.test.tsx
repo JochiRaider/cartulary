@@ -12,6 +12,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import { ContextualCreateForm } from "./ContextualCreateForm";
 import {
@@ -41,7 +42,10 @@ function fixture(
     authority.incidentId,
     { create: () => "txn" },
     {
-      coordinate: async () => true,
+      coordinate: async () => ({
+        kind: "settled" as const,
+        minimumRowVersion: 0,
+      }),
       accepted: () => {},
       refresh: async () => {},
       observed: () => {},
@@ -69,7 +73,18 @@ function fixture(
     verify: vi.fn(async () => {}),
     page: vi.fn(async () => ({
       kind: "accepted" as const,
-      value: { candidates: [], hasMore: false, nextCursor: null },
+      value: {
+        candidates: [
+          {
+            recordId: sourceId,
+            displayText: "Source",
+            viewSchemaId: contract.viewSchemaId,
+            row: fullWorkbookViewRow(contract, sourceId, 1, {}),
+          },
+        ],
+        hasMore: false,
+        nextCursor: null,
+      },
     })),
   };
   owner.configure(reader, async () => authority);

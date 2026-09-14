@@ -5,7 +5,7 @@ import {
 } from "../../shared/incidentResource";
 import type { WorkbookIncidentIdentity } from "../models/workbookIncidentIdentity";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 
 export function useWorkbookIncidentIdentity({
   incidentPort,
@@ -13,7 +13,7 @@ export function useWorkbookIncidentIdentity({
   initialIncidentIdentity,
   acceptedIncidentResource,
   onIncidentResourceObserved,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
 }: {
   readonly incidentPort: WorkbookIncidentPort;
   readonly acceptedIncidentResource?: IncidentResource | null | undefined;
@@ -22,7 +22,7 @@ export function useWorkbookIncidentIdentity({
     | undefined;
   readonly incidentId: string;
   readonly initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
 }) {
   const [incidentIdentity, setIncidentIdentity] =
     useState<WorkbookIncidentIdentity | null>(
@@ -77,8 +77,11 @@ export function useWorkbookIncidentIdentity({
         return;
       }
       if (result.kind === "rejected") {
-        if (workbookOperationFailureIsAccessLoss(result.failure)) {
-          onIncidentAccessLost?.();
+        if (
+          workbookFailureLifecycle(result.failure).kind ===
+          "authority_unavailable"
+        ) {
+          onAuthorityUncertain?.();
         }
         setIncidentIdentityError(result.failure.message);
         return;
@@ -94,7 +97,7 @@ export function useWorkbookIncidentIdentity({
     incidentPort,
     incidentId,
     initialIncidentIdentity,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     acceptIncidentResource,
   ]);
 

@@ -57,7 +57,7 @@ describe("ordinary creation query reconciliation", () => {
           queryState,
           viewSchemaId: view,
           viewQuery: { query },
-          onIncidentAccessLost: undefined,
+          onAuthorityUncertain: undefined,
         }),
       );
       await act(() => hook.result.current.refresh());
@@ -98,7 +98,7 @@ describe("ordinary creation query reconciliation", () => {
         queryState,
         viewSchemaId: contract.viewSchemaId,
         viewQuery: { query },
-        onIncidentAccessLost: undefined,
+        onAuthorityUncertain: undefined,
       }),
     );
     let loading: Promise<void> | undefined;
@@ -149,7 +149,7 @@ describe("ordinary creation query reconciliation", () => {
         hostQueryState: queryState,
         identityQueryState: queryState,
         viewQuery: { query },
-        onIncidentAccessLost: undefined,
+        onAuthorityUncertain: undefined,
       }),
     );
     await act(() => hook.result.current.refresh());

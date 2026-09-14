@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { boundedRead } from "../../../services/asyncObservation";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { TimelineCandidatePort } from "./TimelineCandidatePort";
 import type { TimelineCaptureSubject } from "./timelineCaptureActionModel";
 
@@ -46,7 +46,10 @@ export function useTimelineCandidates(
         );
         if (!current() || result.kind === "aborted") return;
         if (result.kind === "rejected") {
-          if (workbookOperationFailureIsAccessLoss(result.failure)) {
+          if (
+            workbookFailureLifecycle(result.failure).kind ===
+            "authority_unavailable"
+          ) {
             setPage({ ...empty, state: "failed" });
             onAccessLost();
             return;

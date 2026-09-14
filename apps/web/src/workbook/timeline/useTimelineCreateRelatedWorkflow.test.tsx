@@ -40,7 +40,10 @@ describe("useTimelineCreateRelatedWorkflow", () => {
       "incident",
       { create: () => "create-key" },
       {
-        coordinate: async () => true,
+        coordinate: async () => ({
+          kind: "settled" as const,
+          minimumRowVersion: 0,
+        }),
         accepted: vi.fn(),
         refresh: async () => {},
         conflict: vi.fn(),

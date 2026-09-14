@@ -7,6 +7,7 @@ import {
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { ObservationDraftStore } from "./ObservationDraftStore";
 import {
@@ -29,7 +30,6 @@ import {
   type ObservationSnapshot,
   type ObservationSubject,
   type ObservationTransportPort,
-  observationFailureIsAccessLoss,
   observationIntentKey,
 } from "./observationOperation";
 
@@ -61,7 +61,7 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
   private reader: ObservationReadPort | null = null;
   private transport: ObservationTransportPort | null = null;
   private reconcile: Reconcile | null = null;
-  private accessLost: (() => void) | undefined;
+  private authorityUncertain: (() => void) | undefined;
   readonly drafts = new ObservationDraftStore(() => this.publish());
   constructor(
     readonly incidentId: string,
@@ -82,11 +82,11 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
   configure(
     reader: ObservationReadPort,
     transport: ObservationTransportPort,
-    accessLost?: () => void,
+    authorityUncertain?: () => void,
   ) {
     this.reader = reader;
     this.transport = transport;
-    this.accessLost = accessLost;
+    this.authorityUncertain = authorityUncertain;
   }
   registerReconciliation(reconcile: Reconcile) {
     this.reconcile = reconcile;
@@ -129,9 +129,9 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
   closeIncident() {
     if (this.authority) this.setAuthority({ ...this.authority, closed: true });
   }
-  loseAccess() {
+  suspendForAuthorityRecovery() {
     this.suspend();
-    this.accessLost?.();
+    this.authorityUncertain?.();
   }
   retire() {
     this.generation++;
@@ -187,9 +187,9 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
       return { kind: "aborted" as const };
     if (
       result.kind === "rejected" &&
-      observationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     )
-      this.loseAccess();
+      this.suspendForAuthorityRecovery();
     return result;
   }
   async records(
@@ -205,9 +205,9 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
       return { kind: "aborted" as const };
     if (
       result.kind === "rejected" &&
-      observationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     )
-      this.loseAccess();
+      this.suspendForAuthorityRecovery();
     return result;
   }
   private blocks(entry: ObservationOperation) {
@@ -457,7 +457,11 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
         });
         if (outcome.failure.publicCode === "incident_closed")
           this.closeIncident();
-        if (observationFailureIsAccessLoss(outcome.failure)) this.loseAccess();
+        if (
+          workbookFailureLifecycle(outcome.failure).kind ===
+          "authority_unavailable"
+        )
+          this.suspendForAuthorityRecovery();
       } else this.update(attempt.id, { phase: "uncertain" });
     });
     this.pending.set(attempt.id, observation);

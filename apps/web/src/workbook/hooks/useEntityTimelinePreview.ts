@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { requireWorkbookSurfaceAcceptance } from "../collaboration/workbookSurfacePort";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import {
   abortLatestQuery,
@@ -21,10 +21,10 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 export function useEntityTimelinePreview({
   entityType,
   viewQuery,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
 }: {
   readonly entityType: "host" | "identity";
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
   const [timelinePreviewRows, setTimelinePreviewRows] = useState<WorkbookRow[]>(
@@ -59,8 +59,11 @@ export function useEntityTimelinePreview({
       }
       if (result.kind === "rejected") {
         setTimelinePreviewRows([]);
-        if (workbookOperationFailureIsAccessLoss(result.failure))
-          onIncidentAccessLost?.();
+        if (
+          workbookFailureLifecycle(result.failure).kind ===
+          "authority_unavailable"
+        )
+          onAuthorityUncertain?.();
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance(result);
         return;
@@ -92,7 +95,7 @@ export function useEntityTimelinePreview({
         setTimelinePreviewRows(previewRows);
       }
     },
-    [entityType, viewQuery, onIncidentAccessLost],
+    [entityType, viewQuery, onAuthorityUncertain],
   );
 
   useEffect(

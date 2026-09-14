@@ -1,7 +1,7 @@
 import { observeAsyncOperation } from "../../../services/asyncObservation";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookTimelineActionRuntimePort } from "../../ports/WorkbookTimelineActionRuntimePort";
 import type { TimelineCaptureReceipt } from "../adapters/timelineCaptureProtocol";
 import type {
@@ -50,7 +50,7 @@ export class WorkbookTimelineCaptureActionOwner
   private readonly transports = new Map<number, number>();
   private port: TimelineRecordActionPort | null = null;
   private candidates: TimelineCandidatePort | null = null;
-  private accessLost: (() => void) | undefined;
+  private authorityUncertain: (() => void) | undefined;
   private reconcile:
     | ((
         receipt: TimelineCaptureReceipt,
@@ -83,11 +83,11 @@ export class WorkbookTimelineCaptureActionOwner
   configure(
     port: TimelineRecordActionPort,
     candidates: TimelineCandidatePort,
-    accessLost?: () => void,
+    authorityUncertain?: () => void,
   ) {
     this.port = port;
     this.candidates = candidates;
-    this.accessLost = accessLost;
+    this.authorityUncertain = authorityUncertain;
   }
   registerReconciliation(reconcile: NonNullable<typeof this.reconcile>) {
     this.reconcile = reconcile;
@@ -118,9 +118,9 @@ export class WorkbookTimelineCaptureActionOwner
   closeIncident() {
     if (this.authority) this.setAuthority({ ...this.authority, closed: true });
   }
-  loseAccess() {
+  suspendForAuthorityRecovery() {
     this.suspend();
-    this.accessLost?.();
+    this.authorityUncertain?.();
   }
   retire() {
     this.generation++;
@@ -191,9 +191,9 @@ export class WorkbookTimelineCaptureActionOwner
       return { kind: "aborted" as const };
     if (
       result.kind === "rejected" &&
-      workbookOperationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     )
-      this.loseAccess();
+      this.suspendForAuthorityRecovery();
     if (result.kind === "accepted")
       for (const row of result.value.rows)
         this.acceptVersion(row.recordId, row.rowVersion);
@@ -416,8 +416,11 @@ export class WorkbookTimelineCaptureActionOwner
         if (authorityGeneration === this.generation) {
           if (outcome.failure.publicCode === "incident_closed")
             this.closeIncident();
-          if (workbookOperationFailureIsAccessLoss(outcome.failure))
-            this.loseAccess();
+          if (
+            workbookFailureLifecycle(outcome.failure).kind ===
+            "authority_unavailable"
+          )
+            this.suspendForAuthorityRecovery();
         }
       } else this.update(key, { phase: "uncertain" });
     });

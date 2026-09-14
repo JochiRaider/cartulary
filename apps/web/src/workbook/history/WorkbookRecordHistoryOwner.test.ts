@@ -132,6 +132,7 @@ afterEach(() => vi.useRealTimers());
 describe("Workbook history operation owner", () => {
   it("keeps history authority for an unavailable related projection and still suspends genuine session loss", async () => {
     const t = setup();
+    const recover = vi.fn();
     const load = vi
       .fn<WorkbookRecordHistoryPort["load"]>()
       .mockResolvedValueOnce({
@@ -145,15 +146,27 @@ describe("Workbook history operation owner", () => {
       .mockResolvedValueOnce({
         kind: "rejected",
         failure: {
+          kind: "stale_target",
+          publicCode: "record_not_found",
+          message: "Unavailable record",
+        },
+      })
+      .mockResolvedValueOnce({
+        kind: "rejected",
+        failure: {
           kind: "authentication_required",
           message: "Session expired",
         },
       });
-    t.owner.configure({ load, send: t.send });
+    t.owner.configure({ load, send: t.send }, recover);
     expect((await t.owner.loadProjection("related")).kind).toBe("rejected");
     expect(t.owner.readable).toBe(true);
+    expect((await t.owner.load("record")).kind).toBe("rejected");
+    expect(t.owner.readable).toBe(true);
+    expect(recover).not.toHaveBeenCalled();
     expect((await t.owner.loadProjection("related")).kind).toBe("rejected");
     expect(t.owner.readable).toBe(false);
+    expect(recover).toHaveBeenCalledOnce();
     expect(t.send).not.toHaveBeenCalled();
   });
   it("retains admitted work after presentation closes without detached effects", async () => {

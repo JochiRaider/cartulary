@@ -23,6 +23,7 @@ import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookInciden
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookStartupAdapter } from "../adapters/createWorkbookStartupAdapter";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
+import { readWorkbookAuthoringRecord } from "../adapters/readWorkbookAuthoringRecord";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
 import { createRecordPatchTransport } from "../adapters/workbookRecordPatchTransport";
 import { createWorkbookMutationCommandPorts } from "../mutations/createWorkbookMutationCommandPorts";
@@ -43,6 +44,7 @@ import { createTimelineCandidateReader } from "../timeline/adapters/createTimeli
 import { createTimelineMentionEntityCreationAdapter } from "../timeline/adapters/createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "../timeline/adapters/createTimelineMentionResolutionAdapter";
 import { createTimelineRecordActionAdapter } from "../timeline/adapters/createTimelineRecordActionAdapter";
+import { timelineMutationOwnerFor } from "../timeline/mutations/WorkbookTimelineMutationOwner";
 import { useWorkbookShellRuntime } from "./useWorkbookShellRuntime";
 
 function recordPendingMutationTiming(
@@ -63,7 +65,7 @@ type WorkbookShellInfrastructureOptions = {
   readonly incidentId: string;
   readonly mutationRuntimeRegistry: WorkbookMutationRuntimeRegistry;
   readonly onExtensionAvailabilityChange: () => void;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
   readonly partyAuthorization: AuthorizationRecoveryPort;
   readonly recheckMentionAuthority: () => Promise<void>;
 };
@@ -79,7 +81,7 @@ export function useWorkbookShellInfrastructure({
   incidentId,
   mutationRuntimeRegistry,
   onExtensionAvailabilityChange,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   recheckMentionAuthority,
   partyAuthorization,
 }: WorkbookShellInfrastructureOptions) {
@@ -116,27 +118,27 @@ export function useWorkbookShellInfrastructure({
     () =>
       mutationRuntime.indicatorLifecycle.configure(
         createIndicatorLifecycleAdapter({ apiBase, incidentId }),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
       ),
-    [mutationRuntime, apiBase, incidentId, onIncidentAccessLost],
+    [mutationRuntime, apiBase, incidentId, onAuthorityUncertain],
   );
   useMemo(
     () =>
       mutationRuntime.indicatorObservations.configure(
         createObservationReader({ apiBase, incidentId }),
         createObservationTransport({ apiBase, incidentId }),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
       ),
-    [mutationRuntime, apiBase, incidentId, onIncidentAccessLost],
+    [mutationRuntime, apiBase, incidentId, onAuthorityUncertain],
   );
   useMemo(
     () =>
       mutationRuntime.indicatorCreate.configure(
         createObservationReader({ apiBase, incidentId }),
         createIndicatorCreateTransport({ apiBase, incidentId }),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
       ),
-    [mutationRuntime, apiBase, incidentId, onIncidentAccessLost],
+    [mutationRuntime, apiBase, incidentId, onAuthorityUncertain],
   );
   const timelineMentions = useMemo(
     () => timelineMentionOwnerFor(mutationRuntime),
@@ -162,17 +164,17 @@ export function useWorkbookShellInfrastructure({
       timelineCapture.configure(
         createTimelineRecordActionAdapter({ apiBase }),
         createTimelineCandidateReader({ apiBase, incidentId }),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
       ),
-    [timelineCapture, apiBase, incidentId, onIncidentAccessLost],
+    [timelineCapture, apiBase, incidentId, onAuthorityUncertain],
   );
   useMemo(
     () =>
       mutationRuntime.decisionSupersession.configure(
         createWorkbookDecisionSupersessionAdapter({ apiBase, incidentId }),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
       ),
-    [apiBase, incidentId, mutationRuntime, onIncidentAccessLost],
+    [apiBase, incidentId, mutationRuntime, onAuthorityUncertain],
   );
   useMemo(
     () =>
@@ -180,9 +182,28 @@ export function useWorkbookShellInfrastructure({
         createRecordPatchTransport(
           createWorkbookOperationExecutor({ apiBase }),
         ),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
+        (view, recordId, signal) =>
+          readWorkbookAuthoringRecord(
+            createWorkbookAuthoringReader({
+              apiBase,
+              incidentId,
+              recheckAuthority: () => {
+                void recheckMentionAuthority();
+              },
+            }),
+            view,
+            recordId,
+            signal,
+          ),
       ),
-    [apiBase, mutationRuntime, onIncidentAccessLost],
+    [
+      apiBase,
+      incidentId,
+      mutationRuntime,
+      onAuthorityUncertain,
+      recheckMentionAuthority,
+    ],
   );
   const clipboardPastePort = useMemo(
     () => createWorkbookClipboardPasteAdapter(mutationRuntime.batches),
@@ -206,16 +227,39 @@ export function useWorkbookShellInfrastructure({
     [apiBase, incidentId, transactionIds, mutationRuntime],
   );
   useMemo(
-    () => mutationRuntime.history.configure(mutationCommands.records),
-    [mutationRuntime, mutationCommands],
+    () =>
+      mutationRuntime.history.configure(
+        mutationCommands.records,
+        onAuthorityUncertain,
+      ),
+    [mutationRuntime, mutationCommands, onAuthorityUncertain],
   );
   useMemo(
     () =>
       mutationRuntime.entityMerge.configure(
         createWorkbookEntityMergeAdapter({ apiBase, incidentId }),
+        onAuthorityUncertain,
       ),
-    [apiBase, incidentId, mutationRuntime],
+    [apiBase, incidentId, mutationRuntime, onAuthorityUncertain],
   );
+  useMemo(() => {
+    const reader = createWorkbookAuthoringReader({
+      apiBase,
+      incidentId,
+      recheckAuthority: () => {
+        void recheckMentionAuthority();
+      },
+    });
+    timelineMutationOwnerFor(mutationRuntime).configureReader(
+      (recordId, signal) =>
+        readWorkbookAuthoringRecord(
+          reader,
+          "cartulary.view.timeline.v2",
+          recordId,
+          signal,
+        ),
+    );
+  }, [apiBase, incidentId, mutationRuntime, recheckMentionAuthority]);
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const surfaceSelectionVersionRef = useRef(0);
   const incidentPort = useMemo(
@@ -392,7 +436,7 @@ export function useWorkbookShellInfrastructure({
   );
   const workbookRuntime = useWorkbookShellRuntime({
     incidentId,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     surfaceSelectionVersionRef,
     extensionAvailability,
     onExtensionAvailabilityChange,

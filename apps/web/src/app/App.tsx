@@ -537,7 +537,7 @@ export function App({
   const handleSessionLost = useCallback(() => {
     if (sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime)
       return;
-    sessionController.sessionLost();
+    sessionController.sessionLost(sessionSnapshot.lifetime);
     setLandingNotice(null);
     setAuthPrompt(defaultRevokedSessionMessage);
   }, [sessionController, sessionSnapshot.lifetime]);

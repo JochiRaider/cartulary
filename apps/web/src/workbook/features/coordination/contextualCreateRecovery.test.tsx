@@ -1,6 +1,8 @@
 import {
+  assessmentsViewSchemaId,
   decisionsViewSchemaId,
   evidenceViewSchemaId,
+  hostsViewSchemaId,
   requireViewContract,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
@@ -14,6 +16,8 @@ import type { RecordChangedMessage } from "../../collaboration/workbookCollabora
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
+import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { ContextualCreateContext } from "./ContextualCreateContext";
 import type {
   ContextualCreateOutcome,
@@ -39,22 +43,30 @@ const authority: WorkbookMutationAuthority = {
   closed: false,
 };
 const attachment = Symbol("inspector");
-function fixture(decision = false) {
+function fixture(
+  decision = false,
+  runtime?: WorkbookMutationRuntime,
+  view: string = timelineViewSchemaId,
+) {
   let sequence = 0;
   const ids = { create: vi.fn((prefix: string) => `${prefix}-${++sequence}`) };
   const effects = {
-    coordinate: vi.fn(async () => true),
+    coordinate: vi.fn<() => Promise<WorkbookSourceWriteSettlement>>(
+      async () => ({ kind: "settled", minimumRowVersion: 0 }),
+    ),
     accepted: vi.fn(),
     refresh: vi.fn(async () => {}),
     observed: vi.fn(),
   };
-  const owner = new WorkbookContextualTaskDecisionCreateOwner(
-    authority.incidentId,
-    ids,
-    effects,
-  );
+  const owner =
+    runtime?.contextualCreate ??
+    new WorkbookContextualTaskDecisionCreateOwner(
+      authority.incidentId,
+      ids,
+      effects,
+    );
   owner.setAuthority(authority);
-  const contract = requireViewContract(timelineViewSchemaId);
+  const contract = requireViewContract(view);
   const feature = contract.inspectorConfig.featureGroups.find(
     (item) =>
       item.featureGroupKey ===
@@ -66,18 +78,29 @@ function fixture(decision = false) {
     subject: {
       kind: "live" as const,
       recordId: sourceId,
-      viewSchemaId: timelineViewSchemaId,
+      viewSchemaId: view,
       rowVersion: 1,
       label: "Source",
       surfaceLabel: "Timeline",
     },
   };
   const reader: ContextualCreateReader = {
-    availableViews: async () => [timelineViewSchemaId],
+    availableViews: async () => [view],
     verify: vi.fn(async () => {}),
     page: vi.fn(async () => ({
       kind: "accepted" as const,
-      value: { candidates: [], hasMore: false, nextCursor: null },
+      value: {
+        candidates: [
+          {
+            recordId: sourceId,
+            displayText: "Source",
+            viewSchemaId: contract.viewSchemaId,
+            row: fullWorkbookViewRow(contract, sourceId, 1, {}),
+          },
+        ],
+        hasMore: false,
+        nextCursor: null,
+      },
     })),
   };
   const transport = {
@@ -90,12 +113,7 @@ function fixture(decision = false) {
     async (): Promise<WorkbookMutationAuthority> => authority,
   );
   owner.configure(reader, authorityReader, transport);
-  owner.begin(
-    subject,
-    feature,
-    { kind: "view_schema", id: timelineViewSchemaId },
-    attachment,
-  );
+  owner.begin(subject, feature, { kind: "view_schema", id: view }, attachment);
   if (decision) {
     owner.update("decision.summary", "Reviewed summary");
     owner.update("decision.rationale", "Reviewed rationale");
@@ -134,6 +152,137 @@ function fixture(decision = false) {
   };
 }
 describe("contextual create recovery", () => {
+  it("creates from a detached Assessment with real coordination and retains refresh debt and acceptance", async () => {
+    for (const debt of [false, true]) {
+      const writes = vi.fn(async () => {
+        throw new Error("No source write is permitted");
+      });
+      const runtime = new WorkbookMutationRuntime(
+        {
+          incidentId: authority.incidentId,
+          clientInstanceId: "retained-assessment",
+        },
+        { create: () => "retained-decision" },
+        { execute: writes },
+      );
+      const { owner, reader, transport, receipt } = fixture(
+        true,
+        runtime,
+        assessmentsViewSchemaId,
+      );
+      runtime.history.acceptVersion(sourceId, 1);
+      // This materialization mismatch alone triggered the old mounted-surface reconciliation.
+      expect(runtime.explicitPatches.latestRow(sourceId)).toBeNull();
+      if (debt) runtime.retainSurfaceRefreshDebt(assessmentsViewSchemaId);
+      const hostsRefresh = vi.fn();
+      runtime.registerSurface(hostsViewSchemaId, hostsRefresh);
+      owner.detach(attachment);
+      const resumed = Symbol("Hosts retained form");
+      owner.resume(resumed);
+      let failRefresh = false;
+      vi.mocked(reader.page).mockImplementation(async ({ viewSchemaId }) => {
+        if (failRefresh)
+          return {
+            kind: "rejected",
+            failure: { kind: "retryable", message: "read unavailable" },
+          };
+        const row =
+          viewSchemaId === assessmentsViewSchemaId
+            ? fullWorkbookViewRow(
+                requireViewContract(viewSchemaId),
+                sourceId,
+                1,
+                {},
+              )
+            : receipt.data.row;
+        return {
+          kind: "accepted",
+          value: {
+            candidates: [
+              {
+                recordId: row.record_id,
+                displayText: "Record",
+                viewSchemaId,
+                row,
+              },
+            ],
+            hasMore: false,
+            nextCursor: null,
+          },
+        };
+      });
+      transport.send.mockImplementation(async () => {
+        failRefresh = true;
+        return { kind: "accepted", receipt };
+      });
+      await owner.submit(resumed);
+      await waitFor(() =>
+        expect(owner.getSnapshot().entries[0]?.refresh).toBe("required"),
+      );
+      expect(transport.send).toHaveBeenCalledOnce();
+      expect(owner.getSnapshot().entries[0]?.receipt).toEqual(receipt);
+      expect(
+        owner.getSnapshot().entries[0]?.attempt.review.draft.source.recordId,
+      ).toBe(sourceId);
+      failRefresh = false;
+      await owner.retryRefresh("retained-decision");
+      expect(owner.getSnapshot().entries[0]?.refresh).toBe("complete");
+      const sourceRefresh = vi.fn();
+      runtime.registerSurface(assessmentsViewSchemaId, sourceRefresh);
+      await waitFor(() => expect(sourceRefresh).toHaveBeenCalledOnce());
+      expect(hostsRefresh).not.toHaveBeenCalled();
+      expect(writes).not.toHaveBeenCalled();
+      expect(transport.send).toHaveBeenCalledOnce();
+      runtime.invalidate({ kind: "runtime_disposed" });
+    }
+  });
+  it("withdraws contextual readiness for unavailable or changed source reads while retaining values", async () => {
+    for (const kind of [
+      "missing",
+      "incomplete",
+      "wrong_identity",
+      "changed",
+      "stale",
+    ] as const) {
+      const { owner, reader, transport } = fixture(true);
+      vi.mocked(reader.page).mockResolvedValue(
+        kind === "incomplete"
+          ? {
+              kind: "rejected",
+              failure: { kind: "retryable", message: "read unavailable" },
+            }
+          : {
+              kind: "accepted",
+              value: {
+                candidates:
+                  kind === "missing"
+                    ? []
+                    : [
+                        {
+                          recordId: sourceId,
+                          displayText: "Source",
+                          viewSchemaId: timelineViewSchemaId,
+                          row: fullWorkbookViewRow(
+                            requireViewContract(timelineViewSchemaId),
+                            kind === "wrong_identity" ? targetId : sourceId,
+                            kind === "changed" ? 2 : kind === "stale" ? 0 : 1,
+                            {},
+                          ),
+                        },
+                      ],
+                hasMore: false,
+                nextCursor: null,
+              },
+            },
+      );
+      await owner.submit(attachment);
+      expect(transport.send).not.toHaveBeenCalled();
+      expect(owner.getSnapshot().draft?.values["decision.summary"]).toBe(
+        "Reviewed summary",
+      );
+      expect(owner.getSnapshot().message).toContain("retained");
+    }
+  });
   it("recovers a timed-out observation with the same attempt and accepts a late original receipt monotonically", async () => {
     vi.useFakeTimers();
     const { owner, transport, receipt, ids } = fixture();
@@ -169,7 +318,7 @@ describe("contextual create recovery", () => {
   it("reserves activation synchronously, waits for prior saves, and captures immutable reviewed requests for both targets", async () => {
     for (const decision of [false, true]) {
       const { owner, effects, ids, transport } = fixture(decision);
-      const save = deferred<boolean>();
+      const save = deferred<WorkbookSourceWriteSettlement>();
       effects.coordinate.mockReturnValue(save.promise);
       const first = owner.submit(attachment),
         second = owner.submit(attachment);
@@ -179,7 +328,7 @@ describe("contextual create recovery", () => {
         decision ? "decision.summary" : "task.title",
         "Unreviewed edit",
       );
-      save.resolve(true);
+      save.resolve({ kind: "settled", minimumRowVersion: 0 });
       await Promise.all([first, second]);
       expect(ids.create).toHaveBeenCalledTimes(1);
       expect(transport.send).toHaveBeenCalledTimes(1);
@@ -195,11 +344,11 @@ describe("contextual create recovery", () => {
   });
   it("invalidates reviewed readiness when source changes while earlier saves are pending", async () => {
     const { owner, effects, transport } = fixture();
-    const save = deferred<boolean>();
+    const save = deferred<WorkbookSourceWriteSettlement>();
     effects.coordinate.mockReturnValue(save.promise);
     const submitting = owner.submit(attachment);
     owner.observe(sourceId, 2);
-    save.resolve(true);
+    save.resolve({ kind: "settled", minimumRowVersion: 0 });
     await submitting;
     expect(transport.send).not.toHaveBeenCalled();
     expect(owner.getSnapshot().draft?.values["task.title"]).toBe(
@@ -229,12 +378,12 @@ describe("contextual create recovery", () => {
       fixture(true);
     const pending = deferred<ContextualCreateOutcome>();
     transport.send.mockReturnValue(pending.promise);
+    const submitting = owner.submit(attachment);
+    await waitFor(() => expect(transport.send).toHaveBeenCalledTimes(1));
     vi.mocked(reader.page).mockResolvedValue({
       kind: "rejected",
       failure: { kind: "retryable", message: "offline" },
     });
-    const submitting = owner.submit(attachment);
-    await waitFor(() => expect(transport.send).toHaveBeenCalledTimes(1));
     owner.detach(attachment);
     pending.resolve({ kind: "accepted", receipt });
     await submitting;

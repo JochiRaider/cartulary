@@ -1,5 +1,6 @@
 import type { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookCommittedRecordPort } from "../../query/WorkbookCommittedRecordPort";
 import type { IndicatorCreateReceipt } from "./indicatorCreateOperation";
 import { observationIndicatorView } from "./observationModel";
@@ -7,7 +8,6 @@ import type {
   ObservationReadPort,
   ObservationScope,
 } from "./observationOperation";
-import { observationFailureIsAccessLoss } from "./observationOperation";
 
 /** Reconcile the canonical identity, independent of the visible sheet, filters and receipt age. */
 export async function reconcileIndicatorCreateReceipt(
@@ -17,7 +17,7 @@ export async function reconcileIndicatorCreateReceipt(
   incidentId: string,
   receipt: IndicatorCreateReceipt,
   scope: ObservationScope,
-  loseAccess: () => void,
+  suspendForAuthorityRecovery: () => void,
 ) {
   const id = receipt.row.record_id;
   const current = () => scope.isCurrent() && !!records.getSnapshot().authority;
@@ -32,9 +32,9 @@ export async function reconcileIndicatorCreateReceipt(
   if (
     current() &&
     result.kind === "rejected" &&
-    observationFailureIsAccessLoss(result.failure)
+    workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
   )
-    loseAccess();
+    suspendForAuthorityRecovery();
   if (
     !current() ||
     result.kind !== "accepted" ||

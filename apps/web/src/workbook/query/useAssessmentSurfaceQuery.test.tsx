@@ -70,16 +70,16 @@ function queryResponse(rows: readonly unknown[]) {
 
 function AssessmentQueryHarness({
   active = true,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   queryState = emptyWorkbookQueryState(),
 }: {
   readonly active?: boolean;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly queryState?: WorkbookQueryState;
 }) {
   const query = useAssessmentSurfaceQuery({
     active,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     queryState,
     viewQuery,
   });
@@ -133,7 +133,7 @@ function AssessmentQueryHarness({
 
 describe("useAssessmentSurfaceQuery", () => {
   it("requires an accepted current query before authorization recovery can resume", async () => {
-    const onIncidentAccessLost = vi.fn();
+    const onAuthorityUncertain = vi.fn();
     const query = vi.fn().mockResolvedValue({
       kind: "rejected",
       failure: { kind: "invalid_contract", message: "Malformed query" },
@@ -142,7 +142,7 @@ describe("useAssessmentSurfaceQuery", () => {
       useAssessmentSurfaceQuery({
         active: true,
         queryState: emptyWorkbookQueryState(),
-        onIncidentAccessLost,
+        onAuthorityUncertain,
         viewQuery: { query },
       }),
     );
@@ -153,7 +153,7 @@ describe("useAssessmentSurfaceQuery", () => {
         recovery: { kind: "unavailable", failure: "contract" },
       });
     });
-    expect(onIncidentAccessLost).not.toHaveBeenCalled();
+    expect(onAuthorityUncertain).not.toHaveBeenCalled();
     query.mockResolvedValue({ kind: "aborted" });
     await act(async () => {
       await expect(
@@ -232,7 +232,7 @@ describe("useAssessmentSurfaceQuery", () => {
   });
 
   it("retains accepted rows on a stale error and clears them on access loss", async () => {
-    const onIncidentAccessLost = vi.fn();
+    const onAuthorityUncertain = vi.fn();
     let responseKind: "ready" | "error" | "denied" = "ready";
     vi.stubGlobal(
       "fetch",
@@ -251,7 +251,7 @@ describe("useAssessmentSurfaceQuery", () => {
       }),
     );
     render(
-      <AssessmentQueryHarness onIncidentAccessLost={onIncidentAccessLost} />,
+      <AssessmentQueryHarness onAuthorityUncertain={onAuthorityUncertain} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
@@ -278,7 +278,7 @@ describe("useAssessmentSurfaceQuery", () => {
         "permission_denied",
       ),
     );
-    expect(onIncidentAccessLost).toHaveBeenCalledOnce();
+    expect(onAuthorityUncertain).toHaveBeenCalledOnce();
     expect(screen.getByLabelText("assessment-rows").textContent).toBe("");
   });
 
@@ -324,7 +324,7 @@ describe("Assessment committed query reconciliation", () => {
     const hook = renderHook(() =>
       useAssessmentSurfaceQuery({
         active: true,
-        onIncidentAccessLost: undefined,
+        onAuthorityUncertain: undefined,
         queryState: emptyWorkbookQueryState(),
         viewQuery: { query },
         committedRecords: owner,
@@ -363,7 +363,7 @@ describe("Assessment committed query reconciliation", () => {
     const hook = renderHook(() =>
       useAssessmentSurfaceQuery({
         active: true,
-        onIncidentAccessLost: undefined,
+        onAuthorityUncertain: undefined,
         queryState: emptyWorkbookQueryState(),
         viewQuery: { query },
         committedRecords: owner,
@@ -395,7 +395,7 @@ describe("Assessment committed query reconciliation", () => {
     const hook = renderHook(() =>
       useAssessmentSurfaceQuery({
         active: true,
-        onIncidentAccessLost: undefined,
+        onAuthorityUncertain: undefined,
         queryState: emptyWorkbookQueryState(),
         viewQuery: { query },
         committedRecords: owner,

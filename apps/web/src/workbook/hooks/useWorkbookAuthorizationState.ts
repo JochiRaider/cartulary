@@ -28,6 +28,7 @@ export function useWorkbookAuthorizationState({
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<WorkbookIncidentRole | null>(null);
   const request = useRef<AbortController | null>(null);
+  const [revision, setRevision] = useState(0);
   useLayoutEffect(() => {
     setCurrentUserId(subject.accountUserId ?? null);
     setCurrentIncidentRole(null);
@@ -43,6 +44,7 @@ export function useWorkbookAuthorizationState({
     }) => {
       setCurrentUserId(result.userId || null);
       setCurrentIncidentRole(result.role);
+      setRevision((value) => value + 1);
     },
     [],
   );
@@ -77,9 +79,14 @@ export function useWorkbookAuthorizationState({
     onIncidentAccessLost,
     onSessionLost,
   ]);
+  const acceptedAuthority = useMemo(
+    () => ({ userId: currentUserId, role: currentIncidentRole, revision }),
+    [currentUserId, currentIncidentRole, revision],
+  );
   return {
+    acceptedAuthority,
     acceptRecoveredAuthorization,
-    authorizationGeneration: `${currentUserId ?? "anonymous"}:${currentIncidentRole ?? "none"}`,
+    authorizationGeneration: `${currentUserId ?? "anonymous"}:${currentIncidentRole ?? "none"}:${revision}`,
     currentIncidentRole,
     currentUserId,
     loadSessionRole,

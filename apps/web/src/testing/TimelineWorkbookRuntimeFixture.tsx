@@ -443,7 +443,7 @@ export function TimelineWorkbookRuntimeFixture({
               },
             },
             onActivateConflict: recoveryFocus.activate,
-            onIncidentAccessLost,
+            onAuthorityUncertain: onIncidentAccessLost,
           }}
         />
         {mutationSnapshot.blockedEdit !== null ? (

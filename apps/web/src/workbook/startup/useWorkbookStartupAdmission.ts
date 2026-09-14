@@ -13,7 +13,7 @@ import { savedViewQueryStateForRuntime } from "../models/workbookSavedViewRuntim
 import type { SavedViewResource } from "../models/workbookSavedViews";
 import { workbookStartupQueryFromURLParams } from "../models/workbookStartup";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type {
   WorkbookStartupAvailability,
   WorkbookStartupPort,
@@ -96,7 +96,7 @@ export function useWorkbookStartupAdmission({
   selectionPort,
   savedViewStatePort,
   startupPort,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   onAvailabilityChange,
 }: {
   readonly incidentId: string;
@@ -105,7 +105,7 @@ export function useWorkbookStartupAdmission({
   readonly selectionPort: WorkbookStartupSelectionPort;
   readonly savedViewStatePort: WorkbookStartupSavedViewStatePort;
   readonly startupPort: WorkbookStartupPort;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly onAvailabilityChange: () => void;
 }): { readonly pending: boolean } {
   const [pending, setPending] = useState(true);
@@ -156,8 +156,11 @@ export function useWorkbookStartupAdmission({
           admissionMachineRef.current,
           started.admission,
         );
-        if (workbookOperationFailureIsAccessLoss(result.failure)) {
-          onIncidentAccessLost?.();
+        if (
+          workbookFailureLifecycle(result.failure).kind ===
+          "authority_unavailable"
+        ) {
+          onAuthorityUncertain?.();
         }
         return;
       }
@@ -214,7 +217,7 @@ export function useWorkbookStartupAdmission({
     availabilityPort,
     incidentId,
     onAvailabilityChange,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     savedViewStatePort,
     selectionPort,
     startupPort,

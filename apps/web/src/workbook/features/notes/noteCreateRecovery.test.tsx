@@ -6,6 +6,7 @@ import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSuppor
 import { createNoteCreateTransport } from "../../adapters/createNoteCreateTransport";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import {
   type NoteCreateReader,
   noteCreateView,
@@ -38,7 +39,9 @@ function fixture(view = noteSourceViews[0]) {
   let sequence = 0;
   const ids = { create: vi.fn(() => `note-create-${++sequence}`) };
   const effects = {
-    coordinate: vi.fn(async () => true),
+    coordinate: vi.fn<() => Promise<WorkbookSourceWriteSettlement>>(
+      async () => ({ kind: "settled", minimumRowVersion: 0 }),
+    ),
     accepted: vi.fn(),
     refresh: vi.fn(async () => {}),
   };
@@ -208,7 +211,7 @@ describe("Note atomic recovery", () => {
   it("guards same-frame submissions before source preparation and freezes all four source routes", async () => {
     for (const view of noteSourceViews) {
       const { owner, effects, transport, ids } = fixture(view);
-      const save = deferred<boolean>();
+      const save = deferred<WorkbookSourceWriteSettlement>();
       effects.coordinate.mockReturnValue(save.promise);
       const first = owner.submit(token),
         second = owner.submit(token);
@@ -216,7 +219,7 @@ describe("Note atomic recovery", () => {
       expect(transport.send).not.toHaveBeenCalled();
       owner.update("note.title", "Changed during preparation");
       owner.changeSource(null);
-      save.resolve(true);
+      save.resolve({ kind: "settled", minimumRowVersion: 0 });
       await Promise.all([first, second]);
       expect(transport.send).toHaveBeenCalledTimes(1);
       expect(ids.create).toHaveBeenCalledTimes(1);
@@ -344,7 +347,10 @@ describe("Note atomic recovery", () => {
   });
   it("requires explicit review after source version changes and blocks deleted sources and prior conflicts", async () => {
     const { owner, transport, reader, effects } = fixture();
-    effects.coordinate.mockResolvedValueOnce(false);
+    effects.coordinate.mockResolvedValueOnce({
+      kind: "blocked",
+      reason: "pending_recovery",
+    });
     await owner.submit(token);
     expect(transport.send).not.toHaveBeenCalled();
     vi.mocked(reader.page).mockResolvedValue({

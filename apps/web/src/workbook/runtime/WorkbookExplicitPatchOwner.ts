@@ -13,6 +13,8 @@ import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationAccepted } from "../ports/WorkbookPendingMutationPort";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
+import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookConflictRegistration } from "./WorkbookConflictStore";
 import type { WorkbookConflictResolutionKind } from "./workbookConflictModel";
@@ -80,7 +82,14 @@ export class WorkbookExplicitPatchOwner {
   private retired = false;
   private generation = 0;
   private transport: RecordPatchTransport | null = null;
-  private accessLost: (() => void) | undefined;
+  private readSource:
+    | ((
+        viewSchemaId: string,
+        recordId: string,
+        signal: AbortSignal,
+      ) => Promise<WorkbookQueryRow | null>)
+    | undefined;
+  private authorityUncertain: (() => void) | undefined;
   private readonly entries = new Map<string, ExplicitPatchOperation>();
   private readonly attempts = new Map<string, RecordPatchTransport>();
   private readonly contributions = new Map<
@@ -100,7 +109,8 @@ export class WorkbookExplicitPatchOwner {
         recordId: string,
         signal: AbortSignal,
         viewSchemaId: string,
-      ): Promise<boolean>;
+        reservationId: string,
+      ): Promise<WorkbookSourceWriteSettlement>;
       contribute?(
         intent: ExplicitPatchIntent,
       ): readonly ExplicitPatchContribution[];
@@ -112,9 +122,18 @@ export class WorkbookExplicitPatchOwner {
     },
     private readonly timeoutMs = 30_000,
   ) {}
-  configure(transport: RecordPatchTransport, accessLost?: () => void) {
+  configure(
+    transport: RecordPatchTransport,
+    authorityUncertain: (() => void) | undefined,
+    readSource: (
+      viewSchemaId: string,
+      recordId: string,
+      signal: AbortSignal,
+    ) => Promise<WorkbookQueryRow | null>,
+  ) {
     this.transport = transport;
-    this.accessLost = accessLost;
+    this.authorityUncertain = authorityUncertain;
+    this.readSource = readSource;
   }
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -216,6 +235,27 @@ export class WorkbookExplicitPatchOwner {
             entry.reconciliation !== "complete")),
     );
   }
+  sourceWriteState(
+    recordId: string,
+    ownReservationId?: string,
+  ): "settled" | "pending" | "uncertain" {
+    const entries = [...this.entries.values()].filter(
+      (entry) =>
+        entry.id !== ownReservationId &&
+        entry.intent.baseline.record_id === recordId,
+    );
+    if (
+      entries.some(
+        (entry) => entry.phase === "uncertain" || entry.phase === "conflict",
+      )
+    )
+      return "uncertain";
+    return entries.some(
+      (entry) => entry.phase === "coordinating" || entry.phase === "submitting",
+    )
+      ? "pending"
+      : "settled";
+  }
   get pendingCount() {
     return [...this.entries.values()].filter(
       (entry) =>
@@ -286,14 +326,33 @@ export class WorkbookExplicitPatchOwner {
     try {
       const coordinated = await boundedRead(
         (signal) =>
-          this.boundaries.coordinate(recordId, signal, intent.viewSchemaId),
+          this.boundaries.coordinate(recordId, signal, intent.viewSchemaId, id),
         controller.signal,
         this.timeoutMs,
       );
-      if (!coordinated)
+      if (coordinated.kind !== "settled")
         throw new Error(
           "Earlier writes need recovery. Your draft is retained.",
         );
+      this.acceptVersion(recordId, coordinated.minimumRowVersion);
+      const readSource = this.readSource;
+      if (!readSource) throw new Error("Source reader is not configured");
+      {
+        const row = await boundedRead(
+          (signal) => readSource(intent.viewSchemaId, recordId, signal),
+          controller.signal,
+          this.timeoutMs,
+        );
+        if (
+          !row ||
+          row.record_id !== recordId ||
+          row.row_version < coordinated.minimumRowVersion
+        )
+          throw new Error(
+            "The source needs a current owner read. Your draft is retained.",
+          );
+        this.acceptRow(row);
+      }
       for (const contribution of contributions)
         if (contribution.prepare)
           await boundedRead(
@@ -405,10 +464,7 @@ export class WorkbookExplicitPatchOwner {
     }
     if (outcome.kind === "rejected") {
       const failure = outcome.failure;
-      if (
-        failure.kind === "authentication_required" ||
-        failure.kind === "authorization_lost"
-      ) {
+      if (workbookFailureLifecycle(failure).kind === "authority_unavailable") {
         this.update(id, {
           phase: entry.phase === "uncertain" ? "uncertain" : "rejected",
           failure,
@@ -420,7 +476,7 @@ export class WorkbookExplicitPatchOwner {
         if (handlers.length)
           for (const handler of handlers)
             void handler.accessRejected?.().catch(() => {});
-        else this.accessLost?.();
+        else this.authorityUncertain?.();
         return;
       }
       if (entry.phase === "uncertain") {

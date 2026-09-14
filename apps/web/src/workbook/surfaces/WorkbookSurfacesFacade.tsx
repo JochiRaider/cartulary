@@ -42,7 +42,7 @@ export type WorkbookSurfacesFacadeProps = {
     readonly currentUserId: string | null;
     readonly incidentPort: WorkbookIncidentPort;
     readonly incidentId: string;
-    readonly onIncidentAccessLost: (() => void) | undefined;
+    readonly onAuthorityUncertain: (() => void) | undefined;
   };
   readonly inspector: {
     readonly resetKey: string;
@@ -119,7 +119,7 @@ export function WorkbookSurfacesFacade({
     currentUserId,
     incidentPort,
     incidentId,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
   } = incident;
   const {
     activeContract,
@@ -209,7 +209,7 @@ export function WorkbookSurfacesFacade({
           layout,
           gridEntryFocus,
           onActivateConflict,
-          onIncidentAccessLost,
+          onAuthorityUncertain,
         }}
       />
     );
@@ -240,7 +240,7 @@ export function WorkbookSurfacesFacade({
         collaborationProjection={collaborationProjection}
         loadState={entityLoadState}
         onRefreshEntities={loadEntities}
-        onIncidentAccessLost={onIncidentAccessLost}
+        onAuthorityUncertain={onAuthorityUncertain}
         onClearFilters={() => {
           if (isHosts) setHostQueryState(emptyWorkbookQueryState());
           else setIdentityQueryState(emptyWorkbookQueryState());
@@ -316,7 +316,7 @@ export function WorkbookSurfacesFacade({
       referenceQueryBroker={referenceQueryBroker}
       collaborationProjection={collaborationProjection}
       sheetRef={sheetRef}
-      onIncidentAccessLost={onIncidentAccessLost}
+      onAuthorityUncertain={onAuthorityUncertain}
       onClearFilters={() => {
         setGenericQueryState(emptyWorkbookQueryState());
       }}

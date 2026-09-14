@@ -187,7 +187,8 @@ export class AppSessionController {
   credentialsRevoked() {
     this.endSession();
   }
-  sessionLost() {
+  sessionLost(originatingLifetime: string | null = this.snapshot.lifetime) {
+    if (originatingLifetime !== this.snapshot.lifetime) return;
     this.endSession();
   }
   private endSession() {

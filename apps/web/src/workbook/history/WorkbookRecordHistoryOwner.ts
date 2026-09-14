@@ -8,6 +8,7 @@ import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../mutations/workbookOperationOutcome";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import { HistoryActionLookup } from "./HistoryActionLookup";
 import {
   type HistoryAttempt,
@@ -48,6 +49,7 @@ export class WorkbookRecordHistoryOwner {
   private listeners = new Set<() => void>();
   private snapshot: readonly HistoryOperation[] = empty;
   private epoch = 0;
+  private authorityUncertain: (() => void) | undefined;
   private preparations = new Map<string, HistoryActionLookup>();
   private reviews = new Map<string, HistoryActionLookup>();
   private reads = new Set<{ cancel: () => void }>();
@@ -163,8 +165,9 @@ export class WorkbookRecordHistoryOwner {
       this.authorized(entry.attempt)
     );
   }
-  configure(port: WorkbookRecordHistoryPort) {
+  configure(port: WorkbookRecordHistoryPort, authorityUncertain?: () => void) {
     this.port = port;
+    this.authorityUncertain = authorityUncertain;
   }
   setAuthority(authority: HistoryAuthority | null) {
     if (
@@ -317,19 +320,18 @@ export class WorkbookRecordHistoryOwner {
     signal?: AbortSignal,
     request: HistoryPageRequest = {},
   ): Promise<WorkbookOperationOutcome<HistoryPage>> {
-    return this.read(recordId, signal, request, true);
+    return this.read(recordId, signal, request);
   }
   /** Related projections may disappear without invalidating incident-wide history access. */
   loadProjection(
     recordId: string,
   ): Promise<WorkbookOperationOutcome<HistoryPage>> {
-    return this.read(recordId, undefined, {}, false);
+    return this.read(recordId, undefined, {});
   }
   private async read(
     recordId: string,
     signal: AbortSignal | undefined,
     request: HistoryPageRequest,
-    suspendMissingRecord: boolean,
   ): Promise<WorkbookOperationOutcome<HistoryPage>> {
     const authority = this.authority;
     const epoch = this.epoch;
@@ -364,13 +366,12 @@ export class WorkbookRecordHistoryOwner {
     }
     if (
       result.value.kind === "rejected" &&
-      (result.value.failure.kind === "authentication_required" ||
-        result.value.failure.kind === "authorization_lost" ||
-        (suspendMissingRecord &&
-          result.value.failure.publicCode === "record_not_found") ||
-        result.value.failure.publicCode === "incident_not_found")
-    )
+      workbookFailureLifecycle(result.value.failure).kind ===
+        "authority_unavailable"
+    ) {
       this.suspend();
+      this.authorityUncertain?.();
+    }
     return result.value;
   }
 
@@ -593,12 +594,13 @@ export class WorkbookRecordHistoryOwner {
         if (outcome.failure.publicCode === "incident_closed")
           this.closeIncident();
         if (
-          outcome.failure.kind === "authentication_required" ||
-          outcome.failure.kind === "authorization_lost" ||
-          outcome.failure.publicCode === "record_not_found" ||
-          outcome.failure.publicCode === "incident_not_found"
-        )
+          dispatchEpoch === this.epoch &&
+          workbookFailureLifecycle(outcome.failure).kind ===
+            "authority_unavailable"
+        ) {
           this.suspend();
+          this.authorityUncertain?.();
+        }
       } else this.update(attempt.id, { phase: "uncertain" });
     });
     this.observations.set(attempt.id, observation);

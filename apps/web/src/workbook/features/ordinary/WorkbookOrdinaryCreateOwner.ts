@@ -12,6 +12,7 @@ import type {
   WorkbookAuthoringCandidate,
   WorkbookAuthoringReadPort,
 } from "../../ports/WorkbookAuthoringReadPort";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
 import type {
@@ -591,10 +592,7 @@ export class WorkbookOrdinaryCreateOwner {
     if (terminalClosed) this.closeIncident();
     if (
       outcome.kind === "rejected" &&
-      (["authentication_required", "authorization_lost"].includes(
-        outcome.failure.kind,
-      ) ||
-        outcome.failure.publicCode === "incident_not_found")
+      workbookFailureLifecycle(outcome.failure).kind === "authority_unavailable"
     ) {
       this.suspend();
       this.recheckAuthority();

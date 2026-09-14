@@ -17,7 +17,7 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import { reconcileWorkbookRecordRows } from "../utils/workbookRowReconciliation";
 import { planEntityLiveEventPatch } from "./entityLiveEventPatchPlanner";
 import type { WorkbookCommittedRecordPort } from "./WorkbookCommittedRecordPort";
@@ -36,7 +36,7 @@ export type EntitySurfaceQueryInput = {
   readonly editOwner?: WorkbookCommittedRecordPort | undefined;
   readonly hostQueryState: WorkbookQueryState;
   readonly identityQueryState: WorkbookQueryState;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
   readonly viewQuery: WorkbookViewQueryPort;
 };
 
@@ -45,7 +45,7 @@ export function useEntitySurfaceQuery({
   editOwner,
   hostQueryState,
   identityQueryState,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   viewQuery,
 }: EntitySurfaceQueryInput) {
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
@@ -111,8 +111,11 @@ export function useEntitySurfaceQuery({
       );
       if (rejected?.kind === "rejected") {
         const message = rejected.failure.message;
-        if (workbookOperationFailureIsAccessLoss(rejected.failure)) {
-          onIncidentAccessLost?.();
+        if (
+          workbookFailureLifecycle(rejected.failure).kind ===
+          "authority_unavailable"
+        ) {
+          onAuthorityUncertain?.();
           hostRowsRef.current = [];
           identityRowsRef.current = [];
           acceptedRowCountRef.current = 0;
@@ -182,7 +185,7 @@ export function useEntitySurfaceQuery({
     [
       hostQueryState,
       identityQueryState,
-      onIncidentAccessLost,
+      onAuthorityUncertain,
       viewQuery,
       ordinaryCreateOwner,
       editOwner,

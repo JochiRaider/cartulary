@@ -71,6 +71,44 @@ afterEach(() => {
 });
 
 describe("application session lifecycle", () => {
+  it("fences a delayed unauthorized observation and explicit session loss across accepted login and account replacement", async () => {
+    for (const nextAccount of [accountA, accountB]) {
+      const old = deferred<SessionResult>();
+      const session = vi.fn(async () => success());
+      const { controller, retireLifetime } = setup({ session });
+      await controller.refreshSession();
+      const lifetime = controller.getSnapshot().lifetime;
+      if (!lifetime) throw new Error("Expected accepted session");
+      session.mockImplementationOnce(() => old.promise);
+      const observation = controller.observeOperationSession(
+        lifetime,
+        new AbortController().signal,
+        () => true,
+      );
+      await flush();
+      expect(
+        controller.authenticationCompleted(
+          sessionResource({
+            user_id: nextAccount,
+            memberships: [{ incident_id: incident, role: "editor" }],
+          }),
+          controller.getSnapshot().revision,
+        ),
+      ).toBe(true);
+      const accepted = controller.getSnapshot().lifetime;
+      const retirements = retireLifetime.mock.calls.length;
+      old.resolve({
+        ok: false,
+        status: 401,
+        payload: { error: { code: "session_required" } },
+      });
+      expect(await observation).toEqual({ kind: "cancelled" });
+      controller.sessionLost(lifetime);
+      expect(controller.getSnapshot().lifetime).toBe(accepted);
+      expect(controller.getSnapshot().session?.user_id).toBe(nextAccount);
+      expect(retireLifetime).toHaveBeenCalledTimes(retirements);
+    }
+  });
   it("keeps anonymous authentication confirmation inside its current flow and fences replacement", async () => {
     const anonymous: SessionResult = {
       ok: false,

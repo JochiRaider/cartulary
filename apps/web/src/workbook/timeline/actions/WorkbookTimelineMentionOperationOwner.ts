@@ -1,5 +1,6 @@
 import { observeAsyncOperation } from "../../../services/asyncObservation";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookTimelineActionRuntimePort } from "../../ports/WorkbookTimelineActionRuntimePort";
 import type {
   TimelineMentionEntityCreationPort,
@@ -427,8 +428,8 @@ export class WorkbookTimelineMentionOperationOwner
             this.closeIncident();
           // A mention or target 404 and a role rejection are local until current incident/session reads prove access loss.
           if (
-            outcome.failure.kind === "authentication_required" ||
-            outcome.failure.kind === "authorization_lost"
+            workbookFailureLifecycle(outcome.failure).kind ===
+            "authority_unavailable"
           )
             this.recheckAuthority?.();
         }
@@ -664,8 +665,8 @@ export class WorkbookTimelineMentionOperationOwner
           if (outcome.failure.publicCode === "incident_closed")
             this.closeIncident();
           if (
-            outcome.failure.kind === "authentication_required" ||
-            outcome.failure.kind === "authorization_lost"
+            workbookFailureLifecycle(outcome.failure).kind ===
+            "authority_unavailable"
           )
             this.recheckAuthority?.();
         }

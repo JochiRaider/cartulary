@@ -5,6 +5,7 @@ import {
 } from "../../../services/asyncObservation";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { IndicatorCreateDraftStore } from "./IndicatorCreateDraftStore";
 import {
@@ -32,7 +33,6 @@ import type {
   ObservationAuthority,
   ObservationReadPort,
 } from "./observationOperation";
-import { observationFailureIsAccessLoss } from "./observationOperation";
 
 /** Retains the canonical operation independently of both panel and observation mutation. */
 export class WorkbookIndicatorCreateOwner implements IndicatorCreateOwnerPort {
@@ -57,7 +57,7 @@ export class WorkbookIndicatorCreateOwner implements IndicatorCreateOwnerPort {
   private reader: ObservationReadPort | null = null;
   private transport: IndicatorCreateTransport | null = null;
   private reconcile: IndicatorCreateReconcile | null = null;
-  private accessLost: (() => void) | undefined;
+  private authorityUncertain: (() => void) | undefined;
   readonly drafts = new IndicatorCreateDraftStore(() => this.publish());
   constructor(
     readonly incidentId: string,
@@ -78,11 +78,11 @@ export class WorkbookIndicatorCreateOwner implements IndicatorCreateOwnerPort {
   configure(
     reader: ObservationReadPort,
     transport: IndicatorCreateTransport,
-    accessLost?: () => void,
+    authorityUncertain?: () => void,
   ) {
     this.reader = reader;
     this.transport = transport;
-    this.accessLost = accessLost;
+    this.authorityUncertain = authorityUncertain;
   }
   registerReconciliation(reconcile: IndicatorCreateReconcile) {
     this.reconcile = reconcile;
@@ -125,9 +125,9 @@ export class WorkbookIndicatorCreateOwner implements IndicatorCreateOwnerPort {
   closeIncident() {
     if (this.authority) this.setAuthority({ ...this.authority, closed: true });
   }
-  loseAccess() {
+  suspendForAuthorityRecovery() {
     this.suspend();
-    this.accessLost?.();
+    this.authorityUncertain?.();
   }
   retire() {
     this.generation++;
@@ -288,9 +288,10 @@ export class WorkbookIndicatorCreateOwner implements IndicatorCreateOwnerPort {
       if (result.kind !== "accepted") {
         if (
           result.kind === "rejected" &&
-          observationFailureIsAccessLoss(result.failure)
+          workbookFailureLifecycle(result.failure).kind ===
+            "authority_unavailable"
         )
-          this.loseAccess();
+          this.suspendForAuthorityRecovery();
         return false;
       }
       const item = result.value.items.find(
@@ -386,7 +387,11 @@ export class WorkbookIndicatorCreateOwner implements IndicatorCreateOwnerPort {
         });
         if (outcome.failure.publicCode === "incident_closed")
           this.closeIncident();
-        if (observationFailureIsAccessLoss(outcome.failure)) this.loseAccess();
+        if (
+          workbookFailureLifecycle(outcome.failure).kind ===
+          "authority_unavailable"
+        )
+          this.suspendForAuthorityRecovery();
       } else this.update(attempt.id, { phase: "uncertain" });
     });
     this.pending.set(attempt.id, operation);

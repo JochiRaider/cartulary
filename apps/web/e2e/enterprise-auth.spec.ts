@@ -8,6 +8,7 @@ import {
 
 import { expect, test } from "./fixtures";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
+import { rewriteSessionPresentation } from "./support/auth/sessionPresentation";
 import { createIncident } from "./support/incidents/fixtures";
 import {
   createIncidentMembership,
@@ -232,6 +233,14 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
+  await page.route("**/api/v1/auth/session", (route) =>
+    rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      memberships: session.memberships.filter(
+        (member) => member.incident_id !== incidentId,
+      ),
+    })),
+  );
   await page.route("**/api/v1/incidents**", async (route) => {
     const requestURL = new URL(route.request().url());
     if (

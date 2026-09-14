@@ -1557,6 +1557,7 @@ test("replays queued unsent writes after re-authentication without silent reload
       ).toHaveText("collaboration-conflict auth B base");
       await expectCurrentIncidentRole(page, "Current incident role: editor");
 
+      const runtimeDocument = await page.locator("html").elementHandle();
       await page.context().clearCookies();
       await editTimelineSummary(
         page,
@@ -1567,12 +1568,14 @@ test("replays queued unsent writes after re-authentication without silent reload
       await expect
         .poll(() => patchController.calls.at(-1)?.status ?? 0)
         .toBe(401);
+      const originalAttempt = patchController.calls.at(-1)?.body;
       await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "revoked",
       );
 
       await sessionTracker.loginTrackedUser(page, {
+        recovery: true,
         createdBy: "collaboration-conflict",
         email: member.email,
         password: member.initial_password,
@@ -1584,6 +1587,14 @@ test("replays queued unsent writes after re-authentication without silent reload
         .poll(() => successfulPatchCalls(patchController.calls).length)
         .toBe(1);
       const replayed = successfulPatchCalls(patchController.calls);
+      expect(
+        await runtimeDocument?.evaluate(
+          (element) => element === document.documentElement,
+        ),
+      ).toBe(true);
+      expect(replayed[0]?.body.client_txn_id).toBe(
+        originalAttempt?.client_txn_id,
+      );
       expect(replayed.map((call) => call.recordId)).toEqual([firstId]);
       expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual([
         "collaboration-conflict auth A local",

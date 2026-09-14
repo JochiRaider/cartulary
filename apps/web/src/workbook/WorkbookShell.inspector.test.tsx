@@ -728,7 +728,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       authority.incidentId,
       createBrowserSecureTransactionIdPort(),
       {
-        coordinate: async () => true,
+        coordinate: async () => ({
+          kind: "settled" as const,
+          minimumRowVersion: 0,
+        }),
         accepted: () => {},
         observed: () => {},
         refresh: async () => {},
@@ -741,7 +744,23 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         verify: async () => {},
         page: async () => ({
           kind: "accepted",
-          value: { candidates: [], hasMore: false, nextCursor: null },
+          value: {
+            candidates: [
+              {
+                recordId: "20000000-0000-4000-8000-000000000001",
+                displayText: "Create task source",
+                viewSchemaId: timelineViewSchemaId,
+                row: timelineRow({
+                  recordId: "20000000-0000-4000-8000-000000000001",
+                  rowVersion: 5,
+                  summary: "Create task source",
+                  captureState: "rough",
+                }),
+              },
+            ],
+            hasMore: false,
+            nextCursor: null,
+          },
         }),
       },
       async () => authority,
@@ -909,7 +928,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       authority.incidentId,
       createBrowserSecureTransactionIdPort(),
       {
-        coordinate: async () => true,
+        coordinate: async () => ({
+          kind: "settled" as const,
+          minimumRowVersion: 0,
+        }),
         accepted: () => {},
         refresh: async () => {},
         conflict: () => {},

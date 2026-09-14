@@ -81,7 +81,7 @@ it("Canonical refresh retains receipt on unavailable target access loss and deta
       observationAuthority.incidentId,
       t.ids,
     ),
-    loseAccess = vi.fn();
+    suspendForAuthorityRecovery = vi.fn();
   history.setAuthority(observationAuthority);
   const load = vi.spyOn(history, "load").mockResolvedValue({
       kind: "rejected",
@@ -96,11 +96,11 @@ it("Canonical refresh retains receipt on unavailable target access loss and deta
       observationAuthority.incidentId,
       receipt,
       scope,
-      loseAccess,
+      suspendForAuthorityRecovery,
     ),
   );
   await t.owner.execute(t.admit());
-  expect(loseAccess).toHaveBeenCalledOnce();
+  expect(suspendForAuthorityRecovery).toHaveBeenCalledOnce();
   expect(t.entry()?.receipt).toEqual(t.receipt);
   expect(t.entry()?.refresh).toBe("required");
   load.mockImplementationOnce(async () => {
@@ -118,9 +118,9 @@ it("Canonical refresh retains receipt on unavailable target access loss and deta
       observationAuthority.incidentId,
       t.receipt,
       scope,
-      loseAccess,
+      suspendForAuthorityRecovery,
     ),
   ).rejects.toThrow();
-  expect(loseAccess).toHaveBeenCalledOnce();
+  expect(suspendForAuthorityRecovery).toHaveBeenCalledOnce();
   expect(t.transport.send).toHaveBeenCalledOnce();
 });

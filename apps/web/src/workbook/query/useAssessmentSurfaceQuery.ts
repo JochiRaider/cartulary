@@ -16,7 +16,7 @@ import {
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 import {
@@ -31,7 +31,7 @@ const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 export type AssessmentSurfaceQueryInput = {
   readonly committedRecords?: AssessmentCommittedRecordPort | undefined;
   readonly active: boolean;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
   readonly queryState: WorkbookQueryState;
   readonly viewQuery: WorkbookViewQueryPort;
 };
@@ -39,7 +39,7 @@ export type AssessmentSurfaceQueryInput = {
 export function useAssessmentSurfaceQuery({
   committedRecords,
   active,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   queryState,
   viewQuery,
 }: AssessmentSurfaceQueryInput) {
@@ -81,8 +81,11 @@ export function useAssessmentSurfaceQuery({
       }
       if (result.kind === "rejected") {
         const message = result.failure.message;
-        if (workbookOperationFailureIsAccessLoss(result.failure)) {
-          onIncidentAccessLost?.();
+        if (
+          workbookFailureLifecycle(result.failure).kind ===
+          "authority_unavailable"
+        ) {
+          onAuthorityUncertain?.();
           rowsRef.current = [];
           acceptedRowCountRef.current = 0;
           setRows([]);
@@ -127,7 +130,7 @@ export function useAssessmentSurfaceQuery({
       acceptedRowCountRef.current = nextRows.length;
       setLoadState({ kind: "ready" });
     },
-    [active, committedRecords, onIncidentAccessLost, queryState, viewQuery],
+    [active, committedRecords, onAuthorityUncertain, queryState, viewQuery],
   );
 
   const applyRecordChanged = useCallback(

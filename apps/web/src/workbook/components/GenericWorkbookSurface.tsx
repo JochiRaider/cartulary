@@ -121,7 +121,7 @@ export type ContractWorkbookSurfaceProps = {
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly sheetRef: SheetRef;
   readonly onClearFilters: () => void;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly onRefresh: (options?: {
     readonly requireAcceptance?: boolean;
   }) => Promise<void> | void;
@@ -148,7 +148,7 @@ export function ContractWorkbookSurface({
   collaborationProjection,
   sheetRef,
   onClearFilters,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   onRefresh,
   onSortChange,
   queryState,
@@ -197,7 +197,7 @@ export function ContractWorkbookSurface({
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
     useOwnerReferenceOptions({
       incidentPort,
-      onIncidentAccessLost,
+      onAuthorityUncertain,
       referenceQueryBroker,
       viewSchemaId: contract.viewSchemaId,
     });

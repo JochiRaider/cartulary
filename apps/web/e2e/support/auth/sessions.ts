@@ -248,10 +248,12 @@ export async function loginTrackedUserViaPage(
     email: string;
     password: string;
     secondFactorCode?: string | null;
+    recovery?: boolean;
   },
 ) {
   const authShell = page.getByTestId(authTestId("shell"));
-  if (await authShell.isVisible()) {
+  if (options.recovery) await expect(authShell).toBeVisible();
+  if (options.recovery || (await authShell.isVisible())) {
     const previousSessionCookie = (await page.context().cookies()).find(
       (cookie) => cookie.name === sessionCookieName,
     )?.value;
@@ -303,7 +305,8 @@ export async function loginTrackedUserViaPage(
     if (sessionCookie === undefined || csrfCookie === undefined) {
       throw new Error("in-page login did not commit authenticated cookies");
     }
-    await applyCookies(page, sessionCookie.value, csrfCookie.value);
+    // The in-page authentication transport owns cookie publication.
+    // Rewriting cookies here could hide an incomplete application recovery.
     await authShell.waitFor({ state: "hidden" });
     return;
   }

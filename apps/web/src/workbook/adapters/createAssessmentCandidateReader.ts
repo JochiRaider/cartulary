@@ -12,6 +12,7 @@ import type {
 import { assessmentSupportCandidate } from "../models/assessmentWorkbookModel";
 import { buildQueryRequest } from "../models/workbookQuery";
 import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 /** Reduces query rows here; authoring never consumes Timeline editor/runtime rows. */
@@ -43,9 +44,8 @@ export function createAssessmentCandidateReader(options: {
       if (input.signal.aborted) return { kind: "aborted" };
       if (result.kind === "rejected") {
         if (
-          ["authorization_lost", "authentication_required"].includes(
-            result.failure.kind,
-          )
+          workbookFailureLifecycle(result.failure).kind ===
+          "authority_unavailable"
         )
           options.recheckAuthority?.();
         return result;

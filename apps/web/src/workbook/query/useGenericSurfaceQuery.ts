@@ -17,7 +17,7 @@ import {
   type WorkbookQueryLoadState,
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
@@ -36,7 +36,7 @@ export type GenericSurfaceQueryInput = {
   readonly decisionOwner?: DecisionSupersessionOwnerPort | undefined;
   readonly active: boolean;
   readonly contract: ViewContract;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
   readonly queryState: WorkbookQueryState;
   readonly viewQuery: WorkbookViewQueryPort;
   readonly viewSchemaId: string;
@@ -49,7 +49,7 @@ export function useGenericSurfaceQuery({
   explicitPatchOwner,
   active,
   contract,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   queryState,
   viewQuery,
   viewSchemaId,
@@ -110,8 +110,11 @@ export function useGenericSurfaceQuery({
       }
       if (result.kind === "rejected") {
         const message = result.failure.message;
-        if (workbookOperationFailureIsAccessLoss(result.failure)) {
-          onIncidentAccessLost?.();
+        if (
+          workbookFailureLifecycle(result.failure).kind ===
+          "authority_unavailable"
+        ) {
+          onAuthorityUncertain?.();
           clearRows();
           setLoadState({ kind: "permission_denied", message });
         } else if (acceptedRowCountRef.current > 0) {
@@ -167,7 +170,7 @@ export function useGenericSurfaceQuery({
       active,
       clearRows,
       contract,
-      onIncidentAccessLost,
+      onAuthorityUncertain,
       queryState,
       viewQuery,
       viewSchemaId,

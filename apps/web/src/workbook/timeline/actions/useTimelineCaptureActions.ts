@@ -50,7 +50,10 @@ export function useTimelineCaptureActions(options: {
     [options.runtime],
   );
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  const onAccessLost = useCallback(() => owner.loseAccess(), [owner]);
+  const onAccessLost = useCallback(
+    () => owner.suspendForAuthorityRecovery(),
+    [owner],
+  );
   const applied = useRef(new Set<number>());
   useLayoutEffect(() => {
     if (options.concealed || !snapshot.authority) return;

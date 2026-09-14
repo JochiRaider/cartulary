@@ -1,6 +1,7 @@
 import { observeAsyncOperation } from "../../../services/asyncObservation";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type {
   EntityMergeAttempt,
   EntityMergeBinding,
@@ -36,6 +37,7 @@ export class WorkbookEntityMergeOwner {
   private observations = new Map<string, { cancel: () => void }>();
   private executing = new Set<string>();
   private port: WorkbookEntityMergePort | null = null;
+  private authorityUncertain: (() => void) | undefined;
   private timelineRefresh: (() => Promise<void>) | null = null;
   private projectionRefresh:
     | ((receipt: EntityMergeReceipt) => Promise<void>)
@@ -59,8 +61,12 @@ export class WorkbookEntityMergeOwner {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
-  configure(port: WorkbookEntityMergePort): void {
+  configure(
+    port: WorkbookEntityMergePort,
+    authorityUncertain?: () => void,
+  ): void {
     this.port = port;
+    this.authorityUncertain = authorityUncertain;
   }
   registerTimelineRefresh(refresh: () => Promise<void>) {
     this.timelineRefresh = refresh;
@@ -285,6 +291,7 @@ export class WorkbookEntityMergeOwner {
       return;
     }
     this.update(attempt.id, { phase: "submitting", transportPending: true });
+    const dispatchGeneration = this.generation;
     const observation = this.observe(async (signal) => {
       const outcome = await port.send(attempt, signal);
       if (!this.owns(attempt)) return;
@@ -328,12 +335,13 @@ export class WorkbookEntityMergeOwner {
         if (outcome.failure.publicCode === "incident_closed")
           this.closeIncident();
         if (
-          outcome.failure.kind === "authentication_required" ||
-          outcome.failure.kind === "authorization_lost" ||
-          outcome.failure.publicCode === "incident_not_found" ||
-          outcome.failure.publicCode === "record_not_found"
-        )
+          dispatchGeneration === this.generation &&
+          workbookFailureLifecycle(outcome.failure).kind ===
+            "authority_unavailable"
+        ) {
           this.suspend();
+          this.authorityUncertain?.();
+        }
       } else this.update(attempt.id, { phase: "uncertain" });
     });
     this.observations.set(attempt.id, observation);

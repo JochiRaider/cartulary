@@ -94,7 +94,7 @@ export function useEvidenceWorkbookBindings(input: {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [attaching, setAttaching] = useState(false);
   const denied = useRef(false);
-  const [accessLost, setAccessLost] = useState(false);
+  const [authorityUncertain, setAccessLost] = useState(false);
   const [announcement, setAnnouncement] = useState<{
     text: string;
     sequence: number;
@@ -439,7 +439,7 @@ export function useEvidenceWorkbookBindings(input: {
         )}
         attachDisabledReason={input.attachDisabledReason}
         attaching={attaching}
-        canRead={input.canRead && !accessLost}
+        canRead={input.canRead && !authorityUncertain}
         context={context}
         recordId={row.record_id}
         title={titleFor(row)}
@@ -452,7 +452,7 @@ export function useEvidenceWorkbookBindings(input: {
   const visiblePreview =
     active &&
     input.canRead &&
-    !accessLost &&
+    !authorityUncertain &&
     preview !== null &&
     preview.lifetime === lifetime.current &&
     input.rows.some(

@@ -1,10 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IncidentCollaborationEvent } from "../../collaboration/IncidentCollaborationSession";
 import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
+import { deferred } from "../../testing/fetchMockTestSupport";
+import {
+  successEnvelope,
+  timelineRow,
+} from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import {
+  normalizeTimelineFullRow,
+  rowFromApi,
+} from "../timeline/models/timelineRowModel";
+import { timelineMutationOwnerFor } from "../timeline/mutations/WorkbookTimelineMutationOwner";
 import { createWorkbookCollaborationCoordinator } from "./WorkbookCollaborationCoordinator";
 import {
+  requireWorkbookSurfaceAcceptance,
   type WorkbookActiveSurfacePort,
   WorkbookSurfaceRefreshError,
 } from "./workbookSurfacePort";
@@ -192,9 +203,149 @@ function presence(
   } as const;
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("WorkbookCollaborationCoordinator", () => {
+  it("replays retained Timeline writes FIFO on Hosts only after authorization and query acceptance", async () => {
+    const fixture = projectionFixture({
+      kind: "view_schema",
+      id: "cartulary.view.hosts.v1",
+    });
+    const owner = timelineMutationOwnerFor(fixture.mutationRuntime);
+    owner.bindAuthorizationRecovery(() =>
+      fixture.projection.requestAuthorizationRecovery(),
+    );
+    const versions = new Map<string, number>();
+    const source = (id: string) =>
+      timelineRow({
+        recordId: id,
+        rowVersion: versions.get(id) ?? 4,
+        captureState: "enriched",
+      });
+    const reader = vi.fn(async (id: string) => source(id));
+    reader.mockRejectedValueOnce(new Error("Source read unavailable"));
+    owner.configureReader(reader);
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async (_url, init): Promise<Response> => {
+        const body = JSON.parse(String(init?.body));
+        const recordId = String(_url).split("/").at(-1) ?? "";
+        versions.set(recordId, body.base_row_version + 1);
+        return successEnvelope({
+          change_set_id: `40000000-0000-4000-8000-00000000000${fetch.mock.calls.length}`,
+          view_schema_id: "cartulary.view.timeline.v2",
+          row: source(recordId),
+        });
+      },
+    );
+    vi.stubGlobal("fetch", fetch);
+    fixture.emit({ kind: "authorization_lost" });
+    const ids = [
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+    ];
+    for (const [index, id] of ids.entries())
+      owner.enqueuePendingReplayUnit({
+        id: `pending-${index}`,
+        kind: "patch",
+        source: "autosave",
+        incidentId: "incident-1",
+        clientInstanceId: "client-1",
+        viewSchemaId: "cartulary.view.timeline.v2",
+        rowKey: id,
+        recordId: id,
+        clientTxnId: `stable-txn-${index}`,
+        coalesceKey: id,
+        enqueueOrder: index + 1,
+        payloadIntent: {
+          base_row_version: 1,
+          changes: [
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value: `Local ${index}`,
+            },
+          ],
+        },
+        focusField: "activitySynopsisText",
+        focusKey: `${id}:activitySynopsisText`,
+        surface: "grid",
+        rowSnapshot: rowFromApi(
+          normalizeTimelineFullRow(source(id), "fixture"),
+        ),
+        continueOnFreshDraft: false,
+        detectAutoResolution: false,
+        promoteToCommittedRowInspect: false,
+        viewportContinuityToken: 0,
+      });
+    const query = deferred<void>();
+    const refresh = vi.fn(() => query.promise);
+    fixture.projection.registerActiveSurface({
+      identity: {
+        sheetRef: { kind: "view_schema", id: "cartulary.view.hosts.v1" },
+        viewSchemaId: "cartulary.view.hosts.v1",
+      },
+      applyRecordChanged: () => ({ kind: "applied" }),
+      invalidate: () => {},
+      refresh,
+    });
+    await fixture.timing.advanceBy(1000);
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect(fetch).not.toHaveBeenCalled();
+    expect(
+      fixture.mutationRuntime.pendingQueue().model.snapshot().units,
+    ).toHaveLength(2);
+    query.resolve();
+    await vi.waitFor(() => expect(reader).toHaveBeenCalledOnce());
+    expect(fetch).not.toHaveBeenCalled();
+    expect(
+      fixture.mutationRuntime.pendingQueue().model.snapshot().halted,
+    ).toBeNull();
+    expect(
+      fixture.mutationRuntime.pendingQueue().model.snapshot().units,
+    ).toHaveLength(2);
+    await fixture.timing.advanceBy(1000);
+    await vi.waitFor(() => {
+      expect(
+        fixture.mutationRuntime.pendingQueue().model.snapshot().halted,
+      ).toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+    await vi.waitFor(() =>
+      expect(
+        fixture.mutationRuntime.pendingQueue().model.snapshot().units,
+      ).toHaveLength(0),
+    );
+    expect(
+      fetch.mock.calls.map(([url]) => String(url).split("/").at(-1)),
+    ).toEqual(ids);
+    expect(
+      fetch.mock.calls.map(([, init]) => JSON.parse(String(init?.body))),
+    ).toMatchObject([
+      { base_row_version: 4, client_txn_id: "stable-txn-0" },
+      { base_row_version: 4, client_txn_id: "stable-txn-1" },
+    ]);
+    expect(reader).toHaveBeenCalledTimes(3);
+    expect(fixture.onIncidentAccessLost).not.toHaveBeenCalled();
+    fixture.projection.dispose();
+    fixture.mutationRuntime.invalidate({ kind: "runtime_disposed" });
+  });
+  it("keeps record unavailability and operation denial local during surface confirmation", () => {
+    for (const kind of ["authorization_lost", "stale_target"] as const) {
+      try {
+        requireWorkbookSurfaceAcceptance({
+          kind: "rejected",
+          failure: { kind, message: "Operation unavailable" },
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(WorkbookSurfaceRefreshError);
+        expect((error as WorkbookSurfaceRefreshError).recovery.kind).toBe(
+          "unavailable",
+        );
+      }
+    }
+  });
   it("accounts for Assessment versions before echo suppression in either HTTP order", () => {
     for (const view of ["cartulary.view.assessments.v1"])
       for (const order of ["http_first", "socket_first"]) {

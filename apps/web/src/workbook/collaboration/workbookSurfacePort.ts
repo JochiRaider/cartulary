@@ -54,11 +54,9 @@ export function requireWorkbookSurfaceAcceptance(
   throw new WorkbookSurfaceRefreshError(
     kind === "authentication_required"
       ? { kind: "session_lost" }
-      : kind === "authorization_lost" || kind === "stale_target"
-        ? { kind: "access_lost" }
-        : {
-            kind: "unavailable",
-            failure: kind === "retryable" ? "transient" : "contract",
-          },
+      : {
+          kind: "unavailable",
+          failure: kind === "invalid_contract" ? "contract" : "transient",
+        },
   );
 }

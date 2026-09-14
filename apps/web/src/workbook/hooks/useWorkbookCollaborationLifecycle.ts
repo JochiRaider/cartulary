@@ -13,6 +13,7 @@ import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurface
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { timelineMutationOwnerFor } from "../timeline/mutations/WorkbookTimelineMutationOwner";
 
 type WorkbookCollaborationLifecycleOptions = {
   readonly activeSurfacePort: WorkbookActiveSurfacePort | null;
@@ -100,6 +101,13 @@ export function useWorkbookCollaborationLifecycle({
       onSessionLost,
       queryInvalidation,
     ],
+  );
+  useEffect(
+    () =>
+      timelineMutationOwnerFor(mutationRuntime).bindAuthorizationRecovery(() =>
+        projection.requestAuthorizationRecovery(),
+      ),
+    [mutationRuntime, projection],
   );
   const snapshot = useWorkbookCollaborationCoordinatorSession({
     projection,

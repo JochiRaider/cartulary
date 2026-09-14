@@ -1,7 +1,7 @@
 import type { IndicatorLifecycleReceipt } from "../../adapters/indicatorLifecycleProtocol";
 import type { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import { indicatorLifecycleViewId } from "./indicatorLifecycleModel";
 import type { LifecycleScope } from "./indicatorLifecycleOperation";
 import type { WorkbookIndicatorLifecycleOwner } from "./WorkbookIndicatorLifecycleOwner";
@@ -19,9 +19,9 @@ export async function reconcileIndicatorLifecycleReceipt(
     if (
       scope.isCurrent() &&
       result.kind === "rejected" &&
-      workbookOperationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     )
-      owner.loseAccess();
+      owner.suspendForAuthorityRecovery();
     if (
       !scope.isCurrent() ||
       result.kind !== "accepted" ||

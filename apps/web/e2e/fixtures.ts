@@ -49,6 +49,7 @@ type SessionTracker = {
   loginTrackedUser: (
     page: Page,
     details: {
+      recovery?: boolean;
       createdBy: string;
       email: string;
       password: string;
@@ -157,6 +158,7 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
         captureCurrentSession: async (
           page: Page,
           details: {
+            recovery?: boolean;
             createdBy: string;
             email: string;
             purpose: string;
@@ -172,6 +174,7 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
         captureStorageState: async (
           storageState: StorageState,
           details: {
+            recovery?: boolean;
             createdBy: string;
             email: string;
             purpose: string;
@@ -187,6 +190,7 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
         loginTrackedUser: async (
           page: Page,
           details: {
+            recovery?: boolean;
             createdBy: string;
             email: string;
             password: string;
@@ -196,6 +200,9 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
           },
         ) => {
           await loginTrackedUserViaPage(page, {
+            ...(details.recovery === undefined
+              ? {}
+              : { recovery: details.recovery }),
             email: details.email,
             password: details.password,
             ...(details.secondFactorCode === undefined

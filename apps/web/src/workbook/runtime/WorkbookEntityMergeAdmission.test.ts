@@ -124,7 +124,11 @@ describe("Entity merge record admission", () => {
     for (const type of ["host", "identity"] as const) {
       const t = setup(type);
       t.runtime.explicitPatches.setAuthority(t.review.authority);
-      t.runtime.explicitPatches.configure({ send: vi.fn() });
+      t.runtime.explicitPatches.configure(
+        { send: vi.fn() },
+        undefined,
+        async (_view, id) => t.runtime.explicitPatches.latestRow(id),
+      );
       const release = t.runtime.beginEntityWrite({
         recordIds: [t.review.loser.recordId],
       });

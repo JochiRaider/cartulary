@@ -19,6 +19,8 @@ import type {
   WorkbookAuthoringAuthorityReader,
   WorkbookAuthoringReadPort,
 } from "../../ports/WorkbookAuthoringReadPort";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookSameFieldConflictPayload } from "../../runtime/workbookConflictModel";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
@@ -99,7 +101,7 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       readonly coordinate: (
         recordId: string,
         signal: AbortSignal,
-      ) => Promise<boolean>;
+      ) => Promise<WorkbookSourceWriteSettlement>;
       readonly accepted: (
         receipt: RelatedEvidenceReceipt,
         clientTxnId: string,
@@ -460,8 +462,16 @@ export class WorkbookTimelineRelatedEvidenceOwner {
   }
   private async coordinate(recordId: string) {
     return boundedRead(async (signal) => {
-      if (!this.effects || !(await this.effects.coordinate(recordId, signal)))
-        return false;
+      if (!this.effects) return false;
+      const settlement = await this.effects.coordinate(recordId, signal);
+      if (settlement.kind !== "settled") return false;
+      this.versions.set(
+        recordId,
+        Math.max(
+          this.versions.get(recordId) ?? 0,
+          settlement.minimumRowVersion,
+        ),
+      );
       return this.sourceCoordinator
         ? this.sourceCoordinator(recordId, signal)
         : true;
@@ -801,9 +811,8 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       }
       this.publish();
       if (
-        ["authorization_lost", "authentication_required"].includes(
-          outcome.failure.kind,
-        )
+        workbookFailureLifecycle(outcome.failure).kind ===
+        "authority_unavailable"
       )
         void this.recheckAuthority();
     } else {

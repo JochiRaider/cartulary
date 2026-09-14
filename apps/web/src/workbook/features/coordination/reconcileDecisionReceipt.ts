@@ -1,5 +1,5 @@
 import type { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { DecisionSupersessionReceipt } from "./decisionSupersessionOperation";
 import type {
   DecisionReconciliationScope,
@@ -45,9 +45,9 @@ export async function reconcileDecisionReceipt(
     if (
       scope.isCurrent() &&
       result.kind === "rejected" &&
-      workbookOperationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     )
-      owner.loseAccess();
+      owner.suspendForAuthorityRecovery();
     if (
       !scope.isCurrent() ||
       result.kind !== "accepted" ||

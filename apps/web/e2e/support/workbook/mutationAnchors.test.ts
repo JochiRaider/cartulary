@@ -27,9 +27,18 @@ describe("workbook row mutation support", () => {
       ok: () => true,
       status: () => 200,
     }));
-    const page = { request: { fetch } } as unknown as Parameters<
-      typeof waitForViewRow
-    >[0];
+    const page = {
+      request: { fetch },
+      context: () => ({
+        storageState: async () => ({
+          cookies: [
+            { name: "cartulary_session", value: "test-session" },
+            { name: "cartulary_csrf", value: "test-csrf" },
+          ],
+          origins: [],
+        }),
+      }),
+    } as unknown as Parameters<typeof waitForViewRow>[0];
 
     await expect(
       waitForViewRow(page, "incident-1", surface, "record-missing", {
@@ -54,9 +63,18 @@ describe("workbook row mutation support", () => {
       ok: () => true,
       status: () => 200,
     }));
-    const page = { request: { fetch } } as unknown as Parameters<
-      typeof waitForViewRowByCell
-    >[0];
+    const page = {
+      request: { fetch },
+      context: () => ({
+        storageState: async () => ({
+          cookies: [
+            { name: "cartulary_session", value: "test-session" },
+            { name: "cartulary_csrf", value: "test-csrf" },
+          ],
+          origins: [],
+        }),
+      }),
+    } as unknown as Parameters<typeof waitForViewRowByCell>[0];
 
     await expect(
       waitForViewRowByCell(
@@ -144,9 +162,18 @@ describe("workbook row mutation support", () => {
       .mockResolvedValueOnce(jsonResponse(validPayload))
       .mockResolvedValueOnce(jsonResponse(validPayload))
       .mockResolvedValueOnce(jsonResponse({ data: {} }));
-    const page = { request: { fetch } } as unknown as Parameters<
-      typeof fetchRecordHistory
-    >[0];
+    const page = {
+      request: { fetch },
+      context: () => ({
+        storageState: async () => ({
+          cookies: [
+            { name: "cartulary_session", value: "test-session" },
+            { name: "cartulary_csrf", value: "test-csrf" },
+          ],
+          origins: [],
+        }),
+      }),
+    } as unknown as Parameters<typeof fetchRecordHistory>[0];
 
     await expect(
       fetchRecordHistory(page, validPayload.data.record_id, {

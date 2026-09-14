@@ -10,6 +10,8 @@ import type {
 } from "../../adapters/createPartyCreationTransport";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type {
   ExplicitPatchAuthority,
@@ -97,7 +99,7 @@ export class WorkbookPartyLinkOperationOwner {
         review: PartyReview,
         signal: AbortSignal,
         reservationId: string,
-      ): Promise<boolean>;
+      ): Promise<WorkbookSourceWriteSettlement>;
       remember(id: string): void;
       settle(id: string): void;
       refresh(view: string): Promise<void>;
@@ -331,7 +333,12 @@ export class WorkbookPartyLinkOperationOwner {
     this.publish();
     const preparation = this.observe(async (signal) => {
       await this.refreshAuthority(review.authority, signal);
-      if (!(await this.effects.coordinate(review, signal, id))) return false;
+      const settlement = await this.effects.coordinate(review, signal, id);
+      if (settlement.kind !== "settled") return false;
+      this.patches.acceptVersion(
+        review.source.record_id,
+        settlement.minimumRowVersion,
+      );
       await this.readSource(review, signal);
       return this.isCurrent(review);
     });
@@ -403,9 +410,7 @@ export class WorkbookPartyLinkOperationOwner {
     });
     if (!wasUncertain) this.effects.settle(id);
     if (
-      ["authentication_required", "authorization_lost"].includes(
-        outcome.failure.kind,
-      )
+      workbookFailureLifecycle(outcome.failure).kind === "authority_unavailable"
     ) {
       this.suspend();
       void this.refreshAuthority(

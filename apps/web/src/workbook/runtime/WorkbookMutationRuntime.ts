@@ -42,6 +42,7 @@ import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import { executeWorkbookConflictResolution } from "../mutations/workbookConflictResolutionAdapter";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookTimelineActionRuntimePort } from "../ports/WorkbookTimelineActionRuntimePort";
 import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import type {
@@ -136,6 +137,28 @@ export type WorkbookEditRecoveryActionResult =
  * scheduling, transaction ledger, and save-state projection.
  */
 export class WorkbookMutationRuntime {
+  private timelineMutationOwner: { retire(): void } | null = null;
+  private currentAuthorizationEpoch = 0;
+  get authorizationEpoch(): number {
+    return this.currentAuthorizationEpoch;
+  }
+
+  retainTimelineMutationOwner<T extends { retire(): void }>(
+    create: (ids: SecureTransactionIdPort) => T,
+  ): T {
+    if (!this.timelineMutationOwner)
+      this.timelineMutationOwner = create(this.transactionIds);
+    return this.timelineMutationOwner as T;
+  }
+
+  retainSurfaceRefreshDebt(viewSchemaId: string): void {
+    this.surfaces.invalidate(viewSchemaId);
+  }
+
+  get retired(): boolean {
+    return this.lifecycle.disposed || this.entityLifetimeRetired;
+  }
+
   private timelineActions: WorkbookTimelineActionRuntimePort | null = null;
   private timelineMentionOperations: WorkbookTimelineActionRuntimePort | null =
     null;
@@ -269,7 +292,7 @@ export class WorkbookMutationRuntime {
       transactionIds,
       {
         coordinate: (recordId, signal) =>
-          this.coordinateExplicitPatch(
+          this.coordinateSourceWrites(
             recordId,
             signal,
             "cartulary.view.timeline.v2",
@@ -340,7 +363,7 @@ export class WorkbookMutationRuntime {
       transactionIds,
       {
         coordinate: (source, signal) =>
-          this.coordinateExplicitPatch(
+          this.coordinateSourceWrites(
             source.recordId,
             signal,
             source.viewSchemaId,
@@ -372,7 +395,7 @@ export class WorkbookMutationRuntime {
       transactionIds,
       {
         coordinate: (source, signal) =>
-          this.coordinateExplicitPatch(
+          this.coordinateSourceWrites(
             source.recordId,
             signal,
             source.viewSchemaId,
@@ -406,7 +429,7 @@ export class WorkbookMutationRuntime {
       transactionIds,
       {
         coordinate: (draft, signal) =>
-          this.coordinateExplicitPatch(
+          this.coordinateSourceWrites(
             draft.source.recordId,
             signal,
             draft.source.viewSchemaId,
@@ -451,8 +474,10 @@ export class WorkbookMutationRuntime {
       scope.incidentId,
       transactionIds,
       {
-        coordinate: (recordId, signal, viewSchemaId) =>
-          this.coordinateExplicitPatch(recordId, signal, viewSchemaId),
+        coordinate: (recordId, signal, viewSchemaId, reservationId) =>
+          this.coordinateSourceWrites(recordId, signal, viewSchemaId, {
+            explicitPatchId: reservationId,
+          }),
         contribute: (intent) =>
           taskExplicitPatchContribution(intent, this.taskDrafts),
         refresh: (view) => this.surfaces.refreshRequired(view),
@@ -473,11 +498,11 @@ export class WorkbookMutationRuntime {
       this.explicitPatches,
       {
         coordinate: (review, signal, reservationId) =>
-          this.coordinateExplicitPatch(
+          this.coordinateSourceWrites(
             review.source.record_id,
             signal,
             review.pair.viewSchemaId,
-            reservationId,
+            { partyReservationId: reservationId },
           ),
         remember: (id) => this.rememberClientTransaction(id),
         settle: (id) => {
@@ -900,21 +925,32 @@ export class WorkbookMutationRuntime {
     return false;
   }
 
-  private async coordinateExplicitPatch(
+  async coordinateSourceWrites(
     recordId: string,
     signal: AbortSignal,
     viewSchemaId: string,
-    ownPartyReservationId?: string,
-  ): Promise<boolean> {
-    let waited = false;
-    while (!signal.aborted && !this.lifecycle.disposed) {
+    reservation?: {
+      readonly partyReservationId?: string;
+      readonly explicitPatchId?: string;
+    },
+  ): Promise<WorkbookSourceWriteSettlement> {
+    while (!signal.aborted && !this.retired) {
+      const explicitState = this.explicitPatches.sourceWriteState(
+        recordId,
+        reservation?.explicitPatchId,
+      );
+      if (explicitState === "uncertain")
+        return { kind: "blocked", reason: "uncertain_source" };
       const queue = this.pendingRuntime.model.snapshot();
       if (
         this.timelineActionBlocksRecord(recordId) ||
         this.batches.blocksRecord(recordId) ||
         this.entityMerge.blocksRecord(recordId) ||
         this.decisionSupersession.blocksRecord(recordId) ||
-        this.partyLinks.blocksRecord(recordId, ownPartyReservationId) ||
+        this.partyLinks.blocksRecord(
+          recordId,
+          reservation?.partyReservationId,
+        ) ||
         (viewSchemaId === hostsViewSchemaId &&
           this.batches.blocksEntityType("host")) ||
         (viewSchemaId === identitiesViewSchemaId &&
@@ -927,19 +963,12 @@ export class WorkbookMutationRuntime {
           .entries()
           .some((entry) => entry.conflict.record_id === recordId)
       )
-        return false;
+        return { kind: "blocked", reason: "pending_recovery" };
       const history = this.history
         .getSnapshot()
         .filter((entry) => entry.attempt.subject.recordId === recordId);
-      if (
-        history.some(
-          (entry) =>
-            entry.phase === "uncertain" ||
-            (entry.phase === "acknowledged" &&
-              entry.reconciliation === "required"),
-        )
-      )
-        return false;
+      if (history.some((entry) => entry.phase === "uncertain"))
+        return { kind: "blocked", reason: "uncertain_source" };
       const direct =
         [...this.entityWrites.values()].some(
           (target) =>
@@ -951,34 +980,30 @@ export class WorkbookMutationRuntime {
         ) ||
         [...this.decisionWrites.values()].some((ids) => ids.includes(recordId));
       const pending =
+        explicitState === "pending" ||
         queue.units.some((unit) => unit.recordId === recordId) ||
         direct ||
         history.some(
           (entry) =>
             entry.transportPending ||
             entry.phase === "preparing" ||
-            entry.phase === "submitting" ||
-            (entry.phase === "acknowledged" &&
-              entry.reconciliation !== "complete"),
+            entry.phase === "submitting",
         );
       if (!pending) {
-        this.explicitPatches.acceptVersion(
-          recordId,
-          this.history.latestVersion(recordId) ?? 0,
-        );
-        if (
-          waited ||
-          this.surfaces.requiresRefresh(viewSchemaId) ||
-          (this.explicitPatches.latestVersion(recordId) ?? 0) >
-            (this.explicitPatches.latestRow(recordId)?.row_version ?? 0)
-        )
-          await this.surfaces.refreshRequired(viewSchemaId);
-        return !signal.aborted;
+        return {
+          kind: "settled",
+          minimumRowVersion: Math.max(
+            this.history.latestVersion(recordId) ?? 0,
+            this.explicitPatches.latestVersion(recordId) ?? 0,
+            this.assessmentAuthoring.latestVersion(recordId) ?? 0,
+            this.decisionSupersession.latestVersion(recordId) ?? 0,
+            this.indicatorRecords.latestVersion(recordId) ?? 0,
+          ),
+        };
       }
-      waited = true;
       await new Promise<void>((resolve) => setTimeout(resolve, 16));
     }
-    return false;
+    return { kind: "cancelled" };
   }
 
   async coordinateHistory(
@@ -1606,6 +1631,7 @@ export class WorkbookMutationRuntime {
   }
 
   applyAuthorizationRecoveryState(state: "paused" | "resumed"): void {
+    this.currentAuthorizationEpoch++;
     if (state === "paused") {
       this.history.suspend();
       this.entityMerge.suspend();
@@ -1645,9 +1671,11 @@ export class WorkbookMutationRuntime {
   }
 
   invalidate(reason: WorkbookMutationInvalidationReason): void {
+    if (reason.kind !== "incident_closed") this.currentAuthorizationEpoch++;
     if (reason.kind === "runtime_disposed") {
       if (this.lifecycle.disposed) return;
       this.entityLifetimeRetired = true;
+      this.timelineMutationOwner?.retire();
       this.entityWrites.clear();
       this.explicitPatches.retire();
       this.inspectorDrafts.retire();
@@ -1707,6 +1735,7 @@ export class WorkbookMutationRuntime {
     }
     if (reason.kind === "incident_changed") {
       this.entityLifetimeRetired = true;
+      this.timelineMutationOwner?.retire();
       this.entityWrites.clear();
       this.explicitPatches.retire();
       this.inspectorDrafts.retire();

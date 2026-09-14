@@ -135,7 +135,7 @@ export type EntityWorkbookSurfaceProps = {
   onRefreshEntities: (options?: {
     readonly requireAcceptance?: boolean;
   }) => Promise<void>;
-  onIncidentAccessLost?: (() => void) | undefined;
+  onAuthorityUncertain?: (() => void) | undefined;
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   onActivateConflict?: WorkbookConflictActivation | undefined;
@@ -202,7 +202,7 @@ export function EntityWorkbookSurface({
   currentUserId,
   entityIndex,
   onRefreshEntities,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   loadState,
   mutationRuntime,
   onActivateConflict,
@@ -369,7 +369,7 @@ export function EntityWorkbookSurface({
       setSelectedRecordId(null);
     },
     onRefreshEntities,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     onRestoreFocus: () => {
       const token = inspectorContinuityTokenRef.current;
       inspectorContinuityTokenRef.current = null;

@@ -16,6 +16,8 @@ import type {
   WorkbookAuthoringAuthorityReader,
   WorkbookAuthoringReadPort,
 } from "../../ports/WorkbookAuthoringReadPort";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
 import {
   type CoordinationDraft,
@@ -97,7 +99,7 @@ export class WorkbookCoordinationCreateOwner {
       coordinate(
         source: CoordinationSource,
         signal: AbortSignal,
-      ): Promise<boolean>;
+      ): Promise<WorkbookSourceWriteSettlement>;
       accepted(receipt: CoordinationReceipt, id: string): void;
       refresh(
         views: readonly string[],
@@ -659,7 +661,17 @@ export class WorkbookCoordinationCreateOwner {
             !(await this.sourceCoordinator(source.recordId, signal))
           )
             return false;
-          return this.effects ? this.effects.coordinate(source, signal) : true;
+          if (!this.effects) return true;
+          const settlement = await this.effects.coordinate(source, signal);
+          if (settlement.kind !== "settled") return false;
+          this.versions.set(
+            source.recordId,
+            Math.max(
+              this.versions.get(source.recordId) ?? 0,
+              settlement.minimumRowVersion,
+            ),
+          );
+          return true;
         }, new AbortController().signal);
         if (!coordinated)
           throw new Error(
@@ -819,9 +831,7 @@ export class WorkbookCoordinationCreateOwner {
       });
     if (
       outcome.kind === "rejected" &&
-      ["authentication_required", "authorization_lost"].includes(
-        outcome.failure.kind,
-      )
+      workbookFailureLifecycle(outcome.failure).kind === "authority_unavailable"
     )
       void this.recheckAuthority();
     this.publish();

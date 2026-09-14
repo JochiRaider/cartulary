@@ -87,7 +87,7 @@ export function useTimelineWorkbookComposition({
     },
     mutationCommands: runtime.mutationCommands,
     mutationRuntime: runtime.mutationRuntime,
-    onIncidentAccessLost: runtime.onIncidentAccessLost,
+    onAuthorityUncertain: runtime.onAuthorityUncertain,
     query: {
       queryState: foundation.snapshot.query.queryState,
       viewQuery: runtime.query.viewQuery,
@@ -155,7 +155,7 @@ export function useTimelineWorkbookComposition({
       publishViewingPresence: mutation.commands.presence.publishViewingPresence,
       waitForCommittedRecordIdle: mutation.ports.waitForCommittedRecordIdle,
     },
-    onIncidentAccessLost: runtime.onIncidentAccessLost,
+    onAuthorityUncertain: runtime.onAuthorityUncertain,
   });
   const interaction = useTimelineInteractionComposition({
     foundation: {

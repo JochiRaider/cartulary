@@ -23,7 +23,7 @@ type WorkbookShellMutableRef<T> = {
 
 export function useWorkbookShellRuntime({
   incidentId,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   surfaceSelectionVersionRef,
   extensionAvailability,
   onExtensionAvailabilityChange,
@@ -34,7 +34,7 @@ export function useWorkbookShellRuntime({
   startupPort,
 }: {
   readonly incidentId: string;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly surfaceSelectionVersionRef: WorkbookShellMutableRef<number>;
   readonly extensionAvailability: ExtensionAvailabilityController;
   readonly onExtensionAvailabilityChange: () => void;
@@ -147,7 +147,7 @@ export function useWorkbookShellRuntime({
     selectionPort: startupSelectionPort,
     savedViewStatePort: startupSavedViewStatePort,
     startupPort,
-    onIncidentAccessLost,
+    onAuthorityUncertain,
     onAvailabilityChange: onExtensionAvailabilityChange,
   });
 

@@ -25,10 +25,19 @@ export function readWorkbookAuthoringRecord(
           "Current records could not be verified. Retry the read.",
         );
       const page = result.value;
-      const row = page.candidates.find(
+      const candidate = page.candidates.find(
         (candidate) => candidate.recordId === recordId,
-      )?.row;
-      if (row) return row;
+      );
+      if (candidate) {
+        if (!candidate.row)
+          throw new Error("The source read did not include a complete record.");
+        if (
+          candidate.viewSchemaId !== viewSchemaId ||
+          candidate.row.record_id !== recordId
+        )
+          throw new Error("Record identity changed during verification.");
+        return candidate.row;
+      }
       if (!page.hasMore) return null;
       cursor = page.nextCursor;
       if (!cursor || visited.has(cursor))

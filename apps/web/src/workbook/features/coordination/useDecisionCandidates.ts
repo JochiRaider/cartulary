@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { boundedRead } from "../../../services/asyncObservation";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { DecisionSupersessionOwnerPort } from "./decisionSupersessionOperation";
 
@@ -49,7 +49,8 @@ export function useDecisionCandidates(
           return;
         if (result.kind === "rejected") {
           setValue((state) =>
-            workbookOperationFailureIsAccessLoss(result.failure)
+            workbookFailureLifecycle(result.failure).kind ===
+            "authority_unavailable"
               ? {
                   ...initial,
                   rows: [],

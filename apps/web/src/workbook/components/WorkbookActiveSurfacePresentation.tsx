@@ -29,7 +29,7 @@ type ExtensionWorkspaceRendererProps = {
   readonly currentUserId: string | null;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentId: string;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
 };
 
 function extensionWorkspaceRegistryKey(

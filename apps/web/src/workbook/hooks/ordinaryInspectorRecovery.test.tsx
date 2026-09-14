@@ -3,12 +3,13 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../testing/taskWorkbookTestSupport";
 import type { RecordPatchTransport } from "../adapters/workbookRecordPatchTransport";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { useGenericSurfaceMutationController } from "./useGenericSurfaceMutationController";
 
 const viewSchemaId = "cartulary.view.notes.v1",
   recordId = "00000000-0000-4000-8000-000000000603";
-const baseline = {
+const baseline: WorkbookQueryRow & { readonly view_schema_id: string } = {
   record_id: recordId,
   row_version: 1,
   view_schema_id: viewSchemaId,
@@ -46,7 +47,8 @@ function fixture() {
     kind: "acknowledged",
     receipt,
   }));
-  runtime.explicitPatches.configure({ send });
+  const readSource = vi.fn(async () => baseline);
+  runtime.explicitPatches.configure({ send }, undefined, readSource);
   runtime.explicitPatches.setAuthority(taskAuthority);
   const refresh = vi.fn(async () => {});
   runtime.registerSurface(viewSchemaId, refresh);
@@ -58,10 +60,10 @@ function fixture() {
       selectedRecordId: recordId,
     }),
   );
-  return { runtime, send, refresh, hook };
+  return { runtime, send, refresh, readSource, hook };
 }
 afterEach(cleanup);
-it("refreshes committed versions before capture and excludes later grid authoring from admission", async () => {
+it("verifies committed versions through the source owner before capture and excludes later grid authoring from admission", async () => {
   for (const changedEditedField of [false, true]) {
     const f = fixture();
     f.runtime.history.acceptVersion(recordId, 2);
@@ -69,18 +71,16 @@ it("refreshes committed versions before capture and excludes later grid authorin
       kind: "acknowledged",
       receipt: { ...receipt, row: { ...receipt.row, row_version: 3 } },
     });
-    f.refresh.mockImplementation(async () => {
-      f.runtime.explicitPatches.acceptRow({
-        ...baseline,
-        row_version: 2,
-        cells: {
-          ...baseline.cells,
-          [changedEditedField ? "note.body" : "note.title"]: {
-            value: "Concurrent",
-          },
+    f.readSource.mockImplementation(async () => ({
+      ...baseline,
+      row_version: 2,
+      cells: {
+        ...baseline.cells,
+        [changedEditedField ? "note.body" : "note.title"]: {
+          value: "Concurrent",
         },
-      });
-    });
+      },
+    }));
     const pending = f.runtime.explicitPatches.submit({
       ...request,
       sheetRef: { kind: "view_schema", id: viewSchemaId },
@@ -96,7 +96,7 @@ it("refreshes committed versions before capture and excludes later grid authorin
       }).kind,
     ).toBe("rejected_mutation");
     const entry = await pending;
-    expect(f.refresh).toHaveBeenCalled();
+    expect(f.readSource).toHaveBeenCalled();
     if (changedEditedField) {
       expect(entry?.phase).toBe("preparation_failed");
       expect(f.send).not.toHaveBeenCalled();

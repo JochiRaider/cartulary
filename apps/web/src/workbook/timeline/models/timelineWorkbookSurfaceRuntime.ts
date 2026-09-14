@@ -75,5 +75,5 @@ export type TimelineWorkbookSurfaceRuntime = {
   };
   readonly layout: WorkbookSurfaceLayoutOwner;
   readonly onActivateConflict: WorkbookConflictActivation | undefined;
-  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onAuthorityUncertain: (() => void) | undefined;
 };

@@ -90,7 +90,7 @@ export function useEntityWorkbookInspectorComposition({
   mutationError,
   mutationRuntime,
   onClearSurfaceSelection,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   onRefreshEntities,
   onRestoreFocus,
   recordMutationCommands,
@@ -116,7 +116,7 @@ export function useEntityWorkbookInspectorComposition({
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly sheetRef: SheetRef;
   readonly onClearSurfaceSelection: () => void;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly onRefreshEntities: (options?: {
     readonly requireAcceptance?: boolean;
   }) => Promise<void>;
@@ -160,7 +160,7 @@ export function useEntityWorkbookInspectorComposition({
           surfaceLabel: contract.title,
         });
   const { clearTimelinePreview, loadTimelinePreview, timelinePreviewRows } =
-    useEntityTimelinePreview({ entityType, viewQuery, onIncidentAccessLost });
+    useEntityTimelinePreview({ entityType, viewQuery, onAuthorityUncertain });
   const beginMutation = useCallback(
     () => mutationRuntime.beginExplicitMutation(),
     [mutationRuntime],

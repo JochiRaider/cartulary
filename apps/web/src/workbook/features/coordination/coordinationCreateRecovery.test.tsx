@@ -7,6 +7,7 @@ import { createCoordinationCreateTransport } from "../../adapters/createCoordina
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookAuthoringReadPort } from "../../ports/WorkbookAuthoringReadPort";
+import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import {
   type CoordinationVariant,
   coordinationFeature,
@@ -43,7 +44,9 @@ function fixture(
   let sequence = 0;
   const ids = { create: vi.fn(() => `coordination-create-${++sequence}`) };
   const effects = {
-    coordinate: vi.fn(async () => true),
+    coordinate: vi.fn<() => Promise<WorkbookSourceWriteSettlement>>(
+      async () => ({ kind: "settled", minimumRowVersion: 0 }),
+    ),
     accepted: vi.fn(),
     refresh: vi.fn(async () => {}),
   };
@@ -146,13 +149,13 @@ describe("Coordination atomic recovery", () => {
       for (const view of coordinationSourceViews(variant)) {
         count++;
         const { owner, effects, transport, ids } = fixture(variant, view);
-        const gate = deferred<boolean>();
+        const gate = deferred<WorkbookSourceWriteSettlement>();
         effects.coordinate.mockReturnValue(gate.promise);
         const first = owner.submit(token),
           second = owner.submit(token);
         expect(owner.busy).toBe(true);
         expect(effects.coordinate).toHaveBeenCalledOnce();
-        gate.resolve(true);
+        gate.resolve({ kind: "settled", minimumRowVersion: 0 });
         await Promise.all([first, second]);
         expect(transport.send).toHaveBeenCalledOnce();
         expect(ids.create).toHaveBeenCalledOnce();
@@ -347,7 +350,10 @@ describe("Coordination atomic recovery", () => {
   });
   it("blocks source conflicts and stale review without saving unrelated authoring", async () => {
     const { owner, transport, effects, reader } = fixture();
-    effects.coordinate.mockResolvedValueOnce(false);
+    effects.coordinate.mockResolvedValueOnce({
+      kind: "blocked",
+      reason: "pending_recovery",
+    });
     await owner.submit(token);
     expect(transport.send).not.toHaveBeenCalled();
     owner.registerSourceCoordinator(async () => false);

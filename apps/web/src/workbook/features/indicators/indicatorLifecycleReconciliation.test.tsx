@@ -127,7 +127,7 @@ it("Lifecycle query materialization never regresses HTTP or socket version evide
     useGenericSurfaceQuery({
       active: true,
       contract: requireViewContract(indicatorLifecycleViewId),
-      onIncidentAccessLost: undefined,
+      onAuthorityUncertain: undefined,
       queryState: emptyWorkbookQueryState(),
       viewQuery: { query },
       viewSchemaId: indicatorLifecycleViewId,

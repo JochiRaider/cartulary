@@ -11,6 +11,7 @@ import type { Page, Response } from "@playwright/test";
 
 import { expect } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
+import { authHeadersForStorageState } from "../auth/storageState";
 import { apiBase } from "../runtime/configuration";
 import {
   publicHttpOperation,
@@ -56,8 +57,11 @@ export async function queryViewRows(
   viewSchemaId: string,
   requestBody: QueryWorkbookViewRequest = {},
 ): Promise<ViewRow[]> {
+  // APIRequestContext does not share Chromium's Secure-cookie exception for
+  // loopback HTTP. Read assertions use the accepted browser session directly.
   const response = await publicHttpOperation({
     body: requestBody,
+    headers: authHeadersForStorageState(await page.context().storageState()),
     operationID: "queryWorkbookView",
     pathParameters: {
       incident_id: incidentId,

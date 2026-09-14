@@ -1,7 +1,7 @@
 import { observeAsyncOperation } from "../../../services/asyncObservation";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
   type DecisionAuthority,
@@ -50,7 +50,7 @@ export class WorkbookDecisionSupersessionOwner
   private readonly listeners = new Set<() => void>();
   private port: DecisionSupersessionTransportPort | null = null;
   private reconcile: Reconcile | null = null;
-  private accessLost: (() => void) | undefined;
+  private authorityUncertain: (() => void) | undefined;
   private snapshot: DecisionSupersessionSnapshot = {
     authority: null,
     generation: 0,
@@ -76,9 +76,12 @@ export class WorkbookDecisionSupersessionOwner
       this.listeners.delete(listener);
     };
   };
-  configure(port: DecisionSupersessionTransportPort, accessLost?: () => void) {
+  configure(
+    port: DecisionSupersessionTransportPort,
+    authorityUncertain?: () => void,
+  ) {
     this.port = port;
-    this.accessLost = accessLost;
+    this.authorityUncertain = authorityUncertain;
   }
   registerReconciliation(reconcile: Reconcile) {
     this.reconcile = reconcile;
@@ -113,9 +116,9 @@ export class WorkbookDecisionSupersessionOwner
       (this.authority.role === "reviewer" || this.authority.role === "admin")
     );
   }
-  loseAccess() {
+  suspendForAuthorityRecovery() {
     this.suspend();
-    this.accessLost?.();
+    this.authorityUncertain?.();
   }
   suspend() {
     this.setAuthority(null);
@@ -178,9 +181,9 @@ export class WorkbookDecisionSupersessionOwner
       return { kind: "aborted" as const };
     if (
       result.kind === "rejected" &&
-      workbookOperationFailureIsAccessLoss(result.failure)
+      workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
     ) {
-      this.loseAccess();
+      this.suspendForAuthorityRecovery();
     }
     return result;
   }
@@ -352,8 +355,11 @@ export class WorkbookDecisionSupersessionOwner
         });
         if (outcome.failure.publicCode === "incident_closed")
           this.closeIncident();
-        if (workbookOperationFailureIsAccessLoss(outcome.failure)) {
-          this.loseAccess();
+        if (
+          workbookFailureLifecycle(outcome.failure).kind ===
+          "authority_unavailable"
+        ) {
+          this.suspendForAuthorityRecovery();
         }
       } else this.update(attempt.id, { phase: "uncertain" });
     });

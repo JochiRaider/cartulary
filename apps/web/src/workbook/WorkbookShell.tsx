@@ -235,7 +235,7 @@ function WorkbookShellContent({
     incidentId,
     mutationRuntimeRegistry,
     onExtensionAvailabilityChange: extensionLifecycle.publishChange,
-    onIncidentAccessLost,
+    onAuthorityUncertain: authorization.loadSessionRole,
   });
   const { commands, snapshot } = infrastructure.workbookRuntime;
   const referenceQueryBroker = useWorkbookReferenceQueryBroker(
@@ -249,18 +249,18 @@ function WorkbookShellContent({
       initialIncidentIdentity,
       acceptedIncidentResource,
       onIncidentResourceObserved,
-      onIncidentAccessLost,
+      onAuthorityUncertain: authorization.loadSessionRole,
     });
   useLayoutEffect(() => {
     const mergeAuthority =
-      authorization.currentUserId &&
-      authorization.currentIncidentRole !== null &&
+      authorization.acceptedAuthority.userId &&
+      authorization.acceptedAuthority.role !== null &&
       sessionIdentity !== null
         ? {
-            actorId: authorization.currentUserId,
+            actorId: authorization.acceptedAuthority.userId,
             sessionIdentity,
             incidentId,
-            role: authorization.currentIncidentRole,
+            role: authorization.acceptedAuthority.role,
             closed: incidentIdentity?.status !== "active",
           }
         : null;
@@ -301,8 +301,7 @@ function WorkbookShellContent({
     infrastructure.mutationRuntime,
     infrastructure.timelineCapture,
     infrastructure.timelineMentions,
-    authorization.currentUserId,
-    authorization.currentIncidentRole,
+    authorization.acceptedAuthority,
     incidentId,
     incidentIdentity?.status,
     sessionIdentity,
@@ -365,7 +364,7 @@ function WorkbookShellContent({
         change.resourceKind === "*" &&
         change.reasonCode === "authorization_lost"
       )
-        onIncidentAccessLost?.();
+        void authorization.loadSessionRole();
       void networkFlowSavedGraphController.onResourceChange(change);
       networkFlowIndicatorLinkController.onResourceChange(change);
     },
@@ -413,7 +412,7 @@ function WorkbookShellContent({
       setState: commands.setIdentityQueryState,
       state: snapshot.identityQueryState,
     },
-    onIncidentAccessLost,
+    onAuthorityUncertain: authorization.loadSessionRole,
     referenceBroker: referenceQueryBroker,
     sheetRef: snapshot.startupSheetRef,
     surface: snapshot.surface,
@@ -531,7 +530,7 @@ function WorkbookShellContent({
           runtime.scope.incidentId,
           receipt,
           scope,
-          () => runtime.indicatorCreate.loseAccess(),
+          () => runtime.indicatorCreate.suspendForAuthorityRecovery(),
         );
         if (!scope.isCurrent())
           throw new Error("Canonical reconciliation detached");
@@ -820,7 +819,7 @@ function WorkbookShellContent({
       currentUserId: authorization.currentUserId,
       incidentPort: infrastructure.incidentPort,
       incidentId,
-      onIncidentAccessLost,
+      onAuthorityUncertain: authorization.loadSessionRole,
     },
     inspector: { resetKey: collaboration.inspectorResetKey },
     layout: workbookLayout.surface,
@@ -863,7 +862,7 @@ function WorkbookShellContent({
         apiBase,
         currentIncidentRole: authorization.currentIncidentRole,
         incidentId,
-        onIncidentAccessLost,
+        onAuthorityUncertain: authorization.loadSessionRole,
       }}
       sheetRef={snapshot.startupSheetRef}
       surface={facadeProps}
@@ -1084,7 +1083,9 @@ function WorkbookShellContent({
                               }
                               incidentId={incidentId}
                               onClose={incidentControls.closeDrawer}
-                              onIncidentAccessLost={onIncidentAccessLost}
+                              onAuthorityUncertain={
+                                authorization.loadSessionRole
+                              }
                               onNavigateToView={(viewSchemaId) => {
                                 commands.selectWorkbookSurface(viewSchemaId, {
                                   focusFirstGridTarget: true,

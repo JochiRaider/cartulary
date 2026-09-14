@@ -119,7 +119,7 @@ it("Decision query and live patches cannot regress accepted high-water versions"
     useGenericSurfaceQuery({
       active: true,
       contract: requireViewContract(decisionViewId),
-      onIncidentAccessLost: undefined,
+      onAuthorityUncertain: undefined,
       queryState: emptyWorkbookQueryState(),
       viewQuery: { query },
       viewSchemaId: decisionViewId,

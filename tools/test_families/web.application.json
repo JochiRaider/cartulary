@@ -1274,6 +1274,7 @@
         "file": "apps/web/src/app/appSessionController.test.tsx",
         "titles": [
           "admits a validated session while preferences and extension discovery fail independently",
+          "application session lifecycle fences a delayed unauthorized observation and explicit session loss across accepted login and account replacement",
           "application session lifecycle keeps anonymous authentication confirmation inside its current flow and fences replacement",
           "cancels recovery before publication after caller cancellation navigation replacement and disposal",
           "classifies recovery without treating transport or contract failure as membership loss",

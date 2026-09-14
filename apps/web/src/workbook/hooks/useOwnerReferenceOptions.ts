@@ -30,7 +30,7 @@ import {
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { isAbortError } from "../query/workbookLatestRequest";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
@@ -54,12 +54,12 @@ const allRecordViewSchemaIds = [
 export function useIncidentMemberReferenceOptions({
   enabled,
   incidentPort,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   refreshVersion = 0,
 }: {
   readonly enabled: boolean;
   readonly incidentPort: WorkbookIncidentPort;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly refreshVersion?: number;
 }) {
   const [options, setOptions] = useState<
@@ -80,8 +80,11 @@ export function useIncidentMemberReferenceOptions({
       .then((result) => {
         if (controller.signal.aborted || result.kind === "aborted") return;
         if (result.kind === "rejected") {
-          if (workbookOperationFailureIsAccessLoss(result.failure)) {
-            onIncidentAccessLost?.();
+          if (
+            workbookFailureLifecycle(result.failure).kind ===
+            "authority_unavailable"
+          ) {
+            onAuthorityUncertain?.();
           }
           setOptions([]);
           setError(result.failure.message);
@@ -105,19 +108,19 @@ export function useIncidentMemberReferenceOptions({
         );
       });
     return () => controller.abort();
-  }, [enabled, incidentPort, onIncidentAccessLost, refreshVersion]);
+  }, [enabled, incidentPort, onAuthorityUncertain, refreshVersion]);
 
   return { error, options };
 }
 
 export function useOwnerReferenceOptions({
   incidentPort,
-  onIncidentAccessLost,
+  onAuthorityUncertain,
   referenceQueryBroker,
   viewSchemaId,
 }: {
   readonly incidentPort: WorkbookIncidentPort;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly referenceQueryBroker: ReferenceQueryBrokerPort;
   readonly viewSchemaId: string;
 }) {
@@ -133,7 +136,7 @@ export function useOwnerReferenceOptions({
     useIncidentMemberReferenceOptions({
       enabled: needsIncidentMembers,
       incidentPort,
-      onIncidentAccessLost,
+      onAuthorityUncertain,
       refreshVersion,
     });
   const contextVersionRef = useRef(0);

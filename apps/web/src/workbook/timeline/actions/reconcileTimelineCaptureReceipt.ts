@@ -1,5 +1,5 @@
 import type { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
+import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { TimelineCaptureReceipt } from "../adapters/timelineCaptureProtocol";
 import type {
   TimelineReconciliationScope,
@@ -56,9 +56,9 @@ export async function reconcileTimelineCaptureReceipt(
   if (
     scope.isCurrent() &&
     result.kind === "rejected" &&
-    workbookOperationFailureIsAccessLoss(result.failure)
+    workbookFailureLifecycle(result.failure).kind === "authority_unavailable"
   )
-    owner.loseAccess();
+    owner.suspendForAuthorityRecovery();
   if (
     !scope.isCurrent() ||
     result.kind !== "accepted" ||
