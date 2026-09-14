@@ -264,6 +264,8 @@ to already managed Postgres and object-store services, but it MUST NOT close a
 borrowed resource. Every application stack, browser stack, database, namespace,
 port set, and process created by the broker is owned by an explicit lease.
 
+A suite-service janitor MUST NOT infer abandonment from container age. Other runs retain service ownership until their exact terminal cleanup proof authorizes reclamation. Unproven orphan resources remain subject to their lease-specific cleanup; startup of a concurrent suite cannot remove them. Cleanup evidence identifies the container and its owning run and suite before removal.
+
 The fixture capability set is closed to `none`, `postgres_transaction`,
 `postgres_dedicated`, `postgres_migration`,
 `object_store_namespace`, `managed_process`, and `browser_stack`. Omission is
@@ -5407,6 +5409,25 @@ Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 **TH-HARNESS-REQ-603**
 Retained run roots and target artifact directories MUST be created with owner-only permissions on POSIX conformance hosts unless the caller explicitly supplied a custom result root whose permissions cannot be narrowed without changing ownership. Required summary artifacts and retained logs MUST be written with owner-read/write permissions. A custom result root that is world-writable without the sticky bit, or that cannot protect newly created files from other users on the host, MUST fail preflight with `configuration_error`.
+
+Artifact producers MUST establish owned directory mode `0700` and file mode
+`0600` before writing retained or private bytes, including empty logs and
+redaction staging files. Producers MUST reject symlinks and ownership mismatches
+and propagate secure-creation failures. Output capture workers MUST be tracked
+and awaited before redaction replacement, summary publication or artifact
+validation. Capture and redaction failures MUST remain visible in the result;
+post-hoc permission repair by cleanup MUST NOT turn unsafe production into
+successful evidence.
+
+Browser startup prerequisites MUST propagate their first failure before consuming
+dependent unpublished environment or metadata files. Startup logs and summaries
+MUST identify their exact browser session and startup attempt; later attempts
+MUST NOT overwrite or ambiguously combine earlier success and failure evidence.
+One terminal startup outcome MUST preserve the first actionable cause through
+reset and cleanup. Redacted process and service diagnostics needed to explain a
+failure MUST be retained before private runtime cleanup. Diagnostic readers MUST
+interpret declared current artifact schemas explicitly and MUST reject unsupported
+schemas rather than silently substituting zero counts or unknown identities.
 
 Each scheduler invocation that may create runtime material MUST allocate one
 suite-private runtime root below the validated external harness scratch

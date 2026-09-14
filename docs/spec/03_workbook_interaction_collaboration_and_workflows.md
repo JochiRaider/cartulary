@@ -1120,6 +1120,19 @@ latter follows REQ-03-299's immediate incident exit. Uncertain authorization
 suspends protected work and requires an authoritative read rather than assuming
 either successful authorization or global session loss.
 
+During account-session recovery the client MUST conceal protected rows, previews
+and inspectors without destroying the same-account work retained by this section.
+An operation-level denial, unavailable record, stale row version or incomplete
+read MUST NOT by itself establish incident access loss. Uncertain incident
+authorization requires an authoritative authorization observation. Asynchronous
+failures MUST carry their originating account/session lifetime and request
+generation; obsolete observations MUST NOT terminate a newer accepted session.
+Late mutation acceptance remains subject to its attempt owner's receipt and
+concealment rules rather than being treated as an obsolete presentation update.
+Replay dispatch capability MUST belong to the retained runtime independently of
+mounted surface callbacks. A presentation attachment supplies presentation
+effects, not the lifetime of admitted work or its dispatch authority.
+
 The pending work retained across session loss MUST remain associated with its
 originating account within the same browser runtime. Reauthentication by that same
 account preserves it. Before exposing a validated session for a different account,
@@ -2680,6 +2693,28 @@ Verified by: AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-137, AC-138, AC-
 
 **REQ-03-256**
 From a selected Timeline, Host, Identity, Evidence, Notes, Task Requests, or Decisions row, the analyst MUST be able to create or link a `task_request`, `decision`, structured coordination artifact, or incident-scoped party reference without leaving the workbook flow when the active surface exposes requester, collector, source, audience, or attendee semantics. When that flow pre-seeds linked-record, decision, support, or party-reference context from the selected record, those preseeded references MUST remain editable context and MUST NOT by themselves satisfy the target surface's minimum create signal.
+
+For every contextual Task Request or Decision action declared by Core 01
+§7.4.1A, the client MUST retain the draft, original source identity and raw target
+values independently of inspector or source-surface attachment within the same
+account/incident browser runtime. Navigation MUST NOT replace or discard that
+work. Submission MUST first coordinate earlier source writes, then verify the
+source through an authoritative owner read and revalidate current authority and
+creation capability. Source-write settlement, source verification and mounted
+presentation refresh are distinct obligations. Verification MUST NOT require a
+mounted originating grid or another mutation owner's row materialization.
+
+Source reads MUST preserve the accepted per-record version high-water mark.
+Changed source state withdraws submission readiness until reviewed without
+replacing target values; unavailable or incompletely verified source state blocks
+fresh submission. The client MUST recheck the reviewed source and operation
+lifetime before dispatch. This interaction requirement adds no source version
+token to the target creation request and does not replace server-side validation.
+Unmounted views retain presentation refresh debt. An accepted creation receipt
+survives detachment and refresh failure; refresh recovery MUST issue reads only.
+Uncertain creation replay retains its existing immutable attempt and transaction
+identity under the ordinary create contract. REQ-03-100 and REQ-03-299 govern
+suspension, concealment and retirement; no persistent draft archive is introduced.
 Profiles: base
 Verified by: AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-278, AC-279
 
