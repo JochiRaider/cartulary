@@ -98,6 +98,50 @@ func TestStartSuiteIdentityRequiresExplicitPersistentProof(t *testing.T) {
 	}
 }
 
+func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	env := cloneEnv(deps.env)
+	env[suiteservices.SuiteIDEnv] = "suite-redaction"
+	for _, event := range []string{suiteservices.LifecycleEventStartServices, suiteservices.LifecycleEventReadinessPassed} {
+		if err := suiteservices.RecordLifecycleEvent(env, event, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Attached services exercise terminal publication without owning a Docker
+	// resource. Real owned-service termination uses the same publication path.
+	lease := serviceLease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
+	payload, err := json.Marshal(lease)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leasePath := filepath.Join(t.TempDir(), "lease.json")
+	if err := os.WriteFile(leasePath, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for attempt := range 2 {
+		if status := runTerminateSuite([]string{"--lease", leasePath}, env, deps.dependencies); status != 0 {
+			t.Fatalf("termination %d failed: %d", attempt, status)
+		}
+		scope := loadScope(t, deps)
+		if scope.Cleanup.Status != "succeeded" || scope.Cleanup.CompletedAt == "" {
+			t.Fatalf("termination did not publish canonical cleanup: %#v", scope.Cleanup)
+		}
+	}
+	events, err := suiteservices.ReadLifecycleEvents(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	terminals := 0
+	for _, event := range events {
+		if event.Event == suiteservices.LifecycleEventCleanupSucceeded {
+			terminals++
+		}
+	}
+	if terminals != 1 {
+		t.Fatalf("expected one terminal lifecycle outcome, got %d", terminals)
+	}
+}
+
 func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T) {
 	postgresClosed := 0
 	objectStoreClosed := 0

@@ -975,6 +975,7 @@
           "TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures",
           "TestStartSuiteIdentityRequiresExplicitPersistentProof",
           "TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts",
+          "TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent",
           "TestWarmImagesUsesPinnedServiceImages"
         ]
       },
