@@ -513,9 +513,12 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
       error: { code: string };
     };
     expect(deniedBody.error.code).toBe("authorization_denied");
-    await expect(
-      memberPage.getByTestId(rowHistoryMessageTestId()),
-    ).toContainText("History access is unavailable");
+    // The current editor membership still permits reading this incident and
+    // its history. A denied rollback withdraws that action, not incident access.
+    await expect(memberPage).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+    await expect(memberPage.getByTestId(rowHistoryPanelTestId())).toContainText(
+      target.record_id,
+    );
     await expect(
       memberPage.getByTestId(
         historyActionTestId(retainedRollbackItem, "history_entry"),
@@ -526,8 +529,17 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
         rowHistoryRollbackPreviewTestId(retainedRollbackAnchor),
       ),
     ).toHaveCount(0);
+    await memberPage.getByRole("button", { name: /^History actions/ }).click();
+    const rejectedAction = memberPage.getByRole("region", {
+      name: "History action recovery",
+      exact: true,
+    });
+    await expect(rejectedAction).toContainText("Action not completed.");
     await expect(
-      memberPage.getByRole("button", { name: /^History actions/ }),
+      rejectedAction.getByRole("button", { name: "Review current history" }),
+    ).toBeEnabled();
+    await expect(
+      rejectedAction.getByRole("button", { name: "Replay exact action" }),
     ).toHaveCount(0);
   } finally {
     await memberContext.close();
