@@ -45,11 +45,13 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { useEntityClipboardPasteController } from "../features/entities/useEntityClipboardPasteController";
 import { useEntityWorkbookInspectorComposition } from "../features/entities/useEntityWorkbookInspectorComposition";
+import { OrdinaryCreateControl } from "../features/ordinary/OrdinaryCreateControl";
+import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice";
+import { useOrdinaryCreateDraft } from "../features/ordinary/useOrdinaryCreateDraft";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import {
   type WorkbookInspectorErrorPresentation,
   type WorkbookInspectorFeedback,
-  workbookInspectorErrorPresentation,
   workbookInspectorLocalErrorPresentation,
 } from "../inspector/workbookInspectorErrorModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
@@ -67,9 +69,7 @@ import {
 import {
   buildGenericPatchChange,
   genericCellLabel,
-  genericCreateMinimumMessage,
   genericRowLabel,
-  initialGenericCreateDraft,
   workbookCreationAvailable,
 } from "../models/genericWorkbookModel";
 import {
@@ -97,7 +97,6 @@ import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
-import { GenericMutationControl } from "./GenericMutationControl";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
 import {
   WorkbookCellPresenceMarker,
@@ -230,11 +229,9 @@ export function EntityWorkbookSurface({
     null,
   );
   const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
-  const [createDraft, setCreateDraft] = useState<Record<string, string>>(() =>
-    initialGenericCreateDraft(
-      entityType === "host" ? hostsContract : identitiesContract,
-      null,
-    ),
+  const [createDraft, setCreateDraft] = useOrdinaryCreateDraft(
+    mutationRuntime.ordinaryCreate,
+    entityType === "host" ? hostsContract : identitiesContract,
   );
   const [mutationError, setMutationError] =
     useState<WorkbookInspectorErrorPresentation | null>(null);
@@ -259,6 +256,13 @@ export function EntityWorkbookSurface({
   );
   const canCreateRows =
     interactionMode.kind === "editable" && workbookCreationAvailable(contract);
+  const showOrdinaryDraft =
+    canCreateRows ||
+    Object.keys(
+      mutationRuntime.ordinaryCreate.getSnapshot().schemas[
+        contract.viewSchemaId
+      ]?.draft.values ?? {},
+    ).length > 0;
   const entityReferenceOptions = useMemo(
     () => emptyGenericReferenceOptions(),
     [],
@@ -313,7 +317,7 @@ export function EntityWorkbookSurface({
   );
   const entityDraftRow = useMemo<GridDraftRow<EntityRow> | undefined>(
     () =>
-      !canCreateRows
+      !showOrdinaryDraft
         ? undefined
         : {
             kind: "draft",
@@ -322,7 +326,7 @@ export function EntityWorkbookSurface({
             gutterLabel: "Draft row",
             testId: workbookInlineDraftRowTestId(surface),
           },
-    [canCreateRows, draftEntityRow, surface],
+    [showOrdinaryDraft, draftEntityRow, surface],
   );
   const grouping = useMemo<GridGroupingDescriptor<EntityRow> | null>(() => {
     const fieldKey = queryState.groupBy;
@@ -367,13 +371,9 @@ export function EntityWorkbookSurface({
     onClearSurfaceSelection: () => {
       continuityPortRef.current?.clear();
       setSelectedRecordId(null);
-      setCreateDraft(initialGenericCreateDraft(contract, null));
     },
     onRefreshEntities,
     onIncidentAccessLost,
-    onResetOwnerState: () => {
-      setCreateDraft(initialGenericCreateDraft(contract, null));
-    },
     onRestoreFocus: () => {
       const token = inspectorContinuityTokenRef.current;
       inspectorContinuityTokenRef.current = null;
@@ -423,7 +423,7 @@ export function EntityWorkbookSurface({
     () =>
       mutationRuntime.registerSurface(
         contract.viewSchemaId,
-        onRefreshEntities,
+        () => onRefreshEntities({ requireAcceptance: true }),
         async (_payload, conflict) => {
           await onRefreshEntities();
           window.setTimeout(() => {
@@ -609,7 +609,9 @@ export function EntityWorkbookSurface({
             return <span style={draftCellPlaceholderStyle}>-</span>;
           }
           return (
-            <GenericMutationControl
+            <OrdinaryCreateControl
+              owner={mutationRuntime.ordinaryCreate}
+              contract={contract}
               collectionMode="add"
               field={writableField}
               focusTargetRef={focusTargetRef}
@@ -678,7 +680,10 @@ export function EntityWorkbookSurface({
     renderDraftCell: () => (
       <button
         data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
-        disabled={mutationPending}
+        disabled={
+          !canCreateRows ||
+          mutationRuntime.ordinaryCreate.busy(contract.viewSchemaId)
+        }
         style={secondaryActionButtonStyle}
         type="button"
         onClick={() => {
@@ -726,35 +731,7 @@ export function EntityWorkbookSurface({
   }, [rows, selectedRecordId]);
 
   async function submitEntityCreate() {
-    if (!canCreateRows) return;
-    if (!mutationCommands.canCreateRecord({ contract, draft: createDraft })) {
-      setMutationError(
-        workbookInspectorLocalErrorPresentation(
-          genericCreateMinimumMessage(contract),
-        ),
-      );
-      return;
-    }
-    setMutationPending(true);
-    setMutationError(null);
-    const finishMutation = mutationRuntime.beginExplicitMutation();
-    try {
-      const result = await mutationCommands.createRecord({
-        contract,
-        draft: createDraft,
-      });
-      if (result.kind === "rejected") {
-        setMutationPending(false);
-        setMutationError(workbookInspectorErrorPresentation(result.failure));
-        return;
-      }
-      setCreateDraft(initialGenericCreateDraft(contract, null));
-      await onRefreshEntities();
-      setSelectedRecordId(result.value.row.record_id);
-      setMutationPending(false);
-    } finally {
-      finishMutation();
-    }
+    await mutationRuntime.ordinaryCreate.submit(contract.viewSchemaId);
   }
 
   return (
@@ -765,56 +742,69 @@ export function EntityWorkbookSurface({
         entityInspector.close();
       }}
       primaryGrid={
-        <GridViewport
-          blockSizing="fill"
-          style={gridShellStyle}
-          testId={gridShellTestId(surface)}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateRows: "auto minmax(0, 1fr)",
+            minHeight: 0,
+            minWidth: 0,
+          }}
         >
-          <SemanticDataGrid
-            rowGutter={workbookPresenceRowGutter}
-            ref={registerGridHandle}
-            activeRowIdentity={
-              selectedRecordId === null
-                ? null
-                : { kind: "core_record", recordId: selectedRecordId }
-            }
-            allowPasteCreateRows
-            actionsColumn={entityActionsColumn}
-            columns={entityColumns}
-            columnWidths={layoutState.columnWidths}
-            dataState={dataState}
-            density={density}
-            draftRow={entityDraftRow}
-            grouping={grouping}
-            interactionMode={interactionMode}
-            onActiveCellChange={(anchor) => {
-              const recordId =
-                anchor?.rowIdentity.kind === "core_record"
-                  ? anchor.rowIdentity.recordId
-                  : null;
-              if (recordId === null || anchor === null) {
-                entityFocus.port.clear();
-              } else {
-                entityFocus.port.select({
-                  fieldKey: anchor.fieldKey,
-                  recordId,
-                  viewSchemaId: contract.viewSchemaId,
-                });
-              }
-              collaborationProjection.publishFocusedCell(
-                recordId,
-                anchor?.fieldKey ?? null,
-              );
-            }}
-            onColumnReorder={onColumnReorder}
-            onColumnWidthChange={onColumnWidthChange}
-            clipboardPaste={clipboardPaste}
-            onSortChange={onSortChange}
-            dataRows={entityGridRows}
-            sort={queryState.sort}
-            surface={{ kind: "view_schema", viewSchemaId: surface }}
+          <OrdinaryCreateNotice
+            owner={mutationRuntime.ordinaryCreate}
+            view={contract.viewSchemaId}
           />
-        </GridViewport>
+          <GridViewport
+            blockSizing="fill"
+            style={gridShellStyle}
+            testId={gridShellTestId(surface)}
+          >
+            <SemanticDataGrid
+              rowGutter={workbookPresenceRowGutter}
+              ref={registerGridHandle}
+              activeRowIdentity={
+                selectedRecordId === null
+                  ? null
+                  : { kind: "core_record", recordId: selectedRecordId }
+              }
+              allowPasteCreateRows
+              actionsColumn={entityActionsColumn}
+              columns={entityColumns}
+              columnWidths={layoutState.columnWidths}
+              dataState={dataState}
+              density={density}
+              draftRow={entityDraftRow}
+              grouping={grouping}
+              interactionMode={interactionMode}
+              onActiveCellChange={(anchor) => {
+                const recordId =
+                  anchor?.rowIdentity.kind === "core_record"
+                    ? anchor.rowIdentity.recordId
+                    : null;
+                if (recordId === null || anchor === null) {
+                  entityFocus.port.clear();
+                } else {
+                  entityFocus.port.select({
+                    fieldKey: anchor.fieldKey,
+                    recordId,
+                    viewSchemaId: contract.viewSchemaId,
+                  });
+                }
+                collaborationProjection.publishFocusedCell(
+                  recordId,
+                  anchor?.fieldKey ?? null,
+                );
+              }}
+              onColumnReorder={onColumnReorder}
+              onColumnWidthChange={onColumnWidthChange}
+              clipboardPaste={clipboardPaste}
+              onSortChange={onSortChange}
+              dataRows={entityGridRows}
+              sort={queryState.sort}
+              surface={{ kind: "view_schema", viewSchemaId: surface }}
+            />
+          </GridViewport>
+        </div>
       }
       statusStrip={
         <WorkbookStatusStrip

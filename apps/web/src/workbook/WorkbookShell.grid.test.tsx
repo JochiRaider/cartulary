@@ -9,6 +9,7 @@ import {
   rowCellTestId,
   saveStateTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
@@ -272,7 +273,7 @@ describe("Timeline workbook grid coverage", () => {
     const initialDraftSummary = screen.getByTestId(
       draftCellTestId("timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
-    await changeInputValue(initialDraftSummary, "First browser fact");
+    await changeInputValue(initialDraftSummary, "   ");
 
     emitRecordChanged(
       latestTimelineWebSocket(),
@@ -290,9 +291,9 @@ describe("Timeline workbook grid coverage", () => {
     const refreshedDraftSummary = screen.getByTestId(
       draftCellTestId("timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
-    expect(refreshedDraftSummary.value).toBe("First browser fact");
+    expect(refreshedDraftSummary.value).toBe("   ");
 
-    fireEvent.keyDown(refreshedDraftSummary, { key: "Enter" });
+    await changeInputValue(refreshedDraftSummary, "First browser fact");
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -306,12 +307,13 @@ describe("Timeline workbook grid coverage", () => {
     });
     expect(
       screen.getByTestId(
-        rowCellTestId(
-          "20000000-0000-4000-8000-000000000010",
-          "timeline.activity_synopsis_text",
-        ),
-      ).textContent,
-    ).toBe("First browser fact");
+        timelineScalarEditorTestId({
+          recordId: "20000000-0000-4000-8000-000000000010",
+          fieldKey: "timeline.activity_synopsis_text",
+          surface: "grid",
+        }),
+      ),
+    ).toHaveProperty("value", "First browser fact");
     expect(
       (
         screen.getByTestId(

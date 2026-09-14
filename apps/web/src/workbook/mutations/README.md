@@ -6,7 +6,8 @@ Semantic mutation command assembly, secure action identity, write coordination, 
 
 Assembly owns logical-action identity and exact owner request construction.
 Presentation receives named semantic command ports rather than a transaction-ID
-provider or generic mutation transport.
+provider or generic mutation transport. Ordinary creates use the retained
+`features/ordinary` owner; superseded one-shot create methods are removed.
 
 ## Files
 

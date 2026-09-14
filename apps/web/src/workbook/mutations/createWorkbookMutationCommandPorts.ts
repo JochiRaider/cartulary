@@ -11,11 +11,7 @@ import { createWorkbookOperationExecutor } from "../adapters/workbookOperationEx
 import type { DecisionRecordWriteBoundary } from "../features/coordination/decisionSupersessionOperation";
 import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
 import { createGenericMutationCommandPort } from "../features/generic/createGenericMutationCommandPort";
-import { buildGenericCreateRequest } from "../features/generic/genericCreateRequestBuilder";
-import {
-  buildPatchRecordRequest,
-  decodeCreateViewRowRequest,
-} from "../models/workbookRequestDecoders";
+import { buildPatchRecordRequest } from "../models/workbookRequestDecoders";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
 import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
@@ -25,7 +21,6 @@ import type {
 } from "./entityRecordWriteBoundary";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
-  EntityCreateOutcome,
   EntityPatchOutcome,
   GenericViewMutationAccepted,
   TimelineFillOutcome,
@@ -153,30 +148,6 @@ async function executeTimelineBulkMutation(options: {
   } catch {
     return retryableOperationFailure();
   }
-}
-
-function normalizeEntityCreateOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: GenericViewMutationAccepted["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-  expectedViewSchemaId: string,
-): EntityCreateOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  if (outcome.value.data.view_schema_id !== expectedViewSchemaId) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: outcome.value.data.change_set_id,
-      row: outcome.value.data.row,
-      viewSchemaId: outcome.value.data.view_schema_id,
-    },
-  };
 }
 
 function normalizeEntityPatchOutcome(
@@ -318,58 +289,6 @@ export function createWorkbookMutationCommandPorts(
       transactionIds: context.transactionIds,
     }),
     entity: {
-      canCreateRecord(input) {
-        return (
-          buildGenericCreateRequest(
-            input.contract,
-            { ...input.draft },
-            "validation-only",
-          ) !== null
-        );
-      },
-      createRecord(input) {
-        return executeEntityWrite(
-          context,
-          {
-            recordIds: [],
-            unknownEntityType:
-              input.contract.viewSchemaId === "cartulary.view.hosts.v1"
-                ? "host"
-                : "identity",
-          },
-          () => {
-            const clientTxnId = createId(
-              context.transactionIds,
-              `entity-create-${input.contract.viewSchemaId}`,
-            );
-            if (clientTxnId === null)
-              return Promise.resolve(operationIdentityFailure());
-            const payload = buildGenericCreateRequest(
-              input.contract,
-              { ...input.draft },
-              clientTxnId,
-            );
-            const request = decodeCreateViewRowRequest(input.contract, payload);
-            if (request === null)
-              return Promise.resolve(invalidOperationPayload());
-            return operations
-              .execute({
-                operationID: "createViewRow",
-                pathParameters: {
-                  incident_id: context.incidentId,
-                  view_schema_id: input.contract.viewSchemaId,
-                },
-                request,
-              })
-              .then((outcome) =>
-                normalizeEntityCreateOutcome(
-                  outcome,
-                  input.contract.viewSchemaId,
-                ),
-              );
-          },
-        );
-      },
       patchRecord(input) {
         return executeEntityWrite(
           context,

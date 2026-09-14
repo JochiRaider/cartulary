@@ -288,6 +288,9 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
         queuedAId,
         "integration.collaboration queued A local",
       );
+      // Pending Enter retains the original editor until acknowledgement.
+      // Escape detaches that presentation without discarding the queued write.
+      await page.keyboard.press("Escape");
       await editTimelineSummary(
         page,
         queuedBId,

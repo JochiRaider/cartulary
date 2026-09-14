@@ -30,6 +30,7 @@ type GenericPatchMutationRequest = {
   readonly viewSchemaId: string;
 };
 export type GenericSurfaceMutationController = {
+  readonly ordinaryCreate: WorkbookMutationRuntime["ordinaryCreate"];
   readonly partyLinks: WorkbookMutationRuntime["partyLinks"];
   readonly explicitPatches: WorkbookMutationRuntime["explicitPatches"];
   readonly taskDrafts: WorkbookMutationRuntime["taskDrafts"];
@@ -184,6 +185,7 @@ export function useGenericSurfaceMutationController({
     ],
   );
   return {
+    ordinaryCreate: mutationRuntime.ordinaryCreate,
     explicitPatches: mutationRuntime.explicitPatches,
     partyLinks: mutationRuntime.partyLinks,
     taskDrafts: mutationRuntime.taskDrafts,

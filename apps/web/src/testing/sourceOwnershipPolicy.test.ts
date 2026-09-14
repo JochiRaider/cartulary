@@ -192,16 +192,28 @@ describe("frontend source ownership policy", () => {
       });
     expect(ownerLocalWireIntents).toEqual([
       "apps/web/src/workbook/features/coordination/WorkbookContextualTaskDecisionCreateOwner.ts",
+      "apps/web/src/workbook/features/coordination/WorkbookCoordinationCreateOwner.ts",
       "apps/web/src/workbook/features/coordination/contextualCreateAuthoring.test.tsx",
       "apps/web/src/workbook/features/coordination/contextualCreateModel.ts",
       "apps/web/src/workbook/features/coordination/contextualCreateRecovery.test.tsx",
+      "apps/web/src/workbook/features/coordination/coordinationCreateAuthoring.test.tsx",
+      "apps/web/src/workbook/features/coordination/coordinationCreateModel.ts",
+      "apps/web/src/workbook/features/coordination/coordinationCreateRecovery.test.tsx",
       "apps/web/src/workbook/features/evidence/WorkbookTimelineRelatedEvidenceOwner.ts",
       "apps/web/src/workbook/features/evidence/createEvidenceAttachmentPort.ts",
       "apps/web/src/workbook/features/evidence/createUploadedEvidenceBlob.ts",
+      "apps/web/src/workbook/features/evidence/evidenceOrdinaryCreate.ts",
       "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceAuthoring.test.tsx",
       "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceModel.ts",
       "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceRecovery.test.tsx",
       "apps/web/src/workbook/features/generic/genericCreateRequestBuilder.ts",
+      "apps/web/src/workbook/features/indicators/indicatorOrdinaryCreate.ts",
+      "apps/web/src/workbook/features/notes/WorkbookNoteCreateOwner.ts",
+      "apps/web/src/workbook/features/notes/noteCreateAuthoring.test.tsx",
+      "apps/web/src/workbook/features/notes/noteCreateModel.ts",
+      "apps/web/src/workbook/features/notes/noteCreateRecovery.test.tsx",
+      "apps/web/src/workbook/features/ordinary/WorkbookOrdinaryCreateOwner.test.ts",
+      "apps/web/src/workbook/features/ordinary/prepareOrdinaryCreateFields.ts",
     ]);
   });
 

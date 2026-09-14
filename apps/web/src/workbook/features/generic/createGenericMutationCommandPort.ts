@@ -3,7 +3,6 @@ import {
   captureRecordPatch,
   createRecordPatchTransport,
 } from "../../adapters/workbookRecordPatchTransport";
-import { decodeCreateViewRowRequest } from "../../models/workbookRequestDecoders";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type {
   GenericMutationCommandPort,
@@ -12,7 +11,6 @@ import type {
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import { decisionViewId } from "../coordination/decisionSupersessionModel";
 import type { DecisionRecordWriteBoundary } from "../coordination/decisionSupersessionOperation";
-import { buildGenericCreateRequest } from "./genericCreateRequestBuilder";
 
 function operationIdentityFailure<T>(): WorkbookOperationOutcome<T> {
   return {
@@ -42,30 +40,6 @@ function createId(
   }
 }
 
-function normalizeGenericMutationOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: Extract<
-        GenericMutationOutcome,
-        { kind: "accepted" }
-      >["value"]["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-): GenericMutationOutcome {
-  return outcome.kind === "rejected"
-    ? outcome
-    : {
-        kind: "accepted",
-        value: {
-          changeSetId: outcome.value.data.change_set_id,
-          row: outcome.value.data.row,
-          viewSchemaId: outcome.value.data.view_schema_id,
-        },
-      };
-}
-
 export function createGenericMutationCommandPort(options: {
   readonly decisionWrites?: DecisionRecordWriteBoundary | undefined;
   readonly incidentId: string;
@@ -73,41 +47,6 @@ export function createGenericMutationCommandPort(options: {
   readonly transactionIds: SecureTransactionIdPort;
 }): GenericMutationCommandPort {
   return {
-    canCreateRecord(input) {
-      return (
-        buildGenericCreateRequest(
-          input.contract,
-          input.draft,
-          "validation-only",
-        ) !== null
-      );
-    },
-    createRecord(input) {
-      const clientTxnId = createId(
-        options.transactionIds,
-        `generic-create-${input.contract.viewSchemaId}`,
-      );
-      if (clientTxnId === null) {
-        return Promise.resolve(operationIdentityFailure());
-      }
-      const payload = buildGenericCreateRequest(
-        input.contract,
-        input.draft,
-        clientTxnId,
-      );
-      const request = decodeCreateViewRowRequest(input.contract, payload);
-      if (request === null) return Promise.resolve(invalidOperationPayload());
-      return options.operations
-        .execute({
-          operationID: "createViewRow",
-          pathParameters: {
-            incident_id: options.incidentId,
-            view_schema_id: input.contract.viewSchemaId,
-          },
-          request,
-        })
-        .then(normalizeGenericMutationOutcome);
-    },
     async patchRecord(input) {
       const boundary =
         input.viewSchemaId === decisionViewId

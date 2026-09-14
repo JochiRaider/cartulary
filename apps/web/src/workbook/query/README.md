@@ -26,6 +26,7 @@ here and are consumed by Timeline as well as other surfaces.
 
 | File | Responsibility |
 | --- | --- |
+| [ordinaryCreateQuery.test.tsx](ordinaryCreateQuery.test.tsx) | Ordinary accepted-version floors, filtered membership and concealment of obsolete reads. |
 | [entityLiveEventPatchPlanner.test.ts](entityLiveEventPatchPlanner.test.ts) | Tests exact newer Entity patches and reference-preserving stale-event no-ops. |
 | [useAssessmentSurfaceQuery.test.tsx](useAssessmentSurfaceQuery.test.tsx) | Direct rapid-filter, stale-error, live-patch, access-loss, inactive-surface, and teardown characterization. |
 | [useEntitySurfaceQuery.test.tsx](useEntitySurfaceQuery.test.tsx) | Direct dual-load, stale-result, live-patch, access-loss, explicit cleanup, and teardown characterization. |

@@ -12,7 +12,7 @@ import {
 } from "./genericMutationControlModel";
 
 type GenericMutationControlRef = RefCallback<
-  HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement
 >;
 
 type GenericMutationControlFeedback = {

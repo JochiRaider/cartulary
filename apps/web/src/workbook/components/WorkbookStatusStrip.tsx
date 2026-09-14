@@ -77,6 +77,7 @@ export function WorkbookStatusStrip({
             }
             aria-describedby={`${primaryDescriptionId}${showSecondary ? ` ${detailId}` : ""}`}
             data-testid={saveStateActionButtonTestId()}
+            data-grid-editor-external-action="true"
             style={statusStripActionButtonStyle}
             type="button"
             onClick={(event) => onActivateConflict(event.currentTarget, action)}

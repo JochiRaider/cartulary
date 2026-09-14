@@ -115,7 +115,7 @@ export function createIndicatorCreateTransport(options: {
 }
 /** Retain the complete public result; status classifies the operation, not insertion. */
 export function validateIndicatorCreateReceipt(
-  attempt: IndicatorCreateAttempt,
+  attempt: Pick<IndicatorCreateAttempt, "contract" | "body">,
   response: CreateViewRowResponse,
   status: number,
 ): IndicatorCreateReceipt | null {

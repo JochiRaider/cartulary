@@ -27,3 +27,9 @@ paging; recovery can finish linking without repeating accepted creation.
 | --- | --- |
 | [partyLinkControls.test.tsx](partyLinkControls.test.tsx) | Tests independent pair edits, deliberate Party authoring, and candidate-page retry. |
 | [WorkbookPartyLinkOperationOwner.test.ts](WorkbookPartyLinkOperationOwner.test.ts) | Tests Party/source receipt retention, coordinated admission, and link-only recovery after creation. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [partyOrdinaryCreate.ts](partyOrdinaryCreate.ts) | Ordinary Party preparation and packaged timezone admission; matching stays with Parties. |

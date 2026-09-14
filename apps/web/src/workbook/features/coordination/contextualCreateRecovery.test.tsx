@@ -563,6 +563,7 @@ describe("contextual create recovery", () => {
       expect(await port.send(attempt, new AbortController().signal)).toEqual({
         kind: "accepted",
         receipt,
+        status: 200,
       });
       const field = decision
         ? "decision.support_refs"

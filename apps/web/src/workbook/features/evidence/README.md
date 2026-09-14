@@ -33,3 +33,9 @@ linking receipts separately. Shared message severity belongs to
 | [timelineRelatedEvidenceAuthoring.test.tsx](timelineRelatedEvidenceAuthoring.test.tsx) | Tests source-bound Evidence drafts, authoring minima, exact omission, and presentation detachment. |
 | [timelineRelatedEvidenceRecovery.test.tsx](timelineRelatedEvidenceRecovery.test.tsx) | Tests duplicate reservation, independent creation/link receipts, and link-only recovery. |
 | [useEvidenceWorkbookBindings.test.tsx](useEvidenceWorkbookBindings.test.tsx) | Tests latest preview intent and stale preview rejection across subject and authority changes. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [evidenceOrdinaryCreate.ts](evidenceOrdinaryCreate.ts) | Ordinary metadata minimum signals, explicit timestamp intent and upload/lifecycle boundaries. |

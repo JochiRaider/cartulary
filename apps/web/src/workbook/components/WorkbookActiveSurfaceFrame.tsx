@@ -29,7 +29,7 @@ type WorkbookActiveSurfaceFrameProps = {
   readonly onActivateOrigin: (viewSchemaId: string) => void;
 };
 
-/** Presents the active surface behind the mutually exclusive recovery layer. */
+/** Recovery panels share the surface; rejected editors remain focusable. */
 export function WorkbookActiveSurfaceFrame({
   activeContent,
   activeSurfaceRef,
@@ -43,8 +43,6 @@ export function WorkbookActiveSurfaceFrame({
     mutationSnapshot.action?.kind === "transaction_recovery" ||
     mutationSnapshot.action?.kind === "terminal_failure";
   const showOverflow = mutationSnapshot.action?.kind === "overflow";
-  const conflictOnly =
-    !showBlocked && !showOverflow && mutationSnapshot.conflictPanelOpen;
   return (
     <section
       aria-label="Active workbook surface focus target"
@@ -53,13 +51,7 @@ export function WorkbookActiveSurfaceFrame({
       style={shellActiveSurfaceStyle}
       tabIndex={-1}
     >
-      <div
-        aria-hidden={conflictOnly ? true : undefined}
-        inert={conflictOnly ? true : undefined}
-        style={{ display: "contents" }}
-      >
-        {activeContent}
-      </div>
+      {activeContent}
       {showBlocked && mutationSnapshot.blockedEdit !== null ? (
         <WorkbookEditRecoveryPanel
           blockedEdit={mutationSnapshot.blockedEdit}

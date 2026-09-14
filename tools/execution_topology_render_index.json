@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:6ae10f0d0060b9075f9d9286ff134820c0609c566ee5df955700972773f73e7a",
+  "input_digest": "sha256:918a40985f5fcce0b56e93afdb6b213995285bc89efca116e348e7a42fa96f39",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -577,7 +577,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7868d89ed092c94a6bb289e109f79213dad97225b5692f908828196379f908ca"
+      "hash": "sha256:a4c79706523c681c84a797dd9148d8a17d70b158b06c5ead27fa692b21fc9506"
     },
     {
       "path": "tools/harness/generated-artifacts/contracts/index.mjs",
@@ -1122,7 +1122,7 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:77521e6899c22eb71eba540985ad46a9d02e53da757a019fd59fdbb2270a6ba4"
+      "hash": "sha256:5846bb49a3be6b452ac89b5a62da8efdc6682c790c76a98dd8484fc4baaf90a6"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
@@ -1242,7 +1242,7 @@
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:93fcbf5b64968289acfeaf9f9d43393c8fe8cbc9f30cda975082da90d2a4632d"
+      "hash": "sha256:152b44957b6f34dd5f84975b7049af2559f291423678a84c88cd95292e3620f8"
     },
     {
       "path": "tools/test_runner_registry.json",
@@ -1251,7 +1251,7 @@
     }
   ],
   "outputs": {
-    "tools/browser_e2e_batch_manifest.json": "sha256:bc71beb0ad17a508ec56b280bfa75a222a631ef3bc71e246e7b45fc58d6b8da2",
+    "tools/browser_e2e_batch_manifest.json": "sha256:7e402989ddbb9a7f94a466a71c041cf777f50dd1a8826d54e40afb5c16e1f464",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
     "tools/task_surface_manifest.json": "sha256:a997ca045191bc1a4913164887ea7655b9e9fb1349502fde04c215db906d2be4",
     "tools/task_surface.generated.mk": "sha256:fcbadef46808b9c5328a76551e9121b3cb6c2b58b45fc5d8ec48b72753c95bd4",

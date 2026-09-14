@@ -22,6 +22,8 @@ import { WorkbookIndicatorCreateOwner } from "../features/indicators/WorkbookInd
 import { WorkbookIndicatorLifecycleOwner } from "../features/indicators/WorkbookIndicatorLifecycleOwner";
 import { WorkbookObservationOwner } from "../features/indicators/WorkbookObservationOwner";
 import { WorkbookNoteCreateOwner } from "../features/notes/WorkbookNoteCreateOwner";
+import { createOrdinaryCreateContributions } from "../features/ordinary/ordinaryCreateContributions";
+import { WorkbookOrdinaryCreateOwner } from "../features/ordinary/WorkbookOrdinaryCreateOwner";
 import { WorkbookPartyLinkOperationOwner } from "../features/parties/WorkbookPartyLinkOperationOwner";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
@@ -129,6 +131,7 @@ export class WorkbookMutationRuntime {
   private timelineActions: WorkbookTimelineActionRuntimePort | null = null;
   private timelineMentionOperations: WorkbookTimelineActionRuntimePort | null =
     null;
+  readonly ordinaryCreate: WorkbookOrdinaryCreateOwner;
   readonly noteCreate: WorkbookNoteCreateOwner;
   readonly coordinationCreate: WorkbookCoordinationCreateOwner;
   readonly contextualCreate: WorkbookContextualTaskDecisionCreateOwner;
@@ -284,6 +287,33 @@ export class WorkbookMutationRuntime {
         },
       },
     );
+    this.ordinaryCreate = new WorkbookOrdinaryCreateOwner(
+      scope.incidentId,
+      createOrdinaryCreateContributions({
+        begin: (target) => this.beginEntityWrite(target),
+        acceptVersion: (id, version) => this.acceptEntityVersion(id, version),
+      }),
+      {
+        ids: transactionIds,
+        effects: {
+          accepted: (receipt, id) => {
+            this.rememberClientTransaction(id);
+            this.history.acceptVersion(
+              receipt.data.row.record_id,
+              receipt.data.row.row_version,
+            );
+          },
+          refresh: async (receipt) => {
+            await Promise.all([
+              this.surfaces.refreshRequired(receipt.data.view_schema_id),
+              this.history.refreshRecordPresentation(
+                receipt.data.row.record_id,
+              ),
+            ]);
+          },
+        },
+      },
+    );
     this.noteCreate = new WorkbookNoteCreateOwner(
       scope.incidentId,
       transactionIds,
@@ -309,6 +339,7 @@ export class WorkbookMutationRuntime {
               if (result.kind !== "accepted")
                 throw new Error("Record history refresh is incomplete.");
               this.noteCreate.observe(recordId, result.value.row_version);
+              this.ordinaryCreate.observe(recordId, result.value.row_version);
               await this.history.refreshRecordPresentation(recordId);
             }),
           ]);
@@ -548,6 +579,7 @@ export class WorkbookMutationRuntime {
     this.partyLinks.subscribe(() => this.emit());
     this.assessmentAuthoring.subscribe(() => this.emit());
     this.noteCreate.subscribe(() => this.emit());
+    this.ordinaryCreate.subscribe(() => this.emit());
     this.coordinationCreate.subscribe(() => this.emit());
     this.contextualCreate.subscribe(() => this.emit());
     this.timelineRelatedEvidence.subscribe(() => this.emit());
@@ -556,6 +588,8 @@ export class WorkbookMutationRuntime {
         const receipt = entry.receipt;
         if (receipt)
           this.noteCreate.observe(receipt.recordId, receipt.rowVersion);
+        if (receipt)
+          this.ordinaryCreate.observe(receipt.recordId, receipt.rowVersion);
         if (receipt)
           this.coordinationCreate.observe(receipt.recordId, receipt.rowVersion);
         if (receipt)
@@ -647,6 +681,7 @@ export class WorkbookMutationRuntime {
 
   observeTimelineVersion(recordId: string, rowVersion: number): void {
     this.noteCreate.observe(recordId, rowVersion);
+    this.ordinaryCreate.observe(recordId, rowVersion);
     this.coordinationCreate.observe(recordId, rowVersion);
     this.contextualCreate.observe(recordId, rowVersion);
     this.timelineRelatedEvidence.observe(recordId, rowVersion);
@@ -851,6 +886,7 @@ export class WorkbookMutationRuntime {
   acceptEntityVersion(recordId: string, version: number): void {
     if (this.entityLifetimeRetired) return;
     this.noteCreate.observe(recordId, version);
+    this.ordinaryCreate.observe(recordId, version);
     this.coordinationCreate.observe(recordId, version);
     this.contextualCreate.observe(recordId, version);
     this.entityMerge.acceptVersion(recordId, version);
@@ -925,6 +961,7 @@ export class WorkbookMutationRuntime {
         this.indicatorCreate.pendingCount +
         this.assessmentAuthoring.pendingCount +
         this.noteCreate.pendingCount +
+        this.ordinaryCreate.pendingCount +
         this.coordinationCreate.pendingCount +
         this.contextualCreate.pendingCount +
         this.timelineRelatedEvidence.pendingCount +
@@ -989,6 +1026,11 @@ export class WorkbookMutationRuntime {
         );
       if (outcome.kind === "accepted")
         this.noteCreate.observe(
+          outcome.value.row.record_id,
+          outcome.value.row.row_version,
+        );
+      if (outcome.kind === "accepted")
+        this.ordinaryCreate.observe(
           outcome.value.row.record_id,
           outcome.value.row.row_version,
         );
@@ -1388,6 +1430,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.suspend();
       this.assessmentAuthoring.suspend();
       this.noteCreate.suspend();
+      this.ordinaryCreate.suspend();
       this.coordinationCreate.suspend();
       this.contextualCreate.suspend();
       this.timelineRelatedEvidence.suspend();
@@ -1430,6 +1473,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.retire();
       this.assessmentAuthoring.retire();
       this.noteCreate.retire();
+      this.ordinaryCreate.retire();
       this.coordinationCreate.retire();
       this.contextualCreate.retire();
       this.timelineRelatedEvidence.retire();
@@ -1459,6 +1503,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.closeIncident();
       this.assessmentAuthoring.closeIncident();
       this.noteCreate.closeIncident();
+      this.ordinaryCreate.closeIncident();
       this.coordinationCreate.closeIncident();
       this.contextualCreate.closeIncident();
       this.timelineRelatedEvidence.closeIncident();
@@ -1481,6 +1526,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.retire();
       this.assessmentAuthoring.retire();
       this.noteCreate.retire();
+      this.ordinaryCreate.retire();
       this.coordinationCreate.retire();
       this.contextualCreate.retire();
       this.timelineRelatedEvidence.retire();
@@ -1498,6 +1544,7 @@ export class WorkbookMutationRuntime {
     this.indicatorCreate.suspend();
     this.assessmentAuthoring.suspend();
     this.noteCreate.suspend();
+    this.ordinaryCreate.suspend();
     this.coordinationCreate.suspend();
     this.contextualCreate.suspend();
     this.timelineRelatedEvidence.suspend();

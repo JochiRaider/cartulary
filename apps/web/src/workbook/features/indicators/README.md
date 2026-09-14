@@ -80,3 +80,9 @@ Transport lives in [workbook adapters](../../adapters/README.md); shared
 | [WorkbookIndicatorLifecycleOwner.test.ts](WorkbookIndicatorLifecycleOwner.test.ts) | Tests lifecycle reservation, reviewed versions, exact replay, and authority-bound dispatch. |
 | [WorkbookIndicatorLifecycleOwner.ts](WorkbookIndicatorLifecycleOwner.ts) | Indicator lifecycle operation admission, retained attempts, acknowledgements, and reconciliation. |
 | [WorkbookIndicatorLifecycleRecovery.tsx](WorkbookIndicatorLifecycleRecovery.tsx) | Retained Indicator lifecycle replay and reconciliation recovery controls. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [indicatorOrdinaryCreate.ts](indicatorOrdinaryCreate.ts) | Ordinary canonical-identity preparation using Indicator-owned constraints. |

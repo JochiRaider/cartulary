@@ -23,14 +23,14 @@ Timeline-specific controllers live under
 | [useWorkbookSavedViewController.ts](useWorkbookSavedViewController.ts) | Binds active query/layout configuration and selection effects to the session-owned saved-view controller. |
 | [useWorkbookStartupController.test.tsx](useWorkbookStartupController.test.tsx) | Direct tests for workbook selection, focus intent, versioning, and URL state. |
 | [useWorkbookStartupController.ts](useWorkbookStartupController.ts) | Startup/sheet identity, URL history, focus intent, and workbook-preference controller. |
-| [useWorkbookSurfaceQueries.ts](useWorkbookSurfaceQueries.ts) | Surface query loading, invalidation, facade projection, and collaboration port selection. |
+| [useWorkbookSurfaceQueries.ts](useWorkbookSurfaceQueries.ts) | Surface query loading, ordinary accepted-version integration, invalidation and collaboration port selection. |
 
 ## Surface and import bindings
 
 | File | Responsibility |
 | --- | --- |
 | [useEntityTimelinePreview.ts](useEntityTimelinePreview.ts) | Loads Timeline preview rows for entity-related workbook workflows. |
-| [useGenericSurfaceMutationController.ts](useGenericSurfaceMutationController.ts) | Contract-surface mutation state, conflict admission, and refresh coordination over the generic command port. |
+| [useGenericSurfaceMutationController.ts](useGenericSurfaceMutationController.ts) | Existing-record mutation state and refresh coordination; ordinary creation is borrowed from its retained owner. |
 | [useNetworkFlowImportBinding.ts](useNetworkFlowImportBinding.ts) | Connects workbook surface state to app-owned Network Flow import lifetime. |
 | [useWorkbookImportBinding.ts](useWorkbookImportBinding.ts) | Connects workbook surface state to app-owned workbook import lifetime. |
 

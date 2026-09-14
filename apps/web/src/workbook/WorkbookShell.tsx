@@ -275,6 +275,7 @@ function WorkbookShellContent({
     );
     infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.noteCreate.setAuthority(mergeAuthority);
+    infrastructure.mutationRuntime.ordinaryCreate.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.coordinationCreate.setAuthority(
       mergeAuthority,
     );
@@ -311,6 +312,7 @@ function WorkbookShellContent({
       infrastructure.mutationRuntime.indicatorCreate.suspend();
       infrastructure.mutationRuntime.assessmentAuthoring.suspend();
       infrastructure.mutationRuntime.noteCreate.suspend();
+      infrastructure.mutationRuntime.ordinaryCreate.suspend();
       infrastructure.mutationRuntime.coordinationCreate.suspend();
       infrastructure.mutationRuntime.contextualCreate.suspend();
       infrastructure.mutationRuntime.timelineRelatedEvidence.suspend();
@@ -385,6 +387,7 @@ function WorkbookShellContent({
     onIncidentResourceObserved,
   ]);
   const queries = useWorkbookSurfaceQueries({
+    ordinaryCreateOwner: infrastructure.mutationRuntime.ordinaryCreate,
     explicitPatchOwner: infrastructure.mutationRuntime.explicitPatches,
     decisionOwner: infrastructure.mutationRuntime.decisionSupersession,
     indicatorOwner: infrastructure.mutationRuntime.indicatorRecords,

@@ -66,3 +66,10 @@ participants; Task lifecycle uses explicit record-patch ownership in the
 | --- | --- |
 | [taskLifecycleModel.ts](taskLifecycleModel.ts) | Task lifecycle status, guarded fields, patch changes, and transition preparation. |
 | [TaskPatchRecovery.tsx](TaskPatchRecovery.tsx) | Recovery presentation for retained Task lifecycle patches. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [coordinationOrdinaryCreate.ts](coordinationOrdinaryCreate.ts) | Ordinary coordination preparation, defaults and reference restrictions without contextual source seeding. |
+| [initialCoordinationCreateRules.ts](initialCoordinationCreateRules.ts) | Shared initial Task/Decision lifecycle guards for ordinary and contextual preparation. |

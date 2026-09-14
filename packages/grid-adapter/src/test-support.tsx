@@ -1867,7 +1867,17 @@ function TestGridEditor<Row>({
           const shiftKey = event.shiftKey;
           const sequence = ++navigationSequence.current;
           const submittedRevision = revision.current;
-          void commit().then((result) => {
+          const target = event.target;
+          const controlValue =
+            target instanceof HTMLInputElement
+              ? target.type === "checkbox"
+                ? target.checked
+                : target.value
+              : target instanceof HTMLTextAreaElement ||
+                  target instanceof HTMLSelectElement
+                ? target.value
+                : undefined;
+          void commit(controlValue).then((result) => {
             if (
               result.kind === "accepted" &&
               !cancelled.current &&

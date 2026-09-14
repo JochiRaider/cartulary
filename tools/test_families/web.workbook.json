@@ -357,6 +357,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.conflict_editor_accessibility",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookActiveSurfaceFrame.test.tsx",
+        "titles": [
+          "keeps the original editor accessible while conflict recovery opens and closes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.contextual_task_decision_authoring",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2605,6 +2629,224 @@
           "Note atomic recovery retains socket observations without fabricating receipts or regressing newer source removal evidence",
           "Note atomic recovery sends linked replay as POST with exact body and validates a complete HTTP receipt",
           "Note atomic recovery uses ordinary atomic creation only after explicit source clearing without losing authored fields"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/ordinary/WorkbookOrdinaryCreateOwner.test.ts",
+        "titles": [
+          "ordinary workbook authoring covers every declared create field and input with explicit clear and source lifecycle dispositions",
+          "ordinary workbook authoring covers the frozen fourteen-schema minimum matrix without manufactured defaults",
+          "ordinary workbook authoring preserves omission, explicit clears, exact raw text and contract-specific normalization",
+          "ordinary workbook authoring retains copyable work for role loss and closure but conceals and retires by security lifetime",
+          "ordinary workbook authoring shares one draft across detachments and retains chosen identities off-page"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_continuity",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "WorkbookShell surface selection retains ordinary Entity authoring when its inspector closes",
+          "WorkbookShell surface selection retains ordinary authoring through sheet navigation for cartulary.view.evidence.v1",
+          "WorkbookShell surface selection retains ordinary authoring through sheet navigation for cartulary.view.hosts.v1"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_controls",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/ordinary/ordinaryCreateControls.test.tsx",
+        "titles": [
+          "ordinary workbook reference controls exposes failed reference recovery and conceals retained labels when authorization suspends",
+          "ordinary workbook reference controls keeps raw authoring copyable outside the read-only grid and conceals it with authority",
+          "ordinary workbook reference controls stages paged selection, retains off-page identity and returns focus on Escape"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_lifecycle",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "WorkbookShell surface selection admits ordinary creation once for same-frame activation",
+          "WorkbookShell surface selection recovers ordinary malformed success by exact explicit replay",
+          "WorkbookShell surface selection recovers ordinary response loss by exact explicit replay",
+          "WorkbookShell surface selection retains detached ordinary acknowledgement and refreshes by reading",
+          "WorkbookShell surface selection retains newer ordinary text after an earlier acceptance",
+          "WorkbookShell surface selection retains ordinary acceptance when refresh fails and recovery only reads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_omission",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel keeps untouched ordinary Evidence timestamps omitted"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_query",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/ordinaryCreateQuery.test.tsx",
+        "titles": [
+          "ordinary creation query reconciliation fences late generic reads immediately when authorization is concealed",
+          "ordinary creation query reconciliation keeps all generic schema queries above accepted versions without inserting filtered records",
+          "ordinary creation query reconciliation reconciles both Entity queries and prevents obsolete reads after suspension"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_submission",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/ordinary/ordinaryCreateSubmission.test.ts",
+        "titles": [
+          "ordinary creation submission accepts late acknowledgements monotonically without replacing newer row versions",
+          "ordinary creation submission conceals same-account work and fences retired account callbacks",
+          "ordinary creation submission holds Entity admission through uncertainty and releases only on terminal settlement",
+          "ordinary creation submission makes incident-closed rejection terminal and reopening explicit",
+          "ordinary creation submission replays uncertainty unchanged while newer text and another schema remain independent",
+          "ordinary creation submission requires explicit fresh-request recovery for transaction conflicts",
+          "ordinary creation submission reserves before authority reads and captures immutable bytes shared by presentations",
+          "ordinary creation submission retains detached receipts and makes failed-refresh recovery read-only",
+          "ordinary creation submission retains exact rejected text and uses fresh identities only after explicit correction",
+          "ordinary creation submission suspends uncertain authority and requires revalidation before explicit recovery"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.ordinary_create_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createOrdinaryCreateTransport.test.ts",
+        "titles": [
+          "ordinary create transport classifies transport failures, server failures and malformed success as uncertain",
+          "ordinary create transport preserves complete receipts and HTTP outcomes with unchanged captured replay bytes",
+          "ordinary create transport verifies all fourteen discovered contracts and rejects changed fields, inputs and minima"
         ]
       },
       "evidence_class": "unit",
@@ -5483,7 +5725,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "keyboard and grid anchor coverage grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits"
+          "keyboard and grid anchor coverage grid anchor shell support updates Cartulary anchors for vertical and horizontal spreadsheet movement"
         ]
       },
       "evidence_class": "unit",
@@ -6513,7 +6755,7 @@
         "file": "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.test.ts",
         "titles": [
           "semantic mutation command ports keeps secure transaction identity failure local without transport",
-          "semantic mutation command ports normalizes entity create and patch results",
+          "semantic mutation command ports normalizes entity patch results",
           "semantic mutation command ports normalizes generic same-field conflicts before they reach controllers",
           "semantic mutation command ports normalizes task lifecycle and decision supersede into owner-specific outcomes",
           "semantic mutation command ports owns exact generic, entity, assessment, and coordination request identities and payloads",
@@ -6596,6 +6838,7 @@
           "WorkbookMutationRuntime retains queued drafts and refresh debt across surface unmounts",
           "WorkbookMutationRuntimeRegistry preserves one scoped runtime across authenticated shell remounts",
           "WorkbookMutationRuntimeRegistry rejects a factory result from another pending-queue scope",
+          "WorkbookMutationRuntimeRegistry retains ordinary drafts across same-account recovery and retires them on incident account and disposal boundaries",
           "WorkbookMutationRuntimeRegistry retires the previous scope on incident change and app disposal"
         ]
       },

@@ -176,6 +176,8 @@ import {
 } from "./support/extensions/network_flow_activity/workspace";
 import {
   assertLifecycleControlReachable,
+  currentLifecycle,
+  lifecycleAction,
   openLifecycle,
 } from "./support/incidentLifecycle";
 import {
@@ -260,6 +262,14 @@ import {
   openNoteFixture,
   retainNoteUncertainResult,
 } from "./support/workbook/noteCreate";
+import {
+  fillOrdinaryField,
+  openOrdinaryFixture,
+  ordinaryEvidenceView,
+  ordinaryField,
+  retainOrdinaryUncertainty,
+  switchOrdinarySheet,
+} from "./support/workbook/ordinaryCreate";
 import {
   createViewRow,
   patchRecord,
@@ -3796,6 +3806,19 @@ async function prepareFeP7ConflictVisual(
     remoteValue: "Conflict visual server",
     txnPrefix: `${options.incidentKeyPrefix.toLowerCase()}-conflict`,
   });
+  const originalEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: conflictRow.record_id,
+      surface: "grid",
+    }),
+  );
+  await expect(originalEditor).toBeFocused();
+  expect(
+    await originalEditor.evaluate(
+      (element) => element.closest('[inert], [aria-hidden="true"]') === null,
+    ),
+  ).toBe(true);
   return { conflictRow, patchController };
 }
 
@@ -8936,6 +8959,108 @@ test("Capture linked Note authoring source selection and retained atomic recover
   await page.setViewportSize({ width: 1280, height: 720 });
   await capture("linked-note-recovery");
   await test.info().attach("linked-note-recovery-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+});
+
+test("Capture ordinary grid reference authoring and retained recovery across workbook layouts", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const handoff = "cartulary.view.handoff.v1";
+  const { incident } = await openOrdinaryFixture(page, handoff, (url) =>
+    navigateVisualApplication(page, url),
+  );
+  await fillOrdinaryField(
+    page,
+    handoff,
+    "handoff.current_state_summary",
+    "Retained ordinary handoff",
+  );
+  const reference = await ordinaryField(
+    page,
+    handoff,
+    "handoff.incoming_owner_user_id",
+  );
+  await reference
+    .getByRole("button", { name: "Choose incoming owner", exact: true })
+    .click();
+  await expect(
+    reference.getByRole("combobox", { name: "Incoming Owner", exact: true }),
+  ).toBeEnabled();
+  await assertViewportVisualRegression(page, "ordinary-reference-authoring", {
+    ready: () =>
+      normalizeWorkbookGridVisualState(page, handoff, {
+        scroll: { top: 0, left: "left" },
+      }),
+  });
+  await test.info().attach("ordinary-reference-authoring-review", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
+  });
+  await reference
+    .getByRole("button", { name: "Cancel references", exact: true })
+    .click();
+  await switchOrdinarySheet(page, ordinaryEvidenceView);
+  await fillOrdinaryField(
+    page,
+    ordinaryEvidenceView,
+    "evidence.title",
+    "Retained ordinary evidence",
+  );
+  const { recovery } = await retainOrdinaryUncertainty(page, incident);
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await assertViewportVisualRegression(
+      page,
+      `ordinary-recovery-${viewport.width}`,
+      {
+        ready: () =>
+          normalizeWorkbookGridVisualState(page, ordinaryEvidenceView, {
+            scroll: { top: 0, left: "left" },
+          }),
+      },
+    );
+    await test.info().attach(`ordinary-recovery-${viewport.width}-review`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  }
+  const lifecycle = await currentLifecycle(page, incident);
+  expect(
+    (
+      await lifecycleAction(page, incident, "closeIncident", {
+        client_txn_id: uniqueTxn("ordinary-visual-close"),
+        base_incident_version: lifecycle.incident_version,
+        reason: "Copy retained ordinary authoring",
+      })
+    ).ok,
+  ).toBe(true);
+  await expect(
+    page.getByRole("textbox", {
+      name: "Title retained authoring",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "ordinary-closed-retained-narrow",
+    {
+      ready: () =>
+        normalizeWorkbookGridVisualState(page, ordinaryEvidenceView, {
+          scroll: { top: 0, left: "left" },
+        }),
+    },
+  );
+  await test.info().attach("ordinary-closed-retained-review", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
+  });
+  await test.info().attach("ordinary-recovery-tree", {
     body: await recovery.ariaSnapshot(),
     contentType: "text/plain",
   });

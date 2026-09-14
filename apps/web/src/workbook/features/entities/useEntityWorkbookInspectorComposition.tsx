@@ -93,7 +93,6 @@ export function useEntityWorkbookInspectorComposition({
   onClearSurfaceSelection,
   onIncidentAccessLost,
   onRefreshEntities,
-  onResetOwnerState,
   onRestoreFocus,
   recordMutationCommands,
   relatedMutationCommands,
@@ -125,7 +124,6 @@ export function useEntityWorkbookInspectorComposition({
   readonly onRefreshEntities: (options?: {
     readonly requireAcceptance?: boolean;
   }) => Promise<void>;
-  readonly onResetOwnerState: () => void;
   readonly onRestoreFocus: () => void;
   readonly recordMutationCommands: RecordRouteCommandPort;
   readonly relatedMutationCommands: TimelineRelatedRecordPort;
@@ -216,7 +214,6 @@ export function useEntityWorkbookInspectorComposition({
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
       resetOwnerState: ({ cause, scope }) => {
-        onResetOwnerState();
         setEditRecordId("");
         setEditFieldKey("");
         setEditValue("");

@@ -1,5 +1,13 @@
 import { getViewContract } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type RefCallback,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { boundedRead } from "../../services/asyncObservation";
 import { useWorkbookCandidates } from "../hooks/useWorkbookCandidates";
 import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
@@ -9,8 +17,18 @@ import type {
   WorkbookAuthoringReadPort,
 } from "../ports/WorkbookAuthoringReadPort";
 import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
+import { menuStyle } from "./workbookGridControlStyles";
 
 type Props = Readonly<{
+  compact?: boolean | undefined;
+  focusTargetRef?:
+    | RefCallback<
+        | HTMLInputElement
+        | HTMLSelectElement
+        | HTMLTextAreaElement
+        | HTMLButtonElement
+      >
+    | undefined;
   label: string;
   errorId?: string | undefined;
   required?: boolean | undefined;
@@ -27,14 +45,52 @@ type Props = Readonly<{
 export function WorkbookAuthoringReferenceControl(props: Props) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  const popover = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!open || !props.compact || !popover.current || !trigger.current) return;
+    const panel = popover.current;
+    const anchor = trigger.current;
+    Object.assign(panel.style, {
+      ...menuStyle,
+      position: "fixed",
+      inset: "auto",
+      margin: "0",
+      overflow: "auto",
+      color: "var(--ct-colors-ink)",
+    });
+    panel.showPopover?.();
+    const position = () => {
+      const viewport = window.visualViewport;
+      const left = viewport?.offsetLeft ?? 0;
+      const top = viewport?.offsetTop ?? 0;
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
+      const bounds = anchor.getBoundingClientRect();
+      const size = panel.getBoundingClientRect();
+      panel.style.left = `${Math.max(left, Math.min(bounds.left, left + width - size.width))}px`;
+      panel.style.top = `${Math.max(top, Math.min(bounds.bottom, top + height - size.height))}px`;
+    };
+    position();
+    const observer = new ResizeObserver(position);
+    observer.observe(panel);
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    window.visualViewport?.addEventListener("resize", position);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+      window.visualViewport?.removeEventListener("resize", position);
+    };
+  }, [open, props.compact]);
   const close = () => {
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
   };
   return (
     <div style={groupStyle}>
-      <span>{props.label}</span>
-      {props.selected.length ? (
+      {!props.compact ? <span>{props.label}</span> : null}
+      {props.compact ? null : props.selected.length ? (
         <ul style={{ margin: 0, paddingInlineStart: "var(--ct-spacing-lg)" }}>
           {props.selected.map((item) => (
             <li key={item.recordId} style={{ overflowWrap: "anywhere" }}>
@@ -59,7 +115,12 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
         <span>No {props.label.toLowerCase()} selected.</span>
       )}
       <Button
-        ref={trigger}
+        ref={(element) => {
+          trigger.current = element;
+          props.focusTargetRef?.(element);
+        }}
+        aria-label={`Choose ${props.label.toLowerCase()}`}
+        aria-expanded={open}
         data-create-required={props.required}
         aria-invalid={!!props.errorId}
         aria-describedby={props.errorId}
@@ -68,17 +129,29 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
         disabled={props.disabled}
         onClick={() => setOpen(true)}
       >
-        Choose {props.label.toLowerCase()}
+        {props.compact && props.selected.length
+          ? props.selected
+              .map((item) => item.displayText || "Selected reference")
+              .join(", ")
+          : `Choose ${props.label.toLowerCase()}`}
       </Button>
       {open && !props.disabled ? (
-        <Picker
-          {...props}
-          onCancel={close}
-          onApply={(items) => {
-            props.onApply(items);
-            close();
+        <div
+          ref={popover}
+          popover={props.compact ? "auto" : undefined}
+          onToggle={(event) => {
+            if (props.compact && event.newState === "closed") setOpen(false);
           }}
-        />
+        >
+          <Picker
+            {...props}
+            onCancel={close}
+            onApply={(items) => {
+              props.onApply(items);
+              close();
+            }}
+          />
+        </div>
       ) : null}
     </div>
   );
@@ -127,7 +200,9 @@ function Picker({
   }, [loadViews]);
   useEffect(() => {
     root.current
-      ?.querySelector<HTMLElement>("select,button")
+      ?.querySelector<HTMLElement>(
+        "select:not(:disabled),button:not(:disabled)",
+      )
       ?.focus({ preventScroll: true });
   }, []);
   const query = useMemo(emptyWorkbookQueryState, []);

@@ -40,7 +40,7 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | [timelineCaptureActionTestSupport.ts](timelineCaptureActionTestSupport.ts) | Reviewed Timeline capture-action fixture construction. |
 | [timelineMentionTestSupport.ts](timelineMentionTestSupport.ts) | Timeline mention review, receipt, workbook row, inspector, and entity-creation fixtures. |
 | [timelineWorkbookRenderTestSupport.tsx](timelineWorkbookRenderTestSupport.tsx) | Shared Timeline render helpers used by component characterization tests. |
-| [TimelineWorkbookRuntimeFixture.tsx](TimelineWorkbookRuntimeFixture.tsx) | Production-composed Timeline workbook runtime fixture with configurable shell, layout, query, entity, and interaction inputs. |
+| [TimelineWorkbookRuntimeFixture.tsx](TimelineWorkbookRuntimeFixture.tsx) | Production-composed Timeline runtime fixture with configurable shell, layout, query, entity and interaction inputs, borrowing the production recovery-focus owner. |
 | [timelineWorkbookTestSupport.test.tsx](timelineWorkbookTestSupport.test.tsx) | Tests for Timeline workbook test-support helpers. |
 | [timelineWorkbookTestSupport.ts](timelineWorkbookTestSupport.ts) | Shared Timeline workbook fixture helpers, route mocks, and row builders for tests. |
 | [workbookAuthorizationTestSupport.ts](workbookAuthorizationTestSupport.ts) | Deterministic workbook authorization-recovery port fixture. |
@@ -48,9 +48,14 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | [workbookInspectorTestSupport.test.tsx](workbookInspectorTestSupport.test.tsx) | Tests for delayed entity-inspector readiness and safe subject diagnostics. |
 | [workbookInspectorTestSupport.ts](workbookInspectorTestSupport.ts) | Entity-inspector readiness waits and diagnostics keyed by stable surface, record, and row-version identity. |
 | [workbookPreferenceTestSupport.ts](workbookPreferenceTestSupport.ts) | Workbook preference authorities, sheet targets, and home/default resource fixtures. |
+| [workbookSchemaTestSupport.ts](workbookSchemaTestSupport.ts) | Public discovery fixtures projected from typed contracts. |
 | [workbookSavedViewTestSupport.ts](workbookSavedViewTestSupport.ts) | Saved-view authorities, resources, controllers, and React application bindings for tests. |
 
 ## Setup and architecture policies
+
+Timeline scalar fixtures exercise current control values on Enter/Tab, matching
+the production Grid Adapter. Its test-support renderer must preserve that contract
+even when DOM input and retained React state temporarily differ.
 
 | File | Responsibility |
 | --- | --- |

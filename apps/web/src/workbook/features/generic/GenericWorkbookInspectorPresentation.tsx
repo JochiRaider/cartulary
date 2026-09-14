@@ -27,6 +27,7 @@ import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy"
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { CoordinationWorkflowBindings } from "../coordination/CoordinationWorkflowBindings";
 import { NoteSheetAuthoring } from "../notes/NoteSheetAuthoring";
+import { OrdinaryCreateControl } from "../ordinary/OrdinaryCreateControl";
 import { PartyLinkPanel } from "../parties/PartyLinkPanel";
 import type { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
 import { GenericWorkbookInspector } from "./GenericWorkbookInspector";
@@ -95,7 +96,10 @@ function GenericWorkflow(props: GenericWorkflowProps) {
       {props.canCreateRows ? (
         <button
           data-testid={genericCreateSubmitTestId(props.contract.viewSchemaId)}
-          disabled={props.mutation.mutationPending || props.draftDisabled}
+          disabled={
+            props.draftDisabled ||
+            props.mutation.ordinaryCreate.busy(props.contract.viewSchemaId)
+          }
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() => void props.submitCreate()}
@@ -120,7 +124,14 @@ function GenericWorkflow(props: GenericWorkflowProps) {
 }
 
 function GenericDraftFields(props: GenericWorkflowProps) {
-  if (!props.canCreateRows || props.draftInspectorFields.length === 0)
+  const retained =
+    props.mutation.ordinaryCreate.getSnapshot().schemas[
+      props.contract.viewSchemaId
+    ]?.draft;
+  if (
+    (!props.canCreateRows && !Object.keys(retained?.values ?? {}).length) ||
+    props.draftInspectorFields.length === 0
+  )
     return null;
   return (
     <div style={draftInspectorFieldsStyle}>
@@ -129,7 +140,9 @@ function GenericDraftFields(props: GenericWorkflowProps) {
         return (
           <label htmlFor={controlId} key={field.fieldKey} style={labelStyle}>
             {field.label}
-            <GenericMutationControl
+            <OrdinaryCreateControl
+              owner={props.mutation.ordinaryCreate}
+              contract={props.contract}
               disabled={props.draftDisabled}
               collectionMode="add"
               field={field}

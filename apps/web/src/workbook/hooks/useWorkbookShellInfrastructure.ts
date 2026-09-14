@@ -10,6 +10,7 @@ import { createNoteCreateReader } from "../adapters/createNoteCreateReader";
 import { createNoteCreateTransport } from "../adapters/createNoteCreateTransport";
 import { createObservationReader } from "../adapters/createObservationReader";
 import { createObservationTransport } from "../adapters/createObservationTransport";
+import { createOrdinaryCreateTransport } from "../adapters/createOrdinaryCreateTransport";
 import { createPartyCreationTransport } from "../adapters/createPartyCreationTransport";
 import { createPartyLinkReader } from "../adapters/createPartyLinkReader";
 import { createTimelineRelatedEvidenceTransport } from "../adapters/createTimelineRelatedEvidenceTransport";
@@ -247,6 +248,7 @@ export function useWorkbookShellInfrastructure({
         if (result.kind === "access_lost" || result.kind === "session_lost") {
           mutationRuntime.assessmentAuthoring.suspend();
           mutationRuntime.noteCreate.suspend();
+          mutationRuntime.ordinaryCreate.suspend();
           mutationRuntime.coordinationCreate.suspend();
           mutationRuntime.contextualCreate.suspend();
           mutationRuntime.timelineRelatedEvidence.suspend();
@@ -275,6 +277,30 @@ export function useWorkbookShellInfrastructure({
       recheckMentionAuthority,
       authorizationRecovered,
     ],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.ordinaryCreate.configure(
+        currentAuthorityReader,
+        createOrdinaryCreateTransport(apiBase),
+        () => {
+          void recheckMentionAuthority();
+        },
+      ),
+    [mutationRuntime, currentAuthorityReader, apiBase, recheckMentionAuthority],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.ordinaryCreate.configureReader(
+        createWorkbookAuthoringReader({
+          apiBase,
+          incidentId,
+          recheckAuthority: () => {
+            void recheckMentionAuthority();
+          },
+        }),
+      ),
+    [mutationRuntime, apiBase, incidentId, recheckMentionAuthority],
   );
   useMemo(
     () =>

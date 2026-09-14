@@ -18,6 +18,7 @@ import {
 import { decodeCreateViewRowRequest } from "../../models/workbookRequestDecoders";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import { freezeWorkbookValue as freezeContextualCreate } from "../../utils/freezeWorkbookValue";
+import { initialCoordinationCreateErrors } from "./initialCoordinationCreateRules";
 
 export { freezeWorkbookValue as freezeContextualCreate } from "../../utils/freezeWorkbookValue";
 
@@ -196,19 +197,10 @@ export function contextualCreateErrors(
   for (const input of target.createInputs)
     if (input.required && !values[input.inputKey]?.trim())
       errors[input.inputKey] = `${input.inputKey} is required.`;
-  if (target.viewSchemaId === taskRequestsViewSchemaId) {
-    const status = values["task.status"] || "open";
-    if (status === "blocked" && !values["task.blocked_reason"]?.trim())
-      errors["task.blocked_reason"] = "Blocked Tasks need a reason.";
-    if (status !== "blocked" && values["task.blocked_reason"]?.trim())
-      errors["task.blocked_reason"] =
-        "A reason is only saved while the Task is blocked.";
-    if (status !== "done" && values["task.completed_at"]?.trim())
-      errors["task.completed_at"] =
-        "Completion time is only saved for a done Task.";
-  } else if (values["decision.status"] === "superseded")
-    errors["decision.status"] =
-      "Create a proposed, approved, rejected, or executed Decision.";
+  Object.assign(
+    errors,
+    initialCoordinationCreateErrors(target.viewSchemaId, values),
+  );
   return errors;
 }
 export function contextualCreateRequest(

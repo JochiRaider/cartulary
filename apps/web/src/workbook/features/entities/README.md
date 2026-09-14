@@ -29,3 +29,9 @@ attempts. Paste execution consumes the shared private
 | [useEntityMergeController.test.tsx](useEntityMergeController.test.tsx) | Tests single merge confirmation and synchronous invalidation when reviewed inputs change. |
 | [WorkbookEntityMergeOwner.test.ts](WorkbookEntityMergeOwner.test.ts) | Tests pair reservation, reviewed versions, coordinated writes, and exact uncertain merge replay. |
 | [WorkbookEntityMergeRecovery.test.tsx](WorkbookEntityMergeRecovery.test.tsx) | Tests keyboard recovery, receipt completion, refresh-only retry, and protected-state concealment. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [entityOrdinaryCreate.ts](entityOrdinaryCreate.ts) | Entity-origin ordinary preparation and direct-seed minima; exact reuse remains server owned. |

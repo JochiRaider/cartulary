@@ -5,7 +5,8 @@
 Workbook mutation lifetime, pending replay, conflict recovery, write coordination, and status projection.
 
 The runtime coordinates pending work, explicit operations, conflicts, and
-surface refresh obligations. It stays independent of Timeline implementation;
+surface refresh obligations. It retains the ordinary creation owner by incident
+and account, outside Timeline dispatch admission. It stays independent of Timeline implementation;
 surface-specific commands enter through registered semantic capabilities.
 
 ## Files

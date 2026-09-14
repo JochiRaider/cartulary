@@ -325,9 +325,17 @@
       "output_order": 19,
       "generated_outputs": [
         "internal/gen/contractstringcontracts/artifacts_gen.go",
-        "internal/gen/stringcontracts/timezone_name_registry_gen.go"
+        "internal/gen/stringcontracts/timezone_name_registry_gen.go",
+        "packages/protocol-ts/src/generated/timezone-name-registry.ts"
       ],
-      "typescript_projections": [],
+      "typescript_projections": [
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/timezone-name-registry.ts",
+          "identifier": "timezoneNameRegistry",
+          "artifact_path": "contracts/string-contracts/timezone_name_registry.v1.json"
+        }
+      ],
       "activation_dependency_ids": [],
       "description": "Neutral Core string-contract registries and reviewed provenance independent of feature runtime packages."
     }

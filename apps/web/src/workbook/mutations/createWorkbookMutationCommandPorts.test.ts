@@ -1,4 +1,3 @@
-import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decisionReview } from "../../testing/decisionSupersessionTestSupport";
 import { mergeReview } from "../../testing/entityMergeTestSupport";
@@ -574,7 +573,7 @@ describe("semantic mutation command ports", () => {
     });
   });
 
-  it("normalizes entity create and patch results", async () => {
+  it("normalizes entity patch results", async () => {
     const recordId = "00000000-0000-4000-8000-000000000210";
     const viewMutation = {
       data: {
@@ -603,17 +602,6 @@ describe("semantic mutation command ports", () => {
       apiBase: undefined,
       incidentId: "00000000-0000-4000-8000-000000000001",
       transactionIds: { create: (prefix) => `${prefix}-id` },
-    });
-    const contract = requireViewContract(hostsViewSchemaId);
-
-    await expect(
-      commands.entity.createRecord({
-        contract,
-        draft: { "host.hostname": "edge-01.example.test" },
-      }),
-    ).resolves.toMatchObject({
-      kind: "accepted",
-      value: { row: { record_id: recordId }, viewSchemaId: hostsViewSchemaId },
     });
     await expect(
       commands.entity.patchRecord({

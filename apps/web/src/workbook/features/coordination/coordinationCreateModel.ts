@@ -9,6 +9,10 @@ import {
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookProtocolCreateViewRowRequest } from "../../adapters/workbookProtocolTypes";
 import type { WorkbookInspectorLiveRowBinding } from "../../inspector/workbookInspectorSubject";
+import {
+  normalizeWorkbookAuthoringText as normalizeCoordinationText,
+  validWorkbookTimestamp as validCoordinationTimestamp,
+} from "../../models/workbookAuthoringValues";
 import { decodeCreateViewRowRequest } from "../../models/workbookRequestDecoders";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
 
@@ -115,31 +119,7 @@ export function coordinationIds(
 }
 export const exactRecordId = (raw: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(raw);
-export function normalizeCoordinationText(
-  raw: string,
-  contract: string,
-): { value: string; error?: string } {
-  const multiline = contract === "multiline_body_v1";
-  const text = multiline ? raw.replace(/\r\n?/gu, "\n") : raw;
-  const value = text
-    .normalize("NFC")
-    .replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
-  const max = multiline ? 16384 : contract === "party_text_v1" ? 256 : 512;
-  if (
-    [...text].some((c) => {
-      const n = c.codePointAt(0) ?? 0;
-      return (
-        (n < 32 && !(multiline && (n === 9 || n === 10))) ||
-        (n >= 127 && n <= 159) ||
-        (n >= 0xd800 && n <= 0xdfff)
-      );
-    })
-  )
-    return { value, error: "Remove unsupported control characters." };
-  if ([...value].length > max)
-    return { value, error: `Use at most ${max} characters.` };
-  return { value };
-}
+export { normalizeWorkbookAuthoringText as normalizeCoordinationText } from "../../models/workbookAuthoringValues";
 export function prepareCoordination(
   draft: CoordinationDraft,
   clientTxnId: string,
@@ -263,30 +243,4 @@ export function prepareCoordination(
       ? (freezeWorkbookValue(decoded) as WorkbookProtocolCreateViewRowRequest)
       : null,
   };
-}
-
-function validCoordinationTimestamp(value: unknown): boolean {
-  if (typeof value !== "string") return false;
-  const match =
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|([+-])(\d{2}):(\d{2}))$/u.exec(
-      value,
-    );
-  if (!match) return false;
-  const year = Number(match[1]),
-    month = Number(match[2]),
-    day = Number(match[3]);
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  return (
-    month >= 1 &&
-    month <= 12 &&
-    day >= 1 &&
-    day <= (days[month - 1] ?? 0) &&
-    Number(match[4]) < 24 &&
-    Number(match[5]) < 60 &&
-    Number(match[6]) < 60 &&
-    Number(match[8] ?? 0) < 24 &&
-    Number(match[9] ?? 0) < 60 &&
-    !Number.isNaN(Date.parse(value))
-  );
 }

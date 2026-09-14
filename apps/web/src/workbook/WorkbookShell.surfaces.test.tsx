@@ -14,6 +14,7 @@ import {
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   genericEditRecordSelectTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
@@ -66,6 +67,7 @@ import {
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
 import {
+  act,
   cleanup,
   createEvent,
   fireEvent,
@@ -81,12 +83,14 @@ import { deferred } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
   flushWorkbookAsync,
+  fullWorkbookViewRow,
   successEnvelope,
   waitForWorkbookRows,
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
+import { publicWorkbookSchema } from "../testing/workbookSchemaTestSupport";
 import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
 import { buildGenericPatchChange } from "./models/genericWorkbookModel";
@@ -411,6 +415,7 @@ type SurfaceTestScenario = {
   pendingQueryCount: number;
   pendingDeferredQueryIds: Set<string>;
   queryResponseOverride: SurfaceQueryResponseOverride | null;
+  rowCreateResponseOverride: SurfaceQueryResponseOverride | null;
   queryTrace: string[];
   recordPatchResponseOverride:
     | ((
@@ -460,6 +465,7 @@ function createSurfaceTestScenario(): SurfaceTestScenario {
     pendingQueryCount: 0,
     pendingDeferredQueryIds: new Set(),
     queryResponseOverride: null,
+    rowCreateResponseOverride: null,
     queryTrace: [],
     recordPatchResponseOverride: null,
     savedViews: [],
@@ -567,6 +573,15 @@ describe("WorkbookShell surface selection", () => {
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
+      const createView = url.match(/\/views\/([^/]+)\/rows$/u)?.[1];
+      if (method === "POST" && createView) {
+        const override = currentScenario.rowCreateResponseOverride?.(
+          decodeURIComponent(createView),
+          init,
+        );
+        if (override !== null && override !== undefined)
+          return (await override).clone();
+      }
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
           ...sessionResource(),
@@ -1122,6 +1137,13 @@ describe("WorkbookShell surface selection", () => {
           currentScenario.pendingQueryCount -= 1;
         }
       }
+      const schemaMatch = url.match(/\/view-schemas\/([^/?]+)$/u);
+      if (schemaMatch)
+        return successEnvelope(
+          publicWorkbookSchema(
+            requireViewContract(decodeURIComponent(schemaMatch[1] ?? "")),
+          ),
+        );
       return successEnvelope({});
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -1153,6 +1175,198 @@ describe("WorkbookShell surface selection", () => {
     if (pendingQueryError) {
       throw pendingQueryError;
     }
+  });
+
+  async function ordinaryDraft(
+    view: string = evidenceViewSchemaId,
+    field = "evidence.title",
+  ) {
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    fireEvent.click(await screen.findByTestId(surfaceTabTestId(view)));
+    const input = await screen.findByTestId(genericCreateFieldTestId(field));
+    fireEvent.change(input, { target: { value: "  Unfinished authoring  " } });
+    return input as HTMLInputElement;
+  }
+
+  function ordinaryReceipt() {
+    return successEnvelope(
+      {
+        view_schema_id: evidenceViewSchemaId,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
+        row: fullWorkbookViewRow(
+          requireViewContract(evidenceViewSchemaId),
+          "00000000-0000-4000-8000-000000004001",
+          1,
+          { "evidence.title": "Unfinished authoring" },
+        ),
+      },
+      201,
+    );
+  }
+
+  function ordinaryWrites() {
+    return fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        String(url).endsWith(`/views/${evidenceViewSchemaId}/rows`) &&
+        (init as RequestInit)?.method === "POST",
+    );
+  }
+
+  async function navigateOrdinaryDraft(view: string, field: string) {
+    await ordinaryDraft(view, field);
+    fireEvent.click(screen.getByTestId(surfaceTabTestId(timelineViewSchemaId)));
+    await screen.findByTestId(gridShellTestId(timelineViewSchemaId));
+    fireEvent.click(screen.getByTestId(surfaceTabTestId(view)));
+    expect(
+      (
+        (await screen.findByTestId(
+          genericCreateFieldTestId(field),
+        )) as HTMLInputElement
+      ).value,
+    ).toBe("  Unfinished authoring  ");
+  }
+  it("retains ordinary authoring through sheet navigation for cartulary.view.hosts.v1", async () => {
+    await navigateOrdinaryDraft(hostsViewSchemaId, "host.display_name");
+  });
+  it("retains ordinary authoring through sheet navigation for cartulary.view.evidence.v1", async () => {
+    await navigateOrdinaryDraft(evidenceViewSchemaId, "evidence.title");
+  });
+
+  it("retains ordinary Entity authoring when its inspector closes", async () => {
+    await ordinaryDraft(hostsViewSchemaId, "host.display_name");
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(hostsViewSchemaId)),
+    );
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(hostsViewSchemaId)),
+    );
+    expect(
+      (
+        screen.getByTestId(
+          genericCreateFieldTestId("host.display_name"),
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("  Unfinished authoring  ");
+  });
+
+  it("admits ordinary creation once for same-frame activation", async () => {
+    const pending = deferred<Response>();
+    scenario.rowCreateResponseOverride = () => pending.promise;
+    await ordinaryDraft();
+    const button = screen.getByTestId(
+      genericCreateSubmitTestId(evidenceViewSchemaId),
+    );
+    act(() => {
+      button.click();
+      button.click();
+    });
+    await waitFor(() => expect(ordinaryWrites().length).toBeGreaterThan(0));
+    const count = ordinaryWrites().length;
+    pending.resolve(ordinaryReceipt());
+    await flushWorkbookAsync();
+    expect(count).toBe(1);
+  });
+
+  it("retains newer ordinary text after an earlier acceptance", async () => {
+    const pending = deferred<Response>();
+    scenario.rowCreateResponseOverride = () => pending.promise;
+    const input = await ordinaryDraft();
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId)),
+    );
+    await waitFor(() => expect(ordinaryWrites()).toHaveLength(1));
+    fireEvent.change(input, { target: { value: "  Next unsent draft  " } });
+    pending.resolve(ordinaryReceipt());
+    await flushWorkbookAsync();
+    expect(
+      (
+        screen.getByTestId(
+          genericCreateFieldTestId("evidence.title"),
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("  Next unsent draft  ");
+    expect(ordinaryWrites()).toHaveLength(1);
+  });
+
+  async function recoverOrdinaryFailure(
+    failure: "response loss" | "malformed success",
+  ) {
+    let attempts = 0;
+    scenario.rowCreateResponseOverride = () => {
+      if (attempts++ > 0) return ordinaryReceipt();
+      return failure === "response loss"
+        ? Promise.reject(new TypeError("connection lost"))
+        : successEnvelope({ row: {} }, 201);
+    };
+    const input = await ordinaryDraft();
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId)),
+    );
+    const recovery = await screen.findByRole("button", {
+      name: "Recover submission",
+    });
+    fireEvent.change(input, { target: { value: "A distinct next draft" } });
+    fireEvent.click(recovery);
+    await waitFor(() => expect(ordinaryWrites()).toHaveLength(2));
+    expect((ordinaryWrites()[1]?.[1] as RequestInit).body).toBe(
+      (ordinaryWrites()[0]?.[1] as RequestInit).body,
+    );
+    await flushWorkbookAsync();
+    expect(
+      (
+        screen.getByTestId(
+          genericCreateFieldTestId("evidence.title"),
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("A distinct next draft");
+  }
+  it("recovers ordinary response loss by exact explicit replay", async () => {
+    await recoverOrdinaryFailure("response loss");
+  });
+  it("recovers ordinary malformed success by exact explicit replay", async () => {
+    await recoverOrdinaryFailure("malformed success");
+  });
+
+  it("retains detached ordinary acknowledgement and refreshes by reading", async () => {
+    const pending = deferred<Response>();
+    scenario.rowCreateResponseOverride = () => pending.promise;
+    await ordinaryDraft();
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId)),
+    );
+    await waitFor(() => expect(ordinaryWrites()).toHaveLength(1));
+    fireEvent.click(screen.getByTestId(surfaceTabTestId(timelineViewSchemaId)));
+    await screen.findByTestId(gridShellTestId(timelineViewSchemaId));
+    pending.resolve(ordinaryReceipt());
+    await flushWorkbookAsync();
+    expect(
+      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId(surfaceTabTestId(evidenceViewSchemaId)));
+    expect(await screen.findByText(/Row accepted/u)).toBeTruthy();
+    expect(ordinaryWrites()).toHaveLength(1);
+  });
+
+  it("retains ordinary acceptance when refresh fails and recovery only reads", async () => {
+    scenario.rowCreateResponseOverride = () => {
+      scenario.queryResponseOverride = (view) =>
+        view === evidenceViewSchemaId
+          ? errorEnvelope("projection_failed", 500)
+          : null;
+      return ordinaryReceipt();
+    };
+    await ordinaryDraft();
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId)),
+    );
+    const refresh = await screen.findByRole("button", {
+      name: "Refresh accepted result",
+    });
+    scenario.queryResponseOverride = null;
+    fireEvent.click(refresh);
+    await flushWorkbookAsync();
+    expect(ordinaryWrites()).toHaveLength(1);
+    expect(await screen.findByText(/Row accepted/u)).toBeTruthy();
   });
 
   it("keeps late surface fixture requests bound to the originating test scenario", async () => {

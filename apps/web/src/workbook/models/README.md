@@ -75,3 +75,9 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 | [workbookSavedViews.ts](workbookSavedViews.ts) | Saved-view resource normalization and payload helpers. |
 | [workbookStartup.test.ts](workbookStartup.test.ts) | Tests startup preference/fallback ordering by stable sheet reference. |
 | [workbookStartup.ts](workbookStartup.ts) | Workbook startup candidate, selected sheet reference, and fallback resolution helpers. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [workbookAuthoringValues.ts](workbookAuthoringValues.ts) | Neutral declared writable-string and timestamp normalization, separate from raw authoring. |

@@ -953,6 +953,15 @@ describe("workbook collaboration coverage", () => {
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(retryFirstInput, "Retry head"));
     await waitForTimelineRecordPatchCalls(fetchMock, 2);
+    const pendingEditor = screen.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId: "20000000-0000-4000-8000-000000000001",
+        surface: "grid",
+      }),
+    );
+    expect(pendingEditor).toHaveProperty("value", "Retry head");
+    fireEvent.keyDown(pendingEditor, { key: "Escape" });
     await waitFor(() => {
       expect(
         screen.queryByTestId(
@@ -1246,13 +1255,16 @@ describe("workbook collaboration coverage", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Resolver local"));
-    fireEvent.click(
-      await screen.findByTestId(workbookEditRecoveryRetryButtonTestId()),
+    const retry = await screen.findByTestId(
+      workbookEditRecoveryRetryButtonTestId(),
     );
+    retry.focus();
+    fireEvent.click(retry);
 
     expect(
       await screen.findByTestId(workbookConflictResolverTestId()),
     ).toBeTruthy();
+    fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
     await waitFor(() => {
       expect(document.activeElement).toBe(
         screen.getByTestId(workbookConflictSummaryTestId()),

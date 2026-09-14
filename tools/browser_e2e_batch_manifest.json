@@ -1060,6 +1060,54 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-workbook-ordinary-create",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.ordinary_create_continuity",
+            "module.workbook.browser.ordinary_create_detached_refresh",
+            "module.workbook.browser.ordinary_create_matrix",
+            "module.workbook.browser.ordinary_create_uncertain_timeline"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-ordinary-create.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
+          "name": "functional-support-default-workbook-ordinary-security",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.ordinary_create_closure",
+            "module.workbook.browser.ordinary_create_revocation"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-ordinary-security.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-workbook-preferences",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2266,6 +2314,54 @@
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
+          "name": "functional-default-workbook-ordinary-create",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.ordinary_create_continuity",
+            "module.workbook.browser.ordinary_create_detached_refresh",
+            "module.workbook.browser.ordinary_create_matrix",
+            "module.workbook.browser.ordinary_create_uncertain_timeline"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-ordinary-create.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-workbook-ordinary-security",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.ordinary_create_closure",
+            "module.workbook.browser.ordinary_create_revocation"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-ordinary-security.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
           "name": "functional-default-workbook-preferences",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
@@ -3163,6 +3259,7 @@
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
             "module.workbook.accessibility.note_create_authoring_recovery",
+            "module.workbook.accessibility.ordinary_create_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.timeline_related_evidence",
@@ -3290,6 +3387,7 @@
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.note_create_authoring_recovery",
+            "module.workbook.visual.ordinary_create_authoring_recovery",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",
@@ -3570,6 +3668,7 @@
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.note_create_authoring_recovery",
+            "module.workbook.visual.ordinary_create_authoring_recovery",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",
@@ -4179,6 +4278,7 @@
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
             "module.workbook.accessibility.note_create_authoring_recovery",
+            "module.workbook.accessibility.ordinary_create_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.timeline_related_evidence",
@@ -4294,6 +4394,7 @@
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.note_create_authoring_recovery",
+            "module.workbook.visual.ordinary_create_authoring_recovery",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",

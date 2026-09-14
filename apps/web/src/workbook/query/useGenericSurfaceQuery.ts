@@ -31,6 +31,7 @@ import {
 import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 export type GenericSurfaceQueryInput = {
+  readonly ordinaryCreateOwner?: WorkbookCommittedRecordPort | undefined;
   readonly indicatorOwner?: WorkbookCommittedRecordPort | undefined;
   readonly explicitPatchOwner?: WorkbookExplicitPatchOwner | undefined;
   readonly decisionOwner?: DecisionSupersessionOwnerPort | undefined;
@@ -43,6 +44,7 @@ export type GenericSurfaceQueryInput = {
 };
 
 export function useGenericSurfaceQuery({
+  ordinaryCreateOwner,
   decisionOwner,
   indicatorOwner,
   explicitPatchOwner,
@@ -74,7 +76,10 @@ export function useGenericSurfaceQuery({
 
   const refresh = useCallback(
     async (options?: { readonly requireAcceptance?: boolean }) => {
-      if (!active) {
+      if (
+        !active ||
+        (ordinaryCreateOwner && !ordinaryCreateOwner.getSnapshot().authority)
+      ) {
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         abortLatestQuery(queryRuntimeRef);
@@ -129,10 +134,13 @@ export function useGenericSurfaceQuery({
               ? indicatorOwner
               : undefined;
       if (
-        decision &&
         result.value.rows.some(
           (row) =>
-            row.row_version < (decision.latestVersion(row.record_id) ?? 0),
+            row.row_version <
+            Math.max(
+              decision?.latestVersion(row.record_id) ?? 0,
+              ordinaryCreateOwner?.latestVersion(row.record_id) ?? 0,
+            ),
         )
       ) {
         const failure = {
@@ -154,6 +162,7 @@ export function useGenericSurfaceQuery({
           ? (explicitPatchOwner?.observeQuery(row) ?? row)
           : (decision?.acceptRow(row) ?? row),
       );
+      for (const row of nextRows) ordinaryCreateOwner?.acceptRow(row);
       rowsRef.current = nextRows;
       setRows(nextRows);
       acceptedRowCountRef.current = nextRows.length;
@@ -169,6 +178,7 @@ export function useGenericSurfaceQuery({
       viewSchemaId,
       decisionOwner,
       indicatorOwner,
+      ordinaryCreateOwner,
       explicitPatchOwner,
     ],
   );
@@ -207,7 +217,13 @@ export function useGenericSurfaceQuery({
             : viewSchemaId === indicatorsViewSchemaId
               ? indicatorOwner
               : undefined;
-      if (patch.rowVersion < (decision?.latestVersion(patch.recordId) ?? 0))
+      if (
+        patch.rowVersion <
+        Math.max(
+          decision?.latestVersion(patch.recordId) ?? 0,
+          ordinaryCreateOwner?.latestVersion(patch.recordId) ?? 0,
+        )
+      )
         return { kind: "stale" };
       const current = rowsRef.current;
       const existing = current.find((row) => row.record_id === patch.recordId);
@@ -219,11 +235,19 @@ export function useGenericSurfaceQuery({
             applyWorkbookQueryRowPatch(row, patch))
           : row,
       );
+      for (const row of next) ordinaryCreateOwner?.acceptRow(row);
       rowsRef.current = next;
       setRows(next);
       return { kind: "applied" };
     },
-    [contract, viewSchemaId, decisionOwner, explicitPatchOwner, indicatorOwner],
+    [
+      contract,
+      viewSchemaId,
+      decisionOwner,
+      explicitPatchOwner,
+      indicatorOwner,
+      ordinaryCreateOwner,
+    ],
   );
 
   useEffect(() => {
@@ -279,6 +303,35 @@ export function useGenericSurfaceQuery({
       }
     });
   }, [indicatorOwner, active, viewSchemaId, clearRows]);
+
+  useEffect(() => {
+    if (!ordinaryCreateOwner || !active) return;
+    let authorized = !!ordinaryCreateOwner.getSnapshot().authority;
+    return ordinaryCreateOwner.subscribe(() => {
+      const previouslyAuthorized = authorized;
+      authorized = !!ordinaryCreateOwner.getSnapshot().authority;
+      if (!authorized) {
+        abortLatestQuery(queryRuntimeRef);
+        clearRows();
+        return;
+      }
+      if (!previouslyAuthorized) void refresh();
+      let changed = false;
+      const next = rowsRef.current.map((row) => {
+        const accepted = ordinaryCreateOwner.latestRow(row.record_id);
+        if (accepted && accepted.row_version > row.row_version) {
+          changed = true;
+          return accepted;
+        }
+        return row;
+      });
+      // Only already-admitted query members can be projected from a receipt.
+      if (changed) {
+        rowsRef.current = next;
+        setRows(next);
+      }
+    });
+  }, [ordinaryCreateOwner, active, clearRows, refresh]);
 
   const invalidate = useCallback(
     (reason: WorkbookQueryInvalidationReason) => {

@@ -24,6 +24,7 @@ import { WorkbookEditRecoveryPanel } from "../workbook/components/WorkbookEditRe
 import { WorkbookQueueOverflowNotice } from "../workbook/components/WorkbookQueueOverflowNotice";
 import { WorkbookSameFieldConflictResolver } from "../workbook/components/WorkbookSameFieldConflictResolver";
 import { WorkbookHistoryContext } from "../workbook/history/WorkbookHistoryContext";
+import { useWorkbookRecoveryFocus } from "../workbook/hooks/useWorkbookRecoveryFocus";
 import {
   defaultWorkbookLayoutState,
   moveWorkbookColumn,
@@ -44,6 +45,7 @@ import { createWorkbookMutationCommandPorts } from "../workbook/mutations/create
 import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
 import { useWorkbookMutationRuntime } from "../workbook/runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
+import { projectWorkbookStatusForSurface } from "../workbook/runtime/workbookMutationStatusProjector";
 import { reconcileTimelineCaptureReceipt } from "../workbook/timeline/actions/reconcileTimelineCaptureReceipt";
 import { reconcileTimelineMentionReceipt } from "../workbook/timeline/actions/reconcileTimelineMentionReceipt";
 import { TimelineCaptureRecovery } from "../workbook/timeline/actions/TimelineCaptureRecovery";
@@ -324,27 +326,13 @@ export function TimelineWorkbookRuntimeFixture({
     [mutationRuntime],
   );
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
-  const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
-  const overflowNoticeRef = useRef<HTMLElement | null>(null);
-  const sameFieldSummaryRef = useRef<HTMLDivElement | null>(null);
-  const focusSameFieldSummary = useCallback(() => {
-    sameFieldSummaryRef.current?.focus({ preventScroll: true });
-  }, []);
-  const activateConflict = useCallback(
-    (_invoker: HTMLButtonElement) => {
-      if (mutationSnapshot.blockedEdit !== null) {
-        editRecoveryPanelRef.current?.focus({ preventScroll: true });
-        return;
-      }
-      if (mutationSnapshot.overflowMessage !== null) {
-        overflowNoticeRef.current?.focus({ preventScroll: true });
-        return;
-      }
-      mutationRuntime.activateConflict();
-      window.requestAnimationFrame(focusSameFieldSummary);
-    },
-    [focusSameFieldSummary, mutationRuntime, mutationSnapshot],
-  );
+  const activeSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const recoveryFocus = useWorkbookRecoveryFocus({
+    activeSurfaceRef,
+    runtime: mutationRuntime,
+    snapshot: projectWorkbookStatusForSurface(mutationSnapshot, sheetRef),
+    onSessionRecovery: async () => undefined,
+  });
   const viewQuery = useMemo(
     () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
@@ -375,7 +363,11 @@ export function TimelineWorkbookRuntimeFixture({
     <WorkbookHistoryContext.Provider value={mutationRuntime}>
       <TimelineCaptureRecovery owner={timelineCapture} />
       <TimelineMentionRecovery owner={timelineMentions} />
-      <div style={{ position: "relative", blockSize: "100%" }}>
+      <div
+        ref={activeSurfaceRef}
+        tabIndex={-1}
+        style={{ position: "relative", blockSize: "100%" }}
+      >
         <TimelineWorkbook
           runtime={{
             attachCollaborationSession: true,
@@ -427,7 +419,7 @@ export function TimelineWorkbookRuntimeFixture({
                 state: providedLayoutState ?? layoutState,
               },
             },
-            onActivateConflict: activateConflict,
+            onActivateConflict: recoveryFocus.activate,
             onIncidentAccessLost,
           }}
         />
@@ -436,24 +428,25 @@ export function TimelineWorkbookRuntimeFixture({
             blockedEdit={mutationSnapshot.blockedEdit}
             key={mutationSnapshot.blockedEdit.unitId}
             onDiscard={() => mutationRuntime.discardBlockedEdit()}
-            onFocusWithinChange={() => undefined}
+            onFocusWithinChange={recoveryFocus.onFocusWithinChange}
             onRetry={() => mutationRuntime.retryBlockedEdit()}
-            ref={editRecoveryPanelRef}
+            ref={recoveryFocus.editRecoveryPanelRef}
           />
         ) : mutationSnapshot.overflowMessage !== null ? (
           <WorkbookQueueOverflowNotice
             message={mutationSnapshot.overflowMessage}
-            onFocusWithinChange={() => undefined}
-            ref={overflowNoticeRef}
+            onFocusWithinChange={recoveryFocus.onFocusWithinChange}
+            ref={recoveryFocus.overflowNoticeRef}
           />
         ) : (
           <WorkbookSameFieldConflictResolver
             apiBase={apiBase}
-            focusSummary={focusSameFieldSummary}
+            activation={recoveryFocus.resolverActivation}
+            focusSummary={recoveryFocus.focusSameFieldSummary}
             mutationRuntime={mutationRuntime}
             onActivateOrigin={() => undefined}
             snapshot={mutationSnapshot}
-            summaryRef={sameFieldSummaryRef}
+            summaryRef={recoveryFocus.sameFieldSummaryRef}
           />
         )}
       </div>

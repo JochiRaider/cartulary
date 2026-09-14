@@ -425,7 +425,7 @@ describe("keyboard and grid anchor coverage", () => {
     });
   });
 
-  it("grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits", async () => {
+  it("grid anchor shell support updates Cartulary anchors for vertical and horizontal spreadsheet movement", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "10000000-0000-4000-8000-000000000001",
@@ -518,13 +518,13 @@ describe("keyboard and grid anchor coverage", () => {
     );
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.data_source_text`,
       );
       expect(
         container
           .querySelector('[role="grid"]')
           ?.contains(document.activeElement),
-      ).toBe(false);
+      ).toBe(true);
     });
   });
 

@@ -52,6 +52,18 @@ function requireField(
 }
 
 describe("genericWorkbookModel", () => {
+  it("keeps untouched ordinary Evidence timestamps omitted", () => {
+    const request = buildGenericCreateRequest(
+      requireViewContract(evidenceViewSchemaId),
+      {
+        "evidence.title": "Capture request",
+      },
+      "ordinary-omission",
+    );
+    expect(request).not.toHaveProperty("evidence.requested_at");
+    expect(request).not.toHaveProperty("evidence.received_at");
+  });
+
   it("builds generic creates with omitted fields, trims, explicit clears, and minimum checks", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
     const rows = [

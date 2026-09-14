@@ -434,6 +434,72 @@ function registryRuntime(
 }
 
 describe("WorkbookMutationRuntimeRegistry", () => {
+  it("retains ordinary drafts across same-account recovery and retires them on incident account and disposal boundaries", () => {
+    for (const retirement of ["incident", "account", "disposal"] as const) {
+      const registry = new WorkbookMutationRuntimeRegistry();
+      const scope = { clientInstanceId: "ordinary-client", incidentId };
+      const create = () =>
+        new WorkbookMutationRuntime(
+          scope,
+          transactionIds,
+          createWorkbookPendingMutationAdapter({
+            apiBase: undefined,
+            incidentId,
+          }),
+        );
+      const runtime = registry.acquire(scope, create);
+      const authority = {
+        actorId: recordId,
+        incidentId,
+        role: "editor" as const,
+        closed: false,
+        sessionIdentity: "same-account",
+      };
+      const schema = "cartulary.view.evidence.v1";
+      runtime.ordinaryCreate.setAuthority(authority);
+      runtime.ordinaryCreate.update(
+        schema,
+        "evidence.title",
+        "Retained private draft",
+      );
+      registry.sessionUnavailable();
+      expect(runtime.ordinaryCreate.getSnapshot().schemas).toEqual({});
+      expect(registry.acquire(scope, create)).toBe(runtime);
+      runtime.ordinaryCreate.setAuthority({
+        ...authority,
+        sessionIdentity: "reauthenticated-same-account",
+      });
+      expect(
+        runtime.ordinaryCreate.getSnapshot().schemas[schema]?.values[
+          "evidence.title"
+        ],
+      ).toBe("Retained private draft");
+      expect(runtime.ordinaryCreate.pendingCount).toBe(0);
+      if (retirement === "account") registry.replaceAccount();
+      else if (retirement === "disposal") registry.dispose();
+      else {
+        const next = {
+          ...scope,
+          incidentId: "10000000-0000-4000-8000-000000000002",
+        };
+        registry.acquire(
+          next,
+          () =>
+            new WorkbookMutationRuntime(
+              next,
+              transactionIds,
+              createWorkbookPendingMutationAdapter({
+                apiBase: undefined,
+                incidentId: next.incidentId,
+              }),
+            ),
+        );
+      }
+      runtime.ordinaryCreate.setAuthority(authority);
+      expect(runtime.ordinaryCreate.getSnapshot().schemas).toEqual({});
+      registry.dispose();
+    }
+  });
   it("preserves one scoped runtime across authenticated shell remounts", () => {
     const registry = new WorkbookMutationRuntimeRegistry();
     const retained = registryRuntime("incident-1");

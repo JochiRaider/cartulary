@@ -9,7 +9,11 @@ import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
 type Outcome =
-  | { readonly kind: "accepted"; readonly receipt: CreateViewRowResponse }
+  | {
+      readonly kind: "accepted";
+      readonly receipt: CreateViewRowResponse;
+      readonly status: number;
+    }
   | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure }
   | { readonly kind: "uncertain" };
 
@@ -74,6 +78,7 @@ export async function sendWorkbookRecordMutation(
     }
     const receipt = result.payload;
     if (
+      (status !== 200 && status !== 201) ||
       typeof receipt.meta?.request_id !== "string" ||
       !receipt.meta.request_id.trim() ||
       (requestId !== null && requestId !== receipt.meta.request_id) ||
@@ -88,6 +93,7 @@ export async function sendWorkbookRecordMutation(
       return { kind: "uncertain" };
     return {
       kind: "accepted",
+      status,
       receipt: freezeWorkbookValue(structuredClone(receipt)),
     };
   } catch {

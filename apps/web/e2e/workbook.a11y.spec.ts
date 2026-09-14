@@ -286,6 +286,14 @@ import {
   openNoteFixture,
   retainNoteUncertainResult,
 } from "./support/workbook/noteCreate";
+import {
+  fillOrdinaryField,
+  openOrdinaryFixture,
+  ordinaryEvidenceView,
+  ordinaryField,
+  retainOrdinaryUncertainty,
+  switchOrdinarySheet,
+} from "./support/workbook/ordinaryCreate";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
   clickTimelineRowAction,
@@ -3898,6 +3906,18 @@ test.describe("browser.collaboration accessibility readiness", () => {
           "Workbook conflict recovery",
         );
         const summary = page.getByTestId(workbookConflictSummaryTestId());
+        await expect(
+          page.getByTestId(
+            timelineScalarEditorTestId({
+              fieldKey: "timeline.activity_synopsis_text",
+              recordId,
+              surface: "grid",
+            }),
+          ),
+        ).toBeFocused();
+        await page
+          .getByRole("button", { name: "Open conflict recovery", exact: true })
+          .click();
         await expect(summary).toBeFocused();
         await expect(resolver).toHaveAttribute(
           "data-conflict-field-key",
@@ -5292,7 +5312,8 @@ test.describe("browser.design-readiness accessibility readiness", () => {
       timelineRow.record_id,
       "timeline.activity_synopsis_text",
     );
-    await semanticGridCell(inspectorSummaryCell).focus();
+    await semanticGridCell(inspectorSummaryCell).click();
+    await page.keyboard.press("Escape");
     await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${timelineViewSchemaId}:${timelineRow.record_id}:timeline.activity_synopsis_text`,
     );
@@ -8195,6 +8216,91 @@ test("a11y.linked-note authoring source selection and uncertain recovery remain 
   await recover.press("Escape");
   await expect(summary).toBeFocused();
   await expect(recovery).not.toBeVisible();
+});
+
+test("a11y.ordinary grid references and retained recovery support keyboard focus and narrow layouts", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const handoff = "cartulary.view.handoff.v1";
+  const { incident } = await openOrdinaryFixture(page, handoff);
+  const reference = await ordinaryField(
+    page,
+    handoff,
+    "handoff.incoming_owner_user_id",
+  );
+  const choose = reference.getByRole("button", {
+    name: "Choose incoming owner",
+    exact: true,
+  });
+  await expectDecisionControlReachable(page, choose);
+  await choose.press("Enter");
+  const picker = reference.getByRole("combobox", {
+    name: "Incoming Owner",
+    exact: true,
+  });
+  await expect(picker).toBeEnabled();
+  await expect(
+    reference.getByRole("button", { name: "Cancel references", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(picker).toBeFocused();
+  await expectVisibleFocus(picker);
+  const originalViewport = page.viewportSize();
+  if (!originalViewport) throw new Error("Missing browser viewport");
+  await page.setViewportSize({ width: originalViewport.width, height: 480 });
+  await expect(picker).toBeFocused();
+  await expect(picker).toBeInViewport({ ratio: 1 });
+  await expect(
+    reference.getByRole("button", { name: "Cancel references", exact: true }),
+  ).toBeInViewport({ ratio: 1 });
+  await page.setViewportSize(originalViewport);
+  await picker.press("Escape");
+  await expect(choose).toBeFocused();
+  await expect(picker).toHaveCount(0);
+  await switchOrdinarySheet(page, ordinaryEvidenceView);
+  await fillOrdinaryField(
+    page,
+    ordinaryEvidenceView,
+    "evidence.title",
+    "Accessible retained draft",
+  );
+  const { recovery } = await retainOrdinaryUncertainty(page, incident);
+  const recover = recovery.getByRole("button", {
+    name: "Recover submission",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectDecisionControlReachable(page, recover);
+    await expectVisibleFocus(recover);
+    await expectAllInteractiveControlsNamed(page);
+    await testInfo.attach(`ordinary-recovery-${viewport.width}`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  }
+  await testInfo.attach("ordinary-recovery-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await recover.press("Enter");
+  await expect(recovery).toContainText("Row accepted.");
+  const account = page.getByRole("button", {
+    name: "Account and application navigation",
+    exact: true,
+  });
+  await expectDecisionControlReachable(page, account);
+  await account.press("Enter");
+  await expect(
+    page.getByRole("menuitem", { name: "Incidents", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(account).toBeFocused();
 });
 
 test("a11y.coordination all target fields source review and uncertain recovery support keyboard and narrow layouts", async ({

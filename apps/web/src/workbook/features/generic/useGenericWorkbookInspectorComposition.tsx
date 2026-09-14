@@ -34,9 +34,7 @@ import {
   type GenericCollectionMode,
   genericCollectionItems,
   genericCollectionSupportsRemove,
-  genericCreateMinimumMessage,
   genericInspectorRowLabel,
-  initialGenericCreateDraft,
   selectWorkbookEditTarget,
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
@@ -366,31 +364,9 @@ export function useGenericWorkbookInspectorComposition({
       await note.owner.submit(noteSheetAttachment);
       return;
     }
-    if (
-      !mutationCommands.generic.canCreateRecord({
-        contract,
-        draft: createDraft,
-      })
-    ) {
-      mutation.setValidationError(genericCreateMinimumMessage(contract));
-      return;
-    }
-    const finish = mutation.beginMutation();
-    try {
-      const result = await mutationCommands.generic.createRecord({
-        contract,
-        draft: createDraft,
-      });
-      if (result.kind === "rejected") {
-        mutation.rejectMutationFailure(result.failure);
-        return;
-      }
-      setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
-      await mutation.completeGenericMutation();
-    } finally {
-      finish();
-    }
+    await mutation.ordinaryCreate.submit(contract.viewSchemaId);
   };
+
   const submitEdit = async () => {
     if (selectedEdit.row === null || selectedEdit.field === null) {
       mutation.setValidationError("invalid_mutation_payload");

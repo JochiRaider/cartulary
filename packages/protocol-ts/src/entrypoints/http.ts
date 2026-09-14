@@ -1,3 +1,5 @@
+export { timezoneNameRegistry } from "../generated/timezone-name-registry.js";
+
 import type {
   CollectionActionsV1,
   ErrorEnvelope,

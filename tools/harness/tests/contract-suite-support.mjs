@@ -1856,6 +1856,9 @@ function semanticCase(id, name, acceptanceIDs, run) {
 
 const suiteCases = {
   boundaries: [
+    semanticCase("public_timezone_projection_boundary", "packaged timezone projection excludes backend-only artifacts", ["TH-HARNESS-AC-005"], () => {
+      execFileSync(process.execPath, ["tools/harness/generated-artifacts/tests/test-json-shapes.mjs"], { cwd: root, stdio: "pipe" });
+    }),
     semanticCase("lazy_case_context", "case contexts load only their own dependencies", ["TH-HARNESS-AC-016"], assertLazyCaseContext),
     semanticCase("import_and_failure_isolation", "support imports are inert and policy failures remain case-local", ["TH-HARNESS-AC-016"], assertImportAndFailureIsolation),
     ...generalCases,

@@ -1,8 +1,10 @@
-import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
+import {
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
+} from "@cartulary/test-utils/grid";
 import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
-  genericWorkbookTestId,
   gridShellTestId,
   rowCellTestId,
   workbookInspectorToggleTestId,
@@ -13,6 +15,7 @@ import {
   evidenceViewSchemaId,
   handoffViewSchemaId,
   lessonViewSchemaId,
+  listViewContracts,
   notesViewSchemaId,
   partiesViewSchemaId,
   statusReviewViewSchemaId,
@@ -42,6 +45,53 @@ test("creates and edits required workbook mutation surfaces through typed generi
     client_txn_id: uniqueTxn("generic-support"),
     "timeline.activity_synopsis_text": "Generic surface support event",
   });
+
+  for (const [schema, field] of [
+    ["hosts", "host.display_name"],
+    ["identities", "identity.display_name"],
+    ["parties", "party.display_name"],
+    ["task_requests", "task.title"],
+    ["decisions", "decision.summary"],
+    ["comm_log", "comm_log.comm_type"],
+    ["handoff", "handoff.current_state_summary"],
+    ["status_review", "status_review.current_state_summary"],
+    ["lesson", "lesson.summary"],
+    ["findings", "finding.statement"],
+    ["investigative_queries", "investigative_query.platform"],
+    ["forensic_keywords", "forensic_keyword.pattern"],
+    ["evidence", "evidence.title"],
+    ["indicators", "indicator.indicator_type"],
+  ] as const) {
+    await test.step(`ordinary discovery: ${schema}`, async () => {
+      const view = `cartulary.view.${schema}.v1`;
+      await page.goto(
+        `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(view)}`,
+      );
+      await expect(page.getByTestId(gridShellTestId(view))).toBeVisible();
+      await scrollGridTargetIntoView({
+        page,
+        surface: view,
+        targetTestId: genericCreateFieldTestId(field),
+      });
+      await expect(
+        page.getByTestId(genericCreateFieldTestId(field)),
+      ).toHaveCount(1);
+      await scrollGridTargetIntoView({
+        page,
+        surface: view,
+        targetTestId: genericCreateSubmitTestId(view),
+      });
+      await expect(
+        page.getByTestId(genericCreateSubmitTestId(view)),
+      ).toHaveCount(1);
+      if (schema !== "hosts" && schema !== "identities") {
+        await page.getByTestId(workbookInspectorToggleTestId(view)).click();
+        await expect(
+          page.getByRole("button", { name: "Commit draft row", exact: true }),
+        ).toBeVisible();
+      }
+    });
+  }
 
   await openGenericSurface(page, incidentId, partiesViewSchemaId, "Parties");
   await expectGenericCreateMinimum(page, partiesViewSchemaId, "Display Name");
@@ -453,8 +503,8 @@ async function expectGenericCreateMinimum(
 ) {
   await page.getByTestId(genericCreateSubmitTestId(viewSchemaId)).click();
   await expect(
-    page.getByTestId(genericWorkbookTestId("mutation-error")),
-  ).toContainText(message);
+    page.getByRole("alert").filter({ hasText: new RegExp(message, "iu") }),
+  ).toContainText(new RegExp(message, "iu"));
 }
 
 async function setGenericCreateField(
@@ -462,8 +512,34 @@ async function setGenericCreateField(
   fieldKey: string,
   value: string | string[],
 ) {
-  const input = page.getByTestId(genericCreateFieldTestId(fieldKey));
+  const contract = listViewContracts().find(
+    (contract) => contract.fieldMap[fieldKey],
+  );
+  if (!contract) throw new Error(`Missing create field ${fieldKey}`);
+  const testId = genericCreateFieldTestId(fieldKey);
+  if (!(await page.getByTestId(testId).count()))
+    await scrollGridTargetIntoView({
+      page,
+      surface: contract.viewSchemaId,
+      targetTestId: testId,
+    });
+  const input = page.getByTestId(testId);
   const tagName = await input.evaluate((element) => element.tagName);
+  if (tagName === "DIV") {
+    const trigger = input.getByRole("button", { name: /^Choose /u }).first();
+    if ((await trigger.getAttribute("aria-expanded")) !== "true")
+      await trigger.click();
+    const field = contract.fieldMap[fieldKey];
+    const reference = input.getByRole(
+      field?.writeKind === "action_payload" ? "listbox" : "combobox",
+      { name: field?.label ?? "", exact: true },
+    );
+    await reference.selectOption(value);
+    await input
+      .getByRole("button", { name: "Apply references", exact: true })
+      .click();
+    return;
+  }
   if (tagName === "SELECT") {
     await input.selectOption(value);
     return;
@@ -472,7 +548,26 @@ async function setGenericCreateField(
 }
 
 async function waitForGenericOption(page: Page, testId: string, value: string) {
-  await expect(
-    page.getByTestId(testId).locator(`option[value="${value}"]`),
-  ).toHaveCount(1, { timeout: 15_000 });
+  const contract = listViewContracts().find((contract) =>
+    contract.fields.some(
+      (field) => genericCreateFieldTestId(field.fieldKey) === testId,
+    ),
+  );
+  if (!contract) throw new Error(`Missing create control ${testId}`);
+  if (!(await page.getByTestId(testId).count()))
+    await scrollGridTargetIntoView({
+      page,
+      surface: contract.viewSchemaId,
+      targetTestId: testId,
+    });
+  const input = page.getByTestId(testId);
+  const trigger = input.getByRole("button", { name: /^Choose /u }).first();
+  if (
+    (await trigger.count()) &&
+    (await trigger.getAttribute("aria-expanded")) !== "true"
+  )
+    await trigger.click();
+  await expect(input.locator(`option[value="${value}"]`)).toHaveCount(1, {
+    timeout: 15_000,
+  });
 }

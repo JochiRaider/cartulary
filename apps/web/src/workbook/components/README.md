@@ -32,11 +32,12 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | File | Responsibility |
 | --- | --- |
 | [AssessmentWorkbookSurface.tsx](AssessmentWorkbookSurface.tsx) | Assessment presentation facade for rows, support selection, and semantic assessment commands. |
-| [EntityWorkbookSurface.tsx](EntityWorkbookSurface.tsx) | Hosts and Identities presentation facade over entity query, mutation, inspector, and continuity owners. |
-| [GenericWorkbookSurface.tsx](GenericWorkbookSurface.tsx) | Common contract-backed grid presentation. Domain mutation execution is injected through named owner command ports. |
+| [EntityWorkbookSurface.tsx](EntityWorkbookSurface.tsx) | Hosts and Identities presentation over entity query/edit/merge/continuity owners and borrowed retained ordinary creation. |
+| [GenericWorkbookSurface.tsx](GenericWorkbookSurface.tsx) | Contract-backed grid presentation borrowing retained ordinary drafts, local recovery and source command ports. |
 | [IncidentControlsDrawer.tsx](IncidentControlsDrawer.tsx) | Shell-level incident controls drawer presentation and focus boundary. |
 | [SystemViewSwitcher.tsx](SystemViewSwitcher.tsx) | System-view switcher UI and grouped surface navigation. |
-| [WorkbookActiveSurfaceFrame.tsx](WorkbookActiveSurfaceFrame.tsx) | Active-surface recovery boundary and mutually exclusive blocked/overflow/conflict presentation. |
+| [WorkbookActiveSurfaceFrame.tsx](WorkbookActiveSurfaceFrame.tsx) | Active-surface recovery boundary and mutually exclusive blocked/overflow/conflict presentation, preserving rejected editors' accessibility. |
+| [WorkbookActiveSurfaceFrame.test.tsx](WorkbookActiveSurfaceFrame.test.tsx) | Keeps the original draft editor focusable and accessible as conflict recovery opens and closes. |
 | [WorkbookActiveSurfacePresentation.tsx](WorkbookActiveSurfacePresentation.tsx) | Exact built-in or extension renderer selection with lazy extension lifecycle binding. |
 | [WorkbookIncidentControlsPresentation.tsx](WorkbookIncidentControlsPresentation.tsx) | Incident-controls drawer content and lazy Import Assistant renderer selection. |
 | [WorkbookPresenceMarkers.tsx](WorkbookPresenceMarkers.tsx) | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
@@ -50,7 +51,7 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [GenericMutationControl.test.tsx](GenericMutationControl.test.tsx) | Tests field-control descriptors, variants, options, sizing, and form/grid presentation. |
 | [GenericMutationControl.tsx](GenericMutationControl.tsx) | Renders descriptor-driven field editors for generic form and grid mutation surfaces. |
 | [genericMutationControlModel.ts](genericMutationControlModel.ts) | Pure field-control descriptors for generic form and grid mutation editors. |
-| [WorkbookAuthoringReferenceControl.tsx](WorkbookAuthoringReferenceControl.tsx) | Shared paged reference picker for workbook authoring workflows. |
+| [WorkbookAuthoringReferenceControl.tsx](WorkbookAuthoringReferenceControl.tsx) | Shared staged/paged reference picker, with compact grid popover geometry and keyboard exit; selection identities belong to the authoring owner. |
 | [WorkbookGridEditorControl.tsx](WorkbookGridEditorControl.tsx) | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
 | [WorkbookRecordCandidatePicker.tsx](WorkbookRecordCandidatePicker.tsx) | Shared semantic record-candidate selection control for owner workflows. |
 | [WorkbookRelationshipChip.test.tsx](WorkbookRelationshipChip.test.tsx) | Tests relationship-chip state details, semantic selectors, and optional selection behavior. |

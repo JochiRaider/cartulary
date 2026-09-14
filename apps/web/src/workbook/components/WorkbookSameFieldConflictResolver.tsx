@@ -165,6 +165,7 @@ export function WorkbookSameFieldConflictResolver({
   return (
     <RecoverySurface
       aria-label="Workbook conflict recovery"
+      data-grid-editor-external-action="true"
       ref={resolverRef}
       data-conflict-base-row-version={String(
         conflict.conflict.base_row_version,

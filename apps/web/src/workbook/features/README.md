@@ -37,3 +37,10 @@ Base surface registry.
 | File | Responsibility |
 | --- | --- |
 | [ImportAssistantFeature.test.tsx](ImportAssistantFeature.test.tsx) | Import assistant discovery, approval, cancellation, and returned-selection characterization. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [ordinary/README.md](ordinary/README.md) | Retained ordinary row authoring and source preparation composition. |
+| [artifacts/README.md](artifacts/README.md) | Findings, query and keyword ordinary preparation contributions. |

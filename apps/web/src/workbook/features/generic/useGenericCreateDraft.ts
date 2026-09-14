@@ -3,46 +3,37 @@ import {
   type Dispatch,
   type SetStateAction,
   useContext,
-  useEffect,
-  useState,
   useSyncExternalStore,
 } from "react";
-import { initialGenericCreateDraft } from "../../models/genericWorkbookModel";
 import {
   NoteCreateContext,
   noteSheetAttachment,
 } from "../notes/NoteCreateContext";
 import { noteCreateView } from "../notes/noteCreateModel";
+import { useOrdinaryCreateDraft } from "../ordinary/useOrdinaryCreateDraft";
+import type { WorkbookOrdinaryCreateOwner } from "../ordinary/WorkbookOrdinaryCreateOwner";
 
 const noSubscribe = () => () => {};
 const noSnapshot = () => null;
 /** Keeps the common grid independent of per-artifact draft lifetimes. */
 export function useGenericCreateDraft(
   contract: ViewContract,
-  actor: string | null,
+  _actor: string | null,
+  ordinary?: WorkbookOrdinaryCreateOwner,
 ): [
   Record<string, string>,
   Dispatch<SetStateAction<Record<string, string>>>,
   boolean,
 ] {
   const context = useContext(NoteCreateContext);
-  const [local, setLocal] = useState(() =>
-    initialGenericCreateDraft(contract, actor),
-  );
+  const retained = useOrdinaryCreateDraft(ordinary, contract);
   const owner =
     contract.viewSchemaId === noteCreateView ? context?.owner : undefined;
-  useEffect(() => {
-    if (!owner)
-      setLocal((current) => ({
-        ...initialGenericCreateDraft(contract, actor),
-        ...current,
-      }));
-  }, [owner, contract, actor]);
   const state = useSyncExternalStore(
     owner?.subscribe ?? noSubscribe,
     owner?.getSnapshot ?? noSnapshot,
   );
-  if (!owner || !context) return [local, setLocal, false];
+  if (!owner || !context) return retained;
   return [
     { ...state?.draft?.values },
     (value) => {

@@ -23,6 +23,7 @@ export function buildGenericCreateRequest(
   }
   const request: Record<string, unknown> = { client_txn_id: clientTxnId };
   for (const field of contract.fields.filter((entry) => entry.createWritable)) {
+    if (!Object.hasOwn(draft, field.fieldKey)) continue;
     const rawValue = draft[field.fieldKey] ?? "";
     const change = buildGenericPatchChange(
       field,

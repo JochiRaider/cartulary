@@ -24,6 +24,9 @@ capabilities live in [ports](../ports/README.md).
 | [createIndicatorCreateTransport.ts](createIndicatorCreateTransport.ts) | Executes captured canonical Indicator creation and validates correlated accepted receipts. |
 | [createIndicatorLifecycleAdapter.test.ts](createIndicatorLifecycleAdapter.test.ts) | Tests complete lifecycle receipts, uncertain malformed success, and exact ordered-support replay. |
 | [createIndicatorLifecycleAdapter.ts](createIndicatorLifecycleAdapter.ts) | Executes Indicator lifecycle requests and validates complete operation receipts. |
+| [createOrdinaryCreateTransport.ts](createOrdinaryCreateTransport.ts) | Captures immutable ordinary create bytes, verifies discovery and sends the existing route. |
+| [createOrdinaryCreateTransport.test.ts](createOrdinaryCreateTransport.test.ts) | Fourteen-schema discovery and complete/uncertain transport evidence. |
+| [workbookCreateCapability.ts](workbookCreateCapability.ts) | Shared ordinary/contextual creation discovery comparison. |
 | [createNoteCreateTransport.ts](createNoteCreateTransport.ts) | Executes captured Note creation requests and validates semantic receipts. |
 | [createObservationTransport.test.ts](createObservationTransport.test.ts) | Tests exact Observation child requests, omission, replay, provenance, and receipt correlation. |
 | [createObservationTransport.ts](createObservationTransport.ts) | Executes Observation capture/transition requests and validates complete correlated receipts. |
@@ -88,3 +91,9 @@ capabilities live in [ports](../ports/README.md).
 | [workbookOperationErrorPolicy.ts](workbookOperationErrorPolicy.ts) | Classifies decoded workbook operation failures into semantic owner outcomes. |
 | [workbookProtocolTypes.ts](workbookProtocolTypes.ts) | Private type-only projection of the exact generated Workbook request vocabulary; prevents protocol imports from leaking into owner models, controllers, or runtime code. |
 | [workbookPublicErrorDecoder.ts](workbookPublicErrorDecoder.ts) | Decodes and sanitizes public workbook errors at the adapter boundary. |
+
+## Ordinary creation seam
+
+| File | Responsibility |
+| --- | --- |
+| [workbookStringContracts.ts](workbookStringContracts.ts) | Packaged Core timezone registry membership for authoring. |

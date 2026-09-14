@@ -571,6 +571,7 @@ describe("Timeline related Evidence recovery", () => {
       expect(await port.send(attempt, new AbortController().signal)).toEqual({
         kind: "accepted",
         receipt,
+        status: 200,
       });
       expect(
         fetch.mock.calls.every(([, init]) => init.body === attempt.body),

@@ -49,6 +49,8 @@ import {
 } from "../features/coordination/taskLifecycleModel";
 import { useGenericCreateDraft } from "../features/generic/useGenericCreateDraft";
 import { useGenericWorkbookInspectorComposition } from "../features/generic/useGenericWorkbookInspectorComposition";
+import { OrdinaryCreateControl } from "../features/ordinary/OrdinaryCreateControl";
+import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
@@ -84,7 +86,6 @@ import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntim
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
-import { GenericMutationControl } from "./GenericMutationControl";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
 import {
   WorkbookCellPresenceMarker,
@@ -179,9 +180,17 @@ export function ContractWorkbookSurface({
   );
   const canCreateRows =
     interactionMode.kind === "editable" && workbookCreationAvailable(contract);
+  const showOrdinaryDraft =
+    canCreateRows ||
+    Object.keys(
+      mutationRuntime.ordinaryCreate.getSnapshot().schemas[
+        contract.viewSchemaId
+      ]?.draft.values ?? {},
+    ).length > 0;
   const [createDraft, setCreateDraft, draftDisabled] = useGenericCreateDraft(
     contract,
     currentUserId,
+    mutationRuntime.ordinaryCreate,
   );
   const [editRecordId, setEditRecordId] = useState("");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
@@ -212,7 +221,7 @@ export function ContractWorkbookSurface({
     onRefresh,
     refreshReferenceOptions,
   ]);
-  const { mutationPending, setValidationError } = mutationController;
+  const { setValidationError } = mutationController;
   const sharedMutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
@@ -409,7 +418,7 @@ export function ContractWorkbookSurface({
   );
   const gridDraftRow = useMemo<GridDraftRow<WorkbookQueryRow> | undefined>(
     () =>
-      !canCreateRows
+      !showOrdinaryDraft
         ? undefined
         : {
             kind: "draft",
@@ -418,7 +427,7 @@ export function ContractWorkbookSurface({
             gutterLabel: "Draft row",
             testId: workbookInlineDraftRowTestId(surface),
           },
-    [canCreateRows, draftApiRow, surface],
+    [showOrdinaryDraft, draftApiRow, surface],
   );
   const grouping =
     useMemo<GridGroupingDescriptor<WorkbookQueryRow> | null>(() => {
@@ -462,7 +471,10 @@ export function ContractWorkbookSurface({
     () =>
       mutationRuntime.registerSurface(
         contract.viewSchemaId,
-        () => onRefresh({ requireAcceptance: true }),
+        async () => {
+          await onRefresh({ requireAcceptance: true });
+          refreshReferenceOptions();
+        },
         async (_payload, conflict) => {
           await onRefresh({ requireAcceptance: true });
           if (conflict.focusOrigin === "inspector") {
@@ -508,7 +520,13 @@ export function ContractWorkbookSurface({
           }, 0);
         },
       ),
-    [contract.viewSchemaId, genericFocus.port, mutationRuntime, onRefresh],
+    [
+      contract.viewSchemaId,
+      genericFocus.port,
+      mutationRuntime,
+      onRefresh,
+      refreshReferenceOptions,
+    ],
   );
   const columns: readonly GridColumn<WorkbookQueryRow>[] =
     visibleAnchorColumns.map((column) => {
@@ -558,7 +576,9 @@ export function ContractWorkbookSurface({
             return <span style={draftCellPlaceholderStyle}>-</span>;
           }
           return (
-            <GenericMutationControl
+            <OrdinaryCreateControl
+              owner={mutationRuntime.ordinaryCreate}
+              contract={contract}
               disabled={draftDisabled}
               collectionMode="add"
               field={writableField}
@@ -632,7 +652,10 @@ export function ContractWorkbookSurface({
               ? undefined
               : genericCreateSubmitTestId(contract.viewSchemaId)
           }
-          disabled={mutationPending || draftDisabled}
+          disabled={
+            draftDisabled ||
+            mutationRuntime.ordinaryCreate.busy(contract.viewSchemaId)
+          }
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() => {
@@ -649,7 +672,7 @@ export function ContractWorkbookSurface({
   }, [
     contract.viewSchemaId,
     genericInspector,
-    mutationPending,
+    mutationRuntime,
     draftDisabled,
     surface,
     canCreateRows,
@@ -768,6 +791,10 @@ export function ContractWorkbookSurface({
           style={workbookGridWithNoticeStyle}
         >
           <div>
+            <OrdinaryCreateNotice
+              owner={mutationRuntime.ordinaryCreate}
+              view={contract.viewSchemaId}
+            />
             {contract.viewSchemaId === taskViewId ? (
               <TaskPatchRecovery
                 owner={mutationRuntime.explicitPatches}

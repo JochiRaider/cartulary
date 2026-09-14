@@ -967,8 +967,17 @@ function validateContractFamilyRegistryShape(file) {
       if (!Array.isArray(entry.typescript_projections)) {
         throw new Error(`${label}.typescript_projections must be an array`);
       }
-      if (["openapi", "imports", "recovery", "tasksdecisions", "database-migrations", "parties", "string-contracts"].includes(familyID) && entry.typescript_projections.length !== 0) {
+      if (["openapi", "imports", "recovery", "tasksdecisions", "database-migrations", "parties"].includes(familyID) && entry.typescript_projections.length !== 0) {
         throw new Error(`${label}.typescript_projections must stay empty for protected backend-only inputs`);
+      }
+      // Workbook readiness consumes exact packaged timezone membership. Provenance
+      // and other neutral string artifacts remain outside the frontend boundary.
+      if (familyID === "string-contracts" && entry.typescript_projections.some((projection) =>
+        projection?.artifact_path !== "contracts/string-contracts/timezone_name_registry.v1.json" ||
+        projection?.output_path !== "packages/protocol-ts/src/generated/timezone-name-registry.ts" ||
+        projection?.identifier !== "timezoneNameRegistry"
+      )) {
+        throw new Error(`${label}.typescript_projections permits only the public timezone-name registry projection`);
       }
       for (const [projectionIndex, rawProjection] of entry.typescript_projections.entries()) {
         const projectionLabel = `${label}.typescript_projections[${projectionIndex}]`;

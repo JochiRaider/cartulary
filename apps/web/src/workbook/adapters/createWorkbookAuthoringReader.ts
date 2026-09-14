@@ -10,6 +10,7 @@ import type {
   WorkbookAuthoringCandidate,
   WorkbookAuthoringReadPort,
 } from "../ports/WorkbookAuthoringReadPort";
+import { workbookCreateCapabilityMatches } from "./workbookCreateCapability";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 /** Target form discovery; page membership never determines reference existence. */
@@ -68,10 +69,7 @@ export function createWorkbookAuthoringReader(options: {
           draft.feature.successResultBehavior ||
         feature.failure_result_behavior !==
           draft.feature.failureResultBehavior ||
-        !schema.create_capable ||
-        schema.view_schema_id !== draft.target.viewSchemaId ||
-        schema.inline_create.permits_zero_field_create !==
-          draft.target.permitsZeroFieldCreate ||
+        !workbookCreateCapabilityMatches(schema, draft.target) ||
         JSON.stringify(
           feature.seed_bindings.map((binding) => [
             binding.target_field_key ?? null,
@@ -89,39 +87,7 @@ export function createWorkbookAuthoringReader(options: {
               binding.source.sourceFieldKey ?? null,
               binding.source.value ?? null,
             ]),
-          ) ||
-        JSON.stringify(schema.inline_create.minimum_create_field_sets) !==
-          JSON.stringify(draft.target.minimumCreateFieldSets) ||
-        schema.fields.length !== draft.target.fields.length ||
-        schema.fields.some(
-          (field) =>
-            field.create_writable !==
-              draft.target.fieldMap[field.field_key]?.createWritable ||
-            field.read_kind !==
-              draft.target.fieldMap[field.field_key]?.readKind ||
-            field.write_kind !==
-              draft.target.fieldMap[field.field_key]?.writeKind ||
-            field.clearable !==
-              draft.target.fieldMap[field.field_key]?.clearable ||
-            field.string_contract_id !==
-              draft.target.fieldMap[field.field_key]?.stringContractId ||
-            field.direct_scalar_contract_id !==
-              draft.target.fieldMap[field.field_key]?.directScalarContractId ||
-            JSON.stringify(field.enum_values) !==
-              JSON.stringify(
-                draft.target.fieldMap[field.field_key]?.enumValues,
-              ) ||
-            field.direct_reference_contract_id !==
-              draft.target.fieldMap[field.field_key]?.directReferenceContractId,
-        ) ||
-        JSON.stringify(
-          schema.create_inputs.map((input) => ({
-            inputKey: input.input_key,
-            nullable: input.nullable,
-            required: input.required,
-            valueContractId: input.value_contract_id,
-          })),
-        ) !== JSON.stringify(draft.target.createInputs)
+          )
       )
         throw new Error(
           "Creation capability changed. Review the retained draft.",

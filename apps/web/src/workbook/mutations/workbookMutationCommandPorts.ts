@@ -19,20 +19,12 @@ export type GenericMutationOutcome =
 
 export type RecordRouteCommandPort = WorkbookRecordHistoryPort;
 
-export type EntityCreateAccepted = {
-  readonly changeSetId: string;
-  readonly row: WorkbookQueryRow;
-  readonly viewSchemaId: string;
-};
-
 export type EntityPatchAccepted = {
   readonly changeSetId: string;
   readonly row: WorkbookQueryRow;
   readonly viewSchemaId: string;
 };
 
-export type EntityCreateOutcome =
-  WorkbookOperationOutcome<EntityCreateAccepted>;
 export type EntityPatchOutcome = WorkbookOperationOutcome<EntityPatchAccepted>;
 
 export type EvidenceAttachAccepted = {
@@ -100,14 +92,6 @@ export type TimelineMutationCommandPorts = {
 };
 
 export interface GenericMutationCommandPort {
-  canCreateRecord(input: {
-    readonly contract: ViewContract;
-    readonly draft: Readonly<Record<string, string>>;
-  }): boolean;
-  createRecord(input: {
-    readonly contract: ViewContract;
-    readonly draft: Readonly<Record<string, string>>;
-  }): Promise<GenericMutationOutcome>;
   patchRecord(input: {
     readonly baseRowVersion: number;
     readonly changes: readonly RecordPatchChange[];
@@ -118,14 +102,6 @@ export interface GenericMutationCommandPort {
 }
 
 export interface EntityMutationCommandPort {
-  canCreateRecord(input: {
-    readonly contract: ViewContract;
-    readonly draft: Readonly<Record<string, string>>;
-  }): boolean;
-  createRecord(input: {
-    readonly contract: ViewContract;
-    readonly draft: Readonly<Record<string, string>>;
-  }): Promise<EntityCreateOutcome>;
   patchRecord(input: {
     readonly baseRowVersion: number;
     readonly changes: readonly RecordPatchChange[];
