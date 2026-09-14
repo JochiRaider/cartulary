@@ -45,7 +45,7 @@ export function AppRoot({
           }
 
           #root {
-            min-height: var(--ct-app-viewport-block-size);
+            min-height: 100%;
           }
 
           .cartulary-grid :where(button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])) {

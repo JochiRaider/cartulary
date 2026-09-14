@@ -1,4 +1,8 @@
-import { requireViewContract } from "@cartulary/view-contracts";
+import { genericCreateFieldTestId } from "@cartulary/ui-contracts";
+import {
+  handoffViewSchemaId,
+  requireViewContract,
+} from "@cartulary/view-contracts";
 import {
   act,
   cleanup,
@@ -16,7 +20,7 @@ import { WorkbookOrdinaryCreateOwner } from "./WorkbookOrdinaryCreateOwner";
 
 const id = "10000000-0000-4000-8000-000000000001";
 const second = "10000000-0000-4000-8000-000000000002";
-const contract = requireViewContract("cartulary.view.handoff.v1");
+const contract = requireViewContract(handoffViewSchemaId);
 const field = contract.fieldMap["handoff.incoming_owner_user_id"];
 function setup() {
   if (!field) throw new Error("Missing incoming member contract.");
@@ -59,7 +63,7 @@ function setup() {
         surface="grid"
         collectionMode="add"
         referenceOptions={emptyGenericReferenceOptions()}
-        testId="incoming"
+        testId={genericCreateFieldTestId(field.fieldKey)}
         value={
           owner.getSnapshot().schemas[contract.viewSchemaId]?.values[
             field.fieldKey
@@ -107,7 +111,9 @@ describe("ordinary workbook reference controls", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose incoming owner" }),
     );
-    const select = await screen.findByTestId("incoming-options");
+    const select = await screen.findByRole("combobox", {
+      name: "Incoming Owner",
+    });
     await screen.findByRole("option", { name: "First member" });
     fireEvent.change(select, { target: { value: id } });
     expect(
@@ -159,7 +165,9 @@ describe("ordinary workbook reference controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry surfaces" }));
     await screen.findByRole("option", { name: "First member" });
     act(() => owner.suspend());
-    expect(screen.queryByTestId("incoming")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Choose incoming owner" }),
+    ).toBeNull();
     expect(screen.queryByText("First member")).toBeNull();
   });
 });

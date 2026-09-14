@@ -23,7 +23,9 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
   readonly dismissDisabled?: boolean | undefined;
   readonly initialFocusTestId?: string | undefined;
   readonly fallbackFocusTestId?: string | undefined;
-  readonly restoreFallbackFocus?: (() => boolean) | undefined;
+  readonly restoreFallbackFocus?:
+    | (() => boolean | Promise<boolean>)
+    | undefined;
   readonly onDismiss: () => void;
 }) {
   const dialogRef = useRef<Element | null>(null);
@@ -60,7 +62,8 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
     });
     return () => {
       mounted = false;
-      queueMicrotask(() => {
+      queueMicrotask(async () => {
+        const focusBeforeRestore = document.activeElement;
         if (
           document.querySelector(
             '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',
@@ -70,7 +73,14 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
         if (
           (previouslyFocused?.isConnected !== true ||
             previouslyFocused.hasAttribute("disabled")) &&
-          restoreFallbackRef.current?.() === true
+          (await restoreFallbackRef.current?.()) === true
+        )
+          return;
+        if (
+          document.activeElement !== focusBeforeRestore ||
+          document.querySelector(
+            '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',
+          ) !== null
         )
           return;
         const target =

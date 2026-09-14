@@ -432,7 +432,7 @@ export function useTimelineInspectorLifecycle({
   readonly inspectorInvalidationGeneration: number;
   readonly restoreTimelineFocusAnchor: (
     anchor: WorkbookContinuityAnchor,
-  ) => boolean;
+  ) => Promise<boolean>;
   readonly rowHistory: WorkbookRecordHistoryState;
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
@@ -482,7 +482,7 @@ export function useTimelineInspectorLifecycle({
       if (deletedHistoryMatchesSelectedRow) {
         return;
       }
-      window.setTimeout(() => {
+      window.setTimeout(async () => {
         // Projection exit must not take focus from a recovery control or a
         // newer inspector interaction that still exists after the refresh.
         const activeElement = document.activeElement;
@@ -500,7 +500,7 @@ export function useTimelineInspectorLifecycle({
         const fallbackRow = rows.find((row) => row.recordId !== null);
         if (fallbackRow?.recordId) {
           if (
-            restoreTimelineFocusAnchor({
+            await restoreTimelineFocusAnchor({
               fieldKey: fallbackFieldKey,
               recordId: fallbackRow.recordId,
               viewSchemaId: timelineViewSchemaId,
@@ -614,7 +614,7 @@ export function useTimelineInspectorEscape({
   readonly isInspectorOpen: boolean;
   readonly restoreTimelineFocusAnchor: (
     anchor: WorkbookContinuityAnchor,
-  ) => boolean;
+  ) => Promise<boolean>;
   readonly setInspectorMessage: (
     message: WorkbookInspectorFeedback | null,
   ) => void;
@@ -647,7 +647,7 @@ export function useTimelineInspectorEscape({
       clearRowHistory();
       const anchor = workbookFocusAnchorRef.current;
       if (anchor?.viewSchemaId === timelineViewSchemaId) {
-        restoreTimelineFocusAnchor(anchor);
+        void restoreTimelineFocusAnchor(anchor);
       }
     };
     document.addEventListener("keydown", handleTimelineInspectorEscape);

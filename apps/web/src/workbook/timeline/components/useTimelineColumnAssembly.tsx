@@ -157,6 +157,7 @@ export function useTimelineColumnAssembly({
             timelineColumnWidths[binding.fieldKey] ??
             timelineColumnWidth(binding.fieldKey),
           renderCell: ({ row }) => renderCell(row),
+          draftWritable: true,
           renderDraftCell: ({ focusTargetRef, row }) =>
             binding.kind === "scalar"
               ? renderTimelineGridEditor(

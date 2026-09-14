@@ -94,13 +94,11 @@ describe("Workbook inspector owner boundaries", () => {
       ),
       "utf8",
     );
-    expect(gridHandle).toContain(
-      "readonly focusDraftCell: (fieldKey: string) => boolean",
-    );
+    expect(gridHandle).toContain("readonly requestFocus:");
     expect(gridHandle).toContain(
       "readonly getAnchorRect: (anchor: GridCellAnchor) => DOMRectReadOnly | null",
     );
-    expect(gridHandle).not.toContain("readonly focusDraftCell?:");
+    expect(gridHandle).not.toContain("readonly requestFocus?:");
     expect(gridHandle).not.toContain("readonly getAnchorRect?:");
   });
 });

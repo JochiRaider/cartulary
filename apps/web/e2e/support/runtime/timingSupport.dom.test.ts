@@ -11,9 +11,8 @@ describe("committed row measurement predicates", () => {
         <div role="row" data-grid-record-id="">
           <input data-testid="draft-timeline.activity_synopsis_text" value="Timing sample" />
         </div>
-        <div role="row" data-grid-record-id="record-1">
-          <input data-testid="${rowCellTestId("record-1", "timeline.activity_synopsis_text")}" value="Timing sample" />
-          <span data-testid="${rowCellTestId("record-1", "row_version")}">2</span>
+        <div role="row" data-grid-record-id="record-1" data-grid-row-version="2">
+          <input data-grid-field-key="timeline.activity_synopsis_text" data-testid="${rowCellTestId("record-1", "timeline.activity_synopsis_text")}" value="Timing sample" />
         </div>
       </div>
     `;
@@ -30,13 +29,11 @@ describe("committed row measurement predicates", () => {
         <div role="row" data-grid-record-id="">
           <input data-testid="draft-timeline.activity_synopsis_text" value="Timing sample" />
         </div>
-        <div role="row" data-grid-record-id="record-2">
-          <input data-testid="${rowCellTestId("record-2", "timeline.activity_synopsis_text")}" value="Other sample" />
-          <span data-testid="${rowCellTestId("record-2", "row_version")}">1</span>
+        <div role="row" data-grid-record-id="record-2" data-grid-row-version="1">
+          <input data-grid-field-key="timeline.activity_synopsis_text" data-testid="${rowCellTestId("record-2", "timeline.activity_synopsis_text")}" value="Other sample" />
         </div>
         <div role="row" data-grid-record-id="record-3">
-          <input data-testid="${rowCellTestId("record-3", "timeline.activity_synopsis_text")}" value="Timing sample" />
-          <span data-testid="${rowCellTestId("record-3", "row_version")}">new</span>
+          <input data-grid-field-key="timeline.activity_synopsis_text" data-testid="${rowCellTestId("record-3", "timeline.activity_synopsis_text")}" value="Timing sample" />
         </div>
       </div>
     `;
@@ -46,5 +43,48 @@ describe("committed row measurement predicates", () => {
         surface: timelineViewSchemaId,
       }),
     ).toBeNull();
+  });
+  it("qualifies identity, committed version and visible field on one mounted row", () => {
+    const grid = document.createElement("div");
+    grid.dataset.testid = gridShellTestId(timelineViewSchemaId);
+    const row = document.createElement("div");
+    row.role = "row";
+    row.dataset.gridRecordId = "expected";
+    row.dataset.gridRowVersion = "2";
+    const field = document.createElement("input");
+    field.dataset.gridFieldKey = "timeline.activity_synopsis_text";
+    field.value = "Sample";
+    row.append(field);
+    grid.append(row);
+    document.body.replaceChildren(grid);
+    const read = () =>
+      findCommittedRowSummaryInRoot(document, {
+        expectedSummary: "Sample",
+        recordId: "expected",
+        minimumRowVersion: 2,
+        surface: timelineViewSchemaId,
+      });
+    expect(read()).toEqual({ recordId: "expected", rowVersion: 2 });
+    row.dataset.gridRecordId = "wrong";
+    expect(read()).toBeNull();
+    row.dataset.gridRecordId = "expected";
+    row.dataset.gridRowVersion = "1";
+    expect(read()).toBeNull();
+    row.dataset.gridRowVersion = "2";
+    field.hidden = true;
+    expect(read()).toBeNull();
+    field.hidden = false;
+    field.style.visibility = "hidden";
+    expect(read()).toBeNull();
+    field.style.visibility = "visible";
+    field.dataset.gridFieldKey = "timeline.raw_activity_text";
+    expect(read()).toBeNull();
+    field.dataset.gridFieldKey = "timeline.activity_synopsis_text";
+    const replacement = row.cloneNode(true) as HTMLElement;
+    replacement.removeAttribute("data-grid-row-version");
+    row.replaceWith(replacement);
+    expect(read()).toBeNull();
+    replacement.dataset.gridRowVersion = "3";
+    expect(read()).toEqual({ recordId: "expected", rowVersion: 3 });
   });
 });

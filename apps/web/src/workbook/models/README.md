@@ -84,3 +84,7 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 
 [workbookSavedValues.ts](workbookSavedValues.ts) compares canonical saved field
 values for independent draft review and explicit patch preparation.
+
+[WorkbookLocalDraftStore.ts](WorkbookLocalDraftStore.ts) retains scalar editor values
+for one source surface in a live Workbook runtime. It holds no mounted controls or
+source-specific capture behavior; runtime retirement clears its values.

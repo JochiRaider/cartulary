@@ -56,6 +56,11 @@ describe("WorkbookMutationRuntime", () => {
         ),
     );
     const refresh = vi.fn();
+    const localDrafts = runtime.localDraftsForSurface(timelineViewSchemaId);
+    localDrafts.draftValues.set("retained-editor", "Previous account draft");
+    expect(runtime.localDraftsForSurface(timelineViewSchemaId)).toBe(
+      localDrafts,
+    );
     runtime.registerSurface(timelineViewSchemaId, refresh);
     runtime.enqueuePatch({
       baseRowVersion: 1,
@@ -74,6 +79,7 @@ describe("WorkbookMutationRuntime", () => {
     });
     await vi.waitFor(() => expect(respond).toBeDefined());
     registry.replaceAccount();
+    expect(localDrafts.draftValues.size).toBe(0);
     respond?.(successResponse(2));
     for (let i = 0; i < 12; ++i) await Promise.resolve();
     expect(runtime.pendingQueue().model.snapshot().units).toEqual([]);

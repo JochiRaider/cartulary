@@ -2608,7 +2608,7 @@ describe("Incident landing", () => {
       "00000000-0000-4000-8000-000000001005",
     );
     const appShell = screen.getByTestId(appRouteTestId("app-shell"));
-    expect(appShell.style.blockSize).toBe("var(--ct-app-viewport-block-size)");
+    expect(appShell.style.blockSize).toBe("100%");
     expect(appShell.style.overflow).toBe("hidden");
     expect(["0", "0px"]).toContain(appShell.style.minBlockSize);
     expect(["0", "0px"]).toContain(appShell.style.minHeight);

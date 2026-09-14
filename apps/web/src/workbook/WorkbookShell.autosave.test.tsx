@@ -1,7 +1,8 @@
 import {
+  gridRowTestId,
+  gridRowVersionAttribute,
   rowInspectButtonTestId,
   saveStateTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -120,9 +121,14 @@ describe("Timeline workbook autosave coverage", () => {
   async function expectSavedRowVersion(rowVersion: number) {
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe(String(rowVersion));
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
@@ -470,9 +476,14 @@ describe("Timeline workbook autosave coverage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
@@ -568,9 +579,14 @@ describe("Timeline workbook autosave coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("3");
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });

@@ -98,8 +98,9 @@ function renderCoordinator(
       const pending = useTimelinePendingSaves({
         mutationRuntime: runtime,
       });
-      const editorDraftRegistry =
-        useTimelineEditorDraftRegistry(timelineViewSchemaId);
+      const editorDraftRegistry = useTimelineEditorDraftRegistry(
+        runtime.localDraftsForSurface(timelineViewSchemaId),
+      );
       const loadRows = async () => undefined;
       const nextDraftIndexRef = useRef(2);
       const coordinator = useTimelineRowMutationCoordinator({

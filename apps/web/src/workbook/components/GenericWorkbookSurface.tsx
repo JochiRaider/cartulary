@@ -352,12 +352,12 @@ export function ContractWorkbookSurface({
     onRestoreFocus: () => {
       const token = inspectorContinuityTokenRef.current;
       inspectorContinuityTokenRef.current = null;
-      if (token !== null) continuityPortRef.current?.restore(token);
+      if (token !== null) void continuityPortRef.current?.restore(token);
     },
     onRestoreEvidenceFocus: (recordId) => {
       const fieldKey = visibleAnchorColumns[0]?.fieldKey;
       if (fieldKey !== undefined)
-        continuityPortRef.current?.focus({
+        void continuityPortRef.current?.focus({
           viewSchemaId: contract.viewSchemaId,
           recordId,
           fieldKey,
@@ -468,7 +468,7 @@ export function ContractWorkbookSurface({
             return;
           }
           window.setTimeout(() => {
-            genericFocus.port.focus({
+            void genericFocus.port.focus({
               fieldKey: conflict.conflict.field_key,
               recordId: conflict.conflict.record_id,
               viewSchemaId: contract.viewSchemaId,
@@ -497,7 +497,7 @@ export function ContractWorkbookSurface({
                 value: conflict.localValue,
               })
             ) {
-              genericFocus.port.focus({
+              void genericFocus.port.focus({
                 fieldKey: anchor.fieldKey,
                 recordId: conflict.conflict.record_id,
                 viewSchemaId: contract.viewSchemaId,
@@ -520,6 +520,7 @@ export function ContractWorkbookSurface({
       return {
         ...column,
         contractWritable: field?.gridEditable === true,
+        draftWritable: field?.createWritable === true,
         getClipboardValue: (row: WorkbookQueryRow) => {
           const value =
             mutationRuntime.visibleEdit(
@@ -669,9 +670,10 @@ export function ContractWorkbookSurface({
     if (!firstWritableField || !canCreateRows) {
       return;
     }
-    window.setTimeout(() => {
-      gridHandleRef.current?.focusDraftCell(firstWritableField.fieldKey);
-    }, 0);
+    void gridHandleRef.current?.requestFocus({
+      kind: "draft",
+      fieldKey: firstWritableField.fieldKey,
+    });
   }, [canCreateRows, createFields]);
   const dataState = workbookGridDataState({
     emptyAction: canCreateRows
@@ -723,7 +725,7 @@ export function ContractWorkbookSurface({
     if (!completed) return;
     setEditRecordId("");
     genericFocus.port.clear();
-    gridHandleRef.current?.focusRoot();
+    void gridHandleRef.current?.requestFocus({ kind: "root" });
   }, [
     contract.viewSchemaId,
     editRecordId,

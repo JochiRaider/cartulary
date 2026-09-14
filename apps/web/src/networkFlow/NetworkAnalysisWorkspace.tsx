@@ -291,21 +291,19 @@ function NetworkAnalysisWorkspaceContent({
   }, []);
   useLayoutEffect(
     () =>
-      indicatorLinkOperation.bindFocusRestoration(() => {
+      indicatorLinkOperation.bindFocusRestoration(async () => {
         if (mode === "graph" && graphSurface === "explore")
           return graphFocusRestorer.current?.() ?? false;
-        if (
-          rowGridSelection.activeAnchor !== null &&
-          acceptedGridRef.current?.focusAnchor(
-            rowGridSelection.activeAnchor,
-          ) === true
-        )
-          return true;
-        if (acceptedGridRef.current !== null) {
-          acceptedGridRef.current.focusRoot();
-          return true;
+        const handle = acceptedGridRef.current;
+        if (handle === null) return false;
+        if (rowGridSelection.activeAnchor !== null) {
+          const result = await handle.requestFocus({
+            kind: "cell",
+            anchor: rowGridSelection.activeAnchor,
+          });
+          if (result !== "unavailable") return result === "focused";
         }
-        return false;
+        return (await handle.requestFocus({ kind: "root" })) === "focused";
       }),
     [indicatorLinkOperation, rowGridSelection.activeAnchor, mode, graphSurface],
   );

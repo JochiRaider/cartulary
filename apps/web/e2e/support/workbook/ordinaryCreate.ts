@@ -8,15 +8,19 @@ import {
   workbookColumnsMenuTriggerTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
-import { requireViewContract } from "@cartulary/view-contracts";
+import {
+  evidenceViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  requireViewContract,
+} from "@cartulary/view-contracts";
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey } from "../runtime/fixtureIdentity";
 
-export const ordinaryEvidenceView = "cartulary.view.evidence.v1";
 export async function openOrdinaryFixture(
   page: Page,
-  view = ordinaryEvidenceView,
+  view: string = evidenceViewSchemaId,
   navigate: (url: string) => Promise<unknown> = (url) => page.goto(url),
 ) {
   const incident = await createIncident(
@@ -48,10 +52,7 @@ export async function ordinaryField(page: Page, view: string, key: string) {
   if (!field?.createWritable) throw new Error(`Missing ordinary field ${key}`);
   const testId = genericCreateFieldTestId(key);
   if (!(await page.getByTestId(testId).count()) && field.defaultHidden) {
-    if (
-      view === "cartulary.view.hosts.v1" ||
-      view === "cartulary.view.identities.v1"
-    ) {
+    if (view === hostsViewSchemaId || view === identitiesViewSchemaId) {
       await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
       const menu = page.getByTestId(workbookColumnsMenuTestId(view));
       const column = menu.getByRole("menuitemcheckbox", {
@@ -111,7 +112,7 @@ export async function commitOrdinary(page: Page, view: string) {
 export async function retainOrdinaryUncertainty(
   page: Page,
   incident: string,
-  view = ordinaryEvidenceView,
+  view: string = evidenceViewSchemaId,
   malformed = false,
 ) {
   const bodies: string[] = [];

@@ -26,6 +26,8 @@ export type {
   GridEditorAdapter,
   GridEditorFocusTarget,
   GridFillIntent,
+  GridFocusResult,
+  GridFocusTarget,
   GridGroupingDescriptor,
   GridHandle,
   GridInteractionMode,

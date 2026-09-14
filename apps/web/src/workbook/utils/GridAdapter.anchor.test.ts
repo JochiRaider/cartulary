@@ -97,33 +97,53 @@ function renderConsumerGrid(options?: {
 afterEach(cleanup);
 
 describe("adapter-owned semantic handle evidence", () => {
-  it("focuses stable record_id and field_key anchors through the consumer handle", () => {
+  it("focuses stable record_id and field_key anchors through the consumer handle", async () => {
     const onActiveCellChange = vi.fn();
     const handle = renderConsumerGrid({ onActiveCellChange });
     const target = anchor("record-2", "task.status");
 
-    expect(handle.focusAnchor(target)).toBe(true);
+    expect(await handle.requestFocus({ kind: "cell", anchor: target })).toBe(
+      "focused",
+    );
     expect(onActiveCellChange).toHaveBeenLastCalledWith(target);
   });
 
-  it("rejects invalid row, field, surface, and recordless targets", () => {
+  it("rejects invalid row, field, surface, and recordless targets", async () => {
     const handle = renderConsumerGrid({
       draft: draftRow("draft-1"),
       grouped: true,
     });
 
-    expect(handle.focusAnchor(anchor("missing", "task.status"))).toBe(false);
-    expect(handle.focusAnchor(anchor("record-1", "missing"))).toBe(false);
-    expect(handle.focusAnchor(anchor("", "task.title"))).toBe(false);
     expect(
-      handle.focusAnchor({
-        ...anchor("record-1", "task.title"),
-        surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
+      await handle.requestFocus({
+        kind: "cell",
+        anchor: anchor("missing", "task.status"),
       }),
-    ).toBe(false);
+    ).toBe("unavailable");
+    expect(
+      await handle.requestFocus({
+        kind: "cell",
+        anchor: anchor("record-1", "missing"),
+      }),
+    ).toBe("unavailable");
+    expect(
+      await handle.requestFocus({
+        kind: "cell",
+        anchor: anchor("", "task.title"),
+      }),
+    ).toBe("unavailable");
+    expect(
+      await handle.requestFocus({
+        kind: "cell",
+        anchor: {
+          ...anchor("record-1", "task.title"),
+          surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
+        },
+      }),
+    ).toBe("unavailable");
   });
 
-  it("resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors", () => {
+  it("resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors", async () => {
     const handle = renderConsumerGrid({
       rows: [
         savedRow("record-1", "open"),
@@ -151,10 +171,15 @@ describe("adapter-owned semantic handle evidence", () => {
     ).toEqual(anchor("record-1", "task.status"));
   });
 
-  it("exposes no vendor-selection resolver on the semantic handle", () => {
+  it("exposes no vendor-selection resolver on the semantic handle", async () => {
     const handle = renderConsumerGrid();
 
     expect(Object.keys(handle)).not.toContain("resolveVendorSelection");
-    expect(handle.focusAnchor(anchor("record-2", "task.status"))).toBe(true);
+    expect(
+      await handle.requestFocus({
+        kind: "cell",
+        anchor: anchor("record-2", "task.status"),
+      }),
+    ).toBe("focused");
   });
 });

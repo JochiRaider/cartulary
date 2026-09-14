@@ -1559,11 +1559,12 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/editing/useTimelineEditorDraftRegistry.test.tsx",
         "titles": [
-          "Timeline editor draft registry invalidates drafts when the schema identity changes",
+          "Timeline editor draft registry invalidates drafts when the runtime lifetime changes",
           "Timeline editor draft registry keeps grid and inspector drafts distinct and clears only submitted values",
           "Timeline editor draft registry materializes invalid scalar text across authoritative row replacement",
           "Timeline editor draft registry owns semantic editor registration, unregistration, and row removal",
-          "Timeline editor draft registry retains collection text across refresh and clears only the submitted version"
+          "Timeline editor draft registry retains collection text across refresh and clears only the submitted version",
+          "Timeline editor draft registry retains refused local values across surface detachment without retaining input references"
         ]
       },
       "evidence_class": "unit",

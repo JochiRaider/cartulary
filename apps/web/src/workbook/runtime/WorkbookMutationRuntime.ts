@@ -32,6 +32,7 @@ import { WorkbookPartyLinkOperationOwner } from "../features/parties/WorkbookPar
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import { WorkbookInspectorDraftStore } from "../inspector/WorkbookInspectorDraftStore";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
+import { WorkbookLocalDraftStore } from "../models/WorkbookLocalDraftStore";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
@@ -148,6 +149,19 @@ export class WorkbookMutationRuntime {
   readonly partyLinks: WorkbookPartyLinkOperationOwner;
   readonly explicitPatches: WorkbookExplicitPatchOwner;
   readonly inspectorDrafts = new WorkbookInspectorDraftStore();
+  private readonly localEditorDrafts = new Map<
+    string,
+    WorkbookLocalDraftStore
+  >();
+
+  localDraftsForSurface(viewSchemaId: string): WorkbookLocalDraftStore {
+    let drafts = this.localEditorDrafts.get(viewSchemaId);
+    if (drafts === undefined) {
+      drafts = new WorkbookLocalDraftStore();
+      this.localEditorDrafts.set(viewSchemaId, drafts);
+    }
+    return drafts;
+  }
   readonly taskDrafts = new TaskLifecycleDraftStore();
   readonly scope: PendingReplayScope;
   readonly history: WorkbookRecordHistoryOwner;
@@ -1637,6 +1651,8 @@ export class WorkbookMutationRuntime {
       this.entityWrites.clear();
       this.explicitPatches.retire();
       this.inspectorDrafts.retire();
+      for (const drafts of this.localEditorDrafts.values()) drafts.clear();
+      this.localEditorDrafts.clear();
       this.taskDrafts.clear();
       this.partyLinks.retire();
       this.history.retire();
@@ -1694,6 +1710,8 @@ export class WorkbookMutationRuntime {
       this.entityWrites.clear();
       this.explicitPatches.retire();
       this.inspectorDrafts.retire();
+      for (const drafts of this.localEditorDrafts.values()) drafts.clear();
+      this.localEditorDrafts.clear();
       this.taskDrafts.clear();
       this.partyLinks.retire();
       this.history.retire();

@@ -12,10 +12,10 @@ invalid text.
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineEditorDraftRegistry.ts](useTimelineEditorDraftRegistry.ts) | Owns scalar editor drafts and input references by semantic row/field/surface identity for one Timeline schema generation. |
+| [useTimelineEditorDraftRegistry.ts](useTimelineEditorDraftRegistry.ts) | Binds retained local values to currently mounted input references and row subscriptions; clears only submitted values on acknowledgement. |
 
 ## Tests
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineEditorDraftRegistry.test.tsx](useTimelineEditorDraftRegistry.test.tsx) | Characterizes invalid-text preservation, grid/inspector separation, submitted-value cleanup, semantic input registration, row removal, and schema invalidation. |
+| [useTimelineEditorDraftRegistry.test.tsx](useTimelineEditorDraftRegistry.test.tsx) | Characterizes invalid-text preservation, grid/inspector separation, submitted-value cleanup, semantic input registration, row removal, surface detachment, and runtime retirement. |

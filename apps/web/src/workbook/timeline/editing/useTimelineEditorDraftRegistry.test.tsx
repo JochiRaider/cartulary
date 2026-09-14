@@ -2,6 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { WorkbookLocalDraftStore } from "../../models/WorkbookLocalDraftStore";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   normalizeTimelineFullRow,
@@ -233,10 +234,10 @@ describe("Timeline editor draft registry", () => {
     expect(registry.draftValue(identity)).toBeUndefined();
   });
 
-  it("invalidates drafts when the schema identity changes", () => {
+  it("invalidates drafts when the runtime lifetime changes", () => {
     const { result, rerender } = renderHook(
-      ({ schemaKey }) => useTimelineEditorDraftRegistry(schemaKey),
-      { initialProps: { schemaKey: "timeline@1" } },
+      ({ store }) => useTimelineEditorDraftRegistry(store),
+      { initialProps: { store: new WorkbookLocalDraftStore() } },
     );
     act(() => {
       result.current.setDraft(
@@ -250,7 +251,7 @@ describe("Timeline editor draft registry", () => {
     });
     const originalRegistry = result.current;
 
-    rerender({ schemaKey: "timeline@2" });
+    rerender({ store: new WorkbookLocalDraftStore() });
 
     expect(result.current).not.toBe(originalRegistry);
     expect(
@@ -260,5 +261,32 @@ describe("Timeline editor draft registry", () => {
         surface: "grid",
       }),
     ).toBeUndefined();
+  });
+  it("retains refused local values across surface detachment without retaining input references", () => {
+    const store = new WorkbookLocalDraftStore();
+    const identity = {
+      field: "activitySynopsisText",
+      rowKey: recordId,
+      surface: "grid",
+    } as const;
+    const first = createTimelineEditorDraftRegistry(store);
+    first.setDraft(identity, "Refused local draft");
+    const input = document.createElement("textarea");
+    document.body.append(input);
+    first.registerInput(identity, input);
+    first.registerInput(identity, null);
+    input.remove();
+    const remounted = createTimelineEditorDraftRegistry(store);
+    expect(remounted.draftValue(identity)).toBe("Refused local draft");
+    expect(
+      remounted.inputElementForFocusKey(
+        `${recordId}:activitySynopsisText:grid`,
+      ),
+    ).toBeNull();
+    remounted.deleteDraft(identity);
+    expect(first.draftValue(identity)).toBeUndefined();
+    first.setDraft(identity, "Another draft");
+    store.clear();
+    expect(remounted.draftValue(identity)).toBeUndefined();
   });
 });

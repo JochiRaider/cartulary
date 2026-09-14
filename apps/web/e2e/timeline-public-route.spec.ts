@@ -8,13 +8,14 @@ import {
 import {
   conflictMarkerTestId,
   draftCellTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridShellTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   timelineMutationSubstrateReadyTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
@@ -543,8 +544,11 @@ test(
           ),
         ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
         await expect(
-          page.getByTestId(timelineRowVersionTestId(beta.record_id)),
-        ).toHaveText(String(patchEnvelope.data.row.row_version));
+          page.getByTestId(gridRowTestId(timelineViewSchemaId, beta.record_id)),
+        ).toHaveAttribute(
+          gridRowVersionAttribute,
+          String(patchEnvelope.data.row.row_version),
+        );
 
         const replayResponse = await patchTimelinePublic(
           page,
@@ -692,8 +696,11 @@ test(
           ),
         ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
         await expect(
-          page.getByTestId(timelineRowVersionTestId(beta.record_id)),
-        ).toHaveText(String(patchEnvelope.data.row.row_version));
+          page.getByTestId(gridRowTestId(timelineViewSchemaId, beta.record_id)),
+        ).toHaveAttribute(
+          gridRowVersionAttribute,
+          String(patchEnvelope.data.row.row_version),
+        );
       } finally {
         await patchController.dispose();
       }
@@ -1348,8 +1355,13 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         data: { row: ViewRow };
       };
       await expect(
-        page.getByTestId(timelineRowVersionTestId(retryRow.record_id)),
-      ).toHaveText(String(serverAdvance.data.row.row_version));
+        page.getByTestId(
+          gridRowTestId(timelineViewSchemaId, retryRow.record_id),
+        ),
+      ).toHaveAttribute(
+        gridRowVersionAttribute,
+        String(serverAdvance.data.row.row_version),
+      );
 
       await page.getByTestId(saveStateActionButtonTestId()).click();
       await expect(recoveryPanel).toBeFocused();

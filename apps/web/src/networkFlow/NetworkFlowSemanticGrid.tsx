@@ -454,14 +454,17 @@ function NetworkFlowGridFrame<Row extends object>({
   const restoreGridAnchor = useCallback(
     (anchor: GridCellAnchor) => {
       focusRestorationRef.current = true;
-      queueMicrotask(() => {
-        if (gridRef.current?.focusAnchor(anchor) !== true) {
-          gridRef.current?.focusRoot();
-        }
-        window.setTimeout(() => {
+      const handle = gridRef.current;
+      void (async () => {
+        try {
+          const result = await handle?.requestFocus({ kind: "cell", anchor });
+          if (result === "unavailable" && gridRef.current === handle) {
+            await handle?.requestFocus({ kind: "root" });
+          }
+        } finally {
           focusRestorationRef.current = false;
-        }, 0);
-      });
+        }
+      })();
     },
     [gridRef],
   );
@@ -844,7 +847,7 @@ function NetworkFlowInspector<Row extends object>({
 }
 
 function focusGridRoot(gridRef: RefObject<GridHandle | null>) {
-  queueMicrotask(() => gridRef.current?.focusRoot());
+  queueMicrotask(() => gridRef.current?.requestFocus({ kind: "root" }));
 }
 
 function useStableGridProjection<Owner, Row>(

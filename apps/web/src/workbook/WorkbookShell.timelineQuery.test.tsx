@@ -1,8 +1,9 @@
 import {
   draftCellTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   rowCellTestId,
   saveStateTestId,
-  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import * as viewContracts from "@cartulary/view-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -229,9 +230,14 @@ describe("Timeline query row identity integration", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000702"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000702",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
     });
 

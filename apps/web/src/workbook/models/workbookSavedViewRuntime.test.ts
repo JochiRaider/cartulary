@@ -1,7 +1,12 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
+  buildSavedViewLayoutJson,
+  buildSavedViewQueryJson,
+} from "./workbookQuery";
+import {
   fallbackIdentityAfterSavedViewDelete,
+  savedViewChanges,
   savedViewIdentityForSelection,
   savedViewQueryStateForRuntime,
   upsertSavedViewList,
@@ -31,6 +36,42 @@ function savedView(
 }
 
 describe("workbookSavedViewRuntime", () => {
+  it("omits structurally equal layout and includes a genuine portable layout change", () => {
+    const contract = requireViewContract(timelineViewSchemaId);
+    const layout = buildSavedViewLayoutJson(contract, {
+      hiddenFieldKeys: ["timeline.analyst_text"],
+    });
+    const query = buildSavedViewQueryJson(contract, {
+      filters: [],
+      sort: [],
+      groupBy: null,
+    });
+    const base = savedView({
+      saved_view_id: "saved-1",
+      view_schema_id: timelineViewSchemaId,
+      layout_json: layout,
+      query_json: query,
+    });
+    const definition = {
+      displayName: base.display_name,
+      scope: "private" as const,
+      queryJson: query,
+      layoutJson: {
+        column_widths: layout.column_widths,
+        hidden_field_keys: layout.hidden_field_keys,
+        column_order: layout.column_order,
+        layout_schema_id: layout.layout_schema_id,
+      },
+    };
+    expect(savedViewChanges(base, definition)).toEqual({});
+    expect(
+      savedViewChanges(base, {
+        ...definition,
+        layoutJson: { ...layout, hidden_field_keys: [] },
+      }),
+    ).toEqual({ layoutJson: { ...layout, hidden_field_keys: [] } });
+    expect(base.layout_json).toEqual(layout);
+  });
   it("upserts saved views by identity and keeps display-name ordering", () => {
     const alpha = savedView({
       display_name: "Alpha",

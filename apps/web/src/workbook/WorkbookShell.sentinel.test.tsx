@@ -272,6 +272,7 @@ describe("keyboard and grid anchor coverage", () => {
         ),
       )
       .closest('[role="gridcell"]');
+    await waitFor(() => expect(document.activeElement).toBe(firstSummaryCell));
     fireEvent.keyDown(firstSummaryCell as HTMLElement, { key: "ArrowDown" });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(

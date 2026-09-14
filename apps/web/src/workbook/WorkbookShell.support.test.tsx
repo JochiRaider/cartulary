@@ -3,6 +3,8 @@ import {
   autoResolutionNoticeTestId,
   autoResolutionUndoButtonTestId,
   gridActionsHeaderTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridScrollportSelector,
   gridShellTestId,
   mentionItemTestId,
@@ -17,7 +19,6 @@ import {
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineRowSupersedeButtonTestId,
-  timelineRowVersionTestId,
   workbookInlineDraftRowTestId,
   workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
@@ -1015,9 +1016,14 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000601"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000601",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
     });
 
@@ -1034,9 +1040,14 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000601"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000601",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("3");
     });
 

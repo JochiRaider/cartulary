@@ -10,6 +10,7 @@ import type {
 import { useLayoutEffect, useRef, useState } from "react";
 import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
 import { statusStripStyle } from "../utils/workbookStyles";
+import { WorkbookWorkAreaOverlayHost } from "./WorkbookWorkAreaOverlay";
 import type { WorkbookChromeMode } from "./workbookResponsiveLayout";
 
 const inspectorKeyboardStepCssPx = 16;
@@ -35,7 +36,9 @@ export function WorkbookSurfaceLayout({
   readonly inspector?: ReactNode | undefined;
   readonly onRequestPreviewClose?: (() => void) | undefined;
   readonly onRequestInspectorClose?: (() => void) | undefined;
-  readonly restoreInspectorFocus?: (() => boolean) | undefined;
+  readonly restoreInspectorFocus?:
+    | (() => boolean | Promise<boolean>)
+    | undefined;
   readonly primaryGrid: ReactNode;
   readonly statusStrip: ReactNode;
   readonly testId?: string | undefined;
@@ -66,6 +69,7 @@ export function WorkbookSurfaceLayout({
   restoreInspectorFocusRef.current = restoreInspectorFocus;
 
   useLayoutEffect(() => {
+    let cancelled = false;
     if (inspectorOpen && !inspectorWasOpenRef.current) {
       returnFocusRef.current =
         document.activeElement instanceof HTMLElement
@@ -74,12 +78,19 @@ export function WorkbookSurfaceLayout({
     }
     if (!inspectorOpen && inspectorWasOpenRef.current) {
       const returnFocus = returnFocusRef.current;
-      if (!restoreInspectorFocusRef.current?.() && returnFocus?.isConnected) {
-        returnFocus.focus({ preventScroll: true });
-      }
+      void Promise.resolve(restoreInspectorFocusRef.current?.()).then(
+        (restored) => {
+          if (!cancelled && !restored && returnFocus?.isConnected) {
+            returnFocus.focus({ preventScroll: true });
+          }
+        },
+      );
       returnFocusRef.current = null;
     }
     inspectorWasOpenRef.current = inspectorOpen;
+    return () => {
+      cancelled = true;
+    };
   }, [inspectorOpen]);
 
   const clampInspectorWidth = (width: number) =>
@@ -229,6 +240,7 @@ export function WorkbookSurfaceLayout({
         >
           {workAreaOverlays}
         </div>
+        <WorkbookWorkAreaOverlayHost />
         {inspector === undefined ? null : (
           <WorkbookShellSlotRegion
             slot="inspector"

@@ -1,10 +1,11 @@
 import type { CollectionActionsV1, ViewRow } from "@cartulary/protocol-ts/http";
 import {
+  gridRowTestId,
+  gridRowVersionAttribute,
   pendingQueueNoticeTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   timelineCollectionInputTestId,
-  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import {
   hostsViewSchemaId,
@@ -73,8 +74,8 @@ export async function addRelationshipTokenViaUI(
           .getByTestId(pendingQueueNoticeTestId())
           .count(),
         renderedRowVersion: await page
-          .getByTestId(timelineRowVersionTestId(recordId))
-          .textContent()
+          .getByTestId(gridRowTestId(timelineViewSchemaId, recordId))
+          .getAttribute(gridRowVersionAttribute)
           .catch((error: unknown) => {
             return `<<failed to read row version: ${String(error)}>>`;
           }),

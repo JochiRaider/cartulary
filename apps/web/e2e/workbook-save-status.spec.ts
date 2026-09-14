@@ -1,10 +1,13 @@
+import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   gridShellTestId,
+  rowCellTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   surfaceTabTestId,
+  timelineScalarEditorTestId,
   workbookConflictControlTestId,
   workbookConflictResolverTestId,
   workbookEditRecoveryDiscardButtonTestId,
@@ -23,8 +26,12 @@ import { expect, test } from "./fixtures";
 import { openSystemSurfaceBySwitcher } from "./pages/workbookInspector";
 import {
   editTimelineSummary,
+  expectServerSummaries,
   installPatchController,
   installPatchTransportFailureController,
+  pendingReplayCount,
+  successfulPatchCalls,
+  summaryPatchValue,
 } from "./support/collaboration/replay";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -85,7 +92,7 @@ test("Preserve save transitions and exact saved-view conflict scope across workb
   const held = patches.holdNextPatch({ recordId: row.record_id });
   try {
     await editTimelineSummary(page, row.record_id, "Pending across surfaces", {
-      expectValueAfterCommit: false,
+      outcome: "queued",
     });
     await held.waitForHit;
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
@@ -115,7 +122,7 @@ test("Preserve save transitions and exact saved-view conflict scope across workb
     const conflicted = patches.holdNextPatch({ recordId: row.record_id });
     try {
       await editTimelineSummary(page, row.record_id, "Unsaved conflict", {
-        expectValueAfterCommit: false,
+        outcome: "queued",
       });
       await conflicted.waitForHit;
       await patchRecord(page, row.record_id, {
@@ -217,7 +224,7 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
       recordId: row.record_id,
     });
     await editTimelineSummary(page, row.record_id, "Blocked queued write", {
-      expectValueAfterCommit: false,
+      outcome: "rejected",
     });
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
     await selectSurface(page, hostsViewSchemaId);
@@ -306,7 +313,7 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
       recordId: row.record_id,
     });
     await editTimelineSummary(page, row.record_id, "Terminal blocked edit", {
-      expectValueAfterCommit: false,
+      outcome: "rejected",
     });
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
     await selectSurface(page, assessmentsViewSchemaId);
@@ -328,6 +335,7 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
 test("Keep queue overflow globally accessible after real editor admission reaches capacity.", async ({
   page,
 }) => {
+  test.setTimeout(180_000);
   const { incidentId, row } = await seed(page);
   // The fixture fills the current 64-unit FIFO and attempts one additional edit.
   const rows = [row];
@@ -350,8 +358,17 @@ test("Keep queue overflow globally accessible after real editor admission reache
         page,
         target.record_id,
         `Queued edit ${index}`,
-        { expectValueAfterCommit: false },
+        {
+          outcome: index < 64 ? "queued" : "rejected",
+          expectedQueueCount: Math.min(index + 1, 64),
+          iteration: index + 1,
+        },
       );
+      if (index < 64) {
+        await selectSurface(page, notesViewSchemaId);
+        await expect.poll(() => pendingReplayCount(page)).toBe(index + 1);
+        await selectSurface(page, timelineViewSchemaId);
+      }
     }
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
     await selectSurface(page, notesViewSchemaId);
@@ -373,6 +390,74 @@ test("Keep queue overflow globally accessible after real editor admission reache
         { priority: "polite", message: "Syncing changes" },
         { priority: "assertive", message: "Conflict" },
       ]);
+    // Reattach the source surface before replay; old editor presentation stays detached.
+    await selectSurface(page, timelineViewSchemaId);
+    await page.getByTestId(saveStateActionButtonTestId()).click();
+    await expect(overflow).toBeFocused();
+    patches.connect();
+    await expect
+      .poll(() => successfulPatchCalls(patches.calls).length, {
+        timeout: 60_000,
+      })
+      .toBe(64);
+    expect(
+      successfulPatchCalls(patches.calls).map((call) => call.recordId),
+    ).toEqual(rows.slice(0, 64).map((target) => target.record_id));
+    expect(
+      successfulPatchCalls(patches.calls).map((call) =>
+        summaryPatchValue(call.body),
+      ),
+    ).toEqual(rows.slice(0, 64).map((_, index) => `Queued edit ${index}`));
+    await expect.poll(() => pendingReplayCount(page)).toBe(0);
+    await expect(overflow).toBeFocused();
+    await expectServerSummaries(
+      page,
+      incidentId,
+      Object.fromEntries(
+        rows
+          .slice(0, 64)
+          .map((target, index) => [target.record_id, `Queued edit ${index}`]),
+      ),
+    );
+    await selectSurface(page, timelineViewSchemaId);
+    const refused = rows[64];
+    if (refused === undefined) throw new Error("Missing refused row fixture");
+    await scrollGridCellIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      recordId: refused.record_id,
+      cellKey: "timeline.activity_synopsis_text",
+    });
+    await overflow.press("Escape");
+    await expect(overflow).not.toBeVisible();
+    await expect(page.getByTestId(saveStateActionButtonTestId())).toBeFocused();
+    await page.getByTestId(saveStateActionButtonTestId()).press("Enter");
+    await expect(overflow).toBeFocused();
+    await overflow
+      .getByRole("button", { name: "Close queued edit notice" })
+      .click();
+    await page
+      .getByTestId(
+        rowCellTestId(refused.record_id, "timeline.activity_synopsis_text"),
+      )
+      .click();
+    const refusedEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        recordId: refused.record_id,
+        fieldKey: "timeline.activity_synopsis_text",
+        surface: "grid",
+      }),
+    );
+    await expect(refusedEditor).toHaveValue("Queued edit 64");
+    // An explicit retry admits the previously refused local draft after capacity is available.
+    await refusedEditor.press("Enter");
+    await expect
+      .poll(() => successfulPatchCalls(patches.calls).length)
+      .toBe(65);
+    await expectServerSummaries(page, incidentId, {
+      [refused.record_id]: "Queued edit 64",
+    });
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   } finally {
     patches.connect();
     await patches.dispose();

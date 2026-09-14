@@ -53,7 +53,11 @@ export function WorkbookStatusStrip({
   const action = status.action;
   const canActivate = action !== null && onActivateConflict !== undefined;
   const label = (
-    <strong data-density-role="narrow-metadata" data-testid={saveStateTestId()}>
+    <strong
+      data-density-role="narrow-metadata"
+      data-testid={saveStateTestId()}
+      data-pending-replay-count={status.queuedCount + status.inFlightCount}
+    >
       {status.primaryLabel}
     </strong>
   );

@@ -12,10 +12,11 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   gridGroupRowTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   rowCellTestId,
   saveStateTestId,
   timelineRowMarkReviewedButtonTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
@@ -549,8 +550,8 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
 
     const betaVersion = Number.parseInt(
       (await page
-        .getByTestId(timelineRowVersionTestId(betaRow.record_id))
-        .textContent()) ?? "0",
+        .getByTestId(gridRowTestId(timelineViewSchemaId, betaRow.record_id))
+        .getAttribute(gridRowVersionAttribute)) ?? "0",
       10,
     );
     const invalidationResponse = await page.request.patch(
@@ -579,8 +580,8 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
     await heldPatch.dispose();
   }
   await expect(
-    page.getByTestId(timelineRowVersionTestId(alphaRow.record_id)),
-  ).toHaveText("2");
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, alphaRow.record_id)),
+  ).toHaveAttribute(gridRowVersionAttribute, "2");
   await expect(
     page.getByTestId(
       rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),

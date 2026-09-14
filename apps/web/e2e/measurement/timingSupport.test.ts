@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 
 import {
+  gridRowVersionAttribute,
   gridShellTestId,
   rowCellTestId,
-  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  committedRowObservationSelectors,
   observeBlankRowPaintInBrowser,
   observeCellPaintInBrowser,
 } from "./timingSupport";
@@ -156,12 +158,10 @@ function blankRowFixture() {
     "record-a",
     "timeline.activity_synopsis_text",
   );
-  const versionTestId = timelineRowVersionTestId("record-a");
   document.body.innerHTML = `
-    <div role="grid" data-testid="${gridShellTestId("cartulary.view.timeline.v2")}">
-      <div data-grid-record-id="record-a">
-        <span data-testid="${summaryTestId}">created</span>
-        <span data-testid="${versionTestId}">1</span>
+    <div role="grid" data-testid="${gridShellTestId(timelineViewSchemaId)}">
+      <div role="row" data-grid-record-id="record-a" data-grid-row-version="1">
+        <span data-grid-field-key="timeline.activity_synopsis_text" data-testid="${summaryTestId}">created</span>
       </div>
     </div>
   `;
@@ -177,12 +177,9 @@ function blankRowFixture() {
   const summary = testIdElements.find(
     (element) => element.dataset.testid === summaryTestId,
   ) as HTMLElement;
-  const version = testIdElements.find(
-    (element) => element.dataset.testid === versionTestId,
-  ) as HTMLElement;
   grid.getBoundingClientRect = () => viewport;
   summary.getBoundingClientRect = () => inViewport;
-  return { row, summary, version };
+  return { row, summary };
 }
 
 describe("AC-043 paint qualification", () => {
@@ -245,16 +242,17 @@ describe("AC-043 paint qualification", () => {
     invalidBlankRow.summary.textContent = "wrong";
     invalidBlankRow.summary.style.visibility = "hidden";
     invalidBlankRow.summary.getBoundingClientRect = () => offscreen;
-    invalidBlankRow.version.textContent = "0";
+    invalidBlankRow.row.setAttribute(gridRowVersionAttribute, "0");
     const invalidBlankRowFrameCount = installFrameClock((frame) => {
       if (frame !== 2) return;
       invalidBlankRow.summary.textContent = "created";
       invalidBlankRow.summary.style.visibility = "visible";
       invalidBlankRow.summary.getBoundingClientRect = () => inViewport;
-      invalidBlankRow.version.textContent = "1";
+      invalidBlankRow.row.setAttribute(gridRowVersionAttribute, "1");
     });
 
     await observeBlankRowPaintInBrowser({
+      selectors: committedRowObservationSelectors(timelineViewSchemaId),
       expectedSummary: "created",
       startMark: "accepted",
       stopMark: "visible",
@@ -269,11 +267,11 @@ describe("AC-043 paint qualification", () => {
       unstableBlankRow.row.dataset.gridRecordId = "record-b";
       unstableBlankRow.summary.dataset.testid =
         "row-record-b-timeline.activity_synopsis_text";
-      unstableBlankRow.version.dataset.testid = "row-record-b-row_version";
-      unstableBlankRow.version.textContent = "2";
+      unstableBlankRow.row.setAttribute(gridRowVersionAttribute, "2");
     });
 
     await observeBlankRowPaintInBrowser({
+      selectors: committedRowObservationSelectors(timelineViewSchemaId),
       expectedSummary: "created",
       startMark: "accepted",
       stopMark: "visible",
@@ -288,9 +286,10 @@ describe("AC-043 paint qualification", () => {
       "row-record-a-timeline.activity_synopsis_text-grid-editor";
     createdEditor.value = "created";
     createdEditor.getBoundingClientRect = () => inViewport;
-    editing.summary.replaceWith(createdEditor);
+    editing.summary.replaceChildren(createdEditor);
     const frames = installFrameClock(() => {});
     await observeBlankRowPaintInBrowser({
+      selectors: committedRowObservationSelectors(timelineViewSchemaId),
       expectedSummary: "created",
       startMark: "accepted",
       stopMark: "visible",

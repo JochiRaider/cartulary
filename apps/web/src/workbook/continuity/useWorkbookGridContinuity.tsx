@@ -74,7 +74,7 @@ export function useWorkbookGridContinuity<Row>({
             scrollTop: scrollElement?.scrollTop ?? 0,
           } satisfies GridViewportSnapshot;
         },
-        focus: (target) => {
+        focus: async (target, signal) => {
           if (
             target.viewSchemaId !== viewSchemaIdRef.current ||
             !columnsRef.current.some(
@@ -84,16 +84,14 @@ export function useWorkbookGridContinuity<Row>({
             return false;
           }
           const gridAnchor = continuityGridAnchor(target);
-          const focused =
-            gridHandleRef?.current?.focusAnchor(gridAnchor) ?? false;
-          if (!focused) {
-            window.setTimeout(() => {
-              gridHandleRef?.current?.focusAnchor(gridAnchor);
-            }, 0);
-          }
-          return focused;
+          return (
+            (await gridHandleRef?.current?.requestFocus(
+              { kind: "cell", anchor: gridAnchor },
+              { signal },
+            )) === "focused"
+          );
         },
-        restore: (target, privateSnapshot) => {
+        restore: async (target, privateSnapshot, signal) => {
           if (target === null) {
             return false;
           }
@@ -123,7 +121,12 @@ export function useWorkbookGridContinuity<Row>({
           }
           const gridAnchor = continuityGridAnchor(target);
           gridHandleRef?.current?.scrollToAnchor(gridAnchor);
-          return gridHandleRef?.current?.focusAnchor(gridAnchor) ?? false;
+          return (
+            (await gridHandleRef?.current?.requestFocus(
+              { kind: "cell", anchor: gridAnchor },
+              { signal },
+            )) === "focused"
+          );
         },
         select: (target) => {
           if (selectionRef !== undefined) {

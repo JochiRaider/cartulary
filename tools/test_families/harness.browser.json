@@ -496,6 +496,7 @@
         "file": "apps/web/e2e/support/runtime/timingSupport.dom.test.ts",
         "titles": [
           "committed row measurement predicates matches only visible committed rows with stable record and row version",
+          "committed row measurement predicates qualifies identity, committed version and visible field on one mounted row",
           "committed row measurement predicates rejects draft rows, missing versions, and mismatched summaries"
         ]
       },

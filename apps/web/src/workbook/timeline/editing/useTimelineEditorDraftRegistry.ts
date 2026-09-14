@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { WorkbookLocalDraftStore } from "../../models/WorkbookLocalDraftStore";
 import {
   type FocusFieldKey,
   inputFocusKey,
@@ -44,13 +45,14 @@ export type TimelineEditorDraftRegistry = ReturnType<
   typeof createTimelineEditorDraftRegistry
 >;
 
-export function createTimelineEditorDraftRegistry() {
-  const draftValues = new Map<string, string>();
-  const inputElements = new Map<string, TimelineEditorElement>();
-  const focusKeysByRow = new Map<string, Set<string>>();
-  const rowListeners = new Map<string, Set<() => void>>();
+export function createTimelineEditorDraftRegistry(
+  store = new WorkbookLocalDraftStore(),
+) {
+  const { draftValues, focusKeysByRow } = store;
   const acceptedDraftRows = new Map<string, string>();
   const captureRows = new Set<string>();
+  const inputElements = new Map<string, TimelineEditorElement>();
+  const rowListeners = new Map<string, Set<() => void>>();
   const publishRow = (rowKey: string) => {
     for (const listener of rowListeners.get(rowKey) ?? []) listener();
   };
@@ -151,11 +153,10 @@ export function createTimelineEditorDraftRegistry() {
       );
     },
     clearAll() {
+      store.clear();
       acceptedDraftRows.clear();
       captureRows.clear();
-      draftValues.clear();
       inputElements.clear();
-      focusKeysByRow.clear();
       for (const rowKey of rowListeners.keys()) publishRow(rowKey);
     },
     clearRow,
@@ -324,12 +325,9 @@ export function createTimelineEditorDraftRegistry() {
   };
 }
 
-/** Owns scalar invalid-draft and semantic input-ref lifetime for one schema. */
+/** Rebinds mounted input refs without replacing the runtime-owned local draft values. */
 export function useTimelineEditorDraftRegistry(
-  schemaKey: string,
+  store: WorkbookLocalDraftStore,
 ): TimelineEditorDraftRegistry {
-  return useMemo(() => {
-    void schemaKey;
-    return createTimelineEditorDraftRegistry();
-  }, [schemaKey]);
+  return useMemo(() => createTimelineEditorDraftRegistry(store), [store]);
 }

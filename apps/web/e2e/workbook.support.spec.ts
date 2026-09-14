@@ -13,6 +13,8 @@ import {
   gridGroupRowTestId,
   rowCellTestId,
   timelineRowMarkReviewedButtonTestId,
+  workbookColumnsMenuTestId,
+  workbookColumnsMenuTriggerTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
@@ -28,6 +30,7 @@ import { createViewRow } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 import {
   createSavedView,
+  readSavedView,
   readSavedViewSelectionState,
   selectSavedView,
   selectSavedViewScope,
@@ -201,6 +204,11 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
           `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
         ),
   );
+  const patchResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/saved-views/${savedView.saved_view_id}`),
+  );
   await updateSavedViewFromCurrentSurface(
     page,
     timelineViewSchemaId,
@@ -209,9 +217,6 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   expect(readPostBody(await patchRequest)).toMatchObject({
     base_saved_view_version: savedView.saved_view_version,
     display_name: "browser.saved-view support persisted",
-    layout_json: {
-      layout_schema_id: "cartulary.layout.v1",
-    },
     query_json: {
       filters: [
         {
@@ -227,6 +232,13 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     },
     scope: "shared",
   });
+  expect(readPostBody(await patchRequest)).not.toHaveProperty("layout_json");
+  const persisted = await (await patchResponse).json();
+  expect(persisted.data.layout_json).toEqual(savedView.layout_json);
+  expect(
+    (await readSavedView(page, incidentId, savedView.saved_view_id))
+      .layout_json,
+  ).toEqual(savedView.layout_json);
 
   const savedViewRef = {
     kind: "saved_view",
@@ -267,6 +279,47 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   expect(readPostBody(await removeFilterRequest)).toMatchObject({
     group_by: "timeline.capture_state",
   });
+
+  // Change portable layout through the same controls an analyst uses.
+  const columnsTrigger = page.getByTestId(
+    workbookColumnsMenuTriggerTestId(timelineViewSchemaId),
+  );
+  await columnsTrigger.click();
+  const analystColumn = page
+    .getByTestId(workbookColumnsMenuTestId(timelineViewSchemaId))
+    .getByRole("menuitemcheckbox", { name: "Analyst", exact: true });
+  await expect(analystColumn).toHaveAttribute("aria-checked", "true");
+  await analystColumn.click();
+  await columnsTrigger.click();
+  const layoutResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/saved-views/${savedView.saved_view_id}`),
+  );
+  await updateSavedViewFromCurrentSurface(
+    page,
+    timelineViewSchemaId,
+    savedView.saved_view_id,
+  );
+  const response = await layoutResponse;
+  expect(readPostBody(response.request())).toMatchObject({
+    layout_json: {
+      hidden_field_keys: expect.arrayContaining(["timeline.analyst_text"]),
+    },
+  });
+  const changed = (await response.json()).data;
+  expect(changed.saved_view_version).toBe(
+    persisted.data.saved_view_version + 1,
+  );
+  expect(
+    (await readSavedView(page, incidentId, savedView.saved_view_id))
+      .layout_json,
+  ).toEqual(changed.layout_json);
+  await page.reload();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await selectSavedView(page, timelineViewSchemaId, savedView.saved_view_id);
+  await columnsTrigger.click();
+  await expect(analystColumn).toHaveAttribute("aria-checked", "false");
 });
 
 function waitForTimelineQuery(page: Page, incidentId: string) {

@@ -100,7 +100,7 @@ describe("grid-adapter", () => {
     vi.unstubAllGlobals();
   });
 
-  it("rejects missing and duplicate saved record identities", () => {
+  it("rejects missing and duplicate saved record identities", async () => {
     expect(() =>
       assertGridRows([
         {
@@ -216,7 +216,7 @@ describe("grid-adapter", () => {
     }
   });
 
-  it("runs fail-closed capability admission through both semantic bindings", () => {
+  it("runs fail-closed capability admission through both semantic bindings", async () => {
     for (const { Grid, name } of semanticContractBindings) {
       const onFillCells = vi.fn();
       const onPaste = vi.fn();
@@ -347,15 +347,21 @@ describe("grid-adapter", () => {
       const alphaState = gridAnchor("contract-1", "state");
       const beta = gridAnchor("contract-2", "label");
 
-      expect(handle.current?.focusAnchor(alpha)).toBe(true);
+      expect(
+        await handle.current?.requestFocus({ kind: "cell", anchor: alpha }),
+      ).toBe("focused");
       expect(onActiveCellChange).toHaveBeenCalledTimes(1);
-      expect(handle.current?.focusAnchor(alpha)).toBe(true);
+      expect(
+        await handle.current?.requestFocus({ kind: "cell", anchor: alpha }),
+      ).toBe("focused");
       expect(onActiveCellChange).toHaveBeenCalledTimes(1);
       expect(handle.current?.moveFocus(alpha, { key: "ArrowRight" })).toEqual(
         alphaState,
       );
-      expect(onActiveCellChange).toHaveBeenCalledTimes(2);
-      expect(handle.current?.focusAnchor(alpha)).toBe(true);
+      await waitFor(() => expect(onActiveCellChange).toHaveBeenCalledTimes(2));
+      expect(
+        await handle.current?.requestFocus({ kind: "cell", anchor: alpha }),
+      ).toBe("focused");
 
       const alphaCell = screen
         .getByText("Alpha")
@@ -410,11 +416,112 @@ describe("grid-adapter", () => {
           rowTargets: expect.any(Array),
         }),
       );
-      expect(handle.current?.focusRoot()).toBe(true);
+      expect(await handle.current?.requestFocus({ kind: "root" })).toBe(
+        "focused",
+      );
       expect(document.activeElement).toBe(handle.current?.getScrollElement());
 
       view.unmount();
       cleanup();
+    }
+  });
+
+  it("keeps creation focus independent from patch eligibility through registration and authority changes", async () => {
+    for (const { Grid } of semanticContractBindings) {
+      const handle = createRef<GridHandle>();
+      const row: GridDataRow<HarnessRow> = {
+        data: { label: "Alpha", state: "open" },
+        kind: "data",
+        rowIdentity: { kind: "core_record", recordId: "create-only" },
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 7 },
+      };
+      const view = (
+        registered: boolean,
+        mode: "authoring" | "read_only" = "authoring",
+        disabled = false,
+        hidden = false,
+      ) => (
+        <Grid
+          ref={handle}
+          surface={testSurface}
+          interactionMode={
+            mode === "authoring"
+              ? { kind: "editable" }
+              : { kind: "read_only", label: "Read only" }
+          }
+          columns={[
+            {
+              fieldKey: "label",
+              label: "Label",
+              contractWritable: false,
+              draftWritable: true,
+              renderCell: ({ row }) => row.label,
+              renderDraftCell: ({ focusTargetRef }) =>
+                registered ? (
+                  <input
+                    aria-label="Creation only"
+                    ref={focusTargetRef}
+                    disabled={disabled}
+                    hidden={hidden}
+                  />
+                ) : null,
+            },
+          ]}
+          dataRows={[row]}
+          draftRow={{ kind: "draft", data: { label: "", state: "open" } }}
+        />
+      );
+      const rendered = render(view(false));
+      const finished = vi.fn();
+      const request = handle.current?.requestFocus({
+        kind: "draft",
+        fieldKey: "label",
+      });
+      void request?.then(finished);
+      await act(async () => {});
+      expect(finished).not.toHaveBeenCalled();
+      rendered.rerender(view(true));
+      expect(await request).toBe("focused");
+      expect(document.activeElement).toBe(
+        screen.getByRole("textbox", { name: "Creation only" }),
+      );
+      expect(
+        handle.current?.activateEdit(gridAnchor("create-only", "label")),
+      ).toBe(false);
+      rendered.rerender(view(true, "authoring", true));
+      expect(
+        await handle.current?.requestFocus({
+          kind: "draft",
+          fieldKey: "label",
+        }),
+      ).toBe("unavailable");
+      rendered.rerender(view(true, "authoring", false, true));
+      expect(
+        await handle.current?.requestFocus({
+          kind: "draft",
+          fieldKey: "label",
+        }),
+      ).toBe("unavailable");
+      rendered.rerender(view(false));
+      const revoked = handle.current?.requestFocus({
+        kind: "draft",
+        fieldKey: "label",
+      });
+      rendered.rerender(view(true, "read_only"));
+      expect(await revoked).toBe("cancelled");
+      expect(
+        await handle.current?.requestFocus({
+          kind: "cell",
+          anchor: gridAnchor("create-only", "label"),
+        }),
+      ).toBe("focused");
+      rendered.rerender(view(false));
+      const unmounted = handle.current?.requestFocus({
+        kind: "draft",
+        fieldKey: "label",
+      });
+      rendered.unmount();
+      expect(await unmounted).toBe("cancelled");
     }
   });
 
@@ -459,6 +566,7 @@ describe("grid-adapter", () => {
               fieldKey: "label",
               label: "Label",
               renderCell: ({ row }) => row.label,
+              draftWritable: true,
               renderDraftCell: ({ focusTargetRef }) => (
                 <input
                   aria-label={`Contract draft ${name}`}
@@ -487,7 +595,12 @@ describe("grid-adapter", () => {
       );
       const anchor = gridAnchor("contract-1", "label");
 
-      expect(handle.current?.focusDraftCell("label")).toBe(true);
+      expect(
+        await handle.current?.requestFocus({
+          kind: "draft",
+          fieldKey: "label",
+        }),
+      ).toBe("focused");
       expect(document.activeElement).toBe(
         screen.getByRole("textbox", { name: `Contract draft ${name}` }),
       );
@@ -584,7 +697,9 @@ describe("grid-adapter", () => {
       rowIdentity,
       surface: extensionSurface,
     };
-    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    expect(
+      await handle.current?.requestFocus({ kind: "cell", anchor: anchor }),
+    ).toBe("focused");
   });
 
   it("groups extension resources in the live grid without changing their identities", async () => {
@@ -627,7 +742,7 @@ describe("grid-adapter", () => {
     expect(row.getAttribute("data-grid-record-id")).toBeNull();
   });
 
-  it("fails closed when untyped callers attach Core mutation capabilities to extension grids", () => {
+  it("fails closed when untyped callers attach Core mutation capabilities to extension grids", async () => {
     const unsafe = {
       columns,
       dataRows: [],
@@ -715,7 +830,7 @@ describe("grid-adapter", () => {
     ).toBeTruthy();
   });
 
-  it("applies the same closed operational-state retention and composition policy in production and test support", () => {
+  it("applies the same closed operational-state retention and composition policy in production and test support", async () => {
     for (const { Grid, name } of semanticContractBindings) {
       const labelColumn = columns[0];
       const stateColumn = columns[1];
@@ -735,6 +850,7 @@ describe("grid-adapter", () => {
       const operationalColumns: readonly GridColumn<HarnessRow>[] = [
         {
           ...labelColumn,
+          draftWritable: true,
           renderDraftCell: ({ focusTargetRef }) => (
             <input aria-label={`Draft label ${name}`} ref={focusTargetRef} />
           ),
@@ -869,7 +985,7 @@ describe("grid-adapter", () => {
     }
   });
 
-  it("shows the delayed loading message once per active generation and cancels it on terminal state", () => {
+  it("shows the delayed loading message once per active generation and cancels it on terminal state", async () => {
     vi.useFakeTimers();
     const { rerender, unmount } = render(
       <SemanticDataGrid
@@ -1088,15 +1204,27 @@ describe("grid-adapter", () => {
     expect(supportStateCell?.dataset.gridPrimaryState).toBe("invalid");
     const labelAnchor = gridAnchor("record-stateful", "label");
     const stateAnchor = gridAnchor("record-stateful", "state");
-    expect(supportHandle.current?.focusAnchor(labelAnchor)).toBe(true);
+    expect(
+      await supportHandle.current?.requestFocus({
+        kind: "cell",
+        anchor: labelAnchor,
+      }),
+    ).toBe("focused");
     expect(onSupportActiveCellChange).toHaveBeenCalledTimes(1);
     expect(onSupportActiveCellChange).toHaveBeenLastCalledWith(labelAnchor);
-    expect(supportHandle.current?.focusAnchor(labelAnchor)).toBe(true);
+    expect(
+      await supportHandle.current?.requestFocus({
+        kind: "cell",
+        anchor: labelAnchor,
+      }),
+    ).toBe("focused");
     expect(onSupportActiveCellChange).toHaveBeenCalledTimes(1);
     expect(
       supportHandle.current?.moveFocus(labelAnchor, { key: "ArrowRight" }),
     ).toEqual(stateAnchor);
-    expect(onSupportActiveCellChange).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(onSupportActiveCellChange).toHaveBeenCalledTimes(2),
+    );
     expect(onSupportActiveCellChange).toHaveBeenLastCalledWith(stateAnchor);
     expect(
       supportHandle.current?.planPasteTargets(labelAnchor, {
@@ -1108,7 +1236,12 @@ describe("grid-adapter", () => {
       ...labelAnchor,
       surface: { kind: "view_schema", viewSchemaId: "wrong.view" } as const,
     };
-    expect(supportHandle.current?.focusAnchor(wrongSurfaceAnchor)).toBe(false);
+    expect(
+      await supportHandle.current?.requestFocus({
+        kind: "cell",
+        anchor: wrongSurfaceAnchor,
+      }),
+    ).toBe("unavailable");
     expect(
       supportHandle.current?.planPasteTargets(wrongSurfaceAnchor, {
         columnCount: 1,
@@ -1193,6 +1326,7 @@ describe("grid-adapter", () => {
             fieldKey: "label",
             label: "Label",
             renderCell: ({ row }) => row.label,
+            draftWritable: true,
             renderDraftCell: ({ focusTargetRef }) => (
               <input
                 aria-label="Zero-row create draft"
@@ -1205,6 +1339,7 @@ describe("grid-adapter", () => {
             fieldKey: "state",
             label: "State",
             renderCell: ({ row }) => row.state,
+            draftWritable: true,
             renderDraftCell: ({ focusTargetRef }) => (
               <input
                 aria-label="Disabled create draft"
@@ -1241,9 +1376,18 @@ describe("grid-adapter", () => {
       0,
     );
     expect(document.querySelectorAll("[data-grid-record-id]")).toHaveLength(0);
-    expect(handle.current?.focusDraftCell("missing")).toBe(false);
-    expect(handle.current?.focusDraftCell("state")).toBe(false);
-    expect(handle.current?.focusDraftCell("label")).toBe(true);
+    expect(
+      await handle.current?.requestFocus({
+        kind: "draft",
+        fieldKey: "missing",
+      }),
+    ).toBe("unavailable");
+    expect(
+      await handle.current?.requestFocus({ kind: "draft", fieldKey: "state" }),
+    ).toBe("unavailable");
+    expect(
+      await handle.current?.requestFocus({ kind: "draft", fieldKey: "label" }),
+    ).toBe("focused");
     expect(document.activeElement).toBe(draftInput);
     fireEvent.change(draftInput, { target: { value: "Draft remains usable" } });
     expect((draftInput as HTMLInputElement).value).toBe("Draft remains usable");
@@ -1253,7 +1397,7 @@ describe("grid-adapter", () => {
     expect(onPasteCell).not.toHaveBeenCalled();
   });
 
-  it("keeps test-support draft focus and committed measurement semantic", () => {
+  it("keeps test-support draft focus and committed measurement semantic", async () => {
     const handle = createRef<GridHandle>();
     render(
       <SemanticDataGridTestSupport
@@ -1263,6 +1407,7 @@ describe("grid-adapter", () => {
             fieldKey: "label",
             label: "Label",
             renderCell: ({ row }) => row.label,
+            draftWritable: true,
             renderDraftCell: ({ focusTargetRef }) => (
               <input aria-label="Support draft" ref={focusTargetRef} />
             ),
@@ -1284,7 +1429,9 @@ describe("grid-adapter", () => {
     );
 
     const input = screen.getByRole("textbox", { name: "Support draft" });
-    expect(handle.current?.focusDraftCell("label")).toBe(true);
+    expect(
+      await handle.current?.requestFocus({ kind: "draft", fieldKey: "label" }),
+    ).toBe("focused");
     expect(document.activeElement).toBe(input);
     expect(
       handle.current?.getAnchorRect(gridAnchor("record-1", "label")),
@@ -1417,14 +1564,18 @@ describe("grid-adapter", () => {
         },
       ],
     });
-    expect(handle.current?.focusRoot()).toBe(true);
+    expect(await handle.current?.requestFocus({ kind: "root" })).toBe(
+      "focused",
+    );
     expect(document.activeElement).toBe(handle.current?.getScrollElement());
     expect(handle.current?.scrollToAnchor(anchor)).toBe(true);
     const externalButton = document.createElement("button");
     document.body.append(externalButton);
     externalButton.focus();
     expect(document.activeElement).toBe(externalButton);
-    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    expect(
+      await handle.current?.requestFocus({ kind: "cell", anchor: anchor }),
+    ).toBe("focused");
     await waitFor(() => {
       const currentContent = document.querySelector(
         '[role="row"][data-grid-record-id="record-1"] [data-grid-field-key="label"]',
@@ -1433,7 +1584,9 @@ describe("grid-adapter", () => {
         currentContent?.closest('[role="gridcell"]'),
       );
     });
-    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    expect(
+      await handle.current?.requestFocus({ kind: "cell", anchor: anchor }),
+    ).toBe("focused");
     await new Promise<void>((resolve) => {
       window.setTimeout(() => {
         externalButton.focus();
@@ -1444,7 +1597,9 @@ describe("grid-adapter", () => {
     expect(document.activeElement).toBe(externalButton);
     const interruptingButton = document.createElement("button");
     document.body.append(interruptingButton);
-    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    expect(
+      await handle.current?.requestFocus({ kind: "cell", anchor: anchor }),
+    ).toBe("focused");
     interruptingButton.focus();
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
@@ -1452,11 +1607,14 @@ describe("grid-adapter", () => {
     interruptingButton.remove();
     externalButton.remove();
     expect(
-      handle.current?.focusAnchor({
-        ...anchor,
-        surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
+      await handle.current?.requestFocus({
+        kind: "cell",
+        anchor: {
+          ...anchor,
+          surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
+        },
       }),
-    ).toBe(false);
+    ).toBe("unavailable");
   });
 
   it("owns semantic navigation, range extension, keyboard entry, cancellation, and grid exit", async () => {
@@ -2108,8 +2266,11 @@ describe("grid-adapter", () => {
     expect(openGroupRow.matches(gridGroupRowSelector(false))).toBe(true);
     expect(screen.queryByTestId("row-record-1")).toBeNull();
     expect(
-      groupedHandle.current?.focusAnchor(gridAnchor("record-1", "label")),
-    ).toBe(false);
+      await groupedHandle.current?.requestFocus({
+        kind: "cell",
+        anchor: gridAnchor("record-1", "label"),
+      }),
+    ).toBe("unavailable");
     expect(
       groupedHandle.current?.moveFocus(gridAnchor("record-2", "label"), {
         key: "ArrowUp",
@@ -2119,8 +2280,11 @@ describe("grid-adapter", () => {
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("row-record-1")).toBeTruthy();
     expect(
-      groupedHandle.current?.focusAnchor(gridAnchor("record-2", "label")),
-    ).toBe(true);
+      await groupedHandle.current?.requestFocus({
+        kind: "cell",
+        anchor: gridAnchor("record-2", "label"),
+      }),
+    ).toBe("focused");
 
     const labelHeader = screen.getByTestId("label-header");
     expect(labelHeader.getAttribute("data-grid-field-key")).toBe("label");

@@ -181,15 +181,6 @@ export const TimelineWorkbookGrid = forwardRef<
             >
               {row.captureState}
             </span>
-            <span
-              data-testid={
-                row.recordId === null
-                  ? draftCellTestId("row_version")
-                  : rowCellTestId(row.recordId, "row_version")
-              }
-            >
-              {row.rowVersion ?? "new"}
-            </span>
           </Fragment>
         ))}
       </div>

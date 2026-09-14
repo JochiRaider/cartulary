@@ -357,6 +357,15 @@ implementation-support artifacts, not a repository-wide accessibility claim.
 
 ### Broad-failure isolation
 
+**Remediation follow-up (2026-09-14):** The table below is historical provenance
+for three policy units and four browser failures. Baseline reproduction does not
+classify all seven as stale tests. The [seven-gap remediation handoff](frontend-policy-remediation-handoff.md)
+records corrected downstream assertions, the confirmed Indicator creation versus
+patch eligibility defect, completed/cancellable focus, shared Coordination/Note
+recovery layout, and refused Timeline draft loss exposed by the real overflow
+scenario. Read its current dispositions and run evidence alongside this retained
+comparison; none of the historical failures below is retroactively a pass.
+
 A detached comparison checkout at `/tmp/cartulary-ier-baseline-d4cdca1` remains
 clean at the exact baseline HEAD. It was bootstrapped through
 `make frontend-install`; initial missing-AJV preflight failures and a transient

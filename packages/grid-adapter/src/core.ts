@@ -16,6 +16,8 @@ export type GridSortEntry = {
 
 export type GridColumn<Row> = {
   readonly contractWritable?: boolean | undefined;
+  /** Creation eligibility is independent of existing-record patch eligibility. */
+  readonly draftWritable?: boolean | undefined;
   readonly fieldKey: string;
   readonly headerTestId?: string | undefined;
   readonly label: string;
@@ -371,6 +373,13 @@ export type GridGroupingDescriptor<Row> = {
     | undefined;
 };
 
+export type GridFocusTarget =
+  | { readonly kind: "draft"; readonly fieldKey: string }
+  | { readonly kind: "cell"; readonly anchor: GridCellAnchor }
+  | { readonly kind: "root" };
+
+export type GridFocusResult = "focused" | "unavailable" | "cancelled";
+
 export type GridHandle = {
   readonly activateEdit: (
     anchor: GridCellAnchor,
@@ -382,10 +391,11 @@ export type GridHandle = {
       | undefined,
   ) => boolean;
   readonly cancelEdit: (anchor: GridCellAnchor) => boolean;
-  readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
-  readonly focusDraftCell: (fieldKey: string) => boolean;
+  readonly requestFocus: (
+    target: GridFocusTarget,
+    options?: { readonly signal?: AbortSignal },
+  ) => Promise<GridFocusResult>;
   readonly focusAdjacentRegion?: (backwards: boolean) => boolean;
-  readonly focusRoot: () => boolean;
   readonly getAnchorRect: (anchor: GridCellAnchor) => DOMRectReadOnly | null;
   readonly getScrollElement: () => HTMLDivElement | null;
   readonly isAnchorRendered: (anchor: GridCellAnchor) => boolean;

@@ -103,7 +103,7 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
   const held = patchController.holdNextPatch({ recordId: row.record_id });
   try {
     await editTimelineSummary(page, row.record_id, "Retained Base work", {
-      expectValueAfterCommit: false,
+      outcome: "queued",
     });
     await held.waitForHit;
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");

@@ -22,6 +22,8 @@ type WorkbookActiveSurfaceFrameProps = {
     readonly focusSameFieldSummary: () => void;
     readonly onFocusWithinChange: (focused: boolean) => void;
     readonly overflowNoticeRef: RefObject<HTMLElement | null>;
+    readonly overflowOpen: boolean;
+    readonly closeOverflow: () => void;
     readonly sameFieldSummaryRef: RefObject<HTMLDivElement | null>;
   };
   readonly mutationRuntime: WorkbookMutationRuntime;
@@ -42,7 +44,8 @@ export function WorkbookActiveSurfaceFrame({
   const showBlocked =
     mutationSnapshot.action?.kind === "transaction_recovery" ||
     mutationSnapshot.action?.kind === "terminal_failure";
-  const showOverflow = mutationSnapshot.action?.kind === "overflow";
+  const showOverflow =
+    mutationSnapshot.action?.kind === "overflow" && focus.overflowOpen;
   return (
     <section
       aria-label="Active workbook surface focus target"
@@ -66,6 +69,7 @@ export function WorkbookActiveSurfaceFrame({
           message={mutationSnapshot.overflowMessage}
           onFocusWithinChange={focus.onFocusWithinChange}
           ref={focus.overflowNoticeRef}
+          onClose={focus.closeOverflow}
         />
       ) : (
         <WorkbookSameFieldConflictResolver

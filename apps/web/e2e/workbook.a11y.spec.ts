@@ -289,7 +289,6 @@ import {
 import {
   fillOrdinaryField,
   openOrdinaryFixture,
-  ordinaryEvidenceView,
   ordinaryField,
   retainOrdinaryUncertainty,
   switchOrdinarySheet,
@@ -8222,7 +8221,7 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
   page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const handoff = "cartulary.view.handoff.v1";
+  const handoff = handoffViewSchemaId;
   const { incident } = await openOrdinaryFixture(page, handoff);
   const reference = await ordinaryField(
     page,
@@ -8259,10 +8258,10 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
   await picker.press("Escape");
   await expect(choose).toBeFocused();
   await expect(picker).toHaveCount(0);
-  await switchOrdinarySheet(page, ordinaryEvidenceView);
+  await switchOrdinarySheet(page, evidenceViewSchemaId);
   await fillOrdinaryField(
     page,
-    ordinaryEvidenceView,
+    evidenceViewSchemaId,
     "evidence.title",
     "Accessible retained draft",
   );
@@ -8370,8 +8369,45 @@ test("a11y.coordination all target fields source review and uncertain recovery s
         name: "Recover submission",
         exact: true,
       });
-      await expectDecisionControlReachable(page, recover);
-      await expectVisibleFocus(recover);
+      for (const profile of [
+        { width: 1280, height: 720, zoom: "" },
+        { width: 390, height: 320, zoom: "" },
+        { width: 1280, height: 720, zoom: "200%" },
+      ]) {
+        await page.setViewportSize({
+          width: profile.width,
+          height: profile.height,
+        });
+        await page.evaluate((zoom) => {
+          document.documentElement.style.zoom = zoom;
+        }, profile.zoom);
+        await expectDecisionControlReachable(page, recover);
+        await expectVisibleFocus(recover);
+        await expect(recover).toBeInViewport();
+        await expect(page.getByTestId(saveStateTestId())).toBeInViewport();
+        const bounds = await recovery.evaluate((panel) => {
+          const parent = panel.parentElement?.parentElement;
+          const box = panel.getBoundingClientRect();
+          const available = parent?.getBoundingClientRect();
+          return {
+            contained:
+              available !== undefined &&
+              box.top >= available.top &&
+              box.bottom <= available.bottom + 1,
+            internalScroll: getComputedStyle(panel).overflowY,
+            documentFits:
+              document.documentElement.scrollHeight <=
+              document.documentElement.clientHeight + 1,
+          };
+        });
+        expect(bounds.contained).toBe(true);
+        expect(bounds.internalScroll).toBe("auto");
+        expect(bounds.documentFits).toBe(true);
+      }
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "";
+      });
+      await page.setViewportSize({ width: 390, height: 480 });
       await testInfo.attach("coordination-recovery-tree", {
         body: await recovery.ariaSnapshot(),
         contentType: "text/plain",
@@ -8399,6 +8435,86 @@ test("a11y.coordination all target fields source review and uncertain recovery s
       await expect(account).toBeFocused();
     }
   }
+
+  // Retained editable content and acknowledged read-recovery share the same bounds.
+  const f = await openCoordinationFixture(page, "lesson");
+  await fillCoordinationMinimum(f);
+  await page.getByTestId(workbookInspectorCloseButtonTestId(f.view)).click();
+  await page
+    .locator("summary")
+    .filter({ hasText: /^Coordination draft$/ })
+    .click();
+  const retained = page.getByRole("region", {
+    name: "Retained Coordination authoring",
+    exact: true,
+  });
+  await retained
+    .getByRole("button", { name: "Resume Coordination draft", exact: true })
+    .click();
+  const checkRecoveryControls = async () => {
+    for (const profile of [
+      { width: 1280, height: 720, zoom: "" },
+      { width: 390, height: 320, zoom: "" },
+      { width: 1280, height: 720, zoom: "200%" },
+    ]) {
+      await page.setViewportSize({
+        width: profile.width,
+        height: profile.height,
+      });
+      await page.evaluate((zoom) => {
+        document.documentElement.style.zoom = zoom;
+      }, profile.zoom);
+      for (const role of ["textbox", "combobox", "button"] as const) {
+        for (const control of await retained.getByRole(role).all()) {
+          if (!(await control.isVisible()) || !(await control.isEnabled()))
+            continue;
+          await expectDecisionControlReachable(page, control);
+          await expectVisibleFocus(control);
+          await expect(control).toBeInViewport();
+        }
+      }
+      await expect(page.getByTestId(saveStateTestId())).toBeInViewport();
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollHeight <=
+            document.documentElement.clientHeight + 1,
+        ),
+      ).toBe(true);
+    }
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+  };
+  await checkRecoveryControls();
+  const refreshPath = `**/incidents/${f.incident}/views/${f.target.viewSchemaId}/query`;
+  await page.route(refreshPath, (route) => route.abort("failed"));
+  let creations = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname.endsWith(
+        `/views/${f.target.viewSchemaId}/rows`,
+      )
+    )
+      creations += 1;
+  });
+  await retained
+    .getByTestId(genericCreateSubmitTestId(f.target.viewSchemaId))
+    .click();
+  await expect(retained).toContainText(
+    "Coordination created, but views need refresh.",
+  );
+  const retryRefresh = retained.getByRole("button", {
+    name: "Retry refresh",
+    exact: true,
+  });
+  await expect(retryRefresh).toBeEnabled();
+  await checkRecoveryControls();
+  await page.unroute(refreshPath);
+  await retryRefresh.click();
+  await expect(retained).not.toBeVisible();
+  expect(creations).toBe(1);
 });
 
 test("a11y.workbook-batch retained paste retry remains reachable across narrow layouts", async ({

@@ -31,6 +31,8 @@ export function useWorkbookRecoveryFocus({
   } | null>(null);
   const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
   const overflowNoticeRef = useRef<HTMLElement | null>(null);
+  const [overflowOpen, setOverflowOpen] = useState(true);
+  const pendingOverflowFocusRef = useRef(false);
   const sameFieldSummaryRef = useRef<HTMLDivElement | null>(null);
   const conflictInvokerRef = useRef<HTMLButtonElement | null>(null);
   const pendingConflictFocusRef = useRef(false);
@@ -53,6 +55,15 @@ export function useWorkbookRecoveryFocus({
   const focusSameFieldSummary = useCallback(() => {
     sameFieldSummaryRef.current?.focus({ preventScroll: true });
   }, []);
+  const closeOverflow = useCallback(() => {
+    pendingOverflowFocusRef.current = false;
+    recoveryFocusOwnedRef.current = false;
+    setOverflowOpen(false);
+    const invoker = conflictInvokerRef.current;
+    if (invoker?.isConnected && !invoker.disabled)
+      invoker.focus({ preventScroll: true });
+    else activeSurfaceRef.current?.focus({ preventScroll: true });
+  }, [activeSurfaceRef]);
   const activateConflictStatus = useCallback(
     (invoker: HTMLButtonElement, action: WorkbookStatusAction) => {
       conflictInvokerRef.current = invoker;
@@ -70,7 +81,12 @@ export function useWorkbookRecoveryFocus({
       }
       if (action.kind === "overflow") {
         recoveryFocusOwnedRef.current = true;
-        overflowNoticeRef.current?.focus({ preventScroll: true });
+        pendingOverflowFocusRef.current = true;
+        setOverflowOpen(true);
+        if (overflowNoticeRef.current !== null) {
+          pendingOverflowFocusRef.current = false;
+          overflowNoticeRef.current.focus({ preventScroll: true });
+        }
         return;
       }
       if (
@@ -94,6 +110,16 @@ export function useWorkbookRecoveryFocus({
   );
   const activate =
     snapshot.action === null ? undefined : activateConflictStatus;
+
+  useLayoutEffect(() => {
+    if (snapshot.action?.kind !== "overflow") {
+      setOverflowOpen(true);
+      pendingOverflowFocusRef.current = false;
+    } else if (overflowOpen && pendingOverflowFocusRef.current) {
+      pendingOverflowFocusRef.current = false;
+      overflowNoticeRef.current?.focus({ preventScroll: true });
+    }
+  }, [overflowOpen, snapshot.action?.kind]);
 
   useLayoutEffect(() => {
     if (!pendingConflictFocusRef.current || !snapshot.conflictPanelOpen) {
@@ -149,6 +175,8 @@ export function useWorkbookRecoveryFocus({
     focusSameFieldSummary,
     onFocusWithinChange,
     overflowNoticeRef,
+    overflowOpen,
+    closeOverflow,
     sameFieldSummaryRef,
   };
 }

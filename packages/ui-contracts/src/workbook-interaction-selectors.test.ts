@@ -108,7 +108,6 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
-  timelineRowVersionTestId,
   workbookActiveSurfaceFocusTargetTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
@@ -403,9 +402,6 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     ).toBe("row-record-1-timeline.raw_activity_text-inspector");
     expect(draftCellTestId("timeline.activity_synopsis_text")).toBe(
       "draft-row-timeline.activity_synopsis_text",
-    );
-    expect(timelineRowVersionTestId("record-1")).toBe(
-      "row-record-1-row_version",
     );
     expect(timelineRowMarkReviewedButtonTestId("record-1")).toBe(
       "row-record-1-mark-reviewed",

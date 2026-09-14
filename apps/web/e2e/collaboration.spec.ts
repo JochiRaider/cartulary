@@ -14,13 +14,14 @@ import {
   cellPresenceMarkerTestId,
   currentIncidentRoleTestId,
   gridRowGutterTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
@@ -55,6 +56,7 @@ import {
   patchTimelineField,
   presenceDeltaMatches,
   requireRecordId,
+  returnToTimelineWithRetainedWork,
   successfulPatchCalls,
   summaryPatchValue,
 } from "./support/collaboration/replay";
@@ -104,9 +106,10 @@ const gridAnchorCommandScenarios: readonly GridAnchorCommandScenario[] = [
 ];
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
-  const accountMenuTrigger = page.getByLabel(
-    "Account and application navigation",
-  );
+  const accountMenuTrigger = page.getByRole("button", {
+    name: "Account and application navigation",
+    exact: true,
+  });
   await accountMenuTrigger.click();
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     roleText,
@@ -287,14 +290,14 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
         page,
         queuedAId,
         "integration.collaboration queued A local",
+        { outcome: "queued" },
       );
-      // Pending Enter retains the original editor until acknowledgement.
-      // Escape detaches that presentation without discarding the queued write.
-      await page.keyboard.press("Escape");
+      await returnToTimelineWithRetainedWork(page);
       await editTimelineSummary(
         page,
         queuedBId,
         "integration.collaboration queued B local",
+        { outcome: "queued" },
       );
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
         "2",
@@ -1261,8 +1264,8 @@ test("keeps live updates conflict markers and presence markers anchored to recor
         `e604-${scenario.name}-live-patch`,
       );
       await expect(
-        page.getByTestId(timelineRowVersionTestId(recordId)),
-      ).toHaveText("2");
+        page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+      ).toHaveAttribute(gridRowVersionAttribute, "2");
 
       const expectedValue = `collaboration-conflict ${sortLabel} ${scenario.name} anchored local`;
       const heldPatch = patchController.holdNextPatch();
@@ -1441,17 +1444,22 @@ test("replays queued unsent writes after re-authentication without silent reload
         page,
         firstId,
         "collaboration-conflict FIFO A local",
+        { outcome: "queued" },
       );
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+      await returnToTimelineWithRetainedWork(page);
       await editTimelineSummary(
         page,
         secondId,
         "collaboration-conflict FIFO B local",
+        { outcome: "queued" },
       );
+      await returnToTimelineWithRetainedWork(page);
       await editTimelineSummary(
         page,
         thirdId,
         "collaboration-conflict FIFO C local",
+        { outcome: "queued" },
       );
 
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
@@ -1554,7 +1562,7 @@ test("replays queued unsent writes after re-authentication without silent reload
         page,
         firstId,
         "collaboration-conflict auth A local",
-        { expectValueAfterCommit: false },
+        { outcome: "queued" },
       );
       await expect
         .poll(() => patchController.calls.at(-1)?.status ?? 0)
@@ -1641,16 +1649,21 @@ test("replays queued unsent writes after re-authentication without silent reload
         page,
         firstId,
         "collaboration-conflict halt A local",
+        { outcome: "queued" },
       );
+      await returnToTimelineWithRetainedWork(page);
       await editTimelineSummary(
         page,
         secondId,
         "collaboration-conflict halt B local",
+        { outcome: "queued" },
       );
+      await returnToTimelineWithRetainedWork(page);
       await editTimelineSummary(
         page,
         thirdId,
         "collaboration-conflict halt C local",
+        { outcome: "queued" },
       );
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
         "3",
@@ -1737,12 +1750,17 @@ test("replays queued unsent writes after re-authentication without silent reload
         page,
         recordId,
         "collaboration-conflict reload local",
+        { outcome: "queued" },
       );
       await expect(
         page.getByTestId(
-          rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+          timelineScalarEditorTestId({
+            recordId,
+            fieldKey: "timeline.activity_synopsis_text",
+            surface: "grid",
+          }),
         ),
-      ).toHaveText("collaboration-conflict reload local");
+      ).toHaveValue("collaboration-conflict reload local");
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
         "1",
       );

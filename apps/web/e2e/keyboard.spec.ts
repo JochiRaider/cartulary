@@ -693,10 +693,19 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
 
   await page.keyboard.press("Tab");
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
+  );
+  await expect(
+    page
+      .getByTestId(
+        rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
+      )
+      .locator('xpath=ancestor::*[@role="gridcell"][1]'),
+  ).toBeFocused();
+  await activateSemanticGridCell(alphaSummary);
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
-  await expect(alphaSummaryCell).not.toBeFocused();
-  await page.keyboard.press("Escape");
 
   await openTimelineInspector(page, alpha.record_id as string);
   await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
@@ -748,15 +757,18 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
     Reflect.set(window, "__cartularyShortcutDefaultPrevented", null);
     const recordAltH = (event: KeyboardEvent) => {
       if (event.altKey && event.key.toLowerCase() === "h") {
-        Reflect.set(
-          window,
-          "__cartularyShortcutDefaultPrevented",
-          event.defaultPrevented,
+        // Observe after local handlers even when the editor contains propagation.
+        queueMicrotask(() =>
+          Reflect.set(
+            window,
+            "__cartularyShortcutDefaultPrevented",
+            event.defaultPrevented,
+          ),
         );
-        window.removeEventListener("keydown", recordAltH);
+        window.removeEventListener("keydown", recordAltH, true);
       }
     };
-    window.addEventListener("keydown", recordAltH);
+    window.addEventListener("keydown", recordAltH, true);
   });
   await alphaAnalystEditor.press("Alt+H");
   expect(

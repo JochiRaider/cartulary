@@ -2,9 +2,10 @@ import type {
   GridColumn,
   GridDataRow,
   GridDataState,
+  GridFocusResult,
   GridHandle,
 } from "@cartulary/grid-adapter";
-import { render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
@@ -31,14 +32,15 @@ const dataRows: readonly GridDataRow<Row>[] = [
 ];
 
 function createGridHandle(): GridHandle {
+  const root = document.createElement("div");
   return {
     activateEdit: vi.fn(() => false),
     cancelEdit: vi.fn(() => false),
-    focusAnchor: vi.fn(() => false),
-    focusDraftCell: vi.fn(() => false),
-    focusRoot: vi.fn(() => true),
+    requestFocus: vi.fn(async (target) =>
+      target.kind === "root" ? ("focused" as const) : ("unavailable" as const),
+    ),
     getAnchorRect: vi.fn(() => null),
-    getScrollElement: vi.fn(() => null),
+    getScrollElement: vi.fn(() => root),
     isAnchorRendered: vi.fn(() => false),
     moveFocus: vi.fn(() => null),
     planPasteTargets: vi.fn(() => null),
@@ -52,6 +54,7 @@ function pendingFocus(
 ): WorkbookGridEntryFocusOwner {
   return {
     acknowledge: vi.fn(),
+    cancel: vi.fn(),
     request: { generation, kind: "pending", viewSchemaId },
   };
 }
@@ -99,201 +102,245 @@ function SemanticFocusHarness({
 describe("useWorkbookSemanticGridFocus", () => {
   it("focuses the first registered writable draft field and acknowledges once", async () => {
     const handle = createGridHandle();
-    vi.mocked(handle.focusDraftCell).mockImplementation(
-      (fieldKey) => fieldKey === "second",
+    vi.mocked(handle.requestFocus).mockImplementation(async (target) =>
+      target.kind === "draft" && target.fieldKey === "second"
+        ? "focused"
+        : "unavailable",
     );
     const focusOwner = pendingFocus();
-
     render(
       <SemanticFocusHarness
-        draftFieldKeys={["first", "second"]}
-        focusOwner={focusOwner}
         handle={handle}
+        focusOwner={focusOwner}
+        draftFieldKeys={["first", "second"]}
       />,
     );
-
-    await waitFor(() =>
-      expect(focusOwner.acknowledge).toHaveBeenCalledWith({
-        generation: 1,
-        viewSchemaId: "cartulary.view.hosts.v1",
-      }),
-    );
-    expect(handle.focusDraftCell).toHaveBeenNthCalledWith(1, "first");
-    expect(handle.focusDraftCell).toHaveBeenNthCalledWith(2, "second");
-    expect(handle.focusAnchor).not.toHaveBeenCalled();
-    expect(focusOwner.acknowledge).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
+    expect(
+      vi.mocked(handle.requestFocus).mock.calls.map(([target]) => target),
+    ).toEqual([
+      { kind: "draft", fieldKey: "first" },
+      { kind: "draft", fieldKey: "second" },
+    ]);
   });
-
   it("tries committed rows and visible fields in semantic order", async () => {
     const handle = createGridHandle();
-    vi.mocked(handle.focusAnchor).mockImplementation(
-      (anchor) =>
-        anchor.rowIdentity.kind === "core_record" &&
-        anchor.rowIdentity.recordId === "row-2" &&
-        anchor.fieldKey === "first",
+    vi.mocked(handle.requestFocus).mockImplementation(async (target) =>
+      target.kind === "cell" &&
+      target.anchor.rowIdentity.kind === "core_record" &&
+      target.anchor.rowIdentity.recordId === "row-2"
+        ? "focused"
+        : "unavailable",
     );
     const focusOwner = pendingFocus();
-
-    render(<SemanticFocusHarness focusOwner={focusOwner} handle={handle} />);
-
+    render(<SemanticFocusHarness handle={handle} focusOwner={focusOwner} />);
     await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
-    expect(handle.focusAnchor).toHaveBeenCalledTimes(3);
-    expect(handle.focusAnchor).toHaveBeenNthCalledWith(1, {
-      fieldKey: "first",
-      rowIdentity: { kind: "core_record", recordId: "row-1" },
-      surface: {
-        kind: "view_schema",
-        viewSchemaId: "cartulary.view.hosts.v1",
-      },
+    expect(handle.requestFocus).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(handle.requestFocus).mock.calls[2]?.[0]).toMatchObject({
+      kind: "cell",
+      anchor: { fieldKey: "first", rowIdentity: { recordId: "row-2" } },
     });
-    expect(handle.focusAnchor).toHaveBeenNthCalledWith(3, {
-      fieldKey: "first",
-      rowIdentity: { kind: "core_record", recordId: "row-2" },
-      surface: {
-        kind: "view_schema",
-        viewSchemaId: "cartulary.view.hosts.v1",
-      },
-    });
-    expect(handle.focusRoot).not.toHaveBeenCalled();
   });
-
-  it.each([
-    ["empty rows", [], visibleColumns],
-    ["no visible fields", dataRows, []],
-    ["presentation-ineligible grouped rows", dataRows, visibleColumns],
-  ])("falls back to the root for %s", async (_case, rows, columns) => {
+  it("waits for completed draft focus without acknowledging or falling back", async () => {
     const handle = createGridHandle();
+    let complete!: (value: GridFocusResult) => void;
+    vi.mocked(handle.requestFocus).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
     const focusOwner = pendingFocus();
-
     render(
       <SemanticFocusHarness
-        columns={columns}
-        focusOwner={focusOwner}
         handle={handle}
-        rows={rows}
+        focusOwner={focusOwner}
+        draftFieldKeys={["first"]}
       />,
     );
-
-    await waitFor(() => expect(handle.focusRoot).toHaveBeenCalledOnce());
+    await waitFor(() => expect(handle.requestFocus).toHaveBeenCalledOnce());
+    expect(focusOwner.acknowledge).not.toHaveBeenCalled();
+    await act(async () => complete("focused"));
     expect(focusOwner.acknowledge).toHaveBeenCalledOnce();
   });
-
+  it("falls back to the root for empty rows", async () => {
+    const handle = createGridHandle();
+    const focusOwner = pendingFocus();
+    render(
+      <SemanticFocusHarness
+        handle={handle}
+        focusOwner={focusOwner}
+        rows={[]}
+      />,
+    );
+    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
+    expect(handle.requestFocus).toHaveBeenCalledWith(
+      { kind: "root" },
+      expect.anything(),
+    );
+  });
+  it("falls back to the root for no visible fields", async () => {
+    const handle = createGridHandle();
+    const focusOwner = pendingFocus();
+    render(
+      <SemanticFocusHarness
+        handle={handle}
+        focusOwner={focusOwner}
+        columns={[]}
+      />,
+    );
+    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
+    expect(handle.requestFocus).toHaveBeenCalledWith(
+      { kind: "root" },
+      expect.anything(),
+    );
+  });
+  it("falls back to the root for presentation-ineligible grouped rows", async () => {
+    const handle = createGridHandle();
+    const focusOwner = pendingFocus();
+    render(<SemanticFocusHarness handle={handle} focusOwner={focusOwner} />);
+    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
+    expect(vi.mocked(handle.requestFocus).mock.calls.at(-1)?.[0]).toEqual({
+      kind: "root",
+    });
+  });
   it("waits through busy data and retries from the ready state", async () => {
     const handle = createGridHandle();
-    vi.mocked(handle.focusAnchor).mockReturnValue(true);
     const focusOwner = pendingFocus();
-    const { rerender } = render(
+    const view = render(
       <SemanticFocusHarness
-        dataState={{
-          generationKey: "load-1",
-          kind: "initial_loading",
-          surfaceLabel: "Hosts",
-        }}
-        focusOwner={focusOwner}
         handle={handle}
-      />,
-    );
-    expect(handle.focusAnchor).not.toHaveBeenCalled();
-
-    rerender(
-      <SemanticFocusHarness
+        focusOwner={focusOwner}
         dataState={{ kind: "refreshing", surfaceLabel: "Hosts" }}
-        focusOwner={focusOwner}
-        handle={handle}
       />,
     );
-    expect(handle.focusAnchor).not.toHaveBeenCalled();
-
-    rerender(<SemanticFocusHarness focusOwner={focusOwner} handle={handle} />);
-    await waitFor(() => expect(handle.focusAnchor).toHaveBeenCalledOnce());
-    expect(focusOwner.acknowledge).toHaveBeenCalledOnce();
+    expect(handle.requestFocus).not.toHaveBeenCalled();
+    view.rerender(
+      <SemanticFocusHarness handle={handle} focusOwner={focusOwner} />,
+    );
+    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
   });
-
   it("ignores a wrong surface and retries when the matching surface mounts", async () => {
     const handle = createGridHandle();
-    vi.mocked(handle.focusAnchor).mockReturnValue(true);
-    const focusOwner = pendingFocus();
-    const { rerender } = render(
+    const focusOwner = pendingFocus(1, "other");
+    const view = render(
+      <SemanticFocusHarness handle={handle} focusOwner={focusOwner} />,
+    );
+    expect(handle.requestFocus).not.toHaveBeenCalled();
+    view.rerender(
       <SemanticFocusHarness
-        focusOwner={focusOwner}
         handle={handle}
-        viewSchemaId="cartulary.view.identities.v1"
+        focusOwner={focusOwner}
+        viewSchemaId="other"
       />,
     );
-    expect(handle.focusAnchor).not.toHaveBeenCalled();
-
-    rerender(<SemanticFocusHarness focusOwner={focusOwner} handle={handle} />);
-    await waitFor(() => expect(handle.focusAnchor).toHaveBeenCalledOnce());
-    expect(focusOwner.acknowledge).toHaveBeenCalledWith({
-      generation: 1,
-      viewSchemaId: "cartulary.view.hosts.v1",
-    });
+    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
   });
-
   it("uses only the newest generation when mounting follows a rapid switch", async () => {
+    const old = pendingFocus(1);
+    const next = pendingFocus(2);
     const handle = createGridHandle();
-    vi.mocked(handle.focusAnchor).mockReturnValue(true);
-    const staleOwner = pendingFocus(1);
-    const currentOwner = pendingFocus(2);
-    const { rerender } = render(
-      <SemanticFocusHarness focusOwner={staleOwner} handle={null} />,
+    const view = render(
+      <SemanticFocusHarness handle={null} focusOwner={old} />,
     );
-
-    rerender(
-      <SemanticFocusHarness focusOwner={currentOwner} handle={handle} />,
-    );
+    view.rerender(<SemanticFocusHarness handle={handle} focusOwner={next} />);
     await waitFor(() =>
-      expect(currentOwner.acknowledge).toHaveBeenCalledOnce(),
+      expect(next.acknowledge).toHaveBeenCalledWith({
+        generation: 2,
+        viewSchemaId:
+          next.request.kind === "pending" ? next.request.viewSchemaId : "",
+      }),
     );
-    expect(staleOwner.acknowledge).not.toHaveBeenCalled();
-    expect(currentOwner.acknowledge).toHaveBeenCalledWith({
-      generation: 2,
-      viewSchemaId: "cartulary.view.hosts.v1",
-    });
+    expect(old.acknowledge).not.toHaveBeenCalled();
   });
-
-  it("does nothing after unmount and has no deferred retry", () => {
+  it("does nothing after unmount and has no deferred retry", async () => {
     const handle = createGridHandle();
     const focusOwner = pendingFocus();
-    const rendered = render(
-      <SemanticFocusHarness
-        dataState={{
-          generationKey: "load-1",
-          kind: "initial_loading",
-          surfaceLabel: "Hosts",
-        }}
-        focusOwner={focusOwner}
-        handle={handle}
-      />,
+    let complete!: (value: GridFocusResult) => void;
+    vi.mocked(handle.requestFocus).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
     );
-
-    rendered.unmount();
-    expect(handle.focusAnchor).not.toHaveBeenCalled();
-    expect(handle.focusRoot).not.toHaveBeenCalled();
+    const view = render(
+      <SemanticFocusHarness handle={handle} focusOwner={focusOwner} />,
+    );
+    await waitFor(() => expect(handle.requestFocus).toHaveBeenCalledOnce());
+    const signal = vi.mocked(handle.requestFocus).mock.calls[0]?.[1]?.signal;
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+    await act(async () => complete("focused"));
     expect(focusOwner.acknowledge).not.toHaveBeenCalled();
   });
-
-  it("treats a virtualized offscreen anchor as successful through GridHandle", async () => {
+  it("cancels pending entry after deliberate keyboard navigation", async () => {
     const handle = createGridHandle();
-    vi.mocked(handle.focusAnchor).mockReturnValueOnce(true);
     const focusOwner = pendingFocus();
-
-    render(<SemanticFocusHarness focusOwner={focusOwner} handle={handle} />);
-
-    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
-    expect(handle.isAnchorRendered).not.toHaveBeenCalled();
-    expect(handle.scrollToAnchor).not.toHaveBeenCalled();
-    expect(handle.focusRoot).not.toHaveBeenCalled();
+    vi.mocked(handle.requestFocus).mockImplementation(
+      () => new Promise(() => {}),
+    );
+    render(<SemanticFocusHarness handle={handle} focusOwner={focusOwner} />);
+    await waitFor(() => expect(handle.requestFocus).toHaveBeenCalledOnce());
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(
+      vi.mocked(handle.requestFocus).mock.calls[0]?.[1]?.signal?.aborted,
+    ).toBe(true);
+    expect(focusOwner.acknowledge).not.toHaveBeenCalled();
+    expect(focusOwner.cancel).toHaveBeenCalledWith(focusOwner.request);
   });
-
   it("keeps the request pending when every focus command fails", async () => {
     const handle = createGridHandle();
-    vi.mocked(handle.focusRoot).mockReturnValue(false);
     const focusOwner = pendingFocus();
-
-    render(<SemanticFocusHarness focusOwner={focusOwner} handle={handle} />);
-
-    await waitFor(() => expect(handle.focusRoot).toHaveBeenCalledOnce());
+    vi.mocked(handle.requestFocus).mockResolvedValue("unavailable");
+    render(<SemanticFocusHarness handle={handle} focusOwner={focusOwner} />);
+    await waitFor(() => expect(handle.requestFocus).toHaveBeenCalledTimes(5));
     expect(focusOwner.acknowledge).not.toHaveBeenCalled();
+  });
+  it("cancels user navigation while loading and cancels entry after authority loss", async () => {
+    const handle = createGridHandle();
+    const focusOwner = pendingFocus();
+    const view = render(
+      <SemanticFocusHarness
+        handle={handle}
+        focusOwner={focusOwner}
+        dataState={{ kind: "refreshing", surfaceLabel: "Hosts" }}
+      />,
+    );
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(focusOwner.cancel).toHaveBeenCalledWith(focusOwner.request);
+    expect(handle.requestFocus).not.toHaveBeenCalled();
+    view.rerender(
+      <SemanticFocusHarness
+        handle={handle}
+        focusOwner={focusOwner}
+        dataState={{ kind: "permission_denied", message: "Access lost" }}
+      />,
+    );
+    expect(focusOwner.cancel).toHaveBeenCalledTimes(2);
+    expect(focusOwner.acknowledge).not.toHaveBeenCalled();
+  });
+  it("replaces a handle without acknowledging its late focus completion", async () => {
+    const first = createGridHandle();
+    const second = createGridHandle();
+    let complete!: (result: GridFocusResult) => void;
+    vi.mocked(first.requestFocus).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const focusOwner = pendingFocus();
+    const view = render(
+      <SemanticFocusHarness handle={first} focusOwner={focusOwner} />,
+    );
+    await waitFor(() => expect(first.requestFocus).toHaveBeenCalledOnce());
+    const signal = vi.mocked(first.requestFocus).mock.calls[0]?.[1]?.signal;
+    view.rerender(
+      <SemanticFocusHarness handle={second} focusOwner={focusOwner} />,
+    );
+    expect(signal?.aborted).toBe(true);
+    await waitFor(() => expect(focusOwner.acknowledge).toHaveBeenCalledOnce());
+    await act(async () => complete("focused"));
+    expect(focusOwner.acknowledge).toHaveBeenCalledOnce();
   });
 });

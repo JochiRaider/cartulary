@@ -50,17 +50,25 @@ export function useWorkbookSemanticGridFocus<Row>({
   readonly visibleColumns: readonly GridColumn<Row>[];
   readonly viewSchemaId: string;
 }) {
-  const { acknowledge, request } = focusOwner;
-  const observedHandleRef = useRef(false);
-  const [firstMountedHandle, setFirstMountedHandle] =
-    useState<GridHandle | null>(null);
+  const { acknowledge, cancel: cancelRequest, request } = focusOwner;
+  const latestRequest = useRef(request);
+  latestRequest.current = request;
+  useEffect(
+    () => () => {
+      if (latestRequest.current.kind === "pending")
+        cancelRequest(latestRequest.current);
+    },
+    [cancelRequest],
+  );
+  const [mountedRoot, setMountedRoot] = useState<HTMLElement | null>(null);
+  const [registeredFocus, setRegisteredFocus] = useState<
+    GridHandle["requestFocus"] | null
+  >(null);
   const registerGridHandle = useCallback(
     (handle: GridHandle | null) => {
       gridHandleRef.current = handle;
-      if (handle !== null && !observedHandleRef.current) {
-        observedHandleRef.current = true;
-        setFirstMountedHandle(handle);
-      }
+      setMountedRoot(handle?.getScrollElement() ?? null);
+      setRegisteredFocus(() => handle?.requestFocus ?? null);
     },
     [gridHandleRef],
   );
@@ -70,50 +78,75 @@ export function useWorkbookSemanticGridFocus<Row>({
   );
 
   useEffect(() => {
-    const mountedHandle =
-      firstMountedHandle === null ? null : gridHandleRef.current;
-    if (
-      request.kind !== "pending" ||
-      request.viewSchemaId !== viewSchemaId ||
-      mountedHandle === null ||
-      gridDataStateIsBusy(dataState.kind)
-    ) {
+    if (request.kind !== "pending" || request.viewSchemaId !== viewSchemaId)
+      return;
+    const abort = new AbortController();
+    const cancel = () => {
+      abort.abort();
+      cancelRequest(request);
+    };
+    if (dataState.kind === "permission_denied") {
+      cancel();
       return;
     }
-
+    document.addEventListener("pointerdown", cancel, true);
+    document.addEventListener("keydown", cancel, true);
     const acknowledgement: WorkbookGridEntryFocusAcknowledgement = {
       generation: request.generation,
       viewSchemaId: request.viewSchemaId,
     };
-    for (const fieldKey of stableDraftFieldKeys) {
-      if (mountedHandle.focusDraftCell(fieldKey)) {
-        acknowledge(acknowledgement);
-        return;
-      }
-    }
-    for (const row of dataRows) {
-      for (const fieldKey of visibleFieldKeys) {
-        if (
-          mountedHandle.focusAnchor({
+    const targets = [
+      ...stableDraftFieldKeys.map((fieldKey) => ({
+        kind: "draft" as const,
+        fieldKey,
+      })),
+      ...dataRows.flatMap((row) =>
+        visibleFieldKeys.map((fieldKey) => ({
+          kind: "cell" as const,
+          anchor: {
             fieldKey,
             rowIdentity: row.rowIdentity,
-            surface: { kind: "view_schema", viewSchemaId },
-          })
-        ) {
+            surface: { kind: "view_schema" as const, viewSchemaId },
+          },
+        })),
+      ),
+      { kind: "root" as const },
+    ];
+    void (async () => {
+      if (
+        registeredFocus === null ||
+        mountedRoot === null ||
+        gridDataStateIsBusy(dataState.kind)
+      )
+        return;
+      for (const target of targets) {
+        if (abort.signal.aborted) return;
+        const result = await registeredFocus(target, {
+          signal: abort.signal,
+        });
+        if (abort.signal.aborted) return;
+        if (result === "cancelled") {
+          cancelRequest(request);
+          return;
+        }
+        if (result === "focused") {
           acknowledge(acknowledgement);
           return;
         }
       }
-    }
-    if (mountedHandle.focusRoot()) {
-      acknowledge(acknowledgement);
-    }
+    })();
+    return () => {
+      abort.abort();
+      document.removeEventListener("pointerdown", cancel, true);
+      document.removeEventListener("keydown", cancel, true);
+    };
   }, [
     dataRows,
     dataState.kind,
     acknowledge,
-    firstMountedHandle,
-    gridHandleRef,
+    cancelRequest,
+    mountedRoot,
+    registeredFocus,
     request,
     stableDraftFieldKeys,
     viewSchemaId,

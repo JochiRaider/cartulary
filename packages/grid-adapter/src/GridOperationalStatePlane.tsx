@@ -10,6 +10,7 @@ import {
 import {
   type GridDataState,
   type GridDataStateAction,
+  type GridHandle,
   type GridInteractionMode,
   type GridSurfaceIdentity,
   gridSurfaceIdentityKey,
@@ -23,7 +24,7 @@ import {
 export type GridOperationalStatePlaneProps = {
   readonly accessibleLabel?: string | undefined;
   readonly dataState: GridDataState;
-  readonly focusRoot: () => boolean;
+  readonly requestFocus: GridHandle["requestFocus"];
   readonly interactionMode: GridInteractionMode;
   readonly surface: GridSurfaceIdentity;
 };
@@ -31,7 +32,7 @@ export type GridOperationalStatePlaneProps = {
 export function GridOperationalStatePlane({
   accessibleLabel,
   dataState,
-  focusRoot,
+  requestFocus,
   interactionMode,
   surface,
 }: GridOperationalStatePlaneProps) {
@@ -67,12 +68,13 @@ export function GridOperationalStatePlane({
 
   useEffect(() => {
     const previous = activatedAction.current;
-    if (previous === null || previous === action) return;
+    if (previous === null || previous === action) return undefined;
     const origin = actionOrigin.current;
     activatedAction.current = null;
     actionOrigin.current = null;
     setActionPending(false);
     const activeElement = document.activeElement;
+    const abort = new AbortController();
     if (
       origin !== null &&
       (activeElement === origin ||
@@ -80,9 +82,10 @@ export function GridOperationalStatePlane({
         activeElement === null ||
         !activeElement.isConnected)
     ) {
-      focusRoot();
+      void requestFocus({ kind: "root" }, { signal: abort.signal });
     }
-  }, [action, focusRoot]);
+    return () => abort.abort();
+  }, [action, requestFocus]);
 
   const invokeAction = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => {

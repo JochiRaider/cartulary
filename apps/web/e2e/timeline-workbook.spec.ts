@@ -8,6 +8,8 @@ import {
   currentIncidentRoleTestId,
   draftCellTestId,
   draftRowCreateButtonTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryOpenButtonTestId,
@@ -17,7 +19,6 @@ import {
   timelineMutationSubstrateReadyTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowSupersedeButtonTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
   workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -222,8 +223,8 @@ test("drives review, demotion, and supersede through the visible workbook surfac
     reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("reviewed");
   await expect(
-    reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
-  ).toHaveText("2");
+    reviewerPage.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(gridRowVersionAttribute, "2");
 
   await openTimelineInspector(reviewerPage, recordId);
   await commitInspectorScalarEdit(
@@ -236,8 +237,8 @@ test("drives review, demotion, and supersede through the visible workbook surfac
     reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("enriched");
   await expect(
-    reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
-  ).toHaveText("3");
+    reviewerPage.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(gridRowVersionAttribute, "3");
 
   await openTimelineRowActions(reviewerPage, recordId);
   await reviewerPage
@@ -270,8 +271,8 @@ test("drives review, demotion, and supersede through the visible workbook surfac
     reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("superseded");
   await expect(
-    reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
-  ).toHaveText("4");
+    reviewerPage.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(gridRowVersionAttribute, "4");
   await openTimelineRowActions(reviewerPage, recordId);
   await expect(
     reviewerPage.getByTestId(timelineRowMarkReviewedButtonTestId(recordId)),
@@ -316,8 +317,8 @@ test("uses public history and visible state to prove replay avoids duplicate mut
 
   await observer.goto(`${webBase}/?incident_id=${incidentId}`);
   await expect(
-    observer.getByTestId(timelineRowVersionTestId(recordId)),
-  ).toHaveText("1");
+    observer.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(gridRowVersionAttribute, "1");
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
     page: observer,
@@ -362,12 +363,12 @@ test("uses public history and visible state to prove replay avoids duplicate mut
     (await patchResponse.json()) as { data: { change_set_id: string } }
   ).data;
 
-  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
-    "2",
-  );
   await expect(
-    observer.getByTestId(timelineRowVersionTestId(recordId)),
-  ).toHaveText("2");
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(gridRowVersionAttribute, "2");
+  await expect(
+    observer.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(gridRowVersionAttribute, "2");
   await expect(
     observer.getByTestId(
       rowCellTestId(recordId, "timeline.activity_synopsis_text"),
@@ -400,8 +401,8 @@ test("uses public history and visible state to prove replay avoids duplicate mut
     historyCountAfterFirstPatch,
   );
   await expect(
-    observer.getByTestId(timelineRowVersionTestId(recordId)),
-  ).toHaveText("2");
+    observer.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(gridRowVersionAttribute, "2");
   await observerContext.close();
 });
 

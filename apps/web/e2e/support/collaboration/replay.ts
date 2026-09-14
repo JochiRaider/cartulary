@@ -5,19 +5,26 @@ import {
   conflictMarkerTestId,
   currentIncidentRoleTestId,
   gridRowTestId,
+  gridRowVersionAttribute,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   rowCellTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
+  surfaceTabTestId,
   timelineScalarEditorTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
+  workbookFocusAnchorTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import {
+  notesViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Browser, Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
@@ -32,7 +39,13 @@ import {
   type SocketMessage,
 } from "../transport/incidentSocket";
 import { safelyRemoveRoute as safeUnroute } from "../transport/requestInterception";
-import { createViewRow, patchRecord, queryViewRows } from "../workbook/query";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+  readWorkbookMutation,
+} from "../workbook/query";
+import { waitForTimelinePatch } from "../workbook/rowMutations";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByRole("button", {
@@ -157,38 +170,131 @@ export async function createTimelineRow(
   });
 }
 
+export async function pendingReplayCount(page: Page): Promise<number> {
+  return Number(
+    await page
+      .getByTestId(saveStateTestId())
+      .getAttribute(pendingReplayCountAttribute),
+  );
+}
+
+/** Explicit surface detachment releases presentation while retaining admitted replay units. */
+export async function returnToTimelineWithRetainedWork(page: Page) {
+  const retainedCount = await pendingReplayCount(page);
+  await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+  await expect(
+    page.getByTestId(gridShellTestId(notesViewSchemaId)),
+  ).toBeVisible();
+  await expect.poll(() => pendingReplayCount(page)).toBe(retainedCount);
+  await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+}
+
+async function timelineAdmissions(page: Page, recordId: string) {
+  return page.evaluate(
+    ({ mark, recordId }) =>
+      performance
+        .getEntriesByName(mark)
+        .filter(
+          (entry) =>
+            entry instanceof PerformanceMark &&
+            entry.detail?.rowKey === recordId,
+        ).length,
+    { mark: "cartulary.workbook.pending_unit_admitted", recordId },
+  );
+}
+
+/** Queue admission is local retention. Only accepted observes an authoritative response. */
 export async function editTimelineSummary(
   page: Page,
   recordId: string,
   value: string,
   options: {
-    readonly expectValueAfterCommit?: boolean;
-  } = {},
+    readonly outcome: "accepted" | "queued" | "rejected";
+    readonly expectedQueueCount?: number;
+    readonly iteration?: number;
+  },
 ) {
-  await scrollGridCellIntoView({
-    cellKey: "timeline.activity_synopsis_text",
-    page,
-    recordId,
-    surface: timelineViewSchemaId,
-  });
-  const display = page.getByTestId(
-    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-  );
-  await display.click();
-  const input = page.getByTestId(
-    timelineScalarEditorTestId({
-      fieldKey: "timeline.activity_synopsis_text",
+  const outcome = options.outcome;
+  const admissionCount = await timelineAdmissions(page, recordId);
+  try {
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
       recordId,
-      surface: "grid",
-    }),
-  );
-  await expect(input).toBeFocused();
-  await input.fill(value);
-  await input.press("Enter");
-  if (options.expectValueAfterCommit === false) return;
-  await expect
-    .poll(() => currentTimelineSummary(page, recordId), { timeout: 25_000 })
-    .toBe(value);
+      surface: timelineViewSchemaId,
+    });
+    const display = page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    );
+    await display.click();
+    const input = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId,
+        surface: "grid",
+      }),
+    );
+    await expect(input).toBeFocused();
+    const response =
+      outcome === "accepted" ? waitForTimelinePatch(page, recordId) : null;
+    await input.fill(value);
+    await input.press("Enter");
+    if (outcome === "accepted" && response !== null) {
+      const envelope = await readWorkbookMutation(
+        await response,
+        "patchRecord",
+      );
+      await expect(
+        page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+      ).toHaveAttribute(
+        gridRowVersionAttribute,
+        String(envelope.data.row.row_version),
+      );
+      await expect
+        .poll(() => currentTimelineSummary(page, recordId), { timeout: 25_000 })
+        .toBe(value);
+    } else if (outcome === "queued") {
+      await expect
+        .poll(() => timelineAdmissions(page, recordId), { timeout: 25_000 })
+        .toBe(admissionCount + 1);
+    } else {
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      await expect(input).toHaveValue(value);
+      await expect(input).toBeFocused();
+    }
+    if (options.expectedQueueCount !== undefined) {
+      await expect
+        .poll(() => pendingReplayCount(page))
+        .toBe(options.expectedQueueCount);
+      await expect(input).toHaveValue(value);
+      await expect(input).toBeFocused();
+    }
+  } catch (cause) {
+    const diagnostics = {
+      iteration: options.iteration,
+      recordId,
+      fieldKey: "timeline.activity_synopsis_text",
+      outcome,
+      mountedIdentities: await mountedTimelineRecordIDs(page).catch(() => []),
+      anchor: await page
+        .getByTestId(workbookFocusAnchorTestId())
+        .textContent()
+        .catch(() => null),
+      queueCount: await pendingReplayCount(page).catch(() => null),
+      saveState: await page
+        .getByTestId(saveStateTestId())
+        .textContent()
+        .catch(() => null),
+      admissions: await timelineAdmissions(page, recordId).catch(() => null),
+    };
+    throw new Error(
+      `Timeline editor outcome failed: ${JSON.stringify(diagnostics)}`,
+      { cause },
+    );
+  }
 }
 
 async function mountedTimelineRecordIDs(page: Page) {
@@ -318,7 +424,7 @@ export async function driveRealTimelineSummaryConflict({
   txnPrefix: string;
 }) {
   const heldPrimaryPatch = patchController.holdNextPatch({ recordId });
-  await editTimelineSummary(page, recordId, localValue);
+  await editTimelineSummary(page, recordId, localValue, { outcome: "queued" });
   await heldPrimaryPatch.waitForHit;
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
 

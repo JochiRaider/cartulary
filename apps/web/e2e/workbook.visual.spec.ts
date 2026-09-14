@@ -39,6 +39,7 @@ import {
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridRowTestId,
+  gridRowVersionAttribute,
   gridSavedRowsSelector,
   gridScrollportSelector,
   gridShellTestId,
@@ -88,7 +89,6 @@ import {
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
   workbookAddRowButtonTestId,
   workbookColumnsMenuTestId,
@@ -265,7 +265,6 @@ import {
 import {
   fillOrdinaryField,
   openOrdinaryFixture,
-  ordinaryEvidenceView,
   ordinaryField,
   retainOrdinaryUncertainty,
   switchOrdinarySheet,
@@ -1332,8 +1331,10 @@ test.describe("workbook visual evidence", () => {
       "timeline.activity_synopsis_text",
     );
     await expect(
-      page.getByTestId(timelineRowVersionTestId(timelineRow.record_id)),
-    ).toHaveText(String(timelineRow.row_version));
+      page.getByTestId(
+        gridRowTestId(timelineViewSchemaId, timelineRow.record_id),
+      ),
+    ).toHaveAttribute(gridRowVersionAttribute, String(timelineRow.row_version));
     await expect(summaryCell).toHaveText("Default visual row");
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
@@ -8968,7 +8969,7 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  const handoff = "cartulary.view.handoff.v1";
+  const handoff = handoffViewSchemaId;
   const { incident } = await openOrdinaryFixture(page, handoff, (url) =>
     navigateVisualApplication(page, url),
   );
@@ -9002,10 +9003,10 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
   await reference
     .getByRole("button", { name: "Cancel references", exact: true })
     .click();
-  await switchOrdinarySheet(page, ordinaryEvidenceView);
+  await switchOrdinarySheet(page, evidenceViewSchemaId);
   await fillOrdinaryField(
     page,
-    ordinaryEvidenceView,
+    evidenceViewSchemaId,
     "evidence.title",
     "Retained ordinary evidence",
   );
@@ -9020,7 +9021,7 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
       `ordinary-recovery-${viewport.width}`,
       {
         ready: () =>
-          normalizeWorkbookGridVisualState(page, ordinaryEvidenceView, {
+          normalizeWorkbookGridVisualState(page, evidenceViewSchemaId, {
             scroll: { top: 0, left: "left" },
           }),
       },
@@ -9051,7 +9052,7 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
     "ordinary-closed-retained-narrow",
     {
       ready: () =>
-        normalizeWorkbookGridVisualState(page, ordinaryEvidenceView, {
+        normalizeWorkbookGridVisualState(page, evidenceViewSchemaId, {
           scroll: { top: 0, left: "left" },
         }),
     },

@@ -7,6 +7,8 @@ import {
   genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridScrollportSelector,
   gridShellTestId,
   pendingQueueCountTestId,
@@ -16,7 +18,6 @@ import {
   rowInspectorFieldTestId,
   saveStateTestId,
   timelineInspectorTestId,
-  timelineRowVersionTestId,
   workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
@@ -71,7 +72,10 @@ export async function commitInspectorScalarEdit(
   await input.press("Tab");
   const response = await responsePromise;
   const envelope = await readWorkbookMutation(response, "patchRecord");
-  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+  ).toHaveAttribute(
+    gridRowVersionAttribute,
     String(envelope.data.row.row_version),
   );
   await waitForSaveState(page, "Saved");
@@ -242,8 +246,8 @@ export async function expectTimelineMutationContinuity(
     .poll(
       async () => {
         const rendered = await page
-          .getByTestId(timelineRowVersionTestId(recordId))
-          .textContent();
+          .getByTestId(gridRowTestId(timelineViewSchemaId, recordId))
+          .getAttribute(gridRowVersionAttribute);
         const rowVersion = Number(rendered);
         return Number.isSafeInteger(rowVersion) ? rowVersion : -1;
       },

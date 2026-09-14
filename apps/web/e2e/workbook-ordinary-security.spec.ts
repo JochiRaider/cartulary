@@ -3,6 +3,10 @@ import {
   genericCreateSubmitTestId,
   incidentLandingTestId,
 } from "@cartulary/ui-contracts";
+import {
+  evidenceViewSchemaId as evidence,
+  findingsViewSchemaId,
+} from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import {
   confirmLifecycle,
@@ -15,7 +19,6 @@ import { uniqueEmail, uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import {
   commitOrdinary,
-  ordinaryEvidenceView as evidence,
   fillOrdinaryField,
   openOrdinaryFixture,
   ordinaryField,
@@ -151,7 +154,7 @@ test("Ordinary role loss retains readable authoring and scoped revocation fences
   expect(downgrade.ok()).toBe(true);
   // Membership updates are observed at the existing authority read boundary.
   // A fresh attempt on another schema must revalidate and dispatch nothing.
-  const findings = "cartulary.view.findings.v1";
+  const findings = findingsViewSchemaId;
   let unauthorizedWrites = 0;
   page.on("request", (request) => {
     if (

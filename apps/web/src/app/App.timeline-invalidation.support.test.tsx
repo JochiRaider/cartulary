@@ -1,6 +1,7 @@
 import {
   draftCellTestId,
-  timelineRowVersionTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -117,9 +118,14 @@ describe("Timeline workbook", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
     });
     await new Promise((resolve) => window.setTimeout(resolve, 0));

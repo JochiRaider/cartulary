@@ -95,6 +95,7 @@ import {
   gridDataStatePresentsAuthorizedRows,
   gridDataStatePresentsDraft,
 } from "./semanticDataState";
+import { createSemanticFocusRequests } from "./semanticFocusRequest";
 import {
   decideSemanticGridKey,
   decideSpreadsheetNavigation,
@@ -104,6 +105,7 @@ import {
 import {
   buildSemanticGroupBuckets,
   coreRecordId,
+  coreRowVersion,
   type GridSemanticPresentationModel,
   gridAnchorKey,
   gridCellRangeContains,
@@ -373,10 +375,69 @@ function useGridRegistration<Row>(
   presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>,
   vendorHandle: MutableRefObject<DataGridHandle | null>,
   draftFieldKeysRef: MutableRefObject<readonly string[]>,
+  editable: boolean,
 ) {
-  const pendingDraftFocusRef = useRef<string | null>(null);
   const cellElementsRef = useRef(new Map<string, SemanticCellRegistration>());
   const draftFocusTargetsRef = useRef(new Map<string, GridEditorFocusTarget>());
+  const focusRequests = useMemo(
+    () =>
+      createSemanticFocusRequests({
+        prepare: (target) => {
+          if (target.kind === "draft") {
+            const idx = presentationRef.current.columnKeys.indexOf(
+              target.fieldKey,
+            );
+            if (idx >= 0 && draftFieldKeysRef.current.includes(target.fieldKey))
+              vendorHandle.current?.scrollToCell({ idx });
+          } else if (target.kind === "cell") {
+            const position = presentationRef.current.positions.get(
+              gridAnchorKey(target.anchor),
+            );
+            if (position) {
+              vendorHandle.current?.scrollToCell(position);
+              vendorHandle.current?.selectCell(position);
+            }
+          }
+        },
+        resolve: (target) => {
+          if (target.kind === "draft") {
+            if (
+              !draftFieldKeysRef.current.includes(target.fieldKey) ||
+              !presentationRef.current.columnKeys.includes(target.fieldKey)
+            )
+              return { kind: "unavailable" };
+            const element = draftFocusTargetsRef.current.get(target.fieldKey);
+            return element ? { kind: "target", element } : { kind: "pending" };
+          }
+          if (target.kind === "cell") {
+            if (
+              !gridSurfaceIdentitiesEqual(
+                target.anchor.surface,
+                presentationRef.current.surface,
+              ) ||
+              !presentationRef.current.positions.has(
+                gridAnchorKey(target.anchor),
+              )
+            )
+              return { kind: "unavailable" };
+            const element = cellElementsRef.current.get(
+              gridAnchorKey(target.anchor),
+            )?.cell;
+            return element ? { kind: "target", element } : { kind: "pending" };
+          }
+          const element = vendorHandle.current?.element;
+          return element ? { kind: "target", element } : { kind: "pending" };
+        },
+      }),
+    [presentationRef, vendorHandle, draftFieldKeysRef],
+  );
+  useLayoutEffect(() => {
+    focusRequests.refresh();
+  });
+  useLayoutEffect(() => {
+    if (!editable) focusRequests.cancel();
+    return () => focusRequests.cancel();
+  }, [focusRequests, editable]);
   const isCellRangeSelected = useCallback(
     (
       row: GridDataRow<Row>,
@@ -399,33 +460,29 @@ function useGridRegistration<Row>(
         return;
       }
       cellElementsRef.current.set(key, { cell, token });
+      focusRequests.refresh();
     },
-    [],
+    [focusRequests],
   );
   const draftFocusTargetRef = useCallback(
     (fieldKey: string) =>
       createDraftFocusTargetRef(
         draftFocusTargetsRef.current,
         fieldKey,
-        pendingDraftFocusRef,
+        focusRequests.refresh,
       ),
-    [],
+    [focusRequests],
   );
+  const requestFocus = focusRequests.requestFocus;
   const focusDraftCell = useCallback(
     (fieldKey: string) => {
-      const idx = presentationRef.current.columnKeys.indexOf(fieldKey);
-      if (idx < 0 || !draftFieldKeysRef.current.includes(fieldKey))
-        return false;
-      pendingDraftFocusRef.current = fieldKey;
-      vendorHandle.current?.scrollToCell({ idx });
-      if (focusRegisteredDraftCell(draftFocusTargetsRef.current, fieldKey))
-        pendingDraftFocusRef.current = null;
-      return true;
+      void requestFocus({ kind: "draft", fieldKey });
     },
-    [presentationRef, vendorHandle, draftFieldKeysRef],
+    [requestFocus],
   );
   return {
     cellElementsRef,
+    requestFocus,
     focusDraftCell,
     draftFocusTargetRef,
     isCellRangeSelected,
@@ -436,10 +493,10 @@ function useGridRegistration<Row>(
 function useGridEditorController<Row>(
   presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>,
   vendorHandle: MutableRefObject<DataGridHandle | null>,
-  cellElementsRef: MutableRefObject<Map<string, SemanticCellRegistration>>,
   keyboardNavigation: "region" | "spreadsheet",
   draftFieldKeysRef: MutableRefObject<readonly string[]>,
-  focusDraftCell: (fieldKey: string) => boolean,
+  focusDraftCell: (fieldKey: string) => void,
+  requestFocus: GridHandle["requestFocus"],
 ) {
   const pendingEditorSeedRef = useRef<PendingEditorSeed | null>(null);
   const activeEditorSessionRef = useRef<ActiveEditorSession | null>(null);
@@ -535,12 +592,9 @@ function useGridEditorController<Row>(
           );
           return;
         }
-        focusOrScrollAnchor({
+        void requestFocus({
+          kind: "cell",
           anchor: decision.kind === "navigate" ? decision.target : target,
-          cellElements: cellElementsRef.current,
-          focus: true,
-          positionMap: presentationRef.current,
-          vendorHandle: vendorHandle.current,
         });
         return;
       }
@@ -558,22 +612,16 @@ function useGridEditorController<Row>(
           key: action.rowDelta < 0 ? "ArrowUp" : "ArrowDown",
         },
       );
-      focusOrScrollAnchor({
-        anchor: next ?? target,
-        cellElements: cellElementsRef.current,
-        focus: true,
-        positionMap: presentationRef.current,
-        vendorHandle: vendorHandle.current,
-      });
+      void requestFocus({ kind: "cell", anchor: next ?? target });
     },
     [
-      cellElementsRef,
       clearEditorSeed,
       presentationRef,
       vendorHandle,
       keyboardNavigation,
       draftFieldKeysRef,
       focusDraftCell,
+      requestFocus,
     ],
   );
   return {
@@ -890,12 +938,14 @@ function useSemanticDataGrid<Row>(
       ? columns
           .filter(
             (column) =>
-              column.renderDraftCell !== undefined && column.contractWritable,
+              column.renderDraftCell !== undefined &&
+              column.draftWritable === true,
           )
           .map((column) => column.fieldKey)
       : [];
   const {
     cellElementsRef: semanticCellElementsRef,
+    requestFocus,
     draftFocusTargetRef,
     focusDraftCell,
     isCellRangeSelected,
@@ -906,6 +956,7 @@ function useSemanticDataGrid<Row>(
     semanticPresentationRef,
     vendorHandle,
     draftFieldKeysRef,
+    editable,
   );
   const {
     activeEditorSessionRef,
@@ -918,10 +969,10 @@ function useSemanticDataGrid<Row>(
   } = useGridEditorController(
     semanticPresentationRef,
     vendorHandle,
-    semanticCellElementsRef,
     keyboardNavigation,
     draftFieldKeysRef,
     focusDraftCell,
+    requestFocus,
   );
   useLayoutEffect(() => {
     if (!gridDataStatePresentsAuthorizedRows(dataState)) clearEditorSeed();
@@ -1206,21 +1257,12 @@ function useSemanticDataGrid<Row>(
         session.cancel();
         return true;
       },
-      focusAnchor: (anchor) =>
-        focusOrScrollAnchor({
-          anchor,
-          cellElements: semanticCellElementsRef.current,
-          positionMap: semanticPresentationRef.current,
-          vendorHandle: vendorHandle.current,
-          focus: true,
-        }),
-      focusDraftCell,
+      requestFocus,
       focusAdjacentRegion: (backwards) =>
         focusAdjacentOutsideGrid(
           vendorHandle.current?.element ?? null,
           backwards,
         ),
-      focusRoot: () => focusGridRoot(vendorHandle.current?.element ?? null),
       getAnchorRect: (anchor) =>
         registeredSemanticAnchorRect(
           semanticCellElementsRef.current,
@@ -1249,15 +1291,8 @@ function useSemanticDataGrid<Row>(
           intent,
         );
         if (next === null) return null;
-        return focusOrScrollAnchor({
-          anchor: next,
-          cellElements: semanticCellElementsRef.current,
-          positionMap: semanticPresentationRef.current,
-          vendorHandle: vendorHandle.current,
-          focus: true,
-        })
-          ? next
-          : null;
+        void requestFocus({ kind: "cell", anchor: next });
+        return next;
       },
       planPasteTargets: (current, dimensions) =>
         planSemanticPasteTargets(
@@ -1266,17 +1301,15 @@ function useSemanticDataGrid<Row>(
           dimensions,
         ),
       scrollToAnchor: (anchor) =>
-        focusOrScrollAnchor({
+        scrollToSemanticAnchor({
           anchor,
-          cellElements: semanticCellElementsRef.current,
           positionMap: semanticPresentationRef.current,
           vendorHandle: vendorHandle.current,
-          focus: false,
         }),
     }),
     [
       activeEditorSessionRef,
-      focusDraftCell,
+      requestFocus,
       semanticCellElementsRef,
       keyboardNavigation,
       handleEditorKeyboardAction,
@@ -1535,6 +1568,7 @@ function useSemanticDataGrid<Row>(
                 : undefined
             }
             data-grid-row-identity-kind={rowProps.row.rowIdentity.kind}
+            data-grid-row-version={coreRowVersion(rowProps.row) ?? undefined}
             data-grid-record-id={
               rowProps.row.rowIdentity.kind === "core_record"
                 ? rowProps.row.rowIdentity.recordId
@@ -1590,7 +1624,7 @@ function useSemanticDataGrid<Row>(
       range={cellRange}
       selectedRecordCount={selectedRows.size}
       surface={surface}
-      focusRoot={() => focusGridRoot(vendorHandle.current?.element ?? null)}
+      requestFocus={requestFocus}
     >
       <ProductionGridBinding
         density={density}
@@ -1648,7 +1682,7 @@ function GridBindingFrame<Row>({
   dataState,
   density,
   draftVisible,
-  focusRoot,
+  requestFocus,
   interactionMode,
   keyboardAnnouncement,
   onDoubleClickCapture,
@@ -1666,7 +1700,7 @@ function GridBindingFrame<Row>({
   readonly dataState: NonNullable<SemanticDataGridProps<Row>["dataState"]>;
   readonly density: GridDensity;
   readonly draftVisible: boolean;
-  readonly focusRoot: () => boolean;
+  readonly requestFocus: GridHandle["requestFocus"];
   readonly interactionMode: NonNullable<
     SemanticDataGridProps<Row>["interactionMode"]
   >;
@@ -1704,7 +1738,7 @@ function GridBindingFrame<Row>({
       <GridOperationalStatePlane
         accessibleLabel={accessibleLabel}
         dataState={dataState}
-        focusRoot={focusRoot}
+        requestFocus={requestFocus}
         interactionMode={interactionMode}
         surface={surface}
       />
@@ -1966,14 +2000,12 @@ export const SemanticDataGridDomUnitBinding = forwardRef(
   props: SemanticDataGridProps<Row> & RefAttributes<GridHandle>,
 ) => ReactElement;
 
-function focusOrScrollAnchor(options: {
+function scrollToSemanticAnchor(options: {
   readonly anchor: GridCellAnchor;
-  readonly cellElements: ReadonlyMap<string, SemanticCellRegistration>;
-  readonly focus: boolean;
   readonly positionMap: GridRdgPositionMap;
   readonly vendorHandle: DataGridHandle | null;
 }): boolean {
-  const { anchor, cellElements, focus, positionMap, vendorHandle } = options;
+  const { anchor, positionMap, vendorHandle } = options;
   if (
     !gridSurfaceIdentitiesEqual(anchor.surface, positionMap.surface) ||
     vendorHandle === null
@@ -1981,90 +2013,14 @@ function focusOrScrollAnchor(options: {
     return false;
   const position = positionMap.positions.get(gridAnchorKey(anchor));
   if (position === undefined) return false;
-  if (focus) {
-    vendorHandle.selectCell(position, { shouldFocusCell: true });
-    focusSemanticCellAfterRender(cellElements, anchor);
-  } else {
-    vendorHandle.scrollToCell(position);
-  }
+  vendorHandle.scrollToCell(position);
   return true;
-}
-
-function focusSemanticCellAfterRender(
-  cellElements: ReadonlyMap<string, SemanticCellRegistration>,
-  anchor: GridCellAnchor,
-) {
-  // beta.59 does not honor shouldFocusCell when selectCell receives the
-  // already-selected position. Keep the workaround private and resolve the
-  // element from Cartulary's private semantic registry, never RDG coordinates
-  // or generated class names.
-  const invocationActiveElement = document.activeElement;
-  const focusRegisteredCell = () => {
-    const cell = cellElements.get(gridAnchorKey(anchor))?.cell;
-    if (cell === undefined) return null;
-    if (!cell.hasAttribute("tabindex")) cell.tabIndex = -1;
-    cell.focus({ preventScroll: true });
-    return cell;
-  };
-  const restoreWhenRegistered = (
-    remainingFrames: number,
-    previouslyFocusedCell: HTMLElement | null,
-  ) => {
-    const activeElement = document.activeElement;
-    const registeredCell = cellElements.get(gridAnchorKey(anchor))?.cell;
-    if (
-      activeElement !== invocationActiveElement &&
-      activeElement !== document.body &&
-      activeElement?.isConnected === true &&
-      activeElement !== previouslyFocusedCell &&
-      activeElement !== registeredCell
-    ) {
-      return;
-    }
-    const focusedCell = focusRegisteredCell();
-    if (
-      focusedCell !== null &&
-      focusedCell === previouslyFocusedCell &&
-      document.activeElement === focusedCell
-    ) {
-      return;
-    }
-    if (remainingFrames > 0) {
-      window.requestAnimationFrame(() => {
-        restoreWhenRegistered(remainingFrames - 1, focusedCell);
-      });
-    }
-  };
-  window.setTimeout(() => {
-    // Horizontal virtualization and an inspector/editor close can each defer
-    // registration by more than one task. Re-resolve for a bounded number of
-    // paint frames, but never reclaim focus after the user moves to another
-    // connected control.
-    restoreWhenRegistered(8, null);
-  }, 0);
-}
-
-function focusGridRoot(gridElement: HTMLDivElement | null): boolean {
-  if (gridElement === null) return false;
-  if (!gridElement.hasAttribute("tabindex")) gridElement.tabIndex = 0;
-  gridElement.focus({ preventScroll: true });
-  return document.activeElement === gridElement;
-}
-
-function isFocusableSemanticElement(
-  element: GridEditorFocusTarget | undefined,
-): element is GridEditorFocusTarget {
-  return (
-    element?.isConnected === true &&
-    !element.disabled &&
-    isMeasurableSemanticElement(element)
-  );
 }
 
 function createDraftFocusTargetRef(
   registry: Map<string, GridEditorFocusTarget>,
   fieldKey: string,
-  pendingFocusRef: MutableRefObject<string | null>,
+  refresh: () => void,
 ) {
   let registeredElement: GridEditorFocusTarget | null = null;
   return (element: GridEditorFocusTarget | null) => {
@@ -2077,22 +2033,8 @@ function createDraftFocusTargetRef(
     }
     registeredElement = element;
     registry.set(fieldKey, element);
-    if (
-      pendingFocusRef.current === fieldKey &&
-      focusRegisteredDraftCell(registry, fieldKey)
-    )
-      pendingFocusRef.current = null;
+    refresh();
   };
-}
-
-function focusRegisteredDraftCell(
-  registry: ReadonlyMap<string, GridEditorFocusTarget>,
-  fieldKey: string,
-): boolean {
-  const element = registry.get(fieldKey);
-  if (!isFocusableSemanticElement(element)) return false;
-  element.focus({ preventScroll: true });
-  return document.activeElement === element;
 }
 
 function registeredSemanticAnchorRect<Row>(
@@ -2349,6 +2291,7 @@ function GroupedSemanticDataGrid<Row>({
               {...semanticRowAttributes(semanticState)}
               data-cartulary-grid-row-kind="data"
               data-grid-row-identity-kind={rowProps.row.rowIdentity.kind}
+              data-grid-row-version={coreRowVersion(rowProps.row) ?? undefined}
               data-grid-record-id={
                 rowProps.row.rowIdentity.kind === "core_record"
                   ? rowProps.row.rowIdentity.recordId

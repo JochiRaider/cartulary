@@ -4608,6 +4608,8 @@
       "selector": {
         "file": "apps/web/src/workbook/hooks/useWorkbookSemanticGridFocus.test.tsx",
         "titles": [
+          "useWorkbookSemanticGridFocus cancels pending entry after deliberate keyboard navigation",
+          "useWorkbookSemanticGridFocus cancels user navigation while loading and cancels entry after authority loss",
           "useWorkbookSemanticGridFocus does nothing after unmount and has no deferred retry",
           "useWorkbookSemanticGridFocus falls back to the root for empty rows",
           "useWorkbookSemanticGridFocus falls back to the root for no visible fields",
@@ -4615,9 +4617,10 @@
           "useWorkbookSemanticGridFocus focuses the first registered writable draft field and acknowledges once",
           "useWorkbookSemanticGridFocus ignores a wrong surface and retries when the matching surface mounts",
           "useWorkbookSemanticGridFocus keeps the request pending when every focus command fails",
-          "useWorkbookSemanticGridFocus treats a virtualized offscreen anchor as successful through GridHandle",
+          "useWorkbookSemanticGridFocus replaces a handle without acknowledging its late focus completion",
           "useWorkbookSemanticGridFocus tries committed rows and visible fields in semantic order",
           "useWorkbookSemanticGridFocus uses only the newest generation when mounting follows a rapid switch",
+          "useWorkbookSemanticGridFocus waits for completed draft focus without acknowledging or falling back",
           "useWorkbookSemanticGridFocus waits through busy data and retries from the ready state"
         ]
       },
@@ -5241,6 +5244,30 @@
         "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
         "titles": [
           "workbookSavedViewRuntime derives runtime query state from saved-view query_json without mutating identity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbooksavedviewruntime_layout_changes",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
+        "titles": [
+          "workbookSavedViewRuntime omits structurally equal layout and includes a genuine portable layout change"
         ]
       },
       "evidence_class": "unit",

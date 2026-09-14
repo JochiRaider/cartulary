@@ -191,10 +191,11 @@ export function useTimelineViewportContinuityController({
   );
 
   const restoreGridViewportForTarget = useCallback(
-    (
-      focusTarget: () => boolean,
+    async (
+      focusTarget: () => Promise<boolean>,
       resolveRect: () => DOMRectReadOnly | null,
       preservedViewport: ViewportSnapshot | null,
+      signal: AbortSignal,
     ) => {
       const currentViewport =
         preservedViewport?.anchor === null
@@ -209,13 +210,14 @@ export function useTimelineViewportContinuityController({
             } satisfies ViewportSnapshot));
       const preservedScroll = currentViewport.scroll;
       window.focus();
-      const focusedNow = focusTarget();
+      const focusedNow = await focusTarget();
+      if (!focusedNow || signal.aborted) return false;
       // Compute vertical restoration from the current target geometry. Resetting
       // to the old scroll first unmounts the newly acknowledged row needlessly.
       const scrollElement = currentGridScrollElement();
       if (scrollElement !== null && preservedScroll !== null)
         scrollElement.scrollLeft = preservedScroll.left;
-      const restoreViewportGeometryNow = () => {
+      const restoreViewportGeometryNow = async () => {
         const scrollElement = currentGridScrollElement();
         const currentRect = resolveRect();
         if (
@@ -245,9 +247,9 @@ export function useTimelineViewportContinuityController({
           updatedScrollElement.getBoundingClientRect(),
           updatedRect,
         );
-        return focusTarget() && fullyVisible;
+        return fullyVisible && !signal.aborted && (await focusTarget());
       };
-      const restoredNow = restoreViewportGeometryNow();
+      const restoredNow = await restoreViewportGeometryNow();
       return focusedNow && restoredNow;
     },
     [currentGridScrollElement, currentGridScrollSnapshot, restoreGridScroll],
@@ -492,14 +494,25 @@ export function useTimelineViewportContinuityController({
   );
 
   const focusViewportContinuityTarget = useCallback(
-    (target: TimelineViewportContinuityTarget): boolean => {
+    async (
+      target: TimelineViewportContinuityTarget,
+      signal: AbortSignal,
+    ): Promise<boolean> => {
       if (target.kind === "row-inspect") {
         return (
-          gridHandleRef.current?.focusAnchor(
-            timelineAnchor(target.recordId, "timeline.activity_synopsis_text"),
-          ) ?? false
+          (await gridHandleRef.current?.requestFocus(
+            {
+              kind: "cell",
+              anchor: timelineAnchor(
+                target.recordId,
+                "timeline.activity_synopsis_text",
+              ),
+            },
+            { signal },
+          )) === "focused"
         );
       }
+      if (signal.aborted) return false;
       if (target.kind === "input") {
         const element = resolveInputElement(target.focusKey);
         if (element === null) return false;
@@ -512,7 +525,11 @@ export function useTimelineViewportContinuityController({
   );
 
   const tryRestoreViewportContinuity = useCallback(
-    (continuity: TimelineViewportContinuityRequest) => {
+    async (
+      continuity: TimelineViewportContinuityRequest,
+      signal: AbortSignal,
+    ) => {
+      if (signal.aborted) return false;
       const target = continuity.lifecycle.semanticFocusTarget;
       if (target.kind === "scroll-only") {
         restoreGridScroll(continuity.preservedViewport?.scroll ?? null);
@@ -522,9 +539,10 @@ export function useTimelineViewportContinuityController({
         scrollToViewportContinuityTarget(target);
       }
       return restoreGridViewportForTarget(
-        () => focusViewportContinuityTarget(target),
+        () => focusViewportContinuityTarget(target, signal),
         () => resolveViewportContinuityRect(target),
         continuity.preservedViewport,
+        signal,
       );
     },
     [
@@ -561,7 +579,8 @@ export function useTimelineViewportContinuityController({
       return;
     }
     let cancelled = false;
-    const restoreTarget = (attempt: number) => {
+    const controller = new AbortController();
+    const restoreTarget = async (attempt: number) => {
       if (cancelled) {
         return;
       }
@@ -569,16 +588,23 @@ export function useTimelineViewportContinuityController({
         clearViewportContinuity(viewportContinuityRequest.token);
         return;
       }
-      if (!tryRestoreViewportContinuity(viewportContinuityRequest)) {
+      if (
+        !(await tryRestoreViewportContinuity(
+          viewportContinuityRequest,
+          controller.signal,
+        ))
+      ) {
+        if (cancelled) return;
         if (attempt < 60) {
           window.setTimeout(() => {
-            restoreTarget(attempt + 1);
+            void restoreTarget(attempt + 1);
           }, 50);
         } else {
           clearViewportContinuity(viewportContinuityRequest.token);
         }
         return;
       }
+      if (cancelled) return;
       // A slow named follow-up must not leave focus on <body> after the
       // authoritative row has committed. Restore the deterministic fallback
       // provisionally, but keep the lifecycle open until every follow-up has
@@ -588,7 +614,7 @@ export function useTimelineViewportContinuityController({
       }
       const stableRenderGeneration =
         viewportContinuityRequest.lifecycle.renderGeneration;
-      window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(async () => {
         if (cancelled) {
           return;
         }
@@ -606,16 +632,23 @@ export function useTimelineViewportContinuityController({
         if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
           return;
         }
-        if (!tryRestoreViewportContinuity(viewportContinuityRequest)) {
+        if (
+          !(await tryRestoreViewportContinuity(
+            viewportContinuityRequest,
+            controller.signal,
+          ))
+        ) {
+          if (cancelled) return;
           if (attempt < 60) {
             window.setTimeout(() => {
-              restoreTarget(attempt + 1);
+              void restoreTarget(attempt + 1);
             }, 50);
           } else {
             clearViewportContinuity(viewportContinuityRequest.token);
           }
           return;
         }
+        if (cancelled) return;
         activeViewportContinuityRequestRef.current = {
           ...activeRequest,
           lifecycle: transitionTimelineContinuity(
@@ -626,9 +659,10 @@ export function useTimelineViewportContinuityController({
         clearViewportContinuity(viewportContinuityRequest.token);
       });
     };
-    restoreTarget(0);
+    void restoreTarget(0);
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
     clearViewportContinuity,

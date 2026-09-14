@@ -130,12 +130,19 @@ export function useTimelineGridAnchorController({
   readonly updateWorkbookFocusAnchor: (anchor: null) => void;
 }) {
   const restoreTimelineFocusAnchor = useCallback(
-    (anchor: GridCellAnchor | WorkbookContinuityAnchor): boolean => {
+    async (
+      anchor: GridCellAnchor | WorkbookContinuityAnchor,
+    ): Promise<boolean> => {
       if (!("rowIdentity" in anchor)) {
         return continuityPort.focus(anchor);
       }
       if (anchor.rowIdentity.kind !== "core_record") {
-        return gridHandleRef.current?.focusAnchor(anchor) === true;
+        return (
+          (await gridHandleRef.current?.requestFocus({
+            kind: "cell",
+            anchor,
+          })) === "focused"
+        );
       }
       return continuityPort.focus({
         fieldKey: anchor.fieldKey,
@@ -263,7 +270,8 @@ export function useTimelineGridAnchorController({
       const fields = timelineAnchorColumnsRef.current
         .filter(
           (column) =>
-            column.renderDraftCell !== undefined && column.contractWritable,
+            column.renderDraftCell !== undefined &&
+            column.draftWritable === true,
         )
         .map((column) => column.fieldKey);
       const index = fields.indexOf(fieldKey);
@@ -273,7 +281,10 @@ export function useTimelineGridAnchorController({
       if (intent.key === "Tab") {
         const next = fields[index + (intent.shiftKey ? -1 : 1)];
         if (next !== undefined) {
-          gridHandleRef.current?.focusDraftCell(next);
+          gridHandleRef.current?.requestFocus({
+            kind: "draft",
+            fieldKey: next,
+          });
           return;
         }
         if (!intent.shiftKey || previous === undefined) {
@@ -289,13 +300,16 @@ export function useTimelineGridAnchorController({
             ? timelineAnchorColumnsRef.current.at(-1)?.fieldKey
             : fieldKey;
         if (targetField !== undefined)
-          gridHandleRef.current?.focusAnchor({
-            surface: {
-              kind: "view_schema",
-              viewSchemaId: timelineViewSchemaId,
+          gridHandleRef.current?.requestFocus({
+            kind: "cell",
+            anchor: {
+              surface: {
+                kind: "view_schema",
+                viewSchemaId: timelineViewSchemaId,
+              },
+              rowIdentity: { kind: "core_record", recordId: previous.recordId },
+              fieldKey: targetField,
             },
-            rowIdentity: { kind: "core_record", recordId: previous.recordId },
-            fieldKey: targetField,
           });
       }
     },

@@ -1,4 +1,6 @@
 import {
+  gridRowTestId,
+  gridRowVersionAttribute,
   rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
@@ -6,7 +8,6 @@ import {
   timelineCaptureActionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowSupersedeButtonTestId,
-  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -98,7 +99,9 @@ describe("Timeline workbook action sequencing", () => {
   async function version(expected: number) {
     await waitFor(() =>
       expect(
-        screen.getByTestId(timelineRowVersionTestId(recordId)).textContent,
+        screen
+          .getByTestId(gridRowTestId(timelineViewSchemaId, recordId))
+          .getAttribute(gridRowVersionAttribute),
       ).toBe(String(expected)),
     );
   }

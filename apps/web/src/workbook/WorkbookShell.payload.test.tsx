@@ -2,10 +2,11 @@ import {
   draftCellTestId,
   draftRowCreateButtonTestId,
   gridDraftRowSelector,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridShellTestId,
   rowCellTestId,
   saveStateTestId,
-  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import {
   act,
@@ -144,9 +145,14 @@ describe("Timeline workbook payload coverage", () => {
       ).textContent,
     ).toBe("rough");
     expect(
-      screen.getByTestId(
-        timelineRowVersionTestId("20000000-0000-4000-8000-000000000010"),
-      ).textContent,
+      screen
+        .getByTestId(
+          gridRowTestId(
+            timelineViewSchemaId,
+            "20000000-0000-4000-8000-000000000010",
+          ),
+        )
+        .getAttribute(gridRowVersionAttribute),
     ).toBe("1");
     expect(
       screen.getByTestId(draftCellTestId("timeline.activity_synopsis_text")),

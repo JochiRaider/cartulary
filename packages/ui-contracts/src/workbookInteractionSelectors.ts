@@ -360,10 +360,6 @@ export function draftTimelineCollectionInputTestId(fieldKey: string): string {
   return timelineCollectionFieldControlTestId(null, fieldKey, "input");
 }
 
-export function timelineRowVersionTestId(recordId: string): string {
-  return rowCellTestId(recordId, "row_version");
-}
-
 export function timelineRowMarkReviewedButtonTestId(recordId: string): string {
   return recordTestId("row", recordId, "mark-reviewed");
 }
@@ -499,3 +495,6 @@ export function timelineCaptureActionTestId(
 ): string {
   return `timeline-capture-${control}:${recordId}`;
 }
+
+/** Retained replay units (queued and in flight), excluding unrelated explicit mutations. */
+export const pendingReplayCountAttribute = "data-pending-replay-count";

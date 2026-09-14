@@ -14,11 +14,15 @@ export type WorkbookContinuitySnapshot = {
 
 type WorkbookContinuityDriver = {
   readonly capture: (anchor: WorkbookContinuityAnchor | null) => unknown;
-  readonly focus: (anchor: WorkbookContinuityAnchor) => boolean;
+  readonly focus: (
+    anchor: WorkbookContinuityAnchor,
+    signal: AbortSignal,
+  ) => Promise<boolean>;
   readonly restore: (
     anchor: WorkbookContinuityAnchor | null,
     driverSnapshot: unknown,
-  ) => boolean;
+    signal: AbortSignal,
+  ) => Promise<boolean>;
   readonly select: (anchor: WorkbookContinuityAnchor | null) => void;
 };
 
@@ -26,10 +30,10 @@ export type WorkbookContinuityPort = {
   readonly capture: (
     anchor?: WorkbookContinuityAnchor | null,
   ) => WorkbookContinuityToken;
-  readonly focus: (anchor: WorkbookContinuityAnchor) => boolean;
+  readonly focus: (anchor: WorkbookContinuityAnchor) => Promise<boolean>;
   readonly select: (anchor: WorkbookContinuityAnchor | null) => void;
   readonly clear: () => void;
-  readonly restore: (token: WorkbookContinuityToken) => boolean;
+  readonly restore: (token: WorkbookContinuityToken) => Promise<boolean>;
   readonly snapshot: () => WorkbookContinuitySnapshot;
   readonly dispose: () => void;
 };
@@ -39,6 +43,20 @@ export function createWorkbookContinuityPort(
 ): WorkbookContinuityPort {
   let disposed = false;
   let nextToken = 1;
+  let pending: {
+    controller: AbortController;
+    anchor: WorkbookContinuityAnchor | null;
+  } | null = null;
+  const cancel = () => {
+    pending?.controller.abort();
+    pending = null;
+  };
+  const begin = (anchor: WorkbookContinuityAnchor | null) => {
+    cancel();
+    const request = { controller: new AbortController(), anchor };
+    pending = request;
+    return request;
+  };
   let selectedAnchor: WorkbookContinuityAnchor | null = null;
   const captures = new Map<
     WorkbookContinuityToken,
@@ -52,6 +70,8 @@ export function createWorkbookContinuityPort(
     if (disposed || continuityAnchorsEqual(selectedAnchor, anchor)) {
       return;
     }
+    if (pending !== null && !continuityAnchorsEqual(pending.anchor, anchor))
+      cancel();
     selectedAnchor = anchor;
     driver.select(anchor);
   };
@@ -61,6 +81,7 @@ export function createWorkbookContinuityPort(
       if (disposed) {
         throw new Error("Workbook continuity port is disposed.");
       }
+      cancel();
       const token: WorkbookContinuityToken = { sequence: nextToken };
       nextToken += 1;
       captures.clear();
@@ -70,17 +91,25 @@ export function createWorkbookContinuityPort(
       });
       return token;
     },
-    focus: (anchor) => !disposed && driver.focus(anchor),
+    focus: async (anchor) => {
+      if (disposed) return false;
+      const request = begin(anchor);
+      const focused = await driver.focus(anchor, request.controller.signal);
+      const current = pending === request && !request.controller.signal.aborted;
+      if (pending === request) pending = null;
+      return current && focused;
+    },
     select,
     clear: () => {
       if (disposed) {
         return;
       }
+      cancel();
       captures.clear();
       selectedAnchor = null;
       driver.select(null);
     },
-    restore: (token) => {
+    restore: async (token) => {
       if (disposed) {
         return false;
       }
@@ -89,8 +118,16 @@ export function createWorkbookContinuityPort(
         return false;
       }
       captures.delete(token);
-      const restored = driver.restore(capture.anchor, capture.driverSnapshot);
-      if (restored && capture.anchor !== null) {
+      const request = begin(capture.anchor);
+      const restored = await driver.restore(
+        capture.anchor,
+        capture.driverSnapshot,
+        request.controller.signal,
+      );
+      if (pending !== request || request.controller.signal.aborted)
+        return false;
+      pending = null;
+      if (!disposed && restored && capture.anchor !== null) {
         select(capture.anchor);
       }
       return restored;
@@ -101,6 +138,7 @@ export function createWorkbookContinuityPort(
         return;
       }
       disposed = true;
+      cancel();
       captures.clear();
       selectedAnchor = null;
       driver.select(null);

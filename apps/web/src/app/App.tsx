@@ -1464,7 +1464,7 @@ const pageStyle = {
 
 const workbookRoutePageStyle = {
   ...pageStyle,
-  blockSize: "var(--ct-app-viewport-block-size)",
+  blockSize: "100%",
   minBlockSize: 0,
   minHeight: 0,
   overflow: "hidden",

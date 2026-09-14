@@ -54,11 +54,19 @@ export function useWorkbookStartupController({
   const [gridEntryFocusRequest, setGridEntryFocusRequest] =
     useState<WorkbookGridEntryFocusRequest>({ kind: "idle" });
 
-  const cancelGridEntryFocus = useCallback(() => {
-    setGridEntryFocusRequest((current) =>
-      current.kind === "idle" ? current : { kind: "idle" },
-    );
-  }, []);
+  const cancelGridEntryFocus = useCallback(
+    (request?: WorkbookGridEntryFocusAcknowledgement) => {
+      setGridEntryFocusRequest((current) =>
+        current.kind === "idle" ||
+        (request !== undefined &&
+          (current.generation !== request.generation ||
+            current.viewSchemaId !== request.viewSchemaId))
+          ? current
+          : { kind: "idle" },
+      );
+    },
+    [],
+  );
 
   const acknowledgeGridEntryFocus = useCallback(
     (acknowledgement: WorkbookGridEntryFocusAcknowledgement) => {

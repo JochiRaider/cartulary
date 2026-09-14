@@ -13,7 +13,7 @@ it("useTimelineInspectorLifecycle shares one close command across explicit and l
       inspectorInvalidationCause: null,
       inspectorInvalidationGeneration: 0,
       inspectorMentions: [],
-      restoreTimelineFocusAnchor: () => false,
+      restoreTimelineFocusAnchor: async () => false,
       rowHistory: initialWorkbookRecordHistoryState(),
       rows: [],
       selectedMentionRef: null,

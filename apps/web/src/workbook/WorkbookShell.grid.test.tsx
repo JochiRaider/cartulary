@@ -5,10 +5,11 @@ import {
   gridFilterValueTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridSortHeaderTestId,
   rowCellTestId,
   saveStateTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
@@ -213,9 +214,14 @@ describe("Timeline workbook grid coverage", () => {
     );
     expect(within(secondVisibleRow).getByText("Zulu")).toBeTruthy();
     expect(
-      screen.getByTestId(
-        timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-      ).textContent,
+      screen
+        .getByTestId(
+          gridRowTestId(
+            timelineViewSchemaId,
+            "20000000-0000-4000-8000-000000000001",
+          ),
+        )
+        .getAttribute(gridRowVersionAttribute),
     ).toBe("7");
 
     const summaryInput = gridScalarInput(
@@ -633,9 +639,14 @@ describe("Timeline workbook grid coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
       expect(
         screen.getByTestId(
@@ -666,9 +677,14 @@ describe("Timeline workbook grid coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
       expect(
         screen.getByTestId(
@@ -693,9 +709,14 @@ describe("Timeline workbook grid coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
       expect(
         screen.getByTestId(
@@ -792,9 +813,14 @@ describe("Timeline workbook grid coverage", () => {
         container.querySelector('[data-grid-data-state="stale_error"]'),
       ).toBeNull();
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
       expect(
         screen.getByTestId(
@@ -854,9 +880,14 @@ describe("Timeline workbook grid coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
       expect(
         screen.getByTestId(

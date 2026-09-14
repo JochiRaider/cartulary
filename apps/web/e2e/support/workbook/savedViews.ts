@@ -123,6 +123,29 @@ function waitForSavedViewRetry(durationMs: number) {
 
 export type SavedViewApiResource = CreateIncidentSavedViewResponse["data"];
 
+export async function readSavedView(
+  page: Page,
+  incidentId: string,
+  savedViewId: string,
+): Promise<SavedViewApiResource> {
+  const response = await publicHttpOperation({
+    operationID: "listIncidentSavedViews",
+    pathParameters: { incident_id: incidentId },
+    query: { limit: 100 },
+    request: atJsonOrigin(page.request, apiBase),
+  });
+  if (!response.ok)
+    throw new Error(`Saved-view read failed: ${response.status}`);
+  const saved = response.payload.data.saved_views.find(
+    (candidate) => candidate.saved_view_id === savedViewId,
+  );
+  if (!saved)
+    throw new Error(
+      `Saved view ${savedViewId} is absent from the fixture page`,
+    );
+  return saved;
+}
+
 export async function createSavedView(
   page: Page,
   incidentId: string,

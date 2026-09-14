@@ -7,12 +7,28 @@ import {
   rowCellTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import {
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId as evidence,
+  evidenceViewSchemaId,
+  findingsViewSchemaId,
+  forensicKeywordsViewSchemaId,
+  handoffViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  indicatorsViewSchemaId,
+  investigativeQueriesViewSchemaId,
+  lessonViewSchemaId,
+  partiesViewSchemaId,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import { fetchRecordHistoryCount } from "./support/workbook/history";
 import {
   commitOrdinary,
-  ordinaryEvidenceView as evidence,
   fillOrdinaryField,
   openOrdinaryFixture,
   ordinaryField,
@@ -27,55 +43,58 @@ test("Ordinary creation admits the fourteen-schema minimum matrix through produc
 }) => {
   const { incident } = await openOrdinaryFixture(page);
   const minima = {
-    hosts: { "host.aad_device_id": "4837b1bf-a528-4a2c-8b7e-42a159de3464" },
-    identities: {
+    [hostsViewSchemaId]: {
+      "host.aad_device_id": "4837b1bf-a528-4a2c-8b7e-42a159de3464",
+    },
+    [identitiesViewSchemaId]: {
       "identity.sid": "S-1-5-21-123456789-123456789-123456789-1001",
     },
-    parties: {
+    [partiesViewSchemaId]: {
       "party.display_name": "Ordinary party",
       "party.party_kind": "person",
     },
-    task_requests: {
+    [taskRequestsViewSchemaId]: {
       "task.title": "Ordinary task",
       "task.task_kind": "question",
     },
-    decisions: {
+    [decisionsViewSchemaId]: {
       "decision.summary": "Ordinary decision",
       "decision.decision_type": "scope",
       "decision.rationale": "Ordinary rationale",
     },
-    comm_log: {
+    [commLogViewSchemaId]: {
       "comm_log.comm_type": "briefing",
       "comm_log.audience": "Operations",
       "comm_log.channel_or_meeting": "Bridge",
       "comm_log.summary": "Ordinary communication",
     },
-    handoff: {
+    [handoffViewSchemaId]: {
       "handoff.incoming_owner_user_id": workerAdmin.user_id,
       "handoff.current_state_summary": "Ordinary handoff",
     },
-    status_review: { "status_review.current_state_summary": "Ordinary review" },
-    lesson: { "lesson.summary": "Ordinary lesson" },
-    findings: { "finding.statement": "Ordinary finding" },
-    investigative_queries: {
+    [statusReviewViewSchemaId]: {
+      "status_review.current_state_summary": "Ordinary review",
+    },
+    [lessonViewSchemaId]: { "lesson.summary": "Ordinary lesson" },
+    [findingsViewSchemaId]: { "finding.statement": "Ordinary finding" },
+    [investigativeQueriesViewSchemaId]: {
       "investigative_query.platform": "SQL",
       "investigative_query.purpose": "Ordinary purpose",
       "investigative_query.query_text": "select\n  value",
     },
-    forensic_keywords: {
+    [forensicKeywordsViewSchemaId]: {
       "forensic_keyword.pattern": "needle",
       "forensic_keyword.reason": "Ordinary reason",
     },
-    evidence: { "evidence.title": "Ordinary evidence" },
-    indicators: {
+    [evidenceViewSchemaId]: { "evidence.title": "Ordinary evidence" },
+    [indicatorsViewSchemaId]: {
       "indicator.indicator_type": "domain_name",
       "indicator.value_kind": "atomic",
       "indicator.display_value": "EXAMPLE.TEST",
     },
   };
-  for (const [name, values] of Object.entries(minima))
-    await test.step(name, async () => {
-      const view = `cartulary.view.${name}.v1`;
+  for (const [view, values] of Object.entries(minima))
+    await test.step(view, async () => {
       await switchOrdinarySheet(page, view);
       await commitOrdinary(page, view);
       await expect(
@@ -93,13 +112,13 @@ test("Ordinary creation admits the fourteen-schema minimum matrix through produc
       const row = rows[0];
       if (!row) throw new Error("Missing created row");
       expect(row.row_version).toBe(1);
-      if (name === "task_requests")
+      if (view === taskRequestsViewSchemaId)
         expect(row.cells["task.status"]?.value).toBe("open");
-      if (name === "decisions")
+      if (view === decisionsViewSchemaId)
         expect(row.cells["decision.status"]?.value).toBe("proposed");
-      if (name === "evidence")
+      if (view === evidenceViewSchemaId)
         expect(row.cells["evidence.requested_at"]?.value).not.toBeNull();
-      if (name === "forensic_keywords")
+      if (view === forensicKeywordsViewSchemaId)
         expect(row.cells["forensic_keyword.case_sensitive"]?.value).toBe(false);
       expect(await fetchRecordHistoryCount(page, row.record_id)).toBe(1);
     });
@@ -108,7 +127,7 @@ test("Ordinary creation admits the fourteen-schema minimum matrix through produc
 test("Ordinary grid and inspector share retained authoring and admit same-frame Commit once", async ({
   page,
 }) => {
-  const view = "cartulary.view.parties.v1",
+  const view = partiesViewSchemaId,
     { incident } = await openOrdinaryFixture(page, view);
   await fillOrdinaryField(
     page,

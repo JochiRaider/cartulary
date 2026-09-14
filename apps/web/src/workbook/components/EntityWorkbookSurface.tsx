@@ -387,9 +387,10 @@ export function EntityWorkbookSurface({
   const focusEntityDraft = useCallback(() => {
     const firstWritableField = createFields[0];
     if (!firstWritableField || !canCreateRows) return;
-    window.setTimeout(() => {
-      gridHandleRef.current?.focusDraftCell(firstWritableField.fieldKey);
-    }, 0);
+    void gridHandleRef.current?.requestFocus({
+      kind: "draft",
+      fieldKey: firstWritableField.fieldKey,
+    });
   }, [canCreateRows, createFields]);
   const dataState = workbookGridDataState({
     emptyAction: canCreateRows
@@ -561,6 +562,7 @@ export function EntityWorkbookSurface({
       return {
         ...column,
         contractWritable: field?.gridEditable === true,
+        draftWritable: field?.createWritable === true,
         getClipboardValue: (row: EntityRow) => {
           const value =
             mutationRuntime.visibleEdit(

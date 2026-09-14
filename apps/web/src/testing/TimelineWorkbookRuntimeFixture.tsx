@@ -70,6 +70,7 @@ import { workbookAuthorizationRecovery } from "./workbookAuthorizationTestSuppor
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const idleGridEntryFocus = {
   acknowledge: () => undefined,
+  cancel: () => undefined,
   request: { kind: "idle" as const },
 };
 
@@ -454,11 +455,13 @@ export function TimelineWorkbookRuntimeFixture({
             onRetry={() => mutationRuntime.retryBlockedEdit()}
             ref={recoveryFocus.editRecoveryPanelRef}
           />
-        ) : mutationSnapshot.overflowMessage !== null ? (
+        ) : mutationSnapshot.overflowMessage !== null &&
+          recoveryFocus.overflowOpen ? (
           <WorkbookQueueOverflowNotice
             message={mutationSnapshot.overflowMessage}
             onFocusWithinChange={recoveryFocus.onFocusWithinChange}
             ref={recoveryFocus.overflowNoticeRef}
+            onClose={recoveryFocus.closeOverflow}
           />
         ) : (
           <WorkbookSameFieldConflictResolver

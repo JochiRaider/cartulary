@@ -22,6 +22,8 @@ it("keeps the original editor accessible while conflict recovery opens and close
     focusSameFieldSummary: vi.fn(),
     onFocusWithinChange: vi.fn(),
     overflowNoticeRef: createRef<HTMLElement>(),
+    overflowOpen: true,
+    closeOverflow: vi.fn(),
     sameFieldSummaryRef: createRef<HTMLDivElement>(),
   };
   const props = {

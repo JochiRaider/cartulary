@@ -49,7 +49,7 @@ type TimelineInteractionCompositionInput = {
     readonly resolveTimelinePasteTargetResolution: ClipboardInput["resolveTimelinePasteTargetResolution"];
     readonly restoreTimelineFocusAnchor: (
       anchor: GridCellAnchor | WorkbookContinuityAnchor,
-    ) => boolean;
+    ) => Promise<boolean>;
     readonly timelineAnchorColumnsRef: {
       readonly current: readonly { readonly fieldKey: string }[];
     };

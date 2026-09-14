@@ -5,14 +5,17 @@ import {
   type CartularyAc043PredicateId,
   cartularyAc043PerformanceContract,
   cartularyInteractiveP95MeasurementPolicy,
+  dataTestIdSelector,
   draftCellTestId,
+  gridFieldCellSelector,
+  gridRowVersionAttribute,
   gridSavedRowsSelector,
   gridShellTestId,
   gridSortHeaderTestId,
   rowCellTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page, TestInfo } from "@playwright/test";
 
 export const interactiveMeasurementSamplePolicy =
@@ -441,13 +444,32 @@ async function waitForBlankRowPaint(
     timeoutMs: number;
   },
 ) {
-  return page.evaluate<PaintCompletion, typeof options>(
-    observeBlankRowPaintInBrowser,
-    options,
-  );
+  return page.evaluate(observeBlankRowPaintInBrowser, {
+    ...options,
+    selectors: committedRowObservationSelectors(timelineViewSchemaId),
+  });
+}
+
+type CommittedRowObservationSelectors = {
+  grid: string;
+  rows: string;
+  field: string;
+  versionAttribute: string;
+};
+
+export function committedRowObservationSelectors(
+  surface: string,
+): CommittedRowObservationSelectors {
+  return {
+    grid: dataTestIdSelector(gridShellTestId(surface)),
+    rows: gridSavedRowsSelector(),
+    field: gridFieldCellSelector("timeline.activity_synopsis_text"),
+    versionAttribute: gridRowVersionAttribute,
+  };
 }
 
 export function observeBlankRowPaintInBrowser(options: {
+  selectors: CommittedRowObservationSelectors;
   expectedSummary: string;
   startMark: string;
   stopMark: string;
@@ -456,6 +478,7 @@ export function observeBlankRowPaintInBrowser(options: {
   const { expectedSummary, startMark, stopMark, timeoutMs } = options;
   return new Promise((resolve, reject) => {
     const deadline = performance.now() + timeoutMs;
+    let priorRow: HTMLElement | null = null;
     let priorRecordId: string | null = null;
     let priorVersion: number | null = null;
     let consecutiveFrames = 0;
@@ -469,44 +492,35 @@ export function observeBlankRowPaintInBrowser(options: {
     };
     const tick = () => {
       const start = performance.getEntriesByName(startMark, "mark").at(-1);
-      const grid = document.querySelector<HTMLElement>(
-        '[data-testid="cartulary.view.timeline.v2-grid-shell"]',
-      );
-      let match: { recordId: string; rowVersion: number } | null = null;
+      const grid = document.querySelector<HTMLElement>(options.selectors.grid);
+      let match: {
+        row: HTMLElement;
+        recordId: string;
+        rowVersion: number;
+      } | null = null;
       let summaryMatch = false;
       let versionedSummaryMatch = false;
       let visibleSummaryMatch = false;
       const mountedRows =
-        grid?.querySelectorAll<HTMLElement>("[data-grid-record-id]") ?? [];
+        grid?.querySelectorAll<HTMLElement>(options.selectors.rows) ?? [];
       if (grid !== null) {
         for (const row of mountedRows) {
           const recordId = row.dataset.gridRecordId;
           if (!recordId) continue;
-          const summary = Array.from(
-            row.querySelectorAll<HTMLElement>("[data-testid]"),
-          ).find(
-            (element) =>
-              element.getAttribute("data-testid") ===
-                `row-${recordId}-timeline.activity_synopsis_text` ||
-              element.getAttribute("data-testid") ===
-                `row-${recordId}-timeline.activity_synopsis_text-grid-editor`,
-          );
+          const field = row.querySelector<HTMLElement>(options.selectors.field);
+          const summary =
+            field?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+              "input, textarea",
+            ) ?? field;
           const value =
             summary instanceof HTMLInputElement ||
             summary instanceof HTMLTextAreaElement
               ? summary.value
               : summary?.textContent?.trim();
-          if (value !== expectedSummary || summary === undefined) continue;
+          if (value !== expectedSummary || !summary) continue;
           summaryMatch = true;
-          // Qualify only the matching row. Repeated whole-document scans for
-          // every mounted row otherwise become part of the measured latency.
-          const versionSelector = `[data-testid=${JSON.stringify(`row-${recordId}-row_version`)}]`;
-          const versionNode =
-            row.querySelector<HTMLElement>(versionSelector) ??
-            document.querySelector<HTMLElement>(versionSelector);
-          const rowVersion = Number.parseInt(
-            versionNode?.textContent ?? "",
-            10,
+          const rowVersion = Number(
+            row.getAttribute(options.selectors.versionAttribute),
           );
           if (!Number.isInteger(rowVersion) || rowVersion < 1) continue;
           versionedSummaryMatch = true;
@@ -514,7 +528,9 @@ export function observeBlankRowPaintInBrowser(options: {
           const gridRect = grid.getBoundingClientRect();
           const style = getComputedStyle(summary);
           if (
+            row.isConnected &&
             summary.isConnected &&
+            summary.closest("[hidden], [aria-hidden='true']") === null &&
             style.display !== "none" &&
             style.visibility !== "hidden" &&
             targetRect.width > 0 &&
@@ -525,7 +541,7 @@ export function observeBlankRowPaintInBrowser(options: {
             targetRect.top < gridRect.bottom
           ) {
             visibleSummaryMatch = true;
-            match = { recordId, rowVersion };
+            match = { row, recordId, rowVersion };
             break;
           }
         }
@@ -540,9 +556,12 @@ export function observeBlankRowPaintInBrowser(options: {
       };
       if (start !== undefined && match !== null) {
         consecutiveFrames =
-          match.recordId === priorRecordId && match.rowVersion === priorVersion
+          match.row === priorRow &&
+          match.recordId === priorRecordId &&
+          match.rowVersion === priorVersion
             ? consecutiveFrames + 1
             : 1;
+        priorRow = match.row;
         priorRecordId = match.recordId;
         priorVersion = match.rowVersion;
         if (consecutiveFrames >= 2) {
@@ -558,6 +577,7 @@ export function observeBlankRowPaintInBrowser(options: {
         }
       } else {
         consecutiveFrames = 0;
+        priorRow = null;
         priorRecordId = null;
         priorVersion = null;
       }
@@ -687,51 +707,35 @@ export async function waitForCommittedRowSummary(
   const startedAtMs =
     options.startedAtMs ?? (await page.evaluate(() => performance.now()));
   return page.evaluate(
-    ({ expectedSummary, startedAtMs, timeoutMs }) =>
+    ({ expectedSummary, startedAtMs, timeoutMs, selectors }) =>
       new Promise<{ durationMs: number; recordId: string; rowVersion: number }>(
         (resolve, reject) => {
-          const deadline = startedAtMs + timeoutMs;
           const tick = () => {
-            for (const row of document.querySelectorAll<HTMLElement>(
-              "[data-grid-record-id]",
-            )) {
+            const grid = document.querySelector(selectors.grid);
+            for (const row of grid?.querySelectorAll<HTMLElement>(
+              selectors.rows,
+            ) ?? []) {
               const recordId = row.dataset.gridRecordId;
-              if (!recordId) continue;
-              const summary = Array.from(
-                row.querySelectorAll<HTMLElement>("[data-testid]"),
-              ).find(
-                (element) =>
-                  element.getAttribute("data-testid") ===
-                  `row-${recordId}-timeline.activity_synopsis_text`,
-              );
+              const field = row.querySelector<HTMLElement>(selectors.field);
+              const summary =
+                field?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+                  "input, textarea",
+                ) ?? field;
               const value =
                 summary instanceof HTMLInputElement ||
                 summary instanceof HTMLTextAreaElement
                   ? summary.value
                   : summary?.textContent?.trim();
-              const version =
-                Array.from(
-                  row.querySelectorAll<HTMLElement>("[data-testid]"),
-                ).find(
-                  (element) =>
-                    element.getAttribute("data-testid") ===
-                    `row-${recordId}-row_version`,
-                ) ??
-                Array.from(
-                  document.querySelectorAll<HTMLElement>("[data-testid]"),
-                ).find(
-                  (element) =>
-                    element.getAttribute("data-testid") ===
-                    `row-${recordId}-row_version`,
-                );
-              const rowVersion = Number.parseInt(
-                version?.textContent ?? "",
-                10,
+              const rowVersion = Number(
+                row.getAttribute(selectors.versionAttribute),
               );
               if (
+                recordId &&
                 value === expectedSummary &&
                 Number.isInteger(rowVersion) &&
-                rowVersion > 0
+                rowVersion > 0 &&
+                field?.isConnected &&
+                field.getClientRects().length > 0
               ) {
                 resolve({
                   durationMs: performance.now() - startedAtMs,
@@ -741,9 +745,9 @@ export async function waitForCommittedRowSummary(
                 return;
               }
             }
-            if (performance.now() > deadline) {
+            if (performance.now() > startedAtMs + timeoutMs)
               reject(new Error("timed out waiting for committed row summary"));
-            } else requestAnimationFrame(tick);
+            else requestAnimationFrame(tick);
           };
           requestAnimationFrame(tick);
         },
@@ -752,34 +756,61 @@ export async function waitForCommittedRowSummary(
       expectedSummary: options.expectedSummary,
       startedAtMs,
       timeoutMs: options.timeoutMs,
+      selectors: committedRowObservationSelectors(options.surface),
     },
   );
 }
 
 export function findCommittedRowSummaryInRoot(
   root: ParentNode,
-  options: { expectedSummary: string; surface: string },
+  options: {
+    expectedSummary: string;
+    surface: string;
+    recordId?: string;
+    minimumRowVersion?: number;
+  },
 ): CommittedRowSummaryMatch | null {
-  const grid = findElementByTestId(root, gridShellTestId(options.surface));
-  if (grid === null) return null;
-  const rows = Array.from(
-    grid.querySelectorAll<HTMLElement>(gridSavedRowsSelector()),
-  );
-  for (const row of rows) {
-    const recordId = row.getAttribute("data-grid-record-id");
-    if (recordId === null || recordId.trim() === "") continue;
-    const candidate = findElementByTestId<
-      HTMLInputElement | HTMLTextAreaElement
-    >(row, rowCellTestId(recordId, "timeline.activity_synopsis_text"));
-    if (candidate?.value !== options.expectedSummary) continue;
-    const rowVersionText = findElementByTestId(
-      row,
-      timelineRowVersionTestId(recordId),
-    )?.textContent;
-    const rowVersion = Number.parseInt(rowVersionText ?? "", 10);
-    if (Number.isInteger(rowVersion) && rowVersion >= 1) {
+  const selectors = committedRowObservationSelectors(options.surface);
+  const grid = root.querySelector(selectors.grid);
+  if (!grid) return null;
+  for (const row of grid.querySelectorAll<HTMLElement>(selectors.rows)) {
+    const recordId = row.dataset.gridRecordId;
+    if (
+      !recordId ||
+      (options.recordId !== undefined && recordId !== options.recordId)
+    )
+      continue;
+    const field = row.querySelector<HTMLElement>(selectors.field);
+    if (
+      !field ||
+      field.closest("[hidden], [aria-hidden='true']") ||
+      getComputedStyle(field).display === "none" ||
+      getComputedStyle(field).visibility === "hidden"
+    )
+      continue;
+    const candidate =
+      field.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        "input, textarea",
+      ) ?? field;
+    if (
+      !candidate.isConnected ||
+      candidate.closest("[hidden], [aria-hidden='true']") !== null ||
+      getComputedStyle(candidate).display === "none" ||
+      getComputedStyle(candidate).visibility === "hidden"
+    )
+      continue;
+    const value =
+      candidate instanceof HTMLInputElement ||
+      candidate instanceof HTMLTextAreaElement
+        ? candidate.value
+        : candidate.textContent?.trim();
+    if (value !== options.expectedSummary) continue;
+    const rowVersion = Number(row.getAttribute(selectors.versionAttribute));
+    if (
+      Number.isInteger(rowVersion) &&
+      rowVersion >= (options.minimumRowVersion ?? 1)
+    )
       return { recordId, rowVersion };
-    }
   }
   return null;
 }
@@ -841,17 +872,6 @@ function unquoteServerTimingValue(value: string) {
     return value.slice(1, -1).replace(/\\"/gu, '"');
   }
   return value;
-}
-
-function findElementByTestId<T extends Element = HTMLElement>(
-  root: ParentNode,
-  testId: string,
-): T | null {
-  return (
-    Array.from(root.querySelectorAll<T>("[data-testid]")).find(
-      (element) => element.getAttribute("data-testid") === testId,
-    ) ?? null
-  );
 }
 
 function canonicalJSON(value: unknown): string {

@@ -348,3 +348,26 @@ Frontend implementation evidence is complete only when:
 - generated artifacts are reproducible and drift-clean;
 - retained evidence uses current owner schemas and one compatible semantic identity;
 - no executable frontend validator reads documentation as behavior.
+
+## Observing editor outcomes and mounted rows
+
+Collaboration helpers declare the expected outcome: authoritative acceptance,
+local queue admission, or rejection. `editTimelineSummary` waits for the matching
+public mutation response and mounted row version for acceptance; an admission
+mark proves only retained local work. Rejection preserves the local editor.
+Fixtures that build a disconnected queue explicitly select another surface and
+return before editing another record. Reattaching Timeline registers its source
+replay driver. Keep committed-result verification for actions whose next step
+requires authoritative state; neither local text nor a queue count proves a save.
+
+Browser measurements prepare selector descriptors through `@cartulary/ui-contracts`
+before evaluation. The observer reads identity, committed version and field from
+the same mounted semantic row. Drafts have no committed version. Imported closures
+are unavailable inside browser evaluation, and a replaced row must start a new
+paint-stability observation. Observer changes require fresh measurements under
+the existing sampling and threshold rules.
+
+The private Grid Adapter's `requestFocus` completes only after actual focus. Its
+abort signal and user-navigation cancellation invalidate pending registration
+work. `draftWritable` expresses creation capability independently from existing
+record `contractWritable`. Support adapters implement the same completion contract.

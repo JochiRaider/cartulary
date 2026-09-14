@@ -80,12 +80,12 @@ it("useTimelineGridEnvironment owns rounded measurement and observer cleanup", (
 it("useTimelineInspectorStateComposition preserves continuity and resets selection lifecycle", () => {
   const token: WorkbookContinuityToken = { sequence: 1 };
   const capture = vi.fn(() => token);
-  const restore = vi.fn(() => true);
+  const restore = vi.fn(async () => true);
   const continuity: WorkbookContinuityPort = {
     capture,
     clear: vi.fn(),
     dispose: vi.fn(),
-    focus: vi.fn(() => true),
+    focus: vi.fn(async () => true),
     restore,
     select: vi.fn(),
     snapshot: vi.fn(() => ({ anchor: null })),

@@ -31,6 +31,19 @@ Verified by: AC-005, AC-043, AC-231
 
 ## 2. Workbook surface
 
+Successful explicit selection of a base workbook surface MUST transfer focus
+to its first visible, currently authorized writable creation control in field
+order. When no such control is available, entry MUST select the first eligible
+committed cell in visible row and field order in navigation mode, then fall back
+to the grid container when no eligible cell exists. Selecting a surface MUST NOT
+create a record. Dismissing a surface menu without selecting MUST instead return
+focus to its invoking control. A focus request is complete only when its intended
+target receives focus; requesting that an unmounted target scroll into view is
+not completion. Surface replacement, unmount, authority loss, or subsequent
+deliberate user navigation MUST invalidate obsolete entry requests. A late mount
+or completion MUST NOT steal focus from newer work. Extension workspaces retain
+their own owner-defined entry capabilities.
+
 ### 2.1 Built-in tabs
 
 **REQ-03-004**
@@ -1056,6 +1069,18 @@ In the base profile, the local pending queue MUST NOT be relied on to survive:
 - tab crash.
 
 The client MUST support a capacity of exactly `64` replay units per `(incident_id, client_instance_id)`. Replay MUST be FIFO by original enqueue order. The client MUST NOT reorder queued writes by visible row order, sort order, record type, or other presentation-derived state.
+
+Local queue admission is not authoritative acceptance. Ordinary editor-to-cell
+navigation under REQ-03-300 and REQ-03-218 MUST wait for authoritative acceptance.
+Explicit sheet or saved-view switching MUST allow presentation to detach while
+retaining admitted work in the same incident and client instance. Returning MUST
+preserve the original edit identity and pending state. Detachment MUST NOT cancel
+an admitted mutation, admit it again, or mark it saved. Completion after
+detachment MUST NOT reopen the old editor or restore its obsolete focus or
+navigation destination. Overflow refusal MUST retain the unsaved local draft
+across explicit surface detachment within the same live runtime. Dismissing an
+overflow notice changes presentation only; its status action MUST remain
+available until the refused work is explicitly handled.
 
 Coalescing is allowed only as follows:
 

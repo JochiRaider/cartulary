@@ -14,9 +14,9 @@ const anchor = (
 });
 
 describe("WorkbookContinuityPort", () => {
-  it("captures and restores semantic identity through an opaque one-shot token", () => {
-    const focus = vi.fn(() => true);
-    const restore = vi.fn(() => true);
+  it("captures and restores semantic identity through an opaque one-shot token", async () => {
+    const focus = vi.fn(async () => true);
+    const restore = vi.fn(async () => true);
     const select = vi.fn();
     const port = createWorkbookContinuityPort({
       capture: (subject) => ({ subject, scroll: "private-driver-state" }),
@@ -30,39 +30,43 @@ describe("WorkbookContinuityPort", () => {
     const token = port.capture();
 
     expect(token).not.toBe(supersededToken);
-    expect(port.restore(supersededToken)).toBe(false);
+    expect(await port.restore(supersededToken)).toBe(false);
     expect(port.snapshot().anchor).toEqual(anchor());
-    expect(port.restore(token)).toBe(true);
+    expect(await port.restore(token)).toBe(true);
     expect(restore).toHaveBeenCalledWith(
       anchor(),
       expect.objectContaining({ scroll: "private-driver-state" }),
+      expect.any(AbortSignal),
     );
-    expect(port.restore(token)).toBe(false);
+    expect(await port.restore(token)).toBe(false);
   });
 
-  it("focuses and selects only stable schema, record, and field identities", () => {
-    const focus = vi.fn(() => true);
+  it("focuses and selects only stable schema, record, and field identities", async () => {
+    const focus = vi.fn(async () => true);
     const select = vi.fn();
     const port = createWorkbookContinuityPort({
       capture: () => null,
       focus,
-      restore: () => false,
+      restore: async () => false,
       select,
     });
 
-    expect(port.focus(anchor("record-2", "timeline.tags"))).toBe(true);
+    expect(await port.focus(anchor("record-2", "timeline.tags"))).toBe(true);
     port.select(anchor("record-2", "timeline.tags"));
 
-    expect(focus).toHaveBeenCalledWith(anchor("record-2", "timeline.tags"));
+    expect(focus).toHaveBeenCalledWith(
+      anchor("record-2", "timeline.tags"),
+      expect.any(AbortSignal),
+    );
     expect(select).toHaveBeenCalledWith(anchor("record-2", "timeline.tags"));
   });
 
-  it("clears captures and selection and disposes idempotently", () => {
+  it("clears captures and selection and disposes idempotently", async () => {
     const select = vi.fn();
     const port = createWorkbookContinuityPort({
       capture: () => null,
-      focus: () => true,
-      restore: () => true,
+      focus: async () => true,
+      restore: async () => true,
       select,
     });
     port.select(anchor());
@@ -70,11 +74,11 @@ describe("WorkbookContinuityPort", () => {
 
     port.clear();
     expect(port.snapshot().anchor).toBeNull();
-    expect(port.restore(token)).toBe(false);
+    expect(await port.restore(token)).toBe(false);
 
     port.dispose();
     port.dispose();
-    expect(port.focus(anchor())).toBe(false);
+    expect(await port.focus(anchor())).toBe(false);
     expect(() => port.capture()).toThrow("disposed");
   });
 });

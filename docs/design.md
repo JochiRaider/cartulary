@@ -927,6 +927,12 @@ Design contract. Each shell chrome mode MUST render according to this table.
 
 Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the shell chrome mode, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
 
+Design contract. Coordination and Note authoring recovery use the shared work-area
+overlay host. Its trigger remains in shell chrome; its non-modal content is
+bounded by the active work area and scrolls internally using shared spacing and
+surface tokens. Feature components MUST NOT calculate viewport offsets or
+reserve their own top-bar height. The status strip remains outside that overlay.
+
 Design contract. Below the supported minimum inline size, keyboard session logout and safe navigation MUST remain available. Omission of mobile/touch-specific gestures is conformant.
 
 ### 7.5 Responsive overflow algorithm
@@ -1063,6 +1069,12 @@ Design contract. Dirty saved-view indication MUST NOT imply unsaved incident dat
 ### 8.4 Keyboard interaction matrix
 
 Design contract. Keyboard behavior MUST use the matrix below. `Tab` order MUST enter each major region once before entering roving-focus children inside that region.
+
+Design contract. The matrix's invoking-control focus return applies to menu
+dismissal without selection. Successful explicit base-surface selection follows
+Core 03 §2: first visible authorized creation control, then first eligible
+committed cell in navigation mode, then grid container. Delayed mounting does
+not complete a focus request; obsolete requests cannot restore focus.
 
 | Region or component | Entry key/path | Navigation keys | Activation | Commit | Cancel | Escape behavior | Focus return | Fallback focus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

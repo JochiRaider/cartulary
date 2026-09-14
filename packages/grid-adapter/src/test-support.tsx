@@ -21,6 +21,7 @@ import {
   useContext,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -66,6 +67,7 @@ import {
   gridDataStatePresentsAuthorizedRows,
   gridDataStatePresentsDraft,
 } from "./semanticDataState";
+import { createSemanticFocusRequests } from "./semanticFocusRequest";
 import {
   decideSemanticGridKey,
   decideSpreadsheetNavigation,
@@ -75,6 +77,7 @@ import {
 import {
   buildSemanticGroupBuckets,
   buildSemanticPresentationModel,
+  coreRowVersion,
   gridAnchorKey,
   navigateSemanticPresentation,
   planSemanticPasteTargets,
@@ -154,7 +157,7 @@ function buildTestPresentationRows<Row>(
 
 function useTestSupportFocus<Row>(
   presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>,
-  cellElements: MutableRefObject<Map<string, HTMLTableCellElement>>,
+  focusCommand: MutableRefObject<GridHandle["requestFocus"] | null>,
   onActiveCellChange: ((anchor: GridCellAnchor | null) => void) | undefined,
 ) {
   const activeCellRef = useRef<GridCellAnchor | null>(null);
@@ -174,12 +177,11 @@ function useTestSupportFocus<Row>(
     (anchor: GridCellAnchor) => {
       if (!semanticPresentationContainsAnchor(presentation, anchor))
         return false;
-      const element = cellElements.current.get(gridAnchorKey(anchor));
-      if (element === undefined) return false;
-      element.focus();
-      return document.activeElement === element;
+      if (focusCommand.current === null) return false;
+      void focusCommand.current({ kind: "cell", anchor });
+      return true;
     },
-    [cellElements, presentation],
+    [focusCommand, presentation],
   );
   return { focusSemanticAnchor, publishActiveCell };
 }
@@ -209,6 +211,7 @@ function useTestSupportGridHandle<Row>({
   dataRows,
   draftFocusTargets,
   editable,
+  hasDraft,
   focusSemanticAnchor,
   presentation,
   ref,
@@ -225,13 +228,63 @@ function useTestSupportGridHandle<Row>({
     Map<string, GridEditorFocusTarget>
   >;
   readonly editable: boolean;
+  readonly hasDraft: boolean;
   readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
   readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
   readonly ref: ForwardedRef<GridHandle>;
   readonly scrollElement: MutableRefObject<HTMLDivElement | null>;
   readonly setActiveEditor: (editor: TestActiveEditor | null) => void;
   readonly surface: SemanticDataGridProps<Row>["surface"];
-}): void {
+}) {
+  const latest = useRef({ presentation, editable, hasDraft, columns });
+  latest.current = { presentation, editable, hasDraft, columns };
+  const focusRequests = useMemo(
+    () =>
+      createSemanticFocusRequests({
+        prepare: () => {},
+        resolve: (target) => {
+          if (target.kind === "draft") {
+            const current = latest.current;
+            if (
+              !current.editable ||
+              !current.hasDraft ||
+              !current.columns.some(
+                (column) =>
+                  column.fieldKey === target.fieldKey &&
+                  column.draftWritable === true &&
+                  column.renderDraftCell !== undefined,
+              )
+            )
+              return { kind: "unavailable" };
+            const element = draftFocusTargets.current.get(target.fieldKey);
+            return element ? { kind: "target", element } : { kind: "pending" };
+          }
+          if (target.kind === "cell") {
+            if (
+              !semanticPresentationContainsAnchor(
+                latest.current.presentation,
+                target.anchor,
+              )
+            )
+              return { kind: "unavailable" };
+            const element = cellElements.current.get(
+              gridAnchorKey(target.anchor),
+            );
+            return element ? { kind: "target", element } : { kind: "pending" };
+          }
+          const element = scrollElement.current;
+          return element ? { kind: "target", element } : { kind: "pending" };
+        },
+      }),
+    [cellElements, draftFocusTargets, scrollElement],
+  );
+  useLayoutEffect(() => {
+    focusRequests.refresh();
+  });
+  useLayoutEffect(() => {
+    if (!editable) focusRequests.cancel();
+    return () => focusRequests.cancel();
+  }, [focusRequests, editable]);
   useImperativeHandle(
     ref,
     () => ({
@@ -258,12 +311,9 @@ function useTestSupportGridHandle<Row>({
         setActiveEditor(null);
         return true;
       },
-      focusAnchor: focusSemanticAnchor,
-      focusDraftCell: (fieldKey) =>
-        focusTestDraftCell(draftFocusTargets.current, fieldKey),
+      requestFocus: focusRequests.requestFocus,
       focusAdjacentRegion: (backwards) =>
         focusAdjacentOutsideGrid(scrollElement.current, backwards),
-      focusRoot: () => focusTestRoot(scrollElement.current),
       getScrollElement: () => scrollElement.current,
       getAnchorRect: (anchor) =>
         testAnchorRect(cellElements.current, surface, anchor),
@@ -290,7 +340,10 @@ function useTestSupportGridHandle<Row>({
             return decision.target;
           }
           if (decision.kind === "focus_draft")
-            focusTestDraftCell(draftFocusTargets.current, decision.fieldKey);
+            void focusRequests.requestFocus({
+              kind: "draft",
+              fieldKey: decision.fieldKey,
+            });
           if (decision.kind === "exit_grid")
             focusAdjacentOutsideGrid(scrollElement.current, decision.backwards);
           return null;
@@ -309,6 +362,7 @@ function useTestSupportGridHandle<Row>({
     }),
     [
       activeEditor,
+      focusRequests,
       keyboardNavigation,
       cellElements,
       columns,
@@ -322,6 +376,7 @@ function useTestSupportGridHandle<Row>({
       surface,
     ],
   );
+  return focusRequests;
 }
 
 function activeEditorsEqual(
@@ -335,12 +390,6 @@ function activeEditorsEqual(
     gridRowIdentitiesEqual(activeEditor.rowIdentity, anchor.rowIdentity) &&
     gridSurfaceIdentitiesEqual(surface, anchor.surface)
   );
-}
-
-function focusTestRoot(element: HTMLDivElement | null): boolean {
-  if (element === null) return false;
-  element.focus();
-  return document.activeElement === element;
 }
 
 function createTestSupportSemanticState<Row>({
@@ -794,6 +843,7 @@ function TestGridDataRow<Row>({
     <tr
       {...testSemanticAttributes("row", rowState, "data row")}
       data-grid-row-identity-kind={gridRow.rowIdentity.kind}
+      data-grid-row-version={coreRowVersion(gridRow) ?? undefined}
       data-grid-record-id={coreRecordId(gridRow) ?? undefined}
       data-testid={gridRow.testId}
       role="row"
@@ -1075,6 +1125,7 @@ function TestGridDraftRow<Row>({
   readonly rowGutter: GridRowGutter | undefined;
   readonly surface: SemanticDataGridProps<Row>["surface"];
 }) {
+  const { refreshFocus } = useContext(TestKeyboardPolicyContext);
   return (
     <tr
       data-cartulary-grid-draft-row="true"
@@ -1099,6 +1150,7 @@ function TestGridDraftRow<Row>({
                 focusTargetRef: createTestDraftFocusTargetRef(
                   draftFocusTargets.current,
                   column.fieldKey,
+                  refreshFocus,
                 ),
                 row: draftRow.data,
                 surface,
@@ -1394,12 +1446,13 @@ function useSemanticDataGridTestSupport<Row>(
     fieldKeys: columns.map((column) => column.fieldKey),
     surface,
   });
+  const focusCommand = useRef<GridHandle["requestFocus"] | null>(null);
   const { focusSemanticAnchor, publishActiveCell } = useTestSupportFocus(
     semanticPresentation,
-    cellElements,
+    focusCommand,
     onActiveCellChange,
   );
-  useTestSupportGridHandle({
+  const focusRequests = useTestSupportGridHandle({
     keyboardNavigation,
     activeEditor,
     cellElements,
@@ -1409,11 +1462,13 @@ function useSemanticDataGridTestSupport<Row>(
     editable,
     focusSemanticAnchor,
     presentation: semanticPresentation,
+    hasDraft: effectiveDraftRow !== undefined,
     ref,
     scrollElement,
     setActiveEditor,
     surface,
   });
+  focusCommand.current = focusRequests.requestFocus;
   assertGridRows(ownerDataRows);
 
   const { bulkSelectionState, cellStateFor, rowStateFor } =
@@ -1438,11 +1493,22 @@ function useSemanticDataGridTestSupport<Row>(
     <TestKeyboardPolicyContext.Provider
       value={{
         mode: keyboardNavigation,
-        draftFieldKeys: () => [...draftFocusTargets.current.keys()],
+        draftFieldKeys: () =>
+          editable && effectiveDraftRow !== undefined
+            ? columns
+                .filter(
+                  (column) =>
+                    column.draftWritable === true &&
+                    column.renderDraftCell !== undefined,
+                )
+                .map((column) => column.fieldKey)
+            : [],
+        refreshFocus: focusRequests.refresh,
         focusAdjacentRegion: (backwards) =>
           focusAdjacentOutsideGrid(scrollElement.current, backwards),
-        focusDraftCell: (fieldKey) =>
-          focusTestDraftCell(draftFocusTargets.current, fieldKey),
+        focusDraftCell: (fieldKey) => {
+          void focusRequests.requestFocus({ kind: "draft", fieldKey });
+        },
       }}
     >
       <div
@@ -1556,7 +1622,7 @@ function useSemanticDataGridTestSupport<Row>(
         <GridOperationalStatePlane
           accessibleLabel={accessibleLabel}
           dataState={dataState}
-          focusRoot={() => focusTestRoot(scrollElement.current)}
+          requestFocus={focusRequests.requestFocus}
           interactionMode={effectiveInteractionMode}
           surface={surface}
         />
@@ -1686,6 +1752,7 @@ function executeTestFillDecision<Row>({
 function createTestDraftFocusTargetRef(
   registry: Map<string, GridEditorFocusTarget>,
   fieldKey: string,
+  refresh: () => void,
 ) {
   let registeredElement: GridEditorFocusTarget | null = null;
   return (element: GridEditorFocusTarget | null) => {
@@ -1698,25 +1765,8 @@ function createTestDraftFocusTargetRef(
     }
     registeredElement = element;
     registry.set(fieldKey, element);
+    refresh();
   };
-}
-
-function focusTestDraftCell(
-  registry: ReadonlyMap<string, GridEditorFocusTarget>,
-  fieldKey: string,
-): boolean {
-  const element = registry.get(fieldKey);
-  if (
-    element === undefined ||
-    !element.isConnected ||
-    element.disabled ||
-    element.hidden ||
-    element.closest("[hidden], [aria-hidden='true']") !== null
-  ) {
-    return false;
-  }
-  element.focus({ preventScroll: true });
-  return document.activeElement === element;
 }
 
 function testAnchorRect(
@@ -1966,11 +2016,13 @@ type TestKeyboardPolicy = {
   readonly mode: "region" | "spreadsheet";
   readonly focusAdjacentRegion: (backwards: boolean) => boolean;
   readonly draftFieldKeys: () => readonly string[];
-  readonly focusDraftCell: (fieldKey: string) => boolean;
+  readonly focusDraftCell: (fieldKey: string) => void;
+  readonly refreshFocus: () => void;
 };
 const TestKeyboardPolicyContext = createContext<TestKeyboardPolicy>({
   mode: "region",
   focusAdjacentRegion: () => false,
   draftFieldKeys: () => [],
-  focusDraftCell: () => false,
+  focusDraftCell: () => {},
+  refreshFocus: () => {},
 });

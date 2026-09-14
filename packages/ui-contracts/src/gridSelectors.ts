@@ -6,6 +6,13 @@ import {
 } from "./selectorCore";
 import { viewFirstTestId, viewScopedTestId } from "./viewSchemaSelectors";
 
+export const gridRowVersionAttribute = "data-grid-row-version";
+
+/** Scoped to a mounted semantic data row; independent of record-ID encoding. */
+export function gridFieldCellSelector(fieldKey: string): string {
+  return `[data-grid-field-key="${requireFieldKey(fieldKey)}"]`;
+}
+
 export function gridScrollportClassName(): string {
   return "cartulary-grid-scrollport";
 }

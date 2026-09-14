@@ -9,11 +9,12 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   draftCellTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridSortHeaderTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
   saveStateTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
@@ -192,8 +193,11 @@ test(exactScenarioTitle, async ({ page }) => {
     "patchRecord",
   );
   await expect(
-    page.getByTestId(timelineRowVersionTestId(beta.record_id)),
-  ).toHaveText(String(betaPatchEnvelope.data.row.row_version));
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, beta.record_id)),
+  ).toHaveAttribute(
+    gridRowVersionAttribute,
+    String(betaPatchEnvelope.data.row.row_version),
+  );
   await expect(
     page.getByTestId(
       rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),

@@ -1,10 +1,11 @@
 import {
   cellPresenceMarkerTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridShellTestId,
   pendingQueueNoticeTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
@@ -255,9 +256,14 @@ describe("workbook collaboration coverage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
     });
     expect(input.value).toBe("Unsaved local");
@@ -427,9 +433,14 @@ describe("workbook collaboration coverage", () => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
     });
     expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
@@ -504,9 +515,14 @@ describe("workbook collaboration coverage", () => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("5");
     });
     expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
@@ -591,9 +607,14 @@ describe("workbook collaboration coverage", () => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(
-          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
-        ).textContent,
+        screen
+          .getByTestId(
+            gridRowTestId(
+              timelineViewSchemaId,
+              "20000000-0000-4000-8000-000000000001",
+            ),
+          )
+          .getAttribute(gridRowVersionAttribute),
       ).toBe("8");
     });
     expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({

@@ -13,6 +13,7 @@ export type WorkbookGridEntryFocusAcknowledgement = {
 
 export type WorkbookGridEntryFocusOwner = {
   readonly request: WorkbookGridEntryFocusRequest;
+  readonly cancel: (request: WorkbookGridEntryFocusAcknowledgement) => void;
   readonly acknowledge: (
     acknowledgement: WorkbookGridEntryFocusAcknowledgement,
   ) => void;

@@ -42,7 +42,9 @@
       "row_id": "package.grid_adapter.boundary_support.manual_package_surface_reachability",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.boundary_support",
-      "collaborator_ids": ["package.ui"],
+      "collaborator_ids": [
+        "package.ui"
+      ],
       "verification_ids": [
         "package.grid_adapter.verification.manual_surface_reachability"
       ],
@@ -756,6 +758,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.grid_adapter.regression.creation_focus_authority",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/index.test.tsx",
+        "titles": [
+          "grid-adapter keeps creation focus independent from patch eligibility through registration and authority changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.grid_adapter.regression.index_suite_d804ef9789",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",
@@ -797,6 +823,33 @@
           "grid-adapter shows the delayed loading message once per active generation and cancels it on terminal state",
           "grid-adapter survives jsdom layout measurement when row pending state rerenders the RDG grid",
           "grid-adapter translates live cell events and the restricted handle through semantic coordinates"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.semantic_focus_requests",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/semanticFocusRequest.test.ts",
+        "titles": [
+          "semantic focus requests cancels superseded and aborted requests without focusing their late controls",
+          "semantic focus requests does not complete against a detached control and releases cancelled lifetimes",
+          "semantic focus requests rejects unavailable and disabled targets and cancels on user navigation",
+          "semantic focus requests waits for registration and acknowledges only the declared primary control"
         ]
       },
       "evidence_class": "unit",

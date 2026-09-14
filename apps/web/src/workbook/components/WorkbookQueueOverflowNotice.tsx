@@ -1,4 +1,5 @@
 import { type CSSProperties, forwardRef } from "react";
+import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
 import { RecoverySurface } from "./RecoverySurface";
 
 export const WorkbookQueueOverflowNotice = forwardRef<
@@ -6,13 +7,23 @@ export const WorkbookQueueOverflowNotice = forwardRef<
   {
     readonly message: string;
     readonly onFocusWithinChange: (focused: boolean) => void;
+    readonly onClose: () => void;
   }
->(function WorkbookQueueOverflowNotice({ message, onFocusWithinChange }, ref) {
+>(function WorkbookQueueOverflowNotice(
+  { message, onFocusWithinChange, onClose },
+  ref,
+) {
   return (
     <RecoverySurface
       aria-label="Workbook queued edit overflow"
       ref={ref}
       tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}
       onBlurCapture={(event) => {
         const relatedTarget = event.relatedTarget;
         if (
@@ -36,6 +47,9 @@ export const WorkbookQueueOverflowNotice = forwardRef<
       >
         {message}
       </p>
+      <Button type="button" tone="secondary" onClick={onClose}>
+        Close queued edit notice
+      </Button>
     </RecoverySurface>
   );
 });

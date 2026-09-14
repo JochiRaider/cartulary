@@ -1,5 +1,5 @@
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { useCallback, useMemo, useState } from "react";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineBulkTagCommandAdapter } from "../adapters/createTimelineBulkTagCommandAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "../adapters/createTimelineEvidenceAttachmentAdapter";
@@ -74,8 +74,9 @@ export function useTimelineSurfaceFoundation({
   const pendingSaves = useTimelinePendingSaves({
     mutationRuntime,
   });
-  const editorDraftRegistry =
-    useTimelineEditorDraftRegistry(timelineViewSchemaId);
+  const editorDraftRegistry = useTimelineEditorDraftRegistry(
+    mutationRuntime.localDraftsForSurface(timelineViewSchemaId),
+  );
   const recordTiming = useCallback(
     (name: string, details: Record<string, unknown> = {}) => {
       if (typeof performance === "undefined") {
