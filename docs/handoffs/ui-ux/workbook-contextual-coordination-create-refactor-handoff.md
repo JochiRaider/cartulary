@@ -1,5 +1,7 @@
 # Contextual coordination creation and recovery handoff
 
+Follow-up (2026-09-14): [Workbook recovery and harness remediation](workbook-recovery-and-harness-remediation-handoff.md) records the current source-coordination, session-recovery, consumer migration, and validation corrections. Earlier evidence below retains its original source provenance.
+
 ## Baseline, authority, and scope
 
 Execution baseline revalidated: clean `main` at

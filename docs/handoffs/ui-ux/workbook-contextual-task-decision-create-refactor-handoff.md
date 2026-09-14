@@ -1,5 +1,7 @@
 # Contextual Task Request and Decision creation handoff
 
+Follow-up (2026-09-14): [Workbook recovery and harness remediation](workbook-recovery-and-harness-remediation-handoff.md) records the current source-coordination, session-recovery, consumer migration, and validation corrections. Earlier evidence below retains its original source provenance.
+
 ## Baseline, authority, and scope
 
 Execution baseline: `main`, `82c0b4c7de2f6eaa6b6810ebffb78b922a468bb3`, clean
