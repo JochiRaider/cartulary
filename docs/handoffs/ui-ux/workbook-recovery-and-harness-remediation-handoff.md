@@ -1,6 +1,6 @@
 # Workbook recovery and harness remediation handoff
 
-Status: implementation and focused recovery validation complete; broader verification is in progress. This document is a review record, not a requirement owner or an executable input.
+Status: implementation and required validation complete. All remediation workstreams are closed with the forensic limitation recorded below. This document is a review record, not a requirement owner or an executable input.
 
 ## Owner decisions and compatibility
 
@@ -18,7 +18,7 @@ The repairs preserve public routes, mutation payloads, transaction identities, d
 | B: replay depends on mounted Timeline | `WorkbookTimelineMutationOwner` retains the queue driver, receipt settlement, source reader, and draft cleanup. The hook attaches presentation only. Session epochs and attachment identities fence obsolete observations and focus effects; retired lifetimes clear retained state. Incomplete source reads retain the queue and request recovery instead of establishing record absence. | FIFO replay remains executable on Hosts or across authentication-shell transitions. Late acceptance remains authoritative without exposing suspended presentation. | No persistent or cross-account storage. Integration uses the real runtime/coordinator and a detached Timeline, requires HTTP acceptance, materializes versions at dispatch, and retains stable transaction IDs. Session tests cover delayed old 401 responses around login and account replacement. |
 | C: session fixture masks an upstream failure | One validated session-response rewrite helper is used by membership audit/management, metadata, administration, reference packs, import, and account editing fixtures. Only successful contract-valid sessions are rewritten. Upstream failures are forwarded with bounded operation/status/public-code/request-ID diagnostics. | Server failures remain diagnosable; malformed success or non-JSON responses cannot manufacture membership state. | Test-support API migration only. Fixture tests cover valid responses, malformed/error bodies, private-text exclusion, and transport failure. All three reported membership-audit browser rows pass. |
 | D: concurrent suites can delete live services | The service janitor no longer infers abandonment from age. Reclamation requires a matching successful terminal cleanup summary for the owning run and suite. Each removal records exact container/run/suite/service attribution first. | Prevents another test run from destroying infrastructure used by a long-running browser suite. Unproven orphans remain under their lease-specific cleanup authority. | No backend session or readiness contract changed. Lifecycle regression rejects reclamation of another run even after the former ten-minute cutoff, while retaining confirmed cleanup and concurrent-removal handling. Historical causal disposition is below. |
-| D: failed preparation and replacement lose their cause | Browser database preparation checks every required publication before sourcing it and explicitly propagates failure. Startup/reset steps and process diagnostics live under the exact browser session and reset attempt. Bounded redacted backend/frontend output is retained before private cleanup. | Failed prerequisites cannot produce misleading readiness; later attempts cannot overwrite an earlier attempt's log/summary pair. | Existing session/generation identities are reused; historical evidence is immutable. Failure-injection lifecycle smoke covers failed database preparation and missing environment/metadata publication, alongside existing replacement/cleanup cases. |
+| D: failed preparation and replacement lose their cause | Browser database preparation checks every required publication before sourcing it and explicitly propagates failure. Startup/reset steps and process diagnostics live under the exact browser session and reset attempt. Bounded redacted backend/frontend output is retained before private cleanup. | Failed prerequisites cannot produce misleading readiness; later attempts cannot overwrite an earlier attempt's log/summary pair. | Existing session/generation identities are reused; historical evidence is immutable. Failure-injection lifecycle smoke covers failed database preparation and missing environment/metadata publication. Final evidence review also found that `terminate-suite` omitted canonical cleanup completion: it now publishes success/failure, propagates lifecycle errors, and permits repeated termination without a second terminal lifecycle event. The new regression failed before this repair and passes afterward. |
 | D: explain-run misreads current summaries | Current run, target, and unit schemas are validated and read from their canonical locations. Summaries report unit counts and identity; accounting/progress use unit results. Unsupported schema versions fail explicitly. | Inspection cannot silently turn 109 units into zero work or undefined labels. | Supported historical formats retain their explicit handling. Canonical/unsupported-schema smoke tests pass; inspection of the reported broad root reports 109 units (47 passed, 4 failed, 58 skipped). |
 | E: logs are insecure or incomplete at publication | Shared secure writers reject symlink/type/ownership violations and establish directory/file modes before bytes. Shell capture owns and joins redaction/output workers before publication. Detached services close inherited capture descriptors. Browser log/environment/staging producers use secure creation; replacement files are exclusive. | Secure artifact production is an invariant. Output completion no longer races summary publication or hangs on inherited descriptors held by a service. | No command changes or validator weakening. Execution smoke checks permissive umask, creation-time modes, delayed stderr, retained shell state, detached services, symlink rejection, and redaction failure. Existing timeout/cancellation and lifecycle coverage remains enabled. |
 
@@ -30,28 +30,40 @@ A concurrent run, `20260914T173625Z-p26170`, executed suite preflight from `17:3
 
 Source inspection proves that the old janitor authorized deleting other runs' managed services solely by age. The timing, counts, and later connection refusal strongly support that defect as the service-disruption cause. Historical logs did not retain the deleted container IDs or the backend database exception, and Docker no longer retained events for that window. Consequently, the specific database exception behind the original session 500 cannot be recovered. The demonstrated destructive ownership defect is repaired and regression-tested; fixture hardening alone is not the causal closure. New cleanup attribution and retained process diagnostics remove that historical evidence gap for subsequent incidents.
 
+Current concurrency evidence also exercises the old failure condition: broad run `20260914T195846Z-p9787` started PostgreSQL at `19:59:08.312833475Z` and object storage at `19:59:24.538249131Z`. Accessibility run `20260914T201016Z-p20092` performed preflight at `20:10:33.314815191Z`, when both broad services exceeded ten minutes. It scanned four containers and removed zero; both suites completed successfully. This supplements the ownership regression with a live overlapping-run result.
+
 The broad root is evidence for a **dirty `cd0be11dd321e48acbdcdbc507b6371099db48f9` snapshot**, source digest `sha256:ec1f71561d918a177025890a17a75244aa193aeb7a6619df455c744411b53c94`. It is not execution evidence for the current base commit. The supplied baseline and focused roots remain unchanged.
 
 ## Verification ledger
 
-All commands run from the repository root through Make. Each run's `run-manifest.json` owns its exact source commit, dirty/clean state, and source digest. The implementation runs below started from `8e88d1f485d51f07b2cc93a73c05d41c056e296a` with the recorded uncommitted changes; they must not be relabeled as clean-commit runs.
+All test, build, lint, and generation commands run from the repository root through Make. Each run's `run-manifest.json` owns its exact source commit, dirty/clean state, and source digest. Earlier development evidence remains attributed to its original snapshot.
 
 | Command / scope | Result | Run root under `.cartulary/test-results/` |
 | --- | --- | --- |
-| `make test-slice OWNER=web.workbook` | Pass, 258/258 units | `20260914T192924Z-p10213` |
-| `make test-slice OWNER=web.collaboration ROWS=web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8` | Pass before additional incomplete-read regression; latest result recorded below | `20260914T192007Z-p36518` |
+| `make check` | Pass, 901/901 units; supplementary final result below | `20260914T195846Z-p9821` |
+| `make browser-e2e-webserver-backed` | Pass, 109/109 units, including all five reported browser rows | `20260914T195846Z-p9787` |
+| `make browser-e2e-stateful` | Pass, 40/40 units | `20260914T201136Z-p89035` |
+| `make browser-e2e-a11y` | Pass, 16/16 units | `20260914T201016Z-p20092` |
+| `make test-slice OWNER=web.workbook` | Pass, 258/258 units; included in later repository verification | `20260914T194841Z-p90181` |
+| `make test-slice OWNER=web.collaboration` | Pass, 8/8 units | `20260914T195358Z-p2616` |
 | `make test-slice OWNER=web.application ROWS=web.application.regression.app_session_lifecycle_d770146af2` | Pass, 2/2 units | `20260914T191022Z-p54997` |
-| Assessment reproduction below | Pass, 11/11 units | `20260914T192009Z-p36775` |
-| Collaboration reproduction below | Pass, 11/11 units | `20260914T193011Z-p29077` |
-| Membership-audit reproduction below | Pass, 11/11 units | `20260914T192145Z-p69973` |
+| Assessment reproduction below | Pass, 11/11 units; also passes in broad run | `20260914T192009Z-p36775` |
+| Collaboration reproduction below | Pass, 11/11 units; stronger document/transaction identity assertions also pass in broad run | `20260914T193011Z-p29077` |
+| Membership-audit reproduction below | Pass, 11/11 units; also passes in broad run | `20260914T192145Z-p69973` |
 | `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.fixtures_suite_b570a8a829,harness.browser.unit.testservices_lifecycle_contract` | Pass, 3/3 units | `20260914T193347Z-p85945` |
-| `make frontend-typecheck` | Pass, 2/2 units | `20260914T193348Z-p86680` |
-| `make frontend-import-boundary-check` | Pass, 2/2 units; later broad result recorded below | `20260914T192016Z-p48872` |
-| `make lint-shell` | Pass, 4/4 units | `20260914T192640Z-p97878` |
-| `make lint-scripts` | Pass, 2/2 units | `20260914T192815Z-p4658` |
-| `make lint-markdown` | Pass before this handoff was added; final result recorded below | `20260914T192816Z-p5700` |
-| `make generate` | Pass | `20260914T193300Z-p77769` |
-| `make agent-finalize` | Pass, 1/1 units | `20260914T193345Z-p85475` |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.unit.testservices_lifecycle_contract` | Pass, including new terminal cleanup/idempotency regression | `20260914T201744Z-p53031` |
+| `make run-harness-smoke-execution` | Pass; canonical aggregate and six child summaries | `20260914T200425Z-p94086` |
+| `make run-harness-smoke-lifecycle` | Pass; supplementary final result below | `20260914T200425Z-p94065` |
+| `make frontend-typecheck` | Pass, 2/2 units; also passes in repository check | `20260914T195359Z-p2878` |
+| `make frontend-import-boundary-check` | Pass, 2/2 units; also passes in repository check | `20260914T193423Z-p93755` |
+| `make lint-shell` / `make lint-scripts` | Pass; also pass in repository check | `20260914T192640Z-p97878` / `20260914T192815Z-p4658` |
+| `make lint-biome` | Pass after the inspector browser assertion update | `20260914T201136Z-p89024` |
+| `make lint-markdown` | Pass; final handoff check recorded below | `20260914T195153Z-p53714` |
+| `make generate` | Pass after terminal cleanup regression routing | `20260914T201745Z-p53232` |
+| `make generate-drift` | Pass, 4/4 units before final cleanup regression; final result below | `20260914T201136Z-p88803` |
+| `make agent-finalize` | Pass, 1/1 units, before final broader verification | `20260914T201806Z-p56712` |
+
+The first passing repository and broad browser runs began at clean `8ef23de21da43c9246ec216532a2cdd7a65819cf`, digest `sha256:f81546ccee4e8d10537a7faac68ae1c6eb68186efce0edd0305b5bef5cdb0b66`. Product code remained fixed during those runs. The stateful inspector assertion was updated during the broad browser run; that assertion belongs to the separately executed stateful stage. The successful stateful/accessibility and focused inspector runs record the actual dirty snapshot at that base, digest `sha256:b8fcb1d08500746165ee7668399dda7a5d703a6e30dcd8a40b459ad1c3e96c21`. That test-only follow-up is committed as `88a75d01`. The later cleanup-publication repair is committed as `da66f51d` and has supplementary current evidence below; the earlier roots' empty cleanup summary fields have not been rewritten.
 
 The three reported reproductions are:
 
@@ -63,8 +75,33 @@ make service-backed-test-slice OWNER=module.incidents ROWS=module.incidents.brow
 
 `RESULTS_DIR` was unset for finalization. Retained-run maintenance was therefore skipped; no qualifying successful full warm-check root was supplied. Required product rows were not counted as passing when dependency-skipped.
 
-Development failures are retained rather than rewritten: the original Assessment navigation failure advanced to a refresh-echo race before passing; the replay test advanced to a Secure-cookie API-client mismatch before passing. Browser run `20260914T192404Z-p71173` was rejected because formatting changed frontend inputs during its build, and is not product evidence. Finalization root `20260914T193108Z-p73716` failed for stale generated topology; Make-owned generation corrected that. Early capture retries exposed inherited descriptors and were terminated before browser assertions; the detached-service smoke regression now covers that fault.
+Development failures are retained rather than rewritten. Initial broad check `20260914T193422Z-p92605` failed on fixture mocks, source ownership registration, formatting, and smoke aggregate identity; those were repaired before the 901-unit pass. Initial broad browser run `20260914T193421Z-p92392` failed on a disappearing-incident fixture that still presented valid membership; its authoritative session fixture was corrected. Stateful run `20260914T200305Z-p39331` and focused retry `20260914T200734Z-p80202` expected history/recovery presentation to disappear after a reviewer-to-editor downgrade. The final assertion now requires readable history, no rollback controls or replay, and a retained rejected-action review; focused run `20260914T201014Z-p19712` and the full stateful rerun pass. Cleanup regression run `20260914T201652Z-p48049` failed on the empty canonical cleanup outcome before `da66f51d` repaired it.
+
+Earlier development retries exposed the Assessment refresh-echo race, an API-client Secure-cookie mismatch after successful replay, inherited capture descriptors, and stale generated topology. Runs `20260914T192404Z-p71173` and `20260914T194840Z-p89925` were rejected after frontend inputs changed during build. These failures are not passing product evidence. No historical run was relabeled or repaired retrospectively.
+
+## Changed owners and review map
+
+- `04a1f5a8`: Core 03 and Testing Harness NLSpec owner clarifications.
+- `574afc02`: secure artifact/capture producers, browser preparation and diagnostics, current-schema inspection, service janitor ownership, validated session fixture helper and sibling migrations.
+- `5d27d7cc`: shared workbook lifecycle and source-write coordination migration; retained Timeline driver; real-runtime regressions; application session fences; strict in-page recovery fixture; source ownership and verification routing.
+- `8ef23de2`: initial handoff and links from the contextual Task/Decision, coordination, and session-revocation handoffs.
+- `88a75d01`: stateful role-downgrade assertions preserving history and rejected-action review.
+- `da66f51d`: canonical terminal cleanup publication and idempotency regression, including Make-generated topology projection.
+
+The complete changed-file inventory is the commit range beginning at `8e88d1f485d51f07b2cc93a73c05d41c056e296a`. Primary review paths are `apps/web/src/workbook/runtime`, `ports`, `timeline/mutations`, `features`, `history`, `hooks`, `query`, and `adapters`; `apps/web/src/app/appSessionController.ts`; `apps/web/e2e/support/auth/sessionPresentation.ts` and its migrated fixtures; `tools/harness/{execution,contract,browser,readiness,diagnostics,smoke}`; and `tools/testservices`. Machine projection changes are in `tools/test_families`, `tools/frontend_source_ownership.json`, and Make-generated `tools/execution_topology_render_index.json`. The runtime retained-owner reader and driver interfaces replace the removed APIs named in the gap ledger; no compatibility aliases remain.
 
 ## Final validation and handoff
 
-Broader browser, repository, generated-drift, and current integration results will be recorded here after completion. Intentional visual changes were not made; visual goldens are unchanged. Historical missing backend/container diagnostics remain the explicit limit on reconstructing the exact original 500.
+| Final command / evidence | Result | Run root |
+| --- | --- | --- |
+| `make check` at `da66f51d` | Pass, 901/901 units | `20260914T201837Z-p87913` |
+| Membership-audit reproduction at `da66f51d` | Pass, 11/11 units, 3/3 rows; canonical service cleanup succeeded | `20260914T201821Z-p60235` |
+| `make run-harness-smoke-lifecycle` | Pass | `20260914T201838Z-p89412` |
+| `make generate-drift` | Pass, 4/4 units | `20260914T202048Z-p52045` |
+| `make lint-markdown` | Pass, final handoff | `20260914T202725Z-p69188` |
+
+The final implementation commit is `da66f51d8759ad5315f5147c9f820c2b9ce03dd9`. Its clean verification manifests record source digest `sha256:89a0107f505cd85e562f99fc2167adb70e9f768a33cd461a8d3b54b5542be795`. The final documentation commit only completes this review record.
+
+Canonical row inspection confirms 204 passing functional browser rows, 22 passing stateful rows, and 40 passing accessibility rows, with no skipped required rows. All startup summaries report ready and all reset units pass. The final membership-audit service scope records cleanup success at `2026-09-14T20:19:16.566036774Z`; repeated termination and single terminal lifecycle publication are covered by the new regression. `make explain-run` correctly reports the broad and final focused roots. Retained-artifact validation stayed enabled throughout; an additional read-only mode/symlink inspection found no unsafe entries among 1,965 functional, 638 stateful, 350 accessibility, and 140 final focused retained entries. The producer smoke checks establish creation-time modes, beyond this final-state inspection.
+
+No public route, payload, schema, persisted-data, or deployment migration is needed. Rollback consists of reverting the implementation commits together with their projections and tests; committed application data remains intact. Artifact validation must remain enabled. Phase exits are satisfied: owner clarifications and consumer inventory are recorded; producers and fixture failures preserve usable evidence; all shared workbook consumers are migrated; focused and broad recovery checks pass; and current verification, provenance, and handoff are complete. Human owner/projection review remains a review responsibility rather than an automated conformance claim. No external publication or deployment was performed. Intentional visual changes were not made; visual goldens are unchanged. Historical missing backend/container diagnostics remain the explicit limit on reconstructing the exact original 500. The historical Assessment trace did not retain the three freshness-condition flags; the real-runtime regression establishes that a known version with missing explicit-row materialization alone was sufficient to trigger the defective refresh, with refresh debt and preceding writes covered separately.
