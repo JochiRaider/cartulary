@@ -157,6 +157,9 @@
       "selector": {
         "file": "apps/web/e2e/fixtures.test.ts",
         "titles": [
+          "session presentation forwards upstream failures and malformed sessions without fabricating memberships or exposing private text",
+          "session presentation reports transport failure safely and aborts the intercepted request",
+          "session presentation validates successful sessions before preserving unrelated fields and rewriting presentation",
           "workerAdminIndexForParallelIndex accepts scheduled worker ranges inside the provisioned slot pool",
           "workerAdminIndexForParallelIndex keeps the direct isolated Playwright default at worker-admin slot zero",
           "workerAdminIndexForParallelIndex rejects invalid scheduled offsets before product tests run",
@@ -955,7 +958,7 @@
           "TestPrepareWebE2ECleansFixtureWhenEnvWriteFails",
           "TestPrepareWebE2ERequiresActiveSuiteAndTemplate",
           "TestPrepareWebE2EWritesShellEnvAndMetadata",
-          "TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge",
+          "TestPreviousSuiteContainerCleanupRequiresTerminalOwnershipProofRegardlessOfAge",
           "TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths",
           "TestRunCleansUpObjectStoreWhenPostgresStartupFails",
           "TestRunDisablesRyukOnlyForSuiteStartup",

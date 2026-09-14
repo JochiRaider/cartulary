@@ -1,13 +1,11 @@
 import { Buffer } from "node:buffer";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import type {
-  GetCurrentSessionResponse,
-  GetJobResponse,
-} from "@cartulary/protocol-ts/http";
+import type { GetJobResponse } from "@cartulary/protocol-ts/http";
 import { incidentImportTestId } from "@cartulary/ui-contracts";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../../pages/deploymentAdministration";
+import { rewriteSessionPresentation } from "../auth/sessionPresentation";
 
 // Test-only v3 empty-workbook source, using the authored machine inventory.
 // Actual admission, validation, publication and membership run on the server.
@@ -208,15 +206,10 @@ export async function installImportObservationFixture(
   // Other administrative fixtures may edit the shared worker's display name.
   // Keep this presentation label stable; current identity and authority stay real.
   await page.route("**/api/v1/auth/session", async (route) => {
-    const response = await route.fetch();
-    const envelope: GetCurrentSessionResponse = await response.json();
-    await route.fulfill({
-      response,
-      json: {
-        ...envelope,
-        data: { ...envelope.data, display_name: "Import operator" },
-      },
-    });
+    await rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      display_name: "Import operator",
+    }));
   });
   const importJobID = "00000000-0000-4000-8000-000000005003";
   const importedIncidentID = "00000000-0000-4000-8000-000000005002";

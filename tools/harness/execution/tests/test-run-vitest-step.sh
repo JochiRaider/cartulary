@@ -164,12 +164,17 @@ exit "$exit_status"
 EOF
 chmod +x "$fake_vitest"
 
+success_status=0
 success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   NODE_BIN="${NODE:-node}" \
     "$HELPER" "vitest raw smoke" -- "$fake_vitest"
-)"
+)" || success_status=$?
+if [[ "$success_status" -ne 0 ]]; then
+  cat "$CARTULARY_TEST_RESULTS_DIR/$CARTULARY_TEST_RUN_ID/adhoc/vitest-raw-smoke/stderr.log" >&2 || true
+  fail "vitest raw success failed with status $success_status"
+fi
 assert_empty "$success_output" "vitest raw success"
 
 set +e

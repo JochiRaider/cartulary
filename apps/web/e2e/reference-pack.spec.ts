@@ -1,5 +1,4 @@
 import { Buffer } from "node:buffer";
-import type { GetCurrentSessionResponse } from "@cartulary/protocol-ts/http";
 import {
   incidentLandingTestId,
   referencePackAdminPanelTestId,
@@ -11,10 +10,10 @@ import {
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
 import type { Route } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { DeploymentAdministration } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
+import { rewriteSessionPresentation } from "./support/auth/sessionPresentation";
 import {
   installReferencePackPresentation,
   openReferencePacks,
@@ -261,16 +260,10 @@ test("shows Reference Pack progress and cancel controls without blocking landing
       await route.continue();
       return;
     }
-    const response = await route.fetch();
-    const envelope = (await response.json()) as GetCurrentSessionResponse;
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...envelope,
-        data: { ...envelope.data, is_deployment_admin: false },
-      }),
-    });
+    await rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      is_deployment_admin: false,
+    }));
   });
 
   await page.route("**/api/v1/reference-packs?*", async (route) => {

@@ -95,6 +95,34 @@ assert_file_contains "$ATTACH_SCRIPT" 'browser-session-evidence.mjs' "Playwright
 # shellcheck source=tools/harness/browser/start-web-e2e.sh
 source "$START_SCRIPT"
 
+(
+  # Exercise failure under a conditional, where shell errexit cannot help.
+  assert_port_free() { return 0; }
+  using_test_services_stack() { return 0; }
+  require_test_services_bin() { return 0; }
+  write_startup_diagnostics() { printf '%s\n' "$*" >"$tmp_dir/prepare-failure"; }
+  snapshot_service_scope() { touch "$tmp_dir/incorrect-admission"; }
+  record_startup_event() { touch "$tmp_dir/incorrect-ready"; }
+  TEST_SERVICES_BIN="$tmp_dir/failed-preparation"
+  TEST_SERVICES_ENV_FILE="$tmp_dir/unpublished.env"
+  TEST_SERVICES_METADATA_FILE="$tmp_dir/unpublished.json"
+  # This isolated prerequisite fixture intentionally leaves the parent environment unchanged.
+  # shellcheck disable=SC2030
+  CARTULARY_PGTEST_TEMPLATE_DB=template
+  printf '#!/bin/sh\nexit 37\n' >"$TEST_SERVICES_BIN"
+  chmod 700 "$TEST_SERVICES_BIN"
+  printf 'touch "%s"\n' "$tmp_dir/incorrect-env-read" >"$TEST_SERVICES_ENV_FILE"
+  preparation_status=0
+  browser_prepare_database || preparation_status=$?
+  [[ "$preparation_status" == 37 ]] || fail "database prerequisite failure was replaced"
+  [[ ! -e "$tmp_dir/incorrect-env-read" && ! -e "$tmp_dir/incorrect-admission" && ! -e "$tmp_dir/incorrect-ready" ]] || fail "database preparation consumed dependent state after failure"
+  assert_file_contains "$tmp_dir/prepare-failure" 'database_preparation infra service_start_error' "first preparation failure"
+  printf '#!/bin/sh\nexit 0\n' >"$TEST_SERVICES_BIN"
+  preparation_status=0
+  browser_prepare_database || preparation_status=$?
+  [[ "$preparation_status" == 1 ]] || fail "missing metadata was admitted"
+)
+
 assert_stack_publication_failure() {
   local label="$1"
   local backend_ready_at="$2"
@@ -462,6 +490,8 @@ export CARTULARY_WEB_E2E_FRONTEND_READY_AT=2026-07-27T12:00:01Z
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT="sha256:$(printf '1%.0s' {1..64})"
 export CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT
 export CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="$runtime_root/test-services-web-e2e.json"
+# Independent parent fixture; the earlier subshell does not supply its template.
+# shellcheck disable=SC2031
 export CARTULARY_PGTEST_TEMPLATE_DB=ct_suite_template
 CARTULARY_PGTEST_SCHEMA_HASH="sha256:$(printf '2%.0s' {1..64})"
 export CARTULARY_PGTEST_SCHEMA_HASH

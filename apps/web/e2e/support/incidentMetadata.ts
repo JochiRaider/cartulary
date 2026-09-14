@@ -1,10 +1,8 @@
-import type {
-  GetCurrentSessionResponse,
-  GetIncidentResponse,
-} from "@cartulary/protocol-ts/http";
+import type { GetIncidentResponse } from "@cartulary/protocol-ts/http";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
+import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 import { createIncident } from "./incidents/fixtures";
 import { apiBase } from "./runtime/configuration";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
@@ -79,25 +77,18 @@ export async function installMetadataPresentation(
       });
       return;
     }
-    const response = await route.fetch();
-    const body: GetCurrentSessionResponse = await response.json();
-    await route.fulfill({
-      response,
-      json: {
-        ...body,
-        data: {
-          ...body.data,
-          display_name: "Metadata operator",
-          memberships: body.data.memberships.flatMap((m) =>
-            m.incident_id !== incidentId
-              ? [m]
-              : access === "hidden"
-                ? []
-                : [{ ...m, role: access }],
-          ),
-        },
-      },
-    });
+    const requestAccess = access;
+    await rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      display_name: "Metadata operator",
+      memberships: session.memberships.flatMap((m) =>
+        m.incident_id !== incidentId
+          ? [m]
+          : requestAccess === "hidden"
+            ? []
+            : [{ ...m, role: requestAccess }],
+      ),
+    }));
   });
   await page.route(`**/api/v1/incidents/${incidentId}`, async (route) => {
     if (route.request().method() === "GET") {

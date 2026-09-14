@@ -1,7 +1,10 @@
-import type { GetCurrentSessionResponse } from "@cartulary/protocol-ts/http";
 import type { Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { apiBase } from "../runtime/configuration";
+import {
+  readSessionPresentationResponse,
+  rewriteSessionPresentation,
+} from "./sessionPresentation";
 import {
   installVisualPreferences,
   type VisualDensity,
@@ -25,9 +28,13 @@ export async function installAccountEditingFixture(
   const sessionResponse = await page.request.get(
     `${apiBase}/api/v1/auth/session`,
   );
-  expect(sessionResponse.ok()).toBeTruthy();
-  const session = ((await sessionResponse.json()) as GetCurrentSessionResponse)
-    .data;
+  const observedSession =
+    await readSessionPresentationResponse(sessionResponse);
+  if (observedSession.kind !== "accepted")
+    throw new Error(
+      `Account fixture requires a current session: ${JSON.stringify(observedSession.diagnostic)}`,
+    );
+  const session = observedSession.value.data;
   const timestamp = "2026-09-05T12:00:00Z";
   let profile = {
     user_id: session.user_id,
@@ -57,17 +64,18 @@ export async function installAccountEditingFixture(
     { request: Record<string, unknown>; resource: unknown }
   >();
   await page.route("**/api/v1/auth/session", async (route) => {
-    let currentSession = session;
+    const displayName = profile.display_name;
     if (options.profileOnly) {
-      const response = await route.fetch();
-      if (!response.ok()) return route.fulfill({ response });
-      currentSession = ((await response.json()) as GetCurrentSessionResponse)
-        .data;
+      await rewriteSessionPresentation(route, (current) => ({
+        ...current,
+        display_name: displayName,
+      }));
+      return;
     }
     await route.fulfill({
       json: {
         data: {
-          ...currentSession,
+          ...session,
           display_name: profile.display_name,
           ...(options.profileOnly
             ? {}

@@ -1,13 +1,13 @@
 import { Buffer } from "node:buffer";
 import { createHash, randomUUID } from "node:crypto";
 import type {
-  GetCurrentSessionResponse,
   GetJobResponse,
   ListReferencePacksResponse,
 } from "@cartulary/protocol-ts/http";
 import { referencePackAdminPanelTestId } from "@cartulary/ui-contracts";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../pages/deploymentAdministration";
+import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 
 type Pack = ListReferencePacksResponse["data"]["pack_versions"][number];
 type Job = GetJobResponse["data"];
@@ -100,15 +100,10 @@ export async function installReferencePackPresentation(
 ) {
   // Shared worker fixtures can change the display name; preserve real identity and authorization.
   await page.route("**/api/v1/auth/session", async (route) => {
-    const response = await route.fetch();
-    const envelope: GetCurrentSessionResponse = await response.json();
-    await route.fulfill({
-      response,
-      json: {
-        ...envelope,
-        data: { ...envelope.data, display_name: "Reference Pack operator" },
-      },
-    });
+    await rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      display_name: "Reference Pack operator",
+    }));
   });
   const packs = [
     referencePackBrowserPack(),

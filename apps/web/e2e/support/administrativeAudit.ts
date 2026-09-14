@@ -1,9 +1,7 @@
-import type {
-  GetCurrentSessionResponse,
-  ListAdministrativeAuditEventsResponse,
-} from "@cartulary/protocol-ts/http";
+import type { ListAdministrativeAuditEventsResponse } from "@cartulary/protocol-ts/http";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../pages/deploymentAdministration";
+import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 
 export const auditBrowserPath = "/api/v1/administrative-audit-events";
 export const auditBrowserEventId = "00000000-0000-4000-8000-000000002001";
@@ -90,15 +88,10 @@ export async function installAuditPresentation(page: Page) {
   let accessReads = 0;
   await page.route("**/api/v1/auth/session", async (route) => {
     ++accessReads;
-    const response = await route.fetch();
-    const envelope: GetCurrentSessionResponse = await response.json();
-    await route.fulfill({
-      response,
-      json: {
-        ...envelope,
-        data: { ...envelope.data, display_name: "Audit operator" },
-      },
-    });
+    await rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      display_name: "Audit operator",
+    }));
   });
   let body = auditBrowserEnvelope();
   let status = 200;

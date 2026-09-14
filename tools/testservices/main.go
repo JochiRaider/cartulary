@@ -45,7 +45,6 @@ const (
 	suitePreflightTimeout          = 3 * time.Second
 	suitePostgresAttemptLimit      = 35 * time.Second
 	suiteObjectStoreAttemptLimit   = 2 * time.Minute
-	staleSuiteContainerAge         = 10 * time.Minute
 	staleSuiteContainerRecheck     = 2 * time.Second
 	templateStartupTimeout         = 2 * time.Minute
 	postgresCatalogAdmissionLimit  = 15 * time.Second
@@ -2758,8 +2757,14 @@ func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli suiteContain
 
 	summary := staleSuiteContainerCleanupSummary{Scanned: len(result.Items)}
 	for _, item := range result.Items {
-		if !previousSuiteContainerCleanupEligible(env, item, now) {
+		if !previousSuiteContainerCleanupEligible(env, item) {
 			continue
+		}
+		if err := suiteservices.RecordEvent(env, suiteservices.Event{
+			Type: "completed-suite-container-cleanup", Status: "started",
+			Details: map[string]any{"container_id": item.ID, "owner_run_id": item.Labels[testServiceLabelRunID], "owner_suite_id": item.Labels[testServiceLabelSuiteID], "service": item.Labels[testServiceLabelService], "observed_at": now.UTC().Format(time.RFC3339Nano)},
+		}); err != nil {
+			return summary, fmt.Errorf("record completed-suite cleanup attribution: %w", err)
 		}
 		_, err := cli.ContainerRemove(ctx, item.ID, dockerclient.ContainerRemoveOptions{
 			RemoveVolumes: true,
@@ -2834,7 +2839,7 @@ func inspectedContainerRemovingOrDead(container dockercontainer.InspectResponse)
 	return state == "removing" || state == "dead" || container.State.Dead
 }
 
-func previousSuiteContainerCleanupEligible(env map[string]string, item dockercontainer.Summary, now time.Time) bool {
+func previousSuiteContainerCleanupEligible(env map[string]string, item dockercontainer.Summary) bool {
 	labels := item.Labels
 	if labels[testServiceLabelManaged] != testServiceManagedValue {
 		return false
@@ -2853,13 +2858,10 @@ func previousSuiteContainerCleanupEligible(env map[string]string, item dockercon
 	if suiteID == suiteservices.SuiteID(env) && runID == suiteservices.ResolveRunID(env) {
 		return false
 	}
-	if suiteServiceCleanupRecorded(env, runID, suiteID) {
-		return true
-	}
-	if item.Created <= 0 {
-		return false
-	}
-	return !now.Before(time.Unix(item.Created, 0).UTC().Add(staleSuiteContainerAge))
+	// Age cannot establish abandonment: another run can legitimately use this
+	// suite for hours. Only its terminal cleanup proof authorizes this janitor.
+	// Unproven orphans remain owned by their exact lease/reaper cleanup path.
+	return suiteServiceCleanupRecorded(env, runID, suiteID)
 }
 
 func suiteServiceCleanupRecorded(env map[string]string, runID string, suiteID string) bool {
@@ -2879,7 +2881,7 @@ func suiteServiceCleanupRecorded(env map[string]string, runID string, suiteID st
 	if err := json.Unmarshal(raw, &scope); err != nil {
 		return false
 	}
-	return strings.TrimSpace(scope.Cleanup.CompletedAt) != ""
+	return scope.SchemaID == "cartulary.test_services.scope.v2" && scope.RunID == runID && scope.SuiteID == suiteID && scope.Cleanup.Status == "succeeded" && strings.TrimSpace(scope.Cleanup.CompletedAt) != ""
 }
 
 func safeArtifactComponent(value string) bool {

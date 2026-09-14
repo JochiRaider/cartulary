@@ -238,6 +238,7 @@ write_vitest_watchdog_report() {
   local timed_out_at="$7"
   local killed_at="$8"
   step_secure_mkdir "$(dirname "$file")"
+  step_secure_files "$file" || return $?
   cat >"$file" <<JSON
 {
   "schema_id": "cartulary.vitest_watchdog.v1",
@@ -251,7 +252,6 @@ write_vitest_watchdog_report() {
   "killed_at": "$(json_escape_string "$killed_at")"
 }
 JSON
-  chmod 600 "$file" 2>/dev/null || true
 }
 
 run_vitest_command_with_watchdog() {
@@ -288,17 +288,12 @@ run_vitest_command_with_watchdog() {
   export RUN_VITEST_WATCHDOG_TIMED_OUT
 
   if [[ "$timeout_seconds" -eq 0 ]]; then
-    if [[ "$output_mode" != "quiet" ]]; then
-      "$@" > >(step_redact_stream | tee "$stdout_log") 2> >(step_redact_stream | tee "$stderr_log" >&2)
-      status=$?
-    else
-      "$@" >"$stdout_log" 2>"$stderr_log"
-      status=$?
-    fi
-    step_redact_file "$stdout_log"
-    step_redact_file "$stderr_log"
-    return "$status"
+    step_capture_command "$output_mode" "$stdout_log" "$stderr_log" "$@"
+    return $?
   fi
+
+  local STEP_CAPTURE_STDOUT_FD STEP_CAPTURE_STDERR_FD STEP_CAPTURE_STDOUT_PID STEP_CAPTURE_STDERR_PID
+  step_begin_capture "$output_mode" "$stdout_log" "$stderr_log" || return $?
 
   local started_at
   local start_ms
@@ -306,36 +301,12 @@ run_vitest_command_with_watchdog() {
   start_ms="$(step_now_monotonic_ms)"
 
   if command -v setsid >/dev/null 2>&1; then
-    # shellcheck disable=SC2016
-    setsid bash -c '
-      set -euo pipefail
-      output_mode="$1"
-      stdout_log="$2"
-      stderr_log="$3"
-      node_bin="$4"
-      contract_script="$5"
-      shift 5
-      if [[ "$output_mode" != "quiet" ]]; then
-        exec "$@" > >("$node_bin" "$contract_script" redact | tee "$stdout_log") 2> >("$node_bin" "$contract_script" redact | tee "$stderr_log" >&2)
-      fi
-      exec "$@" >"$stdout_log" 2>"$stderr_log"
-    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" "$@" &
+    setsid "$@" 1>&"$STEP_CAPTURE_STDOUT_FD" 2>&"$STEP_CAPTURE_STDERR_FD" &
   else
-    bash -c '
-      set -euo pipefail
-      output_mode="$1"
-      stdout_log="$2"
-      stderr_log="$3"
-      node_bin="$4"
-      contract_script="$5"
-      shift 5
-      if [[ "$output_mode" != "quiet" ]]; then
-        exec "$@" > >("$node_bin" "$contract_script" redact | tee "$stdout_log") 2> >("$node_bin" "$contract_script" redact | tee "$stderr_log" >&2)
-      fi
-      exec "$@" >"$stdout_log" 2>"$stderr_log"
-    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" "$@" &
+    "$@" 1>&"$STEP_CAPTURE_STDOUT_FD" 2>&"$STEP_CAPTURE_STDERR_FD" &
   fi
   local child_pid=$!
+  step_close_capture
   local child_group="-$child_pid"
   local kill_target="$child_pid"
   if command -v setsid >/dev/null 2>&1; then
@@ -388,8 +359,7 @@ run_vitest_command_with_watchdog() {
       _cartulary_vitest_wait_for_interrupted_child
       CARTULARY_VITEST_INTERRUPT_SIGNAL="$interrupted_signal"
       export CARTULARY_VITEST_INTERRUPT_SIGNAL
-      step_redact_file "$stdout_log"
-      step_redact_file "$stderr_log"
+      step_finish_capture || true
       return "$interrupted_status"
     fi
     local now_ms
@@ -416,9 +386,7 @@ run_vitest_command_with_watchdog() {
       write_vitest_watchdog_report "$CARTULARY_VITEST_WATCHDOG_LOG" "$label" "$timeout_seconds" "$grace_seconds" "$child_pid" "$started_at" "$timed_out_at" "$killed_at"
       RUN_VITEST_WATCHDOG_TIMED_OUT=1
       export RUN_VITEST_WATCHDOG_TIMED_OUT
-      step_redact_file "$stdout_log"
-      step_redact_file "$stderr_log"
-      chmod 600 "$CARTULARY_VITEST_WATCHDOG_LOG" 2>/dev/null || true
+      step_finish_capture || true
       return 124
     fi
     sleep 0.5
@@ -427,8 +395,9 @@ run_vitest_command_with_watchdog() {
   trap - INT TERM
   wait "$child_pid"
   status=$?
-  step_redact_file "$stdout_log"
-  step_redact_file "$stderr_log"
+  local capture_status=0
+  step_finish_capture || capture_status=$?
+  if [[ "$status" -eq 0 ]]; then status="$capture_status"; fi
   if [[ "$interrupted_status" -ne 0 ]]; then
     CARTULARY_VITEST_INTERRUPT_SIGNAL="$interrupted_signal"
     export CARTULARY_VITEST_INTERRUPT_SIGNAL
@@ -459,21 +428,66 @@ step_secure_mkdir() {
     echo "step_secure_mkdir requires <dir...>" >&2
     return 2
   fi
-  local dir previous_umask status
-  for dir in "$@"; do
-    previous_umask="$(umask)"
-    umask 077
-    if mkdir -p "$dir"; then
-      status=0
+  "$(resolve_harness_node)" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" secure-directories "$@"
+}
+
+step_secure_files() {
+  "$(resolve_harness_node)" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" secure-files "$@"
+}
+
+# Capture workers own their pipes until EOF. Callers retain shell-function state
+# and explicitly join both workers before publishing or replacing any artifact.
+step_begin_capture() {
+  local output_mode="$1" stdout_log="$2" stderr_log="$3"
+  step_secure_files "$stdout_log" "$stderr_log" || return $?
+  exec {STEP_CAPTURE_STDOUT_FD}> >(
+    set -o pipefail
+    if [[ "$output_mode" == "quiet" ]]; then
+      step_redact_stream >"$stdout_log"
     else
-      status=$?
+      step_redact_stream | tee "$stdout_log"
     fi
-    umask "$previous_umask"
-    if [[ "$status" -ne 0 ]]; then
-      return "$status"
+  )
+  STEP_CAPTURE_STDOUT_PID=$!
+  exec {STEP_CAPTURE_STDERR_FD}> >(
+    exec {STEP_CAPTURE_STDOUT_FD}>&-
+    set -o pipefail
+    if [[ "$output_mode" == "quiet" ]]; then
+      step_redact_stream >"$stderr_log"
+    else
+      step_redact_stream | tee "$stderr_log" >&2
     fi
-    chmod 700 "$dir" 2>/dev/null || true
-  done
+  )
+  STEP_CAPTURE_STDERR_PID=$!
+}
+
+step_close_capture() {
+  exec {STEP_CAPTURE_STDOUT_FD}>&-
+  exec {STEP_CAPTURE_STDERR_FD}>&-
+}
+
+step_finish_capture() {
+  local capture_status=0
+  wait "$STEP_CAPTURE_STDOUT_PID" || capture_status=11
+  wait "$STEP_CAPTURE_STDERR_PID" || capture_status=11
+  if [[ "$capture_status" -ne 0 ]]; then
+    echo "artifact capture or redaction failed" >&2
+  fi
+  return "$capture_status"
+}
+
+step_capture_command() {
+  local output_mode="$1" stdout_log="$2" stderr_log="$3"
+  shift 3
+  local STEP_CAPTURE_STDOUT_FD STEP_CAPTURE_STDERR_FD STEP_CAPTURE_STDOUT_PID STEP_CAPTURE_STDERR_PID
+  local command_status capture_status=0
+  step_begin_capture "$output_mode" "$stdout_log" "$stderr_log" || return $?
+  "$@" 1>&"$STEP_CAPTURE_STDOUT_FD" 2>&"$STEP_CAPTURE_STDERR_FD"
+  command_status=$?
+  step_close_capture
+  step_finish_capture || capture_status=$?
+  if [[ "$command_status" -ne 0 ]]; then return "$command_status"; fi
+  return "$capture_status"
 }
 
 step_redact_stream() {
@@ -492,10 +506,14 @@ step_redact_file() {
     return 0
   fi
   local tmp_file
-  tmp_file="${file}.redacted.$$"
-  step_redact_stream <"$file" >"$tmp_file"
-  mv "$tmp_file" "$file"
-  chmod 600 "$file" 2>/dev/null || true
+  # mktemp creates the staging file exclusively with mode 0600.
+  tmp_file="$(mktemp "${file}.redacted.XXXXXX")" || return $?
+  if ! step_redact_stream <"$file" >"$tmp_file"; then
+    rm -f -- "$tmp_file"
+    return 11
+  fi
+  mv -- "$tmp_file" "$file" || { rm -f -- "$tmp_file"; return 11; }
+
 }
 
 ensure_harness_artifact_identity() {
@@ -596,6 +614,7 @@ prepare_step_artifact_dir() {
   local target_dir
   local slug
   target_dir="$(ensure_target_artifact_dir)"
+  target_dir="${RUN_STEP_ARTIFACT_ROOT:-${target_dir}}"
   slug="$(slugify_step_label "$step")"
   step_secure_mkdir "${target_dir}/${slug}"
   printf '%s\n' "${target_dir}/${slug}"
@@ -701,16 +720,9 @@ run_step_command() {
   step_capture_start STEP
 
   set +e
-  if [[ "$output_mode" != "quiet" ]]; then
-    CARTULARY_STEP_ARTIFACT_DIR="$step_dir" "$@" > >(step_redact_stream | tee "$stdout_log") 2> >(step_redact_stream | tee "$stderr_log" >&2)
-    status=$?
-  else
-    CARTULARY_STEP_ARTIFACT_DIR="$step_dir" "$@" >"$stdout_log" 2>"$stderr_log"
-    status=$?
-  fi
+  CARTULARY_STEP_ARTIFACT_DIR="$step_dir" step_capture_command "$output_mode" "$stdout_log" "$stderr_log" "$@"
+  status=$?
   set -e
-  step_redact_file "$stdout_log"
-  step_redact_file "$stderr_log"
 
   step_capture_finish STEP
   start_time="${STEP_START_TIME}"

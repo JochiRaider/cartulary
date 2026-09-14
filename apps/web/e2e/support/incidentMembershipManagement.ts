@@ -1,10 +1,8 @@
-import type {
-  GetCurrentSessionResponse,
-  ListIncidentMembershipsResponse,
-} from "@cartulary/protocol-ts/http";
+import type { ListIncidentMembershipsResponse } from "@cartulary/protocol-ts/http";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
+import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 import { createIncident } from "./incidents/fixtures";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
 
@@ -54,25 +52,18 @@ export async function installMembershipManagementPresentation(page: Page) {
       });
       return;
     }
-    const response = await route.fetch();
-    const envelope: GetCurrentSessionResponse = await response.json();
-    await route.fulfill({
-      response,
-      json: {
-        ...envelope,
-        data: {
-          ...envelope.data,
-          display_name: "Membership operator",
-          memberships: envelope.data.memberships.flatMap((m) =>
-            m.incident_id !== incidentId
-              ? [m]
-              : access === "hidden"
-                ? []
-                : [{ ...m, role: access === "viewer" ? "viewer" : "admin" }],
-          ),
-        },
-      },
-    });
+    const requestAccess = access;
+    await rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      display_name: "Membership operator",
+      memberships: session.memberships.flatMap((m) =>
+        m.incident_id !== incidentId
+          ? [m]
+          : requestAccess === "hidden"
+            ? []
+            : [{ ...m, role: requestAccess === "viewer" ? "viewer" : "admin" }],
+      ),
+    }));
   });
   let body: unknown;
   let status = 200;

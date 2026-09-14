@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { secureMkdir, secureWriteFile } from "./artifact-writer.mjs";
 
 import {
   HarnessConfigError,
@@ -24,6 +25,14 @@ function usage(programName) {
 
 async function main(argv, programName) {
   const [command, ...args] = argv;
+  if (command === "secure-files" || command === "secure-directories") {
+    if (args.length === 0) return 2;
+    for (const file of args) {
+      if (command === "secure-files") secureWriteFile(file, "");
+      else secureMkdir(file);
+    }
+    return 0;
+  }
   if (command === "preflight") {
     const [target, ...extra] = args;
     if (!target || extra.length > 0) {

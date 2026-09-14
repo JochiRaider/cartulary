@@ -54,6 +54,12 @@ lifecycle_signal_exit_status() {
   esac
 }
 
+# Detached services and their monitors must not retain a step capture pipe.
+lifecycle_close_step_capture_descriptors() {
+  if [[ -n "${STEP_CAPTURE_STDOUT_FD:-}" ]]; then exec {STEP_CAPTURE_STDOUT_FD}>&-; fi
+  if [[ -n "${STEP_CAPTURE_STDERR_FD:-}" ]]; then exec {STEP_CAPTURE_STDERR_FD}>&-; fi
+}
+
 start_process_group() {
   local outvar="$1"
   local log_file="$2"
@@ -68,9 +74,12 @@ start_process_group() {
   fi
 
   if [[ -n "${log_file}" ]]; then
-    setsid "$@" >"${log_file}" 2>&1 &
+    local lifecycle_root
+    lifecycle_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)" || return $?
+    "${NODE_BIN:-node}" "${lifecycle_root}/tools/harness/contract/harness-contract-cli.mjs" secure-files "${log_file}" || return $?
+    ( lifecycle_close_step_capture_descriptors; exec setsid "$@" ) >"${log_file}" 2>&1 &
   else
-    setsid "$@" &
+    ( lifecycle_close_step_capture_descriptors; exec setsid "$@" ) &
   fi
 
   group_id="$!"
@@ -98,7 +107,8 @@ start_process_group() {
     return 1
   fi
   # shellcheck disable=SC2016
-  setsid bash -c '
+  ( lifecycle_close_step_capture_descriptors
+  exec setsid bash -c '
     parent_pid="$1"
     group_id="$2"
 
@@ -119,7 +129,7 @@ start_process_group() {
     done
 
     kill -KILL -- "-${group_id}" >/dev/null 2>&1 || true
-  ' bash "${parent_pid}" "${group_id}" >/dev/null 2>&1 &
+  ' bash "${parent_pid}" "${group_id}" ) >/dev/null 2>&1 &
   monitor_pid="$!"
   CARTULARY_LIFECYCLE_GROUP_MONITORS["${group_id}"]="${monitor_pid}"
 

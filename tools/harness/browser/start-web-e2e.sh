@@ -267,9 +267,11 @@ prepare_runtime_root() {
     return 2
   fi
   step_secure_mkdir "${TARGET_ARTIFACT_DIR}" "${PRIVATE_SESSION_ROOT}/logs"
+  RUN_STEP_ARTIFACT_ROOT="${TARGET_ARTIFACT_DIR}/steps"
   RUNTIME_ROOT_BASE="${PRIVATE_SESSION_ROOT}/runtime-root"
   SERVER_LOG="${PRIVATE_SESSION_ROOT}/logs/server.log"
   WEB_LOG="${PRIVATE_SESSION_ROOT}/logs/web.log"
+  step_secure_files "${SERVER_LOG}" "${WEB_LOG}" || return $?
   STACK_ENV_FILE="${PRIVATE_SESSION_ROOT}/stack.env"
   STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v7.json"
   STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
@@ -358,7 +360,7 @@ const payload = {
   s3_secret_access_key: process.env.CARTULARY_BACKEND_RESTART_S3_SECRET_ACCESS_KEY,
 };
 fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
-fs.writeFileSync(temporary, `${JSON.stringify(payload)}\n`, { mode: 0o600 });
+fs.writeFileSync(temporary, `${JSON.stringify(payload)}\n`, { mode: 0o600, flag: "wx" });
 fs.renameSync(temporary, destination);
 fs.chmodSync(destination, 0o600);
 EOF
@@ -411,7 +413,8 @@ write_stack_metadata() {
   "${node_bin}" "${SESSION_EVIDENCE_HELPER}" stack >/dev/null || return $?
   export CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}"
 
-  step_secure_mkdir "$(dirname "${STACK_ENV_FILE}")"
+  step_secure_mkdir "$(dirname "${STACK_ENV_FILE}")" || return $?
+  step_secure_files "${STACK_ENV_FILE}" || return $?
   cat >"${STACK_ENV_FILE}" <<EOF
 CARTULARY_WEB_E2E_API_ORIGIN=${API_ORIGIN}
 CARTULARY_WEB_E2E_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
@@ -429,7 +432,6 @@ CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT=${RUNTIME_PROFILE_FINGERPRINT}
 CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD=${BACKEND_GENERATION_HEAD}
 CARTULARY_WEB_E2E_BACKEND_RESTART_SECRET_FILE=${BACKEND_RESTART_SECRET_FILE}
 EOF
-  chmod 600 "${STACK_ENV_FILE}" 2>/dev/null || true
   verify_stack_publication
 }
 
@@ -739,6 +741,25 @@ remove_private_runtime_material() {
   return "${status}"
 }
 
+retain_browser_process_diagnostics() {
+  local reason="${1:-cleanup}" source_log destination temporary
+  if [[ -z "${TARGET_ARTIFACT_DIR}" || ! -d "${TARGET_ARTIFACT_DIR}" ]]; then return 0; fi
+  local diagnostic_dir
+  diagnostic_dir="${TARGET_ARTIFACT_DIR}/process-diagnostics/$(slugify_step_label "${reason}-${SERVER_PGID:-none}")" || return $?
+  step_secure_mkdir "${diagnostic_dir}" || return $?
+  for source_log in "${SERVER_LOG}" "${WEB_LOG}"; do
+    if [[ -z "${source_log}" || ! -f "${source_log}" ]]; then continue; fi
+    destination="${diagnostic_dir}/$(basename "${source_log}")"
+    if [[ -f "${destination}" ]]; then continue; fi
+    temporary="$(mktemp "${destination}.XXXXXX")" || return $?
+    if ! (set -o pipefail; tail -c 1048576 "${source_log}" | step_redact_stream >"${temporary}"); then
+      rm -f -- "${temporary}"
+      return 11
+    fi
+    mv -- "${temporary}" "${destination}" || return $?
+  done
+}
+
 cleanup() {
   if [[ "${cleanup_done}" -eq 1 ]]; then
     return 0
@@ -763,6 +784,7 @@ cleanup() {
   fi
   stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend" || cleanup_status=$?
   stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend" || cleanup_status=$?
+  retain_browser_process_diagnostics cleanup || cleanup_status=$?
   release_port_leases || cleanup_status=$?
 
   step_end_time="$(step_now_utc)"
@@ -1189,8 +1211,8 @@ browser_start_services() {
 }
 
 browser_prepare_database() {
-  assert_port_free "${BACKEND_PORT}" "backend"
-  cd "${ROOT_DIR}"
+  assert_port_free "${BACKEND_PORT}" "backend" || return $?
+  cd "${ROOT_DIR}" || return $?
 
   if ! using_test_services_stack; then
     echo "browser database preparation requires an active isolated test-services suite" >&2
@@ -1201,13 +1223,24 @@ browser_prepare_database() {
     echo "browser e2e active test-service mode requires CARTULARY_PGTEST_TEMPLATE_DB to clone the migrated suite template database" >&2
     return 1
   fi
-  "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}"
+  local preparation_status=0
+  "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}" || preparation_status=$?
+  if [[ "${preparation_status}" -ne 0 ]]; then
+    write_startup_diagnostics fail database_preparation infra service_start_error \
+      "browser database fixture preparation failed; see the session database preparation log"
+    return "${preparation_status}"
+  fi
+  if [[ ! -s "${TEST_SERVICES_ENV_FILE}" || ! -s "${TEST_SERVICES_METADATA_FILE}" ]]; then
+    write_startup_diagnostics fail database_preparation harness fixture_error \
+      "browser database fixture preparation did not publish its environment and metadata"
+    return 1
+  fi
   # shellcheck disable=SC1090
-  source "${TEST_SERVICES_ENV_FILE}"
+  source "${TEST_SERVICES_ENV_FILE}" || return $?
   E2E_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN:?}"
   E2E_DB="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -e \
     'const fs=require("node:fs"); process.stdout.write(String(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).database_name));' \
-    "${TEST_SERVICES_METADATA_FILE}")"
+    "${TEST_SERVICES_METADATA_FILE}")" || return $?
   export CARTULARY_WEB_E2E_DB="${E2E_DB}"
   export CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}"
   snapshot_service_scope || return $?
@@ -1538,7 +1571,7 @@ lease.backend_generation = Number.parseInt(process.env.CARTULARY_RESET_BACKEND_G
 lease.backend_generation_head = process.env.CARTULARY_RESET_BACKEND_GENERATION_HEAD;
 lease.env.CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD = process.env.CARTULARY_RESET_BACKEND_GENERATION_HEAD;
 const temporary = `${file}.tmp-${process.pid}`;
-fs.writeFileSync(temporary, `${JSON.stringify(lease, null, 2)}\n`, { mode: 0o600 });
+fs.writeFileSync(temporary, `${JSON.stringify(lease, null, 2)}\n`, { mode: 0o600, flag: "wx" });
 fs.renameSync(temporary, file);
 fs.chmodSync(file, 0o600);
 EOF
@@ -1550,6 +1583,7 @@ reset_backend_failure_cleanup() {
   if [[ "${status}" -ne 0 && -n "${SERVER_PGID}" ]] && process_group_running "${SERVER_PGID}"; then
     stop_process_group "${SERVER_PGID}" || true
   fi
+  if [[ "${status}" -ne 0 ]]; then retain_browser_process_diagnostics "failed-reset-${RESET_LABEL}" || true; fi
   exit "${status}"
 }
 
@@ -1561,6 +1595,7 @@ reset_session_backend() {
     node_bin="node"
   fi
   load_session_lease "${SESSION_LEASE_FILE}"
+  RUN_STEP_ARTIFACT_ROOT="${TARGET_ARTIFACT_DIR}/resets/$(slugify_step_label "${RESET_LABEL}")/steps"
   if [[ -z "${BACKEND_GENERATION_HEAD}" || -z "${BACKEND_RESTART_SECRET_FILE}" || -z "${STACK_JSON_FILE}" ]]; then
     echo "failure_class=config reason=configuration_error browser reset lease omits restart inputs" >&2
     return 2
@@ -1580,7 +1615,8 @@ reset_session_backend() {
 
   trap reset_backend_failure_cleanup EXIT
   previous_server_pgid="${SERVER_PGID}"
-  stop_backend_for_reset
+  stop_backend_for_reset || return $?
+  retain_browser_process_diagnostics "reset-${RESET_LABEL}" || return $?
   release_process_group_monitor "${previous_server_pgid}"
   reclaim_port_lease_for_replacement "${BACKEND_PORT}" "${previous_server_pgid}"
   SERVER_PGID=""
@@ -1640,21 +1676,20 @@ main() {
     return 1
   fi
 
-  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports
-  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token
+  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports || return $?
+  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token || return $?
 	REVISIONS_CONFLICT_TOKEN_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
-  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts || return $?
 
-  CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services
-  CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database
-  write_backend_restart_secrets
-  start_backend_ready
-  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}"
+  CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services || return $?
+  CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database || return $?
+  write_backend_restart_secrets || return $?
+  start_backend_ready || return $?
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}" || return $?
   FRONTEND_READY_AT="$(step_now_utc)"
   record_startup_event "frontend_ready" "frontend ready at ${PUBLIC_ORIGIN}"
   run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready || return $?
   publish_stack_metadata || return $?
-
   if [[ "${SESSION_MODE}" == "start" ]]; then
     publish_session_lease || return $?
     transfer_port_lease_for_port "${BACKEND_PORT}" "${SERVER_PGID}"

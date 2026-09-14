@@ -1492,7 +1492,7 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 	requireTimingEventStatus(t, events, bucketTeardown, "test-services cleanup browser e2e fixture bucket", "pass")
 }
 
-func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *testing.T) {
+func TestPreviousSuiteContainerCleanupRequiresTerminalOwnershipProofRegardlessOfAge(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
@@ -1515,7 +1515,7 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 			testServiceLabelService: suiteservices.ServicePostgres,
 		},
 	}
-	if !previousSuiteContainerCleanupEligible(activeEnv, completedContainer, now) {
+	if !previousSuiteContainerCleanupEligible(activeEnv, completedContainer) {
 		t.Fatal("container with completed suite cleanup should be eligible")
 	}
 
@@ -1529,13 +1529,13 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 			testServiceLabelService: suiteservices.ServicePostgres,
 		},
 	}
-	if previousSuiteContainerCleanupEligible(activeEnv, activeContainer, now) {
+	if previousSuiteContainerCleanupEligible(activeEnv, activeContainer) {
 		t.Fatal("current active suite container must not be eligible")
 	}
 
 	staleContainer := dockercontainer.Summary{
 		ID:      "stale-container",
-		Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+		Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 		Labels: map[string]string{
 			testServiceLabelManaged: testServiceManagedValue,
 			testServiceLabelSuiteID: "stale-suite",
@@ -1543,14 +1543,14 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 			testServiceLabelService: suiteservices.ServiceObjectStore,
 		},
 	}
-	if !previousSuiteContainerCleanupEligible(activeEnv, staleContainer, now) {
-		t.Fatal("aged previous suite container should be eligible")
+	if previousSuiteContainerCleanupEligible(activeEnv, staleContainer) {
+		t.Fatal("another run remains protected regardless of container age")
 	}
 
 	freshContainer := staleContainer
 	freshContainer.ID = "fresh-container"
 	freshContainer.Created = now.Add(-time.Minute).Unix()
-	if previousSuiteContainerCleanupEligible(activeEnv, freshContainer, now) {
+	if previousSuiteContainerCleanupEligible(activeEnv, freshContainer) {
 		t.Fatal("fresh previous suite without completed cleanup must not be eligible")
 	}
 
@@ -1559,15 +1559,19 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 	persistentContainer.Labels = cloneEnv(staleContainer.Labels)
 	persistentContainer.Labels[testServiceLabelSessionID] = "0123456789abcdef01234567"
 	persistentContainer.Labels[testServiceLabelSessionExpiresAt] = now.Add(-time.Hour).Format(time.RFC3339Nano)
-	if previousSuiteContainerCleanupEligible(activeEnv, persistentContainer, now) {
+	if previousSuiteContainerCleanupEligible(activeEnv, persistentContainer) {
 		t.Fatal("ordinary stale-suite cleanup must not own persistent session containers")
 	}
 }
 
-func staleSuiteContainer(id string, now time.Time) dockercontainer.Summary {
+func completedSuiteContainer(deps dependencies, env map[string]string, id string, now time.Time) dockercontainer.Summary {
+	completed := cloneEnv(env)
+	completed[suiteservices.SuiteIDEnv] = "stale-suite"
+	completed["CARTULARY_TEST_RUN_ID"] = "stale-run"
+	recordCleanupAndRefresh(deps, completed, "succeeded", 0)
 	return dockercontainer.Summary{
 		ID:      id,
-		Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+		Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 		Labels: map[string]string{
 			testServiceLabelManaged: testServiceManagedValue,
 			testServiceLabelSuiteID: "stale-suite",
@@ -1584,7 +1588,7 @@ func TestCleanupPreviousSuiteServiceContainersRemovesEligibleContainer(t *testin
 	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	cli := &fakeSuiteContainerClient{
-		items: []dockercontainer.Summary{staleSuiteContainer("removed-container", now)},
+		items: []dockercontainer.Summary{completedSuiteContainer(deps.dependencies, activeEnv, "removed-container", now)},
 	}
 
 	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
@@ -1606,7 +1610,7 @@ func TestCleanupPreviousSuiteServiceContainersAcceptsNotFound(t *testing.T) {
 	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	cli := &fakeSuiteContainerClient{
-		items: []dockercontainer.Summary{staleSuiteContainer("gone-container", now)},
+		items: []dockercontainer.Summary{completedSuiteContainer(deps.dependencies, activeEnv, "gone-container", now)},
 		removeErrs: map[string]error{
 			"gone-container": errors.New("Error response from daemon: No such container: gone-container"),
 		},
@@ -1628,10 +1632,11 @@ func TestCleanupPreviousSuiteServiceContainersAcceptsConcurrentRemoval(t *testin
 	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 
+	_ = completedSuiteContainer(deps.dependencies, activeEnv, "proof", now)
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{{
 			ID:      "fc621a862739f3b8c8a8fe32207ce9e7c9e9543f677377d0eb10dcf4e806ffc3",
-			Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+			Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 			Labels: map[string]string{
 				testServiceLabelManaged: testServiceManagedValue,
 				testServiceLabelSuiteID: "stale-suite",
@@ -1663,7 +1668,7 @@ func TestCleanupPreviousSuiteServiceContainersTimeoutThenGone(t *testing.T) {
 	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	cli := &fakeSuiteContainerClient{
-		items: []dockercontainer.Summary{staleSuiteContainer("timeout-gone", now)},
+		items: []dockercontainer.Summary{completedSuiteContainer(deps.dependencies, activeEnv, "timeout-gone", now)},
 		removeErrs: map[string]error{
 			"timeout-gone": context.DeadlineExceeded,
 		},
@@ -1711,7 +1716,7 @@ func TestCleanupPreviousSuiteServiceContainersTimeoutThenRemovingOrDead(t *testi
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			cli := &fakeSuiteContainerClient{
-				items: []dockercontainer.Summary{staleSuiteContainer(tc.stateID, now)},
+				items: []dockercontainer.Summary{completedSuiteContainer(deps.dependencies, activeEnv, tc.stateID, now)},
 				removeErrs: map[string]error{
 					tc.stateID: context.DeadlineExceeded,
 				},
@@ -1739,7 +1744,7 @@ func TestCleanupPreviousSuiteServiceContainersTimeoutStillRunningFails(t *testin
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	runningState := dockercontainer.State{Status: dockercontainer.ContainerState("running"), Running: true}
 	cli := &fakeSuiteContainerClient{
-		items: []dockercontainer.Summary{staleSuiteContainer("timeout-running", now)},
+		items: []dockercontainer.Summary{completedSuiteContainer(deps.dependencies, activeEnv, "timeout-running", now)},
 		removeErrs: map[string]error{
 			"timeout-running": context.DeadlineExceeded,
 		},
@@ -1766,7 +1771,7 @@ func TestCleanupPreviousSuiteServiceContainersRequiresOwnershipProof(t *testing.
 	activeEnv := cloneEnv(deps.env)
 	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
-	unproven := staleSuiteContainer("unproven-container", now)
+	unproven := completedSuiteContainer(deps.dependencies, activeEnv, "unproven-container", now)
 	delete(unproven.Labels, testServiceLabelSuiteID)
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{unproven},
@@ -1814,7 +1819,7 @@ func TestCleanupPreviousSuiteServiceContainersSkipsCurrentSuite(t *testing.T) {
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{{
 			ID:      "active-container",
-			Created: now.Add(-staleSuiteContainerAge - time.Hour).Unix(),
+			Created: now.Add(-(10 * time.Minute) - time.Hour).Unix(),
 			Labels: map[string]string{
 				testServiceLabelManaged: testServiceManagedValue,
 				testServiceLabelSuiteID: "active-suite",
@@ -1843,10 +1848,11 @@ func TestCleanupPreviousSuiteServiceContainersReportsFatalRemove(t *testing.T) {
 	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 
+	_ = completedSuiteContainer(deps.dependencies, activeEnv, "proof", now)
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{{
 			ID:      "fatal-container",
-			Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+			Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 			Labels: map[string]string{
 				testServiceLabelManaged: testServiceManagedValue,
 				testServiceLabelSuiteID: "stale-suite",

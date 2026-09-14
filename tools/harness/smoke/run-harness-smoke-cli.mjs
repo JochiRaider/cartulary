@@ -16,6 +16,8 @@ import {
   repoRoot,
 } from "../generated-artifacts/index.mjs";
 import { publicExitCodeForSummary } from "../contract/index.mjs";
+import { resolveArtifactIdentityForTarget } from "../contract/harness-contract.mjs";
+import { borrowSuiteRuntime, createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 import { verboseOutput as toolVerboseOutput } from "../output/index.mjs";
 
 function parseArgs(argv) {
@@ -235,6 +237,12 @@ async function main() {
   const jobs = parseJobs(options.jobs);
   const { manifest } = loadTaskSurfaceManifest(options.manifest);
   const label = `run-harness-smoke-${options.tier}`;
+  // Summary wrappers lend their prepared run identity to the smoke tier.
+  const identityTarget = process.env.CARTULARY_HARNESS_IDENTITY_PREPARED === "1"
+    ? process.env.CARTULARY_TEST_TARGET : label;
+  const identity = resolveArtifactIdentityForTarget(identityTarget);
+  process.env.CARTULARY_TEST_RESULTS_DIR = identity.result_root;
+  process.env.CARTULARY_TEST_RUN_ID = identity.run_id;
   const checkNames = harnessTierChecks(manifest, options.tier);
   const checks = checkNames.map((name) => harnessCheck(manifest, name));
   const topologyContext = loadSummaryTopologyContext({
@@ -271,7 +279,29 @@ async function main() {
     ]);
   }
 
-  const { failure, skippedAfterFailure } = await runChecks(checks, jobs);
+  const inheritedRuntime = Boolean(process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT);
+  const runtimeOptions = { repoRoot, runRoot: identity.run_root, runID: identity.run_id };
+  const runtime = inheritedRuntime ? borrowSuiteRuntime(runtimeOptions) : createSuiteRuntime(runtimeOptions);
+  const previousRuntimeEnvironment = Object.fromEntries(
+    ["ROOT", "LEASE_ID", "RUN_ID"].map((suffix) => {
+      const name = `CARTULARY_HARNESS_SUITE_RUNTIME_${suffix}`;
+      return [name, process.env[name]];
+    }),
+  );
+  process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT = runtime.root;
+  process.env.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID = runtime.leaseID;
+  process.env.CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID = runtime.runID;
+  let outcome;
+  try {
+    outcome = await runChecks(checks, jobs);
+  } finally {
+    if (!inheritedRuntime) runtime.close();
+    for (const [name, value] of Object.entries(previousRuntimeEnvironment)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+  const { failure, skippedAfterFailure } = outcome;
   const summaryArgs = ["run-summary", label];
   if (failure) {
     summaryArgs.push("fail", "0", "1", failure.check);

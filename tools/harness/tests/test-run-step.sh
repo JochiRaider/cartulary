@@ -1948,4 +1948,75 @@ assert_contains "$verbose_default_output" "== verbose default ==" "verbose defau
 assert_contains "$verbose_default_output" "verbose-stream" "verbose default output"
 
 
+(
+  # shellcheck source=tools/harness/execution/step-runtime.sh
+  source "$STEP_RUNTIME"
+  umask 000
+  capture_root="$(cartulary_harness_mktemp_dir "capture-security.XXXXXX")"
+  trap 'rm -rf "$capture_root"' EXIT
+  observed_state=0
+  # shellcheck disable=SC2329
+  capture_probe() {
+    [[ "$(stat -c '%a' "$1")" == 600 && "$(stat -c '%a' "$2")" == 600 ]] || return 19
+    observed_state=1
+    printf 'complete stdout\n'
+    (sleep 0.1; printf 'delayed stderr\n' >&2) &
+  }
+  step_capture_command quiet "$capture_root/stdout.log" "$capture_root/stderr.log" capture_probe "$capture_root/stdout.log" "$capture_root/stderr.log"
+  [[ "$observed_state" == 1 ]] || fail "capture must preserve shell-function state"
+  [[ "$(cat "$capture_root/stderr.log")" == 'delayed stderr' ]] || fail "capture published before stderr completed"
+  [[ "$(stat -c '%a' "$capture_root/stdout.log")" == 600 ]] || fail "capture file was not owner-only"
+  printf 'preserved\n' >"$capture_root/protected"
+  ln -s "$capture_root/protected" "$capture_root/link"
+  if step_secure_files "$capture_root/link" >/dev/null 2>&1; then fail "secure file creation followed a symlink"; fi
+  [[ "$(cat "$capture_root/protected")" == preserved ]] || fail "secure creation modified a symlink target"
+  # shellcheck source=tools/harness/readiness/process-lifecycle.sh
+  source "$ROOT_DIR/tools/harness/readiness/process-lifecycle.sh"
+  captured_service=""
+  # shellcheck disable=SC2329
+  start_captured_service() { start_process_group captured_service "$capture_root/service.log" sleep 30; }
+  step_capture_command quiet "$capture_root/service-out.log" "$capture_root/service-err.log" start_captured_service
+  process_group_running "$captured_service" || fail "step capture stopped its detached service"
+  stop_process_group "$captured_service"
+  # shellcheck disable=SC2329
+  step_redact_stream() { cat >/dev/null; return 7; }
+  capture_status=0
+  step_capture_command quiet "$capture_root/failure-out.log" "$capture_root/failure-err.log" true || capture_status=$?
+  [[ "$capture_status" == 11 ]] || fail "redaction failure did not fail capture"
+)
+
 printf 'step execution smoke passed\n'
+
+canonical_explain_results="$(cartulary_harness_mktemp_dir "explain-run-canonical.XXXXXX")"
+cleanup_paths+=("$canonical_explain_results")
+"${NODE:-node}" --input-type=module - "$canonical_explain_results" <<'JS'
+import fs from "node:fs";
+import path from "node:path";
+const root = process.argv[2];
+const timing = Object.fromEntries(["setup_ms", "fixture_ms", "execution_ms", "collation_ms", "wrapper_ms", "unattributed_ms", "resource_blocking_ms", "process_count"].map(key => [key, 0]));
+const write = (file, value) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true, mode: 0o700 }); fs.writeFileSync(path.join(root, file), JSON.stringify(value), { mode: 0o600 }); };
+write("run-summary.json", {
+  schema_id: "cartulary.harness_run_summary.v1", run_id: "canonical", target: "sample", status: "fail", failure_class: "product", failure_reason: "test_assertion_failure",
+  unit_counts: { total: 109, passed: 47, failed: 4, skipped: 58, cancelled: 0 }, wall_duration_ms: 800, critical_path: ["row:sample"], actual_dependency_critical_path_ms: 700,
+  timing_accounting: timing, resource_pressure: {}, cache: {}, artifact_refs: []
+});
+write("target-summaries/sample.json", {
+  schema_id: "cartulary.harness_target_summary.v1", target: "sample", command_id: "cartulary.harness.command.sample.v1", status: "fail", failure_class: "product", failure_reason: "test_assertion_failure",
+  workload_digest: `sha256:${"a".repeat(64)}`, unit_ids: ["row:sample"], inclusive_wall_ms: 800, exclusive_wall_ms: 800, actual_dependency_critical_path_ms: 700, timing_accounting: timing, children: [], evidence_refs: []
+});
+write("unit-results/row-sample.json", {
+  schema_id: "cartulary.harness_unit_result.v1", unit_id: "row:sample", semantic_digest: `sha256:${"b".repeat(64)}`, status: "failed", exit_code: 1, signal: null, failure_class: "product", failure_reason: "test_assertion_failure", evidence_outputs: [], missing_outputs: []
+});
+JS
+canonical_summary="$("${NODE:-node}" "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$canonical_explain_results" --target sample)"
+assert_contains "$canonical_summary" 'units=109' 'canonical run work-unit count'
+assert_contains "$canonical_summary" '[TARGET] sample status=fail failure_class=product units=1' 'canonical target summary location and schema'
+assert_not_contains "$canonical_summary" 'undefined' 'canonical labels'
+canonical_accounting="$("${NODE:-node}" "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$canonical_explain_results" --target sample --detail accounting)"
+assert_contains "$canonical_accounting" '[UNIT] row:sample status=failed' 'canonical unit attribution'
+assert_contains "$canonical_accounting" '[ACCOUNTING] units=1' 'canonical unit accounting'
+"${NODE:-node}" -e 'const fs=require("node:fs"); const p=process.argv[1]; const value=JSON.parse(fs.readFileSync(p)); value.schema_id="cartulary.harness_run_summary.v999"; fs.writeFileSync(p,JSON.stringify(value));' "$canonical_explain_results/run-summary.json"
+canonical_unsupported_status=0
+canonical_unsupported="$("${NODE:-node}" "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$canonical_explain_results" 2>&1)" || canonical_unsupported_status=$?
+assert_equals "$canonical_unsupported_status" 11 'unsupported canonical schema fails explicitly'
+assert_contains "$canonical_unsupported" 'unsupported run summary schema' 'unsupported schema diagnostic'

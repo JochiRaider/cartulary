@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   primaryPublicFailure, publicExitCodeForFailure, publicExitCodeForFailures,
-  redactValue, secureWriteFile, validateSchemaSync,
+  redactString, redactValue, secureWriteFile, validateSchemaSync,
 } from "../contract/index.mjs";
 import {
   diagnosticFailure, normalizeVitestObservations, readVitestJSON, reconcileVitestReport,
@@ -83,6 +83,6 @@ async function main() {
 try { process.exitCode = await main(); }
 catch (error) {
   const failure = error.failure_reason ? error : diagnosticFailure("Vitest invocation could not retain complete diagnostic evidence");
-  process.stderr.write(`[FAIL] failure_class=${failure.failure_class} failure_reason=${failure.failure_reason} message=${failure.message}\n`);
+  process.stderr.write(`[FAIL] failure_class=${failure.failure_class} failure_reason=${failure.failure_reason} message=${failure.message} cause=${redactString(error.message ?? "unknown")}\n`);
   process.exitCode = publicExitCodeForFailure(reportCommandFailure(root, error, failure));
 }

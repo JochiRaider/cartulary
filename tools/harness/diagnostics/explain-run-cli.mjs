@@ -219,7 +219,15 @@ function failureLabels(summary) {
 
 function loadRunSummary(runDir) {
   const file = path.join(runDir, "run-summary.json");
-  return existsSync(file) ? readJSON(file) : null;
+  if (!existsSync(file)) return null;
+  const summary = readJSON(file);
+  if (!["cartulary.harness_run_summary.v1", "cartulary.test_run_summary.v6"].includes(summary.schema_id)) {
+    const error = new Error(`unsupported run summary schema ${summary.schema_id ?? "missing"}`);
+    error.exit_code = 11;
+    throw error;
+  }
+  validateSchemaSync(summary.schema_id, summary);
+  return summary;
 }
 
 function loadRunManifest(runDir) {
@@ -295,8 +303,20 @@ function loadTargetSummary(runDir, target) {
   if (!target) {
     return null;
   }
-  const file = path.join(runDir, target, "target-summary.json");
-  return existsSync(file) ? readJSON(file) : null;
+  const canonical = path.join(runDir, "target-summaries", `${target}.json`);
+  const file = existsSync(canonical) ? canonical : path.join(runDir, target, "target-summary.json");
+  if (!existsSync(file)) return null;
+  const summary = readJSON(file);
+  if (file === canonical) {
+    if (summary.schema_id !== "cartulary.harness_target_summary.v1") {
+      const error = new Error(`unsupported target summary schema ${summary.schema_id ?? "missing"}`);
+      error.exit_code = 11;
+      throw error;
+    }
+    validateSchemaSync(summary.schema_id, summary);
+    if (summary.target !== target) throw new Error(`target summary identity mismatch: ${target}`);
+  }
+  return summary;
 }
 
 function loadSchedulerSummary(runDir, target) {
@@ -354,6 +374,16 @@ function writeBrowserStartupDiagnostics(runDir, toolSummary) {
 function writeRunSummary(runDir, runSummary) {
   if (!runSummary) {
     process.stdout.write(`[RUN] missing artifacts=${relToRepo(runDir)}\n`);
+    return;
+  }
+  if (runSummary.schema_id === "cartulary.harness_run_summary.v1") {
+    const c = runSummary.unit_counts;
+    process.stdout.write(
+      `[RUN] ${runSummary.target} status=${runSummary.status}${failureClassField(runSummary)} work_units=${c.passed + c.failed + c.skipped + c.cancelled}/${c.total} passed=${c.passed} failed=${c.failed} skipped=${c.skipped} cancelled=${c.cancelled} duration=${duration(runSummary)} artifacts=${relToRepo(runDir)}\n`,
+    );
+    if (runSummary.failure_class) {
+      process.stdout.write(`[FAILURE] ${runSummary.target} ${runSummary.failure_class} reason=${runSummary.failure_reason}\n`);
+    }
     return;
   }
   const c = counts(runSummary);
@@ -416,6 +446,10 @@ function writeFinalizeSummary(runDir, toolSummary) {
 
 function writeTargetSummary(runDir, targetSummary) {
   if (!targetSummary) {
+    return;
+  }
+  if (targetSummary.schema_id === "cartulary.harness_target_summary.v1") {
+    process.stdout.write(`[TARGET] ${targetSummary.target} status=${targetSummary.status}${failureClassField(targetSummary)} units=${targetSummary.unit_ids.length} duration=${formatDuration(targetSummary.inclusive_wall_ms)} children=${targetSummary.children.join(",") || "none"} artifacts=${relToRepo(path.join(runDir, "target-summaries", `${targetSummary.target}.json`))}\n`);
     return;
   }
   const totals = targetSummary.totals ?? targetSummary;
@@ -944,6 +978,61 @@ function writeMeasurementDetail(runDir) {
   }
 }
 
+function canonicalUnitResults(runDir, targetSummary) {
+  const dir = path.join(runDir, "unit-results");
+  const results = existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith(".json")).map((name) => {
+    const value = readJSON(path.join(dir, name));
+    if (value.schema_id !== "cartulary.harness_unit_result.v1") {
+      const error = new Error(`unsupported unit result schema ${value.schema_id ?? "missing"}`);
+      error.exit_code = 11;
+      throw error;
+    }
+    validateSchemaSync(value.schema_id, value);
+    return value;
+  }) : [];
+  const selected = targetSummary ? new Set(targetSummary.unit_ids) : null;
+  const units = results.filter((unit) => !selected || selected.has(unit.unit_id)).sort((a, b) => a.unit_id.localeCompare(b.unit_id));
+  if (selected) for (const id of selected) {
+    if (!units.some((unit) => unit.unit_id === id)) process.stdout.write(`[MISSING-UNIT] ${id}\n`);
+  }
+  return units;
+}
+
+function writeCanonicalDetail(runDir, options, runSummary, targetSummary) {
+  if (options.target && !targetSummary) throw new Error(`missing canonical target summary for ${options.target}`);
+  if (options.detail === "children") {
+    const dir = path.join(runDir, "target-summaries");
+    const targets = targetSummary?.children ?? (existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith(".json")).map((name) => name.slice(0, -5)) : []);
+    for (const target of targets) {
+      const child = loadTargetSummary(runDir, target);
+      if (child) writeTargetSummary(runDir, child);
+      else process.stdout.write(`[MISSING-TARGET] ${target}\n`);
+    }
+    if (!targets.length) process.stdout.write("[CHILDREN] none\n");
+    return;
+  }
+  const units = canonicalUnitResults(runDir, targetSummary);
+  if (options.detail === "logs") {
+    let wrote = false;
+    for (const unit of units) {
+      const slug = unit.unit_id.replace(/[^A-Za-z0-9_.-]/g, "-");
+      const dir = path.join(runDir, "unit-logs", slug);
+      if (!existsSync(dir)) continue;
+      for (const name of ["stdout.log", "stderr.log"]) {
+        const file = path.join(dir, name);
+        if (existsSync(file)) wrote = writeLogFile(unit.unit_id, file) || wrote;
+      }
+    }
+    if (!wrote) process.stdout.write(`[LOGS] ${options.target} no retained unit logs\n`);
+    return;
+  }
+  for (const unit of units) process.stdout.write(`[UNIT] ${unit.unit_id} status=${unit.status} exit_code=${unit.exit_code ?? "none"} failure_class=${unit.failure_class ?? "none"} failure_reason=${unit.failure_reason ?? "none"} missing_outputs=${unit.missing_outputs.length}\n`);
+  if (options.detail === "accounting") {
+    const timing = targetSummary?.timing_accounting ?? runSummary.timing_accounting;
+    process.stdout.write(`[ACCOUNTING] units=${units.length} ${Object.entries(timing).map(([key, value]) => `${key}=${value}`).join(" ")}\n`);
+  }
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { runDir, targetFromPath } = resolveRunContext(options);
@@ -979,6 +1068,10 @@ async function main() {
       }
     }
     writeHelperLines(runSummary, target);
+    return;
+  }
+  if (runSummary?.schema_id === "cartulary.harness_run_summary.v1" && !["performance", "measurement"].includes(options.detail)) {
+    writeCanonicalDetail(runDir, { ...options, target }, runSummary, targetSummary);
     return;
   }
   if (options.detail === "children") {

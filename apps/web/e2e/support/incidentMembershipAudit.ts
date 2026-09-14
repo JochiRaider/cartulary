@@ -1,11 +1,9 @@
-import type {
-  GetCurrentSessionResponse,
-  ListIncidentMembershipAuditEventsResponse,
-} from "@cartulary/protocol-ts/http";
+import type { ListIncidentMembershipAuditEventsResponse } from "@cartulary/protocol-ts/http";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
 import { auditBrowserEvent } from "./administrativeAudit";
+import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 import { createIncident } from "./incidents/fixtures";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
 
@@ -55,30 +53,23 @@ export async function installMembershipAuditPresentation(page: Page) {
       });
       return;
     }
-    const response = await route.fetch();
-    const envelope: GetCurrentSessionResponse = await response.json();
-    await route.fulfill({
-      response,
-      json: {
-        ...envelope,
-        data: {
-          ...envelope.data,
-          display_name: "Audit operator",
-          memberships: envelope.data.memberships.flatMap((member) =>
-            member.incident_id !== incidentId
-              ? [member]
-              : access === "hidden"
-                ? []
-                : [
-                    {
-                      ...member,
-                      role: access === "viewer" ? "viewer" : "admin",
-                    },
-                  ],
-          ),
-        },
-      },
-    });
+    const requestAccess = access;
+    await rewriteSessionPresentation(route, (session) => ({
+      ...session,
+      display_name: "Audit operator",
+      memberships: session.memberships.flatMap((member) =>
+        member.incident_id !== incidentId
+          ? [member]
+          : requestAccess === "hidden"
+            ? []
+            : [
+                {
+                  ...member,
+                  role: requestAccess === "viewer" ? "viewer" : "admin",
+                },
+              ],
+      ),
+    }));
   });
   let body: unknown;
   let status = 200;
