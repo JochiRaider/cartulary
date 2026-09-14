@@ -7,118 +7,19 @@ import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence
 import { createAssessmentAppendTransport } from "../adapters/createAssessmentAppendTransport";
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
-import type { DecisionRecordWriteBoundary } from "../features/coordination/decisionSupersessionOperation";
 import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
-import { createGenericMutationCommandPort } from "../features/generic/createGenericMutationCommandPort";
-import { buildPatchRecordRequest } from "../models/workbookRequestDecoders";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookBatchOperationOwner } from "../runtime/WorkbookBatchOperationOwner";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
-import type {
-  EntityRecordWriteBoundary,
-  EntityRecordWriteTarget,
-} from "./entityRecordWriteBoundary";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
-import type {
-  EntityPatchOutcome,
-  GenericViewMutationAccepted,
-  WorkbookMutationCommandPorts,
-} from "./workbookMutationCommandPorts";
-import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
+import type { WorkbookMutationCommandPorts } from "./workbookMutationCommandPorts";
 
 type CommandContext = {
   readonly batches: Pick<WorkbookBatchOperationOwner, "admit">;
   readonly apiBase: string | undefined;
   readonly incidentId: string;
   readonly transactionIds: SecureTransactionIdPort;
-  readonly entityWrites?: EntityRecordWriteBoundary;
-  readonly decisionWrites?: DecisionRecordWriteBoundary;
 };
-
-async function executeEntityWrite(
-  context: CommandContext,
-  target: EntityRecordWriteTarget,
-  run: () => Promise<EntityPatchOutcome>,
-): Promise<EntityPatchOutcome> {
-  const release = context.entityWrites
-    ? context.entityWrites.begin(target)
-    : () => {};
-  if (release === null)
-    return {
-      kind: "rejected",
-      failure: {
-        kind: "stale_target",
-        message:
-          "Finish the earlier batch or recover the pending merge before changing these records.",
-      },
-    };
-  try {
-    const outcome = await run();
-    if (outcome.kind === "accepted")
-      context.entityWrites?.acceptVersion(
-        outcome.value.row.record_id,
-        outcome.value.row.row_version,
-      );
-    return outcome;
-  } finally {
-    release();
-  }
-}
-
-function operationIdentityFailure<T>(): WorkbookOperationOutcome<T> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "terminal",
-      message: "A secure transaction ID could not be created.",
-    },
-  };
-}
-
-function invalidOperationPayload<T>(): WorkbookOperationOutcome<T> {
-  return {
-    kind: "rejected",
-    failure: { kind: "validation", message: "invalid_mutation_payload" },
-  };
-}
-
-function invalidOperationContract<T>(): WorkbookOperationOutcome<T> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "invalid_contract",
-      message: "The server returned an inconsistent Workbook operation result.",
-    },
-  };
-}
-
-function normalizeEntityPatchOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: GenericViewMutationAccepted["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-  expectedRecordId: string,
-  expectedViewSchemaId: string,
-): EntityPatchOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  if (
-    outcome.value.data.row.record_id !== expectedRecordId ||
-    outcome.value.data.view_schema_id !== expectedViewSchemaId
-  ) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: outcome.value.data.change_set_id,
-      row: outcome.value.data.row,
-      viewSchemaId: outcome.value.data.view_schema_id,
-    },
-  };
-}
 
 function createId(
   transactionIds: SecureTransactionIdPort,
@@ -211,57 +112,6 @@ export function createWorkbookMutationCommandPorts(
         incidentId: context.incidentId,
         operations,
       }),
-    },
-    generic: createGenericMutationCommandPort({
-      decisionWrites: context.decisionWrites,
-      incidentId: context.incidentId,
-      operations,
-      transactionIds: context.transactionIds,
-    }),
-    entity: {
-      patchRecord(input) {
-        return executeEntityWrite(
-          context,
-          {
-            recordIds: [input.recordId],
-            entityType:
-              input.viewSchemaId === "cartulary.view.hosts.v1"
-                ? "host"
-                : input.viewSchemaId === "cartulary.view.identities.v1"
-                  ? "identity"
-                  : undefined,
-          },
-          () => {
-            const clientTxnId = createId(
-              context.transactionIds,
-              `${input.purpose}-${input.viewSchemaId}`,
-            );
-            if (clientTxnId === null)
-              return Promise.resolve(operationIdentityFailure());
-            const request = buildPatchRecordRequest({
-              baseRowVersion: input.baseRowVersion,
-              changes: input.changes,
-              clientTxnId,
-              viewSchemaId: input.viewSchemaId,
-            });
-            if (request === null)
-              return Promise.resolve(invalidOperationPayload());
-            return operations
-              .execute({
-                operationID: "patchRecord",
-                pathParameters: { record_id: input.recordId },
-                request,
-              })
-              .then((outcome) =>
-                normalizeEntityPatchOutcome(
-                  outcome,
-                  input.recordId,
-                  input.viewSchemaId,
-                ),
-              );
-          },
-        );
-      },
     },
     assessment: createAssessmentAppendTransport(context.apiBase),
     evidence: {

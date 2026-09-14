@@ -22,7 +22,6 @@ import {
   normalizeGenericTextValue,
   parseMutationError,
   partyLinkPairsForContract,
-  selectWorkbookEditTarget,
   workbookCreateMinimumSatisfied,
   workbookCreationAvailable,
 } from "./genericWorkbookModel";
@@ -100,19 +99,6 @@ describe("genericWorkbookModel", () => {
         testId: "grid-row-cartulary.view.parties.v1-party-2",
       },
     ]);
-
-    expect(
-      selectWorkbookEditTarget({
-        fieldKey: "evidence.title",
-        fields: evidence.fields,
-        getRecordId: (row) => row.record_id,
-        recordId: "party-2",
-        rows,
-      }),
-    ).toEqual({
-      row: rows[1],
-      field: evidence.fieldMap["evidence.title"],
-    });
 
     expect(
       buildGenericCreateRequest(evidence, {}, "txn-evidence-missing"),

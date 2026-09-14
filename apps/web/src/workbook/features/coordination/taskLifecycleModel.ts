@@ -204,6 +204,13 @@ export class TaskLifecycleDraftStore {
   read(row: WorkbookQueryRow): TaskDraft {
     return this.drafts.get(row.record_id) ?? { baseline: row, values: {} };
   }
+  capture(recordId: string) {
+    return this.drafts.get(recordId) ?? null;
+  }
+  acknowledge(recordId: string, captured: TaskDraft | null) {
+    if (captured && this.drafts.get(recordId) === captured)
+      this.clear(recordId);
+  }
   update(row: WorkbookQueryRow, field: string, value: string): void {
     const draft = this.read(row);
     this.drafts.set(row.record_id, {

@@ -30,7 +30,6 @@ const taskRow: WorkbookQueryRow = {
 function mutationPorts() {
   return {
     beginMutation: vi.fn(() => vi.fn()),
-    completeGenericMutation: vi.fn(async () => {}),
     submitPatchMutation: vi.fn(async () => ({
       changeSetId: "receipt",
       row: taskRow,

@@ -12,7 +12,6 @@ assembles their bindings into the generic inspector.
 
 | File | Responsibility |
 | --- | --- |
-| [createGenericMutationCommandPort.ts](createGenericMutationCommandPort.ts) | Builds existing-record patch commands; ordinary creation belongs to the retained owner. |
 | [genericCreateRequestBuilder.ts](genericCreateRequestBuilder.ts) | Pure request helper retained for Party, Indicator observation and Timeline related creation consumers. |
 | [GenericWorkbookInspector.tsx](GenericWorkbookInspector.tsx) | Generic contract-surface inspector facade over composition and presentation. |
 | [GenericWorkbookInspectorPresentation.tsx](GenericWorkbookInspectorPresentation.tsx) | Renders generic inspector sections from the feature composition's presentation model. |

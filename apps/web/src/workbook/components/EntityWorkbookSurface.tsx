@@ -49,6 +49,7 @@ import { OrdinaryCreateControl } from "../features/ordinary/OrdinaryCreateContro
 import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice";
 import { useOrdinaryCreateDraft } from "../features/ordinary/useOrdinaryCreateDraft";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
+import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatchRecovery";
 import {
   type WorkbookInspectorErrorPresentation,
   type WorkbookInspectorFeedback,
@@ -57,6 +58,7 @@ import {
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
+  workbookGridWithNoticeStyle,
   workbookSurfaceGridShellStyle,
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
@@ -88,7 +90,6 @@ import {
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import type {
-  EntityMutationCommandPort,
   RecordRouteCommandPort,
   TimelineRelatedRecordPort,
 } from "../mutations/workbookMutationCommandPorts";
@@ -137,7 +138,6 @@ export type EntityWorkbookSurfaceProps = {
   onIncidentAccessLost?: (() => void) | undefined;
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
-  mutationCommands: EntityMutationCommandPort;
   onActivateConflict?: WorkbookConflictActivation | undefined;
   recordMutationCommands: RecordRouteCommandPort;
   relatedMutationCommands: TimelineRelatedRecordPort;
@@ -205,7 +205,6 @@ export function EntityWorkbookSurface({
   onIncidentAccessLost,
   loadState,
   mutationRuntime,
-  mutationCommands,
   onActivateConflict,
   recordMutationCommands,
   relatedMutationCommands,
@@ -237,7 +236,6 @@ export function EntityWorkbookSurface({
     useState<WorkbookInspectorErrorPresentation | null>(null);
   const [entityActionFeedback, setEntityActionFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
-  const [mutationPending, setMutationPending] = useState(false);
   const sharedMutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
@@ -364,10 +362,8 @@ export function EntityWorkbookSurface({
     incidentClosed,
     inspectorResetKey,
     interactionMode,
-    mutationCommands,
     mutationError,
     mutationRuntime,
-    mutationPending,
     onClearSurfaceSelection: () => {
       continuityPortRef.current?.clear();
       setSelectedRecordId(null);
@@ -385,7 +381,6 @@ export function EntityWorkbookSurface({
     selectedEntity,
     setEntityActionFeedback,
     setMutationError,
-    setMutationPending,
     setSelectedRecordId,
     viewQuery,
   });
@@ -741,18 +736,17 @@ export function EntityWorkbookSurface({
         entityInspector.close();
       }}
       primaryGrid={
-        <div
-          style={{
-            display: "grid",
-            gridTemplateRows: "auto minmax(0, 1fr)",
-            minHeight: 0,
-            minWidth: 0,
-          }}
-        >
-          <OrdinaryCreateNotice
-            owner={mutationRuntime.ordinaryCreate}
-            view={contract.viewSchemaId}
-          />
+        <div style={{ ...workbookGridWithNoticeStyle, minWidth: 0 }}>
+          <div>
+            <WorkbookExplicitPatchRecovery
+              owner={mutationRuntime.explicitPatches}
+              viewSchemaId={contract.viewSchemaId}
+            />
+            <OrdinaryCreateNotice
+              owner={mutationRuntime.ordinaryCreate}
+              view={contract.viewSchemaId}
+            />
+          </div>
           <GridViewport
             blockSizing="fill"
             style={gridShellStyle}
@@ -780,6 +774,7 @@ export function EntityWorkbookSurface({
                   anchor?.rowIdentity.kind === "core_record"
                     ? anchor.rowIdentity.recordId
                     : null;
+                setSelectedRecordId(recordId);
                 if (recordId === null || anchor === null) {
                   entityFocus.port.clear();
                 } else {

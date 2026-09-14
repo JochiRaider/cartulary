@@ -33,6 +33,7 @@ const identitiesContract = requireViewContract(identitiesViewSchemaId);
 
 export type EntitySurfaceQueryInput = {
   readonly ordinaryCreateOwner?: WorkbookCommittedRecordPort | undefined;
+  readonly editOwner?: WorkbookCommittedRecordPort | undefined;
   readonly hostQueryState: WorkbookQueryState;
   readonly identityQueryState: WorkbookQueryState;
   readonly onIncidentAccessLost: (() => void) | undefined;
@@ -41,6 +42,7 @@ export type EntitySurfaceQueryInput = {
 
 export function useEntitySurfaceQuery({
   ordinaryCreateOwner,
+  editOwner,
   hostQueryState,
   identityQueryState,
   onIncidentAccessLost,
@@ -136,7 +138,10 @@ export function useEntitySurfaceQuery({
         [...hostsResult.value.rows, ...identitiesResult.value.rows].some(
           (row) =>
             row.row_version <
-            (ordinaryCreateOwner?.latestVersion(row.record_id) ?? 0),
+            Math.max(
+              ordinaryCreateOwner?.latestVersion(row.record_id) ?? 0,
+              editOwner?.latestVersion(row.record_id) ?? 0,
+            ),
         )
       ) {
         const failure = {
@@ -155,8 +160,10 @@ export function useEntitySurfaceQuery({
       for (const row of [
         ...hostsResult.value.rows,
         ...identitiesResult.value.rows,
-      ])
+      ]) {
         ordinaryCreateOwner?.acceptRow(row);
+        editOwner?.acceptRow(row);
+      }
       const nextHosts = hostsResult.value.rows.map((row) =>
         entityRowFromApi(row, "host"),
       );
@@ -178,6 +185,7 @@ export function useEntitySurfaceQuery({
       onIncidentAccessLost,
       viewQuery,
       ordinaryCreateOwner,
+      editOwner,
     ],
   );
 
@@ -188,7 +196,10 @@ export function useEntitySurfaceQuery({
     ): WorkbookSurfaceRecordChangeResult => {
       if (
         payload.row_version <
-        (ordinaryCreateOwner?.latestVersion(payload.record_id) ?? 0)
+        Math.max(
+          ordinaryCreateOwner?.latestVersion(payload.record_id) ?? 0,
+          editOwner?.latestVersion(payload.record_id) ?? 0,
+        )
       )
         return { kind: "stale" };
       const plan = planEntityLiveEventPatch({
@@ -209,7 +220,7 @@ export function useEntitySurfaceQuery({
       }
       return { kind: "applied" };
     },
-    [ordinaryCreateOwner],
+    [ordinaryCreateOwner, editOwner],
   );
 
   const invalidate = useCallback((reason: WorkbookQueryInvalidationReason) => {
@@ -228,42 +239,51 @@ export function useEntitySurfaceQuery({
   }, []);
 
   useEffect(() => {
-    if (!ordinaryCreateOwner) return;
-    let authorized = !!ordinaryCreateOwner.getSnapshot().authority;
-    return ordinaryCreateOwner.subscribe(() => {
-      const previouslyAuthorized = authorized;
-      authorized = !!ordinaryCreateOwner.getSnapshot().authority;
-      if (!authorized) {
-        abortLatestQuery(queryRuntimeRef);
-        hostRowsRef.current = [];
-        identityRowsRef.current = [];
-        acceptedRowCountRef.current = 0;
-        setHostRows([]);
-        setIdentityRows([]);
-        return;
-      }
-      if (!previouslyAuthorized) void refresh();
-      const project = (rows: EntityRow[], type: "host" | "identity") =>
-        rows.map((row) => {
-          const accepted = ordinaryCreateOwner.latestRow(row.recordId);
-          return accepted && accepted.row_version > row.rowVersion
-            ? entityRowFromApi(accepted, type)
-            : row;
-        });
-      const hosts = project(hostRowsRef.current, "host"),
-        identities = project(identityRowsRef.current, "identity");
-      if (hosts.some((row, index) => row !== hostRowsRef.current[index])) {
-        hostRowsRef.current = hosts;
-        setHostRows(hosts);
-      }
-      if (
-        identities.some((row, index) => row !== identityRowsRef.current[index])
-      ) {
-        identityRowsRef.current = identities;
-        setIdentityRows(identities);
-      }
-    });
-  }, [ordinaryCreateOwner, refresh]);
+    const subscribe = (owner: WorkbookCommittedRecordPort) => {
+      let authorized = !!owner.getSnapshot().authority;
+      return owner.subscribe(() => {
+        const previouslyAuthorized = authorized;
+        authorized = !!owner.getSnapshot().authority;
+        if (!authorized) {
+          abortLatestQuery(queryRuntimeRef);
+          hostRowsRef.current = [];
+          identityRowsRef.current = [];
+          acceptedRowCountRef.current = 0;
+          setHostRows([]);
+          setIdentityRows([]);
+          return;
+        }
+        if (!previouslyAuthorized) void refresh();
+        const project = (rows: EntityRow[], type: "host" | "identity") =>
+          rows.map((row) => {
+            const accepted = owner.latestRow(row.recordId);
+            return accepted && accepted.row_version > row.rowVersion
+              ? entityRowFromApi(accepted, type)
+              : row;
+          });
+        const hosts = project(hostRowsRef.current, "host"),
+          identities = project(identityRowsRef.current, "identity");
+        if (hosts.some((row, index) => row !== hostRowsRef.current[index])) {
+          hostRowsRef.current = hosts;
+          setHostRows(hosts);
+        }
+        if (
+          identities.some(
+            (row, index) => row !== identityRowsRef.current[index],
+          )
+        ) {
+          identityRowsRef.current = identities;
+          setIdentityRows(identities);
+        }
+      });
+    };
+    const unsubscribe = [ordinaryCreateOwner, editOwner].flatMap((owner) =>
+      owner ? [subscribe(owner)] : [],
+    );
+    return () => {
+      for (const stop of unsubscribe) stop();
+    };
+  }, [ordinaryCreateOwner, editOwner, refresh]);
 
   useEffect(
     () => () => {

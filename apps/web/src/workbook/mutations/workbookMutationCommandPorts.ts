@@ -1,6 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookOperationResponse } from "../adapters/workbookOperationContract";
-import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
 import type { AssessmentAppendTransport } from "../features/assessments/assessmentOperation";
 import type { WorkbookRecordHistoryPort } from "../history/workbookHistoryOperation";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
@@ -13,20 +12,7 @@ export type GenericViewMutationAccepted = {
   readonly viewSchemaId: string;
 };
 
-type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
-
-export type GenericMutationOutcome =
-  WorkbookOperationOutcome<GenericViewMutationAccepted>;
-
 export type RecordRouteCommandPort = WorkbookRecordHistoryPort;
-
-export type EntityPatchAccepted = {
-  readonly changeSetId: string;
-  readonly row: WorkbookQueryRow;
-  readonly viewSchemaId: string;
-};
-
-export type EntityPatchOutcome = WorkbookOperationOutcome<EntityPatchAccepted>;
 
 export type EvidenceAttachAccepted = {
   readonly evidenceRecordId: string;
@@ -82,26 +68,6 @@ export type TimelineMutationCommandPorts = {
   readonly related: TimelineRelatedRecordPort;
 };
 
-export interface GenericMutationCommandPort {
-  patchRecord(input: {
-    readonly baseRowVersion: number;
-    readonly changes: readonly RecordPatchChange[];
-    readonly purpose: string;
-    readonly recordId: string;
-    readonly viewSchemaId: string;
-  }): Promise<GenericMutationOutcome>;
-}
-
-export interface EntityMutationCommandPort {
-  patchRecord(input: {
-    readonly baseRowVersion: number;
-    readonly changes: readonly RecordPatchChange[];
-    readonly purpose: string;
-    readonly recordId: string;
-    readonly viewSchemaId: string;
-  }): Promise<EntityPatchOutcome>;
-}
-
 export type AssessmentMutationCommandPort = AssessmentAppendTransport;
 
 export interface EvidenceCapabilityPort {
@@ -123,8 +89,6 @@ export type IndicatorObservation =
 export type WorkbookMutationCommandPorts = {
   readonly records: RecordRouteCommandPort;
   readonly timeline: TimelineMutationCommandPorts;
-  readonly generic: GenericMutationCommandPort;
-  readonly entity: EntityMutationCommandPort;
   readonly assessment: AssessmentMutationCommandPort;
   readonly evidence: EvidenceCapabilityPort;
 };

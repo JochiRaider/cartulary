@@ -6,11 +6,6 @@ import type {
   DecisionSupersessionReview,
 } from "./decisionSupersessionModel";
 
-export interface DecisionRecordWriteBoundary {
-  begin(recordIds: readonly string[]): (() => void) | null;
-  acceptRow(row: WorkbookQueryRow): WorkbookQueryRow | null;
-}
-
 export type DecisionSupersessionAttempt = Readonly<{
   id: string;
   review: DecisionSupersessionReview;

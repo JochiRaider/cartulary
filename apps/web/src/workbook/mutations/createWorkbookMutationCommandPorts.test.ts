@@ -1,12 +1,38 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decisionReview } from "../../testing/decisionSupersessionTestSupport";
 import { mergeReview } from "../../testing/entityMergeTestSupport";
-import { taskRow } from "../../testing/taskWorkbookTestSupport";
+import {
+  taskAuthority,
+  taskIntent,
+  taskRow,
+} from "../../testing/taskWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import {
+  captureRecordPatch,
+  createRecordPatchTransport,
+} from "../adapters/workbookRecordPatchTransport";
 import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import { createWorkbookMutationCommandPorts } from "./createWorkbookMutationCommandPorts";
+
+async function sendPatch(
+  input: Omit<Parameters<typeof captureRecordPatch>[0], "clientTxnId"> & {
+    purpose: string;
+  },
+) {
+  const captured = captureRecordPatch({
+    ...input,
+    clientTxnId: `${input.purpose}-${input.viewSchemaId}-id`,
+  });
+  if (!captured) throw new Error("Invalid test patch");
+  return createRecordPatchTransport(
+    createWorkbookOperationExecutor({ apiBase: undefined }),
+  ).send(captured, new AbortController().signal);
+}
 
 function successResponse(): Response {
   return new Response(
@@ -203,12 +229,12 @@ describe("semantic mutation command ports", () => {
       },
     });
 
-    await commands.generic.patchRecord({
+    await sendPatch({
       baseRowVersion: 4,
       changes: [{ field_key: "task.title", value: "Updated" }],
       purpose: "generic-patch",
       recordId: "task-1",
-      viewSchemaId: "cartulary.view.tasks.v1",
+      viewSchemaId: "cartulary.view.task_requests.v1",
     });
     const merge = createWorkbookEntityMergeAdapter({
       apiBase: undefined,
@@ -257,7 +283,7 @@ describe("semantic mutation command ports", () => {
       assessmentAttempt,
       new AbortController().signal,
     );
-    await commands.generic.patchRecord({
+    await sendPatch({
       baseRowVersion: 7,
       purpose: "task-lifecycle",
       viewSchemaId: "cartulary.view.task_requests.v1",
@@ -270,9 +296,9 @@ describe("semantic mutation command ports", () => {
 
     expect(requestBodies(fetchMock)).toEqual([
       {
-        view_schema_id: "cartulary.view.tasks.v1",
+        view_schema_id: "cartulary.view.task_requests.v1",
         base_row_version: 4,
-        client_txn_id: "generic-patch-cartulary.view.tasks.v1-id",
+        client_txn_id: "generic-patch-cartulary.view.task_requests.v1-id",
         changes: [{ field_key: "task.title", value: "Updated" }],
       },
       {
@@ -365,15 +391,9 @@ describe("semantic mutation command ports", () => {
         ),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const commands = createWorkbookMutationCommandPorts({
-      batches: { admit: vi.fn(() => "batch") },
-      apiBase: undefined,
-      incidentId: "00000000-0000-4000-8000-000000000001",
-      transactionIds: { create: (prefix) => `${prefix}-id` },
-    });
 
     await expect(
-      commands.generic.patchRecord({
+      sendPatch({
         baseRowVersion: 7,
         recordId: taskRecordId,
         purpose: "task-lifecycle",
@@ -381,8 +401,8 @@ describe("semantic mutation command ports", () => {
         changes: [{ field_key: "task.status", value: "done" }],
       }),
     ).resolves.toEqual({
-      kind: "accepted",
-      value: {
+      kind: "acknowledged",
+      receipt: {
         changeSetId: "00000000-0000-4000-8000-000000000510",
         row: taskRow(8, "done"),
         viewSchemaId: "cartulary.view.task_requests.v1",
@@ -417,35 +437,24 @@ describe("semantic mutation command ports", () => {
   });
 
   it("keeps secure transaction identity failure local without transport", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    const commands = createWorkbookMutationCommandPorts({
-      batches: { admit: vi.fn(() => "batch") },
-      apiBase: undefined,
-      incidentId: "incident-1",
-      transactionIds: {
+    const send = vi.fn();
+    const owner = new WorkbookExplicitPatchOwner(
+      taskAuthority.incidentId,
+      {
         create: () => {
           throw new Error("randomness unavailable");
         },
       },
-    });
-
-    await expect(
-      commands.generic.patchRecord({
-        baseRowVersion: 1,
-        changes: [{ field_key: "task.title", value: "Local draft" }],
-        purpose: "generic-patch",
-        recordId: "task-1",
-        viewSchemaId: "cartulary.view.tasks.v1",
-      }),
-    ).resolves.toMatchObject({
-      kind: "rejected",
-      failure: {
-        kind: "terminal",
-        message: "A secure transaction ID could not be created.",
+      {
+        coordinate: async () => true,
+        accepted: () => {},
+        registerConflict: () => {},
       },
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
+    );
+    owner.configure({ send });
+    owner.setAuthority(taskAuthority);
+    expect(await owner.submit(taskIntent())).toBeNull();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("executes record lifecycle actions through the declared existing route", async () => {
@@ -550,15 +559,9 @@ describe("semantic mutation command ports", () => {
         ),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const commands = createWorkbookMutationCommandPorts({
-      batches: { admit: vi.fn(() => "batch") },
-      apiBase: undefined,
-      incidentId: "incident-1",
-      transactionIds: { create: (prefix) => `${prefix}-id` },
-    });
 
     await expect(
-      commands.generic.patchRecord({
+      sendPatch({
         baseRowVersion: 3,
         changes: [{ field_key: "task.title", value: "local" }],
         purpose: "generic-patch",
@@ -583,7 +586,12 @@ describe("semantic mutation command ports", () => {
     const viewMutation = {
       data: {
         change_set_id: "00000000-0000-4000-8000-000000000310",
-        row: { cells: {}, record_id: recordId, row_version: 2 },
+        row: fullWorkbookViewRow(
+          requireViewContract(hostsViewSchemaId),
+          recordId,
+          2,
+          { "host.display_name": "Edge 01" },
+        ),
         view_schema_id: hostsViewSchemaId,
       },
       meta: { request_id: "request-entity" },
@@ -603,14 +611,9 @@ describe("semantic mutation command ports", () => {
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const commands = createWorkbookMutationCommandPorts({
-      batches: { admit: vi.fn(() => "batch") },
-      apiBase: undefined,
-      incidentId: "00000000-0000-4000-8000-000000000001",
-      transactionIds: { create: (prefix) => `${prefix}-id` },
-    });
+
     await expect(
-      commands.entity.patchRecord({
+      sendPatch({
         baseRowVersion: 1,
         changes: [{ field_key: "host.display_name", value: "Edge 01" }],
         purpose: "entity-patch",
@@ -618,8 +621,11 @@ describe("semantic mutation command ports", () => {
         viewSchemaId: hostsViewSchemaId,
       }),
     ).resolves.toMatchObject({
-      kind: "accepted",
-      value: { row: { record_id: recordId }, viewSchemaId: hostsViewSchemaId },
+      kind: "acknowledged",
+      receipt: {
+        row: { record_id: recordId },
+        viewSchemaId: hostsViewSchemaId,
+      },
     });
   });
 });

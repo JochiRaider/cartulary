@@ -8,7 +8,6 @@ import {
 } from "../../testing/entityMergeTestSupport";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import type { WorkbookEntityMergePort } from "../features/entities/entityMergeOperation";
-import { createWorkbookMutationCommandPorts } from "../mutations/createWorkbookMutationCommandPorts";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 
@@ -72,16 +71,6 @@ function setup(type: "host" | "identity") {
     if (attempt === null) throw new Error("Expected merge admission");
     return attempt;
   };
-  const commands = createWorkbookMutationCommandPorts({
-    batches: runtime.batches,
-    apiBase: undefined,
-    incidentId: mergeIncidentId,
-    transactionIds,
-    entityWrites: {
-      begin: runtime.beginEntityWrite.bind(runtime),
-      acceptVersion: runtime.acceptEntityVersion.bind(runtime),
-    },
-  });
   return {
     runtime,
     review,
@@ -89,7 +78,6 @@ function setup(type: "host" | "identity") {
     execute,
     patch,
     admit,
-    commands,
     settle: (version: number, recordId = review.survivor.recordId) =>
       settle({
         kind: "accepted",
@@ -135,6 +123,8 @@ describe("Entity merge record admission", () => {
   it("coordinates direct writes and synchronously rejects overlapping commands while unrelated records remain usable", async () => {
     for (const type of ["host", "identity"] as const) {
       const t = setup(type);
+      t.runtime.explicitPatches.setAuthority(t.review.authority);
+      t.runtime.explicitPatches.configure({ send: vi.fn() });
       const release = t.runtime.beginEntityWrite({
         recordIds: [t.review.loser.recordId],
       });
@@ -154,11 +144,21 @@ describe("Entity merge record admission", () => {
       expect(unrelated).not.toBeNull();
       unrelated?.();
       expect(
-        await t.commands.entity.patchRecord({
+        await t.runtime.explicitPatches.submit({
           ...t.patch(t.review.survivor.recordId),
+          baseline: {
+            record_id: t.review.survivor.recordId,
+            row_version: 7,
+            cells: {},
+          },
+          sheetRef: { kind: "view_schema", id: t.patch("id").viewSchemaId },
+          surfaceLabel: "Entities",
           purpose: "entity-edit",
         }),
-      ).toMatchObject({ kind: "rejected", failure: { kind: "stale_target" } });
+      ).toMatchObject({
+        phase: "preparation_failed",
+        failure: { kind: "stale_target" },
+      });
       expect(
         t.runtime.history.admit(
           {

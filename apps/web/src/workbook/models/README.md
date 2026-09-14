@@ -81,3 +81,6 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 | File | Responsibility |
 | --- | --- |
 | [workbookAuthoringValues.ts](workbookAuthoringValues.ts) | Neutral declared writable-string and timestamp normalization, separate from raw authoring. |
+
+[workbookSavedValues.ts](workbookSavedValues.ts) compares canonical saved field
+values for independent draft review and explicit patch preparation.

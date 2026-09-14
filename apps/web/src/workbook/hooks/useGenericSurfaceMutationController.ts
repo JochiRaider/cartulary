@@ -7,22 +7,23 @@ import {
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
-import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import {
   type WorkbookInspectorErrorPresentation,
   workbookInspectorErrorPresentation,
   workbookInspectorLocalErrorPresentation,
 } from "../inspector/workbookInspectorErrorModel";
-import type {
-  GenericMutationCommandPort,
-  GenericViewMutationAccepted,
-} from "../mutations/workbookMutationCommandPorts";
+import type { GenericViewMutationAccepted } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type { ExplicitPatchContribution } from "../runtime/WorkbookExplicitPatchOwner";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 
 type GenericPatchMutationRequest = {
-  readonly baseline?: WorkbookQueryRow;
+  readonly baseline: WorkbookQueryRow;
+  readonly contributions?: readonly ExplicitPatchContribution[];
+  readonly isCurrent?: () => boolean;
+  readonly authoringRevision?: number;
+  readonly presentationIdentity?: string;
   readonly baseRowVersion: number;
   readonly changes: readonly WorkbookProtocolPatchRecordRequest["changes"][number][];
   readonly purpose: string;
@@ -33,11 +34,11 @@ export type GenericSurfaceMutationController = {
   readonly ordinaryCreate: WorkbookMutationRuntime["ordinaryCreate"];
   readonly partyLinks: WorkbookMutationRuntime["partyLinks"];
   readonly explicitPatches: WorkbookMutationRuntime["explicitPatches"];
+  readonly inspectorDrafts: WorkbookMutationRuntime["inspectorDrafts"];
   readonly taskDrafts: WorkbookMutationRuntime["taskDrafts"];
   readonly beginMutation: () => () => void;
   readonly beginMutationReport: () => () => void;
   readonly clearMutationError: () => void;
-  readonly completeGenericMutation: () => Promise<void>;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly mutationPending: boolean;
   readonly rejectMutationFailure: (failure: WorkbookOperationFailure) => void;
@@ -48,18 +49,12 @@ export type GenericSurfaceMutationController = {
 };
 
 export function useGenericSurfaceMutationController({
-  mutationCommands,
   mutationRuntime,
-  onRefresh,
-  refreshReferenceOptions,
   surfaceLabel,
   sheetRef,
   selectedRecordId = "",
 }: {
-  readonly mutationCommands: GenericMutationCommandPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly onRefresh: () => Promise<void> | void;
-  readonly refreshReferenceOptions: () => Promise<void> | void;
   readonly surfaceLabel: string;
   readonly sheetRef: SheetRef;
   readonly selectedRecordId?: string;
@@ -120,63 +115,45 @@ export function useGenericSurfaceMutationController({
       setMutationError(workbookInspectorLocalErrorPresentation(message)),
     [setMutationError],
   );
-  const completeGenericMutation = useCallback(async () => {
-    try {
-      await onRefresh();
-      await refreshReferenceOptions();
-    } catch {
-      setMutationError(
-        workbookInspectorLocalErrorPresentation(
-          "The change was accepted, but the workbook could not be refreshed. Previously loaded rows may be stale.",
-        ),
-      );
-    }
-  }, [onRefresh, refreshReferenceOptions, setMutationError]);
   const submitPatchMutation = useCallback(
     async (request: GenericPatchMutationRequest) => {
       const started = generation.current;
       const subject = subjectRef.current;
-      if (request.viewSchemaId === taskViewId && request.baseline) {
-        const result = await mutationRuntime.explicitPatches.submit({
+      const result = await mutationRuntime.explicitPatches.submit(
+        {
+          viewSchemaId: request.viewSchemaId,
           baseline: request.baseline,
           changes: request.changes,
           purpose: request.purpose,
+          compound: request.purpose === "task-lifecycle",
           sheetRef,
           surfaceLabel,
-        });
-        if (
-          started !== generation.current ||
-          subject !== subjectRef.current ||
-          !mutationRuntime.explicitPatches.getSnapshot().authority
-        )
-          return null;
-        if (!result) {
-          setValidationError(
-            "This Task cannot be submitted while an operation needs recovery or authorization is unavailable. Your draft is retained.",
-          );
-          return null;
-        }
-        if (result.failure) rejectMutationFailure(result.failure);
-        return result.receipt;
-      }
-      const result = await mutationCommands.patchRecord(request);
-      if (result.kind === "rejected") {
-        if (result.failure.kind === "same_field_conflict")
-          mutationRuntime.registerConflict({
-            conflict: result.failure.conflict,
-            focusKey: `${request.recordId}:${result.failure.conflict.field_key}`,
-            rowLabel: request.recordId,
-            surfaceLabel,
-            viewSchemaId: request.viewSchemaId,
-            sheetRef,
-          });
-        rejectMutationFailure(result.failure);
+          ...(request.authoringRevision !== undefined
+            ? { authoringRevision: request.authoringRevision }
+            : {}),
+          ...(request.presentationIdentity !== undefined
+            ? { presentationIdentity: request.presentationIdentity }
+            : {}),
+        },
+        request.contributions,
+      );
+      if (
+        started !== generation.current ||
+        subject !== subjectRef.current ||
+        request.isCurrent?.() === false ||
+        !mutationRuntime.explicitPatches.getSnapshot().authority
+      )
+        return result?.receipt ?? null;
+      if (!result) {
+        setValidationError(
+          "This record cannot be submitted while an operation needs recovery or authorization is unavailable. Your draft is retained.",
+        );
         return null;
       }
-      return result.value;
+      if (result.failure) rejectMutationFailure(result.failure);
+      return result.receipt;
     },
     [
-      mutationCommands,
       mutationRuntime,
       rejectMutationFailure,
       sheetRef,
@@ -187,12 +164,12 @@ export function useGenericSurfaceMutationController({
   return {
     ordinaryCreate: mutationRuntime.ordinaryCreate,
     explicitPatches: mutationRuntime.explicitPatches,
+    inspectorDrafts: mutationRuntime.inspectorDrafts,
     partyLinks: mutationRuntime.partyLinks,
     taskDrafts: mutationRuntime.taskDrafts,
     beginMutation,
     beginMutationReport,
     clearMutationError,
-    completeGenericMutation,
     mutationError,
     mutationPending: pendingCount > 0,
     rejectMutationFailure,

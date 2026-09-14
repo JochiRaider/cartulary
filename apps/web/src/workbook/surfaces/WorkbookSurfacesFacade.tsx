@@ -234,7 +234,6 @@ export function WorkbookSurfacesFacade({
         layout={layout}
         mutationRuntime={mutationRuntime}
         clipboardPaste={mutations.clipboardPaste}
-        mutationCommands={mutationCommands.entity}
         onActivateConflict={onActivateConflict}
         recordMutationCommands={mutationCommands.records}
         relatedMutationCommands={mutationCommands.timeline.related}

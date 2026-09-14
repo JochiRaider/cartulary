@@ -11,7 +11,6 @@ import {
 } from "../collaboration/workbookSurfacePort";
 import { decisionViewId } from "../features/coordination/decisionSupersessionModel";
 import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
-import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -125,14 +124,11 @@ export function useGenericSurfaceQuery({
         return;
       }
       const decision =
-        viewSchemaId === taskViewId ||
-        viewSchemaId === "cartulary.view.evidence.v1"
-          ? explicitPatchOwner
-          : viewSchemaId === decisionViewId
-            ? decisionOwner
-            : viewSchemaId === indicatorsViewSchemaId
-              ? indicatorOwner
-              : undefined;
+        viewSchemaId === decisionViewId
+          ? decisionOwner
+          : viewSchemaId === indicatorsViewSchemaId
+            ? indicatorOwner
+            : undefined;
       if (
         result.value.rows.some(
           (row) =>
@@ -140,6 +136,7 @@ export function useGenericSurfaceQuery({
             Math.max(
               decision?.latestVersion(row.record_id) ?? 0,
               ordinaryCreateOwner?.latestVersion(row.record_id) ?? 0,
+              explicitPatchOwner?.latestVersion(row.record_id) ?? 0,
             ),
         )
       ) {
@@ -156,12 +153,10 @@ export function useGenericSurfaceQuery({
           requireWorkbookSurfaceAcceptance(failure);
         return;
       }
-      const nextRows = [...result.value.rows].map((row) =>
-        viewSchemaId === taskViewId ||
-        viewSchemaId === "cartulary.view.evidence.v1"
-          ? (explicitPatchOwner?.observeQuery(row) ?? row)
-          : (decision?.acceptRow(row) ?? row),
-      );
+      const nextRows = [...result.value.rows].map((row) => {
+        const accepted = decision?.acceptRow(row) ?? row;
+        return explicitPatchOwner?.observeQuery(accepted) ?? accepted;
+      });
       for (const row of nextRows) ordinaryCreateOwner?.acceptRow(row);
       rowsRef.current = nextRows;
       setRows(nextRows);
@@ -209,19 +204,17 @@ export function useGenericSurfaceQuery({
       }
 
       const decision =
-        viewSchemaId === taskViewId ||
-        viewSchemaId === "cartulary.view.evidence.v1"
-          ? explicitPatchOwner
-          : viewSchemaId === decisionViewId
-            ? decisionOwner
-            : viewSchemaId === indicatorsViewSchemaId
-              ? indicatorOwner
-              : undefined;
+        viewSchemaId === decisionViewId
+          ? decisionOwner
+          : viewSchemaId === indicatorsViewSchemaId
+            ? indicatorOwner
+            : undefined;
       if (
         patch.rowVersion <
         Math.max(
           decision?.latestVersion(patch.recordId) ?? 0,
           ordinaryCreateOwner?.latestVersion(patch.recordId) ?? 0,
+          explicitPatchOwner?.latestVersion(patch.recordId) ?? 0,
         )
       )
         return { kind: "stale" };
@@ -235,7 +228,10 @@ export function useGenericSurfaceQuery({
             applyWorkbookQueryRowPatch(row, patch))
           : row,
       );
-      for (const row of next) ordinaryCreateOwner?.acceptRow(row);
+      for (const row of next) {
+        ordinaryCreateOwner?.acceptRow(row);
+        explicitPatchOwner?.acceptRow(row);
+      }
       rowsRef.current = next;
       setRows(next);
       return { kind: "applied" };
@@ -251,13 +247,7 @@ export function useGenericSurfaceQuery({
   );
 
   useEffect(() => {
-    if (
-      !explicitPatchOwner ||
-      !active ||
-      (viewSchemaId !== taskViewId &&
-        viewSchemaId !== "cartulary.view.evidence.v1")
-    )
-      return;
+    if (!explicitPatchOwner || !active) return;
     return explicitPatchOwner.subscribe(() => {
       if (!explicitPatchOwner.getSnapshot().authority) {
         clearRows();
@@ -278,7 +268,7 @@ export function useGenericSurfaceQuery({
         setRows(next);
       }
     });
-  }, [active, clearRows, explicitPatchOwner, viewSchemaId]);
+  }, [active, clearRows, explicitPatchOwner]);
 
   useEffect(() => {
     if (!indicatorOwner || !active || viewSchemaId !== indicatorsViewSchemaId)

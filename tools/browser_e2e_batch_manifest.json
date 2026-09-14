@@ -1066,6 +1066,30 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-workbook-inspector-edit",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.inspector_detached_refresh",
+            "module.workbook.browser.inspector_exact_replay",
+            "module.workbook.browser.inspector_subject_retention"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-inspector-edit.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-workbook-ordinary-create",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2326,6 +2350,30 @@
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
+          "name": "functional-default-workbook-inspector-edit",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.inspector_detached_refresh",
+            "module.workbook.browser.inspector_exact_replay",
+            "module.workbook.browser.inspector_subject_retention"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-inspector-edit.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
           "name": "functional-default-workbook-ordinary-create",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
@@ -3249,6 +3297,29 @@
         "service_backed_release_browser"
       ],
       "groups": [
+        {
+          "name": "a11y-workbook-inspector-edit",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-a11y-default",
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
+          "selected_row_ids": [
+            "module.workbook.accessibility.inspector_edit_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-inspector-edit.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
         {
           "name": "a11y-workbook-a11y",
           "target": "browser-e2e-a11y",
@@ -4270,6 +4341,28 @@
             "object_store",
             "postgres"
           ]
+        },
+        {
+          "name": "a11y-workbook-inspector-edit",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.accessibility.inspector_edit_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-inspector-edit.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
         },
         {
           "name": "a11y-workbook-a11y",

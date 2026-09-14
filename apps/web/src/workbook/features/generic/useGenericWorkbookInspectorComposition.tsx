@@ -21,8 +21,10 @@ import type { WorkbookIncidentRole } from "../../../shared/workbookShellContract
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
+import { prepareWorkbookInspectorChange } from "../../inspector/prepareWorkbookInspectorChange";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
+import { useWorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { workbookInspectorLocalErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
 import {
@@ -30,12 +32,10 @@ import {
   type WorkbookInspectorSubject,
 } from "../../inspector/workbookInspectorSubject";
 import {
-  buildGenericPatchChange,
   type GenericCollectionMode,
   genericCollectionItems,
   genericCollectionSupportsRemove,
   genericInspectorRowLabel,
-  selectWorkbookEditTarget,
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
@@ -51,9 +51,7 @@ import {
   reviewedDecision,
 } from "../coordination/decisionSupersessionModel";
 import {
-  taskFieldEqual,
   taskGuardFields,
-  taskValue,
   taskViewId,
 } from "../coordination/taskLifecycleModel";
 import { useEvidenceWorkbookBindings } from "../evidence/useEvidenceWorkbookBindings";
@@ -152,7 +150,10 @@ export function useGenericWorkbookInspectorComposition({
     onRefresh({ requireAcceptance: true }),
   );
   const editableFields = useMemo(
-    () => contract.fields.filter((field) => field.writeKind !== "read_only"),
+    () =>
+      contract.fields.filter(
+        (field) => field.patchWritable && field.writeKind !== "read_only",
+      ),
     [contract],
   );
   const [deletedHistorySubject, setDeletedHistorySubject] =
@@ -161,10 +162,9 @@ export function useGenericWorkbookInspectorComposition({
     useState<WorkbookInspectorFeedback | null>(null);
   const [conflictFocus, setConflictFocus] =
     useState<WorkbookConflictEntry | null>(null);
-  const [editFieldKey, setEditFieldKey] = useState("");
-  const [otherEditValue, setOtherEditValue] = useState("");
-  const inspectorDrafts = mutation.explicitPatches.inspectorDrafts;
-  useSyncExternalStore(inspectorDrafts.subscribe, inspectorDrafts.getSnapshot);
+  const [editFieldKey, setEditFieldKey] = useState(
+    () => editableFields[0]?.fieldKey ?? "",
+  );
   const note = useContext(NoteCreateContext);
   const [indicatorInspectorHandler, setIndicatorInspectorHandler] =
     useState<IndicatorInspectorHandler | null>(null);
@@ -206,8 +206,6 @@ export function useGenericWorkbookInspectorComposition({
     actionPorts: {
       resetOwnerState: ({ cause, scope }) => {
         if (cause !== "retarget") resetEvidence.current();
-        setOtherEditValue("");
-        setEditCollectionMode("add");
         mutation.clearMutationError();
         setRelatedFeedback(null);
         if (cause === "close" || scope === "surface") {
@@ -267,43 +265,29 @@ export function useGenericWorkbookInspectorComposition({
     onRestoreFocus: onRestoreEvidenceFocus,
   });
   resetEvidence.current = ownerRecordActions.resetLocalState;
-  const selectedEdit = selectWorkbookEditTarget({
-    fieldKey: editFieldKey,
-    fields: editableFields,
-    getRecordId: (row: WorkbookQueryRow) => row.record_id,
-    recordId: selectedRecordId,
-    rows,
-  });
-  const taskEditRow =
-    contract.viewSchemaId === taskViewId ? selectedEdit.row : null;
-  const taskEditDraft = taskEditRow ? inspectorDrafts.read(taskEditRow) : null;
-  const selectedField = selectedEdit.field?.fieldKey ?? "";
-  const editValue = taskEditRow
-    ? (taskEditDraft?.values[selectedField] ??
-      (selectedEdit.field?.writeKind === "action_payload"
-        ? ""
-        : taskValue(taskEditRow, selectedField)))
-    : otherEditValue;
-  const setEditValue = (value: string) => {
-    if (taskEditRow) inspectorDrafts.update(taskEditRow, selectedField, value);
-    else setOtherEditValue(value);
+  const selectedEdit = {
+    row: subjectRow,
+    field:
+      editableFields.find((field) => field.fieldKey === editFieldKey) ?? null,
   };
-  const staleEditFields =
-    taskEditRow &&
-    taskEditDraft &&
-    Object.hasOwn(taskEditDraft.values, selectedField)
-      ? [
-          ...new Set([
-            selectedField,
-            ...(taskGuardFields.some((field) => field === selectedField)
-              ? taskGuardFields
-              : []),
-          ]),
-        ].filter(
-          (field) =>
-            !taskFieldEqual(taskEditDraft.baseline, taskEditRow, field),
-        )
-      : [];
+  const edit = useWorkbookInspectorEditDraft({
+    store: mutation.inspectorDrafts,
+    row: subjectRow,
+    field: selectedEdit.field,
+    viewSchemaId: contract.viewSchemaId,
+    action:
+      selectedEdit.field?.writeKind === "action_payload"
+        ? editCollectionMode
+        : "value",
+    presentation: inspectorResetKey,
+    active: isOpen && interactionMode.kind === "editable",
+    dependencies:
+      contract.viewSchemaId === taskViewId &&
+      taskGuardFields.some((field) => field === editFieldKey)
+        ? taskGuardFields
+        : [],
+  });
+  const staleEditFields = edit.staleFields;
   const selectedEditCollectionItems =
     selectedEdit.row !== null && selectedEdit.field !== null
       ? genericCollectionItems(selectedEdit.row, selectedEdit.field.fieldKey)
@@ -339,20 +323,6 @@ export function useGenericWorkbookInspectorComposition({
       setEditCollectionMode("add");
     }
   }, [editCollectionMode, selectedEdit.field]);
-  useEffect(() => {
-    if (selectedEdit.row === null || selectedEdit.field === null) {
-      setOtherEditValue("");
-      return;
-    }
-    if (selectedEdit.field.writeKind === "action_payload") {
-      setOtherEditValue("");
-      return;
-    }
-    const value = selectedEdit.row.cells[selectedEdit.field.fieldKey]?.value;
-    setOtherEditValue(
-      value === null || value === undefined ? "" : String(value),
-    );
-  }, [selectedEdit.field, selectedEdit.row]);
 
   const submitCreate = async () => {
     if (!canCreateRows) return;
@@ -368,7 +338,11 @@ export function useGenericWorkbookInspectorComposition({
   };
 
   const submitEdit = async () => {
-    if (selectedEdit.row === null || selectedEdit.field === null) {
+    if (
+      !edit.canSubmit ||
+      selectedEdit.row === null ||
+      selectedEdit.field === null
+    ) {
       mutation.setValidationError("invalid_mutation_payload");
       return;
     }
@@ -378,22 +352,40 @@ export function useGenericWorkbookInspectorComposition({
       );
       return;
     }
-    const change = buildGenericPatchChange(
+    const prepared = prepareWorkbookInspectorChange(
       selectedEdit.field,
-      editValue,
+      edit.value,
       editCollectionMode,
       contract.viewSchemaId,
     );
-    if (change === null) {
-      mutation.setValidationError(
-        "Provide a value, or leave clearable fields empty to clear them.",
-      );
+    if (prepared.error) {
+      mutation.setValidationError(prepared.error);
       return;
     }
+    if (!prepared.change) return;
+    const change = prepared.change;
+    const captured = edit.capture();
     const finish = mutation.beginMutation();
     try {
       const payload = await mutation.submitPatchMutation({
-        baseline: taskEditDraft?.baseline ?? selectedEdit.row,
+        baseline: edit.baseline ?? selectedEdit.row,
+        ...(captured.draft
+          ? { authoringRevision: captured.draft.revision }
+          : {}),
+        presentationIdentity: captured.attachment,
+        isCurrent: () => edit.isCurrent(captured),
+        contributions: [
+          {
+            prepare: async () => {
+              if (!edit.isCurrent(captured))
+                throw new Error(
+                  "The inspector changed before dispatch. Resume your original draft to submit it.",
+                );
+            },
+            acknowledged: () => edit.complete(captured),
+            conflictResolved: () => edit.complete(captured),
+          },
+        ],
         baseRowVersion: selectedEdit.row.row_version,
         changes: [change],
         purpose: "generic-patch",
@@ -401,11 +393,6 @@ export function useGenericWorkbookInspectorComposition({
         viewSchemaId: contract.viewSchemaId,
       });
       if (payload === null) return;
-      if (taskEditRow)
-        inspectorDrafts.review(payload.row, selectedField, false);
-      else setOtherEditValue("");
-      if (contract.viewSchemaId !== taskViewId)
-        await mutation.completeGenericMutation();
     } finally {
       finish();
     }
@@ -565,33 +552,28 @@ export function useGenericWorkbookInspectorComposition({
         subjectPresent: subject !== null,
       }}
       details={{
-        staleEditFields: staleEditFields.map((field) => ({
-          field,
-          label: contract.fieldMap[field]?.label ?? field,
-          saved: taskEditRow ? taskValue(taskEditRow, field) : "",
-        })),
-        reviewEditField: (field, keepDraft) => {
-          if (taskEditRow)
-            inspectorDrafts.review(taskEditRow, field, keepDraft);
-        },
+        edit,
         collectionItems: selectedEditCollectionItems,
         collectionMode: editCollectionMode,
         contract,
         editableFields,
         editFieldKey,
-        editValue,
         mutationPending:
           mutation.mutationPending ||
-          (!!taskEditRow &&
-            mutation.explicitPatches.blocksRecord(taskEditRow.record_id)),
-        onSelectRecord,
+          (!!subjectRow &&
+            mutation.explicitPatches.blocksRecord(subjectRow.record_id)),
         referenceOptions,
         rows,
         selectedEdit,
         selectedRecordId,
-        setCollectionMode: setEditCollectionMode,
-        setEditFieldKey,
-        setEditValue,
+        setCollectionMode: (mode) => {
+          mutation.clearMutationError();
+          setEditCollectionMode(mode);
+        },
+        setEditFieldKey: (key) => {
+          mutation.clearMutationError();
+          setEditFieldKey(key);
+        },
         submitEdit,
       }}
       relationships={{ party }}

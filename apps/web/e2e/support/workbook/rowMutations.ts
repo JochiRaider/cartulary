@@ -4,9 +4,7 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
-  entityInspectButtonTestId,
   genericEditFieldSelectTestId,
-  genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridScrollportSelector,
@@ -24,8 +22,6 @@ import {
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
   requireViewContract,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
@@ -350,27 +346,7 @@ export async function editGenericCell(
   fieldKey: string,
   value: string | string[],
 ) {
-  if (
-    viewSchemaId === hostsViewSchemaId ||
-    viewSchemaId === identitiesViewSchemaId
-  ) {
-    const inspectButtonTestId = entityInspectButtonTestId(
-      viewSchemaId === hostsViewSchemaId ? "host" : "identity",
-      recordId,
-    );
-    await scrollGridTargetIntoView({
-      page,
-      surface: viewSchemaId,
-      targetTestId: inspectButtonTestId,
-    });
-    await page.getByTestId(inspectButtonTestId).click();
-    await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
-  } else {
-    await openGenericInspectorForRecord(page, viewSchemaId, recordId);
-  }
-  await page
-    .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
-    .selectOption(recordId);
+  await openGenericInspectorForRecord(page, viewSchemaId, recordId);
   await page
     .getByTestId(genericEditFieldSelectTestId(viewSchemaId))
     .selectOption(fieldKey);
@@ -408,7 +384,12 @@ export async function openGenericInspectorForRecord(
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${viewSchemaId}:${recordId}:${selectionFieldKey}`,
   );
-  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
+  if (
+    !(await page
+      .getByTestId(workbookInspectorCloseButtonTestId(viewSchemaId))
+      .count())
+  )
+    await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
 }
 
 function waitForRecordPatch(page: Page, recordId: string): Promise<Response> {

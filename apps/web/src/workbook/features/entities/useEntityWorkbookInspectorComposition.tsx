@@ -6,7 +6,6 @@ import {
   entityReusableIdentifierItemTestId,
   entityReusableIdentifiersSectionTestId,
   genericEditFieldSelectTestId,
-  genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   timelinePreviewRowTestId,
@@ -22,13 +21,14 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { type SheetRef, sheetRefKey } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
-import { GenericMutationControl } from "../../components/GenericMutationControl";
 import {
   WorkbookRelationshipChip,
   WorkbookRelationshipChipDetails,
@@ -36,12 +36,19 @@ import {
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import { useEntityTimelinePreview } from "../../hooks/useEntityTimelinePreview";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
+import { prepareWorkbookInspectorChange } from "../../inspector/prepareWorkbookInspectorChange";
 import {
   WorkbookInspectorConfirmation,
   WorkbookInspectorPublicError,
 } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
+import {
+  useWorkbookInspectorEditDraft,
+  type WorkbookInspectorEditDraft,
+} from "../../inspector/useWorkbookInspectorEditDraft";
+import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
+import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
 import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
@@ -56,15 +63,9 @@ import {
 } from "../../inspector/workbookInspectorSubject";
 import { mergeIdentifierOutcomeText } from "../../models/entityMergePlan";
 import type { EntityRow } from "../../models/entityWorkbookModel";
-import {
-  buildGenericPatchChange,
-  genericRowLabel,
-  selectWorkbookEditTarget,
-} from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type {
-  EntityMutationCommandPort,
   RecordRouteCommandPort,
   TimelineRelatedRecordPort,
 } from "../../mutations/workbookMutationCommandPorts";
@@ -86,10 +87,8 @@ export function useEntityWorkbookInspectorComposition({
   incidentClosed,
   inspectorResetKey,
   interactionMode,
-  mutationCommands,
   mutationError,
   mutationRuntime,
-  mutationPending,
   onClearSurfaceSelection,
   onIncidentAccessLost,
   onRefreshEntities,
@@ -100,7 +99,6 @@ export function useEntityWorkbookInspectorComposition({
   selectedEntity,
   setEntityActionFeedback,
   setMutationError,
-  setMutationPending,
   setSelectedRecordId,
   viewQuery,
 }: {
@@ -114,11 +112,9 @@ export function useEntityWorkbookInspectorComposition({
   readonly incidentClosed: boolean;
   readonly inspectorResetKey: string;
   readonly interactionMode: GridInteractionMode;
-  readonly mutationCommands: EntityMutationCommandPort;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly sheetRef: SheetRef;
-  readonly mutationPending: boolean;
   readonly onClearSurfaceSelection: () => void;
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly onRefreshEntities: (options?: {
@@ -135,7 +131,6 @@ export function useEntityWorkbookInspectorComposition({
   readonly setMutationError: Dispatch<
     SetStateAction<WorkbookInspectorErrorPresentation | null>
   >;
-  readonly setMutationPending: Dispatch<SetStateAction<boolean>>;
   readonly setSelectedRecordId: Dispatch<SetStateAction<string | null>>;
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
@@ -145,10 +140,12 @@ export function useEntityWorkbookInspectorComposition({
   );
   const [deletedHistorySubject, setDeletedHistorySubject] =
     useState<WorkbookInspectorSubject | null>(null);
-  const [editRecordId, setEditRecordId] = useState("");
-  const [editFieldKey, setEditFieldKey] = useState("");
-  const [editValue, setEditValue] = useState("");
-  const [aliasDraft, setAliasDraft] = useState("");
+  const [editFieldKey, setEditFieldKey] = useState(
+    () =>
+      contract.fields.find(
+        (field) => field.patchWritable && field.writeKind === "direct_value",
+      )?.fieldKey ?? "",
+  );
   const aliasInputRef = useRef<HTMLInputElement | null>(null);
   const subject: WorkbookInspectorSubject | null =
     selectedEntity === null
@@ -173,38 +170,9 @@ export function useEntityWorkbookInspectorComposition({
       canMerge && !incidentClosed && interactionMode.kind === "editable",
     owner: mutationRuntime.entityMerge,
     originSurface: sheetRefKey(sheetRef),
-    hasAffectedDraft: (ids) => {
-      if (
-        selectedEntity !== null &&
-        ids.includes(selectedEntity.recordId) &&
-        aliasDraft !== ""
-      )
-        return true;
-      const edited = rows.find((row) => row.recordId === editRecordId);
-      const field =
-        contract.fields.find((field) => field.fieldKey === editFieldKey) ??
-        contract.fields.find((field) => field.writeKind === "direct_value");
-      return (
-        edited !== undefined &&
-        field !== undefined &&
-        ids.includes(edited.recordId) &&
-        editValue !== String(edited.rawRow.cells[field.fieldKey]?.value ?? "")
-      );
-    },
-    discardAffectedDrafts: (ids) => {
-      if (selectedEntity !== null && ids.includes(selectedEntity.recordId))
-        setAliasDraft("");
-      const edited = rows.find((row) => row.recordId === editRecordId);
-      const field =
-        contract.fields.find((field) => field.fieldKey === editFieldKey) ??
-        contract.fields.find((field) => field.writeKind === "direct_value");
-      if (
-        edited !== undefined &&
-        field !== undefined &&
-        ids.includes(edited.recordId)
-      )
-        setEditValue(String(edited.rawRow.cells[field.fieldKey]?.value ?? ""));
-    },
+    hasAffectedDraft: (ids) => mutationRuntime.inspectorDrafts.hasRecords(ids),
+    discardAffectedDrafts: (ids) =>
+      mutationRuntime.inspectorDrafts.discardRecords(ids),
     lifecycleResetKey: inspectorResetKey,
     loadSurvivorPreview: (recordId) =>
       loadTimelinePreview(recordId, { requireAcceptance: true }),
@@ -214,13 +182,10 @@ export function useEntityWorkbookInspectorComposition({
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
       resetOwnerState: ({ cause, scope }) => {
-        setEditRecordId("");
-        setEditFieldKey("");
-        setEditValue("");
-        setAliasDraft("");
         merge.commands.clearPlan();
         clearTimelinePreview();
         setEntityActionFeedback(null);
+        setMutationError(null);
         if (cause === "close" || scope === "surface") {
           setDeletedHistorySubject(null);
         }
@@ -234,17 +199,62 @@ export function useEntityWorkbookInspectorComposition({
   });
   const isOpen = workbookInspectorStateIsOpen(inspector.snapshot);
   const editableFields = useMemo(
-    () => contract.fields.filter((field) => field.writeKind === "direct_value"),
+    () =>
+      contract.fields.filter(
+        (field) => field.patchWritable && field.writeKind === "direct_value",
+      ),
     [contract],
   );
   const referenceOptions = useMemo(() => emptyGenericReferenceOptions(), []);
-  const selectedEdit = selectWorkbookEditTarget({
-    fieldKey: editFieldKey,
-    fields: editableFields,
-    getRecordId: (row: EntityRow) => row.recordId,
-    recordId: editRecordId,
-    rows,
+  const selectedEdit = {
+    row: selectedEntity,
+    field:
+      editableFields.find((field) => field.fieldKey === editFieldKey) ?? null,
+  };
+  const edit = useWorkbookInspectorEditDraft({
+    store: mutationRuntime.inspectorDrafts,
+    row: selectedEntity?.rawRow ?? null,
+    field: selectedEdit.field,
+    viewSchemaId: contract.viewSchemaId,
+    presentation: inspectorResetKey,
+    active: isOpen && interactionMode.kind === "editable",
   });
+  const aliasEdit = useWorkbookInspectorEditDraft({
+    store: mutationRuntime.inspectorDrafts,
+    row: selectedEntity?.rawRow ?? null,
+    field:
+      contract.fieldMap[
+        entityType === "host" ? "host.aliases" : "identity.aliases"
+      ] ?? null,
+    viewSchemaId: contract.viewSchemaId,
+    action: "add_alias",
+    presentation: inspectorResetKey,
+    active: isOpen && interactionMode.kind === "editable",
+  });
+  const aliasRemove = useWorkbookInspectorEditDraft({
+    store: mutationRuntime.inspectorDrafts,
+    row: selectedEntity?.rawRow ?? null,
+    field: contract.fieldMap[`${entityType}.aliases`] ?? null,
+    viewSchemaId: contract.viewSchemaId,
+    action: "remove_alias",
+    presentation: inspectorResetKey,
+    active: isOpen && interactionMode.kind === "editable",
+  });
+  useSyncExternalStore(
+    mutationRuntime.explicitPatches.subscribe,
+    mutationRuntime.explicitPatches.getSnapshot,
+  );
+  const mutationPending =
+    !!selectedEntity &&
+    mutationRuntime.explicitPatches.blocksRecord(selectedEntity.recordId);
+  useLayoutEffect(() => {
+    if (mutationRuntime.explicitPatches.getSnapshot().authority)
+      for (const row of rows)
+        mutationRuntime.explicitPatches.observeQuery(row.rawRow);
+  }, [rows, mutationRuntime]);
+  const aliasDraft = aliasEdit.value ?? "";
+  const setEditValue = edit.update;
+  const setAliasDraft = aliasEdit.update;
   const recordHistoryActions = useMemo(
     () => inspectorRecordHistoryActions(inspectorConfig),
     [inspectorConfig],
@@ -281,129 +291,123 @@ export function useEntityWorkbookInspectorComposition({
     }
     void loadTimelinePreview(selectedEntity.recordId);
   }, [clearTimelinePreview, isOpen, loadTimelinePreview, selectedEntity]);
-  useEffect(() => {
-    if (selectedEdit.row === null || selectedEdit.field === null) {
-      setEditValue("");
-      return;
-    }
-    const value =
-      selectedEdit.row.rawRow.cells[selectedEdit.field.fieldKey]?.value;
-    setEditValue(value === null || value === undefined ? "" : String(value));
-  }, [selectedEdit.field, selectedEdit.row]);
 
   async function submitEdit() {
-    if (selectedEdit.row === null || selectedEdit.field === null) {
+    if (
+      !edit.canSubmit ||
+      selectedEdit.row === null ||
+      selectedEdit.field === null
+    ) {
       setMutationError(
         workbookInspectorLocalErrorPresentation("invalid_mutation_payload"),
       );
       return;
     }
-    const change = buildGenericPatchChange(selectedEdit.field, editValue);
-    if (change === null) {
-      setMutationError(
-        workbookInspectorLocalErrorPresentation(
-          "Provide a value, or leave clearable fields empty to clear them.",
-        ),
-      );
+    const prepared = prepareWorkbookInspectorChange(
+      selectedEdit.field,
+      edit.value,
+      "add",
+      contract.viewSchemaId,
+    );
+    if (prepared.error) {
+      setMutationError(workbookInspectorLocalErrorPresentation(prepared.error));
       return;
     }
-    const finishMutation = mutationRuntime.beginExplicitMutation();
-    try {
-      setMutationPending(true);
-      setMutationError(null);
-      const result = await mutationCommands.patchRecord({
-        baseRowVersion: selectedEdit.row.rowVersion,
+    if (!prepared.change) return;
+    const change = prepared.change;
+    const captured = edit.capture();
+    setMutationError(null);
+    const result = await mutationRuntime.explicitPatches.submit(
+      {
+        baseline: edit.baseline ?? selectedEdit.row.rawRow,
         changes: [change],
         purpose: "entity-patch",
-        recordId: selectedEdit.row.recordId,
         viewSchemaId: contract.viewSchemaId,
-      });
-      if (result.kind === "rejected") {
-        if (result.failure.kind === "same_field_conflict") {
-          mutationRuntime.registerConflict({
-            sheetRef,
-            conflict: result.failure.conflict,
-            focusKey: `${selectedEdit.row.recordId}:${selectedEdit.field.fieldKey}`,
-            rowLabel: selectedEdit.row.label,
-            surfaceLabel: contract.title,
-            viewSchemaId: contract.viewSchemaId,
-          });
-        }
-        setMutationPending(false);
-        setMutationError(workbookInspectorErrorPresentation(result.failure));
-        return;
-      }
-      await onRefreshEntities();
-      setSelectedRecordId(selectedEdit.row.recordId);
-      setMutationPending(false);
-    } finally {
-      finishMutation();
-    }
+        sheetRef,
+        surfaceLabel: contract.title,
+        ...(captured.draft
+          ? { authoringRevision: captured.draft.revision }
+          : {}),
+        presentationIdentity: captured.attachment,
+      },
+      [
+        {
+          prepare: async () => {
+            if (!edit.isCurrent(captured))
+              throw new Error(
+                "The inspector changed before dispatch. Resume your original draft to submit it.",
+              );
+          },
+          acknowledged: () => edit.complete(captured),
+          conflictResolved: () => edit.complete(captured),
+        },
+      ],
+    );
+    if (result?.failure && edit.isCurrent(captured))
+      setMutationError(workbookInspectorErrorPresentation(result.failure));
   }
 
-  async function submitAliasActions(
-    actions: Array<
-      | { op: "add_alias"; alias_text: string }
-      | { op: "remove_alias"; item_ref: string }
-    >,
-  ) {
-    if (selectedEntity === null) {
-      setMutationError(
-        workbookInspectorLocalErrorPresentation("invalid_mutation_payload"),
-      );
+  async function submitAliasActions(actions: AliasAction[]) {
+    const first = actions[0];
+    if (!first || !selectedEntity) return;
+    const editing = first.op === "add_alias" ? aliasEdit : aliasRemove;
+    if (!editing.canSubmit) return;
+    const field = contract.fieldMap[`${entityType}.aliases`];
+    if (!field?.patchWritable) return;
+    const prepared = prepareWorkbookInspectorChange(
+      field,
+      first.op === "add_alias" ? first.alias_text : first.item_ref,
+      first.op === "add_alias" ? "add" : "remove",
+      contract.viewSchemaId,
+    );
+    if (prepared.error) {
+      setMutationError(workbookInspectorLocalErrorPresentation(prepared.error));
       return;
     }
-    const [firstAction, ...remainingActions] = actions;
-    if (firstAction === undefined) {
-      setMutationError(
-        workbookInspectorLocalErrorPresentation("invalid_mutation_payload"),
-      );
-      return;
-    }
-    const aliasFieldKey =
-      entityType === "host" ? "host.aliases" : "identity.aliases";
-    const finishMutation = mutationRuntime.beginExplicitMutation();
-    try {
-      setMutationPending(true);
-      setMutationError(null);
-      const result = await mutationCommands.patchRecord({
-        baseRowVersion: selectedEntity.rowVersion,
-        changes: [
-          {
-            field_key: aliasFieldKey,
-            action_payload: {
-              actions: [firstAction, ...remainingActions],
-              kind: "collection_actions_v1",
-            },
-          },
-        ],
-        purpose: `entity-alias-${selectedEntity.recordId}`,
-        recordId: selectedEntity.recordId,
+    if (!prepared.change) return;
+    const captured = editing.capture();
+    const focusedControl = document.activeElement;
+    const complete = () => {
+      editing.complete(captured);
+      if (
+        editing.isCurrent(captured) &&
+        focusedControl instanceof HTMLElement &&
+        focusedControl !== document.body &&
+        (document.activeElement === focusedControl ||
+          (!focusedControl.isConnected &&
+            document.activeElement === document.body))
+      )
+        aliasInputRef.current?.focus({ preventScroll: true });
+    };
+    setMutationError(null);
+    const result = await mutationRuntime.explicitPatches.submit(
+      {
+        baseline: editing.baseline ?? selectedEntity.rawRow,
+        changes: [prepared.change],
+        purpose: `entity-alias-${first.op}`,
         viewSchemaId: contract.viewSchemaId,
-      });
-      if (result.kind === "rejected") {
-        if (result.failure.kind === "same_field_conflict") {
-          mutationRuntime.registerConflict({
-            sheetRef,
-            conflict: result.failure.conflict,
-            focusKey: `${selectedEntity.recordId}:${aliasFieldKey}`,
-            rowLabel: selectedEntity.label,
-            surfaceLabel: contract.title,
-            viewSchemaId: contract.viewSchemaId,
-          });
-        }
-        setMutationPending(false);
-        setMutationError(workbookInspectorErrorPresentation(result.failure));
-        return;
-      }
-      setAliasDraft("");
-      await onRefreshEntities();
-      setSelectedRecordId(selectedEntity.recordId);
-      setMutationPending(false);
-      requestAnimationFrame(() => aliasInputRef.current?.focus());
-    } finally {
-      finishMutation();
-    }
+        sheetRef,
+        surfaceLabel: contract.title,
+        ...(captured.draft
+          ? { authoringRevision: captured.draft.revision }
+          : {}),
+        presentationIdentity: captured.attachment,
+      },
+      [
+        {
+          prepare: async () => {
+            if (!editing.isCurrent(captured))
+              throw new Error(
+                "The inspector changed before dispatch. Review the original aliases again.",
+              );
+          },
+          acknowledged: complete,
+          conflictResolved: () => editing.complete(captured),
+        },
+      ],
+    );
+    if (result?.failure && editing.isCurrent(captured))
+      setMutationError(workbookInspectorErrorPresentation(result.failure));
   }
 
   const close = () => inspector.commands.close({ restoreFocus: true });
@@ -416,8 +420,9 @@ export function useEntityWorkbookInspectorComposition({
         contract,
         editableFields,
         editFieldKey,
-        editRecordId,
-        editValue,
+        edit,
+        aliasEdit,
+        aliasRemove,
         mutationError,
         mutationPending,
         referenceOptions,
@@ -430,18 +435,11 @@ export function useEntityWorkbookInspectorComposition({
         },
         setEditFieldKey: (value) => {
           merge.commands.invalidateReview();
+          setMutationError(null);
           setEditFieldKey(value);
         },
-        setEditRecordId: (value) => {
-          merge.commands.invalidateReview();
-          setEditRecordId(value);
-        },
         setEditValue: (value) => {
-          if (
-            editRecordId === selectedEntity?.recordId ||
-            editRecordId === merge.snapshot.loser?.recordId
-          )
-            merge.commands.invalidateReview();
+          merge.commands.invalidateReview();
           setEditValue(value);
         },
         submitAliasActions,
@@ -583,8 +581,9 @@ type EntityDetailsProps = {
   readonly contract: ViewContract;
   readonly editableFields: ViewContract["fields"];
   readonly editFieldKey: string;
-  readonly editRecordId: string;
-  readonly editValue: string;
+  readonly edit: WorkbookInspectorEditDraft;
+  readonly aliasEdit: WorkbookInspectorEditDraft;
+  readonly aliasRemove: WorkbookInspectorEditDraft;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly mutationPending: boolean;
   readonly referenceOptions: ReturnType<typeof emptyGenericReferenceOptions>;
@@ -593,8 +592,7 @@ type EntityDetailsProps = {
   readonly selectedEntity: EntityRow | null;
   readonly setAliasDraft: (value: string) => void;
   readonly setEditFieldKey: (value: string) => void;
-  readonly setEditRecordId: (value: string) => void;
-  readonly setEditValue: (value: string) => void;
+  readonly setEditValue: (value: string | null) => void;
   readonly submitAliasActions: (actions: AliasAction[]) => Promise<void>;
   readonly submitEdit: () => Promise<void>;
 };
@@ -621,21 +619,7 @@ function EntityEditCell(props: EntityDetailsProps) {
       <h3 style={sectionTitleStyle}>Edit cell</h3>
       <div style={inspectorControlStackStyle}>
         <select
-          data-testid={genericEditRecordSelectTestId(
-            props.contract.viewSchemaId,
-          )}
-          style={selectStyle}
-          value={props.editRecordId}
-          onChange={(event) => props.setEditRecordId(event.target.value)}
-        >
-          <option value="">Row</option>
-          {props.rows.map((row) => (
-            <option key={row.recordId} value={row.recordId}>
-              {genericRowLabel(props.contract, row.rawRow)}
-            </option>
-          ))}
-        </select>
-        <select
+          aria-label="Edit field"
           data-testid={genericEditFieldSelectTestId(
             props.contract.viewSchemaId,
           )}
@@ -651,18 +635,18 @@ function EntityEditCell(props: EntityDetailsProps) {
           ))}
         </select>
         {props.selectedEdit.field ? (
-          <GenericMutationControl
+          <WorkbookInspectorEditControl
+            edit={{ ...props.edit, update: props.setEditValue }}
+            ariaLabel={props.selectedEdit.field.label}
             collectionMode="add"
             field={props.selectedEdit.field}
             referenceOptions={props.referenceOptions}
             testId={genericEditValueTestId(props.contract.viewSchemaId)}
-            value={props.editValue}
-            onChange={props.setEditValue}
           />
         ) : null}
         <button
           data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
-          disabled={props.mutationPending}
+          disabled={props.mutationPending || !props.edit.canSubmit}
           style={actionButtonStyle}
           type="button"
           onClick={() => void props.submitEdit()}
@@ -670,6 +654,11 @@ function EntityEditCell(props: EntityDetailsProps) {
           Update
         </button>
       </div>
+      <WorkbookInspectorDraftFeedback
+        edit={props.edit}
+        contract={props.contract}
+        row={props.selectedEntity?.rawRow ?? null}
+      />
       {props.mutationError ? (
         <WorkbookInspectorPublicError error={props.mutationError} />
       ) : null}
@@ -688,7 +677,7 @@ function EntityAliases(props: EntityDetailsProps) {
             {alias.displayText}
             <button
               aria-label={`Remove alias ${alias.displayText}`}
-              disabled={props.mutationPending}
+              disabled={props.mutationPending || !props.aliasRemove.canSubmit}
               style={aliasRemoveButtonStyle}
               type="button"
               onClick={() =>
@@ -702,9 +691,18 @@ function EntityAliases(props: EntityDetailsProps) {
           </span>
         ))}
       </div>
+      <WorkbookInspectorDraftFeedback
+        edit={props.aliasEdit}
+        contract={props.contract}
+        row={props.selectedEntity.rawRow}
+      />
       <div style={aliasAddRowStyle}>
         <input
-          ref={props.aliasInputRef}
+          ref={(element) => {
+            props.aliasInputRef.current = element;
+            props.aliasEdit.controlRef.current = element;
+          }}
+          disabled={!props.aliasEdit.canEdit}
           aria-label="Alias text"
           maxLength={256}
           style={inputStyle}
@@ -712,7 +710,11 @@ function EntityAliases(props: EntityDetailsProps) {
           onChange={(event) => props.setAliasDraft(event.target.value)}
         />
         <button
-          disabled={props.mutationPending || props.aliasDraft.trim() === ""}
+          disabled={
+            props.mutationPending ||
+            !props.aliasEdit.canSubmit ||
+            props.aliasDraft.trim() === ""
+          }
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() =>

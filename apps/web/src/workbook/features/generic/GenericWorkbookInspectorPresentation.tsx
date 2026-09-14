@@ -3,7 +3,6 @@ import {
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
   genericEditFieldSelectTestId,
-  genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
 } from "@cartulary/ui-contracts";
@@ -14,13 +13,12 @@ import type {
 } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
-import { GenericMutationControl } from "../../components/GenericMutationControl";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
+import type { WorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
+import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
+import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
 import type { GenericCollectionMode } from "../../models/genericWorkbookModel";
-import {
-  genericCollectionSupportsRemove,
-  genericRowLabel,
-} from "../../models/genericWorkbookModel";
+import { genericCollectionSupportsRemove } from "../../models/genericWorkbookModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
@@ -165,12 +163,7 @@ function GenericDraftFields(props: GenericWorkflowProps) {
 }
 
 type GenericDetailsProps = {
-  readonly staleEditFields: readonly {
-    field: string;
-    label: string;
-    saved: string;
-  }[];
-  readonly reviewEditField: (field: string, keepDraft: boolean) => void;
+  readonly edit: WorkbookInspectorEditDraft;
   readonly collectionItems: readonly {
     readonly displayText: string;
     readonly itemRef: string;
@@ -179,41 +172,24 @@ type GenericDetailsProps = {
   readonly contract: ViewContract;
   readonly editableFields: readonly ViewFieldContract[];
   readonly editFieldKey: string;
-  readonly editValue: string;
   readonly mutationPending: GenericSurfaceMutationController["mutationPending"];
-  readonly onSelectRecord: (recordId: string) => void;
   readonly referenceOptions: GenericReferenceOptions;
   readonly rows: readonly WorkbookQueryRow[];
   readonly selectedEdit: SelectedEdit;
   readonly selectedRecordId: string;
   readonly setCollectionMode: (mode: GenericCollectionMode) => void;
   readonly setEditFieldKey: (fieldKey: string) => void;
-  readonly setEditValue: (value: string) => void;
   readonly submitEdit: () => Promise<void>;
 };
 
 function GenericDetails(props: GenericDetailsProps) {
-  if (props.rows.length === 0 || props.selectedEdit.field === null) return null;
+  if (props.selectedEdit.row === null || props.editableFields.length === 0)
+    return null;
   const field = props.selectedEdit.field;
   return (
-    <fieldset
-      disabled={props.mutationPending}
-      style={{ ...editRowStyle, border: 0, padding: 0, minWidth: 0 }}
-    >
+    <fieldset style={{ ...editRowStyle, border: 0, padding: 0, minWidth: 0 }}>
       <select
-        data-testid={genericEditRecordSelectTestId(props.contract.viewSchemaId)}
-        style={selectStyle}
-        value={props.selectedRecordId}
-        onChange={(event) => props.onSelectRecord(event.target.value)}
-      >
-        <option value="">Row</option>
-        {props.rows.map((row) => (
-          <option key={row.record_id} value={row.record_id}>
-            {genericRowLabel(props.contract, row)}
-          </option>
-        ))}
-      </select>
-      <select
+        aria-label="Edit field"
         data-testid={genericEditFieldSelectTestId(props.contract.viewSchemaId)}
         style={selectStyle}
         value={props.editFieldKey}
@@ -226,7 +202,7 @@ function GenericDetails(props: GenericDetailsProps) {
           </option>
         ))}
       </select>
-      {field.writeKind === "action_payload" &&
+      {field?.writeKind === "action_payload" &&
       genericCollectionSupportsRemove(field.fieldKey) ? (
         <select
           aria-label="Collection edit action"
@@ -239,44 +215,34 @@ function GenericDetails(props: GenericDetailsProps) {
             props.setCollectionMode(
               event.target.value === "remove" ? "remove" : "add",
             );
-            props.setEditValue("");
           }}
         >
           <option value="add">Add</option>
           <option value="remove">Remove</option>
         </select>
       ) : null}
-      <GenericMutationControl
-        id={`generic-edit-${props.selectedRecordId}-${field.fieldKey}`}
-        collectionItems={props.collectionItems}
-        collectionMode={props.collectionMode}
-        field={field}
-        referenceOptions={props.referenceOptions}
-        testId={genericEditValueTestId(props.contract.viewSchemaId)}
-        value={props.editValue}
-        onChange={props.setEditValue}
+      {field ? (
+        <WorkbookInspectorEditControl
+          edit={props.edit}
+          ariaLabel={field.label}
+          id={`generic-edit-${props.selectedRecordId}-${field.fieldKey}`}
+          collectionItems={props.collectionItems}
+          collectionMode={props.collectionMode}
+          field={field}
+          referenceOptions={props.referenceOptions}
+          testId={genericEditValueTestId(props.contract.viewSchemaId)}
+        />
+      ) : (
+        <span role="status">Select an available field.</span>
+      )}
+      <WorkbookInspectorDraftFeedback
+        edit={props.edit}
+        contract={props.contract}
+        row={props.selectedEdit.row}
       />
-      {props.staleEditFields.map((field) => (
-        <div key={field.field} role="status">
-          Saved {field.label} changed to {field.saved || "empty"}. Your draft is
-          retained.
-          <button
-            type="button"
-            onClick={() => props.reviewEditField(field.field, false)}
-          >
-            Use saved {field.label}
-          </button>
-          <button
-            type="button"
-            onClick={() => props.reviewEditField(field.field, true)}
-          >
-            Keep draft {field.label}
-          </button>
-        </div>
-      ))}
       <button
         data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
-        disabled={props.mutationPending}
+        disabled={props.mutationPending || !props.edit.canSubmit}
         style={actionButtonStyle}
         type="button"
         onClick={() => void props.submitEdit()}

@@ -54,6 +54,7 @@ import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice"
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
+import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatchRecovery";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -201,26 +202,11 @@ export function ContractWorkbookSurface({
       viewSchemaId: contract.viewSchemaId,
     });
   const mutationController = useGenericSurfaceMutationController({
-    mutationCommands: mutationCommands.generic,
     mutationRuntime,
-    selectedRecordId: contract.viewSchemaId === taskViewId ? editRecordId : "",
-    onRefresh: () => onRefresh({ requireAcceptance: true }),
-    refreshReferenceOptions,
+    selectedRecordId: editRecordId,
     surfaceLabel: contract.title,
     sheetRef,
   });
-  useEffect(() => {
-    if (contract.viewSchemaId !== taskViewId) return;
-    return mutationRuntime.explicitPatches.registerRefresh(async () => {
-      await onRefresh({ requireAcceptance: true });
-      await refreshReferenceOptions();
-    });
-  }, [
-    contract.viewSchemaId,
-    mutationRuntime,
-    onRefresh,
-    refreshReferenceOptions,
-  ]);
   const { setValidationError } = mutationController;
   const sharedMutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
@@ -473,7 +459,7 @@ export function ContractWorkbookSurface({
         contract.viewSchemaId,
         async () => {
           await onRefresh({ requireAcceptance: true });
-          refreshReferenceOptions();
+          await refreshReferenceOptions();
         },
         async (_payload, conflict) => {
           await onRefresh({ requireAcceptance: true });
@@ -791,6 +777,10 @@ export function ContractWorkbookSurface({
           style={workbookGridWithNoticeStyle}
         >
           <div>
+            <WorkbookExplicitPatchRecovery
+              owner={mutationRuntime.explicitPatches}
+              viewSchemaId={contract.viewSchemaId}
+            />
             <OrdinaryCreateNotice
               owner={mutationRuntime.ordinaryCreate}
               view={contract.viewSchemaId}
@@ -826,9 +816,7 @@ export function ContractWorkbookSurface({
                   anchor?.rowIdentity.kind === "core_record"
                     ? anchor.rowIdentity.recordId
                     : null;
-                if (recordId !== null) {
-                  setEditRecordId(recordId);
-                }
+                setEditRecordId(recordId ?? "");
                 if (recordId === null || anchor === null) {
                   genericFocus.port.clear();
                 } else {

@@ -25,29 +25,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function selectWorkbookEditTarget<
-  Row,
-  Field extends { readonly fieldKey: string },
->({
-  fieldKey,
-  fields,
-  getRecordId,
-  recordId,
-  rows,
-}: {
-  readonly fieldKey: string;
-  readonly fields: readonly Field[];
-  readonly getRecordId: (row: Row) => string;
-  readonly recordId: string;
-  readonly rows: readonly Row[];
-}): { readonly field: Field | null; readonly row: Row | null } {
-  return {
-    row: rows.find((row) => getRecordId(row) === recordId) ?? null,
-    field:
-      fields.find((field) => field.fieldKey === fieldKey) ?? fields[0] ?? null,
-  };
-}
-
 export function normalizeGenericTextValue(value: string): string {
   return value.trim();
 }

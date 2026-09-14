@@ -72,7 +72,14 @@ function fixture(pair: PartyPair = partyPairs[0]) {
   const patches = new WorkbookExplicitPatchOwner(
     taskAuthority.incidentId,
     { create },
-    { coordinate, remember, settle, accepted: vi.fn(), registerConflict },
+    {
+      coordinate,
+      remember,
+      settle,
+      accepted: vi.fn(),
+      registerConflict,
+      refresh,
+    },
     100,
   );
   const patchSend = vi.fn<RecordPatchTransport["send"]>(async (request) => {
@@ -226,9 +233,10 @@ it("reserves Party creation and source patch before coordination and fences stal
   patchGate.resolve(true);
   await pending;
   expect(patch.patchSend).not.toHaveBeenCalled();
-  expect(patch.patches.getSnapshot().entries[0]?.request?.baseRowVersion).toBe(
-    7,
-  );
+  expect(patch.patches.getSnapshot().entries[0]?.request).toBeNull();
+  expect(
+    patch.patches.getSnapshot().entries[0]?.intent.baseline.row_version,
+  ).toBe(7);
 });
 
 it("retains accepted Party creation after navigation and rejected linking without repeating creation", async () => {

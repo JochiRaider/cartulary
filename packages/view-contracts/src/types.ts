@@ -19,6 +19,7 @@ export type ViewFieldContract = {
   readonly fieldKey: string;
   readonly label: string;
   readonly createWritable: boolean;
+  readonly patchWritable: boolean;
   readonly defaultHidden: boolean;
   readonly stringContractId: string | null;
   readonly directScalarContractId: string | null;

@@ -73,3 +73,7 @@ participants; Task lifecycle uses explicit record-patch ownership in the
 | --- | --- |
 | [coordinationOrdinaryCreate.ts](coordinationOrdinaryCreate.ts) | Ordinary coordination preparation, defaults and reference restrictions without contextual source seeding. |
 | [initialCoordinationCreateRules.ts](initialCoordinationCreateRules.ts) | Shared initial Task/Decision lifecycle guards for ordinary and contextual preparation. |
+
+Task explicit patches contribute their guard dependencies and validation through
+[taskExplicitPatchContribution.ts](taskExplicitPatchContribution.ts). The Task
+draft store remains here; the neutral runtime does not own Task or Party forms.

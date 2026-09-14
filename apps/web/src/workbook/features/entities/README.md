@@ -26,6 +26,7 @@ attempts. Paste execution consumes the shared private
 
 | File | Responsibility |
 | --- | --- |
+| [entityInspectorEditing.test.tsx](entityInspectorEditing.test.tsx) | Selected-record editing, dirty refresh, explicit draft return and detached completion evidence. |
 | [useEntityMergeController.test.tsx](useEntityMergeController.test.tsx) | Tests single merge confirmation and synchronous invalidation when reviewed inputs change. |
 | [WorkbookEntityMergeOwner.test.ts](WorkbookEntityMergeOwner.test.ts) | Tests pair reservation, reviewed versions, coordinated writes, and exact uncertain merge replay. |
 | [WorkbookEntityMergeRecovery.test.tsx](WorkbookEntityMergeRecovery.test.tsx) | Tests keyboard recovery, receipt completion, refresh-only retry, and protected-state concealment. |

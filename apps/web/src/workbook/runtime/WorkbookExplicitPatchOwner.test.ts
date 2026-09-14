@@ -13,7 +13,11 @@ import {
   type RecordPatchOutcome,
   type RecordPatchTransport,
 } from "../adapters/workbookRecordPatchTransport";
-import { taskViewId } from "../features/coordination/taskLifecycleModel";
+import { taskExplicitPatchContribution } from "../features/coordination/taskExplicitPatchContribution";
+import {
+  TaskLifecycleDraftStore,
+  taskViewId,
+} from "../features/coordination/taskLifecycleModel";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import { WorkbookExplicitPatchOwner } from "./WorkbookExplicitPatchOwner";
 import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
@@ -32,10 +36,18 @@ function fixture() {
     registerConflict = vi.fn(),
     accepted = vi.fn(),
     create = vi.fn((prefix: string) => `${prefix}-${create.mock.calls.length}`);
+  const drafts = new TaskLifecycleDraftStore();
+  const refresh = vi.fn(async () => {});
   const owner = new WorkbookExplicitPatchOwner(
     taskAuthority.incidentId,
     { create },
-    { coordinate, registerConflict, accepted },
+    {
+      coordinate,
+      registerConflict,
+      accepted,
+      refresh,
+      contribute: (intent) => taskExplicitPatchContribution(intent, drafts),
+    },
     100,
   );
   const send = vi.fn<RecordPatchTransport["send"]>(
@@ -47,10 +59,9 @@ function fixture() {
   owner.configure({ send });
   owner.setAuthority(taskAuthority);
   owner.observeQuery(taskRow());
-  const refresh = vi.fn(async () => {});
-  owner.registerRefresh(refresh);
   return {
     owner,
+    drafts,
     send,
     coordinate,
     registerConflict,
@@ -101,7 +112,7 @@ it("coordinates disjoint writes but preserves drafts when guard siblings moved",
     return true;
   });
   const rejected = await next.owner.submit(taskIntent());
-  expect(rejected?.phase).toBe("rejected");
+  expect(rejected?.phase).toBe("preparation_failed");
   expect(next.send).not.toHaveBeenCalled();
   expect(rejected?.intent.changes).toEqual(taskIntent().changes);
 });
@@ -179,7 +190,7 @@ it("blocks replay on failed current requery and session replacement", async () =
 });
 it("registers the actual compound conflict field and retains full intent after Keep saved", async () => {
   const f = fixture();
-  f.owner.drafts.update(taskRow(), "task.blocked_reason", "Waiting");
+  f.drafts.update(taskRow(), "task.blocked_reason", "Waiting");
   f.send.mockResolvedValueOnce({
     kind: "rejected",
     failure: {
@@ -208,7 +219,7 @@ it("registers the actual compound conflict field and retains full intent after K
   );
   f.owner.conflictResolved(taskRecordId);
   expect(f.owner.blocksRecord(taskRecordId)).toBe(false);
-  expect(f.owner.drafts.read(taskRow()).values["task.blocked_reason"]).toBe(
+  expect(f.drafts.read(taskRow()).values["task.blocked_reason"]).toBe(
     "Waiting",
   );
   expect(f.owner.getSnapshot().entries[0]?.intent.changes).toEqual(
@@ -226,7 +237,7 @@ it("classifies timeout and transport exceptions as uncertain without losing iden
   h.coordinate.mockImplementationOnce(() => new Promise(() => {}));
   const coordinated = h.owner.submit(taskIntent());
   await vi.advanceTimersByTimeAsync(101);
-  expect((await coordinated)?.phase).toBe("rejected");
+  expect((await coordinated)?.phase).toBe("preparation_failed");
   expect(h.send).not.toHaveBeenCalled();
   const g = fixture();
   g.send.mockRejectedValueOnce(new Error("network"));
@@ -310,7 +321,6 @@ it("waits for Task autosave receipt and refresh before explicit dispatch", async
     refreshStarted = true;
     await refreshing.promise;
   });
-  runtime.explicitPatches.registerRefresh(async () => {});
   expect(
     runtime.enqueuePatch({
       recordId: taskRecordId,

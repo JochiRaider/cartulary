@@ -1,20 +1,14 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { boundedRead } from "../../services/asyncObservation";
 import type { SheetRef } from "../../shared/sheetRef";
+import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
 import {
   type CapturedRecordPatch,
   captureRecordPatch,
   type RecordPatchOutcome,
   type RecordPatchTransport,
 } from "../adapters/workbookRecordPatchTransport";
-import {
-  type RecordPatchChange,
-  TaskLifecycleDraftStore,
-  taskFieldEqual,
-  taskGuardFields,
-  taskPatchErrors,
-  taskViewId,
-} from "../features/coordination/taskLifecycleModel";
-import type { PartyReview } from "../features/parties/partyLinkModel";
+import { workbookSavedFieldEqual } from "../models/workbookSavedValues";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
@@ -25,15 +19,21 @@ import type { WorkbookConflictResolutionKind } from "./workbookConflictModel";
 
 export type ExplicitPatchAuthority = WorkbookMutationAuthority;
 export type ExplicitPatchIntent = Readonly<{
+  viewSchemaId: string;
   baseline: WorkbookQueryRow;
-  partyReview?: PartyReview;
-  changes: readonly RecordPatchChange[];
+  changes: readonly WorkbookProtocolPatchRecordRequest["changes"][number][];
   purpose: string;
   sheetRef: SheetRef;
   surfaceLabel: string;
+  owner?: string;
+  review?: unknown;
+  authoringRevision?: number;
+  presentationIdentity?: string;
+  compound?: boolean;
 }>;
 export type ExplicitPatchOperation = Readonly<{
   id: string;
+  authority: ExplicitPatchAuthority;
   intent: ExplicitPatchIntent;
   request: CapturedRecordPatch | null;
   phase:
@@ -48,37 +48,45 @@ export type ExplicitPatchOperation = Readonly<{
   failure: WorkbookOperationFailure | null;
   reconciliation: "pending" | "refreshing" | "required" | "complete";
 }>;
+/** Domain preparation and effects are supplied by their source owners. */
+export type ExplicitPatchContribution = Readonly<{
+  dependencies?: readonly string[];
+  prepare?(signal: AbortSignal): Promise<void>;
+  validate?(
+    current: WorkbookQueryRow,
+    intent: ExplicitPatchIntent,
+  ): WorkbookOperationFailure | null;
+  recheck?(): Promise<void>;
+  accessRejected?(): Promise<void>;
+  acknowledged?(entry: ExplicitPatchOperation): void;
+  /** Complete source reconciliation, including surface refresh/debt; replaces the default refresh. */
+  reconcile?(entry: ExplicitPatchOperation): Promise<void>;
+  conflictResolved?(
+    entry: ExplicitPatchOperation,
+    kind: WorkbookConflictResolutionKind,
+    row?: WorkbookQueryRow,
+  ): void;
+}>;
 type Snapshot = Readonly<{
   revision: number;
   authority: ExplicitPatchAuthority | null;
   entries: readonly ExplicitPatchOperation[];
 }>;
 
-/** Ordinary explicit PATCH lifetime. The autosave FIFO never owns these operations. */
+/** Retained explicit PATCH lifetime, separate from the grid autosave FIFO. */
 export class WorkbookExplicitPatchOwner {
-  readonly drafts = new TaskLifecycleDraftStore();
-  readonly inspectorDrafts = new TaskLifecycleDraftStore();
   private authority: ExplicitPatchAuthority | null = null;
   private actorId: string | null = null;
   private retired = false;
   private generation = 0;
   private transport: RecordPatchTransport | null = null;
   private accessLost: (() => void) | undefined;
-  private partyRecovery: {
-    prepare(
-      review: PartyReview,
-      signal: AbortSignal,
-      target?: string,
-    ): Promise<boolean>;
-    refresh(entry: ExplicitPatchOperation): Promise<void>;
-    recheck(review: PartyReview): Promise<void>;
-  } | null = null;
-  configurePartyRecovery(recovery: NonNullable<typeof this.partyRecovery>) {
-    this.partyRecovery = recovery;
-  }
-  private refreshSurface: (() => Promise<void>) | null = null;
   private readonly entries = new Map<string, ExplicitPatchOperation>();
   private readonly attempts = new Map<string, RecordPatchTransport>();
+  private readonly contributions = new Map<
+    string,
+    readonly ExplicitPatchContribution[]
+  >();
   private readonly running = new Set<string>();
   private readonly rows = new Map<string, WorkbookQueryRow>();
   private readonly versions = new Map<string, number>();
@@ -91,8 +99,12 @@ export class WorkbookExplicitPatchOwner {
       coordinate(
         recordId: string,
         signal: AbortSignal,
-        viewSchemaId?: string,
+        viewSchemaId: string,
       ): Promise<boolean>;
+      contribute?(
+        intent: ExplicitPatchIntent,
+      ): readonly ExplicitPatchContribution[];
+      refresh?(viewSchemaId: string): Promise<void>;
       remember?(id: string): void;
       settle?(id: string): void;
       registerConflict(input: WorkbookConflictRegistration): void;
@@ -115,7 +127,7 @@ export class WorkbookExplicitPatchOwner {
     this.snapshot = {
       revision: this.snapshot.revision + 1,
       authority: this.authority,
-      entries: this.authority ? [...this.entries.values()] : [],
+      entries: this.canRead() ? [...this.entries.values()] : [],
     };
     for (const listener of this.listeners) listener();
   }
@@ -144,10 +156,9 @@ export class WorkbookExplicitPatchOwner {
     this.generation++;
     this.entries.clear();
     this.attempts.clear();
+    this.contributions.clear();
     this.rows.clear();
     this.versions.clear();
-    this.drafts.clear();
-    this.inspectorDrafts.clear();
     this.emit();
   }
   canSubmit() {
@@ -160,11 +171,16 @@ export class WorkbookExplicitPatchOwner {
       this.transport !== null
     );
   }
+  private canRead() {
+    return (
+      !this.retired && this.authority !== null && this.authority.role !== ""
+    );
+  }
   latestVersion(id: string) {
-    return this.authority ? (this.versions.get(id) ?? null) : null;
+    return this.canRead() ? (this.versions.get(id) ?? null) : null;
   }
   latestRow(id: string) {
-    return this.authority ? (this.rows.get(id) ?? null) : null;
+    return this.canRead() ? (this.rows.get(id) ?? null) : null;
   }
   acceptVersion(id: string, version: number) {
     if (!this.retired && version > (this.versions.get(id) ?? 0)) {
@@ -193,10 +209,9 @@ export class WorkbookExplicitPatchOwner {
     return [...this.entries.values()].some(
       (entry) =>
         entry.intent.baseline.record_id === id &&
-        (entry.phase === "coordinating" ||
-          entry.phase === "submitting" ||
-          entry.phase === "uncertain" ||
-          entry.phase === "conflict" ||
+        (["coordinating", "submitting", "uncertain", "conflict"].includes(
+          entry.phase,
+        ) ||
           (entry.phase === "acknowledged" &&
             entry.reconciliation !== "complete")),
     );
@@ -215,12 +230,6 @@ export class WorkbookExplicitPatchOwner {
         entry.phase === "uncertain" || entry.reconciliation === "required",
     ).length;
   }
-  registerRefresh(refresh: () => Promise<void>) {
-    this.refreshSurface = refresh;
-    return () => {
-      if (this.refreshSurface === refresh) this.refreshSurface = null;
-    };
-  }
   private update(id: string, update: Partial<ExplicitPatchOperation>) {
     const current = this.entries.get(id);
     if (current && !this.retired) {
@@ -230,158 +239,118 @@ export class WorkbookExplicitPatchOwner {
   }
   private reject(id: string, message: string) {
     this.update(id, {
-      phase: this.entries.get(id)?.intent.partyReview
-        ? "preparation_failed"
-        : "rejected",
+      phase: "preparation_failed",
       failure: { kind: "stale_target", message },
     });
   }
   async submit(
     intent: ExplicitPatchIntent,
+    extra: readonly ExplicitPatchContribution[] = [],
   ): Promise<ExplicitPatchOperation | null> {
-    intent = structuredClone(intent);
+    intent = immutableClone(intent);
     const recordId = intent.baseline.record_id;
-    if (!this.canSubmit() || this.blocksRecord(recordId) || !this.transport)
+    if (
+      !this.canSubmit() ||
+      !this.authority ||
+      this.blocksRecord(recordId) ||
+      !this.transport
+    )
       return null;
     let id: string;
     try {
       id = this.transactionIds.create("workbook-explicit-patch");
-      if (!id.trim()) return null;
+      if (!id.trim() || this.entries.has(id)) return null;
     } catch {
       return null;
     }
-    const transport = this.transport,
-      generation = this.generation;
+    const generation = this.generation;
     this.entries.set(id, {
       id,
-      intent: structuredClone(intent),
-      request: intent.partyReview
-        ? captureRecordPatch({
-            recordId,
-            viewSchemaId: intent.partyReview.pair.viewSchemaId,
-            baseRowVersion: intent.baseline.row_version,
-            changes: intent.changes,
-            clientTxnId: id,
-          })
-        : null,
+      authority: immutableClone(this.authority),
+      intent,
+      request: null,
       phase: "coordinating",
       receipt: null,
       failure: null,
       reconciliation: "pending",
     });
-    this.attempts.set(id, transport);
-    this.emit(); // synchronous reservation before any await
+    this.attempts.set(id, this.transport);
+    const contributions = [
+      ...(this.boundaries.contribute?.(intent) ?? []),
+      ...extra,
+    ];
+    this.contributions.set(id, contributions);
+    this.emit(); // Reserve synchronously, before coordination or any callback can admit another action.
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      const coordinated = await Promise.race([
-        this.boundaries.coordinate(
-          recordId,
-          controller.signal,
-          intent.partyReview?.pair.viewSchemaId ?? taskViewId,
-        ),
-        new Promise<false>((resolve) =>
-          controller.signal.addEventListener("abort", () => resolve(false), {
-            once: true,
-          }),
-        ),
-      ]);
-      if (!coordinated) {
-        this.reject(
-          id,
-          "Earlier writes need recovery before this Task can be changed. Your draft is retained.",
+      const coordinated = await boundedRead(
+        (signal) =>
+          this.boundaries.coordinate(recordId, signal, intent.viewSchemaId),
+        controller.signal,
+        this.timeoutMs,
+      );
+      if (!coordinated)
+        throw new Error(
+          "Earlier writes need recovery. Your draft is retained.",
         );
-        return this.entries.get(id) ?? null;
-      }
-      if (generation !== this.generation || !this.canSubmit()) {
-        this.reject(
-          id,
-          "Access changed before dispatch. Re-query this Task before submitting your retained draft.",
-        );
-        return this.entries.get(id) ?? null;
-      }
-      if (intent.partyReview) {
-        const review = intent.partyReview,
-          recovery = this.partyRecovery;
-        const targetValue = intent.changes.find(
-          (change) => change.field_key === review.pair.refFieldKey,
-        )?.value;
-        const target =
-          typeof targetValue === "string" ? targetValue : undefined;
-        if (
-          !this.entries.get(id)?.request ||
-          !recovery ||
-          !(await boundedRead(
-            (signal) => recovery.prepare(review, signal, target),
+      for (const contribution of contributions)
+        if (contribution.prepare)
+          await boundedRead(
+            contribution.prepare,
             controller.signal,
             this.timeoutMs,
-          )) ||
-          generation !== this.generation ||
-          !this.canSubmit()
-        ) {
-          this.reject(
-            id,
-            "The source or access changed. Review this Party action again.",
           );
-          return this.entries.get(id) ?? null;
-        }
-      } else {
-        const current = this.latestRow(recordId) ?? intent.baseline;
-        const dependencies = new Set(
-          intent.changes.map((change) => change.field_key),
+      if (generation !== this.generation || !this.canSubmit())
+        throw new Error(
+          "Access changed before dispatch. Review current authority and values.",
         );
-        if (
-          intent.changes.some((change) =>
-            taskGuardFields.some((field) => field === change.field_key),
-          )
+      const current = this.latestRow(recordId) ?? intent.baseline;
+      const dependencies = new Set([
+        ...intent.changes.map((change) => change.field_key),
+        ...contributions.flatMap((item) => item.dependencies ?? []),
+      ]);
+      const contract = requireViewContract(intent.viewSchemaId);
+      if (
+        intent.changes.some(
+          (change) =>
+            !contract.fieldMap[change.field_key]?.patchWritable ||
+            !Object.hasOwn(current.cells, change.field_key),
         )
-          for (const field of taskGuardFields) dependencies.add(field);
-        if (
-          [...dependencies].some(
-            (field) => !taskFieldEqual(current, intent.baseline, field),
-          ) ||
-          current.row_version < (this.latestVersion(recordId) ?? 0)
-        ) {
-          this.reject(
-            id,
-            "Saved fields changed while earlier writes finished. Review current values; your complete draft is retained.",
-          );
+      )
+        throw new Error("The record or field is unavailable for editing.");
+      if (
+        current.row_version < (this.latestVersion(recordId) ?? 0) ||
+        [...dependencies].some(
+          (field) => !workbookSavedFieldEqual(current, intent.baseline, field),
+        )
+      )
+        throw new Error(
+          "Saved fields changed while earlier writes finished. Review current values; your complete draft is retained.",
+        );
+      for (const contribution of contributions) {
+        const failure = contribution.validate?.(current, intent);
+        if (failure) {
+          this.update(id, { phase: "rejected", failure });
           return this.entries.get(id) ?? null;
         }
-        const errors = taskPatchErrors(current, intent.changes);
-        if (errors.length) {
-          this.update(id, {
-            phase: "rejected",
-            failure: {
-              kind: "validation",
-              message: errors[0]?.message ?? "Invalid Task state",
-              fields: errors,
-            },
-          });
-          return this.entries.get(id) ?? null;
-        }
-        const request = captureRecordPatch({
-          recordId,
-          viewSchemaId: taskViewId,
-          baseRowVersion: current.row_version,
-          changes: intent.changes,
-          clientTxnId: id,
-        });
-        if (!request) {
-          this.reject(
-            id,
-            "The patch does not match the writable field contract.",
-          );
-          return this.entries.get(id) ?? null;
-        }
-        this.update(id, { request });
       }
+      const request = captureRecordPatch({
+        recordId,
+        viewSchemaId: intent.viewSchemaId,
+        baseRowVersion: current.row_version,
+        changes: intent.changes,
+        clientTxnId: id,
+      });
+      if (!request)
+        throw new Error(
+          "The patch does not match the writable field contract.",
+        );
+      this.update(id, { request });
     } catch {
       this.reject(
         id,
-        intent.partyReview
-          ? "The source or Party could not be refreshed. Review current records before trying again."
-          : "Earlier writes could not be coordinated. Your draft is retained.",
+        "The record, access, or saved values could not be confirmed. Review current values; your draft is retained.",
       );
       return this.entries.get(id) ?? null;
     } finally {
@@ -406,11 +375,11 @@ export class WorkbookExplicitPatchOwner {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let outcome: RecordPatchOutcome;
-    let observationEnded = false;
+    let ended = false;
     try {
       outcome = await Promise.race([
         transport.send(entry.request, controller.signal).then(async (value) => {
-          if (observationEnded && value.kind === "acknowledged")
+          if (ended && value.kind === "acknowledged")
             await this.acceptReceipt(id, value.receipt);
           return value;
         }),
@@ -424,7 +393,7 @@ export class WorkbookExplicitPatchOwner {
     } catch {
       outcome = { kind: "uncertain" };
     } finally {
-      observationEnded = true;
+      ended = true;
       clearTimeout(timer);
       this.running.delete(id);
     }
@@ -445,17 +414,16 @@ export class WorkbookExplicitPatchOwner {
           failure,
         });
         this.suspend();
-        if (entry.intent.partyReview)
-          void this.partyRecovery
-            ?.recheck(entry.intent.partyReview)
-            .catch(() => {});
+        const handlers = (this.contributions.get(id) ?? []).filter(
+          (item) => item.accessRejected,
+        );
+        if (handlers.length)
+          for (const handler of handlers)
+            void handler.accessRejected?.().catch(() => {});
         else this.accessLost?.();
         return;
       }
-      if (
-        entry.phase === "uncertain" ||
-        failure.kind === "client_txn_conflict"
-      ) {
+      if (entry.phase === "uncertain") {
         this.update(id, { phase: "uncertain", failure });
         return;
       }
@@ -463,26 +431,19 @@ export class WorkbookExplicitPatchOwner {
       if (failure.kind === "same_field_conflict") {
         this.boundaries.registerConflict({
           conflict: failure.conflict,
-          viewSchemaId:
-            entry.intent.partyReview?.pair.viewSchemaId ?? taskViewId,
+          viewSchemaId: entry.intent.viewSchemaId,
           sheetRef: entry.intent.sheetRef,
           surfaceLabel: entry.intent.surfaceLabel,
           rowLabel: entry.intent.baseline.record_id,
           focusKey: `${entry.intent.baseline.record_id}:${failure.conflict.field_key}`,
           compoundOperationId:
-            entry.intent.partyReview !== undefined ||
-            entry.intent.purpose === "task-lifecycle" ||
-            entry.intent.changes.length > 1
+            entry.intent.compound || entry.intent.changes.length > 1
               ? id
               : undefined,
           focusOrigin: "inspector",
         });
         this.update(id, { phase: "conflict", failure });
-      } else
-        this.update(id, {
-          phase: "rejected",
-          failure,
-        });
+      } else this.update(id, { phase: "rejected", failure });
       return;
     }
     await this.acceptReceipt(id, outcome.receipt);
@@ -493,16 +454,28 @@ export class WorkbookExplicitPatchOwner {
   ) {
     const entry = this.entries.get(id);
     if (!entry || this.retired || entry.receipt) return;
-    this.boundaries.settle?.(id);
-    this.acceptRow(receipt.row);
+    // Correlation also fences late transport callbacks and custom source adapters.
+    if (
+      receipt.viewSchemaId !== entry.intent.viewSchemaId ||
+      receipt.row.record_id !== entry.intent.baseline.record_id ||
+      receipt.row.row_version <= (entry.request?.baseRowVersion ?? 0) ||
+      !receipt.changeSetId
+    ) {
+      this.update(id, { phase: "uncertain" });
+      return;
+    }
     this.update(id, {
       phase: "acknowledged",
-      receipt: structuredClone(receipt),
+      receipt: immutableClone(receipt),
       failure: null,
       reconciliation: "required",
     });
-    if (entry.intent.purpose === "task-lifecycle")
-      this.drafts.clear(entry.intent.baseline.record_id);
+    this.boundaries.settle?.(id);
+    this.acceptRow(receipt.row);
+    const accepted = this.entries.get(id);
+    if (accepted)
+      for (const contribution of this.contributions.get(id) ?? [])
+        contribution.acknowledged?.(accepted);
     await this.refresh(id);
   }
   async replay(id: string) {
@@ -516,13 +489,14 @@ export class WorkbookExplicitPatchOwner {
       return;
     this.running.add(id);
     try {
-      const generation = this.generation;
-      if (entry.intent.partyReview) {
-        if (!this.partyRecovery) throw new Error("Party recovery unavailable");
-        await this.partyRecovery.recheck(entry.intent.partyReview);
-      } else {
-        if (!this.refreshSurface) throw new Error("Task view is unavailable");
-        await this.refreshSurface();
+      const generation = this.generation,
+        contributions = this.contributions.get(id) ?? [];
+      const rechecks = contributions.filter((item) => item.recheck);
+      if (rechecks.length)
+        for (const contribution of rechecks) await contribution.recheck?.();
+      else {
+        if (!this.boundaries.refresh) throw new Error("Source unavailable");
+        await this.boundaries.refresh(entry.intent.viewSchemaId);
       }
       if (generation !== this.generation || !this.canSubmit()) return;
     } catch {
@@ -530,7 +504,7 @@ export class WorkbookExplicitPatchOwner {
         failure: {
           kind: "stale_target",
           message:
-            "Refresh current Tasks before replaying. The original request is retained.",
+            "Refresh current authority before replaying. The original request is retained.",
         },
       });
       return;
@@ -543,22 +517,24 @@ export class WorkbookExplicitPatchOwner {
     const entry = this.entries.get(id);
     if (
       !entry?.receipt ||
-      !this.authority ||
+      !this.canRead() ||
       entry.reconciliation === "refreshing"
     )
       return;
     const generation = this.generation;
     this.update(id, { reconciliation: "refreshing" });
     try {
-      if (entry.intent.partyReview) {
-        if (!this.partyRecovery) throw new Error("Party recovery unavailable");
-        await this.partyRecovery.refresh(entry);
+      const reconcilers = (this.contributions.get(id) ?? []).filter(
+        (item) => item.reconcile,
+      );
+      if (reconcilers.length) {
+        for (const contribution of reconcilers)
+          await contribution.reconcile?.(entry);
       } else {
-        if (!this.refreshSurface) throw new Error("Task view is unavailable");
-        await this.refreshSurface();
+        if (!this.boundaries.refresh) throw new Error("Source unavailable");
+        await this.boundaries.refresh(entry.intent.viewSchemaId);
       }
-      if (generation !== this.generation)
-        throw new Error("Task access changed");
+      if (generation !== this.generation) throw new Error("Access changed");
       this.update(id, { reconciliation: "complete" });
     } catch {
       this.update(id, { reconciliation: "required" });
@@ -566,52 +542,48 @@ export class WorkbookExplicitPatchOwner {
   }
   conflictResolved(
     recordId: string,
-    resolutionKind: WorkbookConflictResolutionKind = "keep_saved",
+    kind: WorkbookConflictResolutionKind = "keep_saved",
     row?: WorkbookQueryRow,
   ) {
-    for (const entry of this.entries.values()) {
+    for (const entry of this.entries.values())
       if (
-        entry.phase !== "conflict" ||
-        entry.intent.baseline.record_id !== recordId
-      )
-        continue;
-      if (
-        !entry.intent.partyReview &&
-        entry.intent.purpose !== "task-lifecycle" &&
-        entry.intent.changes.length === 1 &&
-        row
+        entry.phase === "conflict" &&
+        entry.intent.baseline.record_id === recordId
       ) {
-        this.inspectorDrafts.review(
-          row,
-          entry.intent.changes[0]?.field_key ?? "",
-          false,
-        );
-        this.entries.delete(entry.id);
-        this.attempts.delete(entry.id);
-        this.emit();
-      } else
+        for (const contribution of this.contributions.get(entry.id) ?? [])
+          contribution.conflictResolved?.(entry, kind, row);
         this.update(entry.id, {
           phase: "rejected",
           failure: {
             kind: "stale_target",
             message:
-              resolutionKind === "keep_saved"
-                ? "The saved field was kept. Review changed saved fields and submit your retained draft together."
-                : "The field conflict was resolved.",
+              "The field conflict was resolved. Review saved values before submitting any retained draft.",
           },
         });
-    }
+      }
   }
   dismiss(id: string) {
     const entry = this.entries.get(id);
     if (
       entry &&
-      (entry.phase === "rejected" ||
+      (["preparation_failed", "rejected"].includes(entry.phase) ||
         (entry.phase === "acknowledged" && entry.reconciliation === "complete"))
     ) {
       this.entries.delete(id);
       this.attempts.delete(id);
+      this.contributions.delete(id);
       this.emit();
     }
   }
+}
+function immutableClone<T>(value: T): T {
+  const clone = structuredClone(value);
+  const freeze = (item: unknown) => {
+    if (item && typeof item === "object") {
+      for (const child of Object.values(item)) freeze(child);
+      Object.freeze(item);
+    }
+  };
+  freeze(clone);
+  return clone;
 }

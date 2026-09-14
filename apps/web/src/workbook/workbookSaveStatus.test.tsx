@@ -4,7 +4,6 @@ import { emptyPresenceScope } from "./collaboration/workbookPresencePresentation
 import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncements";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
 import { useGenericSurfaceMutationController } from "./hooks/useGenericSurfaceMutationController";
-import type { GenericMutationCommandPort } from "./mutations/workbookMutationCommandPorts";
 import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
 import {
   projectWorkbookMutationStatus,
@@ -56,10 +55,7 @@ describe("Workbook save status", () => {
     const runtime = runtimeFixture();
     const { result, unmount } = renderHook(() =>
       useGenericSurfaceMutationController({
-        mutationCommands: {} as GenericMutationCommandPort,
         mutationRuntime: runtime,
-        onRefresh: vi.fn(),
-        refreshReferenceOptions: vi.fn(),
         surfaceLabel: "Notes",
         sheetRef: { kind: "saved_view", id: "notes-one" },
       }),
@@ -241,16 +237,11 @@ describe("Workbook save status", () => {
       expect(runtime.getSnapshot().primaryLabel).toBe("Saved"),
     );
   });
-  it("keeps validation and accepted-refresh failure feedback out of primary status", async () => {
+  it("keeps local validation feedback independent from primary mutation status", async () => {
     const runtime = runtimeFixture();
     const { result } = renderHook(() =>
       useGenericSurfaceMutationController({
-        mutationCommands: {} as GenericMutationCommandPort,
         mutationRuntime: runtime,
-        onRefresh: async () => {
-          throw new Error("private route payload");
-        },
-        refreshReferenceOptions: vi.fn(),
         surfaceLabel: "Notes",
         sheetRef: { kind: "saved_view", id: "notes-one" },
       }),
@@ -261,14 +252,18 @@ describe("Workbook save status", () => {
     act(() => {
       finish = result.current.beginMutation();
     });
-    await act(async () => result.current.completeGenericMutation());
+    act(() =>
+      result.current.setValidationError(
+        "Enter a valid title before submitting.",
+      ),
+    );
     expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
     act(finish);
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
     expect(runtime.getSnapshot().blockedEdit).toBeNull();
     expect(runtime.getSnapshot().conflicts).toEqual([]);
     expect(result.current.mutationError?.primaryMessage).toContain(
-      "change was accepted",
+      "valid title",
     );
     expect(result.current.mutationError?.primaryMessage).not.toContain(
       "private route payload",

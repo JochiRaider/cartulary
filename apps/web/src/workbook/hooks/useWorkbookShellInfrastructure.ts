@@ -166,22 +166,6 @@ export function useWorkbookShellInfrastructure({
       ),
     [timelineCapture, apiBase, incidentId, onIncidentAccessLost],
   );
-  const entityWrites = useMemo(
-    () => ({
-      begin: mutationRuntime.beginEntityWrite.bind(mutationRuntime),
-      acceptVersion: mutationRuntime.acceptEntityVersion.bind(mutationRuntime),
-    }),
-    [mutationRuntime],
-  );
-  const decisionWrites = useMemo(
-    () => ({
-      begin: mutationRuntime.beginDecisionWrite.bind(mutationRuntime),
-      acceptRow: mutationRuntime.decisionSupersession.acceptRow.bind(
-        mutationRuntime.decisionSupersession,
-      ),
-    }),
-    [mutationRuntime],
-  );
   useMemo(
     () =>
       mutationRuntime.decisionSupersession.configure(
@@ -218,17 +202,8 @@ export function useWorkbookShellInfrastructure({
         apiBase,
         incidentId,
         transactionIds,
-        entityWrites,
-        decisionWrites,
       }),
-    [
-      apiBase,
-      incidentId,
-      transactionIds,
-      entityWrites,
-      decisionWrites,
-      mutationRuntime,
-    ],
+    [apiBase, incidentId, transactionIds, mutationRuntime],
   );
   useMemo(
     () => mutationRuntime.history.configure(mutationCommands.records),

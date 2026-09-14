@@ -42,6 +42,7 @@ export function GenericMutationControl({
   focusTargetRef,
   id,
   referenceOptions,
+  retainedOptions = [],
   surface = "form",
   testId,
   value,
@@ -53,18 +54,47 @@ export function GenericMutationControl({
   focusTargetRef?: GenericMutationControlRef | undefined;
   id?: string;
   referenceOptions: GenericReferenceOptions;
+  retainedOptions?: readonly { value: string; label: string }[] | undefined;
   surface?: GenericMutationControlSurface;
   testId: string;
   value: string;
   onChange: (value: string) => void;
 }) {
-  const descriptor = resolveGenericMutationControl({
+  let descriptor = resolveGenericMutationControl({
     collectionItems,
     collectionMode,
     field,
     referenceOptions,
     surface,
   });
+  if (
+    descriptor.kind === "direct_reference" ||
+    descriptor.kind === "collection_reference" ||
+    descriptor.kind === "collection_removal"
+  ) {
+    const selected =
+      descriptor.kind === "direct_reference"
+        ? value
+          ? [value]
+          : []
+        : splitDraftValues(value);
+    const available = descriptor.options;
+    descriptor = {
+      ...descriptor,
+      options: [
+        ...available,
+        ...selected
+          .filter((id) => !available.some((option) => option.value === id))
+          .map(
+            (id) =>
+              retainedOptions.find((option) => option.value === id) ?? {
+                value: id,
+                label: "Selected item (outside current options)",
+              },
+          ),
+      ],
+    };
+  }
   const props = {
     disabled,
     ariaLabel,

@@ -17,7 +17,7 @@ surface-specific commands enter through registered semantic capabilities.
 | [WorkbookClientTransactionLedger.ts](WorkbookClientTransactionLedger.ts) | Bounded client-transaction identity retention and pending-queue settlement lookup. |
 | [workbookConflictModel.ts](workbookConflictModel.ts) | Same-field conflict parsing and common envelope types. |
 | [WorkbookConflictStore.ts](WorkbookConflictStore.ts) | Conflict registration, compatible draft preservation, refresh commands, and panel state. |
-| [WorkbookExplicitPatchOwner.ts](WorkbookExplicitPatchOwner.ts) | Retained explicit record-patch ownership with guarded admission, replay, and recovery. |
+| [WorkbookExplicitPatchOwner.ts](WorkbookExplicitPatchOwner.ts) | Neutral retained record PATCH admission, immutable capture, exact replay and read-only reconciliation; source owners contribute review and effects. |
 | [workbookLifecycleModel.ts](workbookLifecycleModel.ts) | Shared load, refresh, save, conflict, and recovery lifecycle reducer. |
 | [WorkbookManagedPatchDriver.ts](WorkbookManagedPatchDriver.ts) | Managed-patch admission, transport dispatch, settlement, local projection, conflict registration, and refresh. |
 | [WorkbookMutationDriverRegistry.ts](WorkbookMutationDriverRegistry.ts) | Closed managed-patch/Timeline-row owner envelopes, exact driver registration, duplicate rejection, and absence-safe dispatch. |
@@ -64,3 +64,13 @@ obligations; the latest completed receipt per surface remains available.
 Surface registrations follow mounted lifetime and dereference current callbacks.
 Refresh completion must match registration, authority and debt generations.
 Late effects do not restore old selection or overwrite newer editor drafts.
+
+Ordinary inspector raw drafts live in `inspector/WorkbookInspectorDraftStore`.
+Task compound drafts and validation stay in Coordination; Party review and
+recovery reads stay in Parties. `WorkbookSurfaceRegistry` is the sole mounted
+refresh/debt registry. Explicit patches do not carry a Task refresh callback.
+
+An explicit source contribution may own complete reconciliation, including its
+source reads and mounted refresh or deferred surface debt. Otherwise the neutral
+owner requires the originating surface refresh. Party preparation excludes only
+its own reservation ID; other retained operations still block admission.

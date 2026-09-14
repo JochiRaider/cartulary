@@ -2522,6 +2522,130 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_draft_binding",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/useWorkbookInspectorEditDraft.test.tsx",
+        "titles": [
+          "binds every retained field and action to its original subject through refresh detachment and explicit return",
+          "retains selected reference identities outside the current option page and clears with explicit null"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.inspector_draft_lifetime",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/WorkbookInspectorDraftStore.test.ts",
+        "titles": [
+          "admits only the frozen existing-record capabilities while preserving create-only contracts",
+          "clears only the dispatched authoring revision and preserves later typing",
+          "conceals suspended drafts and retires them across incident or account replacement",
+          "requires explicit resumption and never lets another record or attachment consume raw work",
+          "retains original raw intent and review dependencies independently from saved row objects",
+          "validates scalar values and explicit clearing without mutating rough authoring"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.inspector_entity_editing",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/entities/entityInspectorEditing.test.tsx",
+        "titles": [
+          "binds ordinary Entity editing exclusively to the inspected record",
+          "does not restore old Entity selection after a detached completion",
+          "invalidates Entity field errors when the canonical subject changes",
+          "preserves unfinished Entity text through same-record query replacement",
+          "retains Entity field authoring for explicit return to its original field"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.inspector_ordinary_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/ordinaryInspectorRecovery.test.tsx",
+        "titles": [
+          "captures authoring and scope before transport and retains the receipt before effects",
+          "keeps collection conflicts on their review class and clears only captured authoring on resolution",
+          "keeps the original ordinary inspector attempt after response loss",
+          "refreshes committed versions before capture and excludes later grid authoring from admission",
+          "rejects obsolete presentation before dispatch and conceals later completion during authority suspension",
+          "retains ordinary acknowledgement independently of refresh failure",
+          "separates definitive rejection from uncertainty without automatically rekeying a request"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_related_record_model_20a3b73f6d",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -4697,7 +4821,7 @@
           "Workbook save status keeps a global FIFO blocker explanation on another surface",
           "Workbook save status keeps accepted writes pending through their required refresh",
           "Workbook save status keeps both overlapping generic operations pending",
-          "Workbook save status keeps validation and accepted-refresh failure feedback out of primary status",
+          "Workbook save status keeps local validation feedback independent from primary mutation status",
           "Workbook save status leaves visible save labels outside independent live regions"
         ]
       },

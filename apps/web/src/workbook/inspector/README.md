@@ -61,3 +61,18 @@ Source-specific composition belongs in [features](../features/README.md) and
 | [workbookInspectorErrorModel.test.ts](workbookInspectorErrorModel.test.ts) | Tests safe primary messages, decoded version-conflict identity, and sanitized details. |
 | [workbookInspectorErrorModel.ts](workbookInspectorErrorModel.ts) | Shared inspector error and operation-feedback presentation models. |
 | [workbookInspectorSubject.ts](workbookInspectorSubject.ts) | Constructs and compares canonical live/deleted inspector subjects and row bindings. |
+
+## Ordinary edit drafts
+
+| File | Responsibility |
+| --- | --- |
+| [WorkbookInspectorDraftStore.ts](WorkbookInspectorDraftStore.ts) | Account/incident-scoped raw drafts, explicit attachment, dependency review and revision-fenced retirement. |
+| [useWorkbookInspectorEditDraft.ts](useWorkbookInspectorEditDraft.ts) | Canonical field/action binding and presentation detachment, independent from query object identity. |
+| [WorkbookInspectorEditControl.tsx](WorkbookInspectorEditControl.tsx) | Accessible ordinary value control with retained reference identity and explicit clear intent. |
+| [WorkbookInspectorDraftFeedback.tsx](WorkbookInspectorDraftFeedback.tsx) | Local Resume/Discard and changed saved-value review. |
+| [prepareWorkbookInspectorChange.ts](prepareWorkbookInspectorChange.ts) | Patch capability and scalar/action serialization; creation remains separately admitted. |
+| [WorkbookInspectorDraftStore.test.ts](WorkbookInspectorDraftStore.test.ts) | Draft, capability, review, security and captured-revision regressions. |
+| [useWorkbookInspectorEditDraft.test.tsx](useWorkbookInspectorEditDraft.test.tsx) | Frozen field/action binding through refresh, detachment, no-row and explicit return. |
+
+[WorkbookExplicitPatchRecovery.tsx](WorkbookExplicitPatchRecovery.tsx) keeps
+ordinary explicit attempt recovery reachable on its surface after inspector closure.

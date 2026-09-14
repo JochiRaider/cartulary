@@ -43,7 +43,7 @@ export function PartyLinkPanel({
   const patches = snapshot.patches.filter(
     (entry) =>
       entry.intent.baseline.record_id === review.source.record_id &&
-      entry.intent.partyReview?.pair.key === pair.key,
+      entry.intent.review?.pair.key === pair.key,
   );
   return (
     <div ref={root} style={partyStackStyle}>

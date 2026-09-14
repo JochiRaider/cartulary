@@ -15,7 +15,12 @@ export function TaskPatchRecovery({
   return (
     <section aria-label="Task changes" style={sectionStyle}>
       {snapshot.entries
-        .filter((entry) => !entry.intent.partyReview)
+        .filter(
+          (entry) =>
+            entry.intent.viewSchemaId === "cartulary.view.task_requests.v1" &&
+            entry.intent.owner !== "party_link" &&
+            entry.intent.purpose === "task-lifecycle",
+        )
         .filter(
           (entry, index, entries) =>
             entry.phase !== "acknowledged" ||
@@ -100,7 +105,8 @@ export function TaskPatchRecovery({
                   Refresh Task view
                 </button>
               ) : null}
-              {entry.phase === "rejected" ||
+              {entry.phase === "preparation_failed" ||
+              entry.phase === "rejected" ||
               (row && entry.reconciliation === "complete") ? (
                 <button
                   type="button"

@@ -36,6 +36,8 @@ export function taskRow(version = 7, status = "open") {
 }
 export function taskIntent(): ExplicitPatchIntent {
   return {
+    viewSchemaId: taskViewId,
+    compound: true,
     baseline: taskRow(),
     changes: [
       { field_key: "task.status", value: "blocked" },

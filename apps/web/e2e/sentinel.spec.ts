@@ -18,9 +18,7 @@ import {
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
   genericEditFieldSelectTestId,
-  genericEditRecordSelectTestId,
   genericEditValueTestId,
-  genericWorkbookTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
@@ -520,7 +518,7 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
     .click();
   await expect(
     page
-      .getByTestId("note-source-record")
+      .getByRole("combobox", { name: "Note source", exact: true })
       .locator(`option[value="${source.record_id}"]`),
   ).toHaveCount(1, { timeout: 15_000 });
   await page
@@ -530,7 +528,7 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
     .getByTestId(genericCreateFieldTestId("note.body"))
     .fill("Created from the Notes tab with a source record link.");
   await page
-    .getByTestId("note-source-record")
+    .getByRole("combobox", { name: "Note source", exact: true })
     .selectOption(source.record_id as string);
   await page.getByRole("button", { name: "Apply source", exact: true }).click();
 
@@ -688,9 +686,6 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await expect(
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeVisible();
-    await expect(
-      page.getByTestId(genericEditRecordSelectTestId(evidenceViewSchemaId)),
-    ).toHaveValue(evidence.record_id as string);
     await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${evidenceViewSchemaId}:${evidence.record_id}:evidence.title`,
     );
@@ -889,9 +884,6 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await expect(
       page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
     ).toBeVisible();
-    await expect(
-      page.getByTestId(genericEditRecordSelectTestId(taskRequestsViewSchemaId)),
-    ).toHaveValue(task.record_id as string);
     await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${taskRequestsViewSchemaId}:${task.record_id}:task.title`,
     );
@@ -1062,9 +1054,6 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await expect(
       page.getByTestId(gridShellTestId(commLogViewSchemaId)),
     ).toBeVisible();
-    await expect(
-      page.getByTestId(genericEditRecordSelectTestId(commLogViewSchemaId)),
-    ).toHaveValue(commLog.record_id as string);
     await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${commLogViewSchemaId}:${commLog.record_id}:comm_log.summary`,
     );
@@ -2278,9 +2267,11 @@ test("Task Request and Decision workbook workflows stay native", async ({
   expect(
     collectionItems(refreshedSuperseding, "decision.support_refs"),
   ).toHaveLength(1);
-  await page
-    .getByTestId(genericEditRecordSelectTestId(decisionsViewSchemaId))
-    .selectOption(supersedingDecision.record_id as string);
+  await openGenericInspectorForRecord(
+    page,
+    decisionsViewSchemaId,
+    supersedingDecision.record_id as string,
+  );
   await page
     .getByTestId(genericEditFieldSelectTestId(decisionsViewSchemaId))
     .selectOption("decision.affected_record_ids");
@@ -2350,6 +2341,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
     page,
     genericCreateFieldTestId("task.linked_record_ids"),
     support.record_id as string,
+    evidenceViewSchemaId,
   );
   await setGenericCreateField(
     page,
@@ -2658,6 +2650,7 @@ test("coordination workbook workflows stay native", async ({
     page,
     genericCreateFieldTestId("comm_log.decision_ids"),
     decision.record_id as string,
+    decisionsViewSchemaId,
   );
   await setGenericCreateField(
     page,
@@ -2668,6 +2661,7 @@ test("coordination workbook workflows stay native", async ({
     page,
     genericCreateFieldTestId("comm_log.action_task_ids"),
     task.record_id as string,
+    taskRequestsViewSchemaId,
   );
   await setGenericCreateField(
     page,
@@ -2678,6 +2672,7 @@ test("coordination workbook workflows stay native", async ({
     page,
     genericCreateFieldTestId("comm_log.audience_party_ids"),
     party.record_id as string,
+    partiesViewSchemaId,
   );
   await setGenericCreateField(
     page,
@@ -2714,8 +2709,8 @@ test("coordination workbook workflows stay native", async ({
     .getByTestId(genericCreateSubmitTestId(handoffViewSchemaId))
     .click();
   await expect(
-    page.getByTestId(genericWorkbookTestId("mutation-error")),
-  ).toContainText("Incoming Owner");
+    page.getByRole("alert").filter({ hasText: "Incoming Owner" }),
+  ).toBeVisible();
   await setGenericCreateField(
     page,
     "handoff.incoming_owner_user_id",
@@ -3692,6 +3687,22 @@ async function setGenericCreateField(
     }
     return;
   }
+  if (tagName === "DIV") {
+    if (
+      !(await input
+        .getByRole("button", { name: "Apply references", exact: true })
+        .count())
+    )
+      await input
+        .getByRole("button", { name: /^Choose /u })
+        .first()
+        .click();
+    await input.locator("select").last().selectOption(value);
+    await input
+      .getByRole("button", { name: "Apply references", exact: true })
+      .click();
+    return;
+  }
   if (tagName === "SELECT") {
     await input.selectOption(value);
     return;
@@ -3712,9 +3723,6 @@ async function editExtendedSurfaceCell(
   value: string | string[],
 ) {
   await openGenericInspectorForRecord(page, viewSchemaId, recordId);
-  await page
-    .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
-    .selectOption(recordId);
   await page
     .getByTestId(genericEditFieldSelectTestId(viewSchemaId))
     .selectOption(fieldKey);
@@ -3745,15 +3753,40 @@ async function editExtendedSurfaceCell(
   await submitGenericEditAndWait(page, viewSchemaId, recordId);
 }
 
-async function waitForGenericOption(page: Page, testId: string, value: string) {
+async function waitForGenericOption(
+  page: Page,
+  testId: string,
+  value: string,
+  referenceView?: string,
+) {
   await scrollGridTargetIntoView({
     page,
     surface: currentWorkbookSurface(page),
     targetTestId: testId,
   });
-  await expect(
-    page.getByTestId(testId).locator(`option[value="${value}"]`),
-  ).toHaveCount(1, { timeout: 15_000 });
+  const control = page.getByTestId(testId);
+  if (
+    (await control.evaluate((element) => element.tagName)) === "DIV" &&
+    !(await control
+      .getByRole("button", { name: "Apply references", exact: true })
+      .count())
+  )
+    await control
+      .getByRole("button", { name: /^Choose /u })
+      .first()
+      .click();
+  if (
+    referenceView &&
+    (await control
+      .getByRole("combobox", { name: "Reference surface", exact: true })
+      .count())
+  )
+    await control
+      .getByRole("combobox", { name: "Reference surface", exact: true })
+      .selectOption(referenceView);
+  await expect(control.locator(`option[value="${value}"]`)).toHaveCount(1, {
+    timeout: 15_000,
+  });
 }
 
 async function setGenericGridScroll(page: Page, viewSchemaId: string) {

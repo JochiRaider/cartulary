@@ -15,7 +15,6 @@ import {
   evidencePreviewFrameTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
-  genericEditRecordSelectTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
@@ -3046,6 +3045,7 @@ describe("WorkbookShell surface selection", () => {
     });
     const aliasInput = screen.getByRole("textbox", { name: "Alias text" });
     fireEvent.change(aliasInput, { target: { value: "Added alias" } });
+    screen.getByRole("button", { name: "Add alias" }).focus();
     fireEvent.click(screen.getByRole("button", { name: "Add alias" }));
 
     await waitFor(() => {
@@ -3068,9 +3068,11 @@ describe("WorkbookShell surface selection", () => {
       viewSchemaId: hostsViewSchemaId,
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove alias Existing alias" }),
-    );
+    const removeAlias = screen.getByRole("button", {
+      name: "Remove alias Existing alias",
+    });
+    removeAlias.focus();
+    fireEvent.click(removeAlias);
     await waitFor(() => {
       expect(submittedActions).toHaveLength(2);
       expect(
@@ -3287,12 +3289,6 @@ describe("WorkbookShell surface selection", () => {
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),
       ),
     );
-    fireEvent.change(
-      await screen.findByTestId(
-        genericEditRecordSelectTestId(taskRequestsViewSchemaId),
-      ),
-      { target: { value: "00000000-0000-4000-8000-000000000901" } },
-    );
     const clearButton = await screen.findByTestId(
       coordinationWorkflowTestId("party-clear-link"),
     );
@@ -3398,12 +3394,6 @@ describe("WorkbookShell surface selection", () => {
       await screen.findByTestId(
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),
       ),
-    );
-    fireEvent.change(
-      await screen.findByTestId(
-        genericEditRecordSelectTestId(taskRequestsViewSchemaId),
-      ),
-      { target: { value: "00000000-0000-4000-8000-000000000901" } },
     );
     fireEvent.click(
       await screen.findByTestId(coordinationWorkflowTestId("party-clear-link")),

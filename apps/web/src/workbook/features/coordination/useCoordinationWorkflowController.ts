@@ -15,7 +15,7 @@ export type CoordinationWorkflowMutationPorts = Partial<
 > &
   Pick<
     GenericSurfaceMutationController,
-    "beginMutation" | "completeGenericMutation" | "submitPatchMutation"
+    "beginMutation" | "submitPatchMutation"
   >;
 
 export function useCoordinationWorkflowController({
@@ -45,6 +45,7 @@ export function useCoordinationWorkflowController({
     )
       return;
     submitting.current = true;
+    const captured = drafts.capture(row.record_id);
     const finish = mutation.beginMutation();
     try {
       const accepted = await mutation.submitPatchMutation({
@@ -55,7 +56,7 @@ export function useCoordinationWorkflowController({
         viewSchemaId: taskViewId,
         baseline: row,
       });
-      if (accepted) drafts.clear(row.record_id);
+      if (accepted) drafts.acknowledge(row.record_id, captured);
     } finally {
       submitting.current = false;
       finish();

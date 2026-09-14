@@ -43,13 +43,24 @@ export type PartyAuthorityReader = (
   baseline: ExplicitPatchAuthority,
   signal: AbortSignal,
 ) => Promise<ExplicitPatchAuthority>;
+export type PartyPatchOperation = ExplicitPatchOperation & {
+  intent: ExplicitPatchOperation["intent"] & {
+    owner: "party_link";
+    review: PartyReview;
+  };
+};
+function isPartyPatch(
+  entry: ExplicitPatchOperation,
+): entry is PartyPatchOperation {
+  return entry.intent.owner === "party_link";
+}
 type Snapshot = Readonly<{
   candidateRevision: number;
   preparationFailure: { presentation: string; message: string } | null;
   authority: ExplicitPatchAuthority | null;
   generation: number;
   creations: readonly PartyCreationOperation[];
-  patches: readonly ExplicitPatchOperation[];
+  patches: readonly PartyPatchOperation[];
 }>;
 
 /** Owns the two-commit Party workflow; source PATCH execution stays in explicitPatches. */
@@ -82,7 +93,11 @@ export class WorkbookPartyLinkOperationOwner {
     private readonly ids: SecureTransactionIdPort,
     readonly patches: WorkbookExplicitPatchOwner,
     private readonly effects: {
-      coordinate(review: PartyReview, signal: AbortSignal): Promise<boolean>;
+      coordinate(
+        review: PartyReview,
+        signal: AbortSignal,
+        reservationId: string,
+      ): Promise<boolean>;
       remember(id: string): void;
       settle(id: string): void;
       refresh(view: string): Promise<void>;
@@ -90,34 +105,6 @@ export class WorkbookPartyLinkOperationOwner {
     private readonly observe = observeAsyncOperation,
   ) {
     patches.subscribe(() => this.publish());
-    patches.configurePartyRecovery({
-      prepare: async (review, signal, target) => {
-        await this.refreshAuthority(review.authority, signal);
-        await this.readSource(review, signal);
-        if (target) {
-          if (!this.reader) throw new Error("Party lookup is unavailable.");
-          await this.reader.source(partyViewId, target, signal);
-        }
-        return this.isCurrent(review);
-      },
-      refresh: async (entry) => {
-        const review = entry.intent.partyReview;
-        if (!review || !entry.receipt)
-          throw new Error("Missing Party source receipt.");
-        await this.readSource(
-          review,
-          new AbortController().signal,
-          entry.receipt.row.row_version,
-        );
-        await this.effects.refresh(review.pair.viewSchemaId);
-      },
-      recheck: async (review) => {
-        await this.refreshAuthority(
-          review.authority,
-          new AbortController().signal,
-        );
-      },
-    });
   }
   configure(
     transport: PartyCreationTransport,
@@ -149,7 +136,8 @@ export class WorkbookPartyLinkOperationOwner {
     const baseline =
       this.authority ??
       [...this.creations.values()][0]?.attempt.review.authority ??
-      this.patches.getSnapshot().entries[0]?.intent.partyReview?.authority;
+      this.patches.getSnapshot().entries.find(isPartyPatch)?.intent.review
+        .authority;
     if (!baseline) return;
     try {
       await this.refreshAuthority(baseline, new AbortController().signal);
@@ -179,9 +167,7 @@ export class WorkbookPartyLinkOperationOwner {
       generation: this.generation,
       creations: authority ? [...this.creations.values()] : [],
       patches: authority
-        ? this.patches
-            .getSnapshot()
-            .entries.filter((entry) => !!entry.intent.partyReview)
+        ? this.patches.getSnapshot().entries.filter(isPartyPatch)
         : [],
     };
     for (const listener of this.listeners) listener();
@@ -257,9 +243,10 @@ export class WorkbookPartyLinkOperationOwner {
   acceptVersion(id: string, version: number) {
     this.patches.acceptVersion(id, version);
   }
-  blocksRecord(id: string) {
+  blocksRecord(id: string, ownReservationId?: string) {
     return [...this.creations.values()].some(
       (entry) =>
+        entry.id !== ownReservationId &&
         entry.attempt.review.source.record_id === id &&
         ["preparing", "submitting", "uncertain"].includes(entry.phase),
     );
@@ -344,7 +331,7 @@ export class WorkbookPartyLinkOperationOwner {
     this.publish();
     const preparation = this.observe(async (signal) => {
       await this.refreshAuthority(review.authority, signal);
-      if (!(await this.effects.coordinate(review, signal))) return false;
+      if (!(await this.effects.coordinate(review, signal, id))) return false;
       await this.readSource(review, signal);
       return this.isCurrent(review);
     });
@@ -476,14 +463,55 @@ export class WorkbookPartyLinkOperationOwner {
       (action === "link" && !target)
     )
       return null;
-    return this.patches.submit({
-      baseline: review.source,
-      changes: partyChanges(review.pair, action, target),
-      purpose: `party-${action}`,
-      sheetRef: review.sheetRef,
-      surfaceLabel: review.sourceLabel,
-      partyReview: review,
-    });
+    return this.patches.submit(
+      {
+        viewSchemaId: review.pair.viewSchemaId,
+        owner: "party_link",
+        compound: true,
+        baseline: review.source,
+        changes: partyChanges(review.pair, action, target),
+        purpose: `party-${action}`,
+        sheetRef: review.sheetRef,
+        surfaceLabel: review.sourceLabel,
+        review,
+      },
+      [
+        {
+          dependencies: [review.pair.textFieldKey, review.pair.refFieldKey],
+          prepare: async (signal) => {
+            await this.refreshAuthority(review.authority, signal);
+            await this.readSource(review, signal);
+            if (target) {
+              if (!this.reader) throw new Error("Party lookup is unavailable.");
+              await this.reader.source(partyViewId, target, signal);
+            }
+            if (!this.isCurrent(review))
+              throw new Error(
+                "The source or access changed. Review this Party action again.",
+              );
+          },
+          accessRejected: () =>
+            this.refreshAuthority(
+              review.authority,
+              new AbortController().signal,
+            ),
+          recheck: () =>
+            this.refreshAuthority(
+              review.authority,
+              new AbortController().signal,
+            ),
+          reconcile: async (entry) => {
+            if (!entry.receipt) throw new Error("Missing Party receipt");
+            await this.readSource(
+              review,
+              new AbortController().signal,
+              entry.receipt.row.row_version,
+            );
+            await this.effects.refresh(review.pair.viewSchemaId);
+          },
+        },
+      ],
+    );
   }
   async linkCreated(id: string, review: PartyReview) {
     const entry = this.creations.get(id);

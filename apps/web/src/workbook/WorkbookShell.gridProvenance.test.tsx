@@ -3,7 +3,6 @@ import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   genericEditFieldSelectTestId,
-  genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridShellTestId,
@@ -535,9 +534,17 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     expect(hostInspectorSlot.style.gridArea).toBe("1 / 2");
     expect(hostInspector.style.blockSize).toBe("100%");
     expect(hostInspector.style.overflow).toBe("auto");
-    fireEvent.change(
-      screen.getByTestId(genericEditRecordSelectTestId(hostsViewSchemaId)),
-      { target: { value: "20000000-0000-4000-8000-000000000301" } },
+    fireEvent.mouseDown(
+      screen
+        .getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000301",
+            requireViewContract(hostsViewSchemaId).defaultVisibleFields[0] ??
+              "",
+          ),
+        )
+        .closest("[role=gridcell]") ?? document.body,
+      { button: 0 },
     );
     fireEvent.change(
       screen.getByTestId(genericEditFieldSelectTestId(hostsViewSchemaId)),
@@ -566,7 +573,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         view_schema_id: hostsViewSchemaId,
         base_row_version: 3,
         client_txn_id: expect.stringMatching(
-          /^entity-patch-cartulary\.view\.hosts\.v1-[0-9a-f-]{36}$/u,
+          /^workbook-explicit-patch-[0-9a-f-]{36}$/u,
         ),
         changes: [
           { field_key: "host.display_name", value: "Gateway Host Edited" },
@@ -636,9 +643,17 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(identitiesViewSchemaId)),
     );
-    fireEvent.change(
-      screen.getByTestId(genericEditRecordSelectTestId(identitiesViewSchemaId)),
-      { target: { value: "20000000-0000-4000-8000-000000000303" } },
+    fireEvent.mouseDown(
+      screen
+        .getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000303",
+            requireViewContract(identitiesViewSchemaId)
+              .defaultVisibleFields[0] ?? "",
+          ),
+        )
+        .closest("[role=gridcell]") ?? document.body,
+      { button: 0 },
     );
     fireEvent.change(
       screen.getByTestId(genericEditFieldSelectTestId(identitiesViewSchemaId)),
@@ -667,7 +682,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         view_schema_id: identitiesViewSchemaId,
         base_row_version: 4,
         client_txn_id: expect.stringMatching(
-          /^entity-patch-cartulary\.view\.identities\.v1-[0-9a-f-]{36}$/u,
+          /^workbook-explicit-patch-[0-9a-f-]{36}$/u,
         ),
         changes: [
           {
@@ -763,9 +778,17 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(notesViewSchemaId)),
     );
-    fireEvent.change(
-      screen.getByTestId(genericEditRecordSelectTestId(notesViewSchemaId)),
-      { target: { value: "20000000-0000-4000-8000-000000000305" } },
+    fireEvent.mouseDown(
+      screen
+        .getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000305",
+            requireViewContract(notesViewSchemaId).defaultVisibleFields[0] ??
+              "",
+          ),
+        )
+        .closest("[role=gridcell]") ?? document.body,
+      { button: 0 },
     );
     fireEvent.change(
       screen.getByTestId(genericEditFieldSelectTestId(notesViewSchemaId)),
@@ -791,7 +814,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         view_schema_id: notesViewSchemaId,
         base_row_version: 5,
         client_txn_id: expect.stringMatching(
-          /^generic-patch-cartulary\.view\.notes\.v1-[0-9a-f-]{36}$/u,
+          /^workbook-explicit-patch-[0-9a-f-]{36}$/u,
         ),
         changes: [{ field_key: "note.body", value: "Edited note body" }],
       },

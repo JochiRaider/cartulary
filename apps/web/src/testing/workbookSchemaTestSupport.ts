@@ -27,8 +27,12 @@ export function publicWorkbookSchema(contract: ViewContract) {
       permits_zero_field_create: contract.permitsZeroFieldCreate,
     },
     inspector_config: snakeKeys(contract.inspectorConfig),
-    fields: contract.fields.map(({ writeAction: _writeAction, ...field }) =>
-      snakeKeys(field),
+    fields: contract.fields.map(
+      ({
+        writeAction: _writeAction,
+        patchWritable: _patchWritable,
+        ...field
+      }) => snakeKeys(field),
     ),
   };
 }

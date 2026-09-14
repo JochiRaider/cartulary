@@ -189,6 +189,42 @@ Algorithm: `surface_pivot(binding)`.
 4. Preserve browser session, incident context, and status strip.
 5. Do not use visible labels, storage tables, row indexes, or grid vendor coordinates as pivot identity.
 
+Ordinary inspector draft lifetime. Invalidating an ordinary existing-record
+form, review, or subject attachment MUST NOT silently discard its raw authoring.
+Within the same authorized account and incident runtime, the client MUST retain
+unfinished ordinary inspector values in memory by `view_schema_id`, `record_id`,
+and field/action identity, separately from saved values, reviewed dependencies,
+and any dispatched attempt. Raw text, omission, explicit null/clear intent, and
+stable selected reference/item identities MUST remain distinct.
+
+Refresh or query-row replacement MUST preserve dirty raw authoring. A row-version
+change invalidates prior form authority; the client MAY derive current authority
+without additional analyst review when the edited field and all owner-declared
+dependencies are unchanged. If they changed, the client MUST preserve the draft
+and require explicit review before a new submission; it MUST NOT silently advance
+the reviewed baseline. This allowance never preserves a destructive confirmation
+or a specialized workflow's owner-required review.
+
+Closing, retargeting, changing field/action, or switching sheet/saved view MUST
+detach the prior ordinary editor without blocking navigation. Returning to its
+original selected record and schema MUST offer explicit Resume and Discard for
+retained work after current access and field eligibility are revalidated. A
+detached draft MUST NOT appear as an actionable form under another subject or in
+`no_row_selected`. Record deletion, merge, filtering, and field unavailability
+MUST NOT retarget the draft; resumption requires the original identity to be
+independently eligible again. Grid and inspector authoring remain separate, and
+ordinary inspector submission MUST NOT implicitly include unrelated authoring.
+
+An acknowledged attempt MUST clear only the authoring revision it captured.
+Newer authoring and detached presentation MUST survive older completion; such
+completion MUST NOT restore obsolete selection, steal focus from newer work, or
+reopen an inspector. Captured attempts and complete correlated receipts outlive
+form attachment, uncertain recovery reuses the same captured request, and
+acknowledged recovery performs reads only. Existing source-owner validation,
+conflict classes, specialized workflow policy, and REQ-03-299/100 security
+lifetimes continue to apply. Retained work grants no authorization and adds no
+browser persistence, cross-account archive, or reload guarantee.
+
 **REQ-03-015**
 `owner_user_id` MUST be present for `private` and `shared` saved views. It MAY be null only for `system` saved views.
 Profiles: base

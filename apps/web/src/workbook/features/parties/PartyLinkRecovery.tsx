@@ -141,8 +141,8 @@ export function PartyLinkRecovery({
           {snapshot.patches.map((entry) => (
             <section key={entry.id}>
               <p>
-                {entry.intent.partyReview?.sourceLabel} —{" "}
-                {entry.intent.partyReview?.pair.label}
+                {entry.intent.review?.sourceLabel} —{" "}
+                {entry.intent.review?.pair.label}
               </p>
               <PartyPatchFeedback owner={owner} entry={entry} />
             </section>

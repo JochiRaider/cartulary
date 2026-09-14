@@ -4,7 +4,6 @@ import type {
 } from "@cartulary/protocol-ts/http";
 import {
   coordinationWorkflowTestId,
-  genericEditRecordSelectTestId,
   gridShellTestId,
   surfaceTabTestId,
   systemViewSwitcherOptionTestId,
@@ -427,9 +426,7 @@ async function recovery(
   await expect.poll(() => createReceipts.length).toBe(1);
   if (mode === "navigation") {
     await expect.poll(() => releaseCreation !== null).toBeTruthy();
-    await page
-      .getByTestId(genericEditRecordSelectTestId(view))
-      .selectOption(other.record_id);
+    await openGenericInspectorForRecord(page, view, other.record_id);
     await page
       .getByTestId(coordinationWorkflowTestId("party-pair"))
       .selectOption("evidence.source_party_text:evidence.source_party_id");

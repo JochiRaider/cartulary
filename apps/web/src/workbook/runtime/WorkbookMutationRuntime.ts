@@ -7,7 +7,11 @@ import {
   type DecisionSupersessionReview,
   decisionViewId,
 } from "../features/coordination/decisionSupersessionModel";
-import { taskViewId } from "../features/coordination/taskLifecycleModel";
+import { taskExplicitPatchContribution } from "../features/coordination/taskExplicitPatchContribution";
+import {
+  TaskLifecycleDraftStore,
+  taskViewId,
+} from "../features/coordination/taskLifecycleModel";
 import { WorkbookContextualTaskDecisionCreateOwner } from "../features/coordination/WorkbookContextualTaskDecisionCreateOwner";
 import { WorkbookCoordinationCreateOwner } from "../features/coordination/WorkbookCoordinationCreateOwner";
 import { WorkbookDecisionSupersessionOwner } from "../features/coordination/WorkbookDecisionSupersessionOwner";
@@ -26,6 +30,7 @@ import { createOrdinaryCreateContributions } from "../features/ordinary/ordinary
 import { WorkbookOrdinaryCreateOwner } from "../features/ordinary/WorkbookOrdinaryCreateOwner";
 import { WorkbookPartyLinkOperationOwner } from "../features/parties/WorkbookPartyLinkOperationOwner";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
+import { WorkbookInspectorDraftStore } from "../inspector/WorkbookInspectorDraftStore";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   hostsViewSchemaId,
@@ -142,9 +147,8 @@ export class WorkbookMutationRuntime {
   readonly assessmentAuthoring: WorkbookAssessmentAuthoringOwner;
   readonly partyLinks: WorkbookPartyLinkOperationOwner;
   readonly explicitPatches: WorkbookExplicitPatchOwner;
-  get taskDrafts() {
-    return this.explicitPatches.drafts;
-  }
+  readonly inspectorDrafts = new WorkbookInspectorDraftStore();
+  readonly taskDrafts = new TaskLifecycleDraftStore();
   readonly scope: PendingReplayScope;
   readonly history: WorkbookRecordHistoryOwner;
   readonly entityMerge: WorkbookEntityMergeOwner;
@@ -435,6 +439,9 @@ export class WorkbookMutationRuntime {
       {
         coordinate: (recordId, signal, viewSchemaId) =>
           this.coordinateExplicitPatch(recordId, signal, viewSchemaId),
+        contribute: (intent) =>
+          taskExplicitPatchContribution(intent, this.taskDrafts),
+        refresh: (view) => this.surfaces.refreshRequired(view),
         remember: (id) => this.rememberClientTransaction(id),
         settle: (id) => {
           this.resolveSocketClientTxn(id);
@@ -451,11 +458,12 @@ export class WorkbookMutationRuntime {
       transactionIds,
       this.explicitPatches,
       {
-        coordinate: (review, signal) =>
+        coordinate: (review, signal, reservationId) =>
           this.coordinateExplicitPatch(
             review.source.record_id,
             signal,
             review.pair.viewSchemaId,
+            reservationId,
           ),
         remember: (id) => this.rememberClientTransaction(id),
         settle: (id) => {
@@ -470,7 +478,10 @@ export class WorkbookMutationRuntime {
       {
         canReserve: (review) =>
           !this.lifecycle.disposed &&
-          !this.batches.blocksEntityType(review.entityType),
+          !this.batches.blocksEntityType(review.entityType) &&
+          ![review.survivor.recordId, review.loser.recordId].some((id) =>
+            this.explicitPatches.blocksRecord(id),
+          ),
         coordinate: (review, signal) =>
           this.coordinateEntityMerge(review, signal),
       },
@@ -483,8 +494,9 @@ export class WorkbookMutationRuntime {
           !this.lifecycle.disposed &&
           [review.target, review.replacement].every(
             (record) =>
+              !this.explicitPatches.blocksRecord(record.recordId) &&
               (this.history.latestVersion(record.recordId) ?? 0) <=
-              record.baseRowVersion,
+                record.baseRowVersion,
           ),
         coordinate: (review, signal) =>
           this.coordinateDecisionSupersession(review, signal),
@@ -569,6 +581,9 @@ export class WorkbookMutationRuntime {
           !plan.recordIds.some(
             (id) =>
               this.entityMerge.blocksRecord(id) ||
+              this.explicitPatches.blocksRecord(id) ||
+              this.decisionSupersession.blocksRecord(id) ||
+              this.partyLinks.blocksRecord(id) ||
               this.timelineActionBlocksRecord(id),
           ) &&
           !(
@@ -656,7 +671,12 @@ export class WorkbookMutationRuntime {
       this.emit();
       this.requestDrain();
     });
-    this.explicitPatches.subscribe(() => this.emit());
+    this.explicitPatches.subscribe(() => {
+      this.inspectorDrafts.setAuthority(
+        this.explicitPatches.getSnapshot().authority,
+      );
+      this.emit();
+    });
     this.partyLinks.subscribe(() => this.emit());
     this.assessmentAuthoring.subscribe(() => this.emit());
     this.noteCreate.subscribe(() => this.emit());
@@ -685,12 +705,7 @@ export class WorkbookMutationRuntime {
           entityViewSchemas.has(entry.attempt.subject.viewSchemaId)
         )
           this.entityMerge.acceptVersion(receipt.recordId, receipt.rowVersion);
-        if (
-          receipt &&
-          [taskViewId, "cartulary.view.evidence.v1"].includes(
-            entry.attempt.subject.viewSchemaId,
-          )
-        )
+        if (receipt)
           this.explicitPatches.acceptVersion(
             receipt.recordId,
             receipt.rowVersion,
@@ -874,13 +889,22 @@ export class WorkbookMutationRuntime {
   private async coordinateExplicitPatch(
     recordId: string,
     signal: AbortSignal,
-    viewSchemaId = taskViewId,
+    viewSchemaId: string,
+    ownPartyReservationId?: string,
   ): Promise<boolean> {
     let waited = false;
     while (!signal.aborted && !this.lifecycle.disposed) {
       const queue = this.pendingRuntime.model.snapshot();
       if (
         this.timelineActionBlocksRecord(recordId) ||
+        this.batches.blocksRecord(recordId) ||
+        this.entityMerge.blocksRecord(recordId) ||
+        this.decisionSupersession.blocksRecord(recordId) ||
+        this.partyLinks.blocksRecord(recordId, ownPartyReservationId) ||
+        (viewSchemaId === hostsViewSchemaId &&
+          this.batches.blocksEntityType("host")) ||
+        (viewSchemaId === identitiesViewSchemaId &&
+          this.batches.blocksEntityType("identity")) ||
         queue.authPaused ||
         queue.halted ||
         queue.overflow ||
@@ -902,9 +926,16 @@ export class WorkbookMutationRuntime {
         )
       )
         return false;
-      const direct = [...this.entityWrites.values()].some((target) =>
-        target.recordIds.includes(recordId),
-      );
+      const direct =
+        [...this.entityWrites.values()].some(
+          (target) =>
+            target.recordIds.includes(recordId) ||
+            (viewSchemaId === hostsViewSchemaId &&
+              target.unknownEntityType === "host") ||
+            (viewSchemaId === identitiesViewSchemaId &&
+              target.unknownEntityType === "identity"),
+        ) ||
+        [...this.decisionWrites.values()].some((ids) => ids.includes(recordId));
       const pending =
         queue.units.some((unit) => unit.recordId === recordId) ||
         direct ||
@@ -917,8 +948,17 @@ export class WorkbookMutationRuntime {
               entry.reconciliation !== "complete"),
         );
       if (!pending) {
-        if (waited || this.surfaces.requiresRefresh(viewSchemaId))
-          await this.surfaces.refreshIfMounted(viewSchemaId);
+        this.explicitPatches.acceptVersion(
+          recordId,
+          this.history.latestVersion(recordId) ?? 0,
+        );
+        if (
+          waited ||
+          this.surfaces.requiresRefresh(viewSchemaId) ||
+          (this.explicitPatches.latestVersion(recordId) ?? 0) >
+            (this.explicitPatches.latestRow(recordId)?.row_version ?? 0)
+        )
+          await this.surfaces.refreshRequired(viewSchemaId);
         return !signal.aborted;
       }
       waited = true;
@@ -1150,11 +1190,7 @@ export class WorkbookMutationRuntime {
           outcome.value.row.record_id,
           outcome.value.row.row_version,
         );
-      if (
-        outcome.kind === "accepted" &&
-        (outcome.value.viewSchemaId === taskViewId ||
-          outcome.value.viewSchemaId === "cartulary.view.evidence.v1")
-      )
+      if (outcome.kind === "accepted")
         this.explicitPatches.acceptRow(outcome.value.row);
       if (
         outcome.kind === "accepted" &&
@@ -1600,6 +1636,8 @@ export class WorkbookMutationRuntime {
       this.entityLifetimeRetired = true;
       this.entityWrites.clear();
       this.explicitPatches.retire();
+      this.inspectorDrafts.retire();
+      this.taskDrafts.clear();
       this.partyLinks.retire();
       this.history.retire();
       this.entityMerge.retire();
@@ -1655,6 +1693,8 @@ export class WorkbookMutationRuntime {
       this.entityLifetimeRetired = true;
       this.entityWrites.clear();
       this.explicitPatches.retire();
+      this.inspectorDrafts.retire();
+      this.taskDrafts.clear();
       this.partyLinks.retire();
       this.history.retire();
       this.entityMerge.retire();

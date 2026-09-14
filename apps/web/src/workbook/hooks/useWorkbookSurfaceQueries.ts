@@ -110,6 +110,7 @@ export function useWorkbookSurfaceQueries({
   });
   const entityQuery = useEntitySurfaceQuery({
     ordinaryCreateOwner,
+    editOwner: explicitPatchOwner,
     hostQueryState: hosts.state,
     identityQueryState: identities.state,
     onIncidentAccessLost,

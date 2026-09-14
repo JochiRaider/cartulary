@@ -7,6 +7,7 @@ const baseField: ViewFieldContract = {
   clearable: true,
   conflictResolutionClass: null,
   createWritable: true,
+  patchWritable: true,
   defaultHidden: false,
   directReferenceContractId: null,
   directScalarContractId: null,

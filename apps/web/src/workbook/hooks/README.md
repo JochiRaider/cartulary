@@ -1,5 +1,8 @@
 # workbook/hooks/
 
+`ordinaryInspectorRecovery.test.tsx` characterizes ordinary explicit patch response
+loss and acknowledgement independent of presentation refresh.
+
 [Parent](../README.md) · [Source overview](../../README.md)
 
 React coordination for shell lifetime, queries, startup, saved views, imports, and shared surface behavior.
@@ -49,3 +52,7 @@ Timeline-specific controllers live under
 | [useWorkbookSemanticGridFocus.ts](useWorkbookSemanticGridFocus.ts) | Resolves generation-keyed grid-entry requests through the mounted semantic grid handle. |
 | [useWorkbookShellInfrastructure.ts](useWorkbookShellInfrastructure.ts) | Incident-scoped adapters, registry-owned mutation runtime, command ports, and disposable reference broker. |
 | [useWorkbookShellRuntime.ts](useWorkbookShellRuntime.ts) | Startup, saved-view, query, and layout-state composition facade. |
+
+`useGenericSurfaceMutationController` submits existing-record edits through the
+retained explicit owner. The one-shot generic and Entity patch ports are retired;
+creation and specialized route commands keep their own admission boundaries.

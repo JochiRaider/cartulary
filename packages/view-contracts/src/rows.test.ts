@@ -14,6 +14,7 @@ const field = (fieldKey: string): ViewFieldContract =>
     clearable: true,
     conflictResolutionClass: null,
     createWritable: false,
+    patchWritable: true,
     defaultHidden: false,
     directReferenceContractId: null,
     directScalarContractId: null,
