@@ -751,7 +751,7 @@ describe("workbook collaboration coverage", () => {
           surfaceLabel: "Timeline",
           viewSchemaId: timelineViewSchemaId,
         }),
-      ).toEqual({ kind: "accepted" });
+      ).toMatchObject({ kind: "admitted" });
     }
     expect(
       runtime

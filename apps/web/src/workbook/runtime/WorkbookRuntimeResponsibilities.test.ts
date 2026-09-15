@@ -309,7 +309,7 @@ describe("Workbook runtime responsibilities", () => {
         surfaceLabel: "Surface 1",
         viewSchemaId: "surface-1",
       }),
-    ).toEqual({ kind: "accepted" });
+    ).toMatchObject({ kind: "admitted" });
     expect(runtime.pendingQueue().model.snapshot().units[0]?.enqueueOrder).toBe(
       4_242,
     );

@@ -85,11 +85,15 @@ export function useTimelineMutationRuntimeBindings({
           const binding = timelineScalarBindingForField(
             conflict.conflict.field_key,
           );
-          if (binding !== null && !conflict.batchOperationId) {
-            current.current.editorDraftRegistry.clearScalarDraftsForField(
+          const cleared =
+            binding !== null &&
+            !conflict.batchOperationId &&
+            current.current.editorDraftRegistry.clearCapturedScalarField(
               recordId,
               binding.key,
+              conflict.draftRevisions,
             );
+          if (cleared && binding !== null) {
             current.current.editorPort.cancelEdit({
               fieldKey: binding.fieldKey,
               recordId,
@@ -105,7 +109,7 @@ export function useTimelineMutationRuntimeBindings({
           } else {
             await current.current.loadRows({ showLoading: false });
           }
-          if (binding !== null && !conflict.batchOperationId) {
+          if (cleared && binding !== null) {
             window.setTimeout(() => {
               current.current.editorPort.focus({
                 fieldKey: binding.fieldKey,

@@ -1083,6 +1083,19 @@ function useSemanticDataGrid<Row>(
     semanticPresentationRef.current = ungroupedPresentation;
   }
   const previousPresentationRef = useRef(semanticPresentationRef.current);
+  const detachEditorPresentation = activeEditorSessionRef.current?.detach;
+  useLayoutEffect(() => {
+    const seed = pendingEditorSeedRef.current;
+    if (seed === null) return;
+    const key = gridAnchorKey(seed.anchor);
+    const position = semanticPresentationRef.current.positions.get(key);
+    if (editable && position !== undefined) return;
+    // Eligibility loss detaches presentation. Escape is the separate source
+    // discard action; returning to this target must require explicit activation.
+    activeEditorSessionRef.current = null;
+    clearEditorSeed();
+    detachEditorPresentation?.();
+  });
   const retainedAnchor =
     pendingEditorSeedRef.current?.anchor ?? activeCellAnchor;
   const retainedCell =

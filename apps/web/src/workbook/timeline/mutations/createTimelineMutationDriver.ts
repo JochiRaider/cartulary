@@ -22,10 +22,13 @@ import type {
   TimelineReplayContext,
   TimelineRowStoreCommands,
 } from "../models/timelineControllerPorts";
-import type {
-  FocusFieldKey,
-  RowValues,
-  TimelineScalarEditorSurface,
+import {
+  type FocusFieldKey,
+  inputFocusKey,
+  type RowValues,
+  type TimelineScalarEditorSurface,
+  timelineScalarBindingForField,
+  timelineScalarBindings,
 } from "../models/timelineFieldRegistry";
 import {
   planTimelineAcceptedProjection,
@@ -93,6 +96,11 @@ function currentTimelineReplayRow(
 }
 
 export type TimelineMutationDriverPorts = {
+  readonly acceptEditorPredecessor: (
+    row: WorkbookRow,
+    fields: readonly string[],
+    previousValues: RowValues,
+  ) => void;
   readonly applyAcceptedRowMutation: (
     rowKey: string,
     accepted: WorkbookPendingMutationAccepted,
@@ -108,7 +116,12 @@ export type TimelineMutationDriverPorts = {
     rowKey: string,
     submittedValues: RowValues,
     submittedCollections?: Partial<WorkbookRow["collectionDrafts"]>,
+    revisions?: ReadonlyMap<string, number>,
   ) => void;
+  readonly captureEditorDrafts: (
+    rowKey: string,
+    surface: TimelineScalarEditorSurface,
+  ) => ReadonlyMap<string, number>;
   readonly clearViewportContinuity: (token: number) => void;
   readonly conflictQueueRef: TimelineMutableRef<Record<string, unknown>>;
   readonly registerMutationConflict: (
@@ -121,6 +134,7 @@ export type TimelineMutationDriverPorts = {
     surface: TimelineScalarEditorSurface,
     refresh: () => Promise<WorkbookOperationOutcome<unknown>>,
     originSheetRef: SheetRef,
+    draftRevisions?: ReadonlyMap<string, number>,
   ) => boolean;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
   readonly loadRows: (options: {
@@ -162,7 +176,6 @@ export function createTimelineMutationDriver(
     conflictQueueRef,
     registerMutationConflict,
     latestCommittedTimelineRow,
-    loadRows,
     mutationCommands,
     mutationRuntime,
     pendingSavesRefs,
@@ -180,7 +193,14 @@ export function createTimelineMutationDriver(
   const { replaceRows } = rowStoreCommands;
   const contextByUnitId = pendingSavesRefs.replayContextByUnitId;
   const completionCallbacksRef = {
-    current: new Map<string, Array<(outcome: GridEditCommitOutcome) => void>>(),
+    current: new Map<
+      string,
+      Array<{
+        run: (outcome: GridEditCommitOutcome) => void;
+        values: Partial<RowValues>;
+        superseded: boolean;
+      }>
+    >(),
   };
   const settleCompletionCallbacks = (
     unitId: string,
@@ -188,7 +208,16 @@ export function createTimelineMutationDriver(
   ) => {
     const callbacks = completionCallbacksRef.current.get(unitId) ?? [];
     completionCallbacksRef.current.delete(unitId);
-    for (const callback of callbacks) callback(outcome);
+    for (const callback of callbacks)
+      callback.run(
+        outcome.kind === "accepted" && callback.superseded
+          ? {
+              kind: "superseded",
+              message:
+                "A newer admitted value replaced this edit before dispatch.",
+            }
+          : outcome,
+      );
   };
   const clearPendingSignatureForUnit = (unit: {
     readonly rowKey: string;
@@ -252,6 +281,7 @@ export function createTimelineMutationDriver(
       ...input
     } = unit;
     const meta: TimelineReplayContext = {
+      draftRevisions: ports.captureEditorDrafts(input.rowKey, surface),
       sheetRef: ports.sheetRef,
       focusField,
       focusKey,
@@ -271,7 +301,7 @@ export function createTimelineMutationDriver(
       if (onSettled !== undefined) {
         const callbacks =
           completionCallbacksRef.current.get(admission.unit.id) ?? [];
-        callbacks.push(onSettled);
+        callbacks.push({ run: onSettled, values: {}, superseded: false });
         completionCallbacksRef.current.set(admission.unit.id, callbacks);
       }
       clearViewportContinuity(unit.viewportContinuityToken);
@@ -289,10 +319,48 @@ export function createTimelineMutationDriver(
       return;
     }
 
+    const previous = contextByUnitId.get(admission.unit.id);
+    const callbacks =
+      completionCallbacksRef.current.get(admission.unit.id) ?? [];
+    if (admission.status === "coalesced" && previous) {
+      const values = { ...meta.rowSnapshot.values };
+      const baselines = { ...meta.rowSnapshot.committedValues };
+      for (const binding of timelineScalarBindings) {
+        const changed =
+          rowSnapshot.values[binding.key] !==
+          rowSnapshot.committedValues[binding.key];
+        if (!changed) {
+          values[binding.key] = previous.rowSnapshot.values[binding.key];
+          baselines[binding.key] =
+            previous.rowSnapshot.committedValues[binding.key];
+        } else {
+          for (const callback of callbacks)
+            if (
+              callback.values[binding.key] !== undefined &&
+              callback.values[binding.key] !== rowSnapshot.values[binding.key]
+            )
+              callback.superseded = true;
+        }
+      }
+      meta.rowSnapshot = {
+        ...meta.rowSnapshot,
+        values,
+        committedValues: baselines,
+      };
+      meta.draftRevisions = new Map([
+        ...(previous.draftRevisions ?? []),
+        ...(meta.draftRevisions ?? []),
+      ]);
+    }
     if (onSettled !== undefined) {
-      const callbacks =
-        completionCallbacksRef.current.get(admission.unit.id) ?? [];
-      callbacks.push(onSettled);
+      const values: Partial<RowValues> = {};
+      for (const binding of timelineScalarBindings)
+        if (
+          rowSnapshot.values[binding.key] !==
+          rowSnapshot.committedValues[binding.key]
+        )
+          values[binding.key] = rowSnapshot.values[binding.key];
+      callbacks.push({ run: onSettled, values, superseded: false });
       completionCallbacksRef.current.set(admission.unit.id, callbacks);
     }
 
@@ -498,6 +566,18 @@ export function createTimelineMutationDriver(
       meta.surface,
       () => refreshTimelineConflict(settlement.unit, conflict.base_row_version),
       meta.sheetRef,
+      new Map(
+        [...(meta.draftRevisions ?? [])].filter(([key]) => {
+          const binding = timelineScalarBindingForField(conflict.field_key);
+          return (
+            binding !== null &&
+            (key ===
+              inputFocusKey(settlement.unit.rowKey, binding.key, "grid") ||
+              key ===
+                inputFocusKey(settlement.unit.rowKey, binding.key, "inspector"))
+          );
+        }),
+      ),
     );
     if (!registered) {
       setRefreshError(failureMessage);
@@ -580,6 +660,38 @@ export function createTimelineMutationDriver(
       record_id: accepted.row.record_id,
       row_version: accepted.row.row_version,
     };
+    ports.acceptEditorPredecessor(
+      rowFromApi(accepted.row),
+      unit.identity.kind === "patch"
+        ? unit.identity.changes.map((change) => change.field_key)
+        : timelineScalarBindings.map((binding) => binding.fieldKey),
+      meta.rowSnapshot.committedValues,
+    );
+    if (unit.identity.kind === "patch") {
+      const committed = rowFromApi(accepted.row);
+      const fields = new Set(
+        unit.identity.changes.map((change) => change.field_key),
+      );
+      for (const [id, context] of contextByUnitId) {
+        if (
+          id === unit.id ||
+          context.rowSnapshot.recordId !== accepted.row.record_id
+        )
+          continue;
+        const values = { ...context.rowSnapshot.committedValues };
+        for (const binding of timelineScalarBindings)
+          if (
+            fields.has(binding.fieldKey) &&
+            values[binding.key] ===
+              meta.rowSnapshot.committedValues[binding.key]
+          )
+            values[binding.key] = committed.committedValues[binding.key];
+        contextByUnitId.set(id, {
+          ...context,
+          rowSnapshot: { ...context.rowSnapshot, committedValues: values },
+        });
+      }
+    }
     try {
       clearSubmittedScalarEditorDraftValuesForRow(
         unit.rowKey,
@@ -592,6 +704,7 @@ export function createTimelineMutationDriver(
                   meta.rowSnapshot.collectionDrafts[meta.focusField],
               }
             : undefined,
+        meta.draftRevisions,
       );
       const clearActiveCollectionFocusKey =
         meta.surface === "grid" && isCollectionDraftKey(meta.focusField)
@@ -620,13 +733,6 @@ export function createTimelineMutationDriver(
       setRefreshError(
         "The edit was accepted. Timeline presentation needs a refresh.",
       );
-    }
-    if (plan.refreshAfterApply) {
-      try {
-        await loadRows({ showLoading: false });
-      } catch {
-        setRefreshError("Timeline projection refresh failed.");
-      }
     }
     recordWorkbookTiming("pending_result_apply_end", {
       clientTxnId: unit.clientTxnId,
@@ -686,6 +792,10 @@ export function createTimelineMutationDriver(
     }
     publishPendingQueueState();
     requestPendingReplay("unit_completed");
+    if (plan.refreshAfterApply) {
+      mutationRuntime.retainSurfaceRefreshDebt("cartulary.view.timeline.v2");
+      void mutationRuntime.refreshSurface("cartulary.view.timeline.v2");
+    }
   };
 
   const dispatchTimelineUnit = async (
@@ -694,8 +804,29 @@ export function createTimelineMutationDriver(
     meta: TimelineReplayContext,
     committedRowVersion: number | null,
     currentRowVersion: number | null | undefined,
+    currentRow: WorkbookRow | null,
   ) => {
-    const dispatch = pending.model.markDispatched(unit.id);
+    const dispatch = pending.model.markDispatched(unit.id, (candidate) => {
+      const changes =
+        candidate.identity.kind === "patch" ? candidate.identity.changes : [];
+      const fields = new Set(changes.map((change) => change.field_key));
+      const stale =
+        currentRow &&
+        timelineScalarBindings.some(
+          (binding) =>
+            fields.has(binding.fieldKey) &&
+            meta.rowSnapshot.committedValues[binding.key] !==
+              currentRow.committedValues[binding.key],
+        );
+      if (stale) {
+        const message =
+          "Review the changed saved value before submitting this retained draft. Discard the queued attempt to edit it locally.";
+        pending.model.haltBeforeDispatch(unit.id, message);
+        settleCompletionCallbacks(unit.id, { kind: "stale_target", message });
+        return null;
+      }
+      return committedRowVersion;
+    });
     if (dispatch === null) {
       publishPendingQueueState();
       return;
@@ -712,7 +843,10 @@ export function createTimelineMutationDriver(
           rowKey: dispatch.unit.rowKey,
         });
         result = await mutationRuntime.dispatchPendingMutation({
-          committedRowVersion,
+          committedRowVersion:
+            dispatch.identity.kind === "patch"
+              ? dispatch.identity.base_row_version
+              : null,
           unit: dispatch.unit,
         });
       } catch {
@@ -777,10 +911,11 @@ export function createTimelineMutationDriver(
     const unit = pending.model.peekNextQueued()?.unit ?? null;
     const meta = unit === null ? undefined : contextByUnitId.get(unit.id);
     const epoch = mutationRuntime.authorizationEpoch;
+    const captured = unit !== null && pending.model.wasDispatched(unit.id);
     let currentRow: ReturnType<typeof currentTimelineReplayRow> | null;
     try {
       currentRow =
-        unit && ports.readCurrentRow
+        !captured && unit && ports.readCurrentRow
           ? await ports.readCurrentRow(unit)
           : currentTimelineReplayRow(
               unit,
@@ -805,7 +940,10 @@ export function createTimelineMutationDriver(
     const snapshot = pending.model.snapshot();
     const plan = planTimelineReplayAdmission({
       candidate: unit,
-      currentRowVersion: currentRow?.rowVersion,
+      currentRowVersion:
+        captured && unit?.identity.kind === "patch"
+          ? unit.identity.base_row_version
+          : currentRow?.rowVersion,
       envelopeViewSchemaId: envelope.viewSchemaId,
       expectedUnitId: expectedUnit.id,
       hasLocalConflict: Object.keys(conflictQueueRef.current).length > 0,
@@ -825,6 +963,7 @@ export function createTimelineMutationDriver(
       meta,
       plan.committedRowVersion,
       currentRow?.rowVersion,
+      currentRow ?? null,
     );
   };
 

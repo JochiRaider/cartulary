@@ -279,6 +279,8 @@ export function useTimelineMutationComposition({
     applyAcceptedRowMutation: rowMutations.commands.applyAcceptedRowMutation,
     clearSubmittedScalarEditorDraftValuesForRow:
       foundation.editorDraftRegistry.clearSubmittedRow,
+    acceptEditorPredecessor: foundation.editorDraftRegistry.acceptPredecessor,
+    captureEditorDrafts: foundation.editorDraftRegistry.captureRow,
     clearViewportContinuity: grid.clearViewportContinuity,
     conflictQueueRef: rowMutations.refs.conflictQueueRef,
     registerMutationConflict: (
@@ -288,6 +290,7 @@ export function useTimelineMutationComposition({
       surface,
       refresh,
       originSheetRef,
+      draftRevisions,
     ) => {
       rowMutations.commands.registerSameFieldConflict(
         conflict,
@@ -295,6 +298,7 @@ export function useTimelineMutationComposition({
         surface,
         refresh,
         originSheetRef,
+        draftRevisions,
       );
       return true;
     },

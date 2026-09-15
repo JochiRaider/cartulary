@@ -1,8 +1,15 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
+import type {
+  WorkbookGridDraftCapture,
+  WorkbookGridDraftStore,
+} from "../models/WorkbookGridDraftStore";
+import { workbookSavedFieldEqual } from "../models/workbookSavedValues";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import type { WorkbookAcceptedRecordPort } from "../query/WorkbookCommittedRecordPort";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type {
   PendingReplayScope,
   PendingReplayUnitState,
@@ -36,7 +43,26 @@ type WorkbookManagedPatchRequestContext = {
 
 type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 
+export type WorkbookPatchAdmission =
+  | {
+      readonly kind: "admitted";
+      readonly unitId: string;
+      readonly completion: Promise<GridEditCommitOutcome>;
+    }
+  | Exclude<GridEditCommitOutcome, { readonly kind: "accepted" }>;
+
+type PatchContributor = {
+  readonly fieldKey: string;
+  readonly overlayRevision: number;
+  readonly draft: WorkbookGridDraftCapture | null;
+  baseline: WorkbookQueryRow | null;
+  readonly dependencies: readonly string[];
+  readonly settle: (outcome: GridEditCommitOutcome) => void;
+};
+
 export type WorkbookQueuedPatchRequest = {
+  readonly baseline?: WorkbookQueryRow;
+  readonly dependencies?: readonly string[];
   readonly baseRowVersion: number;
   readonly changes: readonly RecordPatchChange[];
   readonly fieldKey: string;
@@ -53,12 +79,15 @@ type WorkbookManagedPatchDriverOptions = {
   readonly clock: WorkbookClockPort;
   readonly beginMutationReport: () => () => void;
   readonly conflicts: WorkbookConflictStore;
+  readonly drafts: WorkbookGridDraftStore;
+  readonly records: WorkbookAcceptedRecordPort;
   readonly drivers: WorkbookMutationDriverRegistry;
   readonly emit: () => void;
   readonly executeMutation: WorkbookPendingMutationPort["execute"];
   readonly ledger: WorkbookClientTransactionLedger;
   readonly pendingRuntime: WorkbookPendingQueueRuntime;
   readonly requestDrain: () => void;
+  readonly recoverAuthorization: () => void;
   readonly retryScheduler: WorkbookRetryScheduler;
   readonly scope: PendingReplayScope;
   readonly surfaces: WorkbookSurfaceRegistry;
@@ -74,7 +103,17 @@ class WorkbookManagedPatchDriverState
     string,
     WorkbookManagedPatchRequestContext
   >();
-  readonly #visibleEdits = new Map<string, unknown>();
+  readonly #visibleEdits = new Map<
+    string,
+    { value: unknown; revision: number }
+  >();
+  readonly #contributors = new Map<string, PatchContributor[]>();
+  readonly #predecessorVersions = new Map<string, number>();
+  readonly #conflictContributors = new Map<
+    string,
+    { unit: PendingReplayUnitState; contributors: PatchContributor[] }
+  >();
+  #revision = 0;
   #disposed = false;
   readonly #options: WorkbookManagedPatchDriverOptions;
 
@@ -89,16 +128,25 @@ class WorkbookManagedPatchDriverState
   ): unknown | undefined {
     return this.#visibleEdits.get(
       this.#visibleEditKey(viewSchemaId, recordId, fieldKey),
-    );
+    )?.value;
   }
 
   dispose(): void {
     this.#disposed = true;
+    for (const contributors of this.#contributors.values())
+      for (const contributor of contributors)
+        contributor.settle({
+          kind: "rejected_mutation",
+          message: "This workbook session has ended.",
+        });
+    this.#contributors.clear();
+    this.#conflictContributors.clear();
+    this.#predecessorVersions.clear();
     this.#requestContextByUnitId.clear();
     this.#visibleEdits.clear();
   }
 
-  enqueue(request: WorkbookQueuedPatchRequest): GridEditCommitOutcome {
+  enqueue(request: WorkbookQueuedPatchRequest): WorkbookPatchAdmission {
     if (this.#disposed)
       return {
         kind: "rejected_mutation",
@@ -142,7 +190,7 @@ class WorkbookManagedPatchDriverState
         value: request.localValue,
       },
     });
-    if (!admission.accepted) {
+    if (!admission.accepted && admission.status !== "duplicate") {
       if (
         admission.status === "refused" &&
         admission.preserveVisibleEditAsUnsaved
@@ -153,13 +201,31 @@ class WorkbookManagedPatchDriverState
       return {
         kind: "rejected_mutation",
         message:
-          admission.status === "duplicate"
-            ? "This edit is already queued."
-            : (admission.overflowMessage ??
-              "This edit could not be added to the local pending queue."),
+          admission.overflowMessage ??
+          "This edit could not be added to the local pending queue.",
       };
     }
-    this.#setVisibleEdit(request);
+    const overlayRevision = this.#setVisibleEdit(request);
+    const identity = {
+      viewSchemaId: request.viewSchemaId,
+      recordId: request.recordId,
+      fieldKey: request.fieldKey,
+    };
+    const retained = this.#options.drafts.read(identity);
+    const completion = new Promise<GridEditCommitOutcome>((settle) => {
+      const contributors = this.#contributors.get(admission.unit.id) ?? [];
+      contributors.push({
+        fieldKey: request.fieldKey,
+        overlayRevision,
+        draft: this.#options.drafts.capture(identity),
+        baseline: structuredClone(
+          retained?.baseline ?? request.baseline ?? null,
+        ),
+        dependencies: request.dependencies ?? [],
+        settle,
+      });
+      this.#contributors.set(admission.unit.id, contributors);
+    });
     this.#options.drivers.claim(admission.unit.id, {
       kind: "managed_patch",
       viewSchemaId: request.viewSchemaId,
@@ -175,7 +241,7 @@ class WorkbookManagedPatchDriverState
     });
     this.#options.emit();
     this.#options.requestDrain();
-    return { kind: "accepted" };
+    return { kind: "admitted", unitId: admission.unit.id, completion };
   }
 
   discard(
@@ -185,17 +251,22 @@ class WorkbookManagedPatchDriverState
     this.#requestContextByUnitId.delete(unit.id);
     this.#options.drivers.release(unit.id);
     this.#clearVisibleEditsForUnit(unit, meta?.viewSchemaId);
+    this.#settleContributors(unit.id, {
+      kind: "rejected_mutation",
+      message:
+        "The queued edit was discarded. Its raw draft remains available.",
+    });
+    this.#contributors.delete(unit.id);
     return meta;
   }
 
   clearVisibleConflict(conflict: WorkbookConflictEntry): void {
-    this.#visibleEdits.delete(
-      this.#visibleEditKey(
-        conflict.origin.viewSchemaId,
-        conflict.conflict.record_id,
-        conflict.conflict.field_key,
-      ),
-    );
+    const captured = this.#conflictContributors.get(conflict.key);
+    if (!captured) return;
+    this.#clearContributorEdits(captured.unit, captured.contributors);
+    for (const contributor of captured.contributors)
+      this.#options.drafts.acknowledge(contributor.draft);
+    this.#conflictContributors.delete(conflict.key);
   }
 
   async drain(
@@ -218,6 +289,7 @@ class WorkbookManagedPatchDriverState
     if (meta === undefined) return;
     const dispatch = this.#options.pendingRuntime.model.markDispatched(
       next.unit.id,
+      (unit) => this.#prepareBase(unit),
     );
     if (dispatch === null) return;
     this.#options.emit();
@@ -235,12 +307,44 @@ class WorkbookManagedPatchDriverState
       this.#requestContextByUnitId.delete(settlement.unit.id);
       this.#options.drivers.release(settlement.unit.id);
       this.#clearVisibleEditsForUnit(settlement.unit, meta.viewSchemaId);
-      const finishReport = this.#options.beginMutationReport();
-      try {
-        await this.#options.surfaces.refresh(meta.viewSchemaId);
-      } finally {
-        finishReport();
+      const fields =
+        result.value.row.record_id === settlement.unit.recordId &&
+        settlement.unit.identity.kind === "patch"
+          ? settlement.unit.identity.changes.map((change) => change.field_key)
+          : [];
+      this.#options.drafts.acceptPredecessor(
+        meta.viewSchemaId,
+        result.value.row,
+        fields,
+      );
+      this.#predecessorVersions.set(
+        result.value.row.record_id,
+        result.value.row.row_version,
+      );
+      for (const [id, contributors] of this.#contributors) {
+        if (id === settlement.unit.id) continue;
+        for (const contributor of contributors) {
+          if (
+            contributor.baseline?.record_id !== result.value.row.record_id ||
+            contributor.baseline.row_version > result.value.row.row_version
+          )
+            continue;
+          const cells = { ...contributor.baseline.cells };
+          for (const field of fields)
+            if (result.value.row.cells[field])
+              cells[field] = structuredClone(result.value.row.cells[field]);
+          contributor.baseline = { ...contributor.baseline, cells };
+        }
       }
+      const contributors = this.#contributors.get(settlement.unit.id) ?? [];
+      for (const contributor of contributors)
+        this.#options.drafts.acknowledge(contributor.draft);
+      this.#settleContributors(settlement.unit.id, { kind: "accepted" });
+      this.#contributors.delete(settlement.unit.id);
+      const finishReport = this.#options.beginMutationReport();
+      void this.#options.surfaces
+        .refresh(meta.viewSchemaId)
+        .finally(finishReport);
     }
     this.#options.emit();
     this.#options.requestDrain();
@@ -258,15 +362,78 @@ class WorkbookManagedPatchDriverState
     }
   }
 
-  #setVisibleEdit(request: WorkbookQueuedPatchRequest): void {
+  #setVisibleEdit(request: WorkbookQueuedPatchRequest): number {
+    const revision = ++this.#revision;
     this.#visibleEdits.set(
       this.#visibleEditKey(
         request.viewSchemaId,
         request.recordId,
         request.fieldKey,
       ),
-      request.localValue,
+      { value: request.localValue, revision },
     );
+    return revision;
+  }
+
+  #prepareBase(unit: PendingReplayUnitState): number | null {
+    if (unit.identity.kind !== "patch") return null;
+    const originalBase = unit.identity.base_row_version;
+    if (originalBase === null) return null;
+    const contributors = this.#contributors.get(unit.id) ?? [];
+    const current = this.#options.records.latestRow(
+      unit.recordId ?? unit.rowKey,
+    );
+    const floor =
+      this.#options.records.latestVersion(unit.recordId ?? unit.rowKey) ??
+      this.#predecessorVersions.get(unit.recordId ?? unit.rowKey) ??
+      originalBase;
+    const latest = [
+      ...new Map(contributors.map((item) => [item.fieldKey, item])).values(),
+    ];
+    const stale =
+      (current && current.row_version < floor) ||
+      latest.some((item) =>
+        item.baseline && current
+          ? [item.fieldKey, ...item.dependencies].some(
+              (field) =>
+                !workbookSavedFieldEqual(
+                  item.baseline ?? current,
+                  current,
+                  field,
+                ),
+            )
+          : floor !== originalBase &&
+            this.#predecessorVersions.get(unit.recordId ?? unit.rowKey) !==
+              floor,
+      );
+    if (stale) {
+      const message =
+        "Review the changed saved value before submitting this retained draft. Discard the queued attempt to edit it locally.";
+      this.#options.pendingRuntime.model.haltBeforeDispatch(unit.id, message);
+      this.#settleContributors(unit.id, { kind: "stale_target", message });
+      this.#options.emit();
+      return null;
+    }
+    return Math.max(floor, originalBase);
+  }
+
+  #settleContributors(unitId: string, outcome: GridEditCommitOutcome) {
+    const contributors = this.#contributors.get(unitId) ?? [];
+    const latest = new Map(contributors.map((item) => [item.fieldKey, item]));
+    for (const contributor of contributors) {
+      if (outcome.kind !== "accepted")
+        this.#options.drafts.setValidation(contributor.draft, outcome.message);
+      contributor.settle(
+        outcome.kind === "accepted" &&
+          latest.get(contributor.fieldKey) !== contributor
+          ? {
+              kind: "superseded",
+              message:
+                "A newer admitted value replaced this edit before dispatch.",
+            }
+          : outcome,
+      );
+    }
   }
 
   async #execute(
@@ -311,6 +478,10 @@ class WorkbookManagedPatchDriverState
       error: publicFailure.error,
     });
     if (settlement.outcome === "same_field_conflict") {
+      this.#settleContributors(settlement.unit.id, {
+        kind: "conflict",
+        message: "Review this edit in the conflict queue.",
+      });
       if (result.failure.kind === "same_field_conflict") {
         this.#registerSettledConflict(
           result.failure.conflict,
@@ -320,14 +491,26 @@ class WorkbookManagedPatchDriverState
       }
       this.#requestContextByUnitId.delete(settlement.unit.id);
       this.#options.drivers.release(settlement.unit.id);
+      this.#contributors.delete(settlement.unit.id);
     } else if (settlement.outcome === "retryable_failure") {
       this.#options.retryScheduler.schedule(750, this.#options.requestDrain);
+    } else if (
+      settlement.outcome === "halted" ||
+      settlement.outcome === "auth_paused"
+    ) {
+      this.#settleContributors(settlement.unit.id, {
+        kind: "rejected_mutation",
+        message: result.failure.message,
+      });
     }
     this.#options.emit();
+    if (settlement.outcome === "auth_paused")
+      this.#options.recoverAuthorization();
     if (
       settlement.outcome !== "auth_paused" &&
       settlement.outcome !== "halted" &&
-      settlement.outcome !== "same_field_conflict"
+      settlement.outcome !== "same_field_conflict" &&
+      settlement.outcome !== "retryable_failure"
     ) {
       this.#options.requestDrain();
     }
@@ -345,6 +528,10 @@ class WorkbookManagedPatchDriverState
       surfaceLabel: meta.surfaceLabel,
       sheetRef: meta.sheetRef,
       viewSchemaId: meta.viewSchemaId,
+    });
+    this.#conflictContributors.set(entry.key, {
+      unit: conflictUnit,
+      contributors: this.#contributors.get(conflictUnit.id) ?? [],
     });
     this.#options.conflicts.setRefresh(entry.key, async () => {
       let clientTxnId: string;
@@ -399,24 +586,26 @@ class WorkbookManagedPatchDriverState
     unit: PendingReplayUnitState,
     viewSchemaId = unit.viewSchemaId,
   ): void {
-    const changes = Array.isArray(unit.payloadIntent.changes)
-      ? unit.payloadIntent.changes
-      : [];
-    for (const change of changes) {
-      if (
-        change !== null &&
-        typeof change === "object" &&
-        "field_key" in change &&
-        typeof change.field_key === "string"
-      ) {
-        this.#visibleEdits.delete(
-          this.#visibleEditKey(
-            viewSchemaId,
-            unit.recordId ?? unit.rowKey,
-            change.field_key,
-          ),
-        );
-      }
+    this.#clearContributorEdits(
+      unit,
+      this.#contributors.get(unit.id) ?? [],
+      viewSchemaId,
+    );
+  }
+
+  #clearContributorEdits(
+    unit: PendingReplayUnitState,
+    contributors: readonly PatchContributor[],
+    viewSchemaId = unit.viewSchemaId,
+  ) {
+    for (const contributor of contributors) {
+      const key = this.#visibleEditKey(
+        viewSchemaId,
+        unit.recordId ?? unit.rowKey,
+        contributor.fieldKey,
+      );
+      if (this.#visibleEdits.get(key)?.revision === contributor.overlayRevision)
+        this.#visibleEdits.delete(key);
     }
   }
 }

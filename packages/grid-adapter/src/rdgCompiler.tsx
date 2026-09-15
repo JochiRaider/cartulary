@@ -87,6 +87,7 @@ type CompileGridColumnsInput<Row> = {
   ) => (element: GridEditorFocusTarget | null) => void;
   readonly registerEditorSession: (
     session: {
+      readonly detach: () => void;
       readonly cancel: (shouldFocusCell?: boolean) => void;
       readonly focus: () => void;
       readonly requestCommit: () => Promise<boolean>;
@@ -360,6 +361,8 @@ export function compileGridColumns<Row>({
                   editorSeed={editorSeed}
                   retainEditorDraft={retainEditorDraft}
                   fieldLabel={column.label}
+                  isCurrent={() => readEditorSeed(target, true) !== null}
+                  onDetach={() => onClose(false, false)}
                   registerEditorSession={registerEditorSession}
                   registerSemanticCell={registerSemanticCell}
                   row={row.data}
@@ -481,11 +484,13 @@ function SemanticGridEditor<Row>({
   baseState,
   editorSeed,
   fieldLabel,
+  isCurrent,
   registerEditorSession,
   registerSemanticCell,
   row,
   target,
   onClose,
+  onDetach,
   onKeyboardAction,
 }: {
   readonly retainEditorDraft: CompileGridColumnsInput<Row>["retainEditorDraft"];
@@ -497,8 +502,11 @@ function SemanticGridEditor<Row>({
     readonly value: unknown;
   } | null;
   readonly fieldLabel: string;
+  readonly isCurrent: () => boolean;
+  readonly onDetach: () => void;
   readonly registerEditorSession: (
     session: {
+      readonly detach: () => void;
       readonly cancel: (shouldFocusCell?: boolean) => void;
       readonly focus: () => void;
       readonly requestCommit: () => Promise<boolean>;
@@ -540,6 +548,13 @@ function SemanticGridEditor<Row>({
   );
   const [outcome, setOutcome] = useState<GridEditCommitOutcome | null>(null);
   const cancelledRef = useRef(false);
+  const attachedRef = useRef(false);
+  useLayoutEffect(() => {
+    attachedRef.current = true;
+    return () => {
+      attachedRef.current = false;
+    };
+  }, []);
   const navigationSequenceRef = useRef(0);
   const cancel = useCallback(
     (shouldFocusCell = true) => {
@@ -558,6 +573,7 @@ function SemanticGridEditor<Row>({
       )
         draftRevisionRef.current += 1;
       latestDraftRef.current = value;
+      adapter.retainDraft?.(row, value, target);
       const element = focusTargetRef.current;
       retainEditorDraft(
         target,
@@ -572,7 +588,7 @@ function SemanticGridEditor<Row>({
       );
       setDraftValue(value);
     },
-    [retainEditorDraft, target],
+    [adapter, row, retainEditorDraft, target],
   );
   const [pending, setPending] = useState(false);
   const commitPromisesRef = useRef(
@@ -592,12 +608,18 @@ function SemanticGridEditor<Row>({
     if (element === null) return;
     element.focus({ preventScroll: true });
   }, []);
+  const initialAttachment = useRef({ adapter, row, target, seed: editorSeed });
+  useLayoutEffect(() => {
+    const { adapter, row, target, seed } = initialAttachment.current;
+    if (seed?.hasValue) adapter.retainDraft?.(row, seed.value, target);
+  }, []);
   useLayoutEffect(() => {
     const element = focusTargetRef.current;
     if (element === null) return;
     element.focus({ preventScroll: true });
     if (
-      element instanceof HTMLInputElement ||
+      (element instanceof HTMLInputElement &&
+        element.selectionStart !== null) ||
       element instanceof HTMLTextAreaElement
     ) {
       if (activation.selectionRange !== undefined) {
@@ -634,10 +656,18 @@ function SemanticGridEditor<Row>({
       draftValueOverride?: unknown,
       shouldFocusCell = true,
     ): Promise<GridEditCommitOutcome> => {
+      if (!attachedRef.current || !isCurrent())
+        return Promise.resolve({
+          kind: "stale_target",
+          message: "The editor is detached. Your draft is retained.",
+        });
       const requestedDraft =
-        draftValueOverride === undefined ? draftValue : draftValueOverride;
+        draftValueOverride === undefined
+          ? latestDraftRef.current
+          : draftValueOverride;
       const draftRevision = draftRevisionRef.current;
-      const draftKey = gridEditorDraftKey(requestedDraft);
+      const navigationSequence = navigationSequenceRef.current;
+      const draftKey = `${draftRevision}:${gridEditorDraftKey(requestedDraft)}`;
       const duplicate = commitPromisesRef.current.get(draftKey);
       if (duplicate !== undefined) return duplicate;
       const sequence = latestCommitSequenceRef.current + 1;
@@ -660,9 +690,11 @@ function SemanticGridEditor<Row>({
           };
         }
         commitPromisesRef.current.delete(draftKey);
+        if (!attachedRef.current) return next;
         setPending(commitPromisesRef.current.size > 0);
         const isLatest = latestCommitSequenceRef.current === sequence;
-        if (isLatest) setOutcome(next);
+        if (isLatest && draftRevisionRef.current === draftRevision)
+          setOutcome(next);
         if (
           next.kind === "accepted" &&
           !cancelledRef.current &&
@@ -670,7 +702,14 @@ function SemanticGridEditor<Row>({
           draftRevisionRef.current === draftRevision &&
           commitPromisesRef.current.size === 0
         ) {
-          if (onClose(true, shouldFocusCell, requestedDraft))
+          if (
+            onClose(
+              true,
+              shouldFocusCell &&
+                navigationSequence === navigationSequenceRef.current,
+              requestedDraft,
+            )
+          )
             closedCommitSequenceRef.current = sequence;
         }
         return next;
@@ -678,13 +717,19 @@ function SemanticGridEditor<Row>({
       commitPromisesRef.current.set(draftKey, request);
       return request;
     },
-    [adapter, draftValue, onClose, row, target],
+    [adapter, isCurrent, onClose, row, target],
   );
   useLayoutEffect(() => {
     registerEditorSession({
+      detach: () => {
+        attachedRef.current = false;
+        navigationSequenceRef.current += 1;
+        onDetach();
+      },
       cancel,
       focus: focusEditor,
       requestCommit: async () => {
+        navigationSequenceRef.current += 1;
         const revision = draftRevisionRef.current;
         const result = await commitDraft(undefined, false);
         return (
@@ -697,7 +742,14 @@ function SemanticGridEditor<Row>({
       target,
     });
     return () => registerEditorSession(null);
-  }, [cancel, commitDraft, focusEditor, registerEditorSession, target]);
+  }, [
+    cancel,
+    commitDraft,
+    focusEditor,
+    onDetach,
+    registerEditorSession,
+    target,
+  ]);
   const commit = async (draftValueOverride?: unknown) => {
     await commitDraft(draftValueOverride);
   };
@@ -733,13 +785,30 @@ function SemanticGridEditor<Row>({
           element instanceof HTMLInputElement ||
           element instanceof HTMLTextAreaElement
         )
-          retainEditorDraft(target, element.value, {
+          retainEditorDraft(target, latestDraftRef.current, {
             start: element.selectionStart ?? 0,
             end: element.selectionEnd ?? 0,
           });
       }}
       onKeyDownCapture={(event) => {
         if (event.nativeEvent.isComposing) return;
+        if (event.altKey && event.key === "ArrowDown") {
+          const action = event.currentTarget.querySelector<HTMLButtonElement>(
+            "[data-grid-editor-toolbar] button",
+          );
+          if (action) {
+            event.preventDefault();
+            event.stopPropagation();
+            action.focus();
+            return;
+          }
+        }
+        if (
+          event.key !== "Escape" &&
+          event.target instanceof Element &&
+          event.target.closest("[data-grid-editor-toolbar]")
+        )
+          return;
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
@@ -749,29 +818,23 @@ function SemanticGridEditor<Row>({
         if (event.key === "Tab") {
           event.preventDefault();
           event.stopPropagation();
-          void handleKeyboardAction(
-            {
-              backwards: event.shiftKey,
-              kind: "exit",
-            },
-            editorControlValue(event.target),
-          );
+          void handleKeyboardAction({
+            backwards: event.shiftKey,
+            kind: "exit",
+          });
           return;
         }
         if (event.key === "Enter") {
           event.preventDefault();
           event.stopPropagation();
-          void handleKeyboardAction(
-            {
-              kind: "move",
-              rowDelta: event.shiftKey ? -1 : 1,
-            },
-            editorControlValue(event.target),
-          );
+          void handleKeyboardAction({
+            kind: "move",
+            rowDelta: event.shiftKey ? -1 : 1,
+          });
         }
       }}
       onBlurCapture={(event) => {
-        if (cancelledRef.current) return;
+        if (cancelledRef.current || !isCurrent()) return;
         if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
           return;
         }
@@ -781,10 +844,20 @@ function SemanticGridEditor<Row>({
             '[data-grid-editor-external-action="true"]',
           ) !== null
         ) {
+          navigationSequenceRef.current += 1;
           return;
         }
+        const revision = draftRevisionRef.current;
+        const navigation = ++navigationSequenceRef.current;
         void commitDraft(undefined, false).then((next) => {
-          if (next.kind !== "accepted") focusEditor();
+          if (
+            next.kind !== "accepted" &&
+            attachedRef.current &&
+            !cancelledRef.current &&
+            revision === draftRevisionRef.current &&
+            navigation === navigationSequenceRef.current
+          )
+            focusEditor();
         });
       }}
     >
@@ -921,19 +994,6 @@ function isInteractiveEditorTarget(target: EventTarget): boolean {
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement
   );
-}
-
-function editorControlValue(target: EventTarget): unknown {
-  if (target instanceof HTMLInputElement) {
-    return target.type === "checkbox" ? target.checked : target.value;
-  }
-  if (
-    target instanceof HTMLSelectElement ||
-    target instanceof HTMLTextAreaElement
-  ) {
-    return target.value;
-  }
-  return undefined;
 }
 
 function markSemanticDataCell(

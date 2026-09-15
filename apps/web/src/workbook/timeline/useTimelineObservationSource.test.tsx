@@ -85,6 +85,22 @@ it("Observation source preparation preserves raw committed strings and rejects s
   );
   act(() => drafts.clearAll());
   expect(renderedReady).toBe(true);
+  act(() =>
+    drafts.setDraft(
+      { rowKey: row.key, field: "rawActivityText", surface: "grid" },
+      "independent grid text",
+    ),
+  );
+  expect(renderedReady).toBe(false);
+  expect(
+    await result.current.prepare(
+      observationSource,
+      new AbortController().signal,
+    ),
+  ).toBe(false);
+  expect(waitForIdle).toHaveBeenCalledTimes(1);
+  act(() => drafts.clearAll());
+  expect(renderedReady).toBe(true);
   const pending = deferred<TimelineCommittedRecordIdleResult>();
   waitForIdle.mockReturnValue(pending.promise);
   const run = result.current.prepare(

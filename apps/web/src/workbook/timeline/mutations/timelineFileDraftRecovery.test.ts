@@ -73,6 +73,8 @@ function fixture() {
       return row;
     },
     clearSubmittedScalarEditorDraftValuesForRow: vi.fn(),
+    captureEditorDrafts: () => new Map(),
+    acceptEditorPredecessor: () => {},
     clearViewportContinuity: vi.fn(),
     conflictQueueRef: { current: {} },
     registerMutationConflict: () => true,

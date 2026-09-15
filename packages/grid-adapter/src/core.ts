@@ -309,6 +309,7 @@ export type GridEditCommitIntent<Row> = {
 
 export type GridEditCommitOutcome =
   | { readonly kind: "accepted" }
+  | { readonly kind: "superseded"; readonly message: string }
   | { readonly kind: "validation_error"; readonly message: string }
   | { readonly kind: "conflict"; readonly message: string }
   | { readonly kind: "stale_target"; readonly message: string }
@@ -347,6 +348,10 @@ export type GridEditorRenderContext<Row> = {
 };
 
 export type GridEditorAdapter<Row> = {
+  /** The source owner retains raw authoring; the adapter owns mounted editor mechanics. */
+  readonly retainDraft?:
+    | ((row: Row, value: unknown, target: GridCellTarget) => void)
+    | undefined;
   readonly discardDraft?: ((row: Row) => void) | undefined;
   /** Draft value used by Backspace/Delete entry when this field permits clear. */
   readonly clearDraftValue?: unknown;

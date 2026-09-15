@@ -66,6 +66,57 @@ function expectAccepted(
   return result.unit;
 }
 
+it("prepares only first dispatch and never prepares an uncertain replay", () => {
+  const queue = createQueue();
+  const unit = expectAccepted(
+    queue.admit(
+      patchUnit({
+        clientTxnId: "captured",
+        recordId: "row",
+        order: 1,
+        value: "A",
+      }),
+    ),
+  );
+  let preparations = 0;
+  const prepare = () => ++preparations + 6;
+  const first = queue.markDispatched(unit.id, prepare);
+  expect(first?.identity).toMatchObject({ base_row_version: 7 });
+  expect(first?.unit.mutationSignature).toBe(unit.mutationSignature);
+  expect(
+    queue.admit(
+      patchUnit({
+        clientTxnId: "duplicate",
+        recordId: "row",
+        order: 2,
+        value: "A",
+      }),
+    ).status,
+  ).toBe("duplicate");
+  queue.settleDispatched({
+    ok: false,
+    status: 0,
+    error: { code: "transport_failure", message: "Uncertain", retryable: true },
+  });
+  expect(queue.markDispatched(unit.id, prepare)?.identity).toEqual(
+    first?.identity,
+  );
+  expect(preparations).toBe(1);
+  queue.settleDispatched({
+    ok: false,
+    status: 409,
+    error: { code: "client_txn_conflict", message: "Definitive rejection" },
+  });
+  expect(queue.retryHaltedWithNewClientTxnId(unit.id, "fresh").recovered).toBe(
+    true,
+  );
+  expect(queue.markDispatched(unit.id, prepare)?.identity).toMatchObject({
+    base_row_version: 8,
+    client_txn_id: "fresh",
+  });
+  expect(preparations).toBe(2);
+});
+
 function createUnit(options: {
   readonly clientTxnId: string;
   readonly rowKey: string;

@@ -124,7 +124,7 @@ describe("WorkbookMutationRuntime", () => {
       surfaceLabel: "Tasks",
       viewSchemaId: timelineViewSchemaId,
     };
-    expect(runtime.enqueuePatch(edit)).toEqual({ kind: "accepted" });
+    expect(runtime.enqueuePatch(edit).kind).toBe("admitted");
     expect(runtime.pendingQueue().model.snapshot().units).toHaveLength(1);
     expect(runtime.getSnapshot().authPaused).toBe(true);
     expect(registry.acquire(scope, create)).toBe(runtime);
@@ -234,7 +234,7 @@ describe("WorkbookMutationRuntime", () => {
         surfaceLabel: "Tasks",
         viewSchemaId: timelineViewSchemaId,
       }),
-    ).toEqual({ kind: "accepted" });
+    ).toMatchObject({ kind: "admitted" });
     expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
     expect(
       runtime.visibleEdit(

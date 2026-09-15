@@ -74,7 +74,7 @@ export function createTimelineEditorDraftRegistry(
 
   const clearRow = (rowKey: string) => {
     for (const focusKey of focusKeysByRow.get(rowKey) ?? []) {
-      draftValues.delete(focusKey);
+      store.remove(focusKey);
       inputElements.delete(focusKey);
     }
     focusKeysByRow.delete(rowKey);
@@ -84,6 +84,33 @@ export function createTimelineEditorDraftRegistry(
   const draftValueForFocusKey = (focusKey: string) => draftValues.get(focusKey);
 
   return {
+    subscribe: store.subscribe,
+    getSnapshot: store.getSnapshot,
+    retainedGridDrafts() {
+      return [...focusKeysByRow.keys()]
+        .filter((key) => !key.startsWith("draft-"))
+        .flatMap((rowKey) =>
+          timelineScalarBindings.flatMap((binding) => {
+            const key = inputFocusKey(rowKey, binding.key, "grid"),
+              value = draftValues.get(key);
+            return value === undefined
+              ? []
+              : [
+                  {
+                    key,
+                    rowKey,
+                    fieldKey: binding.fieldKey,
+                    value,
+                    discard: () => {
+                      store.remove(key);
+                      forgetFocusKeyIfUnused(rowKey, key);
+                      publishRow(rowKey);
+                    },
+                  },
+                ];
+          }),
+        );
+    },
     resolveRowKey(rowKey: string) {
       return acceptedDraftRows.get(rowKey) ?? rowKey;
     },
@@ -110,9 +137,14 @@ export function createTimelineEditorDraftRegistry(
           const nextKey = inputFocusKey(committed.key, field, surface);
           const value = draftValues.get(oldKey);
           if (value !== undefined) {
-            draftValues.set(nextKey, value);
+            store.move(oldKey, nextKey);
+            if ("key" in binding)
+              store.advanceBaseline(
+                nextKey,
+                committed.committedValues[binding.key],
+              );
             rememberFocusKey(committed.key, nextKey);
-            draftValues.delete(oldKey);
+            store.remove(oldKey);
           }
           const element = inputElements.get(oldKey);
           if (
@@ -168,40 +200,62 @@ export function createTimelineEditorDraftRegistry(
         for (const surface of timelineScalarEditorSurfaces) {
           const focusKey = inputFocusKey(rowKey, binding.key, surface);
           if (!preserveFocusKeys.has(focusKey)) {
-            draftValues.delete(focusKey);
+            store.remove(focusKey);
             forgetFocusKeyIfUnused(rowKey, focusKey);
           }
         }
       }
       publishRow(rowKey);
     },
-    clearScalarDraftsForField(rowKey: string, field: keyof RowValues) {
+    clearCapturedScalarField(
+      rowKey: string,
+      field: keyof RowValues,
+      revisions?: ReadonlyMap<string, number>,
+    ) {
+      let cleared = false;
       for (const surface of timelineScalarEditorSurfaces) {
         const focusKey = inputFocusKey(rowKey, field, surface);
-        draftValues.delete(focusKey);
+        if (!revisions || revisions.get(focusKey) !== store.revision(focusKey))
+          continue;
+        store.remove(focusKey);
+        cleared = true;
         forgetFocusKeyIfUnused(rowKey, focusKey);
       }
       publishRow(rowKey);
+      return cleared;
     },
     clearSubmittedRow(
       rowKey: string,
       submittedValues: RowValues,
       submittedCollections?: Partial<WorkbookRow["collectionDrafts"]>,
+      revisions?: ReadonlyMap<string, number>,
     ) {
+      const originalRowKey = rowKey;
       rowKey = acceptedDraftRows.get(rowKey) ?? rowKey;
+      const owns = (
+        field: FocusFieldKey,
+        surface: TimelineScalarEditorSurface,
+      ) =>
+        revisions === undefined ||
+        revisions.get(inputFocusKey(originalRowKey, field, surface)) ===
+          store.revision(inputFocusKey(rowKey, field, surface));
       for (const binding of timelineCollectionBindings) {
         const focusKey = inputFocusKey(rowKey, binding.draftKey, "grid");
         if (
           submittedCollections !== undefined &&
+          owns(binding.draftKey, "grid") &&
           draftValues.get(focusKey) === submittedCollections[binding.draftKey]
         )
-          draftValues.delete(focusKey);
+          store.remove(focusKey);
       }
       for (const binding of timelineScalarBindings) {
         for (const surface of timelineScalarEditorSurfaces) {
           const focusKey = inputFocusKey(rowKey, binding.key, surface);
-          if (draftValues.get(focusKey) === submittedValues[binding.key]) {
-            draftValues.delete(focusKey);
+          if (
+            owns(binding.key, surface) &&
+            draftValues.get(focusKey) === submittedValues[binding.key]
+          ) {
+            store.remove(focusKey);
             forgetFocusKeyIfUnused(rowKey, focusKey);
           }
         }
@@ -214,12 +268,12 @@ export function createTimelineEditorDraftRegistry(
         identity.field,
         identity.surface,
       );
-      draftValues.delete(focusKey);
+      store.remove(focusKey);
       forgetFocusKeyIfUnused(identity.rowKey, focusKey);
       publishRow(identity.rowKey);
     },
     deleteDraftForFocusKey(focusKey: string) {
-      draftValues.delete(focusKey);
+      store.remove(focusKey);
       for (const [rowKey, focusKeys] of focusKeysByRow) {
         if (focusKeys.has(focusKey)) {
           forgetFocusKeyIfUnused(rowKey, focusKey);
@@ -234,6 +288,22 @@ export function createTimelineEditorDraftRegistry(
       );
     },
     draftValueForFocusKey,
+    captureRow(rowKey: string, surface: TimelineScalarEditorSurface) {
+      return new Map(
+        [
+          ...timelineScalarBindings.map((binding) =>
+            inputFocusKey(rowKey, binding.key, surface),
+          ),
+          ...(surface === "grid"
+            ? timelineCollectionBindings.map((binding) =>
+                inputFocusKey(rowKey, binding.draftKey, "grid"),
+              )
+            : []),
+        ]
+          .filter((key) => draftValues.has(key))
+          .map((key) => [key, store.revision(key)]),
+      );
+    },
     inputElementForFocusKey(focusKey: string) {
       const separator = focusKey.indexOf(":");
       const acceptedRowKey = acceptedDraftRows.get(
@@ -251,23 +321,24 @@ export function createTimelineEditorDraftRegistry(
       preferred?: {
         readonly field: keyof RowValues;
         readonly value: string | undefined;
+        readonly surface?: TimelineScalarEditorSurface;
       },
     ): WorkbookRow {
-      let nextValues: RowValues | null = null;
+      let nextValues: RowValues | null =
+        preferred?.surface === "inspector" && row.recordId !== null
+          ? { ...row.committedValues }
+          : null;
       for (const binding of timelineScalarBindings) {
         let draftValue =
           preferred?.field === binding.key ? preferred.value : undefined;
         if (draftValue === undefined) {
-          for (const surface of timelineScalarEditorSurfaces) {
-            draftValue = draftValueForFocusKey(
-              inputFocusKey(row.key, binding.key, surface),
-            );
-            if (draftValue !== undefined) break;
-          }
+          draftValue = draftValueForFocusKey(
+            inputFocusKey(row.key, binding.key, preferred?.surface ?? "grid"),
+          );
         }
         if (
           draftValue === undefined ||
-          draftValue === row.values[binding.key]
+          draftValue === (nextValues ?? row.values)[binding.key]
         ) {
           continue;
         }
@@ -290,6 +361,50 @@ export function createTimelineEditorDraftRegistry(
             collectionDrafts: collections,
           };
     },
+    authoringRow(
+      row: WorkbookRow,
+      surface: TimelineScalarEditorSurface,
+    ): WorkbookRow {
+      const committedValues = { ...row.committedValues };
+      for (const binding of timelineScalarBindings) {
+        const baseline = store.baseline(
+          inputFocusKey(row.key, binding.key, surface),
+        );
+        if (baseline !== undefined) committedValues[binding.key] = baseline;
+      }
+      return { ...row, committedValues };
+    },
+    needsReview(identity: TimelineScalarEditorIdentity, row: WorkbookRow) {
+      const baseline = store.baseline(
+        inputFocusKey(identity.rowKey, identity.field, identity.surface),
+      );
+      return (
+        baseline !== undefined &&
+        baseline !== row.committedValues[identity.field]
+      );
+    },
+    review(identity: TimelineScalarEditorIdentity, row: WorkbookRow) {
+      store.reviewBaseline(
+        inputFocusKey(identity.rowKey, identity.field, identity.surface),
+        row.committedValues[identity.field],
+      );
+      publishRow(identity.rowKey);
+    },
+    acceptPredecessor(
+      row: WorkbookRow,
+      fields: readonly string[],
+      previousValues: RowValues,
+    ) {
+      for (const binding of timelineScalarBindings) {
+        if (!fields.includes(binding.fieldKey)) continue;
+        for (const surface of timelineScalarEditorSurfaces) {
+          const key = inputFocusKey(row.key, binding.key, surface);
+          if (store.baseline(key) === previousValues[binding.key])
+            store.advanceBaseline(key, row.committedValues[binding.key]);
+        }
+      }
+      publishRow(row.key);
+    },
     registerInput(
       identity: TimelineInputIdentity,
       element: TimelineEditorElement | null,
@@ -309,17 +424,30 @@ export function createTimelineEditorDraftRegistry(
     },
     retainRows(rowKeys: ReadonlySet<string>) {
       for (const rowKey of focusKeysByRow.keys()) {
-        if (!rowKeys.has(rowKey)) clearRow(rowKey);
+        if (!rowKeys.has(rowKey)) {
+          for (const key of focusKeysByRow.get(rowKey) ?? [])
+            inputElements.delete(key);
+        }
       }
     },
-    setDraft(identity: TimelineInputIdentity, value: string) {
+    setDraft(
+      identity: TimelineInputIdentity,
+      value: string,
+      baseline?: WorkbookRow,
+    ) {
       const focusKey = inputFocusKey(
         identity.rowKey,
         identity.field,
         identity.surface,
       );
       rememberFocusKey(identity.rowKey, focusKey);
-      draftValues.set(focusKey, value);
+      store.write(
+        focusKey,
+        value,
+        baseline && identity.field in baseline.committedValues
+          ? baseline.committedValues[identity.field as keyof RowValues]
+          : undefined,
+      );
       publishRow(identity.rowKey);
     },
   };

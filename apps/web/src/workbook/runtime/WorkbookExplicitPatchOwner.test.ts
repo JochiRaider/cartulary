@@ -341,7 +341,7 @@ it("waits for Task autosave receipt and source verification without waiting for 
       rowLabel: "Task",
       surfaceLabel: "Tasks",
     }).kind,
-  ).toBe("accepted");
+  ).toBe("admitted");
   const explicit = runtime.explicitPatches.submit(taskIntent());
   expect(runtime.pendingQueue().model.snapshot().units).toHaveLength(1);
   await vi.waitFor(() =>

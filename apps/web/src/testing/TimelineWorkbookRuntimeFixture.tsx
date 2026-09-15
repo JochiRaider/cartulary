@@ -225,6 +225,13 @@ export function TimelineWorkbookRuntimeFixture({
   });
   const { clipboardPaste, mutationCommands, mutationRuntime } = runtimeAssembly;
   useLayoutEffect(() => {
+    mutationRuntime.explicitPatches.setAuthority({
+      actorId: currentUserId ?? "fixture-actor",
+      sessionIdentity: "fixture-session",
+      incidentId,
+      role: currentIncidentRole ?? "",
+      closed: incidentClosed,
+    });
     mutationRuntime.batches.setAuthority({
       actorId: currentUserId ?? "fixture-actor",
       sessionIdentity: "fixture-session",

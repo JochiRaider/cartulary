@@ -9,6 +9,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
+import { timelineScalarBindings } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
 export function useTimelineObservationSource(options: {
@@ -76,6 +77,16 @@ export function useTimelineObservationSource(options: {
           value !==
           row.committedValues[key as keyof typeof row.committedValues],
       ) &&
+      !timelineScalarBindings.some((binding) => {
+        const draft = current.current.drafts.draftValue({
+          rowKey: row.key,
+          field: binding.key,
+          surface: "inspector",
+        });
+        return (
+          draft !== undefined && draft !== row.committedValues[binding.key]
+        );
+      }) &&
       !Object.values(materialized.collectionDrafts).some(
         (value) => value.trim() !== "",
       ) &&

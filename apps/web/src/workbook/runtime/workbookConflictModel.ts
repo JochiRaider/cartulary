@@ -36,6 +36,7 @@ type WorkbookCollectionAction =
   WorkbookProtocolCollectionActions["actions"][number];
 
 export type WorkbookConflictEntry = {
+  readonly draftRevisions?: ReadonlyMap<string, number> | undefined;
   readonly batchOperationId?: string | undefined;
   readonly compoundOperationId?: string | undefined;
   readonly focusOrigin?: "grid" | "inspector" | undefined;
@@ -77,6 +78,7 @@ export function workbookConflictQueueKey(
 }
 
 export function workbookConflictEntry({
+  draftRevisions,
   batchOperationId,
   compoundOperationId,
   focusOrigin,
@@ -87,6 +89,7 @@ export function workbookConflictEntry({
   viewSchemaId,
   sheetRef,
 }: {
+  readonly draftRevisions?: ReadonlyMap<string, number> | undefined;
   readonly batchOperationId?: string | undefined;
   readonly compoundOperationId?: string | undefined;
   readonly focusOrigin?: "grid" | "inspector" | undefined;
@@ -98,6 +101,7 @@ export function workbookConflictEntry({
   readonly sheetRef?: SheetRef | undefined;
 }): WorkbookConflictEntry {
   return {
+    ...(draftRevisions ? { draftRevisions: new Map(draftRevisions) } : {}),
     batchOperationId,
     compoundOperationId,
     focusOrigin,

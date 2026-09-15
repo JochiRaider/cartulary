@@ -19,7 +19,7 @@ it("useTimelineMutationRuntimeBindings retains registration through callback cha
     entityMerge: { registerTimelineRefresh },
   } as unknown as WorkbookMutationRuntime;
   const editorDraftRegistry = {
-    clearScalarDraftsForField: vi.fn(),
+    clearCapturedScalarField: vi.fn(),
     inputElementForFocusKey: vi.fn(() => null),
   } as unknown as TimelineEditorDraftRegistry;
   const editorPort = {

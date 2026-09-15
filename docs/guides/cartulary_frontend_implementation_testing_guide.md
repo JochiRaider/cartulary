@@ -196,7 +196,11 @@ never mixes source, catalog, verification, or profile digests.
   `view_schema_id` strings are limited to view-schema-specific operations and
   selector builders, where the canonical registry validates them.
 - `packages/grid-adapter` owns the shared grid integration boundary; application
-  code does not import the underlying grid library directly.
+  code does not import the underlying grid library directly. Raw committed-cell
+  drafts belong to retained Workbook/source owners; the adapter owns attachment,
+  caret, composition, semantic navigation and vendor editor teardown. Admission
+  tickets are not authoritative acceptance. Revision- and attachment-fenced
+  completion may settle its operation without closing or focusing another editor.
 - The shell-lifetime Workbook mutation runtime is the sole FIFO, transport,
   retry, transaction-ledger, and lifecycle scheduler. Mutation owners register
   one exact closed-envelope driver and keep payload revalidation, projection,

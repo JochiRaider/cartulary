@@ -193,6 +193,12 @@ export function useTimelineColumnAssembly({
                       rowKey: row.key,
                       surface: "grid",
                     }),
+                  retainDraft: (row, value) =>
+                    editorDraftRegistry.setDraft(
+                      { field: binding.key, rowKey: row.key, surface: "grid" },
+                      String(value ?? ""),
+                      row,
+                    ),
                   renderEditor: (context) =>
                     renderTimelineGridEditor(
                       context.row,

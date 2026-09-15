@@ -71,6 +71,7 @@ export const WorkbookEditRecoveryPanel = forwardRef<
   return (
     <RecoverySurface
       aria-label="Workbook edit recovery"
+      data-grid-editor-external-action="true"
       data-testid={workbookEditRecoveryTestId()}
       ref={ref}
       tabIndex={-1}

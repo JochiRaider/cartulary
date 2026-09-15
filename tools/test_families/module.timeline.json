@@ -1561,10 +1561,15 @@
         "titles": [
           "Timeline editor draft registry invalidates drafts when the runtime lifetime changes",
           "Timeline editor draft registry keeps grid and inspector drafts distinct and clears only submitted values",
+          "Timeline editor draft registry materializes inspector submissions without unrelated grid authoring",
           "Timeline editor draft registry materializes invalid scalar text across authoritative row replacement",
           "Timeline editor draft registry owns semantic editor registration, unregistration, and row removal",
+          "Timeline editor draft registry prefers an explicit commit value over a stale registered draft",
+          "Timeline editor draft registry rejects stale, hidden, disabled, and disconnected editor elements",
+          "Timeline editor draft registry retains authoring baselines across remount and requires review only for relevant changes",
           "Timeline editor draft registry retains collection text across refresh and clears only the submitted version",
-          "Timeline editor draft registry retains refused local values across surface detachment without retaining input references"
+          "Timeline editor draft registry retains refused local values across surface detachment without retaining input references",
+          "Timeline editor draft registry retires only captured revisions in the originating editor context"
         ]
       },
       "evidence_class": "unit",

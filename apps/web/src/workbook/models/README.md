@@ -1,5 +1,10 @@
 # workbook/models/
 
+`WorkbookGridDraftStore` retains exact ordinary grid authoring, explicit clear,
+baseline and revision identity in the account/incident runtime. It is separate
+from inspector drafts and captured mutation requests. `workbookGridEditValue`
+constructs declared direct-value intent without rewriting raw authoring.
+
 [Parent](../README.md) · [Source overview](../../README.md)
 
 Pure workbook request, row, query, registry, startup, saved-view, and presentation models.
@@ -13,6 +18,10 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 
 | File | Responsibility |
 | --- | --- |
+| [WorkbookGridDraftStore.ts](WorkbookGridDraftStore.ts) | Retained raw grid input, revision-specific validation, original baseline, explicit clear and authorization lifetime. |
+| [WorkbookGridDraftStore.test.ts](WorkbookGridDraftStore.test.ts) | Exact input, stale completion, review and account/incident retirement evidence. |
+| [workbookGridEditValue.ts](workbookGridEditValue.ts) | Declared grid-only scalar and reference validation without changing unfinished text. |
+| [workbookGridEditValue.test.ts](workbookGridEditValue.test.ts) | Field-family input, explicit-null and non-editable-field dispositions. |
 | [assessmentWorkbookModel.test.ts](assessmentWorkbookModel.test.ts) | Tests contract-backed Assessment defaults, creation payloads, confidence, and support models. |
 | [assessmentWorkbookModel.ts](assessmentWorkbookModel.ts) | Assessment workbook draft, payload, confidence-band, and support-row helpers. |
 | [entityClipboardPastePlan.test.ts](entityClipboardPastePlan.test.ts) | Tests Entity scalar routing, exact-origin all-create requests, and fail-closed target/authority handling. |

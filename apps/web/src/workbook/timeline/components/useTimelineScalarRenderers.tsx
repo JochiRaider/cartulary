@@ -4,7 +4,7 @@ import {
   rowCellTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
-import { useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import type { PresenceScope } from "../../collaboration/workbookPresencePresentation";
 import {
   WorkbookCellPresenceMarker,
@@ -45,6 +45,7 @@ export function useTimelineScalarRenderers({
   handlePaste,
   handleSelectRow,
   readOnly,
+  readCurrentRow,
   registerInput,
   setActiveConflictKey,
   timelineBindingLabel,
@@ -66,6 +67,7 @@ export function useTimelineScalarRenderers({
   readonly handlePaste: TimelineScalarPasteCommit;
   readonly handleSelectRow: (recordId: string) => void;
   readonly readOnly: boolean;
+  readonly readCurrentRow?: ((row: WorkbookRow) => WorkbookRow) | undefined;
   readonly registerInput: RegisterTimelineInput;
   readonly setActiveConflictKey: (key: string | null) => void;
   readonly timelineBindingLabel: (fieldKey: string) => string;
@@ -80,8 +82,9 @@ export function useTimelineScalarRenderers({
       field: keyof RowValues,
       surface: TimelineScalarEditorSurface,
       value: string,
+      row: WorkbookRow,
     ) => {
-      editorDraftRegistry.setDraft({ field, rowKey, surface }, value);
+      editorDraftRegistry.setDraft({ field, rowKey, surface }, value, row);
     },
     [editorDraftRegistry],
   );
@@ -164,7 +167,13 @@ export function useTimelineScalarRenderers({
             }
             onCloseGridEditor={closeGridEditor}
             onDraftChange={(rowKey, field, editorSurface, value) => {
-              setScalarEditorDraftValue(rowKey, field, editorSurface, value);
+              setScalarEditorDraftValue(
+                rowKey,
+                field,
+                editorSurface,
+                value,
+                row,
+              );
               onControlledDraftChange?.(value);
             }}
             onEditModeChange={handleEditModePresence}
@@ -179,6 +188,15 @@ export function useTimelineScalarRenderers({
             rowRecordId={row.recordId}
             surface={surface}
           />
+          {!readOnly && row.recordId !== null ? (
+            <TimelineDraftReview
+              registry={editorDraftRegistry}
+              row={readCurrentRow?.(row) ?? row}
+              field={binding.key}
+              surface={surface}
+              label={label}
+            />
+          ) : null}
           {localConflict ? (
             <button
               data-grid-editor-external-action="true"
@@ -223,6 +241,7 @@ export function useTimelineScalarRenderers({
       handlePaste,
       handleSelectRow,
       readOnly,
+      readCurrentRow,
       registerInput,
       setActiveConflictKey,
       setScalarEditorDraftValue,
@@ -336,6 +355,40 @@ export function useTimelineScalarRenderers({
     renderTimelineInspectorEditor,
     renderTimelineScalarCell,
   };
+}
+
+function TimelineDraftReview({
+  registry,
+  row,
+  field,
+  surface,
+  label,
+}: {
+  registry: TimelineEditorDraftRegistry;
+  row: WorkbookRow;
+  field: keyof RowValues;
+  surface: TimelineScalarEditorSurface;
+  label: string;
+}) {
+  const identity = { rowKey: row.key, field, surface };
+  const stale = useSyncExternalStore(
+    useCallback(
+      (listener: () => void) => registry.subscribeRow(row.key, listener),
+      [registry, row.key],
+    ),
+    () => registry.needsReview(identity, row),
+  );
+  return stale ? (
+    <span
+      data-grid-editor-toolbar={surface === "grid" ? "true" : undefined}
+      role="status"
+    >
+      Saved value changed.{" "}
+      <button type="button" onClick={() => registry.review(identity, row)}>
+        Keep draft {label}
+      </button>
+    </span>
+  ) : null;
 }
 
 const conflictMarkerStyle = {

@@ -28,6 +28,84 @@ function committedRow() {
 }
 
 describe("Timeline editor draft registry", () => {
+  it("retains authoring baselines across remount and requires review only for relevant changes", () => {
+    const store = new WorkbookLocalDraftStore();
+    const original = createTimelineEditorDraftRegistry(store);
+    const row = committedRow();
+    const identity = {
+      rowKey: recordId,
+      field: "activitySynopsisText" as const,
+      surface: "grid" as const,
+    };
+    original.setDraft(identity, "Local", row);
+    const registry = createTimelineEditorDraftRegistry(store);
+    const remote = {
+      ...row,
+      rowVersion: 4,
+      committedValues: {
+        ...row.committedValues,
+        activitySynopsisText: "Remote",
+      },
+      values: { ...row.values, activitySynopsisText: "Remote" },
+    };
+    expect(registry.needsReview(identity, remote)).toBe(true);
+    expect(
+      registry.authoringRow(registry.materializeRow(remote), "grid")
+        .committedValues.activitySynopsisText,
+    ).toBe("authoritative value");
+    const capture = registry.captureRow(recordId, "grid");
+    registry.review(identity, remote);
+    expect(registry.needsReview(identity, remote)).toBe(false);
+    expect(registry.captureRow(recordId, "grid")).not.toEqual(capture);
+    registry.acceptPredecessor(
+      row,
+      ["timeline.activity_synopsis_text"],
+      row.committedValues,
+    );
+    expect(registry.needsReview(identity, remote)).toBe(false);
+    expect(registry.needsReview(identity, row)).toBe(true);
+    const ownAccepted = {
+      ...remote,
+      rowVersion: 5,
+      committedValues: {
+        ...remote.committedValues,
+        activitySynopsisText: "Accepted predecessor",
+      },
+    };
+    registry.acceptPredecessor(
+      ownAccepted,
+      ["timeline.activity_synopsis_text"],
+      remote.committedValues,
+    );
+    expect(registry.needsReview(identity, ownAccepted)).toBe(false);
+    expect(registry.draftValue(identity)).toBe("Local");
+  });
+
+  it("materializes inspector submissions without unrelated grid authoring", () => {
+    const registry = createTimelineEditorDraftRegistry();
+    const row = committedRow();
+    registry.setDraft(
+      { rowKey: recordId, field: "activitySynopsisText", surface: "grid" },
+      "Grid only",
+      row,
+    );
+    registry.setDraft(
+      { rowKey: recordId, field: "analystText", surface: "inspector" },
+      "Inspector only",
+      row,
+    );
+    const grid = registry.materializeRow(row);
+    const inspector = registry.materializeRow(grid, {
+      field: "analystText",
+      value: "Inspector only",
+      surface: "inspector",
+    });
+    expect(inspector.values.activitySynopsisText).toBe(
+      row.committedValues.activitySynopsisText,
+    );
+    expect(inspector.values.analystText).toBe("Inspector only");
+    expect(grid.values.analystText).toBe(row.committedValues.analystText);
+  });
   it("materializes invalid scalar text across authoritative row replacement", () => {
     const registry = createTimelineEditorDraftRegistry();
     registry.setDraft(
@@ -174,7 +252,40 @@ describe("Timeline editor draft registry", () => {
     registry.retainRows(new Set());
 
     expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
-    expect(registry.draftValueForFocusKey(focusKey)).toBeUndefined();
+    expect(registry.draftValueForFocusKey(focusKey)).toBe("invalid local text");
+  });
+
+  it("retires only captured revisions in the originating editor context", () => {
+    const registry = createTimelineEditorDraftRegistry();
+    const identity = {
+      rowKey: recordId,
+      field: "activitySynopsisText" as const,
+      surface: "grid" as const,
+    };
+    registry.setDraft(identity, "A");
+    registry.setDraft({ ...identity, surface: "inspector" }, "A");
+    const captured = registry.captureRow(recordId, "grid");
+    const submitted = { ...committedRow().values, activitySynopsisText: "A" };
+    registry.setDraft(identity, "B");
+    registry.setDraft(identity, "A");
+    registry.clearSubmittedRow(recordId, submitted, undefined, captured);
+    expect(
+      registry.clearCapturedScalarField(recordId, identity.field, captured),
+    ).toBe(false);
+    expect(registry.draftValue(identity)).toBe("A");
+    expect(registry.draftValue({ ...identity, surface: "inspector" })).toBe(
+      "A",
+    );
+    registry.clearSubmittedRow(
+      recordId,
+      submitted,
+      undefined,
+      registry.captureRow(recordId, "grid"),
+    );
+    expect(registry.draftValue(identity)).toBeUndefined();
+    expect(registry.draftValue({ ...identity, surface: "inspector" })).toBe(
+      "A",
+    );
   });
 
   it("rejects stale, hidden, disabled, and disconnected editor elements", () => {

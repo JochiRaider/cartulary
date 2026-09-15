@@ -170,6 +170,32 @@
   padding: 0;
 }
 
+/* Source-owned correction controls stay within the editor's column and above
+   neighboring cells without changing the spreadsheet's row geometry. */
+.cartulary-grid .rdg-cell:has([data-grid-editing="true"]) {
+  overflow: visible;
+  z-index: 4;
+}
+
+.cartulary-grid-cell-content [data-grid-editor-toolbar="true"] {
+  min-inline-size: 0;
+  margin: 0;
+  background: var(--ct-colors-surface-1);
+  border: 1px solid var(--ct-colors-accent);
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  inline-size: 100%;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  padding: 0.25rem;
+  position: absolute;
+  white-space: normal;
+}
+
 .cartulary-grid-data-cell,
 .cartulary-grid-draft-cell,
 .cartulary-grid-actions-cell {

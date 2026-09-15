@@ -1,4 +1,3 @@
-import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { assessmentsViewSchemaId } from "@cartulary/view-contracts";
 import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
 import { normalizeRecordMutationRow } from "../adapters/workbookRecordPatchTransport";
@@ -34,6 +33,7 @@ import { WorkbookPartyLinkOperationOwner } from "../features/parties/WorkbookPar
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import { WorkbookInspectorDraftStore } from "../inspector/WorkbookInspectorDraftStore";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
+import { WorkbookGridDraftStore } from "../models/WorkbookGridDraftStore";
 import { WorkbookLocalDraftStore } from "../models/WorkbookLocalDraftStore";
 import {
   hostsViewSchemaId,
@@ -62,6 +62,7 @@ import { WorkbookExplicitPatchOwner } from "./WorkbookExplicitPatchOwner";
 import {
   createWorkbookManagedPatchDriver,
   type WorkbookManagedPatchDriver,
+  type WorkbookPatchAdmission,
   type WorkbookQueuedPatchRequest,
 } from "./WorkbookManagedPatchDriver";
 import {
@@ -153,8 +154,41 @@ export class WorkbookMutationRuntime {
     return this.timelineMutationOwner as T;
   }
 
+  private authorizationRecovery: (() => void) | null = null;
+  bindAuthorizationRecovery(recover: () => void) {
+    this.authorizationRecovery = recover;
+    return () => {
+      if (this.authorizationRecovery === recover)
+        this.authorizationRecovery = null;
+    };
+  }
+
   retainSurfaceRefreshDebt(viewSchemaId: string): void {
     this.surfaces.invalidate(viewSchemaId);
+  }
+
+  hasPendingGridWrite(recordId: string): boolean {
+    return (
+      !this.retired &&
+      this.pendingRuntime.model
+        .snapshot()
+        .units.some(
+          (unit) =>
+            unit.source === "autosave" &&
+            unit.kind === "patch" &&
+            unit.recordId === recordId,
+        )
+    );
+  }
+
+  surfaceRefreshRequired(viewSchemaId: string): boolean {
+    return (
+      this.gridDrafts.canRead() && this.surfaces.requiresRefresh(viewSchemaId)
+    );
+  }
+
+  async refreshSurface(viewSchemaId: string): Promise<void> {
+    if (this.gridDrafts.canRead()) await this.surfaces.refresh(viewSchemaId);
   }
 
   get retired(): boolean {
@@ -269,6 +303,7 @@ export class WorkbookMutationRuntime {
   private readonly drivers: WorkbookMutationDriverRegistry;
   private readonly ledger: WorkbookClientTransactionLedger;
   private readonly lifecycle: WorkbookRuntimeLifecycle;
+  readonly gridDrafts = new WorkbookGridDraftStore();
   private readonly managedPatches: WorkbookManagedPatchDriver;
   private readonly retryScheduler: WorkbookRetryScheduler;
   private readonly surfaces: WorkbookSurfaceRegistry;
@@ -744,6 +779,9 @@ export class WorkbookMutationRuntime {
       clock: dependencies.clock,
       conflicts: this.conflicts,
       drivers: this.drivers,
+      drafts: this.gridDrafts,
+      records: this.explicitPatches,
+      recoverAuthorization: () => this.authorizationRecovery?.(),
       emit: () => this.emit(),
       executeMutation: (input) => this.dispatchPendingMutation(input),
       ledger: this.ledger,
@@ -766,6 +804,9 @@ export class WorkbookMutationRuntime {
       this.requestDrain();
     });
     this.explicitPatches.subscribe(() => {
+      this.gridDrafts.setAuthority(
+        this.explicitPatches.getSnapshot().authority,
+      );
       this.inspectorDrafts.setAuthority(
         this.explicitPatches.getSnapshot().authority,
       );
@@ -1277,6 +1318,7 @@ export class WorkbookMutationRuntime {
   ): ReturnType<WorkbookPendingMutationPort["execute"]> {
     this.ledger.remember(input.unit.clientTxnId);
     return this.pendingMutationPort.execute(input).then((outcome) => {
+      if (this.retired) return outcome;
       if (outcome.kind === "accepted") {
         this.timelineFiles.acceptVersion(
           outcome.value.row.record_id,
@@ -1319,7 +1361,7 @@ export class WorkbookMutationRuntime {
           outcome.value.row.row_version,
         );
       if (outcome.kind === "accepted")
-        this.explicitPatches.acceptRow(outcome.value.row);
+        this.explicitPatches.observeReceipt(outcome.value);
       if (
         outcome.kind === "accepted" &&
         entityViewSchemas.has(outcome.value.viewSchemaId)
@@ -1401,7 +1443,7 @@ export class WorkbookMutationRuntime {
     };
   }
 
-  enqueuePatch(request: WorkbookQueuedPatchRequest): GridEditCommitOutcome {
+  enqueuePatch(request: WorkbookQueuedPatchRequest): WorkbookPatchAdmission {
     if (this.indicatorLifecycle.blocksRecord(request.recordId))
       return {
         kind: "rejected_mutation",
@@ -1443,6 +1485,7 @@ export class WorkbookMutationRuntime {
   }
 
   registerConflict({
+    draftRevisions,
     sheetRef,
     conflict,
     compoundOperationId,
@@ -1455,6 +1498,7 @@ export class WorkbookMutationRuntime {
     viewSchemaId,
   }: WorkbookConflictRegistration): WorkbookConflictEntry {
     const entry = this.conflicts.register({
+      draftRevisions,
       sheetRef,
       conflict,
       compoundOperationId,
@@ -1474,6 +1518,11 @@ export class WorkbookMutationRuntime {
     const conflict = this.conflicts.clear(key);
     if (conflict !== undefined) {
       this.managedPatches.clearVisibleConflict(conflict);
+      const drafts = this.localEditorDrafts.get(conflict.origin.viewSchemaId);
+      if (drafts)
+        for (const [key, revision] of conflict.draftRevisions ?? []) {
+          if (drafts.revision(key) === revision) drafts.remove(key);
+        }
     }
     this.pendingRuntime.model.clearSameFieldConflict(key);
     this.emit();
@@ -1617,6 +1666,7 @@ export class WorkbookMutationRuntime {
           });
           this.conflicts.replace({
             ...refreshedEntry,
+            draftRevisions: entry.draftRevisions,
             compoundOperationId: entry.compoundOperationId,
             batchOperationId: entry.batchOperationId,
             focusOrigin: entry.focusOrigin,
@@ -1634,6 +1684,12 @@ export class WorkbookMutationRuntime {
         return outcome.failure.message;
       }
       const resolvedRow = outcome.value.row;
+      const committed = normalizeRecordMutationRow(
+        resolvedRow,
+        entry.origin.viewSchemaId,
+        entry.conflict.record_id,
+      );
+      if (committed) this.explicitPatches.acceptRow(committed);
       if (entry.batchOperationId) {
         const accepted = normalizeRecordMutationRow(
           resolvedRow,
@@ -1696,14 +1752,19 @@ export class WorkbookMutationRuntime {
           accepted ?? undefined,
         );
       }
-      this.clearConflict(key);
       const applyResolvedMutation = this.surfaces.applyResolvedMutation(
         entry.origin.viewSchemaId,
       );
-      if (applyResolvedMutation === null) {
-        await this.surfaces.refresh(entry.origin.viewSchemaId);
-      } else {
-        await applyResolvedMutation(outcome.value, entry);
+      try {
+        if (applyResolvedMutation === null) {
+          await this.surfaces.refresh(entry.origin.viewSchemaId);
+        } else {
+          await applyResolvedMutation(outcome.value, entry);
+        }
+      } finally {
+        // Mounted source presentation first observes which captured revisions
+        // it owns. Retirement then clears any detached remainder exactly once.
+        this.clearConflict(key);
       }
       return null;
     } finally {
@@ -1767,11 +1828,13 @@ export class WorkbookMutationRuntime {
     if (reason.kind !== "incident_closed") this.currentAuthorizationEpoch++;
     if (reason.kind === "runtime_disposed") {
       if (this.lifecycle.disposed) return;
+      this.pendingMutationPort.retire?.();
       this.entityLifetimeRetired = true;
       this.timelineMutationOwner?.retire();
       this.entityWrites.clear();
       this.explicitPatches.retire();
       this.inspectorDrafts.retire();
+      this.gridDrafts.retire();
       for (const drafts of this.localEditorDrafts.values()) drafts.clear();
       this.localEditorDrafts.clear();
       this.taskDrafts.clear();
@@ -1832,10 +1895,17 @@ export class WorkbookMutationRuntime {
     }
     if (reason.kind === "incident_changed") {
       this.entityLifetimeRetired = true;
+      this.pendingMutationPort.retire?.();
+      this.retryScheduler.cancel();
+      this.managedPatches.dispose();
+      for (const unit of this.pendingRuntime.model.snapshot().units)
+        this.drivers.release(unit.id);
+      this.pendingRuntime.model.retire();
       this.timelineMutationOwner?.retire();
       this.entityWrites.clear();
       this.explicitPatches.retire();
       this.inspectorDrafts.retire();
+      this.gridDrafts.retire();
       for (const drafts of this.localEditorDrafts.values()) drafts.clear();
       this.localEditorDrafts.clear();
       this.taskDrafts.clear();
@@ -1958,6 +2028,7 @@ export class WorkbookMutationRuntime {
     });
     this.conflicts.replace({
       ...refreshedEntry,
+      draftRevisions: entry.draftRevisions,
       compoundOperationId: entry.compoundOperationId,
       batchOperationId: entry.batchOperationId,
       focusOrigin: entry.focusOrigin,

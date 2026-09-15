@@ -718,14 +718,12 @@ describe("Timeline workbook grid coverage", () => {
           )
           .getAttribute(gridRowVersionAttribute),
       ).toBe("2");
-      expect(
-        screen.getByTestId(
-          rowCellTestId(
-            "20000000-0000-4000-8000-000000000001",
-            "timeline.activity_synopsis_text",
-          ),
-        ).textContent,
-      ).toBe("Zulu anchored");
+      // A receipt older than this new request's base is uncorrelated. Keep
+      // the accepted row version and the current raw editor until recovery.
+      expect((replayInput as HTMLInputElement).value).toBe(
+        "Replay should not regress",
+      );
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     });
   });
 

@@ -42,6 +42,7 @@ export const TimelineWorkbookGrid = forwardRef<
   GridHandle,
   {
     readonly fileRecovery?: ReactNode;
+    readonly parkedDrafts?: ReactNode;
     readonly onFilesSelected?: (files: File[], editorRowKey?: string) => void;
     readonly activeRecordId: string | null;
     readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
@@ -79,6 +80,7 @@ export const TimelineWorkbookGrid = forwardRef<
 >(function TimelineWorkbookGrid(
   {
     fileRecovery,
+    parkedDrafts,
     onFilesSelected,
     activeRecordId,
     bulkSelection,
@@ -156,6 +158,7 @@ export const TimelineWorkbookGrid = forwardRef<
         onFilesSelected(Array.from(event.dataTransfer.files));
       }}
     >
+      {parkedDrafts}
       {fileRecovery}
       <GridViewport
         blockSizing="fill"

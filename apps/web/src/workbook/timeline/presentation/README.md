@@ -20,3 +20,9 @@ synchronization; the view and regions render statelessly.
 | [TimelineWorkbookViewBarRegion.tsx](TimelineWorkbookViewBarRegion.tsx) | Stateless query, saved-view, add-row, inspector-toggle, and bulk-action controls. |
 | [useTimelineInspectorPresentation.tsx](useTimelineInspectorPresentation.tsx) | Derives Timeline inspector sections, action bindings, and feedback presentation. |
 | [useTimelineWorkbookPresentation.tsx](useTimelineWorkbookPresentation.tsx) | Derives renderer, column, grid-row, load-state, inspector, status, view-bar, notice, and context-menu models. |
+
+`useTimelineWorkbookPresentation` attaches a small subscription for unavailable
+committed grid drafts. It reads exact source-owned registry values for local copy
+or discard and conceals them with current authority. Inline review compares the
+retained authoring baseline with the latest committed row, independently of the
+vendor editor's captured render row.

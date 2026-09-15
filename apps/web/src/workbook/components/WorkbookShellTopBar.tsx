@@ -125,7 +125,11 @@ export function WorkbookShellTopBar({
         hidden
       />
       {layout.chromeMode === "base" ? (
-        <nav aria-label="Built-in workbook surfaces" style={tabStripStyle}>
+        <nav
+          data-grid-editor-external-action="true"
+          aria-label="Built-in workbook surfaces"
+          style={tabStripStyle}
+        >
           {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId, index) => {
             const contract = requireViewContract(viewSchemaId);
             const selected = !networkAnalysisActive && surface === viewSchemaId;
@@ -149,7 +153,10 @@ export function WorkbookShellTopBar({
           })}
         </nav>
       ) : (
-        <div style={surfacesMenuFrameStyle}>
+        <div
+          data-grid-editor-external-action="true"
+          style={surfacesMenuFrameStyle}
+        >
           <button
             aria-controls={
               surfacesMenuOpen ? workbookSurfacesMenuTestId() : undefined

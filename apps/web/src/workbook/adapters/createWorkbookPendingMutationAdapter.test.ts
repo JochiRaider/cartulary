@@ -197,10 +197,45 @@ it("fails closed for malformed, mismatched, or invalid success responses", async
     await expect(
       adapter.execute({ committedRowVersion: 7, unit: pendingUnit("patch") }),
     ).resolves.toMatchObject({
-      failure: { kind: "invalid_contract" },
+      failure: { kind: "retryable" },
       kind: "rejected",
     });
   }
+});
+
+it("retains exact patch bytes through acknowledgement loss and retires captured requests", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Lost acknowledgement"))
+    .mockResolvedValueOnce(
+      successEnvelope({
+        change_set_id: changeSetId,
+        view_schema_id: timelineViewSchemaId,
+        row: timelineRow({ captureState: "rough", recordId, rowVersion: 3 }),
+      }),
+    );
+  vi.stubGlobal("fetch", fetchMock);
+  const adapter = createWorkbookPendingMutationAdapter({
+    apiBase: undefined,
+    incidentId,
+  });
+  const unit = pendingUnit("patch");
+  expect(await adapter.execute({ committedRowVersion: 2, unit })).toMatchObject(
+    { kind: "rejected", failure: { kind: "retryable" } },
+  );
+  const captured = fetchMock.mock.calls[0];
+  expect(await adapter.execute({ committedRowVersion: 9, unit })).toMatchObject(
+    { kind: "accepted", value: { changeSetId, row: { row_version: 3 } } },
+  );
+  expect(fetchMock.mock.calls[1]?.[0]).toBe(captured?.[0]);
+  expect(fetchMock.mock.calls[1]?.[1].body).toBe(captured?.[1].body);
+  expect(JSON.parse(fetchMock.mock.calls[1]?.[1].body)).toMatchObject({
+    base_row_version: 2,
+    client_txn_id: "txn-patch",
+  });
+  adapter.retire?.();
+  await adapter.execute({ committedRowVersion: 9, unit });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
 it("rejects cross-incident and undispatchable units before transport", async () => {

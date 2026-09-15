@@ -1446,6 +1446,17 @@ function useSemanticDataGridTestSupport<Row>(
     fieldKeys: columns.map((column) => column.fieldKey),
     surface,
   });
+  useLayoutEffect(() => {
+    if (
+      activeEditor !== null &&
+      (!editable ||
+        !semanticPresentationContainsAnchor(semanticPresentation, {
+          ...activeEditor,
+          surface,
+        }))
+    )
+      setActiveEditor(null);
+  }, [activeEditor, editable, semanticPresentation, surface]);
   const focusCommand = useRef<GridHandle["requestFocus"] | null>(null);
   const { focusSemanticAnchor, publishActiveCell } = useTestSupportFocus(
     semanticPresentation,
@@ -1824,6 +1835,7 @@ function TestGridEditor<Row>({
     )
       revision.current += 1;
     latestDraft.current = value;
+    adapter.retainDraft?.(row, value, target);
     setDraftValue(value);
   };
   const [outcome, setOutcome] = useState<GridEditCommitOutcome | null>(null);
@@ -1834,6 +1846,13 @@ function TestGridEditor<Row>({
   );
   const latestCommitSequence = useRef(0);
   const cancelled = useRef(false);
+  const attached = useRef(false);
+  useLayoutEffect(() => {
+    attached.current = true;
+    return () => {
+      attached.current = false;
+    };
+  }, []);
   const navigationSequence = useRef(0);
   const focusTargetRef = useCallback(
     (element: GridEditorFocusTarget | null) => {
@@ -1846,7 +1865,8 @@ function TestGridEditor<Row>({
     if (element === null) return;
     element.focus();
     if (
-      element instanceof HTMLInputElement ||
+      (element instanceof HTMLInputElement &&
+        element.selectionStart !== null) ||
       element instanceof HTMLTextAreaElement
     ) {
       const end = element.value.length;
@@ -1858,7 +1878,7 @@ function TestGridEditor<Row>({
       const submittedRevision = revision.current;
       const requestedDraft =
         draftValueOverride === undefined ? draftValue : draftValueOverride;
-      const draftKey = testGridEditorDraftKey(requestedDraft);
+      const draftKey = `${submittedRevision}:${testGridEditorDraftKey(requestedDraft)}`;
       const duplicate = commitPromises.current.get(draftKey);
       if (duplicate !== undefined) return duplicate;
       const sequence = latestCommitSequence.current + 1;
@@ -1873,6 +1893,7 @@ function TestGridEditor<Row>({
         })
         .then((next) => {
           commitPromises.current.delete(draftKey);
+          if (!attached.current) return next;
           setPending(commitPromises.current.size > 0);
           const isLatest = latestCommitSequence.current === sequence;
           if (isLatest) setOutcome(next);
@@ -1900,6 +1921,13 @@ function TestGridEditor<Row>({
     ) {
       return;
     }
+    if (
+      event.relatedTarget instanceof Element &&
+      event.relatedTarget.closest('[data-grid-editor-external-action="true"]')
+    ) {
+      navigationSequence.current += 1;
+      return;
+    }
     void commit();
   };
   return (
@@ -1907,6 +1935,23 @@ function TestGridEditor<Row>({
       onBlurCapture={handleBlur}
       onKeyDownCapture={(event) => {
         if (event.nativeEvent.isComposing) return;
+        if (event.altKey && event.key === "ArrowDown") {
+          const action = event.currentTarget.querySelector<HTMLButtonElement>(
+            "[data-grid-editor-toolbar] button",
+          );
+          if (action) {
+            event.preventDefault();
+            event.stopPropagation();
+            action.focus();
+            return;
+          }
+        }
+        if (
+          event.key !== "Escape" &&
+          event.target instanceof Element &&
+          event.target.closest("[data-grid-editor-toolbar]")
+        )
+          return;
         if (
           keyboardNavigation === "spreadsheet" &&
           (event.key === "Enter" || event.key === "Tab")
@@ -1917,20 +1962,11 @@ function TestGridEditor<Row>({
           const shiftKey = event.shiftKey;
           const sequence = ++navigationSequence.current;
           const submittedRevision = revision.current;
-          const target = event.target;
-          const controlValue =
-            target instanceof HTMLInputElement
-              ? target.type === "checkbox"
-                ? target.checked
-                : target.value
-              : target instanceof HTMLTextAreaElement ||
-                  target instanceof HTMLSelectElement
-                ? target.value
-                : undefined;
-          void commit(controlValue).then((result) => {
+          void commit().then((result) => {
             if (
               result.kind === "accepted" &&
               !cancelled.current &&
+              (attached.current || closed.current) &&
               sequence === navigationSequence.current &&
               submittedRevision === revision.current
             )

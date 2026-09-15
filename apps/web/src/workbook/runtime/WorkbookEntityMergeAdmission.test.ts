@@ -99,7 +99,7 @@ describe("Entity merge record admission", () => {
         const t = setup(type);
         expect(
           t.runtime.enqueuePatch(t.patch(t.review[participant].recordId)),
-        ).toMatchObject({ kind: "accepted" });
+        ).toMatchObject({ kind: "admitted" });
         await vi.waitFor(() => expect(t.execute).toHaveBeenCalledTimes(1));
         const attempt = t.admit();
         const pending = t.runtime.entityMerge.execute(attempt);

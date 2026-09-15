@@ -44,6 +44,7 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { TaskPatchRecovery } from "../features/coordination/TaskPatchRecovery";
 import {
+  taskGuardFields,
   taskPatchErrors,
   taskViewId,
 } from "../features/coordination/taskLifecycleModel";
@@ -63,7 +64,6 @@ import {
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
-  buildGenericPatchChange,
   genericCellLabelForField,
   genericContractColumnWidth,
   genericRowLabel,
@@ -73,6 +73,7 @@ import {
   workbookContractColumns,
   workbookGridRows,
 } from "../models/workbookContractRows";
+import { workbookGridEditChange } from "../models/workbookGridEditValue";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import {
   type WorkbookQueryLoadState,
@@ -88,6 +89,7 @@ import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
+import { WorkbookUnavailableGridDrafts } from "./WorkbookParkedGridDrafts";
 import {
   WorkbookCellPresenceMarker,
   WorkbookPresenceCellLayout,
@@ -225,7 +227,7 @@ export function ContractWorkbookSurface({
   const commitGridEdit = useCallback(
     async (
       fieldKey: string,
-      draftValue: string,
+      draftValue: string | null,
       target: {
         readonly baseRowVersion: number;
         readonly recordId: string;
@@ -239,21 +241,39 @@ export function ContractWorkbookSurface({
         };
       }
       const current = rows.find((row) => row.record_id === target.recordId);
-      if (
-        current === undefined ||
-        current.row_version !== target.baseRowVersion
-      ) {
+      if (current === undefined) {
         return {
           kind: "stale_target",
           message: "The record changed before this edit was submitted.",
         };
       }
-      const change = buildGenericPatchChange(
-        field,
-        draftValue,
-        "add",
-        contract.viewSchemaId,
-      );
+      const identity = {
+        viewSchemaId: contract.viewSchemaId,
+        recordId: target.recordId,
+        fieldKey,
+      };
+      mutationRuntime.gridDrafts.update(identity, current, draftValue);
+      if (!mutationRuntime.gridDrafts.canAuthor())
+        return {
+          kind: "rejected_mutation",
+          message: "Editing is unavailable with the current authorization.",
+        };
+      const dependencies =
+        contract.viewSchemaId === taskViewId &&
+        taskGuardFields.some((key) => key === fieldKey)
+          ? taskGuardFields
+          : [];
+      if (
+        !mutationRuntime.hasPendingGridWrite(target.recordId) &&
+        mutationRuntime.gridDrafts.staleFields(identity, current, dependencies)
+          .length
+      )
+        return {
+          kind: "stale_target",
+          message:
+            "Review the changed saved value before committing this draft.",
+        };
+      const change = workbookGridEditChange(field, draftValue);
       if (change === null) {
         return {
           kind: "validation_error",
@@ -265,8 +285,10 @@ export function ContractWorkbookSurface({
         const error = taskPatchErrors(current, [change])[0];
         if (error) return { kind: "validation_error", message: error.message };
       }
-      return mutationRuntime.enqueuePatch({
+      const admission = mutationRuntime.enqueuePatch({
         sheetRef,
+        baseline: current,
+        dependencies,
         baseRowVersion: target.baseRowVersion,
         changes: [change],
         fieldKey,
@@ -277,6 +299,7 @@ export function ContractWorkbookSurface({
         surfaceLabel: contract.title,
         viewSchemaId: contract.viewSchemaId,
       });
+      return admission.kind === "admitted" ? admission.completion : admission;
     },
     [contract, mutationRuntime, rows, sheetRef],
   );
@@ -517,17 +540,20 @@ export function ContractWorkbookSurface({
   const columns: readonly GridColumn<WorkbookQueryRow>[] =
     visibleAnchorColumns.map((column) => {
       const field = contract.fieldMap[column.fieldKey];
+      const displayedValue = (row: WorkbookQueryRow) => {
+        const local = mutationRuntime.visibleEdit(
+          contract.viewSchemaId,
+          row.record_id,
+          column.fieldKey,
+        );
+        return local === undefined ? row.cells[column.fieldKey]?.value : local;
+      };
       return {
         ...column,
         contractWritable: field?.gridEditable === true,
         draftWritable: field?.createWritable === true,
         getClipboardValue: (row: WorkbookQueryRow) => {
-          const value =
-            mutationRuntime.visibleEdit(
-              contract.viewSchemaId,
-              row.record_id,
-              column.fieldKey,
-            ) ?? row.cells[column.fieldKey]?.value;
+          const value = displayedValue(row);
           return field?.readKind === "collection"
             ? genericCellLabelForField(surface, column.fieldKey, value)
             : value;
@@ -535,6 +561,12 @@ export function ContractWorkbookSurface({
         editor:
           field?.gridEditable === true
             ? workbookGridEditorAdapter({
+                drafts: mutationRuntime.gridDrafts,
+                viewSchemaId: contract.viewSchemaId,
+                readRow: (row: WorkbookQueryRow) => row,
+                readCurrentRow: (row: WorkbookQueryRow) =>
+                  mutationRuntime.explicitPatches.latestRow(row.record_id) ??
+                  row,
                 collaboration: collaborationProjection,
                 commit: (draftValue, target) =>
                   commitGridEdit(field.fieldKey, draftValue, {
@@ -545,12 +577,7 @@ export function ContractWorkbookSurface({
                         : "",
                   }),
                 field,
-                readValue: (row: WorkbookQueryRow) =>
-                  mutationRuntime.visibleEdit(
-                    contract.viewSchemaId,
-                    row.record_id,
-                    field.fieldKey,
-                  ) ?? row.cells[field.fieldKey]?.value,
+                readValue: (row: WorkbookQueryRow) => displayedValue(row),
                 referenceOptions,
               })
             : undefined,
@@ -607,11 +634,7 @@ export function ContractWorkbookSurface({
                 {genericCellLabelForField(
                   surface,
                   column.fieldKey,
-                  mutationRuntime.visibleEdit(
-                    contract.viewSchemaId,
-                    row.record_id,
-                    column.fieldKey,
-                  ) ?? row.cells[column.fieldKey]?.value,
+                  displayedValue(row),
                 )}
               </WorkbookPresenceCellLayout>
             </WorkbookContinuityCell>
@@ -779,6 +802,12 @@ export function ContractWorkbookSurface({
           style={workbookGridWithNoticeStyle}
         >
           <div>
+            <WorkbookUnavailableGridDrafts
+              store={mutationRuntime.gridDrafts}
+              contract={contract}
+              recordIds={rows.map((row) => row.record_id)}
+              fieldKeys={columns.map((column) => column.fieldKey)}
+            />
             <WorkbookExplicitPatchRecovery
               owner={mutationRuntime.explicitPatches}
               viewSchemaId={contract.viewSchemaId}

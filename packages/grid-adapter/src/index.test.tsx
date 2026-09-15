@@ -1932,6 +1932,112 @@ describe("grid-adapter", () => {
     expect(onActiveCellChange).toHaveBeenCalledTimes(1);
   });
 
+  it("does not repeat seed retention on rerender or navigate after focus leaves a pending editor", async () => {
+    let retained: unknown;
+    const handle = createRef<GridHandle>(),
+      retainDraft = vi.fn((_row: HarnessRow, value: unknown) => {
+        retained = value;
+      }),
+      discardDraft = vi.fn();
+    let acknowledge: (value: { kind: "accepted" }) => void = () => {};
+    const commit = vi.fn(
+      () =>
+        new Promise<{ kind: "accepted" }>((resolve) => {
+          acknowledge = resolve;
+        }),
+    );
+    const grid = (readOnly = false) => (
+      <>
+        <button type="button">Inspector destination</button>
+        <SemanticDataGrid
+          ref={handle}
+          surface={testSurface}
+          interactionMode={
+            readOnly
+              ? { kind: "read_only", label: "Closed" }
+              : { kind: "editable" }
+          }
+          keyboardNavigation="spreadsheet"
+          columns={[
+            {
+              fieldKey: "label",
+              label: "Label",
+              contractWritable: true,
+              renderCell: ({ row }) => row.label,
+              editor: {
+                initialDraftValue: (row: HarnessRow) => retained ?? row.label,
+                discardDraft,
+                retainDraft,
+                commit,
+                renderEditor: (context) => (
+                  <input
+                    aria-label="Generation draft"
+                    ref={context.focusTargetRef}
+                    value={String(context.draftValue)}
+                    onChange={(event) =>
+                      context.setDraftValue(event.target.value)
+                    }
+                  />
+                ),
+              },
+            },
+          ]}
+          dataRows={[
+            {
+              kind: "data",
+              rowIdentity: { kind: "core_record", recordId: "record-1" },
+              mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+              data: { label: "Saved", state: "open" },
+            },
+          ]}
+        />
+      </>
+    );
+    const rendered = render(grid());
+    act(() =>
+      handle.current?.activateEdit(gridAnchor("record-1", "label"), {
+        value: "Seed",
+      }),
+    );
+    const input = await screen.findByRole("textbox", {
+      name: "Generation draft",
+    });
+    expect(retainDraft).toHaveBeenCalledTimes(1);
+    rendered.rerender(grid());
+    expect(retainDraft).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(input, { key: "Enter" });
+    const outside = screen.getByRole("button", {
+      name: "Inspector destination",
+    });
+    act(() => outside.focus());
+    await act(async () => acknowledge({ kind: "accepted" }));
+    expect(document.activeElement).toBe(outside);
+    expect(commit).toHaveBeenCalledTimes(1);
+    act(() => handle.current?.activateEdit(gridAnchor("record-1", "label")));
+    fireEvent.change(
+      await screen.findByRole("textbox", { name: "Generation draft" }),
+      { target: { value: "  retained on closure  " } },
+    );
+    rendered.rerender(grid(true));
+    expect(
+      screen.queryByRole("textbox", { name: "Generation draft" }),
+    ).toBeNull();
+    expect(discardDraft).not.toHaveBeenCalled();
+    expect(commit).toHaveBeenCalledTimes(1);
+    rendered.rerender(grid(false));
+    expect(
+      screen.queryByRole("textbox", { name: "Generation draft" }),
+    ).toBeNull();
+    act(() => handle.current?.activateEdit(gridAnchor("record-1", "label")));
+    expect(
+      (
+        (await screen.findByRole("textbox", {
+          name: "Generation draft",
+        })) as HTMLInputElement
+      ).value,
+    ).toBe("  retained on closure  ");
+  });
+
   it("retains semantic editor drafts for validation outcomes and closes only after acceptance", async () => {
     const handle = createRef<GridHandle>();
     const commit = vi
@@ -2056,6 +2162,33 @@ describe("grid-adapter", () => {
     await act(async () => acknowledge({ kind: "accepted" }));
     expect(document.activeElement).toBe(nextEditor);
     expect(nextEditor.isConnected).toBe(true);
+    let settleSameTarget!: (outcome: { kind: "accepted" }) => void;
+    commit.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          settleSameTarget = resolve;
+        }),
+    );
+    fireEvent.change(nextEditor, { target: { value: "Repeated text" } });
+    const beforeCommit = commit.mock.calls.length;
+    fireEvent.blur(nextEditor);
+    fireEvent.blur(nextEditor);
+    expect(commit.mock.calls.length).toBe(beforeCommit + 1);
+    act(() => handle.current?.cancelEdit(gridAnchor("record-2", "label")));
+    act(() =>
+      handle.current?.activateEdit(gridAnchor("record-2", "label"), {
+        value: "Repeated text",
+      }),
+    );
+    const replacement = await screen.findByRole("textbox", {
+      name: "Retained semantic draft",
+    });
+    expect(replacement).not.toBe(nextEditor);
+    await act(async () => settleSameTarget({ kind: "accepted" }));
+    expect(document.activeElement).toBe(replacement);
+    expect(replacement.isConnected).toBe(true);
+    expect((replacement as HTMLInputElement).value).toBe("Repeated text");
+    commit.mockResolvedValueOnce({ kind: "accepted" });
     act(() =>
       handle.current?.moveFocus(gridAnchor("record-2", "label"), {
         key: "Tab",

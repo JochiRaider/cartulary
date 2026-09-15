@@ -266,6 +266,11 @@ describe("Timeline workbook autosave coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       errorEnvelope("same_field_conflict", 409, {
+        conflict_token: "conflict-token-autosave",
+        record_id: "20000000-0000-4000-8000-000000000001",
+        conflict_resolution_class: "text_compare_merge",
+        server_updated_by: "user-server",
+        server_updated_at: "2026-05-05T12:00:00Z",
         field_key: "timeline.activity_synopsis_text",
         base_row_version: 1,
         current_row_version: 2,
@@ -338,6 +343,7 @@ describe("Timeline workbook autosave coverage", () => {
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, `Stale-proof ${key}`);
+    fireEvent.input(summaryInput);
     fireEvent.keyDown(summaryInput, { key });
 
     await waitFor(() => {

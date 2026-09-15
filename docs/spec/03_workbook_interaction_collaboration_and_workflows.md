@@ -325,6 +325,36 @@ Verified by: AC-481
 
 **REQ-03-298**
 Existing-row grid editing MUST be offered exactly for fields whose discovery entry declares `grid_editable=true`. Editors MUST preserve invalid local text and the original base row version until accepted, canceled, or explicitly discarded; MUST distinguish validation, conflict, stale-target, authorization, and other rejection outcomes; and MUST restore focus to the semantic record-and-field anchor after close. Create-only Indicator fields, append-only Assessment fields, action-payload fields, group rows, draft-as-record targets, and read-only interaction mode MUST reject existing-row grid mutation.
+
+Ordinary committed-cell raw authoring MUST remain memory-local within the same
+account, incident and client-instance runtime independently of presentation
+attachment. The retained identity includes `view_schema_id`, `record_id`,
+`field_key`, grid editor context and an authoring revision. Raw text, explicit
+clear intent, original authoring baseline, queued intent, captured attempt and
+accepted row MUST remain distinct. Grid and inspector authoring are independent.
+Acknowledgement or discard MUST retire only the authoring revisions owned by that
+operation; newer, unrelated and refused local work MUST remain available.
+
+Explicit sheet or saved-view switching MAY detach an invalid or unsubmitted
+editor without committing or discarding its work. Returning to the surface MUST
+NOT itself reopen an editor or restore an obsolete focus destination. Explicit
+activation of the original currently eligible cell MUST restore its raw draft
+inline, with local correction or discard. Filtering, grouping, sorting,
+virtualization, hidden fields, deletion and merge MUST NOT retarget retained work.
+An unavailable target remains non-actionable until that original identity is
+eligible again. Closure or loss of write role preserves readable rejected work
+where read access remains; REQ-03-299/100 controls concealment, suspension and
+account/incident retirement. This retention adds no reload, crash or cross-tab
+recovery guarantee.
+
+The original authoring baseline is not an immutable request captured before
+admission. Before a never-dispatched patch is captured, its owner MAY prepare
+the latest accepted committed version when the edited fields and their declared
+validation dependencies are unchanged, or have advanced through that work's own
+accepted predecessor. A relevant independent change MUST preserve the draft and
+require explicit local review before a new submission. Missing current record or
+dependency evidence requires an authorized query or local rejection, never a
+guessed base. This preparation MUST NOT alter a dispatched uncertain attempt.
 Profiles: base
 Verified by: AC-482
 
@@ -1153,7 +1183,18 @@ Replay MUST proceed in FIFO order.
 
 Replay MUST stop at the first non-retryable failure that requires analyst action. If that blocking failure is a same-field conflict, the blocked replay unit MUST leave the local pending queue, MUST enter the existing client-local same-field conflict queue keyed by `record_id:field_key`, and later queued units MUST remain queued behind it without being applied out of order. If the blocking failure is another terminal failure, later queued units MUST remain queued, save state MUST remain `Conflict`, and the blocking failure MUST be surfaced on the same workbook surface.
 
-Replayed writes MUST still satisfy ordinary `base_row_version`, authorization, and same-field conflict checks before they become authoritative incident state. A replayed row-patch unit MUST materialize its `base_row_version` from the latest committed row version known at dispatch time rather than from a stale version captured when the unit was admitted. No additional workbook tab, saved view, or inspector workflow is required for this credential-lifecycle behavior.
+Replayed writes MUST still satisfy ordinary `base_row_version`, authorization,
+and same-field conflict checks before they become authoritative incident state.
+A never-dispatched row-patch unit MUST prepare its `base_row_version` from the
+latest accepted committed record under REQ-03-298's authoring-baseline guards,
+rather than using an older rendered snapshot. First dispatch captures the exact
+operation, route, normalized payload, transaction identity and prepared base.
+After dispatch, every uncertain replay MUST use that same captured request,
+including its original base, even when a newer committed version becomes known.
+The capture boundary ends unsent coalescing for that unit. Explicit re-key
+recovery under REQ-03-302 starts a new attempt subject to current preparation;
+it does not rewrite an uncertain attempt. No additional workbook tab, saved view,
+or inspector workflow is required for this credential-lifecycle behavior.
 Profiles: base
 Verified by: AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-376, AC-377, AC-378, AC-379, AC-380, AC-381, AC-382
 

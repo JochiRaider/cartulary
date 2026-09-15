@@ -324,6 +324,7 @@ function SavedViewSelectionField({
       <select
         ref={selectorRef}
         aria-label="Saved view"
+        data-grid-editor-external-action="true"
         aria-describedby={descriptionId}
         aria-busy={projection.resourceKind === "loading" || undefined}
         data-active-view-schema-id={activeViewSchemaId}

@@ -89,7 +89,10 @@ export function GenericMutationControl({
             (id) =>
               retainedOptions.find((option) => option.value === id) ?? {
                 value: id,
-                label: "Selected item (outside current options)",
+                label:
+                  surface === "grid"
+                    ? id
+                    : "Selected item (outside current options)",
               },
           ),
       ],
@@ -210,6 +213,11 @@ function GenericSingleSelectControl({
           ? descriptor.emptyLabel
           : "Select"}
       </option>
+      {descriptor.surface === "grid" &&
+      value !== "" &&
+      !options.some((option) => option.value === value) ? (
+        <option value={value}>{value}</option>
+      ) : null}
       {options.map((option) => (
         <option key={option.value} value={option.value}>
           {option.label}

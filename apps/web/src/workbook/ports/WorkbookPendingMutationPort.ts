@@ -9,6 +9,7 @@ export type WorkbookPendingMutationAccepted = {
 };
 
 export interface WorkbookPendingMutationPort {
+  retire?(): void;
   execute(input: {
     readonly committedRowVersion: number | null;
     readonly unit: PendingReplayUnitState;

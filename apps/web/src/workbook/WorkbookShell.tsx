@@ -39,6 +39,7 @@ import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
+import { WorkbookSurfaceRefreshNotice } from "./components/WorkbookSurfaceRefreshNotice";
 import { AssessmentAppendRecovery } from "./features/assessments/AssessmentAppendRecovery";
 import { ContextualCreateContext } from "./features/coordination/ContextualCreateContext";
 import { ContextualCreateRecovery } from "./features/coordination/ContextualCreateRecovery";
@@ -248,6 +249,7 @@ function WorkbookShellContent({
   );
   const { incidentIdentity, incidentIdentityError, acceptIncidentResource } =
     useWorkbookIncidentIdentity({
+      collaborationSession,
       incidentPort: infrastructure.incidentPort,
       incidentId,
       initialIncidentIdentity,
@@ -955,6 +957,11 @@ function WorkbookShellContent({
                               <WorkbookShellTopBar
                                 importRecovery={
                                   <>
+                                    <WorkbookSurfaceRefreshNotice
+                                      runtime={infrastructure.mutationRuntime}
+                                      viewSchemaId={snapshot.surface}
+                                    />
+
                                     <WorkbookBatchRecovery
                                       runtime={infrastructure.mutationRuntime}
                                       activateConflict={recoveryFocus.activate}

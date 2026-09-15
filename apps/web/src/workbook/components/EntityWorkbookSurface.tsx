@@ -50,10 +50,9 @@ import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice"
 import { useOrdinaryCreateDraft } from "../features/ordinary/useOrdinaryCreateDraft";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatchRecovery";
-import {
-  type WorkbookInspectorErrorPresentation,
-  type WorkbookInspectorFeedback,
-  workbookInspectorLocalErrorPresentation,
+import type {
+  WorkbookInspectorErrorPresentation,
+  WorkbookInspectorFeedback,
 } from "../inspector/workbookInspectorErrorModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
@@ -69,7 +68,6 @@ import {
   entityRowFromApi,
 } from "../models/entityWorkbookModel";
 import {
-  buildGenericPatchChange,
   genericCellLabel,
   genericRowLabel,
   workbookCreationAvailable,
@@ -78,6 +76,7 @@ import {
   workbookContractColumns,
   workbookGridRows,
 } from "../models/workbookContractRows";
+import { workbookGridEditChange } from "../models/workbookGridEditValue";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import {
   type WorkbookQueryLoadState,
@@ -99,6 +98,7 @@ import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntim
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
+import { WorkbookUnavailableGridDrafts } from "./WorkbookParkedGridDrafts";
 import {
   WorkbookCellPresenceMarker,
   WorkbookPresenceCellLayout,
@@ -474,7 +474,7 @@ export function EntityWorkbookSurface({
   const commitGridEdit = useCallback(
     async (
       fieldKey: string,
-      draftValue: string,
+      draftValue: string | null,
       target: {
         readonly baseRowVersion: number;
         readonly recordId: string;
@@ -488,16 +488,33 @@ export function EntityWorkbookSurface({
         };
       }
       const current = rows.find((row) => row.recordId === target.recordId);
-      if (
-        current === undefined ||
-        current.rowVersion !== target.baseRowVersion
-      ) {
+      if (current === undefined) {
         return {
           kind: "stale_target",
           message: "The record changed before this edit was submitted.",
         };
       }
-      const change = buildGenericPatchChange(field, draftValue);
+      const identity = {
+        viewSchemaId: contract.viewSchemaId,
+        recordId: target.recordId,
+        fieldKey,
+      };
+      mutationRuntime.gridDrafts.update(identity, current.rawRow, draftValue);
+      if (!mutationRuntime.gridDrafts.canAuthor())
+        return {
+          kind: "rejected_mutation",
+          message: "Editing is unavailable with the current authorization.",
+        };
+      if (
+        !mutationRuntime.hasPendingGridWrite(target.recordId) &&
+        mutationRuntime.gridDrafts.staleFields(identity, current.rawRow).length
+      )
+        return {
+          kind: "stale_target",
+          message:
+            "Review the changed saved value before committing this draft.",
+        };
+      const change = workbookGridEditChange(field, draftValue);
       if (change === null) {
         return {
           kind: "validation_error",
@@ -508,6 +525,7 @@ export function EntityWorkbookSurface({
       setMutationError(null);
       const outcome = mutationRuntime.enqueuePatch({
         sheetRef,
+        baseline: current.rawRow,
         baseRowVersion: target.baseRowVersion,
         changes: [change],
         fieldKey,
@@ -518,14 +536,7 @@ export function EntityWorkbookSurface({
         surfaceLabel: contract.title,
         viewSchemaId: contract.viewSchemaId,
       });
-      if (outcome.kind !== "accepted") {
-        setMutationError(
-          workbookInspectorLocalErrorPresentation(outcome.message),
-        );
-      } else {
-        setSelectedRecordId(target.recordId);
-      }
-      return outcome;
+      return outcome.kind === "admitted" ? outcome.completion : outcome;
     },
     [contract, mutationRuntime, rows, sheetRef],
   );
@@ -559,17 +570,22 @@ export function EntityWorkbookSurface({
   const entityColumns: readonly GridColumn<EntityRow>[] =
     visibleEntityAnchorColumns.map((column) => {
       const field = contract.fieldMap[column.fieldKey];
+      const displayedValue = (row: EntityRow) => {
+        const local = mutationRuntime.visibleEdit(
+          contract.viewSchemaId,
+          row.recordId,
+          column.fieldKey,
+        );
+        return local === undefined
+          ? row.rawRow.cells[column.fieldKey]?.value
+          : local;
+      };
       return {
         ...column,
         contractWritable: field?.gridEditable === true,
         draftWritable: field?.createWritable === true,
         getClipboardValue: (row: EntityRow) => {
-          const value =
-            mutationRuntime.visibleEdit(
-              contract.viewSchemaId,
-              row.recordId,
-              column.fieldKey,
-            ) ?? row.rawRow.cells[column.fieldKey]?.value;
+          const value = displayedValue(row);
           return field?.readKind === "collection"
             ? genericCellLabel(value)
             : value;
@@ -577,6 +593,12 @@ export function EntityWorkbookSurface({
         editor:
           field?.gridEditable === true
             ? workbookGridEditorAdapter({
+                drafts: mutationRuntime.gridDrafts,
+                viewSchemaId: contract.viewSchemaId,
+                readRow: (row: EntityRow) => row.rawRow,
+                readCurrentRow: (row: EntityRow) =>
+                  mutationRuntime.explicitPatches.latestRow(row.recordId) ??
+                  row.rawRow,
                 collaboration: collaborationProjection,
                 commit: (draftValue, target) =>
                   commitGridEdit(field.fieldKey, draftValue, {
@@ -587,12 +609,7 @@ export function EntityWorkbookSurface({
                         : "",
                   }),
                 field,
-                readValue: (row: EntityRow) =>
-                  mutationRuntime.visibleEdit(
-                    contract.viewSchemaId,
-                    row.recordId,
-                    field.fieldKey,
-                  ) ?? row.rawRow.cells[field.fieldKey]?.value,
+                readValue: (row: EntityRow) => displayedValue(row),
                 referenceOptions: entityReferenceOptions,
               })
             : undefined,
@@ -740,6 +757,12 @@ export function EntityWorkbookSurface({
       primaryGrid={
         <div style={{ ...workbookGridWithNoticeStyle, minWidth: 0 }}>
           <div>
+            <WorkbookUnavailableGridDrafts
+              store={mutationRuntime.gridDrafts}
+              contract={contract}
+              recordIds={rows.map((row) => row.recordId)}
+              fieldKeys={entityColumns.map((column) => column.fieldKey)}
+            />
             <WorkbookExplicitPatchRecovery
               owner={mutationRuntime.explicitPatches}
               viewSchemaId={contract.viewSchemaId}

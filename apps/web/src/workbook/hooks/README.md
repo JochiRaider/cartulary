@@ -56,3 +56,8 @@ Timeline-specific controllers live under
 `useGenericSurfaceMutationController` submits existing-record edits through the
 retained explicit owner. The one-shot generic and Entity patch ports are retired;
 creation and specialized route commands keep their own admission boundaries.
+
+Committed grid denials bind to the existing collaboration authorization recovery
+through `useWorkbookCollaborationLifecycle`. `useWorkbookIncidentIdentity` reacts
+to incident closure with its version-fenced identity read; reopening uses the
+retained incident lifecycle owner. Neither hook owns raw editor drafts.

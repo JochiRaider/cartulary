@@ -61,11 +61,15 @@ function resolveScalarSaveSnapshot({
   const focusKey = inputFocusKey(row.key, focusField, surface);
   return {
     focusKey,
-    row: editorDraftRegistry.materializeRow(row, {
-      field: focusField,
-      value:
-        currentValue ?? editorDraftRegistry.draftValueForFocusKey(focusKey),
-    }),
+    row: editorDraftRegistry.authoringRow(
+      editorDraftRegistry.materializeRow(row, {
+        field: focusField,
+        surface,
+        value:
+          currentValue ?? editorDraftRegistry.draftValueForFocusKey(focusKey),
+      }),
+      surface,
+    ),
   };
 }
 

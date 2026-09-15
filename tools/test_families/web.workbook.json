@@ -420,6 +420,42 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.committed_grid_autosave",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookGridAutosave.test.ts",
+        "titles": [
+          "Committed grid autosave discards only the rejected operation while retaining newer raw and queued work",
+          "Committed grid autosave does not regress a newer authoring baseline when an older predecessor receipt arrives",
+          "Committed grid autosave does not report queue admission as authoritative editor acceptance",
+          "Committed grid autosave keeps a newer same-field edit when its predecessor is acknowledged",
+          "Committed grid autosave keeps acceptance and newer text when refresh fails and recovers by reads after remount",
+          "Committed grid autosave prepares an undispatched dependent edit from the accepted predecessor version",
+          "Committed grid autosave prepares unrelated collaboration changes but halts changed dependencies for review",
+          "Committed grid autosave preserves newer refused text when a full queue predecessor completes",
+          "Committed grid autosave preserves newer unsubmitted equal-valued authoring through acknowledgement",
+          "Committed grid autosave replays the captured attempt after collaboration advances the record",
+          "Committed grid autosave requests current authorization after denial without retiring readable raw work",
+          "Committed grid autosave retains contiguous collaboration rows and refuses sparse gaps without altering captured replay",
+          "Committed grid autosave settles coalesced contributors without claiming superseded text was saved"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.conflict_editor_accessibility",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1505,6 +1541,60 @@
           "workbookGridQueryControls rejects a ninth or duplicate sort and recovers admission after removal",
           "workbookGridQueryControls resets the pure presentation seam when its semantic subject changes",
           "workbookGridQueryControls scopes transient drafts to a subject and closes stale panels"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.grid_draft_lifetime",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/WorkbookGridDraftStore.test.ts",
+        "titles": [
+          "Retained grid authoring conceals suspended authoring and restores only the same account",
+          "Retained grid authoring keeps readable rejected work on closure and role loss without granting mutation authority",
+          "Retained grid authoring requires review for relevant committed changes without retargeting the draft",
+          "Retained grid authoring retains exact raw input and explicit clear independently by semantic target",
+          "Retained grid authoring uses authoring revisions so an older equal-valued attempt cannot clear newer work"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.grid_field_intent",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookGridEditValue.test.ts",
+        "titles": [
+          "Grid field intent covers all 97 declared direct-value fields across 15 surfaces and seven editor families",
+          "Grid field intent distinguishes unfinished timestamp and reference text from explicit null",
+          "Grid field intent validates each scalar family and never introduces a specialized editor"
         ]
       },
       "evidence_class": "unit",
@@ -6828,7 +6918,8 @@
           "builds patches from dispatch-time identity and version",
           "executes creates through the incident-bound generated operation",
           "fails closed for malformed, mismatched, or invalid success responses",
-          "rejects cross-incident and undispatchable units before transport"
+          "rejects cross-incident and undispatchable units before transport",
+          "retains exact patch bytes through acknowledgement loss and retires captured requests"
         ]
       },
       "evidence_class": "unit",

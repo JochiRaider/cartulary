@@ -13,6 +13,7 @@ import { invalidWorkbookAdapterResult } from "./workbookAdapterResult";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 import {
   acceptedRecordMutation,
+  type CapturedRecordPatch,
   captureRecordPatch,
 } from "./workbookRecordPatchTransport";
 
@@ -107,6 +108,7 @@ function executePatch(
   options: PendingMutationAdapterOptions,
   committedRowVersion: number | null,
   unit: PendingReplayUnitState,
+  attempts: Map<string, CapturedRecordPatch>,
 ) {
   if (
     committedRowVersion === null ||
@@ -116,21 +118,24 @@ function executePatch(
   ) {
     return Promise.resolve(staleTargetResult());
   }
-  const captured = captureRecordPatch({
-    recordId: unit.recordId,
-    baseRowVersion: committedRowVersion,
-    changes: unit.identity.changes,
-    clientTxnId: unit.clientTxnId,
-    viewSchemaId: unit.viewSchemaId,
-  });
+  const captured =
+    attempts.get(unit.clientTxnId) ??
+    captureRecordPatch({
+      recordId: unit.recordId,
+      baseRowVersion: committedRowVersion,
+      changes: unit.identity.changes,
+      clientTxnId: unit.clientTxnId,
+      viewSchemaId: unit.viewSchemaId,
+    });
   if (captured === null) {
     return Promise.resolve(invalidMutationResult<CreateViewRowResponse>());
   }
+  attempts.set(unit.clientTxnId, captured);
   const request = JSON.parse(captured.body);
   return operations.execute({
     observeTransport: observedTransport(unit, options.recordTiming),
     operationID: "patchRecord",
-    pathParameters: { record_id: unit.recordId },
+    pathParameters: { record_id: captured.recordId },
     request,
   });
 }
@@ -140,10 +145,11 @@ function executeOperation(
   options: PendingMutationAdapterOptions,
   committedRowVersion: number | null,
   unit: PendingReplayUnitState,
+  attempts: Map<string, CapturedRecordPatch>,
 ): Promise<WorkbookOperationOutcome<CreateViewRowResponse>> {
   return unit.kind === "create"
     ? executeCreate(operations, options, unit)
-    : executePatch(operations, options, committedRowVersion, unit);
+    : executePatch(operations, options, committedRowVersion, unit, attempts);
 }
 
 function responseCorrelatesToUnit(
@@ -184,7 +190,9 @@ function rowCorrelatesToUnit(
   }
   return (
     unit.kind === "create" ||
-    (row.record_id === unit.recordId && committedRowVersion !== null)
+    (row.record_id === unit.recordId &&
+      committedRowVersion !== null &&
+      row.row_version > committedRowVersion)
   );
 }
 
@@ -217,8 +225,15 @@ export function createWorkbookPendingMutationAdapter(
   const operations = createWorkbookOperationExecutor({
     apiBase: options.apiBase,
   });
+  const attempts = new Map<string, CapturedRecordPatch>();
+  let retired = false;
   return {
+    retire() {
+      retired = true;
+      attempts.clear();
+    },
     async execute({ committedRowVersion, unit }) {
+      if (retired) return invalidMutationResult();
       if (unit.incidentId !== options.incidentId) {
         return invalidMutationResult();
       }
@@ -230,15 +245,39 @@ export function createWorkbookPendingMutationAdapter(
           options,
           committedRowVersion,
           unit,
+          attempts,
         );
-        return outcome.kind === "rejected"
-          ? outcome
-          : normalizedAcceptedMutation(
-              contract,
-              committedRowVersion,
-              outcome.value.data,
-              unit,
-            );
+        const result =
+          outcome.kind === "rejected"
+            ? outcome
+            : normalizedAcceptedMutation(
+                contract,
+                attempts.get(unit.clientTxnId)?.baseRowVersion ??
+                  committedRowVersion,
+                outcome.value.data,
+                unit,
+              );
+        // A malformed response cannot prove that the server rejected a write.
+        if (
+          result.kind === "rejected" &&
+          result.failure.kind === "invalid_contract"
+        )
+          return {
+            kind: "rejected",
+            failure: {
+              kind: "retryable",
+              message:
+                "The save acknowledgement could not be verified. Retrying the captured request.",
+            },
+          };
+        if (
+          result.kind === "accepted" ||
+          (result.failure.kind !== "retryable" &&
+            result.failure.kind !== "authentication_required" &&
+            result.failure.kind !== "authorization_lost")
+        )
+          attempts.delete(unit.clientTxnId);
+        return result;
       } catch {
         return {
           kind: "rejected",

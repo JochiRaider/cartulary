@@ -1,5 +1,18 @@
 # workbook/runtime/
 
+The runtime also owns ordinary committed-cell drafts through `gridDrafts`.
+Presentation detachment does not retire them. Current authority controls access;
+account/incident retirement clears them. Managed queue and accepted-row tests in
+`WorkbookGridAutosave.test.ts` cover revision settlement and first-dispatch bases.
+
+Managed enqueue returns an admission ticket whose completion represents server
+acknowledgement. The driver retains each field's contributed draft revision;
+coalescing explicitly supersedes replaced contributions. The queue prepares a
+base synchronously only before first dispatch. Transport capture retains the
+route, body and transaction identity through uncertainty. Complete accepted
+receipts enter the existing committed-record capability before dependent work
+is released. Surface refresh runs as a separate retained read obligation.
+
 [Parent](../README.md) · [Source overview](../../README.md)
 
 Workbook mutation lifetime, pending replay, conflict recovery, write coordination, and status projection.
@@ -39,6 +52,7 @@ surface-specific commands enter through registered semantic capabilities.
 | [WorkbookEntityMergeAdmission.test.ts](WorkbookEntityMergeAdmission.test.ts) | Tests merge coordination with queued/direct writes and overlapping participant reservation. |
 | [WorkbookExplicitPatchOwner.test.ts](WorkbookExplicitPatchOwner.test.ts) | Tests explicit Task patch reservation, guarded-field review, and exact uncertain replay. |
 | [WorkbookMutationRuntime.test.ts](WorkbookMutationRuntime.test.ts) | Tests for shell-lifetime queue retention, autosave, refresh debt, conflicts, and mutation coordination. |
+| [WorkbookGridAutosave.test.ts](WorkbookGridAutosave.test.ts) | Admission versus acknowledgement, coalesced contributors, successive revisions, guarded preparation, immutable replay, refusal, discard and read recovery. |
 | [WorkbookRuntimeResponsibilities.test.ts](WorkbookRuntimeResponsibilities.test.ts) | Deterministic tests for responsibility boundaries, injected time/scheduling, registration cleanup, conflict drafts, transaction settlement, and disposal. |
 
 ## Retained workbook batches
@@ -74,3 +88,15 @@ An explicit source contribution may own complete reconciliation, including its
 source reads and mounted refresh or deferred surface debt. Otherwise the neutral
 owner requires the originating surface refresh. Party preparation excludes only
 its own reservation ID; other retained operations still block admission.
+
+The committed cache accepts validated contiguous collaboration patches for every
+known Core view before surface attachment. A missing predecessor raises only the
+version floor. The current source baseline must then be read before preparation.
+`surfaceRefreshRequired` and `refreshSurface` expose the existing surface registry
+under current read authority; the notice is presentation only.
+
+Local stale-field validation may admit a successor behind an existing grid write:
+a collaboration echo is committed evidence but does not settle that predecessor's
+HTTP attempt. Preparation waits for predecessor settlement and then validates the
+original field/dependency baseline. Pending feedback does not offer premature
+review of the predecessor's own echoed value.

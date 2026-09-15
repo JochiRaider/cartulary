@@ -33,3 +33,13 @@ own authentication transport.
 | [WorkbookCollaborationCoordinator.test.ts](WorkbookCollaborationCoordinator.test.ts) | Tests for presence, reset, cleanup ordering, authorization recovery, role downgrade, access loss, and late-work rejection. |
 | [workbookCollaborationMessages.test.ts](workbookCollaborationMessages.test.ts) | Tests for Base, saved-view, and extension-workspace presence message construction. |
 | [workbookCollaborationTransitionModels.test.ts](workbookCollaborationTransitionModels.test.ts) | Tests closed event routing and ordered reset, authorization, role, closure, and disposal plans. |
+
+Record-change delivery advances the retained explicit-patch committed cache before
+active-surface projection or client-transaction suppression. Contiguous validated
+patches can complete a cached row; missing predecessors retain a version floor
+until a full read. This observation does not acknowledge pending requests.
+
+After confirmed authorization, a cancelled presentation refresh remains retryable
+under the existing recovery scheduler: React authority attachment or a newer query
+can cancel that read. Cancellation of authorization recovery itself still pauses.
+Replay waits for a current accepted read in both cases.

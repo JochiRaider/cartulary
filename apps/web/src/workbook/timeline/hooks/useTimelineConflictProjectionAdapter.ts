@@ -75,10 +75,12 @@ export function useTimelineConflictProjectionAdapter({
       surface: TimelineScalarEditorSurface,
       refresh?: (() => Promise<WorkbookOperationOutcome<unknown>>) | undefined,
       originSheetRef: SheetRef = sheetRef,
+      draftRevisions?: ReadonlyMap<string, number>,
     ) => {
       const queueKey = workbookConflictQueueKey(conflict);
       const binding = timelineScalarBindingForField(conflict.field_key);
       mutationRuntime.registerConflict({
+        draftRevisions,
         conflict,
         focusKey,
         refresh,
@@ -87,7 +89,15 @@ export function useTimelineConflictProjectionAdapter({
         sheetRef: originSheetRef,
         viewSchemaId: "cartulary.view.timeline.v2",
       });
-      if (binding !== null && typeof conflict.client_value === "string") {
+      if (
+        binding !== null &&
+        typeof conflict.client_value === "string" &&
+        editorDraftRegistry.draftValue({
+          field: binding.key,
+          rowKey: conflict.record_id,
+          surface,
+        }) === undefined
+      ) {
         editorDraftRegistry.setDraft(
           { field: binding.key, rowKey: conflict.record_id, surface },
           conflict.client_value,

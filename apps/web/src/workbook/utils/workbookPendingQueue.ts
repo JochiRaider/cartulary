@@ -1275,13 +1275,34 @@ class WorkbookPendingQueueState {
     };
   }
 
-  markDispatched(unitId: string): PendingReplayDispatch | null {
+  wasDispatched(unitId: string): boolean {
+    const unit = this.units.find((candidate) => candidate.id === unitId);
+    return unit !== undefined && this.dispatchedUnits.has(unit);
+  }
+
+  /** Preparation is synchronous and runs exactly once, before capture. */
+  markDispatched(
+    unitId: string,
+    prepareBase?: (unit: PendingReplayUnitState) => number | null,
+  ): PendingReplayDispatch | null {
     if (this.isReplayBlocked()) {
       return null;
     }
     const unit = this.units.find((candidate) => candidate.status === "queued");
     if (unit === undefined || unit.id !== unitId || !this.dispatchGuard(unit)) {
       return null;
+    }
+    if (
+      unit.kind === "patch" &&
+      !this.dispatchedUnits.has(unit) &&
+      prepareBase
+    ) {
+      const base = prepareBase(cloneUnit(unit));
+      if (base === null) return null;
+      unit.payloadIntent = { ...unit.payloadIntent, base_row_version: base };
+      // Admission identity remains stable for duplicate editor completions.
+      // Only the captured request receives the prepared committed base.
+      unit.identity = buildPendingReplayMutationIdentity(unit);
     }
     this.dispatchedUnits.add(unit);
     unit.status = "in_flight";
@@ -1296,6 +1317,23 @@ class WorkbookPendingQueueState {
   dispatchNext(): PendingReplayDispatch | null {
     const next = this.peekNextQueued();
     return next === null ? null : this.markDispatched(next.unit.id);
+  }
+
+  haltBeforeDispatch(unitId: string, message: string): boolean {
+    const unit = this.units.find((candidate) => candidate.id === unitId);
+    if (!unit || unit.status !== "queued" || this.dispatchedUnits.has(unit))
+      return false;
+    this.halted = {
+      unit_id: unit.id,
+      error_code: "stale_target",
+      message,
+      anchor: failureAnchor(unit, {
+        code: "stale_target",
+        message,
+        retryable: false,
+      }),
+    };
+    return true;
   }
 
   settleDispatched(result: PendingReplayPublicResult): PendingReplaySettlement {
@@ -1483,6 +1521,7 @@ class WorkbookPendingQueueState {
     }
 
     unit.clientTxnId = replacement;
+    this.dispatchedUnits.delete(unit);
     unit.identity = buildPendingReplayMutationIdentity(unit);
     this.halted = null;
     return {
@@ -1642,7 +1681,13 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
     snapshot: () => state.snapshot(),
     admit: (input: PendingReplayUnitInput) => state.admit(input),
     peekNextQueued: () => state.peekNextQueued(),
-    markDispatched: (unitId: string) => state.markDispatched(unitId),
+    wasDispatched: (unitId: string) => state.wasDispatched(unitId),
+    markDispatched: (
+      unitId: string,
+      prepareBase?: (unit: PendingReplayUnitState) => number | null,
+    ) => state.markDispatched(unitId, prepareBase),
+    haltBeforeDispatch: (unitId: string, message: string) =>
+      state.haltBeforeDispatch(unitId, message),
     dispatchNext: () => state.dispatchNext(),
     settleDispatched: (result: PendingReplayPublicResult) =>
       state.settleDispatched(result),

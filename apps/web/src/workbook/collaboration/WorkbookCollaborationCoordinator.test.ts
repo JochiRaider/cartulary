@@ -598,7 +598,8 @@ describe("WorkbookCollaborationCoordinator", () => {
       await fixture.timing.advanceBy(1000);
       for (let i = 0; i < 6; ++i) await Promise.resolve();
       expect(refresh).toHaveBeenCalledTimes(
-        recovery.kind === "unavailable" && recovery.failure === "transient"
+        recovery.kind === "cancelled" ||
+          (recovery.kind === "unavailable" && recovery.failure === "transient")
           ? 2
           : 1,
       );
@@ -677,7 +678,11 @@ describe("WorkbookCollaborationCoordinator", () => {
         surfaceLabel: "Timeline",
         viewSchemaId: "cartulary.view.timeline.v2",
       }),
-    ).toEqual({ kind: "accepted" });
+    ).toMatchObject({
+      kind: "admitted",
+      unitId: expect.any(String),
+      completion: expect.any(Promise),
+    });
     const retainedUnits = fixture.mutationRuntime
       .pendingQueue()
       .model.snapshot().units;

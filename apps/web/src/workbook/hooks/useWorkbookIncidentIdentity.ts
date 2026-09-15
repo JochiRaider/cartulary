@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { useIncidentCollaborationSession } from "../../collaboration/IncidentCollaborationSession";
 import {
   type IncidentResource,
   validIncidentResource,
@@ -10,12 +11,17 @@ import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 export function useWorkbookIncidentIdentity({
   incidentPort,
   incidentId,
+  collaborationSession,
   initialIncidentIdentity,
   acceptedIncidentResource,
   onIncidentResourceObserved,
   onAuthorityUncertain,
 }: {
   readonly incidentPort: WorkbookIncidentPort;
+  readonly collaborationSession?: Pick<
+    ReturnType<typeof useIncidentCollaborationSession>,
+    "subscribe"
+  >;
   readonly acceptedIncidentResource?: IncidentResource | null | undefined;
   readonly onIncidentResourceObserved?:
     | ((resource: IncidentResource) => void)
@@ -32,6 +38,15 @@ export function useWorkbookIncidentIdentity({
     string | null
   >(null);
 
+  const [lifecycleGeneration, setLifecycleGeneration] = useState(0);
+  useEffect(
+    () =>
+      collaborationSession?.subscribe((event) => {
+        if (event.kind === "incident_closed")
+          setLifecycleGeneration((generation) => generation + 1);
+      }),
+    [collaborationSession],
+  );
   const observed = useRef(onIncidentResourceObserved);
   observed.current = onIncidentResourceObserved;
   const currentIncident = useRef(incidentId);
@@ -58,7 +73,10 @@ export function useWorkbookIncidentIdentity({
   }, [acceptedIncidentResource, incidentId, acceptIncidentResource]);
 
   useEffect(() => {
-    if (initialIncidentIdentity?.incident_id === incidentId) {
+    if (
+      initialIncidentIdentity?.incident_id === incidentId &&
+      lifecycleGeneration === 0
+    ) {
       acceptIncidentResource(initialIncidentIdentity);
       setIncidentIdentityError(null);
       return;
@@ -96,6 +114,7 @@ export function useWorkbookIncidentIdentity({
   }, [
     incidentPort,
     incidentId,
+    lifecycleGeneration,
     initialIncidentIdentity,
     onAuthorityUncertain,
     acceptIncidentResource,

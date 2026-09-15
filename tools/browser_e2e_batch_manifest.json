@@ -1070,6 +1070,41 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-workbook-grid-autosave",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.grid_autosave_availability",
+            "module.workbook.browser.grid_autosave_closure",
+            "module.workbook.browser.grid_autosave_collaboration",
+            "module.workbook.browser.grid_autosave_csrf",
+            "module.workbook.browser.grid_autosave_editor_families",
+            "module.workbook.browser.grid_autosave_exact_replay",
+            "module.workbook.browser.grid_autosave_inspector",
+            "module.workbook.browser.grid_autosave_refresh",
+            "module.workbook.browser.grid_autosave_role",
+            "module.workbook.browser.grid_autosave_session",
+            "module.workbook.browser.grid_autosave_successive",
+            "module.workbook.browser.grid_autosave_surface_matrix",
+            "module.workbook.browser.grid_autosave_timeline_collaboration",
+            "module.workbook.browser.grid_autosave_timestamp_retention"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-grid-autosave.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-workbook-inspector-edit",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2358,6 +2393,41 @@
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
+          "name": "functional-default-workbook-grid-autosave",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.grid_autosave_availability",
+            "module.workbook.browser.grid_autosave_closure",
+            "module.workbook.browser.grid_autosave_collaboration",
+            "module.workbook.browser.grid_autosave_csrf",
+            "module.workbook.browser.grid_autosave_editor_families",
+            "module.workbook.browser.grid_autosave_exact_replay",
+            "module.workbook.browser.grid_autosave_inspector",
+            "module.workbook.browser.grid_autosave_refresh",
+            "module.workbook.browser.grid_autosave_role",
+            "module.workbook.browser.grid_autosave_session",
+            "module.workbook.browser.grid_autosave_successive",
+            "module.workbook.browser.grid_autosave_surface_matrix",
+            "module.workbook.browser.grid_autosave_timeline_collaboration",
+            "module.workbook.browser.grid_autosave_timestamp_retention"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-grid-autosave.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
           "name": "functional-default-workbook-inspector-edit",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
@@ -3305,6 +3375,29 @@
         "service_backed_release_browser"
       ],
       "groups": [
+        {
+          "name": "a11y-workbook-grid-autosave",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-a11y-default",
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
+          "selected_row_ids": [
+            "module.workbook.accessibility.grid_autosave"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-grid-autosave.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
         {
           "name": "a11y-workbook-inspector-edit",
           "target": "browser-e2e-a11y",
@@ -4350,6 +4443,28 @@
             "object_store",
             "postgres"
           ]
+        },
+        {
+          "name": "a11y-workbook-grid-autosave",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.accessibility.grid_autosave"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-grid-autosave.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
         },
         {
           "name": "a11y-workbook-inspector-edit",

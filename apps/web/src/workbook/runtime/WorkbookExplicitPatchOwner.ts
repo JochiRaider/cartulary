@@ -1,4 +1,7 @@
-import { requireViewContract } from "@cartulary/view-contracts";
+import {
+  normalizeViewRowPatchV1,
+  requireViewContract,
+} from "@cartulary/view-contracts";
 import { boundedRead } from "../../services/asyncObservation";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
@@ -8,6 +11,7 @@ import {
   type RecordPatchOutcome,
   type RecordPatchTransport,
 } from "../adapters/workbookRecordPatchTransport";
+import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
 import { workbookSavedFieldEqual } from "../models/workbookSavedValues";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
@@ -16,6 +20,7 @@ import type { WorkbookPendingMutationAccepted } from "../ports/WorkbookPendingMu
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import { applyWorkbookQueryRowPatch } from "../query/workbookQueryRowPatch";
 import type { WorkbookConflictRegistration } from "./WorkbookConflictStore";
 import type { WorkbookConflictResolutionKind } from "./workbookConflictModel";
 
@@ -99,6 +104,10 @@ export class WorkbookExplicitPatchOwner {
   private readonly running = new Set<string>();
   private readonly rows = new Map<string, WorkbookQueryRow>();
   private readonly versions = new Map<string, number>();
+  private readonly receipts = new Map<
+    string,
+    WorkbookPendingMutationAccepted
+  >();
   private readonly listeners = new Set<() => void>();
   private snapshot: Snapshot = { revision: 0, authority: null, entries: [] };
   constructor(
@@ -178,6 +187,7 @@ export class WorkbookExplicitPatchOwner {
     this.contributions.clear();
     this.rows.clear();
     this.versions.clear();
+    this.receipts.clear();
     this.emit();
   }
   canSubmit() {
@@ -200,6 +210,50 @@ export class WorkbookExplicitPatchOwner {
   }
   latestRow(id: string) {
     return this.canRead() ? (this.rows.get(id) ?? null) : null;
+  }
+  latestReceipt(id: string) {
+    return this.canRead() ? (this.receipts.get(id) ?? null) : null;
+  }
+  observeRecordChanged(payload: RecordChangedPayload) {
+    if (!this.canRead()) return;
+    const previous = this.rows.get(payload.record_id);
+    // A sparse patch is a complete row only over its immediate predecessor.
+    // Missing events retain a version floor until an authoritative read arrives.
+    if (previous?.row_version === payload.row_version - 1) {
+      for (const change of payload.affected_views) {
+        if (change.change_kind !== "patch" || !change.patch_cells) continue;
+        try {
+          const contract = requireViewContract(change.view_schema_id);
+          if (
+            !Object.keys(previous.cells).every((key) => contract.fieldMap[key])
+          )
+            continue;
+          const patch = normalizeViewRowPatchV1(
+            contract,
+            change.patch_cells,
+            "record_changed patch_cells",
+          );
+          if (
+            patch.recordId !== payload.record_id ||
+            patch.rowVersion !== payload.row_version
+          )
+            continue;
+          this.acceptRow(applyWorkbookQueryRowPatch(previous, patch));
+          break;
+        } catch {
+          /* Incomplete projection requires an authoritative read. */
+        }
+      }
+    }
+    this.acceptVersion(payload.record_id, payload.row_version);
+  }
+
+  observeReceipt(receipt: WorkbookPendingMutationAccepted) {
+    if (this.retired) return;
+    const id = receipt.row.record_id;
+    if (receipt.row.row_version > (this.receipts.get(id)?.row.row_version ?? 0))
+      this.receipts.set(id, immutableClone(receipt));
+    this.acceptRow(receipt.row);
   }
   acceptVersion(id: string, version: number) {
     if (!this.retired && version > (this.versions.get(id) ?? 0)) {
@@ -527,7 +581,7 @@ export class WorkbookExplicitPatchOwner {
       reconciliation: "required",
     });
     this.boundaries.settle?.(id);
-    this.acceptRow(receipt.row);
+    this.observeReceipt(receipt);
     const accepted = this.entries.get(id);
     if (accepted)
       for (const contribution of this.contributions.get(id) ?? [])

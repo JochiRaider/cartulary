@@ -102,13 +102,18 @@ export function useWorkbookCollaborationLifecycle({
       queryInvalidation,
     ],
   );
-  useEffect(
-    () =>
-      timelineMutationOwnerFor(mutationRuntime).bindAuthorizationRecovery(() =>
-        projection.requestAuthorizationRecovery(),
-      ),
-    [mutationRuntime, projection],
-  );
+  useEffect(() => {
+    const recover = () => projection.requestAuthorizationRecovery();
+    const releaseManaged = mutationRuntime.bindAuthorizationRecovery(recover);
+    const releaseTimeline =
+      timelineMutationOwnerFor(mutationRuntime).bindAuthorizationRecovery(
+        recover,
+      );
+    return () => {
+      releaseManaged();
+      releaseTimeline();
+    };
+  }, [mutationRuntime, projection]);
   const snapshot = useWorkbookCollaborationCoordinatorSession({
     projection,
     session: collaborationSession,

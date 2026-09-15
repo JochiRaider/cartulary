@@ -78,3 +78,12 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 The presentation subscribes to retained runtime state. Opening batch recovery
 closes conflict presentation; reviewing conflicts activates the existing resolver
 and focus owner. Routine acceptance opens no panel.
+
+[WorkbookParkedGridDrafts.tsx](WorkbookParkedGridDrafts.tsx) exposes readable,
+copyable local grid text only when its original target is unavailable, with
+source-owned eligibility and discard callbacks. It owns no draft state.
+
+[WorkbookSurfaceRefreshNotice.tsx](WorkbookSurfaceRefreshNotice.tsx) exposes the
+existing surface registry obligation as compact read-only recovery. It neither
+replays mutations nor owns refresh debt. `GenericMutationControl` preserves unknown
+grid enum/reference input visibly; inspector controls keep their own contract.

@@ -15,6 +15,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { WorkbookParkedGridDrafts } from "../../components/WorkbookParkedGridDrafts";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
 import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
 import { admitEvidenceFile } from "../../features/evidence/evidenceFileOperation";
@@ -38,6 +39,7 @@ import {
   timelineRowGutterWidth,
 } from "../components/TimelineWorkbookStyles";
 import type { TimelineWorkbookCompositionResult } from "../composition/useTimelineWorkbookComposition";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { timelineRelationshipLabel } from "../models/timelineFieldRegistry";
 import { timelineGroupLabel } from "../models/timelineLayoutPolicy";
 import type { WorkbookRow } from "../models/timelineRowModel";
@@ -266,6 +268,8 @@ export function useTimelineWorkbookPresentation({
     handleSelectRow,
     queueCollectionSave,
     readOnly: interactionMode.kind === "read_only",
+    readCurrentRow: (row) =>
+      rows.find((candidate) => candidate.key === row.key) ?? row,
     rowGutterWidth: timelineRowGutterWidth,
     timelineContract,
     updateTimelineSurfaceFocusAnchor,
@@ -479,6 +483,15 @@ export function useTimelineWorkbookPresentation({
 
   return {
     grid: {
+      parkedDrafts:
+        !loadAccessLost && currentIncidentRole ? (
+          <TimelineParkedGridDrafts
+            registry={editorDraftRegistry}
+            canEdit={interactionMode.kind === "editable" && !incidentClosed}
+            rows={rows}
+            fieldKeys={visibleTimelineColumns.map((column) => column.fieldKey)}
+          />
+        ) : null,
       fileRecovery:
         !loadAccessLost && currentIncidentRole ? (
           <div style={{ maxBlockSize: "25%", overflow: "auto" }}>
@@ -671,3 +684,42 @@ export function useTimelineWorkbookPresentation({
 export type TimelineWorkbookPresentationModel = ReturnType<
   typeof useTimelineWorkbookPresentation
 >;
+
+function TimelineParkedGridDrafts({
+  registry,
+  canEdit,
+  rows,
+  fieldKeys,
+}: {
+  registry: TimelineEditorDraftRegistry;
+  canEdit: boolean;
+  rows: readonly WorkbookRow[];
+  fieldKeys: readonly string[];
+}) {
+  useSyncExternalStore(registry.subscribe, registry.getSnapshot);
+  return (
+    <WorkbookParkedGridDrafts
+      drafts={registry.retainedGridDrafts().flatMap((draft) => {
+        const reason = !canEdit
+          ? "Editing is unavailable."
+          : !rows.some((row) => row.key === draft.rowKey)
+            ? "Original row is outside this result."
+            : !fieldKeys.includes(draft.fieldKey)
+              ? "Original field is unavailable."
+              : null;
+        return reason
+          ? [
+              {
+                ...draft,
+                recordId: draft.rowKey,
+                label:
+                  timelineContract.fieldMap[draft.fieldKey]?.label ??
+                  draft.fieldKey,
+                reason,
+              },
+            ]
+          : [];
+      })}
+    />
+  );
+}

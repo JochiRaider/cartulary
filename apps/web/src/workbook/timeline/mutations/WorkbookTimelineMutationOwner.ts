@@ -123,7 +123,17 @@ export class WorkbookTimelineMutationOwner {
         const mounted = presentation()?.latestCommittedTimelineRow(
           unit.recordId,
         );
-        if (mounted) return mounted;
+        if (mounted?.rawRow) runtime.explicitPatches.acceptRow(mounted.rawRow);
+        const cached = runtime.explicitPatches.latestRow(unit.recordId);
+        const floor = Math.max(
+          runtime.history.latestVersion(unit.recordId) ?? 0,
+          runtime.explicitPatches.latestVersion(unit.recordId) ?? 0,
+        );
+        if (cached && cached.row_version >= floor)
+          return rowFromApi(
+            normalizeTimelineFullRow(cached, "current Timeline source"),
+          );
+        if (mounted && (mounted.rowVersion ?? 0) >= floor) return mounted;
         if (!this.readSource || this.retired)
           throw new Error("Timeline source reader is unavailable");
         const controller = new AbortController();
@@ -164,7 +174,8 @@ export class WorkbookTimelineMutationOwner {
         this.receipts.set(accepted.changeSetId, accepted);
         this.promotions.set(key, accepted);
         for (const listener of this.fileListeners) listener();
-        runtime.retainSurfaceRefreshDebt(timelineViewSchemaId);
+        if (!presentation())
+          runtime.retainSurfaceRefreshDebt(timelineViewSchemaId);
         const row = rowFromApi(accepted.row);
         this.rows.current = this.rows.current
           .filter((item) => item.key !== key && item.recordId !== row.recordId)
@@ -178,6 +189,11 @@ export class WorkbookTimelineMutationOwner {
         drafts.clearSubmittedRow(...args);
         presentation()?.clearSubmittedScalarEditorDraftValuesForRow(...args);
       },
+      captureEditorDrafts: drafts.captureRow,
+      acceptEditorPredecessor: (row, fields, previousValues) => {
+        drafts.acceptPredecessor(row, fields, previousValues);
+        presentation()?.acceptEditorPredecessor(row, fields, previousValues);
+      },
       clearViewportContinuity: (token) =>
         presentation()?.clearViewportContinuity(token),
       registerMutationConflict: (
@@ -187,6 +203,7 @@ export class WorkbookTimelineMutationOwner {
         surface,
         refresh,
         sheetRef,
+        draftRevisions,
       ) => {
         const mounted = presentation();
         if (mounted)
@@ -197,8 +214,10 @@ export class WorkbookTimelineMutationOwner {
             surface,
             refresh,
             sheetRef,
+            draftRevisions,
           );
         runtime.registerConflict({
+          draftRevisions,
           conflict,
           sheetRef,
           refresh,

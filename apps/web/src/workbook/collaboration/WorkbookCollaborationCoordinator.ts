@@ -723,7 +723,10 @@ class WorkbookCollaborationCoordinatorRuntime {
       };
       this.handleAuthorizationRecoveryResult(
         plan.admission,
-        error instanceof WorkbookSurfaceRefreshError
+        // Confirmed authority can precede React attachment or a replacement
+        // query. A cancelled read still owes confirmation before replay.
+        error instanceof WorkbookSurfaceRefreshError &&
+          error.recovery.kind !== "cancelled"
           ? error.recovery
           : { kind: "unavailable", failure: "transient" },
       );
@@ -808,6 +811,7 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private handleRecordChanged(payload: RecordChangedPayload): void {
+    this.options.mutationRuntime.explicitPatches.observeRecordChanged(payload);
     this.options.mutationRuntime.timelineRelatedEvidence.observe(
       payload.record_id,
       payload.row_version,

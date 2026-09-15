@@ -16,7 +16,7 @@ here and are consumed by Timeline as well as other surfaces.
 | [useAssessmentSurfaceQuery.ts](useAssessmentSurfaceQuery.ts) | Assessment-owned query construction, admission, live reconciliation, refresh, access cleanup, and cancellation. |
 | [useEntitySurfaceQuery.ts](useEntitySurfaceQuery.ts) | Instance-owned dual host/identity loading, indexing, live patching, refresh, cancellation, and protected-state cleanup. |
 | [useGenericSurfaceQuery.ts](useGenericSurfaceQuery.ts) | Schema-keyed generic query admission, schema matching, Notes normalization, live reconciliation, stale-row retention, access cleanup, and cancellation. |
-| [WorkbookCommittedRecordPort.ts](WorkbookCommittedRecordPort.ts) | Semantic capability for reading and observing authoritative committed workbook records. |
+| [WorkbookCommittedRecordPort.ts](WorkbookCommittedRecordPort.ts) | Semantic capabilities for authoritative committed records and complete accepted mutation receipts, independent of subsequent query reads. |
 | [workbookLatestRequest.ts](workbookLatestRequest.ts) | Instance-local latest-request sequencing, supersession abort, and current-result admission. |
 | [WorkbookQueryRow.ts](WorkbookQueryRow.ts) | Shared schema-keyed view-query row shape below Timeline ownership. |
 | [workbookQueryRowPatch.ts](workbookQueryRowPatch.ts) | Pure sparse-patch application for shared query rows. |

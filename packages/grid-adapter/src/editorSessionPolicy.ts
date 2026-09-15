@@ -15,6 +15,7 @@ export type PendingEditorSeed = {
 };
 
 export type ActiveEditorSession = {
+  readonly detach: () => void;
   readonly cancel: (shouldFocusCell?: boolean) => void;
   readonly focus: () => void;
   readonly requestCommit: () => Promise<boolean>;

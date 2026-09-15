@@ -795,6 +795,7 @@
         "titles": [
           "grid-adapter can fill available inline space on demand",
           "grid-adapter compiles semantic row and cell state into private classes, markers, and ARIA",
+          "grid-adapter does not repeat seed retention on rerender or navigate after focus leaves a pending editor",
           "grid-adapter does not republish an unchanged semantic anchor when the active record updates",
           "grid-adapter fails closed when untyped callers attach Core mutation capabilities to extension grids",
           "grid-adapter groups extension resources in the live grid without changing their identities",

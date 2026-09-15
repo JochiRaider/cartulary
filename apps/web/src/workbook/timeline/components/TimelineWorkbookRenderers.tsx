@@ -8,6 +8,7 @@ import type {
   FocusFieldKey,
   TimelineScalarEditorSurface,
 } from "../models/timelineFieldRegistry";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import type {
   TimelineCollectionKeyDown,
   TimelineCollectionSave,
@@ -45,6 +46,7 @@ export function useTimelineWorkbookRenderers({
   handleSelectRow,
   queueCollectionSave,
   readOnly,
+  readCurrentRow,
   rowGutterWidth,
   deactivateCollectionInput,
   timelineContract,
@@ -84,6 +86,7 @@ export function useTimelineWorkbookRenderers({
   readonly handleSelectRow: (recordId: string) => void;
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
+  readonly readCurrentRow?: ((row: WorkbookRow) => WorkbookRow) | undefined;
   readonly rowGutterWidth: number;
   readonly deactivateCollectionInput: (focusKey: string) => void;
   readonly timelineContract: ViewContract;
@@ -123,6 +126,7 @@ export function useTimelineWorkbookRenderers({
     handlePaste,
     handleSelectRow,
     readOnly,
+    readCurrentRow,
     registerInput,
     setActiveConflictKey: activateConflictCell,
     timelineBindingLabel,

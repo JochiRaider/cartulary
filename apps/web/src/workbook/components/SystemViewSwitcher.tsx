@@ -55,6 +55,7 @@ export function SystemViewSwitcher({
   return (
     <fieldset
       aria-label="System view switcher"
+      data-grid-editor-external-action="true"
       style={systemViewSwitcherStyle}
       onBlur={navigation.onOverlayBlur}
     >
