@@ -1,287 +1,122 @@
 # Cartulary
 
-Cartulary is an open-source, specification-first incident-response workbook system intended to replace the spreadsheet-centric coordination pattern widely known in DFIR as the **Spreadsheet of Doom**.
+Cartulary is a spreadsheet-style investigation workspace for digital forensics and incident response teams.
 
-The repository is an active, specification-first implementation. Adopted
-specifications live under `docs/`; versioned machine projections and production
-contracts live under `contracts/` and never replace their behavioral owners.
+Digital forensics and incident response (DFIR) combines examining digital evidence with investigating and responding to security incidents. Cartulary gives responders a workbook for recording observations, organizing related information, and maintaining a shared understanding as an investigation changes.
 
-- one root Go module with the canonical path `github.com/JochiRaider/cartulary`;
-- one top-level pnpm workspace with a Vite + React web client under `apps/web` and shared packages under `packages/`;
-- local PostgreSQL and S3-compatible object-store development services through `docker-compose.dev.yml`;
-- buildable `cmd/server`, `cmd/migrate`, and `cmd/operator` entrypoints with their platform and domain modules;
-- generated API and view-schema contracts under `contracts/` and sequential schema migrations under `db/migrations/`;
-- a sample disconnected development config at `configs/dev/config.toml`.
+[Getting started](#getting-started) · [Documentation](#documentation) · [Contributing](#contributing-and-support)
 
-See [Project status](#project-status) below for how far implementation has progressed.
+> **Active development:** Start with synthetic incidents when evaluating Cartulary. The setup below is a local development environment with sample credentials. Review the [MVP deployment guide](deploy/mvp/README.md) before considering an operational deployment.
 
-Pinned repo-control toolchain and Go tool versions are declared in
-`tools/toolchain_pins.json`. The values below are informational:
+![Cartulary Timeline showing synthetic investigation entries in a spreadsheet-style grid, with Timeline, Hosts, Identities, Evidence, and Notes tabs and filtering controls.](apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png)
 
-- Go `1.27` with toolchain `go1.27.1`
-- Node.js `24.15.0`
-- pnpm `10.33.0`
-- Staticcheck `v0.8.0-rc.1`
-- Govulncheck `v1.3.0`
-- Gosec `v2.26.1`
-- ShellCheck `0.11.0`
+*The implemented Timeline, captured by the repository's browser tests using synthetic investigation data. This is a test fixture, not a real incident.*
 
-The default local development loop is:
+## Why Cartulary?
 
-1. `make bootstrap`
-2. `make db-up`
-3. `make dev`
+Many response teams use a **Spreadsheet of Doom**: a multi-tab spreadsheet that holds the investigation's timeline, affected systems, accounts, evidence, notes, and outstanding work. It is familiar and lets people capture a fact before every detail is known.
 
-`make check` is the developer verification gate.
+As the investigation grows, the hard part becomes keeping that information connected. Which observation refers to this host? What supports this timeline entry? What changed since the last review? Cartulary keeps the workbook interaction while giving the investigation records, relationships, and history that can be revisited.
 
-## Why the Spreadsheet of Doom persists
+Today, you can:
 
-The Spreadsheet of Doom persists because it solves an operational problem honestly. Excel and similar workbook tools are familiar, widely available, instantly shareable, and tolerant of incomplete information. In active incident response, the ability to type directly into cells with almost no ceremony is the difference between capturing a fact now and intending to capture it later.
+- **Capture observations as they arrive.** Type into Timeline cells or paste tabular text. Start with an activity description and fill in dates, sources, and other details as you learn more.
+- **Keep related information together.** Use Hosts, Identities, Evidence, and Notes alongside the Timeline. Inspect a selected record and review its associated information without losing the workbook context.
+- **Focus the workbook for the task.** Sort, filter, choose columns, and save views to return to useful working sets. Saved views organize what you see; they do not restrict access to incident records.
+- **Review how a record changed.** Open its history from the inspector to examine earlier changes while reviewing the current investigation.
 
-In practice, the Spreadsheet of Doom is usually a multi-tab workbook used as the mutable common operating picture for notes, scope, identities, systems, indicators, evidence, tasking, and timeline events. It works because rough capture stays on the hot path and because it fits familiar Microsoft Office and M365 ways of working. It becomes fragile because the same workbook is forced to carry structure, linking, history, coordination, and reporting duties that spreadsheets handle badly.
+For example, begin with “Repeated sign-in failures reported for demo-host-01; source review pending.” Add the source and supporting information as they become available, then return to that observation during review. The first useful step is recording what you know.
 
-## What Cartulary is for
+## Getting started
 
-Cartulary is designed to preserve the low-friction strengths of the Spreadsheet of Doom while replacing its main limitations with a database-backed system designed for live incident work.
+### Prerequisites
 
-The design center is straightforward:
+Use a Linux environment with Bash 4.3 or newer, Git, Make, a Go launcher, and a running Docker engine with the Compose plugin. The scripts also use `curl`, `rg` (ripgrep), `tar` with xz support, `flock`, and `setsid`; `ss` enables port diagnostics. Have a TOTP authenticator application ready for first sign-in.
 
-- keep rough capture fast;
-- keep the workbook metaphor at the view layer;
-- move the source of truth out of cell positions and into stable records;
-- allow later normalization, linking, analysis, audit, and reporting without erasing original analyst input.
+Bootstrap needs network access to download dependencies. It installs the pinned Node.js, pnpm, development tools, and browser-test dependencies. Make selects the pinned Go toolchain. Exact versions live in [the toolchain manifest](tools/toolchain_pins.json); see the [bootstrap guide](docs/guides/cartulary_repository_bootstrap_guide.md) for diagnostics and toolchain recovery.
 
-This is not a forms-first case management tool. It is a workbook-shaped system for incident response in which rough capture remains valid and later structure is added explicitly.
+### Start the development environment
 
-```mermaid
-flowchart LR
-    Grid[Grid-first workbook surface] --> Rough[Rough rows and unresolved mentions]
-    Rough --> Resolve[Later normalization and explicit resolution]
-    Resolve --> Canonical[Canonical hosts, identities, indicators, evidence, and links]
-    Canonical --> Views[Workbook projections and saved/system views]
-    Canonical --> Snapshot[Immutable incident snapshot]
-    Snapshot --> Outputs[Markdown, Mermaid, Slidev, HTML, and reenactment outputs]
+Clone the repository, then run these commands from its root in the same Bash terminal:
+
+```bash
+git clone https://github.com/JochiRaider/cartulary.git
+cd cartulary
+make bootstrap
+make doctor
 ```
 
-## Workbook interaction model
+The checked-in [development configuration](configs/dev/config.toml) uses filesystem paths under `/var/lib/cartulary`. For a local instance running as your ordinary user, create separate writable directories and override those paths:
 
-Cartulary centers rough, high-speed incident data capture through a live grid-oriented web interface. The base workbook exposes a small set of built-in sheets and a broader set of contract-backed system views and coordination surfaces, all identified by stable `view_schema_id` rather than by visible tab names or column labels.
+```bash
+mkdir -p .cartulary/local/{backups,reference-packs,tmp,exports}
+export CARTULARY__ROOTS__BACKUP_STORAGE__PATH="$PWD/.cartulary/local/backups"
+export CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="$PWD/.cartulary/local/reference-packs"
+export CARTULARY__ROOTS__TEMPORARY_WORK__PATH="$PWD/.cartulary/local/tmp"
+export CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="$PWD/.cartulary/local/exports"
 
-The base profile defines **fourteen** pack-independent standardized workbook surfaces:
-
-**Built-in sheets** provide the primary grid surfaces for core incident data: **Timeline**, **Hosts**, **Identities**, **Evidence**, and **Notes**.
-
-**Contract-backed system views** expose additional structured record types through the same workbook interaction model without adding built-in tabs: **Indicators**, **Compromise Assessments**, **Task Requests**, **Decisions**, and **Parties**. Parties is an incident-scoped coordination-identity surface for requester, collector, source, audience, and similar party-like references; it is not deployment-local user administration.
-
-**Artifact-backed coordination surfaces** provide workbook-native views for structured coordination artifacts: **Communications Log**, **Handoff**, **Status Review**, and **Lesson**.
-
-Beyond the fourteen required surfaces, three **standardized optional** artifact-backed surfaces are defined for implementations that choose to expose them: **Findings**, **Investigative Queries**, and **Forensic Keywords**. These remain artifact-backed and do not require additional built-in sheets.
-
-Each visible sheet is a denormalized projection over relational source state. Write-back is intent-aware and contract-driven. Edits are routed by stable `view_schema_id` and `field_key`, not by visible tab names, column labels, or cell position.
-
-Operationally, the important interaction rules are:
-
-- **Grid first, forms second.** Inline editing, keyboard navigation, and paste are primary. Enrichment belongs in an inspector, not in the default entry path.
-- **Rough capture is valid.** Null timestamps, uncertain text, unresolved host strings, and incomplete details are legitimate first-pass records.
-- **Mentions before entities.** Typing a host or identity token on the Timeline creates an unresolved mention, not an implicit canonical record. Resolution is later and explicit.
-- **Evidence without navigation.** Screenshot attachment is drag-and-drop or clipboard paste onto the current row, with preview handled adjacent to the grid.
-- **Clipboard paste is day-one behavior.** Bulk paste from existing spreadsheets remains on the hot path.
-
-This is the core architectural thesis of the project: the spreadsheet metaphor survives at the view layer, but not at the storage layer.
-
-```mermaid
-flowchart TD
-    T[Timeline row with partial facts] --> M[entity_mentions preserve raw host/account text]
-    T --> E[evidence record and object blob link]
-    M --> R[Later resolve to canonical host/identity]
-    R --> L[Typed record links and pivots]
-    T --> H[Attributed history, revisions, rollback]
-    L --> P[Projection-backed workbook views]
-    E --> P
-    H --> P
+make db-up
+make db-migrate
+make dev
 ```
 
-## Architecture
+`make db-up` starts PostgreSQL and SeaweedFS object storage and initializes the development bucket. `make db-migrate` applies the database schema. `make dev` starts the backend and browser development server; leave that terminal running.
 
-Cartulary uses a **modular monolith**. The intended base deployment is one web application deployable containing the browser UI, API surface, WebSocket collaboration hub, and background-job runners, backed by PostgreSQL for authoritative structured state and an S3-compatible object store for binary evidence.
+Open **<http://localhost:5173>**. In another terminal, check backend readiness:
 
-PostgreSQL is a deliberate architectural choice. DFIR incident data is heterogeneous: typed records, free-text fields, semi-structured metadata, case-insensitive identifiers, partial uniqueness rules, append-only history, and projection-backed workbook views all need to coexist in one operationally simple system. PostgreSQL supports that breadth without forcing a more specialized stack.
-
-Binary evidence belongs outside the relational store. In disconnected deployments the intended default object store is SeaweedFS S3-compatible storage. In on-premises or cloud deployments, equivalent managed services can replace PostgreSQL and object storage so long as the data and behavioral contracts remain unchanged.
-
-Microservice decomposition is out of scope. The hard problems here are mutation semantics, projection maintenance, concurrency, and interaction design, not horizontal service partitioning.
-
-```mermaid
-flowchart LR
-    Analyst[Analyst browser] <-->|HTTPS / WebSocket| App[Workbook web app\nUI + API + WebSocket + background jobs]
-    Reviewer[Reviewer browser] <-->|HTTPS / WebSocket| App
-    App <-->|SQL| PG[(PostgreSQL)]
-    App <-->|Upload / validated preview / download| OBJ[(S3-compatible object store)]
-    App <-->|Backup artifacts| BKP[(Backup storage)]
-    IdP[Optional OIDC / SAML IdP] -. enterprise-auth extension .-> App
+```bash
+curl -fsS http://127.0.0.1:8080/readyz
 ```
 
-## Coordination as a first-class concern
+HTTP 200 indicates that the active backend dependencies are ready. Startup logs are in `tmp/dev-stack/server.log` and `tmp/dev-stack/web.log`. If a port is occupied or startup fails, inspect the logs and the bootstrap guide before retrying; do not reset existing data to troubleshoot a fresh setup.
 
-Cartulary is not only a data system. It is also a socio-technical coordination tool.
+**Keep this environment local.** Its database, object-store credentials, and initial account are development examples, and the database port is published beyond loopback by the development Compose file. Do not expose this configuration on an untrusted network or reuse its credentials for deployment.
 
-Traditional spreadsheet-based workflows are good at rough capture and weak at observable, auditable coordination. Tasking, ownership, decision trace, handoff quality, and work distribution are often buried in chat, side notes, or analyst memory. Cartulary is intended to improve those coordination failures without displacing rough capture from the operational hot path.
+### Sign in
 
-The project draws selectively on **crew resource management** and **threat and error management** concepts from aviation. The transfer is not about importing cockpit ritual into DFIR. It is about making coordination state more explicit under pressure: who owns what, what is blocked, what changed, what needs review, and what must be handed off or briefed next.
+On a fresh database, the development launcher creates the account from [the bootstrap manifest](configs/dev/bootstrap-admin.json):
 
-That design direction produces workbook-native artifacts and views for:
+- Email: `dev-admin@example.test`
+- Password: `DevBootstrap1!`
 
-- **Task requests and decisions.** Both are first-class record types with lifecycle machines defining state sets, legal transitions, and post-commit guards. Task requests support queue-oriented filtering by status, owner, priority, workstream, and due date. Decisions track type, rationale, review state, and supersession.
-- **Communications logs.** Structured records for audience, channel or meeting context, summary, referenced decisions, and action follow-up.
-- **Handoffs and status reviews.** Handoff records carry current state, open work, open risks, and next checks. Status reviews surface blocked work, pending evidence, open decisions, risk summary, and next report timing.
-- **Lessons learned.** Structured follow-up tasks, evidence references, and closure state.
-- **Queue-oriented saved views** for blocked work, no-owner work, overdue items, pending evidence, and shift-change focus.
+Sign in, choose **Begin enrollment**, and add the displayed setup key to your authenticator application. Enter its six-digit code to complete setup, then sign in again with the password and an authenticator code. TOTP means time-based one-time password.
 
-The specification also defines a **hypothesis boundary**: current-profile hypotheses are artifact-backed through `finding.kind='hypothesis'` rather than being a separate first-class record type. That preserves the "capture first, structure later" principle for analytic reasoning while keeping the door open for promotion if later usage demonstrates the need.
+### Try an investigation
 
-The boundary is strict: coordination surfaces must stay adjacent to the grid and must not add measurable ceremony to routine capture. Non-normative operating-model guidance for tracker hygiene, companion findings-document discipline, handoff quality, status-review cadence, and related practices is provided separately in Appendix H.
+1. Choose **New incident**. Enter `DEMO-001` as the **Incident key** and `Synthetic sign-in investigation` as the **Title**, then choose **Create and open**.
+2. In **Timeline**, find the blank entry row. Scroll horizontally to **Activity Synopsis** and type the synthetic observation above. Press Enter and wait for **Saved**.
+3. Add a second observation, such as “Sign-in log review started.” Select a recorded row and open **Inspector** to review its details.
+4. Reload the page or reopen the incident. Confirm that your entries remain in the workbook.
 
-## Visibility, release, and redaction
+To stop, press Ctrl+C in the development terminal, then run `make services-down`. This preserves the development service volumes. Export the same directory overrides again when starting from a new terminal.
 
-Within a live incident workspace, data is meant to remain broadly visible to authenticated incident participants in core response roles such as analysts, reviewers, incident leads, evidence custodians, and stakeholder liaisons. The base incident role model is `viewer`, `editor`, `reviewer`, and `admin`. Saved views support discoverability and working sets, but they are not access-control boundaries.
+## Documentation
 
-External release is handled separately from live workspace visibility. Cartulary treats reporting as a snapshot-and-render problem, not as a direct read from live workbook tables. The system captures an immutable incident snapshot, materializes a canonical export model, and applies versioned redaction profiles before any release artifact is rendered.
-
-For multi-party incidents, the same snapshot can produce different recipient-specific artifacts. The specification expresses that through disclosure partitions and a closed redaction vocabulary of `allow`, `drop`, `mask`, `truncate`, and `stub` (with `hash` reserved and invalid in the current profile until a future specification defines keyed pseudonymization). In practice, that means the system can exclude, mask, or pseudonymize other parties' material, including their PII, at release time without hiding the live internal workspace from the incident team.
-
-```mermaid
-flowchart LR
-    Live[Live incident workspace\nbroad incident-scoped visibility] --> Snap[Immutable snapshot]
-    Snap --> Redact[Versioned redaction profile\nallow or drop or mask or truncate or stub]
-    Redact --> A[Audience-specific artifact A]
-    Redact --> B[Audience-specific artifact B]
-    Views[Private / shared / system saved views] -. not an ACL boundary .-> Live
-```
-
-## Deployment and security posture
-
-The minimum useful deployment model is an **air-gapped flyaway kit**: one application container, one PostgreSQL container, and one SeaweedFS S3-compatible object-store container on encrypted storage. This is the smallest deployment that preserves binary evidence handling, collaboration, authentication, and auditable source-of-truth behavior without collapsing back into a workbook file.
-
-The broader deployment posture is intentionally flexible:
-
-- disconnected flyaway deployment is the minimum baseline;
-- optional offline reference packs and datasets support enrichment without live network dependency;
-- on-premises deployments may substitute managed PostgreSQL or object storage equivalents;
-- cloud deployments may run behind the same logical contracts;
-- enterprise authentication is an extension, not a base dependency.
-
-Base authentication uses local user accounts stored in PostgreSQL, Argon2id password hashing, and offline-capable TOTP MFA. OIDC is the preferred enterprise authentication extension, with SAML as the secondary path when required.
-
-Administrative scope is deliberately separated from incident scope. The current specification defines a narrow deployment-local `deployment_admin` capability for local account administration. It does not, by itself, grant incident data access. Incident membership and incident roles remain the boundary for viewing or mutating incident data.
-
-### Backup and restore
-
-Operational backup and restore are base-profile requirements, not optional operational extras. Each successful backup produces a retained `backup_set` bound to a single `consistency_point_at` across PostgreSQL and the object store. A durable `backup_attestation` record carries restore anchors, a retention floor, and restore-verification state. The specification requires at least one successful `backup_set` within the past 24 hours, a minimum 30-day retention period for each successful set, and full restore verification in an isolated environment at least every 7 days. Backup and restore are distinct from whole-incident portability.
-
-### Security posture
-
-The security posture is explicit:
-
-- incident-authored content is rendered as untrusted content;
-- active content is blocked from executing in the application origin;
-- spreadsheet and CSV export neutralize formula-injection characters by default;
-- upload, preview, import, and archive-extraction paths fail closed on path-traversal or invalid-root behavior;
-- reference-pack activation fails closed on checksum or signature mismatch;
-- invalid deployment configuration fails before the application starts;
-- flyaway and disconnected deployments must keep all storage roots on encrypted storage.
-
-The deployment-configuration contract declares explicit runtime roots for database storage, object storage, backup storage, reference-pack storage, temporary work files, and export outputs. Missing or invalid configuration fails startup rather than falling back to hidden defaults.
-
-## Reporting direction
-
-Reporting is a subsystem, not an afterthought. Cartulary's intended reporting path is:
-
-1. capture immutable snapshot;
-2. materialize canonical export model;
-3. render deterministic outputs from that frozen state.
-
-The supported output directions include Markdown reports, Mermaid diagram sources, Slidev presentation decks, HTML reports, and operator-facing reenactment outputs such as Asciinema-style terminal walkthroughs generated from selected command-line evidence. Reenactment outputs are visibly marked as generated presentation material and are not eligible for external release.
-
-Generated presentations may reorganize snapshot facts and render deterministic summaries from approved fields, but they must not invent facts, infer unobserved activity, or present generated material as operator-observed evidence. Generated report artifacts must be self-contained: they cannot depend on remote JavaScript, CSS, or font assets at render time.
-
-Post-MVP reporting direction includes internal incident-start briefings, phase-change briefings, and deterministic local generation of daily briefing artifacts from timeline and status-review updates.
-
-## Specification structure
-
-Normative product specifications live under `docs/spec/`, with adopted
-subsystem NLSpecs owning their explicitly bounded scopes. They define required
-behavior but are not executable inputs: tests, generators, runtime metadata,
-conformance, and release evidence validate versioned downstream projections
-without reading documentation.
-
-Exact schemas, limits, enums, mappings, algorithms, and fixtures live in typed
-subsystem contracts under `contracts/`; verification and test routing live in
-`contracts/verification/` and `tools/test_families/`. These artifacts implement
-and verify the adopted specifications but do not replace them or prove
-specification completeness.
-
-The normative specification set is organized as:
-
-- `00_document_set_status_and_precedence.md`
-- `01_architecture_storage_and_view_contracts.md`
-- `02_domain_model_schema_and_history.md`
-- `03_workbook_interaction_collaboration_and_workflows.md`
-- `04_security_deployment_and_conformance.md`
-
-A normative companion document governs claim-bearing publication for timed or fixture-sensitive criteria:
-
-- `05_claim_publication_and_benchmark_reproducibility.md`
-
-Core 05 is not part of base-profile or extension-profile implementation conformance. It governs only the conditions under which public performance claims may be made, including benchmark fixtures, benchmark-profile identifiers, measurement-predicate registries, and audit-bundle retention.
-
-Supporting appendices preserve rationale, diagrams, schema reference material, workflow illustrations, the roadmap, the source traceability matrix, the original exploratory design artifact, operating-model guidance, and projection authority/boundary evidence:
-
-- `A_problem_framing_rationale_tradeoffs_and_sanity_check.md`
-- `B_architecture_diagrams_and_explanatory_source_extract.md`
-- `C_schema_reference_and_ddl_source_extract.md`
-- `D_workflow_and_ui_illustrations_source_extract.md`
-- `E_roadmap_open_questions_and_decision_backlog.md`
-- `F_source_traceability_matrix.md`
-- `G_source_archive_exploratory_design_artifact.md`
-- `H_operating_model_supporting_guidance.md`
-- `I_projection_authority_boundary_and_characterization.md`
-
-The project-wide domain vocabulary and concept reference lives at `docs/domain.md`. Use it to interpret Cartulary terms and find the relevant owner sections; it does not replace the normative core or define new implementation-conformance behavior.
-
-Frontend design direction lives at `docs/design.md`. It defines observable UI design constraints and the design-token registry consumed through generated `@cartulary/ui-contracts` artifacts, but it does not create product-conformance behavior, routes, schemas, authorization rules, evidence access semantics, lifecycle transitions, storage boundaries, field registries, record types, or public wire shapes. Core 00 through Core 04 remain the implementation-conformance authority, Core 05 remains claim-publication-only, and design-direction visual or accessibility evidence must stay classified separately from product conformance. Use `docs/guides/cartulary_browser_design_readiness_workflow.md` for pre-MVP browser design review, and follow `docs/guides/cartulary_visual_golden_maintenance.md` for UI changes that affect visual goldens.
-
-The current core also defines bounded extension profiles for:
-
-- **Import** — file-based structured import from spreadsheet and CSV sources through a session-based contract.
-- **Snapshot and Reporting** — immutable snapshot capture, canonical export-model materialization, redaction, template rendering, and release-gate approval.
-- **Incident Portability** — full-fidelity administrative whole-incident export and import between trusted Cartulary deployments.
-- **Reference Pack** — reference-pack activation, refresh, verification lifecycle, and overlay behavior.
-- **Enterprise Authentication** — OIDC and SAML provider integration.
+- **Using Cartulary:** The [Incident Coordination Playbook](docs/user_guides/incident_coordination_playbook.md) explains working practices, follow-up, handoffs, and review.
+- **Operating it:** The [MVP deployment guide](deploy/mvp/README.md) covers the on-prem package, configuration, backup, restore verification, and troubleshooting. It is separate from the development setup above and does not claim disconnected-profile conformance.
+- **Contributing:** Start with [repository procedures](AGENTS.md), the [bootstrap guide](docs/guides/cartulary_repository_bootstrap_guide.md), and the [development guide](docs/guides/cartulary-dev-guide.md). Run `make help` to find the maintained command surface.
+- **Understanding the design:** Read the [domain vocabulary](docs/domain.md), [design direction](docs/design.md), and [specification entry point](docs/spec/00_document_set_status_and_precedence.md). Specifications describe required behavior and are not a checklist of shipped features.
 
 ## Project status
 
-Cartulary is under active specification-first implementation. Adopted
-specifications define behavior; typed contracts project executable facts; and
-verification contracts plus test-family manifests select backend, frontend,
-and cross-cutting execution evidence. Specifications never participate as
-executable inputs.
+Cartulary is under active implementation. Interfaces and setup continue to evolve. Local evaluation and the MVP on-prem package are the documented starting points; neither this README nor the existence of a specification establishes production readiness.
 
-The Go backend builds runnable `server`, `migrate`, and `operator` binaries and implements the Base Profile plus bounded Import, Snapshot and Reporting, Reference Pack, and Incident Portability extension-profile behavior. Sequential migrations live under `db/migrations/`, derived contracts live under `contracts/`, and the Enterprise Authentication extension profile remains reserved and unclaimed.
+Follow [existing issues](https://github.com/JochiRaider/cartulary/issues) and the [design backlog](docs/spec/E_roadmap_open_questions_and_decision_backlog.md) for context and direction. The backlog is not a release schedule.
 
-The web client under `apps/web` shares the same owner-first catalog and evidence
-model as the backend. This README is an informational overview and is never an
-input to tests, generation, conformance, or release evidence.
+## Contributing and support
+
+Contributions can include documentation improvements, reproducible bug reports, usability feedback, and synthetic examples as well as code. Use [pull requests](https://github.com/JochiRaider/cartulary/pulls) for proposed changes and consult the repository procedures for verification. There is no separate contribution policy in this checkout.
+
+Review the issue tracker for known problems; issue creation may be restricted. When reporting an ordinary bug, include the revision, setup, reproduction steps, and expected versus observed behavior. Remove real case data, personal information, credentials, and tokens from examples and logs.
+
+## Security
+
+A security reporting policy has not yet been published, and no private vulnerability-reporting channel is documented here. Check the project's [security policy page](https://github.com/JochiRaider/cartulary/security/policy) for updates. Do not post sensitive vulnerability details in public issues or pull requests.
 
 ## License
 
-Apache-2.0. All runtime dependencies use permissive-only licenses.
+Cartulary is licensed under the [Apache License 2.0](LICENSE).
 
 ## Acknowledgements
 
-Cartulary was informed by prior art and adjacent work that helped clarify both the operational problem and the specification method used to describe the solution.
-
-In particular, the project benefited from study of [Aurora Incident Response](https://github.com/cyb3rfox/Aurora-Incident-Response) and [Kanvas](https://github.com/WithSecureLabs/Kanvas), two concrete DFIR workbook tools that preserve spreadsheet-centered investigation workflow while adding structure, visualization, and reporting around it.
-
-The specification-writing approach used for Cartulary also draws on the [NLSpec-Spec](https://github.com/TG-Techie/NLSpec-Spec) project and its grounding document on natural-language specifications. That work helped shape the corpus structure, requirement discipline, and expectation that the specification should be authoritative enough to drive later implementation.
-
-These acknowledgements recognize prior art and method influence, not shared code or implementation dependency.
+[Aurora Incident Response](https://github.com/cyb3rfox/Aurora-Incident-Response) and [Kanvas](https://github.com/WithSecureLabs/Kanvas) informed the workbook approach. [NLSpec-Spec](https://github.com/TG-Techie/NLSpec-Spec) informed the specification method. These are influences, not claims of shared code or implementation dependencies.
