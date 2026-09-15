@@ -39,7 +39,7 @@ import {
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { clipboardTextLooksTabular } from "./utils/workbookClipboard";
+import { decodeWorkbookClipboardInput } from "./utils/workbookClipboard";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -672,9 +672,18 @@ describe("keyboard and grid anchor coverage", () => {
   });
 
   it("treats single-line comma clipboard text as scalar paste input", () => {
-    expect(clipboardTextLooksTabular("alpha,beta")).toBe(false);
-    expect(clipboardTextLooksTabular("alpha\tbeta")).toBe(true);
-    expect(clipboardTextLooksTabular("alpha,beta\ngamma,delta")).toBe(true);
+    expect(
+      decodeWorkbookClipboardInput({ "text/plain": "alpha,beta" }).kind ===
+        "table",
+    ).toBe(false);
+    expect(
+      decodeWorkbookClipboardInput({ "text/plain": "alpha\tbeta" }).kind ===
+        "table",
+    ).toBe(true);
+    expect(
+      decodeWorkbookClipboardInput({ "text/plain": "alpha,beta\ngamma,delta" })
+        .kind === "table",
+    ).toBe(true);
   });
 
   it("keeps single-line comma text on the scalar draft-input path", async () => {
@@ -722,6 +731,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
     const pasteEvent = createEvent.paste(draftTime, {
       clipboardData: {
+        types: ["text/plain"],
         getData: () => "2026-06-14,test1,host2",
       },
     });
@@ -771,6 +781,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
     const pasteEvent = createEvent.paste(draftTime, {
       clipboardData: {
+        types: ["text/plain"],
         getData: () => clipboardText,
       },
     });
@@ -902,6 +913,7 @@ describe("keyboard and grid anchor coverage", () => {
     (summaryGridCell as HTMLElement).focus();
     fireEvent.paste(summaryGridCell as HTMLElement, {
       clipboardData: {
+        types: ["text/csv"],
         getData: () => '"Alpha, one",host-one\nBeta,host-two\nGamma,host-three',
       },
     });
@@ -1053,6 +1065,7 @@ describe("keyboard and grid anchor coverage", () => {
     (summaryGridCell as HTMLElement).focus();
     fireEvent.paste(summaryGridCell as HTMLElement, {
       clipboardData: {
+        types: ["text/plain"],
         getData: () => "Client first\nClient second\nCreated after conflicts",
       },
     });
@@ -1068,7 +1081,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
     expect(extractTimelineJSONBody(fetchMock, pasteCallIndex)).toMatchObject({
       view_schema_id: timelineViewSchemaId,
-      format: "csv",
+      format: "tsv",
       start_field_key: "timeline.activity_synopsis_text",
       columns: ["timeline.activity_synopsis_text"],
       targets: [

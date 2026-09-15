@@ -443,6 +443,7 @@ export type GridClipboardInput =
   | {
       readonly fieldKeys?: readonly string[] | undefined;
       readonly format: "csv" | "tsv";
+      readonly headerMode?: "auto" | "none";
       readonly kind: "table";
       readonly rawText: string;
       readonly values: readonly (readonly string[])[];
@@ -456,8 +457,13 @@ export type GridCellPasteIntent = {
 };
 
 export type GridClipboardPasteContract = {
-  readonly decode: (rawText: string) => GridClipboardInput;
-  readonly onPaste: (intent: GridCellPasteIntent) => void;
+  readonly decode: (
+    offered: import("./clipboardCodec").ClipboardRepresentations,
+  ) => import("./clipboardCodec").ClipboardDecodeResult;
+  readonly onPaste: (
+    intent: GridCellPasteIntent,
+  ) => boolean | undefined | Promise<boolean | undefined>;
+  readonly onError?: (message: string) => void;
 };
 
 export type GridFillIntent = {
@@ -540,24 +546,6 @@ export function assertGridRows<Row>(rows: readonly GridDataRow<Row>[]) {
     }
     seen.add(key);
   }
-}
-
-export function formatGridClipboardTSV(
-  values: readonly (readonly unknown[])[],
-): string {
-  return values
-    .map((row) => row.map(formatGridClipboardCell).join("\t"))
-    .join("\n");
-}
-
-function formatGridClipboardCell(value: unknown): string {
-  const text =
-    value === null || value === undefined
-      ? ""
-      : typeof value === "boolean" || typeof value === "number"
-        ? String(value)
-        : String(value);
-  return /[\t\n\r"]/u.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 export function gridRowIdentitiesEqual(

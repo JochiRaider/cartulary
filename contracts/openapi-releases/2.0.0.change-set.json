@@ -1748,6 +1748,24 @@
       "classification": "additive",
       "owner_id": "module.workbook",
       "rationale": "Reconcile adopted Core 01 batch envelopes and Core 03 attributed same-field conflict objects. Existing routes and stored receipts remain; Entity replay supplies the previously omitted empty conflict array without rewriting historical receipts."
+    },
+    {
+      "fingerprint": "20434ab13558081abfda8585b0b1d1e9799b415b8cca9ee788eddbf52b467c9d",
+      "classification": "non_behavioral",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the authorized clipboard representation contract: optional data-only header intent, explicit CSV or fixed TSV default, and bounded strict clipboard text. CSV clients relying on auto must send csv; default header request hashes remain compatible."
+    },
+    {
+      "fingerprint": "7eefd946018b506aa7532f9ba18ba85f206467f33b63f568d2885aeda129d832",
+      "classification": "non_behavioral",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the authorized clipboard representation contract: optional data-only header intent, explicit CSV or fixed TSV default, and bounded strict clipboard text. CSV clients relying on auto must send csv; default header request hashes remain compatible."
+    },
+    {
+      "fingerprint": "e32c077bb7e764ab2d929d84532d9d27957f1a55908316c9203b023dd8566341",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the authorized clipboard representation contract: optional data-only header intent, explicit CSV or fixed TSV default, and bounded strict clipboard text. CSV clients relying on auto must send csv; default header request hashes remain compatible."
     }
   ]
 }

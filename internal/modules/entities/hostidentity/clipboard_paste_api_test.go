@@ -43,6 +43,15 @@ func TestClipboardPasteRequestDecodePlanAndHash(t *testing.T) {
 		t.Fatalf("Host clipboard request hash changed: %s", got)
 	}
 
+	request.HeaderMode = "none"
+	if bytes.Equal(request.RequestHash(), expectedHash) {
+		t.Fatal("non-default interpretation must affect identity")
+	}
+	request.HeaderMode = "auto"
+	if !bytes.Equal(request.RequestHash(), expectedHash) {
+		t.Fatal("default interpretation must preserve stored hashes")
+	}
+
 	identityRequest, failure := DecodeClipboardPasteRequest(strings.NewReader(`{
 		"view_schema_id":"cartulary.view.identities.v1",
 		"client_txn_id":"txn-identity-paste",

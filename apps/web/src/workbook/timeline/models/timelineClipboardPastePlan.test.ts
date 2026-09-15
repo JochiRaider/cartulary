@@ -6,11 +6,14 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
-  decodeTimelineClipboardInput,
+  decodeTimelineClipboardInput as decodeRepresentations,
   type TimelinePasteAuthority,
   timelinePastePlanAdmission,
   timelinePasteTargetPlansMatch,
 } from "./timelineClipboardPastePlan";
+
+const decodeTimelineClipboardInput = (text: string) =>
+  decodeRepresentations({ "text/plain": text });
 
 const editable: TimelinePasteAuthority = {
   canCreateRows: true,
@@ -159,6 +162,26 @@ describe("timelineClipboardPastePlan", () => {
     expect(
       decodeTimelineClipboardInput(` ${header}\n${data}`),
     ).not.toHaveProperty("fieldKeys");
+    const marked = {
+      "text/html": `<table data-cartulary-clipboard="1" data-cartulary-clipboard-intent="table"><tr>${fields.map((field) => `<td>${field.label}</td>`).join("")}</tr></table>`,
+    };
+    expect(decodeRepresentations(marked)).toMatchObject({
+      kind: "table",
+      headerMode: "none",
+      values: [fields.map((field) => field.label)],
+    });
+    expect(decodeTimelineClipboardInput(header)).toMatchObject({
+      kind: "failure",
+      reason: "empty_table",
+    });
+    expect(
+      decodeTimelineClipboardInput(
+        `${header}\n${Array(500).fill(data).join("\n")}`,
+      ),
+    ).toMatchObject({ kind: "table" });
+    expect(
+      decodeTimelineClipboardInput(Array(501).fill(data).join("\n")),
+    ).toMatchObject({ kind: "failure", reason: "too_many_rows" });
     expect(decodeTimelineClipboardInput("ordinary, scalar text")).toEqual({
       kind: "scalar",
       rawText: "ordinary, scalar text",

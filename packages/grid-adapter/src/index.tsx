@@ -6,6 +6,17 @@ import type { GridViewportProps } from "./core";
 import { resolveGridViewportStyle } from "./viewportStyle";
 
 export type {
+  ClipboardDecodeResult,
+  ClipboardRepresentations,
+} from "./clipboardCodec";
+export {
+  clipboardFailure,
+  clipboardLimits,
+  decodeDelimitedClipboard,
+  decodeGridClipboard,
+  encodeClipboardTable,
+} from "./clipboardCodec";
+export type {
   GridActionsColumn,
   GridCellAnchor,
   GridCellPasteIntent,

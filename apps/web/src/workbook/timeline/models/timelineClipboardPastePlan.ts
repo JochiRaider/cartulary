@@ -1,11 +1,17 @@
 import type {
+  ClipboardDecodeResult,
+  ClipboardRepresentations,
   GridClipboardInput,
   GridPasteTargetResolution,
+} from "@cartulary/grid-adapter";
+import {
+  clipboardFailure,
+  clipboardLimits,
+  decodeGridClipboard,
 } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { workbookPasteResolutionMatchesSurface } from "../../models/workbookClipboardPaste";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { decodeWorkbookClipboardInput } from "../../utils/workbookClipboard";
 import { timelineScalarBindingForField } from "./timelineFieldRegistry";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -41,7 +47,7 @@ export function timelinePastePlanAdmission(
     resolution.rowTargets.length !== input.values.length ||
     input.values.length === 0 ||
     input.values.some(
-      (row) => row.length === 0 || row.length > resolution.columns.length,
+      (row) => row.length === 0 || row.length !== resolution.columns.length,
     )
   ) {
     return { kind: "rejected", reason: "invalid_shape" };
@@ -103,20 +109,24 @@ export function timelinePasteTargetPlansMatch(
 
 /** Schema-derived exact-header mapping; the shared decoder still owns parsing. */
 export function decodeTimelineClipboardInput(
-  rawText: string,
-): GridClipboardInput {
-  const input = decodeWorkbookClipboardInput(rawText);
+  offered: ClipboardRepresentations,
+): ClipboardDecodeResult {
+  const input = decodeGridClipboard(offered);
   if (input.kind !== "table") return input;
   const fields = timelineContract.fields.filter(
     (field) => !field.defaultHidden && field.gridEditable,
   );
   const header = input.values[0];
   if (
+    input.headerMode === "none" ||
     !header ||
     header.length !== fields.length ||
     header.some((label, index) => label !== fields[index]?.label)
   )
-    return input;
+    return input.values.length > clipboardLimits.maxRows
+      ? clipboardFailure("too_many_rows")
+      : input;
+  if (input.values.length === 1) return clipboardFailure("empty_table");
   return {
     ...input,
     fieldKeys: fields.map((field) => field.fieldKey),

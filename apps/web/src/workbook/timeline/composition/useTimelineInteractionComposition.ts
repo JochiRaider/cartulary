@@ -175,8 +175,8 @@ export function useTimelineInteractionComposition({
     (intent: Parameters<typeof clipboard.handleGridPaste>[0]) => {
       if (intent.input.kind === "scalar") {
         const binding = timelineScalarBindingForField(intent.target.fieldKey);
-        if (binding === null) return;
-        void mutation
+        if (binding === null) return false;
+        return mutation
           .commitScalarGridEdit(
             gridCoreRecordId(intent.target) ?? "",
             binding.key,
@@ -186,19 +186,20 @@ export function useTimelineInteractionComposition({
             if (outcome.kind !== "accepted") {
               foundation.setRefreshError(outcome.message ?? "Save failed.");
             }
+            return outcome.kind === "accepted";
           });
-        return;
       }
-      clipboard.handleGridPaste(intent);
+      return clipboard.handleGridPaste(intent);
     },
     [clipboard.handleGridPaste, foundation.setRefreshError, mutation],
   );
   const clipboardPaste = useMemo(
     () => ({
       decode: decodeTimelineClipboardInput,
+      onError: foundation.setRefreshError,
       onPaste: handleTimelineGridPaste,
     }),
-    [handleTimelineGridPaste],
+    [handleTimelineGridPaste, foundation.setRefreshError],
   );
   const fill = useTimelineFillController({
     contract: timelineContract,

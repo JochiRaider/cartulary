@@ -390,15 +390,15 @@ export function planSemanticPasteTargets<Row>(
     targetColumns.length !== dimensions.columnCount ||
     new Set(targetColumns).size !== targetColumns.length ||
     targetColumns.some((fieldKey) => !fieldKey.trim()) ||
-    (!dimensions.fieldKeys &&
-      !targetColumns.every((fieldKey) =>
-        model.columns.some(
-          (column) =>
-            column.fieldKey === fieldKey &&
-            column.contractWritable === true &&
-            column.editor !== undefined,
-        ),
-      ))
+    !targetColumns.every((fieldKey) =>
+      model.columns.some(
+        (column) =>
+          column.fieldKey === fieldKey &&
+          model.fieldKeys.includes(fieldKey) &&
+          column.contractWritable === true &&
+          column.editor !== undefined,
+      ),
+    )
   ) {
     return null;
   }

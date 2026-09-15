@@ -241,7 +241,6 @@ func newEntityConflictProvider(
 
 type entityClipboardValue struct {
 	request hostidentity.ClipboardPasteRequest
-	plan    tabularingest.TabularRowPlanV1
 }
 
 func newEntityClipboardProvider(viewSchemaID string, owner *hostidentity.Store) (workbook.ClipboardProvider, error) {
@@ -254,11 +253,7 @@ func newEntityClipboardProvider(viewSchemaID string, owner *hostidentity.Store) 
 			if failure != nil {
 				return entityClipboardValue{}, false, entityAdmissionFailure(failure), nil
 			}
-			plan, err := hostidentity.BuildClipboardPastePlan(request)
-			if err != nil {
-				return entityClipboardValue{}, false, workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), nil
-			}
-			return entityClipboardValue{request: request, plan: plan}, true, nil, nil
+			return entityClipboardValue{request: request}, true, nil, nil
 		},
 		func(ctx context.Context, command workbook.ClipboardCommand, admitted entityClipboardValue) (workbook.MutationOutcome, error) {
 			if command.ViewSchemaID != viewSchemaID || admitted.request.ViewSchemaID != viewSchemaID {
@@ -266,13 +261,11 @@ func newEntityClipboardProvider(viewSchemaID string, owner *hostidentity.Store) 
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
 			}
-			result, err := owner.ApplyClipboardPastePlan(
+			result, err := owner.ApplyClipboardPasteRequest(
 				ctx,
 				command.Actor,
 				command.IncidentID,
-				viewSchemaID,
-				admitted.plan,
-				admitted.request.RequestHash(),
+				admitted.request,
 				command.RequestID,
 				command.Now,
 			)
@@ -288,6 +281,9 @@ func newEntityClipboardProvider(viewSchemaID string, owner *hostidentity.Store) 
 }
 
 func entityMutationFailure(err error, clientTxnID string) (*workbook.MutationFailure, bool) {
+	if errors.Is(err, tabularingest.ErrInvalidClipboard) {
+		return workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), true
+	}
 	if err == nil {
 		return nil, false
 	}

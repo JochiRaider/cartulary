@@ -60,7 +60,7 @@ export function useTimelineClipboardPasteController(input: {
   );
   const handleGridPaste = useCallback(
     (intent: GridCellPasteIntent) => {
-      if (intent.input.kind !== "table") return;
+      if (intent.input.kind !== "table") return false;
       const rowKey =
         intent.target.rowIdentity.kind === "core_record"
           ? intent.target.rowIdentity.recordId
@@ -85,7 +85,7 @@ export function useTimelineClipboardPasteController(input: {
         input.setError(
           "Paste targets changed or are unavailable for this Timeline.",
         );
-        return;
+        return false;
       }
       const columns = workbookPasteColumns(current.targetResolution.columns);
       const targets = workbookPasteTargets(
@@ -101,23 +101,26 @@ export function useTimelineClipboardPasteController(input: {
       );
       if (!columns || !targets) {
         input.setError("The selected paste range is unavailable.");
-        return;
+        return false;
       }
       input.setError(null);
-      input.clipboardPaste.paste(
-        {
-          clipboard_text: intent.input.rawText,
-          format: intent.input.format,
-          start_field_key:
-            intent.input.fieldKeys?.[0] ?? intent.target.fieldKey,
-          columns,
-          targets,
-          view_schema_id: timelineViewSchemaId,
-        },
-        {
-          delivery: intent,
-          ready: input.pendingSavesRefs.saveQueueRef.current,
-        },
+      return (
+        input.clipboardPaste.paste(
+          {
+            clipboard_text: intent.input.rawText,
+            format: intent.input.format,
+            header_mode: intent.input.headerMode ?? "auto",
+            start_field_key:
+              intent.input.fieldKeys?.[0] ?? intent.target.fieldKey,
+            columns,
+            targets,
+            view_schema_id: timelineViewSchemaId,
+          },
+          {
+            delivery: intent,
+            ready: input.pendingSavesRefs.saveQueueRef.current,
+          },
+        ) !== null
       );
     },
     [input],

@@ -33,3 +33,19 @@ virtualization or scrolling behavior. See the frontend implementation testing
 guide and visual golden maintenance guide under `docs/guides/`.
 
 Nested editor popups declare `data-grid-editor-interaction` on their owned controls. Capture handlers defer keyboard navigation and dismissal to that boundary; ordinary cell typing and commit/navigation retain their existing semantics. Keep popups inside editor DOM ownership so internal focus movement does not blur-commit the cell.
+
+## Clipboard representation boundary
+
+[clipboardCodec.ts](src/clipboardCodec.ts) owns portable copy representations,
+MIME precedence, inert HTML extraction and strict delimited decoding. It returns
+scalar, rectangular table, no-op or explicit failure before semantic planning.
+Cartulary-marked HTML carries version and data intent only; identifiers and field
+rights never come from the clipboard. Formula-safe plain text is the fallback.
+Single-line plain text is scalar; multiline/tab text is TSV. Explicit CSV requires
+its MIME representation. Native editors keep their own clipboard behavior.
+
+Workbook owns schema-header recognition, field contracts and mutation admission.
+The grid publishes a destination range only after synchronous source acceptance;
+asynchronous scalar completion does not move a newer selection. Native event
+identity deduplicates delivery, while separate gestures remain distinct actions.
+The authored JSON corpus under `contracts/tabularingest` is shared with Go tests.

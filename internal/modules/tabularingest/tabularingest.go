@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -96,34 +95,14 @@ type Dimensions struct {
 }
 
 func ParseTable(text string, format string) ([][]string, error) {
-	return ParseTableWithMaxColumns(text, format, MaxClipboardCols)
+	if len(text) > MaxClipboardBytes {
+		return nil, fmt.Errorf("too_large")
+	}
+	return decodeDelimited(text, format, MaxClipboardCols, MaxClipboardRows+1, true)
 }
 
 func ParseTableWithMaxColumns(text string, format string, maxColumns int) ([][]string, error) {
-	normalized := strings.TrimRight(text, "\r\n")
-	if normalized == "" {
-		return nil, fmt.Errorf("empty tabular payload")
-	}
-	delimiter := ','
-	if format == "tsv" || (format == "auto" && strings.Contains(normalized, "\t")) {
-		delimiter = '\t'
-	}
-	reader := csv.NewReader(bytes.NewBufferString(normalized))
-	reader.Comma = delimiter
-	reader.FieldsPerRecord = -1
-	reader.TrimLeadingSpace = false
-	rows, err := reader.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("parse tabular payload: %w", err)
-	}
-	if maxColumns > 0 {
-		for _, row := range rows {
-			if len(row) > maxColumns {
-				return nil, fmt.Errorf("tabular column count exceeded")
-			}
-		}
-	}
-	return rows, nil
+	return decodeDelimited(text, format, maxColumns, 0, false)
 }
 
 func DimensionsForText(text string, format string) (Dimensions, error) {
@@ -165,11 +144,6 @@ func BuildTabularRowPlanV1(request MappingRequest) (TabularRowPlanV1, error) {
 		targetFieldKeys = append([]string(nil), request.ExactHeaderFieldKeys...)
 		rows = rows[1:]
 		request.StartFieldKey = targetFieldKeys[0]
-		for rowIndex := range rows {
-			if missing := len(targetFieldKeys) - len(rows[rowIndex]); missing > 0 {
-				rows[rowIndex] = append(rows[rowIndex], make([]string, missing)...)
-			}
-		}
 	}
 	if len(rows) == 0 || len(rows) > MaxClipboardRows {
 		return TabularRowPlanV1{}, fmt.Errorf("invalid tabular row count")
@@ -449,20 +423,17 @@ func (plan TabularRowPlanV1) Validate() error {
 }
 
 func ReadAll(reader io.Reader, format string) ([][]string, error) {
-	data, err := io.ReadAll(reader)
+	data, err := io.ReadAll(io.LimitReader(reader, MaxClipboardBytes+1))
 	if err != nil {
 		return nil, err
 	}
 	return ParseTable(string(data), format)
 }
 
-func normalizedSourceFormat(text string, format string) (string, error) {
+func normalizedSourceFormat(_ string, format string) (string, error) {
 	switch format {
 	case "", "auto":
-		if strings.Contains(strings.TrimRight(text, "\r\n"), "\t") {
-			return SourceFormatTSV, nil
-		}
-		return SourceFormatCSV, nil
+		return SourceFormatTSV, nil
 	case SourceFormatCSV, SourceFormatTSV:
 		return format, nil
 	default:

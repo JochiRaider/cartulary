@@ -58,7 +58,10 @@ describe("entity clipboard paste plan", () => {
   it("keeps scalar paste on the existing-record mutation path", () => {
     expect(
       entityClipboardPastePlan(
-        intent({ kind: "scalar", rawText: "alpha,beta", value: "alpha,beta" }),
+        intent(
+          { kind: "scalar", rawText: "alpha,beta", value: "alpha,beta" },
+          { ...resolution, columns: ["host.display_name"] },
+        ),
         authority,
       ),
     ).toEqual({
@@ -82,6 +85,7 @@ describe("entity clipboard paste plan", () => {
     expect(plan).toEqual({
       input: {
         clipboard_text: "alpha\thost-a",
+        header_mode: "auto",
         columns: ["host.display_name", "host.hostname"],
         format: "tsv",
         start_field_key: "host.display_name",

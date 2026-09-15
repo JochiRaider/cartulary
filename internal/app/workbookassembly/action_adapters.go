@@ -22,7 +22,6 @@ import (
 
 type timelineClipboardValue struct {
 	request timelineadmission.ClipboardPasteRequest
-	plan    tabularingest.TabularRowPlanV1
 }
 
 func newTimelineClipboardProvider(owner TimelineOperations) (workbook.ClipboardProvider, error) {
@@ -33,11 +32,7 @@ func newTimelineClipboardProvider(owner TimelineOperations) (workbook.ClipboardP
 				failure, err := workbook.DecodeMutationFailure(apiErr)
 				return timelineClipboardValue{}, false, failure, err
 			}
-			plan, err := timelineadmission.BuildClipboardPlan(request)
-			if err != nil {
-				return timelineClipboardValue{}, false, workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), nil
-			}
-			return timelineClipboardValue{request: request, plan: plan}, true, nil, nil
+			return timelineClipboardValue{request: request}, true, nil, nil
 		},
 		func(ctx context.Context, command workbook.ClipboardCommand, admitted timelineClipboardValue) (workbook.MutationOutcome, error) {
 			if command.ViewSchemaID != timeline.TimelineViewSchemaID || admitted.request.ViewSchemaID != timeline.TimelineViewSchemaID {
@@ -46,7 +41,7 @@ func newTimelineClipboardProvider(owner TimelineOperations) (workbook.ClipboardP
 			request := admitted.request
 			result, err := owner.ApplyClipboardPaste(ctx, timeline.ClipboardPasteCommand{
 				Actor: command.Actor, IncidentID: command.IncidentID, ClientTxnID: request.ClientTxnID,
-				Plan: admitted.plan, Targets: request.Targets,
+				BuildPlan: func() (tabularingest.TabularRowPlanV1, error) { return timelineadmission.BuildClipboardPlan(request) }, Targets: request.Targets,
 				RequestHash: timelineadmission.ClipboardPasteRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
@@ -263,6 +258,9 @@ func decisionSupersedeResult(result tasksdecisions.SupersedeMutationResult) work
 }
 
 func timelineActionFailure(err error, clientTxnID string, invalidField string, transitionReason string) (*workbook.MutationFailure, bool) {
+	if errors.Is(err, tabularingest.ErrInvalidClipboard) {
+		return workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), true
+	}
 	if err == nil {
 		return nil, false
 	}

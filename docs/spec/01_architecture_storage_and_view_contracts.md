@@ -1553,6 +1553,27 @@ admission.
 Profiles: base
 Verified by: AC-545
 
+The clipboard route additionally accepts optional `header_mode`, exactly
+`auto` or `none`. Omitted `header_mode` means `auto`: Timeline recognizes only
+the full ordered schema-derived exact header; Hosts and Identities recognize
+no header. `none` treats every row as data. The non-default mode participates
+in request identity; omitted/default requests retain their prior hash shape.
+Clipboard `format` is `csv`, `tsv`, or `auto`; omission and `auto` use the fixed
+TSV default without delimiter guessing. CSV callers MUST specify `csv`.
+The browser MUST capture explicit format and header interpretation before
+dispatch. Existing committed matching receipts retain their original meaning;
+parser corrections MUST NOT re-evaluate their content as a new write.
+
+Clipboard lexical and rectangularity rules are owned by Core 03 §11.1 and
+complete in Tabular Ingest before the mapping kernel. Imports shares lexical
+decoding while retaining its discovery geometry, missing-cell classification,
+limits, and lifecycle. An explicit clipboard empty string is a present scalar;
+source field contracts decide authoritative clear or rejection. Invalid mapped
+writable values MUST fail the batch rather than silently become unmapped data.
+Known header labels authorize recognition only and never bypass field or target
+admission. Current Hosts/Identities clipboard batches remain entity-origin
+reuse/create operations; existing-record scalar edits use ordinary patch.
+
 **REQ-01-652**
 The Indicator child-route family in Table 3.3.5-A is the complete
 current-profile public route contract for observation and lifecycle access.

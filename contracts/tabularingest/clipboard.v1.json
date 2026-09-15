@@ -1,0 +1,184 @@
+{
+  "schema_id": "cartulary.clipboard_representation.v1",
+  "limits": {
+    "maxBytes": 8388608,
+    "maxRows": 500,
+    "maxColumns": 64
+  },
+  "cases": [
+    {
+      "id": "comma-column",
+      "format": "tsv",
+      "text": "a,b\nc,d",
+      "values": [
+        [
+          "a,b"
+        ],
+        [
+          "c,d"
+        ]
+      ]
+    },
+    {
+      "id": "csv",
+      "format": "csv",
+      "text": "\"a,b\",\"c\"\"d\"\r\nx,y",
+      "values": [
+        [
+          "a,b",
+          "c\"d"
+        ],
+        [
+          "x",
+          "y"
+        ]
+      ]
+    },
+    {
+      "id": "blank-rows",
+      "format": "tsv",
+      "text": "\na\n\n",
+      "values": [
+        [
+          ""
+        ],
+        [
+          "a"
+        ],
+        [
+          ""
+        ]
+      ]
+    },
+    {
+      "id": "one-terminator",
+      "format": "tsv",
+      "text": "a\r\n",
+      "values": [
+        [
+          "a"
+        ]
+      ]
+    },
+    {
+      "id": "only-record",
+      "format": "tsv",
+      "text": "\r\n",
+      "values": [
+        [
+          ""
+        ]
+      ]
+    },
+    {
+      "id": "empty-cell",
+      "format": "csv",
+      "text": "\"\"",
+      "values": [
+        [
+          ""
+        ]
+      ]
+    },
+    {
+      "id": "empties",
+      "format": "tsv",
+      "text": "\ta\t\n\tb\t",
+      "values": [
+        [
+          "",
+          "a",
+          ""
+        ],
+        [
+          "",
+          "b",
+          ""
+        ]
+      ]
+    },
+    {
+      "id": "embedded",
+      "format": "tsv",
+      "text": "\"a\tb\"\t\"c\r\nd\re\nf\"",
+      "values": [
+        [
+          "a\tb",
+          "c\r\nd\re\nf"
+        ]
+      ]
+    },
+    {
+      "id": "unicode",
+      "format": "tsv",
+      "text": " 界😀é \t001\t2026-09-15\t=1+1",
+      "values": [
+        [
+          " 界😀é ",
+          "001",
+          "2026-09-15",
+          "=1+1"
+        ]
+      ]
+    },
+    {
+      "id": "escaped-quotes",
+      "format": "tsv",
+      "text": "\"a\"\"b\"",
+      "values": [
+        [
+          "a\"b"
+        ]
+      ]
+    },
+    {
+      "id": "cr-records",
+      "format": "tsv",
+      "text": "a\rb",
+      "values": [
+        [
+          "a"
+        ],
+        [
+          "b"
+        ]
+      ]
+    },
+    {
+      "id": "ragged",
+      "format": "tsv",
+      "text": "a\tb\nc",
+      "error": "ragged_rows"
+    },
+    {
+      "id": "blank-in-rectangle",
+      "format": "tsv",
+      "text": "a\tb\n\nc\td",
+      "error": "ragged_rows"
+    },
+    {
+      "id": "unclosed",
+      "format": "csv",
+      "text": "\"a,b",
+      "error": "malformed_quotes"
+    },
+    {
+      "id": "bare-quote",
+      "format": "tsv",
+      "text": "a\"b",
+      "error": "malformed_quotes"
+    },
+    {
+      "id": "after-quote",
+      "format": "csv",
+      "text": "\"a\" b",
+      "error": "malformed_quotes"
+    },
+    {
+      "id": "empty",
+      "format": "tsv",
+      "text": "",
+      "error": "empty_table"
+    }
+  ]
+}

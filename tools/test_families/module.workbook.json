@@ -5509,7 +5509,8 @@
           "TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration",
           "TestEntityOriginClipboardPasteUsesSharedIngest_Integration",
           "TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration",
-          "TestWorkbookBatchAdmissionHasNoPartialEffects_Integration"
+          "TestWorkbookBatchAdmissionHasNoPartialEffects_Integration",
+          "TestWorkbookClipboardFidelityAndLegacyReceipt_Integration"
         ]
       },
       "evidence_class": "integration",

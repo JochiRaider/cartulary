@@ -59,7 +59,7 @@ function resolutionHasInputShape(
     resolution.columns.length > 0 &&
     resolution.rowTargets.length === values.length &&
     values.every(
-      (row) => row.length > 0 && row.length <= resolution.columns.length,
+      (row) => row.length > 0 && row.length === resolution.columns.length,
     )
   );
 }
@@ -145,6 +145,10 @@ function batchPastePlan(
   return {
     input: {
       clipboard_text: intent.input.rawText,
+      header_mode:
+        intent.input.kind === "table"
+          ? (intent.input.headerMode ?? "auto")
+          : "none",
       columns,
       format: intent.input.kind === "table" ? intent.input.format : "csv",
       start_field_key: intent.target.fieldKey,
@@ -159,6 +163,18 @@ export function entityClipboardPastePlan(
   intent: GridCellPasteIntent,
   authority: EntityPasteAuthority,
 ): EntityClipboardPastePlan {
+  if (
+    !workbookPasteResolutionMatchesSurface(
+      intent.targetResolution,
+      authority.viewSchemaId,
+    ) ||
+    !recordTargetsAreCurrent(intent.targetResolution, authority.rows) ||
+    !intent.targetResolution.columns.every((key) =>
+      authority.writableFieldKeys.has(key),
+    )
+  ) {
+    return { kind: "rejected", message: changedTargetsMessage };
+  }
   const values = inputValues(intent);
   if (!resolutionHasInputShape(intent.targetResolution, values)) {
     return { kind: "rejected", message: incompleteTargetsMessage };

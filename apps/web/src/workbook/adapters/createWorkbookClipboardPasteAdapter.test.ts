@@ -31,6 +31,7 @@ const authority = {
 };
 const input: WorkbookClipboardPasteInput = {
   clipboard_text: "first\nsecond",
+  header_mode: "none",
   columns: [field],
   format: "tsv",
   start_field_key: field,

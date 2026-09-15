@@ -34,6 +34,10 @@ import {
   TreeDataGrid,
 } from "react-data-grid";
 import {
+  type ClipboardRepresentations,
+  clipboardRepresentations,
+} from "./clipboardCodec";
+import {
   assertGridRows,
   type GridCellAnchor,
   type GridCellRange,
@@ -652,12 +656,14 @@ function useGridPasteController<Row>({
   presentationRef,
   surface,
   updateRange,
+  announce,
 }: Pick<
   SemanticDataGridProps<Row>,
   "clipboardPaste" | "columns" | "surface"
 > & {
   readonly editable: boolean;
   readonly presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>;
+  readonly announce: (message: string) => void;
   readonly updateRange: (range: GridCellRange | null) => void;
 }) {
   const delivered = useRef(new WeakSet<object>());
@@ -665,10 +671,13 @@ function useGridPasteController<Row>({
     (
       row: GridDataRow<Row>,
       fieldKey: string,
-      clipboardText: string,
+      clipboardText: ClipboardRepresentations,
       delivery?: object,
     ): boolean => {
-      if (!editable) return true;
+      if (!editable) {
+        announce("This workbook is read-only.");
+        return true;
+      }
       const event =
         delivery &&
         "nativeEvent" in delivery &&
@@ -680,18 +689,42 @@ function useGridPasteController<Row>({
       const target = semanticTarget(row, fieldKey, columns, surface);
       if (target === null) return false;
       if (clipboardPaste === undefined) return true;
+      if (event) delivered.current.add(event);
+      const decoded = clipboardPaste.decode(clipboardText);
+      if (decoded.kind === "noop") return true;
+      if (decoded.kind === "failure") {
+        clipboardPaste.onError?.(decoded.message);
+        announce(decoded.message);
+        return true;
+      }
       const intent = planSemanticPaste({
-        input: clipboardPaste.decode(clipboardText),
+        input: decoded,
         model: presentationRef.current,
         target,
       });
-      if (intent === null) return true;
-      if (event) delivered.current.add(event);
-      updateRange(intent.range);
-      clipboardPaste.onPaste(intent);
+      if (intent === null) {
+        const message =
+          "The clipboard does not fit the available writable cells.";
+        clipboardPaste.onError?.(message);
+        announce(message);
+        return true;
+      }
+      const admitted = clipboardPaste.onPaste(intent);
+      if (admitted === true || admitted === undefined)
+        updateRange(intent.range);
+      else if (admitted instanceof Promise)
+        void admitted.catch(() => announce("Paste could not be applied."));
       return true;
     },
-    [clipboardPaste, columns, editable, presentationRef, surface, updateRange],
+    [
+      clipboardPaste,
+      columns,
+      editable,
+      presentationRef,
+      surface,
+      updateRange,
+      announce,
+    ],
   );
 }
 
@@ -990,6 +1023,7 @@ function useSemanticDataGrid<Row>(
   assertGridRows(ownerDataRows);
 
   const handleSemanticPaste = useGridPasteController({
+    announce: setKeyboardAnnouncement,
     clipboardPaste,
     columns,
     editable,
@@ -1478,7 +1512,14 @@ function useSemanticDataGrid<Row>(
         range,
       });
       if (plan === null) return;
-      event.clipboardData?.setData("text/plain", plan.text);
+      if ("kind" in plan.representations) {
+        event.preventDefault();
+        setKeyboardAnnouncement(plan.representations.message);
+        return;
+      }
+      for (const [type, value] of Object.entries(plan.representations)) {
+        event.clipboardData?.setData(type, value);
+      }
       event.preventDefault();
       onCopyCell?.(plan.intent);
     },
@@ -1537,7 +1578,9 @@ function useSemanticDataGrid<Row>(
       });
     },
     onCellPaste: ({ column, row }, event) => {
-      const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+      const clipboardText = event.clipboardData
+        ? clipboardRepresentations(event.clipboardData)
+        : {};
       if (
         !editable ||
         handleSemanticPaste(row, column.key, clipboardText, event)

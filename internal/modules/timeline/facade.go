@@ -3,11 +3,13 @@ package timeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -59,15 +61,21 @@ func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPaste
 	if err := requireRequestFingerprint(command.RequestHash); err != nil {
 		return BatchMutationResult{}, err
 	}
-	rows, err := buildClipboardOwnerRows(command.Plan)
-	if err != nil {
-		return BatchMutationResult{}, err
-	}
 	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
 		ClientTxnID: command.ClientTxnID,
 		Operation:   OwnerBatchOperationClipboardPasteV1,
 		Targets:     command.Targets,
-		Rows:        rows,
+		BuildRows: func() ([]ownerBatchRowPlanV1, error) {
+			plan := command.Plan
+			if command.BuildPlan != nil {
+				var err error
+				plan, err = command.BuildPlan()
+				if err != nil {
+					return nil, fmt.Errorf("%w: %v", tabularingest.ErrInvalidClipboard, err)
+				}
+			}
+			return buildClipboardOwnerRows(plan)
+		},
 		RequestHash: command.RequestHash,
 		RequestID:   command.RequestID,
 		Now:         command.Now,

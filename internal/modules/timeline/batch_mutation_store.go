@@ -30,6 +30,7 @@ type ownerBatchApplyV1 struct {
 	Operation   string
 	Targets     []OwnerBatchTargetV1
 	Rows        []ownerBatchRowPlanV1
+	BuildRows   func() ([]ownerBatchRowPlanV1, error)
 	RequestHash []byte
 	RequestID   string
 	Now         time.Time
@@ -69,6 +70,16 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 		return BatchMutationResult{}, fmt.Errorf("query timeline batch mutation idempotency: %w", err)
 	}
 
+	if request.BuildRows != nil {
+		request.Rows, err = request.BuildRows()
+		if err != nil {
+			return BatchMutationResult{}, err
+		}
+		request.BuildRows = nil
+		if err := validateOwnerBatchShape(request); err != nil {
+			return BatchMutationResult{}, err
+		}
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return BatchMutationResult{}, fmt.Errorf("begin timeline batch mutation transaction: %w", err)
@@ -248,7 +259,7 @@ func validateOwnerBatchShape(request ownerBatchApplyV1) error {
 	if strings.TrimSpace(request.ClientTxnID) == "" {
 		return fmt.Errorf("owner_batch_apply_v1 client transaction ID is required")
 	}
-	if len(request.Targets) == 0 || len(request.Targets) != len(request.Rows) {
+	if len(request.Targets) == 0 || (request.BuildRows == nil && len(request.Targets) != len(request.Rows)) {
 		return fmt.Errorf("owner_batch_apply_v1 targets and rows must be nonempty and aligned")
 	}
 	if request.RequestHash == nil {

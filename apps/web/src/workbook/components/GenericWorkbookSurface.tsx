@@ -317,7 +317,7 @@ export function ContractWorkbookSurface({
         setValidationError(
           "This surface accepts one pasted grid-editable value at a time.",
         );
-        return;
+        return false;
       }
       const outcome = await commitGridEdit(
         resolution.columns[0] ?? intent.target.fieldKey,
@@ -328,15 +328,13 @@ export function ContractWorkbookSurface({
         },
       );
       if (outcome.kind !== "accepted") setValidationError(outcome.message);
+      return outcome.kind === "accepted";
     },
     [commitGridEdit, setValidationError],
   );
   const clipboardPaste = useMemo(
-    () =>
-      workbookClipboardPasteContract((intent) => {
-        void handleGridPaste(intent);
-      }),
-    [handleGridPaste],
+    () => workbookClipboardPasteContract(handleGridPaste, setValidationError),
+    [handleGridPaste, setValidationError],
   );
   const draftInspectorFields = useMemo(() => {
     const gridFieldKeys = new Set(

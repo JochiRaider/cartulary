@@ -2657,7 +2657,8 @@
           },
           "clipboard_text": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "At most 8388608 UTF-8 bytes; strict rectangular CSV/TSV."
           },
           "format": {
             "type": "string",
@@ -2665,7 +2666,8 @@
               "auto",
               "tsv",
               "csv"
-            ]
+            ],
+            "description": "Explicit delimiter. Omitted or auto means TSV; CSV callers must specify csv."
           },
           "start_field_key": {
             "type": "string"
@@ -2685,6 +2687,14 @@
             "items": {
               "$ref": "#/components/schemas/WorkbookClipboardPasteTarget"
             }
+          },
+          "header_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "none"
+            ],
+            "description": "Exact Timeline header recognition, or data-only rows. Omitted means auto. Labels grant no write authority."
           }
         },
         "required": [

@@ -1685,7 +1685,59 @@ Pasting TSV or CSV into the timeline sheet MUST create or update multiple rows s
 Profiles: base, import
 Verified by: AC-003, AC-231, AC-232
 
-Default interactive Ctrl+V tabular dispatch MUST require an unambiguous tabular signal: tab, newline, carriage return, or a future explicit paste-as-table command. A single-line comma-only `text/plain` payload such as `Hello, world` MUST be treated as scalar text by default even though explicit API-level CSV ingest remains supported.
+Default interactive Ctrl+V tabular dispatch MUST require a tab, newline, carriage
+return, an explicit CSV/TSV representation, or a supported HTML table. A
+single-line `text/plain` payload, including commas or quotes, MUST be scalar by
+default. Multiline or tab-containing plain text MUST use TSV semantics; commas
+are literal. Explicit CSV remains supported. Empty plain text is a no-op.
+
+Clipboard representation precedence is Cartulary-marked HTML, external HTML
+table, `text/tab-separated-values`, `text/csv`, then `text/plain`. An absent
+representation or HTML without a table permits fallback. A selected malformed,
+oversized, unknown-version, or unsupported table MUST fail locally without
+falling back, changing selection, or submitting a mutation. Active editors keep
+native caret/selection clipboard behavior; Evidence file/image routing takes
+precedence over grid text handling where its owner applies.
+
+Cartulary grid copy MUST offer `text/html` and a usable `text/plain` fallback
+using owner-approved copy presentation only. The HTML table marker is
+`data-cartulary-clipboard="1"`; its scalar/table intent is
+`data-cartulary-clipboard-intent="scalar"` for 1×1, otherwise `"table"`.
+It carries no source identifiers or write authority. Marked cells prefix one
+apostrophe when their value starts with an apostrophe or a formula-leading
+character from Core 04 REQ-04-053. Only this validated representation reverses
+that escape. Plain text neutralizes formula-leading characters, emits a raw
+scalar presentation for 1×1, and quoted TSV for ranges. Empty range cells MUST
+be quoted. Stripped metadata cannot guarantee exact scalar/table intent or
+reversal of export neutralization; unmarked apostrophes MUST remain literal.
+
+HTML extraction MUST be inert and MUST never insert imported nodes or fetch
+resources. It admits one rectangular table, ordinary text wrappers, and `br`
+line breaks; nested/multiple tables, merged cells, active content, and
+unsupported cell content MUST be rejected. Formatting and formula metadata
+grant no interpretation or mutation authority. A one-cell HTML table is scalar;
+explicit CSV/TSV remains table input. Cartulary copies always carry data-only
+header intent, even when their values resemble Timeline headers.
+
+CSV and TSV fields MUST use strict whole-field quoting and doubled-quote
+escaping. Delimiters and line endings inside quotes are data and MUST be
+preserved. Outside quotes, CRLF, LF, and CR delimit records. One final record
+separator terminates its record; additional separators represent empty records.
+Empty table bytes are invalid; `""` encodes one empty cell. Clipboard rows MUST
+have equal nonzero width. Missing cells MUST NOT be padded or confused with
+explicit empty values. Explicit empty strings reach the destination's ordinary
+clear/required-value contract. Parsing MUST NOT trim, Unicode-normalize, or
+coerce scalar strings. Field normalization remains source-owned.
+
+Browser planning MUST use the same decoded geometry and header interpretation
+as the captured explicit-format server request. Before destination selection or
+mutation admission, enforce 500 destination rows, 64 columns, and the Core 04
+8 MiB representation/text bound. One additional source row is allowed only for
+an exact recognized Timeline header. Rejected input MUST produce accessible
+local feedback without dirtying cells. One native event is one delivery;
+separate gestures remain distinct even when their content is equal. Uncertain
+retry MUST reuse the captured request and identity without rereading or
+reinterpreting the clipboard. Acknowledged refresh recovery performs reads only.
 
 When clipboard paste updates existing rows through `record` targets, every target MUST belong to the addressed incident and the active addressed workbook surface. Target ownership and visibility MUST be validated before any row-version comparison, conflict construction, batch commit, or response row serialization. A paste containing a missing, foreign-incident, wrong-surface, wrong-type, or deleted record target MUST fail closed as one rejected batch rather than partially committing other targets.
 

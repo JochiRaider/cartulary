@@ -22,6 +22,7 @@ type ClipboardPasteRequest struct {
 	ClientTxnID   string
 	ClipboardText string
 	Format        string
+	HeaderMode    string
 	StartFieldKey string
 	Columns       []string
 	Targets       []timeline.OwnerBatchTargetV1
@@ -37,6 +38,7 @@ func DecodeClipboardPasteRequest(reader io.Reader) (ClipboardPasteRequest, *http
 		"client_txn_id":   {},
 		"clipboard_text":  {},
 		"format":          {},
+		"header_mode":     {},
 		"start_field_key": {},
 		"columns":         {},
 		"targets":         {},
@@ -59,10 +61,16 @@ func DecodeClipboardPasteRequest(reader io.Reader) (ClipboardPasteRequest, *http
 	}
 	if value, ok := raw["clipboard_text"]; !ok {
 		return ClipboardPasteRequest{}, invalidMutationPayload("clipboard_text", "missing_required_field")
-	} else if err := json.Unmarshal(value, &request.ClipboardText); err != nil || request.ClipboardText == "" {
+	} else if err := json.Unmarshal(value, &request.ClipboardText); err != nil || request.ClipboardText == "" || len(request.ClipboardText) > tabularingest.MaxClipboardBytes {
 		return ClipboardPasteRequest{}, invalidMutationPayload("clipboard_text", "invalid_value")
 	}
 	request.Format = "auto"
+	request.HeaderMode = "auto"
+	if value, ok := raw["header_mode"]; ok {
+		if err := json.Unmarshal(value, &request.HeaderMode); err != nil || (request.HeaderMode != "auto" && request.HeaderMode != "none") {
+			return ClipboardPasteRequest{}, invalidMutationPayload("header_mode", "invalid_value")
+		}
+	}
 	if value, ok := raw["format"]; ok {
 		if err := json.Unmarshal(value, &request.Format); err != nil {
 			return ClipboardPasteRequest{}, invalidMutationPayload("format", "invalid_value")
@@ -107,6 +115,9 @@ func BuildClipboardPlan(request ClipboardPasteRequest) (tabularingest.TabularRow
 	if err != nil {
 		return tabularingest.TabularRowPlanV1{}, err
 	}
+	if request.HeaderMode == "none" {
+		exactHeaderLabels, exactHeaderFieldKeys = nil, nil
+	}
 	return tabularingest.BuildTabularRowPlanV1(tabularingest.MappingRequest{
 		ViewSchemaID:         request.ViewSchemaID,
 		ClientTxnID:          request.ClientTxnID,
@@ -148,14 +159,18 @@ func ClipboardPasteRequestHash(request ClipboardPasteRequest) []byte {
 		}
 		targets = append(targets, entry)
 	}
-	return valuecodec.CanonicalJSONSHA256(map[string]any{
+	value := map[string]any{
 		"view_schema_id":  request.ViewSchemaID,
 		"clipboard_text":  request.ClipboardText,
 		"format":          request.Format,
 		"start_field_key": request.StartFieldKey,
 		"columns":         request.Columns,
 		"targets":         targets,
-	})
+	}
+	if request.HeaderMode == "none" {
+		value["header_mode"] = "none"
+	}
+	return valuecodec.CanonicalJSONSHA256(value)
 }
 
 type BulkMutationRequest struct {

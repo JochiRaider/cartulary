@@ -60,7 +60,10 @@ const semanticContractBindings = [
   { Grid: SemanticDataGridTestSupport, name: "test-support" },
 ] as const;
 
-function decodeTestClipboard(rawText: string) {
+function decodeTestClipboard(
+  offered: import("./clipboardCodec").ClipboardRepresentations,
+) {
+  const rawText = offered["text/plain"] ?? "";
   return { kind: "scalar" as const, rawText, value: rawText };
 }
 
@@ -479,7 +482,7 @@ describe("grid-adapter", () => {
         }),
       );
       fireEvent.paste(betaCell, {
-        clipboardData: { getData: () => "Gamma" },
+        clipboardData: { types: ["text/plain"], getData: () => "Gamma" },
       });
       expect(onPaste).toHaveBeenCalledWith(
         expect.objectContaining({ target: expect.objectContaining(beta) }),
@@ -1482,7 +1485,10 @@ describe("grid-adapter", () => {
     fireEvent.change(draftInput, { target: { value: "Draft remains usable" } });
     expect((draftInput as HTMLInputElement).value).toBe("Draft remains usable");
     fireEvent.paste(draftInput, {
-      clipboardData: { getData: () => "must not become a record paste" },
+      clipboardData: {
+        types: ["text/plain"],
+        getData: () => "must not become a record paste",
+      },
     });
     expect(onPasteCell).not.toHaveBeenCalled();
   });

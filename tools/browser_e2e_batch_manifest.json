@@ -945,6 +945,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.timeline.browser.clipboard_fidelity",
             "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
             "module.timeline.browser.spreadsheet_batch_conflicts",
             "module.timeline.browser.spreadsheet_batch_headers",
@@ -2273,6 +2274,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.timeline.browser.clipboard_fidelity",
             "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
             "module.timeline.browser.spreadsheet_batch_conflicts",
             "module.timeline.browser.spreadsheet_batch_headers",

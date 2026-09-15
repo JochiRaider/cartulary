@@ -16,6 +16,7 @@ type ClipboardPasteRequest struct {
 	ClientTxnID    string
 	ClipboardText  string
 	Format         string
+	HeaderMode     string
 	StartFieldKey  string
 	Columns        []string
 	CreateOnlyRows int
@@ -31,6 +32,7 @@ func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (Cli
 		"client_txn_id":   {},
 		"clipboard_text":  {},
 		"format":          {},
+		"header_mode":     {},
 		"start_field_key": {},
 		"columns":         {},
 		"targets":         {},
@@ -60,10 +62,16 @@ func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (Cli
 	}
 	if value, ok := raw["clipboard_text"]; !ok {
 		return ClipboardPasteRequest{}, invalidClipboardPastePayload("clipboard_text", "missing_required_field")
-	} else if err := json.Unmarshal(value, &request.ClipboardText); err != nil || request.ClipboardText == "" {
+	} else if err := json.Unmarshal(value, &request.ClipboardText); err != nil || request.ClipboardText == "" || len(request.ClipboardText) > tabularingest.MaxClipboardBytes {
 		return ClipboardPasteRequest{}, invalidClipboardPastePayload("clipboard_text", "invalid_value")
 	}
 	request.Format = "auto"
+	request.HeaderMode = "auto"
+	if value, ok := raw["header_mode"]; ok {
+		if err := json.Unmarshal(value, &request.HeaderMode); err != nil || (request.HeaderMode != "auto" && request.HeaderMode != "none") {
+			return ClipboardPasteRequest{}, invalidClipboardPastePayload("header_mode", "invalid_value")
+		}
+	}
 	if value, ok := raw["format"]; ok {
 		if err := json.Unmarshal(value, &request.Format); err != nil {
 			return ClipboardPasteRequest{}, invalidClipboardPastePayload("format", "invalid_value")
@@ -121,7 +129,7 @@ func BuildClipboardPastePlan(request ClipboardPasteRequest) (tabularingest.Tabul
 }
 
 func (request ClipboardPasteRequest) RequestHash() []byte {
-	return entityClipboardPasteRequestHash(request.ViewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns)
+	return entityClipboardPasteRequestHash(request.ViewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns, request.HeaderMode)
 }
 
 func (request ClipboardPasteRequest) mappingRequest() tabularingest.MappingRequest {

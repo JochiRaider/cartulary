@@ -2,12 +2,25 @@ package tabularingest_test
 
 import (
 	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 )
 
 func TestSharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
+	assertClipboardCorpus(t)
+	blankRows, blankErr := tabularingest.ParseTable("\na\n\n", "tsv")
+	if blankErr != nil || len(blankRows) != 3 {
+		t.Fatalf("preserve blank rows: %#v %v", blankRows, blankErr)
+	}
+	if _, err := tabularingest.ParseTable("a\tb\nc", "tsv"); err == nil {
+		t.Fatal("reject ragged clipboard")
+	}
+	if _, err := tabularingest.ParseTable("\"unclosed,a,b", "csv"); err == nil {
+		t.Fatal("baseline server must reject malformed quote")
+	}
 	rows, err := tabularingest.ParseTable("\"alpha, one\",bravo\ncharlie,delta", "csv")
 	if err != nil {
 		t.Fatalf("parse quoted csv: %v", err)
@@ -68,6 +81,46 @@ func TestSharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
 	}
 
 	assertMappingCompatibilityGoldens(t)
+}
+
+func assertClipboardCorpus(t *testing.T) {
+	t.Helper()
+	data, err := os.ReadFile("../../../contracts/tabularingest/clipboard.v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var corpus struct {
+		Limits struct{ MaxBytes, MaxRows, MaxColumns int }
+		Cases  []struct {
+			ID, Format, Text, Error string
+			Values                  [][]string
+		}
+	}
+	if err := json.Unmarshal(data, &corpus); err != nil {
+		t.Fatal(err)
+	}
+	if corpus.Limits.MaxBytes != tabularingest.MaxClipboardBytes || corpus.Limits.MaxRows != tabularingest.MaxClipboardRows || corpus.Limits.MaxColumns != tabularingest.MaxClipboardCols {
+		t.Fatal("clipboard limit projection drift")
+	}
+	for _, fixture := range corpus.Cases {
+		rows, err := tabularingest.ParseTable(fixture.Text, fixture.Format)
+		if fixture.Error != "" {
+			if err == nil || !strings.Contains(err.Error(), fixture.Error) {
+				t.Fatalf("%s: %v", fixture.ID, err)
+			}
+		} else if err != nil || mustJSON(t, rows) != mustJSON(t, fixture.Values) {
+			t.Fatalf("%s: %#v %v", fixture.ID, rows, err)
+		}
+	}
+	for _, format := range []string{"", "auto", "tsv"} {
+		rows, err := tabularingest.ParseTable("a,b\nc,d", format)
+		if err != nil || len(rows[0]) != 1 {
+			t.Fatalf("fixed TSV default: %#v %v", rows, err)
+		}
+	}
+	if _, err := tabularingest.ParseTable(strings.Repeat("x", tabularingest.MaxClipboardBytes+1), "tsv"); err == nil {
+		t.Fatal("oversize clipboard accepted")
+	}
 }
 
 func assertMappingCompatibilityGoldens(t testing.TB) {
@@ -154,7 +207,7 @@ func assertMappingCompatibilityGoldens(t testing.TB) {
 		request tabularingest.MappingRequest
 		message string
 	}{
-		{name: "empty", request: tabularingest.MappingRequest{SourceKind: "clipboard_paste", ViewSchemaID: "cartulary.view.notes.v1"}, message: "empty tabular payload"},
+		{name: "empty", request: tabularingest.MappingRequest{SourceKind: "clipboard_paste", ViewSchemaID: "cartulary.view.notes.v1"}, message: "empty_table"},
 		{name: "unknown schema", request: tabularingest.MappingRequest{SourceKind: "clipboard_paste", ViewSchemaID: "unknown", Text: "x"}, message: "unknown view schema"},
 		{name: "target mismatch", request: tabularingest.MappingRequest{SourceKind: "clipboard_paste", ViewSchemaID: "cartulary.view.notes.v1", Text: "x\ny", Columns: []string{"note.title"}, StartFieldKey: "note.title", RequireTargets: 1}, message: "target count must equal tabular row count"},
 		{name: "unsupported field", request: tabularingest.MappingRequest{SourceKind: "clipboard_paste", ViewSchemaID: "cartulary.view.notes.v1", Text: "x", Columns: []string{"note.unknown"}, StartFieldKey: "note.unknown", RequireTargets: -1}, message: "unsupported field key note.unknown"},

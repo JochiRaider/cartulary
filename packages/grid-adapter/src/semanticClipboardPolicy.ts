@@ -1,3 +1,8 @@
+import {
+  type ClipboardFailure,
+  type ClipboardRepresentations,
+  encodeGridClipboard,
+} from "./clipboardCodec";
 import type {
   GridCellAnchor,
   GridCellCopyIntent,
@@ -9,7 +14,7 @@ import type {
   GridFillIntent,
   GridSurfaceIdentity,
 } from "./core";
-import { formatGridClipboardTSV, gridRowIdentitiesEqual } from "./core";
+import { gridRowIdentitiesEqual } from "./core";
 import {
   dedupeGridTargets,
   type GridSemanticPresentationModel,
@@ -31,7 +36,10 @@ export function planSemanticCopy<Row>({
   readonly dataRows: readonly GridDataRow<Row>[];
   readonly model: GridSemanticPresentationModel<Row>;
   readonly range: GridCellRange;
-}): { readonly intent: GridCellCopyIntent; readonly text: string } | null {
+}): {
+  readonly intent: GridCellCopyIntent;
+  readonly representations: ClipboardRepresentations | ClipboardFailure;
+} | null {
   const expandedRange = resolveVisibleGridCellRange({
     columns,
     dataRows,
@@ -49,12 +57,12 @@ export function planSemanticCopy<Row>({
       );
       return row === undefined
         ? ""
-        : (column?.getClipboardValue?.(row.data) ?? "");
+        : String(column?.getClipboardValue?.(row.data) ?? "");
     });
   });
   return {
     intent: { anchor, expandedRange, range },
-    text: formatGridClipboardTSV(values),
+    representations: encodeGridClipboard(values),
   };
 }
 
@@ -72,7 +80,10 @@ export function planSemanticPaste<Row>({
   if (dimensions === null) return null;
   const targetResolution = planSemanticPasteTargets(model, target, dimensions);
   if (targetResolution === null) return null;
-  const lastFieldKey = targetResolution.columns.at(-1);
+  const visibleTargets = model.fieldKeys.filter((key) =>
+    targetResolution.columns.includes(key),
+  );
+  const lastFieldKey = visibleTargets.at(-1);
   const lastRecordTarget = targetResolution.rowTargets
     .filter((candidate) => candidate.kind === "record")
     .at(-1);
@@ -80,7 +91,10 @@ export function planSemanticPaste<Row>({
     lastFieldKey === undefined || lastRecordTarget === undefined
       ? { start: target, end: target }
       : {
-          start: target,
+          start: {
+            ...target,
+            fieldKey: visibleTargets[0] ?? target.fieldKey,
+          },
           end: {
             fieldKey: lastFieldKey,
             rowIdentity: lastRecordTarget.rowIdentity,

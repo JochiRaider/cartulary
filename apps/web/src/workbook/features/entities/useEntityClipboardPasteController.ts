@@ -64,6 +64,7 @@ export function useEntityClipboardPasteController({
       if (outcome.kind !== "accepted") {
         rejectLocally(outcome.message ?? "Paste could not be applied.");
       }
+      return outcome.kind === "accepted";
     },
     [commitGridEdit, rejectLocally],
   );
@@ -80,13 +81,14 @@ export function useEntityClipboardPasteController({
       switch (plan.kind) {
         case "rejected":
           rejectLocally(plan.message);
-          return;
+          return false;
         case "scalar":
-          void executeScalarPlan(plan);
-          return;
+          return executeScalarPlan(plan);
         case "batch":
           setActionFeedback(null);
-          clipboardPaste.paste(plan.input, { delivery: intent });
+          return (
+            clipboardPaste.paste(plan.input, { delivery: intent }) !== null
+          );
       }
     },
     [

@@ -55,6 +55,7 @@ type ClipboardPasteCommand struct {
 	IncidentID  uuid.UUID
 	ClientTxnID string
 	Plan        tabularingest.TabularRowPlanV1
+	BuildPlan   func() (tabularingest.TabularRowPlanV1, error)
 	Targets     []OwnerBatchTargetV1
 	RequestHash []byte
 	RequestID   string

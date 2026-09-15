@@ -2720,6 +2720,7 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.mouseDown(displayNameGridCell as HTMLElement);
     const pasteEvent = createEvent.paste(displayNameCell, {
       clipboardData: {
+        types: ["text/plain"],
         getData: () =>
           [
             "Pasted host reuse\treuse.example.test",

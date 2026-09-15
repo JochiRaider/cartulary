@@ -5197,13 +5197,23 @@ export interface WorkbookBulkMutationTarget {
  */
 export interface WorkbookClipboardPasteRequest {
   client_txn_id: string;
+  /**
+   * At most 8388608 UTF-8 bytes; strict rectangular CSV/TSV.
+   */
   clipboard_text: string;
   /**
    * @minItems 1
    * @maxItems 64
    */
   columns: [string, ...string[]];
+  /**
+   * Explicit delimiter. Omitted or auto means TSV; CSV callers must specify csv.
+   */
   format?: "auto" | "tsv" | "csv";
+  /**
+   * Exact Timeline header recognition, or data-only rows. Omitted means auto. Labels grant no write authority.
+   */
+  header_mode?: "auto" | "none";
   start_field_key: string;
   /**
    * @minItems 1

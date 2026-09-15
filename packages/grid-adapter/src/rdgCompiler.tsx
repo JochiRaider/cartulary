@@ -9,6 +9,10 @@ import {
   useState,
 } from "react";
 import type { Column } from "react-data-grid";
+import {
+  type ClipboardRepresentations,
+  clipboardRepresentations,
+} from "./clipboardCodec";
 import type {
   GridActionsColumn,
   GridCellAnchor,
@@ -102,7 +106,7 @@ type CompileGridColumnsInput<Row> = {
     | ((
         row: GridDataRow<Row>,
         fieldKey: string,
-        clipboardText: string,
+        clipboardText: ClipboardRepresentations,
         delivery?: object,
       ) => boolean)
     | undefined;
@@ -931,7 +935,7 @@ function SemanticGridCellContent({
     | ((event: import("react").SyntheticEvent<HTMLSpanElement>) => void)
     | undefined;
   readonly onPaste?:
-    | ((clipboardText: string, delivery: object) => boolean)
+    | ((clipboardText: ClipboardRepresentations, delivery: object) => boolean)
     | undefined;
   readonly rangeSelected?: boolean | undefined;
   readonly registerSemanticCell: (
@@ -973,7 +977,10 @@ function SemanticGridCellContent({
           return;
         }
         if (
-          onPaste(event.clipboardData.getData("text/plain"), event.nativeEvent)
+          onPaste(
+            clipboardRepresentations(event.clipboardData),
+            event.nativeEvent,
+          )
         ) {
           event.preventDefault();
           event.stopPropagation();

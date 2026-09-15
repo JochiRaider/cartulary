@@ -112,3 +112,9 @@ record targets may be absent from rows; create coverage remains exact. Invalid
 success data is uncertain. Accepted recovery delegates reads to the runtime.
 
 createWorkbookReferenceMemberReader retains membership-route continuation and ordering independently of record query metadata. It validates scope and paging before exposing member candidates.
+
+Clipboard plans capture explicit CSV/TSV format and `header_mode` with the exact
+request text. Marked copies use `none`; external Timeline tables use exact
+schema-header recognition (`auto`). Retained retries send the captured request
+unchanged; acknowledgement recovery only reads. Server callers using omitted or
+`auto` format now receive TSV semantics and must explicitly request CSV.

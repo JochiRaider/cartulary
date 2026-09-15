@@ -92,6 +92,10 @@ func TestClipboardPasteParsingMappingProvenanceAndBinding(t *testing.T) {
 		metadata["mapping_fingerprint"] != plan.MappingFingerprint {
 		t.Fatalf("unexpected normalized provenance metadata: %#v", metadata)
 	}
+	plan.Rows[0].Cells[0].RawValue = "\x01"
+	if _, err := buildClipboardOwnerRows(plan); !errors.Is(err, tabularingest.ErrInvalidClipboard) {
+		t.Fatalf("invalid mapped relationship value must reject, not become unmapped data: %v", err)
+	}
 }
 
 func TestClipboardPasteRejectsCrossIncidentRecordTarget(t *testing.T) {

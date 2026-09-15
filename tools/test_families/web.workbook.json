@@ -5221,7 +5221,7 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
         "titles": [
-          "workbookClipboard computes dimensions without enforcing an implementation-local maximum"
+          "workbookClipboard enforces the owner row limit before destination planning"
         ]
       },
       "evidence_class": "unit",
@@ -5269,7 +5269,7 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
         "titles": [
-          "workbookClipboard parses empty, CRLF, tabular, and comma-delimited payloads"
+          "workbookClipboard decodes explicit CSV and plain TSV without punctuation guessing"
         ]
       },
       "evidence_class": "unit",
@@ -5293,7 +5293,7 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
         "titles": [
-          "workbookClipboard preserves quote-aware parser behavior used by Timeline and Shell paste dimensions"
+          "workbookClipboard preserves explicit empty records and rejects malformed or missing cells"
         ]
       },
       "evidence_class": "unit",

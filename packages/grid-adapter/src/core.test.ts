@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertGridRows,
-  formatGridClipboardTSV,
   type GridCellAnchor,
   type GridColumn,
   type GridDataRow,
@@ -934,13 +933,6 @@ describe("semantic grid policies", () => {
         { kind: "core_record", recordId: "record-2" },
       ],
     });
-    const clipboardText = formatGridClipboardTSV([
-      ["plain", "has\ttab"],
-      ["line\nbreak", 'has "quote"'],
-    ]);
-    expect(clipboardText).toBe(
-      'plain\t"has\ttab"\n"line\nbreak"\t"has ""quote"""',
-    );
     expect(
       resolveGridPasteTargets({
         columns,

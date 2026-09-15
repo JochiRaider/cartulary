@@ -904,6 +904,15 @@ Verified by: AC-049, AC-050, AC-051, AC-052, AC-053, AC-054, AC-055, AC-130, AC-
 **REQ-04-053**
 - **CWE-79**: Incident-authored or imported content rendered in the browser UI or exported HTML MUST be treated as untrusted. Renderers MUST escape or sanitize by default and MUST block script execution, inline event handlers, `javascript:` URLs, and remote asset fetches sourced from incident data.
 - **CWE-1236**: CSV, XLSX, and clipboard exports intended for spreadsheet consumption MUST neutralize leading formula characters before write. At minimum, values beginning with `=`, `+`, `-`, `@`, tab, or carriage return MUST be emitted with a lossless neutralizing prefix such as `'`, unless an explicit raw-forensic export mode is selected with a visible danger warning.
+- Clipboard processing MUST bound each consumed representation and canonical
+  clipboard text to 8 MiB (8,388,608 UTF-8 bytes). The browser checks before
+  DOM/token parsing and request capture; the server checks clipboard text at
+  admission before parser allocation, idempotency lookup, or transaction work.
+  This aggregate bound complements 500 destination rows, 64 columns, and
+  source-field limits; it bounds giant scalars and HTML independently of shape.
+  Oversize input MUST fail with local feedback or `invalid_mutation_payload`
+  and no write. HTML clipboard metadata is untrusted and conveys no source,
+  target, authorization, or relationship rights.
 - **CWE-22 / CWE-73**: User-supplied filenames, archive entry names, import paths, and blob-create `filename_hint` values MUST be treated as metadata, not authority. The system MUST assign storage keys, MUST reject absolute paths and parent traversal, and MUST extract archives only inside a staging root that cannot escape the declared runtime roots. `filename_hint` MUST NOT determine object-store key paths, authorization decisions, or portability layout.
 - **CWE-353**: Reference packs and any incident import bundle format, when implemented, MUST fail closed on checksum mismatch, signature mismatch, incomplete download, or missing required integrity metadata.
 - **CWE-434**: Evidence, reference-pack, and workbook-import uploads MUST be treated as hostile content. The application unit MUST NOT execute uploaded content, workbook formulas, macros or VBA, workbook automation, or external links during import or preview. Blob-create `content_type_hint` values are metadata only; they MUST NOT by themselves determine preview allowlisting, active-content classification, or release posture. Preview issuance MUST succeed only for allowlisted non-executing `preview_kind` values derived from current blob or evidence state and server-observed or otherwise validated media metadata, and preview or download redemption MUST fail closed when current blob or evidence state is pending, failed, missing, quarantined, or inconsistent. Active-content types MUST remain download-only or isolated from the main application origin unless a dedicated isolated analysis path is explicitly implemented.

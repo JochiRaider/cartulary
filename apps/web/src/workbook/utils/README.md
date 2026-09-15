@@ -13,7 +13,7 @@ serve workbook consumers without owning a feature workflow.
 | File | Responsibility |
 | --- | --- |
 | [freezeWorkbookValue.ts](freezeWorkbookValue.ts) | Recursively freezes captured workbook values for immutable operation state. |
-| [workbookClipboard.ts](workbookClipboard.ts) | Clipboard grid-shape and paste helpers. |
+| [workbookClipboard.ts](workbookClipboard.ts) | Adapts the Grid Adapter representation decoder and source error callback; applies the non-header 500-row bound. |
 | [workbookEditRecoveryPresentation.ts](workbookEditRecoveryPresentation.ts) | Projects pending edit and conflict state into workbook recovery presentation. |
 | [workbookPendingQueue.ts](workbookPendingQueue.ts) | Pending-save queue capacity, save-state, replay, conflict, and public-error helpers. |
 | [workbookPresence.ts](workbookPresence.ts) | Presence input/type helpers and presence matching helpers. |
@@ -27,7 +27,7 @@ serve workbook consumers without owning a feature workflow.
 | File | Responsibility |
 | --- | --- |
 | [GridAdapter.anchor.test.ts](GridAdapter.anchor.test.ts) | Workbook interaction grid-adapter anchor behavior tests. |
-| [workbookClipboard.test.ts](workbookClipboard.test.ts) | Tests empty, CRLF, tabular, and comma-delimited clipboard parsing and grid shapes. |
+| [workbookClipboard.test.ts](workbookClipboard.test.ts) | Tests explicit representation dispatch, scalar comma/quote preservation, deterministic rejection and row bounds. |
 | [workbookPendingQueue.test.ts](workbookPendingQueue.test.ts) | Tests queue scope isolation, capacity, replay, and settlement behavior. |
 | [workbookPresence.test.tsx](workbookPresence.test.tsx) | Tests unique-user presence counts and activity-first display ordering. |
 | [workbookRowReconciliation.test.ts](workbookRowReconciliation.test.ts) | Tests for sparse row replacement, removal, drafts, and row-version reference reuse. |

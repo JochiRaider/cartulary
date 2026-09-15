@@ -156,6 +156,8 @@ func TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit(t *testing.T) {
 		Columns:       []string{"timeline.activity_synopsis_text"},
 		Targets:       []timeline.OwnerBatchTargetV1{{Kind: "create"}},
 	}
+	legacyRequest := exactRequest
+	exactRequest.ClipboardText += strings.Repeat("\t", len(exactHeaderLabels)-1)
 	exactPlan, err := BuildClipboardPlan(exactRequest)
 	if err != nil {
 		t.Fatalf("build exact-header Timeline plan: %v", err)
@@ -180,7 +182,7 @@ func TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit(t *testing.T) {
 		nonHeaderPlan.Rows[0].Cells[1].FieldKey != exactHeaderFieldKeys[1] {
 		t.Fatalf("non-header Timeline mapping changed: %#v", nonHeaderPlan.Rows)
 	}
-	if got := hex.EncodeToString(ClipboardPasteRequestHash(exactRequest)); got != "8784cbc7cbb56d3876c070fb697651a2c7b292b3795d2da326a705ee002fb651" {
+	if got := hex.EncodeToString(ClipboardPasteRequestHash(legacyRequest)); got != "8784cbc7cbb56d3876c070fb697651a2c7b292b3795d2da326a705ee002fb651" {
 		t.Fatalf("canonical clipboard request hash changed: %s", got)
 	}
 	if exactPlan.MappingFingerprint != "e84df225b4fa1163e147b026e1fee1e2c44bbeacdad5d19acea2f65fb0bd5587" ||
@@ -188,6 +190,27 @@ func TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit(t *testing.T) {
 		t.Fatalf("Timeline mapping fingerprints changed: exact=%s non-header=%s", exactPlan.MappingFingerprint, nonHeaderPlan.MappingFingerprint)
 	}
 
+	if _, err := BuildClipboardPlan(legacyRequest); err == nil {
+		t.Fatal("ragged legacy clipboard must reject before mapping")
+	}
+	defaultHash := hex.EncodeToString(ClipboardPasteRequestHash(legacyRequest))
+	legacyRequest.HeaderMode = "auto"
+	if hex.EncodeToString(ClipboardPasteRequestHash(legacyRequest)) != defaultHash {
+		t.Fatal("explicit default header mode changed legacy request identity")
+	}
+	legacyRequest.HeaderMode = "none"
+	if hex.EncodeToString(ClipboardPasteRequestHash(legacyRequest)) == defaultHash {
+		t.Fatal("data-only interpretation must participate in request identity")
+	}
+	dataRequest := exactRequest
+	dataRequest.ClipboardText = strings.Join(exactHeaderLabels, "\t")
+	dataRequest.HeaderMode = "none"
+	dataRequest.StartFieldKey = exactHeaderFieldKeys[0]
+	dataRequest.Columns = exactHeaderFieldKeys
+	dataPlan, err := BuildClipboardPlan(dataRequest)
+	if err != nil || dataPlan.Rows[0].Cells[0].RawValue != exactHeaderLabels[0] {
+		t.Fatalf("data-only header-shaped row changed: %#v %v", dataPlan, err)
+	}
 	assertTimelineBatchAdmissionLimits(t)
 }
 

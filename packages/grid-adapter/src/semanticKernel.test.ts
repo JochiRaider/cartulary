@@ -337,7 +337,7 @@ describe("shared semantic grid kernel", () => {
         range,
       }),
     ).toMatchObject({
-      text: "Alpha\nBeta",
+      representations: { "text/plain": "Alpha\nBeta" },
       intent: { range },
     });
     expect(
@@ -380,6 +380,52 @@ describe("shared semantic grid kernel", () => {
         { rowIdentity: { recordId: "record-2" } },
       ],
     });
+    // Header-derived field keys carry mapping intent, never write authority.
+    const reordered = planSemanticPaste({
+      input: {
+        kind: "table",
+        format: "tsv",
+        rawText: "A\tB",
+        values: [["A", "B"]],
+        fieldKeys: ["label", "state"],
+      },
+      model: {
+        ...model,
+        fieldKeys: ["state", "label"],
+        columns: columns.map((column) => ({
+          ...column,
+          contractWritable: true,
+          editor,
+        })),
+      },
+      target: {
+        ...start,
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+      },
+    });
+    expect(reordered?.targetResolution.columns).toEqual(["label", "state"]);
+    expect(reordered?.range).toMatchObject({
+      start: { fieldKey: "state" },
+      end: { fieldKey: "label" },
+    });
+    for (const fieldKeys of [["state"], ["hidden"], ["label", "label"]]) {
+      expect(
+        planSemanticPaste({
+          input: {
+            kind: "table",
+            format: "tsv",
+            rawText: "A",
+            values: [fieldKeys.map(() => "A")],
+            fieldKeys,
+          },
+          model,
+          target: {
+            ...start,
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+          },
+        }),
+      ).toBeNull();
+    }
     const fill = planSemanticFillFromRange({
       columns,
       dataRows: rows,

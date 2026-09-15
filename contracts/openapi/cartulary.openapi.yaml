@@ -19463,6 +19463,7 @@
             "type": "string"
           },
           "clipboard_text": {
+            "description": "At most 8388608 UTF-8 bytes; strict rectangular CSV/TSV.",
             "minLength": 1,
             "type": "string"
           },
@@ -19475,10 +19476,19 @@
             "type": "array"
           },
           "format": {
+            "description": "Explicit delimiter. Omitted or auto means TSV; CSV callers must specify csv.",
             "enum": [
               "auto",
               "tsv",
               "csv"
+            ],
+            "type": "string"
+          },
+          "header_mode": {
+            "description": "Exact Timeline header recognition, or data-only rows. Omitted means auto. Labels grant no write authority.",
+            "enum": [
+              "auto",
+              "none"
             ],
             "type": "string"
           },

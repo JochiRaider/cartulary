@@ -2,7 +2,9 @@ package workbook_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
@@ -19,6 +21,103 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
+
+func TestWorkbookClipboardFidelityAndLegacyReceipt_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, "workbook-clipboard-fidelity")
+	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "fidelity-incident", "incident_key": "IR-FIDELITY", "title": "Clipboard fidelity"})
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	for _, surface := range []struct{ view, field, route string }{
+		{timeline.TimelineViewSchemaID, "timeline.raw_activity_text", "timeline.clipboard_paste"},
+		{entitycontract.HostsViewSchemaID, "host.display_name", "entities.hosts.clipboard_paste"},
+		{entitycontract.IdentitiesViewSchemaID, "identity.display_name", "entities.identities.clipboard_paste"},
+	} {
+		t.Run(surface.view, func(t *testing.T) {
+			body := map[string]any{"view_schema_id": surface.view, "client_txn_id": "fidelity-valid-" + surface.view,
+				"clipboard_text": "\"alpha, \"\"quote\"\"\"\r\n00123", "format": "csv", "header_mode": "none",
+				"start_field_key": surface.field, "columns": []string{surface.field}, "targets": []map[string]any{{"kind": "create"}, {"kind": "create"}}}
+			accepted := requireClipboardPaste(t, harness, login, incidentID, surface.view, body, http.StatusOK)
+			rows := accepted["rows"].([]any)
+			if len(rows) != 2 {
+				t.Fatalf("lost geometry: %#v", rows)
+			}
+			requireCellValue(t, rows[0].(map[string]any), surface.field, "alpha, \"quote\"")
+			requireCellValue(t, rows[1].(map[string]any), surface.field, "00123")
+			if surface.view == timeline.TimelineViewSchemaID {
+				clear := map[string]any{"view_schema_id": surface.view, "client_txn_id": "fidelity-clear",
+					"clipboard_text": "\"\"\r\n\"\"", "format": "csv", "header_mode": "none",
+					"start_field_key": surface.field, "columns": []string{surface.field},
+					"targets": []map[string]any{
+						{"kind": "record", "record_id": rows[0].(map[string]any)["record_id"], "base_row_version": 1},
+						{"kind": "record", "record_id": rows[1].(map[string]any)["record_id"], "base_row_version": 1}}}
+				cleared := requireClipboardPaste(t, harness, login, incidentID, surface.view, clear, http.StatusOK)
+				for _, row := range cleared["rows"].([]any) {
+					requireCellValue(t, row.(map[string]any), surface.field, "")
+				}
+			}
+			var beforeRecords, beforeRevisions int
+			if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*) FROM records WHERE incident_id=$1`, incidentID).Scan(&beforeRecords); err != nil {
+				t.Fatal(err)
+			}
+			if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*) FROM record_revisions`).Scan(&beforeRevisions); err != nil {
+				t.Fatal(err)
+			}
+			invalidInputs := []string{"\"unterminated", "a\tb\nshort", "one", "first\n\"bad\u0001control\"", strings.Repeat("x", 8_388_609)}
+			if surface.view != timeline.TimelineViewSchemaID {
+				invalidInputs = append(invalidInputs, "\"\"\n\"\"")
+			}
+			for index, invalid := range invalidInputs {
+				txn := fmt.Sprintf("fidelity-invalid-%s-%d", surface.view, index)
+				body["client_txn_id"], body["clipboard_text"], body["format"] = txn, invalid, "tsv"
+				requireClipboardPaste(t, harness, login, incidentID, surface.view, body, http.StatusBadRequest)
+				requireNoChangeSetForClientTxn(t, harness, txn)
+			}
+			var afterRecords, afterRevisions int
+			if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*) FROM records WHERE incident_id=$1`, incidentID).Scan(&afterRecords); err != nil {
+				t.Fatal(err)
+			}
+			if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*) FROM record_revisions`).Scan(&afterRevisions); err != nil {
+				t.Fatal(err)
+			}
+			if beforeRecords != afterRecords || beforeRevisions != afterRevisions {
+				t.Fatal("rejected input wrote records or history")
+			}
+			// An authored legacy receipt fixture: this text could be admitted by the
+			// previous permissive/auto parser. New parsing must not gate retrieval.
+			legacyTxn := "fidelity-legacy-" + surface.view
+			body["client_txn_id"], body["clipboard_text"], body["format"] = legacyTxn, "legacy\n\nrow", "auto"
+			delete(body, "header_mode")
+			identity := map[string]any{"view_schema_id": surface.view, "clipboard_text": body["clipboard_text"], "format": "auto", "start_field_key": surface.field, "columns": body["columns"]}
+			if surface.view == timeline.TimelineViewSchemaID {
+				identity["targets"] = body["targets"]
+			}
+			identityBytes, err := json.Marshal(identity)
+			if err != nil {
+				t.Fatal(err)
+			}
+			hash := sha256.Sum256(identityBytes)
+			receipt, err := json.Marshal(accepted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := harness.DB.ExecContext(t.Context(), `INSERT INTO route_idempotency(route_key,scope_key,client_txn_id,actor_user_id,request_hash,status_code,response_json) VALUES($1,$2,$3,$4,$5,200,$6)`, surface.route, incidentID.String()+":"+surface.view, legacyTxn, actor, hash[:], receipt); err != nil {
+				t.Fatal(err)
+			}
+			replayed := requireClipboardPaste(t, harness, login, incidentID, surface.view, body, http.StatusOK)
+			if !reflect.DeepEqual(accepted, replayed) {
+				t.Fatalf("legacy replay changed receipt: %#v", replayed)
+			}
+			requireNoChangeSetForClientTxn(t, harness, legacyTxn)
+			if surface.view != timeline.TimelineViewSchemaID {
+				body["targets"] = []map[string]any{{"kind": "create"}}
+				requireClipboardPaste(t, harness, login, incidentID, surface.view, body, http.StatusBadRequest)
+				body["targets"] = []map[string]any{{"kind": "create"}, {"kind": "create"}}
+			}
+			body["header_mode"] = "none"
+			requireClipboardPaste(t, harness, login, incidentID, surface.view, body, http.StatusConflict)
+		})
+	}
+}
 
 func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-clipboard-paste")

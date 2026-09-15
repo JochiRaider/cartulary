@@ -55,6 +55,9 @@ func buildClipboardOwnerRows(plan tabularingest.TabularRowPlanV1) ([]ownerBatchR
 		for _, cell := range plannedRow.Cells {
 			change, ok := clipboardValueToPatchChange(cell.FieldKey, cell.RawValue)
 			if !ok {
+				if field, exists := viewschema.LookupField(TimelineViewSchemaID, cell.FieldKey); exists && field.Writable {
+					return nil, fmt.Errorf("%w: invalid field %s", tabularingest.ErrInvalidClipboard, cell.FieldKey)
+				}
 				row.Unmapped = append(row.Unmapped, ClipboardRawImportColumn{
 					SourceKind:          plan.SourceKind,
 					PasteClientTxnID:    plan.ClientTxnID,

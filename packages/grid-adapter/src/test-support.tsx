@@ -25,6 +25,19 @@ import {
   useRef,
   useState,
 } from "react";
+import { clipboardRepresentations } from "./clipboardCodec";
+
+export type {
+  ClipboardDecodeResult,
+  ClipboardRepresentations,
+} from "./clipboardCodec";
+export {
+  clipboardFailure,
+  clipboardLimits,
+  decodeDelimitedClipboard,
+  decodeGridClipboard,
+  encodeClipboardTable,
+} from "./clipboardCodec";
 
 import "./styles.css";
 
@@ -1323,7 +1336,12 @@ function handleTestCellCopy<Row>({
     range: range ?? { end: anchor, start: anchor },
   });
   if (plan === null) return;
-  event.clipboardData?.setData("text/plain", plan.text);
+  if ("kind" in plan.representations) {
+    event.preventDefault();
+    return;
+  }
+  for (const [type, value] of Object.entries(plan.representations))
+    event.clipboardData?.setData(type, value);
   event.preventDefault();
   onCopyCell?.(plan.intent);
 }
@@ -1357,8 +1375,13 @@ function handleTestCellPaste<Row>({
     return;
   }
   const input = clipboardPaste.decode(
-    event.clipboardData?.getData("text/plain") ?? "",
+    event.clipboardData ? clipboardRepresentations(event.clipboardData) : {},
   );
+  if (input.kind === "noop" || input.kind === "failure") {
+    event.preventDefault();
+    if (input.kind === "failure") clipboardPaste.onError?.(input.message);
+    return;
+  }
   const intent = planSemanticPaste({
     input,
     model: presentation,
@@ -1371,8 +1394,8 @@ function handleTestCellPaste<Row>({
   });
   if (intent === null) return;
   event.preventDefault();
-  updateRange(intent.range);
-  clipboardPaste.onPaste(intent);
+  const accepted = clipboardPaste.onPaste(intent);
+  if (accepted === true || accepted === undefined) updateRange(intent.range);
 }
 
 function useSemanticDataGridTestSupport<Row>(

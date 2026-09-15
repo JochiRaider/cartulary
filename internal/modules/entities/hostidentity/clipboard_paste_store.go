@@ -49,8 +49,28 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		return ClipboardPasteResult{}, fmt.Errorf("validate entity clipboard paste plan: %w", err)
 	}
 	if plan.ViewSchemaID != viewSchemaID {
-		return ClipboardPasteResult{}, fmt.Errorf("entity clipboard paste plan view mismatch: %s != %s", plan.ViewSchemaID, viewSchemaID)
+		return ClipboardPasteResult{}, tabularingest.ErrInvalidClipboard
 	}
+	return s.applyClipboardPaste(ctx, actor, incidentID, viewSchemaID, plan.ClientTxnID, func() (tabularingest.TabularRowPlanV1, error) { return plan, nil }, requestHash, requestID, now)
+}
+
+func (s *Store) ApplyClipboardPasteRequest(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ClipboardPasteRequest, requestID string, now time.Time) (ClipboardPasteResult, error) {
+	if len(request.ClipboardText) > tabularingest.MaxClipboardBytes || request.CreateOnlyRows < 1 || request.CreateOnlyRows > tabularingest.MaxClipboardRows {
+		return ClipboardPasteResult{}, tabularingest.ErrInvalidClipboard
+	}
+	result, err := s.applyClipboardPaste(ctx, actor, incidentID, request.ViewSchemaID, request.ClientTxnID, func() (tabularingest.TabularRowPlanV1, error) { return BuildClipboardPastePlan(request) }, request.RequestHash(), requestID, now)
+	if err == nil && result.Replayed {
+		// Historical Entity hashes omit targets. Validate their count against the
+		// authoritative receipt, without reparsing old clipboard bytes.
+		rows, ok := result.Payload["rows"].([]any)
+		if !ok || len(rows) != request.CreateOnlyRows {
+			return ClipboardPasteResult{}, tabularingest.ErrInvalidClipboard
+		}
+	}
+	return result, err
+}
+
+func (s *Store) applyClipboardPaste(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID, clientTxnID string, buildPlan func() (tabularingest.TabularRowPlanV1, error), requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
 	routeKey, targetKind, err := entityClipboardRoute(viewSchemaID)
 	if err != nil {
 		return ClipboardPasteResult{}, err
@@ -59,7 +79,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		RouteKey:    routeKey,
 		ActorUserID: actor.ID,
 		ScopeKey:    incidentID.String() + ":" + viewSchemaID,
-		ClientTxnID: plan.ClientTxnID,
+		ClientTxnID: clientTxnID,
 	}
 	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
@@ -72,11 +92,21 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		if _, present := payload["conflicts"]; !present {
 			payload["conflicts"] = []any{}
 		}
-		return ClipboardPasteResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, IncidentID: incidentID, ClientTxnID: plan.ClientTxnID}, nil
+		return ClipboardPasteResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, IncidentID: incidentID, ClientTxnID: clientTxnID}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return ClipboardPasteResult{}, fmt.Errorf("query entity clipboard paste idempotency: %w", err)
 	}
 
+	plan, err := buildPlan()
+	if err != nil {
+		return ClipboardPasteResult{}, fmt.Errorf("%w: %v", tabularingest.ErrInvalidClipboard, err)
+	}
+	if err := plan.Validate(); err != nil {
+		return ClipboardPasteResult{}, fmt.Errorf("%w: %v", tabularingest.ErrInvalidClipboard, err)
+	}
+	if plan.ViewSchemaID != viewSchemaID {
+		return ClipboardPasteResult{}, tabularingest.ErrInvalidClipboard
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return ClipboardPasteResult{}, fmt.Errorf("begin entity clipboard paste transaction: %w", err)
@@ -281,7 +311,7 @@ func entityCreateRequestFromRowPlan(clientTxnID string, rowPlan tabularingest.Ro
 		case "host.aliases", "identity.aliases":
 			normalized, ok := fieldnorm.NormalizeAliasText(cell.RawValue)
 			if !ok {
-				continue
+				return CreateRequest{}, ErrInvalidCreateRequest
 			}
 			request.AliasAdds[cell.FieldKey] = append(request.AliasAdds[cell.FieldKey], CollectionAction{
 				Op:             "add_alias",
@@ -291,7 +321,7 @@ func entityCreateRequestFromRowPlan(clientTxnID string, rowPlan tabularingest.Ro
 		default:
 			normalized, ok := fieldnorm.NormalizeLine(cell.RawValue)
 			if !ok {
-				continue
+				return CreateRequest{}, ErrInvalidCreateRequest
 			}
 			request.Values[cell.FieldKey] = normalized
 		}
@@ -324,7 +354,7 @@ func entityChangedFieldKeys(before map[string]any, after map[string]any) []strin
 	return keys
 }
 
-func entityClipboardPasteRequestHash(viewSchemaID string, clientTxnID string, clipboardText string, format string, startFieldKey string, columns []string) []byte {
+func entityClipboardPasteRequestHash(viewSchemaID string, clientTxnID string, clipboardText string, format string, startFieldKey string, columns []string, headerMode ...string) []byte {
 	_ = clientTxnID
 	payload := map[string]any{
 		"view_schema_id":  viewSchemaID,
@@ -332,6 +362,9 @@ func entityClipboardPasteRequestHash(viewSchemaID string, clientTxnID string, cl
 		"format":          format,
 		"start_field_key": startFieldKey,
 		"columns":         append([]string(nil), columns...),
+	}
+	if len(headerMode) > 0 && headerMode[0] == "none" {
+		payload["header_mode"] = "none"
 	}
 	data, _ := json.Marshal(payload)
 	sum := sha256.Sum256(data)

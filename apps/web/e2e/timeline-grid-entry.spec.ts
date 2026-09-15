@@ -101,6 +101,192 @@ async function clipboard(page: Page, text: string) {
   await page.keyboard.press("Control+v");
 }
 
+test("Timeline native clipboard preserves scalar and rectangular values and rejects malformed representations", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 4);
+  const ids = rows.map((row) => row.record_id);
+  const first = required(ids[0]);
+  const second = required(ids[1]);
+  const third = required(ids[2]);
+  const fourth = required(ids[3]);
+  await externalPatch(page, incidentId, first, synopsis, "a,b");
+  await externalPatch(page, incidentId, second, synopsis, 'c,"d"');
+  await externalPatch(page, incidentId, first, source, "00123");
+  await externalPatch(page, incidentId, second, source, "2026-09-15");
+  const raw = "timeline.raw_activity_text";
+  const richScalar = '=SUM(A1)\t"quoted"\n界😀 e\u0301\r\nend';
+  await externalPatch(page, incidentId, first, raw, richScalar);
+  await openTimeline(page, incidentId);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const attempts: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/clipboard-paste"))
+      attempts.push(required(request.postData()));
+  });
+  // Real browser copy and paste; the one-column comma regression.
+  await selectCell(page, first);
+  await page.keyboard.press("Shift+ArrowDown");
+  await page.keyboard.press("Control+c");
+  const copied = await page.evaluate(async () => {
+    const item = (await navigator.clipboard.read())[0];
+    return item
+      ? {
+          plain: await (await item.getType("text/plain")).text(),
+          html: await (await item.getType("text/html")).text(),
+        }
+      : null;
+  });
+  expect(copied?.plain).toBe('a,b\n"c,""d"""');
+  expect(copied?.html).toContain('data-cartulary-clipboard="1"');
+  await selectCell(page, third);
+  await page.keyboard.press("Control+v");
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+          (row) => row.record_id === fourth,
+        )?.cells[synopsis]?.value,
+    )
+    .toBe('c,"d"');
+  let persisted = await queryViewRows(page, incidentId, timelineViewSchemaId);
+  expect(
+    persisted.find((row) => row.record_id === third)?.cells[source]?.value,
+  ).toBe(required(rows[2]).cells[source]?.value);
+  expect(attempts).toHaveLength(1);
+  expect(JSON.parse(required(attempts[0]))).toMatchObject({
+    format: "tsv",
+    header_mode: "none",
+    columns: [synopsis],
+  });
+  // Two columns, leading zeros and date-looking strings.
+  await selectCell(page, first);
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Shift+ArrowDown");
+  await page.keyboard.press("Control+c");
+  await selectCell(page, third);
+  await page.keyboard.press("Control+v");
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+          (row) => row.record_id === fourth,
+        )?.cells[source]?.value,
+    )
+    .toBe("2026-09-15");
+  persisted = await queryViewRows(page, incidentId, timelineViewSchemaId);
+  expect(
+    persisted.find((row) => row.record_id === third)?.cells[source]?.value,
+  ).toBe("00123");
+  // Marked scalar reverses the export apostrophe, keeping formulas as text.
+  const sourceRaw = persisted.find((row) => row.record_id === first)?.cells[raw]
+    ?.value;
+  await selectCell(page, first, raw);
+  await page.keyboard.press("Control+c");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    `'${sourceRaw}`,
+  );
+  await selectCell(page, third, raw);
+  await page.keyboard.press("Control+v");
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+          (row) => row.record_id === third,
+        )?.cells[raw]?.value,
+    )
+    .toBe(sourceRaw);
+  // Active editors keep native selection/caret semantics and cancellation.
+  await page.getByTestId(rowCellTestId(third, raw)).click();
+  await expect(editor(page, third, raw)).toBeFocused();
+  await page.keyboard.press("Control+a");
+  await clipboard(page, 'native, "literal"');
+  await expect(editor(page, third, raw)).toHaveValue('native, "literal"');
+  await page.keyboard.press("Escape");
+  const before = await queryViewRows(page, incidentId, timelineViewSchemaId);
+  const attemptCount = attempts.length;
+  for (const offered of [
+    { "text/csv": '"unterminated', "text/plain": "must not fall back" },
+    { "text/plain": "one\ttwo\nshort" },
+    {
+      "text/html": '<table><tr><td colspan="2">merged</td></tr></table>',
+      "text/plain": "must not fall back",
+    },
+    {
+      "text/html":
+        '<table data-cartulary-clipboard="99"><tr><td>unknown</td></tr></table>',
+    },
+    { "text/plain": "x".repeat(8_388_609) },
+  ]) {
+    await cell(page, third, raw).evaluate((element, representations) => {
+      const data = new DataTransfer();
+      for (const [type, value] of Object.entries(representations))
+        if (value !== undefined) data.setData(type, value);
+      element.dispatchEvent(
+        new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: data,
+        }),
+      );
+    }, offered);
+    await expect(
+      page.locator('.cartulary-grid-live-region[role="alert"]'),
+    ).toBeAttached();
+    await expect(cell(page, third, raw)).toBeFocused();
+  }
+  expect(attempts).toHaveLength(attemptCount);
+  expect(await queryViewRows(page, incidentId, timelineViewSchemaId)).toEqual(
+    before,
+  );
+  // An explicit empty copied cell clears through the destination field contract.
+  await selectCell(page, fourth, raw);
+  await page.keyboard.press("Control+c");
+  await selectCell(page, third, raw);
+  await page.keyboard.press("Control+v");
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+          (row) => row.record_id === third,
+        )?.cells[raw]?.value,
+    )
+    .toBe("");
+  await selectCell(page, third);
+  await page.evaluate(async () =>
+    navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob(
+          [
+            "<table><tr><td><span>a<br>b</span></td><td>0042</td></tr><tr><td>=1+1</td><td></td></tr></table>",
+          ],
+          { type: "text/html" },
+        ),
+        "text/plain": new Blob(["unused fallback"], { type: "text/plain" }),
+      }),
+    ]),
+  );
+  await page.keyboard.press("Control+v");
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+          (row) => row.record_id === fourth,
+        )?.cells[synopsis]?.value,
+    )
+    .toBe("=1+1");
+  persisted = await queryViewRows(page, incidentId, timelineViewSchemaId);
+  expect(
+    persisted.find((row) => row.record_id === third)?.cells[synopsis]?.value,
+  ).toBe("a\nb");
+  expect(
+    persisted.find((row) => row.record_id === third)?.cells[source]?.value,
+  ).toBe("0042");
+  expect(
+    persisted.find((row) => row.record_id === fourth)?.cells[source]?.value,
+  ).toBe("");
+});
+
 async function tabTo(page: Page, target: Locator) {
   for (let step = 0; step < 128; step += 1) {
     if (
@@ -1169,6 +1355,18 @@ test("Timeline exact headers and duplicate clipboard delivery preserve one seman
     "Another deliberate row",
   );
   expect(attempts).toHaveLength(2);
+  await selectCell(page, first);
+  const repeatedResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/clipboard-paste") &&
+      response.request().method() === "POST",
+  );
+  await clipboard(page, "Deliberate repeat\nAnother deliberate row");
+  expect((await repeatedResponse).ok()).toBe(true);
+  expect(attempts).toHaveLength(3);
+  expect(JSON.parse(required(attempts[1])).client_txn_id).not.toBe(
+    JSON.parse(required(attempts[2])).client_txn_id,
+  );
   expect(JSON.parse(required(attempts[0])).client_txn_id).not.toBe(
     JSON.parse(required(attempts[1])).client_txn_id,
   );

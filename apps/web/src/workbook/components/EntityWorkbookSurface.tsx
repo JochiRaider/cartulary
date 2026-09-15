@@ -55,6 +55,7 @@ import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
 } from "../inspector/workbookInspectorErrorModel";
+import { workbookInspectorLocalErrorPresentation } from "../inspector/workbookInspectorErrorModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -585,8 +586,8 @@ export function EntityWorkbookSurface({
   });
   const clipboardPaste = useMemo(
     () =>
-      workbookClipboardPasteContract((intent) => {
-        void handleEntityPaste(intent);
+      workbookClipboardPasteContract(handleEntityPaste, (message) => {
+        setMutationError(workbookInspectorLocalErrorPresentation(message));
       }),
     [handleEntityPaste],
   );
