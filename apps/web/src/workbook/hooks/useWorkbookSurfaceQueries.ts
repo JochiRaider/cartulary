@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurfacePort";
@@ -21,6 +22,7 @@ import { useAssessmentSurfaceQuery } from "../query/useAssessmentSurfaceQuery";
 import { useEntitySurfaceQuery } from "../query/useEntitySurfaceQuery";
 import { useGenericSurfaceQuery } from "../query/useGenericSurfaceQuery";
 import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
+import { useWorkbookBrowsingRegistry } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
@@ -84,6 +86,7 @@ export function useWorkbookSurfaceQueries({
     }) => Promise<void>;
   };
 } {
+  const browsingRegistry = useWorkbookBrowsingRegistry();
   const genericSurfaceActive =
     surface !== timelineViewSchemaId &&
     surface !== hostsViewSchemaId &&
@@ -109,6 +112,8 @@ export function useWorkbookSurfaceQueries({
     viewQuery,
   });
   const entityQuery = useEntitySurfaceQuery({
+    referenceBroker,
+    activeViewSchemaId: surface,
     ordinaryCreateOwner,
     editOwner: explicitPatchOwner,
     hostQueryState: hosts.state,
@@ -139,13 +144,26 @@ export function useWorkbookSurfaceQueries({
     loadState: entityLoadState,
     refresh: refreshEntities,
   } = entityQuery;
+  const currentInvalidators = useRef([
+    invalidateGeneric,
+    invalidateAssessment,
+    invalidateEntities,
+  ]);
+  currentInvalidators.current = [
+    invalidateGeneric,
+    invalidateAssessment,
+    invalidateEntities,
+  ];
   const invalidateAll = useCallback(
     (reason: WorkbookQueryInvalidationReason) => {
-      invalidateGeneric(reason);
-      invalidateAssessment(reason);
-      invalidateEntities(reason);
+      if (
+        reason.kind !== "incident_closed" &&
+        reason.kind !== "collaboration_reset_required"
+      )
+        browsingRegistry?.invalidateAll();
+      for (const invalidate of currentInvalidators.current) invalidate(reason);
     },
-    [invalidateAssessment, invalidateEntities, invalidateGeneric],
+    [browsingRegistry],
   );
   const activeSurfacePort = useMemo<WorkbookActiveSurfacePort | null>(() => {
     if (
@@ -176,9 +194,14 @@ export function useWorkbookSurfaceQueries({
           ? invalidateEntities
           : invalidateGeneric,
       refresh: async (options) => {
-        await refresh({
-          requireAcceptance: options?.reason === "authorization_recovered",
-        });
+        const read = () =>
+          refresh({
+            requireAcceptance: options?.reason === "authorization_recovered",
+          });
+        const browser = browsingRegistry?.find(surface);
+        if (options?.reason === "record_changed" && browser)
+          await browser.reconcile(read);
+        else await read();
       },
     };
   }, [
@@ -193,6 +216,7 @@ export function useWorkbookSurfaceQueries({
     refreshGeneric,
     sheetRef,
     surface,
+    browsingRegistry,
   ]);
   const facadeQueries = useMemo<WorkbookSurfacesFacadeProps["queries"]>(
     () => ({
@@ -201,20 +225,29 @@ export function useWorkbookSurfaceQueries({
         refresh: refreshAssessment,
         rows: assessmentRows,
         setState: assessment.setState,
-        state: assessment.state,
+        state: assessmentQuery.acceptedQueryState,
       },
       entities: {
         hosts: {
-          rows: hostRows,
+          rows:
+            surface === timelineViewSchemaId
+              ? entityQuery.references.hosts
+              : hostRows,
           setState: hosts.setState,
-          state: hosts.state,
+          state: entityQuery.hosts.acceptedQueryState,
         },
         identities: {
-          rows: identityRows,
+          rows:
+            surface === timelineViewSchemaId
+              ? entityQuery.references.identities
+              : identityRows,
           setState: identities.setState,
-          state: identities.state,
+          state: entityQuery.identities.acceptedQueryState,
         },
-        index: entityIndex,
+        index:
+          surface === timelineViewSchemaId
+            ? entityQuery.references.index
+            : entityIndex,
         loadState: entityLoadState,
         refresh: refreshEntities,
       },
@@ -223,7 +256,7 @@ export function useWorkbookSurfaceQueries({
         refresh: refreshGeneric,
         rows: genericRows,
         setState: generic.setState,
-        state: generic.state,
+        state: genericQuery.acceptedQueryState,
       },
       referenceBroker,
       timeline: {
@@ -234,20 +267,24 @@ export function useWorkbookSurfaceQueries({
     }),
     [
       assessment.setState,
-      assessment.state,
       assessmentLoadState,
       assessmentRows,
+      assessmentQuery.acceptedQueryState,
       entityIndex,
       entityLoadState,
       generic.setState,
-      generic.state,
       genericLoadState,
       genericRows,
+      genericQuery.acceptedQueryState,
       hostRows,
+      entityQuery.hosts.acceptedQueryState,
+      entityQuery.identities.acceptedQueryState,
+      entityQuery.references.hosts,
+      entityQuery.references.identities,
+      entityQuery.references.index,
+      surface,
       hosts.setState,
-      hosts.state,
       identities.setState,
-      identities.state,
       identityRows,
       referenceBroker,
       refreshAssessment,

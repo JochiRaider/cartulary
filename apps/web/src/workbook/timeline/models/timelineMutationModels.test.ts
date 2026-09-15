@@ -72,6 +72,40 @@ function pendingPatch(
 }
 
 describe("Timeline mutation models", () => {
+  it("releases evicted query observations while retaining drafts, the inspector source, and mutation version floors", () => {
+    const ledger = createTimelineCommittedVersionLedger();
+    const first = Array.from({ length: 300 }, (_, index) =>
+      savedRow(`row-${index}`, 2),
+    );
+    ledger.replaceQueryRows(first, []);
+    ledger.retainInspectorRecord("row-0");
+    ledger.accept(savedRow("row-1", 5), first);
+    const original = first[2];
+    if (!original) throw new Error("Missing original row");
+    const draft = {
+      ...original,
+      values: { ...original.values, activitySynopsisText: "unsubmitted" },
+    };
+    const next = Array.from({ length: 300 }, (_, index) =>
+      savedRow(`row-${index + 100}`, 2),
+    );
+    ledger.replaceQueryRows(
+      next,
+      first.map((row) => (row.recordId === draft.recordId ? draft : row)),
+    );
+    expect(ledger.current("row-0", [])?.rowVersion).toBe(2);
+    expect(ledger.current("row-1", [])?.rowVersion).toBe(5);
+    expect(
+      ledger.current("row-2", [])?.committedValues.activitySynopsisText,
+    ).toBe(first[2]?.committedValues.activitySynopsisText);
+    expect(ledger.current("row-3", [])).toBeNull();
+    expect(ledger.knownVersion("row-3")).toBeUndefined();
+    ledger.retainInspectorRecord(null);
+    ledger.replaceQueryRows(next, next);
+    expect(ledger.current("row-0", [])).toBeNull();
+    expect(ledger.accept(savedRow("row-1", 4), next).stale).toBe(true);
+    expect(ledger.current("row-399", [])?.rowVersion).toBe(2);
+  });
   it("admits exact scalar and collection intents and deduplicates keyboard blur", () => {
     const row = savedRow();
     const changed = {

@@ -68,7 +68,14 @@ export function GridOperationalStatePlane({
 
   useEffect(() => {
     const previous = activatedAction.current;
-    if (previous === null || previous === action) return undefined;
+    if (
+      previous === null ||
+      dataState.kind === "initial_loading" ||
+      dataState.kind === "refreshing" ||
+      (previous.label === action?.label &&
+        previous.onInvoke === action.onInvoke)
+    )
+      return undefined;
     const origin = actionOrigin.current;
     activatedAction.current = null;
     actionOrigin.current = null;
@@ -85,7 +92,7 @@ export function GridOperationalStatePlane({
       void requestFocus({ kind: "root" }, { signal: abort.signal });
     }
     return () => abort.abort();
-  }, [action, requestFocus]);
+  }, [action, dataState.kind, requestFocus]);
 
   const invokeAction = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -102,7 +109,12 @@ export function GridOperationalStatePlane({
         throw error;
       }
       window.setTimeout(() => {
-        if (document.activeElement !== actionOrigin.current) {
+        const active = document.activeElement;
+        if (
+          active !== actionOrigin.current &&
+          active !== document.body &&
+          active?.isConnected
+        ) {
           activatedAction.current = null;
           actionOrigin.current = null;
           setActionPending(false);

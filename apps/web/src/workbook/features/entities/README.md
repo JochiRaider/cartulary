@@ -36,3 +36,12 @@ attempts. Paste execution consumes the shared private
 | File | Responsibility |
 | --- | --- |
 | [entityOrdinaryCreate.ts](entityOrdinaryCreate.ts) | Entity-origin ordinary preparation and direct-seed minima; exact reuse remains server owned. |
+
+## Query browsing and inspector retention
+
+Hosts and Identities have independent readers and bounded windows. The active
+sheet reader does not depend on the inactive sheet or Timeline reference broker.
+Passive pages do not populate retained patch/history source caches. One selected
+inspector observation may survive eviction; its Entity conversion remains stable
+until the source version changes. Original-source operations use their independent
+committed-record capabilities.

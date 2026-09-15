@@ -43,6 +43,7 @@ import {
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { decideWorkbookRecordFreshness } from "./timeline/models/workbookRecordFreshness";
 
@@ -58,6 +59,7 @@ describe("Timeline workbook grid coverage", () => {
 
   beforeEach(() => {
     fetchMock = installTimelineWorkbookTestGlobals();
+    vi.stubGlobal("fetch", withWorkbookQueryFixtureMetadata(fetchMock));
   });
 
   afterEach(() => {
@@ -1042,6 +1044,7 @@ describe("Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     expect(extractTimelineJSONBody(fetchMock, 1)).toEqual({
+      limit: 100,
       sort: [
         { direction: "asc", field_key: "timeline.activity_synopsis_text" },
       ],
@@ -1070,6 +1073,7 @@ describe("Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
+      limit: 100,
       filters: [
         {
           arg: { value: false },
@@ -1097,6 +1101,7 @@ describe("Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
     });
     expect(extractTimelineJSONBody(fetchMock, 3)).toEqual({
+      limit: 100,
       filters: [
         {
           arg: { value: false },
@@ -1106,7 +1111,6 @@ describe("Timeline workbook grid coverage", () => {
       ],
       group_by: "timeline.capture_state",
       sort: [
-        { direction: "asc", field_key: "timeline.capture_state" },
         { direction: "asc", field_key: "timeline.activity_synopsis_text" },
       ],
     });

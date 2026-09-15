@@ -55,3 +55,11 @@ Hooks execute owner-local effects over semantic capabilities and pure
 | [useTimelineMentionActions.ts](useTimelineMentionActions.ts) | Coordinates semantic Timeline mention resolution, entity creation, undo/review actions, and inspector updates. |
 | [useTimelineMentions.ts](useTimelineMentions.ts) | Coordinates Timeline mention-resolution state and actions. |
 | [useTimelineObservationSource.ts](useTimelineObservationSource.ts) | Prepares committed Timeline source text for Observation authoring and revalidates source changes. |
+
+## Bounded query observations
+
+`useTimelineCommittedRows` releases evicted passive observations while retaining
+sources needed by drafts, the inspector and accepted writes. Source coordination
+uses that independent capability after eviction; query membership is not a
+source-existence test. `useTimelineRowsLoader` shares the two-attempt freshness
+budget with cursor recovery and retains the single latest-created-row pin.

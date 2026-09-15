@@ -12,6 +12,7 @@ import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import { useTimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
 import { useTimelineInspectorSelection } from "../hooks/useTimelineInspectorSelection";
+import type { TimelineCommittedInspectorRecords } from "../models/timelineControllerPorts";
 import { selectTimelineInspectorHistorySubject } from "../models/timelineHistoryModel";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
@@ -20,6 +21,7 @@ const timelineInspectorConfig =
   requireViewContract(timelineViewSchemaId).inspectorConfig;
 
 export function useTimelineInspectorStateComposition({
+  committedRecords,
   continuity,
   currentIncidentRole,
   dismissedMentionsByRow,
@@ -29,6 +31,7 @@ export function useTimelineInspectorStateComposition({
   selectedMentionRef,
   workbookFocusAnchorRef,
 }: {
+  readonly committedRecords?: TimelineCommittedInspectorRecords;
   readonly continuity: WorkbookContinuityPort;
   readonly currentIncidentRole: string | null | undefined;
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
@@ -44,6 +47,8 @@ export function useTimelineInspectorStateComposition({
     null,
   );
   const selection = useTimelineInspectorSelection({
+    ...(committedRecords ? { committedRecords } : {}),
+    inspectorResetKey,
     currentIncidentRole,
     dismissedMentionsByRow,
     observedMentions,

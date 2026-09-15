@@ -73,6 +73,85 @@ function gridAnchor(recordId: string, fieldKey: string) {
 }
 
 describe("grid-adapter", () => {
+  it("detaches an unsubmitted editor for explicit browsing without committing or reopening it on return", async () => {
+    const handle = createRef<GridHandle>();
+    const commit = vi.fn(async () => ({ kind: "accepted" as const }));
+    const retainDraft = vi.fn();
+    const cancel = vi.fn();
+    const editable: readonly GridColumn<HarnessRow>[] = [
+      {
+        fieldKey: "label",
+        label: "Label",
+        contractWritable: true,
+        renderCell: ({ row }) => (
+          <span data-testid="browse-source">{row.label}</span>
+        ),
+        editor: {
+          commit,
+          discardDraft: cancel,
+          retainDraft,
+          initialDraftValue: (row) => row.label,
+          renderEditor: (context) => (
+            <input
+              ref={context.focusTargetRef}
+              aria-label="Browsing draft"
+              value={String(context.draftValue)}
+              onChange={(event) =>
+                context.setDraftValue(event.currentTarget.value)
+              }
+            />
+          ),
+        },
+      },
+    ];
+    const rows: readonly GridDataRow<HarnessRow>[] = [
+      {
+        kind: "data",
+        rowIdentity: { kind: "core_record", recordId: "original" },
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+        data: { label: "Original", state: "open" },
+      },
+    ];
+    const grid = (dataRows: typeof rows) => (
+      <>
+        <button
+          type="button"
+          data-grid-editor-external-action="true"
+          onPointerDown={() => handle.current?.detachEdit?.()}
+        >
+          Load more
+        </button>
+        <SemanticDataGrid
+          ref={handle}
+          columns={editable}
+          dataRows={dataRows}
+          surface={testSurface}
+        />
+      </>
+    );
+    const view = render(grid(rows));
+    const cell = screen
+      .getByTestId("browse-source")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (!cell) throw new Error("Missing source cell");
+    fireEvent.mouseDown(cell);
+    fireEvent.click(cell);
+    const editor = await screen.findByRole("textbox", {
+      name: "Browsing draft",
+    });
+    fireEvent.change(editor, { target: { value: "unsubmitted exact value" } });
+    const more = screen.getByRole("button", { name: "Load more" });
+    fireEvent.pointerDown(more);
+    act(() => more.focus());
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(commit).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+    expect(retainDraft).toHaveBeenCalled();
+    view.rerender(grid([]));
+    view.rerender(grid(rows));
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(document.activeElement).toBe(more);
+  });
   beforeEach(() => {
     vi.stubGlobal(
       "IntersectionObserver",
@@ -1079,10 +1158,21 @@ describe("grid-adapter", () => {
   });
 
   it("returns focus to the semantic grid root when an activated state action is replaced without owner focus", async () => {
-    render(<OperationalActionReplacementHarness />);
+    let accept = () => {};
+    const completion = new Promise<void>((resolve) => {
+      accept = resolve;
+    });
+    render(<OperationalActionReplacementHarness completion={completion} />);
     const clearFilters = screen.getByRole("button", { name: "Clear filters" });
     clearFilters.focus();
     fireEvent.click(clearFilters);
+    // An accepted query now changes the action after transport, not at dispatch.
+    clearFilters.blur();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(document.activeElement).toBe(document.body);
+    await act(async () => accept());
 
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole("grid")),
@@ -1304,7 +1394,7 @@ describe("grid-adapter", () => {
     expect(activeRow?.getAttribute("aria-selected")).not.toBe("true");
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: "Select all records on this page",
+        name: "Select all loaded records",
       }),
     );
     expect((first as HTMLInputElement).checked).toBe(false);
@@ -3391,8 +3481,13 @@ describe("grid-adapter", () => {
   });
 });
 
-function OperationalActionReplacementHarness() {
+function OperationalActionReplacementHarness({
+  completion,
+}: {
+  completion?: Promise<void>;
+}) {
   const [ready, setReady] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   return (
     <SemanticDataGrid
       columns={columns}
@@ -3400,13 +3495,20 @@ function OperationalActionReplacementHarness() {
       dataState={
         ready
           ? { kind: "ready" }
-          : {
-              action: {
-                label: "Clear filters",
-                onInvoke: () => setReady(true),
-              },
-              kind: "filtered_empty",
-            }
+          : refreshing
+            ? { kind: "refreshing", surfaceLabel: "Support records" }
+            : {
+                action: {
+                  label: "Clear filters",
+                  onInvoke: () => {
+                    setRefreshing(true);
+                    if (completion !== undefined)
+                      void completion.then(() => setReady(true));
+                    else setReady(true);
+                  },
+                },
+                kind: "filtered_empty",
+              }
       }
       surface={testSurface}
     />

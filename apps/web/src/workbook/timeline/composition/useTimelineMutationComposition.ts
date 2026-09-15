@@ -20,6 +20,7 @@ import { useTimelineCollaborationBindings } from "../collaboration/useTimelineCo
 import { useTimelinePresenceController } from "../collaboration/useTimelinePresenceController";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
+import type { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
 import { useTimelineMutationDriver } from "../hooks/useTimelineMutationDriver";
 import { useTimelineMutationRuntimeBindings } from "../hooks/useTimelineMutationRuntimeBindings";
@@ -45,6 +46,9 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 type TimelineMutationCompositionInput = {
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly foundation: {
+    readonly committedRows: ReturnType<
+      typeof useTimelineCommittedRows
+    >["commands"];
     readonly clearActiveCollectionInputKey: (focusKey: string) => void;
     readonly editorDraftRegistry: TimelineEditorDraftRegistry;
     readonly nextDraftIndex: () => number;
@@ -137,6 +141,7 @@ export function useTimelineMutationComposition({
     [incident.continuityResetKey, timelineQueryIdentity],
   );
   const rowMutations = useTimelineRowMutationCoordinator({
+    committedRows: foundation.committedRows,
     sheetRef: incident.sheetRef,
     advanceViewportContinuity: grid.advanceViewportContinuity,
     clearActiveCollectionInputKey: foundation.clearActiveCollectionInputKey,
@@ -206,7 +211,7 @@ export function useTimelineMutationComposition({
   ]);
 
   const queryAdmission = rowMutations.ports.queryAdmission;
-  const { loadRows } = useTimelineRowsLoader({
+  const { loadRows, browser, browsing } = useTimelineRowsLoader({
     acceptCommittedTimelineRows:
       rowMutations.commands.acceptCommittedTimelineRows,
     advanceViewportContinuity: grid.advanceViewportContinuity,
@@ -262,6 +267,7 @@ export function useTimelineMutationComposition({
     activeSheetRef,
     admission: rowMutations.ports.collaborationAdmission,
     beginRowsLoad: queryAdmission.beginLoad,
+    clearCommittedRows: foundation.committedRows.clearProtectedRows,
     collaborationProjection,
     refreshRows: refreshRowsForCollaboration,
     resolveClientTxn: rowMutations.commands.resolvePendingSocketTxn,
@@ -365,7 +371,7 @@ export function useTimelineMutationComposition({
       identity: { nextClientTxnId },
       mutation: mutations.commands,
       presence: presence.commands,
-      query: { loadRows },
+      query: { loadRows, browser },
       replay,
       save: rowMutations.commands,
     },
@@ -376,6 +382,7 @@ export function useTimelineMutationComposition({
     },
     refs: rowMutations.refs,
     snapshot: {
+      browsing,
       collaboration: collaboration.snapshot,
       conflict: {
         activeConflict,

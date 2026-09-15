@@ -20,6 +20,13 @@ export type TimelineCommittedRecordIdleResult = {
   readonly rowVersion: number;
 };
 
+export type TimelineCommittedInspectorRecords = {
+  readonly currentCommittedTimelineRow: (
+    recordId: string,
+  ) => WorkbookRow | null;
+  readonly retainInspectorRecord: (recordId: string | null) => void;
+};
+
 export type TimelineRowContextMenuPosition = {
   readonly x: number;
   readonly y: number;

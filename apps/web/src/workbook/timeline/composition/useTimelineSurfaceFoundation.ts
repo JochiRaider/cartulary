@@ -1,11 +1,12 @@
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineBulkTagCommandAdapter } from "../adapters/createTimelineBulkTagCommandAdapter";
 import { createTimelineMentionCandidateReader } from "../adapters/createTimelineMentionCandidateReader";
 
 import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRecordActionAdapter";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
 import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import { useTimelineRows } from "../hooks/useTimelineRows";
@@ -67,6 +68,15 @@ export function useTimelineSurfaceFoundation({
   const editorDraftRegistry = useTimelineEditorDraftRegistry(
     mutationRuntime.localDraftsForSurface(timelineViewSchemaId),
   );
+  const committedRows = useTimelineCommittedRows({
+    rowsRef: rows.rowsRef,
+    mutationRuntime,
+    materializeRow: editorDraftRegistry.materializeRow,
+  });
+  const clearCommittedRows = committedRows.commands.clearProtectedRows;
+  useEffect(() => {
+    if (loadAccessLost) clearCommittedRows();
+  }, [clearCommittedRows, loadAccessLost]);
   const recordTiming = useCallback(
     (name: string, details: Record<string, unknown> = {}) => {
       if (typeof performance === "undefined") {
@@ -109,6 +119,7 @@ export function useTimelineSurfaceFoundation({
       },
     },
     ports: {
+      committedRows: committedRows.commands,
       bulkTag: bulkTagPort,
       clipboardPaste,
       evidenceAttachment: evidenceAttachmentPort,

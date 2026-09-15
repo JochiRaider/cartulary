@@ -337,12 +337,24 @@ describe("Timeline editor draft registry", () => {
       "newer text",
     );
     const accepted = registry.materializeRow(committedRow());
+    const gridInput = document.createElement("input");
+    const inspectorInput = document.createElement("input");
+    gridInput.value = "newer text";
+    inspectorInput.value = "typed after dispatch";
+    registry.registerInput(identity, gridInput);
+    registry.registerInput(
+      { ...identity, surface: "inspector" },
+      inspectorInput,
+    );
     registry.clearSubmittedRow(
       recordId,
       accepted.values,
       accepted.collectionDrafts,
+      registry.captureRow(recordId, "inspector"),
     );
     expect(registry.draftValue(identity)).toBeUndefined();
+    expect(gridInput.value).toBe("");
+    expect(inspectorInput.value).toBe("typed after dispatch");
   });
 
   it("invalidates drafts when the runtime lifetime changes", () => {

@@ -76,3 +76,9 @@ Source-specific composition belongs in [features](../features/README.md) and
 
 [WorkbookExplicitPatchRecovery.tsx](WorkbookExplicitPatchRecovery.tsx) keeps
 ordinary explicit attempt recovery reachable on its surface after inspector closure.
+
+## Query windows
+
+`useRetainedInspectorRow.ts` retains one authorized source independently of query
+window membership. An absent query member does not establish deletion. Authority
+changes retire the old source; newer committed evidence can update it off-window.

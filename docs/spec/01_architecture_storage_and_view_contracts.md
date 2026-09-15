@@ -3748,6 +3748,7 @@ spelling `missing_minimum_create_signal` MUST NOT be accepted or emitted.
 | `invalid_group_by` | `group_by` is malformed, uses `null`, or otherwise fails scalar validation. |
 | `group_by_not_allowed` | `group_by` is not one of the grouping keys declared by the active `view_schema_id`. |
 | `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported page-size alias such as `page`, `offset`, `block_size`, or `page_size`. |
+| `invalid_cursor_token` | The supplied `cursor_token` is malformed, has an invalid signature or version, or fails its route, actor, or continuation-position binding. This is a pagination failure under REQ-03-275 and AC-375. |
 | `cursor_query_mismatch` | The supplied `cursor_token` does not match the current normalized view-query contract, including the effective `limit`. |
 | `cursor_snapshot_unavailable` | Reserved for future explicit snapshot-backed route families when the supplied `cursor_token` is well-formed but the bound snapshot runtime state is no longer available. Restart the route without `cursor_token` to obtain current live results. |
 

@@ -369,6 +369,9 @@ export type GridGroupingDescriptor<Row> = {
   readonly label?: string | undefined;
   readonly getValue: (row: Row) => GridGroupingScalar;
   readonly formatLabel: (value: GridGroupingScalar) => string | null;
+  readonly compareValues?:
+    | ((left: GridGroupingScalar, right: GridGroupingScalar) => number)
+    | undefined;
   readonly getTestId?:
     | ((
         fieldKey: string,
@@ -396,6 +399,9 @@ export type GridHandle = {
       | undefined,
   ) => boolean;
   readonly cancelEdit: (anchor: GridCellAnchor) => boolean;
+  /** Release editor presentation while leaving retained source drafts untouched. */
+  readonly detachEdit?: () => void;
+  readonly getActiveCell?: () => GridCellAnchor | null;
   readonly requestFocus: (
     target: GridFocusTarget,
     options?: { readonly signal?: AbortSignal },

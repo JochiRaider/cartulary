@@ -93,10 +93,7 @@ describe("workbook query controls", () => {
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [
-        { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "asc", field_key: "timeline.activity_sort_ts" },
-      ],
+      sort: [{ direction: "asc", field_key: "timeline.activity_sort_ts" }],
     });
 
     const encoded = JSON.stringify(request);
@@ -175,10 +172,7 @@ describe("workbook query controls", () => {
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [
-        { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "asc", field_key: "timeline.activity_sort_ts" },
-      ],
+      sort: [{ direction: "asc", field_key: "timeline.activity_sort_ts" }],
     });
 
     for (const viewContract of listViewContracts()) {
@@ -244,10 +238,7 @@ describe("workbook query controls", () => {
     });
 
     expect(buildQueryRequest(contract, withTagFilter)).toMatchObject({
-      sort: [
-        { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "asc", field_key: "timeline.activity_sort_ts" },
-      ],
+      sort: [{ direction: "asc", field_key: "timeline.activity_sort_ts" }],
     });
     expect(buildSavedViewQueryJson(contract, withTagFilter)).toEqual({
       filters: [

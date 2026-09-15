@@ -17,6 +17,11 @@ import {
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
+import { workbookBrowsingBounds } from "./WorkbookQueryBrowser";
+import {
+  useWorkbookBrowsingRead,
+  useWorkbookQueryBrowser,
+} from "./WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 import {
@@ -43,11 +48,15 @@ export function useAssessmentSurfaceQuery({
   queryState,
   viewQuery,
 }: AssessmentSurfaceQueryInput) {
+  const { browser, snapshot: browsing } = useWorkbookQueryBrowser(
+    viewQuery,
+    assessmentsViewSchemaId,
+  );
   const [rows, setRows] = useState<WorkbookQueryRow[]>([]);
   const [loadState, setLoadState] = useState<WorkbookQueryLoadState>(
     initialWorkbookQueryLoadState,
   );
-  const acceptedRowCountRef = useRef(0);
+  const hasAcceptedResultRef = useRef(false);
   const rowsRef = useRef(rows);
   const queryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
@@ -56,24 +65,34 @@ export function useAssessmentSurfaceQuery({
   rowsRef.current = rows;
 
   const refresh = useCallback(
-    async (options?: { readonly requireAcceptance?: boolean }) => {
+    async function refreshQuery(options?: {
+      readonly requireAcceptance?: boolean;
+      readonly recoveryDepth?: number;
+    }) {
       if (!active) {
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         abortLatestQuery(queryRuntimeRef);
+        browser.detach();
+        rowsRef.current = [];
+        setRows([]);
+        hasAcceptedResultRef.current = false;
         return;
       }
       const request = beginLatestQuery(queryRuntimeRef);
       setLoadState(
-        acceptedRowCountRef.current > 0
+        hasAcceptedResultRef.current
           ? { kind: "refreshing" }
           : { generationKey: request.generationKey, kind: "initial_loading" },
       );
-      const result = await viewQuery.query({
-        contract: assessmentsContract,
-        queryState,
-        signal: request.signal,
-      });
+      const result = await browser.query(
+        {
+          contract: assessmentsContract,
+          queryState,
+          signal: request.signal,
+        },
+        { recoveryDepth: options?.recoveryDepth ?? 0 },
+      );
       if (!request.isCurrent() || result.kind === "aborted") {
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
@@ -86,11 +105,12 @@ export function useAssessmentSurfaceQuery({
           "authority_unavailable"
         ) {
           onAuthorityUncertain?.();
+          browser.invalidate();
           rowsRef.current = [];
-          acceptedRowCountRef.current = 0;
+          hasAcceptedResultRef.current = false;
           setRows([]);
           setLoadState({ kind: "permission_denied", message });
-        } else if (acceptedRowCountRef.current > 0) {
+        } else if (hasAcceptedResultRef.current) {
           setLoadState({ kind: "stale_error", message });
         } else {
           setLoadState({ kind: "unavailable", message });
@@ -116,23 +136,32 @@ export function useAssessmentSurfaceQuery({
               "The query is older than an accepted change. Refresh current assessments.",
           },
         };
+        browser.reject(result.value, failure.failure);
+        const recoveryDepth = browser.recoveryAttemptsUsed();
+        if (recoveryDepth < workbookBrowsingBounds.recoveryAttempts)
+          return refreshQuery({ ...options, recoveryDepth: recoveryDepth + 1 });
         setLoadState({ kind: "stale_error", message: failure.failure.message });
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance(failure);
         return;
       }
       // Only the current query establishes membership. Receipts never insert filtered-out rows.
-      const nextRows = result.value.rows.map(
-        (row) => committedRecords?.acceptRow(row) ?? row,
-      );
+      const nextRows = result.value.rows.map((row) => {
+        if (committedRecords?.latestRow(row.record_id))
+          committedRecords.acceptRow(row);
+        return row;
+      });
+      if (!browser.accept(result.value)) return;
       rowsRef.current = nextRows;
       setRows(nextRows);
-      acceptedRowCountRef.current = nextRows.length;
+      hasAcceptedResultRef.current = true;
       setLoadState({ kind: "ready" });
     },
-    [active, committedRecords, onAuthorityUncertain, queryState, viewQuery],
+    [active, browser, committedRecords, onAuthorityUncertain, queryState],
   );
 
+  useWorkbookBrowsingRead(assessmentsViewSchemaId, refresh, active);
+  useEffect(() => browser.observeRows(rows), [browser, rows]);
   const applyRecordChanged = useCallback(
     (payload: RecordChangedPayload): WorkbookSurfaceRecordChangeResult => {
       const affected = payload.affected_views.find(
@@ -169,30 +198,45 @@ export function useAssessmentSurfaceQuery({
       if (existing.row_version >= patch.rowVersion) return { kind: "stale" };
       const next = current.map((row) =>
         row.record_id === patch.recordId
-          ? (committedRecords?.acceptRow(
-              applyWorkbookQueryRowPatch(row, patch),
-            ) ?? applyWorkbookQueryRowPatch(row, patch))
+          ? applyWorkbookQueryRowPatch(row, patch)
           : row,
       );
       rowsRef.current = next;
+      for (const row of next)
+        if (committedRecords?.latestRow(row.record_id))
+          committedRecords.acceptRow(row);
       setRows(next);
-      return { kind: "applied" };
+      const placement = browser.getSnapshot().canonicalQuery;
+      return payload.changed_field_keys.some(
+        (key) =>
+          placement?.sort.some((sort) => sort.fieldKey === key) ||
+          placement?.filters.some(
+            (filter) => filter.fieldKey === key || filter.op === "full_text",
+          ) ||
+          placement?.groupBy === key,
+      )
+        ? { kind: "refresh_required" }
+        : { kind: "applied" };
     },
-    [committedRecords],
+    [browser, committedRecords],
   );
 
-  const invalidate = useCallback((reason: WorkbookQueryInvalidationReason) => {
-    abortLatestQuery(queryRuntimeRef);
-    if (
-      reason.kind === "collaboration_reset_required" ||
-      reason.kind === "incident_closed"
-    ) {
-      return;
-    }
-    rowsRef.current = [];
-    acceptedRowCountRef.current = 0;
-    setRows([]);
-  }, []);
+  const invalidate = useCallback(
+    (reason: WorkbookQueryInvalidationReason) => {
+      abortLatestQuery(queryRuntimeRef);
+      if (
+        reason.kind === "collaboration_reset_required" ||
+        reason.kind === "incident_closed"
+      ) {
+        return;
+      }
+      rowsRef.current = [];
+      hasAcceptedResultRef.current = false;
+      browser.invalidate();
+      setRows([]);
+    },
+    [browser],
+  );
 
   useEffect(() => {
     if (!committedRecords) return;
@@ -200,7 +244,8 @@ export function useAssessmentSurfaceQuery({
       if (!committedRecords.getSnapshot().authority) {
         abortLatestQuery(queryRuntimeRef);
         rowsRef.current = [];
-        acceptedRowCountRef.current = 0;
+        hasAcceptedResultRef.current = false;
+        browser.invalidate();
         setRows([]);
         return;
       }
@@ -215,11 +260,10 @@ export function useAssessmentSurfaceQuery({
         next.some((row, index) => row !== current[index])
       ) {
         rowsRef.current = next;
-        acceptedRowCountRef.current = next.length;
         setRows(next);
       }
     });
-  }, [committedRecords]);
+  }, [browser, committedRecords]);
 
   useEffect(
     () => () => {
@@ -234,5 +278,8 @@ export function useAssessmentSurfaceQuery({
     loadState,
     refresh,
     rows,
+    browser,
+    browsing,
+    acceptedQueryState: browser.presentationQuery(queryState),
   };
 }

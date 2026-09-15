@@ -8,6 +8,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
+import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import { reconcileCommittedRowsWithLocalDrafts } from "../hooks/useTimelineRowsLoader";
 import { inputFocusKey } from "../models/timelineFieldRegistry";
@@ -103,7 +104,13 @@ function renderCoordinator(
       );
       const loadRows = async () => undefined;
       const nextDraftIndexRef = useRef(2);
+      const committedRows = useTimelineCommittedRows({
+        rowsRef,
+        mutationRuntime: runtime,
+        materializeRow: editorDraftRegistry.materializeRow,
+      });
       const coordinator = useTimelineRowMutationCoordinator({
+        committedRows: committedRows.commands,
         sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
         advanceViewportContinuity,
         clearViewportContinuity,

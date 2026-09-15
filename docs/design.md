@@ -1066,6 +1066,25 @@ is_saved_view_dirty(active_saved_view, current_query, current_layout):
 
 Design contract. Dirty saved-view indication MUST NOT imply unsaved incident data. It indicates that the view configuration differs from the selected saved-view configuration.
 
+#### Bounded query browsing presentation
+
+Core 03 §14.9 owns workbook continuation and retention. The work area presents
+compact ordinary buttons labeled `Load more`, `Earlier rows` and `Refresh`, plus
+the number of committed query records currently loaded. Controls use existing
+tokens, remain keyboard reachable at supported widths and zoom, and do not become
+record rows. Earlier and later availability describe a live window, never a total
+or global row ordinal. Accessible grid descriptions and indices identify the
+loaded window. A terminal continuation reports no more later rows without
+claiming that evicted earlier records are loaded.
+
+Pending replacement controls identify their edits as unapplied; accepted chips
+and grouping continue to describe retained rows. Replacement failure offers
+local Retry and Revert. Continuation failure retains authorized rows and offers
+Retry for that read. Progress and recovery use the existing data-state plane's
+announcement priority with one announcement per transition. Controls retain focus
+through explicit loading, and the work area's grid and inspector retain their
+existing scrolling ownership.
+
 ### 8.4 Keyboard interaction matrix
 
 Design contract. Keyboard behavior MUST use the matrix below. `Tab` order MUST enter each major region once before entering roving-focus children inside that region.

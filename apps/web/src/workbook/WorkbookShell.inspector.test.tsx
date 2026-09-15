@@ -703,7 +703,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     await waitFor(() => {
       expect(
         screen.getByTestId(timelineInspectorTestId()).textContent,
-      ).not.toContain("Workbook inspector selected row");
+      ).toContain("Workbook inspector selected row");
       expect(
         screen.getByTestId(
           rowCellTestId(

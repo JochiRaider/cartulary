@@ -35,6 +35,7 @@ import {
   successEnvelope,
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
+import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
 import {
@@ -120,7 +121,7 @@ describe("Assessment workbook surface", () => {
       )}`,
     );
     fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withWorkbookQueryFixtureMetadata(fetchMock));
     vi.stubGlobal(
       "WebSocket",
       class {

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useReducer, useRef } from "react";
 import { useWorkbookHistoryRuntime } from "../../history/WorkbookHistoryContext";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { timelineCaptureOwnerFor } from "../actions/timelineCaptureOwnerFor";
@@ -10,7 +10,9 @@ import type { TimelineRecordActionAccepted } from "../ports/TimelineRecordAction
 export function useTimelineCommittedRows({
   rowsRef,
   mutationRuntime,
+  materializeRow,
 }: {
+  readonly materializeRow?: (row: WorkbookRow) => WorkbookRow;
   readonly mutationRuntime?: WorkbookMutationRuntime | undefined;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
 }) {
@@ -22,6 +24,16 @@ export function useTimelineCommittedRows({
     ? timelineMentionOwnerFor(mutationRuntime)
     : null;
   const ledgerRef = useRef(createTimelineCommittedVersionLedger());
+  const [, changed] = useReducer((value: number) => value + 1, 0);
+  const retainInspectorRecord = useCallback(
+    (id: string | null) => ledgerRef.current.retainInspectorRecord(id),
+    [],
+  );
+  const clearProtectedRows = useCallback(() => {
+    ledgerRef.current.clear();
+    hasLoadedRowsRef.current = false;
+    loadSequenceRef.current += 1;
+  }, []);
   const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
 
@@ -77,16 +89,21 @@ export function useTimelineCommittedRows({
           });
         }
       }
-      return ledgerRef.current.accept(row, rowsRef.current);
+      const result = ledgerRef.current.accept(row, rowsRef.current);
+      if (result.accepted) changed();
+      return result;
     },
     [rowsRef, history, capture, mentions, knownTimelineRowVersion],
   );
 
   const acceptCommittedTimelineRows = useCallback(
     (committedRows: readonly WorkbookRow[]) => {
-      for (const row of committedRows) acceptCommittedTimelineRow(row);
+      ledgerRef.current.replaceQueryRows(
+        committedRows,
+        materializeRow ? rowsRef.current.map(materializeRow) : rowsRef.current,
+      );
     },
-    [acceptCommittedTimelineRow],
+    [rowsRef, materializeRow],
   );
 
   const isStaleTimelineRowVersion = useCallback(
@@ -113,6 +130,7 @@ export function useTimelineCommittedRows({
     (result: TimelineRecordActionAccepted) => {
       if (result.rowVersion < (knownTimelineRowVersion(result.recordId) ?? 0))
         return;
+      changed();
       capture?.acceptVersion(result.recordId, result.rowVersion);
       history?.acceptVersion(result.recordId, result.rowVersion);
       const existing = ledgerRef.current.current(
@@ -192,6 +210,8 @@ export function useTimelineCommittedRows({
 
   return {
     commands: {
+      clearProtectedRows,
+      retainInspectorRecord,
       acceptCommittedTimelineRow,
       acceptCommittedTimelineRows,
       acceptTimelineActionResult,

@@ -29,6 +29,7 @@ export type {
   GridFocusResult,
   GridFocusTarget,
   GridGroupingDescriptor,
+  GridGroupingScalar,
   GridHandle,
   GridInteractionMode,
   GridNavigationIntent,

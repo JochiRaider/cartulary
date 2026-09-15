@@ -148,6 +148,14 @@ test("Preserve save transitions and exact saved-view conflict scope across workb
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
       await expect(strip).not.toContainText("same-field conflict needs review");
       await selectSurface(page, notesViewSchemaId);
+      let inactiveTimelineReads = 0;
+      page.on("request", (request) => {
+        if (
+          request.method() === "POST" &&
+          request.url().endsWith(`/views/${timelineViewSchemaId}/query`)
+        )
+          inactiveTimelineReads += 1;
+      });
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
       const action = page.getByTestId(saveStateActionButtonTestId());
       await action.focus();
@@ -175,9 +183,11 @@ test("Preserve save transitions and exact saved-view conflict scope across workb
           { priority: "polite", message: "Saved" },
           { priority: "polite", message: "Syncing changes" },
           { priority: "assertive", message: "Conflict. 1 unresolved" },
-          { priority: "polite", message: "Syncing changes" },
+          // REQ-03-089: conflict takes precedence until settlement. The inactive
+          // Timeline no longer runs a query that prolongs a syncing phase.
           { priority: "polite", message: "Saved" },
         ]);
+      expect(inactiveTimelineReads).toBe(0);
     } finally {
       conflicted.release();
     }

@@ -10,6 +10,7 @@ import {
   testObservationReceipt,
 } from "../../../testing/observationTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { useGenericSurfaceQuery } from "../../query/useGenericSurfaceQuery";
@@ -133,6 +134,7 @@ it("Observation query materialization fences older HTTP projections against acce
     value: {
       incidentId: observationAuthority.incidentId,
       viewSchemaId: observationIndicatorView,
+      ...acceptedQueryMetadata(observationIndicatorView),
       rows: [row(8)],
     },
   }));
@@ -155,6 +157,7 @@ it("Observation query materialization fences older HTTP projections against acce
     value: {
       incidentId: observationAuthority.incidentId,
       viewSchemaId: observationIndicatorView,
+      ...acceptedQueryMetadata(observationIndicatorView),
       rows: [row(9)],
     },
   });

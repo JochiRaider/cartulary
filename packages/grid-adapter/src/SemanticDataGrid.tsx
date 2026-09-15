@@ -114,6 +114,7 @@ import {
   navigateSemanticPresentation,
   planSemanticPasteTargets,
   resolveVisibleGridCellRange,
+  retainGridCellRange,
   sameGridCellAnchor,
   sameGridCellRange,
   semanticAnchor,
@@ -274,6 +275,15 @@ function useGridBulkSelection<Row>(
         bulkSelection.onSelectedRecordIdsChange(next);
       },
     };
+  }, [bulkSelection, state]);
+  useLayoutEffect(() => {
+    if (!bulkSelection || !state) return;
+    const visible = new Set(state.selectableIds);
+    const retained = new Set(
+      [...bulkSelection.selectedRecordIds].filter((id) => visible.has(id)),
+    );
+    if (retained.size !== bulkSelection.selectedRecordIds.size)
+      bulkSelection.onSelectedRecordIdsChange(retained);
   }, [bulkSelection, state]);
   return {
     compiled,
@@ -1120,10 +1130,36 @@ function useSemanticDataGrid<Row>(
     const previous = previousPresentationRef.current;
     const current = semanticPresentationRef.current;
     previousPresentationRef.current = current;
+    updateCellRange(
+      retainGridCellRange(previous, current, cellRangeRef.current),
+    );
     if (!retainedCellHadFocus || retainedAnchor === null) return;
     const key = gridAnchorKey(retainedAnchor);
     const before = previous.positions.get(key);
     const after = current.positions.get(key);
+    if (before !== undefined && after === undefined) {
+      // Extension surfaces retain their own page-replacement focus policy.
+      if (retainedAnchor.rowIdentity.kind !== "core_record") return;
+      const fallbackRow = current.rowIdentities[0];
+      const fieldKey = current.fieldKeys.includes(retainedAnchor.fieldKey)
+        ? retainedAnchor.fieldKey
+        : current.fieldKeys[0];
+      const anchor =
+        fallbackRow && fieldKey
+          ? { ...retainedAnchor, rowIdentity: fallbackRow, fieldKey }
+          : null;
+      publishActiveCell(anchor);
+      const priorFocus = document.activeElement;
+      queueMicrotask(() => {
+        if (
+          document.activeElement !== priorFocus &&
+          document.activeElement !== document.body
+        )
+          return;
+        void requestFocus(anchor ? { kind: "cell", anchor } : { kind: "root" });
+      });
+      return;
+    }
     if (
       before === undefined ||
       after === undefined ||
@@ -1270,6 +1306,14 @@ function useSemanticDataGrid<Row>(
         session.cancel();
         return true;
       },
+      detachEdit: () => {
+        const session = activeEditorSessionRef.current;
+        activeEditorSessionRef.current = null;
+        clearEditorSeed();
+        session?.detach();
+      },
+      getActiveCell: () =>
+        pendingEditorSeedRef.current?.anchor ?? activeCellAnchor,
       requestFocus,
       focusAdjacentRegion: (backwards) =>
         focusAdjacentOutsideGrid(
@@ -1322,6 +1366,9 @@ function useSemanticDataGrid<Row>(
     }),
     [
       activeEditorSessionRef,
+      activeCellAnchor,
+      pendingEditorSeedRef,
+      clearEditorSeed,
       requestFocus,
       semanticCellElementsRef,
       keyboardNavigation,

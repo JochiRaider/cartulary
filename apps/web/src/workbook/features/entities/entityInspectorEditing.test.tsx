@@ -16,6 +16,7 @@ import {
 import { useMemo, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../../testing/taskWorkbookTestSupport";
+import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
 import type { RecordPatchTransport } from "../../adapters/workbookRecordPatchTransport";
 import { entityRowFromApi } from "../../models/entityWorkbookModel";
 import type {
@@ -78,6 +79,7 @@ function fixture() {
         incidentId: taskAuthority.incidentId,
         rows: [],
         viewSchemaId: "cartulary.view.timeline.v2",
+        ...acceptedQueryMetadata("cartulary.view.timeline.v2"),
       },
     })),
   };

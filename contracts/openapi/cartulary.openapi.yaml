@@ -19606,6 +19606,7 @@
         },
         "required": [
           "request_id",
+          "paging",
           "query"
         ],
         "type": "object"

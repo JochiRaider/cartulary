@@ -106,6 +106,7 @@ import {
   workbookInspectorToggleTestId,
   workbookPreferenceTestId,
   workbookPresenceSummaryTestId,
+  workbookQueryEntryTestId,
   workbookQueryOverflowEntryTestId,
   workbookResponsiveBandTestId,
   workbookShellReadyTestId,
@@ -3042,6 +3043,15 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       "timeline.capture_state",
       "reviewed",
     );
+    await expect(
+      page.getByTestId(
+        workbookQueryEntryTestId(
+          timelineViewSchemaId,
+          "filter",
+          "timeline.capture_state",
+        ),
+      ),
+    ).toBeVisible();
     await assertActiveFilterChipVisible(
       page,
       timelineViewSchemaId,
@@ -3343,6 +3353,15 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       "timeline.capture_state",
       "reviewed",
     );
+    await expect(
+      page.getByTestId(
+        workbookQueryEntryTestId(
+          timelineViewSchemaId,
+          "filter",
+          "timeline.capture_state",
+        ),
+      ),
+    ).toBeVisible();
     await assertActiveFilterChipVisible(
       page,
       timelineViewSchemaId,

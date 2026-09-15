@@ -14,13 +14,11 @@ export function useWorkbookProjectionRefreshController({
   readonly sheetReloadToken: number;
 }) {
   useEffect(() => {
-    void Promise.all([loadEntities(), loadSessionRole()]);
-  }, [loadEntities, loadSessionRole]);
+    void loadSessionRole();
+  }, [loadSessionRole]);
 
   useEffect(() => {
-    if (sheetReloadToken === 0) {
-      return;
-    }
+    void sheetReloadToken;
     void loadEntities();
   }, [loadEntities, sheetReloadToken]);
 

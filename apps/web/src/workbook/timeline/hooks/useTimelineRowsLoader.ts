@@ -7,6 +7,10 @@ import {
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
+import {
+  useWorkbookBrowsingRead,
+  useWorkbookQueryBrowser,
+} from "../../query/WorkbookQueryBrowsingContext";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import {
   abortLatestQuery,
@@ -192,6 +196,10 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
     setRefreshError,
     viewQuery,
   } = input;
+  const { browser, snapshot: browsing } = useWorkbookQueryBrowser(
+    viewQuery,
+    timelineViewSchemaId,
+  );
   const queryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
     sequence: 0,
@@ -271,6 +279,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
             publishLoadStatus(effect);
             break;
           case "clear_protected_rows":
+            browser.invalidate();
             rowsRef.current = [];
             replaceRows([]);
             onAuthorityUncertain?.();
@@ -294,6 +303,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       publishLoadStatus,
       replaceRows,
       rowsRef,
+      browser,
     ],
   );
 
@@ -353,7 +363,13 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       if (
         sourceRecordRequirement !== undefined &&
         sourceEvidenceFromCommittedRows(rows, sourceRecordRequirement) ===
-          undefined
+          undefined &&
+        sourceEvidenceFromCommittedRows(
+          [
+            currentCommittedTimelineRow(sourceRecordRequirement.recordId),
+          ].filter((row): row is WorkbookRow => row !== null),
+          sourceRecordRequirement,
+        ) === undefined
       ) {
         hasStaleRows = true;
       }
@@ -401,10 +417,21 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         publishSaveStatePresentation();
         markRowsLoaded();
       }, options.viewportContinuityToken !== undefined);
-      const sourceRecord = sourceEvidenceFromCommittedRows(
-        committedRows,
-        options.sourceRecordRequirement,
-      );
+      const sourceRecord =
+        sourceEvidenceFromCommittedRows(
+          committedRows,
+          options.sourceRecordRequirement,
+        ) ??
+        (options.sourceRecordRequirement === undefined
+          ? undefined
+          : sourceEvidenceFromCommittedRows(
+              [
+                currentCommittedTimelineRow(
+                  options.sourceRecordRequirement.recordId,
+                ),
+              ].filter((row): row is WorkbookRow => row !== null),
+              options.sourceRecordRequirement,
+            ));
       advanceViewportContinuity(
         options.viewportContinuityToken,
         sourceRecord === undefined ? {} : { sourceRecord },
@@ -446,20 +473,38 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         options,
       );
       const request = beginLatestQuery(queryRuntimeRef);
-      const result = await viewQuery.query({
-        contract: timelineContract,
-        queryState,
-        signal: request.signal,
-      });
+      browser.observeRows(
+        rowsRef.current.flatMap((row) =>
+          row.rawRow === null ? [] : [row.rawRow],
+        ),
+      );
+      const result = await browser.query(
+        {
+          contract: timelineContract,
+          queryState,
+          signal: request.signal,
+        },
+        { recoveryDepth: retryDepth },
+      );
 
       const retryStaleResult = async (
         retryable: boolean,
         evidence: TimelineSourceRecordEvidence | null,
       ) => {
+        if (result.kind === "accepted")
+          browser.reject(result.value, {
+            kind: "stale_target",
+            message:
+              "The query is older than an accepted change. Refresh current rows.",
+          });
+        const sharedRetryDepth = Math.max(
+          retryDepth,
+          browser.recoveryAttemptsUsed(),
+        );
         const effects = dispatchLoadEvent({
           kind: "stale_result",
           obligationSatisfied: evidence !== null,
-          retryDepth,
+          retryDepth: sharedRetryDepth,
           retryable,
           subject,
         });
@@ -483,7 +528,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
             kind: "unavailable",
             failure: "transient",
           });
-        if (retryable && retryDepth >= timelineFreshnessRetryLimit) {
+        if (retryable && sharedRetryDepth >= timelineFreshnessRetryLimit) {
           applyLifecycleEffects(
             dispatchLoadEvent({
               hasLoadedRows: hasLoadedRows(),
@@ -496,10 +541,21 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         }
       };
 
-      const obligationEvidence = currentSourceRecordEvidence(
-        rowsRef.current,
-        options.sourceRecordRequirement,
-      );
+      const obligationEvidence =
+        currentSourceRecordEvidence(
+          rowsRef.current,
+          options.sourceRecordRequirement,
+        ) ??
+        (options.sourceRecordRequirement === undefined
+          ? null
+          : currentSourceRecordEvidence(
+              [
+                currentCommittedTimelineRow(
+                  options.sourceRecordRequirement.recordId,
+                ),
+              ].filter((row): row is WorkbookRow => row !== null),
+              options.sourceRecordRequirement,
+            ));
       if (!request.isCurrent() || !isCurrentLoadSequence(requestSequence)) {
         if (options.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
@@ -515,8 +571,10 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         await retryStaleResult(true, obligationEvidence);
         return;
       }
-      if (options.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
-      if (result.kind === "aborted") return;
+      if (result.kind === "aborted") {
+        if (options.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
+        return;
+      }
       if (result.kind === "rejected") {
         const event: TimelineLoadEvent =
           workbookFailureLifecycle(result.failure).kind ===
@@ -533,6 +591,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
                 subject,
               };
         applyLifecycleEffects(dispatchLoadEvent(event), options);
+        if (options.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
         return;
       }
       let incomingRows: WorkbookRow[];
@@ -543,6 +602,10 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
           ),
         );
       } catch {
+        browser.reject(result.value, {
+          kind: "invalid_contract",
+          message: "Timeline projection load failed.",
+        });
         if (options.requireAcceptance)
           throw new WorkbookSurfaceRefreshError({
             kind: "unavailable",
@@ -564,11 +627,19 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         options.sourceRecordRequirement,
       );
       if (freshness.hasStaleRows) {
+        browser.reject(result.value, {
+          kind: "stale_target",
+          message:
+            "The query is older than an accepted change. Refresh current rows.",
+        });
         await retryStaleResult(true, obligationEvidence);
         return;
       }
       const effects = dispatchLoadEvent({ kind: "success", subject });
-      if (effects.some((effect) => effect.kind === "commit")) {
+      if (
+        effects.some((effect) => effect.kind === "commit") &&
+        browser.accept(result.value)
+      ) {
         commitAcceptedRows(freshness.rows, options);
       }
       if (
@@ -584,6 +655,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       beginTimelineRowsLoad,
       commitAcceptedRows,
       currentMutationEpoch,
+      currentCommittedTimelineRow,
       dispatchLoadEvent,
       freshTimelineRowsForQueryResult,
       hasLoadedRows,
@@ -592,11 +664,16 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       queryState,
       rowsRef,
       settleProjectionObligation,
-      viewQuery,
+      browser,
     ],
   );
 
-  return { loadRows };
+  const browse = useCallback(
+    () => loadRows({ showLoading: false }),
+    [loadRows],
+  );
+  useWorkbookBrowsingRead(timelineViewSchemaId, browse);
+  return { loadRows, browser, browsing };
 }
 
 export function reconcileCommittedRowsWithLocalDrafts({

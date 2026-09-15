@@ -9,6 +9,7 @@ import type {
 } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
+import { WorkbookQueryBrowsingControls } from "../query/WorkbookQueryBrowsingControls";
 import { statusStripStyle } from "../utils/workbookStyles";
 import { WorkbookWorkAreaOverlayHost } from "./WorkbookWorkAreaOverlay";
 import type { WorkbookChromeMode } from "./workbookResponsiveLayout";
@@ -225,7 +226,8 @@ export function WorkbookSurfaceLayout({
           style={workbookSurfacePrimaryGridSlotStyle}
           viewSchemaId={viewSchemaId}
         >
-          {primaryGrid}
+          <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
+          <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
         </WorkbookShellSlotRegion>
         <div
           aria-hidden={
@@ -359,6 +361,8 @@ const workbookSurfaceWorkAreaStyle = {
 } satisfies CSSProperties;
 
 const workbookSurfacePrimaryGridSlotStyle = {
+  display: "flex",
+  flexDirection: "column",
   gridArea: "1 / 1",
   inlineSize: "100%",
   blockSize: "100%",

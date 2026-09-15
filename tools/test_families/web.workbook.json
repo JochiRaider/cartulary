@@ -2793,6 +2793,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_window_retention",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.timeline",
+        "platform.viewquery"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/useRetainedInspectorRow.test.ts",
+        "titles": [
+          "retains one inspector source across window eviction without treating absence as deletion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.membership_management_lifetime",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3334,6 +3363,104 @@
           "Workbook preference transport returns no-op attribution unchanged and detaches immutable accepted resources",
           "Workbook preference transport separates known rejection from uncertain server transport and invalid success outcomes",
           "Workbook preference transport uses all four generated operations and explicit nullable PUT bodies with CSRF"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.query_browsing",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.timeline",
+        "platform.viewquery"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/WorkbookQueryBrowser.test.ts",
+        "titles": [
+          "Workbook query browsing admits complete windows atomically and traverses beyond 300 rows with bounded return history",
+          "Workbook query browsing admits overlap once and bounds freshness recovery without replacing newer committed evidence",
+          "Workbook query browsing coalesces live invalidations and stages only the current three-page window",
+          "Workbook query browsing discards invalid cursor chains once and retains failed restart recovery without the old cursor",
+          "Workbook query browsing fences superseded results and errors and clears protected cursors on authority invalidation",
+          "Workbook query browsing guards duplicate activation and retries the captured continuation without losing accepted rows",
+          "Workbook query browsing re-fetches a detached position and keeps canonical presentation separate from unapplied intent",
+          "Workbook query browsing rejects a producing-request mismatch and follows authoritative continuation on short and empty pages",
+          "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.query_browsing_controls",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.timeline",
+        "platform.viewquery"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/WorkbookQueryBrowsingControls.test.tsx",
+        "titles": [
+          "reaches later records and returns by keyboard while preserving continuation control focus",
+          "retains accepted presentation on a failed replacement and offers local retry and revert"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.query_metadata",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.timeline",
+        "platform.viewquery"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/workbookQueryMetadata.test.ts",
+        "titles": [
+          "Workbook canonical query metadata adopts canonical filter operands without copying effective tails into saved or continuation overrides",
+          "Workbook canonical query metadata correlates grouping and authored sort order and permits eight sorts without group injection",
+          "Workbook canonical query metadata requires complete paging and the effective default sort without assuming a short page is terminal"
         ]
       },
       "evidence_class": "unit",
@@ -4091,7 +4218,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
         "titles": [
-          "timelineRowsModel builds draft and committed rows with stable semantic identities"
+          "timelineRowsModel builds draft and committed rows with stable semantic identities",
+          "timelineRowsModel orders Timeline grouping buckets independently of the unchanged query row order"
         ]
       },
       "evidence_class": "unit",
@@ -4410,6 +4538,7 @@
         "file": "apps/web/src/workbook/query/useGenericSurfaceQuery.test.tsx",
         "titles": [
           "fences Task committed rows across receipts queries and filtered departures",
+          "retains an accepted empty generic result and its query after a failed replacement",
           "useGenericSurfaceQuery allows a current Evidence read to finish when incident closure arrives during startup",
           "useGenericSurfaceQuery clears access-protected rows, stays idle while inactive, and aborts on teardown",
           "useGenericSurfaceQuery normalizes Notes rows and applies a newer sparse live patch",
@@ -5191,7 +5320,7 @@
           "workbookQuery describes filter chip labels from contract metadata",
           "workbookQuery initializes filter drafts from the contract and resolves input modes",
           "workbookQuery keeps a full semantic layout permutation while compiling visible columns",
-          "workbookQuery prepends group-by sorting when the user sort does not already cluster grouped rows",
+          "workbookQuery keeps grouping separate from authored sorting and cleared overrides",
           "workbookQuery rejects structural layout keys and out-of-range widths",
           "workbookQuery supports ordered additive sort cycles and enforces the owner limit"
         ]

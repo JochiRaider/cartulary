@@ -311,6 +311,7 @@ function useTestSupportGridHandle<Row>({
         setActiveEditor(null);
         return true;
       },
+      detachEdit: () => setActiveEditor(null),
       requestFocus: focusRequests.requestFocus,
       focusAdjacentRegion: (backwards) =>
         focusAdjacentOutsideGrid(scrollElement.current, backwards),
@@ -553,7 +554,7 @@ function TestGridHeader<Row>({
         {bulkSelection === undefined ? null : (
           <th role="columnheader" scope="col">
             <input
-              aria-label="Select all records on this page"
+              aria-label="Select all loaded records"
               checked={bulkSelectionState?.allSelected === true}
               disabled={bulkSelectionState?.selectableIds.length === 0}
               ref={(node) => {

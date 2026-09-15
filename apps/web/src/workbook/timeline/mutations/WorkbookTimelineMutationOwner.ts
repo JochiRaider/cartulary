@@ -186,8 +186,10 @@ export class WorkbookTimelineMutationOwner {
         );
       },
       clearSubmittedScalarEditorDraftValuesForRow: (...args) => {
-        drafts.clearSubmittedRow(...args);
-        presentation()?.clearSubmittedScalarEditorDraftValuesForRow(...args);
+        const mounted = presentation();
+        if (mounted)
+          mounted.clearSubmittedScalarEditorDraftValuesForRow(...args);
+        else drafts.clearSubmittedRow(...args);
       },
       captureEditorDrafts: drafts.captureRow,
       acceptEditorPredecessor: (row, fields, previousValues) => {

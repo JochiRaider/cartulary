@@ -50,11 +50,16 @@ import {
   workbookGridDataState,
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import {
+  compareWorkbookGroupValues,
+  workbookGroupValue,
+} from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type {
   RecordRouteCommandPort,
   TimelineRelatedRecordPort,
 } from "../mutations/workbookMutationCommandPorts";
+import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
@@ -227,20 +232,13 @@ export function AssessmentWorkbookSurface({
       }
       return {
         fieldKey,
+        compareValues: compareWorkbookGroupValues,
         formatLabel: (value) => genericCellLabel(value),
         getTestId: (groupFieldKey, _value, label) =>
           label === null
             ? undefined
             : gridGroupRowTestId(assessmentsViewSchemaId, groupFieldKey, label),
-        getValue: (row) => {
-          const value = row.cells[fieldKey]?.value;
-          return value === null ||
-            typeof value === "boolean" ||
-            typeof value === "number" ||
-            typeof value === "string"
-            ? value
-            : null;
-        },
+        getValue: (row) => workbookGroupValue(row, fieldKey),
         label: assessmentsContract.fieldMap[fieldKey]?.label ?? fieldKey,
       };
     }, [queryState.groupBy]);
@@ -298,6 +296,10 @@ export function AssessmentWorkbookSurface({
     roleCanCreate,
     selectedAssessment,
   });
+  const restartQuery = useWorkbookQueryRestart(
+    assessmentsViewSchemaId,
+    onRefreshAssessmentRows,
+  );
   const dataState = workbookGridDataState({
     emptyAction: canCreate
       ? {
@@ -308,7 +310,7 @@ export function AssessmentWorkbookSurface({
     emptyMessage: "No assessments have been recorded.",
     loadState,
     onClearFilters,
-    onRetry: () => void onRefreshAssessmentRows(),
+    onRetry: () => void restartQuery(),
     queryState,
     rowCount: gridRows.length,
     surfaceLabel: assessmentsContract.title,

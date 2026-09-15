@@ -5234,7 +5234,7 @@ export interface WorkbookQueryData {
  * via the `definition` "WorkbookQueryMeta".
  */
 export interface WorkbookQueryMeta {
-  paging?: PagingMeta;
+  paging: PagingMeta;
   query: WorkbookQueryMetaQuery;
   request_id: string;
 }

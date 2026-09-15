@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
+import { useRetainedInspectorRow } from "../../inspector/useRetainedInspectorRow";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
@@ -26,7 +27,10 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { LocalConflictState } from "../models/timelineConflictState";
-import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
+import type {
+  TimelineCommittedInspectorRecords,
+  TimelineRowContextMenuPosition,
+} from "../models/timelineControllerPorts";
 import type { CollectionFieldKey } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import {
@@ -44,12 +48,16 @@ type TimelineRowContextMenuState = {
 };
 
 export function useTimelineInspectorSelection({
+  committedRecords,
+  inspectorResetKey = "timeline",
   currentIncidentRole,
   dismissedMentionsByRow,
   observedMentions,
   rows,
   selectedMentionRef,
 }: {
+  readonly committedRecords?: TimelineCommittedInspectorRecords;
+  readonly inspectorResetKey?: string;
   readonly currentIncidentRole: string | null | undefined;
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
   readonly observedMentions: readonly MentionSubject[];
@@ -59,13 +67,24 @@ export function useTimelineInspectorSelection({
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [inspectorMessage, setInspectorMessage] =
     useState<WorkbookInspectorFeedback | null>(null);
-  const selectedRow = useMemo(
-    () =>
+  useLayoutEffect(() => {
+    committedRecords?.retainInspectorRecord(selectedRowId);
+    return () => committedRecords?.retainInspectorRecord(null);
+  }, [committedRecords, selectedRowId]);
+  const selectedRow = useRetainedInspectorRow({
+    recordId: selectedRowId,
+    row:
+      (selectedRowId
+        ? committedRecords?.currentCommittedTimelineRow(selectedRowId)
+        : null) ??
       rows.find(
-        (row) => row.recordId !== null && row.recordId === selectedRowId,
-      ) ?? null,
-    [rows, selectedRowId],
-  );
+        (row) => row.recordId === selectedRowId && row.recordId !== null,
+      ) ??
+      null,
+    rowVersion: (row) => row.rowVersion ?? 0,
+    scope: `${inspectorResetKey}:${currentIncidentRole}`,
+    readable: currentIncidentRole !== null && currentIncidentRole !== undefined,
+  });
   const draftRow = useMemo(
     () => rows.find((row) => row.recordId === null) ?? null,
     [rows],
@@ -408,11 +427,9 @@ export function useTimelineInspectorRowInteractions({
 
 export function useTimelineInspectorLifecycle({
   clearRowHistory,
-  gridShellRef,
   inspectorInvalidationCause,
   inspectorMentions,
   inspectorInvalidationGeneration,
-  restoreTimelineFocusAnchor,
   rowHistory,
   rows,
   selectedMentionRef,
@@ -423,7 +440,6 @@ export function useTimelineInspectorLifecycle({
   setSelectedMentionRef,
   setSelectedResolveTargetId,
   setSelectedRowId,
-  workbookFocusAnchorRef,
 }: {
   readonly clearRowHistory: () => void;
   readonly gridShellRef: MutableRefObject<HTMLDivElement | null>;
@@ -453,84 +469,29 @@ export function useTimelineInspectorLifecycle({
   }, [setIsInspectorOpen]);
 
   useEffect(() => {
-    if (selectedRowId === null) {
+    if (
+      selectedRowId === null ||
+      rows.some((row) => row.recordId === selectedRowId) ||
+      rowHistoryData?.deleted !== true ||
+      rowHistoryData.record_id !== selectedRowId
+    )
       return;
-    }
-    if (!rows.some((row) => row.recordId === selectedRowId)) {
-      const deletedHistoryMatchesSelectedRow =
-        rowHistoryData?.deleted === true &&
-        rowHistoryData.record_id === selectedRowId;
-      const previousAnchor = workbookFocusAnchorRef.current;
-      setSelectedRowId(null);
-      setSelectedMentionRef(null);
-      setSelectedResolveTargetId("");
-      if (
-        rowHistory.subject?.recordId === selectedRowId &&
-        rowHistoryData?.deleted !== true
-      ) {
-        dispatchRowHistory({ type: "clear" });
-      }
-      dispatchRowHistory({ type: "cancel" });
-      setInspectorMessage(
-        workbookInspectorMessageFeedback(
-          deletedHistoryMatchesSelectedRow
-            ? "Selected row was deleted."
-            : "Selected row is no longer available.",
-          "none",
-        ),
-      );
-      if (deletedHistoryMatchesSelectedRow) {
-        return;
-      }
-      window.setTimeout(async () => {
-        // Projection exit must not take focus from a recovery control or a
-        // newer inspector interaction that still exists after the refresh.
-        const activeElement = document.activeElement;
-        if (
-          activeElement !== null &&
-          activeElement !== document.body &&
-          activeElement.isConnected &&
-          !gridShellRef.current?.contains(activeElement)
-        )
-          return;
-        const fallbackFieldKey =
-          previousAnchor?.viewSchemaId === timelineViewSchemaId
-            ? previousAnchor.fieldKey
-            : "timeline.activity_synopsis_text";
-        const fallbackRow = rows.find((row) => row.recordId !== null);
-        if (fallbackRow?.recordId) {
-          if (
-            await restoreTimelineFocusAnchor({
-              fieldKey: fallbackFieldKey,
-              recordId: fallbackRow.recordId,
-              viewSchemaId: timelineViewSchemaId,
-            })
-          ) {
-            return;
-          }
-        }
-        const gridShell = gridShellRef.current;
-        if (gridShell !== null) {
-          if (!gridShell.hasAttribute("tabindex")) {
-            gridShell.tabIndex = -1;
-          }
-          gridShell.focus({ preventScroll: true });
-        }
-      }, 0);
-    }
+    setSelectedRowId(null);
+    setSelectedMentionRef(null);
+    setSelectedResolveTargetId("");
+    dispatchRowHistory({ type: "cancel" });
+    setInspectorMessage(
+      workbookInspectorMessageFeedback("Selected row was deleted.", "none"),
+    );
   }, [
     dispatchRowHistory,
-    gridShellRef,
-    restoreTimelineFocusAnchor,
     rowHistoryData,
-    rowHistory.subject?.recordId,
     rows,
     selectedRowId,
     setInspectorMessage,
     setSelectedMentionRef,
     setSelectedResolveTargetId,
     setSelectedRowId,
-    workbookFocusAnchorRef,
   ]);
 
   useEffect(() => {

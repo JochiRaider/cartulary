@@ -1,4 +1,7 @@
-import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
+import {
+  scrollGridCellIntoView,
+  sortByHeader,
+} from "@cartulary/test-utils/grid";
 import {
   authTestId,
   genericEditFieldSelectTestId,
@@ -150,6 +153,11 @@ test("Committed grid A acknowledgement preserves B authoring and sequences real 
       a = gate(),
       b = gate(),
       bodies: string[] = [];
+    if (view === timelineViewSchemaId) {
+      // Empty activity timestamps tie on opaque record IDs. Capture an explicit
+      // visible order for this authoritative-acceptance navigation assertion.
+      await sortByHeader(page, view, "timeline.activity_synopsis_text");
+    }
     const receipts: Array<{
       data: { change_set_id: string; row: { row_version: number } };
     }> = [];

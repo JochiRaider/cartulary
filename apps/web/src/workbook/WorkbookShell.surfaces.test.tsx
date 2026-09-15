@@ -88,6 +88,7 @@ import {
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
+import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { publicWorkbookSchema } from "../testing/workbookSchemaTestSupport";
 import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
@@ -1160,7 +1161,7 @@ describe("WorkbookShell surface selection", () => {
         );
       return successEnvelope({});
     });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withWorkbookQueryFixtureMetadata(fetchMock));
     vi.stubGlobal(
       "WebSocket",
       class {
@@ -2304,6 +2305,7 @@ describe("WorkbookShell surface selection", () => {
       ),
     );
     expect(savedViewQueryBody).toEqual({
+      limit: 100,
       filters: [
         {
           arg: { value: "reviewed" },
@@ -2312,10 +2314,7 @@ describe("WorkbookShell surface selection", () => {
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [
-        { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "desc", field_key: "timeline.activity_sort_ts" },
-      ],
+      sort: [{ direction: "desc", field_key: "timeline.activity_sort_ts" }],
     });
     expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
     expect(window.location.search).not.toContain("view_schema_id=");
@@ -2944,12 +2943,6 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("mounts the matching entity inspector subject after deferred query hydration", async () => {
-    scenario.startupSelection = {
-      selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
-      selected_view_schema_id: hostsViewSchemaId,
-      selected_saved_view: null,
-      source: "explicit",
-    };
     const host = hostRow({
       displayName: "Deferred host",
       hostname: "deferred.example.test",
@@ -2957,14 +2950,18 @@ describe("WorkbookShell surface selection", () => {
       rowVersion: 7,
     });
     scenario.genericRowsByView[hostsViewSchemaId] = [host];
-    const deferredHostQuery = scenario.deferQuery(hostsViewSchemaId);
     const { container } = render(
       <WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
+    await screen.findByTestId(surfaceTabTestId(hostsViewSchemaId));
     await waitFor(() => {
-      expect(scenario.queryTrace).toContain(`requested:${hostsViewSchemaId}`);
+      expect(scenario.pendingQueryCount).toBe(0);
+      expect(scenario.queryTrace).toContain(`resolved:${timelineViewSchemaId}`);
     });
+    const deferredHostQuery = scenario.deferQuery(hostsViewSchemaId);
+    fireEvent.click(screen.getByTestId(surfaceTabTestId(hostsViewSchemaId)));
+    await waitFor(() => expect(scenario.pendingQueryCount).toBe(1));
     deferredHostQuery.resolve(
       successEnvelope({
         incident_id: "10000000-0000-4000-8000-000000000001",

@@ -54,7 +54,9 @@ function committedTimelineProjection(row: WorkbookRow): WorkbookRow {
 export function createTimelineCommittedVersionLedger() {
   const rows = new Map<string, WorkbookRow>();
   const versions = new Map<string, number>();
+  const retainedWork = new Set<string>();
   let epoch = 0;
+  let inspectorRecord: string | null = null;
 
   const currentEpoch = () => epoch;
   const knownVersion = (recordId: string) => versions.get(recordId);
@@ -78,11 +80,13 @@ export function createTimelineCommittedVersionLedger() {
   const accept = (
     row: WorkbookRow,
     visibleRows: readonly WorkbookRow[],
+    retain = true,
   ): TimelineCommittedRowAcceptance => {
     if (row.recordId === null || row.rowVersion === null) {
       return { row, accepted: false, stale: false };
     }
     const recordId = row.recordId;
+    if (retain) retainedWork.add(recordId);
     const rowVersion = row.rowVersion;
     const committed = committedTimelineProjection(row);
     const currentVersion = knownVersion(recordId);
@@ -103,6 +107,7 @@ export function createTimelineCommittedVersionLedger() {
     rowVersion: number,
     visibleRows: readonly WorkbookRow[],
   ) => {
+    retainedWork.add(recordId);
     if (isStale(recordId, rowVersion)) {
       return { accepted: false, stale: true };
     }
@@ -150,6 +155,51 @@ export function createTimelineCommittedVersionLedger() {
   };
 
   return {
+    clear: () => {
+      rows.clear();
+      versions.clear();
+      retainedWork.clear();
+      inspectorRecord = null;
+      epoch += 1;
+    },
+    retainInspectorRecord: (recordId: string | null) => {
+      inspectorRecord = recordId;
+    },
+    replaceQueryRows: (
+      observed: readonly WorkbookRow[],
+      visibleRows: readonly WorkbookRow[],
+    ) => {
+      const members = new Set(
+        observed.flatMap((row) =>
+          row.recordId === null ? [] : [row.recordId],
+        ),
+      );
+      for (const row of visibleRows) {
+        if (
+          row.recordId &&
+          (row.pendingSignature !== null ||
+            row.collectionDrafts.hostRefs !== "" ||
+            row.collectionDrafts.identityRefs !== "" ||
+            row.collectionDrafts.tags !== "" ||
+            timelineScalarBindings.some(
+              (binding) =>
+                row.values[binding.key] !== row.committedValues[binding.key],
+            ))
+        )
+          retainedWork.add(row.recordId);
+      }
+      for (const id of rows.keys()) {
+        if (
+          !members.has(id) &&
+          !retainedWork.has(id) &&
+          inspectorRecord !== id
+        ) {
+          rows.delete(id);
+          versions.delete(id);
+        }
+      }
+      for (const row of observed) accept(row, visibleRows, false);
+    },
     accept,
     acceptVersion,
     current,

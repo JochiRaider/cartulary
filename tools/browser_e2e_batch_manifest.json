@@ -3031,6 +3031,49 @@
           ]
         },
         {
+          "name": "stateful-default-workbook-query-browsing",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "default",
+          "browser_session_group": "browser-stateful-default",
+          "selected_row_ids": [
+            "module.workbook.browser_stateful.query_continuation_assessments",
+            "module.workbook.browser_stateful.query_continuation_authority",
+            "module.workbook.browser_stateful.query_continuation_canonical",
+            "module.workbook.browser_stateful.query_continuation_comm_log",
+            "module.workbook.browser_stateful.query_continuation_decisions",
+            "module.workbook.browser_stateful.query_continuation_evidence",
+            "module.workbook.browser_stateful.query_continuation_findings",
+            "module.workbook.browser_stateful.query_continuation_forensic_keywords",
+            "module.workbook.browser_stateful.query_continuation_handoff",
+            "module.workbook.browser_stateful.query_continuation_history",
+            "module.workbook.browser_stateful.query_continuation_hosts",
+            "module.workbook.browser_stateful.query_continuation_identities",
+            "module.workbook.browser_stateful.query_continuation_indicators",
+            "module.workbook.browser_stateful.query_continuation_investigative_queries",
+            "module.workbook.browser_stateful.query_continuation_lesson",
+            "module.workbook.browser_stateful.query_continuation_live_recovery",
+            "module.workbook.browser_stateful.query_continuation_notes",
+            "module.workbook.browser_stateful.query_continuation_parties",
+            "module.workbook.browser_stateful.query_continuation_session",
+            "module.workbook.browser_stateful.query_continuation_status_review",
+            "module.workbook.browser_stateful.query_continuation_task_requests",
+            "module.workbook.browser_stateful.query_continuation_timeline"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-query-browsing.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
           "name": "stateful-default-workbook-save-status",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
@@ -4112,6 +4155,49 @@
           ],
           "specs": [
             "apps/web/e2e/timeline-public-route.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "stateful-default-workbook-query-browsing",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "default",
+          "browser_session_group": "browser-stateful-default",
+          "selected_row_ids": [
+            "module.workbook.browser_stateful.query_continuation_assessments",
+            "module.workbook.browser_stateful.query_continuation_authority",
+            "module.workbook.browser_stateful.query_continuation_canonical",
+            "module.workbook.browser_stateful.query_continuation_comm_log",
+            "module.workbook.browser_stateful.query_continuation_decisions",
+            "module.workbook.browser_stateful.query_continuation_evidence",
+            "module.workbook.browser_stateful.query_continuation_findings",
+            "module.workbook.browser_stateful.query_continuation_forensic_keywords",
+            "module.workbook.browser_stateful.query_continuation_handoff",
+            "module.workbook.browser_stateful.query_continuation_history",
+            "module.workbook.browser_stateful.query_continuation_hosts",
+            "module.workbook.browser_stateful.query_continuation_identities",
+            "module.workbook.browser_stateful.query_continuation_indicators",
+            "module.workbook.browser_stateful.query_continuation_investigative_queries",
+            "module.workbook.browser_stateful.query_continuation_lesson",
+            "module.workbook.browser_stateful.query_continuation_live_recovery",
+            "module.workbook.browser_stateful.query_continuation_notes",
+            "module.workbook.browser_stateful.query_continuation_parties",
+            "module.workbook.browser_stateful.query_continuation_session",
+            "module.workbook.browser_stateful.query_continuation_status_review",
+            "module.workbook.browser_stateful.query_continuation_task_requests",
+            "module.workbook.browser_stateful.query_continuation_timeline"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-query-browsing.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",

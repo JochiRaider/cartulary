@@ -61,3 +61,9 @@ Committed grid denials bind to the existing collaboration authorization recovery
 through `useWorkbookCollaborationLifecycle`. `useWorkbookIncidentIdentity` reacts
 to incident closure with its version-fenced identity read; reopening uses the
 retained incident lifecycle owner. Neither hook owns raw editor drafts.
+
+Workbook query continuation uses a stable incident-wide invalidation callback
+with current sheet readers. `useWorkbookProjectionRefreshController` observes
+initial authorization separately from Entity query changes, preventing reference
+broker replacement from creating a read/recovery loop. Grid focus bindings retain
+semantic anchors at departure and detach editor presentation for explicit browsing.

@@ -245,8 +245,22 @@ export function createTimelineEditorDraftRegistry(
           submittedCollections !== undefined &&
           owns(binding.draftKey, "grid") &&
           draftValues.get(focusKey) === submittedCollections[binding.draftKey]
-        )
+        ) {
           store.remove(focusKey);
+          // A socket may have mounted this version before HTTP settlement.
+          // Clear only this accepted submission in each mounted presentation.
+          for (const surface of timelineScalarEditorSurfaces) {
+            const element = inputElements.get(
+              inputFocusKey(rowKey, binding.draftKey, surface),
+            );
+            if (
+              element &&
+              element.value === submittedCollections[binding.draftKey]
+            )
+              element.value = "";
+          }
+          forgetFocusKeyIfUnused(rowKey, focusKey);
+        }
       }
       for (const binding of timelineScalarBindings) {
         for (const surface of timelineScalarEditorSurfaces) {
@@ -294,11 +308,9 @@ export function createTimelineEditorDraftRegistry(
           ...timelineScalarBindings.map((binding) =>
             inputFocusKey(rowKey, binding.key, surface),
           ),
-          ...(surface === "grid"
-            ? timelineCollectionBindings.map((binding) =>
-                inputFocusKey(rowKey, binding.draftKey, "grid"),
-              )
-            : []),
+          ...timelineCollectionBindings.map((binding) =>
+            inputFocusKey(rowKey, binding.draftKey, "grid"),
+          ),
         ]
           .filter((key) => draftValues.has(key))
           .map((key) => [key, store.revision(key)]),

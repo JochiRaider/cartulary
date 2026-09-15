@@ -56,5 +56,21 @@ describe("useWorkbookProjectionRefreshController", () => {
       expect(loadGenericSurface).toHaveBeenCalledTimes(2);
       expect(loadAssessmentSurface).toHaveBeenCalledTimes(2);
     });
+    // A changed query or recovered reference broker changes the Entity reader.
+    // It must not recover authority again and replace that broker in a loop.
+    const changedEntityReader = vi.fn(async () => undefined);
+    view.rerender(
+      <ProjectionRefreshHarness
+        loadAssessmentSurface={loadAssessmentSurface}
+        loadEntities={changedEntityReader}
+        loadGenericSurface={loadGenericSurface}
+        loadSessionRole={loadSessionRole}
+        sheetReloadToken={1}
+      />,
+    );
+    await waitFor(() => expect(changedEntityReader).toHaveBeenCalledTimes(1));
+    expect(loadSessionRole).toHaveBeenCalledTimes(1);
+    expect(loadGenericSurface).toHaveBeenCalledTimes(2);
+    expect(loadAssessmentSurface).toHaveBeenCalledTimes(2);
   });
 });

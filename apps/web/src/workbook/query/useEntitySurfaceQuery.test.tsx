@@ -15,16 +15,109 @@ import {
   jsonResponse,
 } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { workbookQueryMeta } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
+  timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { useEntitySurfaceQuery } from "./useEntitySurfaceQuery";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
+
+it("browses only the active Entity sheet and releases its rows independently on departure", async () => {
+  const fetch = vi.fn((url: RequestInfo | URL) =>
+    Promise.resolve(
+      String(url).includes(hostsViewSchemaId)
+        ? queryResponse(hostsViewSchemaId, [hostRow(hostCurrentId, 1, "Host")])
+        : queryResponse(identitiesViewSchemaId, [
+            identityRow(identityCurrentId, 1, "Identity"),
+          ]),
+    ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  const hook = renderHook(
+    ({ activeViewSchemaId }) =>
+      useEntitySurfaceQuery({
+        activeViewSchemaId,
+        hostQueryState: emptyWorkbookQueryState(),
+        identityQueryState: emptyWorkbookQueryState(),
+        viewQuery,
+        onAuthorityUncertain: undefined,
+      }),
+    { initialProps: { activeViewSchemaId: hostsViewSchemaId as string } },
+  );
+  await act(() => hook.result.current.refresh());
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(hook.result.current.hostRows).toHaveLength(1);
+  expect(hook.result.current.identityRows).toEqual([]);
+  hook.rerender({ activeViewSchemaId: identitiesViewSchemaId });
+  expect(hook.result.current.hostRows).toEqual([]);
+  await act(() => hook.result.current.refresh());
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(hook.result.current.identityRows).toHaveLength(1);
+  expect(hook.result.current.hosts.browsing.accepted).toBeNull();
+  hook.unmount();
+  const execute = vi.fn(async () => []);
+  const broker = { execute, invalidate: vi.fn(), dispose: vi.fn() };
+  const references = renderHook(
+    ({ referenceBroker }) =>
+      useEntitySurfaceQuery({
+        activeViewSchemaId: timelineViewSchemaId,
+        referenceBroker,
+        hostQueryState: emptyWorkbookQueryState(),
+        identityQueryState: emptyWorkbookQueryState(),
+        viewQuery,
+        onAuthorityUncertain: undefined,
+      }),
+    { initialProps: { referenceBroker: broker } },
+  );
+  const readReferences = references.result.current.refresh;
+  await act(() => readReferences());
+  const revalidatedBroker = { ...broker, execute: vi.fn(async () => []) };
+  references.rerender({ referenceBroker: revalidatedBroker });
+  expect(references.result.current.refresh).toBe(readReferences);
+  expect(revalidatedBroker.execute).not.toHaveBeenCalled();
+  await act(() => readReferences());
+  expect(execute).toHaveBeenCalledOnce();
+  expect(revalidatedBroker.execute).toHaveBeenCalledOnce();
+  references.unmount();
+  const interrupted = deferred<never[]>();
+  const pendingBroker = {
+    ...broker,
+    execute: vi.fn(() => interrupted.promise),
+  };
+  const startup = renderHook(
+    ({ referenceBroker }) =>
+      useEntitySurfaceQuery({
+        activeViewSchemaId: timelineViewSchemaId,
+        referenceBroker,
+        hostQueryState: emptyWorkbookQueryState(),
+        identityQueryState: emptyWorkbookQueryState(),
+        viewQuery,
+        onAuthorityUncertain: undefined,
+      }),
+    { initialProps: { referenceBroker: pendingBroker } },
+  );
+  let pendingRead = Promise.resolve();
+  act(() => {
+    pendingRead = startup.result.current.refresh();
+  });
+  const recoveredBroker = { ...pendingBroker, execute: vi.fn(async () => []) };
+  startup.rerender({ referenceBroker: recoveredBroker });
+  await waitFor(() => expect(recoveredBroker.execute).toHaveBeenCalledOnce());
+  await act(async () => {
+    interrupted.resolve([]);
+    await pendingRead;
+  });
+  expect(startup.result.current.references.hosts).toEqual([]);
+  expect(recoveredBroker.execute).toHaveBeenCalledOnce();
+  startup.unmount();
+  vi.unstubAllGlobals();
+});
 const incidentId = "00000000-0000-4000-8000-000000000001";
 const hostCurrentId = "00000000-0000-4000-8000-000000000201";
 const hostObsoleteId = "00000000-0000-4000-8000-000000000202";
@@ -64,10 +157,7 @@ function queryResponse(viewSchemaId: string, rows: readonly unknown[]) {
       view_schema_id: viewSchemaId,
       rows: rows.map(withoutLocalViewSchema),
     },
-    meta: {
-      query: { filters: [], sort: [] },
-      request_id: "req-query",
-    },
+    meta: workbookQueryMeta(viewSchemaId),
   });
 }
 
@@ -332,7 +422,7 @@ describe("useEntitySurfaceQuery", () => {
         "permission_denied",
       ),
     );
-    expect(onAuthorityUncertain).toHaveBeenCalledOnce();
+    expect(onAuthorityUncertain).toHaveBeenCalledTimes(2);
     expect(screen.getByLabelText("entity-index").textContent).toBe("");
 
     accessDenied = false;
@@ -378,6 +468,6 @@ describe("useEntitySurfaceQuery", () => {
     expect(query.result.current.hostRows).toEqual([]);
     expect(query.result.current.identityRows).toEqual([]);
     expect(query.result.current.loadState.kind).toBe("permission_denied");
-    expect(onAuthorityUncertain).toHaveBeenCalledOnce();
+    expect(onAuthorityUncertain).toHaveBeenCalledTimes(2);
   });
 });

@@ -3,6 +3,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { acceptedQueryMetadata } from "../../testing/workbookQueryTestSupport";
 import { ordinaryCreateContributions } from "../features/ordinary/ordinaryCreateContributions";
 import { WorkbookOrdinaryCreateOwner } from "../features/ordinary/WorkbookOrdinaryCreateOwner";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
@@ -47,7 +48,12 @@ describe("ordinary creation query reconciliation", () => {
       let rows = [fullWorkbookViewRow(contract, record, 1, {})];
       const query = vi.fn<WorkbookViewQueryPort["query"]>(async () => ({
         kind: "accepted",
-        value: { incidentId: incident, viewSchemaId: view, rows },
+        value: {
+          incidentId: incident,
+          viewSchemaId: view,
+          ...acceptedQueryMetadata(view),
+          rows,
+        },
       }));
       const hook = renderHook(() =>
         useGenericSurfaceQuery({
@@ -112,6 +118,7 @@ describe("ordinary creation query reconciliation", () => {
         value: {
           incidentId: incident,
           viewSchemaId: contract.viewSchemaId,
+          ...acceptedQueryMetadata(contract.viewSchemaId),
           rows: [fullWorkbookViewRow(contract, record, 1, {})],
         },
       });
@@ -130,6 +137,7 @@ describe("ordinary creation query reconciliation", () => {
         value: {
           incidentId: incident,
           viewSchemaId: contract.viewSchemaId,
+          ...acceptedQueryMetadata(contract.viewSchemaId),
           rows: [
             fullWorkbookViewRow(
               contract,
@@ -196,6 +204,7 @@ describe("ordinary creation query reconciliation", () => {
         value: {
           incidentId: incident,
           viewSchemaId: "cartulary.view.hosts.v1",
+          ...acceptedQueryMetadata("cartulary.view.hosts.v1"),
           rows: [
             fullWorkbookViewRow(
               requireViewContract("cartulary.view.hosts.v1"),

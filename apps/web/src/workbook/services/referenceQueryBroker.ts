@@ -112,6 +112,7 @@ class ReferenceQueryBroker implements ReferenceQueryBrokerPort {
       .query({
         contract: targetContract,
         queryState: emptyWorkbookQueryState(),
+        limit: 100,
         signal: controller.signal,
       })
       .then((result) => {

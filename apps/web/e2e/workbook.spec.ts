@@ -218,6 +218,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   );
   await selector.selectOption(privateSavedView.saved_view_id);
   expect(readPostBody(await selectRequest)).toEqual({
+    limit: 100,
     filters: [
       {
         arg: { value: "rough" },
@@ -226,10 +227,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
       },
     ],
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expect(page).toHaveURL(/sheet_ref_kind=saved_view/);
   await expect(page).toHaveURL(
@@ -458,7 +456,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     timelineViewSchemaId,
   );
   await selectSavedView(page, timelineViewSchemaId, savedView.saved_view_id);
-  expect(Object.keys(readPostBody(await selectRequest)).sort()).toEqual([]);
+  expect(readPostBody(await selectRequest)).toEqual({ limit: 100 });
   await expect
     .poll(() => readSavedViewSelectionState(page, timelineViewSchemaId))
     .toEqual({
@@ -467,13 +465,24 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
       selectedSheetRefKind: "saved_view",
     });
 
-  const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  const sortRequest = waitForViewQueryBody(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      limit: 100,
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
+    },
+  );
   await sortByHeader(
     page,
     timelineViewSchemaId,
     "timeline.activity_synopsis_text",
   );
   expect(readPostBody(await sortRequest)).toEqual({
+    limit: 100,
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(alpha.record_id));
@@ -495,6 +504,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     "reviewed",
   );
   expect(readPostBody(await filterRequest)).toEqual({
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -514,6 +524,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
   await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await groupRequest)).toEqual({
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -522,10 +533,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
       },
     ],
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   const reviewedGroupTestId = gridGroupRowTestId(
     timelineViewSchemaId,
@@ -647,11 +655,9 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   );
   await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await removeFilterRequest)).toEqual({
+    limit: 100,
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 });
 
@@ -717,13 +723,24 @@ async function verifySavedViewPersistenceReplay(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
 
-  const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  const sortRequest = waitForViewQueryBody(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      limit: 100,
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
+    },
+  );
   await sortByHeader(
     page,
     timelineViewSchemaId,
     "timeline.activity_synopsis_text",
   );
   expect(readPostBody(await sortRequest)).toEqual({
+    limit: 100,
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
@@ -739,6 +756,7 @@ async function verifySavedViewPersistenceReplay(
     "reviewed",
   );
   expect(readPostBody(await filterRequest)).toEqual({
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -752,6 +770,7 @@ async function verifySavedViewPersistenceReplay(
   const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
   await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
   const replayedQuery = {
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -760,10 +779,7 @@ async function verifySavedViewPersistenceReplay(
       },
     ],
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   } satisfies QueryWorkbookViewRequest;
   expect(readPostBody(await groupRequest)).toEqual(replayedQuery);
   await expectFirstDataRow(page, String(beta.record_id));
@@ -1142,13 +1158,24 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
 
-  const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  const sortRequest = waitForViewQueryBody(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      limit: 100,
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
+    },
+  );
   await sortByHeader(
     page,
     timelineViewSchemaId,
     "timeline.activity_synopsis_text",
   );
   expect(readPostBody(await sortRequest)).toEqual({
+    limit: 100,
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(alpha.record_id));
@@ -1170,6 +1197,7 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
     "reviewed",
   );
   expect(readPostBody(await filterRequest)).toEqual({
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -1189,22 +1217,21 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
   );
   await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await removeFilterRequest)).toEqual({
+    limit: 100,
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
   const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
   await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await groupRequest)).toEqual({
+    limit: 100,
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   const timelineGrid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
   await expect
     .poll(async () => visibleGroupLabels(page))
-    .toEqual(["reviewed", "rough"]);
+    .toEqual(["rough", "reviewed"]);
   await expect(
     timelineGrid.getByTestId(
       gridGroupRowTestId(
@@ -1225,18 +1252,18 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
   ).toHaveCount(1);
   const groupTestIds = await visibleGroupTestIds(page);
   expect(groupTestIds).toEqual([
+    gridGroupRowTestId(timelineViewSchemaId, "timeline.capture_state", "rough"),
     gridGroupRowTestId(
       timelineViewSchemaId,
       "timeline.capture_state",
       "reviewed",
     ),
-    gridGroupRowTestId(timelineViewSchemaId, "timeline.capture_state", "rough"),
   ]);
   expect(new Set(groupTestIds).size).toBe(groupTestIds.length);
   expect(await visibleRecordIds(page)).toEqual([
-    String(beta.record_id),
     String(alpha.record_id),
     String(gamma.record_id),
+    String(beta.record_id),
   ]);
   for (const state of ["reviewed", "rough"]) {
     const groupTestId = gridGroupRowTestId(
@@ -1352,6 +1379,7 @@ test("browser Notes full_text and prefix queries remain exact", async ({
   ).toBeVisible();
 
   const uiFilterBody = {
+    limit: 100,
     filters: [
       {
         arg: { query: "shell alpha shell" },

@@ -32,9 +32,11 @@ import {
   useMemo,
 } from "react";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
+import { workbookGroupValue } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import type { WorkbookRow } from "../models/timelineRowModel";
+import { compareTimelineGroupValues } from "../models/timelineRowsModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
@@ -90,7 +92,6 @@ export const TimelineWorkbookGrid = forwardRef<
     dataState,
     density,
     getCellState,
-    getGroupLabel,
     getGroupRowTestId,
     getRowState,
     groupBy,
@@ -120,10 +121,12 @@ export const TimelineWorkbookGrid = forwardRef<
             formatLabel: (value) => (value === null ? null : String(value)),
             getTestId: (fieldKey, _value, label) =>
               label === null ? undefined : getGroupRowTestId(fieldKey, label),
-            getValue: (row) => getGroupLabel(row, groupBy),
+            getValue: (row) => workbookGroupValue(row.rawRow ?? {}, groupBy),
+            compareValues: (left, right) =>
+              compareTimelineGroupValues(groupBy, left, right),
             label: timelineContract.fieldMap[groupBy]?.label ?? groupBy,
           },
-    [getGroupLabel, getGroupRowTestId, groupBy],
+    [getGroupRowTestId, groupBy],
   );
   return (
     <section

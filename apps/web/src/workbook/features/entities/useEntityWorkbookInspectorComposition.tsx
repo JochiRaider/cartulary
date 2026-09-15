@@ -250,7 +250,8 @@ export function useEntityWorkbookInspectorComposition({
   useLayoutEffect(() => {
     if (mutationRuntime.explicitPatches.getSnapshot().authority)
       for (const row of rows)
-        mutationRuntime.explicitPatches.observeQuery(row.rawRow);
+        if (mutationRuntime.explicitPatches.latestRow(row.recordId))
+          mutationRuntime.explicitPatches.observeQuery(row.rawRow);
   }, [rows, mutationRuntime]);
   const aliasDraft = aliasEdit.value ?? "";
   const setEditValue = edit.update;

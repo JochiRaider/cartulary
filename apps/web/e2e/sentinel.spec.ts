@@ -3101,7 +3101,7 @@ test("optional standardized surfaces are workbook-native when exposed", async ({
         "investigative_query.platform",
       ),
     ),
-  ).toContainText("Kusto");
+  ).toContainText("kusto");
 
   await openGenericSurface(
     page,

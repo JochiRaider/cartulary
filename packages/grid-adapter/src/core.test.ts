@@ -22,6 +22,7 @@ import {
   navigateSemanticPresentation,
   planSemanticPasteTargets,
   resolveVisibleGridCellRange,
+  retainGridCellRange,
 } from "./semanticPresentation";
 import {
   gridSemanticStateClassNames,
@@ -666,6 +667,69 @@ describe("semantic grid state precedence", () => {
 });
 
 describe("semantic grid policies", () => {
+  it("preserves original range membership on append and clears evicted or noncontiguous ranges", () => {
+    const surface: GridSurfaceIdentity = {
+      kind: "view_schema",
+      viewSchemaId: "records",
+    };
+    const rowIdentity = (recordId: string) => ({
+      kind: "core_record" as const,
+      recordId,
+    });
+    const original = {
+      surface,
+      fieldKeys: ["title", "status"],
+      rowIdentities: [rowIdentity("a"), rowIdentity("b"), rowIdentity("c")],
+    };
+    const range = {
+      start: { surface, rowIdentity: rowIdentity("a"), fieldKey: "title" },
+      end: { surface, rowIdentity: rowIdentity("b"), fieldKey: "status" },
+    };
+    expect(
+      retainGridCellRange(
+        original,
+        {
+          ...original,
+          rowIdentities: [...original.rowIdentities, rowIdentity("d")],
+        },
+        range,
+      ),
+    ).toBe(range);
+    expect(
+      retainGridCellRange(
+        original,
+        { ...original, rowIdentities: original.rowIdentities.slice(1) },
+        range,
+      ),
+    ).toBeNull();
+    expect(
+      retainGridCellRange(
+        original,
+        {
+          ...original,
+          rowIdentities: [rowIdentity("a"), rowIdentity("c"), rowIdentity("b")],
+        },
+        range,
+      ),
+    ).toBeNull();
+    expect(
+      retainGridCellRange(
+        original,
+        { ...original, fieldKeys: ["title"] },
+        range,
+      ),
+    ).toBeNull();
+    expect(
+      retainGridCellRange(
+        original,
+        {
+          ...original,
+          surface: { kind: "view_schema", viewSchemaId: "other" },
+        },
+        range,
+      ),
+    ).toBeNull();
+  });
   const acceptedEditor = {
     commit: async () => ({ kind: "accepted" as const }),
     initialDraftValue: () => "",

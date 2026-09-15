@@ -795,6 +795,7 @@
         "titles": [
           "grid-adapter can fill available inline space on demand",
           "grid-adapter compiles semantic row and cell state into private classes, markers, and ARIA",
+          "grid-adapter detaches an unsubmitted editor for explicit browsing without committing or reopening it on return",
           "grid-adapter does not repeat seed retention on rerender or navigate after focus leaves a pending editor",
           "grid-adapter does not republish an unchanged semantic anchor when the active record updates",
           "grid-adapter fails closed when untyped callers attach Core mutation capabilities to extension grids",
@@ -851,6 +852,30 @@
           "semantic focus requests does not complete against a detached control and releases cancelled lifetimes",
           "semantic focus requests rejects unavailable and disabled targets and cancels on user navigation",
           "semantic focus requests waits for registration and acknowledges only the declared primary control"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.window_range_retention",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "semantic grid policies preserves original range membership on append and clears evicted or noncontiguous ranges"
         ]
       },
       "evidence_class": "unit",

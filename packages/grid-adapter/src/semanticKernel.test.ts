@@ -26,7 +26,10 @@ import {
   decideSemanticGridKey,
   normalizeGridKey,
 } from "./semanticKeyboardPolicy";
-import { buildSemanticPresentationModel } from "./semanticPresentation";
+import {
+  buildSemanticGroupBuckets,
+  buildSemanticPresentationModel,
+} from "./semanticPresentation";
 import {
   nextSemanticSort,
   resolveSemanticBulkSelection,
@@ -402,6 +405,21 @@ describe("shared semantic grid kernel", () => {
   });
 
   it("plans sorting and bulk selection with reference-preserving rejected transitions", () => {
+    const grouped = buildSemanticGroupBuckets(rows, {
+      fieldKey: "state",
+      getValue: (row) => row.state,
+      formatLabel: (value) => String(value),
+      compareValues: (left, right) => String(left).localeCompare(String(right)),
+    });
+    expect(grouped.map((bucket) => bucket.value)).toEqual(["closed", "open"]);
+    expect(
+      grouped.flatMap((bucket) => bucket.rows.map((row) => row.data.label)),
+    ).toEqual(["Beta", "Alpha", "Gamma"]);
+    expect(rows.map((row) => row.data.label)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+    ]);
     expect(nextSemanticSort([], "label", false)).toEqual([
       { direction: "asc", fieldKey: "label" },
     ]);

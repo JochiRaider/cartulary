@@ -20,3 +20,15 @@ services.
 | [useTimelineMutationComposition.ts](useTimelineMutationComposition.ts) | Owns the explicit Timeline query admission, row mutation, replay, runtime registration, collaboration, presence, conflict, and save command graph. |
 | [useTimelineSurfaceFoundation.ts](useTimelineSurfaceFoundation.ts) | Owns semantic Timeline adapter construction, query/lifecycle foundations, row and mention state, pending-save refs, editor drafts, and guarded workbook timing. |
 | [useTimelineWorkbookComposition.ts](useTimelineWorkbookComposition.ts) | Private root composer that invokes Timeline composition owners in dependency order, returns grouped capabilities, and publishes the capability-limited presentation projection. |
+
+## Query continuation
+
+The surface foundation owns the shared committed-record capability used by the
+inspector and mutation coordinator. The query loader stages bounded browser
+windows before Timeline projection acknowledges them. Browsing metadata and
+checkpoints remain under Workbook query ownership.
+
+Collection authoring shares its revision key across the grid and inspector.
+Settlement clears the captured revision through one mounted draft registry, or
+through the retained owner when detached. An earlier socket observation cannot
+leave accepted text in an input or clear typing entered after dispatch.

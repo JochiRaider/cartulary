@@ -178,7 +178,7 @@ export function compileGridColumns<Row>({
           }
         >
           <input
-            aria-label="Select all records on this page"
+            aria-label="Select all loaded records"
             checked={bulkSelection.allSelected}
             disabled={bulkSelection.selectableRecordCount === 0}
             ref={(node) => {

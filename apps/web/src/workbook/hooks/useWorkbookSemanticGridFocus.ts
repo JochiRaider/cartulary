@@ -4,11 +4,18 @@ import type {
   GridDataState,
   GridHandle,
 } from "@cartulary/grid-adapter";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   WorkbookGridEntryFocusAcknowledgement,
   WorkbookGridEntryFocusOwner,
 } from "../models/workbookGridEntryFocus";
+import { useWorkbookBrowsingRegistry } from "../query/WorkbookQueryBrowsingContext";
 
 type WorkbookGridHandleRef = {
   current: GridHandle | null;
@@ -50,6 +57,32 @@ export function useWorkbookSemanticGridFocus<Row>({
   readonly visibleColumns: readonly GridColumn<Row>[];
   readonly viewSchemaId: string;
 }) {
+  const browsingRegistry = useWorkbookBrowsingRegistry();
+  useLayoutEffect(() => {
+    const unbind = browsingRegistry?.bindGrid(viewSchemaId, gridHandleRef);
+    return () => {
+      const anchor = gridHandleRef.current?.getActiveCell?.();
+      if (anchor?.rowIdentity.kind === "core_record")
+        browsingRegistry
+          ?.find(viewSchemaId)
+          ?.rememberAnchor(anchor.rowIdentity.recordId);
+      unbind?.();
+    };
+  }, [browsingRegistry, viewSchemaId, gridHandleRef]);
+  useEffect(() => {
+    const anchor = gridHandleRef.current?.getActiveCell?.();
+    if (anchor?.rowIdentity.kind === "core_record")
+      browsingRegistry
+        ?.find(viewSchemaId)
+        ?.rememberAnchor(anchor.rowIdentity.recordId);
+    if (browsingRegistry?.find(viewSchemaId))
+      gridHandleRef.current
+        ?.getScrollElement()
+        ?.setAttribute(
+          "aria-description",
+          "Row indices and selection refer to the loaded window. Use the workbook browsing controls to reach additional records.",
+        );
+  });
   const { acknowledge, cancel: cancelRequest, request } = focusOwner;
   const latestRequest = useRef(request);
   latestRequest.current = request;

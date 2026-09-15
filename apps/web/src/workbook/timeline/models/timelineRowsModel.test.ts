@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { WorkbookRow } from "./timelineRowModel";
 import {
   buildTimelineGridRows,
+  compareTimelineGroupValues,
   ensureTimelineDraftRow,
 } from "./timelineRowsModel";
 
@@ -34,6 +35,49 @@ function workbookRow(
 }
 
 describe("timelineRowsModel", () => {
+  it("orders Timeline grouping buckets independently of the unchanged query row order", () => {
+    const order = (field: string, values: (string | boolean | null)[]) =>
+      values.sort((a, b) => compareTimelineGroupValues(field, a, b));
+    expect(
+      order("timeline.capture_state", [
+        "reviewed",
+        null,
+        "superseded",
+        "enriched",
+        "rough",
+      ]),
+    ).toEqual(["rough", "enriched", "reviewed", "superseded", null]);
+    expect(
+      order("timeline.date_entered_sort_day", [
+        null,
+        "2026-01-01",
+        "2026-01-03",
+      ]),
+    ).toEqual(["2026-01-03", "2026-01-01", null]);
+    expect(order("timeline.has_evidence", [false, null, true])).toEqual([
+      true,
+      false,
+      null,
+    ]);
+    expect(
+      order("timeline.activity_time_pair_state", [
+        "empty",
+        "disabled",
+        "paired_mismatch",
+        "paired_user_preserved",
+        "conversion_unavailable",
+        "paired_generated",
+      ]),
+    ).toEqual([
+      "paired_generated",
+      "paired_user_preserved",
+      "paired_mismatch",
+      "conversion_unavailable",
+      "disabled",
+      "empty",
+    ]);
+  });
+
   it("allocates one draft row only when the Timeline row set needs one", () => {
     const nextDraftIndex = vi.fn(() => 7);
     const committedRows = [workbookRow("row-a", "record-a", 2)];

@@ -81,6 +81,7 @@ describe("semantic mutation command ports", () => {
             },
             meta: {
               query: { filters: [], sort: [] },
+              paging: { limit: 50, has_more: false, next_cursor: null },
               request_id: "request-query",
             },
           }),

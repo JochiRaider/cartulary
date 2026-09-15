@@ -54,9 +54,12 @@ test("Ordinary closure preserves copyable next authoring and requires explicit e
       })
     ).ok,
   ).toBe(true);
-  const draft = await ordinaryField(page, evidence, "evidence.title");
-  await expect(draft).toHaveAttribute("readonly", "");
-  await expect(draft).toHaveValue("Unsent after reopening");
+  const retainedDraft = page.getByRole("textbox", {
+    name: "Title retained authoring",
+    exact: true,
+  });
+  await expect(retainedDraft).toHaveAttribute("readonly", "");
+  await expect(retainedDraft).toHaveValue("Unsent after reopening");
   expect(bodies).toHaveLength(1);
   await recovery
     .getByRole("button", { name: "Recover submission", exact: true })
@@ -72,7 +75,9 @@ test("Ordinary closure preserves copyable next authoring and requires explicit e
   await page
     .getByRole("button", { name: "Close incident controls", exact: true })
     .click();
+  const draft = await ordinaryField(page, evidence, "evidence.title");
   await expect(draft).toBeEditable();
+  await expect(draft).toHaveValue("Unsent after reopening");
   expect(bodies).toHaveLength(2);
   expect(await queryViewRows(page, incident, evidence)).toHaveLength(1);
   await commitOrdinary(page, evidence);

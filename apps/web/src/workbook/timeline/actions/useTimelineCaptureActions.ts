@@ -148,9 +148,10 @@ export function useTimelineCaptureActions(options: {
         );
         if (!committed?.row?.rawRow || signal.aborted || !isCurrent())
           return null;
-        const live = current.current.rowsRef.current.find(
-          (row) => row.recordId === review.target.recordId,
-        );
+        const live =
+          current.current.rowsRef.current.find(
+            (row) => row.recordId === review.target.recordId,
+          ) ?? committed.row;
         if (!live) return null;
         const materialized = current.current.drafts.materializeRow(live);
         if (

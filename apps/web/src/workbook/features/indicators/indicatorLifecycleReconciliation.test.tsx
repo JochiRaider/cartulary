@@ -7,6 +7,7 @@ import {
   lifecycleReceipt,
   lifecycleRow,
 } from "../../../testing/indicatorLifecycleTestSupport";
+import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
 import { createIndicatorLifecycleAdapter } from "../../adapters/createIndicatorLifecycleAdapter";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
@@ -120,6 +121,7 @@ it("Lifecycle query materialization never regresses HTTP or socket version evide
       value: {
         incidentId: lifecycleAuthority.incidentId,
         viewSchemaId: indicatorLifecycleViewId,
+        ...acceptedQueryMetadata(indicatorLifecycleViewId),
         rows: [lifecycleRow(8)],
       },
     }));
@@ -142,6 +144,7 @@ it("Lifecycle query materialization never regresses HTTP or socket version evide
     value: {
       incidentId: lifecycleAuthority.incidentId,
       viewSchemaId: indicatorLifecycleViewId,
+      ...acceptedQueryMetadata(indicatorLifecycleViewId),
       rows: [lifecycleRow(9)],
     },
   });

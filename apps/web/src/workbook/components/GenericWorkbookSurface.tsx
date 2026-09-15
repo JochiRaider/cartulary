@@ -80,9 +80,14 @@ import {
   workbookGridDataState,
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import {
+  compareWorkbookGroupValues,
+  workbookGroupValue,
+} from "../models/workbookQuery";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
+import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
@@ -446,21 +451,14 @@ export function ContractWorkbookSurface({
       }
       return {
         fieldKey,
+        compareValues: compareWorkbookGroupValues,
         formatLabel: (value) =>
           genericCellLabelForField(surface, fieldKey, value),
         getTestId: (groupFieldKey, _value, label) =>
           label === null
             ? undefined
             : gridGroupRowTestId(surface, groupFieldKey, label),
-        getValue: (row) => {
-          const value = row.cells[fieldKey]?.value;
-          return value === null ||
-            typeof value === "boolean" ||
-            typeof value === "number" ||
-            typeof value === "string"
-            ? value
-            : null;
-        },
+        getValue: (row) => workbookGroupValue(row, fieldKey),
         label: contract.fieldMap[fieldKey]?.label ?? fieldKey,
       };
     }, [contract.fieldMap, queryState.groupBy, surface]);
@@ -698,6 +696,10 @@ export function ContractWorkbookSurface({
       fieldKey: firstWritableField.fieldKey,
     });
   }, [canCreateRows, createFields]);
+  const restartQuery = useWorkbookQueryRestart(
+    contract.viewSchemaId,
+    onRefresh,
+  );
   const dataState = workbookGridDataState({
     emptyAction: canCreateRows
       ? { label: "Add row", onInvoke: focusDraftRow }
@@ -705,7 +707,7 @@ export function ContractWorkbookSurface({
     emptyMessage: `No ${contract.title.toLocaleLowerCase()} records are available.`,
     loadState,
     onClearFilters,
-    onRetry: () => void onRefresh(),
+    onRetry: () => void restartQuery(),
     queryState,
     rowCount: gridRecordRows.length,
     surfaceLabel: contract.title,
@@ -730,33 +732,6 @@ export function ContractWorkbookSurface({
     visibleColumns: columns,
     viewSchemaId: surface,
   });
-  useEffect(() => {
-    void sharedMutation;
-    if (
-      contract.viewSchemaId !== taskViewId ||
-      !editRecordId ||
-      rows.some((row) => row.record_id === editRecordId)
-    )
-      return;
-    const completed = mutationRuntime.explicitPatches
-      .getSnapshot()
-      .entries.some(
-        (entry) =>
-          entry.receipt?.row.record_id === editRecordId &&
-          entry.reconciliation === "complete",
-      );
-    if (!completed) return;
-    setEditRecordId("");
-    genericFocus.port.clear();
-    void gridHandleRef.current?.requestFocus({ kind: "root" });
-  }, [
-    contract.viewSchemaId,
-    editRecordId,
-    genericFocus.port,
-    mutationRuntime,
-    rows,
-    sharedMutation,
-  ]);
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}

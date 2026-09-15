@@ -1,32 +1,22 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
-import {
-  requireWorkbookSurfaceAcceptance,
-  type WorkbookSurfaceRecordChangeResult,
-} from "../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
-import type { EntityRow } from "../models/entityWorkbookModel";
-import { entityRowFromApi } from "../models/entityWorkbookModel";
 import {
-  initialWorkbookQueryLoadState,
-  type WorkbookQueryLoadState,
-} from "../models/workbookGridState";
+  type EntityRow,
+  entityRowFromApi,
+} from "../models/entityWorkbookModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
+  timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
-import { reconcileWorkbookRecordRows } from "../utils/workbookRowReconciliation";
-import { planEntityLiveEventPatch } from "./entityLiveEventPatchPlanner";
+import { referenceRequirement } from "../policies/workbookSurfacePolicy";
+import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
+import { useGenericSurfaceQuery } from "./useGenericSurfaceQuery";
 import type { WorkbookCommittedRecordPort } from "./WorkbookCommittedRecordPort";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
-import {
-  abortLatestQuery,
-  beginLatestQuery,
-  type LatestQueryRuntime,
-} from "./workbookLatestRequest";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
@@ -34,274 +24,215 @@ const identitiesContract = requireViewContract(identitiesViewSchemaId);
 export type EntitySurfaceQueryInput = {
   readonly ordinaryCreateOwner?: WorkbookCommittedRecordPort | undefined;
   readonly editOwner?: WorkbookCommittedRecordPort | undefined;
+  readonly activeViewSchemaId?: string;
+  readonly referenceBroker?: ReferenceQueryBrokerPort;
   readonly hostQueryState: WorkbookQueryState;
   readonly identityQueryState: WorkbookQueryState;
   readonly onAuthorityUncertain: (() => void) | undefined;
   readonly viewQuery: WorkbookViewQueryPort;
 };
 
-export function useEntitySurfaceQuery({
-  ordinaryCreateOwner,
-  editOwner,
-  hostQueryState,
-  identityQueryState,
-  onAuthorityUncertain,
-  viewQuery,
-}: EntitySurfaceQueryInput) {
-  const [hostRows, setHostRows] = useState<EntityRow[]>([]);
-  const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
-  const [loadState, setLoadState] = useState<WorkbookQueryLoadState>(
-    initialWorkbookQueryLoadState,
+/** Entity conversion and partial indexing stay here; each sheet owns its read lifetime. */
+export function useEntitySurfaceQuery(input: EntitySurfaceQueryInput) {
+  const references = useEntityReferenceRows(
+    input.referenceBroker,
+    input.activeViewSchemaId === timelineViewSchemaId,
   );
-  const acceptedRowCountRef = useRef(0);
-  const hostRowsRef = useRef(hostRows);
-  const identityRowsRef = useRef(identityRows);
-  const queryRuntimeRef = useRef<LatestQueryRuntime>({
-    controller: null,
-    sequence: 0,
+  const shared = {
+    ordinaryCreateOwner: input.ordinaryCreateOwner,
+    committedRecordOwner: input.editOwner,
+    onAuthorityUncertain: input.onAuthorityUncertain,
+    viewQuery: input.viewQuery,
+  };
+  const hosts = useGenericSurfaceQuery({
+    ...shared,
+    active:
+      input.activeViewSchemaId === undefined ||
+      input.activeViewSchemaId === hostsViewSchemaId,
+    contract: hostsContract,
+    viewSchemaId: hostsViewSchemaId,
+    queryState: input.hostQueryState,
   });
-  hostRowsRef.current = hostRows;
-  identityRowsRef.current = identityRows;
-
-  const entityIndex = useMemo(() => {
-    const index: Record<string, EntityRow> = {};
-    for (const row of [...hostRows, ...identityRows]) {
-      index[row.recordId] = row;
-    }
-    return index;
-  }, [hostRows, identityRows]);
-
-  const refresh = useCallback(
+  const identities = useGenericSurfaceQuery({
+    ...shared,
+    active:
+      input.activeViewSchemaId === undefined ||
+      input.activeViewSchemaId === identitiesViewSchemaId,
+    contract: identitiesContract,
+    viewSchemaId: identitiesViewSchemaId,
+    queryState: input.identityQueryState,
+  });
+  const hostRows = useMemo(
+    () => hosts.rows.map((row) => entityRowFromApi(row, "host")),
+    [hosts.rows],
+  );
+  const identityRows = useMemo(
+    () => identities.rows.map((row) => entityRowFromApi(row, "identity")),
+    [identities.rows],
+  );
+  const entityIndex = useMemo(
+    () =>
+      Object.fromEntries(
+        [...hostRows, ...identityRows].map((row) => [row.recordId, row]),
+      ) as Record<string, EntityRow>,
+    [hostRows, identityRows],
+  );
+  const refreshHosts = hosts.refresh,
+    refreshIdentities = identities.refresh;
+  const refreshBoth = useCallback(
     async (options?: { readonly requireAcceptance?: boolean }) => {
-      if (ordinaryCreateOwner && !ordinaryCreateOwner.getSnapshot().authority) {
-        abortLatestQuery(queryRuntimeRef);
-        if (options?.requireAcceptance)
-          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
-        return;
-      }
-      const request = beginLatestQuery(queryRuntimeRef);
-      setLoadState(
-        acceptedRowCountRef.current > 0
-          ? { kind: "refreshing" }
-          : { generationKey: request.generationKey, kind: "initial_loading" },
-      );
-      const [hostsResult, identitiesResult] = await Promise.all([
-        viewQuery.query({
-          contract: hostsContract,
-          queryState: hostQueryState,
-          signal: request.signal,
-        }),
-        viewQuery.query({
-          contract: identitiesContract,
-          queryState: identityQueryState,
-          signal: request.signal,
-        }),
-      ]);
-      if (
-        !request.isCurrent() ||
-        hostsResult.kind === "aborted" ||
-        identitiesResult.kind === "aborted"
-      ) {
-        if (options?.requireAcceptance)
-          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
-        return;
-      }
-      const rejected = [hostsResult, identitiesResult].find(
-        (result) => result.kind === "rejected",
-      );
-      if (rejected?.kind === "rejected") {
-        const message = rejected.failure.message;
-        if (
-          workbookFailureLifecycle(rejected.failure).kind ===
-          "authority_unavailable"
-        ) {
-          onAuthorityUncertain?.();
-          hostRowsRef.current = [];
-          identityRowsRef.current = [];
-          acceptedRowCountRef.current = 0;
-          setHostRows([]);
-          setIdentityRows([]);
-          setLoadState({ kind: "permission_denied", message });
-        } else if (acceptedRowCountRef.current > 0) {
-          setLoadState({ kind: "stale_error", message });
-        } else {
-          setLoadState({ kind: "unavailable", message });
-        }
-        if (options?.requireAcceptance)
-          requireWorkbookSurfaceAcceptance(rejected);
-        return;
-      }
-      if (
-        hostsResult.kind !== "accepted" ||
-        identitiesResult.kind !== "accepted"
-      ) {
-        return;
-      }
-      if (
-        [...hostsResult.value.rows, ...identitiesResult.value.rows].some(
-          (row) =>
-            row.row_version <
-            Math.max(
-              ordinaryCreateOwner?.latestVersion(row.record_id) ?? 0,
-              editOwner?.latestVersion(row.record_id) ?? 0,
-            ),
-        )
-      ) {
-        const failure = {
-          kind: "rejected" as const,
-          failure: {
-            kind: "stale_target" as const,
-            message:
-              "The query is older than an accepted change. Refresh current rows.",
-          },
-        };
-        setLoadState({ kind: "stale_error", message: failure.failure.message });
-        if (options?.requireAcceptance)
-          requireWorkbookSurfaceAcceptance(failure);
-        return;
-      }
-      for (const row of [
-        ...hostsResult.value.rows,
-        ...identitiesResult.value.rows,
-      ]) {
-        ordinaryCreateOwner?.acceptRow(row);
-        editOwner?.acceptRow(row);
-      }
-      const nextHosts = hostsResult.value.rows.map((row) =>
-        entityRowFromApi(row, "host"),
-      );
-      const nextIdentities = identitiesResult.value.rows.map((row) =>
-        entityRowFromApi(row, "identity"),
-      );
-      setHostRows((current) => [
-        ...reconcileWorkbookRecordRows(current, nextHosts),
-      ]);
-      setIdentityRows((current) => [
-        ...reconcileWorkbookRecordRows(current, nextIdentities),
-      ]);
-      acceptedRowCountRef.current = nextHosts.length + nextIdentities.length;
-      setLoadState({ kind: "ready" });
+      await Promise.all([refreshHosts(options), refreshIdentities(options)]);
     },
-    [
-      hostQueryState,
-      identityQueryState,
-      onAuthorityUncertain,
-      viewQuery,
-      ordinaryCreateOwner,
-      editOwner,
-    ],
+    [refreshHosts, refreshIdentities],
   );
-
-  const applyRecordChanged = useCallback(
-    (
-      payload: RecordChangedPayload,
-      viewSchemaId: string,
-    ): WorkbookSurfaceRecordChangeResult => {
+  // An inactive sheet or a reference broker must not replace this sheet's reader.
+  const refresh =
+    input.activeViewSchemaId === undefined
+      ? refreshBoth
+      : input.activeViewSchemaId === hostsViewSchemaId
+        ? refreshHosts
+        : input.activeViewSchemaId === identitiesViewSchemaId
+          ? refreshIdentities
+          : input.activeViewSchemaId === timelineViewSchemaId
+            ? references.refresh
+            : inactiveRead;
+  const invalidateHosts = hosts.invalidate,
+    invalidateIdentities = identities.invalidate;
+  const invalidate = useCallback(
+    (reason: WorkbookQueryInvalidationReason) => {
+      invalidateHosts(reason);
+      invalidateIdentities(reason);
       if (
-        payload.row_version <
-        Math.max(
-          ordinaryCreateOwner?.latestVersion(payload.record_id) ?? 0,
-          editOwner?.latestVersion(payload.record_id) ?? 0,
-        )
+        reason.kind !== "incident_closed" &&
+        reason.kind !== "collaboration_reset_required"
       )
-        return { kind: "stale" };
-      const plan = planEntityLiveEventPatch({
-        hostRows: hostRowsRef.current,
-        identityRows: identityRowsRef.current,
-        payload,
-        viewSchemaId,
-      });
-      if (plan.kind === "refresh_required") return plan;
-      if (plan.kind === "stale_noop") return { kind: "stale" };
-      const next = [...plan.rows];
-      if (plan.entityType === "host") {
-        hostRowsRef.current = next;
-        setHostRows(next);
-      } else {
-        identityRowsRef.current = next;
-        setIdentityRows(next);
-      }
-      return { kind: "applied" };
+        references.clear();
     },
-    [ordinaryCreateOwner, editOwner],
+    [invalidateHosts, invalidateIdentities, references.clear],
   );
-
-  const invalidate = useCallback((reason: WorkbookQueryInvalidationReason) => {
-    abortLatestQuery(queryRuntimeRef);
-    if (
-      reason.kind === "collaboration_reset_required" ||
-      reason.kind === "incident_closed"
-    ) {
-      return;
-    }
-    hostRowsRef.current = [];
-    identityRowsRef.current = [];
-    acceptedRowCountRef.current = 0;
-    setHostRows([]);
-    setIdentityRows([]);
-  }, []);
-
-  useEffect(() => {
-    const subscribe = (owner: WorkbookCommittedRecordPort) => {
-      let authorized = !!owner.getSnapshot().authority;
-      return owner.subscribe(() => {
-        const previouslyAuthorized = authorized;
-        authorized = !!owner.getSnapshot().authority;
-        if (!authorized) {
-          abortLatestQuery(queryRuntimeRef);
-          hostRowsRef.current = [];
-          identityRowsRef.current = [];
-          acceptedRowCountRef.current = 0;
-          setHostRows([]);
-          setIdentityRows([]);
-          return;
-        }
-        if (!previouslyAuthorized) void refresh();
-        const project = (rows: EntityRow[], type: "host" | "identity") =>
-          rows.map((row) => {
-            const accepted = owner.latestRow(row.recordId);
-            return accepted && accepted.row_version > row.rowVersion
-              ? entityRowFromApi(accepted, type)
-              : row;
-          });
-        const hosts = project(hostRowsRef.current, "host"),
-          identities = project(identityRowsRef.current, "identity");
-        if (hosts.some((row, index) => row !== hostRowsRef.current[index])) {
-          hostRowsRef.current = hosts;
-          setHostRows(hosts);
-        }
-        if (
-          identities.some(
-            (row, index) => row !== identityRowsRef.current[index],
-          )
-        ) {
-          identityRowsRef.current = identities;
-          setIdentityRows(identities);
-        }
-      });
-    };
-    const unsubscribe = [ordinaryCreateOwner, editOwner].flatMap((owner) =>
-      owner ? [subscribe(owner)] : [],
-    );
-    return () => {
-      for (const stop of unsubscribe) stop();
-    };
-  }, [ordinaryCreateOwner, editOwner, refresh]);
-
-  useEffect(
-    () => () => {
-      abortLatestQuery(queryRuntimeRef);
-    },
-    [],
+  const patchHosts = hosts.applyRecordChanged,
+    patchIdentities = identities.applyRecordChanged;
+  const applyRecordChanged = useCallback(
+    (payload: RecordChangedPayload, viewSchemaId: string) =>
+      viewSchemaId === hostsViewSchemaId
+        ? patchHosts(payload)
+        : patchIdentities(payload),
+    [patchHosts, patchIdentities],
   );
-
+  const selected =
+    input.activeViewSchemaId === identitiesViewSchemaId ? identities : hosts;
   return {
-    applyRecordChanged,
-    invalidate,
-    entityIndex,
+    hosts,
+    identities,
     hostRows,
     identityRows,
-    loadState,
+    entityIndex,
+    references,
     refresh,
+    invalidate,
+    applyRecordChanged,
+    loadState: selected.loadState,
+    browser: selected.browser,
+    browsing: selected.browsing,
   };
+}
+
+async function inactiveRead() {}
+
+const entityReferenceRequirements = [
+  referenceRequirement(hostsViewSchemaId),
+  referenceRequirement(identitiesViewSchemaId),
+];
+/** Bounded reference observations are independent of both sheets' authored queries. */
+function useEntityReferenceRows(
+  broker: ReferenceQueryBrokerPort | undefined,
+  active: boolean,
+) {
+  const [hosts, setHosts] = useState<EntityRow[]>([]);
+  const [identities, setIdentities] = useState<EntityRow[]>([]);
+  const pending = useRef<AbortController | null>(null);
+  const hasAcceptedReferences = useRef(false);
+  const requestedReferences = useRef(false);
+  const previousBroker = useRef(broker);
+  const latestBroker = useRef(broker);
+  latestBroker.current = broker;
+  const clear = useCallback(() => {
+    pending.current?.abort();
+    pending.current = null;
+    hasAcceptedReferences.current = false;
+    requestedReferences.current = false;
+    setHosts([]);
+    setIdentities([]);
+  }, []);
+  const refresh = useCallback(async () => {
+    requestedReferences.current = true;
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
+    const currentBroker = latestBroker.current;
+    if (!currentBroker || !active) {
+      setHosts([]);
+      setIdentities([]);
+      return;
+    }
+    try {
+      const result = await currentBroker.execute(
+        entityReferenceRequirements,
+        controller.signal,
+      );
+      if (
+        controller.signal.aborted ||
+        pending.current !== controller ||
+        latestBroker.current !== currentBroker
+      )
+        return;
+      hasAcceptedReferences.current = true;
+      setHosts(
+        (
+          result.find(
+            (entry) => entry.requirement.viewSchemaId === hostsViewSchemaId,
+          )?.rows ?? []
+        ).map((row) => entityRowFromApi(row, "host")),
+      );
+      setIdentities(
+        (
+          result.find(
+            (entry) =>
+              entry.requirement.viewSchemaId === identitiesViewSchemaId,
+          )?.rows ?? []
+        ).map((row) => entityRowFromApi(row, "identity")),
+      );
+    } catch {
+      if (controller.signal.aborted || pending.current !== controller) return;
+      setHosts([]);
+      setIdentities([]);
+    } finally {
+      if (pending.current === controller) pending.current = null;
+    }
+  }, [active]);
+  useEffect(() => {
+    const replaced = previousBroker.current !== broker;
+    previousBroker.current = broker;
+    // Startup authorization can replace the broker before its first read settles.
+    // Complete that obligation once; an accepted reference set needs no eager read.
+    if (
+      replaced &&
+      active &&
+      requestedReferences.current &&
+      (pending.current !== null || !hasAcceptedReferences.current)
+    )
+      void refresh();
+  }, [active, broker, refresh]);
+  useEffect(() => {
+    if (!active) clear();
+    return clear;
+  }, [active, clear]);
+  const index = useMemo(
+    () =>
+      Object.fromEntries(
+        [...hosts, ...identities].map((row) => [row.recordId, row]),
+      ),
+    [hosts, identities],
+  );
+  return { hosts, identities, index, refresh, clear };
 }

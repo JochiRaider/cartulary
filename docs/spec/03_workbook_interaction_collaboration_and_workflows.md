@@ -319,7 +319,7 @@ Profiles: base
 Verified by: AC-480
 
 **REQ-03-297**
-Bulk record selection MUST be opt-in per view schema and MUST exist only when an adopted multi-record command consumes it. In the current profile, Timeline MAY expose selection for `multi_row_tag_assignment_v1`; other surfaces MUST omit bulk selection until an owner adopts a command. Active cell, inspector subject, and bulk selection are distinct state. Selection MUST use committed `record_id` values, exclude group and draft rows, carry current `base_row_version` targets at dispatch, and prune records removed from the accepted query result or authorization scope. Select-all means selectable committed records in the current query page only.
+Bulk record selection MUST be opt-in per view schema and MUST exist only when an adopted multi-record command consumes it. In the current profile, Timeline MAY expose selection for `multi_row_tag_assignment_v1`; other surfaces MUST omit bulk selection until an owner adopts a command. Active cell, inspector subject, and bulk selection are distinct state. Selection MUST use committed `record_id` values, exclude group and draft rows, carry current `base_row_version` targets at dispatch, and prune records removed from the accepted query result or authorization scope. Select-all means selectable committed records in the current loaded query window only. Appending a response page MUST NOT expand existing selection. An out-of-query creation pin MUST NOT become a bulk target merely because it is displayed. Eviction MUST prune record selection and MUST clear a cell range whose original members no longer form a valid contiguous range. These presentation transitions MUST NOT alter already captured mutation targets.
 Profiles: base
 Verified by: AC-481
 
@@ -2570,6 +2570,68 @@ The following are non-goals in the base profile:
 - merged cells,
 - indent-based hierarchy,
 - parent and child tree rows.
+
+### 14.9 Bounded workbook browsing
+
+Main Timeline, Hosts, Identities, Assessments and registered generic workbook
+surfaces MUST expose the Core query route's continuation through a moving window
+of at most three response pages, with requested page limit `100`. This limit is
+per response, not a cap on matching records. Loading a fourth page MUST evict the
+oldest page. Cross-page record overlap permitted by the live-keyset contract MUST
+be reconciled by stable identity and committed version, not rejected as evidence
+of an immutable-snapshot violation. Unknown total counts and global record
+ordinals MUST NOT be invented.
+
+The work area MUST expose keyboard-operable `Load more`, `Earlier rows` and
+`Refresh` controls. Loading requires explicit activation; scrolling and ordinary
+grid navigation MUST NOT prefetch pages. The client MUST retain at most twenty
+earlier producing-request checkpoints. `Earlier rows` re-fetches the immediately
+preceding retained checkpoint into a replacement window, retiring its old forward
+descendants. Older evicted positions beyond that bound require explicit Refresh.
+Refresh and REQ-03-275 pagination recovery MUST discard the chain and start
+without a cursor. Invalid-cursor recovery permits at most one automatic restart
+per logical read, sharing a budget of at most two automatic recovery attempts
+with committed-version freshness retries. Exhaustion retains an eligible accepted
+result and offers local read recovery; it MUST NOT loop.
+
+User-authored query overrides, server-canonical effective query and the accepted
+window with its producing requests MUST remain distinct. Rows and their canonical
+metadata MUST be admitted together under the current incident, surface, query,
+request and authority lifetime. Pending or failed replacements MUST retain prior
+authorized rows under their accepted chips, sorting and grouping. Requested
+changes remain explicitly unapplied with Retry and Revert. Canonical response
+adoption MUST NOT itself dispatch a query or add server default-sort tails or
+technical tie-breakers to authored saved-view overrides.
+
+Hosts and Identities MUST have independent browsing and error lifetimes. Loaded
+Entity query pages MUST NOT be treated as a complete reference registry. Sheet
+departure releases passive query payloads and retains bounded request checkpoints
+and semantic anchors. Return within the same authorized workbook runtime MUST
+re-fetch one page near the prior anchor, using the ordinary invalid-cursor
+recovery if needed. An authority boundary invalidates protected browsing state,
+including cursor checkpoints, under REQ-03-299/100.
+
+Explicit browsing actions MAY detach an invalid or unsubmitted editor while
+retaining its exact authoring state; they MUST NOT submit or discard that state.
+Ordinary cell navigation still follows REQ-03-218/300's acceptance gates. Timeline's
+trailing creation draft remains after loaded committed rows; navigation alone
+MUST NOT create a record. The single creation pin retains exactly REQ-03-224's
+lifetime. Page eviction MUST NOT retarget or discard drafts, captured operations,
+receipts, or independently retained inspector subjects. Passive query observations
+are window-scoped and MUST NOT accumulate in retained-operation stores merely
+because records were browsed. Original-source capabilities and required version
+floors survive independently of query membership; absence is not deletion or
+authorization loss.
+
+Live changes that can alter query placement MUST reconcile through the query
+owner by re-reading at most the current three-page window from its producing
+request. Reconciliation stages its result before publication and coalesces pending
+invalidations. It MUST NOT fetch an unbounded remainder. Where possible, preserve
+the semantic anchor and owned scrolling. Explicit browse controls retain focus
+during loading. A removed anchor falls back to the first surviving committed row
+in the same eligible field, then the existing empty-grid fallback; a late result
+MUST NOT steal focus from a newer interaction. Restoring a sheet or window does
+not itself reopen a retained editor.
 
 ## 15. Timeline read and write contract
 

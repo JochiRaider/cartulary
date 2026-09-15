@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { workbookQueryMeta } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { createReferenceQueryBroker } from "./referenceQueryBroker";
 
@@ -32,7 +33,7 @@ function queryResponse(incidentId = incidentOne): Response {
         view_schema_id: requirement.viewSchemaId,
         rows: [],
       },
-      meta: { query: { filters: [], sort: [] }, request_id: "request-1" },
+      meta: workbookQueryMeta(requirement.viewSchemaId),
     }),
     {
       status: 200,

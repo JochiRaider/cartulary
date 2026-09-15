@@ -29,6 +29,7 @@ export function useTimelineWorkbookComposition({
     rowsRef: foundation.refs.rows,
   });
   const inspector = useTimelineInspectorStateComposition({
+    committedRecords: foundation.ports.committedRows,
     continuity: grid.ports.continuity,
     currentIncidentRole: runtime.incident.currentRole,
     dismissedMentionsByRow: foundation.snapshot.mentions.dismissedMentionsByRow,
@@ -41,6 +42,7 @@ export function useTimelineWorkbookComposition({
   const mutation = useTimelineMutationComposition({
     collaborationProjection: runtime.collaborationProjection,
     foundation: {
+      committedRows: foundation.ports.committedRows,
       clearActiveCollectionInputKey:
         foundation.commands.editor.deactivateCollectionInput,
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
@@ -212,6 +214,7 @@ export function useTimelineWorkbookComposition({
   });
 
   useTimelineSourceWriteCoordination({
+    committedRow: foundation.ports.committedRows.currentCommittedTimelineRow,
     owner: runtime.mutationRuntime.timelineFiles,
     rows: foundation.refs.rows,
     drafts: foundation.refs.editorDraftRegistry,
@@ -219,6 +222,7 @@ export function useTimelineWorkbookComposition({
     waitForIdle: mutation.ports.waitForCommittedRecordIdle,
   });
   useTimelineSourceWriteCoordination({
+    committedRow: foundation.ports.committedRows.currentCommittedTimelineRow,
     owner: runtime.mutationRuntime.timelineRelatedEvidence,
     rows: foundation.refs.rows,
     drafts: foundation.refs.editorDraftRegistry,
@@ -226,6 +230,7 @@ export function useTimelineWorkbookComposition({
     waitForIdle: mutation.ports.waitForCommittedRecordIdle,
   });
   useTimelineSourceWriteCoordination({
+    committedRow: foundation.ports.committedRows.currentCommittedTimelineRow,
     owner: runtime.mutationRuntime.noteCreate,
     rows: foundation.refs.rows,
     drafts: foundation.refs.editorDraftRegistry,
@@ -233,6 +238,7 @@ export function useTimelineWorkbookComposition({
     waitForIdle: mutation.ports.waitForCommittedRecordIdle,
   });
   useTimelineSourceWriteCoordination({
+    committedRow: foundation.ports.committedRows.currentCommittedTimelineRow,
     owner: runtime.mutationRuntime.coordinationCreate,
     rows: foundation.refs.rows,
     drafts: foundation.refs.editorDraftRegistry,
@@ -369,6 +375,7 @@ export function useTimelineWorkbookComposition({
         },
         query: {
           loadRows: mutation.commands.query.loadRows,
+          browser: mutation.commands.query.browser,
         },
       },
       snapshot: {

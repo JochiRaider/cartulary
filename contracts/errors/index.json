@@ -516,6 +516,28 @@
   ],
   "reason_registries": [
     {
+      "error_code": "invalid_view_query",
+      "reason_codes": [
+        { "code": "unknown_filter_field", "summary": "The field is not filterable in the addressed view." },
+        { "code": "operator_not_allowed", "summary": "The operator is not allowed for the declared field class." },
+        { "code": "invalid_filter_operand", "summary": "The operand is malformed, empty, contradictory, or invalid for the operator." },
+        { "code": "empty_values_after_normalization", "summary": "The set-like operand has no remaining normalized values." },
+        { "code": "empty_full_text_after_tokenization", "summary": "The full-text query has no remaining normalized tokens." },
+        { "code": "duplicate_filter_field", "summary": "The normalized filter field occurs more than once." },
+        { "code": "filter_count_exceeded", "summary": "The raw filter array exceeds sixteen entries." },
+        { "code": "invalid_sort_entry", "summary": "The sort entry does not have the required field and direction shape." },
+        { "code": "duplicate_sort_field", "summary": "The normalized sort field occurs more than once." },
+        { "code": "sort_field_not_allowed", "summary": "The sort field is not declared by the addressed view." },
+        { "code": "sort_count_exceeded", "summary": "The raw authored sort array exceeds eight entries." },
+        { "code": "invalid_group_by", "summary": "The grouping value is null or malformed." },
+        { "code": "group_by_not_allowed", "summary": "The grouping field is not declared by the addressed view." },
+        { "code": "invalid_limit", "summary": "The query limit is malformed, outside one through five hundred, or uses an unsupported pagination alias." },
+        { "code": "invalid_cursor_token", "summary": "The Core workbook cursor is malformed, tampered, or not valid for the current route or actor." },
+        { "code": "cursor_query_mismatch", "summary": "The cursor does not match the normalized route query and effective limit." },
+        { "code": "cursor_snapshot_unavailable", "summary": "Reserved for future explicit snapshot routes; restart without a cursor if received." }
+      ]
+    },
+    {
       "error_code": "invalid_enterprise_auth_request",
       "reason_codes": [
         {

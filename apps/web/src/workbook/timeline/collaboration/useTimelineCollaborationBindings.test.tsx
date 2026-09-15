@@ -99,6 +99,7 @@ describe("useTimelineCollaborationBindings", () => {
     const { result, rerender, unmount } = renderHook(
       ({ sheetId }) =>
         useTimelineCollaborationBindings({
+          clearCommittedRows: () => {},
           activeSheetRef: { kind: "saved_view", id: sheetId },
           admission: {
             acceptCommittedRow,
@@ -212,6 +213,7 @@ describe("useTimelineCollaborationBindings", () => {
     const rowsRef = { current: [committedRow("record-1", 1, "Before")] };
     const { unmount } = renderHook(() =>
       useTimelineCollaborationBindings({
+        clearCommittedRows: () => {},
         activeSheetRef: { kind: "view_schema", id: timelineViewSchemaId },
         admission: {
           acceptCommittedRow: (row) => ({ row }),

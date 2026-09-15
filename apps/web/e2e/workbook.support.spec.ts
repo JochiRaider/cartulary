@@ -15,6 +15,7 @@ import {
   timelineRowMarkReviewedButtonTestId,
   workbookColumnsMenuTestId,
   workbookColumnsMenuTriggerTestId,
+  workbookQueryEntryTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
@@ -93,7 +94,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
 
   const selectRequest = waitForTimelineQuery(page, incidentId);
   await selectSavedView(page, timelineViewSchemaId, savedView.saved_view_id);
-  expect(Object.keys(readPostBody(await selectRequest)).sort()).toEqual([]);
+  expect(readPostBody(await selectRequest)).toEqual({ limit: 100 });
   await expect
     .poll(() => readSavedViewSelectionState(page, timelineViewSchemaId))
     .toMatchObject({
@@ -109,6 +110,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     "timeline.activity_synopsis_text",
   );
   expect(readPostBody(await sortRequest)).toEqual({
+    limit: 100,
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
@@ -120,6 +122,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     "reviewed",
   );
   expect(readPostBody(await filterRequest)).toEqual({
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -129,6 +132,15 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     ],
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
+  await expect(
+    page.getByTestId(
+      workbookQueryEntryTestId(
+        timelineViewSchemaId,
+        "filter",
+        "timeline.capture_state",
+      ),
+    ),
+  ).toBeVisible();
   await assertActiveFilterChipVisible(
     page,
     timelineViewSchemaId,
@@ -138,6 +150,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   const groupRequest = waitForTimelineQuery(page, incidentId);
   await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await groupRequest)).toEqual({
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -146,10 +159,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
       },
     ],
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   const reviewedGroupTestId = gridGroupRowTestId(
     timelineViewSchemaId,

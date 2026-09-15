@@ -9,6 +9,7 @@ import {
   decisionRow,
   decisionTargetId,
 } from "../../../testing/decisionSupersessionTestSupport";
+import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
 import { createWorkbookDecisionSupersessionAdapter } from "../../adapters/createWorkbookDecisionSupersessionAdapter";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
@@ -112,6 +113,7 @@ it("Decision query and live patches cannot regress accepted high-water versions"
     value: {
       incidentId: decisionAuthority.incidentId,
       viewSchemaId: decisionViewId,
+      ...acceptedQueryMetadata(decisionViewId),
       rows: [row],
     },
   }));
@@ -134,6 +136,7 @@ it("Decision query and live patches cannot regress accepted high-water versions"
     value: {
       incidentId: decisionAuthority.incidentId,
       viewSchemaId: decisionViewId,
+      ...acceptedQueryMetadata(decisionViewId),
       rows: [decisionRow(decisionTargetId, "proposed", 5)],
     },
   });
@@ -158,6 +161,7 @@ it("Decision query and live patches cannot regress accepted high-water versions"
     value: {
       incidentId: decisionAuthority.incidentId,
       viewSchemaId: decisionViewId,
+      ...acceptedQueryMetadata(decisionViewId),
       rows: [decisionRow(decisionTargetId, "executed", 10)],
     },
   });

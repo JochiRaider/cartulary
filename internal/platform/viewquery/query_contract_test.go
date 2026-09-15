@@ -281,7 +281,7 @@ func requireWorkbookQueryOpenAPIHasCanonicalMeta(t testing.TB) {
 	if queryRef != "#/components/schemas/WorkbookQueryMetaQuery" {
 		t.Fatalf("workbook query meta must expose canonical query object, got %q", queryRef)
 	}
-	requireStringSet(t, queryMeta["required"], []string{"request_id", "query"})
+	requireStringSet(t, queryMeta["required"], []string{"request_id", "paging", "query"})
 
 	query := schemaAt(t, schemas, "WorkbookQueryMetaQuery")
 	queryProps := objectAt(t, query, "properties")

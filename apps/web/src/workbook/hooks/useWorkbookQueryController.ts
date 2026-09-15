@@ -3,6 +3,7 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
+  useEffect,
   useMemo,
 } from "react";
 import {
@@ -22,6 +23,7 @@ import {
   identitiesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import { useWorkbookQueryPresentation } from "../query/WorkbookQueryBrowsingContext";
 import {
   useWorkbookQueryState,
   type WorkbookQueryStateSetter,
@@ -45,6 +47,7 @@ export function useWorkbookQueryController({
 }: {
   readonly surface: string;
 }) {
+  const browsing = useWorkbookQueryPresentation();
   const viewSchemaIds = useMemo(
     () => [
       assessmentsViewSchemaId,
@@ -75,8 +78,13 @@ export function useWorkbookQueryController({
   );
 
   const currentQueryStateForSurface = useCallback(
-    (viewSchemaId: string) => entryFor(viewSchemaId).queryState,
-    [entryFor],
+    (viewSchemaId: string) => {
+      const requested = entryFor(viewSchemaId).queryState;
+      return (
+        browsing?.find(viewSchemaId)?.canonicalIntent(requested) ?? requested
+      );
+    },
+    [entryFor, browsing],
   );
 
   const makeQuerySetter = useCallback(
@@ -112,6 +120,17 @@ export function useWorkbookQueryController({
     [surface],
   );
   const activeEntry = entryFor(surface);
+  useEffect(
+    () =>
+      browsing?.bindRevert(surface, () => {
+        const accepted = browsing.find(surface)?.getSnapshot().authored;
+        if (accepted) setQueryStateForSurface(surface, accepted);
+      }),
+    [browsing, surface, setQueryStateForSurface],
+  );
+  const presentedQuery =
+    browsing?.find(surface)?.presentationQuery(activeEntry.queryState) ??
+    activeEntry.queryState;
   const activeQueryControls = useMemo<WorkbookActiveQueryControls>(() => {
     const setActiveQueryState = makeQuerySetter(surface);
     const setActiveFilterDraft = (action: SetStateAction<FilterDraft>) =>
@@ -143,7 +162,7 @@ export function useWorkbookQueryController({
           replaceWorkbookSort(activeContract, current, sort),
         );
       },
-      queryState: activeEntry.queryState,
+      queryState: presentedQuery,
       surface,
     };
   }, [
@@ -152,6 +171,7 @@ export function useWorkbookQueryController({
     makeQuerySetter,
     setFilterDraftForSurface,
     surface,
+    presentedQuery,
   ]);
 
   return {

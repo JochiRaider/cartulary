@@ -49,6 +49,7 @@ import { OrdinaryCreateControl } from "../features/ordinary/OrdinaryCreateContro
 import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice";
 import { useOrdinaryCreateDraft } from "../features/ordinary/useOrdinaryCreateDraft";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
+import { useRetainedInspectorRow } from "../inspector/useRetainedInspectorRow";
 import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatchRecovery";
 import type {
   WorkbookInspectorErrorPresentation,
@@ -64,7 +65,6 @@ import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
   type EntityRow,
   entityContractColumnWidth,
-  entityGroupLabel,
   entityRowFromApi,
 } from "../models/entityWorkbookModel";
 import {
@@ -83,6 +83,10 @@ import {
   workbookGridDataState,
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import {
+  compareWorkbookGroupValues,
+  workbookGroupValue,
+} from "../models/workbookQuery";
 import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import {
   hostsViewSchemaId,
@@ -92,6 +96,7 @@ import type {
   RecordRouteCommandPort,
   TimelineRelatedRecordPort,
 } from "../mutations/workbookMutationCommandPorts";
+import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
@@ -241,8 +246,28 @@ export function EntityWorkbookSurface({
     collaborationProjection,
   );
 
-  const selectedEntity =
-    rows.find((row) => row.recordId === selectedRecordId) ?? null;
+  const selectedVisible = rows.find((row) => row.recordId === selectedRecordId);
+  const selectedCommitted =
+    selectedRecordId === null
+      ? null
+      : (mutationRuntime.explicitPatches.latestRow(selectedRecordId) ??
+        mutationRuntime.ordinaryCreate.latestRow(selectedRecordId));
+  const selectedObservation = useMemo(
+    () =>
+      selectedCommitted &&
+      selectedCommitted.row_version > (selectedVisible?.rowVersion ?? 0)
+        ? entityRowFromApi(selectedCommitted, entityType)
+        : (selectedVisible ?? null),
+    [selectedCommitted, selectedVisible, entityType],
+  );
+  const selectedEntity = useRetainedInspectorRow({
+    recordId: selectedRecordId,
+    row: selectedObservation,
+    rowVersion: (row) => row.rowVersion,
+    scope: `${inspectorResetKey}:${currentUserId}:${currentIncidentRole}`,
+    readable:
+      currentIncidentRole !== null && loadState.kind !== "permission_denied",
+  });
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
@@ -333,12 +358,13 @@ export function EntityWorkbookSurface({
     }
     return {
       fieldKey,
+      compareValues: compareWorkbookGroupValues,
       formatLabel: (value) => (value === null ? null : String(value)),
       getTestId: (groupFieldKey, _value, label) =>
         label === null
           ? undefined
           : gridGroupRowTestId(surface, groupFieldKey, label),
-      getValue: (row) => entityGroupLabel(row, fieldKey),
+      getValue: (row) => workbookGroupValue(row.rawRow, fieldKey),
       label: contract.fieldMap[fieldKey]?.label ?? fieldKey,
     };
   }, [contract.fieldMap, queryState.groupBy, surface]);
@@ -392,6 +418,7 @@ export function EntityWorkbookSurface({
       fieldKey: firstWritableField.fieldKey,
     });
   }, [canCreateRows, createFields]);
+  const restartQuery = useWorkbookQueryRestart(surface, onRefreshEntities);
   const dataState = workbookGridDataState({
     emptyAction: canCreateRows
       ? { label: "Add row", onInvoke: focusEntityDraft }
@@ -399,7 +426,7 @@ export function EntityWorkbookSurface({
     emptyMessage: `No ${entityType === "host" ? "hosts" : "identities"} have been added.`,
     loadState,
     onClearFilters,
-    onRetry: () => void onRefreshEntities(),
+    onRetry: () => void restartQuery(),
     queryState,
     rowCount: entityGridRows.length,
     surfaceLabel: contract.title,
@@ -734,14 +761,11 @@ export function EntityWorkbookSurface({
   };
 
   useEffect(() => {
-    if (
-      selectedRecordId === null ||
-      rows.some((row) => row.recordId === selectedRecordId)
-    ) {
+    if (selectedRecordId === null || selectedEntity !== null) {
       return;
     }
     setSelectedRecordId(null);
-  }, [rows, selectedRecordId]);
+  }, [selectedEntity, selectedRecordId]);
 
   async function submitEntityCreate() {
     await mutationRuntime.ordinaryCreate.submit(contract.viewSchemaId);

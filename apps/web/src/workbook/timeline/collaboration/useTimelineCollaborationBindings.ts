@@ -9,6 +9,7 @@ import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollabor
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../../lifecycle/workbookInvalidation";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { useWorkbookBrowsingRegistry } from "../../query/WorkbookQueryBrowsingContext";
 import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
 import {
   applyViewRowPatch,
@@ -59,6 +60,7 @@ export function useTimelineCollaborationBindings({
   activeSheetRef,
   admission,
   beginRowsLoad,
+  clearCommittedRows,
   collaborationProjection,
   refreshRows,
   resolveClientTxn,
@@ -67,6 +69,7 @@ export function useTimelineCollaborationBindings({
 }: {
   readonly activeSheetRef: SheetRef;
   readonly admission: TimelineRowAdmission;
+  readonly clearCommittedRows: () => void;
   readonly beginRowsLoad: () => unknown;
   readonly collaborationProjection: TimelineCollaborationProjection;
   readonly refreshRows: (options?: {
@@ -78,6 +81,7 @@ export function useTimelineCollaborationBindings({
   readonly rowsRef: { current: WorkbookRow[] };
   readonly rowStoreCommands: TimelineRowStoreCommands;
 }): TimelineCollaborationBinding {
+  const browsing = useWorkbookBrowsingRegistry();
   const { replaceRows } = rowStoreCommands;
   const snapshot = useWorkbookCollaborationCoordinator(collaborationProjection);
 
@@ -142,9 +146,23 @@ export function useTimelineCollaborationBindings({
       }
       rowsRef.current = nextRows;
       replaceRows(nextRows);
-      return { kind: "applied" };
+      const browser = browsing?.find(timelineViewSchemaId);
+      browser?.observeRows(
+        nextRows.flatMap((row) => (row.rawRow ? [row.rawRow] : [])),
+      );
+      const placement = browser?.getSnapshot().canonicalQuery;
+      return payload.changed_field_keys.some(
+        (key) =>
+          placement?.sort.some((sort) => sort.fieldKey === key) ||
+          placement?.filters.some(
+            (filter) => filter.fieldKey === key || filter.op === "full_text",
+          ) ||
+          placement?.groupBy === key,
+      )
+        ? { kind: "refresh_required" }
+        : { kind: "applied" };
     },
-    [admission, replaceRows, rowsRef],
+    [admission, browsing, replaceRows, rowsRef],
   );
 
   const activeSurface = useMemo<WorkbookActiveSurfacePort>(
@@ -162,6 +180,8 @@ export function useTimelineCollaborationBindings({
         ) {
           return;
         }
+        clearCommittedRows();
+        browsing?.find(timelineViewSchemaId)?.invalidate();
         const localDrafts = rowsRef.current.filter(
           (row) => row.recordId === null,
         );
@@ -169,18 +189,25 @@ export function useTimelineCollaborationBindings({
         replaceRows(localDrafts);
       },
       refresh: async (options) => {
-        await refreshRows({
-          requireAcceptance: options?.reason === "authorization_recovered",
-        });
+        const read = () =>
+          refreshRows({
+            requireAcceptance: options?.reason === "authorization_recovered",
+          });
+        const browser = browsing?.find(timelineViewSchemaId);
+        if (options?.reason === "record_changed" && browser)
+          await browser.reconcile(read);
+        else await read();
       },
     }),
     [
       activeSheetRef,
       applyRecordChanged,
       beginRowsLoad,
+      clearCommittedRows,
       refreshRows,
       rowsRef,
       replaceRows,
+      browsing,
     ],
   );
 

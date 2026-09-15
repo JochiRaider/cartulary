@@ -31,6 +31,7 @@ import {
   removeFilterField,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { useWorkbookQueryRestart } from "../../query/WorkbookQueryBrowsingContext";
 import { DraftRowCreateButton } from "../components/TimelineDraftRowActions";
 import { timelinePendingQueueMessage } from "../components/TimelineWorkbookNotices";
 import { useTimelineWorkbookRenderers } from "../components/TimelineWorkbookRenderers";
@@ -119,7 +120,10 @@ export function useTimelineWorkbookPresentation({
     setFilterDraft,
     setQueryState,
   } = foundation.commands.query;
-  const { filterDraft, queryState } = foundation.snapshot.query;
+  const { filterDraft, queryState: requestedQueryState } =
+    foundation.snapshot.query;
+  const queryState =
+    mutation.commands.query.browser.presentationQuery(requestedQueryState);
   const rows = foundation.snapshot.rows;
   const fileOwner = composition.fileOwner;
   const files = useSyncExternalStore(
@@ -425,9 +429,12 @@ export function useTimelineWorkbookPresentation({
     );
     setFilterDraft(defaultFilterDraft(timelineContract));
   }, [setFilterDraft, setQueryState]);
+  const restartQuery = useWorkbookQueryRestart(timelineViewSchemaId, () =>
+    loadRows({ showLoading: true }),
+  );
   const handleRetry = useCallback(() => {
-    void loadRows({ showLoading: true });
-  }, [loadRows]);
+    void restartQuery();
+  }, [restartQuery]);
   const timelineDataState = workbookGridDataState({
     emptyAction:
       interactionMode.kind === "editable"

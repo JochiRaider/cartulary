@@ -1,3 +1,4 @@
+import type { GridGroupingScalar } from "@cartulary/grid-adapter";
 import {
   resolveHeaderSortFieldKey,
   type ViewContract,
@@ -9,6 +10,29 @@ export type WorkbookFilter = {
   readonly fieldKey: string;
   readonly op: WorkbookFilterOperator;
 };
+
+/** Core 03 grouping order is presentation policy; row order remains server-owned. */
+export function compareWorkbookGroupValues(
+  left: GridGroupingScalar,
+  right: GridGroupingScalar,
+): number {
+  if (left === right) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
+  return left < right ? -1 : 1;
+}
+
+export function workbookGroupValue(
+  row: { readonly group_values?: Record<string, unknown> },
+  fieldKey: string,
+): GridGroupingScalar {
+  const value = row.group_values?.[fieldKey];
+  return typeof value === "string" ||
+    typeof value === "boolean" ||
+    typeof value === "number"
+    ? value
+    : null;
+}
 
 export type WorkbookFilterOperator =
   | "contains_all"
@@ -381,7 +405,7 @@ export function buildQueryRequest(
   state: WorkbookQueryState,
 ): WorkbookProtocolQueryViewRequest {
   const request: WorkbookProtocolQueryViewRequest = {};
-  const sort = normalizeSortForRequest(contract, state);
+  const sort = normalizeUserSortForPersistence(contract, state);
   if (sort.length > 0) {
     request.sort = sort.map((entry) => ({
       direction: entry.direction,
@@ -522,23 +546,6 @@ export function filterInputMode(fieldKey: string): FilterInputMode {
     return "tagset";
   }
   return "text";
-}
-
-function normalizeSortForRequest(
-  contract: ViewContract,
-  state: WorkbookQueryState,
-): readonly WorkbookSortEntry[] {
-  const sort = normalizeUserSortForPersistence(contract, state);
-  if (!state.groupBy) {
-    return sort;
-  }
-  if (sort.some((entry) => entry.fieldKey === state.groupBy)) {
-    return sort;
-  }
-  if (!contract.groupableFieldMap[state.groupBy]) {
-    return sort;
-  }
-  return [{ fieldKey: state.groupBy, direction: "asc" }, ...sort];
 }
 
 function savedViewSortFromQueryJson(

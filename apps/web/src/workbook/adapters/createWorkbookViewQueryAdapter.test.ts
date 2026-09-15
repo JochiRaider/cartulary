@@ -1,6 +1,14 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, expect, it, vi } from "vitest";
+import {
+  errorResponse,
+  jsonResponse,
+} from "../../testing/fetchMockTestSupport";
 import { timelineRow } from "../../testing/timelineWorkbookTestSupport";
+import {
+  acceptedQueryMetadata,
+  workbookQueryMeta,
+} from "../../testing/workbookQueryTestSupport";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createWorkbookViewQueryAdapter } from "./createWorkbookViewQueryAdapter";
@@ -8,6 +16,69 @@ import { createWorkbookViewQueryAdapter } from "./createWorkbookViewQueryAdapter
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("preserves route query cursors and projected pagination reasons without trusting unknown reasons", async () => {
+  const incidentId = "00000000-0000-4000-8000-000000000001";
+  const contract = requireViewContract(timelineViewSchemaId);
+  const queryState = {
+    ...emptyWorkbookQueryState(),
+    groupBy: "timeline.capture_state",
+  };
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          incident_id: incidentId,
+          view_schema_id: timelineViewSchemaId,
+          rows: [],
+        },
+        meta: workbookQueryMeta(timelineViewSchemaId, queryState),
+      }),
+    )
+    .mockResolvedValueOnce(
+      errorResponse("invalid_view_query", 400, {
+        reason_code: "cursor_query_mismatch",
+      }),
+    )
+    .mockResolvedValueOnce(
+      errorResponse("invalid_view_query", 400, {
+        reason_code: "invented_reason",
+      }),
+    );
+  vi.stubGlobal("fetch", fetch);
+  const port = createWorkbookViewQueryAdapter({
+    incidentId,
+    apiBase: undefined,
+  });
+  const input = {
+    contract,
+    queryState,
+    limit: 100,
+    cursorToken: " cursor+/= ",
+    signal: new AbortController().signal,
+  };
+  const result = await port.query(input);
+  expect(result.kind).toBe("accepted");
+  expect(JSON.parse(String(fetch.mock.calls[0]?.[1].body))).toEqual({
+    limit: 100,
+    cursor_token: " cursor+/= ",
+    group_by: "timeline.capture_state",
+  });
+  if (result.kind === "accepted")
+    expect(result.value.producingRequest.cursorToken).toBe(input.cursorToken);
+  expect(await port.query(input)).toMatchObject({
+    kind: "rejected",
+    failure: {
+      publicCode: "invalid_view_query",
+      publicReason: "cursor_query_mismatch",
+    },
+  });
+  const unknown = await port.query(input);
+  expect(unknown.kind).toBe("rejected");
+  if (unknown.kind === "rejected")
+    expect(unknown.failure.publicReason).toBeUndefined();
 });
 
 it("derives and validates Workbook query transport behind the shared semantic port", async () => {
@@ -29,7 +100,12 @@ it("derives and validates Workbook query transport behind the shared semantic po
           view_schema_id: timelineViewSchemaId,
         },
         meta: {
-          query: { filters: [], sort: [] },
+          ...workbookQueryMeta(timelineViewSchemaId),
+          paging: {
+            limit: 100,
+            has_more: true,
+            next_cursor: " opaque+/cursor= ",
+          },
           request_id: "req-query",
         },
       }),
@@ -53,6 +129,9 @@ it("derives and validates Workbook query transport behind the shared semantic po
     value: {
       incidentId,
       rows: [{ record_id: recordId, row_version: 3 }],
+      paging: { limit: 100, hasMore: true, nextCursor: " opaque+/cursor= " },
+      canonicalQuery:
+        acceptedQueryMetadata(timelineViewSchemaId).canonicalQuery,
       viewSchemaId: timelineViewSchemaId,
     },
   });
@@ -81,7 +160,6 @@ it("fails closed on malformed or cross-context query success and contains aborts
             view_schema_id: timelineViewSchemaId,
           },
           meta: {
-            query: { filters: [], sort: [] },
             request_id: "req-cross-context",
           },
         }),

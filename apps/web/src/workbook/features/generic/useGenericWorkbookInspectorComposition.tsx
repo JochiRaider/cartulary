@@ -23,6 +23,7 @@ import type { GenericSurfaceMutationController } from "../../hooks/useGenericSur
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { prepareWorkbookInspectorChange } from "../../inspector/prepareWorkbookInspectorChange";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
+import { useRetainedInspectorRow } from "../../inspector/useRetainedInspectorRow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { useWorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
@@ -170,8 +171,23 @@ export function useGenericWorkbookInspectorComposition({
     useState<IndicatorInspectorHandler | null>(null);
   const [editCollectionMode, setEditCollectionMode] =
     useState<GenericCollectionMode>("add");
-  const subjectRow =
-    rows.find((row) => row.record_id === selectedRecordId) ?? null;
+  const subjectRow = useRetainedInspectorRow({
+    recordId: selectedRecordId,
+    row: [
+      rows.find((row) => row.record_id === selectedRecordId),
+      mutation.explicitPatches.latestRow(selectedRecordId),
+      mutation.ordinaryCreate.latestRow(selectedRecordId),
+      lifecycleOwner?.latestRow(selectedRecordId),
+      decisionOwner?.latestRow(selectedRecordId),
+    ].reduce<WorkbookQueryRow | null>(
+      (latest, row) =>
+        row && row.row_version > (latest?.row_version ?? 0) ? row : latest,
+      null,
+    ),
+    rowVersion: (row) => row.row_version,
+    scope: `${inspectorResetKey}:${currentUserId}:${currentIncidentRole}`,
+    readable: currentIncidentRole !== null,
+  });
   useLayoutEffect(() => {
     // Query rows can arrive before the shell's authority effect. Admit their
     // Records version only once this same-account presentation is authorized.

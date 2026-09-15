@@ -158,6 +158,37 @@ export function semanticPresentationContainsAnchor(
   );
 }
 
+/** A live window change must not silently change the members of a captured range. */
+export function retainGridCellRange(
+  previous: GridSemanticCoordinateModel,
+  current: GridSemanticCoordinateModel,
+  range: GridCellRange | null,
+): GridCellRange | null {
+  if (range === null) return null;
+  if (!gridSurfaceIdentitiesEqual(previous.surface, current.surface))
+    return null;
+  const members = (model: GridSemanticCoordinateModel) => {
+    const start = model.rowIdentities.findIndex((row) =>
+      gridRowIdentitiesEqual(row, range.start.rowIdentity),
+    );
+    const end = model.rowIdentities.findIndex((row) =>
+      gridRowIdentitiesEqual(row, range.end.rowIdentity),
+    );
+    const left = model.fieldKeys.indexOf(range.start.fieldKey),
+      right = model.fieldKeys.indexOf(range.end.fieldKey);
+    if (start < 0 || end < 0 || left < 0 || right < 0) return null;
+    return JSON.stringify([
+      model.rowIdentities
+        .slice(Math.min(start, end), Math.max(start, end) + 1)
+        .map(gridRowIdentityKey),
+      model.fieldKeys.slice(Math.min(left, right), Math.max(left, right) + 1),
+    ]);
+  };
+  const before = members(previous),
+    after = members(current);
+  return before !== null && before === after ? range : null;
+}
+
 export function buildSemanticCoordinateModel<Row>({
   dataRows,
   fieldKeys,
@@ -229,6 +260,10 @@ export function buildSemanticGroupBuckets<Row>(
     };
     bucketsById.set(id, bucket);
     buckets.push(bucket);
+  }
+  if (grouping.compareValues) {
+    const compare = grouping.compareValues;
+    buckets.sort((left, right) => compare(left.value, right.value));
   }
   return buckets;
 }

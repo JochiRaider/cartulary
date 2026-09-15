@@ -3,6 +3,8 @@ import type {
   GridDataRow,
 } from "@cartulary/grid-adapter";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { useWorkbookQueryPresentation } from "../../query/WorkbookQueryBrowsingContext";
 import {
   planTimelineBulkTag,
   type TimelineBulkTagContext,
@@ -27,6 +29,16 @@ type TimelineBulkTagControllerInput = {
 export function useTimelineBulkTagController(
   input: TimelineBulkTagControllerInput,
 ) {
+  const browsing = useWorkbookQueryPresentation();
+  const acceptedRows = browsing?.find(timelineViewSchemaId)?.getSnapshot()
+    .accepted?.rows;
+  const queryMembers = useMemo(
+    () =>
+      browsing === null
+        ? null
+        : new Set((acceptedRows ?? []).map((row) => row.record_id)),
+    [acceptedRows, browsing],
+  );
   const [selectedRecordIds, setSelectedRecordIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -47,7 +59,8 @@ export function useTimelineBulkTagController(
         ? input.rows.flatMap((row) =>
             row.recordId !== null &&
             row.rowVersion !== null &&
-            row.pendingSignature === null
+            row.pendingSignature === null &&
+            (queryMembers === null || queryMembers.has(row.recordId))
               ? [row.recordId]
               : [],
           )
@@ -60,7 +73,12 @@ export function useTimelineBulkTagController(
       selectedRecordIdsRef.current = next;
       return next.size === current.size ? current : next;
     });
-  }, [input.context.authorized, input.context.capabilityAvailable, input.rows]);
+  }, [
+    input.context.authorized,
+    input.context.capabilityAvailable,
+    input.rows,
+    queryMembers,
+  ]);
 
   const changeSelectedRecordIds = useCallback(
     (recordIds: ReadonlySet<string>) => {
@@ -82,11 +100,14 @@ export function useTimelineBulkTagController(
   const gridSelection = useMemo<GridCoreRecordBulkSelection<WorkbookRow>>(
     () => ({
       isRecordSelectable: (row: GridDataRow<WorkbookRow>) =>
-        canAssign && row.data.pendingSignature === null,
+        canAssign &&
+        row.data.pendingSignature === null &&
+        (queryMembers === null ||
+          (row.data.recordId !== null && queryMembers.has(row.data.recordId))),
       onSelectedRecordIdsChange: changeSelectedRecordIds,
       selectedRecordIds,
     }),
-    [canAssign, changeSelectedRecordIds, selectedRecordIds],
+    [canAssign, changeSelectedRecordIds, selectedRecordIds, queryMembers],
   );
 
   const assignTag = useCallback(async () => {

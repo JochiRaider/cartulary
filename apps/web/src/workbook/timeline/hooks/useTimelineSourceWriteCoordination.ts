@@ -10,6 +10,7 @@ export function useTimelineSourceWriteCoordination(options: {
       coordinate: (recordId: string, signal: AbortSignal) => Promise<boolean>,
     ): () => void;
   };
+  readonly committedRow?: (recordId: string) => WorkbookRow | null;
   readonly rows: { readonly current: WorkbookRow[] };
   readonly drafts: TimelineEditorDraftRegistry;
   readonly available: boolean;
@@ -25,9 +26,10 @@ export function useTimelineSourceWriteCoordination(options: {
       options.owner.registerSourceCoordinator(async (recordId, signal) => {
         const clean = () => {
           if (!current.current.available) return false;
-          const row = current.current.rows.current.find(
-            (row) => row.recordId === recordId,
-          );
+          const row =
+            current.current.rows.current.find(
+              (row) => row.recordId === recordId,
+            ) ?? current.current.committedRow?.(recordId);
           if (!row) return true;
           const materialized = current.current.drafts.materializeRow(row);
           return (
@@ -43,7 +45,10 @@ export function useTimelineSourceWriteCoordination(options: {
         };
         if (!clean()) return false;
         if (
-          current.current.rows.current.some((row) => row.recordId === recordId)
+          current.current.rows.current.some(
+            (row) => row.recordId === recordId,
+          ) ||
+          current.current.committedRow?.(recordId)
         ) {
           const idle = await current.current.waitForIdle(recordId, {
             signal,

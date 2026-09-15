@@ -15,6 +15,10 @@ import {
   jsonResponse,
 } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import {
+  acceptedQueryMetadata,
+  workbookQueryMeta,
+} from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { WorkbookAssessmentAuthoringOwner } from "../features/assessments/WorkbookAssessmentAuthoringOwner";
 import {
@@ -61,10 +65,7 @@ function queryResponse(rows: readonly unknown[]) {
       view_schema_id: assessmentsViewSchemaId,
       rows: rows.map(withoutLocalViewSchema),
     },
-    meta: {
-      query: { filters: [], sort: [] },
-      request_id: "req-query",
-    },
+    meta: workbookQueryMeta(assessmentsViewSchemaId),
   });
 }
 
@@ -318,9 +319,15 @@ describe("Assessment committed query reconciliation", () => {
     });
     const old = assessmentRow(assessmentCurrentId, 1, "Original");
     const latest = assessmentRow(assessmentCurrentId, 3, "Latest");
-    const query = vi
-      .fn()
-      .mockResolvedValue({ kind: "accepted", value: { rows: [old] } });
+    const query = vi.fn().mockResolvedValue({
+      kind: "accepted",
+      value: {
+        incidentId,
+        viewSchemaId: assessmentsViewSchemaId,
+        rows: [old],
+        ...acceptedQueryMetadata(assessmentsViewSchemaId),
+      },
+    });
     const hook = renderHook(() =>
       useAssessmentSurfaceQuery({
         active: true,
@@ -342,7 +349,15 @@ describe("Assessment committed query reconciliation", () => {
     expect(hook.result.current.rows[0]?.row_version).toBe(3);
     await act(async () => hook.result.current.refresh());
     expect(hook.result.current.rows[0]?.row_version).toBe(3);
-    query.mockResolvedValue({ kind: "accepted", value: { rows: [] } });
+    query.mockResolvedValue({
+      kind: "accepted",
+      value: {
+        incidentId,
+        viewSchemaId: assessmentsViewSchemaId,
+        rows: [],
+        ...acceptedQueryMetadata(assessmentsViewSchemaId),
+      },
+    });
     await act(async () =>
       hook.result.current.refresh({ requireAcceptance: true }),
     );
@@ -357,9 +372,15 @@ describe("Assessment committed query reconciliation", () => {
       { accepted: () => {}, refresh: async () => {} },
     );
     const row = assessmentRow(assessmentCurrentId, 1, "Readable startup row");
-    const query = vi
-      .fn()
-      .mockResolvedValue({ kind: "accepted", value: { rows: [row] } });
+    const query = vi.fn().mockResolvedValue({
+      kind: "accepted",
+      value: {
+        incidentId,
+        viewSchemaId: assessmentsViewSchemaId,
+        rows: [row],
+        ...acceptedQueryMetadata(assessmentsViewSchemaId),
+      },
+    });
     const hook = renderHook(() =>
       useAssessmentSurfaceQuery({
         active: true,
@@ -389,9 +410,15 @@ describe("Assessment committed query reconciliation", () => {
     } as const;
     owner.setAuthority(authority);
     const row = assessmentRow(assessmentCurrentId, 1, "Protected");
-    const query = vi
-      .fn()
-      .mockResolvedValue({ kind: "accepted", value: { rows: [row] } });
+    const query = vi.fn().mockResolvedValue({
+      kind: "accepted",
+      value: {
+        incidentId,
+        viewSchemaId: assessmentsViewSchemaId,
+        rows: [row],
+        ...acceptedQueryMetadata(assessmentsViewSchemaId),
+      },
+    });
     const hook = renderHook(() =>
       useAssessmentSurfaceQuery({
         active: true,
@@ -424,7 +451,12 @@ describe("Assessment committed query reconciliation", () => {
     await act(async () => {
       resolve({
         kind: "accepted",
-        value: { rows: [assessmentRow(assessmentCurrentId, 3, "Late")] },
+        value: {
+          incidentId,
+          viewSchemaId: assessmentsViewSchemaId,
+          rows: [assessmentRow(assessmentCurrentId, 3, "Late")],
+          ...acceptedQueryMetadata(assessmentsViewSchemaId),
+        },
       });
       await pending;
     });

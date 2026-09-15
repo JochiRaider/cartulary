@@ -1,10 +1,15 @@
-import type { GridDataRow, GridDraftRow } from "@cartulary/grid-adapter";
+import type {
+  GridDataRow,
+  GridDraftRow,
+  GridGroupingScalar,
+} from "@cartulary/grid-adapter";
 import {
   gridRowGutterTestId,
   gridRowTestId,
   workbookInlineDraftRowTestId,
 } from "@cartulary/ui-contracts";
 import type { ReactNode } from "react";
+import { compareWorkbookGroupValues } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { inputFocusKey } from "./timelineFieldRegistry";
 import { createDraftRow, type WorkbookRow } from "./timelineRowModel";
@@ -14,6 +19,31 @@ type TimelineGridRows = {
   readonly draftRow?: GridDraftRow<WorkbookRow> | undefined;
   readonly recordRows: readonly GridDataRow<WorkbookRow>[];
 };
+
+export function compareTimelineGroupValues(
+  field: string,
+  left: GridGroupingScalar,
+  right: GridGroupingScalar,
+): number {
+  if (left === null || right === null)
+    return compareWorkbookGroupValues(left, right);
+  const order =
+    field === "timeline.capture_state"
+      ? ["rough", "enriched", "reviewed", "superseded"]
+      : field === "timeline.activity_time_pair_state"
+        ? [
+            "paired_generated",
+            "paired_user_preserved",
+            "paired_mismatch",
+            "conversion_unavailable",
+            "disabled",
+            "empty",
+          ]
+        : null;
+  return order
+    ? order.indexOf(String(left)) - order.indexOf(String(right))
+    : -compareWorkbookGroupValues(left, right);
+}
 
 type EnsureTimelineDraftRowResult = {
   readonly rows: WorkbookRow[];

@@ -16,6 +16,10 @@ import {
 } from "../../testing/fetchMockTestSupport";
 import { taskAuthority, taskRow } from "../../testing/taskWorkbookTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import {
+  acceptedQueryMetadata,
+  workbookQueryMeta,
+} from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
@@ -30,6 +34,48 @@ import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 
 const findingsContract = requireViewContract(findingsViewSchemaId);
 const notesContract = requireViewContract(notesViewSchemaId);
+
+it("retains an accepted empty generic result and its query after a failed replacement", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(queryResponse(notesViewSchemaId, []))
+    .mockResolvedValueOnce(errorResponse("internal_error", 500));
+  vi.stubGlobal("fetch", fetch);
+  const hook = renderHook(
+    ({ queryState }) =>
+      useGenericSurfaceQuery({
+        active: true,
+        contract: notesContract,
+        onAuthorityUncertain: undefined,
+        queryState,
+        viewQuery,
+        viewSchemaId: notesViewSchemaId,
+      }),
+    { initialProps: { queryState: emptyWorkbookQueryState() } },
+  );
+  await act(() => hook.result.current.refresh());
+  expect(hook.result.current.browsing.accepted?.rows).toEqual([]);
+  hook.rerender({
+    queryState: {
+      ...emptyWorkbookQueryState(),
+      groupBy: notesContract.groupingFields[0] ?? null,
+      sort: [{ fieldKey: "note.title", direction: "desc" }],
+    },
+  });
+  await act(() => hook.result.current.refresh());
+  expect(hook.result.current.loadState.kind).toBe("stale_error");
+  expect(hook.result.current.acceptedQueryState).toEqual(
+    emptyWorkbookQueryState(),
+  );
+  expect(
+    hook.result.current.browser.hasUnapplied({
+      ...emptyWorkbookQueryState(),
+      sort: [{ fieldKey: "note.title", direction: "desc" }],
+    }),
+  ).toBe(true);
+  hook.unmount();
+  vi.unstubAllGlobals();
+});
 const incidentId = "00000000-0000-4000-8000-000000000001";
 const noteCurrentId = "00000000-0000-4000-8000-000000000101";
 const noteObsoleteId = "00000000-0000-4000-8000-000000000102";
@@ -67,10 +113,7 @@ function queryResponse(viewSchemaId: string, rows: readonly unknown[]) {
       view_schema_id: viewSchemaId,
       rows: rows.map(withoutLocalViewSchema),
     },
-    meta: {
-      query: { filters: [], sort: [] },
-      request_id: "req-query",
-    },
+    meta: workbookQueryMeta(viewSchemaId),
   });
 }
 
@@ -401,7 +444,12 @@ it("fences Task committed rows across receipts queries and filtered departures",
   let responseRows: readonly WorkbookQueryRow[] = [initial, sibling];
   const query = vi.fn(async () => ({
     kind: "accepted" as const,
-    value: { rows: responseRows, incidentId, viewSchemaId: taskViewId },
+    value: {
+      ...acceptedQueryMetadata(taskViewId),
+      rows: responseRows,
+      incidentId,
+      viewSchemaId: taskViewId,
+    },
   }));
   const { result } = renderHook(() =>
     useGenericSurfaceQuery({

@@ -50,6 +50,7 @@ export function useEntityTimelinePreview({
       const result = await viewQuery.query({
         contract: timelineContract,
         queryState: emptyWorkbookQueryState(),
+        limit: 100,
         signal: request.signal,
       });
       if (!request.isCurrent() || result.kind === "aborted") {

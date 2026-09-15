@@ -13,6 +13,7 @@ import {
   applyFilterDraft,
   buildFilterFromDraft,
   buildQueryRequest,
+  compareWorkbookGroupValues,
   cycleWorkbookSortField,
   defaultFilterDraft,
   emptyWorkbookQueryState,
@@ -21,6 +22,7 @@ import {
   filterInputMode,
   toggleSortField,
   updateGroupBy,
+  workbookGroupValue,
 } from "./workbookQuery";
 import {
   workbookContractForViewSchemaId,
@@ -122,7 +124,29 @@ describe("workbookQuery", () => {
     ]);
   });
 
-  it("prepends group-by sorting when the user sort does not already cluster grouped rows", () => {
+  it("keeps grouping separate from authored sorting and cleared overrides", () => {
+    expect([null, "z", "a"].sort(compareWorkbookGroupValues)).toEqual([
+      "a",
+      "z",
+      null,
+    ]);
+    expect([true, null, false].sort(compareWorkbookGroupValues)).toEqual([
+      false,
+      true,
+      null,
+    ]);
+    expect([10, null, 2].sort(compareWorkbookGroupValues)).toEqual([
+      2,
+      10,
+      null,
+    ]);
+    expect(
+      workbookGroupValue({ group_values: { state: false } }, "state"),
+    ).toBe(false);
+    expect(
+      workbookGroupValue({ group_values: { state: null } }, "state"),
+    ).toBeNull();
+
     const contract = requireViewContract("cartulary.view.timeline.v2");
     const next = updateGroupBy(
       contract,
@@ -137,9 +161,11 @@ describe("workbookQuery", () => {
     expect(buildQueryRequest(contract, next)).toEqual({
       group_by: "timeline.capture_state",
       sort: [
-        { field_key: "timeline.capture_state", direction: "asc" },
         { field_key: "timeline.activity_synopsis_text", direction: "asc" },
       ],
+    });
+    expect(buildQueryRequest(contract, { ...next, sort: [] })).toEqual({
+      group_by: "timeline.capture_state",
     });
   });
 

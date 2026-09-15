@@ -10,7 +10,7 @@ import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { createTimelineSocketTransactionAdapter } from "../adapters/createTimelineSocketTransactionAdapter";
 import { commitTimelineProjection } from "../adapters/timelineProjectionCommitAdapter";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
-import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
+import type { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineConflictProjectionAdapter } from "../hooks/useTimelineConflictProjectionAdapter";
 import { useTimelineConflicts } from "../hooks/useTimelineConflicts";
 import { useTimelineSaveStatePresentation } from "../hooks/useTimelineSaveStatePresentation";
@@ -127,6 +127,7 @@ function completeAcceptedContinuity({
  * query, fresh/replayed mutations, live patches, conflicts, and continuity.
  */
 export function useTimelineRowMutationCoordinator({
+  committedRows,
   sheetRef,
   advanceViewportContinuity,
   clearActiveCollectionInputKey,
@@ -145,6 +146,9 @@ export function useTimelineRowMutationCoordinator({
   rowStoreCommands,
   setSelectedRowId,
 }: {
+  readonly committedRows: ReturnType<
+    typeof useTimelineCommittedRows
+  >["commands"];
   readonly advanceViewportContinuity: (
     token?: number,
     options?: { readonly target?: TimelineViewportContinuityTarget | null },
@@ -233,7 +237,6 @@ export function useTimelineRowMutationCoordinator({
     publishPendingQueueState();
   }, [publishPendingQueueState]);
 
-  const committedRows = useTimelineCommittedRows({ rowsRef, mutationRuntime });
   const {
     acceptCommittedTimelineRow,
     acceptCommittedTimelineRows,
@@ -249,7 +252,7 @@ export function useTimelineRowMutationCoordinator({
     latestCommittedRowVersion,
     latestCommittedTimelineRow,
     markRowsLoaded,
-  } = committedRows.commands;
+  } = committedRows;
 
   const pruneAutoResolutionNoticesForRows = useCallback(
     (committed: readonly WorkbookRow[]) => {

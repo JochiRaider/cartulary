@@ -1243,6 +1243,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.frontend.evicted_source_coordination",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.collaboration",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/composition/useTimelineSourceWriteCoordination.test.tsx",
+        "titles": [
+          "coordinates an evicted original source and refuses its retained unsubmitted draft without scanning query pages"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_binds_timeline_colu_539c620379",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -1688,7 +1715,8 @@
           "Timeline mutation models discriminates relationship and tag presentation without union downcasts",
           "Timeline mutation models maintains committed row versions as a monotonic reference-preserving ledger",
           "Timeline mutation models projects accepted draft replacement and its deterministic continuation",
-          "Timeline mutation models reconciles discarded units from committed state and reapplies later FIFO work"
+          "Timeline mutation models reconciles discarded units from committed state and reapplies later FIFO work",
+          "Timeline mutation models releases evicted query observations while retaining drafts, the inspector source, and mutation version floors"
         ]
       },
       "evidence_class": "unit",
@@ -1715,7 +1743,8 @@
         "file": "apps/web/src/workbook/adapters/createWorkbookViewQueryAdapter.test.ts",
         "titles": [
           "derives and validates Workbook query transport behind the shared semantic port",
-          "fails closed on malformed or cross-context query success and contains aborts"
+          "fails closed on malformed or cross-context query success and contains aborts",
+          "preserves route query cursors and projected pagination reasons without trusting unknown reasons"
         ]
       },
       "evidence_class": "unit",

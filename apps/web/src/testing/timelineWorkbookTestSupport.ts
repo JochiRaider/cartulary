@@ -25,6 +25,7 @@ import { expect, vi } from "vitest";
 import type { RecordChangedPayload } from "../workbook/collaboration/workbookCollaborationMessages";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
+import { workbookQueryMeta } from "./workbookQueryTestSupport";
 
 type WebSocketLike = {
   onmessage: ((event: MessageEvent) => void) | null;
@@ -316,8 +317,7 @@ export function successEnvelope(data: unknown, status = 200) {
         request_id: `req-${status}`,
         ...(isWorkbookQuery
           ? {
-              query: { filters: [], sort: [] },
-              paging: { has_more: false, limit: 100, next_cursor: null },
+              ...workbookQueryMeta(String(data.view_schema_id)),
             }
           : {}),
         ...(isSavedViewList

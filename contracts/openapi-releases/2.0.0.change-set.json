@@ -4,6 +4,12 @@
   "target_version": "2.0.0",
   "changes": [
     {
+      "fingerprint": "7abda1d53f9decece22c8f5ab2efa632e290325bb39c9258934088af059b7d2b",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Require Workbook query paging metadata as already mandated by Core 01 REQ-01-036 and section 3.3.7; complete canonical results and opaque continuation cannot be represented by an optional paging projection. Existing conformant responses are unchanged."
+    },
+    {
       "fingerprint": "54a8732db2362f04f90db01c499881e1dbb6dda25c3e2e43d3405d4de17c30f4",
       "classification": "breaking",
       "owner_id": "module.workbook",

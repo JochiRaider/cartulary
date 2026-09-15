@@ -123,6 +123,7 @@ import {
 import type { WorkbookPreferenceController } from "./preferences/WorkbookPreferenceController";
 import { WorkbookPreferenceAnnouncements } from "./preferences/WorkbookPreferencesPanel";
 import type { PreferenceWorkbookBinding } from "./preferences/workbookPreferenceModel";
+import { WorkbookQueryBrowsingProvider } from "./query/WorkbookQueryBrowsingContext";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
 import { projectWorkbookStatusForSurface } from "./runtime/workbookMutationStatusProjector";
 import type { SavedViewBinding } from "./savedviews/savedViewOperationModel";
@@ -438,15 +439,18 @@ function WorkbookShellContent({
     const history = infrastructure.mutationRuntime.history;
     const surfaces = queries.facadeQueries;
     for (const row of [...surfaces.generic.rows, ...surfaces.assessment.rows])
-      history.acceptVersion(row.record_id, row.row_version);
+      if (history.latestVersion(row.record_id) !== null)
+        history.acceptVersion(row.record_id, row.row_version);
     for (const row of [
       ...surfaces.entities.hosts.rows,
       ...surfaces.entities.identities.rows,
-    ])
-      infrastructure.mutationRuntime.acceptEntityVersion(
-        row.recordId,
-        row.rowVersion,
-      );
+    ]) {
+      if (history.latestVersion(row.recordId) !== null)
+        history.acceptVersion(row.recordId, row.rowVersion);
+      const merge = infrastructure.mutationRuntime.entityMerge;
+      if (merge.latestVersion(row.recordId) !== null)
+        merge.acceptVersion(row.recordId, row.rowVersion);
+    }
   }, [infrastructure.mutationRuntime, queries.facadeQueries]);
   useLayoutEffect(
     () =>
@@ -1185,11 +1189,15 @@ export function WorkbookShell(props: WorkbookShellProps) {
         mode: "viewing",
       }}
     >
-      <WorkbookShellContent
-        key={props.incidentId}
-        {...props}
-        mutationRuntimeRegistry={mutationRuntimeRegistry}
-      />
+      <WorkbookQueryBrowsingProvider
+        key={`${props.incidentId}:${props.sessionIdentity ?? "suspended"}`}
+      >
+        <WorkbookShellContent
+          key={props.incidentId}
+          {...props}
+          mutationRuntimeRegistry={mutationRuntimeRegistry}
+        />
+      </WorkbookQueryBrowsingProvider>
     </IncidentCollaborationSession>
   );
 }
