@@ -17,6 +17,7 @@ func (f *mutationFacade) observeInitialBlob(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	objectBlobID uuid.UUID,
+	now time.Time,
 ) (*observedObject, error) {
 	blob, err := f.blobs.load(ctx, objectBlobID)
 	if errors.Is(err, ErrBlobNotFound) {
@@ -43,25 +44,37 @@ func (f *mutationFacade) observeInitialBlob(
 	case "available":
 		return nil, nil
 	case "pending":
+		if !blob.PendingExpiresAt.After(now) {
+			return nil, AttachRejectedError{ReasonCode: attachReasonBlobFailed, Cause: errBlobNotAttachable}
+		}
+		if blob.UploadLeaseState != "completed" {
+			return nil, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
+		}
 	default:
 		return nil, AttachRejectedError{ReasonCode: attachReasonEvidenceInconsistent, Cause: errBlobNotAttachable}
 	}
 	if f.objects == nil {
-		return nil, ErrObjectStoreUnavailable
+		return nil, initialBlobObservationFailure{ErrObjectStoreUnavailable}
 	}
 	observed, err := (routeObjectStoreAdapter{store: f.objects}).observeUploadedObject(ctx, blob)
 	if objectstore.IsObjectNotFound(err) {
-		return nil, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
+		return nil, initialBlobObservationFailure{AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}}
 	}
 	if err != nil {
-		return nil, err
+		return nil, initialBlobObservationFailure{err}
 	}
 	return observed, nil
 }
 
+// Only a failure after upload-completion admission consumes finalization budget.
+// Authorization, association and incomplete-lease denials remain effect-free.
+type initialBlobObservationFailure struct{ error }
+
+func (failure initialBlobObservationFailure) Unwrap() error { return failure.error }
+
 // finalizeInitialBlobTx locks the slot and rechecks every mutable association
 // precondition in the transaction that creates the Evidence row. The bool
-// return requests a blob-only commit for a terminal failure disposition.
+// return requests a blob-only commit for an admitted failure disposition.
 func (f *mutationFacade) finalizeInitialBlobTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -93,6 +106,9 @@ func (f *mutationFacade) finalizeInitialBlobTx(
 	case "quarantined":
 		return nil, false, AttachRejectedError{ReasonCode: attachReasonBlobQuarantined, Cause: errBlobNotAttachable}
 	case "pending":
+		if blob.UploadLeaseState != "completed" {
+			return nil, false, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
+		}
 		if !blob.PendingExpiresAt.After(now) {
 			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "pending_timeout", now); err != nil {
 				return nil, false, err
@@ -100,7 +116,15 @@ func (f *mutationFacade) finalizeInitialBlobTx(
 			return nil, true, AttachRejectedError{ReasonCode: attachReasonBlobFailed, Cause: errBlobNotAttachable}
 		}
 		if observed == nil {
-			return nil, false, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
+			failed, err := f.blobLifecycle.recordFinalizeFailureTx(ctx, tx, objectBlobID, now)
+			if err != nil {
+				return nil, false, err
+			}
+			reason := attachReasonBlobPending
+			if failed {
+				reason = attachReasonBlobFailed
+			}
+			return nil, true, AttachRejectedError{ReasonCode: reason, Cause: errBlobNotAttachable}
 		}
 		if observed.Size != blob.ByteSize {
 			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "declared_size_mismatch", now); err != nil {

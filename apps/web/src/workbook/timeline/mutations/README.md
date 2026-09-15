@@ -18,3 +18,8 @@ against committed-version evidence before presentation observes them.
 | File | Responsibility |
 | --- | --- |
 | [useTimelineRowMutationCoordinator.test.tsx](useTimelineRowMutationCoordinator.test.tsx) | Characterizes accepted/stale action and mutation admission, query/action races, conflict state partitions, and committed-version high-water behavior. |
+
+The retained Timeline mutation owner also exposes the file-draft promotion port.
+Screenshot-only creation and ordinary first input share its existing creation
+identity. [timelineFileDraftRecovery.test.ts](timelineFileDraftRecovery.test.ts)
+verifies both orderings, detached acceptance and follow-on edits.

@@ -8,9 +8,11 @@ import {
 import {
   type CSSProperties,
   useCallback,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
   buildEvidenceAccessPresentation,
@@ -34,6 +36,14 @@ import {
   evidenceButtonStyle,
   evidenceMessageStyle,
 } from "./EvidenceAccessActions";
+
+import { EvidenceAttachmentContext } from "./EvidenceAttachmentContext";
+import { EvidenceFileRecovery } from "./EvidenceFileRecovery";
+import type { EvidenceAttachmentSnapshot } from "./WorkbookEvidenceAttachmentOwner";
+
+const emptyAttachments: readonly EvidenceAttachmentSnapshot[] = [];
+const noAttachments = () => emptyAttachments;
+const noSubscription = () => () => {};
 
 type Target = { readonly recordId: string; readonly rowVersion: number };
 type Ticket = Target & { readonly lifetime: number; readonly sequence: number };
@@ -87,12 +97,17 @@ export function useEvidenceWorkbookBindings(input: {
   const latestFeedback = useRef(new Map<string, number>());
   const latestDownload = useRef(new Map<string, number>());
   const pendingPreview = useRef<Preview | null>(null);
-  const attachment = useRef<number | null>(null);
+  const owner = useContext(EvidenceAttachmentContext);
+  const retained = useSyncExternalStore(
+    owner?.subscribe ?? noSubscription,
+    owner?.getSnapshot ?? noAttachments,
+  );
+  const presentationToken = useRef(Symbol());
   const [operations, setOperations] = useState<Record<string, RecordOperation>>(
     {},
   );
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [attaching, setAttaching] = useState(false);
+
   const denied = useRef(false);
   const [authorityUncertain, setAccessLost] = useState(false);
   const [announcement, setAnnouncement] = useState<{
@@ -359,59 +374,33 @@ export function useEvidenceWorkbookBindings(input: {
     [begin, clearPreview, invalidateAccess, publish, targetIsCurrent],
   );
 
-  const attachFile = useCallback(
-    async (row: WorkbookQueryRow, file: File) => {
+  useLayoutEffect(() => {
+    if (!owner || !active || !input.canRead) return;
+    for (const row of input.rows) owner.observe(row.record_id, row.row_version);
+    if (input.subjectRecordId)
+      owner.attach(presentationToken.current, input.subjectRecordId);
+    const token = presentationToken.current;
+    return () => owner.detach(token);
+  }, [owner, active, input.canRead, input.rows, input.subjectRecordId]);
+  const attachFiles = useCallback(
+    (row: WorkbookQueryRow, files: readonly File[]) => {
       const current = inputRef.current;
       if (
+        !owner ||
         current.attachDisabledReason !== null ||
         !current.canRead ||
-        denied.current ||
-        attachment.current !== null
+        denied.current
       )
         return;
-      const ticket = begin(row, "attach");
-      if (file.size <= 0) {
-        publish(ticket, {
-          kind: "rejected",
-          operation: "attach",
-          failure: unknownFailure,
+      const message = owner.begin(row, files);
+      if (message)
+        setAnnouncement({
+          text: message,
+          sequence: ++sequence.current,
+          priority: "polite",
         });
-        return;
-      }
-      attachment.current = ticket.sequence;
-      setAttaching(true);
-      const finish = current.mutation.beginMutation();
-      try {
-        const outcome = await current.mutationCommands.attach({
-          baseRowVersion: row.row_version,
-          evidenceRecordId: row.record_id,
-          file,
-        });
-        if (outcome.kind === "rejected") {
-          publish(ticket, {
-            kind: "rejected",
-            operation: "attach",
-            failure: outcome.failure,
-          });
-          if (ticket.lifetime === lifetime.current)
-            invalidateAccess(outcome.failure);
-          return;
-        }
-        publish(ticket, { kind: "accepted", operation: "attach" });
-        if (ticket.lifetime === lifetime.current) await current.onRefresh();
-      } catch {
-        publish(ticket, {
-          kind: "rejected",
-          operation: "attach",
-          failure: unknownFailure,
-        });
-      } finally {
-        finish();
-        attachment.current = null;
-        setAttaching(false);
-      }
     },
-    [begin, invalidateAccess, publish],
+    [owner],
   );
 
   const closePreview = useCallback(() => {
@@ -433,17 +422,26 @@ export function useEvidenceWorkbookBindings(input: {
   ) =>
     active ? (
       <EvidenceAccessActions
+        recovery={
+          context === "inspector"
+            ? retained
+                .filter((entry) => entry.recordId === row.record_id)
+                .map((entry) => renderFileRecovery(entry, "inspector"))
+            : null
+        }
         access={buildEvidenceAccessPresentation(
           rowLifecycle(row),
           operations[row.record_id]?.state ?? null,
         )}
         attachDisabledReason={input.attachDisabledReason}
-        attaching={attaching}
+        attaching={retained.some(
+          (entry) => entry.recordId === row.record_id && entry.busy,
+        )}
         canRead={input.canRead && !authorityUncertain}
         context={context}
         recordId={row.record_id}
         title={titleFor(row)}
-        onAttach={(file) => void attachFile(row, file)}
+        onAttach={(files) => attachFiles(row, files)}
         onInspect={() => input.onInspect(row.record_id)}
         onIssue={(kind, invoker) => void issueHandle(row, kind, invoker)}
       />
@@ -460,8 +458,33 @@ export function useEvidenceWorkbookBindings(input: {
         row.record_id === preview.recordId &&
         row.row_version === preview.rowVersion,
     );
+  const renderFileRecovery = (
+    entry: (typeof retained)[number],
+    presentation: "grid" | "inspector",
+  ) => {
+    if (!owner || !input.canRead) return null;
+    const row = input.rows.find((row) => row.record_id === entry.recordId);
+    return (
+      <EvidenceFileRecovery
+        {...entry}
+        key={entry.recordId}
+        presentation={presentation}
+        source={row ? titleFor(row) : "Original Evidence record"}
+        onConfirmReview={() => owner.confirmReview(entry.recordId)}
+        onReview={() => void owner.review(entry.recordId)}
+        onResume={() => void owner.resume(entry.recordId)}
+        onFreshSlot={() => owner.freshSlot(entry.recordId)}
+        onNewId={() => owner.newRequestId(entry.recordId)}
+        onDiscard={() => owner.discard(entry.recordId)}
+        onRefresh={() => void owner.refresh(entry.recordId)}
+      />
+    );
+  };
   const announcements = (
     <>
+      {active && owner
+        ? retained.map((entry) => renderFileRecovery(entry, "grid"))
+        : null}
       {active ? (
         <div style={announcementStyle}>
           <div role="status" aria-live="polite" aria-atomic="true">

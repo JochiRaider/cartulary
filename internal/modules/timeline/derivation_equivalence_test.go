@@ -83,6 +83,22 @@ func TestCanonicalRowDerivesCompleteTypedCollections_Unit(t *testing.T) {
 		ReplacementRecordID: &replacementID,
 	})
 
+	for _, custody := range []string{"requested", "received", "available", "released", "quarantined"} {
+		for _, upload := range []string{"pending", "available", "quarantined", "failed"} {
+			counted := workbookprojection.Derive(source, nil)
+			workbookprojection.ApplyCollectionFacts(&counted, workbookprojection.CollectionFacts{
+				AttachedEvidence: []workbookprojection.EvidenceFact{{RecordID: evidenceID, Title: "file", LifecycleState: custody, UploadState: upload}},
+			})
+			want := 0
+			if upload == "available" {
+				want = 1
+			}
+			if counted.EvidenceCount != want || counted.HasEvidence != (want == 1) {
+				t.Fatalf("custody=%s upload=%s count=%d has=%v", custody, upload, counted.EvidenceCount, counted.HasEvidence)
+			}
+		}
+	}
+
 	row := buildRow(canonicalPath)
 	cells := row["cells"].(map[string]any)
 	groupValues := row["group_values"].(map[string]any)

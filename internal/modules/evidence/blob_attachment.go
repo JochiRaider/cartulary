@@ -103,11 +103,6 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		OperationID: LifecycleOperationBlobAttach, ActorUserID: actor.ID,
 		ScopeKey: recordID.String(), ClientTxnID: request.ClientTxnID,
 	}
-	if payload, found, err := s.idempotency.Get(ctx, key, requestHash); err != nil {
-		return attachBlobResult{}, err
-	} else if found {
-		return attachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}, nil
-	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -121,9 +116,6 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	}
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return attachBlobResult{}, err
-	}
-	if meta.RowVersion != request.BaseRowVersion {
-		return attachBlobResult{}, &rowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 	}
 	beforeRow, err := s.projections.LoadEvidenceTx(ctx, tx, recordID)
 	if err != nil {
@@ -143,13 +135,42 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	if blob.IncidentID != meta.IncidentID {
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrIncidentMismatch}
 	}
-	associated, err := isBlobAssociatedTx(ctx, tx, request.ObjectBlobID)
-	if err != nil {
+	var associatedRecordID uuid.UUID
+	associationErr := tx.QueryRow(ctx, `SELECT record_id FROM evidence WHERE object_blob_id = $1`, request.ObjectBlobID).Scan(&associatedRecordID)
+	if associationErr != nil && !errors.Is(associationErr, pgx.ErrNoRows) {
+		return attachBlobResult{}, associationErr
+	}
+	associated := associationErr == nil
+	if associated && associatedRecordID != recordID {
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: errBlobNotAttachable}
+	}
+	// Repeat current eligibility before replay: observation may have taken time.
+	switch evidencepolicy.ClassifyBlobForAssociation(blob.UploadState, blob.PendingExpiresAt, now) {
+	case evidencepolicy.AssociationBlobNeedsFinalization:
+		if blob.UploadLeaseState != "completed" {
+			return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
+		}
+	case evidencepolicy.AssociationBlobFailed:
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobFailed, Cause: errBlobNotAttachable}
+	case evidencepolicy.AssociationBlobQuarantined:
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobQuarantined, Cause: errBlobNotAttachable}
+	case evidencepolicy.AssociationBlobInconsistent:
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonEvidenceInconsistent, Cause: errBlobNotAttachable}
+	}
+	// A competing exact request may have committed while this request waited
+	// for the Evidence row lock. Reconcile that receipt before version checks.
+	if payload, found, err := s.idempotency.GetTx(ctx, tx, key, requestHash); err != nil {
 		return attachBlobResult{}, err
+	} else if found {
+		return attachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}, nil
+	}
+	if meta.RowVersion != request.BaseRowVersion {
+		return attachBlobResult{}, &rowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 	}
 	if associated {
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: errBlobNotAttachable}
 	}
+
 	switch evidencepolicy.ClassifyBlobForAssociation(blob.UploadState, blob.PendingExpiresAt, now) {
 	case evidencepolicy.AssociationBlobQuarantined:
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobQuarantined, Cause: errBlobNotAttachable}
@@ -164,6 +185,9 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		}
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobFailed, Cause: errBlobNotAttachable}
 	case evidencepolicy.AssociationBlobNeedsFinalization:
+		if blob.UploadLeaseState != "completed" {
+			return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
+		}
 		if observed == nil {
 			failed, err := s.blobLifecycle.recordFinalizeFailureTx(ctx, tx, request.ObjectBlobID, now)
 			if err != nil {

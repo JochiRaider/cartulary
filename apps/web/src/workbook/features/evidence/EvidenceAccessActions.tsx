@@ -6,7 +6,7 @@ import {
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useRef } from "react";
+import { type CSSProperties, type ReactNode, useRef } from "react";
 import type {
   EvidenceAccessPresentation,
   EvidenceOperationKind,
@@ -14,6 +14,7 @@ import type {
 
 export function EvidenceAccessActions({
   access,
+  recovery,
   attachDisabledReason,
   attaching,
   canRead,
@@ -24,12 +25,13 @@ export function EvidenceAccessActions({
   recordId,
   title,
 }: {
+  readonly recovery?: ReactNode;
   readonly access: EvidenceAccessPresentation;
   readonly attachDisabledReason: string | null;
   readonly attaching: boolean;
   readonly canRead: boolean;
   readonly context: EvidenceAccessContext;
-  readonly onAttach: (file: File) => void;
+  readonly onAttach: (files: readonly File[]) => void;
   readonly onInspect: () => void;
   readonly onIssue: (
     kind: Exclude<EvidenceOperationKind, "attach">,
@@ -48,6 +50,7 @@ export function EvidenceAccessActions({
       data-evidence-state-key={access.stateKey}
       style={compact ? rowStyle : inspectorStyle}
     >
+      {recovery}
       {compact ? null : <p style={evidenceMessageStyle}>{title}</p>}
       {compact ? null : (
         <dl style={metadataStyle}>
@@ -114,9 +117,9 @@ export function EvidenceAccessActions({
           disabled={!canRead || attachDisabledReason !== null || attaching}
           accept="image/*,.txt,.pdf,text/plain,application/pdf"
           onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
+            const files = Array.from(event.currentTarget.files ?? []);
             event.currentTarget.value = "";
-            if (file) onAttach(file);
+            if (files.length) onAttach(files);
           }}
         />
       </div>

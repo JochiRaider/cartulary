@@ -1079,7 +1079,7 @@
           "scenario_timeline_keyboard_fill_down_focus"
         ],
         "titles": [
-          "Timeline keyboard fill-down preserves the selected range and restores source focus"
+          "Timeline keyboard fill-down preserves the selected range and current endpoint focus"
         ]
       },
       "evidence_class": "browser",

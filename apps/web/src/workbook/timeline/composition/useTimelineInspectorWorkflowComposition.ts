@@ -41,7 +41,7 @@ type TimelineInspectorWorkflowCompositionInput = {
   readonly mentionCandidates: MentionInput["candidatePort"];
   readonly earlierSaves: MentionInput["earlierSaves"];
   readonly foundation: {
-    readonly evidenceAttachmentPort: EvidenceInput["evidenceAttachmentPort"];
+    readonly evidenceAttachmentPort: EvidenceInput["owner"];
     readonly loadAccessLost: boolean;
 
     readonly rows: InspectorLifecycleInput["rows"];
@@ -53,8 +53,6 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly setSelectedResolveTargetId: InspectorLifecycleInput["setSelectedResolveTargetId"];
   };
   readonly grid: {
-    readonly beginViewportContinuity: EvidenceInput["beginViewportContinuity"];
-    readonly clearViewportContinuity: EvidenceInput["clearViewportContinuity"];
     readonly gridShellRef: InspectorLifecycleInput["gridShellRef"];
     readonly restoreTimelineFocusAnchor: InspectorLifecycleInput["restoreTimelineFocusAnchor"];
     readonly workbookFocusAnchorRef: InspectorLifecycleInput["workbookFocusAnchorRef"];
@@ -86,13 +84,9 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly activeConflict: Parameters<
       typeof useTimelineInspectorEscape
     >[0]["activeConflict"];
-    readonly applyAcceptedRowMutation: EvidenceInput["applyAcceptedRowMutation"];
-    readonly commands: Pick<
-      EvidenceInput,
-      "enqueueSaveWork" | "resolvePendingSocketTxn" | "trackPendingSocketTxn"
-    > &
+    readonly commands: Pick<HistoryInput, "enqueueSaveWork"> &
       Pick<HistoryInput, "acceptTimelineRecordVersion">;
-    readonly waitForCommittedRecordIdle: EvidenceInput["waitForCommittedRecordIdle"];
+    readonly waitForCommittedRecordIdle: HistoryInput["waitForCommittedRecordIdle"];
     readonly loadRows: HistoryInput["loadRows"];
     readonly publishViewingPresence: InspectorRowInteractionsInput["publishViewingPresence"];
   };
@@ -235,16 +229,8 @@ export function useTimelineInspectorWorkflowComposition({
       capabilityAvailable: timelineEvidenceCapabilityAvailable,
       selectedRowKey: inspector.selection.selectedRow?.key ?? null,
     },
-    applyAcceptedRowMutation: mutation.applyAcceptedRowMutation,
-    beginViewportContinuity: grid.beginViewportContinuity,
-    clearViewportContinuity: grid.clearViewportContinuity,
-    enqueueSaveWork: mutation.commands.enqueueSaveWork,
-    evidenceAttachmentPort: foundation.evidenceAttachmentPort,
-    resolvePendingSocketTxn: mutation.commands.resolvePendingSocketTxn,
-    rowsRef: foundation.rowsRef,
+    owner: foundation.evidenceAttachmentPort,
     setInspectorMessage: inspector.publishFeedback,
-    trackPendingSocketTxn: mutation.commands.trackPendingSocketTxn,
-    waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   });
   const handleResolveTargetChange = useCallback(
     (value: string) => {

@@ -2,7 +2,6 @@ import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { useCallback, useMemo, useState } from "react";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineBulkTagCommandAdapter } from "../adapters/createTimelineBulkTagCommandAdapter";
-import { createTimelineEvidenceAttachmentAdapter } from "../adapters/createTimelineEvidenceAttachmentAdapter";
 import { createTimelineMentionCandidateReader } from "../adapters/createTimelineMentionCandidateReader";
 
 import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRecordActionAdapter";
@@ -29,7 +28,6 @@ export function useTimelineSurfaceFoundation({
   apiBase,
   clipboardPaste,
   incidentId,
-  mutationCommands,
   mutationRuntime,
   query,
 }: TimelineSurfaceFoundationInput) {
@@ -45,15 +43,7 @@ export function useTimelineSurfaceFoundation({
     () => createTimelineMentionCandidateReader({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
-  const evidenceAttachmentPort = useMemo(
-    () =>
-      createTimelineEvidenceAttachmentAdapter({
-        apiBase,
-        createClientTxnId: mutationCommands.identity.createLogicalActionId,
-        incidentId,
-      }),
-    [apiBase, incidentId, mutationCommands.identity],
-  );
+  const evidenceAttachmentPort = mutationRuntime.timelineFiles;
   const bulkTagPort = useMemo(
     () => createTimelineBulkTagCommandAdapter(mutationRuntime.batches),
     [mutationRuntime],

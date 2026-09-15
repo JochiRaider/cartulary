@@ -3,6 +3,7 @@ package evidence
 // Evidence create orchestration.
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -34,11 +35,12 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 		return MutationResult{}, err
 	}
 	var observed *observedObject
+	var observationFailure initialBlobObservationFailure
 	if request.InitialObjectBlobID != nil {
 		var observeErr error
-		observed, observeErr = f.observeInitialBlob(ctx, command.IncidentID, *request.InitialObjectBlobID)
-		if observeErr != nil {
-			return MutationResult{}, observeErr
+		observed, observeErr = f.observeInitialBlob(ctx, command.IncidentID, *request.InitialObjectBlobID, command.Now.UTC())
+		if observeErr != nil && !errors.As(observeErr, &observationFailure) {
+			return f.reconcileInitialBlobCreate(ctx, idempotencyKey, requestHash, observeErr)
 		}
 	}
 
@@ -65,6 +67,20 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 				if err := tx.Commit(ctx); err != nil {
 					return MutationResult{}, fmt.Errorf("commit rejected evidence blob finalization: %w", err)
 				}
+			}
+			var rejected AttachRejectedError
+			if observationFailure.error != nil && commitRejection &&
+				errors.As(finalizeErr, &rejected) && rejected.ReasonCode == attachReasonBlobPending {
+				return MutationResult{}, observationFailure.error
+			}
+			if !commitRejection {
+				// A concurrent exact create may have committed while this request
+				// waited for the blob lock. Release our transaction before reading
+				// its receipt through the existing idempotency capability.
+				if err := tx.Rollback(ctx); err != nil {
+					return MutationResult{}, fmt.Errorf("rollback rejected evidence create: %w", err)
+				}
+				return f.reconcileInitialBlobCreate(ctx, idempotencyKey, requestHash, finalizeErr)
 			}
 			return MutationResult{}, finalizeErr
 		}
@@ -112,6 +128,25 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 		ViewSchemaID:     request.ViewSchemaID,
 		ChangedFieldKeys: result.changedFieldKeys,
 	}, nil
+}
+
+// Reconcile only association rejection: an identical create may already own
+// this blob. Other current eligibility denials must not become cached success.
+func (f *mutationFacade) reconcileInitialBlobCreate(
+	ctx context.Context,
+	key IdempotencyKey,
+	requestHash []byte,
+	rejection error,
+) (MutationResult, error) {
+	var rejected AttachRejectedError
+	if errors.As(rejection, &rejected) && rejected.ReasonCode == AttachReasonBlobNotVisible {
+		if stored, found, err := f.replayStoredMutation(ctx, key, requestHash, StoredMutationCreate); err != nil {
+			return MutationResult{}, err
+		} else if found {
+			return mutationResultFromStored(stored, key.ClientTxnID), nil
+		}
+	}
+	return MutationResult{}, rejection
 }
 
 func mutationResultFromStored(stored StoredMutationPayload, clientTxnID string) MutationResult {

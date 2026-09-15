@@ -258,6 +258,10 @@
             "module.evidence.browser.a_second_live_workbook_session_receives_the_real_194cba3dfb",
             "module.evidence.browser.an_analyst_attaches_a_screenshot_to_a_selected_t_4568508c1b",
             "module.evidence.browser.an_inline_safe_type_receives_a_preview_handle_an_076fefa625",
+            "module.evidence.browser.existing_file_recovery",
+            "module.evidence.browser.file_draft_orderings",
+            "module.evidence.browser.file_original_source_review",
+            "module.evidence.browser.file_stage_recovery",
             "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd"
           ],
           "specs": [
@@ -1542,6 +1546,10 @@
             "module.evidence.browser.a_second_live_workbook_session_receives_the_real_194cba3dfb",
             "module.evidence.browser.an_analyst_attaches_a_screenshot_to_a_selected_t_4568508c1b",
             "module.evidence.browser.an_inline_safe_type_receives_a_preview_handle_an_076fefa625",
+            "module.evidence.browser.existing_file_recovery",
+            "module.evidence.browser.file_draft_orderings",
+            "module.evidence.browser.file_original_source_review",
+            "module.evidence.browser.file_stage_recovery",
             "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd"
           ],
           "specs": [
@@ -3333,6 +3341,7 @@
             "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
+            "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.batch_recovery",
@@ -4375,6 +4384,7 @@
             "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
+            "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.batch_recovery",

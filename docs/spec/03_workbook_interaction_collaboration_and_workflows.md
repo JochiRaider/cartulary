@@ -1344,6 +1344,50 @@ The system MUST NOT leave fake attached evidence rows for incomplete uploads. Th
 Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
+For existing-Evidence attachment, file-backed Evidence associated with Timeline,
+and file/screenshot-only Timeline creation, the browser MUST retain the selected
+file, original source identity, required authored values, captured attempts and
+complete accepted receipts independently of mounted presentation within the
+current account/incident browser runtime. REQ-03-100 and REQ-03-299 govern
+suspension, concealment and retirement. This retention does not imply reload,
+crash, cross-tab or persistent browser storage. Replacement requires explicit
+handling of unfinished work; discard MUST NOT delete accepted records or treat
+an uncertain dispatched mutation as a proven rollback.
+
+After an uncertain byte-transfer response, explicit recovery MUST attempt the
+existing finalization route first; the browser MUST NOT replay the single-upload
+PUT. An uncertain finalization retains its exact request and transaction ID.
+A definitive `blob_pending` finalization rejection MAY offer a fresh slot with
+a new slot transaction ID and the retained file. No fresh upload or creation
+may replace an unresolved finalization attempt. Authorization denial requires
+the existing authority recovery and MUST NOT authorize fresh-slot retry.
+Target expiry or an issuing-session change makes an unused target unusable;
+it does not itself invalidate successfully transferred bytes for later
+currently authorized finalization before pending-slot expiry.
+
+Multiple-file picker, drop or clipboard input MUST be rejected together before
+slot creation, preserve existing work, and report `Choose one file at a time.`
+The current workflow creates no bulk-upload command. A zero-byte file remains
+eligible under Core 01 REQ-01-243. Accepted hints use REQ-01-244 normalization.
+
+Timeline file transfer MUST NOT occupy the autosave mutation queue. Before an
+undispatched association, the client MUST coordinate earlier source writes,
+verify the original source through an incident-bound authoritative read, and
+honor its accepted version floor. A committed source edit or presentation
+detachment withdraws linking readiness until renewed local review; neither
+changes the retained source. Current selection, filters and mounted rows MUST
+NOT establish source availability. Ordinary first input during a pending file
+upload retains ordinary creation semantics. The file workflow MUST follow the
+same local draft's accepted promotion, and the two paths MUST share one
+Timeline creation identity so that either completion order creates one row.
+
+Acceptance MUST be retained before presentation effects. A later link failure
+MUST preserve the accepted Evidence without another upload or Evidence create.
+A failed refresh after acceptance MUST retain read-only reconciliation work
+across presentation detachment. Blob transfer, finalization and association
+MUST NOT implicitly change Evidence custody; omitted initial lifecycle remains
+`requested` under Core 02 §13.1.
+
 ### 8.2 Pending evidence without blob
 
 **REQ-03-120**

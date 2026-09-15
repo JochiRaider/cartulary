@@ -2,6 +2,7 @@ package evidence_test
 
 // Evidence upload lifecycle and atomic-create contracts.
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -95,6 +96,165 @@ SELECT count(*)
 	if rowCount != 1 {
 		t.Fatalf("Evidence row count after losing create = %d, want 1", rowCount)
 	}
+
+	t.Run("incomplete transfer cannot finalize stored bytes", func(t *testing.T) {
+		incomplete := createSlot("txn-evidence-incomplete-transfer")
+		putObject(t, harness.Server.HTTP.URL, incomplete["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
+		// Model object storage accepting bytes before lease completion commits.
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE evidence_object_upload_leases SET lease_state = 'claimed', completed_at = NULL WHERE object_blob_id = $1`, incomplete["object_blob_id"]); err != nil {
+			t.Fatal(err)
+		}
+		response := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", map[string]any{
+			"client_txn_id": "txn-evidence-incomplete-create", "evidence.initial_object_blob_id": incomplete["object_blob_id"],
+		}, authOptions(login)...)
+		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_pending")
+		var attempts, associations int
+		if err := harness.DB.QueryRowContext(context.Background(), `SELECT finalize_attempt_count, (SELECT count(*) FROM evidence WHERE object_blob_id = $1) FROM object_blobs WHERE object_blob_id = $1`, incomplete["object_blob_id"]).Scan(&attempts, &associations); err != nil {
+			t.Fatal(err)
+		}
+		if attempts != 0 || associations != 0 {
+			t.Fatalf("incomplete-lease denial changed attempts=%d associations=%d", attempts, associations)
+		}
+	})
+
+	for _, operation := range []string{"create", "attach"} {
+		for _, mismatch := range []string{"size", "hash"} {
+			t.Run(operation+" terminal "+mismatch+" mismatch has no association", func(t *testing.T) {
+				candidate := createSlot("txn-integrity-" + operation + "-" + mismatch)
+				putObject(t, harness.Server.HTTP.URL, candidate["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
+				var key string
+				if err := harness.DB.QueryRowContext(context.Background(), `SELECT storage_key FROM object_blobs WHERE object_blob_id=$1`, candidate["object_blob_id"]).Scan(&key); err != nil {
+					t.Fatal(err)
+				}
+				changed := append([]byte(nil), payload...)
+				if mismatch == "size" {
+					changed = append(changed, 'x')
+				} else {
+					changed[0] = 'x'
+				}
+				if err := harness.ObjectStore.PutObject(context.Background(), key, bytes.NewReader(changed), int64(len(changed)), "text/plain"); err != nil {
+					t.Fatal(err)
+				}
+				route := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.evidence.v1/rows"
+				body := map[string]any{"client_txn_id": "txn-finalize-integrity-" + operation + "-" + mismatch, "evidence.initial_object_blob_id": candidate["object_blob_id"]}
+				if operation == "attach" {
+					metadata := appsupport.DoJSON(t, http.MethodPost, route, map[string]any{"client_txn_id": "txn-integrity-metadata-" + mismatch, "evidence.title": "Retained metadata"}, authOptions(login)...)
+					row := httptestx.RequireSuccessEnvelope(t, metadata, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)
+					route = harness.Server.HTTP.URL + "/api/v1/evidence-records/" + row["record_id"].(string) + "/attach-blob"
+					body = map[string]any{"client_txn_id": "txn-integrity-attach-" + mismatch, "object_blob_id": candidate["object_blob_id"], "base_row_version": row["row_version"]}
+				}
+				response := appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(login)...)
+				httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "evidence_attach_rejected"), "reason_code", "accepted_contract_mismatch")
+				var state, reason string
+				var associations int
+				if err := harness.DB.QueryRowContext(context.Background(), `SELECT upload_state,terminal_reason,(SELECT count(*) FROM evidence WHERE object_blob_id=$1) FROM object_blobs WHERE object_blob_id=$1`, candidate["object_blob_id"]).Scan(&state, &reason, &associations); err != nil {
+					t.Fatal(err)
+				}
+				want := "declared_size_mismatch"
+				if mismatch == "hash" {
+					want = "expected_sha256_mismatch"
+				}
+				if state != "failed" || reason != want || associations != 0 {
+					t.Fatalf("integrity state=%s reason=%s associations=%d", state, reason, associations)
+				}
+			})
+		}
+	}
+	t.Run("concurrent atomic creates associate the uploaded blob once", func(t *testing.T) {
+		candidate := createSlot("txn-concurrent-blob")
+		putObject(t, harness.Server.HTTP.URL, candidate["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
+		responses := make(chan *http.Response, 2)
+		for i := 0; i < 2; i++ {
+			go func(index int) {
+				responses <- appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", map[string]any{"client_txn_id": fmt.Sprintf("txn-concurrent-create-%d", index), "evidence.initial_object_blob_id": candidate["object_blob_id"]}, authOptions(login)...)
+			}(i)
+		}
+		accepted := 0
+		for i := 0; i < 2; i++ {
+			response := <-responses
+			if response.StatusCode == http.StatusCreated {
+				accepted++
+				httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)
+			} else {
+				httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "evidence_attach_rejected"), "reason_code", evidence.AttachReasonBlobNotVisible)
+			}
+		}
+		var links int
+		if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM evidence WHERE object_blob_id=$1`, candidate["object_blob_id"]).Scan(&links); err != nil {
+			t.Fatal(err)
+		}
+		if accepted != 1 || links != 1 {
+			t.Fatalf("atomic winners=%d associations=%d", accepted, links)
+		}
+	})
+
+	t.Run("concurrent exact atomic creates return one receipt", func(t *testing.T) {
+		candidate := createSlot("txn-concurrent-exact-blob")
+		putObject(t, harness.Server.HTTP.URL, candidate["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
+		responses := make(chan *http.Response, 2)
+		for i := 0; i < 2; i++ {
+			go func() {
+				responses <- appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", map[string]any{"client_txn_id": "txn-concurrent-exact-create", "evidence.initial_object_blob_id": candidate["object_blob_id"]}, authOptions(login)...)
+			}()
+		}
+		var changeSet any
+		for i := 0; i < 2; i++ {
+			response := <-responses
+			status := response.StatusCode
+			if status != http.StatusCreated && status != http.StatusOK {
+				httptestx.RequireStatus(t, response, http.StatusOK)
+			}
+			data := httptestx.RequireSuccessEnvelope(t, response, status)["data"].(map[string]any)
+			if changeSet == nil {
+				changeSet = data["change_set_id"]
+			} else if data["change_set_id"] != changeSet {
+				t.Fatal("concurrent exact create produced a different receipt")
+			}
+		}
+		var links int
+		if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM evidence WHERE object_blob_id=$1`, candidate["object_blob_id"]).Scan(&links); err != nil {
+			t.Fatal(err)
+		}
+		if links != 1 {
+			t.Fatalf("exact create associations=%d", links)
+		}
+	})
+
+	for _, operation := range []string{"create", "attach"} {
+		t.Run(operation+" counts completed-transfer observation failures", func(t *testing.T) {
+			missing := createSlot("txn-evidence-missing-bytes-" + operation)
+			putObject(t, harness.Server.HTTP.URL, missing["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
+			var storageKey string
+			if err := harness.DB.QueryRowContext(context.Background(), `SELECT storage_key FROM object_blobs WHERE object_blob_id = $1`, missing["object_blob_id"]).Scan(&storageKey); err != nil {
+				t.Fatal(err)
+			}
+			deleteBlobObject(t, harness, storageKey)
+			route := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.evidence.v1/rows"
+			body := map[string]any{"client_txn_id": "txn-evidence-missing-finalize-" + operation, "evidence.initial_object_blob_id": missing["object_blob_id"]}
+			if operation == "attach" {
+				metadata := appsupport.DoJSON(t, http.MethodPost, route, map[string]any{"client_txn_id": "txn-evidence-missing-metadata", "evidence.title": "awaiting bytes"}, authOptions(login)...)
+				metadataRow := httptestx.RequireSuccessEnvelope(t, metadata, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)
+				route = harness.Server.HTTP.URL + "/api/v1/evidence-records/" + metadataRow["record_id"].(string) + "/attach-blob"
+				body = map[string]any{"client_txn_id": "txn-evidence-missing-finalize-attach", "object_blob_id": missing["object_blob_id"], "base_row_version": metadataRow["row_version"]}
+			}
+			for attempt := 1; attempt <= 4; attempt++ {
+				response := appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(login)...)
+				reason := "blob_pending"
+				if attempt == 4 {
+					reason = "blob_failed"
+				}
+				httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "evidence_attach_rejected"), "reason_code", reason)
+				var attempts, associations int
+				var state string
+				if err := harness.DB.QueryRowContext(context.Background(), `SELECT finalize_attempt_count, upload_state, (SELECT count(*) FROM evidence WHERE object_blob_id = $1) FROM object_blobs WHERE object_blob_id = $1`, missing["object_blob_id"]).Scan(&attempts, &state, &associations); err != nil {
+					t.Fatal(err)
+				}
+				if attempts != attempt || associations != 0 || (attempt == 4) != (state == "failed") {
+					t.Fatalf("attempt %d: persisted attempts=%d state=%s associations=%d", attempt, attempts, state, associations)
+				}
+			}
+		})
+	}
 }
 
 func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
@@ -164,6 +324,10 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 	successTarget := successData["upload_target"].(map[string]any)
 	successResp := putUpload(t, successTarget["href"].(string), "hello")
 	httptestx.RequireStatus(t, successResp, http.StatusNoContent)
+	_ = successResp.Body.Close()
+	// Losing the transfer acknowledgement does not make PUT replayable.
+	repeated := putUpload(t, successTarget["href"].(string), "hello")
+	httptestx.RequireErrorEnvelope(t, repeated, http.StatusNotFound, "object_upload_not_found_or_revoked")
 }
 
 func TestExpiredSlotReplay_Integration(t *testing.T) {
@@ -234,4 +398,31 @@ func TestExpiredSlotReplay_Integration(t *testing.T) {
 	if got := countObjectBlobs(t, harness, incidentID); got != 2 {
 		t.Fatalf("fresh target should create exactly one additional blob slot: got %d want 2", got)
 	}
+	// Completed bytes remain finalizable after the single-use target expires.
+	freshTarget := freshData["upload_target"].(map[string]any)
+	putObject(t, harness.Server.HTTP.URL, freshTarget["href"].(string), []byte(strings.Repeat("x", 17)), "text/plain", login)
+	finalizeAt := replayAt.Add(61 * time.Minute)
+	extendSessionForClockJump(t, harness, adminID, finalizeAt.Add(48*time.Hour))
+	httptestx.SetClockFixed(t, harness.Server, finalizeAt)
+	createRoute := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.evidence.v1/rows"
+	completed := appsupport.DoJSON(t, http.MethodPost, createRoute, map[string]any{"client_txn_id": "txn-expired-target-completed", "evidence.initial_object_blob_id": freshData["object_blob_id"]}, authOptions(login)...)
+	httptestx.RequireSuccessEnvelope(t, completed, http.StatusCreated)
+
+	// The separate pending deadline ends eligibility even for completed bytes.
+	freshBody["client_txn_id"] = "txn-pending-deadline-slot"
+	pendingResponse := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", freshBody, authOptions(login)...)
+	pendingData := httptestx.RequireSuccessEnvelope(t, pendingResponse, http.StatusCreated)["data"].(map[string]any)
+	putObject(t, harness.Server.HTTP.URL, pendingData["upload_target"].(map[string]any)["href"].(string), []byte(strings.Repeat("x", 17)), "text/plain", login)
+	extendSessionForClockJump(t, harness, adminID, finalizeAt.Add(48*time.Hour))
+	httptestx.SetClockFixed(t, harness.Server, finalizeAt.Add(25*time.Hour))
+	expiredFinalize := appsupport.DoJSON(t, http.MethodPost, createRoute, map[string]any{"client_txn_id": "txn-pending-deadline-finalize", "evidence.initial_object_blob_id": pendingData["object_blob_id"]}, authOptions(login)...)
+	httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, expiredFinalize, http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_failed")
+	var associations int
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM evidence WHERE object_blob_id=$1`, pendingData["object_blob_id"]).Scan(&associations); err != nil {
+		t.Fatal(err)
+	}
+	if associations != 0 {
+		t.Fatalf("expired pending blob associations=%d", associations)
+	}
+
 }

@@ -206,6 +206,9 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attached-incident", "IR-U5ATTACH", "Evidence attached evidence")
 
 	evidenceID := seedTimelineEvidence(t, harness, incident.ID, actor.ID, "Screenshot one", "available")
+	if _, err := harness.DB.Exec(context.Background(), `UPDATE evidence SET lifecycle_state='requested' WHERE record_id=$1`, evidenceID); err != nil {
+		t.Fatal(err)
+	}
 	create := CreateRequest{
 		ClientTxnID: "txn-evidence_lifecycle-attached-create",
 		AttachedEvidence: &CollectionActionPayload{Actions: []CollectionAction{{

@@ -147,7 +147,7 @@ func ApplyCollectionFacts(record *DerivedRecord, facts CollectionFacts) {
 			DisplayText:    evidence.Title,
 			LinkedRecordID: evidence.RecordID,
 		})
-		if evidence.UploadState == "available" && (evidence.LifecycleState == "available" || evidence.LifecycleState == "released") {
+		if evidence.UploadState == "available" {
 			record.EvidenceCount++
 		}
 	}

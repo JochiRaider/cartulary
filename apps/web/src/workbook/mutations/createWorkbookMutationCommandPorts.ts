@@ -7,7 +7,6 @@ import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence
 import { createAssessmentAppendTransport } from "../adapters/createAssessmentAppendTransport";
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
-import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookBatchOperationOwner } from "../runtime/WorkbookBatchOperationOwner";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
@@ -115,12 +114,6 @@ export function createWorkbookMutationCommandPorts(
     },
     assessment: createAssessmentAppendTransport(context.apiBase),
     evidence: {
-      ...createEvidenceAttachmentPort({
-        apiBase: context.apiBase,
-        incidentId: context.incidentId,
-        operations,
-        transactionIds: context.transactionIds,
-      }),
       async issueHandle(input) {
         const operationID =
           input.kind === "preview"

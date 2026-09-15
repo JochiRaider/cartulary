@@ -131,6 +131,9 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	}
 	attachRow := attachData["row"].(map[string]any)
 	attachCells := attachRow["cells"].(map[string]any)
+	if got := attachCells["evidence.lifecycle_state"].(map[string]any)["value"]; got != "requested" {
+		t.Fatalf("blob attachment changed custody: got %v want requested", got)
+	}
 	if got := int(attachCells["evidence.linked_record_count"].(map[string]any)["value"].(float64)); got != 1 {
 		t.Fatalf("attach row evidence.linked_record_count got %d want 1: %#v", got, attachRow)
 	}
@@ -139,7 +142,8 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 		t.Fatalf("canonical mutation row differs from provider query row:\nmutation=%#v\nquery=%#v", attachRow, queriedRow)
 	}
 	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, attachData["change_set_id"].(string))
-	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
+	// Finalized associated files count independently of requested custody.
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
 
 	replayResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
@@ -147,7 +151,8 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 		t.Fatalf("attach replay changed change_set_id: replay=%#v first=%#v", replayData["change_set_id"], attachData["change_set_id"])
 	}
 	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, attachData["change_set_id"].(string))
-	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
+	// Finalized associated files count independently of requested custody.
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
 	availableData := requireHTTPWorkbookPatch(t, harness, login, evidenceRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": 2,

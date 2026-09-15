@@ -221,6 +221,7 @@ export function TimelineScalarEditor({
       <textarea
         aria-label={accessibleLabel}
         data-testid={dataTestId}
+        data-timeline-file-source={surface === "grid" ? rowKey : undefined}
         id={controlId}
         ref={inputRef}
         readOnly={readOnly}
@@ -244,6 +245,7 @@ export function TimelineScalarEditor({
     <input
       aria-label={accessibleLabel}
       data-testid={dataTestId}
+      data-timeline-file-source={surface === "grid" ? rowKey : undefined}
       id={controlId}
       ref={inputRef}
       readOnly={readOnly}

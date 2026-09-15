@@ -49,7 +49,6 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineEvidenceFileInputTestId,
-  timelineInspectorMessageTestId,
   timelineInspectorTestId,
   timelinePreviewRowTestId,
   workbookAddRowButtonTestId,
@@ -73,6 +72,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -829,15 +829,20 @@ describe("WorkbookShell surface selection", () => {
           `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${evidenceViewSchemaId}/rows`,
         )
       ) {
+        const acceptedEvidence = evidenceRow(
+          "00000000-0000-4000-8000-000000004001",
+          1,
+          "Attached screenshot",
+        );
+        acceptedEvidence.cells["evidence.storage_ref"] = {
+          value: "object://00000000-0000-4000-8000-000000003001",
+        };
+        currentScenario.evidenceRows = [acceptedEvidence];
         return successEnvelope(
           {
             view_schema_id: evidenceViewSchemaId,
             change_set_id: "30000000-0000-4000-8000-000000000001",
-            row: evidenceRow(
-              "00000000-0000-4000-8000-000000004001",
-              1,
-              "Attached screenshot",
-            ),
+            row: acceptedEvidence,
           },
           201,
         );
@@ -854,12 +859,12 @@ describe("WorkbookShell surface selection", () => {
             incident_id: request.incident_id,
             object_blob_id: "00000000-0000-4000-8000-000000003001",
             upload_state: "pending",
-            target_expires_at: "2026-07-26T12:05:00Z",
-            pending_expires_at: "2026-07-26T12:10:00Z",
+            target_expires_at: "2099-07-26T12:05:00Z",
+            pending_expires_at: "2099-07-27T12:05:00Z",
             upload_target: {
               href: "/api/v1/object-uploads/test-token",
               method: "PUT",
-              expires_at: "2026-07-26T12:05:00Z",
+              expires_at: "2099-07-26T12:05:00Z",
               headers: {
                 "Content-Type":
                   request.content_type_hint ?? "application/octet-stream",
@@ -882,7 +887,7 @@ describe("WorkbookShell surface selection", () => {
         url.endsWith("/api/v1/object-uploads/test-token")
       ) {
         return new Response(null, {
-          status: currentScenario.uploadShouldFail ? 500 : 200,
+          status: currentScenario.uploadShouldFail ? 500 : 204,
         });
       }
       if (
@@ -919,10 +924,20 @@ describe("WorkbookShell surface selection", () => {
         if (error) {
           return error;
         }
-        const row = evidenceStateRow(recordId, 2, "Attached evidence", {
-          lifecycleState: "requested",
-          uploadState: "available",
-        });
+        const before = currentScenario.evidenceRows.find(
+          (row) => row.record_id === recordId,
+        );
+        const row = evidenceStateRow(
+          recordId,
+          (before?.row_version ?? 1) + 1,
+          "Attached evidence",
+          {
+            lifecycleState: String(
+              before?.cells["evidence.lifecycle_state"]?.value ?? "requested",
+            ),
+            uploadState: "available",
+          },
+        );
         currentScenario.evidenceRows = [
           row,
           ...currentScenario.evidenceRows.filter(
@@ -3640,7 +3655,7 @@ describe("WorkbookShell surface selection", () => {
           .getAllByRole("status")
           .map((node) => node.textContent)
           .join(" "),
-      ).toContain("Evidence attached.");
+      ).toContain("File attached. Custody unchanged.");
     });
     const createBlobCall = fetchMock.mock.calls.find(([input]) =>
       String(input).endsWith("/api/v1/object-blobs"),
@@ -3650,7 +3665,7 @@ describe("WorkbookShell surface selection", () => {
       JSON.parse(String((createBlobCall?.[1] as RequestInit).body)),
     ).toEqual({
       incident_id: "10000000-0000-4000-8000-000000000001",
-      client_txn_id: expect.stringMatching(/^evidence-blob-/u),
+      client_txn_id: expect.stringMatching(/^evidence-slot-/u),
       byte_size: 18,
       filename_hint: "safe-evidence.txt",
       content_type_hint: "text/plain",
@@ -3676,15 +3691,7 @@ describe("WorkbookShell surface selection", () => {
           "evidence.lifecycle_state",
         ),
     );
-    expect(lifecyclePatchCall).toBeDefined();
-    expect(
-      JSON.parse(String((lifecyclePatchCall?.[1] as RequestInit).body)),
-    ).toEqual({
-      view_schema_id: evidenceViewSchemaId,
-      base_row_version: 2,
-      client_txn_id: expect.stringMatching(/^evidence-available-/u),
-      changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
-    });
+    expect(lifecyclePatchCall).toBeUndefined();
 
     fireEvent.change(
       screen.getByTestId(
@@ -3702,10 +3709,10 @@ describe("WorkbookShell surface selection", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004015"),
-        ).textContent,
-      ).toBe("Attach failed");
+        screen.getByText(
+          "Attachment was rejected. Review the record before continuing.",
+        ),
+      ).toBeTruthy();
     });
 
     fireEvent.click(
@@ -3816,10 +3823,9 @@ describe("WorkbookShell surface selection", () => {
     expect(
       JSON.parse(String((evidenceCreateCall?.[1] as RequestInit).body)),
     ).toEqual({
-      client_txn_id: expect.stringMatching(/^timeline-client-/u),
+      client_txn_id: expect.any(String),
       "evidence.title": "screenshot.txt",
       "evidence.collector_party_text": "Workbook upload",
-      "evidence.lifecycle_state": "available",
       "evidence.initial_object_blob_id": "00000000-0000-4000-8000-000000003001",
     });
     expect(
@@ -3870,8 +3876,14 @@ describe("WorkbookShell surface selection", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineInspectorMessageTestId()).textContent,
-      ).toBe("The evidence file could not be uploaded.");
+        within(
+          screen.getByRole("group", {
+            name: "File recovery: screenshot.txt",
+          }),
+        ).getByText(
+          "Upload acknowledgement is uncertain. Recover by finalizing the file.",
+        ),
+      ).toBeTruthy();
     });
     expect(
       fetchMock.mock.calls.some(([input, init]) => {

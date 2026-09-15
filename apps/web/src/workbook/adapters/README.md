@@ -18,6 +18,8 @@ capabilities live in [ports](../ports/README.md).
 
 | File | Responsibility |
 | --- | --- |
+| [createEvidenceFileTransport.ts](createEvidenceFileTransport.ts) | Captures and validates independent slot, byte transfer, attachment and atomic Evidence creation stages. |
+| [createTimelineFileLinkTransport.ts](createTimelineFileLinkTransport.ts) | Captures original-source collection mutations and retains complete validated link receipts. |
 | [createAssessmentAppendTransport.ts](createAssessmentAppendTransport.ts) | Executes captured Assessment append requests and validates correlated operation receipts. |
 | [createContextualCreateTransport.ts](createContextualCreateTransport.ts) | Executes reviewed contextual Task/Decision creation through generated operations. |
 | [createCoordinationCreateTransport.ts](createCoordinationCreateTransport.ts) | Executes captured coordination creation requests and validates semantic receipts. |

@@ -158,7 +158,7 @@ export function createTimelineMutationDriver(
   const {
     applyAcceptedRowMutation,
     clearSubmittedScalarEditorDraftValuesForRow,
-    clearViewportContinuity,
+    clearViewportContinuity: clearMountedViewportContinuity,
     conflictQueueRef,
     registerMutationConflict,
     latestCommittedTimelineRow,
@@ -174,6 +174,9 @@ export function createTimelineMutationDriver(
     setRefreshError,
     rowStoreCommands,
   } = ports;
+  const clearViewportContinuity = (token: number | undefined) => {
+    if (token !== undefined) clearMountedViewportContinuity(token);
+  };
   const { replaceRows } = rowStoreCommands;
   const contextByUnitId = pendingSavesRefs.replayContextByUnitId;
   const completionCallbacksRef = {
@@ -602,7 +605,9 @@ export function createTimelineMutationDriver(
           meta.continueOnFreshDraft && meta.rowSnapshot.recordId === null,
         detectAutoResolution: meta.detectAutoResolution,
         promoteToCommittedRowInspect: meta.promoteToCommittedRowInspect,
-        viewportContinuityToken: meta.viewportContinuityToken,
+        ...(meta.viewportContinuityToken === undefined
+          ? {}
+          : { viewportContinuityToken: meta.viewportContinuityToken }),
       });
     } catch (error) {
       recordWorkbookTiming("pending_result_apply_error", {

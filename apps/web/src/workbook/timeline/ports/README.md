@@ -12,6 +12,5 @@ routes, status codes, raw transport envelopes, or API-base coordinates.
 | File | Responsibility |
 | --- | --- |
 | [TimelineBulkTagCommandPort.ts](TimelineBulkTagCommandPort.ts) | Exact semantic multi-row tag assignment capability. |
-| [TimelineEvidenceAttachmentPort.ts](TimelineEvidenceAttachmentPort.ts) | Semantic file attachment and Timeline row outcomes. |
 | [TimelineMentionPort.ts](TimelineMentionPort.ts) | Separate semantic mention entity-creation and resolution capabilities. |
 | [TimelineRecordActionPort.ts](TimelineRecordActionPort.ts) | Semantic Timeline review and supersede capability. |

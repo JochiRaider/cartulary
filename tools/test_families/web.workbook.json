@@ -1174,10 +1174,10 @@
       "selector": {
         "file": "apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.test.tsx",
         "titles": [
+          "Evidence workbook bindings delegates file admission from both presentations to the retained owner",
           "Evidence workbook bindings discards pending preview completions after close retarget replacement deletion surface or access changes",
           "Evidence workbook bindings keeps the latest preview intent and does not claim loaded bytes on issuance",
           "Evidence workbook bindings orders record feedback and download effects and discards completions after unmount or access loss",
-          "Evidence workbook bindings preserves attachment settlement and suppresses stale attachment feedback",
           "Evidence workbook bindings shares safe feedback across distinct row and inspector views and announces each outcome once"
         ]
       },

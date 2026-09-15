@@ -86,9 +86,23 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
       ),
     });
 
-  await expect(
-    page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
-  ).toHaveText("Available");
+  const finalized = await waitForEvidenceState(
+    page,
+    incidentId,
+    evidenceRow.record_id,
+    {
+      lifecycleState: "requested",
+      uploadState: "available",
+    },
+  );
+  expect(finalized.row_version).toBe(evidenceRow.row_version + 1);
+  // Custody is a separately reviewed ordinary action, never an upload side effect.
+  await patchRecord(page, evidenceRow.record_id, {
+    view_schema_id: evidenceViewSchemaId,
+    base_row_version: finalized.row_version,
+    client_txn_id: uniqueTxn("explicit-custody"),
+    changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+  });
   const attachedRow = await waitForEvidenceState(
     page,
     incidentId,
@@ -98,6 +112,9 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
       uploadState: "available",
     },
   );
+  await expect(
+    page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
+  ).toHaveText("Available");
 
   const createBlobRequest = await observed.requirePost(
     (request) => new URL(request.url()).pathname === "/api/v1/object-blobs",
@@ -272,9 +289,23 @@ test("Verify evidence attach, preview, download, and blocked preview through sam
       buffer: Buffer.from(safeBody, "utf8"),
     });
 
-  await expect(
-    page.getByTestId(evidenceAccessMessageTestId(safeRow.record_id)),
-  ).toHaveText("Available");
+  const finalized = await waitForEvidenceState(
+    page,
+    incidentId,
+    safeRow.record_id,
+    {
+      lifecycleState: "requested",
+      uploadState: "available",
+    },
+  );
+  expect(finalized.row_version).toBe(safeRow.row_version + 1);
+  // Custody is a separately reviewed ordinary action, never an upload side effect.
+  await patchRecord(page, safeRow.record_id, {
+    view_schema_id: evidenceViewSchemaId,
+    base_row_version: finalized.row_version,
+    client_txn_id: uniqueTxn("explicit-custody"),
+    changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+  });
   const attachedSafeRow = await waitForEvidenceState(
     page,
     incidentId,
@@ -284,6 +315,9 @@ test("Verify evidence attach, preview, download, and blocked preview through sam
       uploadState: "available",
     },
   );
+  await expect(
+    page.getByTestId(evidenceAccessMessageTestId(safeRow.record_id)),
+  ).toHaveText("Available");
 
   const createBlobRequest = await observed.requirePost(
     (request) => new URL(request.url()).pathname === "/api/v1/object-blobs",

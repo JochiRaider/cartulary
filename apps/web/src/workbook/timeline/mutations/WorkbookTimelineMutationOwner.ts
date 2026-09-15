@@ -1,9 +1,14 @@
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import type { TimelineFileDraftPort } from "../../features/evidence/timelineFileOperation";
 import type { WorkbookViewApiRow } from "../../models/workbookContractRows";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
+import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
+import { buildAttachedEvidenceCreateRequest } from "../adapters/timelineEvidenceRequestBuilders";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { inputFocusKey } from "../models/timelineFieldRegistry";
+import { buildCreatePayload } from "../models/timelineMutationIntents";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import {
   normalizeTimelineFullRow,
@@ -35,6 +40,12 @@ export class WorkbookTimelineMutationOwner {
     string,
     Parameters<TimelineMutationDriverPorts["applyAcceptedRowMutation"]>[1]
   >();
+  private readonly promotions = new Map<
+    string,
+    WorkbookPendingMutationAccepted
+  >();
+  private readonly fileListeners = new Set<() => void>();
+  readonly fileDrafts: TimelineFileDraftPort;
   private readonly driver;
   private readonly unregister: () => void;
   private retired = false;
@@ -151,6 +162,8 @@ export class WorkbookTimelineMutationOwner {
       },
       applyAcceptedRowMutation: (key, accepted, options) => {
         this.receipts.set(accepted.changeSetId, accepted);
+        this.promotions.set(key, accepted);
+        for (const listener of this.fileListeners) listener();
         runtime.retainSurfaceRefreshDebt(timelineViewSchemaId);
         const row = rowFromApi(accepted.row);
         this.rows.current = this.rows.current
@@ -221,6 +234,77 @@ export class WorkbookTimelineMutationOwner {
         },
       },
     });
+    this.fileDrafts = {
+      subscribe: (listener) => {
+        this.fileListeners.add(listener);
+        return () => {
+          this.fileListeners.delete(listener);
+        };
+      },
+      resolve: (key) => {
+        const receipt = this.promotions.get(key);
+        if (receipt) return { kind: "promoted", receipt };
+        if (
+          runtime
+            .pendingQueue()
+            .model.snapshot()
+            .units.some((unit) => unit.rowKey === key && unit.kind === "create")
+        )
+          return { kind: "pending" };
+        const row = (
+          this.attachment?.read().rowsRef.current ?? this.rows.current
+        ).find((row) => row.key === key);
+        return row && !row.recordId
+          ? { kind: "draft" }
+          : { kind: "unavailable" };
+      },
+      attachEvidence: (key, evidenceRecordId) => {
+        if (this.retired || this.fileDrafts.resolve(key).kind !== "draft")
+          return;
+        const original = (
+          this.attachment?.read().rowsRef.current ?? this.rows.current
+        ).find((row) => row.key === key);
+        if (!original || original.recordId) return;
+        const row = drafts.materializeRow(original);
+        const clientTxnId = ids.create("timeline-file-create");
+        const payloadIntent = {
+          ...buildCreatePayload(row, clientTxnId),
+          ...buildAttachedEvidenceCreateRequest(evidenceRecordId, clientTxnId),
+        };
+        const mutationSignature = buildStableMutationSignature(payloadIntent);
+        this.driver.enqueuePendingReplayUnit(
+          {
+            id: `pending-${clientTxnId}`,
+            kind: "create",
+            source: "autosave",
+            incidentId: runtime.scope.incidentId,
+            clientInstanceId: runtime.scope.clientInstanceId,
+            viewSchemaId: timelineViewSchemaId,
+            rowKey: key,
+            recordId: null,
+            focusField: "rawActivityText",
+            focusKey: inputFocusKey(key, "rawActivityText", "grid"),
+            surface: "grid",
+            payloadIntent,
+            clientTxnId,
+            mutationSignature,
+            coalesceKey: `draft:${key}`,
+            enqueueOrder: pending.pendingReplayOrderRef.current++,
+            operationClass: "hot_path",
+            status: "queued",
+            rowSnapshot: row,
+            continueOnFreshDraft: true,
+            detectAutoResolution: false,
+            promoteToCommittedRowInspect: false,
+            viewportContinuityToken: undefined,
+          },
+          () => {
+            for (const listener of this.fileListeners) listener();
+          },
+        );
+      },
+    };
+    runtime.timelineFiles.configureDrafts(this.fileDrafts);
     const registration = runtime.registerDriver({
       kind: "timeline_row",
       drain: this.driver.drain,
@@ -248,6 +332,7 @@ export class WorkbookTimelineMutationOwner {
     this.runtime.requestDrain();
     return () => {
       if (this.attachment !== attachment) return;
+      this.rows.current = read().rowsRef.current;
       this.attachment = null;
       this.driver.detachPresentation();
     };
@@ -267,6 +352,8 @@ export class WorkbookTimelineMutationOwner {
     for (const read of this.reads) read.abort();
     this.reads.clear();
     this.receipts.clear();
+    this.promotions.clear();
+    this.fileListeners.clear();
     this.rows.current = [];
     this.driver.detachPresentation();
     this.unregister();

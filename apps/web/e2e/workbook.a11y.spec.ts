@@ -101,6 +101,7 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineCaptureActionTestId,
+  timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -293,7 +294,11 @@ import {
   retainOrdinaryUncertainty,
   switchOrdinarySheet,
 } from "./support/workbook/ordinaryCreate";
-import { createViewRow, patchRecord } from "./support/workbook/query";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
 import {
   clickTimelineRowAction,
   openTimelineInspector,
@@ -1367,11 +1372,18 @@ function contrastRecordPath(title: string) {
   return path.join(dir, `${slug}.json`);
 }
 
-async function collectContrastChecks(page: Page, testIds: readonly string[]) {
-  const targets = [...new Set(testIds)].map((id) => ({
-    id,
-    selector: dataTestIdSelector(id),
-  }));
+type ContrastTarget =
+  | string
+  | { readonly id: string; readonly selector: string };
+async function collectContrastChecks(
+  page: Page,
+  testIds: readonly ContrastTarget[],
+) {
+  const targets = [...new Set(testIds)].map((target) =>
+    typeof target === "string"
+      ? { id: target, selector: dataTestIdSelector(target) }
+      : target,
+  );
   return page.evaluate(
     ({ targets, threshold }) => {
       type Rgba = { a: number; b: number; g: number; r: number };
@@ -1467,7 +1479,10 @@ async function collectContrastChecks(page: Page, testIds: readonly string[]) {
   );
 }
 
-async function expectAndRecordContrast(page: Page, testIds: readonly string[]) {
+async function expectAndRecordContrast(
+  page: Page,
+  testIds: readonly ContrastTarget[],
+) {
   const title = test.info().title;
   const checks = await collectContrastChecks(page, testIds);
   expect(checks.length).toBeGreaterThan(0);
@@ -8628,4 +8643,108 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
     contentType: "text/plain",
   });
   await page.unroute(path);
+});
+
+test("a11y.evidence-file-recovery keeps stage recovery local reachable and keyboard operable", async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("A11Y-EUR"),
+    "Evidence file recovery accessibility",
+  );
+  const source = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("source"),
+    "timeline.activity_synopsis_text": "Original recovery source",
+  });
+  let slots = 0;
+  await page.route("**/api/v1/object-blobs", async (route) => {
+    slots++;
+    const response = await route.fetch();
+    expect(response.ok()).toBeTruthy();
+    if (slots === 1) await route.abort("failed");
+    else await route.fulfill({ response });
+  });
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${timelineViewSchemaId}`,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await openTimelineInspector(page, source.record_id);
+  await page
+    .getByTestId(timelineEvidenceFileInputTestId(source.record_id))
+    .setInputFiles({
+      name: "local-recovery-with-a-long-original-filename-for-narrow-workbook-controls.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Recovery file"),
+    });
+  const recovery = page.getByRole("group", {
+    name: "Inspector file recovery: local-recovery-with-a-long-original-filename-for-narrow-workbook-controls.txt",
+    exact: true,
+  });
+  await expect(recovery.getByRole("status")).toContainText(
+    "Upload preparation is uncertain",
+  );
+  await expect(recovery.getByRole("status")).toHaveAttribute(
+    "aria-live",
+    "off",
+  );
+  const resume = recovery.getByRole("button", { name: "Resume", exact: true });
+  const discard = recovery.getByRole("button", {
+    name: "Discard retained file work",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [resume, discard]) {
+      await expectDecisionControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+    await expect(
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await info.attach(`evidence-file-recovery-${viewport.width}`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectDecisionControlReachable(page, resume);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await expectAndRecordContrast(page, [
+    {
+      id: "file-recovery-resume",
+      selector:
+        '[aria-label="Inspector file recovery: local-recovery-with-a-long-original-filename-for-narrow-workbook-controls.txt"] button',
+    },
+    {
+      id: "file-recovery-status",
+      selector:
+        '[aria-label="Inspector file recovery: local-recovery-with-a-long-original-filename-for-narrow-workbook-controls.txt"] [role="status"]',
+    },
+  ]);
+  await resume.focus();
+  await resume.press("Enter");
+  await expect(recovery).toContainText("Evidence attached.");
+  expect(slots).toBe(2);
+  await discard.focus();
+  await discard.press("Enter");
+  await expect(recovery).toHaveCount(0);
+  const rows = await queryViewRows(page, incident, timelineViewSchemaId);
+  expect(
+    rows.find((row) => row.record_id === source.record_id)?.cells[
+      "timeline.evidence_count"
+    ]?.value,
+  ).toBe(1);
 });

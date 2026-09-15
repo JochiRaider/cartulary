@@ -110,10 +110,6 @@ export function useTimelineWorkbookComposition({
         foundation.commands.mentions.setSelectedResolveTargetId,
     },
     grid: {
-      beginViewportContinuity:
-        grid.commands.viewportContinuity.beginViewportContinuity,
-      clearViewportContinuity:
-        grid.commands.viewportContinuity.clearViewportContinuity,
       gridShellRef: grid.refs.gridShell,
 
       restoreTimelineFocusAnchor:
@@ -142,14 +138,10 @@ export function useTimelineWorkbookComposition({
     },
     mutation: {
       activeConflict: mutation.snapshot.conflict.activeConflict,
-      applyAcceptedRowMutation: mutation.commands.save.applyAcceptedRowMutation,
       commands: {
         acceptTimelineRecordVersion:
           mutation.commands.save.acceptTimelineRecordVersion,
         enqueueSaveWork: mutation.commands.save.enqueueSaveWork,
-
-        resolvePendingSocketTxn: mutation.commands.save.resolvePendingSocketTxn,
-        trackPendingSocketTxn: mutation.commands.save.trackPendingSocketTxn,
       },
       loadRows: mutation.commands.query.loadRows,
       publishViewingPresence: mutation.commands.presence.publishViewingPresence,
@@ -219,6 +211,13 @@ export function useTimelineWorkbookComposition({
     },
   });
 
+  useTimelineSourceWriteCoordination({
+    owner: runtime.mutationRuntime.timelineFiles,
+    rows: foundation.refs.rows,
+    drafts: foundation.refs.editorDraftRegistry,
+    available: !foundation.snapshot.lifecycle.loadAccessLost,
+    waitForIdle: mutation.ports.waitForCommittedRecordIdle,
+  });
   useTimelineSourceWriteCoordination({
     owner: runtime.mutationRuntime.timelineRelatedEvidence,
     rows: foundation.refs.rows,
@@ -309,6 +308,7 @@ export function useTimelineWorkbookComposition({
   const presentation = {
     observationSource,
     captureActions,
+    fileOwner: runtime.mutationRuntime.timelineFiles,
     foundation: {
       commands: {
         query: foundation.commands.query,

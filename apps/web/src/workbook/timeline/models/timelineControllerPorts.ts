@@ -75,5 +75,5 @@ export type TimelineReplayContext = {
   continueOnFreshDraft: boolean;
   detectAutoResolution: boolean;
   promoteToCommittedRowInspect: boolean;
-  viewportContinuityToken: number;
+  viewportContinuityToken: number | undefined;
 };

@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"net/http"
 	"strings"
@@ -68,6 +69,16 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		}
 		if !replay.Replayed || replay.StatusCode != http.StatusOK || replay.Payload["change_set_id"] != changeSet {
 			t.Fatalf("replay did not return original payload: %#v want change_set_id %#v", replay, changeSet)
+		}
+		requireChangeSetCount(t, harness, recordID, 1)
+		// A committed receipt cannot bypass current blob eligibility after preflight.
+		if _, err := harness.Exec(context.Background(), `UPDATE object_blobs SET upload_state = 'quarantined' WHERE object_blob_id = $1`, blobID); err != nil {
+			t.Fatal(err)
+		}
+		_, err = store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-replay-quarantined", time.Now().UTC())
+		var rejected AttachRejectedError
+		if !errors.As(err, &rejected) || rejected.ReasonCode != attachReasonBlobQuarantined {
+			t.Fatalf("replay current eligibility = %v", err)
 		}
 		requireChangeSetCount(t, harness, recordID, 1)
 	})
@@ -168,6 +179,19 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
 	})
 
+	t.Run("transaction rejects an incomplete lease without consuming budget", func(t *testing.T) {
+		recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+		blobID := seedBlob(t, harness, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 1})
+		if _, err := harness.Exec(context.Background(), `UPDATE evidence_object_upload_leases SET lease_state='claimed', completed_at=NULL WHERE object_blob_id=$1`, blobID); err != nil {
+			t.Fatal(err)
+		}
+		request := attachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-incomplete"}
+		_, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), &observedObject{Size: 1, SHA256Hex: strings.Repeat("a", 64)}, "req-incomplete", time.Now().UTC())
+		requireAttachRejectedReason(t, err, "blob_pending")
+		requirePendingAttemptCount(t, harness, blobID, 0)
+		requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
+	})
+
 	t.Run("non-terminal finalization retry budget fails on fourth attempt", func(t *testing.T) {
 		recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
 		blobID := seedBlob(t, harness, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 1})
@@ -257,6 +281,25 @@ INSERT INTO object_blobs (
 		byteSize, options.ExpectedSHA, options.ObservedSize, options.ObservedContentType, options.ObservedSHA,
 		now.Add(time.Hour), pendingExpiresAt, finalizedAt, terminalReason, failedAt, cleanupDueAt, now); err != nil {
 		t.Fatalf("insert object blob: %v", err)
+	}
+	if uploadState == "pending" {
+		sessionID := uuid.New()
+		fingerprint := sha256.Sum256([]byte(sessionID.String()))
+		if _, err := db.Exec(context.Background(), `
+INSERT INTO user_sessions (id, user_id, token_fingerprint, authenticated_at, last_qualifying_activity_at,
+ idle_expires_at, absolute_expires_at, session_expires_at, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $4, $5, $5, $5, $4, $4)
+`, sessionID, actorID, fingerprint[:], now, now.Add(time.Hour)); err != nil {
+			t.Fatalf("seed finalization session: %v", err)
+		}
+		if _, err := db.Exec(context.Background(), `
+INSERT INTO evidence_object_upload_leases (object_blob_id, lease_id, capability_hash, incident_id, issuing_user_id,
+ issuing_session_id, issued_at, expires_at, required_method, required_headers, accepted_contract_sha256,
+ lease_state, claimed_at, completed_at, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $2, $6, $7, 'PUT', '{}'::jsonb, $3, 'completed', $6, $6, $6, $6)
+`, blobID, sessionID, fingerprint[:], incidentID, actorID, now, now.Add(time.Hour)); err != nil {
+			t.Fatalf("seed completed finalization lease: %v", err)
+		}
 	}
 	return blobID
 }

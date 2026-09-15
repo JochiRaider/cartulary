@@ -1,7 +1,29 @@
+import {
+  evidenceViewSchemaId,
+  requireViewContract,
+} from "@cartulary/view-contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkbookOperationExecutor } from "../workbook/adapters/workbookOperationExecutor";
+import { fullWorkbookViewRow } from "../testing/timelineWorkbookTestSupport";
+import { createEvidenceFileTransport } from "../workbook/adapters/createEvidenceFileTransport";
+import { EvidenceUploadSession } from "../workbook/features/evidence/EvidenceUploadSession";
 
-import { createUploadedEvidenceBlob } from "../workbook/features/evidence/createUploadedEvidenceBlob";
+const authority = {
+  actorId: "actor",
+  sessionIdentity: "session",
+  incidentId: "00000000-0000-4000-8000-000000001001",
+  role: "editor" as const,
+  closed: false,
+};
+function prepareUpload(file: File, clientTxnId = "blob-txn-1") {
+  return new EvidenceUploadSession(
+    file,
+    createEvidenceFileTransport("/base"),
+    { create: () => clientTxnId },
+    () => {},
+    () => {},
+  );
+}
+
 import {
   resolvePublicEvidenceHandleHref,
   uploadEvidenceObjectBlobTarget,
@@ -33,6 +55,61 @@ describe("workbookEvidence", () => {
     expect(resolvePublicEvidenceHandleHref("/api/v1/object-blobs/blob-1")).toBe(
       null,
     );
+  });
+
+  it("attaches an empty file without changing Evidence custody", async () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "cartulary_csrf=evidence-csrf",
+    );
+    const slot = objectBlobEnvelope();
+    slot.data.accepted_contract.byte_size = 0;
+    const recordId = "00000000-0000-4000-8000-000000002001";
+    const row = fullWorkbookViewRow(
+      requireViewContract(evidenceViewSchemaId),
+      recordId,
+      2,
+      {
+        "evidence.title": "empty",
+        "evidence.lifecycle_state": "requested",
+        "evidence.storage_ref": `object://${slot.data.object_blob_id}`,
+      },
+    );
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(slot))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            view_schema_id: evidenceViewSchemaId,
+            object_blob_id: slot.data.object_blob_id,
+            row,
+            change_set_id: "00000000-0000-4000-8000-000000004001",
+          },
+          meta: { request_id: "attach-request" },
+        }),
+      );
+    const upload = prepareUpload(
+      new File([], "evidence.txt", { type: "text/plain" }),
+    );
+    expect(await upload.prepare(authority)).toBe(true);
+    const transport = createEvidenceFileTransport("/base");
+    const attempt = transport.capture({
+      stage: "attach",
+      authority,
+      clientTxnId: "attach-empty",
+      recordId,
+      baseRowVersion: 1,
+      objectBlobId: slot.data.object_blob_id,
+    });
+    expect(
+      await transport.finalize(attempt, new AbortController().signal),
+    ).toMatchObject({ kind: "accepted", receipt: { data: { row } } });
+    expect(fetchMock.mock.calls.map(([, init]) => init.method)).toEqual([
+      "POST",
+      "PUT",
+      "POST",
+    ]);
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1].body).byte_size).toBe(0);
   });
 
   it("uses one authenticated CSRF-bound upload attempt without reading response bodies", async () => {
@@ -100,25 +177,20 @@ describe("workbookEvidence", () => {
         return Promise.resolve(jsonResponse(objectBlobEnvelope()));
       }
       if (url === "/base/api/v1/object-uploads/upload-token") {
-        return Promise.resolve(new Response("", { status: 200 }));
+        return Promise.resolve(new Response(null, { status: 204 }));
       }
       return Promise.resolve(
         jsonResponse({ error: { code: "unexpected" } }, 500),
       );
     });
 
-    const objectBlobId = await createUploadedEvidenceBlob({
-      apiBase: "/base",
-      clientTxnId: "blob-txn-1",
-      operations: createWorkbookOperationExecutor({ apiBase: "/base" }),
-      file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
-      incidentId: "00000000-0000-4000-8000-000000001001",
-    });
-
-    expect(objectBlobId).toEqual({
-      kind: "accepted",
-      value: { objectBlobId: "00000000-0000-4000-8000-000000003001" },
-    });
+    const upload = prepareUpload(
+      new File(["abc"], "evidence.txt", { type: "text/plain" }),
+    );
+    expect(await upload.prepare(authority)).toBe(true);
+    expect(upload.blob?.object_blob_id).toBe(
+      "00000000-0000-4000-8000-000000003001",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const createRequest = fetchMock.mock.calls[0]?.[1] as
       | RequestInit
@@ -145,27 +217,49 @@ describe("workbookEvidence", () => {
       .mockResolvedValueOnce(
         new Response("private upload error body", { status: 401 }),
       );
-    expect(
-      await createUploadedEvidenceBlob({
-        apiBase: "/base",
-        clientTxnId: "expired-session-upload",
-        operations: createWorkbookOperationExecutor({ apiBase: "/base" }),
-        file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
-        incidentId: "00000000-0000-4000-8000-000000001001",
-      }),
-    ).toMatchObject({
-      kind: "rejected",
-      failure: {
-        kind: "authentication_required",
-        presentation: { family: "authentication_required" },
-        uploadFailure: { cause: "http", status: 401 },
-      },
-    });
+    const expired = prepareUpload(
+      new File(["abc"], "evidence.txt", { type: "text/plain" }),
+      "expired-session-upload",
+    );
+    expect(await expired.prepare(authority)).toBe(false);
+    expect(expired.status.phase).toBe("transfer_uncertain");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Filename hints are normalized by the slot owner, not echoed raw.
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(objectBlobEnvelope()))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const normalized = prepareUpload(
+      new File(["abc"], "  evidence.txt  ", { type: "text/plain" }),
+      "normalized-hint",
+    );
+    expect(await normalized.prepare(authority)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(objectBlobEnvelope()))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const unicodeWhitespace = prepareUpload(
+      new File(["abc"], "\u0085evidence.txt\u0085", { type: "text/plain" }),
+      "normalized-unicode-hint",
+    );
+    expect(await unicodeWhitespace.prepare(authority)).toBe(true);
+    expect(unicodeWhitespace.blob?.accepted_contract.filename_hint).toBe(
+      "evidence.txt",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("fails closed before upload for malformed or cross-incident blob-slot responses", async () => {
+    const foreign = objectBlobEnvelope();
+    foreign.data.upload_target.href =
+      "https://foreign.invalid/api/v1/object-uploads/private";
+    const traversal = objectBlobEnvelope();
+    traversal.data.upload_target.href = "/api/v1/object-uploads/%2e%2e";
     for (const responsePayload of [
+      foreign,
+      traversal,
       { data: { incident_id: "missing-required-fields" } },
       objectBlobEnvelope({
         incidentId: "00000000-0000-4000-8000-000000001099",
@@ -174,18 +268,11 @@ describe("workbookEvidence", () => {
       fetchMock.mockReset();
       fetchMock.mockResolvedValue(jsonResponse(responsePayload));
 
-      await expect(
-        createUploadedEvidenceBlob({
-          apiBase: "/base",
-          clientTxnId: "blob-txn-1",
-          operations: createWorkbookOperationExecutor({ apiBase: "/base" }),
-          file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
-          incidentId: "00000000-0000-4000-8000-000000001001",
-        }),
-      ).resolves.toMatchObject({
-        kind: "rejected",
-        failure: { kind: "invalid_contract" },
-      });
+      const upload = prepareUpload(
+        new File(["abc"], "evidence.txt", { type: "text/plain" }),
+      );
+      expect(await upload.prepare(authority)).toBe(false);
+      expect(upload.status.phase).toBe("slot_uncertain");
       expect(fetchMock).toHaveBeenCalledTimes(1);
     }
   });
@@ -194,17 +281,18 @@ describe("workbookEvidence", () => {
 function objectBlobEnvelope(options: { readonly incidentId?: string } = {}) {
   const incidentId =
     options.incidentId ?? "00000000-0000-4000-8000-000000001001";
+  const targetExpiry = new Date(Date.now() + 3_600_000).toISOString();
   return {
     data: {
       incident_id: incidentId,
       object_blob_id: "00000000-0000-4000-8000-000000003001",
       upload_state: "pending",
-      target_expires_at: "2026-07-26T12:05:00Z",
-      pending_expires_at: "2026-07-26T12:10:00Z",
+      target_expires_at: targetExpiry,
+      pending_expires_at: new Date(Date.now() + 86_400_000).toISOString(),
       upload_target: {
         href: "/api/v1/object-uploads/upload-token",
         method: "PUT",
-        expires_at: "2026-07-26T12:05:00Z",
+        expires_at: targetExpiry,
         headers: { "Content-Type": "text/plain" },
       },
       accepted_contract: {

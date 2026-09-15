@@ -85,7 +85,6 @@ import {
   systemViewSwitcherTriggerTestId,
   timelineCaptureActionTestId,
   timelineEvidenceFileInputTestId,
-  timelineInspectorMessageTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -1152,18 +1151,37 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         buffer: tinyPNG(),
       });
     expect((await evidenceLinkResponse).ok()).toBe(true);
-    await expect(page.getByTestId(timelineInspectorMessageTestId())).toHaveText(
-      "Evidence attached.",
-    );
+    await expect(
+      page.getByRole("group", {
+        name: "Inspector file recovery: default-timeline-workbook-shell.png",
+        exact: true,
+      }),
+    ).toContainText("Evidence attached.");
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
+    await page
+      .getByRole("button", { name: "Discard retained file work", exact: true })
+      .last()
+      .click();
     await page
       .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
       .evaluateAll((elements) => {
         (elements[0] as HTMLElement | undefined)?.click();
       });
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+
+    // Prepare the declared selection explicitly; upload acknowledgement does not own it.
+    const captureSummary = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      selectedRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
+    await captureSummary
+      .locator("xpath=ancestor::*[@role='gridcell'][1]")
+      .dispatchEvent("mousedown", { button: 0 });
+    await page.keyboard.press("Escape");
 
     const timelineScrollportSelector = `${dataTestIdSelector(
       gridShellTestId(timelineViewSchemaId),
@@ -1198,6 +1216,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     );
     await summaryGridCell.focus();
     await expect(summaryGridCell).toBeFocused();
+    await expect(summaryGridCell).toHaveAttribute("tabindex", "0");
     await expect
       .poll(() =>
         page.evaluate(
@@ -1211,6 +1230,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       )
       .toMatchObject({ windowY: 0 });
 
+    await page.mouse.move(0, 0);
     await assertViewportVisualRegression(
       page,
       "incident-directory-default-timeline-workbook-shell",
@@ -1260,6 +1280,9 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       "aria-label",
       "Filters, 0 active filters, 7 hidden query entries",
     );
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
     await assertViewportVisualRegression(
       page,
       "incident-directory-narrow-desktop-workbook-shell",
@@ -1292,6 +1315,9 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         .getByTestId(workbookShellSlotTestId("status-strip"))
         .getByTestId(workbookPresenceSummaryTestId()),
     ).toBeVisible();
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
     await assertViewportVisualRegression(
       page,
       "incident-directory-compact-desktop-workbook-shell",
@@ -2211,6 +2237,22 @@ test.describe("workbook visual evidence", () => {
         buffer: Buffer.from("evidence_lifecycle visual evidence", "utf8"),
       });
     await expect(
+      page.getByRole("group", {
+        name: "File recovery: visual-request.txt",
+        exact: true,
+      }),
+    ).toContainText("File attached. Custody unchanged.");
+    await patchRecord(page, evidenceRow.record_id, {
+      view_schema_id: evidenceViewSchemaId,
+      base_row_version: evidenceRow.row_version + 1,
+      client_txn_id: uniqueTxn("visual-explicit-custody"),
+      changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+    });
+    await page
+      .getByRole("button", { name: "Discard retained file work", exact: true })
+      .last()
+      .click();
+    await expect(
       page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
     ).toHaveText("Available", { timeout: 30_000 });
     await expect(
@@ -2307,6 +2349,10 @@ test.describe("workbook visual evidence", () => {
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
+    await page
+      .getByRole("button", { name: "Discard retained file work", exact: true })
+      .last()
+      .click();
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -2598,6 +2644,10 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
+    await page
+      .getByRole("button", { name: "Discard retained file work", exact: true })
+      .last()
+      .click();
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();

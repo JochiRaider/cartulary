@@ -17,7 +17,9 @@ import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EvidenceHandleOutcome } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import { EvidenceAttachmentContext } from "./EvidenceAttachmentContext";
 import { useEvidenceWorkbookBindings } from "./useEvidenceWorkbookBindings";
+import { WorkbookEvidenceAttachmentOwner } from "./WorkbookEvidenceAttachmentOwner";
 
 const row = {
   record_id: "evidence-1",
@@ -50,7 +52,7 @@ const rejected: EvidenceHandleOutcome = {
 };
 function defaults() {
   return {
-    mutationCommands: { issueHandle: vi.fn(), attach: vi.fn() },
+    mutationCommands: { issueHandle: vi.fn() },
     mutation: {
       beginMutation: vi.fn(() => vi.fn()),
     },
@@ -298,21 +300,36 @@ describe("Evidence workbook bindings", () => {
     ).toBeTruthy();
   });
 
-  it("preserves attachment settlement and suppresses stale attachment feedback", async () => {
-    const pending = deferred();
-    const props = defaults();
-    props.mutationCommands.attach.mockReturnValue(pending.promise);
-    const view = render(<Harness {...props} />);
-    fireEvent.change(
-      screen.getByTestId(evidenceAttachFileInputTestId(row.record_id)),
-      { target: { files: [new File(["bytes"], "evidence.txt")] } },
+  it("delegates file admission from both presentations to the retained owner", () => {
+    const owner = new WorkbookEvidenceAttachmentOwner(
+      "incident",
+      { create: () => "txn" },
+      {
+        coordinate: async () => ({ kind: "settled", minimumRowVersion: 0 }),
+        accepted: () => {},
+        refresh: async () => {},
+      },
     );
-    expect(props.mutation.beginMutation).toHaveBeenCalledTimes(1);
-    view.rerender(<Harness {...props} resetKey="surface-2" />);
-    await act(async () => pending.resolve(rejected));
-    expect(
-      props.mutation.beginMutation.mock.results[0]?.value,
-    ).toHaveBeenCalledOnce();
-    expect(screen.getByRole("alert").textContent).toBe("");
+    const begin = vi
+      .spyOn(owner, "begin")
+      .mockReturnValue("Choose one file at a time.");
+    const props = defaults();
+    render(
+      <EvidenceAttachmentContext.Provider value={owner}>
+        <Harness {...props} />
+      </EvidenceAttachmentContext.Provider>,
+    );
+    const files = [new File(["one"], "one.txt"), new File(["two"], "two.txt")];
+    for (const context of ["row", "inspector"] as const)
+      fireEvent.change(
+        screen.getByTestId(
+          evidenceAttachFileInputTestId(row.record_id, context),
+        ),
+        { target: { files } },
+      );
+    expect(begin).toHaveBeenCalledTimes(2);
+    expect(begin).toHaveBeenLastCalledWith(row, files);
+    expect(props.mutation.beginMutation).not.toHaveBeenCalled();
+    expect(screen.getByText("Choose one file at a time.")).toBeTruthy();
   });
 });

@@ -200,8 +200,6 @@ describe("frontend source ownership policy", () => {
       "apps/web/src/workbook/features/coordination/coordinationCreateModel.ts",
       "apps/web/src/workbook/features/coordination/coordinationCreateRecovery.test.tsx",
       "apps/web/src/workbook/features/evidence/WorkbookTimelineRelatedEvidenceOwner.ts",
-      "apps/web/src/workbook/features/evidence/createEvidenceAttachmentPort.ts",
-      "apps/web/src/workbook/features/evidence/createUploadedEvidenceBlob.ts",
       "apps/web/src/workbook/features/evidence/evidenceOrdinaryCreate.ts",
       "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceAuthoring.test.tsx",
       "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceModel.ts",

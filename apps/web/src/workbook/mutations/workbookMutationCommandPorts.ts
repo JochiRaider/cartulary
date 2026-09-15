@@ -14,18 +14,12 @@ export type GenericViewMutationAccepted = {
 
 export type RecordRouteCommandPort = WorkbookRecordHistoryPort;
 
-export type EvidenceAttachAccepted = {
-  readonly evidenceRecordId: string;
-};
-
 export type EvidenceHandleAccepted = {
   readonly filename: string;
   readonly href: string;
   readonly previewKind: string | null;
 };
 
-export type EvidenceAttachOutcome =
-  WorkbookOperationOutcome<EvidenceAttachAccepted>;
 export type EvidenceHandleOutcome =
   WorkbookOperationOutcome<EvidenceHandleAccepted>;
 
@@ -71,11 +65,6 @@ export type TimelineMutationCommandPorts = {
 export type AssessmentMutationCommandPort = AssessmentAppendTransport;
 
 export interface EvidenceCapabilityPort {
-  attach(input: {
-    readonly baseRowVersion: number;
-    readonly evidenceRecordId: string;
-    readonly file: File;
-  }): Promise<EvidenceAttachOutcome>;
   issueHandle(input: {
     readonly evidenceRecordId: string;
     readonly kind: "download" | "preview";

@@ -4,6 +4,7 @@ import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecove
 import { createContextualCreateReader } from "../adapters/createContextualCreateReader";
 import { createContextualCreateTransport } from "../adapters/createContextualCreateTransport";
 import { createCoordinationCreateTransport } from "../adapters/createCoordinationCreateTransport";
+import { createEvidenceFileTransport } from "../adapters/createEvidenceFileTransport";
 import { createIndicatorCreateTransport } from "../adapters/createIndicatorCreateTransport";
 import { createIndicatorLifecycleAdapter } from "../adapters/createIndicatorLifecycleAdapter";
 import { createNoteCreateReader } from "../adapters/createNoteCreateReader";
@@ -13,6 +14,7 @@ import { createObservationTransport } from "../adapters/createObservationTranspo
 import { createOrdinaryCreateTransport } from "../adapters/createOrdinaryCreateTransport";
 import { createPartyCreationTransport } from "../adapters/createPartyCreationTransport";
 import { createPartyLinkReader } from "../adapters/createPartyLinkReader";
+import { createTimelineFileLinkTransport } from "../adapters/createTimelineFileLinkTransport";
 import { createTimelineRelatedEvidenceTransport } from "../adapters/createTimelineRelatedEvidenceTransport";
 import { createWorkbookAuthoringReader } from "../adapters/createWorkbookAuthoringReader";
 import { createWorkbookBatchTransport } from "../adapters/createWorkbookBatchTransport";
@@ -281,6 +283,8 @@ export function useWorkbookShellInfrastructure({
           mutationRuntime.coordinationCreate.suspend();
           mutationRuntime.contextualCreate.suspend();
           mutationRuntime.timelineRelatedEvidence.suspend();
+          mutationRuntime.evidenceAttachments.suspend();
+          mutationRuntime.timelineFiles.suspend();
           mutationRuntime.partyLinks.suspend();
           mutationRuntime.explicitPatches.suspend();
           void recheckMentionAuthority();
@@ -388,6 +392,28 @@ export function useWorkbookShellInfrastructure({
       ),
     [apiBase, incidentId, mutationRuntime, currentAuthorityReader],
   );
+  useMemo(() => {
+    const reader = createWorkbookAuthoringReader({
+      apiBase,
+      incidentId,
+      recheckAuthority: () => {
+        void mutationRuntime.evidenceAttachments.recheckAuthority();
+        void mutationRuntime.timelineFiles.recheckAuthority();
+      },
+    });
+    const transport = createEvidenceFileTransport(apiBase);
+    mutationRuntime.evidenceAttachments.configure(
+      reader,
+      currentAuthorityReader,
+      transport,
+    );
+    mutationRuntime.timelineFiles.configure(
+      reader,
+      currentAuthorityReader,
+      transport,
+      createTimelineFileLinkTransport(apiBase),
+    );
+  }, [apiBase, incidentId, mutationRuntime, currentAuthorityReader]);
   useMemo(
     () =>
       mutationRuntime.timelineRelatedEvidence.configure(

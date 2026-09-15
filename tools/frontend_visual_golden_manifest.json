@@ -388,7 +388,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
-      "sha256": "0e18cc1232151c15ee2e1454b7fbe563fd08d8e8e680c4e6607c639b9497fcdf"
+      "sha256": "af4125bf42dd00a66acbb3a0b5f7f9581ea8708dd7a7b832cbcfe1f59faf17ec"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",

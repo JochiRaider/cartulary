@@ -8,8 +8,16 @@ import {
   timelineMutationSubstrateReadyTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useCallback, useLayoutEffect, useMemo } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
+import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
+import { admitEvidenceFile } from "../../features/evidence/evidenceFileOperation";
 import { useWorkbookSemanticGridFocus } from "../../hooks/useWorkbookSemanticGridFocus";
 import { applyWorkbookLayoutToColumns } from "../../layout/workbookColumnLayout";
 import {
@@ -111,6 +119,16 @@ export function useTimelineWorkbookPresentation({
   } = foundation.commands.query;
   const { filterDraft, queryState } = foundation.snapshot.query;
   const rows = foundation.snapshot.rows;
+  const fileOwner = composition.fileOwner;
+  const files = useSyncExternalStore(
+    fileOwner.subscribe,
+    fileOwner.getSnapshot,
+  );
+  const fileMessage = useSyncExternalStore(
+    fileOwner.subscribe,
+    fileOwner.getAdmissionNotice,
+  );
+  const fileAnchor = useRef<GridCellAnchor | null>(null);
   const getTimelineRowState = useCallback(
     (row: GridDataRow<WorkbookRow>): GridRowStateInput => ({
       pending: row.data.pendingSignature !== null,
@@ -439,6 +457,7 @@ export function useTimelineWorkbookPresentation({
   });
   const handleActiveCellChange = useCallback(
     (anchor: GridCellAnchor | null) => {
+      fileAnchor.current = anchor;
       updateTimelineSurfaceFocusAnchor(
         anchor?.rowIdentity.kind === "core_record"
           ? anchor.rowIdentity.recordId
@@ -460,6 +479,64 @@ export function useTimelineWorkbookPresentation({
 
   return {
     grid: {
+      fileRecovery:
+        !loadAccessLost && currentIncidentRole ? (
+          <div style={{ maxBlockSize: "25%", overflow: "auto" }}>
+            {fileMessage ? <div role="status">{fileMessage}</div> : null}
+            {files.map((entry) => (
+              <EvidenceFileRecovery
+                {...entry}
+                key={entry.key}
+                source={entry.sourceLabel}
+                onConfirmReview={() => fileOwner.confirmReview(entry.key)}
+                onReview={() => void fileOwner.review(entry.key)}
+                onResume={() => void fileOwner.resume(entry.key)}
+                onFreshSlot={() => fileOwner.freshSlot(entry.key)}
+                onNewId={() => fileOwner.newRequestId(entry.key)}
+                onDiscard={() => fileOwner.discard(entry.key)}
+                onRefresh={() => void fileOwner.refresh(entry.key)}
+              />
+            ))}
+          </div>
+        ) : null,
+      onFilesSelected: (selected: File[], editorRowKey?: string) => {
+        const admission = admitEvidenceFile(selected);
+        if (admission.kind === "rejected") {
+          fileOwner.reportAdmission(admission.message);
+          return;
+        }
+        if (admission.kind === "empty") return;
+        if (
+          interactionMode.kind !== "editable" ||
+          incidentClosed ||
+          loadAccessLost
+        )
+          return;
+        const identity = fileAnchor.current?.rowIdentity;
+        const target = editorRowKey
+          ? rows.find((row) => row.key === editorRowKey)
+          : identity?.kind === "core_record"
+            ? rows.find((row) => row.recordId === identity.recordId)
+            : rows.find((row) => row.recordId === selectedRowId);
+        if (!target) {
+          fileOwner.reportAdmission(
+            "Select the Timeline row or draft for this file.",
+          );
+          return;
+        }
+        fileOwner.begin(
+          {
+            label:
+              target.values.activitySynopsisText ||
+              target.values.rawActivityText ||
+              "Timeline draft",
+            key: target.key,
+            recordId: target.recordId,
+            rowVersion: target.rowVersion,
+          },
+          selected,
+        );
+      },
       activeRecordId: selectedRowId,
       bulkSelection: timelineBulkSelection,
       clipboardPaste: timelineClipboardPaste,

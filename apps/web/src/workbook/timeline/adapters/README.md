@@ -15,7 +15,6 @@ tracking.
 | --- | --- |
 | [createTimelineBulkTagCommandAdapter.ts](createTimelineBulkTagCommandAdapter.ts) | Maps source-owned tag targets/value into the retained batch admission contract. |
 | [createTimelineCandidateReader.ts](createTimelineCandidateReader.ts) | Adapts validated workbook queries to Timeline capture-action candidate pages. |
-| [createTimelineEvidenceAttachmentAdapter.ts](createTimelineEvidenceAttachmentAdapter.ts) | Creates an uploaded Evidence object and row, then links it to Timeline with stable transaction identity. |
 | [createTimelineMentionCandidateReader.ts](createTimelineMentionCandidateReader.ts) | Adapts Entity workbook queries to mention-resolution candidate pages. |
 | [createTimelineMentionEntityCreationAdapter.ts](createTimelineMentionEntityCreationAdapter.ts) | Creates a host or identity from a validated Timeline mention through an exact generated operation. |
 | [createTimelineMentionResolutionAdapter.ts](createTimelineMentionResolutionAdapter.ts) | Resolves one versioned entity-mention action and validates its exact source and mention response identities. |

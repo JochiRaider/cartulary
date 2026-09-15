@@ -1302,7 +1302,7 @@ test("Timeline clipboard paste maps an exact rectangle and persists the target r
   );
 });
 
-test("Timeline keyboard fill-down preserves the selected range and restores source focus", async ({
+test("Timeline keyboard fill-down preserves the selected range and current endpoint focus", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -1425,9 +1425,9 @@ test("Timeline keyboard fill-down preserves the selected range and restores sour
     })
     .toBe(fillSourceValue);
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
-    `${timelineViewSchemaId}:${fillSourceRecordId}:timeline.raw_activity_text`,
+    `${timelineViewSchemaId}:${fillTargetRecordId}:timeline.raw_activity_text`,
   );
-  await expect(fillSourceCell).toBeFocused();
+  await expect(semanticGridCell(fillTargetDisplay)).toBeFocused();
   await expect(
     page.getByRole("alert").filter({
       hasText: "Select a writable one-column range before using fill down.",

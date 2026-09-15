@@ -27,6 +27,7 @@ import {
   type CSSProperties,
   Fragment,
   forwardRef,
+  type ReactNode,
   type Ref,
   useMemo,
 } from "react";
@@ -40,6 +41,8 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 export const TimelineWorkbookGrid = forwardRef<
   GridHandle,
   {
+    readonly fileRecovery?: ReactNode;
+    readonly onFilesSelected?: (files: File[], editorRowKey?: string) => void;
     readonly activeRecordId: string | null;
     readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
     readonly clipboardPaste: GridClipboardPasteContract;
@@ -75,6 +78,8 @@ export const TimelineWorkbookGrid = forwardRef<
   }
 >(function TimelineWorkbookGrid(
   {
+    fileRecovery,
+    onFilesSelected,
     activeRecordId,
     bulkSelection,
     clipboardPaste,
@@ -119,71 +124,108 @@ export const TimelineWorkbookGrid = forwardRef<
     [getGroupLabel, getGroupRowTestId, groupBy],
   );
   return (
-    <GridViewport
-      blockSizing="fill"
-      ref={shellRef}
-      style={style}
-      testId={gridShellTestId(timelineViewSchemaId)}
+    <section
+      aria-label="Timeline file work area"
+      tabIndex={-1}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minBlockSize: 0,
+        minInlineSize: 0,
+        blockSize: "100%",
+      }}
+      onPasteCapture={(event) => {
+        const files = event.clipboardData?.files;
+        if (!onFilesSelected || !files?.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const control =
+          event.target instanceof Element
+            ? event.target.closest<HTMLElement>("[data-timeline-file-source]")
+            : null;
+        onFilesSelected(Array.from(files), control?.dataset.timelineFileSource);
+      }}
+      onDragOver={(event) => {
+        if (onFilesSelected && event.dataTransfer.types.includes("Files"))
+          event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (!onFilesSelected || !event.dataTransfer.files.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onFilesSelected(Array.from(event.dataTransfer.files));
+      }}
     >
-      <SemanticDataGrid
-        keyboardNavigation="spreadsheet"
-        ref={ref}
-        activeRowIdentity={
-          activeRecordId === null
-            ? null
-            : { kind: "core_record", recordId: activeRecordId }
-        }
-        allowPasteCreateRows
-        clipboardPaste={clipboardPaste}
-        coreRecordBulkSelection={bulkSelection}
-        columns={columns}
-        columnWidths={columnWidths}
-        dataState={dataState}
-        density={density}
-        draftRow={timelineDraftRow}
-        fillViewportInline
-        getCellState={({ anchor }) =>
-          getCellState({
-            fieldKey: anchor.fieldKey,
-            recordId:
-              anchor.rowIdentity.kind === "core_record"
-                ? anchor.rowIdentity.recordId
-                : "",
-          })
-        }
-        getRowState={getRowState}
-        grouping={grouping}
-        interactionMode={interactionMode}
-        onActiveCellChange={onActiveCellChange}
-        onColumnReorder={onColumnReorder}
-        onColumnWidthChange={onColumnWidthChange}
-        onFillCells={onFillCells}
-        onSortChange={onSortChange}
-        onSelectRow={(rowIdentity) => {
-          if (rowIdentity.kind === "core_record") {
-            onSelectRecord(rowIdentity.recordId);
+      {fileRecovery}
+      <GridViewport
+        blockSizing="fill"
+        ref={shellRef}
+        style={style}
+        testId={gridShellTestId(timelineViewSchemaId)}
+      >
+        <SemanticDataGrid
+          keyboardNavigation="spreadsheet"
+          ref={ref}
+          activeRowIdentity={
+            activeRecordId === null
+              ? null
+              : { kind: "core_record", recordId: activeRecordId }
           }
-        }}
-        rowGutter={rowGutter}
-        dataRows={timelineGridRows}
-        sort={sort}
-        surface={{ kind: "view_schema", viewSchemaId: timelineViewSchemaId }}
-      />
-      <div aria-hidden="true" style={visuallyHiddenStyle}>
-        {rows.map((row) => (
-          <Fragment key={`${row.key}-metadata`}>
-            <span
-              data-testid={
-                row.recordId === null
-                  ? draftCellTestId("timeline.capture_state")
-                  : rowCellTestId(row.recordId, "timeline.capture_state")
-              }
-            >
-              {row.captureState}
-            </span>
-          </Fragment>
-        ))}
-      </div>
-    </GridViewport>
+          allowPasteCreateRows
+          clipboardPaste={clipboardPaste}
+          coreRecordBulkSelection={bulkSelection}
+          columns={columns}
+          columnWidths={columnWidths}
+          dataState={dataState}
+          density={density}
+          draftRow={timelineDraftRow}
+          fillViewportInline
+          getCellState={({ anchor }) =>
+            getCellState({
+              fieldKey: anchor.fieldKey,
+              recordId:
+                anchor.rowIdentity.kind === "core_record"
+                  ? anchor.rowIdentity.recordId
+                  : "",
+            })
+          }
+          getRowState={getRowState}
+          grouping={grouping}
+          interactionMode={interactionMode}
+          onActiveCellChange={onActiveCellChange}
+          onColumnReorder={onColumnReorder}
+          onColumnWidthChange={onColumnWidthChange}
+          onFillCells={onFillCells}
+          onSortChange={onSortChange}
+          onSelectRow={(rowIdentity) => {
+            if (rowIdentity.kind === "core_record") {
+              onSelectRecord(rowIdentity.recordId);
+            }
+          }}
+          rowGutter={rowGutter}
+          dataRows={timelineGridRows}
+          sort={sort}
+          surface={{
+            kind: "view_schema",
+            viewSchemaId: timelineViewSchemaId,
+          }}
+        />
+        <div aria-hidden="true" style={visuallyHiddenStyle}>
+          {rows.map((row) => (
+            <Fragment key={`${row.key}-metadata`}>
+              <span
+                data-testid={
+                  row.recordId === null
+                    ? draftCellTestId("timeline.capture_state")
+                    : rowCellTestId(row.recordId, "timeline.capture_state")
+                }
+              >
+                {row.captureState}
+              </span>
+            </Fragment>
+          ))}
+        </div>
+      </GridViewport>
+    </section>
   );
 });

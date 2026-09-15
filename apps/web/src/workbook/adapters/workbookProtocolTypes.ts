@@ -1,8 +1,10 @@
 import type {
   ApplyWorkbookBulkMutationRequest,
   AttachBlobToEvidenceRecordRequest,
+  AttachBlobToEvidenceRecordResponse,
   CollectionActionsV1,
   CreateObjectBlobSlotRequest,
+  CreateObjectBlobSlotResponse,
   CreateRecordLinkedNoteRequest,
   CreateRecordLinkedNoteResponse,
   CreateViewRowRequest,
@@ -25,6 +27,9 @@ import type {
 export type WorkbookProtocolCollectionActions = CollectionActionsV1;
 export type WorkbookProtocolAttachBlobRequest =
   AttachBlobToEvidenceRecordRequest;
+export type WorkbookProtocolAttachBlobReceipt =
+  AttachBlobToEvidenceRecordResponse;
+export type WorkbookProtocolBlobSlotReceipt = CreateObjectBlobSlotResponse;
 export type WorkbookProtocolCreateObjectBlobSlotRequest =
   CreateObjectBlobSlotRequest;
 export type WorkbookProtocolCreateLinkedNoteRequest =

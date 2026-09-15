@@ -17,6 +17,8 @@ import { WorkbookCoordinationCreateOwner } from "../features/coordination/Workbo
 import { WorkbookDecisionSupersessionOwner } from "../features/coordination/WorkbookDecisionSupersessionOwner";
 import type { EntityMergeReview } from "../features/entities/entityMergeReview";
 import { WorkbookEntityMergeOwner } from "../features/entities/WorkbookEntityMergeOwner";
+import { WorkbookEvidenceAttachmentOwner } from "../features/evidence/WorkbookEvidenceAttachmentOwner";
+import { WorkbookTimelineFileOwner } from "../features/evidence/WorkbookTimelineFileOwner";
 import { WorkbookTimelineRelatedEvidenceOwner } from "../features/evidence/WorkbookTimelineRelatedEvidenceOwner";
 import {
   indicatorLifecycleViewId,
@@ -167,6 +169,8 @@ export class WorkbookMutationRuntime {
   readonly noteCreate: WorkbookNoteCreateOwner;
   readonly coordinationCreate: WorkbookCoordinationCreateOwner;
   readonly contextualCreate: WorkbookContextualTaskDecisionCreateOwner;
+  readonly evidenceAttachments: WorkbookEvidenceAttachmentOwner;
+  readonly timelineFiles: WorkbookTimelineFileOwner;
   readonly timelineRelatedEvidence: WorkbookTimelineRelatedEvidenceOwner;
   readonly assessmentAuthoring: WorkbookAssessmentAuthoringOwner;
   readonly partyLinks: WorkbookPartyLinkOperationOwner;
@@ -287,6 +291,55 @@ export class WorkbookMutationRuntime {
     dependencies: WorkbookRuntimeDependencies = browserWorkbookRuntimeDependencies,
   ) {
     this.scope = { ...scope };
+    this.evidenceAttachments = new WorkbookEvidenceAttachmentOwner(
+      scope.incidentId,
+      transactionIds,
+      {
+        coordinate: (recordId, signal) =>
+          this.coordinateSourceWrites(
+            recordId,
+            signal,
+            "cartulary.view.evidence.v1",
+            { fileOwner: "evidence" },
+          ),
+        accepted: (receipt, id) => {
+          this.rememberClientTransaction(id);
+          this.history.acceptVersion(
+            receipt.data.row.record_id,
+            receipt.data.row.row_version,
+          );
+          this.surfaces.invalidate("cartulary.view.evidence.v1");
+        },
+        refresh: () =>
+          this.surfaces.refreshIfMounted("cartulary.view.evidence.v1"),
+      },
+    );
+    this.timelineFiles = new WorkbookTimelineFileOwner(
+      scope.incidentId,
+      transactionIds,
+      {
+        coordinate: (recordId, signal) =>
+          this.coordinateSourceWrites(
+            recordId,
+            signal,
+            "cartulary.view.timeline.v2",
+            { fileOwner: "timeline" },
+          ),
+        accepted: (receipt, id) => {
+          this.rememberClientTransaction(id);
+          this.history.acceptVersion(
+            receipt.data.row.record_id,
+            receipt.data.row.row_version,
+          );
+          this.surfaces.invalidate(receipt.data.view_schema_id);
+        },
+        refresh: async (views) => {
+          await Promise.all(
+            views.map((view) => this.surfaces.refreshIfMounted(view)),
+          );
+        },
+      },
+    );
     this.timelineRelatedEvidence = new WorkbookTimelineRelatedEvidenceOwner(
       scope.incidentId,
       transactionIds,
@@ -595,6 +648,8 @@ export class WorkbookMutationRuntime {
         !this.indicatorLifecycle.blocksRecord(recordId) &&
         !this.explicitPatches.blocksRecord(recordId) &&
         !this.partyLinks.blocksRecord(recordId) &&
+        !this.evidenceAttachments.blocksRecord(recordId) &&
+        !this.timelineFiles.blocksRecord(recordId) &&
         !this.timelineRelatedEvidence.blocksRecord(recordId) &&
         !this.timelineActions?.blocksRecord(recordId) &&
         !this.timelineMentionOperations?.blocksRecord(recordId),
@@ -723,9 +778,21 @@ export class WorkbookMutationRuntime {
     this.coordinationCreate.subscribe(() => this.emit());
     this.contextualCreate.subscribe(() => this.emit());
     this.timelineRelatedEvidence.subscribe(() => this.emit());
+    this.evidenceAttachments.subscribe(() => this.emit());
+    this.timelineFiles.subscribe(() => this.emit());
     this.history.subscribe(() => {
       for (const entry of this.history.getSnapshot()) {
         const receipt = entry.receipt;
+        if (receipt) {
+          this.timelineFiles.acceptVersion(
+            receipt.recordId,
+            receipt.rowVersion,
+          );
+          this.evidenceAttachments.observe(
+            receipt.recordId,
+            receipt.rowVersion,
+          );
+        }
         if (receipt)
           this.noteCreate.observe(receipt.recordId, receipt.rowVersion);
         if (receipt)
@@ -820,13 +887,15 @@ export class WorkbookMutationRuntime {
     this.coordinationCreate.observe(recordId, rowVersion);
     this.contextualCreate.observe(recordId, rowVersion);
     this.timelineRelatedEvidence.observe(recordId, rowVersion);
+    this.timelineFiles.acceptVersion(recordId, rowVersion);
     this.history.acceptVersion(recordId, rowVersion);
     this.timelineActions?.acceptVersion(recordId, rowVersion);
     this.timelineMentionOperations?.acceptVersion(recordId, rowVersion);
   }
 
-  timelineActionBlocksRecord(recordId: string): boolean {
+  timelineActionBlocksRecord(recordId: string, excludeFile = false): boolean {
     return (
+      (!excludeFile && this.timelineFiles.blocksRecord(recordId)) ||
       this.timelineRelatedEvidence.blocksRecord(recordId) ||
       (this.timelineActions?.blocksRecord(recordId) ?? false) ||
       (this.timelineMentionOperations?.blocksRecord(recordId) ?? false)
@@ -932,6 +1001,7 @@ export class WorkbookMutationRuntime {
     reservation?: {
       readonly partyReservationId?: string;
       readonly explicitPatchId?: string;
+      readonly fileOwner?: "evidence" | "timeline";
     },
   ): Promise<WorkbookSourceWriteSettlement> {
     while (!signal.aborted && !this.retired) {
@@ -943,7 +1013,12 @@ export class WorkbookMutationRuntime {
         return { kind: "blocked", reason: "uncertain_source" };
       const queue = this.pendingRuntime.model.snapshot();
       if (
-        this.timelineActionBlocksRecord(recordId) ||
+        this.timelineActionBlocksRecord(
+          recordId,
+          reservation?.fileOwner === "timeline",
+        ) ||
+        (reservation?.fileOwner !== "evidence" &&
+          this.evidenceAttachments.blocksRecord(recordId)) ||
         this.batches.blocksRecord(recordId) ||
         this.entityMerge.blocksRecord(recordId) ||
         this.decisionSupersession.blocksRecord(recordId) ||
@@ -1143,6 +1218,8 @@ export class WorkbookMutationRuntime {
         this.coordinationCreate.pendingCount +
         this.contextualCreate.pendingCount +
         this.timelineRelatedEvidence.pendingCount +
+        this.evidenceAttachments.pendingCount +
+        this.timelineFiles.pendingCount +
         this.explicitPatches.pendingCount +
         this.partyLinks.pendingCount +
         (this.timelineActions?.pendingCount ?? 0) +
@@ -1160,6 +1237,8 @@ export class WorkbookMutationRuntime {
         this.coordinationCreate.blockedCount > 0 ||
         this.contextualCreate.uncertainCount > 0 ||
         this.timelineRelatedEvidence.blockedCount > 0 ||
+        this.evidenceAttachments.blockedCount > 0 ||
+        this.timelineFiles.blockedCount > 0 ||
         this.explicitPatches.blockedCount > 0 ||
         this.partyLinks.blockedCount > 0 ||
         (this.timelineActions?.blockedCount ?? 0) > 0 ||
@@ -1198,6 +1277,16 @@ export class WorkbookMutationRuntime {
   ): ReturnType<WorkbookPendingMutationPort["execute"]> {
     this.ledger.remember(input.unit.clientTxnId);
     return this.pendingMutationPort.execute(input).then((outcome) => {
+      if (outcome.kind === "accepted") {
+        this.timelineFiles.acceptVersion(
+          outcome.value.row.record_id,
+          outcome.value.row.row_version,
+        );
+        this.evidenceAttachments.observe(
+          outcome.value.row.record_id,
+          outcome.value.row.row_version,
+        );
+      }
       if (outcome.kind === "accepted")
         this.batches.acceptPrerequisiteRow(
           input.unit.id,
@@ -1322,7 +1411,9 @@ export class WorkbookMutationRuntime {
     if (
       this.explicitPatches.blocksRecord(request.recordId) ||
       this.partyLinks.blocksRecord(request.recordId) ||
-      this.timelineRelatedEvidence.blocksRecord(request.recordId)
+      this.timelineRelatedEvidence.blocksRecord(request.recordId) ||
+      this.timelineFiles.blocksRecord(request.recordId) ||
+      this.evidenceAttachments.blocksRecord(request.recordId)
     )
       return {
         kind: "rejected_mutation",
@@ -1646,6 +1737,8 @@ export class WorkbookMutationRuntime {
       this.coordinationCreate.suspend();
       this.contextualCreate.suspend();
       this.timelineRelatedEvidence.suspend();
+      this.evidenceAttachments.suspend();
+      this.timelineFiles.suspend();
       this.timelineActions?.suspend();
       this.timelineMentionOperations?.suspend();
       this.explicitPatches.suspend();
@@ -1696,6 +1789,8 @@ export class WorkbookMutationRuntime {
       this.coordinationCreate.retire();
       this.contextualCreate.retire();
       this.timelineRelatedEvidence.retire();
+      this.evidenceAttachments.retire();
+      this.timelineFiles.retire();
       this.timelineActions?.retire();
       this.timelineMentionOperations?.retire();
       this.decisionWrites.clear();
@@ -1727,6 +1822,8 @@ export class WorkbookMutationRuntime {
       this.coordinationCreate.closeIncident();
       this.contextualCreate.closeIncident();
       this.timelineRelatedEvidence.closeIncident();
+      this.evidenceAttachments.closeIncident();
+      this.timelineFiles.closeIncident();
       this.timelineActions?.closeIncident();
       this.timelineMentionOperations?.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
@@ -1756,6 +1853,8 @@ export class WorkbookMutationRuntime {
       this.coordinationCreate.retire();
       this.contextualCreate.retire();
       this.timelineRelatedEvidence.retire();
+      this.evidenceAttachments.retire();
+      this.timelineFiles.retire();
       this.timelineActions?.retire();
       this.timelineMentionOperations?.retire();
       this.decisionWrites.clear();
@@ -1775,6 +1874,8 @@ export class WorkbookMutationRuntime {
     this.coordinationCreate.suspend();
     this.contextualCreate.suspend();
     this.timelineRelatedEvidence.suspend();
+    this.evidenceAttachments.suspend();
+    this.timelineFiles.suspend();
     this.timelineActions?.suspend();
     this.timelineMentionOperations?.suspend();
     this.explicitPatches.suspend();

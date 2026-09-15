@@ -3,6 +3,42 @@
   "owner_id": "module.evidence",
   "rows": [
     {
+      "row_id": "module.evidence.accessibility.file_recovery",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_871263b99b3c"
+        ],
+        "titles": [
+          "a11y.evidence-file-recovery keeps stage recovery local reachable and keyboard operable"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.accessibility",
@@ -200,6 +236,146 @@
         ],
         "titles": [
           "Evidence contextual authoring requires explicit discard before replacing a retained draft"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.existing_file_recovery",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_2c23ba8f8cb5"
+        ],
+        "titles": [
+          "retains an existing Evidence attachment receipt after lost acknowledgement and navigation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_draft_orderings",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_44e481d4ca53"
+        ],
+        "titles": [
+          "keeps ordinary draft typing available during file transfer and shares both creation orderings"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_original_source_review",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d7f339505c72"
+        ],
+        "titles": [
+          "reviews the original source after a rejected file link while preserving unrelated selection and edits"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_stage_recovery",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_f8b825ec6f25"
+        ],
+        "titles": [
+          "recovers each uncertain file stage with exact requests after remount and refresh failure"
         ]
       },
       "evidence_class": "browser",
@@ -547,6 +723,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.evidence.frontend_unit.attachment_preserves_custody",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "module.workbook",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/workbookEvidence.test.ts",
+        "titles": [
+          "attaches an empty file without changing Evidence custody"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.evidence.frontend_unit.private_object_blob_upload_hides_target_4b2f89cd31",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.frontend_unit",
@@ -563,6 +766,74 @@
         "titles": [
           "creates and uploads a private Evidence object blob without exposing its target",
           "fails closed before upload for malformed or cross-incident blob-slot responses"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.evidence.frontend_unit.retained_file_recovery",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "module.timeline",
+        "module.workbook",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/evidence/evidenceFileRecovery.test.ts",
+        "titles": [
+          "retained Evidence file recovery conceals retained files and fences late creation on role loss closure and account retirement",
+          "retained Evidence file recovery discards a transferring file without creating Evidence from a late callback",
+          "retained Evidence file recovery finalizes an uncertain transfer and exactly replays uncertain finalization",
+          "retained Evidence file recovery preserves created Evidence after Timeline detachment and recovers only the link",
+          "retained Evidence file recovery preserves selected files on replacement refusal and resolves off-page sources through the incident reader",
+          "retained Evidence file recovery recovers operation authorization denial only after current authority and explicit source review",
+          "retained Evidence file recovery rejects multiple files without choosing or discarding one",
+          "retained Evidence file recovery requires displayed source review after edits and never links a missing source",
+          "retained Evidence file recovery retains an exact uncertain slot and never repeats an uncertain transfer",
+          "retained Evidence file recovery retains existing-Evidence acceptance across detachment and failed refresh",
+          "retained Evidence file recovery retains timed-out finalization through replay denial and accepts its late receipt",
+          "retained Evidence file recovery retires an unused capability after issuing-session replacement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.evidence.frontend_unit.timeline_file_draft_recovery",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "module.timeline",
+        "module.workbook",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts",
+        "titles": [
+          "shares screenshot creation with later ordinary input and retains its promotion after detachment",
+          "waits for the original ordinary create instead of admitting a second screenshot create"
         ]
       },
       "evidence_class": "unit",

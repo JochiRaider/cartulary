@@ -3,7 +3,15 @@ import {
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import type { RefCallback } from "react";
+import { type RefCallback, useContext, useSyncExternalStore } from "react";
+import { TimelineFileContext } from "../../features/evidence/EvidenceAttachmentContext";
+import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
+import type { TimelineFileSnapshot } from "../../features/evidence/WorkbookTimelineFileOwner";
+
+const noFileSubscription = () => () => {};
+const emptyFiles: readonly TimelineFileSnapshot[] = [];
+const noFiles = () => emptyFiles;
+
 import type { WorkbookRow } from "../models/timelineRowModel";
 import {
   bodyStyle,
@@ -33,6 +41,11 @@ export function TimelineEvidencePanel({
   row,
   onFilesSelected,
 }: TimelineEvidencePanelProps) {
+  const owner = useContext(TimelineFileContext);
+  const files = useSyncExternalStore(
+    owner?.subscribe ?? noFileSubscription,
+    owner?.getSnapshot ?? noFiles,
+  );
   const recordId = row.recordId;
   if (recordId === null) {
     return null;
@@ -51,14 +64,36 @@ export function TimelineEvidencePanel({
       }}
       onDrop={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         onFilesSelected(row, event.dataTransfer.files);
       }}
       onPaste={(event) => {
         if (event.clipboardData.files.length > 0) {
+          event.preventDefault();
+          event.stopPropagation();
           onFilesSelected(row, event.clipboardData.files);
         }
       }}
     >
+      {owner
+        ? files
+            .filter((entry) => entry.recordId === recordId)
+            .map((entry) => (
+              <EvidenceFileRecovery
+                {...entry}
+                key={entry.key}
+                presentation="inspector"
+                source={entry.sourceLabel}
+                onConfirmReview={() => owner.confirmReview(entry.key)}
+                onReview={() => void owner.review(entry.key)}
+                onResume={() => void owner.resume(entry.key)}
+                onFreshSlot={() => owner.freshSlot(entry.key)}
+                onNewId={() => owner.newRequestId(entry.key)}
+                onDiscard={() => owner.discard(entry.key)}
+                onRefresh={() => void owner.refresh(entry.key)}
+              />
+            ))
+        : null}
       <div data-testid={timelineEvidenceAttachSectionTestId(recordId)}>
         <p style={bodyStyle}>
           Attached evidence count: {countDisplay.displayCount}

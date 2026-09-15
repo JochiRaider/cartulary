@@ -1,3 +1,4 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, expect, it, vi } from "vitest";
 import { timelineCaptureReview } from "../../../testing/timelineCaptureActionTestSupport";
 import {
@@ -6,9 +7,12 @@ import {
   mentionReview,
 } from "../../../testing/timelineMentionTestSupport";
 import {
+  fullWorkbookViewRow,
   successEnvelope,
   timelineRow,
 } from "../../../testing/timelineWorkbookTestSupport";
+import { createEvidenceFileTransport } from "../../adapters/createEvidenceFileTransport";
+import { createTimelineFileLinkTransport } from "../../adapters/createTimelineFileLinkTransport";
 import { createWorkbookRecordHistoryAdapter } from "../../adapters/createWorkbookRecordHistoryAdapter";
 import type { HistoryAttempt } from "../../history/workbookHistoryOperation";
 import {
@@ -16,9 +20,7 @@ import {
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
 import { initialMentionCreateDraft } from "../actions/timelineMentionCreationModel";
-import { createDraftRowForKey, rowFromApi } from "../models/timelineRowModel";
 import { createTimelineBulkTagCommandAdapter } from "./createTimelineBulkTagCommandAdapter";
-import { createTimelineEvidenceAttachmentAdapter } from "./createTimelineEvidenceAttachmentAdapter";
 import { createTimelineMentionEntityCreationAdapter } from "./createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "./createTimelineMentionResolutionAdapter";
 import { createTimelineRecordActionAdapter } from "./createTimelineRecordActionAdapter";
@@ -278,205 +280,107 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
   vi.spyOn(document, "cookie", "get").mockReturnValue(
     "cartulary_csrf=evidence-timeline-csrf",
   );
-  let evidenceRowAttempts = 0;
-  let timelinePatchAttempts = 0;
-  const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
-    const url = String(input);
-    if (url === "/base/api/v1/object-blobs") {
-      return Promise.resolve(
-        successEnvelope({
-          accepted_contract: {
-            byte_size: 3,
-            content_type_hint: "text/plain",
-            filename_hint: "evidence.txt",
-            incident_id: incidentId,
-            sha256_hex: null,
-          },
-          incident_id: incidentId,
-          object_blob_id: objectBlobId,
-          pending_expires_at: "2026-07-31T12:10:00Z",
-          target_expires_at: "2026-07-31T12:05:00Z",
-          upload_state: "pending",
-          upload_target: {
-            expires_at: "2026-07-31T12:05:00Z",
-            headers: { "Content-Type": "text/plain" },
-            href: "/api/v1/object-uploads/upload-token",
-            method: "PUT",
-          },
-        }),
-      );
-    }
-    if (url === "/base/api/v1/object-uploads/upload-token") {
-      return Promise.resolve(new Response("", { status: 200 }));
-    }
-    if (
-      url ===
-      `/base/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/rows`
-    ) {
-      evidenceRowAttempts += 1;
-      if (evidenceRowAttempts === 1) {
-        return Promise.reject(new TypeError("response lost"));
-      }
-      return Promise.resolve(
-        successEnvelope({
-          change_set_id: changeSetId,
-          row: { cells: {}, record_id: evidenceRecordId, row_version: 1 },
-          view_schema_id: evidenceViewSchemaId,
-        }),
-      );
-    }
-    if (url === `/base/api/v1/records/${recordId}`) {
-      timelinePatchAttempts += 1;
-      return Promise.resolve(
-        successEnvelope({
-          change_set_id: changeSetId,
-          row: timelineRow({
-            captureState: "enriched",
-            evidenceCount: 1,
-            recordId:
-              timelinePatchAttempts === 1 ? recordId : replacementRecordId,
-            rowVersion: timelinePatchAttempts === 1 ? 5 : 6,
-          }),
-          view_schema_id: timelineViewSchemaId,
-        }),
-      );
-    }
-    if (
-      url ===
-      `/base/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`
-    ) {
-      return Promise.resolve(
-        successEnvelope({
-          change_set_id: changeSetId,
-          row: timelineRow({
-            captureState: "enriched",
-            evidenceCount: 1,
-            recordId: replacementRecordId,
-            rowVersion: 1,
-          }),
-          view_schema_id: timelineViewSchemaId,
-        }),
-      );
-    }
-    return Promise.resolve(
-      jsonResponse({ error: { code: "unexpected" } }, 500),
-    );
-  });
-  vi.stubGlobal("fetch", fetchMock);
-  const createClientTxnId = vi
-    .fn()
-    .mockReturnValueOnce("txn-blob")
-    .mockReturnValueOnce("txn-evidence-row")
-    .mockReturnValueOnce("txn-timeline-link")
-    .mockReturnValueOnce("txn-blob-malformed")
-    .mockReturnValueOnce("txn-evidence-row-malformed")
-    .mockReturnValueOnce("txn-timeline-link-malformed")
-    .mockReturnValueOnce("txn-blob-create")
-    .mockReturnValueOnce("txn-evidence-row-create")
-    .mockReturnValueOnce("txn-timeline-create");
-  const trackTimelineTxn = vi.fn();
-  const target = rowFromApi({
-    ...timelineRow({ captureState: "rough", recordId, rowVersion: 4 }),
-    view_schema_id: timelineViewSchemaId,
-  });
-
-  const evidenceAttachment = createTimelineEvidenceAttachmentAdapter({
-    apiBase: "/base",
-    createClientTxnId,
+  const authority = {
+    actorId: "actor",
+    sessionIdentity: "session",
     incidentId,
-  });
-  const file = new File(["abc"], "evidence.txt", { type: "text/plain" });
-  const evidence = await evidenceAttachment.createEvidence({ file });
-  expect(evidence).toEqual({
-    kind: "accepted",
-    value: { evidenceRecordId },
-  });
-  const result = await evidenceAttachment.attachEvidence({
-    evidenceRecordId,
-    onTimelineClientTxnId: trackTimelineTxn,
-    target,
-  });
-
-  expect(result).toMatchObject({
-    clientTxnId: "txn-timeline-link",
-    outcome: {
-      kind: "accepted",
-      value: {
-        evidenceRecordId,
-        row: { record_id: recordId, row_version: 5 },
-        viewSchemaId: timelineViewSchemaId,
-      },
+    role: "editor" as const,
+    closed: false,
+  };
+  const transport = createEvidenceFileTransport("/base");
+  const attempt = transport.capture({
+    stage: "create",
+    authority,
+    clientTxnId: "txn-evidence-row",
+    objectBlobId,
+    fields: {
+      "evidence.title": "evidence.txt",
+      "evidence.collector_party_text": "Workbook upload",
     },
   });
-  expect(createClientTxnId).toHaveBeenCalledTimes(3);
-  expect(trackTimelineTxn).toHaveBeenCalledWith("txn-timeline-link");
-  const rowBodies = fetchMock.mock.calls
-    .filter(([input]) =>
-      String(input).includes(`/views/${evidenceViewSchemaId}/rows`),
-    )
-    .map(([, init]) => String((init as RequestInit | undefined)?.body));
-  expect(rowBodies).toHaveLength(2);
-  expect(rowBodies[1]).toBe(rowBodies[0]);
-  expect(JSON.parse(rowBodies[0] ?? "null")).toMatchObject({
+  const row = fullWorkbookViewRow(
+    requireViewContract(evidenceViewSchemaId),
+    evidenceRecordId,
+    1,
+    {
+      "evidence.title": "evidence.txt",
+      "evidence.lifecycle_state": "requested",
+      "evidence.storage_ref": `object://${objectBlobId}`,
+    },
+  );
+  const fetchMock = vi
+    .fn()
+    .mockRejectedValueOnce(new TypeError("acknowledgement lost"))
+    .mockImplementationOnce(async () =>
+      successEnvelope({
+        change_set_id: changeSetId,
+        row,
+        view_schema_id: evidenceViewSchemaId,
+      }),
+    );
+  vi.stubGlobal("fetch", fetchMock);
+  expect(
+    await transport.finalize(attempt, new AbortController().signal),
+  ).toEqual({ kind: "uncertain" });
+  const accepted = await transport.finalize(
+    attempt,
+    new AbortController().signal,
+  );
+  expect(accepted).toMatchObject({
+    kind: "accepted",
+    receipt: { data: { row, change_set_id: changeSetId } },
+  });
+  expect(fetchMock.mock.calls[0]?.[1].body).toBe(
+    fetchMock.mock.calls[1]?.[1].body,
+  );
+  expect(JSON.parse(attempt.body)).toEqual({
     client_txn_id: "txn-evidence-row",
     "evidence.initial_object_blob_id": objectBlobId,
+    "evidence.title": "evidence.txt",
+    "evidence.collector_party_text": "Workbook upload",
   });
-
-  const malformedAttachment = createTimelineEvidenceAttachmentAdapter({
-    apiBase: "/base",
-    createClientTxnId,
-    incidentId,
+  const links = createTimelineFileLinkTransport("/base");
+  const source = timelineRow({
+    captureState: "rough",
+    recordId,
+    rowVersion: 4,
   });
-  const malformedEvidence = await malformedAttachment.createEvidence({ file });
-  expect(malformedEvidence.kind).toBe("accepted");
-  const malformedResult = await malformedAttachment.attachEvidence({
+  const link = links.capture(
+    authority,
+    source,
     evidenceRecordId,
-    onTimelineClientTxnId: trackTimelineTxn,
-    target,
-  });
-  expect(malformedResult).toMatchObject({
-    clientTxnId: "txn-timeline-link-malformed",
-    outcome: {
-      kind: "rejected",
-      failure: { kind: "invalid_contract" },
-    },
-  });
-
-  const draftTarget = createDraftRowForKey("draft-evidence");
-  if (draftTarget === null) throw new Error("expected draft Timeline target");
-  const createAttachment = createTimelineEvidenceAttachmentAdapter({
-    apiBase: "/base",
-    createClientTxnId,
-    incidentId,
-  });
-  const createEvidence = await createAttachment.createEvidence({ file });
-  expect(createEvidence.kind).toBe("accepted");
-  const createResult = await createAttachment.attachEvidence({
-    evidenceRecordId,
-    onTimelineClientTxnId: trackTimelineTxn,
-    target: draftTarget,
-  });
-  expect(createResult).toMatchObject({
-    clientTxnId: "txn-timeline-create",
-    outcome: {
-      kind: "accepted",
-      value: {
-        evidenceRecordId,
-        row: { record_id: replacementRecordId, row_version: 1 },
-      },
-    },
-  });
-  const timelineCreateCall = fetchMock.mock.calls.find(([input]) =>
-    String(input).endsWith(`/views/${timelineViewSchemaId}/rows`),
+    "txn-timeline-link",
   );
-  expect(JSON.parse(String(timelineCreateCall?.[1]?.body ?? "null"))).toEqual({
-    client_txn_id: "txn-timeline-create",
-    "timeline.attached_evidence_ids": {
-      actions: [{ linked_record_id: evidenceRecordId, op: "add_record_ref" }],
-      kind: "collection_actions_v1",
-    },
+  fetchMock.mockImplementationOnce(async () =>
+    successEnvelope({
+      change_set_id: changeSetId,
+      row: timelineRow({
+        captureState: "enriched",
+        recordId,
+        rowVersion: 5,
+        evidenceCount: 1,
+      }),
+      view_schema_id: timelineViewSchemaId,
+    }),
+  );
+  expect(await links.send(link, new AbortController().signal)).toMatchObject({
+    kind: "accepted",
+    receipt: { data: { row: { record_id: recordId, row_version: 5 } } },
   });
-  expect(createClientTxnId).toHaveBeenCalledTimes(9);
+  fetchMock.mockImplementationOnce(async () =>
+    successEnvelope({
+      change_set_id: changeSetId,
+      row: timelineRow({
+        captureState: "enriched",
+        recordId: replacementRecordId,
+        rowVersion: 6,
+      }),
+      view_schema_id: timelineViewSchemaId,
+    }),
+  );
+  expect(await links.send(link, new AbortController().signal)).toEqual({
+    kind: "uncertain",
+  });
 });
 
 it("fails Evidence materialization closed before any Timeline mutation", async () => {
@@ -487,19 +391,21 @@ it("fails Evidence materialization closed before any Timeline mutation", async (
     throw new TypeError("upload unavailable");
   });
   vi.stubGlobal("fetch", fetchMock);
-  const port = createTimelineEvidenceAttachmentAdapter({
-    apiBase: "/base",
-    createClientTxnId: () => "txn-file-failure",
-    incidentId,
+  const transport = createEvidenceFileTransport("/base");
+  const attempt = transport.capture({
+    stage: "slot",
+    authority: {
+      actorId: "actor",
+      sessionIdentity: "session",
+      incidentId,
+      role: "editor",
+      closed: false,
+    },
+    clientTxnId: "txn-file-failure",
+    file: new File(["abc"], "failed.txt", { type: "text/plain" }),
   });
-
-  await expect(
-    port.createEvidence({
-      file: new File(["abc"], "failed.txt", { type: "text/plain" }),
-    }),
-  ).resolves.toMatchObject({
-    kind: "rejected",
-    failure: { kind: "terminal" },
+  expect(await transport.slot(attempt, new AbortController().signal)).toEqual({
+    kind: "uncertain",
   });
   expect(fetchMock).toHaveBeenCalledOnce();
 });

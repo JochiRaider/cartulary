@@ -2,7 +2,7 @@ import type { CreateObjectBlobSlotResponse } from "@cartulary/protocol-ts/http";
 import { apiPath, csrfHeaderName, readCookie } from "./browserApi";
 
 export type EvidenceUploadFailure =
-  | { readonly cause: "csrf_missing" | "network" }
+  | { readonly cause: "csrf_missing" | "network" | "invalid_target" }
   | { readonly cause: "http"; readonly status: number };
 export type EvidenceUploadOutcome =
   | { readonly kind: "accepted" }
@@ -11,15 +11,53 @@ export type EvidenceUploadOutcome =
 export type EvidenceObjectUploadTarget =
   CreateObjectBlobSlotResponse["data"]["upload_target"];
 
-export async function uploadEvidenceObjectBlobTarget(
+export function validEvidenceObjectUploadTarget(
   apiBase: string | undefined,
   uploadTarget: EvidenceObjectUploadTarget,
-  file: File,
-): Promise<EvidenceUploadOutcome> {
+): boolean {
+  // Validate the public route without decoding or interpreting its capability.
+  if (
+    !/^\/api\/v1\/object-uploads\/[^/?#\\]+$/u.test(uploadTarget.href) ||
+    uploadTarget.method !== "PUT" ||
+    /%(?:2f|5c)/iu.test(uploadTarget.href)
+  ) {
+    return false;
+  }
   const uploadHref =
     uploadTarget.href.startsWith("/") && apiBase
       ? apiPath(apiBase, uploadTarget.href)
       : uploadTarget.href;
+  try {
+    const resolved = new URL(uploadHref, window.location.href);
+    const expectedPath = new URL(
+      apiPath(apiBase, "/api/v1/object-uploads/"),
+      window.location.href,
+    ).pathname;
+    if (
+      resolved.origin !== window.location.origin ||
+      !resolved.pathname.startsWith(expectedPath) ||
+      resolved.pathname.slice(expectedPath.length).length === 0 ||
+      resolved.pathname.slice(expectedPath.length).includes("/")
+    )
+      return false;
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+export async function uploadEvidenceObjectBlobTarget(
+  apiBase: string | undefined,
+  uploadTarget: EvidenceObjectUploadTarget,
+  file: File,
+  signal?: AbortSignal,
+): Promise<EvidenceUploadOutcome> {
+  if (!validEvidenceObjectUploadTarget(apiBase, uploadTarget)) {
+    return { kind: "rejected", failure: { cause: "invalid_target" } };
+  }
+  const uploadHref = apiBase
+    ? apiPath(apiBase, uploadTarget.href)
+    : uploadTarget.href;
   const headers = new Headers();
   for (const [key, value] of Object.entries(uploadTarget.headers)) {
     headers.set(key, value);
@@ -39,6 +77,7 @@ export async function uploadEvidenceObjectBlobTarget(
       credentials: "include",
       headers,
       body: file,
+      ...(signal ? { signal } : {}),
     });
   } catch {
     return {
@@ -46,7 +85,7 @@ export async function uploadEvidenceObjectBlobTarget(
       failure: { cause: "network" },
     };
   }
-  if (upload.ok) {
+  if (upload.status === 204) {
     return { kind: "accepted" };
   }
   return {

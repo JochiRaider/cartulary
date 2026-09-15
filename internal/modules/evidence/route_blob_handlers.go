@@ -379,11 +379,25 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		}
 		observed, err = s.objects.observeUploadedObject(r.Context(), blob)
 		if err != nil {
+			// Recheck mutable record/blob gates and persist only the failed
+			// finalization budget. No Evidence mutation or receipt is committed.
+			result, finalizationErr := s.operations.AttachBlob(r.Context(), principal.User, recordID, request, requestHash, nil, httpapi.RequestIDFromContext(r.Context()), now)
+			if finalizationErr == nil {
+				_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+				return
+			}
+			var rejected AttachRejectedError
+			if !errors.As(finalizationErr, &rejected) || rejected.ReasonCode != attachReasonBlobPending {
+				if apiErr := translateAttachError(finalizationErr, request.ClientTxnID); apiErr != nil {
+					writeAPIError(w, r, apiErr)
+					return
+				}
+			}
 			if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			writeAPIError(w, r, evidenceAttachRejected(attachReasonBlobFailed))
+			writeAPIError(w, r, evidenceAttachRejected(attachReasonBlobPending))
 			return
 		}
 	}
