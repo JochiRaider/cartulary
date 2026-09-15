@@ -19,3 +19,5 @@ clipboard exception remains private to [adapters](../adapters/README.md).
 | [WorkbookPreferencePort.ts](WorkbookPreferencePort.ts) | Current-user and incident-default preference capabilities. |
 | [WorkbookSavedViewPort.ts](WorkbookSavedViewPort.ts) | Explicit saved-view page listing and accepted-response CRUD capabilities. |
 | [WorkbookTimelineActionRuntimePort.ts](WorkbookTimelineActionRuntimePort.ts) | Narrow workbook runtime capability required by Timeline action owners. |
+
+WorkbookReferenceReadPort separates record, Party and incident-member identities from presentation. It carries canonical record query metadata and paging without granting mutation admission. Collection item_ref removal remains a separate action contract.

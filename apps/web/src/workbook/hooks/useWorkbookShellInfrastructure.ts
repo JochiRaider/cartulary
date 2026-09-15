@@ -23,6 +23,7 @@ import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWor
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
+import { createWorkbookReferenceMemberReader } from "../adapters/createWorkbookReferenceMemberReader";
 import { createWorkbookStartupAdapter } from "../adapters/createWorkbookStartupAdapter";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { readWorkbookAuthoringRecord } from "../adapters/readWorkbookAuthoringRecord";
@@ -36,10 +37,7 @@ import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { WorkbookMutationRuntimeRegistry } from "../runtime/WorkbookMutationRuntimeRegistry";
 import type { SavedViewBinding } from "../savedviews/savedViewOperationModel";
 import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
-import {
-  createReferenceQueryBroker,
-  type ReferenceQueryBrokerPort,
-} from "../services/referenceQueryBroker";
+import { createWorkbookReferenceReader } from "../services/workbookReferenceReader";
 import { timelineCaptureOwnerFor } from "../timeline/actions/timelineCaptureOwnerFor";
 import { timelineMentionOwnerFor } from "../timeline/actions/timelineMentionOwnerFor";
 import { createTimelineCandidateReader } from "../timeline/adapters/createTimelineCandidateReader";
@@ -486,23 +484,24 @@ export function useWorkbookShellInfrastructure({
   };
 }
 
-export function useWorkbookReferenceQueryBroker(
-  authorizationGeneration: string,
+export function useWorkbookReferenceReader(
+  authorityScope: string,
   viewQuery: ReturnType<typeof createWorkbookViewQueryAdapter>,
-): ReferenceQueryBrokerPort {
-  const broker = useMemo(
+  apiBase: string | undefined,
+  incidentId: string,
+) {
+  const reader = useMemo(
     () =>
-      createReferenceQueryBroker({
-        authorizationGeneration,
+      createWorkbookReferenceReader({
+        authorityScope,
         viewQuery,
+        readMembers: createWorkbookReferenceMemberReader({
+          apiBase,
+          incidentId,
+        }),
       }),
-    [authorizationGeneration, viewQuery],
+    [authorityScope, viewQuery, apiBase, incidentId],
   );
-  useEffect(
-    () => () => {
-      broker.dispose();
-    },
-    [broker],
-  );
-  return broker;
+  useEffect(() => () => reader.dispose(), [reader]);
+  return reader;
 }

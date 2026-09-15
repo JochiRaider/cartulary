@@ -1,10 +1,6 @@
 import type { ViewFieldContract } from "@cartulary/view-contracts";
 import type { CSSProperties, RefCallback } from "react";
-import {
-  type GenericCollectionMode,
-  splitDraftValues,
-} from "../models/genericWorkbookModel";
-import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
+import type { GenericCollectionMode } from "../models/genericWorkbookModel";
 import {
   type GenericMutationControlDescriptor,
   type GenericMutationControlSurface,
@@ -41,7 +37,6 @@ export function GenericMutationControl({
   field,
   focusTargetRef,
   id,
-  referenceOptions,
   retainedOptions = [],
   surface = "form",
   testId,
@@ -53,7 +48,6 @@ export function GenericMutationControl({
   field: ViewFieldContract;
   focusTargetRef?: GenericMutationControlRef | undefined;
   id?: string;
-  referenceOptions: GenericReferenceOptions;
   retainedOptions?: readonly { value: string; label: string }[] | undefined;
   surface?: GenericMutationControlSurface;
   testId: string;
@@ -64,20 +58,10 @@ export function GenericMutationControl({
     collectionItems,
     collectionMode,
     field,
-    referenceOptions,
     surface,
   });
-  if (
-    descriptor.kind === "direct_reference" ||
-    descriptor.kind === "collection_reference" ||
-    descriptor.kind === "collection_removal"
-  ) {
-    const selected =
-      descriptor.kind === "direct_reference"
-        ? value
-          ? [value]
-          : []
-        : splitDraftValues(value);
+  if (descriptor.kind === "collection_removal") {
+    const selected = value ? value.split("\n") : [];
     const available = descriptor.options;
     descriptor = {
       ...descriptor,
@@ -112,9 +96,7 @@ export function GenericMutationControl({
   };
   switch (descriptor.kind) {
     case "collection_removal":
-    case "collection_reference":
       return <GenericMultiSelectControl {...props} descriptor={descriptor} />;
-    case "direct_reference":
     case "enumerated_value":
       return <GenericSingleSelectControl {...props} descriptor={descriptor} />;
     case "boolean":
@@ -141,7 +123,7 @@ function GenericMultiSelectControl({
 }: GenericMutationControlElementProps & {
   readonly descriptor: Extract<
     GenericMutationControlDescriptor,
-    { readonly kind: "collection_reference" | "collection_removal" }
+    { readonly kind: "collection_removal" }
   >;
 }) {
   return (
@@ -156,7 +138,7 @@ function GenericMultiSelectControl({
       ref={focusTargetRef}
       size={descriptor.size}
       style={selectControlStyle(descriptor.surface)}
-      value={splitDraftValues(value)}
+      value={value ? value.split("\n") : []}
       onChange={(event) => {
         onChange(
           Array.from(event.currentTarget.selectedOptions)
@@ -188,13 +170,13 @@ function GenericSingleSelectControl({
 }: GenericMutationControlElementProps & {
   readonly descriptor: Extract<
     GenericMutationControlDescriptor,
-    { readonly kind: "direct_reference" | "enumerated_value" }
+    { readonly kind: "enumerated_value" }
   >;
 }) {
-  const options =
-    descriptor.kind === "direct_reference"
-      ? descriptor.options
-      : descriptor.options.map((option) => ({ label: option, value: option }));
+  const options = descriptor.options.map((option) => ({
+    label: option,
+    value: option,
+  }));
   return (
     <select
       disabled={disabled}
@@ -208,11 +190,7 @@ function GenericSingleSelectControl({
       value={value}
       onChange={(event) => onChange(event.target.value)}
     >
-      <option value="">
-        {descriptor.kind === "direct_reference"
-          ? descriptor.emptyLabel
-          : "Select"}
-      </option>
+      <option value="">Select</option>
       {descriptor.surface === "grid" &&
       value !== "" &&
       !options.some((option) => option.value === value) ? (

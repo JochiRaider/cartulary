@@ -837,6 +837,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.grid_adapter.regression.nested_editor_interaction",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/index.test.tsx",
+        "titles": [
+          "defers nested editor navigation and dismissal without submitting the parent cell"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.grid_adapter.regression.semantic_focus_requests",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",

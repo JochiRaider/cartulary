@@ -77,3 +77,5 @@ participants; Task lifecycle uses explicit record-patch ownership in the
 Task explicit patches contribute their guard dependencies and validation through
 [taskExplicitPatchContribution.ts](taskExplicitPatchContribution.ts). The Task
 draft store remains here; the neutral runtime does not own Task or Party forms.
+
+Task lifecycle owner selection uses WorkbookReferenceControl with the projected incident-member field contract. Task validation, dependencies and explicit Update remain in the Task owner. Decision receipts supply labels through their existing committed-record evidence, without another receipt inventory.

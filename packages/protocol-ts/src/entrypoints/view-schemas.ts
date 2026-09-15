@@ -45,3 +45,5 @@ export const viewSchemaRegistry: ViewSchemaRegistryProjection =
 export function listViewSchemaRegistryEntries(): readonly ViewSchemaRegistryEntry[] {
   return viewSchemaRegistry.view_schemas;
 }
+
+export { viewReferenceRegistry } from "../generated/view-reference-registry.js";

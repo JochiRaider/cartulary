@@ -338,6 +338,27 @@
       ],
       "activation_dependency_ids": [],
       "description": "Neutral Core string-contract registries and reviewed provenance independent of feature runtime packages."
+    },
+    {
+      "family_id": "view-references",
+      "contract_root": "contracts/view-references",
+      "generation_status": "active",
+      "go_name": "ViewReferenceArtifacts",
+      "output_order": 20,
+      "generated_outputs": [
+        "internal/gen/contractviewreferences/artifacts_gen.go",
+        "packages/protocol-ts/src/generated/view-reference-registry.ts"
+      ],
+      "typescript_projections": [
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/view-reference-registry.ts",
+          "identifier": "viewReferenceRegistry",
+          "artifact_path": "contracts/view-references/index.json"
+        }
+      ],
+      "activation_dependency_ids": [],
+      "description": "Owner-backed ordinary reference identities and eligible target domains."
     }
   ]
 }

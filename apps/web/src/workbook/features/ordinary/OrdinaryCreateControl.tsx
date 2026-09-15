@@ -1,8 +1,8 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import { type ComponentProps, useSyncExternalStore } from "react";
+import { type ComponentProps, useContext, useSyncExternalStore } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookAuthoringReferenceControl } from "../../components/WorkbookAuthoringReferenceControl";
-import { referenceOptionsForField } from "../../models/workbookReferenceOptions";
+import { WorkbookReferenceContext } from "../../components/WorkbookReferenceControl";
 import type { WorkbookOrdinaryCreateOwner } from "./WorkbookOrdinaryCreateOwner";
 
 /** Borrowed authoring controls. Selected identity is retained by the owner, never a query page. */
@@ -15,6 +15,7 @@ export function OrdinaryCreateControl({
   contract: ViewContract;
 }) {
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const actor = useContext(WorkbookReferenceContext)?.actorPresentation;
   if (!owner.supports(contract.viewSchemaId))
     return <GenericMutationControl {...props} />;
   const schema = snapshot.schemas[contract.viewSchemaId];
@@ -27,14 +28,13 @@ export function OrdinaryCreateControl({
     retained ??
     (props.value
       ? props.value.split("\n").map((recordId) => {
-          const known = referenceOptionsForField(
-            props.field,
-            props.referenceOptions,
-          ).find((item) => item.recordId === recordId);
           return {
             recordId,
-            displayText: known?.label ?? "Selected reference",
-            viewSchemaId: known?.viewSchemaId ?? views[0] ?? "",
+            displayText:
+              views[0] === "incident_members" && actor?.userId === recordId
+                ? `${actor.displayName} (${recordId})`
+                : recordId,
+            viewSchemaId: views[0] ?? "",
           };
         })
       : []);

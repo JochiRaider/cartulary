@@ -1,35 +1,13 @@
 import {
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
   findingsViewSchemaId,
   forensicKeywordsViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
   investigativeQueriesViewSchemaId,
   notesViewSchemaId,
-  partiesViewSchemaId,
-  taskRequestsViewSchemaId,
-  timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import {
   defineWorkbookSurfacePolicy,
-  referenceRequirement,
   type WorkbookSurfacePolicyDefinition,
 } from "./workbookSurfacePolicy";
-
-const allRecordRequirements = [
-  timelineViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-  evidenceViewSchemaId,
-  notesViewSchemaId,
-  findingsViewSchemaId,
-  investigativeQueriesViewSchemaId,
-  forensicKeywordsViewSchemaId,
-  taskRequestsViewSchemaId,
-  decisionsViewSchemaId,
-  partiesViewSchemaId,
-].map(referenceRequirement);
 
 export const artifactSurfacePolicies = [
   {
@@ -39,12 +17,6 @@ export const artifactSurfacePolicies = [
     policy: defineWorkbookSurfacePolicy({
       ownerBindings: ["linked_note_create"],
       collectionActions: { "note.tags": "tag" },
-      referenceRequirements: [
-        referenceRequirement(timelineViewSchemaId),
-        referenceRequirement(hostsViewSchemaId),
-        referenceRequirement(identitiesViewSchemaId),
-        referenceRequirement(evidenceViewSchemaId),
-      ],
     }),
   },
   {
@@ -54,7 +26,6 @@ export const artifactSurfacePolicies = [
     policy: defineWorkbookSurfacePolicy({
       createDefaults: { "finding.kind": "finding", "finding.state": "open" },
       currentUserDefaultFields: ["finding.owner_user_id"],
-      referenceRequirements: allRecordRequirements,
     }),
   },
   {

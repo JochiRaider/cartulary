@@ -1,4 +1,7 @@
 import { viewContractProjection } from "./generated/view-contract-projection.js";
+
+export { viewReferenceRegistry as projectedReferenceRegistry } from "@cartulary/protocol-ts/view-schemas";
+
 import type {
   ViewContract,
   ViewFieldContract,

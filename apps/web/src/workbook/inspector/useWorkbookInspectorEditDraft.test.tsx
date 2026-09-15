@@ -13,7 +13,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { taskAuthority } from "../../testing/taskWorkbookTestSupport";
-import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import { useWorkbookInspectorEditDraft } from "./useWorkbookInspectorEditDraft";
 import { WorkbookInspectorDraftStore } from "./WorkbookInspectorDraftStore";
 import { WorkbookInspectorEditControl } from "./WorkbookInspectorEditControl";
@@ -31,10 +30,10 @@ it("retains selected reference identities outside the current option page and cl
     row_version: 1,
     cells: { [field.fieldKey]: { value: null } },
   };
-  function Form({ present }: { present: boolean }) {
+  function Form({ revision }: { revision: number }) {
     const edit = useWorkbookInspectorEditDraft({
       store,
-      row,
+      row: { ...row, row_version: revision },
       field: field ?? null,
       viewSchemaId: contract.viewSchemaId,
       active: true,
@@ -46,39 +45,27 @@ it("retains selected reference identities outside the current option page and cl
         edit={edit}
         field={field}
         collectionMode="add"
-        referenceOptions={{
-          ...emptyGenericReferenceOptions(),
-          decisions: present
-            ? [
-                {
-                  recordId: referenceId,
-                  label: "Reviewed Decision",
-                  viewSchemaId: "cartulary.view.decisions.v1",
-                },
-              ]
-            : [],
-        }}
         testId={genericEditValueTestId(contract.viewSchemaId)}
       />
     );
   }
-  const view = render(<Form present />);
+  const view = render(<Form revision={1} />);
   fireEvent.change(
     screen.getByTestId(genericEditValueTestId(contract.viewSchemaId)),
     {
       target: { value: referenceId },
     },
   );
-  view.rerender(<Form present={false} />);
+  view.rerender(<Form revision={2} />);
   expect(
     (
       screen.getByTestId(
         genericEditValueTestId(contract.viewSchemaId),
-      ) as HTMLSelectElement
+      ) as HTMLInputElement
     ).value,
   ).toBe(referenceId);
   expect(
-    screen.getByRole("option", { name: "Reviewed Decision" }),
+    screen.getByRole("status").textContent?.includes(referenceId),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: `Clear ${field.label}` }));
   expect(

@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.view_references.v1",
+  "registry_id": "cartulary.view_references.base.v1",
+  "target_domains": {
+    "party": {
+      "identity_kind": "party",
+      "record_types": [
+        "party"
+      ],
+      "view_schema_ids": [
+        "cartulary.view.parties.v1"
+      ]
+    },
+    "decision": {
+      "identity_kind": "record",
+      "record_types": [
+        "decision"
+      ],
+      "view_schema_ids": [
+        "cartulary.view.decisions.v1"
+      ]
+    },
+    "task": {
+      "identity_kind": "record",
+      "record_types": [
+        "task_request"
+      ],
+      "view_schema_ids": [
+        "cartulary.view.task_requests.v1"
+      ]
+    },
+    "evidence": {
+      "identity_kind": "record",
+      "record_types": [
+        "evidence"
+      ],
+      "view_schema_ids": [
+        "cartulary.view.evidence.v1"
+      ]
+    },
+    "incident_member": {
+      "identity_kind": "incident_member",
+      "record_types": [],
+      "view_schema_ids": []
+    },
+    "record": {
+      "identity_kind": "record",
+      "record_types": [
+        "artifact",
+        "assessment",
+        "decision",
+        "evidence",
+        "host",
+        "identity",
+        "indicator",
+        "party",
+        "task_request",
+        "timeline_event"
+      ],
+      "view_schema_ids": [
+        "cartulary.view.assessments.v1",
+        "cartulary.view.comm_log.v1",
+        "cartulary.view.decisions.v1",
+        "cartulary.view.evidence.v1",
+        "cartulary.view.findings.v1",
+        "cartulary.view.forensic_keywords.v1",
+        "cartulary.view.handoff.v1",
+        "cartulary.view.hosts.v1",
+        "cartulary.view.identities.v1",
+        "cartulary.view.indicators.v1",
+        "cartulary.view.investigative_queries.v1",
+        "cartulary.view.lesson.v1",
+        "cartulary.view.notes.v1",
+        "cartulary.view.parties.v1",
+        "cartulary.view.status_review.v1",
+        "cartulary.view.task_requests.v1",
+        "cartulary.view.timeline.v2"
+      ]
+    }
+  },
+  "fields": [
+    {
+      "view_schema_id": "cartulary.view.comm_log.v1",
+      "field_key": "comm_log.action_task_ids",
+      "kind": "collection",
+      "target_domain": "task",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.comm_log.v1",
+      "field_key": "comm_log.attendee_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": true,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.comm_log.v1",
+      "field_key": "comm_log.audience_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": true,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.comm_log.v1",
+      "field_key": "comm_log.decision_ids",
+      "kind": "collection",
+      "target_domain": "decision",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.decisions.v1",
+      "field_key": "decision.affected_record_ids",
+      "kind": "collection",
+      "target_domain": "record",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.decisions.v1",
+      "field_key": "decision.owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.decisions.v1",
+      "field_key": "decision.support_refs",
+      "kind": "collection",
+      "target_domain": "record",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.evidence.v1",
+      "field_key": "evidence.collector_party_id",
+      "kind": "direct",
+      "target_domain": "party",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.evidence.v1",
+      "field_key": "evidence.source_party_id",
+      "kind": "direct",
+      "target_domain": "party",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.findings.v1",
+      "field_key": "finding.contradictory_refs",
+      "kind": "collection",
+      "target_domain": "record",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.findings.v1",
+      "field_key": "finding.owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.findings.v1",
+      "field_key": "finding.supporting_refs",
+      "kind": "collection",
+      "target_domain": "record",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.handoff.v1",
+      "field_key": "handoff.incoming_owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.handoff.v1",
+      "field_key": "handoff.open_decision_ids",
+      "kind": "collection",
+      "target_domain": "decision",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.handoff.v1",
+      "field_key": "handoff.open_task_ids",
+      "kind": "collection",
+      "target_domain": "task",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.handoff.v1",
+      "field_key": "handoff.outgoing_owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.lesson.v1",
+      "field_key": "lesson.evidence_refs",
+      "kind": "collection",
+      "target_domain": "evidence",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.lesson.v1",
+      "field_key": "lesson.follow_up_task_ids",
+      "kind": "collection",
+      "target_domain": "task",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.lesson.v1",
+      "field_key": "lesson.owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.status_review.v1",
+      "field_key": "status_review.blocked_task_ids",
+      "kind": "collection",
+      "target_domain": "task",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.status_review.v1",
+      "field_key": "status_review.open_decision_ids",
+      "kind": "collection",
+      "target_domain": "decision",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.status_review.v1",
+      "field_key": "status_review.pending_evidence_ids",
+      "kind": "collection",
+      "target_domain": "evidence",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.status_review.v1",
+      "field_key": "status_review.review_owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.task_requests.v1",
+      "field_key": "task.decision_record_id",
+      "kind": "direct",
+      "target_domain": "decision",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.task_requests.v1",
+      "field_key": "task.linked_record_ids",
+      "kind": "collection",
+      "target_domain": "record",
+      "exclude_source": true,
+      "add_operation": "add_record_ref",
+      "remove_operation": "remove_record_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.task_requests.v1",
+      "field_key": "task.owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.task_requests.v1",
+      "field_key": "task.requester_party_id",
+      "kind": "direct",
+      "target_domain": "party",
+      "exclude_source": false
+    }
+  ]
+}

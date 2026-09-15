@@ -64,7 +64,6 @@ import {
 import { mergeIdentifierOutcomeText } from "../../models/entityMergePlan";
 import type { EntityRow } from "../../models/entityWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type {
   RecordRouteCommandPort,
   TimelineRelatedRecordPort,
@@ -205,7 +204,7 @@ export function useEntityWorkbookInspectorComposition({
       ),
     [contract],
   );
-  const referenceOptions = useMemo(() => emptyGenericReferenceOptions(), []);
+
   const selectedEdit = {
     row: selectedEntity,
     field:
@@ -426,7 +425,6 @@ export function useEntityWorkbookInspectorComposition({
         aliasRemove,
         mutationError,
         mutationPending,
-        referenceOptions,
         rows,
         selectedEdit,
         selectedEntity,
@@ -507,7 +505,6 @@ export function useEntityWorkbookInspectorComposition({
         related: {
           begin: related.commands.begin,
           cancel: related.commands.cancel,
-          referenceOptions,
           state: related.snapshot.workflow,
           submit: related.commands.submit,
           updateDraft: related.commands.updateDraft,
@@ -587,7 +584,6 @@ type EntityDetailsProps = {
   readonly aliasRemove: WorkbookInspectorEditDraft;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly mutationPending: boolean;
-  readonly referenceOptions: ReturnType<typeof emptyGenericReferenceOptions>;
   readonly rows: readonly EntityRow[];
   readonly selectedEdit: EntitySelectedEdit;
   readonly selectedEntity: EntityRow | null;
@@ -641,7 +637,6 @@ function EntityEditCell(props: EntityDetailsProps) {
             ariaLabel={props.selectedEdit.field.label}
             collectionMode="add"
             field={props.selectedEdit.field}
-            referenceOptions={props.referenceOptions}
             testId={genericEditValueTestId(props.contract.viewSchemaId)}
           />
         ) : null}

@@ -34,6 +34,7 @@ import { WorkbookActiveSurfaceFrame } from "./components/WorkbookActiveSurfaceFr
 import { WorkbookActiveSurfacePresentation } from "./components/WorkbookActiveSurfacePresentation";
 import { WorkbookBatchRecovery } from "./components/WorkbookBatchRecovery";
 import { WorkbookIncidentControlsPresentation } from "./components/WorkbookIncidentControlsPresentation";
+import { WorkbookReferenceContext } from "./components/WorkbookReferenceControl";
 import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncements";
 import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
@@ -96,7 +97,7 @@ import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity
 import { useWorkbookProjectionRefreshController } from "./hooks/useWorkbookProjectionRefreshController";
 import { useWorkbookRecoveryFocus } from "./hooks/useWorkbookRecoveryFocus";
 import {
-  useWorkbookReferenceQueryBroker,
+  useWorkbookReferenceReader,
   useWorkbookShellInfrastructure,
 } from "./hooks/useWorkbookShellInfrastructure";
 import { useWorkbookSurfaceQueries } from "./hooks/useWorkbookSurfaceQueries";
@@ -244,9 +245,11 @@ function WorkbookShellContent({
     onAuthorityUncertain: authorization.loadSessionRole,
   });
   const { commands, snapshot } = infrastructure.workbookRuntime;
-  const referenceQueryBroker = useWorkbookReferenceQueryBroker(
+  const referenceReader = useWorkbookReferenceReader(
     authorization.authorizationGeneration,
     infrastructure.viewQuery,
+    apiBase,
+    incidentId,
   );
   const { incidentIdentity, incidentIdentityError, acceptIncidentResource } =
     useWorkbookIncidentIdentity({
@@ -426,7 +429,6 @@ function WorkbookShellContent({
       state: snapshot.identityQueryState,
     },
     onAuthorityUncertain: authorization.loadSessionRole,
-    referenceBroker: referenceQueryBroker,
     sheetRef: snapshot.startupSheetRef,
     surface: snapshot.surface,
     timeline: {
@@ -1087,7 +1089,31 @@ function WorkbookShellContent({
                               />
                               <div style={shellContentRegionStyle}>
                                 <WorkbookActiveSurfaceFrame
-                                  activeContent={activeContent}
+                                  activeContent={
+                                    <WorkbookReferenceContext.Provider
+                                      value={{
+                                        reader: referenceReader,
+                                        actorPresentation:
+                                          authorization.currentUserId &&
+                                          currentUserLabel
+                                            ? {
+                                                userId:
+                                                  authorization.currentUserId,
+                                                displayName: currentUserLabel,
+                                              }
+                                            : undefined,
+                                        evidence:
+                                          infrastructure.mutationRuntime
+                                            .explicitPatches,
+                                        onAuthorityFailure: () => {
+                                          infrastructure.mutationRuntime.explicitPatches.suspend();
+                                          void authorization.loadSessionRole();
+                                        },
+                                      }}
+                                    >
+                                      {activeContent}
+                                    </WorkbookReferenceContext.Provider>
+                                  }
                                   activeSurfaceRef={activeSurfaceFocusRef}
                                   apiBase={apiBase}
                                   focus={recoveryFocus}

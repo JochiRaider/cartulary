@@ -15,12 +15,6 @@ export type WorkbookSurfaceRenderer =
   | "assessment"
   | "contract";
 
-export type ReferenceRequirement = {
-  readonly requirementId: string;
-  readonly resourceId: string;
-  readonly viewSchemaId: string;
-};
-
 export type WorkbookOwnerBinding =
   | "decision_supersede"
   | "evidence_lifecycle"
@@ -35,8 +29,6 @@ export type WorkbookSurfacePolicy = {
   readonly currentUserDefaultFields: readonly string[];
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
   readonly publicErrorPresentation: "owner_public_message";
-  readonly referenceRequirements: readonly ReferenceRequirement[];
-  readonly refreshConsequences: readonly ("active_surface" | "references")[];
 };
 
 export type WorkbookSurfacePolicyDefinition = {
@@ -50,15 +42,6 @@ export type WorkbookSurfaceRegistration = WorkbookSurfacePolicyDefinition & {
   readonly contract: ViewContract;
 };
 
-export const referenceRequirement = (
-  viewSchemaId: string,
-): ReferenceRequirement =>
-  Object.freeze({
-    requirementId: `workbook-reference:${viewSchemaId}`,
-    resourceId: `view:${viewSchemaId}:rows`,
-    viewSchemaId,
-  });
-
 export const defineWorkbookSurfacePolicy = (
   overrides: Partial<WorkbookSurfacePolicy> = {},
 ): WorkbookSurfacePolicy =>
@@ -70,9 +53,4 @@ export const defineWorkbookSurfacePolicy = (
     ),
     ownerBindings: Object.freeze(overrides.ownerBindings ?? []),
     publicErrorPresentation: "owner_public_message",
-    referenceRequirements: Object.freeze(overrides.referenceRequirements ?? []),
-    refreshConsequences: Object.freeze(
-      overrides.refreshConsequences ??
-        (["active_surface", "references"] as const),
-    ),
   });

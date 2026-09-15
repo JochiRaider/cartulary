@@ -53,6 +53,8 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [genericMutationControlModel.ts](genericMutationControlModel.ts) | Pure field-control descriptors for generic form and grid mutation editors. |
 | [WorkbookAuthoringReferenceControl.tsx](WorkbookAuthoringReferenceControl.tsx) | Shared staged/paged reference picker, with compact grid popover geometry and keyboard exit; selection identities belong to the authoring owner. |
 | [WorkbookGridEditorControl.tsx](WorkbookGridEditorControl.tsx) | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
+| [WorkbookReferenceControl.tsx](WorkbookReferenceControl.tsx) | Existing-record exact-ID input, staged top-layer picker, and authorized selected presentation; no mutation owner. |
+| [WorkbookReferenceControl.test.tsx](WorkbookReferenceControl.test.tsx) | Inspector staging, explicit acceptance, read-only retry, exact collection payloads, and committed-label updates. |
 | [WorkbookRecordCandidatePicker.tsx](WorkbookRecordCandidatePicker.tsx) | Shared semantic record-candidate selection control for owner workflows. |
 | [WorkbookRelationshipChip.test.tsx](WorkbookRelationshipChip.test.tsx) | Tests relationship-chip state details, semantic selectors, and optional selection behavior. |
 | [WorkbookRelationshipChip.tsx](WorkbookRelationshipChip.tsx) | Shared relationship-chip presentation over an explicit label, state, detail, selector identity, selection, and command model. |
@@ -87,3 +89,5 @@ source-owned eligibility and discard callbacks. It owns no draft state.
 existing surface registry obligation as compact read-only recovery. It neither
 replays mutations nor owns refresh debt. `GenericMutationControl` preserves unknown
 grid enum/reference input visibly; inspector controls keep their own contract.
+
+WorkbookReferenceControl keeps exact-ID typing in cells and stages candidate selection in a native top-layer popup. The popup marks its nested interaction boundary for Grid Adapter capture handlers. Accept commits through the existing grid interaction or updates only the inspector draft. Candidate reads and cancellation never dispatch writes.

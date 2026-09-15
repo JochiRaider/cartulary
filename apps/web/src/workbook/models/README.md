@@ -64,8 +64,6 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 | [workbookGridState.ts](workbookGridState.ts) | Contract-grid load-state presentation and incident-role interaction-mode helpers. |
 | [workbookInspectorModel.test.ts](workbookInspectorModel.test.ts) | Tests immutable inspector configuration, default-closed state, subjects, and declared no-row behavior. |
 | [workbookInspectorModel.ts](workbookInspectorModel.ts) | Pure inspector state machine for default-closed state, semantic subjects, active panels, no-row state, and invalidation generations. |
-| [workbookReferenceOptions.test.ts](workbookReferenceOptions.test.ts) | Tests same-incident reference buckets preserve labels and stable identities. |
-| [workbookReferenceOptions.ts](workbookReferenceOptions.ts) | Reference option normalization and lookup helpers. |
 | [workbookRelationshipChip.ts](workbookRelationshipChip.ts) | Cross-surface relationship-chip presentation contract with no Timeline interpretation. |
 | [workbookShellPresentation.ts](workbookShellPresentation.ts) | Pure account, active-system-surface, and Network Analysis presentation decisions. |
 | [workbookViewBarWorkingSet.ts](workbookViewBarWorkingSet.ts) | View-bar control ordering, query-entry identities, panel state, and available action models. |

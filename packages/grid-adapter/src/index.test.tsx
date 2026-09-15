@@ -3514,3 +3514,118 @@ function OperationalActionReplacementHarness({
     />
   );
 }
+
+it("defers nested editor navigation and dismissal without submitting the parent cell", async () => {
+  function Editor({
+    context,
+  }: {
+    context: GridEditorRenderContext<HarnessRow>;
+  }) {
+    const [open, setOpen] = useState(false);
+    return (
+      <div>
+        <input
+          aria-label="Reference ID"
+          ref={context.focusTargetRef}
+          value={String(context.draftValue)}
+          onChange={(event) => context.setDraftValue(event.target.value)}
+        />
+        <button
+          type="button"
+          data-grid-editor-interaction="true"
+          onClick={() => setOpen(true)}
+        >
+          Choose reference
+        </button>
+        {open ? (
+          <div
+            role="dialog"
+            data-grid-editor-interaction="true"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                setOpen(false);
+              }
+            }}
+          >
+            <input aria-label="Picker query" />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                void context.commit("exact-selected-id");
+              }}
+            >
+              Accept choice
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+  for (const Grid of [SemanticDataGrid, SemanticDataGridDomUnit]) {
+    const commit = vi.fn(async (_intent: unknown) => ({
+      kind: "accepted" as const,
+    }));
+    render(
+      <Grid
+        keyboardNavigation="spreadsheet"
+        surface={testSurface}
+        columns={[
+          {
+            contractWritable: true,
+            fieldKey: "label",
+            label: "Label",
+            renderCell: ({ row }) => (
+              <span data-testid="reference-cell">{row.label}</span>
+            ),
+            editor: {
+              commit,
+              initialDraftValue: () => "saved-id",
+              renderEditor: (context) => <Editor context={context} />,
+            },
+          },
+        ]}
+        dataRows={[
+          {
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+            rowIdentity: { kind: "core_record", recordId: "record-1" },
+            data: { label: "Row", state: "open" },
+          },
+        ]}
+      />,
+    );
+    const cell = await screen.findByTestId("reference-cell");
+    fireEvent.mouseDown(cell);
+    fireEvent.mouseUp(cell);
+    fireEvent.click(cell);
+    const input = await screen.findByRole("textbox", { name: "Reference ID" });
+    fireEvent.change(input, { target: { value: "unfinished-id" } });
+    const trigger = screen.getByRole("button", { name: "Choose reference" });
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    expect(commit).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    const query = screen.getByRole("textbox", { name: "Picker query" });
+    for (const key of ["ArrowDown", "Enter", "Tab"])
+      fireEvent.keyDown(query, { key });
+    expect(commit).not.toHaveBeenCalled();
+    fireEvent.keyDown(query, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Reference ID",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("unfinished-id");
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Accept choice" }));
+    await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
+    expect(commit.mock.calls[0]?.[0]).toMatchObject({
+      draftValue: "exact-selected-id",
+    });
+    cleanup();
+  }
+});

@@ -25,7 +25,6 @@ import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import { TimelineWorkbook } from "../timeline/components/TimelineWorkbook";
 
 export type WorkbookSurfacesFacadeProps = {
@@ -87,7 +86,6 @@ export type WorkbookSurfacesFacadeProps = {
       readonly setState: Dispatch<SetStateAction<WorkbookQueryState>>;
       readonly state: WorkbookQueryState;
     };
-    readonly referenceBroker: ReferenceQueryBrokerPort;
     readonly timeline: {
       readonly setState: Dispatch<SetStateAction<WorkbookQueryState>>;
       readonly state: WorkbookQueryState;
@@ -128,14 +126,7 @@ export function WorkbookSurfacesFacade({
     surface,
     viewBarWorkingSet,
   } = viewState;
-  const {
-    assessment,
-    entities,
-    generic,
-    referenceBroker: referenceQueryBroker,
-    timeline,
-    viewQuery,
-  } = queries;
+  const { assessment, entities, generic, timeline, viewQuery } = queries;
   const {
     commands: mutationCommands,
     onActivateConflict,
@@ -313,7 +304,6 @@ export function WorkbookSurfacesFacade({
       mutationRuntime={mutationRuntime}
       mutationCommands={mutationCommands}
       onActivateConflict={onActivateConflict}
-      referenceQueryBroker={referenceQueryBroker}
       collaborationProjection={collaborationProjection}
       sheetRef={sheetRef}
       onAuthorityUncertain={onAuthorityUncertain}

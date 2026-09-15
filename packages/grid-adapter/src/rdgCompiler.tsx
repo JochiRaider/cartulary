@@ -782,6 +782,11 @@ function SemanticGridEditor<Row>({
       onSelectCapture={(event) => {
         const element = event.target;
         if (
+          element instanceof Element &&
+          element.closest("[data-grid-editor-interaction]")
+        )
+          return;
+        if (
           element instanceof HTMLInputElement ||
           element instanceof HTMLTextAreaElement
         )
@@ -792,6 +797,11 @@ function SemanticGridEditor<Row>({
       }}
       onKeyDownCapture={(event) => {
         if (event.nativeEvent.isComposing) return;
+        if (
+          event.target instanceof Element &&
+          event.target.closest("[data-grid-editor-interaction]")
+        )
+          return;
         if (event.altKey && event.key === "ArrowDown") {
           const action = event.currentTarget.querySelector<HTMLButtonElement>(
             "[data-grid-editor-toolbar] button",

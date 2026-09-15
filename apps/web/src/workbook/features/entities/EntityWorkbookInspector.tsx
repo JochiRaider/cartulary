@@ -16,7 +16,6 @@ import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspecto
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
-import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 
 export function EntityWorkbookInspector({
@@ -54,7 +53,6 @@ export function EntityWorkbookInspector({
   readonly onClose: () => void;
   readonly related: {
     readonly begin: (featureGroup: InspectorFeatureGroup) => boolean;
-    readonly referenceOptions: GenericReferenceOptions;
     readonly state: InspectorRelatedRecordWorkflowState | null;
     readonly cancel: () => void;
     readonly submit: () => Promise<void>;
@@ -81,7 +79,6 @@ export function EntityWorkbookInspector({
       {subject?.kind === "live" &&
       related.state?.featureGroup.panelId === panelId ? (
         <InspectorCreateRelatedWorkflow
-          referenceOptions={related.referenceOptions}
           state={related.state}
           onCancel={related.cancel}
           onSubmit={() => void related.submit()}

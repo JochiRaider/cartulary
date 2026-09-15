@@ -25,7 +25,6 @@ import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedReco
 import { useWorkbookBrowsingRegistry } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
-import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import type { WorkbookSurfacesFacadeProps } from "../surfaces/WorkbookSurfacesFacade";
 
 type QueryStateOwner = {
@@ -45,7 +44,6 @@ type WorkbookSurfaceQueriesOptions = {
   readonly hosts: QueryStateOwner;
   readonly identities: QueryStateOwner;
   readonly onAuthorityUncertain: (() => void) | undefined;
-  readonly referenceBroker: ReferenceQueryBrokerPort;
   readonly sheetRef: SheetRef;
   readonly surface: string;
   readonly timeline: QueryStateOwner;
@@ -65,7 +63,6 @@ export function useWorkbookSurfaceQueries({
   hosts,
   identities,
   onAuthorityUncertain,
-  referenceBroker,
   sheetRef,
   surface,
   timeline,
@@ -112,7 +109,6 @@ export function useWorkbookSurfaceQueries({
     viewQuery,
   });
   const entityQuery = useEntitySurfaceQuery({
-    referenceBroker,
     activeViewSchemaId: surface,
     ordinaryCreateOwner,
     editOwner: explicitPatchOwner,
@@ -258,7 +254,6 @@ export function useWorkbookSurfaceQueries({
         setState: generic.setState,
         state: genericQuery.acceptedQueryState,
       },
-      referenceBroker,
       timeline: {
         setState: timeline.setState,
         state: timeline.state,
@@ -286,7 +281,6 @@ export function useWorkbookSurfaceQueries({
       hosts.setState,
       identities.setState,
       identityRows,
-      referenceBroker,
       refreshAssessment,
       refreshEntities,
       refreshGeneric,

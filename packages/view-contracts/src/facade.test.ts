@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import * as publicFacade from "./index";
 import {
+  getReferenceFieldContract,
   getViewContract,
+  listReferenceFieldContracts,
   listViewContracts,
   listWorkbookSurfaceContracts,
   normalizeViewRowPatchV1,
@@ -14,7 +16,9 @@ import {
 describe("view-contracts façade", () => {
   it("exposes the supported public package facade", () => {
     for (const exportedFunction of [
+      getReferenceFieldContract,
       getViewContract,
+      listReferenceFieldContracts,
       listViewContracts,
       listWorkbookSurfaceContracts,
       normalizeViewRowPatchV1,
@@ -32,6 +36,7 @@ describe("view-contracts façade", () => {
         "evidenceViewSchemaId",
         "findingsViewSchemaId",
         "forensicKeywordsViewSchemaId",
+        "getReferenceFieldContract",
         "getViewContract",
         "handoffViewSchemaId",
         "hostsViewSchemaId",
@@ -39,6 +44,7 @@ describe("view-contracts façade", () => {
         "indicatorsViewSchemaId",
         "investigativeQueriesViewSchemaId",
         "lessonViewSchemaId",
+        "listReferenceFieldContracts",
         "listViewContracts",
         "listWorkbookSurfaceContracts",
         "normalizeViewRowPatchV1",

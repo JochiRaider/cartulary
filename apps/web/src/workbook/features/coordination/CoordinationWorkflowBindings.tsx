@@ -6,10 +6,11 @@ import type {
   InspectorDisabledCondition,
   ViewContract,
 } from "@cartulary/view-contracts";
+import { getReferenceFieldContract } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import { WorkbookReferenceControl } from "../../components/WorkbookReferenceControl";
 import { admitCanonicalInspectorFeature } from "../../inspector/canonicalInspectorAdmission";
 import { workbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
-import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
   type TaskLifecycleDraftStore,
@@ -30,7 +31,6 @@ export function CoordinationWorkflowBindings(props: {
   readonly mutation: CoordinationWorkflowMutationPorts;
   readonly drafts: TaskLifecycleDraftStore;
   readonly row: WorkbookQueryRow;
-  readonly referenceOptions: GenericReferenceOptions;
 }) {
   const feature = admitCanonicalInspectorFeature(
     props.contract.inspectorConfig,
@@ -83,6 +83,11 @@ function TaskLifecycleEditor(
       ? (previous.failure.fields ?? [])
       : []),
   ];
+  const ownerReference = getReferenceFieldContract(
+    props.contract.viewSchemaId,
+    "task.owner_user_id",
+  );
+  if (!ownerReference) return null;
   const fieldError = (field: string) => (
     <span id={`task-error-${field}`}>
       {errors
@@ -130,40 +135,25 @@ function TaskLifecycleEditor(
           ? `Reopen to open, in_progress, or blocked. ${from === "done" ? "Canceled" : "Done"} is unavailable until reopened.`
           : "Active Tasks can move between open, in_progress, and blocked, or finish as done or canceled."}
       </p>
-      <label style={labelStyle}>
-        Owner
-        <select
-          id={`task-lifecycle-${props.row.record_id}-task.owner_user_id`}
-          aria-label="Task lifecycle owner"
-          aria-describedby="task-error-task.owner_user_id"
+      <div style={labelStyle}>
+        <span>Owner</span>
+        <WorkbookReferenceControl
+          field={ownerReference}
+          label="Task lifecycle owner"
           value={editor.value("task.owner_user_id")}
-          style={inputStyle}
-          onChange={(event) =>
-            editor.update("task.owner_user_id", event.target.value)
-          }
-        >
-          <option value="">Select an incident member</option>
-          {editor.value("task.owner_user_id") &&
-          !props.referenceOptions.incidentMembers.some(
-            (member) => member.recordId === editor.value("task.owner_user_id"),
-          ) ? (
-            <option value={editor.value("task.owner_user_id")}>
-              {editor.value("task.owner_user_id")}
-            </option>
-          ) : null}
-          {props.referenceOptions.incidentMembers.map((member) => (
-            <option key={member.recordId} value={member.recordId}>
-              {member.label}
-              {props.referenceOptions.incidentMembers.filter(
-                (other) => other.label === member.label,
-              ).length > 1
-                ? ` (${member.recordId})`
-                : ""}
-            </option>
-          ))}
-        </select>
+          sourceRecordId={props.row.record_id}
+          disabled={props.disabled}
+          id={`task-lifecycle-${props.row.record_id}-task.owner_user_id`}
+          testId="task-lifecycle-owner"
+          describedBy="task-error-task.owner_user_id"
+          onChange={(value) => editor.update("task.owner_user_id", value)}
+          onAccept={(items) => {
+            const id = items[0]?.identity.id;
+            if (id) editor.update("task.owner_user_id", id);
+          }}
+        />
         {fieldError("task.owner_user_id")}
-      </label>
+      </div>
       {status === "blocked" ? (
         <label style={labelStyle}>
           Blocked reason

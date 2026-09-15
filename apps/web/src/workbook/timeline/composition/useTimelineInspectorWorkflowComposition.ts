@@ -1,13 +1,11 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { sheetRefKey } from "../../../shared/sheetRef";
-import { useIncidentMemberReferenceOptions } from "../../hooks/useOwnerReferenceOptions";
 import { workbookInspectorMessageFeedback } from "../../inspector/workbookInspectorErrorModel";
 import {
   type WorkbookInspectorState,
   workbookInspectorStateIsOpen,
 } from "../../models/workbookInspectorModel";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineCreateRelatedWorkflow } from "../hooks/useTimelineCreateRelatedWorkflow";
@@ -104,7 +102,6 @@ export function useTimelineInspectorWorkflowComposition({
   incident,
   inspector,
   mutation,
-  onAuthorityUncertain,
 }: TimelineInspectorWorkflowCompositionInput) {
   const actionContext = {
     authorized:
@@ -140,23 +137,6 @@ export function useTimelineInspectorWorkflowComposition({
     },
     setInspectorMessage: inspector.publishFeedback,
   });
-  const createRelatedNeedsIncidentMembers =
-    createRelatedWorkflow?.targetContract.fields.some(
-      (field) =>
-        field.directReferenceContractId === "incident_member_user_ref_v1",
-    ) ?? false;
-  const { options: incidentMemberOptions } = useIncidentMemberReferenceOptions({
-    enabled: createRelatedNeedsIncidentMembers,
-    incidentPort: incident.incidentPort,
-    onAuthorityUncertain,
-  });
-  const createRelatedReferenceOptions = useMemo(
-    () => ({
-      ...emptyGenericReferenceOptions(),
-      incidentMembers: incidentMemberOptions,
-    }),
-    [incidentMemberOptions],
-  );
   const rowInteractions = useTimelineInspectorRowInteractions({
     elementRegistry: inspector.elementRegistry,
     publishViewingPresence: mutation.publishViewingPresence,
@@ -272,7 +252,6 @@ export function useTimelineInspectorWorkflowComposition({
     },
     ports: {},
     snapshot: {
-      createRelatedReferenceOptions,
       createRelatedWorkflow,
       indicatorHandler: features.snapshot.indicatorHandler,
       rowInteractions: rowInteractions.snapshot,

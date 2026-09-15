@@ -1049,6 +1049,10 @@
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/view-schema-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/view-reference-registry"
         }
       ]
     },

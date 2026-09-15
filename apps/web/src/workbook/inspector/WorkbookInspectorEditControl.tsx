@@ -1,6 +1,7 @@
+import { getReferenceFieldContract } from "@cartulary/view-contracts";
 import type { ComponentProps } from "react";
 import { GenericMutationControl } from "../components/GenericMutationControl";
-import { referenceOptionsForField } from "../models/workbookReferenceOptions";
+import { WorkbookReferenceControl } from "../components/WorkbookReferenceControl";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
 import type { WorkbookInspectorEditDraft } from "./useWorkbookInspectorEditDraft";
 
@@ -12,43 +13,48 @@ export function WorkbookInspectorEditControl({
   ComponentProps<typeof GenericMutationControl>,
   "value" | "onChange" | "disabled"
 > & { edit: WorkbookInspectorEditDraft }) {
-  const options = referenceOptionsForField(props.field, props.referenceOptions);
+  const reference = getReferenceFieldContract(
+    edit.identity.viewSchemaId,
+    props.field.fieldKey,
+  );
   return (
     <>
-      <GenericMutationControl
-        {...props}
-        focusTargetRef={(element) => {
-          edit.controlRef.current = element;
-        }}
-        disabled={!edit.canEdit}
-        value={edit.value ?? ""}
-        retainedOptions={edit.draft?.references.map((item) => ({
-          value: item.recordId,
-          label: item.displayText,
-        }))}
-        onChange={(value) => {
-          if (props.field.directReferenceContractId || options.length) {
+      {reference && props.collectionMode !== "remove" ? (
+        <WorkbookReferenceControl
+          field={reference}
+          label={props.field.label}
+          value={edit.value ?? ""}
+          disabled={!edit.canEdit}
+          sourceRecordId={edit.identity.recordId}
+          retained={edit.draft?.references}
+          testId={props.testId}
+          invalid={props.invalid}
+          describedBy={props.describedBy}
+          focusTargetRef={(element) => {
+            edit.controlRef.current = element;
+          }}
+          onChange={edit.update}
+          onAccept={(items) =>
             edit.selectReferences(
-              value
-                ? value.split("\n").map((recordId) => {
-                    const item = options.find(
-                      (item) => item.recordId === recordId,
-                    );
-                    return (
-                      edit.draft?.references.find(
-                        (item) => item.recordId === recordId,
-                      ) ?? {
-                        recordId,
-                        displayText: item?.label ?? "Selected reference",
-                        viewSchemaId: item?.viewSchemaId ?? "",
-                      }
-                    );
-                  })
-                : [],
-            );
-          } else edit.update(value);
-        }}
-      />
+              items.map((item) => ({
+                recordId: item.identity.id,
+                displayText: item.displayText,
+                viewSchemaId: item.viewSchemaId,
+              })),
+            )
+          }
+        />
+      ) : (
+        <GenericMutationControl
+          {...props}
+          disabled={!edit.canEdit}
+          value={edit.value ?? ""}
+          focusTargetRef={(element) => {
+            edit.controlRef.current = element;
+          }}
+          onChange={edit.update}
+        />
+      )}
       {props.field.clearable && props.field.writeKind === "direct_value" ? (
         <Button
           type="button"

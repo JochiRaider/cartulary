@@ -1373,3 +1373,298 @@ test("Committed Timeline preparation reconciles collaboration between a real com
     await page.unroute(`**/api/v1/records/${f.row.record_id}`);
   }
 });
+
+test("Existing reference cell picker keeps keyboard browsing local and commits exact later-page Party identity once", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const f = await fixture(page, evidenceViewSchemaId);
+  for (let offset = 0; offset < 105; offset += 5)
+    await Promise.all(
+      Array.from({ length: 5 }, (_, index) =>
+        createViewRow(page, f.incident, partiesViewSchemaId, {
+          client_txn_id: uniqueTxn("rsr-party"),
+          "party.display_name": `Picker Party ${String(offset + index).padStart(3, "0")}`,
+          "party.party_kind": "person",
+        }),
+      ),
+    );
+  const field = "evidence.source_party_id";
+  const input = await activate(page, f.view, f.row.record_id, field);
+  const writes: Record<string, unknown>[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/records/${f.row.record_id}`)
+    )
+      writes.push(request.postDataJSON());
+  });
+  await input.fill("");
+  await input.press("Enter");
+  await expect(input).toBeFocused();
+  expect(writes).toHaveLength(0);
+  const trigger = input
+    .locator("..")
+    .getByRole("button", { name: "Choose source party", exact: true });
+  await trigger.focus();
+  await trigger.press("Enter");
+  const popup = page.getByRole("dialog", {
+    name: "Choose source party",
+    exact: true,
+  });
+  await expect(popup).toContainText("Page 1: 100 candidates; more available");
+  const next = popup.getByRole("button", { name: "Next", exact: true });
+  await next.focus();
+  await next.press("Enter");
+  await expect(popup).toContainText("Page 2: 5 candidates; end of this source");
+  const list = popup.getByRole("listbox", { name: "Source Party candidates" });
+  await list.focus();
+  await list.press("ArrowDown");
+  const chosen = await list.inputValue();
+  expect(chosen).toMatch(/^party:/);
+  await list.press("Enter");
+  expect(writes).toHaveLength(0);
+  await list.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("");
+  await trigger.focus();
+  await trigger.press("Enter");
+  await expect(popup).toContainText("Page 1: 100 candidates");
+  await next.focus();
+  await next.press("Enter");
+  await expect(popup).toContainText("Page 2: 5 candidates");
+  await list.selectOption(chosen);
+  const accept = popup.getByRole("button", {
+    name: "Use selection",
+    exact: true,
+  });
+  await accept.focus();
+  await accept.press("Enter");
+  await expect(input).toHaveCount(0);
+  expect(writes).toHaveLength(1);
+  expect(writes[0]?.changes).toEqual([
+    { field_key: field, value: chosen.replace("party:", "") },
+  ]);
+  const clearInput = await activate(page, f.view, f.row.record_id, field);
+  await page
+    .getByRole("button", { name: "Clear Source Party", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Commit", exact: true }).click();
+  await expect(clearInput).toHaveCount(0);
+  expect(writes).toHaveLength(2);
+  expect(writes[1]?.changes).toEqual([{ field_key: field, value: null }]);
+});
+
+test("Existing reference drafts survive same-account recovery while staged late lookups and replaced accounts are fenced", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const f = await fixture(page, evidenceViewSchemaId);
+  const party = await createViewRow(page, f.incident, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("rsr-session-party"),
+    "party.display_name": "Protected reference label",
+    "party.party_kind": "person",
+  });
+  const members = [];
+  for (const name of ["original", "replacement"])
+    members.push(
+      await createIncidentMemberUser(page, f.incident, {
+        email: uniqueEmail(`rsr-${name}`),
+        display_name: name,
+        initial_password: "ReferenceRecovery1!",
+        role: "editor",
+        is_deployment_admin: false,
+        mfa_required: false,
+      }),
+    );
+  const original = members[0],
+    replacement = members[1];
+  if (!original || !replacement) throw new Error("Missing reference authors");
+  const login = (member: typeof original, recovery = false) =>
+    sessionTracker.loginTrackedUser(page, {
+      recovery,
+      createdBy: "reference-recovery",
+      email: member.email,
+      password: member.initial_password,
+      purpose: "Reference draft authority",
+      userId: member.user_id,
+    });
+  await login(original);
+  const sockets = installIncidentSocketMonitor(page, f.incident);
+  await page.goto(`/?incident_id=${f.incident}&view_schema_id=${f.view}`);
+  await sockets.waitForAcceptedSocket();
+  const field = "evidence.source_party_id";
+  const input = await activate(page, f.view, f.row.record_id, field);
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/records/${f.row.record_id}`)
+    )
+      writes++;
+  });
+  await input.fill(party.record_id);
+  const delayed = gate();
+  let lookupStarted = false;
+  await page.route(`**/views/${partiesViewSchemaId}/query`, async (route) => {
+    lookupStarted = true;
+    await delayed.promise;
+    await route.continue().catch(() => {});
+  });
+  await input
+    .locator("..")
+    .getByRole("button", { name: "Choose source party", exact: true })
+    .click();
+  await expect.poll(() => lookupStarted).toBe(true);
+  await revokeAllSessions(
+    workerAdminRequest,
+    original.user_id,
+    "Reference read suspension",
+  );
+  await expect(page.getByTestId(authTestId("shell"))).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Choose source party" }),
+  ).toHaveCount(0);
+  await expect(input).toHaveCount(0);
+  delayed.release();
+  await login(original, true);
+  await expect(page.getByTestId(gridShellTestId(f.view))).toBeVisible();
+  await expect(input).toHaveCount(0);
+  const restored = await activate(page, f.view, f.row.record_id, field);
+  await expect(restored).toHaveValue(party.record_id);
+  await expect(
+    page.getByRole("dialog", { name: "Choose source party" }),
+  ).toHaveCount(0);
+  await revokeAllSessions(
+    workerAdminRequest,
+    original.user_id,
+    "Reference account replacement",
+  );
+  await expect(page.getByTestId(authTestId("shell"))).toBeVisible();
+  await login(replacement, true);
+  await expect(page.getByTestId(gridShellTestId(f.view))).toBeVisible();
+  const fresh = await activate(page, f.view, f.row.record_id, field);
+  await expect(fresh).toHaveValue("");
+  await fresh.press("Escape");
+  expect(writes).toBe(0);
+});
+
+test("Existing reference closure role changes and access loss separate readable choices from write admission", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const f = await fixture(page, evidenceViewSchemaId);
+  const party = await createViewRow(page, f.incident, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("rsr-role-party"),
+    "party.display_name": "Readable reference target",
+    "party.party_kind": "person",
+  });
+  const field = "evidence.source_party_id";
+  const input = await activate(page, f.view, f.row.record_id, field);
+  await input.fill(party.record_id);
+  await input
+    .locator("..")
+    .getByRole("button", { name: "Choose source party", exact: true })
+    .click();
+  const popup = page.getByRole("dialog", {
+    name: "Choose source party",
+    exact: true,
+  });
+  await expect(popup).toContainText("Readable reference target");
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/records/${f.row.record_id}`)
+    )
+      writes++;
+  });
+  const before = await currentLifecycle(page, f.incident);
+  expect(
+    (
+      await lifecycleAction(page, f.incident, "closeIncident", {
+        client_txn_id: uniqueTxn("rsr-close"),
+        base_incident_version: before.incident_version,
+        reason: "Reference lifecycle evidence",
+      })
+    ).ok,
+  ).toBe(true);
+  await expect(popup).toHaveCount(0);
+  await expect(input).toHaveCount(0);
+  await page.getByText("Unsaved cells (1)", { exact: true }).click();
+  const retained = page.getByRole("textbox", {
+    name: "Retained Source Party",
+    exact: true,
+  });
+  await expect(retained).toHaveValue(party.record_id);
+  await expect(retained).toHaveAttribute("readonly", "");
+  expect(writes).toBe(0);
+  await openLifecycle(page);
+  await confirmLifecycle(page, "Reopen", "Resume reference authoring");
+  await page
+    .getByRole("button", { name: "Close incident controls", exact: true })
+    .click();
+  await expect(input).toHaveCount(0);
+  const restored = await activate(page, f.view, f.row.record_id, field);
+  await expect(restored).toHaveValue(party.record_id);
+  await restored.press("Escape");
+  const member = await createIncidentMemberUser(page, f.incident, {
+    email: uniqueEmail("rsr-role"),
+    display_name: "Reference author",
+    initial_password: "ReferenceRole1!",
+    role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
+  });
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "reference-role",
+    email: member.email,
+    password: member.initial_password,
+    purpose: "Reference role and access lifetime",
+    userId: member.user_id,
+  });
+  const sockets = installIncidentSocketMonitor(page, f.incident);
+  await page.goto(`/?incident_id=${f.incident}&view_schema_id=${f.view}`);
+  await sockets.waitForAcceptedSocket();
+  const draft = await activate(page, f.view, f.row.record_id, field);
+  await draft.fill(party.record_id);
+  await draft
+    .locator("..")
+    .getByRole("button", { name: "Choose source party", exact: true })
+    .click();
+  await expect(popup).toContainText("Readable reference target");
+  const membership = `/api/v1/incidents/${f.incident}/memberships/${member.user_id}`;
+  expect(
+    (
+      await workerAdminRequest.patch(membership, {
+        data: { base_membership_version: 1, role: "viewer" },
+      })
+    ).ok(),
+  ).toBe(true);
+  // Role discovery follows the existing denied-write recovery owner; the read
+  // remains authorized while the next attempted mutation is rejected.
+  await popup
+    .getByRole("button", { name: "Cancel references", exact: true })
+    .click();
+  await draft.press("Enter");
+  await expect(draft).toHaveCount(0);
+  await page.getByText("Unsaved cells (1)", { exact: true }).click();
+  await expect(retained).toHaveValue(party.record_id);
+  await expect(retained).toHaveAttribute("readonly", "");
+  expect(writes).toBe(1);
+  expect(
+    (
+      await workerAdminRequest.delete(membership, {
+        data: { base_membership_version: 2 },
+      })
+    ).status(),
+  ).toBe(204);
+  await expect(page.getByTestId(incidentLandingTestId("shell"))).toBeVisible();
+  await expect(retained).toHaveCount(0);
+  await expect(popup).toHaveCount(0);
+  await expect(page.getByTestId(authTestId("shell"))).toHaveCount(0);
+  expect(writes).toBe(1);
+});

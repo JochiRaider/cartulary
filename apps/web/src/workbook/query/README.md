@@ -54,3 +54,5 @@ server row ordering remains unchanged within buckets.
 Startup authorization may replace an in-flight reference broker. The Entity
 reference reader completes that unfinished obligation through the replacement;
 an already accepted reference set does not trigger another eager read.
+
+Timeline mention rendering retains a named, bounded Host/Identity observation in useEntityReferenceRows. It reads the existing query port directly, separately from authored Entity sheet queries. It no longer depends on the ordinary reference broker. Specialized mention resolution continues to own its own candidate workflow.

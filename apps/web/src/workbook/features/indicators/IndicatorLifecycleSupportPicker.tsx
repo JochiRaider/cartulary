@@ -7,11 +7,11 @@ import {
   emptyWorkbookQueryState,
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
-import type { GenericReferenceOption } from "../../models/workbookReferenceOptions";
 import {
   listWorkbookSurfaceRegistryEntries,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
+import type { IndicatorSupportReference } from "./indicatorLifecycleModel";
 import type { IndicatorLifecycleOwnerPort } from "./indicatorLifecycleOperation";
 import { IndicatorLifecyclePaging } from "./indicatorLifecyclePaging";
 import {
@@ -28,9 +28,9 @@ export function IndicatorLifecycleSupportPicker({
   onChange,
 }: {
   owner: IndicatorLifecycleOwnerPort;
-  selected: readonly GenericReferenceOption[];
+  selected: readonly IndicatorSupportReference[];
   disabled: boolean;
-  onChange: (value: readonly GenericReferenceOption[]) => void;
+  onChange: (value: readonly IndicatorSupportReference[]) => void;
 }) {
   const [viewId, setViewId] = useState<string>(timelineViewSchemaId);
   const [query, setQuery] = useState<WorkbookQueryState>(

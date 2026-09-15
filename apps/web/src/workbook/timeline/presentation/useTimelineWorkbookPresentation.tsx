@@ -201,8 +201,6 @@ export function useTimelineWorkbookPresentation({
   } = inspector.snapshot.history;
   const { cancelRowHistoryPendingAction } = inspector.commands.history;
   const createRelatedWorkflow = workflow.snapshot.createRelatedWorkflow;
-  const timelineCreateRelatedReferenceOptions =
-    workflow.snapshot.createRelatedReferenceOptions;
   const indicatorInspectorHandler = workflow.snapshot.indicatorHandler;
   const {
     cancelFeatureAction: cancelInspectorFeatureAction,
@@ -398,7 +396,6 @@ export function useTimelineWorkbookPresentation({
       renderTimelineInspectorEditor,
       rowHistory,
       submitCreateRelatedWorkflow,
-      timelineCreateRelatedReferenceOptions,
       updateCreateRelatedWorkflowDraft,
     },
   });

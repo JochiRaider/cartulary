@@ -1,19 +1,21 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { boundedRead } from "../../services/asyncObservation";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   type EntityRow,
   entityRowFromApi,
 } from "../models/entityWorkbookModel";
-import type { WorkbookQueryState } from "../models/workbookQuery";
+import {
+  emptyWorkbookQueryState,
+  type WorkbookQueryState,
+} from "../models/workbookQuery";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import { referenceRequirement } from "../policies/workbookSurfacePolicy";
-import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import { useGenericSurfaceQuery } from "./useGenericSurfaceQuery";
 import type { WorkbookCommittedRecordPort } from "./WorkbookCommittedRecordPort";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
@@ -25,7 +27,6 @@ export type EntitySurfaceQueryInput = {
   readonly ordinaryCreateOwner?: WorkbookCommittedRecordPort | undefined;
   readonly editOwner?: WorkbookCommittedRecordPort | undefined;
   readonly activeViewSchemaId?: string;
-  readonly referenceBroker?: ReferenceQueryBrokerPort;
   readonly hostQueryState: WorkbookQueryState;
   readonly identityQueryState: WorkbookQueryState;
   readonly onAuthorityUncertain: (() => void) | undefined;
@@ -35,7 +36,7 @@ export type EntitySurfaceQueryInput = {
 /** Entity conversion and partial indexing stay here; each sheet owns its read lifetime. */
 export function useEntitySurfaceQuery(input: EntitySurfaceQueryInput) {
   const references = useEntityReferenceRows(
-    input.referenceBroker,
+    input.viewQuery,
     input.activeViewSchemaId === timelineViewSchemaId,
   );
   const shared = {
@@ -85,7 +86,7 @@ export function useEntitySurfaceQuery(input: EntitySurfaceQueryInput) {
     },
     [refreshHosts, refreshIdentities],
   );
-  // An inactive sheet or a reference broker must not replace this sheet's reader.
+  // An inactive sheet or a reference observation must not replace this sheet's reader.
   const refresh =
     input.activeViewSchemaId === undefined
       ? refreshBoth
@@ -139,13 +140,9 @@ export function useEntitySurfaceQuery(input: EntitySurfaceQueryInput) {
 
 async function inactiveRead() {}
 
-const entityReferenceRequirements = [
-  referenceRequirement(hostsViewSchemaId),
-  referenceRequirement(identitiesViewSchemaId),
-];
 /** Bounded reference observations are independent of both sheets' authored queries. */
 function useEntityReferenceRows(
-  broker: ReferenceQueryBrokerPort | undefined,
+  reader: WorkbookViewQueryPort,
   active: boolean,
 ) {
   const [hosts, setHosts] = useState<EntityRow[]>([]);
@@ -153,9 +150,9 @@ function useEntityReferenceRows(
   const pending = useRef<AbortController | null>(null);
   const hasAcceptedReferences = useRef(false);
   const requestedReferences = useRef(false);
-  const previousBroker = useRef(broker);
-  const latestBroker = useRef(broker);
-  latestBroker.current = broker;
+  const previousReader = useRef(reader);
+  const latestReader = useRef(reader);
+  latestReader.current = reader;
   const clear = useCallback(() => {
     pending.current?.abort();
     pending.current = null;
@@ -169,38 +166,46 @@ function useEntityReferenceRows(
     pending.current?.abort();
     const controller = new AbortController();
     pending.current = controller;
-    const currentBroker = latestBroker.current;
-    if (!currentBroker || !active) {
+    const currentReader = latestReader.current;
+    if (!currentReader || !active) {
       setHosts([]);
       setIdentities([]);
       return;
     }
     try {
-      const result = await currentBroker.execute(
-        entityReferenceRequirements,
-        controller.signal,
+      const result = await Promise.all(
+        [hostsContract, identitiesContract].map((contract) =>
+          boundedRead(
+            (signal) =>
+              currentReader.query({
+                contract,
+                queryState: emptyWorkbookQueryState(),
+                limit: 100,
+                signal,
+              }),
+            controller.signal,
+          ),
+        ),
       );
       if (
         controller.signal.aborted ||
         pending.current !== controller ||
-        latestBroker.current !== currentBroker
+        latestReader.current !== currentReader
       )
         return;
       hasAcceptedReferences.current = true;
+      const [hostResult, identityResult] = result;
       setHosts(
-        (
-          result.find(
-            (entry) => entry.requirement.viewSchemaId === hostsViewSchemaId,
-          )?.rows ?? []
-        ).map((row) => entityRowFromApi(row, "host")),
+        hostResult?.kind === "accepted"
+          ? hostResult.value.rows.map((row) => entityRowFromApi(row, "host"))
+          : [],
       );
       setIdentities(
-        (
-          result.find(
-            (entry) =>
-              entry.requirement.viewSchemaId === identitiesViewSchemaId,
-          )?.rows ?? []
-        ).map((row) => entityRowFromApi(row, "identity")),
+        identityResult?.kind === "accepted"
+          ? identityResult.value.rows.map((row) =>
+              entityRowFromApi(row, "identity"),
+            )
+          : [],
       );
     } catch {
       if (controller.signal.aborted || pending.current !== controller) return;
@@ -211,9 +216,9 @@ function useEntityReferenceRows(
     }
   }, [active]);
   useEffect(() => {
-    const replaced = previousBroker.current !== broker;
-    previousBroker.current = broker;
-    // Startup authorization can replace the broker before its first read settles.
+    const replaced = previousReader.current !== reader;
+    previousReader.current = reader;
+    // Startup authorization can replace the reader before its first read settles.
     // Complete that obligation once; an accepted reference set needs no eager read.
     if (
       replaced &&
@@ -222,7 +227,7 @@ function useEntityReferenceRows(
       (pending.current !== null || !hasAcceptedReferences.current)
     )
       void refresh();
-  }, [active, broker, refresh]);
+  }, [active, reader, refresh]);
   useEffect(() => {
     if (!active) clear();
     return clear;

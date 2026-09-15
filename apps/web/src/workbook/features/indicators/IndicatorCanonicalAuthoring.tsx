@@ -3,7 +3,6 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import { useId, useRef, useState } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
 import {
   indicatorCreateConstraints as constraints,
@@ -28,7 +27,7 @@ const labels: Readonly<Record<string, string>> = {
   "indicator.defanged_value": "Defanged presentation",
   "indicator.stix_pattern": "STIX pattern",
 };
-const references = emptyGenericReferenceOptions();
+
 export function IndicatorCanonicalAuthoring({
   observation,
   contract,
@@ -75,7 +74,6 @@ export function IndicatorCanonicalAuthoring({
         <GenericMutationControl
           field={{ ...entry, enumValues: values }}
           collectionMode="add"
-          referenceOptions={references}
           id={`${id}-${key}`}
           ariaLabel={labels[key] ?? entry.label}
           describedBy={errors[key] ? errorId : undefined}

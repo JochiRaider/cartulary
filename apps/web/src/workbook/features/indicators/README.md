@@ -86,3 +86,5 @@ Transport lives in [workbook adapters](../../adapters/README.md); shared
 | File | Responsibility |
 | --- | --- |
 | [indicatorOrdinaryCreate.ts](indicatorOrdinaryCreate.ts) | Ordinary canonical-identity preparation using Indicator-owned constraints. |
+
+IndicatorSupportReference is the Indicator lifecycle support selection value. Its specialized picker retains genericReferenceOptionsFromRows only as a row-label projection; no aggregate ordinary lookup inventory remains.

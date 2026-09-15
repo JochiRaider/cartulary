@@ -11,7 +11,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
+import { WorkbookReferenceContext } from "../../components/WorkbookReferenceControl";
 import type { WorkbookAuthoringReadPort } from "../../ports/WorkbookAuthoringReadPort";
 import { OrdinaryCreateControl } from "./OrdinaryCreateControl";
 import { OrdinaryCreateNotice } from "./OrdinaryCreateNotice";
@@ -54,30 +54,68 @@ function setup() {
     })),
   };
   owner.configureReader(reader);
-  const renderControl = () =>
+  const renderControl = (actorPresentation?: {
+    userId: string;
+    displayName: string;
+  }) =>
     render(
-      <OrdinaryCreateControl
-        owner={owner}
-        contract={contract}
-        field={field}
-        surface="grid"
-        collectionMode="add"
-        referenceOptions={emptyGenericReferenceOptions()}
-        testId={genericCreateFieldTestId(field.fieldKey)}
-        value={
-          owner.getSnapshot().schemas[contract.viewSchemaId]?.values[
-            field.fieldKey
-          ] ?? ""
-        }
-        onChange={(value) =>
-          owner.update(contract.viewSchemaId, field.fieldKey, value)
-        }
-      />,
+      <WorkbookReferenceContext.Provider
+        value={{
+          actorPresentation,
+          reader: { page: vi.fn() },
+          evidence: {
+            subscribe: () => () => {},
+            getSnapshot: () => ({ authority: null }),
+            latestRow: () => null,
+            latestVersion: () => null,
+            acceptRow: () => null,
+          },
+          onAuthorityFailure: vi.fn(),
+        }}
+      >
+        <OrdinaryCreateControl
+          owner={owner}
+          contract={contract}
+          field={field}
+          surface="grid"
+          collectionMode="add"
+          testId={genericCreateFieldTestId(field.fieldKey)}
+          value={
+            owner.getSnapshot().schemas[contract.viewSchemaId]?.values[
+              field.fieldKey
+            ] ?? ""
+          }
+          onChange={(value) =>
+            owner.update(contract.viewSchemaId, field.fieldKey, value)
+          }
+        />
+      </WorkbookReferenceContext.Provider>,
     );
   return { owner, reader, renderControl };
 }
 afterEach(cleanup);
 describe("ordinary workbook reference controls", () => {
+  it("uses known actor presentation without member inventory reads or changing selected authoring", () => {
+    const { owner, reader, renderControl } = setup();
+    owner.update(contract.viewSchemaId, "handoff.incoming_owner_user_id", id);
+    const first = renderControl({
+      userId: id,
+      displayName: "Known current actor",
+    });
+    expect(screen.getByText(`Known current actor (${id})`)).toBeTruthy();
+    expect(reader.page).not.toHaveBeenCalled();
+    expect(
+      owner.getSnapshot().schemas[contract.viewSchemaId]?.draft.references[
+        "handoff.incoming_owner_user_id"
+      ],
+    ).toBeUndefined();
+    first.unmount();
+    renderControl({ userId: second, displayName: "Another actor" });
+    expect(screen.queryByText("Another actor")).toBeNull();
+    expect(screen.getByText(id)).toBeTruthy();
+    expect(reader.page).not.toHaveBeenCalled();
+  });
+
   it("keeps raw authoring copyable outside the read-only grid and conceals it with authority", () => {
     const { owner } = setup();
     owner.update(

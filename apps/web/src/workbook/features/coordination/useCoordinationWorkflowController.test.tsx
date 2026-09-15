@@ -7,7 +7,6 @@ import {
   screen,
 } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { CoordinationWorkflowBindings } from "./CoordinationWorkflowBindings";
 import {
@@ -169,7 +168,6 @@ it("admits one selected Task editor with role gates and no confirmation", async 
     mutation,
     drafts: new TaskLifecycleDraftStore(),
     row: taskRow,
-    referenceOptions: emptyGenericReferenceOptions(),
   };
   const { rerender } = render(<CoordinationWorkflowBindings {...props} />);
   expect(

@@ -10,7 +10,6 @@ import { useState } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookRecordCandidatePicker } from "../../components/WorkbookRecordCandidatePicker";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import {
   type MentionCreationOperation,
   mentionCreateRequest,
@@ -279,7 +278,6 @@ function MentionCreateEditor({
         collectionMode="add"
         id={`mention-create-${field.fieldKey}`}
         testId={genericCreateFieldTestId(field.fieldKey)}
-        referenceOptions={emptyGenericReferenceOptions()}
         value={review.draft[field.fieldKey] ?? ""}
         onChange={(value) => actions.updateCreateDraft(field.fieldKey, value)}
       />

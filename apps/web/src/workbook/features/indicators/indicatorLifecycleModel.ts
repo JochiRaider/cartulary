@@ -2,7 +2,11 @@ import {
   type IndicatorLifecycleValues,
   indicatorLifecycleConstraints,
 } from "../../adapters/indicatorLifecycleProtocol";
-import type { GenericReferenceOption } from "../../models/workbookReferenceOptions";
+export type IndicatorSupportReference = {
+  recordId: string;
+  label: string;
+  viewSchemaId: string;
+};
 
 export const indicatorLifecycleViewId = "cartulary.view.indicators.v1";
 export type LifecycleDraftValues = Readonly<{
@@ -12,7 +16,7 @@ export type LifecycleDraftValues = Readonly<{
   confidence: string;
   rationale: string;
   assessor: string;
-  support: readonly GenericReferenceOption[];
+  support: readonly IndicatorSupportReference[];
 }>;
 export type LifecycleDraft = Readonly<{
   recordId: string;

@@ -23,7 +23,6 @@ import {
   genericInspectorRowLabel,
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type {
   RecordRouteCommandPort,
   TimelineRelatedRecordPort,
@@ -113,10 +112,7 @@ export function useAssessmentWorkbookInspectorComposition({
           stateLabel: `Follow-on subject: ${draft.subjectRecordId || "not selected"}`,
           surfaceLabel: contract.title,
         });
-  const relatedReferenceOptions = useMemo(
-    () => emptyGenericReferenceOptions(),
-    [],
-  );
+
   const related = useInspectorCreateRelatedWorkflow({
     beginMutation,
     currentUserId,
@@ -237,7 +233,6 @@ export function useAssessmentWorkbookInspectorComposition({
       related={{
         begin: related.commands.begin,
         cancel: related.commands.cancel,
-        referenceOptions: relatedReferenceOptions,
         state: related.snapshot.workflow,
         submit: related.commands.submit,
         updateDraft: related.commands.updateDraft,

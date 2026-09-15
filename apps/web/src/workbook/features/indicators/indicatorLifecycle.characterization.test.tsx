@@ -1,7 +1,6 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import { GenericWorkbookInspector } from "../generic/GenericWorkbookInspector";
 
@@ -37,7 +36,6 @@ function fixture(
       workflowContent={null}
       onClose={vi.fn()}
       mutationError={null}
-      referenceLoadError={null}
       relatedFeedback={null}
       history={{
         beginMutation: () => vi.fn(),
@@ -53,7 +51,6 @@ function fixture(
       }}
       related={{
         begin: () => false,
-        referenceOptions: emptyGenericReferenceOptions(),
         state: null,
         cancel: vi.fn(),
         submit: async () => {},

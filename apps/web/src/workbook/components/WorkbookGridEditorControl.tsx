@@ -3,7 +3,10 @@ import type {
   GridEditCommitOutcome,
   GridEditorAdapter,
 } from "@cartulary/grid-adapter";
-import type { ViewFieldContract } from "@cartulary/view-contracts";
+import {
+  getReferenceFieldContract,
+  type ViewFieldContract,
+} from "@cartulary/view-contracts";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -16,19 +19,18 @@ import {
   taskViewId,
 } from "../features/coordination/taskLifecycleModel";
 import type { WorkbookGridDraftStore } from "../models/WorkbookGridDraftStore";
-import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { GenericMutationControl } from "./GenericMutationControl";
 import {
   WorkbookCellPresenceMarker,
   WorkbookPresenceCellLayout,
 } from "./WorkbookPresenceMarkers";
+import { WorkbookReferenceControl } from "./WorkbookReferenceControl";
 
 export function workbookGridEditorAdapter<Row>({
   commit,
   field,
   readValue,
-  referenceOptions,
   collaboration,
   drafts,
   readRow,
@@ -42,7 +44,6 @@ export function workbookGridEditorAdapter<Row>({
   ) => Promise<GridEditCommitOutcome>;
   readonly field: ViewFieldContract;
   readonly readValue: (row: Row) => unknown;
-  readonly referenceOptions: GenericReferenceOptions;
   readonly collaboration?: WorkbookCollaborationCoordinator | undefined;
   readonly drafts: WorkbookGridDraftStore;
   readonly readRow: (row: Row) => WorkbookQueryRow;
@@ -86,12 +87,15 @@ export function workbookGridEditorAdapter<Row>({
       return value === null || value === undefined ? "" : String(value);
     },
     renderEditor: (context) => {
+      const reference = getReferenceFieldContract(viewSchemaId, field.fieldKey);
       const draftValue = String(context.draftValue ?? "");
       const commitOnEnter = (event: KeyboardEvent<HTMLFieldSetElement>) => {
         if (event.nativeEvent.isComposing) return;
         if (
           event.target instanceof Element &&
-          event.target.closest("[data-grid-editor-toolbar]")
+          event.target.closest(
+            "[data-grid-editor-toolbar], [data-grid-editor-interaction]",
+          )
         )
           return;
         if (event.key === "Escape") {
@@ -106,21 +110,41 @@ export function workbookGridEditorAdapter<Row>({
       };
       const content = (
         <>
-          <GenericMutationControl
-            invalid={context.outcome?.kind === "validation_error"}
-            collectionMode="add"
-            field={field}
-            focusTargetRef={context.focusTargetRef}
-            referenceOptions={referenceOptions}
-            surface="grid"
-            testId={`grid-editor-${
-              context.target.rowIdentity.kind === "core_record"
-                ? context.target.rowIdentity.recordId
-                : "unsupported"
-            }-${field.fieldKey}`}
-            value={draftValue}
-            onChange={(value) => context.setDraftValue(value)}
-          />
+          {reference ? (
+            <WorkbookReferenceControl
+              field={reference}
+              label={field.label}
+              value={draftValue}
+              sourceRecordId={readRow(context.row).record_id}
+              compact
+              invalid={context.outcome?.kind === "validation_error"}
+              focusTargetRef={context.focusTargetRef}
+              testId={`grid-editor-${readRow(context.row).record_id}-${field.fieldKey}`}
+              onChange={(value) => context.setDraftValue(value)}
+              onAccept={(items) => {
+                const value = items[0]?.identity.id;
+                if (value) {
+                  context.setDraftValue(value);
+                  void context.commit(value);
+                }
+              }}
+            />
+          ) : (
+            <GenericMutationControl
+              invalid={context.outcome?.kind === "validation_error"}
+              collectionMode="add"
+              field={field}
+              focusTargetRef={context.focusTargetRef}
+              surface="grid"
+              testId={`grid-editor-${
+                context.target.rowIdentity.kind === "core_record"
+                  ? context.target.rowIdentity.recordId
+                  : "unsupported"
+              }-${field.fieldKey}`}
+              value={draftValue}
+              onChange={(value) => context.setDraftValue(value)}
+            />
+          )}
           <fieldset data-grid-editor-toolbar="true" aria-label="Cell actions">
             {field.readKind === "boolean" &&
             draftValue !== "true" &&

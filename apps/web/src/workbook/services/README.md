@@ -2,20 +2,14 @@
 
 [Parent](../README.md) · [Source overview](../../README.md)
 
-Instance-scoped reference-query sharing, cancellation, invalidation, and disposal.
+WorkbookReferenceSelection owns only picker browsing and staged identities:
+one 100-row page, ten earlier request checkpoints, and at most 64 pending
+collection actions. Parent grid and inspector drafts own accepted authoring.
 
-The reference broker shares mechanics and in-flight reads within one workbook
-context. Surface policies choose reference requirements; the broker does not
-choose domain references or authorize access.
+workbookReferenceReader shares only in-flight reads within one authority instance,
+preserves typed failures, and fences disposal using the existing 30-second
+read deadline. Field target meaning comes from the view-contracts projection.
+Membership discovery retains its separate route and ordering.
 
-## Files
-
-| File | Responsibility |
-| --- | --- |
-| [referenceQueryBroker.ts](referenceQueryBroker.ts) | Creates instance-scoped, incident/authorization-bound reference-query ports with shared-consumer deduplication, typed invalidation, abort ownership, and idempotent disposal. |
-
-## Tests
-
-| File | Responsibility |
-| --- | --- |
-| [referenceQueryBroker.test.ts](referenceQueryBroker.test.ts) | Tests in-flight deduplication, shared-consumer cancellation, two-shell isolation, context binding, invalidation, teardown, and late-result rejection. |
+workbookReferenceSelection.test.ts verifies paging bounds, independent selections,
+source replacement, continuation recovery, cancellation and authority concealment.

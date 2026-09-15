@@ -1936,6 +1936,11 @@ function TestGridEditor<Row>({
       onBlurCapture={handleBlur}
       onKeyDownCapture={(event) => {
         if (event.nativeEvent.isComposing) return;
+        if (
+          event.target instanceof Element &&
+          event.target.closest("[data-grid-editor-interaction]")
+        )
+          return;
         if (event.altKey && event.key === "ArrowDown") {
           const action = event.currentTarget.querySelector<HTMLButtonElement>(
             "[data-grid-editor-toolbar] button",

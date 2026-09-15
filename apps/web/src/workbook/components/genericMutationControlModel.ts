@@ -3,12 +3,6 @@ import {
   type GenericCollectionMode,
   isMultilineGenericField,
 } from "../models/genericWorkbookModel";
-import {
-  type GenericReferenceOptions,
-  genericFieldUsesReferenceOptions,
-  referenceOptionsForField,
-} from "../models/workbookReferenceOptions";
-
 export type GenericMutationControlSurface = "form" | "grid";
 
 type GenericMutationControlOption = {
@@ -26,16 +20,6 @@ export type GenericMutationControlDescriptor =
       readonly kind: "collection_removal";
       readonly options: readonly GenericMutationControlOption[];
       readonly size: number;
-    })
-  | (GenericMutationControlContext & {
-      readonly kind: "collection_reference";
-      readonly options: readonly GenericMutationControlOption[];
-      readonly size: number;
-    })
-  | (GenericMutationControlContext & {
-      readonly emptyLabel: "None" | "Select";
-      readonly kind: "direct_reference";
-      readonly options: readonly GenericMutationControlOption[];
     })
   | (GenericMutationControlContext & {
       readonly kind: "enumerated_value";
@@ -59,7 +43,6 @@ export function resolveGenericMutationControl({
   collectionItems,
   collectionMode,
   field,
-  referenceOptions,
   surface,
 }: {
   readonly collectionItems: readonly {
@@ -68,7 +51,6 @@ export function resolveGenericMutationControl({
   }[];
   readonly collectionMode: GenericCollectionMode;
   readonly field: ViewFieldContract;
-  readonly referenceOptions: GenericReferenceOptions;
   readonly surface: GenericMutationControlSurface;
 }): GenericMutationControlDescriptor {
   const context = { ariaLabel: `${field.label} value`, surface };
@@ -82,32 +64,6 @@ export function resolveGenericMutationControl({
       kind: "collection_removal",
       options,
       size: collectionSelectSize(options.length, surface),
-    };
-  }
-
-  if (
-    field.writeKind === "action_payload" &&
-    genericFieldUsesReferenceOptions(field)
-  ) {
-    const options = referenceOptionsForField(field, referenceOptions).map(
-      (option) => ({ label: option.label, value: option.recordId }),
-    );
-    return {
-      ...context,
-      kind: "collection_reference",
-      options,
-      size: collectionSelectSize(options.length, surface),
-    };
-  }
-
-  if (genericFieldUsesReferenceOptions(field)) {
-    return {
-      ...context,
-      emptyLabel: field.clearable ? "None" : "Select",
-      kind: "direct_reference",
-      options: referenceOptionsForField(field, referenceOptions).map(
-        (option) => ({ label: option.label, value: option.recordId }),
-      ),
     };
   }
 

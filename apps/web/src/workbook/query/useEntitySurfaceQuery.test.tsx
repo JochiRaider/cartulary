@@ -24,6 +24,10 @@ import {
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { useEntitySurfaceQuery } from "./useEntitySurfaceQuery";
+import type {
+  WorkbookViewQueryPort,
+  WorkbookViewQueryResult,
+} from "./WorkbookViewQueryPort";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
@@ -61,60 +65,66 @@ it("browses only the active Entity sheet and releases its rows independently on 
   expect(hook.result.current.identityRows).toHaveLength(1);
   expect(hook.result.current.hosts.browsing.accepted).toBeNull();
   hook.unmount();
-  const execute = vi.fn(async () => []);
-  const broker = { execute, invalidate: vi.fn(), dispose: vi.fn() };
+  const empty = async (): Promise<WorkbookViewQueryResult> => ({
+    kind: "accepted",
+    value: {
+      incidentId,
+      viewSchemaId: hostsViewSchemaId,
+      rows: [],
+      canonicalQuery: { filters: [], sort: [] },
+      paging: { limit: 100, hasMore: false, nextCursor: null },
+      producingRequest: { queryState: emptyWorkbookQueryState(), limit: 100 },
+    },
+  });
+  const query = vi.fn(empty);
+  const reader = { query };
   const references = renderHook(
-    ({ referenceBroker }) =>
+    ({ reader }: { reader: WorkbookViewQueryPort }) =>
       useEntitySurfaceQuery({
         activeViewSchemaId: timelineViewSchemaId,
-        referenceBroker,
         hostQueryState: emptyWorkbookQueryState(),
         identityQueryState: emptyWorkbookQueryState(),
-        viewQuery,
+        viewQuery: reader,
         onAuthorityUncertain: undefined,
       }),
-    { initialProps: { referenceBroker: broker } },
+    { initialProps: { reader } },
   );
   const readReferences = references.result.current.refresh;
   await act(() => readReferences());
-  const revalidatedBroker = { ...broker, execute: vi.fn(async () => []) };
-  references.rerender({ referenceBroker: revalidatedBroker });
+  const revalidatedReader = { query: vi.fn(empty) };
+  references.rerender({ reader: revalidatedReader });
   expect(references.result.current.refresh).toBe(readReferences);
-  expect(revalidatedBroker.execute).not.toHaveBeenCalled();
+  expect(revalidatedReader.query).not.toHaveBeenCalled();
   await act(() => readReferences());
-  expect(execute).toHaveBeenCalledOnce();
-  expect(revalidatedBroker.execute).toHaveBeenCalledOnce();
+  expect(query).toHaveBeenCalledTimes(2);
+  expect(revalidatedReader.query).toHaveBeenCalledTimes(2);
   references.unmount();
-  const interrupted = deferred<never[]>();
-  const pendingBroker = {
-    ...broker,
-    execute: vi.fn(() => interrupted.promise),
-  };
+  const interrupted = deferred<WorkbookViewQueryResult>();
+  const pendingReader = { query: vi.fn(() => interrupted.promise) };
   const startup = renderHook(
-    ({ referenceBroker }) =>
+    ({ reader }: { reader: WorkbookViewQueryPort }) =>
       useEntitySurfaceQuery({
         activeViewSchemaId: timelineViewSchemaId,
-        referenceBroker,
         hostQueryState: emptyWorkbookQueryState(),
         identityQueryState: emptyWorkbookQueryState(),
-        viewQuery,
+        viewQuery: reader,
         onAuthorityUncertain: undefined,
       }),
-    { initialProps: { referenceBroker: pendingBroker } },
+    { initialProps: { reader: pendingReader } },
   );
   let pendingRead = Promise.resolve();
   act(() => {
     pendingRead = startup.result.current.refresh();
   });
-  const recoveredBroker = { ...pendingBroker, execute: vi.fn(async () => []) };
-  startup.rerender({ referenceBroker: recoveredBroker });
-  await waitFor(() => expect(recoveredBroker.execute).toHaveBeenCalledOnce());
+  const recoveredReader = { query: vi.fn(empty) };
+  startup.rerender({ reader: recoveredReader });
+  await waitFor(() => expect(recoveredReader.query).toHaveBeenCalledTimes(2));
   await act(async () => {
-    interrupted.resolve([]);
+    interrupted.resolve(await empty());
     await pendingRead;
   });
   expect(startup.result.current.references.hosts).toEqual([]);
-  expect(recoveredBroker.execute).toHaveBeenCalledOnce();
+  expect(recoveredReader.query).toHaveBeenCalledTimes(2);
   startup.unmount();
   vi.unstubAllGlobals();
 });

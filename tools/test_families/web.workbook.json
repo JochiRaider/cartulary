@@ -1297,6 +1297,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.generic_mutation_controls",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/GenericMutationControl.test.tsx",
+        "titles": [
+          "GenericMutationControl descriptor derives options, sizing, clear labels, rows, number types, and timestamp hints",
+          "GenericMutationControl descriptor resolves every field-control variant in form and grid modes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.genericworkbookmodel_builds_generic_creates_with_07b632b33d",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2659,6 +2684,7 @@
           "admits only the frozen existing-record capabilities while preserving create-only contracts",
           "clears only the dispatched authoring revision and preserves later typing",
           "conceals suspended drafts and retires them across incident or account replacement",
+          "preserves exact direct reference input and rejects implicit clearing",
           "requires explicit resumption and never lets another record or attachment consume raw work",
           "retains original raw intent and review dependencies independently from saved row objects",
           "validates scalar values and explicit clearing without mutating rough authoring"
@@ -3016,7 +3042,8 @@
         "titles": [
           "ordinary workbook reference controls exposes failed reference recovery and conceals retained labels when authorization suspends",
           "ordinary workbook reference controls keeps raw authoring copyable outside the read-only grid and conceals it with authority",
-          "ordinary workbook reference controls stages paged selection, retains off-page identity and returns focus on Escape"
+          "ordinary workbook reference controls stages paged selection, retains off-page identity and returns focus on Escape",
+          "ordinary workbook reference controls uses known actor presentation without member inventory reads or changing selected authoring"
         ]
       },
       "evidence_class": "unit",
@@ -3473,7 +3500,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "web.workbook.regression.referencequerybroker_suite_7bd36b209a",
+      "row_id": "web.workbook.regression.reference_controls",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
       "collaborator_ids": [],
@@ -3482,13 +3509,44 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/services/referenceQueryBroker.test.ts",
+        "file": "apps/web/src/workbook/components/WorkbookReferenceControl.test.tsx",
         "titles": [
-          "ReferenceQueryBroker aborts and rejects late work after typed invalidation or disposal",
-          "ReferenceQueryBroker aborts underlying work after its final consumer is cancelled",
-          "ReferenceQueryBroker binds incident and authorization generation at construction",
-          "ReferenceQueryBroker deduplicates in-flight work while keeping shared-consumer cancellation local",
-          "ReferenceQueryBroker keeps identical queries isolated between Workbook broker instances"
+          "retries only failed reads while retaining raw inspector work and fences dismissal",
+          "stages collection choices across pages and eligible surfaces without editing or submitting the inspector until acceptance",
+          "uses committed target presentation without retargeting staged identity or editing the parent",
+          "uses exact collection action identities in declared order with the pending edit limit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.reference_selection",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/services/workbookReferenceSelection.test.ts",
+        "titles": [
+          "Workbook reference selection bounds stalled reads at thirty seconds and retains independent typed member paging",
+          "Workbook reference selection conceals protected candidate presentation on authority failure and requests the existing lifecycle owner",
+          "Workbook reference selection fences rapid applied query replacements while retaining selections and the latest canonical page",
+          "Workbook reference selection fences replaced queries and failed sources without clearing off-page selections",
+          "Workbook reference selection keeps pending action limits and source exclusion separate from collection size and page validity",
+          "Workbook reference selection keys scope source query and continuation and fences disposed or abandoned reads",
+          "Workbook reference selection preserves the accepted page and typed continuation failure until an explicit read retry succeeds",
+          "Workbook reference selection reaches later pages with one accepted page and ten checkpoints while retaining ordered choices",
+          "Workbook reference selection shares only in-flight reads and cancels one consumer independently with typed query metadata intact"
         ]
       },
       "evidence_class": "unit",
@@ -5136,6 +5194,7 @@
         "file": "apps/web/src/workbook/adapters/createWorkbookStartupAndIncidentAdapters.test.ts",
         "titles": [
           "Workbook incident adapter fails closed on malformed or cross-incident resources and classifies access loss",
+          "Workbook incident adapter preserves member paging identity typed authority failures and cancellation",
           "Workbook incident adapter uses projected routes and returns only correlated semantic identity and members",
           "Workbook startup adapter derives the exact projected query and accepts correlated availability",
           "Workbook startup adapter rejects malformed and mismatched startup resources and contains aborts"
@@ -5323,54 +5382,6 @@
           "workbookQuery keeps grouping separate from authored sorting and cleared overrides",
           "workbookQuery rejects structural layout keys and out-of-range widths",
           "workbookQuery supports ordered additive sort cycles and enforces the owner limit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.workbook.regression.workbookreferenceoptions_detects_fields_that_use_f53f0c2290",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/models/workbookReferenceOptions.test.ts",
-        "titles": [
-          "workbookReferenceOptions detects fields that use reference choices and leaves scalar fields free text"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.workbook.regression.workbookreferenceoptions_returns_same_incident_r_d82be79429",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/models/workbookReferenceOptions.test.ts",
-        "titles": [
-          "workbookReferenceOptions returns same-incident reference buckets without relabeling or deduping identities"
         ]
       },
       "evidence_class": "unit",

@@ -22,7 +22,6 @@ import type {
 } from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
-import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import { IndicatorInspectorWorkflow } from "../indicators/IndicatorInspectorWorkflow";
 import { IndicatorLifecycleWorkflow } from "../indicators/IndicatorLifecycleWorkflow";
@@ -41,8 +40,6 @@ export function GenericWorkbookInspector({
   indicator,
   mutationError,
   onClose,
-  referenceLoadError,
-  referenceLoadErrorTestId,
   related,
   relatedFeedback,
   relationshipsContent,
@@ -72,11 +69,8 @@ export function GenericWorkbookInspector({
   } | null;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly onClose: () => void;
-  readonly referenceLoadError: WorkbookInspectorErrorPresentation | null;
-  readonly referenceLoadErrorTestId?: string | undefined;
   readonly related: {
     readonly begin: (featureGroup: InspectorFeatureGroup) => boolean;
-    readonly referenceOptions: GenericReferenceOptions;
     readonly state: InspectorRelatedRecordWorkflowState | null;
     readonly cancel: () => void;
     readonly submit: () => Promise<void>;
@@ -154,7 +148,6 @@ export function GenericWorkbookInspector({
       {subject?.kind === "live" &&
       related.state?.featureGroup.panelId === panelId ? (
         <InspectorCreateRelatedWorkflow
-          referenceOptions={related.referenceOptions}
           state={related.state}
           onCancel={related.cancel}
           onSubmit={() => void related.submit()}
@@ -222,12 +215,7 @@ export function GenericWorkbookInspector({
         feedback={relatedFeedback}
         neutralStyle={feedbackStyle}
       />
-      {referenceLoadError === null ? null : (
-        <WorkbookInspectorPublicError
-          error={referenceLoadError}
-          testId={referenceLoadErrorTestId}
-        />
-      )}
+
       {mutationError === null ? null : (
         <WorkbookInspectorPublicError error={mutationError} />
       )}

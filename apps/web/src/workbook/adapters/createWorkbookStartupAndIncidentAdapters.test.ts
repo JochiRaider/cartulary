@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createWorkbookIncidentAdapter } from "./createWorkbookIncidentAdapter";
+import { createWorkbookReferenceMemberReader } from "./createWorkbookReferenceMemberReader";
 import { createWorkbookStartupAdapter } from "./createWorkbookStartupAdapter";
 
 const incidentId = "00000000-0000-4000-8000-000000000001";
@@ -103,7 +104,13 @@ describe("Workbook incident adapter", () => {
       .fn()
       .mockResolvedValueOnce(response(envelope(incidentResource())))
       .mockResolvedValueOnce(
-        response(envelope({ memberships: [membershipResource()] })),
+        response({
+          ...envelope({ memberships: [membershipResource()] }),
+          meta: {
+            request_id: "req-members",
+            paging: { limit: 100, has_more: false, next_cursor: null },
+          },
+        }),
       );
     vi.stubGlobal("fetch", fetchMock);
     const incident = createWorkbookIncidentAdapter({
@@ -118,11 +125,15 @@ describe("Workbook incident adapter", () => {
       value: { incident_id: incidentId, incident_key: "INC-001" },
     });
     await expect(
-      incident.listMembers({ signal: new AbortController().signal }),
+      createWorkbookReferenceMemberReader({ apiBase: "/base", incidentId })(
+        undefined,
+        new AbortController().signal,
+      ),
     ).resolves.toEqual({
       kind: "accepted",
       value: {
         members: [{ displayName: "Incident Owner", userId }],
+        paging: { limit: 100, hasMore: false, nextCursor: null },
       },
     });
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -132,7 +143,7 @@ describe("Workbook incident adapter", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      `/base/api/v1/incidents/${incidentId}/memberships`,
+      `/base/api/v1/incidents/${incidentId}/memberships?limit=100`,
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -159,7 +170,11 @@ describe("Workbook incident adapter", () => {
     for (const load of [
       () => incident.getIdentity({ signal: new AbortController().signal }),
       () => incident.getIdentity({ signal: new AbortController().signal }),
-      () => incident.listMembers({ signal: new AbortController().signal }),
+      () =>
+        createWorkbookReferenceMemberReader({ apiBase: "/base", incidentId })(
+          undefined,
+          new AbortController().signal,
+        ),
     ]) {
       await expect(load()).resolves.toMatchObject({
         kind: "rejected",
@@ -171,6 +186,74 @@ describe("Workbook incident adapter", () => {
     ).resolves.toMatchObject({
       kind: "rejected",
       failure: { kind: "authorization_lost" },
+    });
+  });
+  it("preserves member paging identity typed authority failures and cancellation", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const read = createWorkbookReferenceMemberReader({
+      apiBase: "/base",
+      incidentId,
+    });
+    const memberPage = (memberships: unknown[], next: string | null) => ({
+      data: { memberships },
+      meta: {
+        request_id: "req-member-page",
+        paging: { limit: 100, has_more: next !== null, next_cursor: next },
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      response(memberPage([membershipResource()], "opaque/+next")),
+    );
+    await expect(
+      read(undefined, new AbortController().signal),
+    ).resolves.toMatchObject({
+      kind: "accepted",
+      value: {
+        members: [{ userId }],
+        paging: { nextCursor: "opaque/+next", hasMore: true, limit: 100 },
+      },
+    });
+    fetchMock.mockResolvedValueOnce(response(memberPage([], null)));
+    await expect(
+      read("opaque/+next", new AbortController().signal),
+    ).resolves.toMatchObject({
+      kind: "accepted",
+      value: { members: [], paging: { nextCursor: null, hasMore: false } },
+    });
+    expect(fetchMock.mock.lastCall?.[0]).toBe(
+      `/base/api/v1/incidents/${incidentId}/memberships?cursor_token=opaque%2F%2Bnext&limit=100`,
+    );
+    for (const malformed of [
+      memberPage([membershipResource(otherIncidentId)], null),
+      memberPage([membershipResource(), membershipResource()], null),
+      memberPage([], "same-cursor"),
+    ]) {
+      fetchMock.mockResolvedValueOnce(response(malformed));
+      await expect(
+        read("same-cursor", new AbortController().signal),
+      ).resolves.toMatchObject({
+        kind: "rejected",
+        failure: { kind: "invalid_contract" },
+      });
+    }
+    fetchMock.mockResolvedValueOnce(authorizationDenied());
+    await expect(
+      read(undefined, new AbortController().signal),
+    ).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "authorization_lost",
+        publicCode: "authorization_denied",
+      },
+    });
+    const controller = new AbortController();
+    fetchMock.mockImplementationOnce(async () => {
+      controller.abort();
+      return response(memberPage([membershipResource()], null));
+    });
+    await expect(read(undefined, controller.signal)).resolves.toEqual({
+      kind: "aborted",
     });
   });
 });

@@ -110,3 +110,5 @@ capabilities live in [ports](../ports/README.md).
 Historical Entity receipts may lack the empty conflicts member. Timeline no-op
 record targets may be absent from rows; create coverage remains exact. Invalid
 success data is uncertain. Accepted recovery delegates reads to the runtime.
+
+createWorkbookReferenceMemberReader retains membership-route continuation and ordering independently of record query metadata. It validates scope and paging before exposing member candidates.

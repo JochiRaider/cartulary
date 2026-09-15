@@ -10,7 +10,6 @@ import {
 } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import { ContextualReferenceControl } from "./ContextualReferenceControl";
 import { contextualReferenceKind } from "./contextualCreateModel";
 import type { WorkbookContextualTaskDecisionCreateOwner } from "./WorkbookContextualTaskDecisionCreateOwner";
@@ -117,7 +116,6 @@ export function ContextualCreateForm({
                           : field
                       }
                       collectionMode="add"
-                      referenceOptions={emptyGenericReferenceOptions()}
                       value={draft.values[field.fieldKey] ?? ""}
                       testId={genericCreateFieldTestId(field.fieldKey)}
                       invalid={!!error}

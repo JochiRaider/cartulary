@@ -8,7 +8,6 @@ import { GenericMutationControl } from "../../components/GenericMutationControl"
 import { WorkbookRecordCandidatePicker } from "../../components/WorkbookRecordCandidatePicker";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { extractEmailFromPartyText } from "../../models/genericWorkbookModel";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { buildGenericCreateRequest } from "../generic/genericCreateRequestBuilder";
 import {
@@ -112,7 +111,6 @@ export function PartyLinkControls({
           ariaLabel={`${entry.label} value`}
           collectionMode="add"
           field={entry}
-          referenceOptions={emptyGenericReferenceOptions()}
           testId={genericCreateFieldTestId(key)}
           value={draft[key] ?? ""}
           onChange={(value) =>

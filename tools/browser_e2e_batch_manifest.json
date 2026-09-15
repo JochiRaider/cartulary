@@ -1091,7 +1091,10 @@
             "module.workbook.browser.grid_autosave_successive",
             "module.workbook.browser.grid_autosave_surface_matrix",
             "module.workbook.browser.grid_autosave_timeline_collaboration",
-            "module.workbook.browser.grid_autosave_timestamp_retention"
+            "module.workbook.browser.grid_autosave_timestamp_retention",
+            "module.workbook.browser.reference_admission_lifecycle",
+            "module.workbook.browser.reference_grid_commit",
+            "module.workbook.browser.reference_session_recovery"
           ],
           "specs": [
             "apps/web/e2e/workbook-grid-autosave.spec.ts"
@@ -1115,7 +1118,9 @@
           "selected_row_ids": [
             "module.workbook.browser.inspector_detached_refresh",
             "module.workbook.browser.inspector_exact_replay",
-            "module.workbook.browser.inspector_subject_retention"
+            "module.workbook.browser.inspector_subject_retention",
+            "module.workbook.browser.reference_selection_recovery",
+            "module.workbook.browser.reference_target_eligibility"
           ],
           "specs": [
             "apps/web/e2e/workbook-inspector-edit.spec.ts"
@@ -2414,7 +2419,10 @@
             "module.workbook.browser.grid_autosave_successive",
             "module.workbook.browser.grid_autosave_surface_matrix",
             "module.workbook.browser.grid_autosave_timeline_collaboration",
-            "module.workbook.browser.grid_autosave_timestamp_retention"
+            "module.workbook.browser.grid_autosave_timestamp_retention",
+            "module.workbook.browser.reference_admission_lifecycle",
+            "module.workbook.browser.reference_grid_commit",
+            "module.workbook.browser.reference_session_recovery"
           ],
           "specs": [
             "apps/web/e2e/workbook-grid-autosave.spec.ts"
@@ -2438,7 +2446,9 @@
           "selected_row_ids": [
             "module.workbook.browser.inspector_detached_refresh",
             "module.workbook.browser.inspector_exact_replay",
-            "module.workbook.browser.inspector_subject_retention"
+            "module.workbook.browser.inspector_subject_retention",
+            "module.workbook.browser.reference_selection_recovery",
+            "module.workbook.browser.reference_target_eligibility"
           ],
           "specs": [
             "apps/web/e2e/workbook-inspector-edit.spec.ts"
@@ -3451,7 +3461,8 @@
           "browser_session_group": "browser-e2e-a11y-default",
           "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
           "selected_row_ids": [
-            "module.workbook.accessibility.inspector_edit_recovery"
+            "module.workbook.accessibility.inspector_edit_recovery",
+            "module.workbook.accessibility.reference_picker"
           ],
           "specs": [
             "apps/web/e2e/workbook-inspector-edit.spec.ts"
@@ -4560,7 +4571,8 @@
           "execution_dependency": "browser_a11y",
           "workers": "1",
           "selected_row_ids": [
-            "module.workbook.accessibility.inspector_edit_recovery"
+            "module.workbook.accessibility.inspector_edit_recovery",
+            "module.workbook.accessibility.reference_picker"
           ],
           "specs": [
             "apps/web/e2e/workbook-inspector-edit.spec.ts"

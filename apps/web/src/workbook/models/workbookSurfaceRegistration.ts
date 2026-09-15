@@ -14,7 +14,6 @@ import type {
 } from "../policies/workbookSurfacePolicy";
 
 export type {
-  ReferenceRequirement,
   WorkbookSurfacePolicyDefinition,
   WorkbookSurfaceRegistration,
 } from "../policies/workbookSurfacePolicy";

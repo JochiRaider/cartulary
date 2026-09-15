@@ -1,6 +1,5 @@
 import type { ViewFieldContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
-import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import { resolveGenericMutationControl } from "./genericMutationControlModel";
 
 const baseField: ViewFieldContract = {
@@ -26,16 +25,6 @@ const baseField: ViewFieldContract = {
   writeKind: "direct_value",
 };
 
-const referenceOptions = {
-  ...emptyGenericReferenceOptions(),
-  allRecords: [
-    { label: "Record A", recordId: "record-a", viewSchemaId: "view-a" },
-  ],
-  incidentMembers: [
-    { label: "Analyst A", recordId: "user-a", viewSchemaId: "members" },
-  ],
-};
-
 describe("GenericMutationControl descriptor", () => {
   it("resolves every field-control variant in form and grid modes", () => {
     const cases = [
@@ -58,7 +47,7 @@ describe("GenericMutationControl descriptor", () => {
           readKind: "collection",
           writeKind: "action_payload" as const,
         },
-        kind: "collection_reference",
+        kind: "multiline_text",
       },
       {
         collectionMode: "add" as const,
@@ -66,7 +55,7 @@ describe("GenericMutationControl descriptor", () => {
           ...baseField,
           directReferenceContractId: "incident_member_user_ref_v1",
         },
-        kind: "direct_reference",
+        kind: "text",
       },
       {
         collectionMode: "add" as const,
@@ -106,7 +95,6 @@ describe("GenericMutationControl descriptor", () => {
               "collectionItems" in testCase ? testCase.collectionItems : [],
             collectionMode: testCase.collectionMode,
             field: testCase.field,
-            referenceOptions,
             surface,
           }).kind,
           `${testCase.kind} on ${surface}`,
@@ -127,23 +115,20 @@ describe("GenericMutationControl descriptor", () => {
         collectionItems: [],
         collectionMode: "add",
         field: collectionField,
-        referenceOptions,
         surface: "form",
       }),
     ).toMatchObject({
-      kind: "collection_reference",
-      options: [{ label: "Record A", value: "record-a" }],
-      size: 2,
+      kind: "multiline_text",
+      rows: 3,
     });
     expect(
       resolveGenericMutationControl({
         collectionItems: [],
         collectionMode: "add",
         field: collectionField,
-        referenceOptions,
         surface: "grid",
       }),
-    ).toMatchObject({ kind: "collection_reference", size: 1 });
+    ).toMatchObject({ kind: "multiline_text", rows: 1 });
     expect(
       resolveGenericMutationControl({
         collectionItems: [],
@@ -153,16 +138,14 @@ describe("GenericMutationControl descriptor", () => {
           clearable: false,
           directReferenceContractId: "incident_member_user_ref_v1",
         },
-        referenceOptions,
         surface: "form",
       }),
-    ).toMatchObject({ emptyLabel: "Select", kind: "direct_reference" });
+    ).toMatchObject({ kind: "text" });
     expect(
       resolveGenericMutationControl({
         collectionItems: [],
         collectionMode: "add",
         field: { ...baseField, readKind: "number" },
-        referenceOptions,
         surface: "grid",
       }),
     ).toMatchObject({ inputType: "text", kind: "number" });
@@ -171,7 +154,6 @@ describe("GenericMutationControl descriptor", () => {
         collectionItems: [],
         collectionMode: "add",
         field: { ...baseField, fieldKey: "assessment.rationale" },
-        referenceOptions,
         surface: "form",
       }),
     ).toMatchObject({ kind: "multiline_text", rows: 3 });
@@ -183,7 +165,6 @@ describe("GenericMutationControl descriptor", () => {
           ...baseField,
           directScalarContractId: "timestamp_instant_v1",
         },
-        referenceOptions,
         surface: "form",
       }),
     ).toMatchObject({ kind: "text", placeholder: "RFC3339 timestamp" });

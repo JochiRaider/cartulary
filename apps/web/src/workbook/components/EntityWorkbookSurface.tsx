@@ -87,7 +87,6 @@ import {
   compareWorkbookGroupValues,
   workbookGroupValue,
 } from "../models/workbookQuery";
-import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
@@ -286,10 +285,7 @@ export function EntityWorkbookSurface({
         contract.viewSchemaId
       ]?.draft.values ?? {},
     ).length > 0;
-  const entityReferenceOptions = useMemo(
-    () => emptyGenericReferenceOptions(),
-    [],
-  );
+
   const entityAnchorColumns = useMemo<readonly GridColumn<EntityRow>[]>(
     () =>
       workbookContractColumns<EntityRow>({
@@ -637,7 +633,6 @@ export function EntityWorkbookSurface({
                   }),
                 field,
                 readValue: (row: EntityRow) => displayedValue(row),
-                referenceOptions: entityReferenceOptions,
               })
             : undefined,
         renderDraftCell: ({ focusTargetRef }) => {
@@ -655,7 +650,6 @@ export function EntityWorkbookSurface({
               collectionMode="add"
               field={writableField}
               focusTargetRef={focusTargetRef}
-              referenceOptions={entityReferenceOptions}
               surface="grid"
               testId={genericCreateFieldTestId(writableField.fieldKey)}
               value={createDraft[writableField.fieldKey] ?? ""}

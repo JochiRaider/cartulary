@@ -53,7 +53,6 @@ import { useGenericWorkbookInspectorComposition } from "../features/generic/useG
 import { OrdinaryCreateControl } from "../features/ordinary/OrdinaryCreateControl";
 import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
-import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatchRecovery";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
@@ -91,7 +90,6 @@ import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
 import { WorkbookUnavailableGridDrafts } from "./WorkbookParkedGridDrafts";
@@ -124,7 +122,6 @@ export type ContractWorkbookSurfaceProps = {
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly mutationCommands: WorkbookMutationCommandPorts;
   readonly onActivateConflict?: WorkbookConflictActivation | undefined;
-  readonly referenceQueryBroker: ReferenceQueryBrokerPort;
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly sheetRef: SheetRef;
   readonly onClearFilters: () => void;
@@ -142,7 +139,6 @@ export function ContractWorkbookSurface({
   continuityResetKey,
   currentIncidentRole,
   currentUserId,
-  incidentPort,
   inspectorResetKey,
   gridEntryFocus,
   viewBarWorkingSet,
@@ -151,11 +147,9 @@ export function ContractWorkbookSurface({
   mutationRuntime,
   mutationCommands,
   onActivateConflict,
-  referenceQueryBroker,
   collaborationProjection,
   sheetRef,
   onClearFilters,
-  onAuthorityUncertain,
   onRefresh,
   onSortChange,
   queryState,
@@ -201,13 +195,6 @@ export function ContractWorkbookSurface({
     mutationRuntime.ordinaryCreate,
   );
   const [editRecordId, setEditRecordId] = useState("");
-  const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
-    useOwnerReferenceOptions({
-      incidentPort,
-      onAuthorityUncertain,
-      referenceQueryBroker,
-      viewSchemaId: contract.viewSchemaId,
-    });
   const mutationController = useGenericSurfaceMutationController({
     mutationRuntime,
     selectedRecordId: editRecordId,
@@ -393,9 +380,6 @@ export function ContractWorkbookSurface({
     },
     onSelectRecord: setEditRecordId,
     ownerBindings,
-    referenceLoadError,
-    referenceOptions,
-    refreshReferenceOptions,
     rows,
     selectedRecordId: editRecordId,
     setCreateDraft,
@@ -480,7 +464,6 @@ export function ContractWorkbookSurface({
         contract.viewSchemaId,
         async () => {
           await onRefresh({ requireAcceptance: true });
-          await refreshReferenceOptions();
         },
         async (_payload, conflict) => {
           await onRefresh({ requireAcceptance: true });
@@ -527,13 +510,7 @@ export function ContractWorkbookSurface({
           }, 0);
         },
       ),
-    [
-      contract.viewSchemaId,
-      genericFocus.port,
-      mutationRuntime,
-      onRefresh,
-      refreshReferenceOptions,
-    ],
+    [contract.viewSchemaId, genericFocus.port, mutationRuntime, onRefresh],
   );
   const columns: readonly GridColumn<WorkbookQueryRow>[] =
     visibleAnchorColumns.map((column) => {
@@ -576,7 +553,6 @@ export function ContractWorkbookSurface({
                   }),
                 field,
                 readValue: (row: WorkbookQueryRow) => displayedValue(row),
-                referenceOptions,
               })
             : undefined,
         renderDraftCell: ({ focusTargetRef }) => {
@@ -595,7 +571,6 @@ export function ContractWorkbookSurface({
               collectionMode="add"
               field={writableField}
               focusTargetRef={focusTargetRef}
-              referenceOptions={referenceOptions}
               surface="grid"
               testId={genericCreateFieldTestId(writableField.fieldKey)}
               value={createDraft[writableField.fieldKey] ?? ""}

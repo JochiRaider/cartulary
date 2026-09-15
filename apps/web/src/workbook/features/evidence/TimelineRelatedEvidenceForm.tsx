@@ -5,7 +5,6 @@ import {
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
-import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import { RelatedEvidencePartyControl } from "./RelatedEvidencePartyControl";
 import { metadataEvidenceStates } from "./timelineRelatedEvidenceModel";
 import type { WorkbookTimelineRelatedEvidenceOwner } from "./WorkbookTimelineRelatedEvidenceOwner";
@@ -144,7 +143,6 @@ export function TimelineRelatedEvidenceForm({
                         id={id}
                         field={field}
                         collectionMode="add"
-                        referenceOptions={emptyGenericReferenceOptions()}
                         value={value}
                         testId={genericCreateFieldTestId(field.fieldKey)}
                         invalid={!!error}

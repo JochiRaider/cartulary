@@ -31,3 +31,5 @@ repository root to select current semantic, production-binding, browser,
 accessibility and visual evidence. Application fakes cannot establish RDG focus,
 virtualization or scrolling behavior. See the frontend implementation testing
 guide and visual golden maintenance guide under `docs/guides/`.
+
+Nested editor popups declare `data-grid-editor-interaction` on their owned controls. Capture handlers defer keyboard navigation and dismissal to that boundary; ordinary cell typing and commit/navigation retain their existing semantics. Keep popups inside editor DOM ownership so internal focus movement does not blur-commit the cell.

@@ -19,7 +19,6 @@ import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspecto
 import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
 import type { GenericCollectionMode } from "../../models/genericWorkbookModel";
 import { genericCollectionSupportsRemove } from "../../models/genericWorkbookModel";
-import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
@@ -77,7 +76,6 @@ type GenericWorkflowProps = {
   readonly mutation: GenericSurfaceMutationController;
   readonly mutationCommands: WorkbookMutationCommandPorts;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
-  readonly referenceOptions: GenericReferenceOptions;
   readonly rows: readonly WorkbookQueryRow[];
   readonly setCreateDraft: Dispatch<SetStateAction<Record<string, string>>>;
   readonly submitCreate: () => Promise<void>;
@@ -114,7 +112,6 @@ function GenericWorkflow(props: GenericWorkflowProps) {
           row={props.subjectRow}
           currentIncidentRole={props.currentIncidentRole}
           disabledTokens={props.disabledTokens}
-          referenceOptions={props.referenceOptions}
         />
       ) : null}
     </>
@@ -145,7 +142,6 @@ function GenericDraftFields(props: GenericWorkflowProps) {
               collectionMode="add"
               field={field}
               id={controlId}
-              referenceOptions={props.referenceOptions}
               testId={genericCreateFieldTestId(field.fieldKey)}
               value={props.createDraft[field.fieldKey] ?? ""}
               onChange={(value) =>
@@ -173,7 +169,6 @@ type GenericDetailsProps = {
   readonly editableFields: readonly ViewFieldContract[];
   readonly editFieldKey: string;
   readonly mutationPending: GenericSurfaceMutationController["mutationPending"];
-  readonly referenceOptions: GenericReferenceOptions;
   readonly rows: readonly WorkbookQueryRow[];
   readonly selectedEdit: SelectedEdit;
   readonly selectedRecordId: string;
@@ -229,7 +224,6 @@ function GenericDetails(props: GenericDetailsProps) {
           collectionItems={props.collectionItems}
           collectionMode={props.collectionMode}
           field={field}
-          referenceOptions={props.referenceOptions}
           testId={genericEditValueTestId(props.contract.viewSchemaId)}
         />
       ) : (

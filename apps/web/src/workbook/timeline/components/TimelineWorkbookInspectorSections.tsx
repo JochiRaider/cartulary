@@ -9,7 +9,6 @@ import type {
   WorkbookRecordHistoryState,
 } from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
-import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import {
   type TimelineScalarBinding,
   timelineCollectionBindings,
@@ -45,7 +44,6 @@ export function useTimelineWorkbookInspectorSections({
   renderTimelineInspectorEditor,
   rowHistory,
   submitCreateRelatedWorkflow,
-  timelineCreateRelatedReferenceOptions,
   updateCreateRelatedWorkflowDraft,
 }: {
   readonly cancelCreateRelatedWorkflow: () => void;
@@ -74,7 +72,6 @@ export function useTimelineWorkbookInspectorSections({
   readonly historyBrowsingControls: HistoryBrowsingControls;
   readonly rowHistory: WorkbookRecordHistoryState;
   readonly submitCreateRelatedWorkflow: () => Promise<void>;
-  readonly timelineCreateRelatedReferenceOptions: GenericReferenceOptions;
   readonly updateCreateRelatedWorkflowDraft: (
     featureGroupKey: string,
     fieldKey: string,
@@ -143,7 +140,6 @@ export function useTimelineWorkbookInspectorSections({
     }
     return (
       <InspectorCreateRelatedWorkflow
-        referenceOptions={timelineCreateRelatedReferenceOptions}
         state={createRelatedWorkflow}
         onCancel={cancelCreateRelatedWorkflow}
         onSubmit={() => {
@@ -162,7 +158,6 @@ export function useTimelineWorkbookInspectorSections({
     cancelCreateRelatedWorkflow,
     createRelatedWorkflow,
     submitCreateRelatedWorkflow,
-    timelineCreateRelatedReferenceOptions,
     updateCreateRelatedWorkflowDraft,
   ]);
 

@@ -16,19 +16,16 @@ import { relatedEvidenceFeature } from "../features/evidence/timelineRelatedEvid
 import { NoteCreateContext } from "../features/notes/NoteCreateContext";
 import { NoteCreateForm } from "../features/notes/NoteCreateForm";
 import { noteCreateFeature } from "../features/notes/noteCreateModel";
-import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
 import type { InspectorRelatedRecordWorkflowState } from "./inspectorRelatedRecordModel";
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
 import { WorkbookInspectorPublicError } from "./presentation/WorkbookInspectorFeedback";
 
 export function InspectorCreateRelatedWorkflow({
-  referenceOptions,
   state,
   onCancel,
   onSubmit,
   onUpdateDraft,
 }: {
-  readonly referenceOptions: GenericReferenceOptions;
   readonly state: InspectorRelatedRecordWorkflowState;
   readonly onCancel: () => void;
   readonly onSubmit: () => void;
@@ -85,7 +82,6 @@ export function InspectorCreateRelatedWorkflow({
               collectionMode="add"
               field={field}
               id={controlId}
-              referenceOptions={referenceOptions}
               testId={genericCreateFieldTestId(field.fieldKey)}
               value={state.draft[field.fieldKey] ?? ""}
               onChange={(value) => onUpdateDraft(field.fieldKey, value)}

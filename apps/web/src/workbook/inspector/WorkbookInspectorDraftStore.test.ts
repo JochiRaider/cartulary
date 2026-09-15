@@ -150,3 +150,37 @@ it("validates scalar values and explicit clearing without mutating rough authori
     ).error,
   ).toBeDefined();
 });
+
+it("preserves exact direct reference input and rejects implicit clearing", () => {
+  for (const contract of listViewContracts())
+    for (const field of contract.fields.filter(
+      (field) => field.patchWritable && field.directReferenceContractId,
+    )) {
+      const id = "00000000-0000-4000-8000-000000000905";
+      for (const raw of ["", " ", ` ${id}`, `${id} `, "Display label"])
+        expect(
+          prepareWorkbookInspectorChange(
+            field,
+            raw,
+            "add",
+            contract.viewSchemaId,
+          ).error,
+        ).toBeDefined();
+      expect(
+        prepareWorkbookInspectorChange(field, id, "add", contract.viewSchemaId)
+          .change,
+      ).toEqual({ field_key: field.fieldKey, value: id });
+      const clear = prepareWorkbookInspectorChange(
+        field,
+        null,
+        "add",
+        contract.viewSchemaId,
+      );
+      if (field.clearable)
+        expect(clear.change).toEqual({
+          field_key: field.fieldKey,
+          value: null,
+        });
+      else expect(clear.error).toBeDefined();
+    }
+});

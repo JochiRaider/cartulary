@@ -25,6 +25,14 @@ export {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./contracts.js";
+export type {
+  ReferenceFieldContract,
+  ReferenceIdentityKind,
+} from "./references.js";
+export {
+  getReferenceFieldContract,
+  listReferenceFieldContracts,
+} from "./references.js";
 export { normalizeViewRowPatchV1, normalizeViewRowV1 } from "./rows.js";
 export type {
   InspectorConfig,

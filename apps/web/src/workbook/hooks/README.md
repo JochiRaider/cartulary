@@ -16,7 +16,6 @@ Timeline-specific controllers live under
 | File | Responsibility |
 | --- | --- |
 | [useActiveSurfaceSavedViewActions.ts](useActiveSurfaceSavedViewActions.ts) | Binds active-surface saved-view intents to retained action and recovery ownership. |
-| [useOwnerReferenceOptions.ts](useOwnerReferenceOptions.ts) | Resolves only the active bounded-context policy's reference requirements through the generic broker. |
 | [useWorkbookCandidates.ts](useWorkbookCandidates.ts) | Shared paged workbook candidate reads with query identity and stale-response handling. |
 | [useWorkbookProjectionRefreshController.test.tsx](useWorkbookProjectionRefreshController.test.tsx) | Direct tests for initial and sheet-triggered projection refresh ownership. |
 | [useWorkbookProjectionRefreshController.ts](useWorkbookProjectionRefreshController.ts) | Initial session/entity and sheet-triggered projection refresh coordinator. |

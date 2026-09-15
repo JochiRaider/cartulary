@@ -66,6 +66,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.view_contracts.frontend_unit.references",
+      "owner_id": "package.view_contracts",
+      "family_id": "package.view_contracts.frontend_unit",
+      "collaborator_ids": [
+        "platform.viewschema"
+      ],
+      "verification_ids": [
+        "package.view_contracts.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/view-contracts/src/references.test.ts",
+        "titles": [
+          "ordinary reference field contracts accounts for every ordinary direct reference and declared reference action without widening specialized fields",
+          "ordinary reference field contracts keeps member identity separate and includes all eligible first-class record surfaces"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.view_contracts.frontend_unit.rows",
       "owner_id": "package.view_contracts",
       "family_id": "package.view_contracts.frontend_unit",

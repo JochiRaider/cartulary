@@ -29,3 +29,9 @@ Semantic focus remains with the existing grid/continuity contracts. Ordinary
 settlement never selects, focuses, reopens an inspector, or inserts a result into
 an unadmitted query page. Accepted receipts admit only read recovery. The
 remaining generic request helper serves specialized creation owners.
+
+OrdinaryCreateControl retains its creation-specific reader and verification owner.
+Initial reference presentation uses retained selections, the authenticated actor's
+known label for that exact user ID, or an unresolved exact ID. The former
+aggregate snapshot fallback is retired. A known actor label supplies presentation
+only; the membership and creation owners still decide admission.

@@ -1,5 +1,4 @@
 import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
-import { genericWorkbookTestId } from "@cartulary/ui-contracts";
 import type {
   InspectorDisabledCondition,
   ViewContract,
@@ -27,7 +26,6 @@ import { useRetainedInspectorRow } from "../../inspector/useRetainedInspectorRow
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { useWorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
-import { workbookInspectorLocalErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
 import {
   buildWorkbookInspectorSubject,
   type WorkbookInspectorSubject,
@@ -39,7 +37,6 @@ import {
   genericInspectorRowLabel,
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
@@ -90,9 +87,6 @@ export function useGenericWorkbookInspectorComposition({
   onRestoreEvidenceFocus,
   onSelectRecord,
   ownerBindings,
-  referenceLoadError,
-  referenceOptions,
-  refreshReferenceOptions,
   rows,
   selectedRecordId,
   setCreateDraft,
@@ -119,9 +113,6 @@ export function useGenericWorkbookInspectorComposition({
   readonly onRestoreFocus: () => void;
   readonly onSelectRecord: (recordId: string) => void;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
-  readonly referenceLoadError: string | null;
-  readonly referenceOptions: GenericReferenceOptions;
-  readonly refreshReferenceOptions: () => Promise<void> | void;
   readonly rows: readonly WorkbookQueryRow[];
   readonly selectedRecordId: string;
   readonly setCreateDraft: Dispatch<SetStateAction<Record<string, string>>>;
@@ -312,7 +303,7 @@ export function useGenericWorkbookInspectorComposition({
     beginMutation: mutation.beginMutationReport,
     currentUserId,
     mutationCommands: mutationCommands.timeline.related,
-    onCreated: refreshReferenceOptions,
+    onCreated: async () => {},
     onFeedback: setRelatedFeedback,
     selectedSubject:
       subjectRow === null || subject?.kind !== "live"
@@ -527,15 +518,9 @@ export function useGenericWorkbookInspectorComposition({
               },
         mutationError: mutation.mutationError,
         onClose: close,
-        referenceLoadError:
-          referenceLoadError === null
-            ? null
-            : workbookInspectorLocalErrorPresentation(referenceLoadError),
-        referenceLoadErrorTestId: genericWorkbookTestId("reference-load-error"),
         related: {
           begin: createRelatedWorkflow.commands.begin,
           cancel: createRelatedWorkflow.commands.cancel,
-          referenceOptions,
           state: createRelatedWorkflow.snapshot.workflow,
           submit: createRelatedWorkflow.commands.submit,
           updateDraft: createRelatedWorkflow.commands.updateDraft,
@@ -561,7 +546,6 @@ export function useGenericWorkbookInspectorComposition({
         mutation,
         mutationCommands,
         ownerBindings,
-        referenceOptions,
         rows,
         setCreateDraft,
         submitCreate,
@@ -578,7 +562,6 @@ export function useGenericWorkbookInspectorComposition({
           mutation.mutationPending ||
           (!!subjectRow &&
             mutation.explicitPatches.blocksRecord(subjectRow.record_id)),
-        referenceOptions,
         rows,
         selectedEdit,
         selectedRecordId,
