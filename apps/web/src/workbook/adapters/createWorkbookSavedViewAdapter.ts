@@ -122,6 +122,8 @@ function failure<T>(
     [
       "invalid_mutation_payload",
       "invalid_pagination_request",
+      "invalid_list_query",
+      "invalid_saved_view_read_request",
       "invalid_path_parameter",
     ].includes(error.code)
   ) {
@@ -143,7 +145,10 @@ function failure<T>(
       },
     };
   }
-  if (status === 401 && error.code === "authentication_required") {
+  if (
+    status === 401 &&
+    ["session_required", "authentication_required"].includes(error.code)
+  ) {
     return {
       kind: "rejected",
       failure: {
@@ -155,7 +160,11 @@ function failure<T>(
   }
   if (
     status === 403 &&
-    ["authorization_denied", "csrf_failed"].includes(error.code)
+    [
+      "authorization_denied",
+      "csrf_verification_failed",
+      "csrf_failed",
+    ].includes(error.code)
   ) {
     return {
       kind: "rejected",
@@ -177,7 +186,7 @@ function failure<T>(
         ...common,
         kind: "unavailable_target",
         message:
-          "This saved view is unavailable. Check current access and refresh the list.",
+          "This saved view is unavailable. Check current access and retry the resource read.",
       },
     };
   }
@@ -259,7 +268,9 @@ export function createWorkbookSavedViewAdapter(options: {
               ? "POST"
               : operationID === "patchIncidentSavedView"
                 ? "PATCH"
-                : "DELETE",
+                : operationID === "getIncidentSavedView"
+                  ? "GET"
+                  : "DELETE",
           ...(request === undefined ? {} : { body: JSON.stringify(request) }),
         },
       });
@@ -295,6 +306,26 @@ export function createWorkbookSavedViewAdapter(options: {
     }
   }
   return {
+    async getResource(input) {
+      const result = await execute(
+        "getIncidentSavedView",
+        input.signal,
+        false,
+        undefined,
+        undefined,
+        input.savedViewId,
+      );
+      if (result.kind !== "accepted") return result;
+      const resource = normalizeSavedViewResource(result.value.data);
+      return resource !== null &&
+        resource.incident_id === options.incidentId &&
+        resource.saved_view_id === input.savedViewId
+        ? { kind: "accepted", value: resource }
+        : problem(
+            "invalid_contract",
+            "The server returned an unrelated or invalid saved-view resource.",
+          );
+    },
     async listPage(input) {
       try {
         const result = await fetchHTTPOperation<
@@ -305,6 +336,9 @@ export function createWorkbookSavedViewAdapter(options: {
           pathParameters: { incident_id: options.incidentId },
           query: {
             limit: input.limit,
+            ...(input.viewSchemaId === undefined
+              ? {}
+              : { view_schema_id: input.viewSchemaId }),
             ...(input.cursorToken === null
               ? {}
               : { cursor_token: input.cursorToken }),
@@ -316,6 +350,7 @@ export function createWorkbookSavedViewAdapter(options: {
           result.status === 200
             ? normalizeWorkbookSavedViewPage({
                 incidentId: options.incidentId,
+                viewSchemaId: input.viewSchemaId,
                 limit: input.limit,
                 paging: result.payload.meta.paging,
                 savedViews: result.payload.data.saved_views,

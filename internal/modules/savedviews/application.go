@@ -12,6 +12,7 @@ type savedViewRepository interface {
 	create(context.Context, uuid.UUID, uuid.UUID, createRequest, time.Time) (savedViewRecord, error)
 	createSystemFixture(context.Context, uuid.UUID, createRequest, time.Time) (savedViewRecord, error)
 	listVisible(context.Context, uuid.UUID, uuid.UUID, listPageRequest) ([]savedViewRecord, error)
+	getVisible(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (savedViewRecord, error)
 	getVisibleForUpdate(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (savedViewRecord, error)
 	patchVisible(
 		context.Context,
@@ -57,6 +58,10 @@ func (s *savedViewApplication) listVisible(
 	page listPageRequest,
 ) ([]savedViewRecord, error) {
 	return s.repository.listVisible(ctx, incidentID, actorUserID, page)
+}
+
+func (s *savedViewApplication) getVisible(ctx context.Context, incidentID, savedViewID, actorUserID uuid.UUID) (savedViewRecord, error) {
+	return s.repository.getVisible(ctx, incidentID, savedViewID, actorUserID)
 }
 
 func (s *savedViewApplication) visibleForPatch(

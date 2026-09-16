@@ -25787,6 +25787,25 @@
       "approval": null
     },
     {
+      "object_id": "index.public.saved-views-incident-schema-order-idx",
+      "object_kind": "index",
+      "qualified_name": "public.saved_views_incident_schema_order_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "savedviews",
+      "migration_version": 43,
+      "migration_file": "00043_saved_views_schema_discovery.sql",
+      "dependency_object_ids": [
+        "table.public.saved-views"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.saved-views-owner-lookup-idx",
       "object_kind": "index",
       "qualified_name": "public.saved_views_owner_lookup_idx",

@@ -4,6 +4,17 @@ import type {
 } from "../models/workbookQuery";
 import type { SavedViewResource } from "../models/workbookSavedViews";
 
+export type SavedViewObserver = <T>(
+  request: (signal: AbortSignal) => Promise<T>,
+) => {
+  readonly result: Promise<
+    | { kind: "completed"; value: T }
+    | { kind: "timeout" | "transport" | "cancelled" }
+  >;
+  readonly settled: Promise<void>;
+  readonly cancel: () => void;
+};
+
 export type SavedViewProblem = {
   readonly kind:
     | "validation"
@@ -45,7 +56,12 @@ export type WorkbookSavedViewChanges = Partial<
 >;
 
 export interface WorkbookSavedViewPort {
+  getResource(input: {
+    readonly savedViewId: string;
+    readonly signal: AbortSignal;
+  }): Promise<SavedViewResult<SavedViewResource>>;
   listPage(input: {
+    readonly viewSchemaId: string;
     readonly cursorToken: string | null;
     readonly limit: number;
     readonly signal: AbortSignal;

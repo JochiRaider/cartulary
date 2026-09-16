@@ -126,7 +126,10 @@ import {
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
 import type { WorkbookPreferenceController } from "./preferences/WorkbookPreferenceController";
-import { WorkbookPreferenceAnnouncements } from "./preferences/WorkbookPreferencesPanel";
+import {
+  useWorkbookPreferencesSnapshot,
+  WorkbookPreferenceAnnouncements,
+} from "./preferences/WorkbookPreferencesPanel";
 import type { PreferenceWorkbookBinding } from "./preferences/workbookPreferenceModel";
 import { WorkbookQueryBrowsingProvider } from "./query/WorkbookQueryBrowsingContext";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
@@ -692,30 +695,47 @@ function WorkbookShellContent({
       extensionProfileId: networkFlowActivityProfileId,
       workspaceKey: networkAnalysisWorkspaceKey,
     });
+  const preferenceState = useWorkbookPreferencesSnapshot(preferenceController);
+  const inspectedHome = preferenceState?.inspectionActive
+    ? preferenceState.home.resource?.home_sheet_ref
+    : null;
+  const inspectedDefault = preferenceState?.inspectionActive
+    ? preferenceState.default.resource?.default_sheet_ref
+    : null;
+  const homeId = inspectedHome?.kind === "saved_view" ? inspectedHome.id : null;
+  const defaultId =
+    inspectedDefault?.kind === "saved_view" ? inspectedDefault.id : null;
+  useLayoutEffect(() => {
+    savedViewController.observePreference("home", homeId);
+    savedViewController.observePreference("default", defaultId);
+    return () => {
+      savedViewController.observePreference("home", null);
+      savedViewController.observePreference("default", null);
+    };
+  }, [savedViewController, homeId, defaultId]);
   const preferenceBinding = useRef(bindWorkbookPreferences);
   preferenceBinding.current = bindWorkbookPreferences;
   useLayoutEffect(() => {
     const selected = snapshot.startupSheetRef;
-    const saved =
-      selected.kind === "saved_view" &&
-      "savedViews" in snapshot.savedViewsResource
-        ? snapshot.savedViewsResource.savedViews.find(
-            (view) => view.saved_view_id === selected.id,
-          )
-        : null;
+    const saved = snapshot.savedViewsResource.selectedSavedView;
     preferenceBinding.current?.({
       incidentId,
       actorId: authorization.currentUserId,
       apiBase,
       onAuthorizationRecovered: authorization.acceptRecoveredAuthorization,
       surface: {
-        savedViewLabels:
-          "savedViews" in snapshot.savedViewsResource
-            ? snapshot.savedViewsResource.savedViews.map((view) => ({
-                id: view.saved_view_id,
-                label: view.display_name,
-              }))
+        savedViewLabels: [
+          ...savedViewController.getSnapshot().observations.values(),
+        ].flatMap((observation) =>
+          observation.resource
+            ? [
+                {
+                  id: observation.resource.saved_view_id,
+                  label: observation.resource.display_name,
+                },
+              ]
             : [],
+        ),
         sheetRef: selected,
         label: networkAnalysisActive
           ? "Network Analysis"

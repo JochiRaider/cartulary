@@ -1,6 +1,7 @@
 import {
   gridGroupingSelectTestId,
   incidentAdministrationTestId,
+  savedViewOptionTestId,
   savedViewSelectorTestId,
   savedViewSetHomeButtonTestId,
   surfaceTabTestId,
@@ -87,9 +88,12 @@ test("preferences persist exact base and saved identities and explicit clears th
   expect((await read(page, id, "default")).default_sheet_ref).toEqual(hosts);
   await close(page);
   await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
+  await page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)).click();
   await page
-    .getByTestId(savedViewSelectorTestId(timelineViewSchemaId))
-    .selectOption(saved.saved_view_id);
+    .getByTestId(
+      savedViewOptionTestId(timelineViewSchemaId, saved.saved_view_id),
+    )
+    .click();
   await page
     .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
     .selectOption("timeline.capture_state");

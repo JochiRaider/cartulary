@@ -57,6 +57,7 @@ import {
   deleteSavedViewFromCurrentSurface,
   duplicateSavedViewFromCurrentSurface,
   openSavedViewActionMenu,
+  readSavedView,
   readSavedViewSelectionState,
   type SavedViewApiResource,
   seedSystemSavedView,
@@ -202,8 +203,9 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   const selector = page.getByTestId(
     savedViewSelectorTestId(timelineViewSchemaId),
   );
+  await selector.click();
   await expect(
-    selector.getByTestId(
+    page.getByTestId(
       savedViewOptionTestId(
         timelineViewSchemaId,
         privateSavedView.saved_view_id,
@@ -216,7 +218,14 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
     incidentId,
     timelineViewSchemaId,
   );
-  await selector.selectOption(privateSavedView.saved_view_id);
+  await page
+    .getByTestId(
+      savedViewOptionTestId(
+        timelineViewSchemaId,
+        privateSavedView.saved_view_id,
+      ),
+    )
+    .click();
   expect(readPostBody(await selectRequest)).toEqual({
     limit: 100,
     filters: [
@@ -303,7 +312,11 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
     },
   });
 
-  await selector.selectOption(systemSavedView.saved_view_id);
+  await selectSavedView(
+    page,
+    timelineViewSchemaId,
+    systemSavedView.saved_view_id,
+  );
   await openSavedViewActionMenu(page, timelineViewSchemaId);
   await expect(
     page.getByTestId(
@@ -835,17 +848,10 @@ async function verifySavedViewPersistenceReplay(
       selectedSheetRefKind: "saved_view",
     });
 
-  const savedViewsResponse = await page.request.get(
-    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
-  );
-  expect(savedViewsResponse.ok()).toBeTruthy();
-  const savedViews = (
-    (await savedViewsResponse.json()) as {
-      data: { saved_views: SavedViewApiResource[] };
-    }
-  ).data.saved_views;
-  const persistedSavedView = savedViews.find(
-    (candidate) => candidate.saved_view_id === savedView.saved_view_id,
+  const persistedSavedView = await readSavedView(
+    page,
+    incidentId,
+    savedView.saved_view_id,
   );
   expect(persistedSavedView).toMatchObject({
     display_name: "browser.saved-view-replay persisted replay",
@@ -1894,7 +1900,7 @@ test("Saved-view authoring retains uncertain committed creates and requires a de
   const endpoint = `/api/v1/incidents/${id}/saved-views`;
   let writes = 0;
   let failRefresh = false;
-  await page.route(`**${endpoint}*`, async (route) => {
+  await page.route(new RegExp(`${endpoint}(?:/|\\?|$)`), async (route) => {
     if (route.request().method() === "POST") {
       writes += 1;
       const response = await route.fetch();
@@ -1947,7 +1953,7 @@ test("Saved-view authoring retains uncertain committed creates and requires a de
   expect(writes).toBe(2);
   await expect(
     page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
-  ).toHaveValue("");
+  ).toHaveAttribute("data-selected-saved-view-id", "");
   const final = await page.request.get(`${apiBase}${endpoint}`);
   expect((await final.json()).data.saved_views).toHaveLength(2);
   await testInfo.attach("uncertain-create-observation", {

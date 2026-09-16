@@ -1,12 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import { buildSavedViewLayoutJson } from "./workbookQuery";
-import {
-  acceptWorkbookSavedViewPage,
-  normalizeWorkbookSavedViewPage,
-  startWorkbookSavedViewPagination,
-  workbookSavedViewPaginationIsCurrent,
-} from "./workbookSavedViewPaginationMachine";
+import { normalizeWorkbookSavedViewPage } from "./workbookSavedViewPaginationMachine";
 
 function savedView(id: string) {
   return {
@@ -54,61 +49,49 @@ describe("Workbook saved-view pagination machine", () => {
     ).toBeNull();
   });
 
-  it("accumulates ordered pages and publishes only on the terminal page", () => {
-    const initial = startWorkbookSavedViewPagination(3);
-    const first = acceptWorkbookSavedViewPage(initial, {
-      nextCursor: "cursor-2",
-      savedViews: [savedView("saved-1")],
-    });
-    expect(first.kind).toBe("continue");
-    if (first.kind !== "continue") throw new Error("expected continuation");
-    const complete = acceptWorkbookSavedViewPage(first.machine, {
-      nextCursor: null,
-      savedViews: [savedView("saved-2")],
-    });
-    expect(complete).toEqual({
-      kind: "complete",
-      savedViews: [savedView("saved-1"), savedView("saved-2")],
-    });
-    expect(workbookSavedViewPaginationIsCurrent(first.machine, 3)).toBe(true);
-    expect(workbookSavedViewPaginationIsCurrent(first.machine, 4)).toBe(false);
-  });
-
-  it("rejects duplicate resources, cursor cycles, and malformed resources", () => {
-    const first = acceptWorkbookSavedViewPage(
-      startWorkbookSavedViewPagination(1),
-      {
-        nextCursor: "cursor-2",
-        savedViews: [savedView("saved-1")],
-      },
-    );
-    if (first.kind !== "continue") throw new Error("expected continuation");
+  it("rejects duplicate resources schema mismatch and inconsistent continuation without sorting", () => {
+    const input = {
+      incidentId: "incident-1",
+      viewSchemaId: "cartulary.view.timeline.v2",
+      limit: 50,
+      paging: { has_more: false, limit: 50, next_cursor: null },
+      savedViews: [savedView("z"), savedView("a")],
+    };
     expect(
-      acceptWorkbookSavedViewPage(first.machine, {
-        nextCursor: null,
-        savedViews: [savedView("saved-1")],
+      normalizeWorkbookSavedViewPage(input)?.savedViews.map(
+        (r) => r.saved_view_id,
+      ),
+    ).toEqual(["z", "a"]);
+    expect(
+      normalizeWorkbookSavedViewPage({
+        ...input,
+        savedViews: [savedView("same"), savedView("same")],
       }),
-    ).toEqual({
-      kind: "invalid",
-      message: "Saved-view listing returned a duplicate resource.",
-    });
+    ).toBeNull();
     expect(
-      acceptWorkbookSavedViewPage(first.machine, {
-        nextCursor: "cursor-2",
+      normalizeWorkbookSavedViewPage({
+        ...input,
+        viewSchemaId: "cartulary.view.notes.v1",
+      }),
+    ).toBeNull();
+    expect(
+      normalizeWorkbookSavedViewPage({
+        ...input,
         savedViews: [],
+        paging: { has_more: true, limit: 50, next_cursor: "next" },
       }),
-    ).toEqual({
-      kind: "invalid",
-      message: "Saved-view listing returned a cyclic cursor.",
-    });
+    ).toBeNull();
     expect(
-      acceptWorkbookSavedViewPage(startWorkbookSavedViewPagination(1), {
-        nextCursor: null,
-        savedViews: [{ ...savedView("saved-1"), scope: "future" } as never],
+      normalizeWorkbookSavedViewPage({
+        ...input,
+        paging: { has_more: false, limit: 50, next_cursor: "next" },
       }),
-    ).toEqual({
-      kind: "invalid",
-      message: "Saved-view listing returned an invalid resource.",
-    });
+    ).toBeNull();
+    expect(
+      normalizeWorkbookSavedViewPage({
+        ...input,
+        savedViews: [{ ...savedView("x"), saved_view_version: 0 }],
+      }),
+    ).toBeNull();
   });
 });

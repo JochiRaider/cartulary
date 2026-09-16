@@ -42,25 +42,6 @@ export function savedViewChanges(
   };
 }
 
-export function upsertSavedViewList(
-  current: readonly SavedViewResource[],
-  savedView: SavedViewResource,
-): SavedViewResource[] {
-  const next = current.filter(
-    (candidate) => candidate.saved_view_id !== savedView.saved_view_id,
-  );
-  return [...next, savedView].sort((left, right) =>
-    left.display_name.localeCompare(right.display_name),
-  );
-}
-
-export function removeSavedViewList(
-  current: readonly SavedViewResource[],
-  savedViewId: string,
-): SavedViewResource[] {
-  return current.filter((candidate) => candidate.saved_view_id !== savedViewId);
-}
-
 export function savedViewIdentityForSelection(
   savedView: Pick<SavedViewResource, "saved_view_id" | "view_schema_id">,
 ): WorkbookSavedViewIdentity {

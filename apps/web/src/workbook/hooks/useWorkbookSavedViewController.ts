@@ -98,13 +98,14 @@ export function useWorkbookSavedViewController({
       configuration,
       generation: working.current.generation + 1,
     };
-  const selected =
+  const selectedObservation =
     startupSheetRef.kind === "saved_view"
-      ? (state.resources.find(
-          (r) =>
-            r.saved_view_id === startupSheetRef.id &&
-            r.view_schema_id === activeContract.viewSchemaId,
-        ) ?? null)
+      ? state.observations.get(startupSheetRef.id)
+      : undefined;
+  const selected =
+    selectedObservation?.resource?.view_schema_id ===
+    activeContract.viewSchemaId
+      ? selectedObservation.resource
       : null;
   const applyConfiguration = useCallback<
     SavedViewBinding["applyConfiguration"]
@@ -126,11 +127,7 @@ export function useWorkbookSavedViewController({
     (resource: SavedViewResource) => {
       const current = controller
         .getSnapshot()
-        .resources.find(
-          (r) =>
-            r.saved_view_id === resource.saved_view_id &&
-            r.saved_view_version === resource.saved_view_version,
-        );
+        .observations.get(resource.saved_view_id)?.resource;
       if (!current) return;
       const contract = workbookContractForViewSchemaId(current.view_schema_id);
       applyQueryStateForSurface(
@@ -181,21 +178,29 @@ export function useWorkbookSavedViewController({
         );
         if (fallback) applyWorkbookIdentity(fallback);
       },
+      unavailable: () =>
+        applyWorkbookIdentity({
+          sheetRef: { kind: "view_schema", id: activeContract.viewSchemaId },
+          viewSchemaId: activeContract.viewSchemaId,
+        }),
       authorizationRecovered,
     });
   });
   useLayoutEffect(() => () => bindingRef.current(null), []);
-  const savedViewsResource = useMemo<WorkbookSavedViewsResource>(() => {
-    if (state.list === "loading") return { kind: "loading" };
-    if (state.list === "unavailable")
-      return {
-        kind: "unavailable",
-        message: state.listProblem?.message ?? "Saved views are unavailable.",
-      };
-    return workbookSavedViewsResource(state.resources, startupSheetRef);
-  }, [state.list, state.listProblem, state.resources, startupSheetRef]);
+  const savedViewsResource = useMemo<WorkbookSavedViewsResource>(
+    () => workbookSavedViewsResource(selectedObservation, startupSheetRef),
+    [selectedObservation, startupSheetRef],
+  );
   return {
-    commands: { selectSavedView, upsertSavedView: controller.acceptResource },
+    commands: {
+      selectSavedView: (resource: SavedViewResource) => {
+        void controller.activateResource(
+          resource.saved_view_id,
+          resource.view_schema_id,
+        );
+      },
+      upsertSavedView: controller.acceptResource,
+    },
     snapshot: {
       savedViewsResource,
       activeSavedViewModified: savedViewConfigurationIsModified({

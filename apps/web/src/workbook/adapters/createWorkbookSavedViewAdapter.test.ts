@@ -82,6 +82,73 @@ afterEach(() => {
 });
 
 describe("Workbook saved-view adapter", () => {
+  it("reads a resource by ID and filters discovery before accepting correlated pages", async () => {
+    const base = savedViewResource();
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(envelope(base)));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      adapter().getResource({ savedViewId, signal: signal() }),
+    ).resolves.toEqual({ kind: "accepted", value: base });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/v1/incidents/${incidentId}/saved-views/${savedViewId}`,
+      expect.objectContaining({ method: "GET" }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      response(
+        envelope(
+          savedViewResource({
+            saved_view_id: "10000000-0000-4000-8000-000000000099",
+          }),
+        ),
+      ),
+    );
+    await expect(
+      adapter().getResource({ savedViewId, signal: signal() }),
+    ).resolves.toMatchObject({
+      kind: "rejected",
+      failure: { kind: "invalid_contract" },
+    });
+    fetchMock.mockResolvedValueOnce(
+      response(
+        envelope(
+          { saved_views: [base] },
+          { has_more: false, limit: 50, next_cursor: null },
+        ),
+      ),
+    );
+    await expect(
+      adapter().listPage({
+        viewSchemaId: timelineViewSchemaId,
+        cursorToken: null,
+        limit: 50,
+        signal: signal(),
+      }),
+    ).resolves.toMatchObject({ kind: "accepted" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/v1/incidents/${incidentId}/saved-views?limit=50&view_schema_id=${timelineViewSchemaId}`,
+      expect.objectContaining({ method: "GET" }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      response(
+        envelope(
+          { saved_views: [base] },
+          { has_more: false, limit: 50, next_cursor: null },
+        ),
+      ),
+    );
+    await expect(
+      adapter().listPage({
+        viewSchemaId: "cartulary.view.notes.v1",
+        cursorToken: null,
+        limit: 50,
+        signal: signal(),
+      }),
+    ).resolves.toMatchObject({
+      kind: "rejected",
+      failure: { kind: "invalid_contract" },
+    });
+  });
+
   it("accepts a normalized no-op with unchanged version and timestamp", async () => {
     const base = savedViewResource();
     const fetchMock = vi
@@ -120,13 +187,18 @@ describe("Workbook saved-view adapter", () => {
       incidentId,
     });
     await expect(
-      port.listPage({ cursorToken: "cursor-1", limit: 2, signal: signal() }),
+      port.listPage({
+        viewSchemaId: timelineViewSchemaId,
+        cursorToken: "cursor-1",
+        limit: 2,
+        signal: signal(),
+      }),
     ).resolves.toEqual({
       kind: "accepted",
       value: { nextCursor: "cursor-2", savedViews: [base] },
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      `/base/api/v1/incidents/${incidentId}/saved-views?cursor_token=cursor-1&limit=2`,
+      `/base/api/v1/incidents/${incidentId}/saved-views?cursor_token=cursor-1&limit=2&view_schema_id=${timelineViewSchemaId}`,
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -160,7 +232,12 @@ describe("Workbook saved-view adapter", () => {
     for (const payload of malformed) {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(payload)));
       await expect(
-        adapter().listPage({ cursorToken: null, limit: 2, signal: signal() }),
+        adapter().listPage({
+          viewSchemaId: timelineViewSchemaId,
+          cursorToken: null,
+          limit: 2,
+          signal: signal(),
+        }),
       ).resolves.toMatchObject({
         kind: "rejected",
         failure: { kind: "invalid_contract" },
@@ -336,6 +413,8 @@ describe("Workbook saved-view adapter", () => {
         "rejected",
         "authentication_required",
       ],
+      ["session_required", 401, {}, "rejected", "authentication_required"],
+      ["csrf_verification_failed", 403, {}, "rejected", "authorization_denied"],
       ["authorization_denied", 403, {}, "rejected", "authorization_denied"],
       ["saved_view_not_found", 404, {}, "rejected", "unavailable_target"],
       ["internal_error", 500, {}, "uncertain", "terminal"],
@@ -381,7 +460,12 @@ describe("Workbook saved-view adapter", () => {
       failure: { kind: "invalid_contract" },
     });
     await expect(
-      adapter().listPage({ cursorToken: null, limit: 100, signal: signal() }),
+      adapter().listPage({
+        viewSchemaId: timelineViewSchemaId,
+        cursorToken: null,
+        limit: 100,
+        signal: signal(),
+      }),
     ).resolves.toMatchObject({
       kind: "rejected",
       failure: { kind: "invalid_contract" },

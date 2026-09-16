@@ -94,6 +94,57 @@ func (q *Queries) DeleteSavedView(ctx context.Context, arg DeleteSavedViewParams
 	return err
 }
 
+const getVisibleSavedView = `-- name: GetVisibleSavedView :one
+SELECT
+    sv.saved_view_id,
+    sv.incident_id,
+    sv.view_schema_id,
+    sv.scope,
+    sv.display_name,
+    sv.query_json,
+    sv.layout_json,
+    sv.owner_user_id,
+    sv.created_at,
+    sv.updated_at,
+    sv.saved_view_version
+FROM saved_views sv
+JOIN incident_memberships m
+  ON m.incident_id = sv.incident_id
+ AND m.user_id = $3
+WHERE sv.incident_id = $1
+  AND sv.saved_view_id = $2
+  AND (
+      sv.scope IN ('shared', 'system')
+      OR sv.owner_user_id = $3
+      OR m.role = 'admin'
+  )
+`
+
+type GetVisibleSavedViewParams struct {
+	IncidentID  pgtype.UUID `json:"incident_id"`
+	SavedViewID pgtype.UUID `json:"saved_view_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetVisibleSavedView(ctx context.Context, arg GetVisibleSavedViewParams) (SavedView, error) {
+	row := q.db.QueryRow(ctx, getVisibleSavedView, arg.IncidentID, arg.SavedViewID, arg.UserID)
+	var i SavedView
+	err := row.Scan(
+		&i.SavedViewID,
+		&i.IncidentID,
+		&i.ViewSchemaID,
+		&i.Scope,
+		&i.DisplayName,
+		&i.QueryJson,
+		&i.LayoutJson,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SavedViewVersion,
+	)
+	return i, err
+}
+
 const getVisibleSavedViewForUpdate = `-- name: GetVisibleSavedViewForUpdate :one
 SELECT
     sv.saved_view_id,
@@ -255,6 +306,86 @@ func (q *Queries) ListVisibleSavedViews(ctx context.Context, arg ListVisibleSave
 		arg.Column4,
 		arg.Column5,
 		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SavedView
+	for rows.Next() {
+		var i SavedView
+		if err := rows.Scan(
+			&i.SavedViewID,
+			&i.IncidentID,
+			&i.ViewSchemaID,
+			&i.Scope,
+			&i.DisplayName,
+			&i.QueryJson,
+			&i.LayoutJson,
+			&i.OwnerUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SavedViewVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVisibleSavedViewsForSchema = `-- name: ListVisibleSavedViewsForSchema :many
+SELECT
+    sv.saved_view_id,
+    sv.incident_id,
+    sv.view_schema_id,
+    sv.scope,
+    sv.display_name,
+    sv.query_json,
+    sv.layout_json,
+    sv.owner_user_id,
+    sv.created_at,
+    sv.updated_at,
+    sv.saved_view_version
+FROM saved_views sv
+JOIN incident_memberships m
+  ON m.incident_id = sv.incident_id
+ AND m.user_id = $2
+WHERE sv.incident_id = $1
+  AND sv.view_schema_id = $7
+  AND (
+      sv.scope IN ('shared', 'system')
+      OR sv.owner_user_id = $2
+      OR m.role = 'admin'
+  )
+  AND ($3::timestamptz IS NULL OR sv.updated_at <= $3)
+  AND ($4::timestamptz IS NULL OR $5::uuid IS NULL OR sv.updated_at < $4 OR (sv.updated_at = $4 AND sv.saved_view_id > $5))
+ORDER BY sv.updated_at DESC, sv.saved_view_id ASC
+LIMIT $6
+`
+
+type ListVisibleSavedViewsForSchemaParams struct {
+	IncidentID   pgtype.UUID        `json:"incident_id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Column3      pgtype.Timestamptz `json:"column_3"`
+	Column4      pgtype.Timestamptz `json:"column_4"`
+	Column5      pgtype.UUID        `json:"column_5"`
+	Limit        int32              `json:"limit"`
+	ViewSchemaID string             `json:"view_schema_id"`
+}
+
+func (q *Queries) ListVisibleSavedViewsForSchema(ctx context.Context, arg ListVisibleSavedViewsForSchemaParams) ([]SavedView, error) {
+	rows, err := q.db.Query(ctx, listVisibleSavedViewsForSchema,
+		arg.IncidentID,
+		arg.UserID,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Limit,
+		arg.ViewSchemaID,
 	)
 	if err != nil {
 		return nil, err

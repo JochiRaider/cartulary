@@ -1096,6 +1096,12 @@ is_saved_view_dirty(active_saved_view, current_query, current_layout):
 
 Design contract. Dirty saved-view indication MUST NOT imply unsaved incident data. It indicates that the view configuration differs from the selected saved-view configuration.
 
+#### Saved-view discovery presentation
+
+Core 03 REQ-03-022A owns saved-view discovery retention and independent resource observation. The compact view-bar selector MUST open a non-modal paged popover with candidates in server order and inline Private, Shared or System scope labels. The active label, Modified state and immediate `Unsaved view` action MUST remain available during unrelated discovery loading/failure. The invalid state in the control table above means authoritative resource unavailability after access classification, never absence from a partial page.
+
+Arrow keys and Home/End MUST move candidate focus without activation; Enter, Space or click MUST explicitly activate. Tab MUST reach ordinary Previous, Next, First, Refresh and Retry controls. Escape MUST dismiss and return focus to the trigger; outside dismissal MUST preserve the user's destination focus. Opening or paging MUST NOT open the inspector or apply query/layout. Pending activation MUST leave the current grid usable and report progress locally. Page counts MUST identify the current page, never a matching total. Loading, initial empty, continuation failure, stale retained results and resource unavailability MUST have accessible distinct descriptions and one announcement per transition. Existing density, geometry, zoom and focus tokens apply.
+
 #### Bounded query browsing presentation
 
 Core 03 §14.9 owns workbook continuation and retention. The work area presents

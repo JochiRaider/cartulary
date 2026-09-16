@@ -3,6 +3,7 @@
 import {
   savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
+  savedViewOptionTestId,
   savedViewSelectorTestId,
   savedViewSetHomeButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -17,15 +18,25 @@ import {
 
 describe("saved-view workbook support", () => {
   it("selects by stable ID and reads identity from data attributes", async () => {
-    const selector = document.createElement("select");
+    const selector = document.createElement("button");
     selector.dataset.activeViewSchemaId = timelineViewSchemaId;
     selector.dataset.selectedSheetRefKind = "view_schema";
     selector.dataset.selectedSavedViewId = "";
     const page = {
       getByTestId(testId: string) {
-        expect(testId).toBe(savedViewSelectorTestId(timelineViewSchemaId));
+        expect([
+          savedViewSelectorTestId(timelineViewSchemaId),
+          savedViewOptionTestId(timelineViewSchemaId, "saved-view-1"),
+        ]).toContain(testId);
         return {
-          click: async () => undefined,
+          click: async () => {
+            if (testId === savedViewSelectorTestId(timelineViewSchemaId))
+              selector.setAttribute("aria-expanded", "true");
+            else {
+              selector.dataset.selectedSheetRefKind = "saved_view";
+              selector.dataset.selectedSavedViewId = "saved-view-1";
+            }
+          },
           evaluate: async (
             callback: (element: Element, argument?: unknown) => unknown,
             argument?: unknown,

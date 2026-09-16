@@ -4,11 +4,11 @@
   "goldens": [
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-compact-linux.png",
-      "sha256": "cdcd9f85b1fb47d4191c5ab97eed4d7794bbe5d1246507e35fe94f8e6743858b"
+      "sha256": "06292579b73a332ffedfe18a0506fd7d7690f030631a4afd0bae80595525695c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-narrow-linux.png",
-      "sha256": "ac4a89717c283ced5e4444642606b1e89781e7bd7c9981b42ac7245f254f4a19"
+      "sha256": "cbd3366c3cb6418120d872c3c6656c8468e6f0d7e9cae33b16db61b8f96e6b41"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-short-linux.png",
@@ -24,7 +24,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-text-spacing-linux.png",
-      "sha256": "43fd9f759a4a24c629fd1a154a42718a981b3709d7490b18c8481a2329400087"
+      "sha256": "8fb8557ab52974c29bbdf36f9ab6bb8f33f3f6836de4985a5b6f067c24927aaa"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-zoom-linux.png",
@@ -32,7 +32,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-workbook-root-linux.png",
-      "sha256": "e904adc2367fc631cc9267c255762cb7f738aa6793fc3cd1fff68c0d5cec0d12"
+      "sha256": "0511e4963ef7a13e3e1bced2970f459dc433390bb97b5d6707df916cd1b1214b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-conflict-linux.png",
@@ -168,7 +168,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
-      "sha256": "2a882d3a63339fe5a79873b0133818069d79786d4d63fcb0cbe97016b80c1d33"
+      "sha256": "0507a9f3ced358235c16a9ec529bfff34c866ad23fbe176970281c5aedd52e73"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
@@ -176,19 +176,19 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png",
-      "sha256": "3dee53d7af7b2bd761f0a602bc9db578a77b066c41c41569ac9e3abfd07ffa15"
+      "sha256": "735d8a5b44513f6f0e972f096bcbdbfdad5275f34e22e694ce797d700d832a70"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-compact-linux.png",
-      "sha256": "44a4e080fa3583291fbde3b9797fa3d45d781d58e60ddc46f1c7b88f811c8869"
+      "sha256": "45d55b03b3585e0e3830c232a9b01a8efba73c3808c9f365f7cefb252dc36951"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png",
-      "sha256": "ddbd13718a3d0e1ff75587eed7ffd6c2d07b4998d046a3dca8068747661c5e95"
+      "sha256": "db7aab148eab462c433245ae598fc4f5ac965f092b043cb3959a1e905db57a6c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-narrow-linux.png",
-      "sha256": "f5dba4419d1ccbb541ca5f0550fcf206c9369a9329548123e3be36fae8629744"
+      "sha256": "b336784005399d8f5a0df43602c8435a302f4981545a3328ba09942a91037d8a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png",
@@ -208,7 +208,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
-      "sha256": "b3db8d9d05556e0f9773cb8e00b26c9374cc97f3269acac9b03f58d483efc9ea"
+      "sha256": "88154a17b52bc207e3116aaec2f8ea6518936a2625083acd529ddffbb1f510f3"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
@@ -216,59 +216,59 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-linux.png",
-      "sha256": "11fd863c830b144c541704f33150bf4fc0e557bf240f5f5e96f79409fc0b4eec"
+      "sha256": "e437cefb4ee676e66221c3c590a926669985dbf294ca266dcea40eba28fd0cb1"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-narrow-linux.png",
-      "sha256": "e0725c409af6aa92b50daf5d25547871924a602cfea746ca41012ca7ac6b81b8"
+      "sha256": "8f1c9026840735e55b659bfd0fec879b69da36c2455d50670a0506db55dd98bb"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-linux.png",
-      "sha256": "2326c8fd9635214a92d1f1b257fdfaa915ea0d8f17a817188f612e87236503b8"
+      "sha256": "ef00dcaa732be0d15c9734fcfbf6e74660d83bc210229935b2b5269198a2bcfa"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-narrow-linux.png",
-      "sha256": "3c54df380d4406cc435e5019b01ae566b54f8fe6a253de650a2ef9d67bd844b5"
+      "sha256": "8ea143a3a270da992e3f74dc2086072c36b56cc148c74f28d12e2059fea3b77a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-references-narrow-linux.png",
-      "sha256": "127099b2cec8165bad4608322e60462552e096965513600f066bcdc6e71acb0d"
+      "sha256": "44e1cdbfc24fffb0fd9695d093b199915fc2edf2ead804b62684dae69b94c36d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-linux.png",
-      "sha256": "3e39e0167946fe90769eb3d2abf9f0c3f045921ee22d842aa8c93f18807662dc"
+      "sha256": "bfb5d64068c3183ef62fe89125b947d924e8a2cc23f56dcc82c7d6abdb46efd9"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-narrow-linux.png",
-      "sha256": "5bb111d7cb426da306ae566833167b3987673243dd6360a2cb3d6442af96c66c"
+      "sha256": "389fd9cbe8af04a47dd58de9d68652abbe45b47f066351519f01efe1487fda9a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-linux.png",
-      "sha256": "15c4ba863cb1b5d7a9be2178d365251e4ec4f9babbdf39ba0a3d5d414c2d2f5b"
+      "sha256": "11eafa7f8805bd58863d7c9275eaed66397c8f526a2fdcb436d67a8cfdb610d8"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-narrow-linux.png",
-      "sha256": "7450b72a6ee506011860bf820519ad99da882cbae1e6c7309545d87c73809d3e"
+      "sha256": "697bba2fac65c01c124f0a067c66a1756ec9a8fddc98c64b23ee3dbce1118dd9"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-references-narrow-linux.png",
-      "sha256": "e18790d2a47727b34124929206d2b4b06c95ba872936e7018d0ce5a3e08713e7"
+      "sha256": "4ab876b6697b0162a255af8d957f32083a248c1a429dbe07d6062e64508858e1"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",
-      "sha256": "986bcaf314f81b1625198c8542139ff12f019ad3b6a91eafcc2f9d4fe15b1868"
+      "sha256": "3c25ceac6f9347f350460d6caf9431d15b538ffeecb65e043525b3c6f572500c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-handoff-authoring-linux.png",
-      "sha256": "3b151bd3860ffe8d7c126c51d0ac0f73d5f8afbf9a65ae0f0c553317f74fc292"
+      "sha256": "fcfb686e4396d1d06b7f80eea72d39499eb5ecb18f13fa6808a2f0b3c6d1ab6f"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-lesson-authoring-linux.png",
-      "sha256": "1a5944c49ef12caaf9de34fc326fb047043086c386c61ab52a9167eaa42870ea"
+      "sha256": "1288801a07853e61e20d66fb298bc4e270e1f5ab821c312e4552055114b62121"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png",
-      "sha256": "f71bd2da76b3ef8660d1f8de943bef74be9122db6e9d6391f178505602f298c7"
+      "sha256": "ee10f5718f47c51a62cf1c884c8b50a5a5fb14103bfc233249ec930d165307fc"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png",
@@ -276,23 +276,23 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png",
-      "sha256": "4707d2a8022b351e7f1e4e03c57829c8d714a24b68132a4be32ff14b0e266658"
+      "sha256": "d0571637e5ebbb660306ec7c2d271e5024b9996b23e577e3ee641768694ea91a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png",
-      "sha256": "28eb5bdd6c432d13bd1dee065efd831fba100e92a929ee6893a2e1088e80f9bb"
+      "sha256": "95d623aa72c9cb4c70019861d449797e40049529a06eee4999d283b87a93a488"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-accepted-linux.png",
-      "sha256": "b3b4bab7bd5d9b42e4916992806c42b54757e3b1f5628851cf5b6f9cb4bee1c7"
+      "sha256": "0997109d9bcab89120d19942332d8208baeca772868fbc5a738ea07a2a8cf96e"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-linux.png",
-      "sha256": "45b6804bddd927f985c07e0d83e48f13f2f6454725fd815e0f7fc93b21f28253"
+      "sha256": "38889fcc6fb1738b5b81a33a95933a2804d4003256744c84759851e4e8a6e789"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-narrow-linux.png",
-      "sha256": "986e2b06cb96c6fc22afbc89aa8d9130285a08b09e1de48858d411c942d07a19"
+      "sha256": "ad09d3b1e44d4a96ac4f14249dbaddb5acf7c0a72f5350227875ea31ac9cfabd"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
@@ -324,7 +324,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
-      "sha256": "b7a8e00fd236c177325260afb275bfb176afa67cb310be7d2b9495b07e802e13"
+      "sha256": "1af069ae89bdd2f0e15cac24ad9f638366438c3fda84ff05bb8cfe18bd2b56f5"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
@@ -384,15 +384,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
-      "sha256": "893944776c1d6ee3f8651b611f7278ab85f57d139c472d122c398491a89561d4"
+      "sha256": "096bdb7a4a1f459c77a8ccd25be5104f497e20d8dc09897c1a842079a4553627"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
-      "sha256": "79cf198d89d1afe4a08d40776a02e652b9024702ebcc70cedcfe602473d0f495"
+      "sha256": "ce0c3dabfbf4286fd982678a95acc2f1d25d4ab265fc59f71cbbf68dedf00cbf"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",
-      "sha256": "0131afd832f415a0f8239547345fdf6117fb51fe9265aae11a5033f5a29685af"
+      "sha256": "0da1de0710c5ae96ed02db6e29dfa16e74edcce429d96f4362925aa1b4b3e800"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-access-retry-linux.png",
@@ -464,23 +464,23 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-linux.png",
-      "sha256": "cf74f6704f4555f9edd5fecd69e6be62e760cc1198b8f7dd3583962a16c2f104"
+      "sha256": "52b55ac2df7c08ee68fd777ec9f8b1fc845189c3a47edd47484d349a0785e712"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-narrow-linux.png",
-      "sha256": "a94dac923bfd9b8355044a98c06bf9261899ccf99ff130182a226acc1cebb10d"
+      "sha256": "e679b996de7ebdc47f7528d08ba796c8121aa9a8df6e0febbc3538514f20faac"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-linux.png",
-      "sha256": "e3ed6441770c3f2602b1c25d6860f1fba229b9c789f28bbf701a091074385f13"
+      "sha256": "893c1bfee82399cd0102f2e69310ec79d651f19f9cbe6ef373522be3b7d1f82b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-narrow-linux.png",
-      "sha256": "bcb90a66c9e95eaf33dec076aa8518a2747c9c232eea9ccb90793fdb98e10ea0"
+      "sha256": "0d3438631272bc22a8f0b91cf3924f280a5ed72ec8498c2904f6d43d15ea491a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-closed-linux.png",
-      "sha256": "ac7ae547e96c0209a490e350e4ffca4ffba44e123a64ea05351538167e1c9ac6"
+      "sha256": "60a07e5fb3fd3693d7b8fec223409b5c41ed67dba9401260a5b77ced674e353d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-comfortable-linux.png",
@@ -492,19 +492,19 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-confirmed-refresh-failure-linux.png",
-      "sha256": "75c484045c92167d353935a0ace03a9f39b395973eff021a564624b505324a0c"
+      "sha256": "512d0eb1f6464d741abde5006b0549ec4ca7b87b60be73ff10cd8ed92e4f4380"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-pending-linux.png",
-      "sha256": "819bd165f41aba53928368d666a1155e241ce13d695777e2fbd8ed1dcfc00049"
+      "sha256": "cba5d5e4c73c34440a461d8c986fcf170ac12e38c65a8a89b3ff440518d5c5e7"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-reason-linux.png",
-      "sha256": "7196c9a385c03c92db0d960ba3dbc29f194cf18e4226693a715a3ce0f73536d6"
+      "sha256": "3dd09061999bc2b70db603e0ff4cfd3698d90575b9866ea52b095df70b459211"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-linux.png",
-      "sha256": "9ad500c000b172296889e29bb9a3ee86244ea6a6cd7b0b2eb1baa1a03bfddee3"
+      "sha256": "d34995c5d5183deb0d394175010e43c940d7c70f546c6bada83d3c7f3eec3cdc"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-narrow-linux.png",
@@ -520,27 +520,27 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-uncertain-linux.png",
-      "sha256": "ca57d56f3d7bcd330bae2760e2de508af13dd966c0a488835423a28e9e0fdeee"
+      "sha256": "43a2be405d820cdc7c0630d1673a34fb12a9a58898c73b6dcf3889b707996e1b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-linux.png",
-      "sha256": "1e699743057562174e854f9afaf89e19dc5af2b1581bb59fc9c690b010d87fd5"
+      "sha256": "26873961e169082759f3dccb1a24e08e1c214c66636cb1ff8a6f8567e7a9b43d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-narrow-linux.png",
-      "sha256": "1a5707e026e933c51836999e3ec802fc30d70139ea5c7a73b6cb5481f741a441"
+      "sha256": "58584c3bb2295eb39fd645abbd361cabc02b9e176957ca3844e5fb2b565a3399"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-linux.png",
-      "sha256": "ea639120e388182c081a51576b0b3ecbd41b82e927f898a7faca1b22495a491f"
+      "sha256": "afd8916281c12c5e77247a1b4214ecde5cd0822aa0512ab8b6f6dbde1a0c2663"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-narrow-linux.png",
-      "sha256": "584b5c3ab3902edaa4ea951b13d5e75c69e7a1943f4a447d9852776849b53753"
+      "sha256": "cbf76c4ca5b5cced07c4695cc115ee57563d2d649a827efa5bcad101857a2234"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-source-narrow-linux.png",
-      "sha256": "a222853e490e2027d85e84fd4a8fbf080a243c07390831d871a0f732d7c8a751"
+      "sha256": "428b4e106f77cb7fa54967257e54a68d34afdb7432183fdf176007b1aafcdd89"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-comfortable-linux.png",
@@ -552,15 +552,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-cursor-recovery-linux.png",
-      "sha256": "5e834ac401fe155538e449bfbee52d9cbedf3da7d0c83e54cc27130f7cb732fe"
+      "sha256": "94d0f7ea3c77b7b2417d01c144f45eec15a35c294b61f2c1145ef758a59853c8"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-empty-linux.png",
-      "sha256": "0f2de30b123b4ae0d395770445e080b87205850e997f054a73b0a282dde35e2e"
+      "sha256": "5656dab76b6c9364830f04247ff2ec8664a5d25505450261ddb89cd23f074acc"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-linux.png",
-      "sha256": "101bc8e9ad04586b4f5421084e281cf0dde07ba29beb3d030e5e35e9a312a492"
+      "sha256": "aba37016956a0522d940deb8b3fc3bf71ce1f96992ba2bd44774c74aef13a519"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-narrow-linux.png",
@@ -576,11 +576,11 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-loading-linux.png",
-      "sha256": "51b0ac98262c51b862ad2eff213f3e40f2683343b561aac8dd7f290c12f86988"
+      "sha256": "53e9c9da1f10d5f80c43c00d535e3d81310a45919b003a3f4390f5ed93dcb531"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-stale-linux.png",
-      "sha256": "84c6e985ade61b3be27309e3d96d7b482e8da45a4147cf673ac12ba4f7ec8a5c"
+      "sha256": "f9a120ccd0c39d5383c3a0796bfa577efdb2b20de32c73cac0d358ffee2d0c21"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-comfortable-linux.png",
@@ -592,15 +592,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-confirmed-refresh-failure-linux.png",
-      "sha256": "4454617d5f386e1a40c74b37ea51896fb1b4b0ab7f4bbf3ac1628ff6dbbbeaa2"
+      "sha256": "095ffbabc5963a41eafb1da7ba94144eddadf6d150e0ca5f27bef7e8900fc10b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-loading-linux.png",
-      "sha256": "fd3f481475fa061a61ebac31222660be8b4428c80590a117b1ab3a10d2a37253"
+      "sha256": "24dd16f68994a49c7ef5a3c8d79bcbd2011133cf5ab945a70f95076f4a74fc14"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-pending-linux.png",
-      "sha256": "55699848480ef053d4f9ad4cce10a3bb62d20cb6c3eb28300bcf659f0a474db9"
+      "sha256": "1bf7e2177a3437d14791bdcd65922aef0d07c772912e27787a4f34b7155855a3"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-narrow-linux.png",
@@ -616,11 +616,11 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-role-linux.png",
-      "sha256": "c027478ee3e600ab382fb8c27694e04cfd4e71bdfab66d1b8b3364b380566a23"
+      "sha256": "09aa4e274e419accb049ab50ea564906eb459f3e1b59f40f5f11a1ce5f60ee44"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-uncertain-linux.png",
-      "sha256": "4b893f157f2221933f98de7fcd0f43a2d58cbce77fbdb8042a73be531cd04f4f"
+      "sha256": "e8b116048a3c07847aee38ee79333733869bc755a0c5dfe93a04bd435ca53fd0"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-closed-linux.png",
@@ -640,15 +640,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-conflict-linux.png",
-      "sha256": "997dfe8368c7f73c99f31bd13a7800794d9fa7ea1c23e8d643374a7f750521a9"
+      "sha256": "80e5f6be993cda9ceaaa40ec19312539fcb52ea212bae8f31678b427a6cd0db0"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-dirty-linux.png",
-      "sha256": "ad149b09f62dd8e7ee480152ef81cb5cc8f615c81bed4a35f8724a283199b212"
+      "sha256": "f0290fd7aedbfdca1c4515c8991821924703b53b902f39d148dfe7bee3b1d2d8"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-loading-linux.png",
-      "sha256": "b8a3a45465096b54fc70e96656dff12e14d19a92f15e7a96d33f431a259aebe4"
+      "sha256": "178c4ea12f6ee2358a76fd4277491d804a7c1a749dd3c7c126b127e982b5e8b6"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-narrow-linux.png",
@@ -664,11 +664,11 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-saving-linux.png",
-      "sha256": "e37cf450c0c86fd2e53d023ad90d4c128f47f9acf5a35c7482f9d49f620fe761"
+      "sha256": "ec9534413c8fb4fdd3e9d3b10e55433dfb0bd755cd9cefdae46ba6ed811428b4"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-uncertain-linux.png",
-      "sha256": "bee82622b46e774eaf503cb806be666c01a5a0cc1d79497b0063a686182239a1"
+      "sha256": "ebaa1eb5daf98c39093c46c734d3f421cd657ea47a477e6236b6fb62571ee712"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
@@ -712,7 +712,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-recovery-1280-linux.png",
-      "sha256": "d4dd405d02d03793a28633c5c8ef1bb16e0b552e26c1ea41be113555677a2ebf"
+      "sha256": "f19abda42f0ec6a3d6c49763481b4f2556bac7153f4b740c19d390bc4f1cd258"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-recovery-390-linux.png",
@@ -720,7 +720,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-reference-authoring-linux.png",
-      "sha256": "c95ea5787c2478de319e6a2eaeea289c41a9940d44c85ce0c8b4fd0ef1ecd510"
+      "sha256": "491c007ace3ece0a34c59f54d31e2a8e07e067b517d1f409fac2a4c6a96f8c2f"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",
@@ -728,7 +728,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-mention-chips-linux.png",
-      "sha256": "784284c5c26183b249261c6879e0cd529777c3b7a65e93b3fce9a09924049db9"
+      "sha256": "409d85b395eb5d19ec7a73c3ac635ae870d9de4798e7ded987cd0a53eec0b0e2"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png",
@@ -812,7 +812,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-timeline-default-linux.png",
-      "sha256": "8c61e8ec75a7a7cf21855fddca0900d3b327915b6da2875d8a0f792a0222f0e7"
+      "sha256": "f57e6d3451b3157bb2797c3643d19f625842e5390405fc487bd66a768a482b6f"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png",
@@ -824,59 +824,59 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
-      "sha256": "8415eae46abd50f63d18b54632e90f108577bc385c7453f706ac0e6d9462081c"
+      "sha256": "5b75c8754874fae22d82a15b2ed5384a98d6f2814a23e2f25b1579be6ddf2fb8"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png",
-      "sha256": "d7721a460eadbc84c4125bc11d5bb7bd7226700318d9bb5284f57be87655b8e3"
+      "sha256": "d9c95cc61c443110e423f5d634dbc9f0a71c0cad03a5f098cd3742fc235b1617"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
-      "sha256": "c7ecacc320ff5a8c8a06972c6128e99bbc4af5ad2a8e66ab17a462276eccd772"
+      "sha256": "74aa0eae4f7a34ec26a474d4c850da6d31322af4c6b4c011a09f61710f6465a9"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
-      "sha256": "6a93dd52f9d53e86b20b25a94ff3c8974a648fede93fda419c2e6a696c515d97"
+      "sha256": "f3da262abbdb84425618e8539e9ae27bc01edc2cbe51961628af599ab804341b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-linux.png",
-      "sha256": "86f806ad674c3df0ab69ec2dde531ccc7705cef68205fb05f32ffc8f678dba0c"
+      "sha256": "ca07aec7a0259c41b8998e67f31897b1f8cef26f24a86d75594d871fdcd2cee6"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-narrow-linux.png",
-      "sha256": "a1cbb8b6f8ae85f8864e4fa118f78eb6ced8dac44216b8702999f6457552ba9c"
+      "sha256": "c35c2afdea1cd3384128478485116707a20aefe62df789f5d09597ed2e77a17c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-linux.png",
-      "sha256": "74f880c2e814ba6abccaa60e47de89e5dcfb955b23fa7988ebc6460bce87e348"
+      "sha256": "b4f866d9403108221fc8f957ebc8da680d75e0c9024e06ec35145b4a361fcf60"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-narrow-linux.png",
-      "sha256": "492eec4daa94f27c2c2a289557932111e0af68bd571b16e73c395e568a1f392a"
+      "sha256": "8b8b6fd34be5c96e4e6a1697e3522a059e6d0989b89b1671fe3db93e27f3e977"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-party-narrow-linux.png",
-      "sha256": "7fc41b7ec8cfb64e8fb6adabf620b7b7bac81d6fed907ec45cce71c373c046ef"
+      "sha256": "6dd749fa2e3898ba85bd45e9ac567d8dd01234480e2d4515d74c00a96f761abd"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-accepted-linux.png",
-      "sha256": "da153012f08cdd1b4559c79863e748d8ab6b46ddff5a94bab39ff3e51c67ac52"
+      "sha256": "9c5dbe8df7a533c2e849bbb996647f14aadfd64f5d34ce02b15ea8edef6e22fa"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-authoring-linux.png",
-      "sha256": "93b0c334de8187286762f040e7d5179221b56601453e642cf1b7360d6837dfc2"
+      "sha256": "bf0a432653b657e2a87db82045fa32de39fbeaa8bbe0ba51bff39a58e5329114"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-linux.png",
-      "sha256": "cfe91630e6c49f4ed60b50cc04fcecb02ac4456e76e4075b82fc6d9e33a069c1"
+      "sha256": "367ae4f0b460e8ed6f22e260b43290d142d81b6f18fcbcfa362df7325bbbae14"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-narrow-linux.png",
-      "sha256": "5ebca016359b52aaaaf2f1ec98c64da99da7e52df4fd7f9a5afd6763d2973181"
+      "sha256": "6c42a2949675bbdd7e95d65b90242c20c9db245b7618551b3428c9f800ca7455"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png",
-      "sha256": "6774a8921c501d36a069b98058f12a570e162d589803926af56f01e4ebd490f2"
+      "sha256": "92f7f9a58f405e985d06d2638c78207146e68eb3a3186d86217cc6db9d5ed449"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
@@ -884,23 +884,23 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
-      "sha256": "9c83f16cf3b7ec4dd39238582570a12872ccf620d4fdb275697915ef6e720c14"
+      "sha256": "a57ec543750b1522ae9951e70f94db99cc6f414063944752c63278dd41d74fc4"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png",
-      "sha256": "d40313b5d623901cb462b5b9971e2fdf67d31257d36ed3c64d987c1193bf0717"
+      "sha256": "d62cc6fc420941e524c0db8b4e99e6234c8970a1ba47c2f0da1d4d7ac1fb3b80"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png",
-      "sha256": "e1842e89bf76a1beac2ed5fd731da38d9abcacd4cb2726c281da11b492b57842"
+      "sha256": "71ed8ad7846dc57ba848f1852e8c0f3eefb40da60d3e15ba6d2db328ea87069a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
-      "sha256": "61fd6024696e0a0a95820cd45f8ff5c1fc63db329055f8c256cf63234a74e2d2"
+      "sha256": "6dec6c2ed62fa7ae1aff7ec462da235f1ceea9481c3dd6162efebe143097657b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
-      "sha256": "0756dd0b768dcad35235d01e9b5aba12d34da9fb2441115293b77b8b6fe956b7"
+      "sha256": "cf94c90a95480a8ab1ca24808e351610c316d690243045dd30dd9e55dc5959e2"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-comfortable-linux.png",
@@ -912,11 +912,11 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-confirmed-stale-linux.png",
-      "sha256": "807229c3b8aa8df96b6b2912da3508b3fd63ed258eb9f31e018d9c5098337779"
+      "sha256": "71e7317d9e7a31222d4a2e5200ce14de046904e14f1c6d79d144ed716bd52d67"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-linux.png",
-      "sha256": "569d0424ddc39b1ce4293d57c413b0b7be61c0f4f5b2d45979b100d68fe5460e"
+      "sha256": "2120aef517262ee9be172a375344df8b2f04ced39b45569296f5618f5a93a7a7"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-narrow-linux.png",
@@ -924,7 +924,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-unset-linux.png",
-      "sha256": "a8d972ec6cdae68bf3fbcccebe64a76e952d9c58c3fc9d2fa4be7e449b47adb3"
+      "sha256": "195ad6e55d7d6e0faa0564c26e8e82a64add84e0534f80b4b1229592fe0c5745"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-closed-read-only-linux.png",
@@ -952,7 +952,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-text-spacing-linux.png",
-      "sha256": "bdc077f1d439ab9545301f5408639a849fa9dfe67bc8fdbdeec286193b1b62fd"
+      "sha256": "93595ee32481fb6e9b5a5eea2bdfbf8401155619fa483f9c85d74e3754c27eec"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-zoom-200-linux.png",
@@ -964,47 +964,47 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png",
-      "sha256": "acb7731260787a8684636e4999d479bc51a30ffd24fb96842b4b756649ab2aaf"
+      "sha256": "e54ce188fe2022f20bf218295a4fbf0ef45af872d2bb4e900f177a86b94dbf31"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-filter-editing-overflow-linux.png",
-      "sha256": "a7ad747fd3580c0ae7501bb2a451709c1f116a2a59abe8b2f752067d5dea7267"
+      "sha256": "504db56bba29b386daa9e35981b2823c5844f0768f2fe8ae0e9e1bd3febd3a30"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-long-columns-linux.png",
-      "sha256": "84909d51cc3da0292c0a29626775f2bf622dd2986ad63c030448e236c0d05a4c"
+      "sha256": "51d907b43adb24c600eb498199129a3c70d85914fa5551b2d443e6d2e9b6020c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-base-linux.png",
-      "sha256": "acb7731260787a8684636e4999d479bc51a30ffd24fb96842b4b756649ab2aaf"
+      "sha256": "e54ce188fe2022f20bf218295a4fbf0ef45af872d2bb4e900f177a86b94dbf31"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-compact-linux.png",
-      "sha256": "c3a057179974451a8180b2c56f7d12a1da99371490f332f28e096772359e5cc2"
+      "sha256": "d49b16e0889dbe0c784d007834197614031d745f1b677313269a19107455b845"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-narrow-linux.png",
-      "sha256": "1eb70abcde119ae921225be43070c7e8f32d807bcf9dc5fcae22be34c2673ac4"
+      "sha256": "2f227dd1f0ded023de05729c098c8604fdc728c22970b4906e53f6270305e9e2"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-ordered-maximum-sort-linux.png",
-      "sha256": "532f1088092ee777acaa47033e78f336e1b0a1545b6678dab6fe71b34dd0640d"
+      "sha256": "bd947bcbceecd2be248b55e68b67b2bd2e2f554b6f1d2bbffa4f650d97611a47"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-actions-linux.png",
-      "sha256": "0f0934a3418e549578f5a0dc40803591c6e9d4dfc5a9dbaeb506d490156af28e"
+      "sha256": "f222f771894fcb04c3e06f536946130fe6c7495cc3dc91986e02cc16c052eadb"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-clean-linux.png",
-      "sha256": "55427fbc7b4820d98c545e96adea3d59575afd9293095aa43b91c90328697b43"
+      "sha256": "9889a449f91380d75c6e278266b2e8506087018ecf7a0bb3cdff3fc8e243da2b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-modified-linux.png",
-      "sha256": "a8f382cac9fbd01c33fbccfcfe3cbd88f0ba83da3010289e8c4d5b579303b1ce"
+      "sha256": "b4b143b51811de5eb5f7cb315a7bd62fe59a573d3a54c2f8f8623dd491a2383a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-text-spacing-linux.png",
-      "sha256": "ceb0cfb4638d995d65ece706f232ed05fdf12d571f7910136453719e2f19292a"
+      "sha256": "f31032e85f491bcd7c649ecbb54a88fdc4104db0986c936a29650e4c156b9bfb"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-zoom-200-linux.png",

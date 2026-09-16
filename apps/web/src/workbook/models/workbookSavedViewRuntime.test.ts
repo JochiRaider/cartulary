@@ -9,7 +9,6 @@ import {
   savedViewChanges,
   savedViewIdentityForSelection,
   savedViewQueryStateForRuntime,
-  upsertSavedViewList,
 } from "./workbookSavedViewRuntime";
 import type { SavedViewResource } from "./workbookSavedViews";
 import {
@@ -72,29 +71,6 @@ describe("workbookSavedViewRuntime", () => {
     ).toEqual({ layoutJson: { ...layout, hidden_field_keys: [] } });
     expect(base.layout_json).toEqual(layout);
   });
-  it("upserts saved views by identity and keeps display-name ordering", () => {
-    const alpha = savedView({
-      display_name: "Alpha",
-      saved_view_id: "saved-alpha",
-      view_schema_id: timelineViewSchemaId,
-    });
-    const beta = savedView({
-      display_name: "Beta",
-      saved_view_id: "saved-beta",
-      view_schema_id: notesViewSchemaId,
-    });
-    const updatedBeta = { ...beta, display_name: "Aardvark" };
-
-    expect(
-      upsertSavedViewList([beta], alpha).map((item) => item.display_name),
-    ).toEqual(["Alpha", "Beta"]);
-    expect(
-      upsertSavedViewList([alpha, beta], updatedBeta).map(
-        (item) => item.display_name,
-      ),
-    ).toEqual(["Aardvark", "Alpha"]);
-  });
-
   it("preserves saved-view sheet_ref and base view_schema identity separately", () => {
     const selected = savedView({
       saved_view_id: "saved-1",

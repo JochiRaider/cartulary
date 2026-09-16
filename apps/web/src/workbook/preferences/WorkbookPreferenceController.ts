@@ -46,6 +46,7 @@ const emptyWork = (): ResourceWork => ({
 const initial = (): PreferenceSnapshot => ({
   authority: null,
   access: "checking",
+  inspectionActive: false,
   home: emptyPreferenceSlot<"home">(),
   default: emptyPreferenceSlot<"default">(),
   surface: null,
@@ -174,6 +175,7 @@ export class WorkbookPreferenceController {
   setInspectionActive = (active: boolean) => {
     if (this.inspectionActive === active) return;
     this.inspectionActive = active;
+    this.publish({ inspectionActive: active });
     if (active) {
       this.refresh("home");
       this.refresh("default");

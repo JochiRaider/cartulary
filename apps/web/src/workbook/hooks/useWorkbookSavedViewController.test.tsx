@@ -19,6 +19,17 @@ const saved = savedViewTestResource();
 const contract = requireViewContract(saved.view_schema_id);
 function setup(overrides: Partial<WorkbookSavedViewPort> = {}) {
   const port: WorkbookSavedViewPort = {
+    getResource: vi.fn<WorkbookSavedViewPort["getResource"]>(
+      async ({ savedViewId }) => {
+        const resource = [saved].find((r) => r.saved_view_id === savedViewId);
+        return resource
+          ? { kind: "accepted", value: resource }
+          : {
+              kind: "rejected",
+              failure: { kind: "unavailable_target", message: "Unavailable" },
+            };
+      },
+    ),
     listPage: vi.fn<WorkbookSavedViewPort["listPage"]>(async () => ({
       kind: "accepted",
       value: { nextCursor: null, savedViews: [saved] },
@@ -56,33 +67,28 @@ const subject = {
 
 describe("useWorkbookSavedViewController", () => {
   afterEach(cleanup);
-  it("publishes only a complete list and marks unavailable selections after terminal pagination", async () => {
-    const second =
-      deferred<
-        SavedViewResult<{
-          savedViews: readonly SavedViewResource[];
-          nextCursor: string | null;
-        }>
-      >();
+  it("retains selected configuration while discovery is incomplete or fails", async () => {
     const listPage = vi
       .fn<WorkbookSavedViewPort["listPage"]>()
-      .mockResolvedValueOnce({
-        kind: "accepted",
-        value: { nextCursor: "next", savedViews: [] },
-      })
-      .mockImplementationOnce(() => second.promise);
+      .mockResolvedValue({
+        kind: "rejected",
+        failure: { kind: "transport", message: "Offline" },
+      });
     const h = setup({ listPage });
-    await waitFor(() => expect(listPage).toHaveBeenCalledTimes(2));
-    expect(h.result.current.snapshot.savedViewsResource.kind).toBe("loading");
-    await act(async () =>
-      second.resolve({
-        kind: "accepted",
-        value: { savedViews: [], nextCursor: null },
-      }),
+    await waitFor(() =>
+      expect(
+        h.result.current.snapshot.savedViewsResource.selectedSavedView,
+      ).toEqual(saved),
     );
-    expect(h.result.current.snapshot.savedViewsResource.kind).toBe(
-      "invalid_selection",
+    expect(listPage).not.toHaveBeenCalled();
+    act(() => h.controller.openDiscovery());
+    await waitFor(() =>
+      expect(h.controller.getSnapshot().discovery.problem).not.toBeNull(),
     );
+    expect(
+      h.result.current.snapshot.savedViewsResource.selectedSavedView,
+    ).toEqual(saved);
+    expect(h.options.applyWorkbookIdentity).not.toHaveBeenCalled();
     h.controller.dispose();
   });
   it("selects saved query and layout explicitly while Reset never changes identity", async () => {
@@ -94,7 +100,9 @@ describe("useWorkbookSavedViewController", () => {
     expect(h.options.applyQueryStateForSurface).toHaveBeenCalledOnce();
     expect(h.options.applyLayoutStateForSurface).toHaveBeenCalledOnce();
     expect(h.options.applyWorkbookIdentity).not.toHaveBeenCalled();
-    act(() => h.result.current.commands.selectSavedView(saved));
+    await act(async () => {
+      await h.controller.activateResource(saved.saved_view_id);
+    });
     expect(h.options.applyWorkbookIdentity).toHaveBeenCalledWith(
       {
         sheetRef: { kind: "saved_view", id: saved.saved_view_id },

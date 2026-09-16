@@ -46,9 +46,7 @@ export function SavedViewRecovery({
     attempt !== null && controller.canReview(attempt.id, observation);
   const observed =
     attempt?.base && (attempt.kind === "update" || attempt.kind === "delete")
-      ? snapshot.resources.find(
-          (r) => r.saved_view_id === attempt.base?.saved_view_id,
-        )
+      ? snapshot.observations.get(attempt.base.saved_view_id)?.resource
       : null;
   const canApply =
     observed &&
@@ -70,10 +68,7 @@ export function SavedViewRecovery({
       ? operation.problem.message
       : null;
   const nameErrorId = `saved-view-review-name-${attempt?.id ?? "none"}`;
-  const showObservation =
-    recovery ||
-    snapshot.listProblem !== null ||
-    snapshot.list === "unavailable";
+  const showObservation = recovery || snapshot.resourceProblem !== null;
   if (operation.kind === "idle" && !showObservation) return null;
   return (
     <section
@@ -101,10 +96,11 @@ export function SavedViewRecovery({
           {problemLabel(operation.problem.kind)}: {operation.problem.message}
         </p>
       ) : null}
-      {snapshot.listProblem ? (
+      {snapshot.resourceProblem ? (
         <p role="status" style={textStyle}>
           {operation.kind === "confirmed" ? "The write is confirmed. " : ""}The
-          saved-view list could not be refreshed: {snapshot.listProblem.message}
+          saved resource could not be refreshed:{" "}
+          {snapshot.resourceProblem.message}
         </p>
       ) : null}
       {showObservation ? (
@@ -119,10 +115,10 @@ export function SavedViewRecovery({
           }}
         >
           {snapshot.access !== "ready"
-            ? "Check access and refresh saved views"
+            ? "Check access and refresh saved resource"
             : snapshot.refreshing
-              ? "Refreshing saved views…"
-              : "Refresh saved views for review"}
+              ? "Refreshing saved resource…"
+              : "Refresh saved resource for review"}
         </button>
       ) : null}
       {operation.kind === "confirmed" && operation.resource ? (
@@ -172,14 +168,15 @@ export function SavedViewRecovery({
           ) : (
             <p style={textStyle}>
               {attempt.kind === "update" || attempt.kind === "delete"
-                ? "The target is absent from the latest complete list."
-                : "The complete list is available in the saved-view selector."}
+                ? "The addressed resource is unavailable. This does not establish the earlier write outcome."
+                : "Creation cannot be resolved by matching a name or configuration."}
             </p>
           )}
           {operation.kind === "uncertain" ? (
             <p style={textStyle}>
-              Current list contents do not prove whether the earlier request
-              committed. A matching name or configuration is not a receipt.
+              Current resource observations do not prove whether the earlier
+              request committed. A matching name or configuration is not a
+              receipt.
             </p>
           ) : null}
           {snapshot.transportPending ? (
@@ -216,7 +213,7 @@ export function SavedViewRecovery({
               ref={registerItem("apply_review")}
               type="button"
               style={buttonStyle}
-              disabled={!canReview}
+              disabled={!controller.canApplyReview(attempt.id, observation)}
               onClick={() =>
                 controller.review(
                   attempt.id,

@@ -1245,7 +1245,10 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     );
     await expect(
       page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
-    ).toHaveValue(longQuerySavedView.saved_view_id);
+    ).toHaveAttribute(
+      "data-selected-saved-view-id",
+      longQuerySavedView.saved_view_id,
+    );
     await expect(
       page.locator('[data-grid-data-state="refreshing"]'),
     ).toHaveCount(0);

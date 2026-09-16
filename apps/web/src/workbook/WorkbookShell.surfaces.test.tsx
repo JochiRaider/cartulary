@@ -742,6 +742,28 @@ describe("WorkbookShell surface selection", () => {
       const savedViewMutationMatch = url.match(
         /\/api\/v1\/incidents\/10000000-0000-4000-8000-000000000001\/saved-views\/([^/?]+)$/,
       );
+      if (savedViewMutationMatch && method === "GET") {
+        const resource = currentScenario.savedViews.find(
+          (view) =>
+            view.saved_view_id ===
+            decodeURIComponent(savedViewMutationMatch[1] ?? ""),
+        );
+        return resource
+          ? successEnvelope(resource)
+          : new Response(
+              JSON.stringify({
+                error: {
+                  code: "saved_view_not_found",
+                  status: 404,
+                  message: "Unavailable",
+                  details: {},
+                  request_id: "req-missing",
+                  retryable: false,
+                },
+              }),
+              { status: 404, headers: { "Content-Type": "application/json" } },
+            );
+      }
       if (savedViewMutationMatch && method === "PATCH") {
         const savedViewID = decodeURIComponent(savedViewMutationMatch[1] ?? "");
         const existing = currentScenario.savedViews.find(
@@ -793,9 +815,23 @@ describe("WorkbookShell surface selection", () => {
       ) {
         return new Response(
           JSON.stringify({
-            data: { saved_views: currentScenario.savedViews },
+            data: {
+              saved_views: currentScenario.savedViews.filter(
+                (view) =>
+                  view.view_schema_id ===
+                  new URL(url, "http://localhost").searchParams.get(
+                    "view_schema_id",
+                  ),
+              ),
+            },
             meta: {
-              paging: { has_more: false, limit: 100, next_cursor: null },
+              paging: {
+                has_more: false,
+                limit: Number(
+                  new URL(url, "http://localhost").searchParams.get("limit"),
+                ),
+                next_cursor: null,
+              },
               request_id: "req-saved-view-list",
             },
           }),
@@ -1569,10 +1605,7 @@ describe("WorkbookShell surface selection", () => {
         screen.getByRole("region", { name: "Retained drafts" }),
       ).getAllByRole("listitem"),
     ).toHaveLength(1);
-    fireEvent.change(
-      screen.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
-      { target: { value: savedViewId } },
-    );
+    await activateSavedView(timelineViewSchemaId, savedViewId);
     await waitFor(() =>
       expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`),
     );
@@ -2422,15 +2455,19 @@ describe("WorkbookShell surface selection", () => {
     const timelineSelector = await screen.findByTestId(
       savedViewSelectorTestId(timelineViewSchemaId),
     );
+    fireEvent.click(timelineSelector);
+    await screen.findByTestId(
+      savedViewOptionTestId(timelineViewSchemaId, savedViewId),
+    );
     expect(
-      timelineSelector.querySelector(
+      document.querySelector(
         dataTestIdSelector(
           savedViewOptionTestId(timelineViewSchemaId, savedViewId),
         ),
       ),
     ).not.toBeNull();
     expect(
-      timelineSelector.querySelector(
+      document.querySelector(
         dataTestIdSelector(
           savedViewOptionTestId(timelineViewSchemaId, evidenceSavedViewId),
         ),
@@ -2447,9 +2484,7 @@ describe("WorkbookShell surface selection", () => {
     });
     const timelineQueryCountBeforeSavedViewSelect = timelineQueryCallCount();
 
-    fireEvent.change(timelineSelector, {
-      target: { value: savedViewId },
-    });
+    await activateSavedView(timelineViewSchemaId, savedViewId);
 
     await waitFor(() => {
       expect(window.location.search).toContain("sheet_ref_kind=saved_view");
@@ -2470,15 +2505,19 @@ describe("WorkbookShell surface selection", () => {
     const evidenceSelector = await screen.findByTestId(
       savedViewSelectorTestId(evidenceViewSchemaId),
     );
+    fireEvent.click(evidenceSelector);
+    await screen.findByTestId(
+      savedViewOptionTestId(evidenceViewSchemaId, evidenceSavedViewId),
+    );
     expect(
-      evidenceSelector.querySelector(
+      document.querySelector(
         dataTestIdSelector(
           savedViewOptionTestId(evidenceViewSchemaId, evidenceSavedViewId),
         ),
       ),
     ).not.toBeNull();
     expect(
-      evidenceSelector.querySelector(
+      document.querySelector(
         dataTestIdSelector(
           savedViewOptionTestId(evidenceViewSchemaId, savedViewId),
         ),
@@ -2544,9 +2583,7 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
-    const selector = await screen.findByTestId(
-      savedViewSelectorTestId(timelineViewSchemaId),
-    );
+    await screen.findByTestId(savedViewSelectorTestId(timelineViewSchemaId));
     const timelineQueryCallCount = () =>
       fetchMock.mock.calls.filter(
         ([input, init]) =>
@@ -2572,7 +2609,7 @@ describe("WorkbookShell surface selection", () => {
     });
     const queryCountBeforeSelect = timelineQueryCallCount();
 
-    fireEvent.change(selector, { target: { value: savedViewId } });
+    await activateSavedView(timelineViewSchemaId, savedViewId);
 
     await waitFor(() => {
       expect(window.location.search).toContain("sheet_ref_kind=saved_view");
@@ -2682,7 +2719,7 @@ describe("WorkbookShell surface selection", () => {
       );
     });
 
-    fireEvent.change(selector, { target: { value: systemSavedViewId } });
+    await activateSavedView(timelineViewSchemaId, systemSavedViewId);
     openSavedViewActions(timelineViewSchemaId);
     const systemUpdateButton = await screen.findByTestId(
       savedViewUpdateButtonTestId(timelineViewSchemaId, systemSavedViewId),
@@ -4882,3 +4919,15 @@ describe("generic workbook mutation payloads", () => {
     });
   });
 });
+
+async function activateSavedView(schema: string, id: string) {
+  const trigger = screen.getByTestId(savedViewSelectorTestId(schema));
+  if (trigger.getAttribute("aria-expanded") !== "true")
+    fireEvent.click(trigger);
+  fireEvent.click(
+    await screen.findByTestId(savedViewOptionTestId(schema, id || "base")),
+  );
+  await waitFor(() =>
+    expect(trigger.getAttribute("data-selected-saved-view-id")).toBe(id),
+  );
+}

@@ -522,6 +522,11 @@ const value = {
       "code": "internal_error",
       "http_status": 500,
       "summary": "The server could not complete the request."
+    },
+    {
+      "code": "invalid_saved_view_read_request",
+      "http_status": 400,
+      "summary": "A saved-view read has malformed query encoding or an undeclared singleton query member."
     }
   ],
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
@@ -1955,6 +1960,19 @@ const value = {
         {
           "code": "preview_payload_too_large",
           "summary": "The payload exceeds the configured preview-size ceiling."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_saved_view_read_request",
+      "reason_codes": [
+        {
+          "code": "malformed_query",
+          "summary": "The raw saved-view read query cannot be parsed or contains invalid decoded UTF-8."
+        },
+        {
+          "code": "unknown_query_member",
+          "summary": "The singleton saved-view read contains an undeclared non-pagination query member."
         }
       ]
     }

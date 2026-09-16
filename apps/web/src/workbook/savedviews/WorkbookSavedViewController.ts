@@ -6,14 +6,10 @@ import {
   buildSavedViewQueryJson,
   emptyWorkbookQueryState,
 } from "../models/workbookQuery";
-import {
-  savedViewChanges,
-  upsertSavedViewList,
-} from "../models/workbookSavedViewRuntime";
+import { savedViewChanges } from "../models/workbookSavedViewRuntime";
 import {
   canMutateSavedView,
   type SavedViewResource,
-  savedViewJSONEqual,
   savedViewLayoutJsonForPersistence,
   savedViewQueryJsonForPersistence,
 } from "../models/workbookSavedViews";
@@ -22,7 +18,11 @@ import type {
   SavedViewResult,
   WorkbookSavedViewDefinition,
 } from "../ports/WorkbookSavedViewPort";
-import { loadSavedViewList } from "./loadSavedViewList";
+import {
+  emptySavedViewDiscovery,
+  SavedViewDiscovery,
+} from "./SavedViewDiscovery";
+import { SavedViewResourceObserver } from "./SavedViewResourceObserver";
 import {
   type SavedViewAttempt,
   type SavedViewAuthority,
@@ -38,10 +38,11 @@ import {
 const initial = (): SavedViewSnapshot => ({
   authority: null,
   access: "checking",
-  resources: [],
-  list: "loading",
+  observations: new Map(),
+  discovery: emptySavedViewDiscovery(),
+  activationId: null,
   refreshing: false,
-  listProblem: null,
+  resourceProblem: null,
   observation: null,
   transportPending: false,
   operation: { kind: "idle" },
@@ -76,13 +77,53 @@ export class WorkbookSavedViewController {
   private listeners = new Set<() => void>();
   private epoch = 0;
   private sequence = 0;
-  private listGeneration = 0;
+  private activationGeneration = 0;
+  private resourceReadGeneration = 0;
   private binding: SavedViewBinding | null = null;
-  private read: { cancel: () => void } | null = null;
   private write: { cancel: () => void } | null = null;
   private transport: object | null = null;
   private accessRead: { cancel: () => void } | null = null;
-  constructor(private readonly ports: SavedViewControllerPorts) {}
+  readonly discovery: SavedViewDiscovery;
+  readonly resources: SavedViewResourceObserver;
+  constructor(private readonly ports: SavedViewControllerPorts) {
+    const port = () =>
+      this.current() && this.state.authority
+        ? this.ports.port(this.state.authority)
+        : null;
+    const changed = () => {
+      const id = this.binding?.subject.savedViewId;
+      const before = id ? this.state.observations.get(id)?.resource : null;
+      const after = id ? this.resources.get(id)?.resource : null;
+      this.publish({
+        observations: this.resources.getSnapshot(),
+        discovery: this.discovery.getSnapshot(),
+        ...(before &&
+        after &&
+        after.saved_view_version > before.saved_view_version &&
+        !this.write &&
+        !this.transport &&
+        this.state.activationId !== id
+          ? {
+              notice:
+                "The saved configuration changed. Your working query and layout are unchanged; Reset restores the latest saved configuration.",
+            }
+          : {}),
+      });
+    };
+    this.discovery = new SavedViewDiscovery({
+      port,
+      observe: ports.observe,
+      changed,
+      failed: (problem) => this.readFailed(null, problem),
+    });
+    this.resources = new SavedViewResourceObserver({
+      port,
+      observe: ports.observe,
+      changed,
+      visible: (resource) => this.current() && this.visible(resource),
+      failed: (id, problem) => this.readFailed(id, problem),
+    });
+  }
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -92,6 +133,19 @@ export class WorkbookSavedViewController {
   };
   private publish(patch: Partial<SavedViewSnapshot>) {
     this.state = { ...this.state, ...patch };
+    if (patch.operation) {
+      const operation = patch.operation;
+      this.resources.retain(
+        "operation",
+        operation.kind === "idle" || operation.kind === "reviewed"
+          ? null
+          : operation.kind === "confirmed"
+            ? (operation.resource?.saved_view_id ??
+              operation.attempt.base?.saved_view_id ??
+              null)
+            : (operation.attempt.base?.saved_view_id ?? null),
+      );
+    }
     for (const listener of this.listeners) listener();
   }
   private current(
@@ -125,11 +179,10 @@ export class WorkbookSavedViewController {
     ) {
       this.retire();
       this.publish({ authority: freeze({ ...authority }), access: "ready" });
-      void this.refresh();
     } else if (previous.role !== authority.role) {
-      const hidden = this.state.resources.filter(
-        (resource) => !this.visible(resource, authority),
-      );
+      const hidden = [...this.state.observations.values()]
+        .flatMap((o) => (o.resource ? [o.resource] : []))
+        .filter((resource) => !this.visible(resource, authority));
       const drafts = new Map(this.state.drafts);
       for (const resource of hidden)
         drafts.delete(
@@ -142,9 +195,6 @@ export class WorkbookSavedViewController {
       this.publish({
         authority: freeze({ ...authority }),
         access: "ready",
-        resources: this.state.resources.filter((r) =>
-          this.visible(r, authority),
-        ),
         drafts,
         ...(operation.kind !== "idle" &&
         operation.attempt.base &&
@@ -153,6 +203,20 @@ export class WorkbookSavedViewController {
           : {}),
         observation: null,
       });
+      this.cancelRead();
+      this.discovery.clear();
+      this.discovery.setSchema(this.binding?.subject.viewSchemaId ?? null);
+      for (const resource of hidden)
+        this.resources.unavailable(resource.saved_view_id, {
+          kind: "unavailable_target",
+          message: "This saved view is no longer visible.",
+        });
+      if (
+        hidden.some(
+          (r) => r.saved_view_id === this.binding?.subject.savedViewId,
+        )
+      )
+        this.binding?.unavailable();
       void this.refresh();
     }
   };
@@ -172,16 +236,24 @@ export class WorkbookSavedViewController {
     if (binding && binding.incidentId !== this.state.authority?.incidentId)
       return;
     this.binding = binding;
-    if (binding) this.ensureDraft(binding.subject);
+    this.discovery.setSchema(binding?.subject.viewSchemaId ?? null);
+    this.resources.retain("selected", binding?.subject.savedViewId ?? null);
+    if (binding) {
+      this.ensureDraft(binding.subject);
+      const id = binding.subject.savedViewId;
+      const observation = this.resources.get(id);
+      if (
+        id &&
+        observation?.status === "unobserved" &&
+        !observation.pending &&
+        !observation.problem
+      )
+        void this.resources.read(id);
+    } else this.closeDiscovery();
   };
   private selected(subject: SavedViewSubject) {
-    return (
-      this.state.resources.find(
-        (r) =>
-          r.saved_view_id === subject.savedViewId &&
-          r.view_schema_id === subject.viewSchemaId,
-      ) ?? null
-    );
+    const resource = this.resources.get(subject.savedViewId)?.resource;
+    return resource?.view_schema_id === subject.viewSchemaId ? resource : null;
   }
   private ensureDraft(subject: SavedViewSubject) {
     const key = savedViewSubjectKey(subject);
@@ -250,18 +322,11 @@ export class WorkbookSavedViewController {
       (!selected || selected.saved_view_version !== subject.savedViewVersion)
     )
       return "Select an available saved view or the base surface.";
-    if (
-      kind === "reset" &&
-      this.state.list === "ready" &&
-      this.state.access === "ready"
-    )
-      return null;
+    if (kind === "reset" && this.state.access === "ready") return null;
     if (this.mutationBusy())
       return "Finish the current saved-view action or review its recovery state first.";
     if (this.state.access !== "ready")
       return "Check current access before changing saved views.";
-    if (this.state.list !== "ready")
-      return "Load the complete saved-view list before changing saved views.";
     if (kind === "create" || kind === "reset") return null;
     if (!selected) return "Select a saved view first.";
     if (
@@ -543,22 +608,24 @@ export class WorkbookSavedViewController {
       return;
     }
     const existing = resource
-      ? this.state.resources.find(
-          (r) => r.saved_view_id === resource.saved_view_id,
-        )
+      ? this.resources.get(resource.saved_view_id)?.resource
       : null;
     const isNewer =
       !resource ||
       !existing ||
       existing.saved_view_version <= resource.saved_view_version;
     const apply = this.canApply(attempt);
-    if (resource && isNewer) this.acceptResource(resource);
-    if (attempt.kind === "delete" && attempt.base)
-      this.publish({
-        resources: this.state.resources.filter(
-          (r) => r.saved_view_id !== attempt.base?.saved_view_id,
-        ),
+    if (resource && isNewer) {
+      this.resources.retain("operation", resource.saved_view_id);
+      this.resources.accept(resource);
+    }
+    if (attempt.kind === "delete" && attempt.base) {
+      this.resources.unavailable(attempt.base.saved_view_id, {
+        kind: "unavailable_target",
+        message: "Saved view deleted.",
       });
+      this.discovery.invalidate(attempt.base.saved_view_id);
+    }
     this.publish({
       operation: {
         kind: "confirmed",
@@ -589,7 +656,10 @@ export class WorkbookSavedViewController {
             resource.layout_json,
           ),
         );
-      else if (resource) this.binding.select(resource);
+      else if (resource) {
+        this.resources.retain("selected", resource.saved_view_id);
+        this.binding.select(resource);
+      }
     }
     const key = savedViewSubjectKey(attempt.subject);
     const draft = this.state.drafts.get(key);
@@ -620,22 +690,75 @@ export class WorkbookSavedViewController {
   }
   acceptResource = (resource: SavedViewResource) => {
     if (!this.current() || !this.visible(resource)) return;
-    const old = this.state.resources.find(
-      (r) => r.saved_view_id === resource.saved_view_id,
-    );
-    if (old && old.saved_view_version > resource.saved_view_version) return;
-    if (old && savedViewJSONEqual(old, resource)) return;
-    const restart = this.read !== null;
-    this.cancelRead();
-    this.publish({
-      resources: upsertSavedViewList(
-        this.state.resources,
-        freeze(structuredClone(resource)),
-      ),
-      observation: null,
-    });
-    if (restart) void this.refresh();
+    this.resources.retain("selected", resource.saved_view_id);
+    this.resources.accept(resource);
   };
+  openDiscovery = () => this.discovery.open();
+  closeDiscovery = () => {
+    ++this.activationGeneration;
+    const id = this.state.activationId;
+    if (id) this.resources.cancel(id);
+    this.resources.retain("activation", null);
+    this.publish({ activationId: null });
+    this.discovery.close();
+  };
+  activateResource = async (
+    id: string,
+    schema = this.binding?.subject.viewSchemaId,
+  ): Promise<boolean> => {
+    const binding = this.binding;
+    if (!binding || !this.current()) return false;
+    const generation = ++this.activationGeneration;
+    const epoch = this.epoch;
+    this.resources.retain("activation", id);
+    this.publish({ activationId: id, notice: null });
+    const resource = await this.resources.read(id);
+    if (generation !== this.activationGeneration || epoch !== this.epoch)
+      return false;
+    const current = this.binding;
+    const apply =
+      resource &&
+      resource.view_schema_id === schema &&
+      current &&
+      this.current() &&
+      current.selectionGeneration === binding.selectionGeneration &&
+      current.workingGeneration === binding.workingGeneration;
+    if (apply) {
+      this.resources.retain("selected", id);
+      current.select(resource);
+    } else if (resource)
+      this.publish({
+        notice:
+          "The working configuration changed while this view was loading. Select the view again to apply it.",
+      });
+    this.resources.retain("activation", null);
+    this.publish({ activationId: null });
+    return !!apply;
+  };
+  observePreference = (slot: "home" | "default", id: string | null) => {
+    this.resources.retain(slot, id);
+    const observation = this.resources.get(id);
+    if (
+      id &&
+      observation?.status === "unobserved" &&
+      !observation.pending &&
+      !observation.problem
+    )
+      void this.resources.read(id);
+  };
+  private readFailed(id: string | null, problem: SavedViewProblem) {
+    if (!this.current()) return;
+    if (
+      [
+        "authentication_required",
+        "authorization_denied",
+        "unavailable_target",
+      ].includes(problem.kind)
+    )
+      void this.recheckAccess();
+    if (id !== null && id === this.state.activationId)
+      this.publish({ notice: problem.message });
+  }
   private acceptAccess(
     result: AuthorizationRecoveryResult,
     authority: SavedViewAuthority,
@@ -686,91 +809,64 @@ export class WorkbookSavedViewController {
       outcome.kind === "completed" &&
       this.acceptAccess(outcome.value, authority)
     )
-      await this.observeList(false);
+      this.fallbackUnavailableSelection();
     else if (this.current(authority, epoch))
       this.publish({ access: "unavailable" });
   };
-  private cancelRead() {
-    this.listGeneration += 1;
-    const read = this.read;
-    this.read = null;
-    read?.cancel();
-    if (this.state.refreshing) this.publish({ refreshing: false });
-  }
-  refresh = () => this.observeList(true);
-  private observeList = async (revalidateAccess: boolean) => {
-    const authority = this.state.authority;
-    const epoch = this.epoch;
-    if (!authority || !this.current(authority, epoch)) return;
-    this.cancelRead();
-    const generation = this.listGeneration;
-    const admission = { cancel: () => {} };
-    this.read = admission;
-    this.publish({
-      refreshing: this.state.list === "ready",
-      listProblem: null,
-      observation: null,
-    });
-    const observation = this.ports.observe((signal) =>
-      loadSavedViewList(this.ports.port(authority), signal),
-    );
-    admission.cancel = observation.cancel;
-    const outcome = await observation.result;
-    if (
-      !this.current(authority, epoch) ||
-      generation !== this.listGeneration ||
-      this.read !== admission
-    )
-      return;
-    this.read = null;
-    if (outcome.kind === "completed" && outcome.value.kind === "accepted") {
-      const resources = outcome.value.value.filter((r) => this.visible(r));
+  private fallbackUnavailableSelection() {
+    const id = this.binding?.subject.savedViewId;
+    if (id && this.resources.get(id)?.status === "unavailable") {
+      this.binding?.unavailable();
       this.publish({
-        list: "ready",
-        resources: freeze(structuredClone(resources)),
-        refreshing: false,
-        listProblem: null,
-        observation:
-          this.transport === null && this.write === null ? generation : null,
+        notice:
+          "The selected saved view is no longer available. Showing the base surface with your working configuration.",
       });
-      if (this.binding) this.ensureDraft(this.binding.subject);
+    }
+  }
+  private cancelRead() {
+    ++this.resourceReadGeneration;
+    this.resources.invalidate();
+    this.discovery.invalidate();
+    ++this.activationGeneration;
+    this.resources.retain("activation", null);
+    this.publish({ activationId: null, refreshing: false });
+  }
+  refresh = async () => {
+    if (!this.current()) return;
+    const generation = ++this.resourceReadGeneration;
+    const op = this.state.operation;
+    const id =
+      op.kind !== "idle" && op.kind !== "reviewed"
+        ? op.kind === "confirmed"
+          ? op.resource?.saved_view_id
+          : op.attempt.base?.saved_view_id
+        : this.binding?.subject.savedViewId;
+    this.publish({ observation: null, resourceProblem: null });
+    if (!id || (op.kind === "confirmed" && op.attempt.kind === "delete"))
       return;
-    }
-    const failure =
-      outcome.kind === "completed" && outcome.value.kind !== "accepted"
-        ? outcome.value.failure
-        : {
-            kind: "transport" as const,
-            message:
-              "Saved-view list observation could not finish. Try refreshing the list.",
-          };
+    this.publish({ refreshing: true });
+    const epoch = this.epoch;
+    const resource = await this.resources.read(id);
+    if (epoch !== this.epoch || generation !== this.resourceReadGeneration)
+      return;
+    const observation = this.resources.get(id);
     this.publish({
-      list: this.state.list === "ready" ? "ready" : "unavailable",
       refreshing: false,
-      listProblem: failure,
-      observation: null,
+      resourceProblem: observation?.problem ?? null,
+      observation:
+        resource && !this.transport && !this.write
+          ? (observation?.revision ?? null)
+          : null,
     });
-    if (
-      [
-        "authentication_required",
-        "authorization_denied",
-        "unavailable_target",
-      ].includes(failure.kind)
-    ) {
-      this.publish({ access: "unavailable" });
-      if (revalidateAccess) void this.recheckAccess();
-    }
+    if (this.binding) this.ensureDraft(this.binding.subject);
   };
-  canReview = (attemptId: number, observation: number | null) => {
+  canReview = (attemptId: number, _observation?: number | null) => {
     const operation = this.state.operation;
     return (
       this.current() &&
       this.state.access === "ready" &&
       !this.transport &&
       !this.write &&
-      !this.read &&
-      observation !== null &&
-      observation === this.state.observation &&
       ["conflict", "uncertain", "rejected"].includes(operation.kind) &&
       operation.kind !== "idle" &&
       operation.attempt.id === attemptId
@@ -804,13 +900,12 @@ export class WorkbookSavedViewController {
       return;
     }
     const observed = attempt.base
-      ? this.state.resources.find(
-          (r) => r.saved_view_id === attempt.base?.saved_view_id,
-        )
+      ? this.resources.get(attempt.base.saved_view_id)?.resource
       : null;
     if (
       choice === "apply" &&
-      ((attempt.kind !== "update" && attempt.kind !== "delete") ||
+      (!this.canApplyReview(attemptId, observation) ||
+        (attempt.kind !== "update" && attempt.kind !== "delete") ||
         !observed ||
         !canMutateSavedView(
           observed,
@@ -874,19 +969,28 @@ export class WorkbookSavedViewController {
         reviewName: null,
       });
   };
-  openConfirmed = () => {
-    const operation = this.state.operation;
-    if (
-      operation.kind !== "confirmed" ||
-      !operation.resource ||
-      !this.current() ||
-      !this.visible(operation.resource)
-    )
-      return;
-    const current = this.state.resources.find(
-      (r) => r.saved_view_id === operation.resource?.saved_view_id,
+  canApplyReview = (attemptId: number, observation: number | null) => {
+    const op = this.state.operation;
+    const id =
+      op.kind === "idle" ? null : (op.attempt.base?.saved_view_id ?? null);
+    const current = this.resources.get(id);
+    return (
+      this.canReview(attemptId) &&
+      observation !== null &&
+      observation === this.state.observation &&
+      observation === current?.revision &&
+      current.status === "ready" &&
+      !current.pending &&
+      !current.problem
     );
-    if (current) this.binding?.select(current);
+  };
+  openConfirmed = async () => {
+    const operation = this.state.operation;
+    if (operation.kind === "confirmed" && operation.resource && this.current())
+      await this.activateResource(
+        operation.resource.saved_view_id,
+        operation.resource.view_schema_id,
+      );
   };
   retire = () => {
     this.epoch += 1;
@@ -897,6 +1001,8 @@ export class WorkbookSavedViewController {
     this.write = null;
     this.transport = null;
     this.binding = null;
+    this.resources.clear();
+    this.discovery.clear();
     this.publish(initial());
   };
   dispose = () => {

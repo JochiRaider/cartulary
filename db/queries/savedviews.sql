@@ -81,6 +81,61 @@ WHERE sv.incident_id = $1
 ORDER BY sv.updated_at DESC, sv.saved_view_id ASC
 LIMIT $6;
 
+-- name: ListVisibleSavedViewsForSchema :many
+SELECT
+    sv.saved_view_id,
+    sv.incident_id,
+    sv.view_schema_id,
+    sv.scope,
+    sv.display_name,
+    sv.query_json,
+    sv.layout_json,
+    sv.owner_user_id,
+    sv.created_at,
+    sv.updated_at,
+    sv.saved_view_version
+FROM saved_views sv
+JOIN incident_memberships m
+  ON m.incident_id = sv.incident_id
+ AND m.user_id = $2
+WHERE sv.incident_id = $1
+  AND sv.view_schema_id = $7
+  AND (
+      sv.scope IN ('shared', 'system')
+      OR sv.owner_user_id = $2
+      OR m.role = 'admin'
+  )
+  AND ($3::timestamptz IS NULL OR sv.updated_at <= $3)
+  AND ($4::timestamptz IS NULL OR $5::uuid IS NULL OR sv.updated_at < $4 OR (sv.updated_at = $4 AND sv.saved_view_id > $5))
+ORDER BY sv.updated_at DESC, sv.saved_view_id ASC
+LIMIT $6;
+
+-- name: GetVisibleSavedView :one
+SELECT
+    sv.saved_view_id,
+    sv.incident_id,
+    sv.view_schema_id,
+    sv.scope,
+    sv.display_name,
+    sv.query_json,
+    sv.layout_json,
+    sv.owner_user_id,
+    sv.created_at,
+    sv.updated_at,
+    sv.saved_view_version
+FROM saved_views sv
+JOIN incident_memberships m
+  ON m.incident_id = sv.incident_id
+ AND m.user_id = $3
+WHERE sv.incident_id = $1
+  AND sv.saved_view_id = $2
+  AND (
+      sv.scope IN ('shared', 'system')
+      OR sv.owner_user_id = $3
+      OR m.role = 'admin'
+  )
+;
+
 -- name: GetVisibleSavedViewForUpdate :one
 SELECT
     sv.saved_view_id,

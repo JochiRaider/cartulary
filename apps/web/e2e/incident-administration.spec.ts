@@ -927,13 +927,14 @@ test("Verify saved views appear only under the active surface's view selector an
     savedViewSelectorTestId(hostsViewSchemaId),
   );
   await expect(hostSelector).toHaveCount(1);
+  await hostSelector.click();
   await expect(
-    hostSelector.getByTestId(
+    page.getByTestId(
       savedViewOptionTestId(hostsViewSchemaId, hostSavedView.saved_view_id),
     ),
   ).toHaveAttribute("data-view-schema-id", hostsViewSchemaId);
   await expect(
-    hostSelector.getByTestId(
+    page.getByTestId(
       savedViewOptionTestId(
         hostsViewSchemaId,
         indicatorSavedView.saved_view_id,
@@ -982,8 +983,9 @@ test("Verify saved views appear only under the active surface's view selector an
     savedViewSelectorTestId(indicatorsViewSchemaId),
   );
   await expect(indicatorSelector).toHaveCount(1);
+  await indicatorSelector.click();
   await expect(
-    indicatorSelector.getByTestId(
+    page.getByTestId(
       savedViewOptionTestId(
         indicatorsViewSchemaId,
         indicatorSavedView.saved_view_id,
@@ -991,7 +993,7 @@ test("Verify saved views appear only under the active surface's view selector an
     ),
   ).toHaveAttribute("data-saved-view-id", indicatorSavedView.saved_view_id);
   await expect(
-    indicatorSelector.getByTestId(
+    page.getByTestId(
       savedViewOptionTestId(
         indicatorsViewSchemaId,
         indicatorSystemSavedView.saved_view_id,
@@ -1002,7 +1004,7 @@ test("Verify saved views appear only under the active surface's view selector an
     indicatorSystemSavedView.saved_view_id,
   );
   await expect(
-    indicatorSelector.getByTestId(
+    page.getByTestId(
       savedViewOptionTestId(
         indicatorsViewSchemaId,
         hostSavedView.saved_view_id,
@@ -1015,7 +1017,14 @@ test("Verify saved views appear only under the active surface's view selector an
     incidentId,
     indicatorsViewSchemaId,
   );
-  await indicatorSelector.selectOption(indicatorSystemSavedView.saved_view_id);
+  await page
+    .getByTestId(
+      savedViewOptionTestId(
+        indicatorsViewSchemaId,
+        indicatorSystemSavedView.saved_view_id,
+      ),
+    )
+    .click();
   await selectedSavedViewQuery;
   await expect(indicatorSelector).toHaveAttribute(
     "data-selected-sheet-ref-kind",

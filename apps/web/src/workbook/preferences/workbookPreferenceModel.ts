@@ -85,6 +85,7 @@ export type PreferenceSurface = Readonly<{
   available: boolean;
 }>;
 export type PreferenceSnapshot = Readonly<{
+  inspectionActive: boolean;
   authority: PreferenceAuthority | null;
   access: "checking" | "ready" | "unavailable";
   home: PreferenceSlot<"home">;

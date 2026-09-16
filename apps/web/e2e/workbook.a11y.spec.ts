@@ -8891,3 +8891,206 @@ test("a11y.evidence-file-recovery keeps stage recovery local reachable and keybo
     ]?.value,
   ).toBe(1);
 });
+
+test("a11y.saved-view-discovery keyboard activation dismissal scope and bounded layout survive density zoom and text spacing", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("SVDA11Y"),
+    "Saved-view discovery accessibility",
+  );
+  const longName = "A long saved-view name for investigation continuity "
+    .repeat(4)
+    .trim();
+  const created = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        display_name: longName,
+        scope: "shared",
+        view_schema_id: timelineViewSchemaId,
+        query_json: {
+          sort: [],
+          filters: [],
+          group_by: "timeline.capture_state",
+        },
+        layout_json: {},
+      },
+    },
+  );
+  expect(created.status()).toBe(201);
+  const saved = (await created.json()).data;
+  const before = (
+    await (
+      await page.request.get(`${apiBase}/api/v1/account/preferences`)
+    ).json()
+  ).data;
+  try {
+    for (const density of ["compact", "default", "comfortable"]) {
+      const current = (
+        await (
+          await page.request.get(`${apiBase}/api/v1/account/preferences`)
+        ).json()
+      ).data;
+      expect(
+        (
+          await page.request.put(`${apiBase}/api/v1/account/preferences`, {
+            headers: await csrfHeaders(page),
+            data: {
+              base_preferences_version: current.preferences_version,
+              client_txn_id: uniqueTxn("svd-density"),
+              density_mode: density,
+            },
+          })
+        ).ok(),
+      ).toBe(true);
+      await page.goto(`/?incident_id=${incidentId}`);
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+      for (const width of [1440, 768]) {
+        await page.setViewportSize({ width, height: 900 });
+        const trigger = page.getByTestId(
+          savedViewSelectorTestId(timelineViewSchemaId),
+        );
+        await trigger.focus();
+        await trigger.press("Enter");
+        const browser = page.getByRole("dialog", {
+          name: "Saved views",
+          exact: true,
+        });
+        const candidate = browser.getByRole("option", {
+          name: /A long saved-view name/,
+        });
+        await expect(candidate).toBeVisible();
+        await expect(candidate).toContainText("shared");
+        await browser
+          .getByRole("option", { name: "Unsaved view", exact: true })
+          .press("End");
+        await expect(candidate).toBeFocused();
+        await candidate.press("Tab");
+        await expect(
+          browser.getByRole("button", { name: "First", exact: true }),
+        ).toBeFocused();
+        await browser.press("Escape");
+        await expect(trigger).toBeFocused();
+        await expect(trigger).toHaveAttribute(
+          "data-selected-sheet-ref-kind",
+          "view_schema",
+        );
+        await trigger.press("Enter");
+        await expect(candidate).toBeVisible();
+        await candidate.focus();
+        await candidate.press("Space");
+        await expect(trigger).toHaveAttribute(
+          "data-selected-saved-view-id",
+          saved.saved_view_id,
+        );
+        await expect(
+          page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
+        ).toHaveValue("timeline.capture_state");
+        if (width === 1440) {
+          await page
+            .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
+            .selectOption("");
+          const modified = page.getByTestId(
+            savedViewModifiedTestId(timelineViewSchemaId),
+          );
+          await expect(modified).toBeVisible();
+          const triggerBounds = await trigger.boundingBox();
+          const modifiedBounds = await modified.boundingBox();
+          if (!triggerBounds || !modifiedBounds)
+            throw new Error("Saved-view controls are not rendered");
+          expect(triggerBounds.x + triggerBounds.width).toBeLessThanOrEqual(
+            modifiedBounds.x,
+          );
+          await expect(trigger).toContainText("shared");
+        }
+        await trigger.press("Enter");
+        await expect(browser).toBeVisible();
+        const bounds = await browser.boundingBox();
+        expect(bounds).not.toBeNull();
+        if (!bounds) throw new Error("Saved-view browser is not rendered");
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+        await expectAllInteractiveControlsNamed(page);
+        await expectAndRecordContrast(page, [
+          savedViewSelectorTestId(timelineViewSchemaId),
+        ]);
+        await test.info().attach(`saved-view-browser-${density}-${width}`, {
+          body: await page.screenshot({
+            animations: "disabled",
+            caret: "hide",
+          }),
+          contentType: "image/png",
+        });
+        await browser
+          .getByRole("option", { name: "Unsaved view", exact: true })
+          .click();
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.addStyleTag({
+      content:
+        "* {line-height:1.5!important;letter-spacing:0.12em!important;word-spacing:0.16em!important} p {margin-block-end:2em!important}",
+    });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    // At 720 effective CSS pixels the existing shell hides configuration
+    // controls. Exercise the browser at a supported zoomed width instead.
+    await expect(
+      page.getByTestId(workbookResponsiveBandTestId()),
+    ).toHaveAttribute(
+      "data-workbook-responsive-band",
+      "below_supported_minimum",
+    );
+    await page.setViewportSize({ width: 1920, height: 1200 });
+    const trigger = page.getByTestId(
+      savedViewSelectorTestId(timelineViewSchemaId),
+    );
+    await trigger.click();
+    const browser = page.getByRole("dialog", {
+      name: "Saved views",
+      exact: true,
+    });
+    await expect(
+      browser.getByRole("option", { name: /A long saved-view name/ }),
+    ).toBeVisible();
+    const bounds = await browser.boundingBox();
+    const anchor = await trigger.boundingBox();
+    if (!bounds || !anchor)
+      throw new Error("Zoomed saved-view controls are not rendered");
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(1921);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(1201);
+    expect(Math.abs(bounds.y - anchor.y - anchor.height)).toBeLessThan(2);
+    await test.info().attach("saved-view-browser-zoom-spacing", {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+    await browser.press("Escape");
+    await expect(trigger).toBeFocused();
+    // Outside dismissal keeps the newly chosen focus destination.
+    await trigger.click();
+    const grouping = page.getByTestId(
+      gridGroupingSelectTestId(timelineViewSchemaId),
+    );
+    await grouping.click();
+    await expect(browser).toHaveCount(0);
+    await expect(grouping).toBeFocused();
+  } finally {
+    const current = (
+      await (
+        await page.request.get(`${apiBase}/api/v1/account/preferences`)
+      ).json()
+    ).data;
+    await page.request.put(`${apiBase}/api/v1/account/preferences`, {
+      headers: await csrfHeaders(page),
+      data: {
+        base_preferences_version: current.preferences_version,
+        client_txn_id: uniqueTxn("svd-density-restore"),
+        density_mode: before.density_mode,
+      },
+    });
+  }
+});

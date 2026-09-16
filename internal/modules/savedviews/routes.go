@@ -35,6 +35,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 			"createIncidentSavedView": service.handleCollection,
 			"deleteIncidentSavedView": service.handleItem,
 			"listIncidentSavedViews":  service.handleCollection,
+			"getIncidentSavedView":    service.handleItem,
 			"patchIncidentSavedView":  service.handleItem,
 		})
 	}
@@ -110,6 +111,8 @@ func (s *service) handleItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch r.Method {
+	case http.MethodGet:
+		s.handleGet(w, r, incidentID, savedViewID)
 	case http.MethodPatch:
 		s.handlePatch(w, r, incidentID, savedViewID)
 	case http.MethodDelete:
@@ -139,19 +142,15 @@ func (s *service) handleTestSystemCreate(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
+	w.Header().Set("Cache-Control", "no-store")
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
-		r.URL.Query(),
-		"incident.saved-views.list",
-		principal.User.ID.String(),
-		map[string]string{"incident_id": incidentID.String()},
-	)
-	if reasonCode != "" {
-		writeAPIError(w, r, invalidPaginationRequest(reasonCode))
+	binding, cursor, apiErr := resolveSavedViewListRead(s.cursorCodec, r.URL.RawQuery, principal.User.ID.String(), incidentID.String())
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	pageRequest, reasonCode := savedViewListPageRequest(binding, cursor)
@@ -163,6 +162,7 @@ func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	pageRequest.ViewSchemaID = binding.Scope["view_schema_id"]
 	records, err := s.application.listVisible(r.Context(), incidentID, principal.User.ID, pageRequest)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -192,11 +192,40 @@ func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 		}
 		nextToken = &token
 	}
+	w.Header().Set("Cache-Control", "no-store")
 	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"saved_views": rows}, httpapi.PagingMeta{
 		Limit:      binding.Limit,
 		HasMore:    nextToken != nil,
 		NextCursor: nextToken,
 	})
+}
+
+func (s *service) handleGet(w http.ResponseWriter, r *http.Request, incidentID, savedViewID uuid.UUID) {
+	w.Header().Set("Cache-Control", "no-store")
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if apiErr := validateSavedViewDetailQuery(r.URL.RawQuery); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	record, err := s.application.getVisible(r.Context(), incidentID, savedViewID, principal.User.ID)
+	if err != nil {
+		writeAPIError(w, r, savedViewError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildResource(record))
 }
 
 func (s *service) handleCreate(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
@@ -301,7 +330,7 @@ func savedViewListPageRequest(binding pagination.Binding, cursor *pagination.Cur
 		return listPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	lastID, err := uuid.Parse(cursor.Position["last_saved_view_id"])
-	if err != nil {
+	if err != nil || lastUpdatedAt.After(anchor) || len(cursor.Position) != 3 {
 		return listPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	anchor = anchor.UTC()

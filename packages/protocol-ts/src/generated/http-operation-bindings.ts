@@ -615,6 +615,23 @@ export const httpOperationBindings = {
     },
     "response_validation_policy_id": "closed_schema"
   },
+  "getIncidentSavedView": {
+    "method": "GET",
+    "path_template": "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}",
+    "path_parameters": [
+      "incident_id",
+      "saved_view_id"
+    ],
+    "query_parameters": [],
+    "success_statuses": [
+      200
+    ],
+    "response_schema_id": "cartulary.core_http.SavedViewEnvelope.v1",
+    "response_schemas_by_status": {
+      "200": "cartulary.core_http.SavedViewEnvelope.v1"
+    },
+    "response_validation_policy_id": "closed_schema"
+  },
   "getIncidentWorkbookStartup": {
     "method": "GET",
     "path_template": "/api/v1/incidents/{incident_id}/workbook-startup",
@@ -921,7 +938,8 @@ export const httpOperationBindings = {
     ],
     "query_parameters": [
       "cursor_token",
-      "limit"
+      "limit",
+      "view_schema_id"
     ],
     "success_statuses": [
       200
@@ -1798,6 +1816,7 @@ const httpResponseValidators: Partial<Record<HTTPOperationID, ((value: unknown) 
   "getImportUnitPreview": validators.validateCartularyCoreHttpImportPreviewEnvelopeV1,
   "getIncident": validators.validateCartularyCoreHttpIncidentEnvelopeV1,
   "getIncidentDefaultWorkbookPreferences": validators.validateCartularyCoreHttpDefaultWorkbookPreferencesEnvelopeV1,
+  "getIncidentSavedView": validators.validateCartularyCoreHttpSavedViewEnvelopeV1,
   "getIncidentWorkbookStartup": validators.validateCartularyCoreHttpWorkbookStartupEnvelopeV1,
   "getJob": validators.validateCartularyCoreHttpJobEnvelopeV1,
   "getRecordHistory": validators.validateCartularyCoreHttpRecordHistoryEnvelopeV1,
@@ -1898,6 +1917,7 @@ const statusResponseValidators: Partial<Record<HTTPOperationID, Readonly<Record<
   "getImportUnitPreview": {200: validators.validateCartularyCoreHttpImportPreviewEnvelopeV1},
   "getIncident": {200: validators.validateCartularyCoreHttpIncidentEnvelopeV1},
   "getIncidentDefaultWorkbookPreferences": {200: validators.validateCartularyCoreHttpDefaultWorkbookPreferencesEnvelopeV1},
+  "getIncidentSavedView": {200: validators.validateCartularyCoreHttpSavedViewEnvelopeV1},
   "getIncidentWorkbookStartup": {200: validators.validateCartularyCoreHttpWorkbookStartupEnvelopeV1},
   "getJob": {200: validators.validateCartularyCoreHttpJobEnvelopeV1},
   "getRecordHistory": {200: validators.validateCartularyCoreHttpRecordHistoryEnvelopeV1},
@@ -2055,6 +2075,8 @@ export type GetIncidentRequest = undefined;
 export type GetIncidentResponse = IncidentEnvelope;
 export type GetIncidentDefaultWorkbookPreferencesRequest = undefined;
 export type GetIncidentDefaultWorkbookPreferencesResponse = DefaultWorkbookPreferencesEnvelope;
+export type GetIncidentSavedViewRequest = undefined;
+export type GetIncidentSavedViewResponse = SavedViewEnvelope;
 export type GetIncidentWorkbookStartupRequest = undefined;
 export type GetIncidentWorkbookStartupResponse = WorkbookStartupEnvelope;
 export type GetJobRequest = undefined;
@@ -2217,6 +2239,7 @@ export type HTTPOperationRequestMap = {
   readonly "getImportUnitPreview": undefined;
   readonly "getIncident": undefined;
   readonly "getIncidentDefaultWorkbookPreferences": undefined;
+  readonly "getIncidentSavedView": undefined;
   readonly "getIncidentWorkbookStartup": undefined;
   readonly "getJob": undefined;
   readonly "getRecordHistory": undefined;
@@ -2319,6 +2342,7 @@ export type HTTPOperationResponseMap = {
   readonly "getImportUnitPreview": ImportPreviewEnvelope;
   readonly "getIncident": IncidentEnvelope;
   readonly "getIncidentDefaultWorkbookPreferences": DefaultWorkbookPreferencesEnvelope;
+  readonly "getIncidentSavedView": SavedViewEnvelope;
   readonly "getIncidentWorkbookStartup": WorkbookStartupEnvelope;
   readonly "getJob": JobEnvelope;
   readonly "getRecordHistory": RecordHistoryEnvelope;

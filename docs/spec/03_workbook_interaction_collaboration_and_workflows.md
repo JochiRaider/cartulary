@@ -288,6 +288,19 @@ Ordinary saved-view listing MUST return only the saved views visible to the call
 Profiles: base
 Verified by: AC-152, AC-231
 
+**REQ-03-022A**
+The active workbook surface MUST discover saved views using the schema-scoped collection contract independently of selected-resource observation. Discovery MUST publish each accepted page without waiting for later pages and MUST retain one accepted page of at most 50 candidates, at most ten previous page-start cursors, and current/next cursors. It MUST NOT automatically traverse remaining pages. Previous refetches a retained checkpoint; First and Refresh start a new chain. Pending replacement or continuation failure MUST retain the accepted page and provide local retry; a rejected cursor MUST offer First. A terminal later page MUST NOT be described as a complete loaded catalog. Client ordering MUST preserve the server's order.
+
+Closing the browser MUST cancel pending browsing and selection resolution while retaining the accepted page and cursor history for the same authority/schema. Reopening MUST revalidate that page; schema replacement MUST retire discovery. A selected identity/resource, retained operation and inspected preference pointer MUST remain independently addressed and MUST NOT be evicted with candidate pages. These observations remain memory-local and subject to REQ-03-299/100 security lifetimes.
+
+Explicit candidate activation MUST resolve the resource by ID before applying query, layout and identity, and MUST fence completion against newer selection intent or working configuration. Opening, paging, focus movement and background observations MUST NOT apply a saved configuration. Newer accepted saved-resource versions MAY change the saved baseline and Modified comparison but MUST NOT overwrite working edits. Create, Update, Duplicate, Delete and local Reset MUST NOT require complete discovery; their existing authority, scope, version and operation-admission rules remain mandatory.
+
+Partial results, page eviction and transient failures MUST NOT prove resource deletion or trigger fallback. After authoritative resource unavailability and incident-access classification, selected identity MUST fall back to the base schema with a local message while preserving working query/layout. Reads MUST NOT repair preferences; startup fallback and pointer repair remain owned by §2.4. An empty discovery result never removes a contract-backed base surface.
+
+Known-target recovery MUST observe the captured stable resource ID independently of discovery. Only a fresh usable target observation permits applying submitted changes to a reviewed version. A receipt remains confirmed after a read failure. Current resource state or absence MUST NOT establish whether an uncertain write committed. Uncertain creation/duplication has no idempotent replay: matching names/configurations are not receipts, and a new explicitly reviewed create requires acknowledgement that it may duplicate an earlier uncertain create. Ending recovery or creating anew after current-authority review MUST NOT require successful discovery.
+Profiles: base
+Verified by: AC-151A, AC-480A
+
 **REQ-03-023**
 Ordinary saved-view creation MUST default `scope` to `private` when the request omits it. The ordinary public create path MUST reject `scope='system'`.
 Profiles: base
@@ -309,7 +322,7 @@ Profiles: base
 Verified by: AC-152, AC-231
 
 **REQ-03-295**
-The workbook MUST own column order, hidden field keys, and sparse widths by `view_schema_id` using `cartulary.layout.v1`. Selecting or starting on a saved view MUST apply its layout; create, update, and duplicate MUST capture the current semantic layout; dirty comparison MUST include that layout; and reset MUST restore the selected saved-view layout or the schema default when no saved view is selected. The complete nontechnical field permutation remains authoritative even when fields are hidden. Structural grid columns, selection, focus, scroll, expansion, inspector, and vendor state MUST NOT enter the saved layout.
+The workbook MUST own column order, hidden field keys, and sparse widths by `view_schema_id` using `cartulary.layout.v1`. Selecting or starting on a saved view MUST apply its layout; create and update MUST capture the current working semantic layout; duplicate MUST copy the selected saved configuration’s semantic layout under REQ-03-026; dirty comparison MUST include that layout; and reset MUST restore the selected saved-view layout or the schema default when no saved view is selected. The complete nontechnical field permutation remains authoritative even when fields are hidden. Structural grid columns, selection, focus, scroll, expansion, inspector, and vendor state MUST NOT enter the saved layout.
 Profiles: base
 Verified by: AC-480
 

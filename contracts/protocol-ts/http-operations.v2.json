@@ -42,6 +42,7 @@
     "getImportUnitPreview",
     "getIncident",
     "getIncidentDefaultWorkbookPreferences",
+    "getIncidentSavedView",
     "getIncidentWorkbookStartup",
     "getJob",
     "getRecordHistory",

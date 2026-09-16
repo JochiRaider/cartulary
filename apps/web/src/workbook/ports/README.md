@@ -17,7 +17,7 @@ clipboard exception remains private to [adapters](../adapters/README.md).
 | [WorkbookPendingMutationPort.ts](WorkbookPendingMutationPort.ts) | Shared queued create/patch execution capability over committed versions and semantic mutation units. |
 | [WorkbookPortResult.ts](WorkbookPortResult.ts) | Shared accepted/aborted/authentication/authorization/stale/retryable/terminal semantic result union. |
 | [WorkbookPreferencePort.ts](WorkbookPreferencePort.ts) | Current-user and incident-default preference capabilities. |
-| [WorkbookSavedViewPort.ts](WorkbookSavedViewPort.ts) | Explicit saved-view page listing and accepted-response CRUD capabilities. |
+| [WorkbookSavedViewPort.ts](WorkbookSavedViewPort.ts) | Schema-scoped page discovery, addressed authorized resource reads, accepted-response CRUD and the injected cancellable observation capability shared by read/operation owners. |
 | [WorkbookTimelineActionRuntimePort.ts](WorkbookTimelineActionRuntimePort.ts) | Narrow workbook runtime capability required by Timeline action owners. |
 
 WorkbookReferenceReadPort separates record, Party and incident-member identities from presentation. It carries canonical record query metadata and paging without granting mutation admission. Collection item_ref removal remains a separate action contract.

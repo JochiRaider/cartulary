@@ -15,6 +15,7 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | --- | --- |
 | [ActiveSurfaceSavedViewSelector.test.tsx](ActiveSurfaceSavedViewSelector.test.tsx) | Tests saved-view dialog focus restoration and late confirmation after surface changes. |
 | [ActiveSurfaceSavedViewSelector.tsx](ActiveSurfaceSavedViewSelector.tsx) | Saved-view selector for the active workbook surface. |
+| [SavedViewBrowser.tsx](SavedViewBrowser.tsx) | Bounded saved-view discovery, explicit resource activation and keyboard/focus behavior in a compact popover. |
 | [SavedViewActionPanel.tsx](SavedViewActionPanel.tsx) | Saved-view create/update/delete action authoring and review controls. |
 | [WorkbookActiveQueryChips.tsx](WorkbookActiveQueryChips.tsx) | Responsive canonical group/sort/filter chip presentation over semantic command descriptors. |
 | [WorkbookColumnsControl.tsx](WorkbookColumnsControl.tsx) | Registered-focus semantic column visibility, ordering, and reset menu. |

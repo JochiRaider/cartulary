@@ -2,7 +2,7 @@
 
 package openapioperations
 
-const CanonicalSHA256 = "f32a93d7a4ed91203067935e4480cac0f69d2fdd4d735f30b5e9eb5aa1935eae"
+const CanonicalSHA256 = "23f5f25e8ebd0e54381c913237927bb672dcad330785f27b59fef3a68af4556b"
 const DocumentVersion = "2.0.0"
 
 type Operation struct {
@@ -78,6 +78,7 @@ var catalog = []Operation{
 	{OwnerID: "module.savedviews", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}/saved-views", Pattern: "GET /api/v1/incidents/{incident_id}/saved-views", OperationID: "listIncidentSavedViews", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.savedviews", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/saved-views", Pattern: "POST /api/v1/incidents/{incident_id}/saved-views", OperationID: "createIncidentSavedView", Availability: "base", StateChanging: true, SuccessStatuses: []int{201}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.savedviews", Method: "DELETE", PathTemplate: "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", Pattern: "DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", OperationID: "deleteIncidentSavedView", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
+	{OwnerID: "module.savedviews", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", Pattern: "GET /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", OperationID: "getIncidentSavedView", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.savedviews", Method: "PATCH", PathTemplate: "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", Pattern: "PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", OperationID: "patchIncidentSavedView", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.timeline", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile", Pattern: "GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", OperationID: "getTimelineTimeConversionProfile", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.timeline", Method: "PUT", PathTemplate: "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile", Pattern: "PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", OperationID: "putTimelineTimeConversionProfile", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},

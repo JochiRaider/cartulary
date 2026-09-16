@@ -11,6 +11,7 @@ import {
   savedViewDeleteButtonTestId,
   savedViewDuplicateButtonTestId,
   savedViewNameInputTestId,
+  savedViewOptionTestId,
   savedViewScopeSelectTestId,
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
@@ -129,21 +130,13 @@ export async function readSavedView(
   savedViewId: string,
 ): Promise<SavedViewApiResource> {
   const response = await publicHttpOperation({
-    operationID: "listIncidentSavedViews",
-    pathParameters: { incident_id: incidentId },
-    query: { limit: 100 },
+    operationID: "getIncidentSavedView",
+    pathParameters: { incident_id: incidentId, saved_view_id: savedViewId },
     request: atJsonOrigin(page.request, apiBase),
   });
   if (!response.ok)
     throw new Error(`Saved-view read failed: ${response.status}`);
-  const saved = response.payload.data.saved_views.find(
-    (candidate) => candidate.saved_view_id === savedViewId,
-  );
-  if (!saved)
-    throw new Error(
-      `Saved view ${savedViewId} is absent from the fixture page`,
-    );
-  return saved;
+  return response.payload.data;
 }
 
 export async function createSavedView(
@@ -246,11 +239,15 @@ export async function selectSavedView(
   savedViewId: string,
 ) {
   const selector = page.getByTestId(savedViewSelectorTestId(surface));
-  const selectOption = requireSavedViewSelectOption(
-    selector,
-    `selectSavedView(${surface}) requires locator.selectOption() support`,
-  );
-  await selectOption(savedViewId);
+  const expanded = selector.evaluate
+    ? await selector.evaluate(
+        (element) => element.getAttribute("aria-expanded") === "true",
+      )
+    : false;
+  if (!expanded) await selector.click();
+  await page
+    .getByTestId(savedViewOptionTestId(surface, savedViewId || "base"))
+    .click();
 }
 
 export async function readSavedViewSelectionState(

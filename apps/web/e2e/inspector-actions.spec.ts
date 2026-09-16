@@ -610,15 +610,23 @@ test("Verify default-closed inspector state, no-row state, surface switch config
   const sameSurfaceSelector = page.getByTestId(
     savedViewSelectorTestId(timelineViewSchemaId),
   );
+  await sameSurfaceSelector.click();
   await expect(
-    sameSurfaceSelector.getByTestId(
+    page.getByTestId(
       savedViewOptionTestId(
         timelineViewSchemaId,
         timelineSavedView.saved_view_id,
       ),
     ),
   ).toHaveAttribute("data-view-schema-id", timelineViewSchemaId);
-  await sameSurfaceSelector.selectOption(timelineSavedView.saved_view_id);
+  await page
+    .getByTestId(
+      savedViewOptionTestId(
+        timelineViewSchemaId,
+        timelineSavedView.saved_view_id,
+      ),
+    )
+    .click();
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await openTimelineInspector(page, timelineSeed.record_id);
   await expect(

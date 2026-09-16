@@ -118,10 +118,12 @@
         "file": "apps/web/src/workbook/components/ActiveSurfaceSavedViewSelector.test.tsx",
         "titles": [
           "ActiveSurfaceSavedViewSelector associates name validation and permits editing an invalid generated copy name",
-          "ActiveSurfaceSavedViewSelector falls back from invalid selection with local notice while preserving list publication",
-          "ActiveSurfaceSavedViewSelector keeps write confirmation local when complete-list refresh fails",
+          "ActiveSurfaceSavedViewSelector browses without applying configuration and restores trigger focus on Escape",
+          "ActiveSurfaceSavedViewSelector falls back only after an unavailable addressed resource and current access classification",
+          "ActiveSurfaceSavedViewSelector keeps write confirmation local when resource refresh fails",
           "ActiveSurfaceSavedViewSelector preserves system immutability and rechecks permission changes",
           "ActiveSurfaceSavedViewSelector requires explicit duplicate-risk confirmation before a new uncertain create attempt",
+          "ActiveSurfaceSavedViewSelector retains accepted choices through continuation failure with a local exact retry",
           "ActiveSurfaceSavedViewSelector retains late confirmation without reopening the panel or navigating after a surface switch",
           "ActiveSurfaceSavedViewSelector shows submitted and observed conflict configuration and waits for explicit review",
           "ActiveSurfaceSavedViewSelector uses a labelled dialog and restores keyboard focus on Escape"
@@ -3640,6 +3642,38 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.saved_view_independent_reads",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/savedviews/savedViewReads.test.ts",
+        "titles": [
+          "Saved-view independent reads bounds candidates and checkpoints across repeated forward and backward browsing",
+          "Saved-view independent reads distinguishes unavailable resources from failed observations without inferring receipts",
+          "Saved-view independent reads fences older resource reads after receipts deletion and retirement",
+          "Saved-view independent reads preserves committed position on dismissal and fences schema replacement and invalidation",
+          "Saved-view independent reads publishes the first page without traversal and retains it through delayed failed continuation and retry",
+          "Saved-view independent reads rejects cyclic cursors and duplicate candidates without losing the accepted page",
+          "Saved-view independent reads retains selected resources independently and releases unused observations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.saved_view_operation_owner",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3653,6 +3687,7 @@
       "selector": {
         "file": "apps/web/src/workbook/savedviews/WorkbookSavedViewController.test.ts",
         "titles": [
+          "Saved-view operation owner admits all five actions while unrelated discovery fails and retains the selected baseline",
           "Saved-view operation owner bounds access revalidation after a denied list without looping or declaring incident loss",
           "Saved-view operation owner bounds observation keeps the transport lock and accepts an exact late receipt",
           "Saved-view operation owner captures one exact intent and admits one synchronous write",
@@ -3661,15 +3696,19 @@
           "Saved-view operation owner duplicates the canonical source and resets only local configuration",
           "Saved-view operation owner enforces the complete visible scope ownership and role action matrix",
           "Saved-view operation owner falls back after confirmed deletion only when its target remains selected while preserving newer edits",
+          "Saved-view operation owner fences candidate activation by working selection and dismissal generations",
           "Saved-view operation owner fences late callbacks and sensitive state across incident actor and session replacement",
-          "Saved-view operation owner keeps accepted writes confirmed when list materialization fails",
+          "Saved-view operation owner keeps accepted writes confirmed when resource observation fails",
           "Saved-view operation owner keeps invalid duplicate names editable through explicit recovery",
+          "Saved-view operation owner keeps selected identity through page eviction refresh and an older page after confirmed deletion",
           "Saved-view operation owner observes uncertain updates and deletes without inferring receipts or silently repeating writes",
           "Saved-view operation owner permits owner viewers and visible system duplication while denying system mutation",
-          "Saved-view operation owner prevents an older list from overwriting a receipt or resurrecting a deletion",
+          "Saved-view operation owner prevents an older resource read from overwriting a receipt or resurrecting a deletion",
           "Saved-view operation owner rechecks role before dispatch and clears newly hidden private recovery",
+          "Saved-view operation owner releases inspected preference resources while retaining selection and known-target recovery",
           "Saved-view operation owner retains a receipt after presentation detaches without navigation",
           "Saved-view operation owner retains submitted conflict changes and requires current explicit review",
+          "Saved-view operation owner retains working configuration on background version changes and transient resource failure",
           "Saved-view operation owner treats saved-view denial as a resource problem and revalidates incident access",
           "Saved-view operation owner uses authoritative access loss and never publishes a stale access recovery"
         ]
@@ -4870,7 +4909,7 @@
         "titles": [
           "useWorkbookSavedViewController captures exact working changes and preserves newer working edits after acknowledgement",
           "useWorkbookSavedViewController detaches an unmounted workbook while retaining a valid late receipt",
-          "useWorkbookSavedViewController publishes only a complete list and marks unavailable selections after terminal pagination",
+          "useWorkbookSavedViewController retains selected configuration while discovery is incomplete or fails",
           "useWorkbookSavedViewController selects saved query and layout explicitly while Reset never changes identity"
         ]
       },
@@ -5217,6 +5256,7 @@
           "Workbook saved-view adapter preserves typed conflict validation access and uncertain outcomes",
           "Workbook saved-view adapter projects create, patch, and delete requests with CSRF and accepted correlations",
           "Workbook saved-view adapter projects explicit paging and returns only correlated saved-view resources",
+          "Workbook saved-view adapter reads a resource by ID and filters discovery before accepting correlated pages",
           "Workbook saved-view adapter rejects mismatched mutation acknowledgements and system-view mutation locally"
         ]
       },
@@ -5532,7 +5572,7 @@
         "file": "apps/web/src/workbook/models/workbookSavedViewControl.test.ts",
         "titles": [
           "workbookSavedViewControl parses only the editable scope vocabulary",
-          "workbookSavedViewControl projects loading, unavailable, invalid, and surface-filtered ready resources"
+          "workbookSavedViewControl projects selected identity independently through pending failed and unavailable observations"
         ]
       },
       "evidence_class": "unit",
@@ -5605,30 +5645,6 @@
         "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
         "titles": [
           "workbookSavedViewRuntime preserves saved-view sheet_ref and base view_schema identity separately"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.workbook.regression.workbooksavedviewruntime_upserts_saved_views_by_760e4374bd",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
-        "titles": [
-          "workbookSavedViewRuntime upserts saved views by identity and keeps display-name ordering"
         ]
       },
       "evidence_class": "unit",

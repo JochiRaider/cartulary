@@ -840,7 +840,10 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   );
   await expect(
     page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
-  ).toHaveValue(longQuerySavedView.saved_view_id);
+  ).toHaveAttribute(
+    "data-selected-saved-view-id",
+    longQuerySavedView.saved_view_id,
+  );
   await expect(
     page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
   ).toHaveAttribute("data-hidden-query-chip-count", "6");

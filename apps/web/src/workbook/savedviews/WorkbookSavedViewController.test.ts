@@ -49,6 +49,17 @@ async function setup(
 ) {
   let resources = [resource()];
   const ports: WorkbookSavedViewPort = {
+    getResource: vi.fn<WorkbookSavedViewPort["getResource"]>(
+      async ({ savedViewId }) => {
+        const resource = resources.find((r) => r.saved_view_id === savedViewId);
+        return resource
+          ? { kind: "accepted", value: resource }
+          : {
+              kind: "rejected",
+              failure: { kind: "unavailable_target", message: "Unavailable" },
+            };
+      },
+    ),
     listPage: vi.fn<WorkbookSavedViewPort["listPage"]>(async () => ({
       kind: "accepted",
       value: { nextCursor: null, savedViews: resources },
@@ -118,6 +129,7 @@ async function setup(
     applyConfiguration: vi.fn(),
     select: vi.fn(),
     deleted: vi.fn(),
+    unavailable: vi.fn(),
     authorizationRecovered: vi.fn(),
   };
   controller.setBinding(binding);
@@ -147,6 +159,7 @@ function selectSaved(h: Awaited<ReturnType<typeof setup>>, base = resource()) {
     sheetRef: { kind: "saved_view" as const, id: base.saved_view_id },
   };
   h.controller.setBinding(binding);
+  h.controller.acceptResource(base);
   return binding;
 }
 afterEach(() => vi.useRealTimers());
@@ -238,6 +251,37 @@ describe("Saved-view operation owner", () => {
       expect(h.controller.getSnapshot().operation.kind).toBe("idle");
       expect(h.binding.select).not.toHaveBeenCalled();
       expect(h.controller.getSnapshot().drafts.size).toBe(0);
+      h.controller.dispose();
+    }
+    for (const replacement of [
+      { ...authority, incidentId: "incident-2" },
+      { ...authority, actorId: "user-2" },
+      { ...authority, lifetime: "session-2" },
+      null,
+    ]) {
+      const page =
+        deferred<Awaited<ReturnType<WorkbookSavedViewPort["listPage"]>>>();
+      const detail = deferred<SavedViewResult<SavedViewResource>>();
+      const h = await setup();
+      selectSaved(h);
+      vi.mocked(h.ports.listPage).mockReturnValueOnce(page.promise);
+      vi.mocked(h.ports.getResource).mockReturnValueOnce(detail.promise);
+      h.controller.openDiscovery();
+      void h.controller.refresh();
+      if (replacement) h.authority(replacement);
+      else h.controller.dispose();
+      page.resolve({
+        kind: "accepted",
+        value: { savedViews: [resource()], nextCursor: null },
+      });
+      detail.resolve({
+        kind: "accepted",
+        value: resource({ saved_view_version: 9 }),
+      });
+      await settle();
+      expect(h.controller.getSnapshot().discovery.candidates).toHaveLength(0);
+      expect(h.controller.getSnapshot().observations.size).toBe(0);
+      expect(h.binding.select).not.toHaveBeenCalled();
       h.controller.dispose();
     }
   });
@@ -334,7 +378,7 @@ describe("Saved-view operation owner", () => {
     expect(patch).toHaveBeenCalledTimes(1);
     await h.controller.refresh();
     expect(
-      h.controller.canReview(old.operation.attempt.id, old.observation),
+      h.controller.canApplyReview(old.operation.attempt.id, old.observation),
     ).toBe(false);
     const snapshot = h.controller.getSnapshot();
     patch.mockResolvedValueOnce({
@@ -363,50 +407,50 @@ describe("Saved-view operation owner", () => {
     expect(h.binding.applyConfiguration).not.toHaveBeenCalled();
     h.controller.dispose();
   });
-  it("keeps accepted writes confirmed when list materialization fails", async () => {
+  it("keeps accepted writes confirmed when resource observation fails", async () => {
     const h = await setup();
-    vi.mocked(h.ports.listPage).mockResolvedValue({
+    vi.mocked(h.ports.getResource).mockResolvedValue({
       kind: "rejected",
-      failure: { kind: "transport", message: "list failed" },
+      failure: { kind: "transport", message: "read failed" },
     });
     h.controller.run({ kind: "create" }, h.binding.subject);
     await settle();
     expect(h.controller.getSnapshot()).toMatchObject({
       operation: { kind: "confirmed" },
-      list: "ready",
-      listProblem: { kind: "transport" },
+      resourceProblem: { kind: "transport" },
     });
-    expect(
-      h.controller
-        .getSnapshot()
-        .resources.some((r) => r.saved_view_id === "view-new"),
-    ).toBe(true);
+    expect(h.controller.getSnapshot().observations.has("view-new")).toBe(true);
     h.controller.dispose();
   });
-  it("prevents an older list from overwriting a receipt or resurrecting a deletion", async () => {
+  it("prevents an older resource read from overwriting a receipt or resurrecting a deletion", async () => {
     for (const kind of ["update", "delete"] as const) {
       const stale =
-        deferred<Awaited<ReturnType<WorkbookSavedViewPort["listPage"]>>>();
+        deferred<Awaited<ReturnType<WorkbookSavedViewPort["getResource"]>>>();
       const h = await setup();
       const binding = selectSaved(h);
-      vi.mocked(h.ports.listPage).mockReturnValueOnce(stale.promise);
+      vi.mocked(h.ports.getResource).mockReturnValueOnce(stale.promise);
       const oldRead = h.controller.refresh();
       h.controller.changeDraft(binding.subject, { displayName: "Updated" });
       h.controller.run({ kind }, binding.subject);
       await settle();
       stale.resolve({
         kind: "accepted",
-        value: { nextCursor: null, savedViews: [resource()] },
+        value: resource(),
       });
       await oldRead;
       await settle();
       expect(h.controller.getSnapshot().operation.kind).toBe("confirmed");
       if (kind === "delete")
-        expect(h.controller.getSnapshot().resources).toEqual([]);
+        expect(
+          [...h.controller.getSnapshot().observations.values()].every(
+            (o) => o.resource === null,
+          ),
+        ).toBe(true);
       else
-        expect(h.controller.getSnapshot().resources[0]?.display_name).toBe(
-          "Updated",
-        );
+        expect(
+          h.controller.getSnapshot().observations.get("view-1")?.resource
+            ?.display_name,
+        ).toBe("Updated");
       h.controller.dispose();
     }
   });
@@ -418,6 +462,12 @@ describe("Saved-view operation owner", () => {
       queryJson: { sort: [], filters: [], group_by: "timeline.capture_state" },
       workingGeneration: 2,
     });
+    h.controller.run({ kind: "reset" }, binding.subject);
+    expect(h.binding.applyConfiguration).toHaveBeenCalledWith(
+      schema,
+      resource().query_json,
+      resource().layout_json,
+    );
     h.controller.run({ kind: "duplicate" }, binding.subject);
     await settle();
     expect(h.ports.create).toHaveBeenCalledWith(
@@ -429,12 +479,6 @@ describe("Saved-view operation owner", () => {
           layoutJson: resource().layout_json,
         }),
       }),
-    );
-    h.controller.run({ kind: "reset" }, binding.subject);
-    expect(h.binding.applyConfiguration).toHaveBeenCalledWith(
-      schema,
-      resource().query_json,
-      resource().layout_json,
     );
     expect(h.ports.patch).not.toHaveBeenCalled();
     expect(h.ports.delete).not.toHaveBeenCalled();
@@ -478,7 +522,11 @@ describe("Saved-view operation owner", () => {
       expect(h.ports.create).not.toHaveBeenCalled();
       expect(h.ports.patch).not.toHaveBeenCalled();
       expect(h.ports.delete).not.toHaveBeenCalled();
-      expect(h.controller.getSnapshot().resources).toEqual([]);
+      expect(
+        [...h.controller.getSnapshot().observations.values()].every(
+          (o) => o.resource === null,
+        ),
+      ).toBe(true);
       expect(h.controller.getSnapshot().operation.kind).toBe("idle");
       h.controller.dispose();
     }
@@ -548,7 +596,11 @@ describe("Saved-view operation owner", () => {
     h.controller.run({ kind: "create" }, h.binding.subject);
     await settle();
     expect(h.lost).toHaveBeenCalledWith("incident", authority);
-    expect(h.controller.getSnapshot().resources).toEqual([]);
+    expect(
+      [...h.controller.getSnapshot().observations.values()].every(
+        (o) => o.resource === null,
+      ),
+    ).toBe(true);
     expect(h.ports.create).not.toHaveBeenCalled();
     h.controller.dispose();
   });
@@ -684,12 +736,162 @@ describe("Saved-view operation owner", () => {
       kind: "rejected",
       failure: { kind: "authorization_denied", message: "List denied" },
     });
-    await h.controller.refresh();
+    h.controller.openDiscovery();
     await settle();
     expect(h.recover).toHaveBeenCalledTimes(1);
     expect(h.lost).not.toHaveBeenCalled();
-    expect(h.controller.getSnapshot().access).toBe("unavailable");
-    expect(h.ports.listPage).toHaveBeenCalledTimes(3);
+    expect(h.controller.getSnapshot().access).toBe("ready");
+    expect(h.ports.listPage).toHaveBeenCalledTimes(1);
+    h.controller.dispose();
+  });
+  it("admits all five actions while unrelated discovery fails and retains the selected baseline", async () => {
+    for (const kind of [
+      "create",
+      "update",
+      "duplicate",
+      "delete",
+      "reset",
+    ] as const) {
+      const h = await setup({
+        listPage: vi.fn<WorkbookSavedViewPort["listPage"]>(async () => ({
+          kind: "rejected",
+          failure: { kind: "transport", message: "Discovery offline" },
+        })),
+      });
+      const binding = selectSaved(h);
+      h.controller.openDiscovery();
+      await settle();
+      expect(h.controller.getSnapshot().discovery.problem?.kind).toBe(
+        "transport",
+      );
+      expect(h.controller.unavailableReason(kind, binding.subject)).toBeNull();
+      h.controller.run({ kind }, binding.subject);
+      await settle();
+      if (kind === "reset")
+        expect(binding.applyConfiguration).toHaveBeenCalledOnce();
+      else expect(h.controller.getSnapshot().operation.kind).toBe("confirmed");
+      expect(h.ports.listPage).toHaveBeenCalledTimes(1);
+      h.controller.dispose();
+    }
+  });
+  it("fences candidate activation by working selection and dismissal generations", async () => {
+    for (const change of ["working", "selection", "dismiss", "none"] as const) {
+      const h = await setup();
+      const binding = selectSaved(h);
+      const pending = deferred<SavedViewResult<SavedViewResource>>();
+      vi.mocked(h.ports.getResource).mockReturnValueOnce(pending.promise);
+      const activation = h.controller.activateResource("candidate", schema);
+      expect(binding.select).not.toHaveBeenCalled();
+      expect(
+        h.controller.getSnapshot().observations.get("view-1")?.resource,
+      ).toEqual(resource());
+      if (change === "working")
+        h.controller.setBinding({
+          ...binding,
+          workingGeneration: binding.workingGeneration + 1,
+        });
+      if (change === "selection")
+        h.controller.setBinding({
+          ...h.binding,
+          selectionGeneration: binding.selectionGeneration + 1,
+        });
+      if (change === "dismiss") h.controller.closeDiscovery();
+      pending.resolve({
+        kind: "accepted",
+        value: resource({ saved_view_id: "candidate" }),
+      });
+      await activation;
+      expect(binding.select).toHaveBeenCalledTimes(change === "none" ? 1 : 0);
+      expect(h.controller.getSnapshot().activationId).toBeNull();
+      h.controller.dispose();
+    }
+  });
+  it("keeps selected identity through page eviction refresh and an older page after confirmed deletion", async () => {
+    const h = await setup({
+      listPage: vi.fn<WorkbookSavedViewPort["listPage"]>(
+        async ({ cursorToken }) => ({
+          kind: "accepted",
+          value: {
+            savedViews: [
+              resource({ saved_view_id: cursorToken ?? "candidate" }),
+            ],
+            nextCursor: cursorToken ? null : "next",
+          },
+        }),
+      ),
+    });
+    const binding = selectSaved(h);
+    h.controller.openDiscovery();
+    await settle();
+    await h.controller.discovery.next();
+    expect(
+      h.controller.getSnapshot().observations.get("view-1")?.resource,
+    ).toEqual(resource());
+    const late =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["listPage"]>>>();
+    vi.mocked(h.ports.listPage).mockReturnValueOnce(late.promise);
+    const refresh = h.controller.discovery.first();
+    h.controller.run({ kind: "delete" }, binding.subject);
+    await settle();
+    late.resolve({
+      kind: "accepted",
+      value: { savedViews: [resource()], nextCursor: null },
+    });
+    await refresh;
+    expect(
+      h.controller
+        .getSnapshot()
+        .discovery.candidates.some((r) => r.saved_view_id === "view-1"),
+    ).toBe(false);
+    expect(h.controller.getSnapshot().observations.get("view-1")?.status).toBe(
+      "unavailable",
+    );
+    expect(binding.deleted).toHaveBeenCalledOnce();
+    h.controller.dispose();
+  });
+  it("retains working configuration on background version changes and transient resource failure", async () => {
+    const h = await setup();
+    const binding = selectSaved(h);
+    h.resources([
+      resource({ saved_view_version: 2, display_name: "New saved name" }),
+    ]);
+    await h.controller.refresh();
+    expect(
+      h.controller.getSnapshot().observations.get("view-1")?.resource
+        ?.saved_view_version,
+    ).toBe(2);
+    expect(h.controller.getSnapshot().notice).toContain(
+      "working query and layout are unchanged",
+    );
+    expect(binding.applyConfiguration).not.toHaveBeenCalled();
+    vi.mocked(h.ports.getResource).mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "transport", message: "Offline" },
+    });
+    await h.controller.refresh();
+    expect(binding.unavailable).not.toHaveBeenCalled();
+    expect(
+      h.controller.getSnapshot().observations.get("view-1")?.resource
+        ?.saved_view_version,
+    ).toBe(2);
+    h.controller.dispose();
+  });
+  it("releases inspected preference resources while retaining selection and known-target recovery", async () => {
+    const h = await setup();
+    selectSaved(h);
+    h.resources([
+      resource(),
+      resource({ saved_view_id: "home" }),
+      resource({ saved_view_id: "default" }),
+    ]);
+    h.controller.observePreference("home", "home");
+    h.controller.observePreference("default", "default");
+    await settle();
+    expect(h.controller.getSnapshot().observations.size).toBe(3);
+    h.controller.observePreference("home", null);
+    h.controller.observePreference("default", null);
+    expect(h.controller.getSnapshot().observations.size).toBe(1);
+    expect(h.ports.listPage).not.toHaveBeenCalled();
     h.controller.dispose();
   });
 });

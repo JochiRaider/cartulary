@@ -82,6 +82,7 @@ type listPosition struct {
 }
 
 type listPageRequest struct {
+	ViewSchemaID    string
 	AnchorUpdatedAt *time.Time
 	After           *listPosition
 	Limit           int
@@ -141,7 +142,16 @@ func (s *postgresSavedViewRepository) listVisible(ctx context.Context, incidentI
 		params.Column4 = pgtype.Timestamptz{Time: page.After.UpdatedAt.UTC(), Valid: true}
 		params.Column5 = pgUUID(page.After.SavedViewID)
 	}
-	rows, err := sqlc.New(s.pool).ListVisibleSavedViews(ctx, params)
+	var rows []sqlc.SavedView
+	var err error
+	if page.ViewSchemaID == "" {
+		rows, err = sqlc.New(s.pool).ListVisibleSavedViews(ctx, params)
+	} else {
+		rows, err = sqlc.New(s.pool).ListVisibleSavedViewsForSchema(ctx, sqlc.ListVisibleSavedViewsForSchemaParams{
+			IncidentID: params.IncidentID, UserID: params.UserID, Column3: params.Column3,
+			Column4: params.Column4, Column5: params.Column5, Limit: params.Limit, ViewSchemaID: page.ViewSchemaID,
+		})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("list visible saved views: %w", err)
 	}
@@ -154,6 +164,19 @@ func (s *postgresSavedViewRepository) listVisible(ctx context.Context, incidentI
 		records = append(records, record)
 	}
 	return records, nil
+}
+
+func (s *postgresSavedViewRepository) getVisible(ctx context.Context, incidentID, savedViewID, userID uuid.UUID) (savedViewRecord, error) {
+	row, err := sqlc.New(s.pool).GetVisibleSavedView(ctx, sqlc.GetVisibleSavedViewParams{
+		IncidentID: pgUUID(incidentID), SavedViewID: pgUUID(savedViewID), UserID: pgUUID(userID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return savedViewRecord{}, errSavedViewNotFound
+	}
+	if err != nil {
+		return savedViewRecord{}, fmt.Errorf("read visible saved view: %w", err)
+	}
+	return recordFromSQL(row)
 }
 
 func (s *postgresSavedViewRepository) getVisibleForUpdate(ctx context.Context, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (savedViewRecord, error) {

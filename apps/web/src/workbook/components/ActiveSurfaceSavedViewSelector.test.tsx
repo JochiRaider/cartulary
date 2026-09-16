@@ -10,7 +10,6 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import { useLayoutEffect, useSyncExternalStore } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -49,9 +48,9 @@ function Harness({
     controller.subscribe,
     controller.getSnapshot,
   );
-  const selected = snapshot.resources.find(
-    (r) => r.saved_view_id === selectedId,
-  );
+  const selected = selectedId
+    ? snapshot.observations.get(selectedId)?.resource
+    : null;
   const sheetRef =
     selectedId === null
       ? { kind: "view_schema" as const, id: schema }
@@ -72,6 +71,7 @@ function Harness({
       applyConfiguration: vi.fn(),
       select: onSelect,
       deleted: () => onBase(schema),
+      unavailable: () => onBase(schema),
       authorizationRecovered: vi.fn(),
     });
   });
@@ -84,19 +84,12 @@ function Harness({
       currentIncidentRole={snapshot.authority?.role ?? null}
       currentUserId={snapshot.authority?.actorId ?? null}
       isModified
-      savedViewsResource={
-        snapshot.list === "ready"
-          ? workbookSavedViewsResource(snapshot.resources, sheetRef)
-          : snapshot.list === "loading"
-            ? { kind: "loading" }
-            : {
-                kind: "unavailable",
-                message: snapshot.listProblem?.message ?? "Unavailable",
-              }
-      }
+      savedViewsResource={workbookSavedViewsResource(
+        selectedId ? snapshot.observations.get(selectedId) : undefined,
+        sheetRef,
+      )}
       selectedSheetRef={sheetRef}
       onSelectBaseSurface={onBase}
-      onSelectSavedView={onSelect}
     />
   );
 }
@@ -106,6 +99,17 @@ async function setup(
 ) {
   let list = resources;
   const port: WorkbookSavedViewPort = {
+    getResource: vi.fn<WorkbookSavedViewPort["getResource"]>(
+      async ({ savedViewId }) => {
+        const resource = list.find((r) => r.saved_view_id === savedViewId);
+        return resource
+          ? { kind: "accepted", value: resource }
+          : {
+              kind: "rejected",
+              failure: { kind: "unavailable_target", message: "Unavailable" },
+            };
+      },
+    ),
     listPage: vi.fn<WorkbookSavedViewPort["listPage"]>(async () => ({
       kind: "accepted",
       value: { nextCursor: null, savedViews: list },
@@ -128,7 +132,11 @@ async function setup(
   const controller = createSavedViewTestController(port);
   const onSelect = vi.fn();
   const view = render(<Harness controller={controller} onSelect={onSelect} />);
-  await waitFor(() => expect(controller.getSnapshot().list).toBe("ready"));
+  await waitFor(() =>
+    expect(
+      controller.getSnapshot().observations.get(saved.saved_view_id)?.status,
+    ).toBe("ready"),
+  );
   return { ...view, controller, port, onSelect };
 }
 function open(schema = surface) {
@@ -187,10 +195,10 @@ describe("ActiveSurfaceSavedViewSelector", () => {
     expect(button("Open confirmed saved view")).toBeTruthy();
     h.controller.dispose();
   });
-  it("keeps write confirmation local when complete-list refresh fails", async () => {
+  it("keeps write confirmation local when resource refresh fails", async () => {
     const h = await setup();
     open();
-    vi.mocked(h.port.listPage).mockResolvedValue({
+    vi.mocked(h.port.getResource).mockResolvedValue({
       kind: "rejected",
       failure: { kind: "transport", message: "List offline" },
     });
@@ -199,7 +207,7 @@ describe("ActiveSurfaceSavedViewSelector", () => {
       expect(screen.getByText(/The write is confirmed/)).toBeTruthy(),
     );
     expect(h.controller.getSnapshot().operation.kind).toBe("confirmed");
-    expect(button("Refresh saved views for review")).toBeTruthy();
+    expect(button("Refresh saved resource for review")).toBeTruthy();
     h.controller.dispose();
   });
   it("requires explicit duplicate-risk confirmation before a new uncertain create attempt", async () => {
@@ -218,7 +226,7 @@ describe("ActiveSurfaceSavedViewSelector", () => {
     open();
     fireEvent.click(button("Save current configuration as new view"));
     await waitFor(() =>
-      expect(h.controller.getSnapshot().observation).not.toBeNull(),
+      expect(h.controller.getSnapshot().operation.kind).toBe("uncertain"),
     );
     expect(h.controller.getSnapshot().operation.kind).toBe("uncertain");
     expect(
@@ -272,18 +280,13 @@ describe("ActiveSurfaceSavedViewSelector", () => {
         }),
     });
     open();
-    vi.mocked(h.port.listPage).mockResolvedValue({
+    vi.mocked(h.port.getResource).mockResolvedValue({
       kind: "accepted",
-      value: {
-        nextCursor: null,
-        savedViews: [
-          savedViewTestResource({
-            display_name: "Their edit",
-            saved_view_version: 2,
-            updated_at: "2026-08-01T00:01:00Z",
-          }),
-        ],
-      },
+      value: savedViewTestResource({
+        display_name: "Their edit",
+        saved_view_version: 2,
+        updated_at: "2026-08-01T00:01:00Z",
+      }),
     });
     fireEvent.change(screen.getByLabelText("Saved view name"), {
       target: { value: "My draft" },
@@ -362,7 +365,7 @@ describe("ActiveSurfaceSavedViewSelector", () => {
     );
     h.controller.dispose();
   });
-  it("falls back from invalid selection with local notice while preserving list publication", async () => {
+  it("falls back only after an unavailable addressed resource and current access classification", async () => {
     const h = await setup();
     const onBase = vi.fn();
     h.rerender(
@@ -377,12 +380,79 @@ describe("ActiveSurfaceSavedViewSelector", () => {
       "textContent",
       expect.stringContaining("no longer available"),
     );
-    expect(
-      within(screen.getByRole("combobox", { name: "Saved view" })).getByRole(
-        "option",
-        { name: saved.display_name },
-      ),
-    ).toBeTruthy();
+    expect(h.port.listPage).not.toHaveBeenCalled();
+    h.controller.dispose();
+  });
+  it("browses without applying configuration and restores trigger focus on Escape", async () => {
+    const h = await setup();
+    expect(h.port.listPage).not.toHaveBeenCalled();
+    const trigger = button("Saved view");
+    fireEvent.click(trigger);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("option", { name: /Timeline view/ }),
+      ).toBeTruthy(),
+    );
+    const base = screen.getByRole("option", { name: "Unsaved view" });
+    fireEvent.keyDown(base, { key: "End" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: /Timeline view/ }),
+    );
+    expect(h.onSelect).not.toHaveBeenCalled();
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Saved views" })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(trigger.textContent).toContain(saved.display_name);
+    expect(h.port.listPage).toHaveBeenCalledTimes(1);
+    h.controller.dispose();
+  });
+  it("retains accepted choices through continuation failure with a local exact retry", async () => {
+    const h = await setup({
+      listPage: vi
+        .fn<WorkbookSavedViewPort["listPage"]>()
+        .mockResolvedValueOnce({
+          kind: "accepted",
+          value: { savedViews: [saved], nextCursor: "next" },
+        })
+        .mockResolvedValueOnce({
+          kind: "rejected",
+          failure: { kind: "transport", message: "Continuation offline" },
+        })
+        .mockResolvedValueOnce({
+          kind: "accepted",
+          value: {
+            savedViews: [
+              {
+                ...saved,
+                saved_view_id: "next-view",
+                display_name: "Next view",
+              },
+            ],
+            nextCursor: null,
+          },
+        }),
+    });
+    fireEvent.click(button("Saved view"));
+    await waitFor(() =>
+      expect(button("Next")).not.toHaveProperty("disabled", true),
+    );
+    fireEvent.click(button("Next"));
+    await waitFor(() => expect(button("Retry page")).toBeTruthy());
+    expect(screen.getAllByText(/Continuation offline/)).toHaveLength(1);
+    expect(screen.getByRole("option", { name: /Timeline view/ })).toBeTruthy();
+    expect(button("Saved view").textContent).toContain(saved.display_name);
+    fireEvent.click(button("Retry page"));
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /Next view/ })).toBeTruthy(),
+    );
+    expect(h.port.listPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        cursorToken: "next",
+        limit: 50,
+        viewSchemaId: surface,
+      }),
+    );
+    expect(h.onSelect).not.toHaveBeenCalled();
     h.controller.dispose();
   });
 });

@@ -1,18 +1,13 @@
 import type { SheetRef } from "../../shared/sheetRef";
 import type { SavedViewResource } from "./workbookSavedViews";
 
-export type WorkbookSavedViewsResource =
-  | { readonly kind: "loading" }
-  | {
-      readonly kind: "ready";
-      readonly savedViews: readonly SavedViewResource[];
-    }
-  | { readonly kind: "unavailable"; readonly message: string }
-  | {
-      readonly kind: "invalid_selection";
-      readonly savedViews: readonly SavedViewResource[];
-      readonly selectedSavedViewId: string;
-    };
+/** Selected-resource projection. Discovery pages never determine identity. */
+export type WorkbookSavedViewsResource = {
+  readonly kind: "loading" | "ready" | "unavailable";
+  readonly selectedSavedView: SavedViewResource | null;
+  readonly selectedSavedViewId: string;
+  readonly message: string | null;
+};
 
 export type SavedViewEditableScope = "private" | "shared";
 
@@ -59,31 +54,37 @@ export type SavedViewControlEvent =
 export type ActiveSurfaceSavedViewProjection = {
   readonly resourceKind: WorkbookSavedViewsResource["kind"];
   readonly resourceMessage: string | null;
-  readonly savedViews: readonly SavedViewResource[];
-  readonly privateSavedViews: readonly SavedViewResource[];
-  readonly sharedSavedViews: readonly SavedViewResource[];
-  readonly systemSavedViews: readonly SavedViewResource[];
   readonly selectedSavedView: SavedViewResource | null;
   readonly selectedSavedViewId: string;
 };
 
 export function workbookSavedViewsResource(
-  savedViews: readonly SavedViewResource[],
+  observation:
+    | import("../savedviews/SavedViewResourceObserver").SavedViewObservation
+    | undefined,
   selectedSheetRef: SheetRef,
 ): WorkbookSavedViewsResource {
-  if (
-    selectedSheetRef.kind === "saved_view" &&
-    !savedViews.some(
-      (savedView) => savedView.saved_view_id === selectedSheetRef.id,
-    )
-  ) {
+  if (selectedSheetRef.kind !== "saved_view")
     return {
-      kind: "invalid_selection",
-      savedViews,
-      selectedSavedViewId: selectedSheetRef.id,
+      kind: "ready",
+      selectedSavedView: null,
+      selectedSavedViewId: "",
+      message: null,
     };
-  }
-  return { kind: "ready", savedViews };
+  return {
+    kind: observation?.resource
+      ? "ready"
+      : observation?.status === "unavailable" || observation?.problem
+        ? "unavailable"
+        : "loading",
+    selectedSavedView: observation?.resource ?? null,
+    selectedSavedViewId: selectedSheetRef.id,
+    message:
+      observation?.problem?.message ??
+      (observation?.pending && !observation.resource
+        ? "Loading selected saved view…"
+        : null),
+  };
 }
 
 export function projectActiveSurfaceSavedViews(
@@ -91,33 +92,18 @@ export function projectActiveSurfaceSavedViews(
   activeViewSchemaId: string,
   selectedSheetRef: SheetRef,
 ): ActiveSurfaceSavedViewProjection {
-  const savedViews =
-    resource.kind === "ready" || resource.kind === "invalid_selection"
-      ? resource.savedViews.filter(
-          (savedView) => savedView.view_schema_id === activeViewSchemaId,
-        )
-      : [];
-  const selectedSavedView =
-    selectedSheetRef.kind === "saved_view"
-      ? (savedViews.find(
-          (savedView) => savedView.saved_view_id === selectedSheetRef.id,
-        ) ?? null)
-      : null;
+  const selected = resource.selectedSavedView;
   return {
     resourceKind: resource.kind,
-    resourceMessage: savedViewResourceMessage(resource),
-    savedViews,
-    privateSavedViews: savedViews.filter(
-      (savedView) => savedView.scope === "private",
-    ),
-    sharedSavedViews: savedViews.filter(
-      (savedView) => savedView.scope === "shared",
-    ),
-    systemSavedViews: savedViews.filter(
-      (savedView) => savedView.scope === "system",
-    ),
-    selectedSavedView,
-    selectedSavedViewId: selectedSavedView?.saved_view_id ?? "",
+    resourceMessage: resource.message,
+    selectedSavedView:
+      selected?.view_schema_id === activeViewSchemaId &&
+      selectedSheetRef.kind === "saved_view" &&
+      selected.saved_view_id === selectedSheetRef.id
+        ? selected
+        : null,
+    selectedSavedViewId:
+      selectedSheetRef.kind === "saved_view" ? selectedSheetRef.id : "",
   };
 }
 
@@ -125,19 +111,4 @@ export function parseSavedViewEditableScope(
   value: string,
 ): SavedViewEditableScope | null {
   return value === "private" || value === "shared" ? value : null;
-}
-
-function savedViewResourceMessage(
-  resource: WorkbookSavedViewsResource,
-): string | null {
-  switch (resource.kind) {
-    case "loading":
-      return "Loading saved views…";
-    case "ready":
-      return null;
-    case "unavailable":
-      return resource.message;
-    case "invalid_selection":
-      return "The selected saved view is no longer available. Showing the base surface.";
-  }
 }

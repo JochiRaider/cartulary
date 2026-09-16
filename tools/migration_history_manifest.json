@@ -254,6 +254,12 @@
       "filename": "00042_timeline_mention_public_identity.sql",
       "sha256": "7926cda9ffeb373df9af5952d002d1a9ac3ac41f10b871e9a39b36c8ea248a7b",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 43,
+      "filename": "00043_saved_views_schema_discovery.sql",
+      "sha256": "bd5988f4fe625ae913d1ab29b695786700313745fd5a49817fb019ed6a614b45",
+      "historical_phase_shaped": false
     }
   ]
 }

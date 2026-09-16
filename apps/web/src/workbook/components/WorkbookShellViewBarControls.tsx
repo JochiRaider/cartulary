@@ -32,14 +32,7 @@ export function workbookShellViewBarWorkingSet({
 
   const { commands, snapshot } = runtime;
   const selectedSheetRef = snapshot.startupSheetRef;
-  const selectedSavedView =
-    selectedSheetRef.kind === "saved_view" &&
-    (snapshot.savedViewsResource.kind === "ready" ||
-      snapshot.savedViewsResource.kind === "invalid_selection")
-      ? (snapshot.savedViewsResource.savedViews.find(
-          (savedView) => savedView.saved_view_id === selectedSheetRef.id,
-        ) ?? null)
-      : null;
+  const selectedSavedView = snapshot.savedViewsResource.selectedSavedView;
   const subjectKey = `${incidentId}:${snapshot.surface}:${sheetRefKey(selectedSheetRef)}:${selectedSavedView?.saved_view_version ?? 0}`;
   return {
     query:
@@ -71,7 +64,6 @@ export function workbookShellViewBarWorkingSet({
       isModified: snapshot.activeSavedViewModified,
       controller: runtime.savedViewOwner,
       onSelectBaseSurface: commands.selectWorkbookSurface,
-      onSelectSavedView: commands.selectSavedView,
       preferenceController,
       onInspectPreferences,
       savedViewsResource: snapshot.savedViewsResource,

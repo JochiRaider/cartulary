@@ -34,6 +34,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "view_schema_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Exact declared view schema identifier; omission lists all visible schemas."
           }
         ],
         "responses": {
@@ -48,7 +58,7 @@
             }
           },
           "400": {
-            "description": "Invalid saved-view pagination request",
+            "description": "Invalid saved-view list query or pagination request",
             "content": {
               "application/json": {
                 "schema": {
@@ -361,6 +371,83 @@
             "sessionCookie": [],
             "csrfCookie": [],
             "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "saved-views"
+        ],
+        "operationId": "getIncidentSavedView",
+        "summary": "Read one independently authorized saved-view configuration.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "saved_view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Visible saved-view resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid singleton read query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Saved view not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
           },
           {
             "bearerSession": []

@@ -7,11 +7,14 @@ import type {
 } from "../models/workbookQuery";
 import type { SavedViewResource } from "../models/workbookSavedViews";
 import type {
+  SavedViewObserver,
   SavedViewProblem,
   WorkbookSavedViewChanges,
   WorkbookSavedViewDefinition,
   WorkbookSavedViewPort,
 } from "../ports/WorkbookSavedViewPort";
+import type { SavedViewDiscoverySnapshot } from "./SavedViewDiscovery";
+import type { SavedViewObservation } from "./SavedViewResourceObserver";
 
 export type SavedViewAuthority = {
   readonly incidentId: string;
@@ -67,10 +70,11 @@ export type SavedViewOperation =
 export type SavedViewSnapshot = {
   readonly authority: SavedViewAuthority | null;
   readonly access: "ready" | "checking" | "unavailable";
-  readonly resources: readonly SavedViewResource[];
-  readonly list: "loading" | "ready" | "unavailable";
+  readonly observations: ReadonlyMap<string, SavedViewObservation>;
+  readonly discovery: SavedViewDiscoverySnapshot;
+  readonly activationId: string | null;
   readonly refreshing: boolean;
-  readonly listProblem: SavedViewProblem | null;
+  readonly resourceProblem: SavedViewProblem | null;
   readonly observation: number | null;
   readonly transportPending: boolean;
   readonly operation: SavedViewOperation;
@@ -94,19 +98,10 @@ export type SavedViewBinding = {
   ) => void;
   readonly select: (resource: SavedViewResource) => void;
   readonly deleted: (resource: SavedViewResource) => void;
+  readonly unavailable: () => void;
   readonly authorizationRecovered: (
     access: Extract<AuthorizationRecoveryResult, { kind: "authorized" }>,
   ) => void;
-};
-export type SavedViewObserver = <T>(
-  request: (signal: AbortSignal) => Promise<T>,
-) => {
-  readonly result: Promise<
-    | { kind: "completed"; value: T }
-    | { kind: "timeout" | "transport" | "cancelled" }
-  >;
-  readonly settled: Promise<void>;
-  readonly cancel: () => void;
 };
 export type SavedViewControllerPorts = {
   readonly port: (authority: SavedViewAuthority) => WorkbookSavedViewPort;
@@ -142,7 +137,7 @@ export function savedViewOutcome(operation: SavedViewOperation): string {
     case "uncertain":
       return "The saved-view outcome is uncertain. The server may have committed the request. Your submitted configuration is retained.";
     case "reviewed":
-      return "Recovery ended by your choice. No receipt was inferred from the observed list.";
+      return "Recovery ended by your choice. No receipt was inferred from the resource observation.";
     case "confirmed": {
       if (operation.attempt.kind === "delete")
         return "Saved view deleted. Source rows are unchanged.";

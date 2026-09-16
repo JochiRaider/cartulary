@@ -147,6 +147,11 @@ func (f *fakeSavedViewRepository) listVisible(context.Context, uuid.UUID, uuid.U
 	panic("unexpected list")
 }
 
+func (f *fakeSavedViewRepository) getVisible(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (savedViewRecord, error) {
+	f.events = append(f.events, "read")
+	return f.current, nil
+}
+
 func (f *fakeSavedViewRepository) getVisibleForUpdate(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (savedViewRecord, error) {
 	panic("unexpected standalone lookup")
 }

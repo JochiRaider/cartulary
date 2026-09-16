@@ -1,7 +1,5 @@
 import {
   savedViewModifiedTestId,
-  savedViewOptionTestId,
-  savedViewSelectorTestId,
   savedViewStatusTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -32,6 +30,7 @@ import { savedViewOutcome } from "../savedviews/savedViewOperationModel";
 import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
 import { SavedViewActionPanel } from "./SavedViewActionPanel";
+import { SavedViewBrowser } from "./SavedViewBrowser";
 
 export type ActiveSurfaceSavedViewSelectorProps = {
   readonly activeViewSchemaId: string;
@@ -43,7 +42,6 @@ export type ActiveSurfaceSavedViewSelectorProps = {
   readonly selectedSheetRef: SheetRef;
   readonly controller: WorkbookSavedViewController;
   readonly onSelectBaseSurface: (viewSchemaId: string) => void;
-  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
   readonly preferenceController?: WorkbookPreferenceController | undefined;
   readonly onInspectPreferences?:
     | ((target?: HTMLElement | null) => void)
@@ -60,7 +58,6 @@ export function ActiveSurfaceSavedViewSelector({
   savedViewsResource,
   selectedSheetRef,
   onSelectBaseSurface,
-  onSelectSavedView,
   preferenceController,
   onInspectPreferences,
 }: ActiveSurfaceSavedViewSelectorProps) {
@@ -138,13 +135,7 @@ export function ActiveSurfaceSavedViewSelector({
         break;
     }
   };
-  const selectorRef = useRef<HTMLSelectElement>(null);
-  useInvalidSavedViewFallback({
-    activeViewSchemaId,
-    dispatch,
-    onSelectBaseSurface,
-    savedViewsResource,
-  });
+  const selectorRef = useRef<HTMLButtonElement>(null);
   const { runAction } = useActiveSurfaceSavedViewActions(controller, subject);
 
   return (
@@ -158,7 +149,6 @@ export function ActiveSurfaceSavedViewSelector({
       dispatch={dispatch}
       isModified={isModified}
       onSelectBaseSurface={onSelectBaseSurface}
-      onSelectSavedView={onSelectSavedView}
       projection={projection}
       runAction={runAction}
       preferenceController={preferenceController}
@@ -166,36 +156,6 @@ export function ActiveSurfaceSavedViewSelector({
       selectorRef={selectorRef}
     />
   );
-}
-
-function useInvalidSavedViewFallback({
-  activeViewSchemaId,
-  dispatch,
-  onSelectBaseSurface,
-  savedViewsResource,
-}: {
-  readonly activeViewSchemaId: string;
-  readonly dispatch: Dispatch<SavedViewControlEvent>;
-  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
-  readonly savedViewsResource: WorkbookSavedViewsResource;
-}) {
-  const handledSelectionRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (savedViewsResource.kind !== "invalid_selection") {
-      handledSelectionRef.current = null;
-      return;
-    }
-    const invalidKey = `${activeViewSchemaId}:${savedViewsResource.selectedSavedViewId}`;
-    if (handledSelectionRef.current === invalidKey) return;
-    handledSelectionRef.current = invalidKey;
-    dispatch({
-      type: "publish_notice",
-      surface: activeViewSchemaId,
-      message:
-        "The selected saved view is no longer available. Showing the base surface.",
-    });
-    onSelectBaseSurface(activeViewSchemaId);
-  }, [activeViewSchemaId, dispatch, onSelectBaseSurface, savedViewsResource]);
 }
 
 function SavedViewControlPresentation({
@@ -208,7 +168,6 @@ function SavedViewControlPresentation({
   dispatch,
   isModified,
   onSelectBaseSurface,
-  onSelectSavedView,
   projection,
   runAction,
   preferenceController,
@@ -224,14 +183,13 @@ function SavedViewControlPresentation({
   readonly dispatch: Dispatch<SavedViewControlEvent>;
   readonly isModified: boolean;
   readonly onSelectBaseSurface: (viewSchemaId: string) => void;
-  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
   readonly projection: ActiveSurfaceSavedViewProjection;
   readonly runAction: (intent: SavedViewActionIntent) => void;
   readonly preferenceController?: WorkbookPreferenceController | undefined;
   readonly onInspectPreferences?:
     | ((target?: HTMLElement | null) => void)
     | undefined;
-  readonly selectorRef: RefObject<HTMLSelectElement | null>;
+  readonly selectorRef: RefObject<HTMLButtonElement | null>;
 }) {
   const condensedControls = chromeMode !== "base";
   const compactControls =
@@ -249,11 +207,11 @@ function SavedViewControlPresentation({
       }}
     >
       <SavedViewSelectionField
+        controller={controller}
         activeViewSchemaId={activeViewSchemaId}
         condensedControls={condensedControls}
         dispatch={dispatch}
         onSelectBaseSurface={onSelectBaseSurface}
-        onSelectSavedView={onSelectSavedView}
         projection={projection}
         selectorRef={selectorRef}
       />
@@ -291,124 +249,48 @@ function SavedViewControlPresentation({
 function SavedViewSelectionField({
   activeViewSchemaId,
   condensedControls,
-  dispatch,
   onSelectBaseSurface,
-  onSelectSavedView,
   projection,
   selectorRef,
+  controller,
 }: {
   readonly activeViewSchemaId: string;
   readonly condensedControls: boolean;
   readonly dispatch: Dispatch<SavedViewControlEvent>;
   readonly onSelectBaseSurface: (viewSchemaId: string) => void;
-  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
   readonly projection: ActiveSurfaceSavedViewProjection;
-  readonly selectorRef: RefObject<HTMLSelectElement | null>;
+  readonly selectorRef: RefObject<HTMLButtonElement | null>;
+  readonly controller: WorkbookSavedViewController;
 }) {
-  const descriptionId = `${savedViewSelectorTestId(activeViewSchemaId)}-description`;
-  const disabled =
-    projection.resourceKind === "loading" ||
-    projection.resourceKind === "unavailable";
   return (
-    <label
+    <div
       style={{
         ...savedViewSelectorFrameStyle,
-        ...(condensedControls || projection.selectedSavedView !== null
+        ...(condensedControls || projection.selectedSavedView
           ? condensedSavedViewSelectorFrameStyle
           : null),
       }}
     >
-      {condensedControls ? null : (
+      {condensedControls || projection.selectedSavedView ? null : (
         <span style={savedViewSelectorLabelStyle}>View:</span>
       )}
-      <select
-        ref={selectorRef}
-        aria-label="Saved view"
-        data-grid-editor-external-action="true"
-        aria-describedby={descriptionId}
-        aria-busy={projection.resourceKind === "loading" || undefined}
-        data-active-view-schema-id={activeViewSchemaId}
-        data-resource-kind={projection.resourceKind}
-        data-selected-saved-view-id={projection.selectedSavedViewId}
-        data-selected-sheet-ref-kind={
-          projection.selectedSavedViewId === "" ? "view_schema" : "saved_view"
-        }
-        data-testid={savedViewSelectorTestId(activeViewSchemaId)}
-        disabled={disabled}
-        style={{
+      <SavedViewBrowser
+        controller={controller}
+        schema={activeViewSchemaId}
+        projection={projection}
+        triggerRef={selectorRef}
+        triggerStyle={{
           ...savedViewSelectStyle,
-          ...(condensedControls ? compactSavedViewSelectStyle : null),
-          ...(!condensedControls && projection.selectedSavedView !== null
-            ? allocatedBaseSavedViewSelectStyle
-            : null),
+          ...(condensedControls
+            ? compactSavedViewSelectStyle
+            : projection.selectedSavedView
+              ? allocatedBaseSavedViewSelectStyle
+              : null),
         }}
-        title={projection.selectedSavedView?.display_name ?? "Unsaved view"}
-        value={projection.selectedSavedViewId}
-        onChange={(event) => {
-          selectSavedView({
-            activeViewSchemaId,
-            dispatch,
-            nextSavedViewId: event.currentTarget.value,
-            onSelectBaseSurface,
-            onSelectSavedView,
-            projection,
-          });
-        }}
-      >
-        <option value="">
-          {projection.resourceKind === "loading"
-            ? "Loading saved views…"
-            : "Unsaved view"}
-        </option>
-        <SavedViewOptionGroup
-          activeViewSchemaId={activeViewSchemaId}
-          label="Private"
-          savedViews={projection.privateSavedViews}
-        />
-        <SavedViewOptionGroup
-          activeViewSchemaId={activeViewSchemaId}
-          label="Shared"
-          savedViews={projection.sharedSavedViews}
-        />
-        <SavedViewOptionGroup
-          activeViewSchemaId={activeViewSchemaId}
-          label="System"
-          savedViews={projection.systemSavedViews}
-        />
-      </select>
-      <span id={descriptionId} style={visuallyHiddenStyle}>
-        {projection.selectedSavedView === null
-          ? "Base surface configuration"
-          : `Selected saved view ${projection.selectedSavedView.display_name}, ${projection.selectedSavedView.scope} scope`}
-      </span>
-    </label>
+        onBase={() => onSelectBaseSurface(activeViewSchemaId)}
+      />
+    </div>
   );
-}
-
-function selectSavedView({
-  activeViewSchemaId,
-  dispatch,
-  nextSavedViewId,
-  onSelectBaseSurface,
-  onSelectSavedView,
-  projection,
-}: {
-  readonly activeViewSchemaId: string;
-  readonly dispatch: Dispatch<SavedViewControlEvent>;
-  readonly nextSavedViewId: string;
-  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
-  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
-  readonly projection: ActiveSurfaceSavedViewProjection;
-}) {
-  dispatch({ type: "clear_feedback", surface: activeViewSchemaId });
-  if (nextSavedViewId === "") {
-    onSelectBaseSurface(activeViewSchemaId);
-    return;
-  }
-  const savedView = projection.savedViews.find(
-    (candidate) => candidate.saved_view_id === nextSavedViewId,
-  );
-  if (savedView !== undefined) onSelectSavedView(savedView);
 }
 
 function SavedViewModifiedBadge({
@@ -463,36 +345,6 @@ function SavedViewStatus({
     >
       {status}
     </span>
-  );
-}
-
-function SavedViewOptionGroup({
-  activeViewSchemaId,
-  label,
-  savedViews,
-}: {
-  readonly activeViewSchemaId: string;
-  readonly label: string;
-  readonly savedViews: readonly SavedViewResource[];
-}) {
-  if (savedViews.length === 0) return null;
-  return (
-    <optgroup label={label}>
-      {savedViews.map((savedView) => (
-        <option
-          key={savedView.saved_view_id}
-          data-saved-view-id={savedView.saved_view_id}
-          data-testid={savedViewOptionTestId(
-            activeViewSchemaId,
-            savedView.saved_view_id,
-          )}
-          data-view-schema-id={activeViewSchemaId}
-          value={savedView.saved_view_id}
-        >
-          {savedView.display_name}
-        </option>
-      ))}
-    </optgroup>
   );
 }
 

@@ -110,8 +110,12 @@ function Surface({ refresh = 0 }: { refresh?: number }) {
         currentIncidentRole="admin"
         currentUserId={actorId}
         selectedSheetRef={startup.snapshot.startupSheetRef}
-        savedViewsResource={{ kind: "ready", savedViews: [] }}
-        onSelectSavedView={() => {}}
+        savedViewsResource={{
+          kind: "ready",
+          selectedSavedView: null,
+          selectedSavedViewId: "",
+          message: null,
+        }}
         onSelectBaseSurface={startup.commands.selectWorkbookSurface}
         preferenceController={preferences}
       />

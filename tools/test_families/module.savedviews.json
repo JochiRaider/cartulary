@@ -3,6 +3,42 @@
   "owner_id": "module.savedviews",
   "rows": [
     {
+      "row_id": "module.savedviews.accessibility.independent_discovery_continuity",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_0a9da2b4fd68"
+        ],
+        "titles": [
+          "a11y.saved-view-discovery keyboard activation dismissal scope and bounded layout survive density zoom and text spacing"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.accessibility",
@@ -129,6 +165,41 @@
         ],
         "titles": [
           "Saved-view authoring retains uncertain committed creates and requires a deliberate new attempt"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.savedviews.browser.independent_discovery_continuity",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-saved-view-discovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d7c58efd0b71"
+        ],
+        "titles": [
+          "Saved-view discovery publishes bounded pages and preserves addressed selection through delayed reads and retry"
         ]
       },
       "evidence_class": "browser",
@@ -297,8 +368,7 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookSavedViewPaginationMachine.test.ts",
         "titles": [
-          "Workbook saved-view pagination machine accumulates ordered pages and publishes only on the terminal page",
-          "Workbook saved-view pagination machine rejects duplicate resources, cursor cycles, and malformed resources",
+          "Workbook saved-view pagination machine rejects duplicate resources schema mismatch and inconsistent continuation without sorting",
           "Workbook saved-view pagination machine validates adapter pages against incident, limit, cursor, and resources"
         ]
       },
@@ -336,6 +406,34 @@
       "fixture_capability": "postgres_transaction",
       "minimum_tier": "standard",
       "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.savedviews.integration.independent_read_contract",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract",
+        "module.savedviews.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestSavedViewIndependentReadContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
         "postgres"
       ]
     },
@@ -479,6 +577,31 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.savedviews.unit.independent_read_query_contract",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestSavedViewReadCursorBindings_Unit",
+          "TestSavedViewReadQueryValidation_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.savedviews.unit.saved_view_application_policy_preserves_visibili_5af44d4ba8",

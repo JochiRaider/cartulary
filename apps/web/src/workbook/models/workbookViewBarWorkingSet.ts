@@ -82,11 +82,7 @@ export type WorkbookViewBarWorkingSetInput = {
   readonly isSavedViewDirty: boolean;
   readonly layoutState: WorkbookResolvedLayoutState;
   readonly queryState: WorkbookQueryState;
-  readonly savedViewResourceKind:
-    | "invalid_selection"
-    | "loading"
-    | "ready"
-    | "unavailable";
+  readonly savedViewResourceKind: "loading" | "ready" | "unavailable";
   readonly selectedSavedView: SavedViewResource | null;
   readonly transient: WorkbookViewBarTransientState;
   readonly viewSchemaId: string;

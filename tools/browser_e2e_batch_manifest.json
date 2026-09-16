@@ -1208,6 +1208,28 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-workbook-saved-view-discovery",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.savedviews.browser.independent_discovery_continuity"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-saved-view-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-workbook-assessments",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2537,6 +2559,28 @@
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
+          "name": "functional-default-workbook-saved-view-discovery",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.savedviews.browser.independent_discovery_continuity"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-saved-view-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
           "name": "functional-default-workbook-assessments",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
@@ -3492,6 +3536,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
+            "module.savedviews.accessibility.independent_discovery_continuity",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.batch_recovery",
             "module.workbook.accessibility.canonical_indicator_authoring_recovery",
@@ -4601,6 +4646,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
+            "module.savedviews.accessibility.independent_discovery_continuity",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.batch_recovery",
             "module.workbook.accessibility.canonical_indicator_authoring_recovery",

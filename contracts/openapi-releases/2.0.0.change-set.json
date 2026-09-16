@@ -1766,6 +1766,24 @@
       "classification": "additive",
       "owner_id": "module.workbook",
       "rationale": "Adopt the authorized clipboard representation contract: optional data-only header intent, explicit CSV or fixed TSV default, and bounded strict clipboard text. CSV clients relying on auto must send csv; default header request hashes remain compatible."
+    },
+    {
+      "fingerprint": "6c02c39e0b08c5abe2ac001e526bc420318b3d6adf735710f53fcb8409d79020",
+      "classification": "breaking",
+      "owner_id": "module.savedviews",
+      "rationale": "Add optional exact schema filtering before saved-view paging. Existing unfiltered requests remain valid; the classifier treats the parameter array change conservatively as breaking. Backend must precede clients sending the new filter."
+    },
+    {
+      "fingerprint": "c4ae5036515cde28188117e77d1f54f922f25cbaef95f32f66c10edafcdcf59d",
+      "classification": "non_behavioral",
+      "owner_id": "module.savedviews",
+      "rationale": "Describe the saved-view read query validation failures now exposed alongside pagination failures."
+    },
+    {
+      "fingerprint": "a6b13c5d47fb5376cf25ebace38cca0738e769edcb6be4229cff564e9f8d8c8a",
+      "classification": "additive",
+      "owner_id": "module.savedviews",
+      "rationale": "Expose an independently authorized saved-resource read using the existing resource envelope and concealed missing-resource behavior."
     }
   ]
 }
