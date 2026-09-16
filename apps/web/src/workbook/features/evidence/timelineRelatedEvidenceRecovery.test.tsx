@@ -96,7 +96,10 @@ function fixture() {
     target: target as typeof target | null,
   };
   const reader: WorkbookAuthoringReadPort = {
-    availableViews: async () => [evidenceViewSchemaId, timelineViewSchemaId],
+    availableViews: async () => ({
+      kind: "accepted" as const,
+      value: [evidenceViewSchemaId, timelineViewSchemaId],
+    }),
     verify: vi.fn(async () => {}),
     page: vi.fn(async ({ viewSchemaId }) => {
       const row =

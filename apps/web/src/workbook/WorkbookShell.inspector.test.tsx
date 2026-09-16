@@ -740,7 +740,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     contextualCreate.setAuthority(authority);
     contextualCreate.configure(
       {
-        availableViews: async () => [timelineViewSchemaId],
+        availableViews: async () => ({
+          kind: "accepted" as const,
+          value: [timelineViewSchemaId],
+        }),
         verify: async () => {},
         page: async () => ({
           kind: "accepted",
@@ -776,19 +779,6 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
             captureState: "rough",
           }),
         ]),
-      )
-      .mockResolvedValueOnce(
-        successEnvelope({
-          memberships: [
-            {
-              display_name: "Admin User",
-              incident_id: "10000000-0000-4000-8000-000000000001",
-              membership_version: 1,
-              role: "admin",
-              user_id: authority.actorId,
-            },
-          ],
-        }),
       )
       .mockResolvedValueOnce(
         successEnvelope({
@@ -940,10 +930,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     owner.setAuthority(authority);
     owner.configure(
       {
-        availableViews: async () => [
-          timelineViewSchemaId,
-          evidenceViewSchemaId,
-        ],
+        availableViews: async () => ({
+          kind: "accepted" as const,
+          value: [timelineViewSchemaId, evidenceViewSchemaId],
+        }),
         verify: async () => {},
         page: async ({ viewSchemaId }) => {
           const row =

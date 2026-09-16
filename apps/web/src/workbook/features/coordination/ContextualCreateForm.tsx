@@ -88,6 +88,7 @@ export function ContextualCreateForm({
               <div key={field.fieldKey} style={{ minWidth: 0 }}>
                 {contextualReferenceKind(field) ? (
                   <ContextualReferenceControl
+                    disabled={disabled || !owner.canSubmit()}
                     draft={draft}
                     field={field}
                     reader={reader}

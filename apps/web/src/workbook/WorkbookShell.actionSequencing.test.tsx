@@ -352,6 +352,12 @@ describe("Timeline workbook action sequencing", () => {
     );
     pending.resolve();
     await version(3);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Recovery \(/ }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Timeline action ·/ }),
+    );
     await waitFor(() =>
       expect(
         screen.getByText(
@@ -365,6 +371,7 @@ describe("Timeline workbook action sequencing", () => {
     expect(timelineRecordActionCalls(fetchMock, "mark-reviewed")).toHaveLength(
       0,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Close recovery" }));
     await mark();
     await waitForTimelineRecordActionCalls(fetchMock, "mark-reviewed", 1);
     expect(

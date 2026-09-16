@@ -132,6 +132,7 @@ export function NoteCreateForm({
         ))}
         {reader ? (
           <NoteSourceControl
+            targetKey={`note:${state.draft.id}`}
             source={state.draft.source}
             reader={reader}
             revision={state.candidateRevision}

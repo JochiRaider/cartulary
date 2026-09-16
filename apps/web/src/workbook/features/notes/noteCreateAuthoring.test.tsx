@@ -39,7 +39,10 @@ function fixture(view = noteSourceViews[0]) {
   owner.setAuthority(authority);
   const reader: NoteCreateReader = {
     verifyNote: vi.fn(async () => {}),
-    availableViews: vi.fn(async () => noteSourceViews),
+    availableViews: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: noteSourceViews,
+    })),
     page: vi.fn(async () => ({
       kind: "accepted" as const,
       value: { candidates: [], hasMore: false, nextCursor: null },
@@ -290,6 +293,7 @@ describe("Note authoring", () => {
     const onChange = vi.fn();
     const picker = render(
       <NoteSourceControl
+        targetKey={"note-test"}
         source={required(owner.getSnapshot().draft).source}
         reader={reader}
         revision={0}
@@ -300,9 +304,11 @@ describe("Note authoring", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose source" }));
     await screen.findByRole("option", { name: "First" });
     expect(
-      screen.getByRole("option", { name: "Original source" }),
+      screen.getByRole("button", {
+        name: "Remove selected Note source Original source",
+      }),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Load more sources" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
     await screen.findByRole("option", { name: "Second" });
     fireEvent.change(screen.getByLabelText("Note source"), {
       target: { value: "second" },
@@ -312,6 +318,7 @@ describe("Note authoring", () => {
     });
     picker.rerender(
       <NoteSourceControl
+        targetKey={"note-test"}
         source={required(owner.getSnapshot().draft).source}
         reader={reader}
         revision={1}
@@ -349,6 +356,7 @@ describe("Note authoring", () => {
     );
     render(
       <NoteSourceControl
+        targetKey={"note-test"}
         source={null}
         reader={reader}
         revision={0}
@@ -357,10 +365,10 @@ describe("Note authoring", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Choose source" }));
-    await screen.findByRole("button", { name: "Retry sheets" });
+    await screen.findByRole("button", { name: "Retry surfaces" });
     expect(screen.queryByText("No available source sheets.")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Retry sheets" }));
-    await screen.findByText("No available sources on this sheet.");
+    fireEvent.click(screen.getByRole("button", { name: "Retry surfaces" }));
+    await screen.findByText("No candidates match this query.");
     expect(reader.availableViews).toHaveBeenCalledTimes(2);
   });
 });

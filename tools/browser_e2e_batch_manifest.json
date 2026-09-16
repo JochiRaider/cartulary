@@ -103,6 +103,30 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-authoring-candidates",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.authoring_candidates_assessments",
+            "module.workbook.browser.authoring_candidates_note_source",
+            "module.workbook.browser.authoring_candidates_parties"
+          ],
+          "specs": [
+            "apps/web/e2e/authoring-candidates.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-autoresolve",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1444,6 +1468,30 @@
           ],
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-authoring-candidates",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.authoring_candidates_assessments",
+            "module.workbook.browser.authoring_candidates_note_source",
+            "module.workbook.browser.authoring_candidates_parties"
+          ],
+          "specs": [
+            "apps/web/e2e/authoring-candidates.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

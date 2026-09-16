@@ -21,3 +21,9 @@ clipboard exception remains private to [adapters](../adapters/README.md).
 | [WorkbookTimelineActionRuntimePort.ts](WorkbookTimelineActionRuntimePort.ts) | Narrow workbook runtime capability required by Timeline action owners. |
 
 WorkbookReferenceReadPort separates record, Party and incident-member identities from presentation. It carries canonical record query metadata and paging without granting mutation admission. Collection item_ref removal remains a separate action contract.
+
+## Authoring candidate discovery
+
+| File | Responsibility |
+| --- | --- |
+| [WorkbookCandidateReadPort.ts](WorkbookCandidateReadPort.ts) | Typed candidate observation and query capability, independent of selection. |

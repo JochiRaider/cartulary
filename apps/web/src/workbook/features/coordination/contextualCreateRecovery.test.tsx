@@ -85,7 +85,7 @@ function fixture(
     },
   };
   const reader: ContextualCreateReader = {
-    availableViews: async () => [view],
+    availableViews: async () => ({ kind: "accepted" as const, value: [view] }),
     verify: vi.fn(async () => {}),
     page: vi.fn(async () => ({
       kind: "accepted" as const,

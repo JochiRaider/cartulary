@@ -3891,7 +3891,9 @@ async function prepareFeP7ConflictVisual(
     }),
   );
   await expect(
-    page.getByRole("heading", { name: "Same-field conflict", exact: true }),
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
   ).toBeFocused();
   expect(
     await originalEditor.evaluate(
@@ -9065,11 +9067,12 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
     "handoff.current_state_summary",
     "Retained ordinary handoff",
   );
-  const reference = await ordinaryField(
+  const referenceInput = await ordinaryField(
     page,
     handoff,
     "handoff.incoming_owner_user_id",
   );
+  const reference = page.getByRole("gridcell").filter({ has: referenceInput });
   await reference
     .getByRole("button", { name: "Choose incoming owner", exact: true })
     .click();

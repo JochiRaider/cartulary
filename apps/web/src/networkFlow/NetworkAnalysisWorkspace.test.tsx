@@ -265,9 +265,9 @@ describe("NetworkAnalysisWorkspace", () => {
     );
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByRole("heading", {
-          name: "Indicator link draft",
-        }),
+        within(screen.getByRole("region", { name: "Recovery navigation" }))
+          .getAllByRole("heading", { level: 2 })
+          .find((heading) => heading.tabIndex === -1),
       ),
     );
     fireEvent.change(
@@ -944,7 +944,9 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toBeTruthy();
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByRole("heading", { name: "Network Flow import", level: 2 }),
+        within(screen.getByRole("region", { name: "Recovery navigation" }))
+          .getAllByRole("heading", { level: 2 })
+          .find((heading) => heading.tabIndex === -1),
       ),
     );
     fireEvent.click(
@@ -1022,7 +1024,9 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.keyboard("{Enter}");
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByRole("heading", { name: "Rename table" }),
+        within(screen.getByRole("region", { name: "Recovery navigation" }))
+          .getAllByRole("heading", { level: 2 })
+          .find((heading) => heading.tabIndex === -1),
       ),
     );
     await user.keyboard("{Shift>}{Tab}{/Shift}");
@@ -1043,7 +1047,9 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.keyboard("{Enter}");
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByRole("heading", { name: "Delete table" }),
+        within(screen.getByRole("region", { name: "Recovery navigation" }))
+          .getAllByRole("heading", { level: 2 })
+          .find((heading) => heading.tabIndex === -1),
       ),
     );
     await user.keyboard("{Escape}");

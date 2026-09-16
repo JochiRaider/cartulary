@@ -349,6 +349,14 @@ test("Evidence contextual authoring requires explicit discard before replacing a
   await retained
     .getByRole("button", { name: "Discard draft", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .click();
+  await openGenericInspectorForRecord(
+    page,
+    evidenceViewSchemaId,
+    source.record_id,
+  );
   await begin(page, evidenceViewSchemaId, "create_related.decision");
   await fillDecision(page, "Deliberate replacement");
   await page

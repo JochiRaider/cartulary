@@ -1,22 +1,16 @@
-import { getViewContract } from "@cartulary/view-contracts";
 import {
   type RefCallback,
-  useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
-import { boundedRead } from "../../services/asyncObservation";
-import { useWorkbookCandidates } from "../hooks/useWorkbookCandidates";
 import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
-import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import type {
-  WorkbookAuthoringCandidate,
   WorkbookAuthoringReadPort,
+  WorkbookAuthoringSelection,
 } from "../ports/WorkbookAuthoringReadPort";
-import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
+import { WorkbookAuthoringReferencePicker } from "./WorkbookAuthoringReferencePicker";
 import { menuStyle } from "./workbookGridControlStyles";
 
 type Props = Readonly<{
@@ -30,20 +24,31 @@ type Props = Readonly<{
       >
     | undefined;
   label: string;
+  targetKey: string;
+  maximum: number;
   errorId?: string | undefined;
   required?: boolean | undefined;
   testId: string;
   views: readonly string[];
   multiple: boolean;
-  selected: readonly WorkbookAuthoringCandidate[];
+  captureRowVersion?: boolean;
+  selected: readonly WorkbookAuthoringSelection[];
   reader: Pick<WorkbookAuthoringReadPort, "page" | "availableViews">;
   revision: number;
   disabled: boolean;
-  onApply: (selected: readonly WorkbookAuthoringCandidate[]) => void;
+  onApply: (selected: readonly WorkbookAuthoringSelection[]) => void;
 }>;
 /** Neutral staged identity picker. Page membership never owns retained selection. */
 export function WorkbookAuthoringReferenceControl(props: Props) {
-  const [open, setOpen] = useState(false);
+  const [openTarget, setOpenTarget] = useState<string | null>(null);
+  const open = openTarget === props.targetKey;
+  if (openTarget !== null && openTarget !== props.targetKey)
+    setOpenTarget(null);
+  const setOpen = (value: boolean) =>
+    setOpenTarget(value ? props.targetKey : null);
+  useEffect(() => {
+    if (props.disabled) setOpenTarget(null);
+  }, [props.disabled]);
   const trigger = useRef<HTMLButtonElement>(null);
   const popover = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -66,9 +71,14 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
       const width = viewport?.width ?? window.innerWidth;
       const height = viewport?.height ?? window.innerHeight;
       const bounds = anchor.getBoundingClientRect();
+      const cssWidth = Number.parseFloat(getComputedStyle(panel).width);
+      const scale =
+        cssWidth > 0 ? panel.getBoundingClientRect().width / cssWidth : 1;
+      panel.style.maxWidth = `${width / scale}px`;
+      panel.style.maxHeight = `${height / scale}px`;
       const size = panel.getBoundingClientRect();
-      panel.style.left = `${Math.max(left, Math.min(bounds.left, left + width - size.width))}px`;
-      panel.style.top = `${Math.max(top, Math.min(bounds.bottom, top + height - size.height))}px`;
+      panel.style.left = `${Math.max(left, Math.min(bounds.left, left + width - size.width)) / scale}px`;
+      panel.style.top = `${Math.max(top, Math.min(bounds.bottom, top + height - size.height)) / scale}px`;
     };
     position();
     const observer = new ResizeObserver(position);
@@ -119,6 +129,23 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
           trigger.current = element;
           props.focusTargetRef?.(element);
         }}
+        style={
+          props.compact
+            ? {
+                maxWidth: "6rem",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }
+            : undefined
+        }
+        title={
+          props.compact
+            ? props.selected
+                .map((item) => item.displayText || item.recordId)
+                .join(", ")
+            : undefined
+        }
         aria-label={`Choose ${props.label.toLowerCase()}`}
         aria-expanded={open}
         data-create-required={props.required}
@@ -143,7 +170,8 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
             if (props.compact && event.newState === "closed") setOpen(false);
           }}
         >
-          <Picker
+          <WorkbookAuthoringReferencePicker
+            key={props.targetKey}
             {...props}
             onCancel={close}
             onApply={(items) => {
@@ -156,206 +184,8 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
     </div>
   );
 }
-function Picker({
-  onCancel,
-  ...props
-}: Props & { readonly onCancel: () => void }) {
-  const [view, setView] = useState(
-    props.selected[0]?.viewSchemaId ?? props.views[0] ?? "",
-  );
-  const [selected, setSelected] = useState(props.selected);
-  const [inventory, setInventory] = useState<{
-    phase: "loading" | "ready" | "failed";
-    views: readonly string[];
-  }>({ phase: "loading", views: [] });
-  const request = useRef<AbortController | null>(null);
-  const root = useRef<HTMLElement>(null);
-  const allowed = JSON.stringify(props.views);
-  const loadViews = useCallback(() => {
-    request.current?.abort();
-    const controller = new AbortController();
-    request.current = controller;
-    setInventory({ phase: "loading", views: [] });
-    void boundedRead(
-      (signal) => props.reader.availableViews(signal),
-      controller.signal,
-    )
-      .then((views) => {
-        if (!controller.signal.aborted)
-          setInventory({
-            phase: "ready",
-            views: (JSON.parse(allowed) as string[]).filter(
-              (v) => v === "incident_members" || views.includes(v),
-            ),
-          });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setInventory({ phase: "failed", views: [] });
-      });
-  }, [props.reader, allowed]);
-  useEffect(() => {
-    loadViews();
-    return () => request.current?.abort();
-  }, [loadViews]);
-  useEffect(() => {
-    root.current
-      ?.querySelector<HTMLElement>(
-        "select:not(:disabled),button:not(:disabled)",
-      )
-      ?.focus({ preventScroll: true });
-  }, []);
-  const query = useMemo(emptyWorkbookQueryState, []);
-  const read = useCallback(
-    (input: {
-      cursor: string | null;
-      signal: AbortSignal;
-      queryState: typeof query;
-    }) => props.reader.page({ ...input, viewSchemaId: view }),
-    [props.reader, view],
-  );
-  const page = useWorkbookCandidates(
-    read,
-    query,
-    `${view}:${props.revision}`,
-    inventory.phase === "ready" && inventory.views.includes(view),
-  );
-  const ready =
-    inventory.phase === "ready" &&
-    inventory.views.includes(view) &&
-    page.phase === "ready" &&
-    !page.stale;
-  const candidates = [
-    ...new Map(
-      [...selected, ...(ready ? page.candidates : [])].map((item) => [
-        item.recordId,
-        item,
-      ]),
-    ).values(),
-  ];
-  return (
-    <section
-      ref={root}
-      aria-label={`Choose ${props.label.toLowerCase()}`}
-      style={{
-        ...groupStyle,
-        border: "var(--ct-border-hairline)",
-        padding: "var(--ct-spacing-sm)",
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          onCancel();
-        }
-      }}
-    >
-      {props.views.length > 1 ? (
-        <label>
-          Reference surface
-          <select
-            aria-label="Reference surface"
-            style={fieldStyle}
-            value={view}
-            onChange={(event) => setView(event.currentTarget.value)}
-          >
-            {[...new Set([view, ...inventory.views])].map((id) => (
-              <option key={id} value={id}>
-                {getViewContract(id)?.title ?? "Members"}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      {inventory.phase === "loading" ? (
-        <p role="status">Loading reference surfaces…</p>
-      ) : null}
-      {inventory.phase === "failed" ? (
-        <p role="alert">
-          Reference surfaces could not be loaded.{" "}
-          <Button tone="secondary" type="button" onClick={loadViews}>
-            Retry surfaces
-          </Button>
-        </p>
-      ) : null}
-      {inventory.phase === "ready" && !inventory.views.includes(view) ? (
-        <p role="status">
-          This reference surface is unavailable. Your selection is retained.
-        </p>
-      ) : null}
-      {inventory.views.includes(view) && page.phase === "loading" ? (
-        <p role="status">Loading references…</p>
-      ) : null}
-      {page.stale ? (
-        <p role="status">
-          References need refresh. Selected identities are retained.
-        </p>
-      ) : null}
-      {page.error ? (
-        <p role="alert">
-          {page.error}{" "}
-          <Button
-            tone="secondary"
-            type="button"
-            onClick={() => void page.retry()}
-          >
-            Retry references
-          </Button>
-        </p>
-      ) : null}
-      {ready && !page.candidates.length ? (
-        <p>No available references.</p>
-      ) : null}
-      <WorkbookRecordCandidatePicker
-        candidates={candidates}
-        disabled={!ready}
-        label={props.label}
-        testId={props.testId}
-        selection={props.multiple ? "multiple" : "single"}
-        selectedRecordIds={selected.map((item) => item.recordId)}
-        onSelectedRecordIdsChange={(ids) =>
-          setSelected(
-            ids.flatMap((id) => {
-              const candidate = candidates.find((item) => item.recordId === id);
-              return candidate ? [candidate] : [];
-            }),
-          )
-        }
-      />
-      {page.hasMore ? (
-        <Button
-          tone="secondary"
-          type="button"
-          disabled={!ready}
-          onClick={() => void page.loadMore()}
-        >
-          Load more references
-        </Button>
-      ) : null}
-      <Button
-        tone="secondary"
-        type="button"
-        disabled={!ready}
-        onClick={() => props.onApply(selected)}
-      >
-        Apply references
-      </Button>
-      <Button tone="secondary" type="button" onClick={onCancel}>
-        Cancel references
-      </Button>
-    </section>
-  );
-}
 const groupStyle = {
   display: "grid",
   gap: "var(--ct-spacing-sm)",
   minWidth: 0,
-} as const;
-const fieldStyle = {
-  width: "100%",
-  minWidth: 0,
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  border: "var(--ct-component-text-input-border)",
 } as const;

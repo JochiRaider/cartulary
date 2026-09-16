@@ -16,7 +16,6 @@ import {
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
-  workbookConflictSummaryTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -24,6 +23,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
@@ -1019,6 +1019,9 @@ describe("workbook history support coverage", () => {
     await changeInputValue(input, "Record one local draft");
     fireEvent.blur(input);
 
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open conflict recovery" }),
+    );
     const resolver = await screen.findByTestId(
       workbookConflictResolverTestId(),
     );
@@ -1074,13 +1077,7 @@ describe("workbook history support coverage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          timelineScalarEditorTestId({
-            fieldKey: "timeline.activity_synopsis_text",
-            recordId: "20000000-0000-4000-8000-000000000001",
-            surface: "grid",
-          }),
-        ),
+        screen.getByRole("button", { name: "Open conflict recovery" }),
       );
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
@@ -1139,10 +1136,6 @@ describe("workbook history support coverage", () => {
     await changeInputValue(input, "Keyboard local draft");
     fireEvent.blur(input);
 
-    const resolver = await screen.findByTestId(
-      workbookConflictResolverTestId(),
-    );
-    const summary = screen.getByTestId(workbookConflictSummaryTestId());
     await waitFor(() => {
       expect(document.activeElement).toBe(
         screen.getByTestId(
@@ -1159,9 +1152,18 @@ describe("workbook history support coverage", () => {
         name: "Open conflict recovery",
       }),
     );
+    const resolver = await screen.findByTestId(
+      workbookConflictResolverTestId(),
+    );
+    const summary = within(
+      screen.getByRole("region", { name: "Recovery navigation" }),
+    )
+      .getAllByRole("heading", { level: 2 })
+      .find((heading) => heading.tabIndex === -1);
+    expect(summary).toBeDefined();
     await waitFor(() => expect(document.activeElement).toBe(summary));
 
-    fireEvent.keyDown(summary, { key: "Enter" });
+    fireEvent.keyDown(summary as HTMLElement, { key: "Enter" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId(workbookConflictResolverTestId())).toBe(resolver);
     expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
@@ -1170,13 +1172,7 @@ describe("workbook history support coverage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          timelineScalarEditorTestId({
-            fieldKey: "timeline.activity_synopsis_text",
-            recordId: "20000000-0000-4000-8000-000000000001",
-            surface: "grid",
-          }),
-        ),
+        screen.getByRole("button", { name: "Open conflict recovery" }),
       );
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
@@ -1247,6 +1243,9 @@ describe("workbook history support coverage", () => {
     await changeInputValue(input, "Original local");
     fireEvent.blur(input);
 
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open conflict recovery" }),
+    );
     await screen.findByTestId(workbookConflictResolverTestId());
     fireEvent.change(
       screen.getByTestId(workbookConflictControlTestId("merged-value")),
@@ -1292,13 +1291,7 @@ describe("workbook history support coverage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          timelineScalarEditorTestId({
-            fieldKey: "timeline.activity_synopsis_text",
-            recordId: "20000000-0000-4000-8000-000000000001",
-            surface: "grid",
-          }),
-        ),
+        screen.getByRole("button", { name: "Open conflict recovery" }),
       );
     });
   });

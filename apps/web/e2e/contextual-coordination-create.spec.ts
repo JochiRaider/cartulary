@@ -27,7 +27,7 @@ import {
 } from "./support/workbook/coordinationCreate";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
-import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
+import { openRecoveryItem } from "./support/workbook/recovery";
 
 test("All twelve contextual coordination actions create one owner-defined source link without semantic seeds", async ({
   page,
@@ -217,7 +217,10 @@ test("Coordination response loss after server commit recovers the exact request 
   expect(
     await queryViewRows(page, f.incident, f.target.viewSchemaId),
   ).toHaveLength(1);
-  await expect(recoveryEntry(page)).toHaveCount(0);
+  await expect(recovery).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Refresh saved view ·/ }),
+  ).toBeVisible();
 });
 
 test("Accepted coordination refresh recovery sends reads only and keeps the source selection", async ({
@@ -255,7 +258,10 @@ test("Accepted coordination refresh recovery sends reads only and keeps the sour
   await recovery
     .getByRole("button", { name: "Retry refresh", exact: true })
     .press("Enter");
-  await expect(recoveryEntry(page)).toHaveText("Recovery (0)");
+  await expect(recovery).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Refresh saved view ·/ }),
+  ).toBeVisible();
   expect(creates).toBe(1);
   await expect(page.getByTestId(gridShellTestId(f.view))).toBeVisible();
   expect(

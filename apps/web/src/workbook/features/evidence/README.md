@@ -53,3 +53,8 @@ persistent-storage recovery is promised. Long transfers are separate from short
 coordinated record writes. The Timeline mutation owner resolves the original
 draft key through ordinary creation or screenshot-only creation; this directory
 does not own a second Timeline creation queue.
+
+RelatedEvidencePartyControl uses bounded Workbook discovery for two independent
+single Party identities. Its parent retains labels only for currently referenced
+collector/source identities. Candidate reads and retries never modify Party text,
+create Evidence, replay creation, or run the separate linking operation.

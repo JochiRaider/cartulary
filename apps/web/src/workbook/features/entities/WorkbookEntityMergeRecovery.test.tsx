@@ -97,7 +97,9 @@ describe("Entity merge recovery presentation", () => {
         name: "Merge action recovery",
       });
       expect(
-        screen.getByRole("heading", { name: "Entity merge", level: 2 }),
+        within(screen.getByRole("region", { name: "Recovery navigation" }))
+          .getAllByRole("heading", { level: 2 })
+          .find((heading) => heading.tabIndex === -1),
       ).toBe(document.activeElement);
       expect(panel.textContent).toContain("outcome is unknown");
       t.refresh.mockRejectedValueOnce(new Error("Refresh failed"));

@@ -43,7 +43,6 @@ capabilities live in [ports](../ports/README.md).
 | File | Responsibility |
 | --- | --- |
 | [createAssessmentCandidateReader.ts](createAssessmentCandidateReader.ts) | Adapts authorized workbook queries to Assessment subject and support candidate pages. |
-| [createContextualCreateReader.ts](createContextualCreateReader.ts) | Exposes the contextual creation reader through the shared workbook authoring adapter. |
 | [createDecisionCandidateReader.ts](createDecisionCandidateReader.ts) | Reads paged Decision replacement candidates with exact workbook context validation. |
 | [createIndicatorLifecycleReader.ts](createIndicatorLifecycleReader.ts) | Reads and validates paged Indicator lifecycle resources and support candidates. |
 | [createNoteCreateReader.ts](createNoteCreateReader.ts) | Adapts workbook authoring reads for Note source and reference discovery. |
@@ -118,3 +117,11 @@ request text. Marked copies use `none`; external Timeline tables use exact
 schema-header recognition (`auto`). Retained retries send the captured request
 unchanged; acknowledgement recovery only reads. Server callers using omitted or
 `auto` format now receive TSV semantics and must explicitly request CSV.
+
+Authoring and Assessment candidate adapters validate response scope, opaque paging
+and canonical query metadata. Scoped observation callbacks fence authority rechecks;
+direct supported source-verification reads retain adapter authority rechecks.
+Inventory reads return WorkbookPortResult. createContextualCreateReader's alias is
+retired; its callers use createWorkbookAuthoringReader directly. Full-row source
+verification remains supported by readWorkbookAuthoringRecord; browsing reduces
+rows before retaining its accepted page or staged selections.

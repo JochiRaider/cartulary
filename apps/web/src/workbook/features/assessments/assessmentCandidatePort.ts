@@ -2,19 +2,15 @@ import type {
   AssessmentSubjectType,
   AssessmentSupportCandidate,
 } from "../../models/assessmentWorkbookModel";
-import type { WorkbookQueryState } from "../../models/workbookQuery";
+import type {
+  WorkbookCandidatePage,
+  WorkbookCandidateQuery,
+} from "../../ports/WorkbookCandidateReadPort";
 import type { WorkbookPortResult } from "../../ports/WorkbookPortResult";
 
-export type AssessmentCandidatePage = Readonly<{
-  candidates: readonly AssessmentSupportCandidate[];
-  hasMore: boolean;
-  nextCursor: string | null;
-}>;
-export type AssessmentCandidateQuery = Readonly<{
-  queryState: WorkbookQueryState;
-  cursor: string | null;
-  signal: AbortSignal;
-}>;
+export type AssessmentCandidatePage =
+  WorkbookCandidatePage<AssessmentSupportCandidate>;
+export type AssessmentCandidateQuery = WorkbookCandidateQuery;
 export interface AssessmentCandidateReadPort {
   subjects(
     type: AssessmentSubjectType,

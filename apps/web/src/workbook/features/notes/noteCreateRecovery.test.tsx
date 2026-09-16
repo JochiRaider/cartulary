@@ -49,7 +49,10 @@ function fixture(view = noteSourceViews[0]) {
   const owner = new WorkbookNoteCreateOwner(authority.incidentId, ids, effects);
   owner.setAuthority(authority);
   const reader: NoteCreateReader = {
-    availableViews: vi.fn(async () => noteSourceViews),
+    availableViews: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: noteSourceViews,
+    })),
     verifyNote: vi.fn(async () => {}),
     page: vi.fn(async (input) => ({
       kind: "accepted" as const,

@@ -84,3 +84,10 @@ Task lifecycle owner selection uses WorkbookReferenceControl with the projected 
 and acknowledged refresh. The recovery component subscribes to this owner and
 attaches its existing form through the shared boundary. Detachment releases the
 presentation token while retaining raw authoring and captured execution.
+
+Contextual and coordination references use Workbook's bounded authoring picker.
+Each field supplies its identity source and create limit; memberships are users,
+Parties are records. Source selection separately captures schema and reviewed row
+version, including a retained off-page source. Parent label maps retain only IDs
+still referenced across their fields. Browsing does not change seeds, origin,
+source review, target fields, attempts or operation ownership.

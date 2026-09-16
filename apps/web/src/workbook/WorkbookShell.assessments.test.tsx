@@ -605,9 +605,11 @@ describe("Assessment workbook surface", () => {
     expect(
       screen.getByText(/00000000-0000-4000-8000-000000000103/u),
     ).toBeTruthy();
-    expect(assessmentControlValue("subject")).toBe(
-      "00000000-0000-4000-8000-000000000101",
-    );
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Subject 00000000-0000-4000-8000-000000000101",
+      }),
+    ).toBeTruthy();
     expect(assessmentControlValue("subject-type")).toBe("host");
     expect(assessmentControlValue("state")).toBe("unknown");
     expect(assessmentControlValue("confidence-band")).toBe("unset");

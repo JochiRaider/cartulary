@@ -55,11 +55,10 @@ function fixture() {
   };
   const reader: WorkbookAuthoringReadPort = {
     verify: vi.fn(async () => {}),
-    availableViews: async () => [
-      evidenceViewSchemaId,
-      timelineViewSchemaId,
-      partiesViewSchemaId,
-    ],
+    availableViews: async () => ({
+      kind: "accepted" as const,
+      value: [evidenceViewSchemaId, timelineViewSchemaId, partiesViewSchemaId],
+    }),
     page: vi.fn(async ({ viewSchemaId }) => ({
       kind: "accepted" as const,
       value: {
@@ -260,9 +259,11 @@ describe("Timeline related Evidence authoring", () => {
     );
     await screen.findByRole("option", { name: "First page" });
     expect(
-      screen.getByRole("option", { name: "Earlier selection" }),
+      screen.getByRole("button", {
+        name: "Remove selected Collector Party Earlier selection",
+      }),
     ).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Load more Parties" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
     await screen.findByRole("option", { name: "Second page" });
     fireEvent.change(screen.getByLabelText("Collector Party"), {
       target: { value: sourceId },
@@ -311,14 +312,14 @@ describe("Timeline related Evidence authoring", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose Source Party" }),
     );
-    expect(screen.getByText("Loading Parties…")).not.toBeNull();
-    await screen.findByRole("button", { name: "Retry Parties" });
+    expect(screen.getByText("Loading reference surfaces…")).not.toBeNull();
+    await screen.findByRole("button", { name: "Retry candidates" });
     reader.page = vi.fn<WorkbookAuthoringReadPort["page"]>(async () => ({
       kind: "accepted",
       value: { candidates: [], hasMore: false, nextCursor: null },
     }));
     act(() => owner.observe());
-    await screen.findByText("No available Parties.");
+    await screen.findByText("No candidates match this query.");
     fireEvent.click(
       screen.getByRole("button", { name: "Cancel Party selection" }),
     );

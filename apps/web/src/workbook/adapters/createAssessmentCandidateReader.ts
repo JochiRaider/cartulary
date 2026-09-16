@@ -13,6 +13,7 @@ import { assessmentSupportCandidate } from "../models/assessmentWorkbookModel";
 import { buildQueryRequest } from "../models/workbookQuery";
 import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
+import { readWorkbookQueryMetadata } from "../query/workbookQueryMetadata";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 /** Reduces query rows here; authoring never consumes Timeline editor/runtime rows. */
@@ -27,6 +28,7 @@ export function createAssessmentCandidateReader(options: {
     label: string,
     input: AssessmentCandidateQuery,
   ): Promise<WorkbookPortResult<AssessmentCandidatePage>> {
+    let responseAccepted = false;
     try {
       const result = await operations.execute({
         operationID: "queryWorkbookView",
@@ -41,15 +43,19 @@ export function createAssessmentCandidateReader(options: {
         },
         signal: input.signal,
       });
-      if (input.signal.aborted) return { kind: "aborted" };
+      if (input.signal.aborted || input.isCurrent?.() === false)
+        return { kind: "aborted" };
       if (result.kind === "rejected") {
         if (
           workbookFailureLifecycle(result.failure).kind ===
           "authority_unavailable"
         )
-          options.recheckAuthority?.();
+          (input.onAuthorityFailure ?? options.recheckAuthority)?.(
+            result.failure,
+          );
         return result;
       }
+      responseAccepted = true;
       const { data, meta } = result.value;
       if (
         data.incident_id !== options.incidentId ||
@@ -64,6 +70,14 @@ export function createAssessmentCandidateReader(options: {
             meta.paging.next_cursor === input.cursor))
       )
         throw new Error("Invalid candidate page");
+      const { canonicalQuery } = readWorkbookQueryMetadata(
+        requireViewContract(view),
+        meta,
+        input.queryState,
+        100,
+        input.cursor ?? undefined,
+        input.expectedCanonicalQuery,
+      );
       const candidates = data.rows.map((row) => {
         if (typeof row.record_id !== "string" || !row.record_id.trim())
           throw new Error("Invalid candidate identity");
@@ -72,10 +86,17 @@ export function createAssessmentCandidateReader(options: {
           row.cells?.[label]?.value,
         );
       });
+      if (
+        candidates.length > 100 ||
+        new Set(candidates.map((item) => item.recordId)).size !==
+          candidates.length
+      )
+        throw new Error("Invalid candidate identities");
       return {
         kind: "accepted",
         value: {
           candidates,
+          canonicalQuery,
           hasMore: meta.paging.has_more,
           nextCursor: meta.paging.next_cursor,
         },
@@ -86,9 +107,10 @@ export function createAssessmentCandidateReader(options: {
         : {
             kind: "rejected",
             failure: {
-              kind: "retryable",
-              message:
-                "Candidates could not be loaded or verified. Retry the read.",
+              kind: responseAccepted ? "invalid_contract" : "retryable",
+              message: responseAccepted
+                ? "Candidate data could not be verified. Restart from First."
+                : "Candidates could not be loaded. Retry this read.",
             },
           };
     }

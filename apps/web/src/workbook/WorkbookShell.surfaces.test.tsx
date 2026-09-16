@@ -1494,7 +1494,7 @@ describe("WorkbookShell surface selection", () => {
     }));
     runtime.noteCreate.configure(
       {
-        availableViews: async () => [],
+        availableViews: async () => ({ kind: "accepted" as const, value: [] }),
         verifyNote: async () => {},
         page: async () => ({
           kind: "accepted",

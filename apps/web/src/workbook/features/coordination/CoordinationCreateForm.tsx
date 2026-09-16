@@ -99,6 +99,8 @@ export function CoordinationCreateForm({
               <div key={key} style={groupStyle}>
                 {view && reader ? (
                   <WorkbookAuthoringReferenceControl
+                    targetKey={`coordination:${draft.id}:${key}`}
+                    maximum={field.readKind === "collection" ? 64 : 1}
                     required={required}
                     label={field.label}
                     errorId={error ? `${fieldId}-error` : undefined}
@@ -258,6 +260,9 @@ export function CoordinationCreateForm({
           })}
         {reader ? (
           <WorkbookAuthoringReferenceControl
+            targetKey={`coordination:${draft.id}:source`}
+            maximum={1}
+            captureRowVersion
             label="Source"
             errorId={
               state.errors[coordinationSourceInput]
@@ -273,6 +278,7 @@ export function CoordinationCreateForm({
                     {
                       recordId: draft.source.recordId,
                       viewSchemaId: draft.source.viewSchemaId,
+                      rowVersion: draft.source.rowVersion,
                       displayText: draft.source.label || draft.source.recordId,
                     },
                   ]
@@ -284,11 +290,11 @@ export function CoordinationCreateForm({
             onApply={(items) => {
               const item = items[0];
               if (!item) actions.changeSource(null);
-              else if (item.row)
+              else if (item.rowVersion !== undefined)
                 actions.changeSource({
                   recordId: item.recordId,
                   viewSchemaId: item.viewSchemaId,
-                  rowVersion: item.row.row_version,
+                  rowVersion: item.rowVersion,
                   label: item.displayText,
                 });
             }}

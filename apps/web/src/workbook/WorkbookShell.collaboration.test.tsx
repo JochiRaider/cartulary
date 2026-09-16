@@ -17,7 +17,13 @@ import {
   workbookEditRecoveryTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
@@ -1227,7 +1233,9 @@ describe("workbook collaboration coverage", () => {
 
     fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
     expect(document.activeElement).toBe(
-      screen.getByRole("heading", { name: "Queued edit recovery" }),
+      within(screen.getByRole("region", { name: "Recovery navigation" }))
+        .getAllByRole("heading", { level: 2 })
+        .find((heading) => heading.tabIndex === -1),
     );
     expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
     expect(
@@ -1317,7 +1325,9 @@ describe("workbook collaboration coverage", () => {
     fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
     await waitFor(() => {
       expect(document.activeElement).toBe(
-        screen.getByRole("heading", { name: "Same-field conflict" }),
+        within(screen.getByRole("region", { name: "Recovery navigation" }))
+          .getAllByRole("heading", { level: 2 })
+          .find((heading) => heading.tabIndex === -1),
       );
     });
     expect(screen.queryByTestId(workbookEditRecoveryTestId())).toBeNull();

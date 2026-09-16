@@ -24,6 +24,7 @@ import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWr
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookSameFieldConflictPayload } from "../../runtime/workbookConflictModel";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
+import { retainWorkbookReferenceLabels } from "../../utils/retainWorkbookReferenceLabels";
 import {
   buildTimelineRelatedEvidenceDraft,
   prepareTimelineRelatedEvidence,
@@ -350,11 +351,18 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       !this.draft.target.fieldMap[field]?.createWritable
     )
       return;
+    const values = { ...this.draft.values, [field]: value };
     this.draft = freezeWorkbookValue({
       ...this.draft,
       revision: this.draft.revision + 1,
-      values: { ...this.draft.values, [field]: value },
-      labels: { ...this.draft.labels, ...labels },
+      values,
+      labels: retainWorkbookReferenceLabels(
+        [
+          values["evidence.collector_party_id"] ?? "",
+          values["evidence.source_party_id"] ?? "",
+        ],
+        { ...this.draft.labels, ...labels },
+      ),
     });
     this.errors = {};
     this.message = null;

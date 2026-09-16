@@ -14,7 +14,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAssessmentCandidateReader } from "../../adapters/createAssessmentCandidateReader";
-import { useWorkbookCandidates } from "../../hooks/useWorkbookCandidates";
+import { useWorkbookCandidateDiscovery } from "../../hooks/useWorkbookCandidateDiscovery";
 import {
   type AssessmentCreateDraft,
   initialAssessmentDraft,
@@ -67,7 +67,16 @@ describe("Assessment discovery", () => {
             },
             meta: {
               request_id: "query",
-              query: { filters: [], sort: [] },
+              query: {
+                filters: [],
+                sort: [
+                  ...requireViewContract("cartulary.view.timeline.v2")
+                    .defaultSort,
+                ].map((item) => ({
+                  field_key: item.fieldKey,
+                  direction: item.direction,
+                })),
+              },
               paging: {
                 limit: 100,
                 has_more: true,
@@ -99,6 +108,12 @@ describe("Assessment discovery", () => {
         ],
         hasMore: true,
         nextCursor: "opaque-next",
+        canonicalQuery: {
+          filters: [],
+          sort: [
+            ...requireViewContract("cartulary.view.timeline.v2").defaultSort,
+          ],
+        },
       },
     });
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -109,6 +124,17 @@ describe("Assessment discovery", () => {
       limit: 100,
       cursor_token: "opaque-first",
     });
+    fetch.mockRejectedValueOnce(new TypeError("Network disconnected"));
+    const failedInput = {
+      queryState: query,
+      cursor: "opaque-next",
+      signal: new AbortController().signal,
+    };
+    expect(await reader.support(failedInput)).toMatchObject({
+      kind: "rejected",
+      failure: { kind: "retryable" },
+    });
+    expect(fetch.mock.calls.at(-1)?.[1].body).toContain("opaque-next");
   });
 
   it("keeps failed pages distinct from empty results and retries the same cursor without losing prior candidates", async () => {
@@ -120,16 +146,17 @@ describe("Assessment discovery", () => {
         failure: { kind: "retryable", message: "Read failed" },
       })
       .mockResolvedValueOnce(page(["b"]));
-    const { result } = renderHook(() => useWorkbookCandidates(read, query, 0));
-    await waitFor(() => expect(result.current.phase).toBe("ready"));
-    await act(() => result.current.loadMore());
-    expect(result.current.phase).toBe("failed");
-    expect(result.current.stale).toBe(true);
-    expect(result.current.candidates).toEqual([candidate("a")]);
-    await act(() => result.current.retry());
+    const { result } = renderHook(() =>
+      useWorkbookCandidateDiscovery(read, query, "assessment-test", 0),
+    );
+    await waitFor(() => expect(result.current.page).not.toBeNull());
+    await act(() => result.current.controller.next());
+    expect(result.current.failure).not.toBeNull();
+    expect(result.current.page?.candidates).toEqual([candidate("a")]);
+    await act(() => result.current.controller.retry());
     expect(read.mock.calls[1]?.[0].cursor).toBe("next");
     expect(read.mock.calls[2]?.[0].cursor).toBe("next");
-    expect(result.current.candidates).toEqual([candidate("a"), candidate("b")]);
+    expect(result.current.page?.candidates).toEqual([candidate("b")]);
   });
 
   it("rejects cyclic paging and ignores an obsolete filter response", async () => {
@@ -145,16 +172,17 @@ describe("Assessment discovery", () => {
       .mockResolvedValueOnce(page(["new"], "cycle"))
       .mockResolvedValueOnce(page(["ignored"], "cycle"));
     const { result, rerender } = renderHook(
-      ({ revision }) => useWorkbookCandidates(read, query, revision),
+      ({ revision }) =>
+        useWorkbookCandidateDiscovery(read, query, "assessment-test", revision),
       { initialProps: { revision: 0 } },
     );
     rerender({ revision: 1 });
-    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    await waitFor(() => expect(result.current.page).not.toBeNull());
     await act(async () => finish(page(["old"])));
-    expect(result.current.candidates).toEqual([candidate("new")]);
-    await act(() => result.current.loadMore());
-    expect(result.current.phase).toBe("failed");
-    expect(result.current.error).toContain("paging changed");
+    expect(result.current.page?.candidates).toEqual([candidate("new")]);
+    await act(() => result.current.controller.next());
+    expect(result.current.failure).not.toBeNull();
+    expect(result.current.failure?.message).toContain("paging changed");
   });
 
   it("preserves an explicitly selected subject absent from refreshed candidate pages", async () => {
@@ -178,7 +206,9 @@ describe("Assessment discovery", () => {
       />,
     );
     await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain("All matching"),
+      expect(screen.getByRole("status").textContent).toContain(
+        "end of this query",
+      ),
     );
     expect(
       (
@@ -186,8 +216,13 @@ describe("Assessment discovery", () => {
           assessmentCreateControlTestId("subject"),
         ) as HTMLSelectElement
       ).value,
-    ).toBe("selected");
-    fireEvent.click(screen.getByRole("button", { name: "Reload candidates" }));
+    ).toBe("");
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Subject Selected subject",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh candidates" }));
     await waitFor(() => expect(reader.subjects).toHaveBeenCalledTimes(2));
     expect(update).not.toHaveBeenCalled();
   });
@@ -219,33 +254,51 @@ describe("Assessment discovery", () => {
     );
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toContain(
-        "More candidates",
+        "more available",
       ),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Load more candidates" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
     await waitFor(() => expect(subjects).toHaveBeenCalledTimes(2));
     expect(subjects.mock.calls[1]?.[1].cursor).toBe("next");
     fireEvent.change(screen.getByLabelText("Subject order"), {
       target: { value: "host.display_name:desc" },
     });
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain(
-        "No candidates found",
-      ),
+    expect(subjects).toHaveBeenCalledTimes(2);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
     );
-    expect(subjects.mock.calls[2]?.[1].queryState.sort).toEqual([
-      { fieldKey: "host.display_name", direction: "desc" },
-    ]);
-    const filter = screen.getByLabelText("Subject filter State");
-    fireEvent.change(filter, { target: { value: "selected-state" } });
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toContain(
         "No candidates match",
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Reload candidates" }));
+    expect(subjects.mock.calls[2]?.[1].queryState.sort).toEqual([
+      { fieldKey: "host.display_name", direction: "desc" },
+    ]);
+    fireEvent.change(screen.getByLabelText("Subject filter field"), {
+      target: { value: "host.host_state" },
+    });
+    const filter = screen.getByLabelText("Subject filter value");
+    fireEvent.change(filter, { target: { value: "selected-state" } });
+    expect(subjects).toHaveBeenCalledTimes(3);
+    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain(
+        "No candidates match",
+      ),
+    );
+    await waitFor(() => expect(subjects).toHaveBeenCalledTimes(4));
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Refresh candidates" })
+          .hasAttribute("disabled"),
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Refresh candidates" }));
     await waitFor(() => expect(subjects).toHaveBeenCalledTimes(5));
     expect(
       (
@@ -253,7 +306,12 @@ describe("Assessment discovery", () => {
           assessmentCreateControlTestId("subject"),
         ) as HTMLSelectElement
       ).value,
-    ).toBe("selected");
+    ).toBe("");
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Subject Selected subject",
+      }),
+    ).toBeTruthy();
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -279,7 +337,9 @@ describe("Assessment discovery", () => {
     const trigger = screen.getByRole("button", { name: "Choose support" });
     fireEvent.click(trigger);
     await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain("All matching"),
+      expect(screen.getByRole("status").textContent).toContain(
+        "end of this query",
+      ),
     );
     const select = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
@@ -294,7 +354,9 @@ describe("Assessment discovery", () => {
     expect(document.activeElement).toBe(trigger);
     fireEvent.click(trigger);
     await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain("All matching"),
+      expect(screen.getByRole("status").textContent).toContain(
+        "end of this query",
+      ),
     );
     fireEvent.click(
       screen.getByRole("button", { name: "Apply support selection" }),

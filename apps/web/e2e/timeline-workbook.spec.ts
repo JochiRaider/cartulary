@@ -534,7 +534,9 @@ test("Timeline exact action recovery preserves committed transitions change sets
     await expect(recovery).toContainText("Timeline action outcome unknown.");
     const before = await fetchFullRecordHistory(page, target.record_id);
     await expect(
-      page.getByRole("heading", { name: "Timeline action", exact: true }),
+      page
+        .getByRole("region", { name: "Recovery navigation", exact: true })
+        .locator(":scope > h2"),
     ).toBeFocused();
     const retry = page.getByTestId(
       timelineCaptureActionTestId("retry", target.record_id),

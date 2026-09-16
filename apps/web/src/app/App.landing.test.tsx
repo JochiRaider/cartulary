@@ -2617,7 +2617,7 @@ describe("Incident landing", () => {
     expect((workbookFrame as HTMLElement).style.display).toBe("grid");
     expect((workbookFrame as HTMLElement).style.blockSize).toBe("100%");
     expect((workbookFrame as HTMLElement).style.overflow).toBe("hidden");
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 4);
   });
 
   it("preserves incident and directory routes across popstate navigation", async () => {
@@ -2774,7 +2774,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 4);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -2787,7 +2787,7 @@ describe("Incident landing", () => {
       screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("leaves revoked incident content before independent account refresh settles and never reopens it", async () => {
@@ -2828,7 +2828,7 @@ describe("Incident landing", () => {
       window.history.replaceState({}, "", `/?incident_id=${first.incident_id}`);
       renderApp();
       await screen.findByTestId("mock-workbook");
-      await expectStableFetchCount(fetchMock, 5);
+      await expectStableFetchCount(fetchMock, 4);
       revoked = true;
       fireEvent.click(screen.getByTestId("mock-access-lost"));
       await screen.findByTestId(

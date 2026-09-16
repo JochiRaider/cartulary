@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
@@ -14,6 +15,7 @@ import {
   observationSource,
   testObservation,
 } from "../../../testing/observationTestSupport";
+import { WorkbookRecoveryFixture } from "../../../testing/WorkbookRecoveryFixture";
 import { IndicatorInspectorWorkflow } from "./IndicatorInspectorWorkflow";
 import { ObservationContext } from "./ObservationContext";
 import { ObservationDetails } from "./ObservationDetails";
@@ -86,13 +88,26 @@ it("Observation uncertainty survives close and reopen without completing detache
   await screen.findByText(/The observation outcome is unknown/);
   const a = t.entry()?.attempt;
   view.unmount();
-  render(<WorkbookObservationRecovery owner={t.owner} />);
+  render(
+    <WorkbookRecoveryFixture>
+      <WorkbookObservationRecovery owner={t.owner} />
+    </WorkbookRecoveryFixture>,
+  );
   const trigger = screen.getByRole("button", {
-    name: /Indicator observations/,
+    name: /^Recovery \(/,
   });
   fireEvent.click(trigger);
-  const recoveryHeading = screen.getByRole("heading");
-  expect(recoveryHeading.textContent).toBe("Indicator observation recovery");
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Indicator observation ·/,
+    }),
+  );
+  const recoveryHeading = within(
+    screen.getByRole("region", { name: "Recovery navigation" }),
+  )
+    .getAllByRole("heading", { level: 2 })
+    .find((heading) => heading.tabIndex === -1);
+  expect(recoveryHeading?.textContent).toBe("Indicator observation");
   expect(recoveryHeading).toBe(document.activeElement);
   const replay = screen.getByRole("button", {
     name: "Replay original observation request",
@@ -111,7 +126,7 @@ it("Observation uncertainty survives close and reopen without completing detache
     )?.selection?.text,
   ).toBe("α.example");
   fireEvent.keyDown(
-    screen.getByRole("region", { name: "Indicator observation recovery" }),
+    screen.getByRole("region", { name: "Recovery navigation" }),
     { key: "Escape" },
   );
   expect(document.activeElement).toBe(trigger);

@@ -9,6 +9,7 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
+  saveStateActionButtonTestId,
   saveStateTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
@@ -528,7 +529,11 @@ test("Timeline rejected edits keep correction local and preserve rough date text
       (row) => row.record_id === id,
     )?.cells[synopsis]?.value,
   ).toBe(required(rows[0]).cells[synopsis]?.value);
+  await page.getByTestId(saveStateActionButtonTestId()).click();
   await page.getByTestId(workbookEditRecoveryDiscardButtonTestId()).click();
+  await page
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .click();
   await selectCell(page, id);
   await page.keyboard.type("Corrected fact");
   await page.keyboard.press("Enter");
@@ -577,6 +582,7 @@ test("Timeline rejected edits keep correction local and preserve rough date text
       )?.cells[synopsis]?.value,
     ).toBe("Concurrent saved fact");
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+    await page.getByTestId(conflictMarkerTestId(id, synopsis)).click();
     await page
       .getByRole("button", { name: "Close conflict recovery", exact: true })
       .click();
@@ -587,6 +593,9 @@ test("Timeline rejected edits keep correction local and preserve rough date text
     await expect(page.getByTestId(rowCellTestId(id, synopsis))).toHaveText(
       "Concurrent saved fact",
     );
+    await page
+      .getByRole("button", { name: "Close recovery", exact: true })
+      .click();
     await selectCell(page, id);
     await page.keyboard.type("Continued after conflict");
     await page.keyboard.press("Enter");

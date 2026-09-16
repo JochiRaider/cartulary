@@ -69,7 +69,10 @@ function fixture(
     },
   };
   const reader: ContextualCreateReader = {
-    availableViews: vi.fn(async () => [view]),
+    availableViews: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: [view],
+    })),
     verify: vi.fn(async () => {}),
     page: vi.fn(async () => ({
       kind: "accepted" as const,
@@ -283,11 +286,11 @@ describe("contextual Task and Decision authoring", () => {
       ).toBe(false),
     );
     expect(
-      screen.getByRole("option", { name: "Original source" }),
+      screen.getByRole("button", {
+        name: `Remove selected ${label} Original source`,
+      }),
     ).toBeDefined();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Load more references" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
     await waitFor(() =>
       expect(reader.page).toHaveBeenCalledWith(
         expect.objectContaining({ cursor: "page2" }),
@@ -367,7 +370,9 @@ describe("contextual Task and Decision authoring", () => {
       fireEvent.click(screen.getByRole("button", { name: `Choose ${label}` }));
       await waitFor(() =>
         expect(
-          screen.getByRole("option", { name: "Original source" }),
+          screen.getByRole("button", {
+            name: `Remove selected ${label} Original source`,
+          }),
         ).toBeDefined(),
       );
       act(() => owner.observe(sourceId, 2));

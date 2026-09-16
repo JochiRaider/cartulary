@@ -351,7 +351,9 @@ test("Network Analysis links compatible targets and recovers exact committed req
     networkAnalysisTestId("indicator-link-submit"),
   );
   await expect(
-    page.getByRole("heading", { name: "Indicator link draft", exact: true }),
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
   ).toBeFocused();
   await confirmation.fill("192.0.2.10 ");
   await confirmation.press("Enter");
@@ -1533,7 +1535,9 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   const dialog = page.getByTestId(networkAnalysisTestId("rename-dialog"));
   const input = page.getByTestId(networkAnalysisTestId("rename-input"));
   await expect(
-    page.getByRole("heading", { name: "Rename table", exact: true }),
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
   ).toBeFocused();
   await input.fill("😀".repeat(65));
   await input.press("Enter");

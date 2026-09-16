@@ -816,15 +816,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     expect(document.activeElement).toBe(undoButton);
     fireEvent.click(undoButton);
 
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      preservedScroll,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Recovery \(/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Mention resolution ·/ }),
+    );
     await waitFor(() => {
       expect(
         screen.getByLabelText("Retained mention operations").textContent,
       ).toContain("Mention action completed.");
     });
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      preservedScroll,
-    );
     expect(
       screen.queryByTestId(autoResolutionNoticeTestId(mentionItemRef)),
     ).toBeNull();

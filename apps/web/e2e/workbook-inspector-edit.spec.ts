@@ -14,6 +14,10 @@ import {
 import {
   evidenceViewSchemaId,
   hostsViewSchemaId,
+  indicatorsViewSchemaId,
+  notesViewSchemaId,
+  partiesViewSchemaId,
+  taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
@@ -313,9 +317,9 @@ test("Reference selection reaches later real targets and retains staged choices 
   workerAdmin,
 }) => {
   test.setTimeout(180_000);
-  const taskView = "cartulary.view.task_requests.v1",
-    noteView = "cartulary.view.notes.v1",
-    indicatorView = "cartulary.view.indicators.v1";
+  const taskView = taskRequestsViewSchemaId,
+    noteView = notesViewSchemaId,
+    indicatorView = indicatorsViewSchemaId;
   const incident = await createIncident(
     page,
     uniqueIncidentKey("RSR"),
@@ -402,7 +406,14 @@ test("Reference selection reaches later real targets and retains staged choices 
   });
   const first = await list.locator("option").first().getAttribute("value");
   if (!first) throw new Error("Missing page one candidate");
-  await list.selectOption(first);
+  const selectedOnPage = () =>
+    list.evaluate((element) =>
+      Array.from(
+        (element as HTMLSelectElement).selectedOptions,
+        (option) => option.value,
+      ),
+    );
+  await list.selectOption([...(await selectedOnPage()), first]);
   await popup.getByRole("button", { name: "Next", exact: true }).click();
   await expect(popup.getByRole("alert")).toContainText(
     "accepted page is retained",
@@ -414,7 +425,7 @@ test("Reference selection reaches later real targets and retains staged choices 
   await expect(popup).toContainText("Page 2: 5 candidates; end of this source");
   const later = await list.locator("option").last().getAttribute("value");
   if (!later) throw new Error("Missing later candidate");
-  await list.selectOption(later);
+  await list.selectOption([...(await selectedOnPage()), later]);
   await popup
     .getByLabel("Reference filter field")
     .selectOption("note.created_by_user_id");
@@ -503,7 +514,16 @@ test("Reference selection reaches later real targets and retains staged choices 
   expect(value.items.map((item) => item.item_ref)).toContain(itemRef);
   if (!itemRef) throw new Error("Missing removal item_ref");
   await removal.selectOption(itemRef);
+  const removalAccepted = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/records/${task.record_id}`),
+  );
   await page.getByTestId(genericEditSubmitTestId(taskView)).click();
+  expect((await removalAccepted).ok()).toBe(true);
+  await expect(
+    page.getByRole("region", { name: "Inspector changes" }),
+  ).toContainText("Saved, version 3");
   await expect.poll(() => writes.length).toBe(2);
   expect(writes[1]?.changes).toEqual([
     {
@@ -520,7 +540,7 @@ test("a11y.references native popup preserves keyboard focus and fits narrow zoom
   page,
 }, info) => {
   const f = await fixture(page, evidenceViewSchemaId);
-  await createViewRow(page, f.incident, "cartulary.view.parties.v1", {
+  await createViewRow(page, f.incident, partiesViewSchemaId, {
     client_txn_id: uniqueTxn("rsr-a11y"),
     "party.display_name": "Keyboard accessible Party",
     "party.party_kind": "person",
@@ -592,8 +612,8 @@ test("Reference target deletion merge and membership removal preserve exact choi
   workerAdminRequest,
 }) => {
   const f = await fixture(page, evidenceViewSchemaId);
-  const partyView = "cartulary.view.parties.v1",
-    taskView = "cartulary.view.task_requests.v1";
+  const partyView = partiesViewSchemaId,
+    taskView = taskRequestsViewSchemaId;
   const party = await createViewRow(page, f.incident, partyView, {
     client_txn_id: uniqueTxn("rsr-deleted-party"),
     "party.display_name": "Chosen before deletion",

@@ -16,7 +16,6 @@ Timeline-specific controllers live under
 | File | Responsibility |
 | --- | --- |
 | [useActiveSurfaceSavedViewActions.ts](useActiveSurfaceSavedViewActions.ts) | Binds active-surface saved-view intents to retained action and recovery ownership. |
-| [useWorkbookCandidates.ts](useWorkbookCandidates.ts) | Shared paged workbook candidate reads with query identity and stale-response handling. |
 | [useWorkbookProjectionRefreshController.test.tsx](useWorkbookProjectionRefreshController.test.tsx) | Direct tests for initial and sheet-triggered projection refresh ownership. |
 | [useWorkbookProjectionRefreshController.ts](useWorkbookProjectionRefreshController.ts) | Initial session/entity and sheet-triggered projection refresh coordinator. |
 | [useWorkbookQueryController.test.tsx](useWorkbookQueryController.test.tsx) | Direct tests for exact-view-schema query-state isolation. |
@@ -71,3 +70,15 @@ semantic anchors at departure and detach editor presentation for explicit browsi
 records explicit resolver focus intent. Shared recovery presentation owns closing,
 completion fallback and inspector/dialog coordination; mutation snapshots contain
 no disclosure state.
+
+## Authoring candidate discovery
+
+| File | Responsibility |
+| --- | --- |
+| [useWorkbookCandidateDiscovery.ts](useWorkbookCandidateDiscovery.ts) | React attachment and semantic authority/target/query fencing for candidate discovery. |
+
+useWorkbookAuthoringInventory uses the typed discovery lifecycle for the finite
+implemented-surface inventory; member selection uses the membership read directly.
+The accumulating useWorkbookCandidates hook is retired. The shell supplies account,
+session, incident and authority generation through WorkbookCandidateAuthorityContext,
+including authoring attached through recovery panels.

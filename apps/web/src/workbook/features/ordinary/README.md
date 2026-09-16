@@ -35,3 +35,9 @@ Initial reference presentation uses retained selections, the authenticated actor
 known label for that exact user ID, or an unresolved exact ID. The former
 aggregate snapshot fallback is retired. A known actor label supplies presentation
 only; the membership and creation owners still decide admission.
+
+Relationship creation cells keep exact raw-ID entry and an optional staged picker.
+The raw control owns semantic grid focus. Picker selections retain identity, schema
+and necessary labels only; raw edits invalidate that field's optional presentation.
+The ordinary owner and its contribution still own clear/default/omission preparation,
+submission, immutable attempts, receipts and refresh recovery.

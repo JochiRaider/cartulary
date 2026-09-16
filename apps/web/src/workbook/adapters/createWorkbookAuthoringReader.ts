@@ -10,6 +10,9 @@ import type {
   WorkbookAuthoringCandidate,
   WorkbookAuthoringReadPort,
 } from "../ports/WorkbookAuthoringReadPort";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
+import type { WorkbookCanonicalQuery } from "../query/WorkbookViewQueryPort";
+import { readWorkbookQueryMetadata } from "../query/workbookQueryMetadata";
 import { workbookCreateCapabilityMatches } from "./workbookCreateCapability";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
@@ -26,11 +29,14 @@ export function createWorkbookAuthoringReader(options: {
         operationID: "listViewSchemas",
         signal,
       });
-      if (result.kind !== "accepted")
-        throw new Error("Reference surfaces are unavailable.");
-      return result.value.data.view_schemas
-        .filter((view) => getViewContract(view.view_schema_id))
-        .map((view) => view.view_schema_id);
+      if (signal.aborted) return { kind: "aborted" };
+      if (result.kind !== "accepted") return result;
+      return {
+        kind: "accepted",
+        value: result.value.data.view_schemas
+          .filter((view) => getViewContract(view.view_schema_id))
+          .map((view) => view.view_schema_id),
+      };
     },
     async verify(draft, signal) {
       const results = await Promise.all([
@@ -94,8 +100,10 @@ export function createWorkbookAuthoringReader(options: {
         );
     },
     async page(input) {
+      let responseAccepted = false;
       try {
         let candidates: WorkbookAuthoringCandidate[];
+        let canonicalQuery: WorkbookCanonicalQuery | undefined;
         let paging: HTTPOperationResponse<"listIncidentMemberships">["meta"]["paging"];
         if (input.viewSchemaId === "incident_members") {
           const result = await operations.execute({
@@ -107,10 +115,20 @@ export function createWorkbookAuthoringReader(options: {
             },
             signal: input.signal,
           });
+          if (input.signal.aborted || input.isCurrent?.() === false)
+            return { kind: "aborted" };
           if (result.kind !== "accepted") {
-            options.recheckAuthority();
+            if (
+              result.kind === "rejected" &&
+              workbookFailureLifecycle(result.failure).kind ===
+                "authority_unavailable"
+            )
+              (input.onAuthorityFailure ?? options.recheckAuthority)(
+                result.failure,
+              );
             return result;
           }
+          responseAccepted = true;
           paging = result.value.meta.paging;
           candidates = result.value.data.memberships.map((member) => {
             if (member.incident_id !== options.incidentId || !member.user_id)
@@ -136,15 +154,33 @@ export function createWorkbookAuthoringReader(options: {
             },
             signal: input.signal,
           });
+          if (input.signal.aborted || input.isCurrent?.() === false)
+            return { kind: "aborted" };
           if (result.kind !== "accepted") {
-            options.recheckAuthority();
+            if (
+              result.kind === "rejected" &&
+              workbookFailureLifecycle(result.failure).kind ===
+                "authority_unavailable"
+            )
+              (input.onAuthorityFailure ?? options.recheckAuthority)(
+                result.failure,
+              );
             return result;
           }
+          responseAccepted = true;
           if (
             result.value.data.incident_id !== options.incidentId ||
             result.value.data.view_schema_id !== input.viewSchemaId
           )
             throw new Error("Invalid candidate scope.");
+          canonicalQuery = readWorkbookQueryMetadata(
+            contract,
+            result.value.meta,
+            input.queryState,
+            100,
+            input.cursor ?? undefined,
+            input.expectedCanonicalQuery,
+          ).canonicalQuery;
           paging = result.value.meta.paging;
           candidates = normalizeWorkbookViewRows(
             contract,
@@ -160,6 +196,9 @@ export function createWorkbookAuthoringReader(options: {
           });
         }
         if (
+          candidates.length > 100 ||
+          new Set(candidates.map((item) => item.recordId)).size !==
+            candidates.length ||
           !paging ||
           paging.limit !== 100 ||
           paging.has_more !== (paging.next_cursor !== null) ||
@@ -173,6 +212,7 @@ export function createWorkbookAuthoringReader(options: {
               kind: "accepted",
               value: {
                 candidates,
+                ...(canonicalQuery ? { canonicalQuery } : {}),
                 hasMore: paging.has_more,
                 nextCursor: paging.next_cursor,
               },
@@ -183,8 +223,10 @@ export function createWorkbookAuthoringReader(options: {
           : {
               kind: "rejected",
               failure: {
-                kind: "retryable",
-                message: "References could not be verified. Retry the read.",
+                kind: responseAccepted ? "invalid_contract" : "retryable",
+                message: responseAccepted
+                  ? "References could not be verified. Restart from First."
+                  : "References could not be loaded. Retry this read.",
               },
             };
       }

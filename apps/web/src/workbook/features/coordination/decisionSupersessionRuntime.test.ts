@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render, within } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
@@ -10,6 +10,7 @@ import {
   decisionTargetId,
 } from "../../../testing/decisionSupersessionTestSupport";
 import { deferred } from "../../../testing/fetchMockTestSupport";
+import { WorkbookRecoveryFixture } from "../../../testing/WorkbookRecoveryFixture";
 import { createWorkbookDecisionSupersessionAdapter } from "../../adapters/createWorkbookDecisionSupersessionAdapter";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -99,10 +100,24 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
     expect(send).not.toHaveBeenCalled();
     expect(owner.getSnapshot().entries[0]?.phase).toBe("rejected");
     const recovery = render(
-      createElement(WorkbookDecisionSupersessionRecovery, { runtime }),
+      createElement(
+        WorkbookRecoveryFixture,
+        null,
+        createElement(WorkbookDecisionSupersessionRecovery, { runtime }),
+      ),
     );
-    expect(recovery.getByRole("status").textContent).toBe(
-      "1 supersession rejected.",
+    fireEvent.click(recovery.getByRole("button", { name: /^Recovery \(/ }));
+    fireEvent.click(
+      recovery.getByRole("button", {
+        name: /Decision supersession ·/,
+      }),
+    );
+    expect(
+      within(
+        recovery.getByRole("region", { name: "Decision action recovery" }),
+      ).getByRole("status").textContent,
+    ).toBe(
+      "Supersession rejected. Refresh and review again before a new attempt.",
     );
     recovery.unmount();
     // Supersession never discards the FIFO, even when its review becomes stale.

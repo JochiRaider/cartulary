@@ -232,7 +232,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-references-narrow-linux.png",
-      "sha256": "44e1cdbfc24fffb0fd9695d093b199915fc2edf2ead804b62684dae69b94c36d"
+      "sha256": "6856ca3ed9d11223aeb2069ce5a758239bddb86d3531c9370912cca783310c7c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-linux.png",
@@ -252,7 +252,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-references-narrow-linux.png",
-      "sha256": "4ab876b6697b0162a255af8d957f32083a248c1a429dbe07d6062e64508858e1"
+      "sha256": "2d333a4cf9efbcd11240a46b3a51ea4aecf9de4b8f74dd9269eae2c2070be468"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",
@@ -276,7 +276,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png",
-      "sha256": "d0571637e5ebbb660306ec7c2d271e5024b9996b23e577e3ee641768694ea91a"
+      "sha256": "e807b3a0c2711eb552c47b1bdebccf553f583e119fbbf2d31ee9c5ce56159adb"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png",
@@ -284,15 +284,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-accepted-linux.png",
-      "sha256": "0997109d9bcab89120d19942332d8208baeca772868fbc5a738ea07a2a8cf96e"
+      "sha256": "1109493cfd0969cdd072b2be7444c77e134ee82168352e73cec22ffe8959dadf"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-linux.png",
-      "sha256": "38889fcc6fb1738b5b81a33a95933a2804d4003256744c84759851e4e8a6e789"
+      "sha256": "06efad698ca3ed2215a297e37cd00bebeef30e8b66703e171579219ecf4c287d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-narrow-linux.png",
-      "sha256": "ad09d3b1e44d4a96ac4f14249dbaddb5acf7c0a72f5350227875ea31ac9cfabd"
+      "sha256": "1e9be72eb13e790fa60806f93ffd52cec136eb168721456ef39a9dd2e400a38b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
@@ -328,7 +328,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
-      "sha256": "963aee3f5d15b0268a8018a830757af89a705883c371ed18c5423403aafb27e5"
+      "sha256": "19585f5c02cb7dccbad906b19e76bdbc92470e1aa062e6a5501dafe5ee4e4672"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-available-evidence-linux.png",
@@ -540,7 +540,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-source-narrow-linux.png",
-      "sha256": "428b4e106f77cb7fa54967257e54a68d34afdb7432183fdf176007b1aafcdd89"
+      "sha256": "34faacf8694793e748015cf076f484cc86a820dfef6e697dfff06bb8a3a9992c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-comfortable-linux.png",
@@ -720,7 +720,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-reference-authoring-linux.png",
-      "sha256": "491c007ace3ece0a34c59f54d31e2a8e07e067b517d1f409fac2a4c6a96f8c2f"
+      "sha256": "a6409c99ab32ac2d4e9a9e44dfdc9d95ca1a4853e0d35d41d6e99be608018030"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",
@@ -732,7 +732,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png",
-      "sha256": "49f704e4586541ad6cd524a016da5be4bad02454d81e9d000efc6515740b531e"
+      "sha256": "3cae21245caa6a0e8c1e1f5dec49e6fd5d002dcc2a45768460620a1aaeb54095"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-cancel-requested-linux.png",
@@ -856,7 +856,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-party-narrow-linux.png",
-      "sha256": "6dd749fa2e3898ba85bd45e9ac567d8dd01234480e2d4515d74c00a96f761abd"
+      "sha256": "871e0b95cdc255608a3bdaf438de1cbed4c143f0397a5dcb8079781363d3ddb1"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-accepted-linux.png",

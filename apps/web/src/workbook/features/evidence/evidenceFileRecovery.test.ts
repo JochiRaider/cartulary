@@ -100,7 +100,10 @@ function fixture() {
     })),
   };
   const reader: WorkbookAuthoringReadPort = {
-    availableViews: async () => [evidenceViewSchemaId, timelineViewSchemaId],
+    availableViews: async () => ({
+      kind: "accepted" as const,
+      value: [evidenceViewSchemaId, timelineViewSchemaId],
+    }),
     verify: async () => {},
     page: async ({ viewSchemaId }) => {
       const row =

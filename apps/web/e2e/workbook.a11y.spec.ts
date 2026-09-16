@@ -2179,7 +2179,9 @@ if (
       networkAnalysisTestId("mapping-profile"),
     );
     await expect(
-      page.getByRole("heading", { name: "Network Flow import", exact: true }),
+      page
+        .getByRole("region", { name: "Recovery navigation", exact: true })
+        .locator(":scope > h2"),
     ).toBeFocused();
     // Inspect the retained import surface itself; it lives above workspace unmount.
     for (const viewport of [
@@ -2966,10 +2968,9 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
 
       await page.getByTestId(saveStateActionButtonTestId()).click();
       await expect(
-        page.getByRole("heading", {
-          name: "Queued edit recovery",
-          exact: true,
-        }),
+        page
+          .getByRole("region", { name: "Recovery navigation", exact: true })
+          .locator(":scope > h2"),
       ).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(retryButton).toBeFocused();
@@ -3010,7 +3011,9 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(recoveryPanel).toHaveCount(0);
       await expect(
-        page.getByRole("heading", { name: "Recovery", exact: true }),
+        page
+          .getByRole("region", { name: "Recovery navigation", exact: true })
+          .locator(":scope > h2"),
       ).toBeFocused();
       expect(recoveryController.calls).toHaveLength(1);
     } finally {
@@ -3949,10 +3952,9 @@ test.describe("browser.collaboration accessibility readiness", () => {
           "Workbook conflict recovery",
         );
         const summary = page.getByTestId(workbookConflictSummaryTestId());
-        const panelHeading = page.getByRole("heading", {
-          name: "Same-field conflict",
-          exact: true,
-        });
+        const panelHeading = page
+          .getByRole("region", { name: "Recovery navigation", exact: true })
+          .locator(":scope > h2");
         await expect(panelHeading).toBeFocused();
         await expect(resolver).toHaveAttribute(
           "data-conflict-field-key",
@@ -7275,7 +7277,9 @@ if (
       networkAnalysisTestId("indicator-link-confirmation"),
     );
     await expect(
-      page.getByRole("heading", { name: "Indicator link draft", exact: true }),
+      page
+        .getByRole("region", { name: "Recovery navigation", exact: true })
+        .locator(":scope > h2"),
     ).toBeFocused();
     await expect(dialog).not.toHaveAttribute("aria-modal");
     await confirmation.fill(value.toUpperCase());
@@ -7432,7 +7436,9 @@ test("a11y.decision-supersession review cancellation and shell recovery preserve
   await openRecoveryItem(page, /^Decision supersession ·/);
   const recovery = page.getByTestId(decisionSupersessionTestId("recovery"));
   await expect(
-    page.getByRole("heading", { name: "Decision supersession", exact: true }),
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
   ).toBeFocused();
   await expect(
     recovery.getByText(
@@ -7519,7 +7525,9 @@ test("a11y.timeline-capture review and recovery retain keyboard focus across res
     page.getByRole("region", { name: "Timeline action recovery", exact: true }),
   ).toBeVisible();
   await expectVisibleFocus(
-    page.getByRole("heading", { name: "Timeline action", exact: true }),
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
   );
   await expect(
     page.getByTestId(timelineCaptureActionTestId("result", target.record_id)),
@@ -7595,14 +7603,18 @@ test("a11y.indicator-lifecycle UTC errors and retained recovery remain keyboard 
   await expectAllInteractiveControlsNamed(page);
   await submit.focus();
   await submit.press("Enter");
+  await expect(
+    page.getByText("Interval saved. Indicator and history refreshed.", {
+      exact: true,
+    }),
+  ).toBeVisible();
   const trigger = recoveryEntry(page);
   await trigger.focus();
   await openRecoveryItem(page, /^Indicator interval ·/);
   const recovery = page.getByTestId(indicatorLifecycleTestId("recovery"));
-  const recoveryHeading = page.getByRole("heading", {
-    name: "Indicator interval",
-    exact: true,
-  });
+  const recoveryHeading = page
+    .getByRole("region", { name: "Recovery navigation", exact: true })
+    .locator(":scope > h2");
   await expect(recoveryHeading).toHaveAccessibleName("Indicator interval");
   await expect(recoveryHeading).toBeFocused();
   await expect(
@@ -7684,14 +7696,18 @@ test("a11y.indicator-observations exact source selection and retained recovery r
   await expectAllInteractiveControlsNamed(page);
   await submit.focus();
   await submit.press("Enter");
+  await expect(
+    page.getByText("Observation change saved. Records and history refreshed.", {
+      exact: true,
+    }),
+  ).toBeVisible();
   const trigger = recoveryEntry(page);
   await trigger.focus();
   await openRecoveryItem(page, /^Indicator observation ·/);
   const recovery = page.getByTestId(indicatorObservationTestId("recovery"));
-  const recoveryHeading = page.getByRole("heading", {
-    name: "Indicator observation",
-    exact: true,
-  });
+  const recoveryHeading = page
+    .getByRole("region", { name: "Recovery navigation", exact: true })
+    .locator(":scope > h2");
   await expect(recoveryHeading).toHaveAccessibleName("Indicator observation");
   await expect(recoveryHeading).toBeFocused();
   await expect(
@@ -7794,10 +7810,9 @@ test("a11y.canonical-indicator proposal validation and separate resolution remai
   await expect(
     page.getByTestId(indicatorCreateTestId("recovery")),
   ).toBeVisible();
-  const canonicalRecoveryHeading = page.getByRole("heading", {
-    name: "Canonical Indicator creation",
-    exact: true,
-  });
+  const canonicalRecoveryHeading = page
+    .getByRole("region", { name: "Recovery navigation", exact: true })
+    .locator(":scope > h2");
   await expect(canonicalRecoveryHeading).toHaveAccessibleName(
     "Canonical Indicator creation",
   );
@@ -8269,11 +8284,12 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
   await page.emulateMedia({ reducedMotion: "reduce" });
   const handoff = handoffViewSchemaId;
   const { incident } = await openOrdinaryFixture(page, handoff);
-  const reference = await ordinaryField(
+  const referenceInput = await ordinaryField(
     page,
     handoff,
     "handoff.incoming_owner_user_id",
   );
+  const reference = page.getByRole("gridcell").filter({ has: referenceInput });
   const choose = reference.getByRole("button", {
     name: "Choose incoming owner",
     exact: true,
@@ -8289,6 +8305,17 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
     reference.getByRole("button", { name: "Cancel references", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
+  await expect(
+    reference.getByRole("button", { name: "Apply references", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    reference.getByRole("button", { name: "Refresh candidates", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    reference.getByRole("button", { name: "First candidates", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(picker).toBeFocused();
   await expectVisibleFocus(picker);
@@ -8511,6 +8538,12 @@ test("a11y.coordination all target fields source review and uncertain recovery s
       await page.evaluate((zoom) => {
         document.documentElement.style.zoom = zoom;
       }, profile.zoom);
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
       for (const role of ["textbox", "combobox", "button"] as const) {
         for (const control of await retained.getByRole(role).all()) {
           if (!(await control.isVisible()) || !(await control.isEnabled()))
@@ -8557,6 +8590,11 @@ test("a11y.coordination all target fields source review and uncertain recovery s
     exact: true,
   });
   await expect(retryRefresh).toBeEnabled();
+  await expect(
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
+  ).toBeFocused();
   await checkRecoveryControls();
   await page.unroute(refreshPath);
   await retryRefresh.click();

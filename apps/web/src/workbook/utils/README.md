@@ -33,3 +33,6 @@ serve workbook consumers without owning a feature workflow.
 | [workbookRowReconciliation.test.ts](workbookRowReconciliation.test.ts) | Tests for sparse row replacement, removal, drafts, and row-version reference reuse. |
 | [workbookStatusSecondary.test.ts](workbookStatusSecondary.test.ts) | Tests generated secondary-status priority and exclusion of inactive-surface candidates. |
 | [workbookValueFormat.test.ts](workbookValueFormat.test.ts) | Tests grid value formatting preserves primitive display strings. |
+
+retainWorkbookReferenceLabels prunes presentation using exact feature-supplied
+identities. It knows neither reference eligibility nor parent workflow semantics.

@@ -87,6 +87,8 @@ export function TimelineRelatedEvidenceForm({
                 {field.directReferenceContractId ===
                 "same_incident_party_ref_v1" ? (
                   <RelatedEvidencePartyControl
+                    disabled={owner.busy || !owner.canSubmit()}
+                    targetKey={`related-evidence:${draft.id}`}
                     field={field}
                     value={value}
                     labels={draft.labels}

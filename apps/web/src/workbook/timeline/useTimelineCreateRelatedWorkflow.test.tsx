@@ -56,10 +56,10 @@ describe("useTimelineCreateRelatedWorkflow", () => {
     };
     owner.configure(
       {
-        availableViews: async () => [
-          timelineViewSchemaId,
-          evidenceViewSchemaId,
-        ],
+        availableViews: async () => ({
+          kind: "accepted" as const,
+          value: [timelineViewSchemaId, evidenceViewSchemaId],
+        }),
         verify: async () => {},
         page: async ({ viewSchemaId }) => ({
           kind: "accepted",

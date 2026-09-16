@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { WorkbookRecoveryFixture } from "../testing/WorkbookRecoveryFixture";
@@ -124,9 +125,11 @@ it("conceals revoked owner summaries and keeps focus in the recovery list", () =
     screen.queryByRole("region", { name: "Retained Note authoring" }),
   ).toBeNull();
   expect(screen.getByRole("button", { name: "Recovery (0)" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Recovery", level: 2 })).toBe(
-    document.activeElement,
-  );
+  expect(
+    within(screen.getByRole("region", { name: "Recovery navigation" }))
+      .getAllByRole("heading", { level: 2 })
+      .find((heading) => heading.tabIndex === -1),
+  ).toBe(document.activeElement);
   expect(runtime.noteCreate.getSnapshot().draft).toBeNull();
   act(() => runtime.noteCreate.setAuthority(authority));
   expect(runtime.noteCreate.getSnapshot().draft?.values["note.title"]).toBe(

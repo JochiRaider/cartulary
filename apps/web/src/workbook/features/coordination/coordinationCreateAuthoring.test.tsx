@@ -42,10 +42,10 @@ function fixture(
   owner.setAuthority(authority);
   const reader: WorkbookAuthoringReadPort = {
     verify: vi.fn(async () => {}),
-    availableViews: vi.fn(async () => [
-      ...coordinationSourceViews(variant),
-      "cartulary.view.parties.v1",
-    ]),
+    availableViews: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: [...coordinationSourceViews(variant), "cartulary.view.parties.v1"],
+    })),
     page: vi.fn(async (input) => ({
       kind: "accepted" as const,
       value: {
@@ -418,6 +418,8 @@ describe("Coordination authoring", () => {
     }));
     render(
       <WorkbookAuthoringReferenceControl
+        targetKey="coordination-test"
+        maximum={64}
         label="Audience Parties"
         testId="party-picker"
         views={["cartulary.view.parties.v1"]}
@@ -439,10 +441,12 @@ describe("Coordination authoring", () => {
       screen.getByRole("button", { name: "Choose audience parties" }),
     );
     await screen.findByRole("option", { name: "First" });
-    expect(screen.getByRole("option", { name: "Retained" })).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Load more references" }),
-    );
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Audience Parties Retained",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
     await screen.findByRole("option", { name: "Second" });
     fireEvent.keyDown(screen.getByLabelText("Audience Parties"), {
       key: "Escape",
@@ -463,9 +467,11 @@ describe("Coordination authoring", () => {
     });
     render(
       <WorkbookAuthoringReferenceControl
+        targetKey="coordination-test"
+        maximum={64}
         label="Owner"
         testId="owner-picker"
-        views={["incident_members"]}
+        views={["cartulary.view.parties.v1"]}
         multiple={false}
         selected={[]}
         reader={reader}
@@ -476,13 +482,18 @@ describe("Coordination authoring", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Choose owner" }));
     await screen.findByRole("button", { name: "Retry surfaces" });
-    expect(screen.queryByText("No available references.")).toBeNull();
+    expect(screen.queryByText("No candidates match this query.")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Retry surfaces" }));
-    await screen.findByText("No available references.");
+    await screen.findByText("No candidates match this query.");
     cleanup();
-    vi.mocked(reader.availableViews).mockResolvedValue([]);
+    vi.mocked(reader.availableViews).mockResolvedValue({
+      kind: "accepted",
+      value: [],
+    });
     render(
       <WorkbookAuthoringReferenceControl
+        targetKey="coordination-test"
+        maximum={64}
         label="Parties"
         testId="unavailable-parties"
         views={["cartulary.view.parties.v1"]}
@@ -504,12 +515,16 @@ describe("Coordination authoring", () => {
     await screen.findByText(
       "This reference surface is unavailable. Your selection is retained.",
     );
-    expect(screen.getByRole("option", { name: "Retained party" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Parties Retained party",
+      }),
+    ).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "Apply references" })
         .hasAttribute("disabled"),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 function required<T>(value: T | null | undefined): T {

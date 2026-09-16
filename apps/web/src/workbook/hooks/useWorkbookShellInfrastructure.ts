@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
-import { createContextualCreateReader } from "../adapters/createContextualCreateReader";
 import { createContextualCreateTransport } from "../adapters/createContextualCreateTransport";
 import { createCoordinationCreateTransport } from "../adapters/createCoordinationCreateTransport";
 import { createEvidenceFileTransport } from "../adapters/createEvidenceFileTransport";
@@ -378,7 +377,7 @@ export function useWorkbookShellInfrastructure({
   useMemo(
     () =>
       mutationRuntime.contextualCreate.configure(
-        createContextualCreateReader({
+        createWorkbookAuthoringReader({
           apiBase,
           incidentId,
           recheckAuthority: () => {

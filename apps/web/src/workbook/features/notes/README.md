@@ -33,3 +33,9 @@ source discovery use [workbook adapters](../../adapters/README.md).
 and acknowledged refresh. The recovery component subscribes to this owner and
 attaches its existing form through the shared boundary. Detachment releases the
 presentation token while retaining raw authoring and captured execution.
+
+NoteSourceControl stages one source through bounded Workbook discovery across its
+four adopted source surfaces. Retained source metadata includes its reviewed row
+version, never the full row. Surface changes and query edits preserve the staged
+source; explicit Apply or Clear changes the parent source. Unlinked creation and
+source replacement review remain Note-owner decisions.

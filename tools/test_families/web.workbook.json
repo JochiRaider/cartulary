@@ -335,6 +335,70 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.authoring_candidate_discovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/services/WorkbookCandidateDiscovery.test.ts",
+        "titles": [
+          "authoring candidate discovery bounds deadlines and cancels detached reads without late publication",
+          "authoring candidate discovery fences obsolete success failure and authority callbacks independently of transport cancellation",
+          "authoring candidate discovery preserves accepted observations during pending and failed continuation and retries the captured read exactly",
+          "authoring candidate discovery preserves typed target incident and session outcomes and delegates authority decisions",
+          "authoring candidate discovery rejects oversized duplicate and repeated-cursor pages without replacing the accepted page",
+          "authoring candidate discovery retains one page and ten earlier requests through long traversal and re-fetches previous checkpoints",
+          "authoring candidate discovery retains the page after cursor rejection and restarts explicitly without a cursor"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.authoring_candidate_presentation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookAuthoringReferencePicker.test.tsx",
+        "titles": [
+          "authoring candidate presentation applies query edits explicitly without clearing selection and rejects over-limit changes",
+          "authoring candidate presentation cancels unapplied staging restores invoking focus and reopens with parent selection",
+          "authoring candidate presentation conceals typed authorization failures and fences obsolete authority callbacks on target replacement",
+          "authoring candidate presentation permits accepted-page selection and Apply during delayed and failed continuation then retries exactly once",
+          "authoring candidate presentation retains a reviewed source version and captures only source identity metadata for explicit replacement",
+          "authoring candidate presentation retains selected identities across twelve evicted pages with bounded options and reduced payloads",
+          "authoring candidate presentation starts and cleans up scoped reads under StrictMode without requesting record filters for membership"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.batch_operation_retention",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3044,6 +3108,7 @@
       "selector": {
         "file": "apps/web/src/workbook/features/ordinary/ordinaryCreateControls.test.tsx",
         "titles": [
+          "ordinary workbook reference controls accepts exact raw reference input without discovery and prunes only changed-field presentation",
           "ordinary workbook reference controls exposes failed reference recovery and conceals retained labels when authorization suspends",
           "ordinary workbook reference controls keeps raw authoring copyable outside the read-only grid and conceals it with authority",
           "ordinary workbook reference controls stages paged selection, retains off-page identity and returns focus on Escape",

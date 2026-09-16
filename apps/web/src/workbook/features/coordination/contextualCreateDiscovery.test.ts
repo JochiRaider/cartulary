@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsonResponse } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { publicWorkbookSchema } from "../../../testing/workbookSchemaTestSupport";
-import { createContextualCreateReader } from "../../adapters/createContextualCreateReader";
+import { createWorkbookAuthoringReader } from "../../adapters/createWorkbookAuthoringReader";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import {
   contextualCreateDraft,
@@ -35,7 +35,7 @@ describe("contextual target reference discovery", () => {
         });
       }),
     );
-    const reader = createContextualCreateReader({
+    const reader = createWorkbookAuthoringReader({
       apiBase: undefined,
       incidentId: incident,
       recheckAuthority: () => {},
@@ -96,14 +96,20 @@ describe("contextual target reference discovery", () => {
         },
         meta: {
           request_id: "query",
-          query: { sort: body.sort ?? [], filters: body.filters ?? [] },
+          query: {
+            sort: contract.defaultSort.map((item) => ({
+              field_key: item.fieldKey,
+              direction: item.direction,
+            })),
+            filters: body.filters ?? [],
+          },
           paging: { limit: 100, has_more: true, next_cursor: "next" },
         },
       });
     });
     vi.stubGlobal("fetch", fetch);
     const recheckAuthority = vi.fn(),
-      reader = createContextualCreateReader({
+      reader = createWorkbookAuthoringReader({
         apiBase: undefined,
         incidentId: incident,
         recheckAuthority,
@@ -144,6 +150,21 @@ describe("contextual target reference discovery", () => {
         .map(([url]) => String(url))
         .some((url) => url.includes(encodeURIComponent(findingsViewSchemaId))),
     ).toBe(true);
+    fetch.mockRejectedValueOnce(new TypeError("Network disconnected"));
+    const failedInput = {
+      viewSchemaId: partiesViewSchemaId,
+      queryState,
+      cursor: "captured-cursor",
+      signal: new AbortController().signal,
+    };
+    expect(await reader.page(failedInput)).toMatchObject({
+      kind: "rejected",
+      failure: { kind: "retryable" },
+    });
+    expect(await reader.page(failedInput)).toMatchObject({ kind: "accepted" });
+    expect(fetch.mock.calls.at(-1)?.[1].body).toEqual(
+      fetch.mock.calls.at(-2)?.[1].body,
+    );
     expect(recheckAuthority).not.toHaveBeenCalled();
   });
   it("paginates membership inventory and rejects mismatched incident and cursor responses", async () => {
@@ -188,7 +209,7 @@ describe("contextual target reference discovery", () => {
         }),
       );
     vi.stubGlobal("fetch", fetch);
-    const reader = createContextualCreateReader({
+    const reader = createWorkbookAuthoringReader({
       apiBase: undefined,
       incidentId: incident,
       recheckAuthority: () => {},

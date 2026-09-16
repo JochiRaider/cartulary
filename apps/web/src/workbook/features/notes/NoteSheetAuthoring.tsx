@@ -18,6 +18,7 @@ export function NoteSheetAuthoring() {
     <div style={{ display: "grid", gap: "0.5rem" }}>
       {reader ? (
         <NoteSourceControl
+          targetKey={`note:${state.draft?.id ?? "new"}`}
           source={state.draft?.source ?? null}
           reader={reader}
           revision={state.candidateRevision}

@@ -16,10 +16,13 @@ import type { WorkbookMutationAuthority } from "../../mutations/workbookMutation
 import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import { retainWorkbookReferenceLabels } from "../../utils/retainWorkbookReferenceLabels";
 import {
   type ContextualCreateDraft,
   contextualCreateDraft,
   contextualCreateErrors,
+  contextualReferenceIds,
+  contextualReferenceKind,
   contextualSelectedIds,
   freezeContextualCreate,
 } from "./contextualCreateModel";
@@ -284,11 +287,19 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       )
     )
       return;
+    const values = { ...this.draft.values, [fieldKey]: value };
     this.draft = freezeContextualCreate({
       ...this.draft,
       revision: this.draft.revision + 1,
-      values: { ...this.draft.values, [fieldKey]: value },
-      labels: { ...this.draft.labels, ...labels },
+      values,
+      labels: retainWorkbookReferenceLabels(
+        this.draft.target.fields
+          .filter((field) => contextualReferenceKind(field))
+          .flatMap((field) =>
+            contextualReferenceIds(values[field.fieldKey] ?? ""),
+          ),
+        { ...this.draft.labels, ...labels },
+      ),
     });
     this.errors = {};
     this.message = null;

@@ -101,3 +101,17 @@ keeps urgent notices visible independently of the selected detail. Explicit
 status actions use semantic keys, including parent batch/compound operations.
 Opening never submits; closing never discards. Completed-notice suppression does
 not delete a receipt. Inspector and workspace dialog activation detach recovery.
+
+## Authoring discovery
+
+WorkbookCandidateBrowsing presents bounded page navigation and typed read recovery;
+it owns no selection or mutation.
+
+Authoring record pickers use WorkbookAuthoringReferencePicker for attachment-local
+staging, WorkbookCandidateSelection for current-page membership and explicit
+removal, WorkbookCandidateQueryControl for explicitly applied schema queries,
+and WorkbookCandidateBrowsing for local read recovery. Selections remain separate
+from the accepted page; callers supply their own maximum and semantic target.
+Source-review callers alone request captured row versions. Apply never dispatches
+a write. WorkbookRecordCandidatePicker remains the native selection presentation
+used by Party linking and Timeline mentions as well as authoring.

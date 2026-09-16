@@ -57,7 +57,10 @@ function fixture(
   );
   owner.setAuthority(authority);
   const reader: WorkbookAuthoringReadPort = {
-    availableViews: vi.fn(async () => coordinationSourceViews(variant)),
+    availableViews: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: coordinationSourceViews(variant),
+    })),
     verify: vi.fn(async () => {}),
     page: vi.fn(async (input) => ({
       kind: "accepted" as const,

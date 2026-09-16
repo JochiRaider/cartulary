@@ -36,7 +36,10 @@ function setup() {
     closed: false,
   });
   const reader: WorkbookAuthoringReadPort = {
-    availableViews: vi.fn(async () => []),
+    availableViews: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: [],
+    })),
     verify: vi.fn(async () => {}),
     page: vi.fn(async (input) => ({
       kind: "accepted" as const,
@@ -157,9 +160,7 @@ describe("ordinary workbook reference controls", () => {
     expect(
       owner.getSnapshot().schemas[contract.viewSchemaId]?.draft.values,
     ).toEqual({});
-    fireEvent.click(
-      screen.getByRole("button", { name: "Load more references" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
     await screen.findByRole("option", { name: "Second member" });
     fireEvent.click(screen.getByRole("button", { name: "Apply references" }));
     expect(
@@ -177,8 +178,12 @@ describe("ordinary workbook reference controls", () => {
       name: "Choose incoming owner",
     });
     fireEvent.click(trigger);
-    await screen.findByText("No available references.");
-    expect(screen.getByRole("option", { name: "First member" })).toBeTruthy();
+    await screen.findByText("No candidates match this query.");
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Incoming Owner First member",
+      }),
+    ).toBeTruthy();
     fireEvent.keyDown(
       screen.getByRole("region", { name: "Choose incoming owner" }),
       { key: "Escape" },
@@ -192,20 +197,72 @@ describe("ordinary workbook reference controls", () => {
   });
   it("exposes failed reference recovery and conceals retained labels when authorization suspends", async () => {
     const { owner, reader, renderControl } = setup();
-    vi.mocked(reader.availableViews).mockRejectedValueOnce(
-      new Error("lost response"),
-    );
+    vi.mocked(reader.page).mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Read unavailable" },
+    });
     renderControl();
     fireEvent.click(
       screen.getByRole("button", { name: "Choose incoming owner" }),
     );
-    await screen.findByRole("button", { name: "Retry surfaces" });
-    fireEvent.click(screen.getByRole("button", { name: "Retry surfaces" }));
+    await screen.findByRole("button", { name: "Retry candidates" });
+    fireEvent.click(screen.getByRole("button", { name: "Retry candidates" }));
     await screen.findByRole("option", { name: "First member" });
     act(() => owner.suspend());
     expect(
       screen.queryByRole("button", { name: "Choose incoming owner" }),
     ).toBeNull();
     expect(screen.queryByText("First member")).toBeNull();
+  });
+  it("accepts exact raw reference input without discovery and prunes only changed-field presentation", () => {
+    const { owner, reader, renderControl } = setup();
+    owner.update(
+      contract.viewSchemaId,
+      "handoff.current_state_summary",
+      "Retained work",
+    );
+    owner.selectReferences(
+      contract.viewSchemaId,
+      "handoff.outgoing_owner_user_id",
+      [
+        {
+          recordId: id,
+          displayText: "Outgoing member",
+          viewSchemaId: "incident_members",
+        },
+      ],
+    );
+    const fullCandidate = {
+      recordId: second,
+      displayText: "Incoming member",
+      viewSchemaId: "incident_members",
+      row: { record_id: second, row_version: 2, cells: {} },
+    };
+    owner.selectReferences(
+      contract.viewSchemaId,
+      "handoff.incoming_owner_user_id",
+      [fullCandidate],
+    );
+    expect(
+      owner.getSnapshot().schemas[contract.viewSchemaId]?.draft.references[
+        "handoff.incoming_owner_user_id"
+      ]?.[0],
+    ).not.toHaveProperty("row");
+    renderControl();
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Incoming Owner value" }),
+      { target: { value: id } },
+    );
+    const draft = owner.getSnapshot().schemas[contract.viewSchemaId]?.draft;
+    expect(draft?.values["handoff.incoming_owner_user_id"]).toBe(id);
+    expect(draft?.values["handoff.current_state_summary"]).toBe(
+      "Retained work",
+    );
+    expect(draft?.references["handoff.incoming_owner_user_id"]).toBeUndefined();
+    expect(
+      draft?.references["handoff.outgoing_owner_user_id"]?.[0]?.displayText,
+    ).toBe("Outgoing member");
+    expect(reader.page).not.toHaveBeenCalled();
+    expect(reader.availableViews).not.toHaveBeenCalled();
   });
 });

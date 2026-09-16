@@ -219,9 +219,9 @@ async function recoverDelete(
   });
   await expect(recovery).toContainText("Outcome unknown");
   await expect(
-    page.getByRole("heading", {
-      name: /^(Soft-delete row|Restore deleted row|Roll back)/,
-    }),
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
   ).toBeFocused();
   await test.info().attach("history-recovery", {
     body: await recovery.screenshot(),

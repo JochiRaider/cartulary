@@ -6,7 +6,7 @@ import type {
   WorkbookProtocolCreateViewRowReceipt,
   WorkbookProtocolCreateViewRowRequest,
 } from "../../adapters/workbookProtocolTypes";
-import type { WorkbookAuthoringCandidate } from "../../ports/WorkbookAuthoringReadPort";
+import type { WorkbookAuthoringSelection } from "../../ports/WorkbookAuthoringReadPort";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 
 /** Missing key, explicit null, and raw text are different authoring intentions. */
@@ -40,5 +40,5 @@ export type OrdinaryCreateDraft = Readonly<{
   id: number;
   revision: number;
   values: OrdinaryCreateValues;
-  references: Readonly<Record<string, readonly WorkbookAuthoringCandidate[]>>;
+  references: Readonly<Record<string, readonly WorkbookAuthoringSelection[]>>;
 }>;

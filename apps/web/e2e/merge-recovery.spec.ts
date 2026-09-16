@@ -254,7 +254,9 @@ async function exerciseRecovery(
     exact: true,
   });
   await expect(
-    page.getByRole("heading", { name: "Entity merge", exact: true }),
+    page
+      .getByRole("region", { name: "Recovery navigation", exact: true })
+      .locator(":scope > h2"),
   ).toBeFocused();
   await recovery
     .getByRole("button", { name: "Replay exact merge request" })

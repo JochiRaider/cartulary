@@ -19,6 +19,7 @@ import type {
 import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
+import { retainWorkbookReferenceLabels } from "../../utils/retainWorkbookReferenceLabels";
 import {
   type CoordinationDraft,
   type CoordinationSource,
@@ -348,11 +349,17 @@ export class WorkbookCoordinationCreateOwner {
       !this.draft.target.fieldMap[field]?.createWritable
     )
       return;
+    const values = { ...this.draft.values, [field]: value };
     this.draft = freezeWorkbookValue({
       ...this.draft,
       revision: this.draft.revision + 1,
-      values: { ...this.draft.values, [field]: value },
-      labels: { ...this.draft.labels, ...labels },
+      values,
+      labels: retainWorkbookReferenceLabels(
+        this.draft.target.fields
+          .filter((field) => coordinationReferenceView(field))
+          .flatMap((field) => coordinationIds(values[field.fieldKey])),
+        { ...this.draft.labels, ...labels },
+      ),
     });
     this.errors = {};
     this.message = null;
@@ -366,6 +373,12 @@ export class WorkbookCoordinationCreateOwner {
       ...this.draft,
       revision: this.draft.revision + 1,
       values,
+      labels: retainWorkbookReferenceLabels(
+        this.draft.target.fields
+          .filter((field) => coordinationReferenceView(field))
+          .flatMap((field) => coordinationIds(values[field.fieldKey])),
+        this.draft.labels,
+      ),
     });
     this.errors = {};
     this.publish();

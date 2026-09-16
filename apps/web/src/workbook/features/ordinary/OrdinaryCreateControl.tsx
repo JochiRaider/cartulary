@@ -48,7 +48,9 @@ export function OrdinaryCreateControl({
         ref={props.focusTargetRef}
         value={
           views.length
-            ? selected.map((item) => item.displayText).join("\n")
+            ? selected
+                .map((item) => item.displayText || item.recordId)
+                .join("\n")
             : props.value
         }
         style={{
@@ -60,23 +62,29 @@ export function OrdinaryCreateControl({
       />
     );
   const reader = owner.getReader();
-  if (views.length && !reader)
-    return (
-      <button
-        type="button"
-        disabled
-        aria-label={`${props.field.label}: references unavailable`}
-        data-testid={props.testId}
-      >
-        References unavailable
-      </button>
-    );
   if (views.length && reader)
     return (
-      <div data-testid={props.testId}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) auto",
+          ...(props.surface === "grid"
+            ? ({ position: "absolute", inset: 0 } as const)
+            : {}),
+          alignItems: "center",
+          gap: "var(--ct-spacing-xs)",
+          minWidth: 0,
+        }}
+      >
+        <div
+          style={{ position: "relative", minWidth: 0, alignSelf: "stretch" }}
+        >
+          <GenericMutationControl {...props} disabled={false} />
+        </div>
         <WorkbookAuthoringReferenceControl
+          targetKey={`ordinary:${contract.viewSchemaId}:${schema.draft.id}:${props.field.fieldKey}`}
+          maximum={props.field.writeKind === "action_payload" ? 64 : 1}
           compact={props.surface === "grid"}
-          focusTargetRef={props.focusTargetRef}
           label={props.field.label}
           testId={`${props.testId}-options`}
           views={views}

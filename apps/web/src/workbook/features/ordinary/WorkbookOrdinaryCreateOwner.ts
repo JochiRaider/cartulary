@@ -9,8 +9,8 @@ import type { SecureTransactionIdPort } from "../../mutations/secureTransactionI
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type {
   WorkbookAuthoringAuthorityReader,
-  WorkbookAuthoringCandidate,
   WorkbookAuthoringReadPort,
+  WorkbookAuthoringSelection,
 } from "../../ports/WorkbookAuthoringReadPort";
 import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
@@ -182,6 +182,19 @@ export class WorkbookOrdinaryCreateOwner {
     if (JSON.stringify(authority) === JSON.stringify(this.authority)) return;
     this.generation++;
     this.referenceRevision++;
+    for (const [view, draft] of this.drafts)
+      this.drafts.set(
+        view,
+        freezeWorkbookValue({
+          ...draft,
+          references: Object.fromEntries(
+            Object.entries(draft.references).map(([field, items]) => [
+              field,
+              items.map((item) => ({ ...item, displayText: "" })),
+            ]),
+          ),
+        }),
+      );
     for (const controller of this.reads.values()) controller.abort();
     this.authority =
       authority?.incidentId === this.incidentId
@@ -243,14 +256,21 @@ export class WorkbookOrdinaryCreateOwner {
     if (JSON.stringify(values) === JSON.stringify(draft.values)) return;
     this.drafts.set(
       view,
-      freezeWorkbookValue({ ...draft, revision: draft.revision + 1, values }),
+      freezeWorkbookValue({
+        ...draft,
+        revision: draft.revision + 1,
+        values,
+        references: Object.fromEntries(
+          Object.entries(draft.references).filter(([field]) => field !== key),
+        ),
+      }),
     );
     this.publish();
   }
   selectReferences(
     view: string,
     key: string,
-    selected: readonly WorkbookAuthoringCandidate[],
+    selected: readonly WorkbookAuthoringSelection[],
   ) {
     const draft = this.drafts.get(view);
     if (!draft || !this.canAuthor()) return;
@@ -269,7 +289,14 @@ export class WorkbookOrdinaryCreateOwner {
               ? ""
               : null,
         },
-        references: { ...draft.references, [key]: structuredClone(selected) },
+        references: {
+          ...draft.references,
+          [key]: selected.map(({ recordId, displayText, viewSchemaId }) => ({
+            recordId,
+            displayText,
+            viewSchemaId,
+          })),
+        },
       }),
     );
     this.publish();
