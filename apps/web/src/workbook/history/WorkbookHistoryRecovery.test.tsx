@@ -14,6 +14,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
 import type { RecordHistoryData } from "../inspector/workbookRecordHistoryModel";
@@ -157,20 +158,22 @@ function setup(
     refresh,
   };
   const view = (inspector: boolean) => (
-    <WorkbookHistoryContext.Provider value={runtime}>
-      <input aria-label="Newer interaction" />
-      <WorkbookHistoryRecovery />
-      {inspector ? (
-        <WorkbookInspectorRecordHistory
-          beginMutation={beginMutation}
-          commands={port}
-          subject={subject}
-          actions={new Set(["delete", "restore", "rollback"])}
-          canMutate
-          ownerEffects={effects}
-        />
-      ) : null}
-    </WorkbookHistoryContext.Provider>
+    <WorkbookRecoveryFixture>
+      <WorkbookHistoryContext.Provider value={runtime}>
+        <input aria-label="Newer interaction" />
+        <WorkbookHistoryRecovery />
+        {inspector ? (
+          <WorkbookInspectorRecordHistory
+            beginMutation={beginMutation}
+            commands={port}
+            subject={subject}
+            actions={new Set(["delete", "restore", "rollback"])}
+            canMutate
+            ownerEffects={effects}
+          />
+        ) : null}
+      </WorkbookHistoryContext.Provider>
+    </WorkbookRecoveryFixture>
   );
   return {
     runtime,
@@ -257,11 +260,12 @@ describe("History recovery surfaces", () => {
     newer.focus();
     rerender(t.view(false));
     expect(document.activeElement).toBe(newer);
-    fireEvent.click(
-      screen.getByRole("button", { name: "History actions (1)" }),
-    );
-    expect(document.activeElement?.textContent).toContain(
-      "Recover retained actions",
+    openHistoryRecovery();
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", {
+        level: 2,
+        name: /Soft-delete row|Restore deleted row|Restore row fields|Reverse history entry|Reverse change set/,
+      }),
     );
     if (surface === "Timeline" && operation === "history_entry") {
       const read = vi.spyOn(t.port, "load");
@@ -330,9 +334,7 @@ describe("History recovery surfaces", () => {
       "accepted-change",
     );
     expect(t.runtime.getSnapshot().primaryLabel).toBe("Saved");
-    fireEvent.click(
-      screen.getByRole("button", { name: "History actions (1)" }),
-    );
+    openHistoryRecovery();
     fireEvent.click(
       screen.getByRole("button", { name: "Refresh completed action" }),
     );
@@ -352,9 +354,7 @@ describe("History recovery surfaces", () => {
       expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain"),
     );
     act(() => t.runtime.invalidate({ kind: "session_unavailable" }));
-    expect(
-      screen.queryByRole("button", { name: "History actions (1)" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Recovery (1)" })).toBeNull();
     expect(screen.getByRole("alert").textContent).toContain(
       "History access is unavailable",
     );
@@ -370,9 +370,7 @@ describe("History recovery surfaces", () => {
         closed: true,
       }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "History actions (1)" }),
-    );
+    openHistoryRecovery();
     expect(
       (
         screen.getByRole("button", {
@@ -408,3 +406,12 @@ describe("History recovery surfaces", () => {
     expect(t.owner.getSnapshot()).toEqual([]);
   });
 });
+
+function openHistoryRecovery() {
+  fireEvent.click(screen.getByRole("button", { name: /^Recovery \(\d+\)$/ }));
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /^(Soft-delete row|Restore deleted row|Restore row fields|Reverse history entry|Reverse change set).* ·/,
+    }),
+  );
+}

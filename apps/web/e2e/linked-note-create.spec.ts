@@ -28,6 +28,7 @@ import {
   openNoteFixture,
 } from "./support/workbook/noteCreate";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 
 test("Incident revocation conceals retained Note authoring and late atomic acceptance without ending the account session", async ({
   page,
@@ -307,9 +308,7 @@ test("Note response loss after commit replays exact bytes after navigation and a
   await f.form
     .getByTestId(genericCreateSubmitTestId(notesViewSchemaId))
     .click();
-  await expect(
-    page.locator("summary").filter({ hasText: /^Note recovery$/ }),
-  ).toBeVisible();
+  await expect(recoveryEntry(page)).toBeVisible();
   await expect(
     f.form.getByRole("textbox", { name: "Title", exact: true }),
   ).toBeDisabled();
@@ -317,10 +316,7 @@ test("Note response loss after commit replays exact bytes after navigation and a
     .getByTestId(workbookInspectorCloseButtonTestId(hostsViewSchemaId))
     .click();
   await switchSheet(page, evidenceViewSchemaId);
-  await page
-    .locator("summary")
-    .filter({ hasText: /^Note recovery$/ })
-    .click();
+  await openRecoveryItem(page, /^Note creation ·/);
   const recovery = page.getByRole("region", {
     name: "Retained Note authoring",
     exact: true,

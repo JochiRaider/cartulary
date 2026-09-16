@@ -19,17 +19,12 @@ import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollabor
 import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
 import { ImportClient } from "../services/importClient";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
-import {
-  NetworkFlowIndicatorLinkRecovery,
-  NetworkFlowIndicatorLinkSurface,
-} from "./IndicatorLinkDialog";
+import { WorkbookRecoveryFixture } from "../testing/WorkbookRecoveryFixture";
+import { NetworkFlowIndicatorLinkSurface } from "./IndicatorLinkDialog";
 import { NetworkAnalysisWorkspace as ProductionNetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
 import { NetworkFlowImportController } from "./NetworkFlowImportController";
 import { NetworkFlowImportSurface } from "./NetworkFlowImportSurface";
-import {
-  NetworkFlowTableRecovery,
-  NetworkFlowTableSurface,
-} from "./NetworkFlowTableLifecycle";
+import { NetworkFlowTableSurface } from "./NetworkFlowTableLifecycle";
 import { networkAnalysisSheetRef } from "./networkFlowClient";
 import { savedGraphJobFixture } from "./savedGraphTestFixtures";
 import { useNetworkFlowIndicatorLinkOwner } from "./useNetworkFlowIndicatorLinkOwner";
@@ -142,21 +137,21 @@ function NetworkAnalysisWorkspaceOwner(
   ]);
   useLayoutEffect(() => () => controller.retire(), [controller]);
   return (
-    <ExtensionAvailabilityProvider controller={availability}>
-      <ProductionNetworkAnalysisWorkspace
-        importController={controller}
-        tableController={tableController}
-        savedGraphController={savedGraphController}
-        indicatorLinkController={indicatorLinkController}
-        currentUserId={importActorId}
-        {...props}
-      />
-      <NetworkFlowImportSurface controller={controller} />
-      <NetworkFlowTableSurface controller={tableController} />
-      <NetworkFlowTableRecovery controller={tableController} />
-      <NetworkFlowIndicatorLinkSurface controller={indicatorLinkController} />
-      <NetworkFlowIndicatorLinkRecovery controller={indicatorLinkController} />
-    </ExtensionAvailabilityProvider>
+    <WorkbookRecoveryFixture standalone={false}>
+      <ExtensionAvailabilityProvider controller={availability}>
+        <ProductionNetworkAnalysisWorkspace
+          importController={controller}
+          tableController={tableController}
+          savedGraphController={savedGraphController}
+          indicatorLinkController={indicatorLinkController}
+          currentUserId={importActorId}
+          {...props}
+        />
+        <NetworkFlowImportSurface controller={controller} />
+        <NetworkFlowTableSurface controller={tableController} />
+        <NetworkFlowIndicatorLinkSurface controller={indicatorLinkController} />
+      </ExtensionAvailabilityProvider>
+    </WorkbookRecoveryFixture>
   );
 }
 
@@ -270,9 +265,9 @@ describe("NetworkAnalysisWorkspace", () => {
     );
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          networkAnalysisTestId("indicator-link-confirmation"),
-        ),
+        screen.getByRole("heading", {
+          name: "Indicator link draft",
+        }),
       ),
     );
     fireEvent.change(
@@ -541,6 +536,10 @@ describe("NetworkAnalysisWorkspace", () => {
     });
 
     fireEvent.click(await screen.findByRole("button", { name: "Done" }));
+    expect(
+      screen.queryByTestId(networkAnalysisTestId("contributor-close")),
+    ).toBeNull();
+    fireEvent.click(selectEdgeButton);
     fireEvent.click(
       screen.getByTestId(networkAnalysisTestId("contributor-close")),
     );
@@ -945,7 +944,7 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toBeTruthy();
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByTestId(networkAnalysisTestId("mapping-profile")),
+        screen.getByRole("heading", { name: "Network Flow import", level: 2 }),
       ),
     );
     fireEvent.click(
@@ -1023,12 +1022,12 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.keyboard("{Enter}");
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByTestId(networkAnalysisTestId("rename-input")),
+        screen.getByRole("heading", { name: "Rename table" }),
       ),
     );
     await user.keyboard("{Shift>}{Tab}{/Shift}");
     expect(document.activeElement).toBe(
-      screen.getByTestId(networkAnalysisTestId("rename-submit")),
+      screen.getByRole("button", { name: "Return to workbook" }),
     );
     await user.keyboard("{Tab}");
     expect(document.activeElement).toBe(
@@ -1044,7 +1043,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.keyboard("{Enter}");
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByTestId(networkAnalysisTestId("delete-confirmation")),
+        screen.getByRole("heading", { name: "Delete table" }),
       ),
     );
     await user.keyboard("{Escape}");

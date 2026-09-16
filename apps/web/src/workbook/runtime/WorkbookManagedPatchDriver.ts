@@ -77,7 +77,6 @@ export type WorkbookQueuedPatchRequest = {
 
 type WorkbookManagedPatchDriverOptions = {
   readonly clock: WorkbookClockPort;
-  readonly beginMutationReport: () => () => void;
   readonly conflicts: WorkbookConflictStore;
   readonly drafts: WorkbookGridDraftStore;
   readonly records: WorkbookAcceptedRecordPort;
@@ -341,10 +340,7 @@ class WorkbookManagedPatchDriverState
         this.#options.drafts.acknowledge(contributor.draft);
       this.#settleContributors(settlement.unit.id, { kind: "accepted" });
       this.#contributors.delete(settlement.unit.id);
-      const finishReport = this.#options.beginMutationReport();
-      void this.#options.surfaces
-        .refresh(meta.viewSchemaId)
-        .finally(finishReport);
+      void this.#options.surfaces.refresh(meta.viewSchemaId);
     }
     this.#options.emit();
     this.#options.requestDrain();

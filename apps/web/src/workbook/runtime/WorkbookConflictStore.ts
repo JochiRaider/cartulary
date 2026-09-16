@@ -23,18 +23,13 @@ export type WorkbookConflictRegistration = {
   readonly viewSchemaId: string;
 };
 
-/** Owns conflict drafts, refresh callbacks, and panel activation state. */
+/** Owns conflict drafts and refresh callbacks. */
 class WorkbookConflictState {
   readonly #entries = new Map<string, WorkbookConflictEntry>();
   readonly #refreshByKey = new Map<string, WorkbookConflictRefresh>();
-  #panelDismissed = false;
 
   get size(): number {
     return this.#entries.size;
-  }
-
-  get panelOpen(): boolean {
-    return this.#entries.size > 0 && !this.#panelDismissed;
   }
 
   entries(): readonly WorkbookConflictEntry[] {
@@ -48,7 +43,6 @@ class WorkbookConflictState {
   register(registration: WorkbookConflictRegistration): WorkbookConflictEntry {
     const entry = workbookConflictEntry(registration);
     const current = this.#entries.get(entry.key);
-    if (current === undefined) this.#panelDismissed = false;
     this.#entries.set(
       entry.key,
       current === undefined
@@ -90,18 +84,6 @@ class WorkbookConflictState {
     const conflict = this.#entries.get(key);
     this.#entries.delete(key);
     this.#refreshByKey.delete(key);
-    this.#panelDismissed = false;
-    return conflict;
-  }
-
-  activate(): void {
-    this.#panelDismissed = false;
-  }
-
-  dismiss(key: string): WorkbookConflictEntry | undefined {
-    const conflict = this.#entries.get(key);
-    if (conflict === undefined) return undefined;
-    this.#panelDismissed = true;
     return conflict;
   }
 }
@@ -111,9 +93,6 @@ export function createWorkbookConflictStore() {
   return {
     get size() {
       return state.size;
-    },
-    get panelOpen() {
-      return state.panelOpen;
     },
     entries: () => state.entries(),
     get: (key: string) => state.get(key),
@@ -126,8 +105,6 @@ export function createWorkbookConflictStore() {
     updateDraft: (key: string, mergedDraft: string) =>
       state.updateDraft(key, mergedDraft),
     clear: (key: string) => state.clear(key),
-    activate: () => state.activate(),
-    dismiss: (key: string) => state.dismiss(key),
   };
 }
 

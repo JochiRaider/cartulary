@@ -1,11 +1,10 @@
 import { decisionSupersessionTestId } from "@cartulary/ui-contracts";
+import { useSyncExternalStore } from "react";
 import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type { DecisionSupersessionOperation } from "./decisionSupersessionOperation";
@@ -17,136 +16,54 @@ export function WorkbookDecisionSupersessionRecovery({
 }) {
   const owner = runtime.decisionSupersession;
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const summary = useRef<HTMLElement>(null);
-  const focusRequested = useRef(false);
-  useLayoutEffect(() => {
-    if (open && focusRequested.current) {
-      focusRequested.current = false;
-      summary.current?.focus({ preventScroll: true });
-    }
-  }, [open]);
-  useEffect(() => {
-    if (!snapshot.authority) setOpen(false);
-  }, [snapshot.authority]);
-  if (!snapshot.entries.length) return null;
-  const close = () => {
-    const restore = summary.current?.parentElement?.contains(
-      document.activeElement,
-    );
-    setOpen(false);
-    if (restore) trigger.current?.focus({ preventScroll: true });
-  };
-  const acknowledged = snapshot.entries.filter(
-    (entry) => entry.receipt !== null,
-  ).length;
-  const unknown = snapshot.entries.filter(
-    (entry) => entry.phase === "uncertain",
-  ).length;
-  const refreshRequired = snapshot.entries.some(
-    (entry) => entry.receipt && entry.reconciliation !== "complete",
-  );
-  const pending = snapshot.entries.filter(
-    (entry) => entry.phase === "preparing" || entry.phase === "submitting",
-  ).length;
-  const rejected = snapshot.entries.filter(
-    (entry) => entry.phase === "rejected",
-  ).length;
-  const status = [
-    unknown
-      ? `${unknown} supersession outcome${unknown === 1 ? "" : "s"} unknown.`
-      : null,
-    acknowledged
-      ? `${acknowledged} supersession${acknowledged === 1 ? "" : "s"} completed.${refreshRequired ? " Refresh still required." : ""}`
-      : null,
-    pending
-      ? `${pending} supersession${pending === 1 ? "" : "s"} in progress.`
-      : null,
-    rejected
-      ? `${rejected} supersession${rejected === 1 ? "" : "s"} rejected.`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const items: readonly WorkbookRecoveryItem[] = snapshot.authority
+    ? snapshot.entries.map((entry, order) => ({
+        id: entry.attempt.id,
+        label: "Decision supersession",
+        origin: entry.attempt.review.target.label,
+        sheetRef: { kind: "view_schema", id: "cartulary.view.decisions.v1" },
+        refreshViews:
+          entry.receipt && entry.reconciliation !== "complete"
+            ? ["cartulary.view.decisions.v1"]
+            : [],
+        order,
+        summary: entry.receipt
+          ? entry.reconciliation === "complete"
+            ? "Completed"
+            : "Saved; refresh required"
+          : entry.phase === "uncertain"
+            ? "Outcome unconfirmed"
+            : entry.phase === "rejected"
+              ? "Review required"
+              : "In progress",
+        attention:
+          entry.receipt && entry.reconciliation === "complete"
+            ? "completed"
+            : entry.receipt ||
+                entry.phase === "uncertain" ||
+                entry.phase === "rejected"
+              ? "attention"
+              : "progress",
+      }))
+    : [];
+  const selected = useWorkbookRecoverySource("decision-supersession", items);
   return (
-    <div style={{ position: "relative" }}>
-      <WorkbookInspectorActionButton
-        ref={trigger}
-        aria-expanded={open}
-        onClick={() => {
-          if (open) close();
-          else {
-            focusRequested.current = true;
-            setOpen(true);
-          }
-        }}
+    <WorkbookRecoveryDetail source="decision-supersession" item={selected}>
+      <section
+        data-testid={decisionSupersessionTestId("recovery")}
+        aria-label="Decision action recovery"
       >
-        Decision actions ({snapshot.entries.length})
-      </WorkbookInspectorActionButton>
-      <span
-        role="status"
-        style={{
-          marginInlineStart: "var(--ct-spacing-xs)",
-          fontSize: "var(--ct-typography-compact-metadata-fontSize)",
-        }}
-      >
-        {status}
-      </span>
-      {open ? (
-        <section
-          data-testid={decisionSupersessionTestId("recovery")}
-          aria-label="Decision action recovery"
-          style={{
-            position: "absolute",
-            zIndex: 30,
-            insetInlineEnd: 0,
-            inlineSize: "min(38rem, 90vw)",
-            maxBlockSize: "75vh",
-            overflow: "auto",
-            overflowWrap: "anywhere",
-            padding: "var(--ct-spacing-md)",
-            background: "var(--ct-colors-surface-1)",
-            border: "var(--ct-border-hairline)",
-            boxShadow: "var(--ct-elevation-popover)",
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Escape" &&
-              !(
-                event.target instanceof Element &&
-                event.target.closest('[role="alertdialog"]')
-              )
-            ) {
-              event.stopPropagation();
-              close();
-            }
-          }}
-        >
-          <section
-            ref={summary}
-            tabIndex={-1}
-            aria-label="Decision action recovery summary"
-          >
-            <strong>Decision actions</strong>
-            <p>
-              Admitted requests remain here when the inspector closes. A timeout
-              or panel closure does not cancel server work.
-            </p>
-          </section>
-          <WorkbookInspectorActionButton onClick={close}>
-            Close Decision actions
-          </WorkbookInspectorActionButton>
-          {snapshot.entries.map((entry) => (
+        {snapshot.entries
+          .filter((entry) => entry.attempt.id === selected)
+          .map((entry) => (
             <DecisionRecoveryEntry
               key={entry.attempt.id}
               entry={entry}
               runtime={runtime}
             />
           ))}
-        </section>
-      ) : null}
-    </div>
+      </section>
+    </WorkbookRecoveryDetail>
   );
 }
 

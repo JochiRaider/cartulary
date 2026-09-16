@@ -186,6 +186,7 @@ layout:
   inspectorDefaultWidth: 420px
   inspectorMinWidth: 360px
   inspectorMaxWidth: "min(560px, 45vw)"
+  recoveryMaxWidth: 38rem
 
 components:
   button-primary:
@@ -927,11 +928,40 @@ Design contract. Each shell chrome mode MUST render according to this table.
 
 Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the shell chrome mode, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
 
-Design contract. Coordination and Note authoring recovery use the shared work-area
-overlay host. Its trigger remains in shell chrome; its non-modal content is
+Design contract. Scoped workbook recovery uses one compact `Recovery` entry in
+the top bar and one non-modal panel in the shared work-area host. Its content is
 bounded by the active work area and scrolls internally using shared spacing and
 surface tokens. Feature components MUST NOT calculate viewport offsets or
-reserve their own top-bar height. The status strip remains outside that overlay.
+reserve their own top-bar height. The status strip remains outside that panel.
+
+The entry shows the number of unfinished logical recovery obligations, excluding
+completed notices and duplicate draft, receipt, conflict or refresh projections
+of the same obligation. The list groups Needs attention, In progress and Retained
+drafts in that order; completed notices use a collapsed Completed section.
+Required FIFO/overflow priority precedes owner admission order, with stable work
+identity breaking ties. Updates MUST preserve identity-based selection.
+Ordinary grid/inspector authoring and workspace-local graph job/result recovery
+are not a general recovery catalog. Existing shell Network Analysis import,
+table-change and Indicator-link recovery retain extension identities.
+
+The panel uses `{layout.recoveryMaxWidth}`, bounded by the work area with
+`{spacing.sm}` insets and internal scrolling.
+
+Explicit activation enters the chosen owner detail surface. All recovery returns
+to the list. Opening recovery detaches the inspector and other independent
+secondary panels; explicitly opening them detaches recovery. Closing, switching
+or sheet navigation MUST NOT implicitly discard authoring, cancel an admitted
+operation, acknowledge a conflict or dismiss a receipt. Owners retain execution
+and authorization. Nested owner-required pickers and confirmations remain within
+the active panel's presentation lifetime.
+
+Escape closes the innermost applicable layer. Closing restores the invoker or the
+semantic fallback in §8.5. Completion during interaction preserves focus on a
+safe panel heading or recovery list instead of selecting another operation.
+Background outcomes MUST NOT reopen panels or move focus away from newer work.
+Recovery provides an accessible return to the grid; it does not make the grid
+inert except while an owner-required nested modal is active. Protected summaries,
+counts and details follow Core 03 REQ-03-299/100 and Core 04 authorization.
 
 Design contract. Below the supported minimum inline size, keyboard session logout and safe navigation MUST remain available. Omission of mobile/touch-specific gestures is conformant.
 
@@ -1393,7 +1423,7 @@ Design contract. Same-field conflict UI MUST satisfy the table below.
 | Local draft | Preserved as client-local unsaved work until explicit resolution or clear action. |
 | Resolver | Shows saved value, local draft, base value when present in owner payload, suggested merge when present, and explicit actions. |
 | Save label | Remains `Conflict` while unresolved local conflict exists. |
-| Focus restoration | Returns to conflicted cell after close or resolution when the cell still exists. |
+| Focus restoration | Closing returns to the invoker, then the originating cell or active-surface fallback when available. Removal of the selected conflict during interaction keeps focus in the recovery list; background settlement does not move focus. |
 | Non-conflicting work | Other rows and cells remain editable only when the active Core 03 writeability and concurrency contract permits editing for those rows and cells. |
 
 Design contract. Same-field conflict resolution controls MUST NOT use primary accent fill. Destructive discard actions MUST use destructive styling and label text.
@@ -1401,6 +1431,10 @@ Design contract. Same-field conflict resolution controls MUST NOT use primary ac
 ### 10.5 Client transaction recovery
 
 Core restatement. A confirmed `client_txn_conflict` is an idempotency-key collision, not a same-field data conflict. It uses the local pending-queue recovery path and MUST NOT open the same-field resolver unless a re-keyed retry later receives a structured `same_field_conflict`. Owner: `03_workbook_interaction_collaboration_and_workflows.md` §4.4, REQ-03-301 through REQ-03-302.
+
+The expanded action panel opens only through explicit recovery activation. A
+visible same-surface notice remains while it is detached, including when another
+recovery item is selected; arrival never replaces that item or steals focus.
 
 Design contract. The recovery panel is a same-surface non-modal notice in the workbook work area. It does not move focus when it appears. Its heading is `Queued edits`; it provides a safe user-facing explanation without raw transaction IDs, routes, tokens, payloads, stack paths, or server implementation terms. For `client_txn_conflict`, controls appear in this tab order:
 
@@ -1428,7 +1462,7 @@ Design contract. Error presentation MUST be selected from a typed error code or 
 | Error family | Presentation locus | Data retention | Actions | Focus effect | Live behavior |
 | --- | --- | --- | --- | --- | --- |
 | `local_validation` | Affected editor or cell. | Retain committed value and exact local draft. | Correct value; cancel draft. | No automatic move. | Assertive. |
-| `same_field_conflict` | Cell marker and same-surface resolver. | Retain saved and unsaved values. | Owner-declared resolution actions. | Move only after activation; return to cell after resolution or close. | Assertive. |
+| `same_field_conflict` | Cell marker and same-surface resolver. | Retain saved and unsaved values. | Owner-declared resolution actions. | Move only after activation; use §10.4 recovery focus restoration. | Assertive. |
 | `client_txn_conflict` | Same-surface non-modal recovery panel. | Retain blocker and later FIFO units. | `Retry with a new request ID`; `Discard blocked edit`. | No automatic move. | One polite announcement. |
 | `queue_overflow` | Status secondary and same-surface overflow notice. | Retain 64 units and refuse the 65th. | Enter recovery. | No automatic move. | Assertive. |
 | `stale_refresh` | Non-blocking grid and status. | Retain previously authorized materialization. | `Retry`. | Preserve selection and focus. | Assertive. |

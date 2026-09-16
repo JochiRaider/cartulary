@@ -40,7 +40,7 @@ import { WorkbookShellSlotRegion } from "./WorkbookShellSlots";
 import { WorkbookPresenceSummary } from "./WorkbookStatusStrip";
 
 type WorkbookShellTopBarProps = {
-  readonly importRecovery?: ReactNode;
+  readonly recovery?: ReactNode;
   readonly account: {
     readonly applicationMenu: ReactNode;
     readonly displayName: string;
@@ -64,7 +64,7 @@ type WorkbookShellTopBarProps = {
 
 /** Owns Workbook route navigation and responsive top-bar presentation. */
 export function WorkbookShellTopBar({
-  importRecovery,
+  recovery,
   account,
   activeSurfaceFocusRef,
   activeSystemSurfaceTitle,
@@ -258,7 +258,7 @@ export function WorkbookShellTopBar({
             : {}),
         }}
       >
-        {importRecovery}
+        {recovery}
         {networkAnalysisAvailable ? (
           <button
             aria-current={networkAnalysisActive ? "page" : undefined}

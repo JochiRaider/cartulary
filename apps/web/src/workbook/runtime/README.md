@@ -100,3 +100,13 @@ a collaboration echo is committed evidence but does not settle that predecessor'
 HTTP attempt. Preparation waits for predecessor settlement and then validates the
 original field/dependency baseline. Pending feedback does not offer premature
 review of the predecessor's own echoed value.
+
+## Save facts and recovery discovery
+
+`workbookMutationStatusProjector.ts` derives Saved/Syncing/Conflict independently
+of navigation attention. Owner `unsettledMutationCount` excludes retained unsent
+authoring and acknowledged refresh reads; existing admission counts retain their
+execution meaning. Only FIFO units enter replay counts. Feature review alone is
+not a same-field conflict. `workbookBatchRecoveryItems.ts` projects one batch item
+including its receipt and conflicts; the surface registry exposes only remaining
+read debt. Conflict storage owns drafts and resolution, never panel-open state.

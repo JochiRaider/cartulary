@@ -25,7 +25,7 @@ export function WorkbookHistoryLocalStatus({ recordId }: { recordId: string }) {
   return (
     <div>
       <p role="status">
-        {historyOperationStatus(entry)} Open History actions for recovery.
+        {historyOperationStatus(entry)} Open Recovery for recovery.
       </p>
       {entry.phase === "preparing" && owner ? (
         <HistoryLookupFeedback

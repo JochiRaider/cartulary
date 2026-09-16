@@ -66,3 +66,8 @@ with current sheet readers. `useWorkbookProjectionRefreshController` observes
 initial authorization separately from Entity query changes, preventing reference
 broker replacement from creating a read/recovery loop. Grid focus bindings retain
 semantic anchors at departure and detach editor presentation for explicit browsing.
+
+`useWorkbookRecoveryFocus.ts` routes status actions by stable semantic cause and
+records explicit resolver focus intent. Shared recovery presentation owns closing,
+completion fallback and inspector/dialog coordination; mutation snapshots contain
+no disclosure state.

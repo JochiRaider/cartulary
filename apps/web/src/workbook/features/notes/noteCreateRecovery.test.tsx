@@ -18,6 +18,7 @@ import type {
   NoteReceipt,
   NoteTransport,
 } from "./noteCreateOperation";
+import { noteRecoveryItems } from "./noteRecoveryItems";
 import { WorkbookNoteCreateOwner } from "./WorkbookNoteCreateOwner";
 
 afterEach(() => {
@@ -109,6 +110,35 @@ function fixture(view = noteSourceViews[0]) {
   return { owner, reader, authorityReader, transport, ids, effects, receipt };
 }
 describe("Note atomic recovery", () => {
+  it("separates retained authoring and acknowledged refresh from unsettled save work", async () => {
+    const { owner, transport, receipt, effects } = fixture();
+    expect(owner.unsettledMutationCount).toBe(0);
+    expect(owner.getSnapshot().draft).not.toBeNull();
+    const retained = noteRecoveryItems(owner.getSnapshot());
+    expect(retained).toHaveLength(1);
+    expect(retained[0]?.attention).toBe("draft");
+    await owner.submit(token);
+    expect(owner.getSnapshot().entries[0]?.phase).toBe("uncertain");
+    expect(owner.unsettledMutationCount).toBe(1);
+    expect(noteRecoveryItems(owner.getSnapshot())).toMatchObject([
+      { id: retained[0]?.id, attention: "attention" },
+    ]);
+    const refresh = deferred<void>();
+    effects.refresh.mockReturnValue(refresh.promise);
+    transport.send.mockResolvedValueOnce({ kind: "accepted", receipt });
+    const recovery = owner.replay(
+      required(owner.getSnapshot().entries[0]).attempt.clientTxnId,
+    );
+    await waitFor(() => expect(effects.refresh).toHaveBeenCalled());
+    expect(owner.unsettledMutationCount).toBe(0);
+    expect(owner.pendingCount).toBeGreaterThan(0);
+    refresh.reject(new Error("refresh unavailable"));
+    await recovery;
+    expect(owner.getSnapshot().entries[0]?.receipt).toEqual(receipt);
+    expect(owner.unsettledMutationCount).toBe(0);
+    await waitFor(() => expect(owner.blockedCount).toBe(1));
+  });
+
   it("retains socket observations without fabricating receipts or regressing newer source removal evidence", async () => {
     const { owner, transport, receipt, effects, reader } = fixture();
     const pending = deferred<NoteOutcome>();

@@ -165,7 +165,8 @@ it("Canonical authority gates replay and runtime lifetime retains uncertainty wi
   );
   if (admission.kind !== "admitted") throw new Error("admission");
   await owner.execute(admission.attempt);
-  expect(runtime.getSnapshot().primaryLabel).toBe("Conflict");
+  expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
+  expect(runtime.getSnapshot().unresolvedConflictCount).toBe(0);
   registry.sessionUnavailable();
   expect(owner.getSnapshot().entries).toEqual([]);
   owner.setAuthority({ ...observationAuthority, role: "viewer" });

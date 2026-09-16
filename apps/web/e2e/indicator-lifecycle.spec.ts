@@ -22,6 +22,8 @@ import {
   openLifecycleEditor,
 } from "./support/workbook/indicatorLifecycle";
 import { createViewRow } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
+import { openGenericInspectorForRecord } from "./support/workbook/rowMutations";
 
 test("Indicator intervals recover a response lost after commit with the original receipt and History rollback", async ({
   page,
@@ -92,7 +94,7 @@ test("Indicator intervals recover a response lost after commit with the original
       });
     },
   );
-  await page.getByTestId(indicatorLifecycleTestId("recovery-trigger")).click();
+  await openRecoveryItem(page, /^Indicator interval ·/);
   const recovery = page.getByTestId(indicatorLifecycleTestId("recovery"));
   await recovery
     .getByRole("button", { name: "Replay original interval request" })
@@ -129,9 +131,7 @@ test("Indicator intervals recover a response lost after commit with the original
         .map((item) => item.change_set_id),
     ).size,
   ).toBe(1);
-  await recovery
-    .getByRole("button", { name: "Close interval recovery" })
-    .click();
+  await page.getByRole("button", { name: "Close recovery" }).click();
   // Use the existing History preview and rollback; the interval API has no delete.
   await openLifecycleEditor(page, incidentId, indicator.record_id);
   await expect(
@@ -361,7 +361,7 @@ test("Indicator recovery fences late malformed receipts and replays the original
   release();
   await received;
   await expect(otherFrom).toBeFocused();
-  await page.getByTestId(indicatorLifecycleTestId("recovery-trigger")).click();
+  await openRecoveryItem(page, /^Indicator interval ·/);
   const recovery = page.getByTestId(indicatorLifecycleTestId("recovery"));
   await expect(
     recovery.getByText(
@@ -369,9 +369,12 @@ test("Indicator recovery fences late malformed receipts and replays the original
       { exact: true },
     ),
   ).toBeVisible();
-  await recovery
-    .getByRole("button", { name: "Close interval recovery" })
-    .click();
+  await page.getByRole("button", { name: "Close recovery" }).click();
+  await openGenericInspectorForRecord(
+    page,
+    indicatorsViewSchemaId,
+    other.record_id,
+  );
   await expect(otherFrom).toHaveValue("2030-01-01T00:00");
   const lifecycle = await currentLifecycle(page, incidentId);
   expect(
@@ -384,7 +387,7 @@ test("Indicator recovery fences late malformed receipts and replays the original
     ).ok,
   ).toBe(true);
   await expect(editor).toHaveCount(0);
-  await page.getByTestId(indicatorLifecycleTestId("recovery-trigger")).click();
+  await openRecoveryItem(page, /^Indicator interval ·/);
   await recovery
     .getByRole("button", { name: "Replay original interval request" })
     .click();

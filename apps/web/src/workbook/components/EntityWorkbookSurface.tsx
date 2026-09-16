@@ -441,11 +441,9 @@ export function EntityWorkbookSurface({
   );
   const surfaceCallbacks = useRef({
     onRefreshEntities,
-    entityFocusPort: entityFocus.port,
   });
   surfaceCallbacks.current = {
     onRefreshEntities,
-    entityFocusPort: entityFocus.port,
   };
   useEffect(
     () =>
@@ -455,42 +453,10 @@ export function EntityWorkbookSurface({
           surfaceCallbacks.current.onRefreshEntities({
             requireAcceptance: true,
           }),
-        async (_payload, conflict) => {
-          await surfaceCallbacks.current.onRefreshEntities();
-          if (conflict.batchOperationId) return;
-          window.setTimeout(() => {
-            surfaceCallbacks.current.entityFocusPort.focus({
-              fieldKey: conflict.conflict.field_key,
-              recordId: conflict.conflict.record_id,
-              viewSchemaId: contract.viewSchemaId,
-            });
-          }, 0);
-        },
-        (conflict) => {
-          window.setTimeout(() => {
-            const anchor = {
-              fieldKey: conflict.conflict.field_key,
-              rowIdentity: {
-                kind: "core_record" as const,
-                recordId: conflict.conflict.record_id,
-              },
-              surface: {
-                kind: "view_schema" as const,
-                viewSchemaId: contract.viewSchemaId,
-              },
-            };
-            if (
-              !gridHandleRef.current?.activateEdit(anchor, {
-                value: conflict.localValue,
-              })
-            ) {
-              surfaceCallbacks.current.entityFocusPort.focus({
-                fieldKey: anchor.fieldKey,
-                recordId: conflict.conflict.record_id,
-                viewSchemaId: contract.viewSchemaId,
-              });
-            }
-          }, 0);
+        async () => {
+          await surfaceCallbacks.current.onRefreshEntities({
+            requireAcceptance: true,
+          });
         },
       ),
     [contract.viewSchemaId, mutationRuntime],

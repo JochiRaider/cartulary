@@ -93,6 +93,7 @@ import {
   queryViewRows,
   waitForViewRowByCell,
 } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 import {
   editGenericCell,
   openGenericInspectorForRecord,
@@ -1432,10 +1433,7 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
       },
     ],
   });
-  const evidenceRecovery = page
-    .locator("summary")
-    .filter({ hasText: /^Timeline Evidence creation/ });
-  await evidenceRecovery.click();
+  await openRecoveryItem(page, /^Timeline Evidence creation ·/);
   await expect(
     page.getByRole("region", {
       name: "Retained Timeline Evidence creation",
@@ -1444,7 +1442,9 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
   ).toContainText(
     "Evidence created and linked to the original Timeline record.",
   );
-  await evidenceRecovery.click();
+  await page
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .click();
 
   const comm = await createFromTimelineWorkflow(page, incidentId, {
     actionKey: "create_related.comm_log",
@@ -1662,9 +1662,7 @@ async function exerciseDecisionRecovery(
       }),
     });
   });
-  await page
-    .getByRole("button", { name: "Decision actions (1)", exact: true })
-    .click();
+  await openRecoveryItem(page, /^Decision supersession ·/);
   const recovery = page.getByTestId(decisionSupersessionTestId("recovery"));
   await recovery
     .getByRole("button", { name: "Replay exact supersession request" })

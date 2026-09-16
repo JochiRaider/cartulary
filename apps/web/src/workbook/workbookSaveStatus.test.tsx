@@ -29,7 +29,6 @@ describe("Workbook save status", () => {
     const runtime = runtimeFixture();
     const queue = runtime.pendingQueue().model.snapshot();
     const snapshot = projectWorkbookMutationStatus({
-      conflictPanelOpen: false,
       conflicts: [],
       explicitInFlightCount: 1,
       queue: {
@@ -189,7 +188,7 @@ describe("Workbook save status", () => {
         .textContent,
     ).toBe("");
   });
-  it("keeps accepted writes pending through their required refresh", async () => {
+  it("keeps acknowledged writes saved while their required refresh remains recoverable", async () => {
     let finishRefresh = () => {};
     const refresh = vi.fn(
       () =>
@@ -229,9 +228,12 @@ describe("Workbook save status", () => {
       sheetRef: { kind: "saved_view", id: "saved-one" },
     });
     await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
-    // A concurrent reporting update must not reveal a falsely settled queue.
+    // Acknowledgement settles the write; reading the view is a separate fact.
     runtime.notifyPendingChanged();
-    expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
+    expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
+    expect(
+      runtime.getSnapshot().queuedCount + runtime.getSnapshot().inFlightCount,
+    ).toBe(0);
     finishRefresh();
     await vi.waitFor(() =>
       expect(runtime.getSnapshot().primaryLabel).toBe("Saved"),

@@ -1,32 +1,48 @@
+import { getViewContract } from "@cartulary/view-contracts";
 import { useState, useSyncExternalStore } from "react";
+import {
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../shared/workbookRecoveryNavigation";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 
-/** Presentation of the existing retained surface refresh obligation. */
 export function WorkbookSurfaceRefreshNotice({
   runtime,
-  viewSchemaId,
 }: {
   readonly runtime: WorkbookMutationRuntime;
-  readonly viewSchemaId: string;
 }) {
   useSyncExternalStore(runtime.subscribe, runtime.getSnapshot);
   const [reading, setReading] = useState(false);
-  if (!runtime.surfaceRefreshRequired(viewSchemaId)) return null;
+  const items: readonly WorkbookRecoveryItem[] = runtime
+    .surfaceRefreshDebts()
+    .map((id, order) => ({
+      id,
+      label: "Refresh saved view",
+      summary: "Saved changes; view refresh required",
+      origin: getViewContract(id)?.title ?? "Workbook",
+      sheetRef: { kind: "view_schema", id },
+      attention: "attention",
+      order,
+      refreshOnlyView: id,
+    }));
+  const selected = useWorkbookRecoverySource("surface-refresh", items);
   return (
-    <div role="status" data-grid-editor-external-action="true">
-      Saved changes; view refresh pending.{" "}
+    <WorkbookRecoveryDetail source="surface-refresh" item={selected}>
+      <p>Saved changes; view refresh pending.</p>
       <button
         type="button"
         disabled={reading}
         onClick={() => {
+          if (!selected) return;
           setReading(true);
           void runtime
-            .refreshSurface(viewSchemaId)
+            .refreshSurface(selected)
             .finally(() => setReading(false));
         }}
       >
         {reading ? "Refreshing view…" : "Refresh saved view"}
       </button>
-    </div>
+    </WorkbookRecoveryDetail>
   );
 }

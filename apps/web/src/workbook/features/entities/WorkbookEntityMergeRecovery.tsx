@@ -1,10 +1,9 @@
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
 import type { InspectorRecordHistoryAction } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { useWorkbookRecordHistoryController } from "../../inspector/useWorkbookRecordHistoryController";
@@ -23,117 +22,61 @@ export function WorkbookEntityMergeRecovery({
 }) {
   const owner = runtime.entityMerge;
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const summary = useRef<HTMLElement>(null);
-  const focusRequested = useRef(false);
-  useLayoutEffect(() => {
-    if (open && focusRequested.current) {
-      focusRequested.current = false;
-      summary.current?.focus({ preventScroll: true });
-    }
-  }, [open]);
-  useEffect(() => {
-    if (!snapshot.authority) setOpen(false);
-  }, [snapshot.authority]);
-  if (!snapshot.entries.length) return null;
-  const close = () => {
-    const restore = summary.current?.parentElement?.contains(
-      document.activeElement,
-    );
-    setOpen(false);
-    if (restore) trigger.current?.focus({ preventScroll: true });
-  };
-  const acknowledged = snapshot.entries.filter(
-    (entry) => entry.receipt !== null,
-  ).length;
-  const unknown = snapshot.entries.filter(
-    (entry) => entry.phase === "uncertain",
-  ).length;
-  const refreshRequired = snapshot.entries.some(
-    (entry) => entry.receipt && entry.reconciliation !== "complete",
-  );
+  const items: readonly WorkbookRecoveryItem[] = snapshot.authority
+    ? snapshot.entries.map((entry, order) => ({
+        id: entry.attempt.id,
+        label: "Entity merge",
+        origin: `${entry.attempt.review.loser.label} → ${entry.attempt.review.survivor.label}`,
+        sheetRef: {
+          kind: "view_schema",
+          id:
+            entry.attempt.review.entityType === "host"
+              ? hostsViewSchemaId
+              : identitiesViewSchemaId,
+        },
+        refreshViews:
+          entry.receipt && entry.reconciliation !== "complete"
+            ? [
+                entry.attempt.review.entityType === "host"
+                  ? hostsViewSchemaId
+                  : identitiesViewSchemaId,
+              ]
+            : [],
+        order,
+        summary: entry.receipt
+          ? entry.reconciliation === "complete"
+            ? "Completed"
+            : "Saved; refresh required"
+          : entry.phase === "uncertain"
+            ? "Outcome unconfirmed"
+            : entry.phase === "rejected"
+              ? "Review required"
+              : "In progress",
+        attention:
+          entry.receipt && entry.reconciliation === "complete"
+            ? "completed"
+            : entry.receipt ||
+                entry.phase === "uncertain" ||
+                entry.phase === "rejected"
+              ? "attention"
+              : "progress",
+      }))
+    : [];
+  const selected = useWorkbookRecoverySource("entity-merge", items);
   return (
-    <div style={{ position: "relative" }}>
-      <WorkbookInspectorActionButton
-        ref={trigger}
-        aria-expanded={open}
-        onClick={() => {
-          if (open) close();
-          else {
-            focusRequested.current = true;
-            setOpen(true);
-          }
-        }}
-      >
-        Merge actions ({snapshot.entries.length})
-      </WorkbookInspectorActionButton>
-      <span
-        role="status"
-        style={{
-          marginInlineStart: "var(--ct-spacing-xs)",
-          fontSize: "var(--ct-typography-compact-metadata-fontSize)",
-        }}
-      >
-        {unknown
-          ? `${unknown} merge outcome${unknown === 1 ? "" : "s"} unknown.`
-          : acknowledged
-            ? `${acknowledged} merge${acknowledged === 1 ? "" : "s"} completed.${refreshRequired ? " Refresh still required." : ""}`
-            : "Merge in progress."}
-      </span>
-      {open ? (
-        <section
-          aria-label="Merge action recovery"
-          style={{
-            position: "absolute",
-            zIndex: 30,
-            insetInlineEnd: 0,
-            inlineSize: "min(38rem, 90vw)",
-            maxBlockSize: "75vh",
-            overflow: "auto",
-            overflowWrap: "anywhere",
-            padding: "var(--ct-spacing-md)",
-            background: "var(--ct-colors-surface-1)",
-            border: "var(--ct-border-hairline)",
-            boxShadow: "var(--ct-elevation-popover)",
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Escape" &&
-              !(
-                event.target instanceof Element &&
-                event.target.closest('[role="alertdialog"]')
-              )
-            ) {
-              event.stopPropagation();
-              close();
-            }
-          }}
-        >
-          <section
-            ref={summary}
-            tabIndex={-1}
-            aria-label="Merge action recovery summary"
-          >
-            <strong>Merge actions</strong>
-            <p>
-              Admitted requests remain here when the inspector closes. A timeout
-              or panel closure does not roll back a merge.
-            </p>
-          </section>
-          <WorkbookInspectorActionButton onClick={close}>
-            Close merge actions
-          </WorkbookInspectorActionButton>
-          {snapshot.entries.map((entry) => (
+    <WorkbookRecoveryDetail source="entity-merge" item={selected}>
+      <section aria-label="Merge action recovery">
+        {snapshot.entries
+          .filter((entry) => entry.attempt.id === selected)
+          .map((entry) => (
             <MergeRecoveryEntry
               key={entry.attempt.id}
               entry={entry}
               runtime={runtime}
             />
           ))}
-        </section>
-      ) : null}
-    </div>
+      </section>
+    </WorkbookRecoveryDetail>
   );
 }
 

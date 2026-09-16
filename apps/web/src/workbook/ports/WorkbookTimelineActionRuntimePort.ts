@@ -1,5 +1,6 @@
 /** Lifecycle/status bridge only. Timeline owns its action policy and transport. */
 export interface WorkbookTimelineActionRuntimePort {
+  readonly unsettledMutationCount: number;
   readonly pendingCount: number;
   readonly blockedCount: number;
   subscribe(listener: () => void): () => void;

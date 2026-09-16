@@ -56,3 +56,7 @@ reference reader completes that unfinished obligation through the replacement;
 an already accepted reference set does not trigger another eager read.
 
 Timeline mention rendering retains a named, bounded Host/Identity observation in useEntityReferenceRows. It reads the existing query port directly, separately from authored Entity sheet queries. It no longer depends on the ordinary reference broker. Specialized mention resolution continues to own its own candidate workflow.
+
+Acceptance-required recovery rejects failed, aborted or superseded Entity reference
+reads. Silent ordinary reference observations cannot settle a feature-owned
+acknowledged refresh obligation.

@@ -199,6 +199,17 @@ export class WorkbookNoteCreateOwner {
       )
     );
   }
+  /** Admitted writes awaiting settlement; excludes acknowledged refresh reads. */
+  get unsettledMutationCount() {
+    return (
+      Number(this.preparing) +
+      [...this.entries.values()].filter(
+        (entry) =>
+          !entry.receipt &&
+          (entry.phase === "submitting" || entry.phase === "uncertain"),
+      ).length
+    );
+  }
   get pendingCount() {
     return (
       Number(this.preparing) +

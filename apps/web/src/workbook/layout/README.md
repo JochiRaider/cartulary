@@ -19,7 +19,7 @@ repeated viewport subtraction in surface components.
 | [workbookDensity.ts](workbookDensity.ts) | Account density preference resolution. |
 | [workbookResponsiveLayout.ts](workbookResponsiveLayout.ts) | Responsive layout classification and surface-band helpers. |
 | [workbookShellStyles.ts](workbookShellStyles.ts) | Shared shell chrome, work-area, viewport-overlay, and responsive style slots. |
-| [WorkbookWorkAreaOverlay.tsx](WorkbookWorkAreaOverlay.tsx) | Shared recovery host, containing bounds, entry focus, stacking, and internal scrolling for Coordination and Notes. |
+| [Shared work-area overlay](../../shared/WorkbookWorkAreaOverlay.tsx) | Workbook and Network Analysis recovery host, bounds and internal scrolling. |
 | [WorkbookSurfaceLayout.tsx](WorkbookSurfaceLayout.tsx) | Shared work-area, independently scrolling grid/inspector slots, overlay geometry, resize behavior, and focus restoration. |
 
 ## Tests

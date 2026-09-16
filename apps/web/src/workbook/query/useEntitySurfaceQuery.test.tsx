@@ -98,6 +98,27 @@ it("browses only the active Entity sheet and releases its rows independently on 
   await act(() => readReferences());
   expect(query).toHaveBeenCalledTimes(2);
   expect(revalidatedReader.query).toHaveBeenCalledTimes(2);
+  // Mention creation must retain refresh recovery when the bounded reference
+  // observation is rejected, even though ordinary reference reads are silent.
+  const denied = {
+    query: vi.fn(
+      async (): Promise<WorkbookViewQueryResult> => ({ kind: "aborted" }),
+    ),
+  };
+  references.rerender({ reader: denied });
+  await act(async () => {
+    await expect(
+      references.result.current.refresh({ requireAcceptance: true }),
+    ).rejects.toThrow("not accepted");
+  });
+  expect(references.result.current.references.hosts).toEqual([]);
+  references.rerender({ reader: revalidatedReader });
+  // Replacement resumes the unaccepted reference observation once.
+  await waitFor(() => expect(revalidatedReader.query).toHaveBeenCalledTimes(4));
+  await act(() =>
+    references.result.current.refresh({ requireAcceptance: true }),
+  );
+  expect(revalidatedReader.query).toHaveBeenCalledTimes(6);
   references.unmount();
   const interrupted = deferred<WorkbookViewQueryResult>();
   const pendingReader = { query: vi.fn(() => interrupted.promise) };

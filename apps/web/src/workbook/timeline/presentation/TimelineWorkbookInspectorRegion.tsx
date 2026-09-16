@@ -51,8 +51,8 @@ export function TimelineWorkbookInspectorRegion({
                 ) : null}
                 {model.captureResult.reconciliation !== "complete" ? (
                   <p>
-                    Refresh is still required. Use Timeline actions to refresh
-                    this result.
+                    Refresh is still required. Open Recovery to refresh this
+                    result.
                   </p>
                 ) : null}
               </section>

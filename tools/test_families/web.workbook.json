@@ -351,6 +351,7 @@
           "Workbook batch operation ownership fences late receipts after replacement and never treats replay denial as proof of no commit",
           "Workbook batch operation ownership keeps late accepted work hidden during session uncertainty and reconciles after recovery",
           "Workbook batch operation ownership lets conflict correction pass later waiting batches and advances only undispatched versions",
+          "Workbook batch operation ownership projects one logical batch through uncertainty conflicts refresh and completion",
           "Workbook batch operation ownership releases older completed payloads after remount reads while retaining conflicts",
           "Workbook batch operation ownership retains complete acceptance across failed reads and recovers with reads only",
           "Workbook batch operation ownership retains conflicts-only acceptance and blocks only overlapping batches until resolution",
@@ -2962,6 +2963,7 @@
           "Note atomic recovery retains concealed late acceptance during suspension and ignores retired lifetime callbacks",
           "Note atomic recovery retains socket observations without fabricating receipts or regressing newer source removal evidence",
           "Note atomic recovery sends linked replay as POST with exact body and validates a complete HTTP receipt",
+          "Note atomic recovery separates retained authoring and acknowledged refresh from unsettled save work",
           "Note atomic recovery uses ordinary atomic creation only after explicit source clearing without losing authored fields"
         ]
       },
@@ -3488,6 +3490,85 @@
           "Workbook canonical query metadata adopts canonical filter operands without copying effective tails into saved or continuation overrides",
           "Workbook canonical query metadata correlates grouping and authored sort order and permits eight sorts without group injection",
           "Workbook canonical query metadata requires complete paging and the effective default sort without assuming a short page is terminal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.recovery_navigation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/workbookRecoveryNavigation.test.tsx",
+        "titles": [
+          "conceals revoked owner summaries and keeps focus in the recovery list",
+          "coordinates independent recovery owners without losing retained authoring"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.recovery_navigation_model",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/shared/workbookRecoveryNavigation.test.ts",
+        "titles": [
+          "Recovery navigation coordinates secondary panels without reopening them after recovery closes",
+          "Recovery navigation counts compound conflicts and acknowledged refresh once while preserving independent debt",
+          "Recovery navigation detaches exactly the previous owner when switching closing or withdrawing a selection",
+          "Recovery navigation ignores replaced registrations and permanently retires every presentation reference",
+          "Recovery navigation keeps completed notice dismissal separate from work and rejects stale activation",
+          "Recovery navigation orders safe contributions and keeps selection by identity when other work changes",
+          "Recovery navigation rejects duplicate source identities without admitting an ambiguous navigation target"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.recovery_production_shell",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "WorkbookShell surface selection coordinates simultaneous recovery families through production shell controls"
         ]
       },
       "evidence_class": "unit",
@@ -5101,7 +5182,7 @@
           "Workbook save status announces each transition once across renders and shell remounts",
           "Workbook save status does not erase pending Timeline work on surface unmount",
           "Workbook save status keeps a global FIFO blocker explanation on another surface",
-          "Workbook save status keeps accepted writes pending through their required refresh",
+          "Workbook save status keeps acknowledged writes saved while their required refresh remains recoverable",
           "Workbook save status keeps both overlapping generic operations pending",
           "Workbook save status keeps local validation feedback independent from primary mutation status",
           "Workbook save status leaves visible save labels outside independent live regions"
@@ -6664,7 +6745,6 @@
           "WorkbookShell surface selection keeps closed incidents readable while disabling grid mutation entry points",
           "WorkbookShell surface selection keeps entity merge review, confirmation, and dependent Timeline preview bound to stable record ids",
           "WorkbookShell surface selection keeps late surface fixture requests bound to the originating test scenario",
-          "WorkbookShell surface selection keeps party-link mutations syncing until workbook and references refresh",
           "WorkbookShell surface selection keeps rejected generic party-link feedback local",
           "WorkbookShell surface selection loads a direct Status Review URL with the active surface query result",
           "WorkbookShell surface selection mounts the matching entity inspector subject after deferred query hydration",
@@ -6678,6 +6758,7 @@
           "WorkbookShell surface selection renders saved views only in the active surface selector and preserves selected saved-view identity",
           "WorkbookShell surface selection retains accepted generic rows and marks them stale when refresh fails",
           "WorkbookShell surface selection selects required built-in and system view surfaces by view_schema_id",
+          "WorkbookShell surface selection separates acknowledged party-link save state from workbook and reference refresh",
           "WorkbookShell surface selection submits physical alias add/remove actions and restores inspector focus after authoritative refresh",
           "WorkbookShell surface selection surfaces entity merge precondition failures without submitting a second plan",
           "WorkbookShell surface selection surfaces upload failures inline without issuing Timeline patches",

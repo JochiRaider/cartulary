@@ -1337,7 +1337,10 @@ function useSemanticDataGrid<Row>(
         ) {
           return false;
         }
-        session.cancel();
+        session.cancel(
+          vendorHandle.current?.element?.contains(document.activeElement) ===
+            true,
+        );
         return true;
       },
       detachEdit: () => {

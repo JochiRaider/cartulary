@@ -355,7 +355,7 @@ export function useEntityMergeController({
       } else if (entry?.phase === "uncertain") {
         setFeedback(
           workbookInspectorMessageFeedback(
-            "The merge outcome is unknown. Open Merge actions to replay this exact request. Closing the inspector does not roll it back.",
+            "The merge outcome is unknown. Open Recovery to replay this exact request. Closing the inspector does not roll it back.",
             "polite",
           ),
         );

@@ -35,6 +35,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 const raw = "Original Timeline text: preserve  spacing and source spelling.";
@@ -99,16 +100,7 @@ async function submit(page: Page) {
     .click();
 }
 async function recovery(page: Page) {
-  const summary = page
-    .locator("summary")
-    .filter({ hasText: /^Timeline Evidence creation/ });
-  await expect(summary).toBeVisible();
-  if (
-    !(await summary.evaluate(
-      (element) => (element.parentElement as HTMLDetailsElement).open,
-    ))
-  )
-    await summary.click();
+  await openRecoveryItem(page, /^Timeline Evidence (draft|creation) ·/);
   const region = page.getByRole("region", {
     name: "Retained Timeline Evidence creation",
     exact: true,

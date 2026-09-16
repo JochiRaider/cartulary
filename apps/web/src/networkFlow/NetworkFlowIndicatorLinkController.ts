@@ -25,6 +25,7 @@ import {
 } from "./networkFlowIndicatorLinkOperation";
 
 export type IndicatorLinkDraft = {
+  readonly workId: number;
   readonly candidate: NetworkFlowIndicatorLinkCandidate;
   readonly targetMode: "create_indicator" | "existing_indicator";
   readonly existingId: string;
@@ -112,6 +113,7 @@ export class NetworkFlowIndicatorLinkController {
   private selectionContext = "";
   private selectionRevision = 0;
   private draftRevision = 0;
+  private workSequence = 0;
   private admission = false;
   private active = false;
   private focusRestorer: (() => Promise<boolean>) | null = null;
@@ -323,6 +325,7 @@ export class NetworkFlowIndicatorLinkController {
     this.update({
       draft: {
         candidate: structuredClone(candidate),
+        workId: ++this.workSequence,
         targetMode: "create_indicator",
         existingId: "",
         confirmation: "",
@@ -469,6 +472,7 @@ export class NetworkFlowIndicatorLinkController {
         candidate: draft.candidate,
         selectionRevision: this.selectionRevision,
         draftRevision: draft.revision,
+        workId: draft.workId,
         sourceLimit: this.state.sourceLimit,
         target,
         confirmation: draft.confirmation,

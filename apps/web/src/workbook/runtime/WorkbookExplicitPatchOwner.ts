@@ -310,6 +310,16 @@ export class WorkbookExplicitPatchOwner {
       ? "pending"
       : "settled";
   }
+  /** Admitted writes awaiting settlement; excludes acknowledged refresh reads. */
+  get unsettledMutationCount() {
+    return [...this.entries.values()].filter(
+      (entry) =>
+        !entry.receipt &&
+        (entry.phase === "coordinating" ||
+          entry.phase === "submitting" ||
+          entry.phase === "uncertain"),
+    ).length;
+  }
   get pendingCount() {
     return [...this.entries.values()].filter(
       (entry) =>

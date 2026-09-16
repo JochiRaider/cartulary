@@ -130,6 +130,16 @@ export class WorkbookBatchOperationOwner {
     this.pruneCompleted();
     this.publish();
   }
+  /** Save-state facts are separate from operation admission and refresh. */
+  get unsettledMutationCount() {
+    return [...this.entries.values()].filter(
+      ({ entry }) =>
+        !entry.receipt &&
+        ["waiting", "preparing", "submitting", "uncertain"].includes(
+          entry.phase,
+        ),
+    ).length;
+  }
   get pendingCount() {
     return [...this.entries.values()].filter(
       ({ entry }) =>

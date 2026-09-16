@@ -274,6 +274,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 import {
   createSavedView,
@@ -1743,6 +1744,9 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       await blockedEditor.press("Enter");
       await expect.poll(() => conflictController.calls.length).toBe(1);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      await page
+        .getByRole("button", { name: "Open conflict recovery", exact: true })
+        .click();
       await expect(
         page.getByTestId(workbookEditRecoveryTestId()),
       ).toBeVisible();
@@ -3883,7 +3887,9 @@ async function prepareFeP7ConflictVisual(
       surface: "grid",
     }),
   );
-  await expect(originalEditor).toBeFocused();
+  await expect(
+    page.getByRole("heading", { name: "Same-field conflict", exact: true }),
+  ).toBeFocused();
   expect(
     await originalEditor.evaluate(
       (element) => element.closest('[inert], [aria-hidden="true"]') === null,
@@ -4152,9 +4158,6 @@ test.describe("workbook visual evidence", () => {
         remoteValue: "Pending visual server",
         txnPrefix: "visual-collaboration-pending-conflict",
       });
-      await page
-        .getByTestId(workbookConflictResolverTestId())
-        .scrollIntoViewIfNeeded();
       await stabilizeConflictResolverVisual(page);
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
@@ -4162,6 +4165,16 @@ test.describe("workbook visual evidence", () => {
       await assertViewportVisualRegression(
         page,
         "collaboration-grid-blocked-conflict",
+        {
+          anchor: {
+            locator: page.getByRole("region", {
+              name: "Recovery navigation",
+              exact: true,
+            }),
+            align: "start",
+            scrollportSelector: 'section[aria-label="Workbook recovery"]',
+          },
+        },
       );
 
       await page
@@ -6016,6 +6029,10 @@ async function parkVisualPointer(page: Page) {
 }
 
 async function stabilizeConflictResolverVisual(page: Page) {
+  if (!(await page.getByTestId(workbookConflictResolverTestId()).isVisible()))
+    await page
+      .getByRole("button", { name: "Open conflict recovery", exact: true })
+      .click();
   const gridEditorIsActive = await page.evaluate(
     () => document.activeElement?.closest('[role="gridcell"]') !== null,
   );
@@ -8681,9 +8698,7 @@ test("Capture Decision supersession review and accepted recovery at desktop and 
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect(review).toBeVisible();
   await page.getByTestId(decisionSupersessionTestId("confirm")).click();
-  await page
-    .getByRole("button", { name: "Decision actions (1)", exact: true })
-    .click();
+  await openRecoveryItem(page, /^Decision supersession ·/);
   const recovery = page.getByTestId(decisionSupersessionTestId("recovery"));
   await expect(
     recovery.getByText(
@@ -8738,9 +8753,8 @@ test("Capture Timeline supersession authoring review and accepted replacement", 
   await page
     .getByTestId(timelineCaptureActionTestId("confirm", target.record_id))
     .click();
-  await page
-    .getByRole("button", { name: "Timeline actions (1)", exact: true })
-    .click();
+  await expect(recoveryEntry(page)).toHaveText("Recovery (0)");
+  await openRecoveryItem(page, /^Timeline action ·/);
   await expect(
     page.getByTestId(timelineCaptureActionTestId("result", target.record_id)),
   ).toHaveText("Timeline supersession completed.");
@@ -8898,10 +8912,10 @@ test("Capture contextual Task and Decision authoring references and retained rec
       await form
         .getByRole("button", { name: "Keep draft and close", exact: true })
         .click();
-    const summary = page
-      .locator("summary")
-      .filter({ hasText: /^Task \/ Decision creation/ });
-    await summary.click();
+    await openRecoveryItem(
+      page,
+      /^(Task Requests|Decisions) (draft|creation) ·/,
+    );
     const recovery = page.getByRole("region", {
       name: "Retained contextual creation",
       exact: true,

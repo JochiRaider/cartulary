@@ -138,7 +138,12 @@ export function useEntitySurfaceQuery(input: EntitySurfaceQueryInput) {
   };
 }
 
-async function inactiveRead() {}
+async function inactiveRead(options?: {
+  readonly requireAcceptance?: boolean;
+}) {
+  if (options?.requireAcceptance)
+    throw new Error("Entity refresh requires an active reader.");
+}
 
 /** Bounded reference observations are independent of both sheets' authored queries. */
 function useEntityReferenceRows(
@@ -161,60 +166,74 @@ function useEntityReferenceRows(
     setHosts([]);
     setIdentities([]);
   }, []);
-  const refresh = useCallback(async () => {
-    requestedReferences.current = true;
-    pending.current?.abort();
-    const controller = new AbortController();
-    pending.current = controller;
-    const currentReader = latestReader.current;
-    if (!currentReader || !active) {
-      setHosts([]);
-      setIdentities([]);
-      return;
-    }
-    try {
-      const result = await Promise.all(
-        [hostsContract, identitiesContract].map((contract) =>
-          boundedRead(
-            (signal) =>
-              currentReader.query({
-                contract,
-                queryState: emptyWorkbookQueryState(),
-                limit: 100,
-                signal,
-              }),
-            controller.signal,
-          ),
-        ),
-      );
-      if (
-        controller.signal.aborted ||
-        pending.current !== controller ||
-        latestReader.current !== currentReader
-      )
+  const refresh = useCallback(
+    async (options?: { readonly requireAcceptance?: boolean }) => {
+      requestedReferences.current = true;
+      pending.current?.abort();
+      const controller = new AbortController();
+      pending.current = controller;
+      const currentReader = latestReader.current;
+      if (!currentReader || !active) {
+        setHosts([]);
+        setIdentities([]);
+        if (options?.requireAcceptance)
+          throw new Error("Entity references are unavailable.");
         return;
-      hasAcceptedReferences.current = true;
-      const [hostResult, identityResult] = result;
-      setHosts(
-        hostResult?.kind === "accepted"
-          ? hostResult.value.rows.map((row) => entityRowFromApi(row, "host"))
-          : [],
-      );
-      setIdentities(
-        identityResult?.kind === "accepted"
-          ? identityResult.value.rows.map((row) =>
-              entityRowFromApi(row, "identity"),
-            )
-          : [],
-      );
-    } catch {
-      if (controller.signal.aborted || pending.current !== controller) return;
-      setHosts([]);
-      setIdentities([]);
-    } finally {
-      if (pending.current === controller) pending.current = null;
-    }
-  }, [active]);
+      }
+      try {
+        const result = await Promise.all(
+          [hostsContract, identitiesContract].map((contract) =>
+            boundedRead(
+              (signal) =>
+                currentReader.query({
+                  contract,
+                  queryState: emptyWorkbookQueryState(),
+                  limit: 100,
+                  signal,
+                }),
+              controller.signal,
+            ),
+          ),
+        );
+        if (
+          controller.signal.aborted ||
+          pending.current !== controller ||
+          latestReader.current !== currentReader
+        ) {
+          if (options?.requireAcceptance)
+            throw new Error("Entity reference refresh was superseded.");
+          return;
+        }
+        hasAcceptedReferences.current = result.every(
+          (item) => item.kind === "accepted",
+        );
+        const [hostResult, identityResult] = result;
+        setHosts(
+          hostResult?.kind === "accepted"
+            ? hostResult.value.rows.map((row) => entityRowFromApi(row, "host"))
+            : [],
+        );
+        setIdentities(
+          identityResult?.kind === "accepted"
+            ? identityResult.value.rows.map((row) =>
+                entityRowFromApi(row, "identity"),
+              )
+            : [],
+        );
+        if (options?.requireAcceptance && !hasAcceptedReferences.current)
+          throw new Error("Entity reference refresh was not accepted.");
+      } catch (error) {
+        if (!controller.signal.aborted && pending.current === controller) {
+          setHosts([]);
+          setIdentities([]);
+        }
+        if (options?.requireAcceptance) throw error;
+      } finally {
+        if (pending.current === controller) pending.current = null;
+      }
+    },
+    [active],
+  );
   useEffect(() => {
     const replaced = previousReader.current !== reader;
     previousReader.current = reader;

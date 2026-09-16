@@ -48,7 +48,6 @@ describe("Workbook runtime responsibilities", () => {
   it("projects save state from explicit queue, conflict, and surface facts", () => {
     const pending = createWorkbookPendingQueueRuntime(scope);
     const saved = projectWorkbookMutationStatus({
-      conflictPanelOpen: false,
       conflicts: [],
       explicitInFlightCount: 0,
       queue: pending.model.snapshot(),
@@ -74,18 +73,29 @@ describe("Workbook runtime responsibilities", () => {
     });
     const queue = pending.model.snapshot();
     const syncing = projectWorkbookMutationStatus({
-      conflictPanelOpen: false,
       conflicts: [],
       explicitInFlightCount: 2,
       queue,
       refreshes: [{ sheetRef, count: 1 }],
     });
     expect(syncing.primaryLabel).toBe("Syncing");
+    expect(syncing.queuedCount + syncing.inFlightCount).toBe(0);
+    expect(
+      projectWorkbookStatusForSurface(syncing, sheetRef).secondary?.message,
+    ).toBe("Pending work is waiting for workbook refresh.");
+    const session = projectWorkbookMutationStatus({
+      conflicts: [],
+      explicitInFlightCount: 1,
+      queue: { ...queue, authPaused: true },
+    });
+    expect(
+      projectWorkbookStatusForSurface(session, sheetRef).secondary?.message,
+    ).toBe("Authentication is required before pending work can continue.");
+
     expect(
       projectWorkbookStatusForSurface(syncing, sheetRef).secondary?.kind,
     ).toBe("refresh_paused");
     const conflicting = projectWorkbookMutationStatus({
-      conflictPanelOpen: false,
       conflicts: [conflict],
       explicitInFlightCount: 2,
       queue: {
@@ -118,9 +128,8 @@ describe("Workbook runtime responsibilities", () => {
     expect(elsewhere.primaryLabel).toBe("Conflict");
     expect(elsewhere.affectedConflictCount).toBe(0);
     expect(elsewhere.secondary?.kind).toBe("queued_or_in_flight");
-    expect(elsewhere.action).toEqual(active.action);
+    expect(elsewhere.action).toEqual({ kind: "recovery_list" });
     const quiet = projectWorkbookMutationStatus({
-      conflictPanelOpen: false,
       conflicts: [],
       explicitInFlightCount: 0,
       queue: { ...queue, authPaused: true },
@@ -274,7 +283,7 @@ describe("Workbook runtime responsibilities", () => {
       conflict: { ...registration.conflict, current_row_version: 3 },
     });
     expect(conflicts.get(first.key)?.mergedDraft).toBe("Merged");
-    expect(conflicts.panelOpen).toBe(true);
+    expect(conflicts.entries()).toHaveLength(1);
 
     const pending = createWorkbookPendingQueueRuntime(scope);
     const ledger = new WorkbookClientTransactionLedger();

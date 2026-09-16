@@ -13,12 +13,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type {
   WorkbookMutationRuntime,
   WorkbookMutationSnapshot,
 } from "../runtime/WorkbookMutationRuntime";
-import { RecoverySurface } from "./RecoverySurface";
 
 function displayConflictValue(value: unknown): string {
   if (typeof value === "string") return value;
@@ -69,7 +67,7 @@ function LineComparison({
 export function WorkbookSameFieldConflictResolver({
   activation,
   apiBase,
-  focusSummary,
+  onClose,
   mutationRuntime,
   onActivateOrigin,
   snapshot,
@@ -80,67 +78,32 @@ export function WorkbookSameFieldConflictResolver({
     readonly sequence: number;
   } | null;
   readonly apiBase?: string | undefined;
-  readonly focusSummary: () => void;
+  readonly onClose: () => void;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly onActivateOrigin: (viewSchemaId: string) => void;
-  readonly snapshot: Pick<
-    WorkbookMutationSnapshot,
-    "conflictPanelOpen" | "conflicts"
-  >;
+  readonly snapshot: Pick<WorkbookMutationSnapshot, "conflicts">;
   readonly summaryRef: RefObject<HTMLDivElement | null>;
 }) {
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(
+    activation?.conflictKey ?? snapshot.conflicts[0]?.key ?? null,
+  );
   useEffect(() => {
     if (activation !== undefined && activation !== null)
       setActiveKey(activation.conflictKey);
   }, [activation]);
   const conflict =
-    snapshot.conflicts.find((entry) => entry.key === activeKey) ??
-    snapshot.conflicts[0] ??
-    null;
+    snapshot.conflicts.find((entry) => entry.key === activeKey) ?? null;
   const resolverRef = useRef<HTMLElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setActiveKey((current) =>
-      current !== null &&
-      snapshot.conflicts.some((entry) => entry.key === current)
-        ? current
-        : (snapshot.conflicts[0]?.key ?? null),
+  if (conflict === null)
+    return (
+      <p>
+        This conflict is no longer available. Use All recovery to review
+        remaining work.
+      </p>
     );
-  }, [snapshot.conflicts]);
-
-  useEffect(() => {
-    setMessage(null);
-    if (snapshot.conflictPanelOpen && conflict !== null) {
-      if (resolverRef.current?.contains(document.activeElement)) return;
-      // Timeline correction retains grid focus even during an editor remount.
-      // Explicit recovery activation owns focus through useWorkbookRecoveryFocus.
-      if (
-        conflict.origin.viewSchemaId === timelineViewSchemaId ||
-        conflict.batchOperationId
-      )
-        return;
-      focusSummary();
-    }
-  }, [conflict, focusSummary, snapshot.conflictPanelOpen]);
-
-  useEffect(() => {
-    if (!snapshot.conflictPanelOpen || conflict === null) return;
-    const dismissFromUnhandledEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      event.preventDefault();
-      event.stopPropagation();
-      mutationRuntime.dismissConflict(conflict.key);
-    };
-    document.addEventListener("keydown", dismissFromUnhandledEscape);
-    return () =>
-      document.removeEventListener("keydown", dismissFromUnhandledEscape);
-  }, [conflict, mutationRuntime, snapshot.conflictPanelOpen]);
-
-  if (conflict === null) return null;
-  if (!snapshot.conflictPanelOpen) return null;
 
   const submit = async (
     resolutionKind: "keep_saved" | "merged_value" | "use_unsaved",
@@ -167,10 +130,10 @@ export function WorkbookSameFieldConflictResolver({
   const activeConflictIndex = groupedConflicts.findIndex(
     (entry) => entry.key === conflict.key,
   );
-  const dismiss = () => mutationRuntime.dismissConflict(conflict.key);
+  const dismiss = onClose;
 
   return (
-    <RecoverySurface
+    <section
       aria-label="Workbook conflict recovery"
       data-grid-editor-external-action="true"
       ref={resolverRef}
@@ -188,7 +151,7 @@ export function WorkbookSameFieldConflictResolver({
         if (event.key !== "Escape") return;
         event.preventDefault();
         event.stopPropagation();
-        mutationRuntime.dismissConflict(conflict.key);
+        onClose();
       }}
     >
       <div
@@ -423,7 +386,7 @@ export function WorkbookSameFieldConflictResolver({
           </button>
         )}
       </div>
-    </RecoverySurface>
+    </section>
   );
 }
 

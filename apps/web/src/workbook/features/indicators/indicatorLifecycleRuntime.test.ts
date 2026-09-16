@@ -121,7 +121,8 @@ it("Lifecycle runtime retains recovery across shell detachment and retires accou
   });
   if (!attempt) throw new Error("admit");
   await owner.execute(attempt);
-  expect(runtime.getSnapshot().primaryLabel).toBe("Conflict");
+  expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
+  expect(runtime.getSnapshot().unresolvedConflictCount).toBe(0);
   registry.sessionUnavailable();
   expect(owner.getSnapshot().entries).toEqual([]);
   expect(registry.acquire(scope, create)).toBe(runtime);

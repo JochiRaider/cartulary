@@ -23,6 +23,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 
 test("Lost Assessment response replays exactly one append and support set after navigation", async ({
   page,
@@ -161,12 +162,12 @@ async function recovery(
     if (mode === "late") {
       const complete = release as (() => void) | null;
       complete?.();
-      await expect(page.getByText(/^Assessment appends/)).toBeVisible();
+      await expect(recoveryEntry(page)).toBeVisible();
       await expect(tab).toBeFocused();
     }
   }
-  const trigger = page.getByText(/^Assessment appends/);
-  await trigger.click();
+  const trigger = recoveryEntry(page);
+  await openRecoveryItem(page, /^Assessment append ·/);
   const retained = page.getByRole("region", {
     name: "Retained Assessment appends",
     exact: true,

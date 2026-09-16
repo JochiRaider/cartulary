@@ -42,6 +42,7 @@ import {
   fetchRecordHistoryCount,
 } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import {
   clickTimelineRowAction,
   commitInspectorScalarEdit,
@@ -523,24 +524,18 @@ test("Timeline exact action recovery preserves committed transitions change sets
       await page
         .getByTestId(timelineRowMarkReviewedButtonTestId(target.record_id))
         .press("Enter");
-    await expect(
-      page.getByText("Timeline action outcome unknown.", { exact: true }),
-    ).toBeVisible();
-    await page
-      .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
-      .click();
-    await expect(
-      page.getByTestId(
-        workbookInspectorCloseButtonTestId(timelineViewSchemaId),
-      ),
-    ).toHaveCount(0);
-    const before = await fetchFullRecordHistory(page, target.record_id);
-    await page.getByRole("button", { name: /^Timeline actions \(/ }).click();
+    // Background settlement publishes recovery without opening its panel.
+    await expect(recoveryEntry(page)).toHaveText("Recovery (1)");
+    await openRecoveryItem(page, /^Timeline action ·/);
     const recovery = page.getByRole("region", {
       name: "Timeline action recovery",
       exact: true,
     });
-    await expect(recovery).toBeFocused();
+    await expect(recovery).toContainText("Timeline action outcome unknown.");
+    const before = await fetchFullRecordHistory(page, target.record_id);
+    await expect(
+      page.getByRole("heading", { name: "Timeline action", exact: true }),
+    ).toBeFocused();
     const retry = page.getByTestId(
       timelineCaptureActionTestId("retry", target.record_id),
     );
@@ -614,9 +609,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
       replacementLinkCount: linkUnits.length,
     });
     await page.keyboard.press("Escape");
-    await expect(
-      page.getByRole("button", { name: /^Timeline actions \(/ }),
-    ).toBeFocused();
+    await expect(recoveryEntry(page)).toBeFocused();
     if (scenario.replacement) {
       await assertActiveFilterChipVisible(
         page,

@@ -173,7 +173,7 @@ export function DecisionSupersessionEditor({
     }
     focusNotice.current = true;
     setNotice(
-      "Supersession admitted. Its progress and recovery remain in Decision actions.",
+      "Supersession admitted. Its progress and recovery remain in Recovery.",
     );
     void owner.execute(attempt);
   }

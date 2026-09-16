@@ -2,6 +2,11 @@ import { networkAnalysisTestId } from "@cartulary/ui-contracts";
 import { Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
+  useWorkbookRecoveryPresentation,
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../shared/WorkbookRecoveryBoundary";
+import {
   NetworkFlowActionGroup,
   NetworkFlowButton,
   NetworkFlowChromeStyles,
@@ -14,7 +19,7 @@ import type {
   TableSnapshot,
 } from "./NetworkFlowTableController";
 import { normalizeTableDisplayName } from "./networkFlowTableOperation";
-import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
+import { networkFlowTableRecoveryItems } from "./networkFlowTableRecoveryItems";
 
 type Props = { readonly controller: NetworkFlowTableController };
 export function TableLifecycleControls({ controller }: Props) {
@@ -50,73 +55,45 @@ export function TableLifecycleControls({ controller }: Props) {
     </>
   );
 }
-export function NetworkFlowTableRecovery({ controller }: Props) {
-  const state = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-  );
-  if (
-    state.hidden ||
-    (state.operation === null && state.draft === null) ||
-    state.presentation !== null
-  )
-    return null;
-  return (
-    <span className={networkFlowChromeRootClassName}>
-      {state.operation ? (
-        <NetworkFlowButton
-          onClick={controller.reopenOperation}
-          aria-label="Review retained table change"
-        >
-          {state.operation.status === "uncertain" ||
-          state.operation.status === "pending"
-            ? "Table recovery"
-            : "Review table change"}
-        </NetworkFlowButton>
-      ) : null}
-      {state.draft ? (
-        <NetworkFlowButton
-          onClick={controller.reopenDraft}
-          aria-label={
-            state.operation
-              ? "Review table draft"
-              : "Review retained table change"
-          }
-        >
-          Review table draft
-        </NetworkFlowButton>
-      ) : null}
-    </span>
-  );
-}
 export function NetworkFlowTableSurface({ controller }: Props) {
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
   );
-  if (
-    state.hidden ||
-    state.presentation === null ||
-    (state.presentation === "draft" && state.draft === null) ||
-    (state.presentation === "operation" && state.operation === null)
-  )
-    return null;
+  const selected = useWorkbookRecoverySource(
+    "network-table",
+    networkFlowTableRecoveryItems(state),
+    {
+      activate: (id) => {
+        if (String(state.operation?.dialogId) === id)
+          controller.reopenOperation();
+        else if (String(state.draft?.id) === id) controller.reopenDraft();
+        else return false;
+        return true;
+      },
+      detach: controller.closeDialog,
+    },
+  );
+  const presented =
+    state.hidden || state.presentation === null
+      ? null
+      : state.presentation === "draft"
+        ? state.draft?.id
+        : state.operation?.dialogId;
+  useWorkbookRecoveryPresentation(
+    "network-table",
+    presented == null ? null : String(presented),
+    selected,
+  );
   return (
-    <div
-      className={networkFlowChromeRootClassName}
-      style={{ display: "contents" }}
-    >
-      <NetworkFlowChromeStyles />
-      <TableDialog
-        key={
-          state.presentation === "draft"
-            ? `draft-${state.draft?.action}-${state.draft?.target.network_flow_table_id}`
-            : `operation-${state.operation?.attempt.transactionId}`
-        }
-        controller={controller}
-        state={state}
-      />
-    </div>
+    <WorkbookRecoveryDetail source="network-table" item={selected}>
+      <div className={networkFlowChromeRootClassName}>
+        <NetworkFlowChromeStyles />
+        {!state.hidden && state.presentation !== null ? (
+          <TableDialog key={selected} controller={controller} state={state} />
+        ) : null}
+      </div>
+    </WorkbookRecoveryDetail>
   );
 }
 function TableDialog({
@@ -144,35 +121,18 @@ function TableDialog({
     (sameAttempt ? operation?.failure?.message : null);
   const inputId = rename ? "rename-input" : "delete-confirmation";
   const reviewRef = useRef<HTMLDivElement | null>(null);
-  const modalFocus = useNetworkFlowModalFocus<HTMLFormElement>({
-    initialFocusTestId: networkAnalysisTestId(inputId),
-    onDismiss: controller.closeDialog,
-    restoreFallbackFocus: () => {
-      const tab = document.querySelector<HTMLElement>(
-        '[role="tab"][aria-selected="true"][data-network-flow-table-id]',
-      );
-      if (!tab) return false;
-      tab.focus();
-      return true;
-    },
-  });
   useEffect(() => {
     if (draft?.reviewRequired || feedback) reviewRef.current?.focus();
   }, [draft?.reviewRequired, feedback]);
   return (
-    <div className="network-flow-dialog-backdrop">
-      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: Both literal branches are modal dialog roles. */}
+    <div>
       <form
-        ref={modalFocus.dialogRef}
-        className="network-flow-dialog"
-        role={rename ? "dialog" : "alertdialog"}
-        aria-modal="true"
+        className="network-flow-recovery-detail"
         aria-labelledby="network-flow-table-title"
         aria-describedby="network-flow-table-description"
         data-testid={networkAnalysisTestId(
           rename ? "rename-dialog" : "delete-dialog",
         )}
-        onKeyDown={modalFocus.onKeyDown}
         onSubmit={(event) => {
           event.preventDefault();
           if (draft) void controller.submit();

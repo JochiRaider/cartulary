@@ -223,6 +223,16 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
           observationIntentKey(intent) && this.blocks(entry),
     );
   }
+  /** Admitted writes awaiting settlement; excludes acknowledged refresh reads. */
+  get unsettledMutationCount() {
+    return [...this.entries.values()].filter(
+      (entry) =>
+        !entry.receipt &&
+        (entry.phase === "preparing" ||
+          entry.phase === "submitting" ||
+          entry.phase === "uncertain"),
+    ).length;
+  }
   get pendingCount() {
     return [...this.entries.values()].filter(
       (entry) => this.blocks(entry) || entry.reconciliation === "refreshing",

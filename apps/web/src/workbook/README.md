@@ -74,3 +74,9 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 Table paste and Timeline bulk actions use [retained batch ownership](runtime/README.md).
 Controllers prepare source-specific intent; Workbook retains immutable requests,
 complete outcomes, conflicts and read obligations through presentation changes.
+
+`workbookRecoveryNavigation.test.tsx` covers coordinated authoring and authority
+withdrawal. `WorkbookShell.surfaces.test.tsx` also exercises simultaneous retained
+Note authoring, acknowledged read recovery, uncertain batch work and Indicator
+review through production shell controls. Shared presentation is documented in
+[shared](../shared/README.md); the shell stores no feature execution payloads.

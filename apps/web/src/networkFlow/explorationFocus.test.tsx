@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
+import { WorkbookRecoveryFixture } from "../testing/WorkbookRecoveryFixture";
 import { explorationFixture } from "./explorationTestFixtures";
 import {
   type ExplorationContributorPage,
@@ -74,12 +75,30 @@ it("withdraws removed graph focus safely and cancels an older semantic focus int
       </>
     );
   }
-  render(<Subject />);
+  render(
+    <WorkbookRecoveryFixture>
+      <Subject />
+    </WorkbookRecoveryFixture>,
+  );
   const selected = screen.getAllByRole("button", { name: /^Select edge/u })[0];
   if (!selected) throw new Error("Missing edge control");
   selected.focus();
   fireEvent.click(selected);
   expect(screen.queryByText("Unavailable endpoint")).toBeNull();
+  const recovery = screen.getByRole("button", { name: "Recovery (0)" });
+  fireEvent.click(recovery);
+  expect(
+    screen.queryByRole("complementary", { name: "Graph contributors" }),
+  ).toBeNull();
+  expect(selected.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(selected);
+  expect(
+    screen.queryByRole("region", { name: "Recovery navigation" }),
+  ).toBeNull();
+  expect(
+    screen.getByRole("complementary", { name: "Graph contributors" }),
+  ).toBeTruthy();
+
   const close = screen.getByRole("button", {
     name: "Close graph contributors",
   });

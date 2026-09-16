@@ -548,6 +548,7 @@ describe("Indicator link captured operation", () => {
       sourceLimit: 16,
       selectionRevision: 1,
       draftRevision: 1,
+      workId: 1,
       target: { mode: "create_indicator", indicator_type: "ipv4_addr" },
       confirmation: candidate.candidateValue,
     });
@@ -612,6 +613,7 @@ describe("Indicator link captured operation", () => {
       sourceLimit: 16,
       selectionRevision: 1,
       draftRevision: 1,
+      workId: 1,
       target: { mode: "create_indicator", indicator_type: "ipv4_addr" },
       confirmation: candidate.candidateValue,
     });

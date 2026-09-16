@@ -636,7 +636,7 @@ export function useWorkbookRecordHistoryController({
         operationId,
         type: "operation_rejected",
         feedback: workbookInspectorLocalErrorFeedback(
-          "This action could not be admitted. Review current history or open History actions for recovery.",
+          "This action could not be admitted. Review current history or open Recovery for recovery.",
         ),
       });
       return;
@@ -661,7 +661,7 @@ export function useWorkbookRecordHistoryController({
                 error: workbookInspectorErrorPresentation(entry.failure),
               }
             : workbookInspectorLocalErrorFeedback(
-                "The outcome is unknown. Open History actions to recover this action.",
+                "The outcome is unknown. Open Recovery to recover this action.",
               ),
       });
   }, [owner, canMutate, dispatchHistory, runtime]);
@@ -687,7 +687,7 @@ export function useWorkbookRecordHistoryController({
             error: workbookInspectorErrorPresentation(entry.failure),
           }
         : workbookInspectorLocalErrorFeedback(
-            "The outcome is unknown. Open History actions to recover this action.",
+            "The outcome is unknown. Open Recovery to recover this action.",
           ),
     });
   }, [operations, dispatchHistory]);

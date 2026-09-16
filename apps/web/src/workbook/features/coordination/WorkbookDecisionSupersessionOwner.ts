@@ -203,6 +203,16 @@ export class WorkbookDecisionSupersessionOwner
       ["preparing", "submitting", "uncertain"].includes(entry.phase)
     );
   }
+  /** Admitted writes awaiting settlement; excludes acknowledged refresh reads. */
+  get unsettledMutationCount() {
+    return [...this.entries.values()].filter(
+      (entry) =>
+        !entry.receipt &&
+        (entry.phase === "preparing" ||
+          entry.phase === "submitting" ||
+          entry.phase === "uncertain"),
+    ).length;
+  }
   get pendingCount() {
     return [...this.entries.values()].filter(
       (entry) => this.blocks(entry) || entry.reconciliation === "refreshing",

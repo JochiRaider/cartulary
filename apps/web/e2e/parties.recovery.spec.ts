@@ -31,6 +31,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import { openGenericInspectorForRecord } from "./support/workbook/rowMutations";
 
 test("Party creation remains saved after a real source conflict and renewed link review", async ({
@@ -434,6 +435,9 @@ async function recovery(
     await expect.poll(() => links.length).toBe(1);
   if (mode === "rejected") {
     const resolver = page.getByTestId(workbookConflictResolverTestId());
+    await page
+      .getByRole("button", { name: "Open conflict recovery", exact: true })
+      .click();
     await expect(resolver).toBeVisible();
     await resolver
       .getByRole("button", { name: "Keep saved", exact: true })
@@ -449,8 +453,8 @@ async function recovery(
     const release = releaseCreation as (() => void) | null;
     release?.();
   }
-  const trigger = page.getByText(/^Party operations \(/);
-  await trigger.click();
+  const trigger = recoveryEntry(page);
+  await openRecoveryItem(page, /^Party creation and link ·/);
   const retained = page.getByRole("region", {
     name: "Retained Party operations",
   });

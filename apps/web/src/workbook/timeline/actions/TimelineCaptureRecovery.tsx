@@ -1,5 +1,10 @@
 import { timelineCaptureActionTestId } from "@cartulary/ui-contracts";
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
+import {
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { TimelineCaptureOperation } from "../ports/TimelineRecordActionPort";
 import type { WorkbookTimelineCaptureActionOwner } from "./WorkbookTimelineCaptureActionOwner";
@@ -10,111 +15,44 @@ export function TimelineCaptureRecovery({
   readonly owner: WorkbookTimelineCaptureActionOwner;
 }) {
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLElement>(null);
-  const requestedFocus = useRef(false);
-  const focusedControl = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    if (!snapshot.authority) setOpen(false);
-    if (
-      open &&
-      (requestedFocus.current ||
-        (focusedControl.current &&
-          !focusedControl.current.isConnected &&
-          document.activeElement === document.body))
-    ) {
-      requestedFocus.current = false;
-      panel.current?.focus({ preventScroll: true });
-    }
-  }, [open, snapshot]);
-  if (!snapshot.authority || !snapshot.entries.length) return null;
-  const close = () => {
-    const restore = panel.current?.contains(document.activeElement);
-    setOpen(false);
-    if (restore) trigger.current?.focus({ preventScroll: true });
-  };
+  const items: readonly WorkbookRecoveryItem[] = snapshot.authority
+    ? snapshot.entries.map((entry, order) => ({
+        id: String(entry.key),
+        refreshViews:
+          entry.receipt && entry.reconciliation !== "complete"
+            ? ["cartulary.view.timeline.v2"]
+            : [],
+        label: "Timeline action",
+        origin: entry.review.target.label,
+        sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+        order,
+        summary: entry.receipt
+          ? entry.reconciliation === "complete"
+            ? "Completed"
+            : "Saved; refresh required"
+          : entry.phase === "uncertain"
+            ? "Outcome unconfirmed"
+            : entry.phase === "rejected" || entry.phase === "preparation_failed"
+              ? "Review required"
+              : "In progress",
+        attention:
+          entry.receipt && entry.reconciliation === "complete"
+            ? "completed"
+            : entry.receipt ||
+                entry.phase === "uncertain" ||
+                entry.phase === "rejected" ||
+                entry.phase === "preparation_failed"
+              ? "attention"
+              : "progress",
+      }))
+    : [];
+  const selected = useWorkbookRecoverySource("timeline-capture", items);
   return (
-    <div
-      style={{
-        position: "relative",
-        display: "inline-flex",
-        alignItems: "center",
-        minWidth: 0,
-      }}
-    >
-      <WorkbookInspectorActionButton
-        ref={trigger}
-        style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-        aria-expanded={open}
-        onClick={() => {
-          if (open) close();
-          else {
-            requestedFocus.current = true;
-            setOpen(true);
-          }
-        }}
-      >
-        Timeline actions ({snapshot.entries.length})
-      </WorkbookInspectorActionButton>
-      <span
-        role="status"
-        style={{
-          marginInlineStart: "var(--ct-spacing-xs)",
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          fontSize: "var(--ct-typography-compact-metadata-fontSize)",
-        }}
-      >
-        {snapshot.entries.length === 1
-          ? status(snapshot.entries[0] as TimelineCaptureOperation)
-          : `${snapshot.entries.filter((entry) => entry.receipt).length} Timeline actions completed. ${snapshot.entries.filter((entry) => entry.phase === "uncertain").length} outcomes unknown.`}
-      </span>
-      {open ? (
-        <section
-          ref={panel}
-          tabIndex={-1}
-          aria-label="Timeline action recovery"
-          onFocusCapture={(event) => {
-            focusedControl.current = event.target as HTMLElement;
-          }}
-          onBlurCapture={() => {
-            focusedControl.current = null;
-          }}
-          data-testid={timelineCaptureActionTestId("recovery")}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              close();
-            }
-          }}
-          style={{
-            position: "fixed",
-            zIndex: 30,
-            insetBlockStart:
-              "calc(var(--ct-layout-topBarHeight) + var(--ct-spacing-xs))",
-            insetInlineEnd: "var(--ct-spacing-sm)",
-            inlineSize: "min(38rem, 90vw)",
-            maxBlockSize: "75vh",
-            overflow: "auto",
-            overflowWrap: "anywhere",
-            padding: "var(--ct-spacing-md)",
-            background: "var(--ct-colors-surface-1)",
-            border: "var(--ct-border-hairline)",
-            boxShadow: "var(--ct-elevation-popover)",
-          }}
-        >
-          <strong>Timeline actions</strong>
-          <p>
-            Admitted actions remain here after the inspector closes. A lost
-            response does not mean the server rejected the action.
-          </p>
-          <WorkbookInspectorActionButton onClick={close}>
-            Close Timeline actions
-          </WorkbookInspectorActionButton>
-          {snapshot.entries.map((entry) => (
+    <WorkbookRecoveryDetail source="timeline-capture" item={selected}>
+      <section aria-label="Timeline action recovery">
+        {snapshot.entries
+          .filter((entry) => String(entry.key) === selected)
+          .map((entry) => (
             <article
               key={entry.key}
               aria-label={`Timeline action for ${entry.review.target.label}`}
@@ -206,9 +144,8 @@ export function TimelineCaptureRecovery({
               ) : null}
             </article>
           ))}
-        </section>
-      ) : null}
-    </div>
+      </section>
+    </WorkbookRecoveryDetail>
   );
 }
 function status(entry: TimelineCaptureOperation) {

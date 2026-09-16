@@ -1,6 +1,11 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
+import {
+  useWorkbookRecoveryActivation,
+  useWorkbookRecoveryNavigation,
+} from "../../../shared/WorkbookRecoveryBoundary";
+import { workbookConflictRecoveryKey } from "../../../shared/workbookRecoveryNavigation";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import { useWorkbookMutationRuntime } from "../../runtime/useWorkbookMutationRuntime";
@@ -466,12 +471,29 @@ export function useTimelineRowMutationCoordinator({
     ],
   );
 
+  const recoveryNavigation = useWorkbookRecoveryNavigation();
+  const activateRecovery = useWorkbookRecoveryActivation();
   const activateConflict = useCallback(
     (key: string | null) => {
-      if (key !== null) mutationRuntime.activateConflict();
+      if (key !== null) {
+        const conflict = mutationRuntime
+          .getSnapshot()
+          .conflicts.find((entry) => entry.key === key);
+        activateRecovery(
+          workbookConflictRecoveryKey(
+            recoveryNavigation?.getSnapshot().entries ?? [],
+            conflict ?? { key },
+          ),
+        );
+      }
       setActiveConflictKey(key);
     },
-    [mutationRuntime, setActiveConflictKey],
+    [
+      mutationRuntime,
+      setActiveConflictKey,
+      recoveryNavigation,
+      activateRecovery,
+    ],
   );
 
   const currentCreatedRowPresentationRecordId = useCallback(

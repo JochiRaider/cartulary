@@ -1,65 +1,60 @@
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
+import {
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
 import { secondaryButtonStyle } from "../../components/workbookGridControlStyles";
 import type { WorkbookAssessmentAuthoringOwner } from "./WorkbookAssessmentAuthoringOwner";
-
-/** Retained results remain keyboard reachable after leaving the Assessment surface. */
 export function AssessmentAppendRecovery({
   owner,
 }: {
   readonly owner: WorkbookAssessmentAuthoringOwner;
 }) {
-  const disclosure = useRef<HTMLDetailsElement>(null);
-  const trigger = useRef<HTMLElement>(null);
-  const [open, setOpen] = useState(false);
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  if (!snapshot.authority || !snapshot.entries.length) return null;
-  const recoverable = snapshot.entries.filter(
-    (entry) =>
-      entry.phase === "uncertain" ||
-      (entry.receipt && entry.refresh !== "complete"),
-  );
+  const items: readonly WorkbookRecoveryItem[] = snapshot.authority
+    ? snapshot.entries.map((entry, order) => ({
+        id: entry.attempt.clientTxnId,
+        label: "Assessment append",
+        origin:
+          entry.attempt.review.draft.values.subjectDisplayText || "Assessments",
+        sheetRef: entry.attempt.review.sheetRef,
+        refreshViews:
+          entry.receipt && entry.refresh !== "complete"
+            ? ["cartulary.view.assessments.v1"]
+            : [],
+        order,
+        summary: entry.receipt
+          ? entry.refresh === "complete"
+            ? "Completed"
+            : "Saved; refresh required"
+          : entry.phase === "uncertain"
+            ? "Outcome unconfirmed"
+            : entry.phase === "rejected"
+              ? "Review required"
+              : "Appending",
+        attention:
+          entry.receipt && entry.refresh === "complete"
+            ? "completed"
+            : entry.receipt ||
+                entry.phase === "uncertain" ||
+                entry.phase === "rejected"
+              ? "attention"
+              : "progress",
+      }))
+    : [];
+  const selected = useWorkbookRecoverySource("assessment", items);
   return (
-    <details
-      ref={disclosure}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-      style={{ position: "relative", minWidth: 0 }}
-    >
-      <summary ref={trigger}>
-        Assessment appends
-        {recoverable.length ? ` (${recoverable.length} need recovery)` : ""}
-      </summary>
-      {open ? (
-        <section
-          tabIndex={-1}
-          aria-label="Retained Assessment appends"
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && disclosure.current) {
-              event.preventDefault();
-              event.stopPropagation();
-              disclosure.current.open = false;
-              trigger.current?.focus({ preventScroll: true });
-            }
-          }}
-          style={{
-            position: "fixed",
-            zIndex: 20,
-            insetInlineEnd: "var(--ct-spacing-md)",
-            boxSizing: "border-box",
-            background: "var(--ct-colors-surface-1)",
-            border: "var(--ct-border-hairline)",
-            padding: "var(--ct-spacing-md)",
-            width: "min(28rem, calc(100vw - 2rem))",
-            maxHeight: "65vh",
-            overflow: "auto",
-            overflowWrap: "anywhere",
-          }}
-        >
-          <p>
-            Closing the inspector retains dispatched appends and their results
-            for this incident session.
-          </p>
-          <ul>
-            {snapshot.entries.map((entry) => (
+    <WorkbookRecoveryDetail source="assessment" item={selected}>
+      <section aria-label="Retained Assessment appends">
+        <p>
+          Closing the inspector retains dispatched appends and their results for
+          this incident session.
+        </p>
+        <ul>
+          {snapshot.entries
+            .filter((entry) => entry.attempt.clientTxnId === selected)
+            .map((entry) => (
               <li key={entry.attempt.clientTxnId}>
                 <p>
                   {entry.receipt
@@ -106,9 +101,8 @@ export function AssessmentAppendRecovery({
                 ) : null}
               </li>
             ))}
-          </ul>
-        </section>
-      ) : null}
-    </details>
+        </ul>
+      </section>
+    </WorkbookRecoveryDetail>
   );
 }

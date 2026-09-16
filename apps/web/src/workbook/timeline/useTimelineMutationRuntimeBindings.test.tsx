@@ -60,7 +60,7 @@ it("useTimelineMutationRuntimeBindings retains registration through callback cha
     showLoading: false,
     requireAcceptance: true,
   });
-  expect(firstRegistration?.[4]?.("unit-1")).toBe(true);
+  expect(firstRegistration?.[3]?.("unit-1")).toBe(true);
   expect(discardBlockedEdit).toHaveBeenCalledWith("unit-1");
 
   rerender({ loadRows: secondLoadRows });

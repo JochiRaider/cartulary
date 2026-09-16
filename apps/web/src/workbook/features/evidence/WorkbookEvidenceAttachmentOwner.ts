@@ -247,6 +247,19 @@ export class WorkbookEvidenceAttachmentOwner {
       (entry.reserving || !!stage?.pending || stage?.phase === "uncertain")
     );
   }
+  /** Save-state facts are separate from operation admission and refresh. */
+  get unsettledMutationCount() {
+    return [...this.entries.values()].filter(
+      (entry) =>
+        !entry.finalization.state.receipt &&
+        (entry.preparing ||
+          entry.upload.status.pending ||
+          entry.upload.status.phase === "slot_uncertain" ||
+          entry.upload.status.phase === "transfer_uncertain" ||
+          entry.finalization.state.pending ||
+          entry.finalization.state.phase === "uncertain"),
+    ).length;
+  }
   get pendingCount() {
     return [...this.entries.values()].filter(
       (e) =>

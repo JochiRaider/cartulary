@@ -1,6 +1,7 @@
 import { lazy, type ReactNode, type RefObject, Suspense } from "react";
 import type { IncidentControlsSection } from "../../app/landingAdminTypes";
 import type { WorkbookImportController } from "../../imports/WorkbookImportController";
+import { useWorkbookSecondaryPanel } from "../../shared/WorkbookRecoveryBoundary";
 import type {
   WorkbookIncidentControlsMenuItem,
   WorkbookIncidentControlsRendererProps,
@@ -55,6 +56,9 @@ export function WorkbookIncidentControlsPresentation({
   renderIncidentControls,
   section,
 }: WorkbookIncidentControlsPresentationProps) {
+  useWorkbookSecondaryPanel(section !== null, () =>
+    onClose({ restoreTriggerFocus: false }),
+  );
   if (section === null) return null;
   const content =
     section === "import-assistant" && importAssistantAvailable ? (

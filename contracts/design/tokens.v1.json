@@ -94,6 +94,7 @@
     "--ct-layout-inspectorMaxWidth": "min(560px, 45vw)",
     "--ct-layout-inspectorMinWidth": "360px",
     "--ct-layout-narrowMinWidth": "1024px",
+    "--ct-layout-recoveryMaxWidth": "38rem",
     "--ct-layout-statusStripHeight": "28px",
     "--ct-layout-topBarHeight": "48px",
     "--ct-layout-viewBarHeight": "40px",

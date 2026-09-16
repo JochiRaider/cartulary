@@ -7,7 +7,6 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Request } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
@@ -21,6 +20,7 @@ import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 
 function nextSavedGraphResult(page: Page) {
   return page
@@ -350,7 +350,9 @@ test("Network Analysis links compatible targets and recovers exact committed req
   const submit = page.getByTestId(
     networkAnalysisTestId("indicator-link-submit"),
   );
-  await expect(confirmation).toBeFocused();
+  await expect(
+    page.getByRole("heading", { name: "Indicator link draft", exact: true }),
+  ).toBeFocused();
   await confirmation.fill("192.0.2.10 ");
   await confirmation.press("Enter");
   await expect(confirmation).toHaveAttribute("aria-invalid", "true");
@@ -382,12 +384,10 @@ test("Network Analysis links compatible targets and recovers exact committed req
   await page
     .getByTestId(surfaceTabTestId("cartulary.view.timeline.v2"))
     .click();
-  const recovery = page.getByRole("button", {
-    name: "Review retained indicator link",
-  });
+  const recovery = recoveryEntry(page);
   await expect(recovery).toBeVisible();
   await recovery.focus();
-  await recovery.press("Enter");
+  await openRecoveryItem(page, /^Indicator link ·/);
   await expect(dialog).toBeVisible();
   await dialog
     .getByRole("button", { name: "Replay exact request", exact: true })
@@ -404,8 +404,8 @@ test("Network Analysis links compatible targets and recovers exact committed req
   await dialog
     .getByRole("button", { name: "Done", exact: true })
     .press("Enter");
-  await expect(recovery).toHaveCount(0);
-  await expect(page.getByTestId(networkAnalysisTestId("tab"))).toBeFocused();
+  await expect(recovery).toHaveText("Recovery (0)");
+  await expect(recovery).toBeFocused();
   await page.getByTestId(networkAnalysisTestId("tab")).click();
   await sourceCell.click();
   await trigger.click();
@@ -672,7 +672,7 @@ test("Network Analysis retains mapping review across workspace departure and inc
   await page
     .getByTestId(surfaceTabTestId("cartulary.view.timeline.v2"))
     .click();
-  await page.getByTestId(networkAnalysisTestId("import-recovery")).click();
+  await openRecoveryItem(page, /^Network Flow import ·/);
   await expect(
     dialog.getByTestId(networkAnalysisTestId("mapping-display-name")),
   ).toHaveValue("copyable-retained-mapping");
@@ -696,7 +696,7 @@ test("Network Analysis retains mapping review across workspace departure and inc
   await expect(
     page.getByTestId(networkAnalysisTestId("workspace")),
   ).toHaveCount(0);
-  await page.getByTestId(networkAnalysisTestId("import-recovery")).click();
+  await openRecoveryItem(page, /^Network Flow import ·/);
   await expect(dialog).toContainText("Closed, read-only");
   await expect(
     dialog.getByLabel("Retained mapping draft (copy only)"),
@@ -1532,7 +1532,9 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   await trigger.press("Enter");
   const dialog = page.getByTestId(networkAnalysisTestId("rename-dialog"));
   const input = page.getByTestId(networkAnalysisTestId("rename-input"));
-  await expect(input).toBeFocused();
+  await expect(
+    page.getByRole("heading", { name: "Rename table", exact: true }),
+  ).toBeFocused();
   await input.fill("😀".repeat(65));
   await input.press("Enter");
   await expect(dialog.getByRole("alert")).toContainText("64 Unicode");
@@ -1560,6 +1562,8 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
   await expect(page.getByRole("tab", { name: /Café/u })).toBeVisible();
+  await expect(contributors).not.toBeVisible();
+  await edge.click();
   await expect(contributors).toBeVisible();
   expect(graphRequests).toHaveLength(count);
 
@@ -1596,9 +1600,7 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
     },
   });
   expect(latest.status()).toBe(200);
-  await page
-    .getByRole("button", { name: "Review retained table change" })
-    .click();
+  await openRecoveryItem(page, /^Rename table ·/);
   await dialog.getByRole("button", { name: "Replay exact request" }).click();
   await expect(dialog).toHaveCount(0);
   expect(requests).toHaveLength(2);

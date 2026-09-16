@@ -12,6 +12,7 @@ import {
   TableWriteError,
   validateTableReceipt,
 } from "./networkFlowTableOperation";
+import { networkFlowTableRecoveryItems } from "./networkFlowTableRecoveryItems";
 import { tableAuthority, tableFixture } from "./tableLifecycleTestFixtures";
 
 function deferred<T>() {
@@ -64,6 +65,32 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Table lifecycle operations", () => {
+  it("projects stable extension recovery identity across draft dispatch and detachment", async () => {
+    const s = await setup();
+    rename(s.controller);
+    const draft = networkFlowTableRecoveryItems(s.controller.getSnapshot());
+    expect(draft).toHaveLength(1);
+    expect(draft[0]?.sheetRef?.kind).toBe("extension_workspace");
+    const pending = s.controller.submit();
+    expect(
+      networkFlowTableRecoveryItems(s.controller.getSnapshot())[0]?.attention,
+    ).toBe("progress");
+    s.controller.closeDialog();
+    const operation = networkFlowTableRecoveryItems(s.controller.getSnapshot());
+    expect(operation).toHaveLength(1);
+    expect(operation[0]?.id).toBe(draft[0]?.id);
+    expect(operation[0]?.attention).toBe("attention");
+    s.pending.resolve(tableFixture("a", 2, "Renamed"));
+    await pending;
+    expect(
+      networkFlowTableRecoveryItems(s.controller.getSnapshot())[0]?.id,
+    ).toBe(draft[0]?.id);
+    s.controller.dispose();
+    expect(networkFlowTableRecoveryItems(s.controller.getSnapshot())).toEqual(
+      [],
+    );
+  });
+
   it("admits exact operation roles and synchronously prevents duplicate submission", async () => {
     for (const [role, canRename, canDelete] of [
       ["viewer", false, false],

@@ -453,6 +453,9 @@ export async function driveRealTimelineSummaryConflict({
       ),
     ).toBeVisible();
   }
+  await page
+    .getByRole("button", { name: "Open conflict recovery", exact: true })
+    .click();
   await expect(
     page.getByTestId(workbookConflictResolverTestId()),
   ).toBeVisible();

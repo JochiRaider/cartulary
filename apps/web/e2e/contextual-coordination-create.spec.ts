@@ -27,6 +27,7 @@ import {
 } from "./support/workbook/coordinationCreate";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 
 test("All twelve contextual coordination actions create one owner-defined source link without semantic seeds", async ({
   page,
@@ -152,10 +153,7 @@ test("Coordination drafts survive navigation and source replacement or clear pre
   await expect(f.form).toContainText("Chosen coordination source");
   await page.getByTestId(workbookInspectorCloseButtonTestId(f.view)).click();
   await switchSheet(page, statusReviewViewSchemaId);
-  const summary = page
-    .locator("summary")
-    .filter({ hasText: /^Coordination draft$/ });
-  await summary.click();
+  await openRecoveryItem(page, /^Coordination draft ·/);
   const recovery = page.getByRole("region", {
     name: "Retained Coordination authoring",
     exact: true,
@@ -219,9 +217,7 @@ test("Coordination response loss after server commit recovers the exact request 
   expect(
     await queryViewRows(page, f.incident, f.target.viewSchemaId),
   ).toHaveLength(1);
-  await expect(
-    page.locator("summary").filter({ hasText: /^Coordination recovery$/ }),
-  ).toHaveCount(0);
+  await expect(recoveryEntry(page)).toHaveCount(0);
 });
 
 test("Accepted coordination refresh recovery sends reads only and keeps the source selection", async ({
@@ -249,11 +245,7 @@ test("Accepted coordination refresh recovery sends reads only and keeps the sour
   await f.form
     .getByTestId(genericCreateSubmitTestId(f.target.viewSchemaId))
     .click();
-  const summary = page
-    .locator("summary")
-    .filter({ hasText: /^Coordination refresh$/ });
-  await expect(summary).toBeVisible();
-  await summary.click();
+  await openRecoveryItem(page, /^Coordination creation ·/);
   const recovery = page.getByRole("region", {
     name: "Retained Coordination authoring",
     exact: true,
@@ -263,9 +255,9 @@ test("Accepted coordination refresh recovery sends reads only and keeps the sour
   await recovery
     .getByRole("button", { name: "Retry refresh", exact: true })
     .press("Enter");
-  await expect(summary).toHaveCount(0);
+  await expect(recoveryEntry(page)).toHaveText("Recovery (0)");
   expect(creates).toBe(1);
-  await expect(f.action).toBeVisible();
+  await expect(page.getByTestId(gridShellTestId(f.view))).toBeVisible();
   expect(
     await queryViewRows(page, f.incident, f.target.viewSchemaId),
   ).toHaveLength(1);

@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { useWorkbookSecondaryPanel } from "../shared/WorkbookRecoveryBoundary";
 
 const focusableSelector = [
   "a[href]",
@@ -28,6 +29,7 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
     | undefined;
   readonly onDismiss: () => void;
 }) {
+  const coordinated = useWorkbookSecondaryPanel(true, options.onDismiss);
   const dialogRef = useRef<Element | null>(null);
   const dismissDisabledRef = useRef(options.dismissDisabled ?? false);
   const onDismissRef = useRef(options.onDismiss);
@@ -63,6 +65,7 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
     return () => {
       mounted = false;
       queueMicrotask(async () => {
+        if (coordinated.current) return;
         const focusBeforeRestore = document.activeElement;
         if (
           document.querySelector(
@@ -106,7 +109,7 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
         target.focus({ preventScroll: true });
       });
     };
-  }, [options.initialFocusTestId, options.fallbackFocusTestId]);
+  }, [options.initialFocusTestId, options.fallbackFocusTestId, coordinated]);
 
   const onKeyDown = useCallback((event: ReactKeyboardEvent<Element>) => {
     if (event.key === "Escape") {

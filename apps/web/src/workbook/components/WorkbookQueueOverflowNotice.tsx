@@ -1,20 +1,15 @@
 import { type CSSProperties, forwardRef } from "react";
 import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
-import { RecoverySurface } from "./RecoverySurface";
 
 export const WorkbookQueueOverflowNotice = forwardRef<
   HTMLElement,
   {
     readonly message: string;
-    readonly onFocusWithinChange: (focused: boolean) => void;
     readonly onClose: () => void;
   }
->(function WorkbookQueueOverflowNotice(
-  { message, onFocusWithinChange, onClose },
-  ref,
-) {
+>(function WorkbookQueueOverflowNotice({ message, onClose }, ref) {
   return (
-    <RecoverySurface
+    <section
       aria-label="Workbook queued edit overflow"
       ref={ref}
       tabIndex={-1}
@@ -24,16 +19,6 @@ export const WorkbookQueueOverflowNotice = forwardRef<
         event.stopPropagation();
         onClose();
       }}
-      onBlurCapture={(event) => {
-        const relatedTarget = event.relatedTarget;
-        if (
-          !(relatedTarget instanceof Node) ||
-          !event.currentTarget.contains(relatedTarget)
-        ) {
-          onFocusWithinChange(false);
-        }
-      }}
-      onFocusCapture={() => onFocusWithinChange(true)}
     >
       <div>
         <p style={eyebrowStyle}>Local edit needs attention</p>
@@ -50,7 +35,7 @@ export const WorkbookQueueOverflowNotice = forwardRef<
       <Button type="button" tone="secondary" onClick={onClose}>
         Close queued edit notice
       </Button>
-    </RecoverySurface>
+    </section>
   );
 });
 

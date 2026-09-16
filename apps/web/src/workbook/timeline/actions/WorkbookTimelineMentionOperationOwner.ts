@@ -246,6 +246,14 @@ export class WorkbookTimelineMentionOperationOwner
       )
     );
   }
+  /** Save-state facts are separate from operation admission and refresh. */
+  get unsettledMutationCount() {
+    return [...this.entries.values(), ...this.creations.values()].filter(
+      (entry) =>
+        !entry.receipt &&
+        ["preparing", "submitting", "uncertain"].includes(entry.phase),
+    ).length;
+  }
   get pendingCount() {
     return (
       [...this.entries.values()].filter(

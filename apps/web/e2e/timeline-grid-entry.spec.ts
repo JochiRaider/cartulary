@@ -38,6 +38,7 @@ import {
   queryViewRows,
   waitForViewRowByCell,
 } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 
 function required<T>(value: T | null | undefined): T {
   if (value === null || value === undefined)
@@ -1182,7 +1183,7 @@ test("Timeline paste retains committed creates through lost response navigation 
     ).toBeVisible();
     await externalPatch(page, incidentId, target, source, "Intervening source");
     const before = await fetchRecordHistoryCount(page, target);
-    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    await openRecoveryItem(page, /^(Paste|Fill|Tag assignment) ·/);
     const retry = page.getByRole("button", {
       name: "Retry paste",
       exact: true,
@@ -1190,7 +1191,9 @@ test("Timeline paste retains committed creates through lost response navigation 
     await tabTo(page, retry);
     await page.keyboard.press("Enter");
     await expect.poll(() => attempts.length).toBe(2);
-    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Close recovery", exact: true })
+      .click();
     await scrollGridCellIntoView({
       page,
       surface: timelineViewSchemaId,
@@ -1200,12 +1203,10 @@ test("Timeline paste retains committed creates through lost response navigation 
     await page.getByTestId(rowCellTestId(unrelated, synopsis)).click();
     await editor(page, unrelated).fill("Newer typing survives");
     releaseReplay();
-    await expect(
-      page.getByRole("status", { name: "Batch action updates", exact: true }),
-    ).toHaveText("Batch accepted. Refresh is still needed.");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expect(editor(page, unrelated)).toBeFocused();
     await expect(editor(page, unrelated)).toHaveValue("Newer typing survives");
-    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    await openRecoveryItem(page, /^(Paste|Fill|Tag assignment) ·/);
     failReads = false;
     const refresh = page.getByRole("button", {
       name: "Retry refresh",
@@ -1247,6 +1248,10 @@ test("Timeline paste keeps ordered grouped conflicts and per-cell attributed cor
     await externalPatch(page, incidentId, first, synopsis, "Server first");
     await externalPatch(page, incidentId, second, synopsis, "Server second");
     held.release();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await page
+      .getByRole("button", { name: "Open conflict recovery", exact: true })
+      .click();
     await expect(
       page.getByRole("navigation", { name: "Workbook conflict navigator" }),
     ).toBeVisible();
@@ -1259,7 +1264,7 @@ test("Timeline paste keeps ordered grouped conflicts and per-cell attributed cor
     expect(
       saved.find((row) => row.record_id === first)?.cells[synopsis]?.value,
     ).toBe("Server first");
-    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    await openRecoveryItem(page, /^(Paste|Fill|Tag assignment) ·/);
     await page
       .getByRole("button", { name: "Review conflicts", exact: true })
       .click();
@@ -1276,6 +1281,9 @@ test("Timeline paste keeps ordered grouped conflicts and per-cell attributed cor
       synopsis,
       "Client first",
     );
+    await page
+      .getByRole("button", { name: "Review conflicts", exact: true })
+      .click();
     await expect(
       page
         .getByRole("region", { name: "Your unsaved value", exact: true })
@@ -1408,7 +1416,13 @@ test("Timeline fill and tagging retain conflicts-only receipts and independent l
     expect(filled.data.change_set_id).toBeUndefined();
     expect(filled.data.conflicts).toHaveLength(1);
     await held.dispose();
-    await page.getByRole("button", { name: "Close conflict recovery" }).click();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await page
+      .getByRole("button", { name: "Open conflict recovery", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Close recovery", exact: true })
+      .click();
     held = await holdBrowserRequest(page, { method: "POST", path });
     await page
       .getByRole("checkbox", { name: `Select record ${tagTarget}` })
@@ -1452,7 +1466,7 @@ test("Timeline fill and tagging retain conflicts-only receipts and independent l
     expect(tagged.data.conflicts[0].conflict_resolution_class).toBe(
       "collection_review",
     );
-    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    await openRecoveryItem(page, /^Tag assignment ·/);
     const tagSection = page.getByRole("region", { name: "Tag assignment 2" });
     await tagSection.getByRole("button", { name: "Review conflicts" }).click();
     const apply = page.getByRole("button", {

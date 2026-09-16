@@ -82,6 +82,7 @@ export type NetworkFlowImportBinding = {
 /** One analytical workflow. Drafts, acknowledgements and publication never share a disposition. */
 export class NetworkFlowImportController {
   private state = initialNetworkFlowImportState();
+  private recoverySequence = 0;
   private visible = this.state;
   private binding: NetworkFlowImportBinding | null = null;
   private scope: ImportScope | null = null;
@@ -470,6 +471,7 @@ export class NetworkFlowImportController {
     this.publish({
       presented: true,
       stage: "uploading",
+      recoveryId: ++this.recoverySequence,
       sourceFailure: null,
       message: "Uploading CSV; awaiting acknowledgement.",
     });

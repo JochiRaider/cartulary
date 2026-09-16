@@ -324,6 +324,19 @@ export class WorkbookTimelineFileOwner {
         (e.reserving || e.linkPending || e.linkUncertain),
     );
   }
+  /** Save-state facts are separate from operation admission and refresh. */
+  get unsettledMutationCount() {
+    return [...this.entries.values()].filter(
+      (entry) =>
+        !entry.receipt &&
+        !entry.associationPresent &&
+        (this.busy(entry) ||
+          entry.linkUncertain ||
+          entry.evidence.state.phase === "uncertain" ||
+          entry.upload.status.phase === "slot_uncertain" ||
+          entry.upload.status.phase === "transfer_uncertain"),
+    ).length;
+  }
   get pendingCount() {
     return [...this.entries.values()].filter((e) => this.busy(e)).length;
   }

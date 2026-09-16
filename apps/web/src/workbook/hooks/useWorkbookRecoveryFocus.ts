@@ -1,73 +1,42 @@
+import { type RefObject, useCallback, useRef, useState } from "react";
 import {
-  type RefObject,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+  type WorkbookRecoveryNavigation,
+  workbookConflictRecoveryKey,
+  workbookRecoveryKey,
+} from "../../shared/workbookRecoveryNavigation";
 import type {
   WorkbookMutationRuntime,
   WorkbookStatusPresentation,
 } from "../runtime/WorkbookMutationRuntime";
 import type { WorkbookStatusAction } from "../utils/workbookStatusSecondary";
 
-type WorkbookRecoveryFocusOptions = {
-  readonly activeSurfaceRef: RefObject<HTMLElement | null>;
-  readonly runtime: WorkbookMutationRuntime;
-  readonly onSessionRecovery: () => Promise<void>;
-  readonly snapshot: WorkbookStatusPresentation;
-};
-
-/** Owns deterministic focus transfer among conflict and recovery surfaces. */
+/** Semantic routing and explicit focus requests; feature execution stays with its owner. */
 export function useWorkbookRecoveryFocus({
-  activeSurfaceRef,
   runtime,
   snapshot,
   onSessionRecovery,
-}: WorkbookRecoveryFocusOptions) {
+  navigation,
+  invokerRef,
+}: {
+  readonly activeSurfaceRef: RefObject<HTMLElement | null>;
+  readonly runtime: WorkbookMutationRuntime;
+  readonly snapshot: WorkbookStatusPresentation;
+  readonly onSessionRecovery: () => Promise<void>;
+  readonly navigation: WorkbookRecoveryNavigation;
+  readonly invokerRef: RefObject<HTMLElement | null>;
+}) {
   const [resolverActivation, setResolverActivation] = useState<{
     conflictKey: string;
     sequence: number;
   } | null>(null);
-  const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
-  const overflowNoticeRef = useRef<HTMLElement | null>(null);
-  const [overflowOpen, setOverflowOpen] = useState(true);
-  const pendingOverflowFocusRef = useRef(false);
   const sameFieldSummaryRef = useRef<HTMLDivElement | null>(null);
-  const conflictInvokerRef = useRef<HTMLButtonElement | null>(null);
-  const pendingConflictFocusRef = useRef(false);
-  const recoveryFocusOwnedRef = useRef(false);
-  const previousRecoveryTargetKeyRef = useRef<string | null>(null);
-  const recoveryTargetKey =
-    snapshot.action?.kind === "transaction_recovery" ||
-    snapshot.action?.kind === "terminal_failure"
-      ? `blocked:${snapshot.action.unitId}`
-      : snapshot.action?.kind === "overflow"
-        ? "overflow"
-        : snapshot.action?.kind === "same_field_resolver" &&
-            snapshot.conflictPanelOpen
-          ? `resolver:${snapshot.action.conflictKey}`
-          : null;
-
-  const onFocusWithinChange = useCallback((focused: boolean) => {
-    recoveryFocusOwnedRef.current = focused;
-  }, []);
-  const focusSameFieldSummary = useCallback(() => {
-    sameFieldSummaryRef.current?.focus({ preventScroll: true });
-  }, []);
-  const closeOverflow = useCallback(() => {
-    pendingOverflowFocusRef.current = false;
-    recoveryFocusOwnedRef.current = false;
-    setOverflowOpen(false);
-    const invoker = conflictInvokerRef.current;
-    if (invoker?.isConnected && !invoker.disabled)
-      invoker.focus({ preventScroll: true });
-    else activeSurfaceRef.current?.focus({ preventScroll: true });
-  }, [activeSurfaceRef]);
-  const activateConflictStatus = useCallback(
+  const activate = useCallback(
     (invoker: HTMLButtonElement, action: WorkbookStatusAction) => {
-      conflictInvokerRef.current = invoker;
-      if (action.kind === "session_recovery") {
+      invokerRef.current = invoker;
+      if (
+        action.kind === "session_recovery" ||
+        runtime.getSnapshot().authPaused
+      ) {
         void onSessionRecovery();
         return;
       }
@@ -75,108 +44,54 @@ export function useWorkbookRecoveryFocus({
         action.kind === "transaction_recovery" ||
         action.kind === "terminal_failure"
       ) {
-        recoveryFocusOwnedRef.current = true;
-        editRecoveryPanelRef.current?.focus({ preventScroll: true });
+        navigation.activate(
+          workbookRecoveryKey("core", `fifo:${action.unitId}`),
+        );
         return;
       }
       if (action.kind === "overflow") {
-        recoveryFocusOwnedRef.current = true;
-        pendingOverflowFocusRef.current = true;
-        setOverflowOpen(true);
-        if (overflowNoticeRef.current !== null) {
-          pendingOverflowFocusRef.current = false;
-          overflowNoticeRef.current.focus({ preventScroll: true });
-        }
+        navigation.activate(workbookRecoveryKey("core", "overflow"));
         return;
       }
-      if (
-        action.kind !== "same_field_resolver" ||
-        !snapshot.conflicts.some((entry) => entry.key === action.conflictKey)
-      )
+      if (action.kind === "recovery_list") {
+        navigation.openList();
         return;
+      }
+      if (action.kind === "surface_refresh") {
+        const represented = navigation
+          .getSnapshot()
+          .entries.find((entry) =>
+            entry.refreshViews?.includes(action.viewSchemaId),
+          );
+        navigation.activate(
+          represented?.key ??
+            workbookRecoveryKey("surface-refresh", action.viewSchemaId),
+        );
+        return;
+      }
+      if (action.kind !== "same_field_resolver") return;
+      const conflict = runtime
+        .getSnapshot()
+        .conflicts.find((entry) => entry.key === action.conflictKey);
       setResolverActivation((current) => ({
         conflictKey: action.conflictKey,
         sequence: (current?.sequence ?? 0) + 1,
       }));
-      pendingConflictFocusRef.current = true;
-      recoveryFocusOwnedRef.current = true;
-      runtime.activateConflict();
-      if (snapshot.conflictPanelOpen) {
-        pendingConflictFocusRef.current = false;
-        focusSameFieldSummary();
-      }
+      navigation.activate(
+        workbookConflictRecoveryKey(
+          navigation.getSnapshot().entries,
+          conflict ?? { key: action.conflictKey },
+        ),
+      );
     },
-    [focusSameFieldSummary, onSessionRecovery, runtime, snapshot],
+    [invokerRef, navigation, onSessionRecovery, runtime],
   );
-  const activate =
-    snapshot.action === null ? undefined : activateConflictStatus;
-
-  useLayoutEffect(() => {
-    if (snapshot.action?.kind !== "overflow") {
-      setOverflowOpen(true);
-      pendingOverflowFocusRef.current = false;
-    } else if (overflowOpen && pendingOverflowFocusRef.current) {
-      pendingOverflowFocusRef.current = false;
-      overflowNoticeRef.current?.focus({ preventScroll: true });
-    }
-  }, [overflowOpen, snapshot.action?.kind]);
-
-  useLayoutEffect(() => {
-    if (!pendingConflictFocusRef.current || !snapshot.conflictPanelOpen) {
-      return;
-    }
-    pendingConflictFocusRef.current = false;
-    focusSameFieldSummary();
-  }, [focusSameFieldSummary, snapshot.conflictPanelOpen]);
-
-  useLayoutEffect(() => {
-    const previousTarget = previousRecoveryTargetKeyRef.current;
-    previousRecoveryTargetKeyRef.current = recoveryTargetKey;
-    if (
-      previousTarget === null ||
-      previousTarget === recoveryTargetKey ||
-      !recoveryFocusOwnedRef.current
-    ) {
-      return;
-    }
-    if (recoveryTargetKey !== null) {
-      const nextTarget =
-        snapshot.action?.kind === "same_field_resolver"
-          ? sameFieldSummaryRef.current
-          : snapshot.action?.kind === "overflow"
-            ? overflowNoticeRef.current
-            : editRecoveryPanelRef.current;
-      nextTarget?.focus({ preventScroll: true });
-      return;
-    }
-    recoveryFocusOwnedRef.current = false;
-    if (snapshot.conflictPanelOpen) {
-      focusSameFieldSummary();
-      return;
-    }
-    const invoker = conflictInvokerRef.current;
-    if (invoker?.isConnected && !invoker.disabled) {
-      invoker.focus({ preventScroll: true });
-      return;
-    }
-    activeSurfaceRef.current?.focus({ preventScroll: true });
-  }, [
-    activeSurfaceRef,
-    focusSameFieldSummary,
-    recoveryTargetKey,
-    snapshot.action,
-    snapshot.conflictPanelOpen,
-  ]);
-
   return {
     activate,
     resolverActivation,
-    editRecoveryPanelRef,
-    focusSameFieldSummary,
-    onFocusWithinChange,
-    overflowNoticeRef,
-    overflowOpen,
-    closeOverflow,
     sameFieldSummaryRef,
+    focusSameFieldSummary: () =>
+      sameFieldSummaryRef.current?.focus({ preventScroll: true }),
+    statusAction: snapshot.action,
   };
 }

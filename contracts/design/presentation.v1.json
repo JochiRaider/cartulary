@@ -188,7 +188,7 @@
       "locus": "cell_marker_and_same_surface_resolver",
       "retention": "retain_saved_and_unsaved_values",
       "actions": ["owner_declared_resolution"],
-      "focus_effect": "move_only_after_activation_then_return_to_cell",
+      "focus_effect": "explicit_activation_then_recovery_list_or_invoker_fallback",
       "live": "assertive"
     },
     {

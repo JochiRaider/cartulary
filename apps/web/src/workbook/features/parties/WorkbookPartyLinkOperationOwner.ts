@@ -253,6 +253,14 @@ export class WorkbookPartyLinkOperationOwner {
         ["preparing", "submitting", "uncertain"].includes(entry.phase),
     );
   }
+  /** Save-state facts are separate from operation admission and refresh. */
+  get unsettledMutationCount() {
+    return [...this.creations.values()].filter(
+      (entry) =>
+        !entry.receipt &&
+        ["preparing", "submitting", "uncertain"].includes(entry.phase),
+    ).length;
+  }
   get pendingCount() {
     return [...this.creations.values()].filter(
       (entry) =>

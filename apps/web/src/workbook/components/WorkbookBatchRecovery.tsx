@@ -1,10 +1,13 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
+import {
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../shared/WorkbookRecoveryBoundary";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { workbookBatchRecoveryItems } from "../runtime/workbookBatchRecoveryItems";
 import type { WorkbookStatusAction } from "../utils/workbookStatusSecondary";
-import { visuallyHiddenStyle } from "../utils/workbookStyles";
-import { RecoverySurface } from "./RecoverySurface";
 import { inputStyle } from "./workbookGridControlStyles";
 
 export function WorkbookBatchRecovery({
@@ -18,94 +21,29 @@ export function WorkbookBatchRecovery({
 }) {
   const owner = runtime.batches;
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!snapshot.authority) setOpen(false);
-  }, [snapshot.authority]);
-  const entries = snapshot.entries;
-  if (!entries.length && !snapshot.admissionError) return null;
-  const unsettled = entries.filter(
-    (entry) =>
-      entry.phase !== "acknowledged" ||
-      entry.reconciliation !== "complete" ||
-      runtime
-        .getSnapshot()
-        .conflicts.some((conflict) => conflict.batchOperationId === entry.id),
+  const mutation = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot);
+  const selected = useWorkbookRecoverySource(
+    "batch",
+    workbookBatchRecoveryItems(
+      snapshot,
+      new Set(
+        mutation.conflicts.flatMap((entry) =>
+          entry.batchOperationId ? [entry.batchOperationId] : [],
+        ),
+      ),
+    ),
   );
-  const status = snapshot.admissionError
-    ? "Review"
-    : entries.some((entry) => entry.phase === "uncertain")
-      ? "Retry"
-      : entries.some((entry) => entry.reconciliation === "required")
-        ? "Refresh"
-        : entries.some((entry) => entry.phase === "rejected") ||
-            runtime
-              .getSnapshot()
-              .conflicts.some((entry) => entry.batchOperationId)
-          ? "Review"
-          : unsettled.length
-            ? "Pending"
-            : "Complete";
-  const statusMessage =
-    snapshot.admissionError ??
-    (status === "Retry"
-      ? "Batch outcome unknown. Retry is available."
-      : status === "Refresh"
-        ? "Batch accepted. Refresh is still needed."
-        : status === "Complete"
-          ? "Batch complete."
-          : "Batch work pending or needs review.");
-  const close = () => {
-    const restore = panel.current?.contains(document.activeElement);
-    setOpen(false);
-    if (restore) trigger.current?.focus({ preventScroll: true });
-  };
+  const entries = snapshot.entries;
   return (
-    <>
-      <WorkbookInspectorActionButton
-        ref={trigger}
-        style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-        title={statusMessage}
-        aria-expanded={open}
-        onClick={() => {
-          if (!open) {
-            const active = runtime.getSnapshot().conflicts[0];
-            if (active) runtime.dismissConflict(active.key, false);
-          }
-          setOpen(!open);
-        }}
-      >
-        Batch actions{unsettled.length ? ` (${unsettled.length})` : ""}:{" "}
-        {status}
-      </WorkbookInspectorActionButton>
-      <span
-        role="status"
-        aria-label="Batch action updates"
-        style={visuallyHiddenStyle}
-      >
-        {statusMessage}
-      </span>
-      {open ? (
-        <RecoverySurface
-          ref={panel}
-          aria-label="Batch action recovery"
-          data-grid-editor-external-action="true"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              close();
-            }
-          }}
-        >
-          <strong>Paste, fill and tag actions</strong>
-          <p>{statusMessage}</p>
-          {snapshot.admissionError ? (
-            <p role="alert">{snapshot.admissionError}</p>
-          ) : null}
-          {entries.map((entry, index) => {
+    <WorkbookRecoveryDetail source="batch" item={selected}>
+      <section aria-label="Batch action recovery">
+        {snapshot.admissionError ? (
+          <p role="alert">{snapshot.admissionError}</p>
+        ) : null}
+        {entries
+          .filter((entry) => entry.id === selected)
+          .map((entry) => {
+            const index = entries.indexOf(entry);
             const conflicts = runtime
               .getSnapshot()
               .conflicts.filter(
@@ -175,13 +113,11 @@ export function WorkbookBatchRecovery({
                 ) : null}
                 {firstConflict ? (
                   <WorkbookInspectorActionButton
-                    onClick={() => {
-                      if (trigger.current)
-                        activateConflict?.(trigger.current, {
-                          kind: "same_field_resolver",
-                          conflictKey: firstConflict.key,
-                        });
-                      setOpen(false);
+                    onClick={(event) => {
+                      activateConflict?.(event.currentTarget, {
+                        kind: "same_field_resolver",
+                        conflictKey: firstConflict.key,
+                      });
                     }}
                   >
                     Review conflicts
@@ -197,11 +133,7 @@ export function WorkbookBatchRecovery({
               </section>
             );
           })}
-          <WorkbookInspectorActionButton onClick={close}>
-            Close
-          </WorkbookInspectorActionButton>
-        </RecoverySurface>
-      ) : null}
-    </>
+      </section>
+    </WorkbookRecoveryDetail>
   );
 }

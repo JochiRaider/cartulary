@@ -533,7 +533,7 @@ describe("WorkbookInspectorRecordHistory", () => {
 
     expect(
       await screen.findByText(
-        "The outcome is unknown. Open History actions to recover this action.",
+        "The outcome is unknown. Open Recovery to recover this action.",
       ),
     ).not.toBeNull();
     expect(deleteAccepted).not.toHaveBeenCalled();

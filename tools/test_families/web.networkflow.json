@@ -1496,6 +1496,7 @@
           "Table lifecycle operations keeps uncertain outcomes after rejected replay and rejects duplicate active names locally",
           "Table lifecycle operations normalizes names with exact scalar whitespace and control rules",
           "Table lifecycle operations pauses session state preserves closed drafts and cancels removed-resource work",
+          "Table lifecycle operations projects stable extension recovery identity across draft dispatch and detachment",
           "Table lifecycle operations refreshes current reads after write rejection while blocking further cached-role dispatch",
           "Table lifecycle operations requires explicit review on peer changes and never reselects a conflict target",
           "Table lifecycle operations retains a meaningful delete receipt while removing its active resource",

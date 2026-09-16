@@ -32,6 +32,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import { openGenericInspectorForRecord } from "./support/workbook/rowMutations";
 
 test("Entity contextual Task creation retains editable references and replays a lost response exactly after navigation", async ({
@@ -312,9 +313,7 @@ test("Assessment contextual Decision draft survives inspector closure and accept
   expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(768);
   await retained.press("Escape");
   await expect(retained).not.toBeVisible();
-  await expect(
-    page.locator("summary").filter({ hasText: /^Task \/ Decision creation/ }),
-  ).toBeFocused();
+  await expect(recoveryEntry(page)).toBeFocused();
 });
 
 test("Evidence contextual authoring requires explicit discard before replacing a retained draft", async ({
@@ -482,10 +481,7 @@ async function choose(
     .click();
 }
 async function recovery(page: Page) {
-  await page
-    .locator("summary")
-    .filter({ hasText: /^Task \/ Decision creation/ })
-    .click();
+  await openRecoveryItem(page, /^(Task Requests|Decisions) (draft|creation) ·/);
 }
 async function switchSurface(page: Page, view: string) {
   const tab = page.getByTestId(surfaceTabTestId(view));

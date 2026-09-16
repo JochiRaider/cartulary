@@ -80,6 +80,11 @@ import { WorkbookImportController } from "../imports/WorkbookImportController";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
+  lifecycleDraft,
+  lifecycleIndicator,
+  lifecycleRow,
+} from "../testing/indicatorLifecycleTestSupport";
+import {
   errorEnvelope,
   flushWorkbookAsync,
   fullWorkbookViewRow,
@@ -91,8 +96,11 @@ import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSup
 import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { publicWorkbookSchema } from "../testing/workbookSchemaTestSupport";
+import { createIndicatorLifecycleAdapter } from "./adapters/createIndicatorLifecycleAdapter";
+import { createNoteCreateTransport } from "./adapters/createNoteCreateTransport";
 import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
+import type { NoteTransport } from "./features/notes/noteCreateOperation";
 import { buildGenericPatchChange } from "./models/genericWorkbookModel";
 import {
   savedViewJSONEqual,
@@ -112,6 +120,9 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
+import type { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
+import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
+import type { WorkbookBatchTransport } from "./runtime/workbookBatchOperation";
 import {
   type WorkbookAccountApplicationMenuProps,
   type WorkbookIncidentControlsRendererProps,
@@ -1382,6 +1393,284 @@ describe("WorkbookShell surface selection", () => {
     await flushWorkbookAsync();
     expect(ordinaryWrites()).toHaveLength(1);
     expect(await screen.findByText(/Row accepted/u)).toBeTruthy();
+  });
+
+  it("coordinates simultaneous recovery families through production shell controls", async () => {
+    const incidentId = "10000000-0000-4000-8000-000000000001";
+    scenario.savedViews = [
+      testSavedViewResource({
+        saved_view_id: savedViewId,
+        view_schema_id: timelineViewSchemaId,
+        display_name: "Recovery navigation view",
+      }),
+    ];
+    const registry = new WorkbookMutationRuntimeRegistry();
+    const acquire = registry.acquire.bind(registry);
+    const acquired = vi.spyOn(registry, "acquire").mockImplementation(acquire);
+    const { unmount } = render(
+      <WorkbookShell
+        incidentId={incidentId}
+        mutationRuntimeRegistry={registry}
+      />,
+    );
+    await screen.findByTestId(workbookShellReadyTestId());
+    const runtime = acquired.mock.results[0]?.value as WorkbookMutationRuntime;
+    await waitFor(() =>
+      expect(runtime.noteCreate.getSnapshot().authority).toBeTruthy(),
+    );
+    const authority = runtime.noteCreate.getSnapshot().authority;
+    if (!authority) throw new Error("Missing live shell authority");
+    const noteView = "cartulary.view.notes.v1";
+    const token = Symbol("origin authoring");
+    let failRead = true;
+    const reads = vi.fn(async () => {
+      if (failRead) throw new Error("Read unavailable");
+    });
+    const unregister = runtime.registerSurface(noteView, reads);
+    vi.spyOn(runtime.history, "loadProjection").mockImplementation(
+      async (recordId) => ({
+        kind: "accepted",
+        value: {
+          record_id: recordId,
+          incident_id: incidentId,
+          row_version: 1,
+          deleted: false,
+          items: [],
+          paging: { limit: 100, has_more: false, next_cursor: null },
+        },
+      }),
+    );
+    const noteSend = vi.fn<NoteTransport["send"]>(async () => ({
+      kind: "accepted" as const,
+      receipt: {
+        data: {
+          view_schema_id: noteView,
+          change_set_id: "50000000-0000-4000-8000-000000000005",
+          row: fullWorkbookViewRow(
+            requireViewContract(noteView),
+            "30000000-0000-4000-8000-000000000003",
+            1,
+            { "note.title": "Acknowledged Note" },
+          ),
+        },
+        meta: { request_id: "note-receipt" },
+      },
+    }));
+    runtime.noteCreate.configure(
+      {
+        availableViews: async () => [],
+        verifyNote: async () => {},
+        page: async () => ({
+          kind: "accepted",
+          value: { candidates: [], hasMore: false, nextCursor: null },
+        }),
+      },
+      async () => authority,
+      { ...createNoteCreateTransport(undefined), send: noteSend },
+    );
+    act(() => {
+      runtime.noteCreate.beginSheet(
+        { kind: "view_schema", id: noteView },
+        token,
+      );
+      runtime.noteCreate.detach(token);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Recovery (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Note draft ·/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Resume Note draft" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Title" }), {
+      target: { value: "Acknowledged Note" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create Note" }));
+    await screen.findByText(/Note created, but views need refresh/);
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+    expect(screen.getByRole("button", { name: "Recovery (1)" })).toBeTruthy();
+    act(() => {
+      runtime.noteCreate.beginSheet(
+        { kind: "view_schema", id: noteView },
+        token,
+      );
+      runtime.noteCreate.update("note.title", "  Retained second Note  ");
+      runtime.noteCreate.detach(token);
+    });
+
+    const lifecycle = runtime.indicatorLifecycle;
+    const intervalSend = vi.fn(async () => ({
+      kind: "rejected" as const,
+      failure: {
+        kind: "validation" as const,
+        message: "Review interval boundaries",
+      },
+    }));
+    lifecycle.configure({
+      ...createIndicatorLifecycleAdapter({ apiBase: undefined, incidentId }),
+      send: intervalSend,
+    });
+    act(() => {
+      lifecycle.acceptRow(lifecycleRow());
+      lifecycle.drafts.open(lifecycleIndicator, "Review-only Indicator", 1);
+      lifecycle.drafts.update(lifecycleIndicator, lifecycleDraft().values);
+      const draft = lifecycle.drafts.get(lifecycleIndicator);
+      if (!draft) throw new Error("Missing interval draft");
+      const attempt = lifecycle.admit(draft, {
+        isCurrent: () => true,
+        reconcile: async () => {},
+      });
+      if (!attempt) throw new Error("Missing captured interval");
+      void lifecycle.execute(attempt);
+    });
+    await waitFor(() =>
+      expect(lifecycle.getSnapshot().entries[0]?.phase).toBe("rejected"),
+    );
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+    const batchSend = vi.fn<WorkbookBatchTransport["send"]>(async () => ({
+      kind: "uncertain",
+    }));
+    runtime.batches.configure({
+      capture: (plan, scope, id) => ({
+        id,
+        plan,
+        authority: scope,
+        apiBase: undefined,
+        path: "/captured",
+        body: JSON.stringify({ ...plan.request, client_txn_id: id }),
+      }),
+      send: batchSend,
+    });
+    act(() => {
+      runtime.batches.admit(
+        {
+          operation: "applyWorkbookBulkMutation",
+          recordIds: ["batch-row"],
+          request: {
+            kind: "fill_down_v1",
+            view_schema_id: timelineViewSchemaId,
+            field_key: "timeline.activity_synopsis_text",
+            value: "Exact captured batch",
+            targets: [{ record_id: "batch-row", base_row_version: 1 }],
+          },
+        },
+        { delivery: {} },
+      );
+    });
+    await waitFor(() =>
+      expect(runtime.batches.getSnapshot().entries[0]?.phase).toBe("uncertain"),
+    );
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
+    expect(screen.getByRole("button", { name: "Recovery (4)" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "All recovery" }));
+    expect(
+      within(
+        screen.getByRole("region", { name: "Needs attention" }),
+      ).getAllByRole("listitem"),
+    ).toHaveLength(3);
+    expect(
+      within(
+        screen.getByRole("region", { name: "Retained drafts" }),
+      ).getAllByRole("listitem"),
+    ).toHaveLength(1);
+    fireEvent.change(
+      screen.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+      { target: { value: savedViewId } },
+    );
+    await waitFor(() =>
+      expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`),
+    );
+    expect(
+      screen.queryByRole("region", { name: "Recovery navigation" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Recovery (4)" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Note draft ·/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Resume Note draft" }));
+    const title = screen.getByRole("textbox", { name: "Title" });
+    expect(title).toHaveProperty("value", "  Retained second Note  ");
+    fireEvent.click(screen.getByRole("button", { name: "All recovery" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Fill ·/ }));
+    expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close recovery" }));
+    fireEvent.click(screen.getByRole("button", { name: "Recovery (4)" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Note draft ·/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Resume Note draft" }));
+    expect(screen.getByRole("textbox", { name: "Title" })).toHaveProperty(
+      "value",
+      "  Retained second Note  ",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Choose source" }));
+    expect(
+      screen.getByRole("region", { name: "Choose Note source" }),
+    ).toBeTruthy();
+    failRead = false;
+    const accepted = runtime.noteCreate.getSnapshot().entries[0];
+    if (!accepted) throw new Error("Missing accepted operation");
+    await act(() =>
+      runtime.noteCreate.retryRefresh(accepted.attempt.clientTxnId),
+    );
+    expect(
+      screen.getByRole("region", { name: "Choose Note source" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Recovery (3)" })).toBeTruthy();
+    expect(noteSend).toHaveBeenCalledTimes(1);
+    expect(batchSend).toHaveBeenCalledTimes(1);
+    expect(intervalSend).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Note source" }), {
+      key: "Escape",
+    });
+    expect(
+      screen.queryByRole("region", { name: "Choose Note source" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("region", { name: "Recovery navigation" }),
+    ).toBeTruthy();
+    act(() => registry.sessionUnavailable());
+    expect(screen.queryByDisplayValue("  Retained second Note  ")).toBeNull();
+    expect(screen.queryByText("Review-only Indicator")).toBeNull();
+    expect(screen.getByRole("button", { name: "Recovery (0)" })).toBeTruthy();
+    act(() => {
+      runtime.noteCreate.setAuthority(authority);
+      lifecycle.setAuthority(authority);
+      runtime.batches.setAuthority(authority);
+    });
+    expect(screen.getByRole("button", { name: "Recovery (3)" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Fill ·/ }));
+    const retryBatch = screen.getByRole("button", { name: "Retry fill" });
+    retryBatch.focus();
+    act(() => runtime.batches.setAuthority({ ...authority, closed: true }));
+    expect(retryBatch).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Recovery (3)" })).toBeTruthy();
+    act(() => runtime.batches.setAuthority({ ...authority, role: "viewer" }));
+    expect(retryBatch).toHaveProperty("disabled", true);
+    act(() => runtime.batches.setAuthority(authority));
+    batchSend.mockResolvedValueOnce({
+      kind: "acknowledged",
+      receipt: {
+        viewSchemaId: timelineViewSchemaId,
+        rows: [],
+        conflicts: [],
+        changeSetId: null,
+      },
+    });
+    fireEvent.click(retryBatch);
+    fireEvent.click(retryBatch);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Recovery (2)" })).toBeTruthy(),
+    );
+    expect(batchSend).toHaveBeenCalledTimes(2);
+    expect(batchSend.mock.calls[1]?.[0]).toBe(batchSend.mock.calls[0]?.[0]);
+    const settledEntry = runtime.batches.getSnapshot().entries[0];
+    expect(settledEntry?.receipt).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "All recovery" }));
+    fireEvent.click(screen.getByText("Completed", { selector: "summary" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss notice for Fill" }),
+    );
+    expect(runtime.batches.getSnapshot().entries[0]).toBe(settledEntry);
+    expect(screen.queryByRole("button", { name: /^Fill ·/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Recovery (2)" })).toBeTruthy();
+    act(() => registry.replaceAccount());
+    expect(screen.getByRole("button", { name: "Recovery (0)" })).toBeTruthy();
+    unregister();
+    unmount();
+    registry.dispose();
   });
 
   it("keeps late surface fixture requests bound to the originating test scenario", async () => {
@@ -3250,7 +3539,7 @@ describe("WorkbookShell surface selection", () => {
     expect(mergeSubmissions).toBe(1);
   });
 
-  it("keeps party-link mutations syncing until workbook and references refresh", async () => {
+  it("separates acknowledged party-link save state from workbook and reference refresh", async () => {
     const linkedTask = taskRequestRow(
       "00000000-0000-4000-8000-000000000901",
       4,
@@ -3347,7 +3636,7 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(refreshStarted).toBe(true);
     });
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
 
     refreshResponse.resolve(

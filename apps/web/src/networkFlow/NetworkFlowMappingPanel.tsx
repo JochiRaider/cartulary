@@ -38,11 +38,10 @@ import {
   unresolvedNetworkFlowWrite,
 } from "./networkFlowImportState";
 import { localizedNetworkFlowDiagnosticMessage } from "./networkFlowPresentation";
-import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
 
 const unmappedColumnChoice = "__unmapped__";
 
-export function NetworkFlowMappingModal({
+export function NetworkFlowMappingPanel({
   controller,
   state,
 }: {
@@ -51,19 +50,16 @@ export function NetworkFlowMappingModal({
 }) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const hasDraft = state.draft !== null;
-  const focus = useNetworkFlowModalFocus<HTMLElement>({
-    initialFocusTestId: networkAnalysisTestId("mapping-profile"),
-    onDismiss: () => controller.setPresented(false),
-  });
+  const panelRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (hasDraft && document.activeElement === closeButton.current) {
-      focus.dialogRef.current
+      panelRef.current
         ?.querySelector<HTMLSelectElement>(
           "#network-flow-mapping-profile:not(:disabled)",
         )
         ?.focus({ preventScroll: true });
     }
-  }, [hasDraft, focus.dialogRef]);
+  }, [hasDraft]);
   const job = state.applyJob ?? state.discoveryJob;
   const write = state.write;
   const pending = write?.disposition === "pending";
@@ -86,17 +82,14 @@ export function NetworkFlowMappingModal({
       : "Continue selection"
     : "Approve and apply";
   return (
-    <div className="network-flow-dialog-backdrop">
+    <div>
       <section
-        ref={focus.dialogRef}
-        role="dialog"
-        aria-modal="true"
+        ref={panelRef}
         aria-labelledby="network-flow-mapping-title"
         aria-describedby="network-flow-mapping-description"
         data-testid={networkAnalysisTestId("mapping-dialog")}
-        className="network-flow-dialog"
+        className="network-flow-recovery-detail"
         style={mappingDialogStyle}
-        onKeyDown={focus.onKeyDown}
       >
         <header style={headerStyle}>
           <div>

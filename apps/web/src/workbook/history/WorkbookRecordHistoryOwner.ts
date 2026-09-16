@@ -262,6 +262,16 @@ export class WorkbookRecordHistoryOwner {
   permitted(operation: HistoryAttempt["operation"]) {
     return historyActionPermitted(this.authority, operation);
   }
+  /** Admitted writes awaiting settlement; excludes acknowledged refresh reads. */
+  get unsettledMutationCount() {
+    return [...this.entries.values()].filter(
+      (entry) =>
+        !entry.receipt &&
+        (entry.phase === "preparing" ||
+          entry.phase === "submitting" ||
+          entry.phase === "uncertain"),
+    ).length;
+  }
   get pendingCount() {
     return [...this.entries.values()].filter(
       (entry) =>

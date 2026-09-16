@@ -8,10 +8,11 @@ import type {
   ReactNode,
 } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { useWorkbookSecondaryPanel } from "../../shared/WorkbookRecoveryBoundary";
+import { WorkbookWorkAreaOverlayHost } from "../../shared/WorkbookWorkAreaOverlay";
 import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
 import { WorkbookQueryBrowsingControls } from "../query/WorkbookQueryBrowsingControls";
 import { statusStripStyle } from "../utils/workbookStyles";
-import { WorkbookWorkAreaOverlayHost } from "./WorkbookWorkAreaOverlay";
 import type { WorkbookChromeMode } from "./workbookResponsiveLayout";
 
 const inspectorKeyboardStepCssPx = 16;
@@ -52,6 +53,9 @@ export function WorkbookSurfaceLayout({
   readonly onWorkAreaKeyDown?: KeyboardEventHandler<HTMLElement> | undefined;
 }) {
   const inspectorOpen = inspector !== undefined;
+  const coordinatedClose = useWorkbookSecondaryPanel(inspectorOpen, () =>
+    onRequestInspectorClose?.(),
+  );
   const inspectorIsAdjacent = chromeMode === "base";
   const backgroundIsInert = inspectorOpen && !inspectorIsAdjacent;
   const layoutMetrics = workbookLayoutMetrics(
@@ -77,7 +81,11 @@ export function WorkbookSurfaceLayout({
           ? document.activeElement
           : null;
     }
-    if (!inspectorOpen && inspectorWasOpenRef.current) {
+    if (
+      !inspectorOpen &&
+      inspectorWasOpenRef.current &&
+      !coordinatedClose.current
+    ) {
       const returnFocus = returnFocusRef.current;
       void Promise.resolve(restoreInspectorFocusRef.current?.()).then(
         (restored) => {
@@ -92,7 +100,7 @@ export function WorkbookSurfaceLayout({
     return () => {
       cancelled = true;
     };
-  }, [inspectorOpen]);
+  }, [inspectorOpen, coordinatedClose]);
 
   const clampInspectorWidth = (width: number) =>
     Math.min(

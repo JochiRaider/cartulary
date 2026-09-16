@@ -109,33 +109,6 @@ export function useTimelineMutationRuntimeBindings({
           } else {
             await current.current.loadRows({ showLoading: false });
           }
-          if (cleared && binding !== null) {
-            window.setTimeout(() => {
-              current.current.editorPort.focus({
-                fieldKey: binding.fieldKey,
-                recordId,
-              });
-            }, 0);
-          }
-        },
-        (conflict) => {
-          window.setTimeout(() => {
-            const existingEditor =
-              conflict.focusKey === null
-                ? null
-                : current.current.editorDraftRegistry.inputElementForFocusKey(
-                    conflict.focusKey,
-                  );
-            if (existingEditor !== null) {
-              existingEditor.focus({ preventScroll: true });
-              return;
-            }
-            current.current.editorPort.activateEdit({
-              fieldKey: conflict.conflict.field_key,
-              recordId: conflict.conflict.record_id,
-              value: conflict.localValue,
-            });
-          }, 0);
         },
         (unitId) => current.current.discardBlockedEdit(unitId),
         (rows) => {

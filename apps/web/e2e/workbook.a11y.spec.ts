@@ -145,6 +145,7 @@ import {
   hostsViewSchemaId,
   indicatorsViewSchemaId,
   lessonViewSchemaId,
+  notesViewSchemaId,
   partiesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   statusReviewViewSchemaId,
@@ -299,6 +300,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import {
   clickTimelineRowAction,
   openTimelineInspector,
@@ -836,12 +838,16 @@ async function expectRecoverySurfaceGeometry(
       if (panel === null || activeSurface === null) {
         throw new Error("Expected recovery panel and active surface");
       }
-      const heading = panel.querySelector<HTMLElement>("h2");
+      const detail =
+        panel.querySelector<HTMLElement>(
+          '[aria-label="Workbook edit recovery"]',
+        ) ?? panel;
+      const heading = detail.querySelector<HTMLElement>("h2");
       const message = panel.querySelector<HTMLElement>('[role="status"]');
       const buttons = Array.from(
         panel.querySelectorAll<HTMLButtonElement>("button"),
       );
-      const actionRow = buttons[0]?.parentElement;
+      const actionRow = detail.querySelector("button")?.parentElement;
       if (heading === null || message === null || actionRow == null) {
         throw new Error("Expected recovery heading, message, and actions");
       }
@@ -879,7 +885,7 @@ async function expectRecoverySurfaceGeometry(
       activeSurfaceSelector: dataTestIdSelector(
         workbookActiveSurfaceFocusTargetTestId(),
       ),
-      panelSelector: dataTestIdSelector(workbookEditRecoveryTestId()),
+      panelSelector: '[aria-label="Workbook recovery"]',
     },
   );
 
@@ -1040,7 +1046,10 @@ async function expectResolverSurfaceGeometry(
   page: Page,
   options: { readonly enforceDocumentBlockExtent?: boolean } = {},
 ) {
-  const resolver = page.getByTestId(workbookConflictResolverTestId());
+  const resolver = page.getByRole("region", {
+    name: "Workbook recovery",
+    exact: true,
+  });
   await resolver.evaluate((element) => {
     element.scrollTop = 0;
   });
@@ -1083,7 +1092,7 @@ async function expectResolverSurfaceGeometry(
       activeSurfaceSelector: dataTestIdSelector(
         workbookActiveSurfaceFocusTargetTestId(),
       ),
-      resolverSelector: dataTestIdSelector(workbookConflictResolverTestId()),
+      resolverSelector: '[aria-label="Workbook recovery"]',
     },
   );
   expect(geometry.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
@@ -2169,7 +2178,9 @@ if (
     const mappingProfile = page.getByTestId(
       networkAnalysisTestId("mapping-profile"),
     );
-    await expect(mappingProfile).toBeFocused();
+    await expect(
+      page.getByRole("heading", { name: "Network Flow import", exact: true }),
+    ).toBeFocused();
     // Inspect the retained import surface itself; it lives above workspace unmount.
     for (const viewport of [
       { width: 390, height: 480 },
@@ -2195,7 +2206,14 @@ if (
       await previewAction.press("Tab");
       await expect(
         mappingDialog.getByRole("button", { name: "Close", exact: true }),
-      ).toBeFocused();
+      ).not.toBeFocused();
+      await expect
+        .poll(() =>
+          mappingDialog.evaluate(
+            (node) => !node.contains(document.activeElement),
+          ),
+        )
+        .toBe(true);
     }
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.evaluate(() => {
@@ -2866,6 +2884,10 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       await blockedSummary.press("Enter");
       await expect.poll(() => recoveryController.calls.length).toBe(1);
 
+      await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
+        0,
+      );
+      await page.getByTestId(saveStateActionButtonTestId()).click();
       const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
       const retryButton = page.getByTestId(
         workbookEditRecoveryRetryButtonTestId(),
@@ -2873,7 +2895,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       const discardButton = page.getByTestId(
         workbookEditRecoveryDiscardButtonTestId(),
       );
-      await expect(recoveryPanel).toHaveRole("complementary");
+      await expect(recoveryPanel).toHaveRole("region");
       await expect(recoveryPanel).toHaveAccessibleName(
         "Workbook edit recovery",
       );
@@ -2943,7 +2965,12 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       await page.setViewportSize({ width: 1440, height: 900 });
 
       await page.getByTestId(saveStateActionButtonTestId()).click();
-      await expect(recoveryPanel).toBeFocused();
+      await expect(
+        page.getByRole("heading", {
+          name: "Queued edit recovery",
+          exact: true,
+        }),
+      ).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(retryButton).toBeFocused();
       await page.keyboard.press("Tab");
@@ -2977,11 +3004,13 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         saveStateTestId(),
       ]);
 
-      await discardButton.press("Space");
+      await discardButton.focus();
+      await expect(discardButton).toBeFocused();
+      await page.keyboard.press("Space");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(recoveryPanel).toHaveCount(0);
       await expect(
-        page.getByTestId(workbookActiveSurfaceFocusTargetTestId()),
+        page.getByRole("heading", { name: "Recovery", exact: true }),
       ).toBeFocused();
       expect(recoveryController.calls).toHaveLength(1);
     } finally {
@@ -3920,19 +3949,11 @@ test.describe("browser.collaboration accessibility readiness", () => {
           "Workbook conflict recovery",
         );
         const summary = page.getByTestId(workbookConflictSummaryTestId());
-        await expect(
-          page.getByTestId(
-            timelineScalarEditorTestId({
-              fieldKey: "timeline.activity_synopsis_text",
-              recordId,
-              surface: "grid",
-            }),
-          ),
-        ).toBeFocused();
-        await page
-          .getByRole("button", { name: "Open conflict recovery", exact: true })
-          .click();
-        await expect(summary).toBeFocused();
+        const panelHeading = page.getByRole("heading", {
+          name: "Same-field conflict",
+          exact: true,
+        });
+        await expect(panelHeading).toBeFocused();
         await expect(resolver).toHaveAttribute(
           "data-conflict-field-key",
           "timeline.activity_synopsis_text",
@@ -3943,7 +3964,12 @@ test.describe("browser.collaboration accessibility readiness", () => {
         await expect(
           page.getByTestId(workbookConflictLocalValueTestId()),
         ).toHaveValue(localConflictValue);
-        await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+        await expect(
+          page.getByRole("button", {
+            name: "Close conflict recovery",
+            exact: true,
+          }),
+        ).toBeVisible();
         await expect(
           page.getByRole("button", { name: "Discard local draft" }),
         ).toBeVisible();
@@ -4029,6 +4055,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
           workbookConflictControlTestId("use-merged"),
         ]);
 
+        await panelHeading.focus();
         await page.keyboard.press("Escape");
         await expect(resolver).toHaveCount(0);
         await expect(page.getByTestId(saveStateTestId())).toHaveText(
@@ -7247,8 +7274,10 @@ if (
     const confirmation = page.getByTestId(
       networkAnalysisTestId("indicator-link-confirmation"),
     );
-    await expect(confirmation).toBeFocused();
-    await expect(dialog).toHaveAttribute("aria-modal", "true");
+    await expect(
+      page.getByRole("heading", { name: "Indicator link draft", exact: true }),
+    ).toBeFocused();
+    await expect(dialog).not.toHaveAttribute("aria-modal");
     await confirmation.fill(value.toUpperCase());
     await confirmation.press("Enter");
     await expect(confirmation).toHaveAttribute("aria-invalid", "true");
@@ -7273,7 +7302,12 @@ if (
       await page.keyboard.press("Tab");
       await expect(
         dialog.getByLabel("Create or reuse indicator", { exact: true }),
-      ).toBeFocused();
+      ).not.toBeFocused();
+      await expect
+        .poll(() =>
+          dialog.evaluate((node) => !node.contains(document.activeElement)),
+        )
+        .toBe(true);
       await page.keyboard.press("Shift+Tab");
       await expect(
         dialog.getByRole("button", { name: "Link Indicator", exact: true }),
@@ -7392,15 +7426,13 @@ test("a11y.decision-supersession review cancellation and shell recovery preserve
   await expectAllInteractiveControlsNamed(page);
   await confirm.focus();
   await confirm.press("Enter");
-  const trigger = page.getByRole("button", {
-    name: "Decision actions (1)",
-    exact: true,
-  });
+  const trigger = recoveryEntry(page);
   await trigger.focus();
-  await trigger.press("Enter");
+  await expect(recoveryEntry(page)).toHaveText("Recovery (0)");
+  await openRecoveryItem(page, /^Decision supersession ·/);
   const recovery = page.getByTestId(decisionSupersessionTestId("recovery"));
   await expect(
-    recovery.getByRole("region", { name: "Decision action recovery summary" }),
+    page.getByRole("heading", { name: "Decision supersession", exact: true }),
   ).toBeFocused();
   await expect(
     recovery.getByText(
@@ -7480,17 +7512,15 @@ test("a11y.timeline-capture review and recovery retain keyboard focus across res
   await expectAllInteractiveControlsNamed(page);
   await confirm.focus();
   await confirm.press("Enter");
-  const trigger = page.getByRole("button", {
-    name: "Timeline actions (1)",
-    exact: true,
-  });
+  const trigger = recoveryEntry(page);
   await trigger.focus();
-  await trigger.press("Enter");
-  const recovery = page.getByRole("region", {
-    name: "Timeline action recovery",
-    exact: true,
-  });
-  await expectVisibleFocus(recovery);
+  await openRecoveryItem(page, /^Timeline action ·/);
+  await expect(
+    page.getByRole("region", { name: "Timeline action recovery", exact: true }),
+  ).toBeVisible();
+  await expectVisibleFocus(
+    page.getByRole("heading", { name: "Timeline action", exact: true }),
+  );
   await expect(
     page.getByTestId(timelineCaptureActionTestId("result", target.record_id)),
   ).toHaveText("Timeline supersession completed.");
@@ -7500,8 +7530,8 @@ test("a11y.timeline-capture review and recovery retain keyboard focus across res
     { width: 390, height: 480 },
   ]) {
     await page.setViewportSize(viewport);
-    const close = recovery.getByRole("button", {
-      name: "Close Timeline actions",
+    const close = page.getByRole("button", {
+      name: "Close recovery",
       exact: true,
     });
     await close.scrollIntoViewIfNeeded();
@@ -7565,16 +7595,15 @@ test("a11y.indicator-lifecycle UTC errors and retained recovery remain keyboard 
   await expectAllInteractiveControlsNamed(page);
   await submit.focus();
   await submit.press("Enter");
-  const trigger = page.getByTestId(
-    indicatorLifecycleTestId("recovery-trigger"),
-  );
+  const trigger = recoveryEntry(page);
   await trigger.focus();
-  await trigger.press("Enter");
+  await openRecoveryItem(page, /^Indicator interval ·/);
   const recovery = page.getByTestId(indicatorLifecycleTestId("recovery"));
-  const recoveryHeading = recovery.getByRole("heading");
-  await expect(recoveryHeading).toHaveAccessibleName(
-    "Indicator interval recovery",
-  );
+  const recoveryHeading = page.getByRole("heading", {
+    name: "Indicator interval",
+    exact: true,
+  });
+  await expect(recoveryHeading).toHaveAccessibleName("Indicator interval");
   await expect(recoveryHeading).toBeFocused();
   await expect(
     recovery.getByText("Interval saved. Indicator and history refreshed.", {
@@ -7655,16 +7684,15 @@ test("a11y.indicator-observations exact source selection and retained recovery r
   await expectAllInteractiveControlsNamed(page);
   await submit.focus();
   await submit.press("Enter");
-  const trigger = page.getByTestId(
-    indicatorObservationTestId("recovery-trigger"),
-  );
+  const trigger = recoveryEntry(page);
   await trigger.focus();
-  await trigger.press("Enter");
+  await openRecoveryItem(page, /^Indicator observation ·/);
   const recovery = page.getByTestId(indicatorObservationTestId("recovery"));
-  const recoveryHeading = recovery.getByRole("heading");
-  await expect(recoveryHeading).toHaveAccessibleName(
-    "Indicator observation recovery",
-  );
+  const recoveryHeading = page.getByRole("heading", {
+    name: "Indicator observation",
+    exact: true,
+  });
+  await expect(recoveryHeading).toHaveAccessibleName("Indicator observation");
   await expect(recoveryHeading).toBeFocused();
   await expect(
     recovery.getByText(
@@ -7758,21 +7786,26 @@ test("a11y.canonical-indicator proposal validation and separate resolution remai
     body: await editor.ariaSnapshot(),
     contentType: "text/plain",
   });
-  const trigger = page.getByTestId(indicatorCreateTestId("recovery-trigger"));
+  const trigger = recoveryEntry(page);
   await expectDecisionControlReachable(page, trigger);
   expect((await trigger.boundingBox())?.width).toBeGreaterThanOrEqual(32);
   await trigger.focus();
-  await trigger.press("Enter");
-  const recovery = page.getByTestId(indicatorCreateTestId("recovery"));
-  const canonicalRecoveryHeading = recovery.getByRole("heading");
+  await openRecoveryItem(page, /^Canonical Indicator creation ·/);
+  await expect(
+    page.getByTestId(indicatorCreateTestId("recovery")),
+  ).toBeVisible();
+  const canonicalRecoveryHeading = page.getByRole("heading", {
+    name: "Canonical Indicator creation",
+    exact: true,
+  });
   await expect(canonicalRecoveryHeading).toHaveAccessibleName(
-    "Canonical Indicator recovery",
+    "Canonical Indicator creation",
   );
   await expect(canonicalRecoveryHeading).toBeFocused();
   await expectDecisionControlReachable(
     page,
-    recovery.getByRole("button", {
-      name: "Close canonical recovery",
+    page.getByRole("button", {
+      name: "Close recovery",
       exact: true,
     }),
   );
@@ -7994,11 +8027,9 @@ test("a11y.contextual-create target fields reference cancellation and retained r
     await page
       .getByRole("button", { name: "Keep draft and close", exact: true })
       .click();
-    const summary = page
-      .locator("summary")
-      .filter({ hasText: /^Task \/ Decision creation/ });
+    const summary = recoveryEntry(page);
     await summary.focus();
-    await summary.press("Enter");
+    await openRecoveryItem(page, /^(Task Requests|Decisions) draft ·/);
     const recovery = page.getByRole("region", {
       name: "Retained contextual creation",
       exact: true,
@@ -8401,15 +8432,19 @@ test("a11y.coordination all target fields source review and uncertain recovery s
         await expect(recover).toBeInViewport();
         await expect(page.getByTestId(saveStateTestId())).toBeInViewport();
         const bounds = await recovery.evaluate((panel) => {
-          const parent = panel.parentElement?.parentElement;
-          const box = panel.getBoundingClientRect();
+          const host = panel.closest<HTMLElement>(
+            '[aria-label="Workbook recovery"]',
+          );
+          if (!host) throw new Error("Missing shell recovery host");
+          const parent = host.parentElement;
+          const box = host.getBoundingClientRect();
           const available = parent?.getBoundingClientRect();
           return {
             contained:
               available !== undefined &&
               box.top >= available.top &&
               box.bottom <= available.bottom + 1,
-            internalScroll: getComputedStyle(panel).overflowY,
+            internalScroll: getComputedStyle(host).overflowY,
             documentFits:
               document.documentElement.scrollHeight <=
               document.documentElement.clientHeight + 1,
@@ -8455,10 +8490,7 @@ test("a11y.coordination all target fields source review and uncertain recovery s
   const f = await openCoordinationFixture(page, "lesson");
   await fillCoordinationMinimum(f);
   await page.getByTestId(workbookInspectorCloseButtonTestId(f.view)).click();
-  await page
-    .locator("summary")
-    .filter({ hasText: /^Coordination draft$/ })
-    .click();
+  await openRecoveryItem(page, /^Coordination draft ·/);
   const retained = page.getByRole("region", {
     name: "Retained Coordination authoring",
     exact: true,
@@ -8547,6 +8579,23 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
     [field]: "Batch anchor",
   });
   await page.goto(`/?incident_id=${incidentId}`);
+  await openTimelineInspector(page, created.record_id);
+  await page
+    .getByTestId(
+      workbookInspectorFeatureActionTestId(
+        timelineViewSchemaId,
+        "create_related.note",
+      ),
+    )
+    .click();
+  await page
+    .getByRole("region", { name: "Create Note", exact: true })
+    .getByRole("textbox", { name: "Title", exact: true })
+    .fill("  Retained Note alongside an uncertain batch  ");
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
+  await expect(recoveryEntry(page)).toHaveText("Recovery (1)");
   const anchor = await mountedGridCell(
     page,
     timelineViewSchemaId,
@@ -8569,15 +8618,25 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
     navigator.clipboard.writeText("Retained update\nRetained create"),
   );
   await page.keyboard.press("Control+v");
-  await expect(
-    page.getByRole("status", { name: "Batch action updates", exact: true }),
-  ).toHaveText("Batch outcome unknown. Retry is available.");
-  const trigger = page.getByRole("button", { name: /^Batch actions/ });
+  const trigger = recoveryEntry(page);
+  await expect(trigger).toHaveText("Recovery (2)");
   await expectDecisionControlReachable(page, trigger);
-  await trigger.press("Enter");
-  const recovery = page.getByRole("complementary", {
-    name: "Batch action recovery",
+  await openRecoveryItem(page, /^Paste ·/);
+  const recovery = page.getByRole("region", {
+    name: "Workbook recovery",
+    exact: true,
   });
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+  await openRecoveryItem(page, /^Note draft ·/);
+  await page
+    .getByRole("button", { name: "Resume Note draft", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("region", { name: "Retained Note authoring", exact: true })
+      .getByRole("textbox", { name: "Title", exact: true }),
+  ).toHaveValue("  Retained Note alongside an uncertain batch  ");
+  await openRecoveryItem(page, /^Paste ·/);
   const retry = recovery.getByRole("button", {
     name: "Retry paste",
     exact: true,
@@ -8623,7 +8682,7 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
   await expectVisibleFocus(retry);
   await expectDecisionControlReachable(
     page,
-    recovery.getByRole("button", { name: "Close", exact: true }),
+    recovery.getByRole("button", { name: "Close recovery", exact: true }),
   );
   await textSpacing.evaluate((element) => {
     element.parentNode?.removeChild(element);
@@ -8631,7 +8690,7 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
   await expectDecisionControlReachable(page, retry);
   await retry.press("Escape");
   await expect(trigger).toBeFocused();
-  await trigger.press("Enter");
+  await openRecoveryItem(page, /^Paste ·/);
   await expectDecisionControlReachable(page, retry);
   fail = false;
   await retry.press("Enter");
@@ -8642,6 +8701,90 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
     body: await recovery.ariaSnapshot(),
     contentType: "text/plain",
   });
+  await recovery
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const additional = [];
+  for (let index = 0; index < 8; index++) {
+    additional.push(
+      await createViewRow(page, incidentId, timelineViewSchemaId, {
+        client_txn_id: uniqueTxn("many-recovery-seed"),
+        [field]: `Recovery target ${index + 1}`,
+      }),
+    );
+  }
+  await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+  await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
+  fail = true;
+  for (const [index, row] of additional.entries()) {
+    const target = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      row.record_id,
+      field,
+    );
+    await target.click();
+    await expect(
+      page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: field,
+          recordId: row.record_id,
+          surface: "grid",
+        }),
+      ),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await page.evaluate(
+      (value) => navigator.clipboard.writeText(value),
+      `Batch sample ${index + 1} with a long retained description to distinguish this recovery obligation\tBatch source ${index + 1}`,
+    );
+    await page.keyboard.press("Control+v");
+    try {
+      await expect(trigger).toHaveText(`Recovery (${index + 2})`);
+    } catch (error) {
+      await testInfo.attach("many-recovery-failure-tree", {
+        body: await page.locator("#root").ariaSnapshot(),
+        contentType: "text/plain",
+      });
+      throw error;
+    }
+  }
+  await trigger.click();
+  const list = page.getByRole("region", {
+    name: "Recovery navigation",
+    exact: true,
+  });
+  await expect(list.getByRole("button", { name: /^Paste ·/ })).toHaveCount(8);
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const last = list
+      .getByRole("listitem")
+      .filter({ hasText: "Batch sample 8" })
+      .getByRole("button", { name: /^Paste ·/ });
+    await expect(last).toHaveAccessibleDescription(/Batch sample 8/);
+    await expectDecisionControlReachable(page, last);
+    await expectVisibleFocus(last);
+    await testInfo.attach(`many-recovery-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  }
+  await list
+    .getByRole("listitem")
+    .filter({ hasText: "Batch sample 8" })
+    .getByRole("button", { name: /^Paste ·/ })
+    .press("Enter");
+  await expect(
+    recovery.getByRole("textbox", { name: "Original batch input" }),
+  ).toHaveValue(/Batch sample 8/);
+  await recovery
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .press("Escape");
+  await expect(trigger).toBeFocused();
   await page.unroute(path);
 });
 

@@ -5,6 +5,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import {
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../shared/workbookRecoveryNavigation";
 import type { InspectorRecordHistoryAction } from "../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import { WorkbookInspectorConfirmation } from "../inspector/presentation/WorkbookInspectorFeedback";
@@ -36,82 +41,44 @@ export function WorkbookHistoryRecovery() {
     owner?.subscribe ?? emptySubscribe,
     owner?.getSnapshot ?? emptySnapshot,
   );
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const summary = useRef<HTMLElement>(null);
-  const focusRequested = useRef(false);
-  useLayoutEffect(() => {
-    if (open && focusRequested.current) {
-      focusRequested.current = false;
-      summary.current?.focus({ preventScroll: true });
-    }
-  }, [open]);
-  if (!owner || entries.length === 0) return null;
-  const close = () => {
-    const restoreFocus = summary.current?.parentElement?.contains(
-      document.activeElement,
-    );
-    setOpen(false);
-    if (restoreFocus) trigger.current?.focus({ preventScroll: true });
-  };
+  const items: readonly WorkbookRecoveryItem[] = entries.map(
+    (entry, order) => ({
+      id: entry.attempt.id,
+      label: historyOperationLabel(entry.attempt),
+      origin: entry.attempt.subject.label,
+      sheetRef: { kind: "view_schema", id: entry.attempt.subject.viewSchemaId },
+      refreshViews:
+        entry.receipt && entry.reconciliation !== "complete"
+          ? [entry.attempt.subject.viewSchemaId]
+          : [],
+      order,
+      summary: entry.receipt
+        ? entry.reconciliation === "complete"
+          ? "Completed"
+          : "Saved; refresh required"
+        : entry.phase === "uncertain"
+          ? "Outcome unconfirmed"
+          : entry.phase === "rejected"
+            ? "Review required"
+            : "In progress",
+      attention:
+        entry.receipt && entry.reconciliation === "complete"
+          ? "completed"
+          : entry.receipt ||
+              entry.phase === "uncertain" ||
+              entry.phase === "rejected"
+            ? "attention"
+            : "progress",
+    }),
+  );
+  const selected = useWorkbookRecoverySource("history", items);
+  if (!owner || !runtime) return null;
   return (
-    <div style={{ position: "relative" }}>
-      <WorkbookInspectorActionButton
-        ref={trigger}
-        aria-expanded={open}
-        onClick={() => {
-          if (open) close();
-          else {
-            focusRequested.current = true;
-            setOpen(true);
-          }
-        }}
-      >
-        History actions ({entries.length})
-      </WorkbookInspectorActionButton>
-      {open ? (
-        <section
-          aria-label="History action recovery"
-          style={{
-            position: "absolute",
-            zIndex: 30,
-            insetInlineEnd: 0,
-            inlineSize: "min(34rem, 90vw)",
-            maxBlockSize: "75vh",
-            overflow: "auto",
-            padding: "var(--ct-spacing-md)",
-            background: "var(--ct-colors-surface-1)",
-            border: "var(--ct-border-hairline)",
-            boxShadow: "var(--ct-elevation-popover)",
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Escape" &&
-              !(
-                event.target instanceof Element &&
-                event.target.closest('[role="alertdialog"]')
-              )
-            ) {
-              event.stopPropagation();
-              close();
-            }
-          }}
-        >
-          <section
-            ref={summary}
-            aria-label="History action recovery summary"
-            tabIndex={-1}
-          >
-            <strong>History actions</strong>
-            <p>
-              Recover retained actions or review current history. Closing this
-              panel keeps admitted actions.
-            </p>
-          </section>
-          <WorkbookInspectorActionButton onClick={close}>
-            Close history actions
-          </WorkbookInspectorActionButton>
-          {entries.map((entry) => (
+    <WorkbookRecoveryDetail source="history" item={selected}>
+      <section aria-label="History action recovery">
+        {entries
+          .filter((entry) => entry.attempt.id === selected)
+          .map((entry) => (
             <HistoryRecoveryEntry
               key={entry.attempt.id}
               entry={entry}
@@ -119,9 +86,8 @@ export function WorkbookHistoryRecovery() {
               coordinate={runtime.coordinateHistory.bind(runtime)}
             />
           ))}
-        </section>
-      ) : null}
-    </div>
+      </section>
+    </WorkbookRecoveryDetail>
   );
 }
 

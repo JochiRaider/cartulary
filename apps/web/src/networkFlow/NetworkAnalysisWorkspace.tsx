@@ -21,6 +21,7 @@ import {
 } from "react";
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import { useExtensionAvailabilityController } from "../extensions/ExtensionAvailabilityContext";
+import { WorkbookWorkAreaOverlayHost } from "../shared/WorkbookWorkAreaOverlay";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import {
   NetworkFlowButton,
@@ -676,6 +677,7 @@ function NetworkAnalysisWorkspaceContent({
       </div>
 
       <div id="network-flow-work-area" style={workAreaStyle}>
+        <WorkbookWorkAreaOverlayHost />
         {blockingState !== null ? (
           <NetworkFlowBlockingState
             state={blockingState}
@@ -1264,6 +1266,7 @@ const modeBarStyle = {
 } satisfies CSSProperties;
 
 const workAreaStyle = {
+  position: "relative",
   minBlockSize: 0,
   minWidth: 0,
   overflow: "hidden",

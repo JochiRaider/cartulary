@@ -8,7 +8,6 @@ import type {
   WorkbookEditRecoveryActionResult,
   WorkbookMutationSnapshot,
 } from "../runtime/WorkbookMutationRuntime";
-import { RecoverySurface } from "./RecoverySurface";
 
 type WorkbookBlockedEdit = NonNullable<WorkbookMutationSnapshot["blockedEdit"]>;
 
@@ -17,13 +16,9 @@ export const WorkbookEditRecoveryPanel = forwardRef<
   {
     readonly blockedEdit: WorkbookBlockedEdit;
     readonly onDiscard: () => Promise<WorkbookEditRecoveryActionResult>;
-    readonly onFocusWithinChange: (focused: boolean) => void;
     readonly onRetry: () => Promise<WorkbookEditRecoveryActionResult>;
   }
->(function WorkbookEditRecoveryPanel(
-  { blockedEdit, onDiscard, onFocusWithinChange, onRetry },
-  ref,
-) {
+>(function WorkbookEditRecoveryPanel({ blockedEdit, onDiscard, onRetry }, ref) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const retryButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -69,23 +64,12 @@ export const WorkbookEditRecoveryPanel = forwardRef<
   };
 
   return (
-    <RecoverySurface
+    <section
       aria-label="Workbook edit recovery"
       data-grid-editor-external-action="true"
       data-testid={workbookEditRecoveryTestId()}
       ref={ref}
       tabIndex={-1}
-      onBlurCapture={(event) => {
-        if (transitionGuardRef.current) return;
-        const relatedTarget = event.relatedTarget;
-        if (
-          !(relatedTarget instanceof Node) ||
-          !event.currentTarget.contains(relatedTarget)
-        ) {
-          onFocusWithinChange(false);
-        }
-      }}
-      onFocusCapture={() => onFocusWithinChange(true)}
     >
       <div>
         <p style={eyebrowStyle}>Local edit needs attention</p>
@@ -125,7 +109,7 @@ export const WorkbookEditRecoveryPanel = forwardRef<
           Discard blocked edit
         </button>
       </div>
-    </RecoverySurface>
+    </section>
   );
 });
 

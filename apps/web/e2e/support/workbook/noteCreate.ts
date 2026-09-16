@@ -18,6 +18,7 @@ import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
 import { createViewRow } from "./query";
+import { openRecoveryItem, recoveryEntry } from "./recovery";
 import {
   openGenericInspectorForRecord,
   openTimelineInspector,
@@ -75,18 +76,22 @@ export async function retainNoteUncertainResult(
   sourceId: string,
   view: string,
 ) {
+  let reachedTransport: () => void = () => {};
+  const captured = new Promise<void>((resolve) => {
+    reachedTransport = resolve;
+  });
   await page.route(`**/records/${sourceId}/linked-notes`, async (route) => {
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
     await route.abort("failed");
+    reachedTransport();
   });
   await page.getByTestId(genericCreateSubmitTestId(notesViewSchemaId)).click();
-  const summary = page
-    .locator("summary")
-    .filter({ hasText: /^Note recovery$/ });
+  await captured;
+  const summary = recoveryEntry(page);
   await expect(summary).toBeVisible();
   await page.getByTestId(workbookInspectorCloseButtonTestId(view)).click();
-  await summary.click();
+  await openRecoveryItem(page, /^Note creation ·/);
   const recovery = page.getByRole("region", {
     name: "Retained Note authoring",
     exact: true,

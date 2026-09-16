@@ -18,6 +18,7 @@ import {
   uniqueTxn,
 } from "../runtime/fixtureIdentity";
 import { createViewRow } from "./query";
+import { openRecoveryItem, recoveryEntry } from "./recovery";
 import {
   openGenericInspectorForRecord,
   openTimelineInspector,
@@ -121,20 +122,24 @@ export async function retainCoordinationUncertainResult(
   f: Awaited<ReturnType<typeof openCoordinationFixture>>,
 ) {
   const path = `**/incidents/${f.incident}/views/${f.target.viewSchemaId}/rows`;
+  let reachedTransport: () => void = () => {};
+  const captured = new Promise<void>((resolve) => {
+    reachedTransport = resolve;
+  });
   await page.route(path, async (route) => {
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
     await route.abort("failed");
+    reachedTransport();
   });
   await f.form
     .getByTestId(genericCreateSubmitTestId(f.target.viewSchemaId))
     .click();
-  const summary = page
-    .locator("summary")
-    .filter({ hasText: /^Coordination recovery$/ });
+  await captured;
+  const summary = recoveryEntry(page);
   await expect(summary).toBeVisible();
   await page.getByTestId(workbookInspectorCloseButtonTestId(f.view)).click();
-  await summary.click();
+  await openRecoveryItem(page, /^Coordination creation ·/);
   const recovery = page.getByRole("region", {
     name: "Retained Coordination authoring",
     exact: true,

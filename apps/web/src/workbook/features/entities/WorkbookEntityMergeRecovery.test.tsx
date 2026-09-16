@@ -14,6 +14,7 @@ import {
   mergeReceipt,
   mergeReview,
 } from "../../../testing/entityMergeTestSupport";
+import { WorkbookRecoveryFixture } from "../../../testing/WorkbookRecoveryFixture";
 import { createWorkbookEntityMergeAdapter } from "../../adapters/createWorkbookEntityMergeAdapter";
 import { WorkbookHistoryContext } from "../../history/WorkbookHistoryContext";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -61,9 +62,11 @@ function setup(type: "host" | "identity") {
   expect(admitted).not.toBeNull();
   if (admitted === null) throw new Error("Expected merge admission");
   const view = render(
-    <WorkbookHistoryContext.Provider value={runtime}>
-      <WorkbookEntityMergeRecovery runtime={runtime} />
-    </WorkbookHistoryContext.Provider>,
+    <WorkbookRecoveryFixture>
+      <WorkbookHistoryContext.Provider value={runtime}>
+        <WorkbookEntityMergeRecovery runtime={runtime} />
+      </WorkbookHistoryContext.Provider>
+    </WorkbookRecoveryFixture>,
   );
   return {
     ...view,
@@ -84,16 +87,17 @@ describe("Entity merge recovery presentation", () => {
       t.send.mockResolvedValueOnce({ kind: "uncertain" });
       await act(() => t.owner.execute(t.attempt));
       t.detach();
-      const trigger = screen.getByRole("button", { name: "Merge actions (1)" });
+      const trigger = screen.getByRole("button", { name: "Recovery (1)" });
       trigger.focus();
       fireEvent.click(trigger);
+      if (screen.queryByText("Completed", { selector: "summary" }))
+        fireEvent.click(screen.getByText("Completed", { selector: "summary" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Entity merge ·/ }));
       const panel = screen.getByRole("region", {
         name: "Merge action recovery",
       });
       expect(
-        within(panel).getByRole("region", {
-          name: "Merge action recovery summary",
-        }),
+        screen.getByRole("heading", { name: "Entity merge", level: 2 }),
       ).toBe(document.activeElement);
       expect(panel.textContent).toContain("outcome is unknown");
       t.refresh.mockRejectedValueOnce(new Error("Refresh failed"));
@@ -131,12 +135,13 @@ describe("Entity merge recovery presentation", () => {
         }),
       ).toBeNull();
       fireEvent.click(trigger);
+      if (screen.queryByText("Completed", { selector: "summary" }))
+        fireEvent.click(screen.getByText("Completed", { selector: "summary" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Entity merge ·/ }));
       fireEvent.click(
         screen.getByRole("button", { name: "Dismiss merge action" }),
       );
-      expect(
-        screen.queryByRole("button", { name: "Merge actions (1)" }),
-      ).toBeNull();
+      expect(screen.queryByRole("button", { name: "Recovery (1)" })).toBeNull();
       t.unmount();
       t.runtime.invalidate({ kind: "runtime_disposed" });
     }
@@ -145,18 +150,15 @@ describe("Entity merge recovery presentation", () => {
     const t = setup("host");
     t.send.mockResolvedValueOnce({ kind: "uncertain" });
     await act(() => t.owner.execute(t.attempt));
-    fireEvent.click(screen.getByRole("button", { name: "Merge actions (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Recovery (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Entity merge ·/ }));
     act(() => t.owner.suspend());
     expect(screen.queryByText(/Historical loser/)).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Merge actions (1)" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Recovery (1)" })).toBeNull();
     act(() =>
       t.owner.setAuthority({ ...mergeAuthority, sessionIdentity: "recovered" }),
     );
-    expect(
-      screen.getByRole("button", { name: "Merge actions (1)" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Recovery (1)" })).not.toBeNull();
     expect(
       screen.queryByRole("region", {
         name: "Merge action recovery",
@@ -165,9 +167,7 @@ describe("Entity merge recovery presentation", () => {
     act(() =>
       t.owner.setAuthority({ ...mergeAuthority, actorId: "different-account" }),
     );
-    expect(
-      screen.queryByRole("button", { name: "Merge actions (1)" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Recovery (1)" })).toBeNull();
     t.runtime.invalidate({ kind: "runtime_disposed" });
   });
 });

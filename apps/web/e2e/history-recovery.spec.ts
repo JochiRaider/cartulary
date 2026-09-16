@@ -31,6 +31,7 @@ import { publicHttpOperation } from "./support/transport/publicHttpOperationClie
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import {
   clickTimelineRowAction,
   openGenericInspectorForRecord,
@@ -164,9 +165,7 @@ async function recoverDelete(
     )
     .click();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-  await expect(
-    page.getByRole("button", { name: "History actions (1)" }),
-  ).toBeVisible();
+  await expect(recoveryEntry(page)).toBeVisible();
   await observed;
   const close = page.getByTestId(
     workbookInspectorCloseButtonTestId(viewSchemaId),
@@ -208,16 +207,21 @@ async function recoverDelete(
     ).toHaveText("Newer accepted row");
   }
   const replayBaseline = await fetchFullRecordHistory(page, row.record_id);
-  const trigger = page.getByRole("button", { name: "History actions (1)" });
+  const trigger = recoveryEntry(page);
   await trigger.focus();
-  await trigger.press("Enter");
+  await openRecoveryItem(
+    page,
+    /^(Soft-delete row|Restore[^·]*|Reverse[^·]*) ·/,
+  );
   const recovery = page.getByRole("region", {
     name: "History action recovery",
     exact: true,
   });
   await expect(recovery).toContainText("Outcome unknown");
   await expect(
-    recovery.getByRole("region", { name: "History action recovery summary" }),
+    page.getByRole("heading", {
+      name: /^(Soft-delete row|Restore deleted row|Roll back)/,
+    }),
   ).toBeFocused();
   await test.info().attach("history-recovery", {
     body: await recovery.screenshot(),
@@ -332,7 +336,10 @@ test("Timeline acknowledged delete survives a failed history refresh", async ({
       rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
     )
     .click();
-  await page.getByRole("button", { name: "History actions (1)" }).click();
+  await openRecoveryItem(
+    page,
+    /^(Soft-delete row|Restore[^·]*|Reverse[^·]*) ·/,
+  );
   const recovery = page.getByRole("region", {
     name: "History action recovery",
     exact: true,

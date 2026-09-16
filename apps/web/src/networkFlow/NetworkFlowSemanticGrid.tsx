@@ -28,6 +28,7 @@ import type {
   NetworkFlowSort,
   NetworkFlowTable,
 } from "../services/networkFlowContractAdapter";
+import { useWorkbookSecondaryPanel } from "../shared/WorkbookRecoveryBoundary";
 import { NetworkFlowButton, NetworkFlowChoice } from "./NetworkFlowControls";
 import type { NetworkFlowPageFeedback } from "./NetworkFlowQueryPagination";
 import {
@@ -447,6 +448,7 @@ function NetworkFlowGridFrame<Row extends object>({
   const [activeAnchor, setActiveAnchor] = useState<GridCellAnchor | null>(null);
   const [cellRange, setCellRange] = useState<GridCellRange | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  useWorkbookSecondaryPanel(inspectorOpen, () => setInspectorOpen(false));
   const localGridRef = useRef<GridHandle | null>(null);
   const gridRef = externalGridRef ?? localGridRef;
   const focusRestorationRef = useRef(false);
@@ -551,7 +553,7 @@ function NetworkFlowGridFrame<Row extends object>({
     }
     if (exactIndex >= 0) {
       lastRowIndexRef.current = exactIndex;
-      restoreGridAnchor(activeAnchor);
+      if (gridHadFocus.current) restoreGridAnchor(activeAnchor);
       return;
     }
     const nearestResourceId =
@@ -565,7 +567,7 @@ function NetworkFlowGridFrame<Row extends object>({
       setActiveAnchor(null);
       setCellRange(null);
       setInspectorOpen(false);
-      focusGridRoot(gridRef);
+      if (gridHadFocus.current) focusGridRoot(gridRef);
       return;
     }
     const nextAnchor: GridCellAnchor = {
@@ -578,7 +580,7 @@ function NetworkFlowGridFrame<Row extends object>({
     lastRowIndexRef.current = rowResourceIds.indexOf(nearestResourceId);
     setActiveAnchor(nextAnchor);
     setCellRange({ end: nextAnchor, start: nextAnchor });
-    restoreGridAnchor(nextAnchor);
+    if (gridHadFocus.current) restoreGridAnchor(nextAnchor);
   }, [
     activeAnchor,
     cellRange,

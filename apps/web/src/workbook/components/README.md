@@ -63,7 +63,7 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 
 | File | Responsibility |
 | --- | --- |
-| [RecoverySurface.tsx](RecoverySurface.tsx) | Shared presentation frame for retained-operation recovery content. |
+| [WorkbookRecoveryPanel.tsx](WorkbookRecoveryPanel.tsx) | Compact Recovery entry, grouped discovery, one attached detail, focus transitions and accessible return to the grid. |
 | [SavedViewRecovery.tsx](SavedViewRecovery.tsx) | Saved-view operation recovery presentation with stable recovery identities. |
 | [WorkbookEditRecoveryPanel.tsx](WorkbookEditRecoveryPanel.tsx) | Workbook edit recovery panel for retained pending work and explicit recovery actions. |
 | [WorkbookQueueOverflowNotice.tsx](WorkbookQueueOverflowNotice.tsx) | Pending mutation queue overflow feedback and recovery affordances. |
@@ -78,8 +78,9 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [WorkbookBatchRecovery.tsx](WorkbookBatchRecovery.tsx) | Compact non-color batch status, original-input recovery, keyboard Retry, reads-only Retry refresh and activation of retained per-cell conflict groups. |
 
 The presentation subscribes to retained runtime state. Opening batch recovery
-closes conflict presentation; reviewing conflicts activates the existing resolver
-and focus owner. Routine acceptance opens no panel.
+attaches one batch identity; reviewing its conflicts uses the existing resolver
+inside the same panel. Bounded original-input previews distinguish multiple
+batches. Routine acceptance opens no panel.
 
 [WorkbookParkedGridDrafts.tsx](WorkbookParkedGridDrafts.tsx) exposes readable,
 copyable local grid text only when its original target is unavailable, with
@@ -91,3 +92,11 @@ replays mutations nor owns refresh debt. `GenericMutationControl` preserves unkn
 grid enum/reference input visibly; inspector controls keep their own contract.
 
 WorkbookReferenceControl keeps exact-ID typing in cells and stages candidate selection in a native top-layer popup. The popup marks its nested interaction boundary for Grid Adapter capture handlers. Accept commits through the existing grid interaction or updates only the inspector draft. Candidate reads and cancellation never dispatch writes.
+
+Shell recovery consumers register safe summaries through the shared recovery
+boundary. Their former independent triggers and panel placement are retired.
+`WorkbookActiveSurfaceFrame` contributes FIFO/overflow/conflict obligations and
+keeps urgent notices visible independently of the selected detail. Explicit
+status actions use semantic keys, including parent batch/compound operations.
+Opening never submits; closing never discards. Completed-notice suppression does
+not delete a receipt. Inspector and workspace dialog activation detach recovery.

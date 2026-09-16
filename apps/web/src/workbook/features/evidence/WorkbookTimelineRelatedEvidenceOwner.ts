@@ -236,6 +236,17 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       )
     );
   }
+  /** Save-state facts are separate from operation admission and refresh. */
+  get unsettledMutationCount() {
+    return (
+      Number(this.preparing) +
+      this.stages().filter(
+        (entry) =>
+          !entry.receipt &&
+          (entry.phase === "submitting" || entry.phase === "uncertain"),
+      ).length
+    );
+  }
   get pendingCount() {
     return (
       Number(this.preparing) +

@@ -80,6 +80,7 @@ export type NetworkFlowImportHandoff = {
   readonly failure: ImportFailure | null;
 };
 export type NetworkFlowImportState = {
+  readonly recoveryId: number;
   readonly revision: number;
   readonly access: "active" | "paused" | "unavailable";
   readonly canWrite: boolean;
@@ -106,6 +107,7 @@ export type NetworkFlowImportState = {
 export function initialNetworkFlowImportState(): NetworkFlowImportState {
   return {
     revision: 0,
+    recoveryId: 0,
     access: "unavailable",
     canWrite: false,
     closed: false,

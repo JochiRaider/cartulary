@@ -34,6 +34,7 @@ import {
   fetchRecordHistoryPage,
 } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 import {
   clickTimelineRowAction,
   openGenericInspectorForRecord,
@@ -342,7 +343,10 @@ async function browse(page: Page, surface: Surface) {
   if (surface === "Timeline") {
     const committed = await fetchFullRecordHistory(page, row.record_id);
     expect(committed.items.length).toBeGreaterThan(100);
-    await page.getByRole("button", { name: "History actions (1)" }).click();
+    await openRecoveryItem(
+      page,
+      /^(Soft-delete row|Restore[^·]*|Reverse[^·]*) ·/,
+    );
     const recovery = page.getByRole("region", {
       name: "History action recovery",
       exact: true,

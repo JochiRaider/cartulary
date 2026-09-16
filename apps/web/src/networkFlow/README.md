@@ -72,7 +72,7 @@ Measurement fixtures live in [measurement](../measurement/README.md).
 | [NetworkFlowSemanticGrid.tsx](NetworkFlowSemanticGrid.tsx) | Semantic accepted-row, rejected-row, and contributor grids with layout controls, selection, focus recovery, and inspector presentation. |
 | [useNetworkFlowGridLayout.test.tsx](useNetworkFlowGridLayout.test.tsx) | Tests for Network Flow session layout mutation, reset, and remount persistence. |
 | [useNetworkFlowGridLayout.ts](useNetworkFlowGridLayout.ts) | Session-lifetime Network Flow column visibility, order, width, and reset state. |
-| [useNetworkFlowModalFocus.ts](useNetworkFlowModalFocus.ts) | Modal initial focus, focus trapping, Escape dismissal, and focus restoration hook. |
+| [useNetworkFlowModalFocus.ts](useNetworkFlowModalFocus.ts) | Saved-graph modal focus, Escape and return, coordinated with shell recovery. |
 
 ## Import and mapping
 
@@ -85,7 +85,7 @@ Measurement fixtures live in [measurement](../measurement/README.md).
 | [networkFlowImportModel.ts](networkFlowImportModel.ts) | Generated-registry mapping suggestions and candidate construction for discovered source ordinals. |
 | [networkFlowImportState.ts](networkFlowImportState.ts) | Network Flow import stages, captured attempts, jobs, previews, approvals, and handoff state. |
 | [NetworkFlowImportSurface.tsx](NetworkFlowImportSurface.tsx) | Network Flow import stage controls and retained-operation recovery presentation. |
-| [NetworkFlowMappingModal.tsx](NetworkFlowMappingModal.tsx) | Explicit ordinal-aware Network Flow mapping, safe preview, and approval dialog. |
+| [NetworkFlowMappingPanel.tsx](NetworkFlowMappingPanel.tsx) | Owner-controlled ordinal mapping, preview and approval inside the shell recovery panel. |
 | [useNetworkFlowImportController.ts](useNetworkFlowImportController.ts) | React presentation binding for the persistent Network Flow import workflow owner. |
 
 ## Queries and paging
@@ -140,3 +140,19 @@ Measurement fixtures live in [measurement](../measurement/README.md).
 | [tableLifecycleTestFixtures.ts](tableLifecycleTestFixtures.ts) | Analytical table resources and actor/incident authority fixtures for lifecycle tests. |
 | [useNetworkFlowTableController.ts](useNetworkFlowTableController.ts) | Table discovery, active selection, load state, and access-loss controller. |
 | [useNetworkFlowTableOwner.ts](useNetworkFlowTableOwner.ts) | React lifetime binding for analytical table lifecycle operations. |
+
+## Shell recovery contributions
+
+Import, table lifecycle and Indicator linking publish safe metadata through the
+shared recovery boundary. Their existing controllers retain authorization,
+captured requests, receipts and action eligibility. Import recovery sequence,
+table dialog identity and Indicator-link work identity stay stable through their
+captured attempts. `networkFlowTableRecoveryItems.ts` and
+`networkFlowIndicatorRecoveryItems.ts` project those owner snapshots; the Workbook
+imports extension contributions through its existing `NetworkFlowOperations`
+facade. Saved-graph recovery remains local; its dialogs detach shell recovery.
+Background grid refresh restores focus only while that grid owns focus.
+
+Recovery detaches the graph contributor drawer without clearing the selected
+endpoint or invalidating a newly opened Indicator link draft. Explicit graph
+selection reattaches its drawer and closes recovery through the common boundary.

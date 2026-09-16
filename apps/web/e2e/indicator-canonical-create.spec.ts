@@ -34,6 +34,7 @@ import {
   openObservationEditor,
 } from "./support/workbook/indicatorObservations";
 import { createViewRow } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 
 test("Canonical Indicator creation and resolution replay independently after response loss with two committed operations", async ({
   page,
@@ -86,7 +87,7 @@ test("Canonical Indicator creation and resolution replay independently after res
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
     .click();
-  await page.getByTestId(indicatorCreateTestId("recovery-trigger")).click();
+  await openRecoveryItem(page, /^Canonical Indicator creation ·/);
   const recovery = page.getByTestId(indicatorCreateTestId("recovery"));
   await recovery
     .getByRole("button", { name: "Replay original canonical create" })
@@ -105,9 +106,7 @@ test("Canonical Indicator creation and resolution replay independently after res
     targetHistory,
   );
   expect(resolves).toHaveLength(0);
-  await recovery
-    .getByRole("button", { name: "Close canonical recovery" })
-    .click();
+  await page.getByRole("button", { name: "Close recovery" }).click();
   const editor = await openObservationEditor(page, fixture.source.record_id);
   await expect(
     editor.getByText("Not linked to this Indicator.", { exact: true }),
@@ -351,7 +350,7 @@ test("Canonical late response preserves retargeted drafts and exact recovery aft
     ).ok,
   ).toBe(true);
   await expect(editor).toHaveCount(0);
-  await page.getByTestId(indicatorCreateTestId("recovery-trigger")).click();
+  await openRecoveryItem(page, /^Canonical Indicator creation ·/);
   const recovery = page.getByTestId(indicatorCreateTestId("recovery"));
   await recovery
     .getByRole("button", { name: "Replay original canonical create" })

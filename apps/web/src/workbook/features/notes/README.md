@@ -28,3 +28,8 @@ source discovery use [workbook adapters](../../adapters/README.md).
 | --- | --- |
 | [noteCreateAuthoring.test.tsx](noteCreateAuthoring.test.tsx) | Tests contextual Note sources, retained inspector drafts, and independent sheet authoring. |
 | [noteCreateRecovery.test.tsx](noteCreateRecovery.test.tsx) | Tests Note receipt integrity, newer source evidence, and renewed review after authority restoration. |
+
+`noteRecoveryItems.ts` projects one logical creation across its draft, captured attempt
+and acknowledged refresh. The recovery component subscribes to this owner and
+attaches its existing form through the shared boundary. Detachment releases the
+presentation token while retaining raw authoring and captured execution.

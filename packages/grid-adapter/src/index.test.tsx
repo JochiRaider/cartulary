@@ -2270,7 +2270,14 @@ describe("grid-adapter", () => {
     fireEvent.blur(nextEditor);
     fireEvent.blur(nextEditor);
     expect(commit.mock.calls.length).toBe(beforeCommit + 1);
+    const recoveryHeading = document.createElement("h2");
+    recoveryHeading.tabIndex = -1;
+    recoveryHeading.textContent = "Recovery";
+    document.body.append(recoveryHeading);
+    recoveryHeading.focus();
     act(() => handle.current?.cancelEdit(gridAnchor("record-2", "label")));
+    expect(document.activeElement).toBe(recoveryHeading);
+    recoveryHeading.remove();
     act(() =>
       handle.current?.activateEdit(gridAnchor("record-2", "label"), {
         value: "Repeated text",

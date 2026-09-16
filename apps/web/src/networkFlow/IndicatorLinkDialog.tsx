@@ -1,10 +1,10 @@
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+  useWorkbookRecoveryPresentation,
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../shared/WorkbookRecoveryBoundary";
 import {
   NetworkFlowActionGroup,
   NetworkFlowButton,
@@ -19,7 +19,7 @@ import type {
   IndicatorLinkSnapshot,
   NetworkFlowIndicatorLinkController,
 } from "./NetworkFlowIndicatorLinkController";
-import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
+import { networkFlowIndicatorRecoveryItems } from "./networkFlowIndicatorRecoveryItems";
 
 export function NetworkFlowIndicatorLinkSurface({
   controller,
@@ -30,44 +30,43 @@ export function NetworkFlowIndicatorLinkSurface({
     controller.subscribe,
     controller.getSnapshot,
   );
-  if (state.hidden || state.presentation === null) return null;
-  return (
-    <div
-      className={networkFlowChromeRootClassName}
-      style={{ display: "contents" }}
-    >
-      <NetworkFlowChromeStyles />
-      <IndicatorLinkDialog controller={controller} state={state} />
-    </div>
+  const selected = useWorkbookRecoverySource(
+    "network-indicator",
+    networkFlowIndicatorRecoveryItems(state),
+    {
+      activate: (id) => {
+        if (String(state.attempt?.workId) === id) controller.reopen();
+        else if (String(state.draft?.workId) === id) controller.showDraft();
+        else return false;
+        return true;
+      },
+      detach: controller.dismiss,
+    },
   );
-}
-
-export function NetworkFlowIndicatorLinkRecovery({
-  controller,
-}: {
-  readonly controller: NetworkFlowIndicatorLinkController;
-}) {
-  const state = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
+  const presented =
+    state.hidden || state.presentation === null
+      ? null
+      : state.presentation === "draft"
+        ? state.draft?.workId
+        : state.attempt?.workId;
+  useWorkbookRecoveryPresentation(
+    "network-indicator",
+    presented == null ? null : String(presented),
+    selected,
   );
-  if (state.hidden || (state.attempt === null && state.draft === null))
-    return null;
-  const unresolved =
-    state.settlement?.kind === "uncertain" ||
-    state.settlement?.kind === "pending" ||
-    state.settlement?.kind === "queued";
   return (
-    <span className={networkFlowChromeRootClassName}>
-      <NetworkFlowButton
-        aria-label="Review retained indicator link"
-        onClick={
-          state.attempt === null ? controller.showDraft : controller.reopen
-        }
-      >
-        {unresolved ? "Indicator link recovery" : "Review indicator link"}
-      </NetworkFlowButton>
-    </span>
+    <WorkbookRecoveryDetail source="network-indicator" item={selected}>
+      <div className={networkFlowChromeRootClassName}>
+        <NetworkFlowChromeStyles />
+        {!state.hidden && state.presentation !== null ? (
+          <IndicatorLinkDialog
+            key={selected}
+            controller={controller}
+            state={state}
+          />
+        ) : null}
+      </div>
+    </WorkbookRecoveryDetail>
   );
 }
 
@@ -87,22 +86,13 @@ function IndicatorLinkDialog({
     controller.targets.getSnapshot,
   );
   const heading = useRef<HTMLHeadingElement | null>(null);
-  const focus = useNetworkFlowModalFocus<HTMLDivElement>({
-    initialFocusTestId: networkAnalysisTestId("indicator-link-confirmation"),
-    fallbackFocusTestId: networkAnalysisTestId("workspace"),
-    restoreFallbackFocus: controller.restoreFocus,
-    onDismiss: controller.dismiss,
-  });
+  const panelRef = useRef<HTMLElement>(null);
   const settlement = state.settlement;
   const pending =
     settlement?.kind === "pending" || settlement?.kind === "queued";
   const unresolved = pending || settlement?.kind === "uncertain";
   const confirmed =
     settlement?.kind === "confirmed" || settlement?.kind === "reused";
-  const phase = editing ? "draft" : settlement?.kind;
-  useLayoutEffect(() => {
-    if (phase !== "draft") heading.current?.focus({ preventScroll: true });
-  }, [phase]);
   useEffect(() => {
     if (
       editing &&
@@ -115,28 +105,14 @@ function IndicatorLinkDialog({
   useEffect(() => {
     const field = editing ? draft.feedback?.field : null;
     if (field === null || field === undefined) return;
-    focus.dialogRef.current
+    panelRef.current
       ?.querySelector<HTMLElement>(
         field === "target"
           ? "#network-flow-existing-indicator-id"
           : "#network-flow-indicator-confirmation",
       )
       ?.focus();
-  }, [editing, draft?.feedback, focus.dialogRef]);
-  // Contain programmatic and pointer focus as well as Tab traversal.
-  useEffect(() => {
-    const dialog = focus.dialogRef.current;
-    const contain = (event: FocusEvent) => {
-      if (
-        dialog !== null &&
-        event.target instanceof Node &&
-        !dialog.contains(event.target)
-      )
-        heading.current?.focus({ preventScroll: true });
-    };
-    document.addEventListener("focusin", contain);
-    return () => document.removeEventListener("focusin", contain);
-  }, [focus.dialogRef]);
+  }, [editing, draft?.feedback]);
   if (candidate === undefined) return null;
   const targetError =
     editing && draft.feedback?.field === "target"
@@ -147,15 +123,12 @@ function IndicatorLinkDialog({
       ? draft.feedback.message
       : null;
   return (
-    <div className="network-flow-dialog-backdrop">
-      <div
-        ref={focus.dialogRef}
-        role="dialog"
-        aria-modal="true"
+    <div>
+      <section
+        ref={panelRef}
         aria-labelledby="network-flow-indicator-link-title"
         data-testid={networkAnalysisTestId("indicator-link-dialog")}
-        className="network-flow-dialog network-flow-link-dialog"
-        onKeyDown={focus.onKeyDown}
+        className="network-flow-recovery-detail"
       >
         <h3 id="network-flow-indicator-link-title" ref={heading} tabIndex={-1}>
           Link Core Indicator
@@ -501,7 +474,7 @@ function IndicatorLinkDialog({
             ) : null}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

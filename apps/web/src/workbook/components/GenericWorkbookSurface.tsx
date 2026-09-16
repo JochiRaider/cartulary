@@ -452,10 +452,6 @@ export function ContractWorkbookSurface({
     viewSchemaId: surface,
   });
   continuityPortRef.current = genericFocus.port;
-  const inspectorConflictFocusRef = useRef(
-    genericInspector.restoreConflictFocus,
-  );
-  inspectorConflictFocusRef.current = genericInspector.restoreConflictFocus;
   useEffect(
     () =>
       mutationRuntime.registerSurface(
@@ -463,52 +459,11 @@ export function ContractWorkbookSurface({
         async () => {
           await onRefresh({ requireAcceptance: true });
         },
-        async (_payload, conflict) => {
+        async () => {
           await onRefresh({ requireAcceptance: true });
-          if (conflict.focusOrigin === "inspector") {
-            inspectorConflictFocusRef.current(conflict);
-            return;
-          }
-          window.setTimeout(() => {
-            void genericFocus.port.focus({
-              fieldKey: conflict.conflict.field_key,
-              recordId: conflict.conflict.record_id,
-              viewSchemaId: contract.viewSchemaId,
-            });
-          }, 0);
-        },
-        (conflict) => {
-          if (conflict.focusOrigin === "inspector") {
-            inspectorConflictFocusRef.current(conflict);
-            return;
-          }
-          window.setTimeout(() => {
-            const anchor = {
-              fieldKey: conflict.conflict.field_key,
-              rowIdentity: {
-                kind: "core_record" as const,
-                recordId: conflict.conflict.record_id,
-              },
-              surface: {
-                kind: "view_schema" as const,
-                viewSchemaId: contract.viewSchemaId,
-              },
-            };
-            if (
-              !gridHandleRef.current?.activateEdit(anchor, {
-                value: conflict.localValue,
-              })
-            ) {
-              void genericFocus.port.focus({
-                fieldKey: anchor.fieldKey,
-                recordId: conflict.conflict.record_id,
-                viewSchemaId: contract.viewSchemaId,
-              });
-            }
-          }, 0);
         },
       ),
-    [contract.viewSchemaId, genericFocus.port, mutationRuntime, onRefresh],
+    [contract.viewSchemaId, mutationRuntime, onRefresh],
   );
   const columns: readonly GridColumn<WorkbookQueryRow>[] =
     visibleAnchorColumns.map((column) => {

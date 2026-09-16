@@ -904,6 +904,15 @@ For the base profile, the label mapping is:
 When the save-state label is `Conflict` because unresolved same-field local drafts exist, the status strip MUST render exactly one primary label, `Conflict`, and MAY render one user-facing same-surface secondary message that summarizes the affected conflict count. That ordinary visible status-strip summary MUST NOT use `record_id`, `field_key`, `conflict_token`, route names, or raw public error text as its primary copy. The client MAY retain those anchors for resolver routing and MAY expose them as technical metadata in an appropriate secondary detail surface.
 
 Ambient collaboration state MUST NOT change this label mapping.
+
+An admitted explicit workbook mutation awaiting authoritative settlement remains
+in flight for this presentation, including an uncertain transport outcome. An
+unsubmitted retained draft is not an admitted mutation or pending replay unit.
+An acknowledged mutation is saved even when its follow-up reads require recovery;
+those reads MUST NOT count as in-flight mutations. A definitive rejection outside
+FIFO replay MUST NOT alone produce `Conflict` unless it establishes an unresolved
+same-field conflict. Feature-specific review, uncertain replay, and refresh
+obligations remain discoverable separately from the three primary save labels.
 Profiles: base
 Verified by: AC-043, AC-231, AC-376
 
@@ -1206,7 +1215,15 @@ Verified by: AC-486
 **REQ-03-302**
 When FIFO replay halts on `client_txn_conflict`, the workbook MUST expose a same-surface, non-modal recovery panel with actions labeled exactly `Retry with a new request ID` and `Discard blocked edit`. The panel MUST be keyboard reachable, MUST NOT steal focus when it appears, MUST keep raw transaction identifiers, routes, tokens, payloads, and server internals out of visible and accessible copy, and MUST disable recovery actions while the chosen transition is being applied. The primary `Conflict` status MUST provide a keyboard-operable entry point to this panel whenever it is actionable. A terminal failure other than `client_txn_conflict` MAY expose `Discard blocked edit` but MUST NOT expose re-key retry.
 
-Retry MUST be an atomic queue transition available only for the current FIFO blocker, only while no replay unit is in flight, and only after a definitive `client_txn_conflict`. It MUST replace `client_txn_id` in the replay unit and request payload while preserving the stable local unit identity, mutation intent, metadata, signature, original enqueue order, and every later queued unit. Replay MUST then use the ordinary dispatch path, including materializing a patch's `base_row_version` from the latest committed row version known at dispatch. A resulting structured `same_field_conflict` MUST leave the pending queue and open the ordinary same-field resolver required by §3.3; re-key retry MUST NOT bypass authorization, CSRF, lifecycle, validation, optimistic-concurrency, or conflict handling.
+Coordinated recovery presentation MUST retain a visible same-surface blocking
+notice while this panel is detached. The primary status and compact recovery
+entry expose its actions through explicit activation. Arrival of a blocker MUST
+NOT open a panel, replace another active panel, or move focus. Detaching the
+panel is presentation only and MUST NOT discard the blocking unit or alter FIFO
+order. Queue overflow retains its required same-surface notice under the same
+presentation rule.
+
+Retry MUST be an atomic queue transition available only for the current FIFO blocker, only while no replay unit is in flight, and only after a definitive `client_txn_conflict`. It MUST replace `client_txn_id` in the replay unit and request payload while preserving the stable local unit identity, mutation intent, metadata, signature, original enqueue order, and every later queued unit. Replay MUST then use the ordinary dispatch path, including materializing a patch's `base_row_version` from the latest committed row version known at dispatch. A resulting structured `same_field_conflict` MUST leave the pending queue and continue into the ordinary same-field resolver required by §3.3 when the initiating recovery panel still owns the interaction. If the analyst has detached that panel or moved to newer work, the conflict MUST remain reachable through its urgent notice and explicit recovery entry without moving focus or replacing the newer presentation; re-key retry MUST NOT bypass authorization, CSRF, lifecycle, validation, optimistic-concurrency, or conflict handling.
 
 Discard MUST issue no server mutation. It MUST remove exactly the blocking replay unit, clear that halt, reconcile the visible row to the latest committed state plus any remaining later queued intents for that row, retain all later queued units in their original order, and resume FIFO replay. Discarding a blocked create MUST remove or reset its local draft. Repeated, stale, same-ID, unsupported-error, or in-flight recovery attempts MUST fail locally without changing queue state.
 Profiles: base

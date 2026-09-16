@@ -1,9 +1,12 @@
 import { indicatorLifecycleTestId } from "@cartulary/ui-contracts";
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
+import { useSyncExternalStore } from "react";
+import {
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
 import { IndicatorLifecycleOperationStatus } from "./IndicatorLifecycleOperationStatus";
 import type { IndicatorLifecycleOwnerPort } from "./indicatorLifecycleOperation";
-import { lifecycleStack } from "./indicatorLifecycleStyles";
 
 export function WorkbookIndicatorLifecycleRecovery({
   owner,
@@ -11,72 +14,46 @@ export function WorkbookIndicatorLifecycleRecovery({
   owner: IndicatorLifecycleOwnerPort;
 }) {
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement | null>(null),
-    heading = useRef<HTMLHeadingElement | null>(null);
-  const focus = useRef(false);
-  useLayoutEffect(() => {
-    if (open && focus.current) {
-      heading.current?.focus();
-      focus.current = false;
-    }
-  }, [open]);
-  const close = () => {
-    setOpen(false);
-    trigger.current?.focus();
-  };
-  if (!snapshot.authority || snapshot.entries.length === 0) return null;
+  const items: readonly WorkbookRecoveryItem[] = snapshot.authority
+    ? snapshot.entries.map((entry, order) => ({
+        id: entry.attempt.id,
+        label: "Indicator interval",
+        origin: entry.attempt.draft.label,
+        sheetRef: { kind: "view_schema", id: "cartulary.view.indicators.v1" },
+        refreshViews:
+          entry.receipt && entry.reconciliation !== "complete"
+            ? ["cartulary.view.indicators.v1"]
+            : [],
+        order,
+        summary: entry.receipt
+          ? entry.reconciliation === "complete"
+            ? "Completed"
+            : "Saved; refresh required"
+          : entry.phase === "uncertain"
+            ? "Outcome unconfirmed"
+            : entry.phase === "rejected"
+              ? "Review required"
+              : "In progress",
+        attention:
+          entry.receipt && entry.reconciliation === "complete"
+            ? "completed"
+            : entry.receipt ||
+                entry.phase === "uncertain" ||
+                entry.phase === "rejected"
+              ? "attention"
+              : "progress",
+      }))
+    : [];
+  const selected = useWorkbookRecoverySource("indicator-lifecycle", items);
   return (
-    <div style={{ position: "relative" }}>
-      <WorkbookInspectorActionButton
-        data-testid={indicatorLifecycleTestId("recovery-trigger")}
-        ref={trigger}
-        aria-expanded={open}
-        onClick={() => {
-          if (open) close();
-          else {
-            focus.current = true;
-            setOpen(true);
-          }
-        }}
+    <WorkbookRecoveryDetail source="indicator-lifecycle" item={selected}>
+      <section
+        data-testid={indicatorLifecycleTestId("recovery")}
+        aria-label="Indicator interval recovery"
       >
-        Indicator intervals ({snapshot.entries.length})
-      </WorkbookInspectorActionButton>
-      {open ? (
-        <section
-          data-testid={indicatorLifecycleTestId("recovery")}
-          aria-label="Indicator interval recovery"
-          style={{
-            ...lifecycleStack,
-            position: "absolute",
-            zIndex: 30,
-            insetInlineEnd: 0,
-            inlineSize: "min(38rem, 90vw)",
-            maxBlockSize: "75vh",
-            overflow: "auto",
-            padding: "var(--ct-spacing-md)",
-            background: "var(--ct-colors-surface-1)",
-            border: "var(--ct-border-hairline)",
-            boxShadow: "var(--ct-elevation-popover)",
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              close();
-            }
-          }}
-        >
-          <h3 ref={heading} tabIndex={-1}>
-            Indicator interval recovery
-          </h3>
-          <p>
-            Submitted intervals remain here when the Inspector closes. Closing a
-            panel does not cancel a server write.
-          </p>
-          <WorkbookInspectorActionButton onClick={close}>
-            Close interval recovery
-          </WorkbookInspectorActionButton>
-          {snapshot.entries.map((entry) => (
+        {snapshot.entries
+          .filter((entry) => entry.attempt.id === selected)
+          .map((entry) => (
             <article
               key={entry.attempt.id}
               aria-label={`Interval for ${entry.attempt.draft.label}`}
@@ -89,8 +66,7 @@ export function WorkbookIndicatorLifecycleRecovery({
               <IndicatorLifecycleOperationStatus owner={owner} entry={entry} />
             </article>
           ))}
-        </section>
-      ) : null}
-    </div>
+      </section>
+    </WorkbookRecoveryDetail>
   );
 }

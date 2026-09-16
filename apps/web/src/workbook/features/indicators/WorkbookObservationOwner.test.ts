@@ -33,7 +33,8 @@ it("Observation runtime retains uncertainty across shell recovery with save stat
   const a = owner.admit(observationCreateIntent, t.binding);
   if (!a) throw new Error("admission");
   await owner.execute(a);
-  expect(runtime.getSnapshot().primaryLabel).toBe("Conflict");
+  expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
+  expect(runtime.getSnapshot().unresolvedConflictCount).toBe(0);
   registry.sessionUnavailable();
   expect(owner.getSnapshot().entries).toEqual([]);
   expect(registry.acquire(scope, create)).toBe(runtime);

@@ -79,3 +79,8 @@ Task explicit patches contribute their guard dependencies and validation through
 draft store remains here; the neutral runtime does not own Task or Party forms.
 
 Task lifecycle owner selection uses WorkbookReferenceControl with the projected incident-member field contract. Task validation, dependencies and explicit Update remain in the Task owner. Decision receipts supply labels through their existing committed-record evidence, without another receipt inventory.
+
+`coordinationRecoveryItems.ts` projects one logical creation across its draft, captured attempt
+and acknowledged refresh. The recovery component subscribes to this owner and
+attaches its existing form through the shared boundary. Detachment releases the
+presentation token while retaining raw authoring and captured execution.

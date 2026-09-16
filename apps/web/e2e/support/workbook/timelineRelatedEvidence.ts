@@ -14,6 +14,7 @@ import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
 import { createViewRow } from "./query";
+import { openRecoveryItem, recoveryEntry } from "./recovery";
 import { openTimelineInspector } from "./rowMutations";
 
 export async function openTimelineEvidenceFixture(
@@ -83,10 +84,8 @@ export async function retainTimelineEvidencePartialResult(page: Page) {
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
     .click();
   release();
-  const summary = page
-    .locator("summary")
-    .filter({ hasText: /^Timeline Evidence creation/ });
-  await summary.click();
+  const summary = recoveryEntry(page);
+  await openRecoveryItem(page, /^Timeline Evidence creation ·/);
   const recovery = page.getByRole("region", {
     name: "Retained Timeline Evidence creation",
     exact: true,

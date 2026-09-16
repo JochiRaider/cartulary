@@ -45,6 +45,7 @@ export type IndicatorLinkAttempt = {
   readonly candidate: NetworkFlowIndicatorLinkCandidate;
   readonly selectionRevision: number;
   readonly draftRevision: number;
+  readonly workId: number;
   readonly sourceLimit: number;
   readonly request: NetworkFlowIndicatorLinkRequest;
   readonly body: string;
@@ -180,6 +181,7 @@ export function captureIndicatorLinkAttempt(input: {
   readonly candidate: NetworkFlowIndicatorLinkCandidate;
   readonly selectionRevision: number;
   readonly draftRevision: number;
+  readonly workId: number;
   readonly sourceLimit: number;
   readonly target: NetworkFlowIndicatorTarget;
   readonly confirmation: string;
@@ -197,6 +199,7 @@ export function captureIndicatorLinkAttempt(input: {
     candidate: structuredClone(input.candidate),
     selectionRevision: input.selectionRevision,
     draftRevision: input.draftRevision,
+    workId: input.workId,
     sourceLimit: input.sourceLimit,
     request,
     body: JSON.stringify(request),

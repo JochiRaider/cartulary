@@ -77,7 +77,6 @@ import { WorkbookRuntimeLifecycle } from "./WorkbookRuntimeLifecycle";
 import {
   type WorkbookSurfaceBatchApply,
   type WorkbookSurfaceBlockedEditDiscard,
-  type WorkbookSurfaceConflictFocusRestore,
   type WorkbookSurfaceRefresh,
   WorkbookSurfaceRegistry,
   type WorkbookSurfaceResolvedMutationApply,
@@ -100,7 +99,6 @@ import {
 import {
   browserWorkbookRuntimeDependencies,
   type WorkbookRuntimeDependencies,
-  type WorkbookSchedulerPort,
 } from "./workbookRuntimePorts";
 
 const entityViewSchemas: ReadonlySet<string> = new Set([
@@ -179,6 +177,10 @@ export class WorkbookMutationRuntime {
             unit.recordId === recordId,
         )
     );
+  }
+
+  surfaceRefreshDebts(): readonly string[] {
+    return this.gridDrafts.canRead() ? this.surfaces.refreshDebts() : [];
   }
 
   surfaceRefreshRequired(viewSchemaId: string): boolean {
@@ -298,7 +300,6 @@ export class WorkbookMutationRuntime {
   private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime;
   private readonly pendingMutationPort: WorkbookPendingMutationPort;
-  private readonly scheduler: WorkbookSchedulerPort;
   private readonly conflicts: WorkbookConflictStore;
   private readonly drivers: WorkbookMutationDriverRegistry;
   private readonly ledger: WorkbookClientTransactionLedger;
@@ -763,7 +764,6 @@ export class WorkbookMutationRuntime {
     this.pendingRuntime.model.setDispatchGuard((unit) =>
       this.batches.allowsPending(unit),
     );
-    this.scheduler = dependencies.scheduler;
     this.conflicts = createWorkbookConflictStore();
     this.drivers = createWorkbookMutationDriverRegistry();
     this.ledger = new WorkbookClientTransactionLedger();
@@ -775,7 +775,6 @@ export class WorkbookMutationRuntime {
       this.emit();
     });
     this.managedPatches = createWorkbookManagedPatchDriver({
-      beginMutationReport: () => this.beginExplicitMutation(),
       clock: dependencies.clock,
       conflicts: this.conflicts,
       drivers: this.drivers,
@@ -1242,50 +1241,31 @@ export class WorkbookMutationRuntime {
 
   private calculateSnapshot(): WorkbookMutationSnapshot {
     return projectWorkbookMutationStatus({
-      conflictPanelOpen: this.conflicts.panelOpen,
       conflicts: this.conflicts.entries(),
       explicitInFlightCount:
         this.explicitInFlightCount +
-        this.batches.pendingCount +
-        this.history.pendingCount +
-        this.entityMerge.pendingCount +
-        this.decisionSupersession.pendingCount +
-        this.indicatorLifecycle.pendingCount +
-        this.indicatorObservations.pendingCount +
-        this.indicatorCreate.pendingCount +
-        this.assessmentAuthoring.pendingCount +
-        this.noteCreate.pendingCount +
-        this.ordinaryCreate.pendingCount +
-        this.coordinationCreate.pendingCount +
-        this.contextualCreate.pendingCount +
-        this.timelineRelatedEvidence.pendingCount +
-        this.evidenceAttachments.pendingCount +
-        this.timelineFiles.pendingCount +
-        this.explicitPatches.pendingCount +
-        this.partyLinks.pendingCount +
-        (this.timelineActions?.pendingCount ?? 0) +
-        (this.timelineMentionOperations?.pendingCount ?? 0),
-      explicitRecoveryBlocked:
-        this.batches.blockedCount > 0 ||
-        this.history.blockedCount > 0 ||
-        this.entityMerge.blockedCount > 0 ||
-        this.decisionSupersession.blockedCount > 0 ||
-        this.indicatorLifecycle.blockedCount > 0 ||
-        this.indicatorObservations.blockedCount > 0 ||
-        this.indicatorCreate.blockedCount > 0 ||
-        this.assessmentAuthoring.blockedCount > 0 ||
-        this.noteCreate.blockedCount > 0 ||
-        this.coordinationCreate.blockedCount > 0 ||
-        this.contextualCreate.uncertainCount > 0 ||
-        this.timelineRelatedEvidence.blockedCount > 0 ||
-        this.evidenceAttachments.blockedCount > 0 ||
-        this.timelineFiles.blockedCount > 0 ||
-        this.explicitPatches.blockedCount > 0 ||
-        this.partyLinks.blockedCount > 0 ||
-        (this.timelineActions?.blockedCount ?? 0) > 0 ||
-        (this.timelineMentionOperations?.blockedCount ?? 0) > 0,
+        this.batches.unsettledMutationCount +
+        this.history.unsettledMutationCount +
+        this.entityMerge.unsettledMutationCount +
+        this.decisionSupersession.unsettledMutationCount +
+        this.indicatorLifecycle.unsettledMutationCount +
+        this.indicatorObservations.unsettledMutationCount +
+        this.indicatorCreate.unsettledMutationCount +
+        this.assessmentAuthoring.unsettledMutationCount +
+        this.noteCreate.unsettledMutationCount +
+        this.ordinaryCreate.unsettledMutationCount +
+        this.coordinationCreate.unsettledMutationCount +
+        this.contextualCreate.unsettledMutationCount +
+        this.timelineRelatedEvidence.unsettledMutationCount +
+        this.evidenceAttachments.unsettledMutationCount +
+        this.timelineFiles.unsettledMutationCount +
+        this.explicitPatches.unsettledMutationCount +
+        this.partyLinks.unsettledMutationCount +
+        (this.timelineActions?.unsettledMutationCount ?? 0) +
+        (this.timelineMentionOperations?.unsettledMutationCount ?? 0),
       queue: this.pendingRuntime.model.snapshot(),
       refreshes: Array.from(this.refreshStatusBySheet.values()),
+      refreshDebts: this.surfaceRefreshDebts(),
     });
   }
 
@@ -1394,7 +1374,6 @@ export class WorkbookMutationRuntime {
     viewSchemaId: string,
     refresh: WorkbookSurfaceRefresh,
     applyResolvedMutation?: WorkbookSurfaceResolvedMutationApply,
-    restoreConflictFocus?: WorkbookSurfaceConflictFocusRestore,
     discardBlockedEdit?: WorkbookSurfaceBlockedEditDiscard,
     applyBatch?: WorkbookSurfaceBatchApply,
   ): () => void {
@@ -1402,7 +1381,6 @@ export class WorkbookMutationRuntime {
       viewSchemaId,
       refresh,
       applyResolvedMutation,
-      restoreConflictFocus,
       discardBlockedEdit,
       applyBatch,
     );
@@ -1466,7 +1444,7 @@ export class WorkbookMutationRuntime {
       return {
         kind: "rejected_mutation",
         message:
-          "This record has a pending merge. Recover it in Merge actions before editing.",
+          "This record has a pending merge. Open Recovery to recover it before editing.",
       };
     if (
       request.viewSchemaId === decisionViewId &&
@@ -1475,7 +1453,7 @@ export class WorkbookMutationRuntime {
       return {
         kind: "rejected_mutation",
         message:
-          "This Decision has a pending supersession. Recover it in Decision actions before editing.",
+          "This Decision has a pending supersession. Open Recovery to recover it before editing.",
       };
     return this.managedPatches.enqueue(request);
   }
@@ -1527,24 +1505,6 @@ export class WorkbookMutationRuntime {
     this.pendingRuntime.model.clearSameFieldConflict(key);
     this.emit();
     this.requestDrain();
-  }
-
-  activateConflict(): void {
-    this.conflicts.activate();
-    this.emit();
-  }
-
-  dismissConflict(key: string, restoreFocus = true): void {
-    const conflict = this.conflicts.dismiss(key);
-    if (conflict === undefined) return;
-    this.emit();
-    if (conflict.batchOperationId || !restoreFocus) return;
-    const restore = this.surfaces.restoreConflictFocus(
-      conflict.origin.viewSchemaId,
-    );
-    if (restore !== null) {
-      this.scheduler.enqueueMicrotask(() => restore(conflict));
-    }
   }
 
   async retryBlockedEdit(): Promise<WorkbookEditRecoveryActionResult> {
@@ -1752,6 +1712,7 @@ export class WorkbookMutationRuntime {
           accepted ?? undefined,
         );
       }
+      finishMutation();
       const applyResolvedMutation = this.surfaces.applyResolvedMutation(
         entry.origin.viewSchemaId,
       );

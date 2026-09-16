@@ -27,6 +27,7 @@ import {
   selectRepeatedObservation,
 } from "./support/workbook/indicatorObservations";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 
 test("Indicator observations replay source capture and every transition after commit without duplicate history", async ({
   page,
@@ -99,9 +100,7 @@ test("Indicator observations replay source capture and every transition after co
       }),
     });
   });
-  await page
-    .getByTestId(indicatorObservationTestId("recovery-trigger"))
-    .click();
+  await openRecoveryItem(page, /^Indicator observation ·/);
   const recovery = page.getByTestId(indicatorObservationTestId("recovery"));
   await recovery
     .getByRole("button", { name: "Replay original observation request" })
@@ -125,9 +124,7 @@ test("Indicator observations replay source capture and every transition after co
   ).toBeVisible();
   expect(requests).toHaveLength(2);
   expect(await observationServiceSnapshot(page, fixture)).toEqual(before);
-  await recovery
-    .getByRole("button", { name: "Close observation recovery" })
-    .click();
+  await page.getByRole("button", { name: "Close recovery" }).click();
   editor = await openObservationEditor(page, source.record_id);
   const observationId = before.observations[0]?.observation_id;
   if (!observationId) throw new Error("observation missing");

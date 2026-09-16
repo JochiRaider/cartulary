@@ -1,6 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, expect, it, vi } from "vitest";
+import {
+  WorkbookRecoveryNavigation,
+  workbookRecoveryKey,
+} from "../../shared/workbookRecoveryNavigation";
+import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
@@ -18,12 +23,7 @@ it("keeps the original editor accessible while conflict recovery opens and close
   );
   const focus = {
     resolverActivation: null,
-    editRecoveryPanelRef: createRef<HTMLElement>(),
     focusSameFieldSummary: vi.fn(),
-    onFocusWithinChange: vi.fn(),
-    overflowNoticeRef: createRef<HTMLElement>(),
-    overflowOpen: true,
-    closeOverflow: vi.fn(),
     sameFieldSummaryRef: createRef<HTMLDivElement>(),
   };
   const props = {
@@ -39,11 +39,16 @@ it("keeps the original editor accessible while conflict recovery opens and close
     mutationRuntime: runtime,
     onActivateOrigin: vi.fn(),
   };
+  const navigation = new WorkbookRecoveryNavigation();
   const frame = () => (
-    <WorkbookActiveSurfaceFrame
-      {...props}
-      mutationSnapshot={projectWorkbookStatusForSurface(runtime.getSnapshot())}
-    />
+    <WorkbookRecoveryFixture navigation={navigation}>
+      <WorkbookActiveSurfaceFrame
+        {...props}
+        mutationSnapshot={projectWorkbookStatusForSurface(
+          runtime.getSnapshot(),
+        )}
+      />
+    </WorkbookRecoveryFixture>
   );
   const { rerender } = render(frame());
   const editor = screen.getByRole("textbox", { name: "Original editor" });
@@ -67,19 +72,27 @@ it("keeps the original editor accessible while conflict recovery opens and close
   });
   rerender(frame());
   expect(
-    screen.getByRole("complementary", { name: "Workbook conflict recovery" }),
+    screen.queryByRole("region", { name: "Workbook conflict recovery" }),
+  ).toBeNull();
+  act(() =>
+    navigation.activate(
+      workbookRecoveryKey("core", `conflict:${conflict.key}`),
+    ),
+  );
+  expect(
+    screen.getByRole("region", { name: "Workbook conflict recovery" }),
   ).toBeTruthy();
   expect(screen.getByRole("textbox", { name: "Original editor" })).toBe(editor);
   expect(editor.closest('[inert], [aria-hidden="true"]')).toBeNull();
-  expect(document.activeElement).toBe(editor);
+  expect(document.activeElement).not.toBe(document.body);
   expect(editor).toHaveProperty("value", "  Exact local draft  ");
   expect(focus.focusSameFieldSummary).not.toHaveBeenCalled();
-  runtime.dismissConflict(conflict.key);
+  act(() => navigation.close());
   rerender(frame());
   expect(
-    screen.queryByRole("complementary", { name: "Workbook conflict recovery" }),
+    screen.queryByRole("region", { name: "Workbook conflict recovery" }),
   ).toBeNull();
-  expect(document.activeElement).toBe(editor);
+  expect(document.activeElement).not.toBe(document.body);
   expect(runtime.getSnapshot().conflicts).toHaveLength(1);
   runtime.invalidate({ kind: "runtime_disposed" });
 });

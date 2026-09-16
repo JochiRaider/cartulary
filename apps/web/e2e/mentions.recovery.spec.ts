@@ -30,6 +30,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 test("Mention creation survives rejected resolution and sheet navigation without another creation", async ({
@@ -155,8 +156,8 @@ async function runRecovery(
       page.getByTestId(gridShellTestId(hostsViewSchemaId)),
     ).toContainText(rawText.trim());
   }
-  const trigger = page.getByText(/^Mention operations \(/);
-  await trigger.click();
+  const trigger = recoveryEntry(page);
+  await openRecoveryItem(page, /^Mention creation and resolution ·/);
   const recovery = page.getByRole("region", {
     name: "Retained mention operations",
   });
@@ -207,7 +208,7 @@ async function runRecovery(
     await expect(recovery).not.toBeVisible();
     await expect(trigger).toBeFocused();
   } else {
-    await trigger.click();
+    await openRecoveryItem(page, /^Mention creation and resolution ·/);
     await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
     await openTimelineInspector(page, source.record_id);
     await page.getByTestId(mentionItemTestId(String(mention.item_ref))).click();

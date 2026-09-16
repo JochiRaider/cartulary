@@ -6,6 +6,10 @@ Workbook and its source owners.
 
 ## Bounded workbook windows
 
+`GridHandle.cancelEdit` clears the matching editor without moving focus from an
+external recovery panel or another control. Keyboard cancellation inside the
+grid retains its normal cell focus.
+
 `GridHandle.detachEdit` separates editor presentation from the caller's retained
 draft. `getActiveCell` exposes the semantic anchor used by Workbook when explicitly
 browsing or leaving a sheet. Appending rows preserves captured selection;

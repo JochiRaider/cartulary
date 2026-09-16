@@ -6,6 +6,7 @@ import type {
   WorkbookBatchTransport,
   WorkbookBatchTransportOutcome,
 } from "./workbookBatchOperation";
+import { workbookBatchRecoveryItems } from "./workbookBatchRecoveryItems";
 
 function required<T>(value: T | null | undefined): T {
   if (value === undefined || value === null)
@@ -80,6 +81,28 @@ function setup() {
   return { owner, transport, coordination };
 }
 describe("Workbook batch operation ownership", () => {
+  it("projects one logical batch through uncertainty conflicts refresh and completion", async () => {
+    const { owner, transport } = setup();
+    vi.mocked(transport.send).mockResolvedValueOnce({ kind: "uncertain" });
+    const id = required(owner.admit(plan(), { delivery: {} }));
+    await settle();
+    expect(
+      workbookBatchRecoveryItems(owner.getSnapshot(), new Set()),
+    ).toMatchObject([{ id, attention: "attention" }]);
+    await owner.retry(id);
+    await settle();
+    expect(
+      workbookBatchRecoveryItems(owner.getSnapshot(), new Set([id])),
+    ).toMatchObject([{ id, attention: "attention" }]);
+    expect(
+      workbookBatchRecoveryItems(owner.getSnapshot(), new Set()),
+    ).toMatchObject([{ id, attention: "completed" }]);
+    owner.suspend();
+    expect(workbookBatchRecoveryItems(owner.getSnapshot(), new Set())).toEqual(
+      [],
+    );
+  });
+
   it("captures once, distinguishes delivery from repetition, and preserves original targets", async () => {
     const { owner, transport, coordination } = setup();
     vi.mocked(transport.send).mockResolvedValue({

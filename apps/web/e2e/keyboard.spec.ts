@@ -77,6 +77,7 @@ import {
   queryViewRows,
   waitForViewRow,
 } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 import {
   createSavedView,
@@ -2118,17 +2119,17 @@ async function verifyEntityPasteRecovery(
     }, `First name\t${key}\nFinal name\t${key}`);
     await lost;
     await page.getByRole("button", { name: "Timeline", exact: true }).click();
-    await page.getByRole("button", { name: /^Batch actions/ }).click();
+    await openRecoveryItem(page, /^(Paste|Fill|Tag assignment) ·/);
     const retry = page.getByRole("button", {
       name: "Retry paste",
       exact: true,
     });
     await retry.focus();
     await page.keyboard.press("Enter");
-    await expect(
-      page.getByRole("status", { name: "Batch action updates", exact: true }),
-    ).toHaveText("Batch accepted. Refresh is still needed.");
-    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await page
+      .getByRole("button", { name: "Close recovery", exact: true })
+      .click();
     await page
       .getByRole("button", {
         name: entityType === "host" ? "Hosts" : "Identities",
@@ -2136,9 +2137,7 @@ async function verifyEntityPasteRecovery(
       })
       .click();
     await expect(target).toHaveText("Final name");
-    await expect(
-      page.getByRole("status", { name: "Batch action updates", exact: true }),
-    ).toHaveText("Batch complete.");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     const rows = await queryViewRows(page, incidentId, viewSchemaId);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.record_id).toBe(existing.record_id);

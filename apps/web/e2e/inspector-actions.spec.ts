@@ -65,6 +65,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 import {
   clickTimelineRowAction,
   openTimelineInspector,
@@ -529,7 +530,10 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
         rowHistoryRollbackPreviewTestId(retainedRollbackAnchor),
       ),
     ).toHaveCount(0);
-    await memberPage.getByRole("button", { name: /^History actions/ }).click();
+    await openRecoveryItem(
+      memberPage,
+      /^(Soft-delete row|Restore[^·]*|Reverse[^·]*) ·/,
+    );
     const rejectedAction = memberPage.getByRole("region", {
       name: "History action recovery",
       exact: true,

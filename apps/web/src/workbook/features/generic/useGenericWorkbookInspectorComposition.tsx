@@ -40,7 +40,6 @@ import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorMode
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
-import type { WorkbookConflictEntry } from "../../runtime/workbookConflictModel";
 import { DecisionSupersessionContext } from "../coordination/DecisionSupersessionContext";
 import { DecisionSupersessionEditor } from "../coordination/DecisionSupersessionEditor";
 import {
@@ -152,8 +151,6 @@ export function useGenericWorkbookInspectorComposition({
     useState<WorkbookInspectorSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
-  const [conflictFocus, setConflictFocus] =
-    useState<WorkbookConflictEntry | null>(null);
   const [editFieldKey, setEditFieldKey] = useState(
     () => editableFields[0]?.fieldKey ?? "",
   );
@@ -228,20 +225,6 @@ export function useGenericWorkbookInspectorComposition({
   });
   const isOpen = workbookInspectorStateIsOpen(inspector.snapshot);
   const invalidationKey = `${contract.viewSchemaId}:${inspector.snapshot.invalidationGeneration}`;
-  useLayoutEffect(() => {
-    if (
-      !isOpen ||
-      !conflictFocus ||
-      subjectRow?.record_id !== conflictFocus.conflict.record_id
-    )
-      return;
-    const id = `${conflictFocus.compoundOperationId ? "task-lifecycle" : "generic-edit"}-${subjectRow.record_id}-${conflictFocus.conflict.field_key}`;
-    const control = document.getElementById(id);
-    if (control) {
-      control.focus({ preventScroll: true });
-      setConflictFocus(null);
-    }
-  }, [conflictFocus, isOpen, subjectRow]);
   const recordHistoryActions = useMemo(
     () => inspectorRecordHistoryActions(inspectorConfig),
     [inspectorConfig],
@@ -447,7 +430,7 @@ export function useGenericWorkbookInspectorComposition({
                           "target",
                         ) ??
                         (decisionOwner.blocksRecord(subjectRow.record_id)
-                          ? "This Decision has a pending supersession. Use Decision actions to recover it."
+                          ? "This Decision has a pending supersession. Open Recovery to recover it."
                           : null)),
                 content:
                   decisionOpenKey === invalidationKey &&
@@ -579,13 +562,6 @@ export function useGenericWorkbookInspectorComposition({
     />
   ) : undefined;
   return {
-    restoreConflictFocus: (conflict: WorkbookConflictEntry) => {
-      onSelectRecord(conflict.conflict.record_id);
-      if (!conflict.compoundOperationId)
-        setEditFieldKey(conflict.conflict.field_key);
-      setConflictFocus(conflict);
-      inspector.commands.open();
-    },
     close,
     invalidationKey,
     isOpen,

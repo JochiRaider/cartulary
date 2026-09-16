@@ -52,6 +52,13 @@ vi.mock(
   async () => import("@cartulary/grid-adapter/test-support"),
 );
 
+async function openConflictRecovery() {
+  await waitFor(() =>
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict"),
+  );
+  fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
+}
+
 describe("workbook collaboration coverage", () => {
   let fetchMock: TimelineWorkbookFetchMock;
 
@@ -316,13 +323,21 @@ describe("workbook collaboration coverage", () => {
     await changeInputValue(input, "Unsaved local value");
     fireEvent.blur(input);
 
+    await openConflictRecovery();
     const resolver = await screen.findByTestId(
       workbookConflictResolverTestId(),
     );
     expect(resolver).toBeTruthy();
-    expect(resolver.style.background).toBe("var(--ct-colors-surface-1)");
-    expect(resolver.style.border).toBe("var(--ct-border-strong)");
-    expect(resolver.style.boxShadow).toBe("var(--ct-elevation-popover)");
+    expect(
+      screen.getByRole("region", { name: "Workbook recovery" }).style
+        .background,
+    ).toBe("var(--ct-colors-surface-1)");
+    expect(
+      screen.getByRole("region", { name: "Workbook recovery" }).style.border,
+    ).toBe("var(--ct-border-hairline)");
+    expect(
+      screen.getByRole("region", { name: "Workbook recovery" }).style.boxShadow,
+    ).toBe("var(--ct-elevation-popover)");
     expect(
       Array.from(resolver.querySelectorAll<HTMLElement>("[style]"))
         .map((element) => element.getAttribute("style"))
@@ -361,7 +376,9 @@ describe("workbook collaboration coverage", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
-      expect(document.activeElement).toBe(input);
+      expect(document.activeElement).toBe(
+        screen.getByTestId(saveStateActionButtonTestId()),
+      );
       expect(input).toHaveProperty("value", "Unsaved local value");
     });
   });
@@ -423,6 +440,7 @@ describe("workbook collaboration coverage", () => {
     fireEvent.focus(input);
     await changeInputValue(input, "Local");
     fireEvent.blur(input);
+    await openConflictRecovery();
     await screen.findByTestId(workbookConflictResolverTestId());
     fireEvent.click(
       screen.getByTestId(workbookConflictControlTestId("keep-saved")),
@@ -505,6 +523,7 @@ describe("workbook collaboration coverage", () => {
     fireEvent.focus(input);
     await changeInputValue(input, "Use local");
     fireEvent.blur(input);
+    await openConflictRecovery();
     await screen.findByTestId(workbookConflictResolverTestId());
     fireEvent.click(
       screen.getByTestId(workbookConflictControlTestId("use-unsaved")),
@@ -588,6 +607,7 @@ describe("workbook collaboration coverage", () => {
     fireEvent.focus(input);
     await changeInputValue(input, "Merge local");
     fireEvent.blur(input);
+    await openConflictRecovery();
     await screen.findByTestId(workbookConflictResolverTestId());
     expect(
       screen.getByTestId(workbookConflictControlTestId("merged-value")),
@@ -868,6 +888,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
+    await openConflictRecovery();
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
@@ -1077,6 +1098,7 @@ describe("workbook collaboration coverage", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(haltInput, "Halt local"));
+    await openConflictRecovery();
     const recoveryPanel = await screen.findByTestId(
       workbookEditRecoveryTestId(),
     );
@@ -1172,6 +1194,7 @@ describe("workbook collaboration coverage", () => {
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Retry local"));
 
+    await openConflictRecovery();
     const recoveryPanel = await screen.findByTestId(
       workbookEditRecoveryTestId(),
     );
@@ -1192,7 +1215,10 @@ describe("workbook collaboration coverage", () => {
     expect(document.body.textContent).not.toMatch(
       /raw-transaction-id|raw-unit-id|\/api\/v1\/private|secret-token|unsafe:true|handler\.go/u,
     );
-    expect(recoveryPanel.style.background).toBe("var(--ct-colors-surface-1)");
+    expect(
+      screen.getByRole("region", { name: "Workbook recovery" }).style
+        .background,
+    ).toBe("var(--ct-colors-surface-1)");
     const recoveryStatus = screen.getByRole("status", {
       name: "Queued edit recovery message",
     });
@@ -1200,7 +1226,9 @@ describe("workbook collaboration coverage", () => {
     expect(recoveryStatus.getAttribute("aria-atomic")).toBe("true");
 
     fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
-    expect(document.activeElement).toBe(recoveryPanel);
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { name: "Queued edit recovery" }),
+    );
     expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
     expect(
       document.querySelector('[data-grid-data-state="stale_error"]'),
@@ -1276,6 +1304,7 @@ describe("workbook collaboration coverage", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Resolver local"));
+    await openConflictRecovery();
     const retry = await screen.findByTestId(
       workbookEditRecoveryRetryButtonTestId(),
     );
@@ -1288,7 +1317,7 @@ describe("workbook collaboration coverage", () => {
     fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
     await waitFor(() => {
       expect(document.activeElement).toBe(
-        screen.getByTestId(workbookConflictSummaryTestId()),
+        screen.getByRole("heading", { name: "Same-field conflict" }),
       );
     });
     expect(screen.queryByTestId(workbookEditRecoveryTestId())).toBeNull();
@@ -1336,6 +1365,7 @@ describe("workbook collaboration coverage", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Discard local"));
+    await openConflictRecovery();
     fireEvent.click(
       await screen.findByTestId(workbookEditRecoveryDiscardButtonTestId()),
     );

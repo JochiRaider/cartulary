@@ -918,7 +918,9 @@ export function deriveWorkbookSaveState(
       primaryLabel: "Syncing",
       secondaryKind: "auth_paused",
       secondaryMessage:
-        "Authentication is required before queued edits can replay.",
+        input.queuedCount + input.inFlightCount > 0
+          ? "Authentication is required before queued edits can replay."
+          : "Authentication is required before pending work can continue.",
       conflictAnchors,
     };
   }
@@ -927,7 +929,10 @@ export function deriveWorkbookSaveState(
     return {
       primaryLabel: "Syncing",
       secondaryKind: "queued",
-      secondaryMessage: "Queued edits are waiting for workbook refresh.",
+      secondaryMessage:
+        input.queuedCount + input.inFlightCount > 0
+          ? "Queued edits are waiting for workbook refresh."
+          : "Pending work is waiting for workbook refresh.",
       conflictAnchors,
     };
   }

@@ -1,4 +1,14 @@
-import { useRef, useSyncExternalStore } from "react";
+import {
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
+import { useSyncExternalStore } from "react";
+import {
+  useWorkbookRecoverySource,
+  WorkbookRecoveryDetail,
+} from "../../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   MentionCreationRefreshFeedback,
@@ -10,39 +20,99 @@ export function TimelineMentionRecovery({
 }: {
   readonly owner: WorkbookTimelineMentionOperationOwner;
 }) {
-  const disclosure = useRef<HTMLDetailsElement>(null);
-  const trigger = useRef<HTMLElement>(null);
-  const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
-  const total = snapshot.entries.length + snapshot.creations.length;
-  if (!snapshot.authority || !total) return null;
+  const current = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const items: WorkbookRecoveryItem[] = [];
+  if (current.authority) {
+    for (const entry of current.creations) {
+      const link = current.entries.find(
+        (operation) => operation.key === entry.linkKey,
+      );
+      const completed =
+        entry.receipt &&
+        entry.refresh === "complete" &&
+        link?.receipt &&
+        link.refresh === "complete";
+      const progress =
+        entry.phase === "preparing" ||
+        entry.phase === "submitting" ||
+        link?.phase === "preparing" ||
+        link?.phase === "submitting";
+      items.push({
+        id: `create:${entry.key}`,
+        refreshViews: [
+          ...(entry.receipt && entry.refresh !== "complete"
+            ? [
+                entry.attempt.review.subject.entityType === "host"
+                  ? hostsViewSchemaId
+                  : identitiesViewSchemaId,
+              ]
+            : []),
+          ...(link?.receipt && link.refresh !== "complete"
+            ? [timelineViewSchemaId]
+            : []),
+        ],
+        label: "Mention creation and resolution",
+        origin: entry.attempt.review.subject.rawText,
+        sheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+        order: entry.key,
+        summary: completed
+          ? "Created and resolved"
+          : progress
+            ? "Creating or resolving"
+            : "Review creation, resolution or refresh",
+        attention: completed
+          ? "completed"
+          : progress
+            ? "progress"
+            : "attention",
+      });
+    }
+    for (const entry of current.entries) {
+      if (current.creations.some((creation) => creation.linkKey === entry.key))
+        continue;
+      items.push({
+        id: `resolve:${entry.key}`,
+        refreshViews:
+          entry.receipt && entry.refresh !== "complete"
+            ? [timelineViewSchemaId]
+            : [],
+        label: "Mention resolution",
+        origin: entry.attempt.review.subject.rawText,
+        sheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+        order: entry.key,
+        summary: entry.receipt
+          ? entry.refresh === "complete"
+            ? "Completed"
+            : "Saved; refresh required"
+          : "Resolution pending or needs review",
+        attention:
+          entry.receipt && entry.refresh === "complete"
+            ? "completed"
+            : entry.phase === "preparing" || entry.phase === "submitting"
+              ? "progress"
+              : "attention",
+      });
+    }
+  }
+  const selected = useWorkbookRecoverySource("mention", items);
+  const snapshot = {
+    ...current,
+    creations: current.creations.filter(
+      (entry) => `create:${entry.key}` === selected,
+    ),
+    entries: current.entries.filter(
+      (entry) =>
+        `resolve:${entry.key}` === selected ||
+        current.creations.some(
+          (creation) =>
+            `create:${creation.key}` === selected &&
+            creation.linkKey === entry.key,
+        ),
+    ),
+  };
   return (
-    <details ref={disclosure} style={{ position: "relative", minWidth: 0 }}>
-      <summary ref={trigger}>Mention operations ({total})</summary>
-      <section
-        aria-label="Retained mention operations"
-        tabIndex={-1}
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && disclosure.current) {
-            event.preventDefault();
-            event.stopPropagation();
-            disclosure.current.open = false;
-            trigger.current?.focus({ preventScroll: true });
-          }
-        }}
-        style={{
-          position: "fixed",
-          zIndex: 20,
-          insetInlineEnd: "1rem",
-          boxSizing: "border-box",
-          background: "var(--ct-colors-surface-1)",
-          border: "var(--ct-border-hairline)",
-          padding: "var(--ct-spacing-md)",
-          width: "min(28rem, calc(100vw - 2rem))",
-          maxHeight: "65vh",
-          overflow: "auto",
-          overflowWrap: "anywhere",
-        }}
-      >
+    <WorkbookRecoveryDetail source="mention" item={selected}>
+      <section aria-label="Retained mention operations">
         {snapshot.creations.map((entry) => (
           <section key={`create:${entry.key}`}>
             <p>
@@ -85,6 +155,6 @@ export function TimelineMentionRecovery({
           </section>
         ))}
       </section>
-    </details>
+    </WorkbookRecoveryDetail>
   );
 }

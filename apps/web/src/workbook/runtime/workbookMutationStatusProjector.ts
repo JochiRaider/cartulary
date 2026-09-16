@@ -27,7 +27,6 @@ export type WorkbookMutationSnapshot = {
     readonly message: string;
     readonly unitId: string;
   } | null;
-  readonly conflictPanelOpen: boolean;
   readonly conflicts: readonly WorkbookConflictEntry[];
   readonly explicitInFlightCount: number;
   readonly queuedCount: number;
@@ -50,21 +49,19 @@ export type WorkbookRefreshStatusFact = {
 };
 
 type WorkbookMutationStatusInput = {
-  readonly explicitRecoveryBlocked?: boolean;
-  readonly conflictPanelOpen: boolean;
   readonly conflicts: readonly WorkbookConflictEntry[];
   readonly explicitInFlightCount: number;
   readonly queue: PendingQueueSnapshot;
   readonly refreshes?: readonly WorkbookRefreshStatusFact[];
+  readonly refreshDebts?: readonly string[];
 };
 
 export function projectWorkbookMutationStatus({
-  conflictPanelOpen,
-  explicitRecoveryBlocked = false,
   conflicts,
   explicitInFlightCount,
   queue,
   refreshes = [],
+  refreshDebts = [],
 }: WorkbookMutationStatusInput): WorkbookMutationSnapshot {
   // The conflict store replaces an entry by its existing record/field key.
   // Prefer that current entry over a queue report of an older token/version.
@@ -160,8 +157,19 @@ export function projectWorkbookMutationStatus({
       kind: "authentication_required",
       scope: { kind: "workbook" },
       count: pendingCount,
-      message: "Authentication is required before queued edits can replay.",
+      message:
+        queue.queuedCount + queue.inFlightCount > 0
+          ? "Authentication is required before queued edits can replay."
+          : "Authentication is required before pending work can continue.",
       action: { kind: "session_recovery" },
+    });
+  for (const view of refreshDebts)
+    candidates.push({
+      kind: "refresh_paused",
+      scope: { kind: "surface", sheetRef: { kind: "view_schema", id: view } },
+      count: 1,
+      message: "Saved changes; view refresh pending.",
+      action: { kind: "surface_refresh", viewSchemaId: view },
     });
   if (pendingCount > 0) {
     for (const refresh of refreshes) {
@@ -170,8 +178,11 @@ export function projectWorkbookMutationStatus({
         kind: "refresh_paused",
         scope: { kind: "surface", sheetRef: refresh.sheetRef },
         count: refresh.count,
-        message: "Queued edits are waiting for workbook refresh.",
-        action: null,
+        message:
+          queue.queuedCount + queue.inFlightCount > 0
+            ? "Queued edits are waiting for workbook refresh."
+            : "Pending work is waiting for workbook refresh.",
+        action: { kind: "recovery_list" },
       });
     }
     candidates.push({
@@ -188,12 +199,11 @@ export function projectWorkbookMutationStatus({
   return {
     authPaused: queue.authPaused,
     blockedEdit,
-    conflictPanelOpen,
     conflicts,
     explicitInFlightCount,
     queuedCount: queue.queuedCount,
-    inFlightCount: queue.inFlightCount + explicitInFlightCount,
-    primaryLabel: explicitRecoveryBlocked ? "Conflict" : derived.primaryLabel,
+    inFlightCount: queue.inFlightCount,
+    primaryLabel: derived.primaryLabel,
     unresolvedConflictCount: derived.conflictAnchors.length,
     overflowMessage,
     secondaryCandidates: candidates,
@@ -215,15 +225,12 @@ export function projectWorkbookStatusForSurface(
       sheetRef !== undefined &&
       sheetRefsEqual(candidate.scope.sheetRef, sheetRef),
   );
-  const firstConflict = snapshot.conflicts[0];
   return {
     ...snapshot,
     affectedConflictCount: affected?.count ?? 0,
     secondary,
     action:
       secondary?.action ??
-      (snapshot.primaryLabel === "Conflict" && firstConflict !== undefined
-        ? { kind: "same_field_resolver", conflictKey: firstConflict.key }
-        : null),
+      (snapshot.primaryLabel === "Conflict" ? { kind: "recovery_list" } : null),
   };
 }

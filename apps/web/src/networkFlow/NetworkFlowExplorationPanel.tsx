@@ -4,7 +4,15 @@ import {
   networkAnalysisVertexTestId,
 } from "@cartulary/ui-contracts";
 import { Link2, Network, RefreshCw, X } from "lucide-react";
-import { type CSSProperties, useLayoutEffect, useMemo, useRef } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useWorkbookSecondaryPanel } from "../shared/WorkbookRecoveryBoundary";
 import {
   NetworkFlowButton,
   NetworkFlowIconButton,
@@ -48,7 +56,7 @@ export function NetworkFlowExplorationPanel({
   status,
   tables,
   canLink,
-  onNavigate,
+  onNavigate: navigate,
   onRefreshGraph,
   onLinkEdge,
   onLinkVertex,
@@ -73,6 +81,14 @@ export function NetworkFlowExplorationPanel({
   readonly isFocusCurrent: (focus: ExplorationFocus) => boolean;
   readonly bindFocusRestoration: (restore: () => boolean) => () => void;
 }) {
+  const [drawerAttached, setDrawerAttached] = useState(true);
+  const onNavigate = useCallback(
+    (action: ExplorationAction) => {
+      if (action.type === "select") setDrawerAttached(true);
+      navigate(action);
+    },
+    [navigate],
+  );
   const graph = navigation.result;
   const presentation = explorationPresentation(navigation);
   const {
@@ -95,6 +111,7 @@ export function NetworkFlowExplorationPanel({
           ?.object ?? null)
       : null;
   const selectedObject = selectedVertex ?? selectedEdge;
+  const drawerOpen = !!selectedObject && drawerAttached;
   const {
     vertexPage,
     edgePage,
@@ -147,9 +164,16 @@ export function NetworkFlowExplorationPanel({
       }),
     [bindFocusRestoration],
   );
+  const coordinated = useWorkbookSecondaryPanel(drawerOpen, () =>
+    setDrawerAttached(false),
+  );
   useLayoutEffect(() => {
     const intent = navigation.focus;
     if (intent === null || !isFocusCurrent(intent)) return;
+    if (coordinated.current) {
+      onNavigate({ type: "interact" });
+      return;
+    }
     const container = root.current;
     if (!container?.isConnected) return;
     const target =
@@ -165,7 +189,7 @@ export function NetworkFlowExplorationPanel({
       container;
     onNavigate({ type: "interact" });
     target.focus();
-  }, [navigation.focus, isFocusCurrent, onNavigate]);
+  }, [navigation.focus, isFocusCurrent, onNavigate, coordinated]);
   useLayoutEffect(() => {
     // A removed control has no mounted semantic realization. Only restore the
     // region if focus belonged here and no newer control received it.
@@ -199,7 +223,7 @@ export function NetworkFlowExplorationPanel({
       data-testid={networkAnalysisTestId("graph-panel")}
       style={{
         ...graphLayoutStyle,
-        gridTemplateColumns: selectedObject
+        gridTemplateColumns: drawerOpen
           ? "minmax(0, 1fr) min(45%, var(--ct-layout-inspectorDefaultWidth))"
           : "minmax(0, 1fr)",
       }}
@@ -428,7 +452,7 @@ export function NetworkFlowExplorationPanel({
           </table>
         </div>
       </div>
-      {selectedObject ? (
+      {drawerOpen ? (
         <aside
           aria-label="Graph contributors"
           data-testid={networkAnalysisTestId("contributor-drawer")}

@@ -15,7 +15,9 @@ export type WorkbookStatusAction =
     }
   | { readonly kind: "overflow" }
   | { readonly kind: "same_field_resolver"; readonly conflictKey: string }
-  | { readonly kind: "session_recovery" };
+  | { readonly kind: "session_recovery" }
+  | { readonly kind: "recovery_list" }
+  | { readonly kind: "surface_refresh"; readonly viewSchemaId: string };
 
 export type WorkbookStatusSecondaryCandidate = {
   readonly kind: CartularyStatusSecondaryKind;

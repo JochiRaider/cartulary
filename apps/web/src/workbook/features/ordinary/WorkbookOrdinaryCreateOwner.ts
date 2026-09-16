@@ -289,6 +289,19 @@ export class WorkbookOrdinaryCreateOwner {
       )
     );
   }
+  /** Admitted writes awaiting settlement; excludes acknowledged refresh reads. */
+  get unsettledMutationCount() {
+    return (
+      this.admission.size +
+      [...this.entries.values()].filter(
+        (entry) =>
+          !entry.receipt &&
+          (entry.phase === "preparing" ||
+            entry.phase === "submitting" ||
+            entry.phase === "uncertain"),
+      ).length
+    );
+  }
   get pendingCount() {
     return (
       this.admission.size +

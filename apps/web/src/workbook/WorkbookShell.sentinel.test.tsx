@@ -1103,6 +1103,14 @@ describe("keyboard and grid anchor coverage", () => {
       "20000000-0000-4000-8000-000000000002",
       "20000000-0000-4000-8000-000000000003",
     ]);
+    await waitFor(() =>
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open conflict recovery" }),
+    );
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
@@ -1309,7 +1317,11 @@ describe("keyboard and grid anchor coverage", () => {
         },
       ],
     });
-    await screen.findByText("Batch complete.");
+    fireEvent.click(screen.getByRole("button", { name: /^Recovery \(\d+\)$/ }));
+    await screen.findByText("Completed", { selector: "summary" });
+    fireEvent.click(screen.getByText("Completed", { selector: "summary" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Tag assignment ·/ }));
+    await screen.findByText("Accepted work is saved.");
     expect(screen.getByText("2 selected")).toBeTruthy();
   });
 

@@ -7,9 +7,6 @@ export type WorkbookSurfaceResolvedMutationApply = (
   mutation: WorkbookResolvedMutation,
   conflict: WorkbookConflictEntry,
 ) => Promise<void> | void;
-export type WorkbookSurfaceConflictFocusRestore = (
-  conflict: WorkbookConflictEntry,
-) => void;
 export type WorkbookSurfaceBlockedEditDiscard = (
   unitId: string,
 ) => Promise<boolean> | boolean;
@@ -23,7 +20,6 @@ type WorkbookSurfaceRegistration = {
   readonly applyResolvedMutation: WorkbookSurfaceResolvedMutationApply | null;
   readonly discardBlockedEdit: WorkbookSurfaceBlockedEditDiscard | null;
   readonly refresh: WorkbookSurfaceRefresh;
-  readonly restoreConflictFocus: WorkbookSurfaceConflictFocusRestore | null;
 };
 
 /** Owns mounted surface callbacks and retained refresh debt. */
@@ -43,7 +39,6 @@ export class WorkbookSurfaceRegistry {
     viewSchemaId: string,
     refresh: WorkbookSurfaceRefresh,
     applyResolvedMutation?: WorkbookSurfaceResolvedMutationApply,
-    restoreConflictFocus?: WorkbookSurfaceConflictFocusRestore,
     discardBlockedEdit?: WorkbookSurfaceBlockedEditDiscard,
     applyBatch?: WorkbookSurfaceBatchApply,
   ): () => void {
@@ -52,7 +47,6 @@ export class WorkbookSurfaceRegistry {
       applyResolvedMutation: applyResolvedMutation ?? null,
       discardBlockedEdit: discardBlockedEdit ?? null,
       refresh,
-      restoreConflictFocus: restoreConflictFocus ?? null,
     };
     this.#registrations.set(viewSchemaId, registration);
     if (this.#dirtySurfaces.has(viewSchemaId)) {
@@ -75,8 +69,8 @@ export class WorkbookSurfaceRegistry {
     return this.#registrations.get(viewSchemaId)?.discardBlockedEdit ?? null;
   }
 
-  restoreConflictFocus(viewSchemaId: string) {
-    return this.#registrations.get(viewSchemaId)?.restoreConflictFocus ?? null;
+  refreshDebts(): readonly string[] {
+    return [...new Set([...this.#dirtySurfaces, ...this.#refreshing.keys()])];
   }
 
   requiresRefresh(viewSchemaId: string): boolean {

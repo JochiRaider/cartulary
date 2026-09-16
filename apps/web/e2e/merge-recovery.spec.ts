@@ -11,6 +11,7 @@ import {
   gridShellTestId,
   rowHistoryActionTestId,
   rowHistoryRollbackConfirmButtonTestId,
+  saveStateTestId,
   workbookInspectorCloseButtonTestId,
   workbookShellReadyTestId,
   workbookSurfacesMenuOptionTestId,
@@ -41,6 +42,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 
 test("recovers host merge loss before dispatch with exact replay and existing history rollback", async ({
   page,
@@ -179,14 +181,9 @@ async function exerciseRecovery(
     page.getByTestId(entityMergeControlTestId("cancel")),
   ).toBeFocused();
   await page.getByTestId(entityMergeControlTestId("confirm")).click();
-  const recoveryTrigger = page.getByRole("button", {
-    name: "Merge actions (1)",
-    exact: true,
-  });
+  const recoveryTrigger = recoveryEntry(page);
   await expect(recoveryTrigger).toBeVisible();
-  await expect(
-    page.getByText("1 merge outcome unknown.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
   expect(requests).toHaveLength(1);
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(viewSchemaId))
@@ -251,16 +248,13 @@ async function exerciseRecovery(
     });
   });
   await recoveryTrigger.focus();
-  await page.keyboard.press("Enter");
+  await openRecoveryItem(page, /^Entity merge ·/);
   const recovery = page.getByRole("region", {
     name: "Merge action recovery",
     exact: true,
   });
   await expect(
-    page.getByRole("region", {
-      name: "Merge action recovery summary",
-      exact: true,
-    }),
+    page.getByRole("heading", { name: "Entity merge", exact: true }),
   ).toBeFocused();
   await recovery
     .getByRole("button", { name: "Replay exact merge request" })
