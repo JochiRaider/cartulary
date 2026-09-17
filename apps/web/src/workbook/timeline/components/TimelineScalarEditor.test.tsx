@@ -61,6 +61,17 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
     false,
   );
 
+  const findInput = document.createElement("input");
+  findInput.dataset.gridEditorExternalAction = "true";
+  document.body.append(findInput);
+  onBlurCommit.mockClear();
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: "Unfinished exact draft" } });
+  fireEvent.blur(input, { relatedTarget: findInput });
+  expect(onBlurCommit).not.toHaveBeenCalled();
+  expect(input.value).toBe("Unfinished exact draft");
+  findInput.remove();
+  fireEvent.change(input, { target: { value: "Draft" } });
   fireEvent.focus(input);
   input.setSelectionRange(0, input.value.length);
   const pasteEvent = new Event("paste", {

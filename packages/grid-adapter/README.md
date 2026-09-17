@@ -97,3 +97,17 @@ the exact draft; superseding gestures abandon only destinations, never write
 settlement. The old mouse-down/window mouse-up timer, vendor click activation and
 unconditional vendor range collapse have been retired. Native editors, embedded
 actions, column sizing/reordering and fill handles keep their separate ownership.
+
+## Semantic Find seam
+
+`GridHandle.presentation` publishes ordered visible semantic field keys and
+presented row identities, including virtualized membership and excluding collapsed
+records. It contains no cell values. `navigateToCell` departs through the active
+scalar editor's deduplicated commit gate, then invokes the existing cancellable
+reveal/focus owner. `requestFocus` remains a restoration command and forwards its
+AbortSignal without adding an editor commit. New interactions cancel pending
+destinations, never authoritative settlement. `ownsNavigationFocus` keeps callers
+out of vendor DOM details when deciding focus-scoped application shortcuts.
+
+Sources provide the optional `findMatch` semantic state. Its accessible marker
+and current-match indication coexist with primary state, focus and selection.

@@ -453,3 +453,15 @@
     forced-color-adjust: auto;
   }
 }
+
+/* Find is orthogonal to the primary state and its marker/focus/range outline. */
+.cartulary-grid-state-marker-find-match {
+  inset-inline-end: 1.2rem;
+  border-style: dashed;
+  color: var(--ct-colors-ink);
+}
+
+.cartulary-grid-cell-is-find-current .cartulary-grid-state-marker-find-match {
+  border-style: solid;
+  font-weight: 800;
+}

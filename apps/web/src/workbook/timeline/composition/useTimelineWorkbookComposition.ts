@@ -1,5 +1,6 @@
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
+import { useTimelineFind } from "../hooks/useTimelineFind";
 import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
 import { useTimelineSourceWriteCoordination } from "../hooks/useTimelineSourceWriteCoordination";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
@@ -311,7 +312,20 @@ export function useTimelineWorkbookComposition({
     drafts: foundation.refs.editorDraftRegistry,
     waitForIdle: mutation.ports.waitForCommittedRecordIdle,
   });
+  const find = useTimelineFind({
+    runtime,
+    browser: mutation.commands.query.browser,
+    rows: foundation.snapshot.rows,
+    registry: foundation.refs.editorDraftRegistry,
+    accessLost: foundation.snapshot.lifecycle.loadAccessLost,
+    stale: foundation.snapshot.lifecycle.refreshError !== null,
+    interruptViewportContinuity:
+      grid.commands.viewportContinuity.interruptViewportContinuity,
+    queueScalarSave: mutation.commands.mutation.queueScalarSave,
+    queueCollectionSave: mutation.commands.mutation.queueCollectionSave,
+  });
   const presentation = {
+    find,
     observationSource,
     captureActions,
     fileOwner: runtime.mutationRuntime.timelineFiles,

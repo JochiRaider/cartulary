@@ -8,12 +8,14 @@ export type WorkbookApplicationShortcutEvent = {
 
 export type WorkbookApplicationShortcutContext = {
   readonly capabilities: {
+    readonly find?: boolean;
     readonly closeInspector: boolean;
     readonly history: boolean;
     readonly linkedEvidence: boolean;
     readonly quickLink: boolean;
   };
   readonly focusOwner:
+    | "find"
     | "editor"
     | "grid_navigation"
     | "inspector"
@@ -30,6 +32,7 @@ type ConsumedApplicationShortcut = {
 };
 
 export type WorkbookApplicationShortcutDecision =
+  | ({ readonly kind: "open_find" } & ConsumedApplicationShortcut)
   | ({ readonly kind: "quick_link" } & ConsumedApplicationShortcut)
   | ({
       readonly destination: "list_or_empty" | "sole_previewable_item";
@@ -54,6 +57,16 @@ export function decideWorkbookApplicationShortcut(
   context: WorkbookApplicationShortcutContext,
 ): WorkbookApplicationShortcutDecision {
   const hasCommandModifier = event.ctrlKey === true || event.metaKey === true;
+  if (
+    hasCommandModifier &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === "f" &&
+    context.capabilities.find &&
+    (context.focusOwner === "grid_navigation" || context.focusOwner === "find")
+  ) {
+    return { kind: "open_find", preventDefault: true, stopPropagation: true };
+  }
   const hasCommittedGridSelection =
     context.focusOwner === "grid_navigation" &&
     context.rowKind === "committed" &&

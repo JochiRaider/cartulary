@@ -12,7 +12,13 @@ export type GridSemanticPrimaryState =
 export type GridSemanticMarker = {
   readonly accessibleLabel: string;
   readonly glyph: string;
-  readonly kind: "conflicted" | "invalid" | "pending" | "read-only" | "stale";
+  readonly kind:
+    | "conflicted"
+    | "invalid"
+    | "pending"
+    | "read-only"
+    | "stale"
+    | "find-match";
 };
 
 export type GridResolvedSemanticState = {
@@ -27,6 +33,7 @@ export function mergeGridSemanticState(
   adapter: GridSemanticStateInput,
 ): GridSemanticStateInput {
   return {
+    findMatch: owner?.findMatch ?? adapter.findMatch,
     active: owner?.active === true || adapter.active === true,
     bulkSelected: owner?.bulkSelected === true || adapter.bulkSelected === true,
     conflicted: owner?.conflicted === true || adapter.conflicted === true,
@@ -55,6 +62,12 @@ export function resolveGridSemanticState(
   if (input.stale) {
     const accessibleLabel = `Stale ${label}; refresh required`;
     markers.push({ accessibleLabel, glyph: "↻", kind: "stale" });
+    descriptions.push(accessibleLabel);
+  }
+  if (input.findMatch) {
+    const accessibleLabel =
+      input.findMatch === "current" ? "Current Find match" : "Find match";
+    markers.push({ accessibleLabel, glyph: "⌕", kind: "find-match" });
     descriptions.push(accessibleLabel);
   }
   if (input.inspectorActive)
@@ -128,6 +141,7 @@ function resolveStateIds(
     stateIds.push("read-only");
   }
   if (input.stale) stateIds.push("stale");
+  if (input.findMatch) stateIds.push(`find-${input.findMatch}`);
   return stateIds;
 }
 

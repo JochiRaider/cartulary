@@ -51,6 +51,7 @@ export function createTimelineEditorDraftRegistry(
   const { draftValues, focusKeysByRow } = store;
   const acceptedDraftRows = new Map<string, string>();
   const captureRows = new Set<string>();
+  const inputIdentities = new Map<string, TimelineInputIdentity>();
   const inputElements = new Map<string, TimelineEditorElement>();
   const rowListeners = new Map<string, Set<() => void>>();
   const publishRow = (rowKey: string) => {
@@ -76,6 +77,7 @@ export function createTimelineEditorDraftRegistry(
     for (const focusKey of focusKeysByRow.get(rowKey) ?? []) {
       store.remove(focusKey);
       inputElements.delete(focusKey);
+      inputIdentities.delete(focusKey);
     }
     focusKeysByRow.delete(rowKey);
     publishRow(rowKey);
@@ -84,6 +86,15 @@ export function createTimelineEditorDraftRegistry(
   const draftValueForFocusKey = (focusKey: string) => draftValues.get(focusKey);
 
   return {
+    activeInput(target: EventTarget | null = document.activeElement) {
+      for (const [focusKey, element] of inputElements) {
+        if (element === target) {
+          const identity = inputIdentities.get(focusKey);
+          if (identity) return { ...identity, focusKey };
+        }
+      }
+      return null;
+    },
     subscribe: store.subscribe,
     getSnapshot: store.getSnapshot,
     retainedGridDrafts() {
@@ -189,6 +200,7 @@ export function createTimelineEditorDraftRegistry(
       acceptedDraftRows.clear();
       captureRows.clear();
       inputElements.clear();
+      inputIdentities.clear();
       for (const rowKey of rowListeners.keys()) publishRow(rowKey);
     },
     clearRow,
@@ -302,6 +314,7 @@ export function createTimelineEditorDraftRegistry(
       );
     },
     draftValueForFocusKey,
+    revisionForFocusKey: (focusKey: string) => store.revision(focusKey),
     captureRow(rowKey: string, surface: TimelineScalarEditorSurface) {
       return new Map(
         [
@@ -428,11 +441,13 @@ export function createTimelineEditorDraftRegistry(
       );
       if (element === null) {
         inputElements.delete(focusKey);
+        inputIdentities.delete(focusKey);
         forgetFocusKeyIfUnused(identity.rowKey, focusKey);
         return;
       }
       rememberFocusKey(identity.rowKey, focusKey);
       inputElements.set(focusKey, element);
+      inputIdentities.set(focusKey, identity);
     },
     retainRows(rowKeys: ReadonlySet<string>) {
       for (const rowKey of focusKeysByRow.keys()) {

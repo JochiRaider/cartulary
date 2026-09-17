@@ -73,6 +73,12 @@ describe("design presentation projection", () => {
   });
 
   it("projects interaction state independently with one composition rule", () => {
+    expect(cartularyDesignPresentation.workbookFind).toMatchObject({
+      scopeLabel: "Find in loaded rows",
+      zeroMatchesMessage: "No matches in loaded rows.",
+      live: "polite",
+      successfulNavigation: "collapse",
+    });
     expect(
       cartularyDesignPresentation.gridInteractionModePresentations.map(
         (presentation) => presentation.mode,

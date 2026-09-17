@@ -70,6 +70,7 @@ export function useTimelineViewportContinuityController({
     useRef<TimelineViewportContinuityRequest | null>(viewportContinuityRequest);
   const userInteractionVersionRef = useRef(0);
   const scrollRestoreSequenceRef = useRef(0);
+  const activeRestoration = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const recordUserInteraction = () => {
@@ -354,6 +355,15 @@ export function useTimelineViewportContinuityController({
     [setViewportContinuityRequest],
   );
 
+  // An admitted semantic destination supersedes deferred source restoration.
+  const interruptViewportContinuity = useCallback(() => {
+    userInteractionVersionRef.current += 1;
+    scrollRestoreSequenceRef.current += 1;
+    activeRestoration.current?.abort();
+    const active = activeViewportContinuityRequestRef.current;
+    if (active) clearViewportContinuity(active.token);
+  }, [clearViewportContinuity]);
+
   const failViewportContinuity = useCallback(
     (token: number) => {
       const activeRequest = activeViewportContinuityRequestRef.current;
@@ -580,6 +590,7 @@ export function useTimelineViewportContinuityController({
     }
     let cancelled = false;
     const controller = new AbortController();
+    activeRestoration.current = controller;
     const restoreTarget = async (attempt: number) => {
       if (cancelled) {
         return;
@@ -663,6 +674,8 @@ export function useTimelineViewportContinuityController({
     return () => {
       cancelled = true;
       controller.abort();
+      if (activeRestoration.current === controller)
+        activeRestoration.current = null;
     };
   }, [
     clearViewportContinuity,
@@ -677,6 +690,7 @@ export function useTimelineViewportContinuityController({
       advanceViewportContinuity,
       beginViewportContinuity,
       clearViewportContinuity,
+      interruptViewportContinuity,
       currentGridScrollSnapshot,
       currentGridViewportSnapshot,
       failViewportContinuity,

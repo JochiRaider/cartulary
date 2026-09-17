@@ -117,6 +117,13 @@ export function renderDesignPresentationTypeScript(document) {
       maximumWidthPx: document.projection.workbook_column_sizing.maximum_width_px,
       keyboardStepPx: document.projection.workbook_column_sizing.keyboard_step_px,
     },
+    workbookFind: {
+      scopeLabel: document.projection.workbook_find.scope_label,
+      zeroMatchesMessage: document.projection.workbook_find.zero_matches_message,
+      scopeHelp: document.projection.workbook_find.scope_help,
+      live: document.projection.workbook_find.live,
+      successfulNavigation: document.projection.workbook_find.successful_navigation,
+    },
     presence: document.projection.presence,
     errorPresentations: document.projection.error_presentations.map((entry) => ({
       actions: entry.actions,

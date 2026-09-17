@@ -1,6 +1,7 @@
 import type {
   GridCellAnchor,
   GridDataRow,
+  GridHandle,
   GridRowStateInput,
 } from "@cartulary/grid-adapter";
 import {
@@ -74,7 +75,7 @@ export function useTimelineWorkbookPresentation({
   readonly composition: TimelineWorkbookCompositionResult["presentation"];
   readonly runtime: TimelineWorkbookPresentationRuntime;
 }) {
-  const { foundation, grid, inspector, interaction, mutation, workflow } =
+  const { foundation, grid, inspector, interaction, mutation, workflow, find } =
     composition;
   const {
     currentIncidentRole,
@@ -215,6 +216,19 @@ export function useTimelineWorkbookPresentation({
 
   const { commonMutationSnapshot, conflictQueue, getCellState } =
     mutation.snapshot.conflict;
+  const findCellMatch = find.cellMatch;
+  const getFindCellState = useCallback(
+    (input: { recordId: string; fieldKey: string }) => ({
+      ...getCellState(input),
+      findMatch: findCellMatch({
+        surface: { kind: "view_schema", viewSchemaId: timelineViewSchemaId },
+        rowIdentity: { kind: "core_record", recordId: input.recordId },
+        fieldKey: input.fieldKey,
+      }),
+    }),
+    [getCellState, findCellMatch],
+  );
+
   const { loadRows } = mutation.commands.query;
   const presence = mutation.snapshot.collaboration.presence.header;
   const { editingPresenceForCell, presenceForRow } = mutation.snapshot.presence;
@@ -469,6 +483,13 @@ export function useTimelineWorkbookPresentation({
     visibleColumns: visibleTimelineColumns,
     viewSchemaId: timelineViewSchemaId,
   });
+  const registerFindGrid = useCallback(
+    (handle: GridHandle | null) => {
+      registerTimelineGridHandle(handle);
+      find.bindGrid(handle);
+    },
+    [registerTimelineGridHandle, find.bindGrid],
+  );
   const handleActiveCellChange = useCallback(
     (anchor: GridCellAnchor | null) => {
       fileAnchor.current = anchor;
@@ -567,7 +588,7 @@ export function useTimelineWorkbookPresentation({
       columns: visibleTimelineColumns,
       dataState: timelineDataState,
       density,
-      getCellState,
+      getCellState: getFindCellState,
       getGroupLabel: getTimelineGroupLabel,
       getGroupRowTestId: getTimelineGroupRowTestId,
       getRowState: getTimelineRowState,
@@ -579,7 +600,7 @@ export function useTimelineWorkbookPresentation({
       onFillCells: handleFillCells,
       onSelectRecord: handleSelectRow,
       onSortChange: handleQuerySortChange,
-      ref: registerTimelineGridHandle,
+      ref: registerFindGrid,
       rowGutter: timelineRowGutter,
       rows,
       shellRef: gridShellRef,
@@ -648,6 +669,7 @@ export function useTimelineWorkbookPresentation({
       workbookFocusAnchor,
     },
     viewBar: {
+      find: find.control,
       addRowDisabled: interactionMode.kind === "read_only",
       chromeMode,
       bulk:

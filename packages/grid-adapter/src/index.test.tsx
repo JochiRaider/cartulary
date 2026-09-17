@@ -183,6 +183,91 @@ describe("grid-adapter", () => {
     vi.unstubAllGlobals();
   });
 
+  it("publishes full presented membership and excludes collapsed records without depending on mounted cells", async () => {
+    const handle = createRef<GridHandle>();
+    const rows: GridDataRow<HarnessRow>[] = Array.from(
+      { length: 80 },
+      (_, index) => ({
+        kind: "data",
+        rowIdentity: { kind: "core_record", recordId: `presented-${index}` },
+        data: {
+          label: `Presented ${index}`,
+          state: index < 40 ? "open" : "reviewed",
+        },
+      }),
+    );
+    render(
+      <SemanticDataGrid
+        ref={handle}
+        surface={testSurface}
+        columns={columns}
+        dataRows={rows}
+        grouping={{
+          fieldKey: "state",
+          getValue: (row) => row.state,
+          formatLabel: (value) => String(value),
+        }}
+      />,
+    );
+    expect(
+      handle.current?.presentation?.getSnapshot()?.rowIdentities,
+    ).toHaveLength(80);
+    expect(handle.current?.presentation?.getSnapshot()?.fieldKeys).toEqual([
+      "label",
+      "state",
+    ]);
+    const changed = vi.fn();
+    const unsubscribe = handle.current?.presentation?.subscribe(changed);
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    await waitFor(() =>
+      expect(
+        handle.current?.presentation?.getSnapshot()?.rowIdentities,
+      ).toHaveLength(40),
+    );
+    expect(
+      handle.current?.presentation?.getSnapshot()?.rowIdentities[0],
+    ).toEqual(rows[40]?.rowIdentity);
+    expect(changed).toHaveBeenCalled();
+    unsubscribe?.();
+  });
+
+  it("forwards caller cancellation through the production focus wrapper before late registration", async () => {
+    const handle = createRef<GridHandle>();
+    const view = (ready: boolean) => (
+      <SemanticDataGrid
+        ref={handle}
+        surface={testSurface}
+        columns={[
+          {
+            fieldKey: "label",
+            label: "Label",
+            draftWritable: true,
+            renderCell: ({ row }: { row: HarnessRow }) => row.label,
+            renderDraftCell: ({ focusTargetRef }) =>
+              ready ? (
+                <input aria-label="Late find focus" ref={focusTargetRef} />
+              ) : null,
+          },
+        ]}
+        dataRows={[]}
+        draftRow={{ kind: "draft", data: { label: "", state: "" } }}
+      />
+    );
+    const rendered = render(view(false));
+    const abort = new AbortController();
+    const pending = handle.current?.requestFocus(
+      { kind: "draft", fieldKey: "label" },
+      { signal: abort.signal },
+    );
+    abort.abort();
+    expect(await pending).toBe("cancelled");
+    rendered.rerender(view(true));
+    await act(async () => {});
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("textbox", { name: "Late find focus" }),
+    );
+  });
+
   it("rejects missing and duplicate saved record identities", async () => {
     expect(() =>
       assertGridRows([
@@ -1257,7 +1342,7 @@ describe("grid-adapter", () => {
         dataState={{ kind: "stale_error", message: "Refresh failed." }}
         getCellState={({ anchor }) =>
           anchor.fieldKey === "label"
-            ? { conflicted: true }
+            ? { conflicted: true, findMatch: "current" }
             : { invalid: { message: "Choose an allowed state" } }
         }
         getRowState={() => ({ pending: true })}
@@ -1284,6 +1369,15 @@ describe("grid-adapter", () => {
     const labelCell = labelContent?.closest<HTMLElement>('[role="gridcell"]');
     const stateCell = stateContent?.closest<HTMLElement>('[role="gridcell"]');
     expect(labelCell?.dataset.gridPrimaryState).toBe("conflicted");
+    expect(labelCell?.className).toContain(
+      "cartulary-grid-cell-is-find-current",
+    );
+    expect(labelCell?.getAttribute("aria-description")).toContain(
+      "Current Find match",
+    );
+    expect(
+      labelContent?.querySelector('[aria-label="Current Find match"]'),
+    ).toBeTruthy();
     expect(labelCell?.getAttribute("aria-readonly")).toBe("true");
     expect(
       labelContent?.querySelector('[aria-label="Conflict on Label"]'),

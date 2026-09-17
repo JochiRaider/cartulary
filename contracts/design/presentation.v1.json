@@ -13,6 +13,13 @@
     "maximum_width_px": 4096,
     "keyboard_step_px": 10
   },
+  "workbook_find": {
+    "scope_label": "Find in loaded rows",
+    "zero_matches_message": "No matches in loaded rows.",
+    "scope_help": "Searches committed values and displayed collection summaries in loaded rows. Other incident rows were not searched.",
+    "live": "polite",
+    "successful_navigation": "collapse"
+  },
   "presence": {
     "capacities": { "header": 5, "row": 3, "cell": 2 },
     "mode_priority": { "editing": 1, "focused": 2, "viewing": 3, "idle": 4 },

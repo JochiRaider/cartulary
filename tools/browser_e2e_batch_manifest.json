@@ -961,6 +961,36 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-timeline-find",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.find_accessible_geometry",
+            "module.workbook.browser.find_authority",
+            "module.workbook.browser.find_edit_departure",
+            "module.workbook.browser.find_full_window",
+            "module.workbook.browser.find_literal",
+            "module.workbook.browser.find_query_creation",
+            "module.workbook.browser.find_scope_lifecycle",
+            "module.workbook.browser.find_source_editors",
+            "module.workbook.browser.find_virtualized"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-find.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-timeline-grid-entry",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2380,6 +2410,36 @@
           ],
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-timeline-find",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.find_accessible_geometry",
+            "module.workbook.browser.find_authority",
+            "module.workbook.browser.find_edit_departure",
+            "module.workbook.browser.find_full_window",
+            "module.workbook.browser.find_literal",
+            "module.workbook.browser.find_query_creation",
+            "module.workbook.browser.find_scope_lifecycle",
+            "module.workbook.browser.find_source_editors",
+            "module.workbook.browser.find_virtualized"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-find.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

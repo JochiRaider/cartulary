@@ -849,6 +849,7 @@
           "grid-adapter does not repeat seed retention on rerender or navigate after focus leaves a pending editor",
           "grid-adapter does not republish an unchanged semantic anchor when the active record updates",
           "grid-adapter fails closed when untyped callers attach Core mutation capabilities to extension grids",
+          "grid-adapter forwards caller cancellation through the production focus wrapper before late registration",
           "grid-adapter gates completed ranges through the production editor and preserves rejection and supersession",
           "grid-adapter groups extension resources in the live grid without changing their identities",
           "grid-adapter keeps RDG row identity stable across reorder, sort, rerender, and editable cells",
@@ -862,6 +863,7 @@
           "grid-adapter keeps the bottom create draft recordless and usable with zero committed rows",
           "grid-adapter owns semantic navigation, range extension, keyboard entry, cancellation, and grid exit",
           "grid-adapter preserves typed bucket order, scoped expansion, and draft exclusion",
+          "grid-adapter publishes full presented membership and excludes collapsed records without depending on mounted cells",
           "grid-adapter refocuses an already-active readable cell after focus leaves the grid",
           "grid-adapter rejects missing and duplicate saved record identities",
           "grid-adapter renders data and actions columns without freezing implementation geometry",
@@ -969,6 +971,35 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.semantic_cell_navigation",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/semanticCellNavigation.test.ts",
+        "titles": [
+          "semantic cell navigation allows read-only navigation without an editor or mutation capability",
+          "semantic cell navigation cancels intentions without cancelling the editor write settlement",
+          "semantic cell navigation rejects membership authority and source-text changes after delayed acceptance",
+          "semantic cell navigation retains the original editor on rejection and never reveals the destination",
+          "semantic cell navigation waits for the existing editor gate and passes the abort signal to virtualized focus",
+          "semantic presentation port publishes ordered identity-only membership without changing revision for value-only refresh"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
       "service_dependencies": []
     },
     {

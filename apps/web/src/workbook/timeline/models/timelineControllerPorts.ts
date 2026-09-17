@@ -1,10 +1,14 @@
 import type {
   GridCellAnchor,
+  GridEditCommitOutcome,
   GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type {
+  CollectionDraftKey,
+  CollectionFieldKey,
   FocusFieldKey,
+  RowValues,
   TimelineScalarEditorSurface,
 } from "./timelineFieldRegistry";
 import type { WorkbookRow } from "./timelineRowModel";
@@ -85,3 +89,21 @@ export type TimelineReplayContext = {
   promoteToCommittedRowInspect: boolean;
   viewportContinuityToken: number | undefined;
 };
+
+/** Source-owned editor settlement, shared by keyboard departure and local Find. */
+export type TimelineQueueScalarSave = (
+  rowKey: string,
+  field: keyof RowValues,
+  options: TimelineScalarSaveOptions,
+  currentValue?: string,
+  onSettled?: (outcome: GridEditCommitOutcome) => void,
+) => void;
+export type TimelineQueueCollectionSave = (
+  rowKey: string,
+  field: CollectionFieldKey,
+  draft: CollectionDraftKey,
+  currentValue?: string,
+  source?: "keyboard" | "blur",
+  surface?: TimelineScalarEditorSurface,
+  onSettled?: (outcome: GridEditCommitOutcome) => void,
+) => void;

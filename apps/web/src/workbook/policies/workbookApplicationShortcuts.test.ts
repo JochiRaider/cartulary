@@ -18,6 +18,38 @@ const eligibleContext: WorkbookApplicationShortcutContext = {
 };
 
 describe("Workbook application shortcuts", () => {
+  it("owns Find only for enabled grid navigation and Find controls", () => {
+    for (const focusOwner of [
+      "grid_navigation",
+      "find",
+      "editor",
+      "inspector",
+      "menu",
+      "overlay",
+    ] as const) {
+      for (const modifier of [{ ctrlKey: true }, { metaKey: true }]) {
+        const decision = decideWorkbookApplicationShortcut(
+          { key: "f", ...modifier },
+          {
+            ...eligibleContext,
+            focusOwner,
+            capabilities: { ...eligibleContext.capabilities, find: true },
+          },
+        );
+        expect(decision.kind).toBe(
+          focusOwner === "grid_navigation" || focusOwner === "find"
+            ? "open_find"
+            : "none",
+        );
+      }
+    }
+    expect(
+      decideWorkbookApplicationShortcut(
+        { key: "f", ctrlKey: true },
+        eligibleContext,
+      ).kind,
+    ).toBe("none");
+  });
   it("returns explicit commands and consumption decisions", () => {
     for (const event of [
       { ctrlKey: true, key: "k" },

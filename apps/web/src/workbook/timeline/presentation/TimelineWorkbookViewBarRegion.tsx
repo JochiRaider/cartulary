@@ -1,4 +1,5 @@
 import { WorkbookViewBar } from "../../components/WorkbookViewBar";
+import { WorkbookFindControl } from "../../find/WorkbookFindControl";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import type { TimelineWorkbookPresentationModel } from "./useTimelineWorkbookPresentation";
 
@@ -21,6 +22,12 @@ export function TimelineWorkbookViewBarRegion({
     <WorkbookViewBar
       addRowDisabled={model.addRowDisabled}
       chromeMode={model.chromeMode}
+      findControls={
+        <WorkbookFindControl
+          binding={model.find}
+          chromeMode={model.chromeMode}
+        />
+      }
       supplementalControls={
         bulk === null ? undefined : (
           <fieldset style={bulkActionFieldsetStyle}>

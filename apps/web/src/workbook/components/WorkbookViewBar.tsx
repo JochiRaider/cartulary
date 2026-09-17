@@ -29,6 +29,7 @@ type WorkbookViewBarProps = {
   readonly inspectorButtonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onAddRow?: (() => void) | undefined;
   readonly onInspectorToggle?: (() => void) | undefined;
+  readonly findControls?: ReactNode | undefined;
   readonly supplementalControls?: ReactNode | undefined;
   readonly surface: string;
   readonly workingSet?: WorkbookViewBarWorkingSetBinding | undefined;
@@ -42,6 +43,7 @@ export function WorkbookViewBar({
   onAddRow,
   onInspectorToggle,
   supplementalControls,
+  findControls,
   surface,
   workingSet,
 }: WorkbookViewBarProps) {
@@ -76,6 +78,7 @@ export function WorkbookViewBar({
         ) : null}
       </div>
       <div style={rightRailStyle}>
+        {findControls}
         {onInspectorToggle ? (
           <button
             aria-label="Open inspector"

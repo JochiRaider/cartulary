@@ -1345,6 +1345,330 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.find_accessible_geometry",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_accessible_geometry"
+        ],
+        "titles": [
+          "Timeline Find collection summaries read-only values and supported geometry retain accessible focus and native controls"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_authority",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_authority"
+        ],
+        "titles": [
+          "Timeline Find retires protected terms and matches on session suspension and does not return them after recovery"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_edit_departure",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_edit_departure"
+        ],
+        "titles": [
+          "Timeline Find opening preserves exact scalar drafts and explicit navigation gates acceptance rejection and supersession"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_full_window",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_full_window"
+        ],
+        "titles": [
+          "Timeline Find remains responsive across the full retained window append eviction and authorized query failure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_literal",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_literal"
+        ],
+        "titles": [
+          "Timeline Find literal case Unicode multiline and empty feedback preserve editor shortcut ownership"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_query_creation",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_query_creation"
+        ],
+        "titles": [
+          "Timeline Find preserves blank authoring and excludes creation pins through explicit query replacement"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_scope_lifecycle",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_scope_lifecycle"
+        ],
+        "titles": [
+          "Timeline Find follows column group saved-view and live membership while retaining only eligible current matches"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_source_editors",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_source_editors"
+        ],
+        "titles": [
+          "Timeline Find borrows collection and inspector editors without writes and settles each departure once"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.find_virtualized",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_find_virtualized"
+        ],
+        "titles": [
+          "Timeline Find searches committed loaded cells and reveals both virtualized axes without query or layout writes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.grid_autosave_availability",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -4823,6 +5147,7 @@
         "titles": [
           "does not claim Grid Adapter or native paste and navigation keys",
           "does not consume an unavailable command",
+          "owns Find only for enabled grid navigation and Find controls",
           "returns explicit commands and consumption decisions"
         ]
       },

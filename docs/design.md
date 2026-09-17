@@ -982,7 +982,8 @@ Design contract. Responsive overflow MUST use the region assignment table below.
 | Filter control | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | Not required |
 | Columns control | View bar after Filters | View bar after Filters | View bar after Filters | Not required |
 | Active group/sort/filter chips | View bar after Columns; overflow remains in `Filters` | View bar after Columns; overflow remains in `Filters` | Inside the `Filters` popover | Not required |
-| Inspector opener | View bar after active chips or their overflow path | View bar after active chips or their overflow path | View bar after the `Filters` entry path | Safe conflict access required |
+| Timeline Find | View bar after active chips or their overflow path | View bar after active chips or their overflow path | View bar after the `Filters` entry path, compact icon button | Not required |
+| Inspector opener | View bar after Timeline Find when present | View bar after Timeline Find when present | View bar after Timeline Find when present | Safe conflict access required |
 | Row-create action | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed | Not required |
 | Account/application menu | Upper-right top bar | Upper-right top bar | Upper-right top bar | Safe navigation location |
 | Primary save label | Status strip | Status strip | Status strip | Status strip when unsaved work exists |
@@ -1053,7 +1054,7 @@ Design contract. `invalidate_or_refresh_required` is row-block state, not a cell
 Design contract. Saved-view and query controls apply to the active surface only
 and MUST render in this exact View-bar order: saved-view selector and actions,
 Sort, Group, Filters, Columns, ordered active chips or their `Filters` overflow
-path, inspector opener, and create action when creation is allowed. The active
+path, Timeline Find when enabled, inspector opener, and create action when creation is allowed. The active
 surface title belongs to the top bar when the selected built-in tab or
 system-view switcher does not already provide the same visible title; it is not
 part of the query-control sequence.
@@ -1066,8 +1067,9 @@ part of the query-control sequence.
 | Filters control | No filters. | Filter chips shown or `Filters` overflow. | Invalid filter chip marked and excluded from query submission. | Clears all filters or one selected chip. | 4 |
 | Columns control | Declared default visible columns and order. | Current visible columns and semantic order. | Unknown field blocked before persistence. | Resets the declared layout. | 5 |
 | Active chips | Absent. | Ordered as declared below and limited by §7.5. | Invalid chip remains marked and excluded from query submission. | Removes the selected chip. | 6 |
-| Inspector opener | Closed state. | Open state reflects the active row context. | Disabled with an explanation when no inspectable context exists. | Closes the inspector. | 7 |
-| Create action | Visible only when owner behavior permits creation. | Draft-row creation active. | Owner validation remains local to the draft. | Cancels only the active uncommitted draft. | 8 |
+| Timeline Find | Closed; accessible name `Find in loaded rows`. | Local search active; panel may be collapsed. | Loaded-scope unavailable reason. | Explicit Close retires the search. | 7 |
+| Inspector opener | Closed state. | Open state reflects the active row context. | Disabled with an explanation when no inspectable context exists. | Closes the inspector. | 8 |
+| Create action | Visible only when owner behavior permits creation. | Draft-row creation active. | Owner validation remains local to the draft. | Cancels only the active uncommitted draft. | 9 |
 
 Design contract. Active chips MUST render in this order: group chip, sort chips in applied order, then filter chips in normalized query order.
 
@@ -1145,6 +1147,42 @@ Retry for that read. Progress and recovery use the existing data-state plane's
 announcement priority with one announcement per transition. Controls retain focus
 through explicit loading, and the work area's grid and inspector retain their
 existing scrolling ownership.
+
+#### Timeline Find presentation
+
+Core 03 §13.5 owns matching and lifecycle. The single Timeline Find entry opens
+a labelled non-modal panel containing `Find in loaded rows`, `Match case`,
+`Previous`, `Next`, `Close Find`, and a matching-cell status. The entry uses a
+visible `Find` label in base/narrow modes and the existing compact icon-button
+treatment at compact widths, with its full accessible name in every mode. It
+MUST preserve the existing View-bar height, saved-view allocation, required query
+controls and chip capacities; no second toolbar row is introduced.
+
+The panel uses existing surface, spacing, focus and typography tokens, fits within
+the available shell width and scrolls internally when needed. It MUST explain
+that only committed values and displayed collection summaries in loaded rows are
+searched, and that other incident rows are not searched. Empty input prompts for
+text; zero results says `No matches in loaded rows`; an unpositioned search shows
+the matching-cell count; a positioned search shows its ordinal and count.
+Computing, editor-acceptance waiting, unavailable and authorized stale-data states
+MUST be distinguishable. Navigation controls are unavailable during recomputation
+or when there are no matches.
+
+Opening borrows authoring focus under Core 03 §13.5. Successful match navigation
+collapses the panel before focusing the cell so it cannot obscure that target;
+reopening retains term, case option and surviving current match. Explicit Close
+or Escape within Find clears the search and follows §8.5's semantic fallback
+ladder, preferring the last admitted match or original borrowed editor. Outside
+dismissal preserves destination focus. New overlays, menus, reference popups,
+inspectors and recovery interactions supersede pending Find destinations without
+discarding source-owned authoring or settlement.
+
+Cell-level matching/current-match indications MUST use a non-color marker and
+accessible description. They are orthogonal to §8.2's state precedence and MUST
+preserve conflict, invalid, pending, selection and focus cues. Search terms and
+cell contents MUST NOT be repeated in announcements. Find-specific Escape and
+Enter handling applies only within Find; ordinary grid/editor/nested keys remain
+with their current owners.
 
 ### 8.4 Keyboard interaction matrix
 
@@ -1238,6 +1276,7 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | `Backspace` | `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
 | `Delete` | `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
 | `Ctrl/Cmd+C` | `grid_navigation` or `grid_range_selection` | Selection exists. | Copy selected visible cell values using workbook copy presentation. | None. | Yes. |
+| `Ctrl/Cmd+F` | Timeline `grid_navigation` or `grid_range_selection` | Grid navigation owns the event. | Open or refocus Find under Core 03 §13.5. | Borrow focus without submitting or discarding authoring. | Yes, only in the owned context. |
 | `Ctrl/Cmd+V` | `grid_navigation` | Clipboard has text. | Dispatch base-profile paste handling for active surface. | Paste plan governs. | Yes. |
 | `Ctrl/Cmd+D` | `grid_range_selection` | Selection is a writable one-column vertical range with at least two committed rows. | Dispatch `fill_down_v1` using the top cell as source and every remaining row as an explicit stable-ID target. | One semantic fill batch. | Yes. |
 
@@ -1855,6 +1894,9 @@ Design contract. Live-region behavior MUST use this matrix.
 | Cell range completes | Polite, once per completed gesture or keyboard extension. | Selected row and column counts; no record identifiers or cell contents. |
 | Cell range awaits editor acceptance or is canceled | Polite, once per transition. | Waiting for the edit to save, or selection canceled. |
 | Cell range pointer movement | No live announcement for each movement. | Tentative outline remains available visually. |
+| Find results settle | Polite, once for the latest settled input/snapshot. | Matching-cell count in loaded rows; no searched text. |
+| Find navigation completes or wraps | Polite, once per admitted movement. | Current ordinal/count and `Wrapped to beginning` or `Wrapped to end` when applicable. |
+| Find awaits editor acceptance or loses its target | Polite, once per transition. | Waiting for the edit to save, or matching cell no longer available. |
 
 ### 14.3 Contrast pair matrix
 

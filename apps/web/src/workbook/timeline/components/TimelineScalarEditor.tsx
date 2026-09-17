@@ -158,7 +158,15 @@ export function TimelineScalarEditor({
     hasActiveEditRef.current = false;
     onEditModeChange(rowRecordId, presenceFieldKey, false);
     onDraftChange(rowKey, field, surface, event.currentTarget.value);
-    if (blockedByConflict || onCloseGridEditor !== undefined) return;
+    if (
+      blockedByConflict ||
+      onCloseGridEditor !== undefined ||
+      (event.relatedTarget instanceof Element &&
+        event.relatedTarget.closest(
+          '[data-grid-editor-external-action="true"]',
+        ))
+    )
+      return;
     onBlurCommit(rowKey, field, surface, event.currentTarget.value);
   };
   const handleKeyDown = (

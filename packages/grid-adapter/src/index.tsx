@@ -1,3 +1,5 @@
+export { gridRowIdentitiesEqual } from "./core";
+
 import type { ForwardedRef } from "react";
 import { forwardRef } from "react";
 import "react-data-grid/lib/styles.css";
@@ -19,6 +21,8 @@ export {
 export type {
   GridActionsColumn,
   GridCellAnchor,
+  GridCellNavigationOptions,
+  GridCellNavigationResult,
   GridCellPasteIntent,
   GridCellRange,
   GridCellStateInput,
@@ -49,12 +53,16 @@ export type {
   GridNavigationIntent,
   GridNavigationKey,
   GridPasteTargetResolution,
+  GridPresentationPort,
+  GridPresentationSnapshot,
   GridRowGutter,
+  GridRowIdentity,
   GridRowStateInput,
   GridSortEntry,
   GridSurfaceIdentity,
 } from "./core";
 export { SemanticDataGrid } from "./SemanticDataGrid";
+export { gridAnchorKey } from "./semanticPresentation";
 
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
   function GridViewport(

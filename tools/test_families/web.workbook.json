@@ -1394,6 +1394,62 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.find_controls",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/find/WorkbookFindControl.test.tsx",
+        "titles": [
+          "Workbook Find controls keeps empty and zero-result feedback scoped and clears on Escape",
+          "Workbook Find controls labels scope counts and navigation without moving while typing and collapses after explicit movement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.find_matching",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/find/WorkbookFindController.test.ts",
+        "titles": [
+          "Workbook Find cancels obsolete scans and releases all search material on retirement",
+          "Workbook Find does not match across fragments and distinguishes unavailable from scoped zero results",
+          "Workbook Find fences pending destinations by input window membership and close without cancelling settlement",
+          "Workbook Find matches literal normalized fragments once per cell in presented order",
+          "Workbook Find preserves whitespace punctuation multiline text and explicit lowercasing semantics",
+          "Workbook Find rechecks committed text after delayed settlement without treating value-only updates as a new window",
+          "Workbook Find retains semantic current matches on reorder and clears disappearing matches without moving",
+          "Workbook Find starts inclusively at the origin and navigates both directions with wrap feedback"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.generic_mutation_controls",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -4018,6 +4074,58 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_find_integration",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineFind.test.tsx",
+        "titles": [
+          "Timeline Find integration borrows inspector authoring and joins its pending departure while Close cancels only the destination",
+          "Timeline Find integration intersects accepted membership with presented order without querying or searching creation pins and local drafts",
+          "Timeline Find integration retains rejected collection drafts and never departs recordless authoring through creation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_find_text",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineFindText.test.ts",
+        "titles": [
+          "Timeline Find text reads saved scalar text despite pending authoring and excludes drafts placeholders and unknown metadata",
+          "Timeline Find text searches only the committed displayed collection label without overflow or authoring",
+          "Timeline Find text uses formatted committed values as independent fragments and omits unavailable evidence fallbacks"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
       "service_dependencies": []
     },
     {

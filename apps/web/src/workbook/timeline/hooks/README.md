@@ -63,3 +63,17 @@ sources needed by drafts, the inspector and accepted writes. Source coordination
 uses that independent capability after eviction; query membership is not a
 source-existence test. `useTimelineRowsLoader` shares the two-attempt freshness
 budget with cursor recovery and retains the single latest-created-row pin.
+
+## Local Find binding
+
+`useTimelineFind.ts` binds the neutral Workbook Find owner to accepted query
+membership, Adapter presentation, Timeline committed text and existing editor
+settlement. It subscribes to authority and recovery lifetime and borrows editor
+focus through the retained draft registry. The root composer supplies narrow
+capabilities; stateless presentation receives controls and semantic match state.
+The hook cannot fetch pages or author record payloads.
+
+After editor acceptance, Find interrupts the viewport continuity owner's pending
+restoration before revealing its semantic destination. Collection settlement
+callbacks own explicit departure focus; ordinary source saves retain their
+existing continuity path. Cancellation never interrupts authoritative writes.

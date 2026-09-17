@@ -111,6 +111,7 @@ export type GridStateValidation = {
  * defaults before compiling private RDG classes and accessibility attributes.
  */
 export type GridSemanticStateInput = {
+  readonly findMatch?: "match" | "current" | undefined;
   readonly active?: boolean | undefined;
   readonly bulkSelected?: boolean | undefined;
   readonly conflicted?: boolean | undefined;
@@ -425,7 +426,36 @@ export type GridFocusTarget =
 
 export type GridFocusResult = "focused" | "unavailable" | "cancelled";
 
+/** Current presented membership, including virtualized cells; no values or coordinates. */
+export type GridPresentationSnapshot = {
+  readonly surface: GridSurfaceIdentity;
+  readonly rowIdentities: readonly GridRowIdentity[];
+  readonly fieldKeys: readonly string[];
+  readonly revision: number;
+};
+
+export type GridPresentationPort = {
+  readonly getSnapshot: () => GridPresentationSnapshot | null;
+  readonly subscribe: (listener: () => void) => () => void;
+};
+
+export type GridCellNavigationOptions = {
+  readonly signal?: AbortSignal;
+  /** Recheck source-owned eligibility after editor settlement, before reveal. */
+  readonly isCurrent?: () => boolean;
+  readonly beforeFocus?: () => void;
+};
+
+export type GridCellNavigationResult = GridFocusResult | "rejected";
+
 export type GridHandle = {
+  /** True only for the grid navigation cell itself, never a nested editor/control. */
+  readonly ownsNavigationFocus?: (target: EventTarget | null) => boolean;
+  readonly presentation?: GridPresentationPort;
+  readonly navigateToCell?: (
+    anchor: GridCellAnchor,
+    options?: GridCellNavigationOptions,
+  ) => Promise<GridCellNavigationResult>;
   readonly columnSizing?: GridColumnSizingPort | undefined;
   readonly activateEdit: (
     anchor: GridCellAnchor,

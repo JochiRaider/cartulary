@@ -1179,7 +1179,13 @@ describe("WorkbookCollaborationCoordinator", () => {
       refresh,
     });
 
+    const observed: boolean[] = [];
+    fixture.projection.subscribe(() =>
+      observed.push(fixture.projection.getReadAuthorization()),
+    );
+    expect(fixture.projection.getReadAuthorization()).toBe(true);
     fixture.emit({ kind: "authorization_lost" });
+    expect(fixture.projection.getReadAuthorization()).toBe(false);
     await fixture.timing.advanceBy(1_000);
     await Promise.resolve();
 
@@ -1197,7 +1203,11 @@ describe("WorkbookCollaborationCoordinator", () => {
     });
     expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
     expect(fixture.session.reconnect).toHaveBeenCalledOnce();
+    expect(fixture.projection.getReadAuthorization()).toBe(true);
+    expect(observed).toContain(false);
+    expect(observed.at(-1)).toBe(true);
     fixture.projection.dispose();
+    expect(fixture.projection.getReadAuthorization()).toBe(false);
   });
 
   it("disposes shell projections without disposing the borrowed mutation runtime", () => {

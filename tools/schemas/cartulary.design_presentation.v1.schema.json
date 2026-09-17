@@ -10,6 +10,7 @@
     "verification_id",
     "grid_cell_range_selection",
     "workbook_column_sizing",
+    "workbook_find",
     "presence",
     "initial_loading",
     "grid_data_state_presentations",
@@ -39,6 +40,18 @@
         "minimum_width_px": { "const": 40 },
         "maximum_width_px": { "const": 4096 },
         "keyboard_step_px": { "const": 10 }
+      }
+    },
+    "workbook_find": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_label", "zero_matches_message", "scope_help", "live", "successful_navigation"],
+      "properties": {
+        "scope_label": { "const": "Find in loaded rows" },
+        "zero_matches_message": { "const": "No matches in loaded rows." },
+        "scope_help": { "type": "string", "minLength": 1 },
+        "live": { "const": "polite" },
+        "successful_navigation": { "const": "collapse" }
       }
     },
     "schema_id": { "const": "cartulary.design_presentation.v1" },

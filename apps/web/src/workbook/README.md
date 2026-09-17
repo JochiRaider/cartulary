@@ -21,6 +21,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | [continuity/](continuity/README.md) | Semantic grid focus, selection, and viewport continuity through workbook-private adapter bindings. |
 | [evidence/](evidence/README.md) | Workbook-wide Evidence access feedback and live-region presentation. |
 | [features/](features/README.md) | Workbook feature entry points and owner-specific authoring, inspector, and recovery workflows. |
+| [find/](find/README.md) | Runtime-only loaded-cell matching and navigation intent, supplied with source-owned committed text and semantic membership. |
 | [history/](history/README.md) | Record History browsing, captured rollback/restore operations, acknowledgement, and recovery ownership. |
 | [hooks/](hooks/README.md) | React coordination for shell lifetime, queries, startup, saved views, imports, and shared surface behavior. |
 | [inspector/](inspector/README.md) | Canonical inspector subjects, declared capability admission, related-record workflows, and History composition. |

@@ -2501,6 +2501,7 @@ Application shortcut consumption MUST use the exhaustive matrix below. `Grid nav
 
 | Shortcut | Preconditions | Required result | Unavailable-target result |
 | --- | --- | --- | --- |
+| `Ctrl+F` or `Cmd+F` | Timeline grid navigation owns focus, or Timeline Find owns the event. | Open or refocus `Find in loaded rows` under §13.5. | Outside this context, preserve browser/editor/control ownership without consuming the event. |
 | `Ctrl+K` or `Cmd+K` | Grid navigation owns focus; the selected committed cell exposes an owner-declared link or resolve capability. | Open that cell's same-surface link or resolve control. | No application action; visible text MUST NOT be used to infer capability. |
 | `Space` | Grid navigation owns focus; the selected committed row exposes an Evidence inspector group. | Open the inspector explicitly at Evidence. When exactly one previewable evidence item exists, open it; otherwise focus the Evidence list or its empty state. | No inspector action; browser scrolling is prevented only when the grid consumes the command. |
 | `Alt+H` | Grid navigation owns focus; the selected committed row exposes a History inspector group. | Open the inspector explicitly at History. | No application action for group rows, draft rows, no-row state, or unavailable History. |
@@ -2594,6 +2595,96 @@ invalidate ranges. Pending or failed query replacements retain selection under
 the still-accepted presentation. Ordinary replacement navigation, stationary
 selection or edit entry replaces/clears the range; a canceled tentative gesture
 does not restore members that have become invalid or unauthorized.
+
+### 13.5 Timeline Find in loaded rows
+
+Timeline MUST expose a local `Find in loaded rows` interaction. It searches only
+authorized committed cell presentation in the current accepted loaded query
+window, including eligible rows and columns outside the mounted viewport. It
+MUST exclude hidden fields, collapsed records, structural/group rows, recordless
+drafts, out-of-query creation pins and inaccessible content. A cell with local
+authoring or a pending edit remains searchable by its last committed value;
+uncommitted values MUST NOT become search text. Readable read-only cells remain
+eligible without acquiring mutation rights.
+
+Source owners MUST provide readable value fragments using the same committed
+presentation semantics as the renderer, before visual clipping. Scalar,
+timestamp, number, boolean and Evidence-summary formatting MUST agree with that
+presentation. Collection search includes only the displayed summary item label,
+not overflow-only labels or overflow counts. Internal identifiers, arbitrary JSON,
+hidden metadata, action/DOM labels and empty/unavailable placeholders MUST NOT
+be searched. Fragments match independently; concatenation MUST NOT invent a
+match across separate displayed values.
+
+Matching MUST be literal substring comparison. Both operands normalize to NFC;
+case-insensitive comparison, the default, then uses locale-independent Unicode
+lowercasing followed by NFC. `Match case` omits lowercasing. Whitespace,
+punctuation and accents remain significant. No trimming, full case folding,
+transliteration, regular expressions, wildcard or fuzzy syntax is defined.
+This local interaction MUST NOT reinterpret Core 01's `full_text` predicate,
+fetch pages, change query membership, modify saved configuration or create a
+server-search capability.
+
+Each matching cell counts once, regardless of occurrences or matching fragments.
+Traversal follows current presented record order and visible field order.
+Opening captures the semantic origin. Before a current match exists, Next and
+Previous search inclusively from that eligible origin in their respective
+directions; without an eligible origin they use the first and last match.
+Subsequent navigation moves one matching cell and wraps with concise feedback.
+Empty input has no matches and prompts for text. Zero results MUST explicitly
+describe the loaded-row scope and MUST NOT imply absence across the incident.
+
+Typing, changing case mode and source recomputation MUST NOT navigate, alter a
+completed range or bulk selection, or retarget the inspector. Retain the current
+match by semantic identity only while it remains eligible and matching; otherwise
+clear its current ordinal without initiating focus movement. The next explicit
+navigation uses the eligible active cell, otherwise its directional boundary.
+Query replacement, page append/eviction, sorting, grouping/collapse, visible
+field changes, saved-view replacement, accepted value updates and deletion MUST
+recompute against current accepted presentation, never a requested-but-unaccepted
+query. Current term and surviving match remain within the active Timeline.
+
+Opening or refocusing Find MAY borrow focus from unfinished Timeline authoring
+without submitting, discarding or copying the draft. This narrow exception uses
+REQ-03-298's retained owner; it creates no second draft store. Explicit movement
+to a match MUST pass the existing deduplicated editor-departure acceptance gate
+under REQ-03-099/218/300. Pending acceptance retains the original accessible
+editor; rejection preserves its exact draft. Find owns no mutation payload,
+retry, transaction identity or write settlement. Recordless authoring remains
+retained, and Find navigation MUST NOT create a record.
+
+Successful navigation reveals and focuses the semantic cell in navigation mode,
+without opening its editor, and collapses the Find panel while retaining the
+search. It uses ordinary semantic cell navigation to replace the completed range
+with the destination cell without changing inspector or bulk-checkbox context.
+Ctrl/Cmd+F or the Find entry reopens that search. Explicit Close or Escape within
+Find clears it and restores the last admitted match, or the borrowed editor/origin
+when no movement succeeded, subject to design's fallback ladder. Outside
+dismissal and newer interactions collapse the panel without restoring focus.
+Editors and nested controls retain their existing keys; Enter/Shift+Enter inside
+Find request Next/Previous except during input composition.
+
+Computation and destinations MUST be fenced by incident/session authority,
+surface/configuration, accepted window, presented membership, search input and
+interaction generation. Closing, replacement or a newer interaction cancels
+pending destinations, never authoritative settlement. Value-only updates require
+recomputation and final target revalidation; an editor's own acceptance permits
+movement only to a still-current matching destination. Obsolete completion MUST
+NOT change results or focus. Matching MUST retain virtualization, use bounded
+cooperative work and retain no permanent index or duplicate query-row store.
+
+Leaving Timeline retires Find. Authority suspension/loss MUST immediately retire
+its protected term, results and pending work under REQ-03-299/100, independently
+of retained authoring. Ordinary query failure preserves searches over permitted
+authorized stale rows with accurate feedback. Find MUST NOT persist search
+history or log terms or searched contents. Other surfaces require their own
+adopted capability; shared mechanics alone do not enable Find there.
+
+Acceptance requires exact scoped counts/order, stable offscreen targets,
+deterministic case/Unicode behavior, no Find-issued reads/writes or layout/query
+changes, draft-preserving opening, acceptance-gated movement, stale-work rejection,
+safe dismissal/authority retirement, accessible feedback and production-renderer
+spreadsheet regression evidence.
 
 ## 14. Sorting, filtering, and grouping
 

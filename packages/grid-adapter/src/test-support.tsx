@@ -38,6 +38,8 @@ export {
   decodeGridClipboard,
   encodeClipboardTable,
 } from "./clipboardCodec";
+export { gridRowIdentitiesEqual } from "./core";
+export { gridAnchorKey } from "./semanticPresentation";
 
 import "./styles.css";
 

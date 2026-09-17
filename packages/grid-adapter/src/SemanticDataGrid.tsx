@@ -88,6 +88,7 @@ import {
 } from "./rdgPositionMap";
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
 import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
+import { createSemanticCellNavigation } from "./semanticCellNavigation";
 import {
   mergeSemanticFillIntents,
   planSemanticCopy,
@@ -125,6 +126,7 @@ import {
   semanticPresentationContainsAnchor,
   semanticTarget,
 } from "./semanticPresentation";
+import { createGridPresentationPort } from "./semanticPresentationPort";
 import {
   extendSemanticCellRange,
   resolveSemanticBulkSelection,
@@ -881,6 +883,13 @@ function useSemanticDataGrid<Row>(
   const semanticPresentationRef = useRef<GridRdgPresentationModel<Row>>(
     emptyRdgPresentationModel(surface),
   );
+  const presentationPort = useMemo(() => createGridPresentationPort(), []);
+  const publishPresentation = useCallback(
+    (model: GridSemanticPresentationModel<Row>) => {
+      presentationPort.publish(model);
+    },
+    [presentationPort],
+  );
   const [keyboardAnnouncement, setKeyboardAnnouncement] = useState("");
   const gridBusy =
     dataState.kind === "initial_loading" || dataState.kind === "refreshing";
@@ -917,7 +926,8 @@ function useSemanticDataGrid<Row>(
   );
   const cancelInteractionRef = useRef<() => void>(() => {});
   const requestFocus = useCallback<GridHandle["requestFocus"]>(
-    (target) => {
+    (target, options) => {
+      if (options?.signal?.aborted) return Promise.resolve("cancelled");
       cancelInteractionRef.current();
       if (
         target.kind === "cell" &&
@@ -931,7 +941,7 @@ function useSemanticDataGrid<Row>(
         )
           updateCellRange({ start: target.anchor, end: target.anchor });
       } else if (target.kind === "draft") updateCellRange(null);
-      return requestRegisteredFocus(target);
+      return requestRegisteredFocus(target, options);
     },
     [cellRangeRef, requestRegisteredFocus, updateCellRange],
   );
@@ -1011,6 +1021,44 @@ function useSemanticDataGrid<Row>(
     },
   });
   cancelInteractionRef.current = interaction.controller.cancel;
+  const navigationState = useRef({
+    available: !gridDataStateBlocksInteraction(dataState),
+    authority: effectiveInteractionMode.kind,
+  });
+  navigationState.current = {
+    available: !gridDataStateBlocksInteraction(dataState),
+    authority: effectiveInteractionMode.kind,
+  };
+  const cellNavigation = useMemo(
+    () =>
+      createSemanticCellNavigation({
+        read: () => ({
+          ...navigationState.current,
+          presentation: presentationPort.getSnapshot(),
+          editor: activeEditorSessionRef.current,
+        }),
+        focus: (target, options) => {
+          if (options?.signal?.aborted) return Promise.resolve("cancelled");
+          // Explicit departure navigation selects one cell; recovery requestFocus
+          // keeps its existing completed-range restoration semantics.
+          if (target.kind === "cell")
+            updateCellRange({ start: target.anchor, end: target.anchor });
+          return requestFocus(target, options);
+        },
+        cancelInteraction: () => cancelInteractionRef.current(),
+      }),
+    [activeEditorSessionRef, presentationPort, requestFocus, updateCellRange],
+  );
+  useLayoutEffect(() => {
+    document.addEventListener("pointerdown", cellNavigation.cancel, true);
+    document.addEventListener("keydown", cellNavigation.cancel, true);
+    return () => {
+      document.removeEventListener("pointerdown", cellNavigation.cancel, true);
+      document.removeEventListener("keydown", cellNavigation.cancel, true);
+      cellNavigation.cancel();
+    };
+  }, [cellNavigation]);
+  useLayoutEffect(() => () => presentationPort.retire(), [presentationPort]);
   const isCellRangePreview = useCallback(
     (
       row: GridDataRow<Row>,
@@ -1153,6 +1201,9 @@ function useSemanticDataGrid<Row>(
   if (ungroupedPresentation !== null) {
     semanticPresentationRef.current = ungroupedPresentation;
   }
+  useLayoutEffect(() => {
+    publishPresentation(semanticPresentationRef.current);
+  });
   const previousPresentationRef = useRef(semanticPresentationRef.current);
   const detachEditorPresentation = activeEditorSessionRef.current?.detach;
   useLayoutEffect(() => {
@@ -1301,6 +1352,8 @@ function useSemanticDataGrid<Row>(
     ref,
     () => ({
       columnSizing: sizing.port,
+      presentation: presentationPort,
+      navigateToCell: cellNavigation.navigate,
       activateEdit: (anchor, seed) => {
         interaction.controller.cancel();
         const position = semanticPresentationRef.current.positions.get(
@@ -1351,6 +1404,10 @@ function useSemanticDataGrid<Row>(
         clearEditorSeed();
         session?.detach();
       },
+      ownsNavigationFocus: (target) =>
+        target instanceof HTMLElement &&
+        target.getAttribute("role") === "gridcell" &&
+        vendorHandle.current?.element?.contains(target) === true,
       getActiveCell: () =>
         pendingEditorSeedRef.current?.anchor ?? activeCellAnchor,
       requestFocus,
@@ -1419,6 +1476,8 @@ function useSemanticDataGrid<Row>(
       updateCellRange,
       cellRangeRef,
       sizing.port,
+      presentationPort,
+      cellNavigation,
       activeCellAnchor,
       pendingEditorSeedRef,
       clearEditorSeed,
@@ -1683,6 +1742,7 @@ function useSemanticDataGrid<Row>(
         density={density}
         grouping={grouping}
         presentationRef={semanticPresentationRef}
+        publishPresentation={publishPresentation}
         props={props}
         rowStateFor={rowStateFor}
         sharedProps={sharedProps}
@@ -1695,6 +1755,7 @@ function ProductionGridBinding<Row>({
   density,
   grouping,
   presentationRef,
+  publishPresentation,
   props,
   rowStateFor,
   sharedProps,
@@ -1702,6 +1763,9 @@ function ProductionGridBinding<Row>({
   readonly density: GridDensity;
   readonly grouping: SemanticDataGridProps<Row>["grouping"];
   readonly presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>;
+  readonly publishPresentation: (
+    model: GridSemanticPresentationModel<Row>,
+  ) => void;
   readonly props: SemanticDataGridProps<Row>;
   readonly rowStateFor: (row: GridDataRow<Row>) => GridRowStateInput;
   readonly sharedProps: DataGridProps<
@@ -1720,6 +1784,7 @@ function ProductionGridBinding<Row>({
       {...props}
       density={density}
       presentationRef={presentationRef}
+      publishPresentation={publishPresentation}
       rowStateFor={rowStateFor}
       sharedProps={sharedProps}
     />
@@ -2125,6 +2190,7 @@ function GroupedSemanticDataGrid<Row>({
   grouping,
   density = "default",
   presentationRef,
+  publishPresentation,
   rowStateFor,
   sharedProps,
   surface,
@@ -2137,6 +2203,9 @@ function GroupedSemanticDataGrid<Row>({
   readonly presentationRef: MutableRefObject<
     GridSemanticPresentationModel<Row>
   >;
+  readonly publishPresentation: (
+    model: GridSemanticPresentationModel<Row>,
+  ) => void;
   readonly rowStateFor: (row: GridDataRow<Row>) => GridRowStateInput;
 }) {
   if (grouping === null || grouping === undefined) {
@@ -2302,6 +2371,9 @@ function GroupedSemanticDataGrid<Row>({
     ],
   );
   presentationRef.current = groupedPresentation;
+  useLayoutEffect(() => {
+    publishPresentation(groupedPresentation);
+  }, [groupedPresentation, publishPresentation]);
 
   return (
     <TreeDataGrid

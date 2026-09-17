@@ -43,3 +43,8 @@ After confirmed authorization, a cancelled presentation refresh remains retryabl
 under the existing recovery scheduler: React authority attachment or a newer query
 can cancel that read. Cancellation of authorization recovery itself still pauses.
 Replay waits for a current accepted read in both cases.
+
+Read-only consumers subscribe to `getReadAuthorization` through the coordinator.
+It retires immediately on session/incident authority loss and resumes only after
+current authorization and accepted surface confirmation. Mutation replay can
+remain paused for a recovered viewer; that write policy does not prohibit reads.

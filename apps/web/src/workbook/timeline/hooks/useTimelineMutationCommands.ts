@@ -433,7 +433,7 @@ export function useTimelineMutationCommands({
         return;
       }
       const viewportContinuityToken = beginViewportContinuity(
-        snapshot.recordId === null
+        snapshot.recordId === null || onSettled !== undefined
           ? {
               kind: "scroll-only",
             }

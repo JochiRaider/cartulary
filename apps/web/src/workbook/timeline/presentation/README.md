@@ -26,3 +26,9 @@ committed grid drafts. It reads exact source-owned registry values for local cop
 or discard and conceals them with current authority. Inline review compares the
 retained authoring baseline with the latest committed row, independently of the
 vendor editor's captured render row.
+
+Timeline Find is projected by the root composition. The view bar places its
+control after query chips and before Inspector, while the shared control renders
+the floating panel without another toolbar row. Grid registration binds the
+Adapter presentation port; cell states add the orthogonal Find cue. These regions
+do not execute queries, retain drafts or own search state.

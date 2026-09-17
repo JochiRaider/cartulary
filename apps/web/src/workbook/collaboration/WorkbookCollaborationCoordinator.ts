@@ -194,6 +194,8 @@ class WorkbookCollaborationCoordinatorRuntime {
     | null = null;
   private sessionUnsubscribe: (() => void) | null = null;
   private snapshot: WorkbookCollaborationSnapshot;
+  private readAuthorized = true;
+  private publishedReadAuthorization = true;
   private pendingAuthorizationRefresh: AuthorizedRecoveryPlan | null = null;
   private authorizationRefreshAttempt = 0;
 
@@ -202,6 +204,8 @@ class WorkbookCollaborationCoordinatorRuntime {
   ) {
     this.activeSheetRef = { ...options.initialSheetRef };
     if (options.mutationRuntime.getSnapshot().authPaused) {
+      this.readAuthorized = false;
+      this.publishedReadAuthorization = false;
       this.authorizationRecoveryMachine = {
         ...this.authorizationRecoveryMachine,
         authorizationConfirmed: false,
@@ -216,6 +220,9 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   getSnapshot = (): WorkbookCollaborationSnapshot => this.snapshot;
+
+  /** Read authority is independent of whether retained mutations may replay. */
+  getReadAuthorization = (): boolean => this.readAuthorized && !this.disposed;
 
   subscribe = (listener: CollaborationProjectionListener): (() => void) => {
     this.listeners.add(listener);
@@ -498,9 +505,11 @@ class WorkbookCollaborationCoordinatorRuntime {
     if (
       samePresence &&
       this.snapshot.connectionId === connectionId &&
-      this.snapshot.status === status
+      this.snapshot.status === status &&
+      this.publishedReadAuthorization === this.getReadAuthorization()
     )
       return;
+    this.publishedReadAuthorization = this.getReadAuthorization();
     this.snapshot = {
       presence: samePresence ? this.snapshot.presence : projected.presentation,
       connectionId,
@@ -557,6 +566,14 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private applyInvalidationPlan(reason: WorkbookInvalidationReason): void {
+    if (
+      reason.kind === "session_unavailable" ||
+      reason.kind === "incident_access_lost" ||
+      reason.kind === "runtime_disposed"
+    ) {
+      this.readAuthorized = false;
+      this.emit();
+    }
     for (const effect of planWorkbookCollaborationInvalidation(reason)) {
       this.applyInvalidationEffect(effect);
     }
@@ -740,6 +757,8 @@ class WorkbookCollaborationCoordinatorRuntime {
     );
     this.authorizationRecoveryMachine = completed.machine;
     if (completed.kind === "stale" || this.disposed) return;
+    this.readAuthorized = true;
+    this.emit();
     if (completed.canResumeMutations) {
       this.options.mutationRuntime.applyAuthorizationRecoveryState("resumed");
     }
@@ -1025,6 +1044,7 @@ export function createWorkbookCollaborationCoordinator(
       runtime.presenceForRow(recordId),
     refreshPresenceTime: () => runtime.refreshPresenceTime(),
     getSnapshot: runtime.getSnapshot,
+    getReadAuthorization: runtime.getReadAuthorization,
     publishPresence: (presence: WorkbookPresenceDraft) =>
       runtime.publishPresence(presence),
     publishFocusedCell: (recordId: string | null, fieldKey: string | null) =>
