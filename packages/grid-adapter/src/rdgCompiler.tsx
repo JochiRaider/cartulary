@@ -29,6 +29,7 @@ import type {
   GridSemanticStateInput,
   GridSurfaceIdentity,
 } from "./core";
+import { bindGridEditorReveal } from "./editorReveal";
 import {
   type GridResolvedSemanticState,
   gridSemanticStateClassNames,
@@ -631,6 +632,11 @@ function SemanticGridEditor<Row>({
   const latestCommitSequenceRef = useRef(0);
   const closedCommitSequenceRef = useRef<number | null>(null);
   const focusTargetRef = useRef<GridEditorFocusTarget | null>(null);
+  const revealRef = useRef<ReturnType<typeof bindGridEditorReveal> | null>(
+    null,
+  );
+  const currentRef = useRef(isCurrent);
+  currentRef.current = isCurrent;
   const registerFocusTarget = useCallback(
     (element: GridEditorFocusTarget | null) => {
       focusTargetRef.current = element;
@@ -641,7 +647,30 @@ function SemanticGridEditor<Row>({
     const element = focusTargetRef.current;
     if (element === null) return;
     element.focus({ preventScroll: true });
+    revealRef.current?.refresh();
   }, []);
+  useLayoutEffect(() => {
+    const primary = focusTargetRef.current;
+    const editor = primary?.closest<HTMLElement>('[data-grid-editing="true"]');
+    const root = editor?.closest<HTMLElement>(
+      '[role="grid"], [role="treegrid"]',
+    );
+    if (!editor || !root) return;
+    const reveal = bindGridEditorReveal(
+      root,
+      editor,
+      () =>
+        attachedRef.current && !cancelledRef.current && currentRef.current(),
+    );
+    revealRef.current = reveal;
+    return () => {
+      reveal.dispose();
+      revealRef.current = null;
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (outcome !== null) revealRef.current?.refresh();
+  }, [outcome]);
   const initialAttachment = useRef({ adapter, row, target, seed: editorSeed });
   useLayoutEffect(() => {
     const { adapter, row, target, seed } = initialAttachment.current;
@@ -843,7 +872,7 @@ function SemanticGridEditor<Row>({
           if (action) {
             event.preventDefault();
             event.stopPropagation();
-            action.focus();
+            action.focus({ preventScroll: true });
             return;
           }
         }

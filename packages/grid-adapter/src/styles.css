@@ -187,10 +187,11 @@
   flex-wrap: wrap;
   gap: 0.25rem;
   inline-size: 100%;
-  inset-block-start: 100%;
-  inset-inline-start: 0;
+  top: var(--cartulary-editor-toolbar-top, 100%);
+  left: var(--cartulary-editor-toolbar-left, 0px);
   line-height: 1.4;
   overflow-wrap: anywhere;
+  overflow: auto;
   padding: 0.25rem;
   position: absolute;
   white-space: normal;

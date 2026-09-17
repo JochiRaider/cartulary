@@ -226,6 +226,7 @@
       "family_id": "module.workbook.accessibility",
       "collaborator_ids": [
         "harness.browser",
+        "package.grid_adapter",
         "web.design",
         "web.workbook"
       ],
@@ -238,10 +239,28 @@
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
-          "scenario_grid_autosave_a11y"
+          "scenario_grid_autosave_a11y_1280_720_zoom1",
+          "scenario_grid_autosave_a11y_1280_720_zoom2",
+          "scenario_grid_autosave_a11y_1536_1440_zoom2",
+          "scenario_grid_autosave_a11y_390_720_zoom1",
+          "scenario_grid_autosave_a11y_767_720_zoom1",
+          "scenario_grid_autosave_a11y_768_720_zoom1",
+          "scenario_grid_autosave_a11y_correction_resize",
+          "scenario_grid_autosave_a11y_correction_virtualized_bottom",
+          "scenario_grid_autosave_a11y_multiline",
+          "scenario_grid_autosave_a11y_select"
         ],
         "titles": [
-          "a11y.grid-autosave correction actions preserve keyboard access composition and narrow-layout focus"
+          "a11y.grid-autosave correction access 1280x720 CSS zoom 1",
+          "a11y.grid-autosave correction access 1280x720 CSS zoom 2",
+          "a11y.grid-autosave correction access 1536x1440 CSS zoom 2",
+          "a11y.grid-autosave correction access 390x720 CSS zoom 1",
+          "a11y.grid-autosave correction access 767x720 CSS zoom 1",
+          "a11y.grid-autosave correction access 768x720 CSS zoom 1",
+          "a11y.grid-autosave correction access survives viewport column and oversized editor changes",
+          "a11y.grid-autosave correction actions remain visible at a virtualized bottom edge",
+          "a11y.grid-autosave multiline correction access uses the shared adapter",
+          "a11y.grid-autosave select correction access uses the shared adapter"
         ]
       },
       "evidence_class": "accessibility",

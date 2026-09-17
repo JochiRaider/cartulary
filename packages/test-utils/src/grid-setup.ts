@@ -119,6 +119,7 @@ async function applyGridScrollAction(
   )) as { left: number; top: number };
 }
 
+/** Locate a display cell for interaction; this does not reveal a later editor. */
 export async function scrollGridCellIntoView(options: {
   cellKey: string;
   intervalMs?: number;

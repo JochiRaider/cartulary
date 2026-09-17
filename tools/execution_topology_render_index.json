@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:38ba60b8d5512553f9fb90b450a0007fa4e9f3ec977960347deaceee98273fb1",
+  "input_digest": "sha256:b68b274dcdc5e367fa465ff41fa90c70310f6d68bb92f7410c8d71e918ae5a08",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -1122,12 +1122,12 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ec233768b706e7754b569e9f0527c8ba63fba52d13e4b5615b561ca2026b7270"
+      "hash": "sha256:aac3397ca1d5cdcce859fa4485099976150b66340ce33fdc2d515763a68a6b7c"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ed3c532a5c9b058ec82443341a0c10f861b367df6bbe332b42b2d66f12c84db2"
+      "hash": "sha256:ee9f39381eec423290ce0caeffb6196ccdd68d4f66d857ac185a8beb1d500358"
     },
     {
       "path": "tools/test_families/package.protocol_ts.json",
@@ -1137,7 +1137,7 @@
     {
       "path": "tools/test_families/package.test_utils.json",
       "role": "test_family_manifest",
-      "hash": "sha256:5b837403f8d729db990f161b72cb14bb01bb95f7ffd4608dc24c9b9424a0726d"
+      "hash": "sha256:00c0bf531b705375447fc55bcece375c060f81e77495381f99744a1cf18966c3"
     },
     {
       "path": "tools/test_families/package.ui.json",

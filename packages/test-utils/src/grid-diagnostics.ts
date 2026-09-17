@@ -6,6 +6,83 @@ import {
 
 import { type BrowserPageLike, requireEvaluate } from "./browser";
 
+/** Read-only layout evidence. Never include field values, text, or credentials. */
+export async function readGridTargetGeometry(
+  page: BrowserPageLike,
+  targetTestId: string,
+) {
+  const target = page.getByTestId(targetTestId);
+  const evaluate = requireEvaluate(
+    target,
+    "readGridTargetGeometry requires locator.evaluate() support",
+  );
+  return evaluate((element) => {
+    const describe = (start: Element) => {
+      const ancestors = [];
+      for (
+        let current: Element | null = start;
+        current !== null;
+        current = current.parentElement
+      ) {
+        const style = getComputedStyle(current);
+        const rect = current.getBoundingClientRect();
+        ancestors.push({
+          tag: current.tagName,
+          role: current.getAttribute("role"),
+          classes: current.getAttribute("class"),
+          focused: current === current.ownerDocument.activeElement,
+          rect: {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+          },
+          clientWidth: current.clientWidth,
+          clientHeight: current.clientHeight,
+          clientLeft: current.clientLeft,
+          clientTop: current.clientTop,
+          scrollWidth: current.scrollWidth,
+          scrollHeight: current.scrollHeight,
+          scrollLeft: current.scrollLeft,
+          scrollTop: current.scrollTop,
+          style: {
+            overflowX: style.overflowX,
+            overflowY: style.overflowY,
+            position: style.position,
+            boxSizing: style.boxSizing,
+            padding: style.padding,
+            border: style.borderWidth,
+            zoom: style.zoom,
+            width: style.width,
+            height: style.height,
+            outlineWidth: style.outlineWidth,
+            outlineOffset: style.outlineOffset,
+          },
+        });
+      }
+      return ancestors;
+    };
+    const view = element.ownerDocument.defaultView;
+    return {
+      viewport: {
+        width: view?.innerWidth,
+        height: view?.innerHeight,
+        scrollX: view?.scrollX,
+        scrollY: view?.scrollY,
+        visualWidth: view?.visualViewport?.width,
+        visualHeight: view?.visualViewport?.height,
+        visualScale: view?.visualViewport?.scale,
+      },
+      ancestors: describe(element),
+      focusedAncestors: element.ownerDocument.activeElement
+        ? describe(element.ownerDocument.activeElement)
+        : [],
+    };
+  });
+}
+
 export type GridScrollDiagnostics = {
   readonly clientHeight: number;
   readonly clientWidth: number;

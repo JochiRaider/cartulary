@@ -37,7 +37,7 @@ import {
   type ClipboardRepresentations,
   clipboardRepresentations,
 } from "./clipboardCodec";
-import { elementCssScale, normalizeMeasuredColumnWidth } from "./columnSizing";
+import { normalizeMeasuredColumnWidth } from "./columnSizing";
 import {
   assertGridRows,
   type GridCellAnchor,
@@ -141,6 +141,7 @@ import {
 } from "./semanticState";
 import { useGridColumnSizing } from "./useGridColumnSizing";
 import { useGridInteraction } from "./useGridInteraction";
+import { elementCssScale } from "./viewportGeometry";
 
 const emptySelectedRecordIds: ReadonlySet<string> = new Set();
 

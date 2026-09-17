@@ -2,10 +2,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createColumnSizingPort,
-  elementCssScale,
   normalizeMeasuredColumnWidth,
 } from "./columnSizing";
 import { SemanticDataGrid } from "./SemanticDataGrid";
+import { elementCssScale } from "./viewportGeometry";
 
 afterEach(() => {
   cleanup();

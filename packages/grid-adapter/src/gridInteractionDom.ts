@@ -1,4 +1,3 @@
-import { elementCssScale, visibleGridViewport } from "./columnSizing";
 import type { GridCellAnchor } from "./core";
 import {
   isGridFillHandleTarget,
@@ -9,6 +8,7 @@ import {
   gridEdgeScrollDelta,
 } from "./gridInteractionController";
 import { semanticPresentationContainsAnchor } from "./semanticPresentation";
+import { elementCssScale, visibleGridViewport } from "./viewportGeometry";
 
 export type RegisteredGridCell = {
   readonly anchor: GridCellAnchor;

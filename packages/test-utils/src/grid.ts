@@ -9,6 +9,7 @@ export {
   removeFilterChip,
   sortByHeader,
 } from "./grid-actions";
+export { readGridTargetGeometry } from "./grid-diagnostics";
 export {
   assertGroupRowPresentationOnly,
   assertMountedGridRowCountAtMost,

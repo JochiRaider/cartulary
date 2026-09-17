@@ -1,4 +1,5 @@
 import type { GridColumnMeasurement, GridColumnSizingPort } from "./core";
+import { elementCssScale, visibleGridViewport } from "./viewportGeometry";
 
 type SizingColumn = {
   readonly fieldKey: string;
@@ -20,22 +21,6 @@ export function normalizeMeasuredColumnWidth(
       fit ? Math.ceil(width) : Math.round(width),
     ),
   );
-}
-
-/** getBoundingClientRect includes CSS zoom; computed used width is in CSS pixels. */
-export function elementCssScale(element: HTMLElement): number {
-  const computed = getComputedStyle(element);
-  const content = Number.parseFloat(computed.width);
-  const borderBox =
-    computed.boxSizing === "border-box"
-      ? content
-      : content +
-        numeric(computed.paddingLeft) +
-        numeric(computed.paddingRight) +
-        numeric(computed.borderLeftWidth) +
-        numeric(computed.borderRightWidth);
-  const scale = element.getBoundingClientRect().width / borderBox;
-  return Number.isFinite(scale) && scale > 0 ? scale : 1;
 }
 
 function numeric(value: string): number {
@@ -235,36 +220,6 @@ function nodesFor(root: HTMLElement, fieldKey: string): HTMLElement[] {
         '[data-grid-editing="true"], [data-grid-sizing-draft="true"]',
       ),
   );
-}
-function rect(value: DOMRect) {
-  return {
-    top: value.top,
-    bottom: value.bottom,
-    left: value.left,
-    right: value.right,
-  };
-}
-
-/** A grid may be wider than its containing pane without disabling virtualization. */
-export function visibleGridViewport(root: HTMLElement) {
-  const bounds = rect(root.getBoundingClientRect());
-  bounds.left = Math.max(bounds.left, 0);
-  bounds.top = Math.max(bounds.top, 0);
-  bounds.right = Math.min(bounds.right, window.innerWidth);
-  bounds.bottom = Math.min(bounds.bottom, window.innerHeight);
-  for (let parent = root.parentElement; parent; parent = parent.parentElement) {
-    const style = getComputedStyle(parent);
-    const clip = parent.getBoundingClientRect();
-    if (["auto", "scroll", "hidden", "clip"].includes(style.overflowX)) {
-      bounds.left = Math.max(bounds.left, clip.left);
-      bounds.right = Math.min(bounds.right, clip.right);
-    }
-    if (["auto", "scroll", "hidden", "clip"].includes(style.overflowY)) {
-      bounds.top = Math.max(bounds.top, clip.top);
-      bounds.bottom = Math.min(bounds.bottom, clip.bottom);
-    }
-  }
-  return bounds;
 }
 function intersects(
   a: { top: number; bottom: number; left: number; right: number },

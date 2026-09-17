@@ -381,6 +381,7 @@ export type GridEditorRenderContext<Row> = {
   readonly pending: boolean;
   readonly row: Row;
   readonly setDraftValue: (value: unknown) => void;
+  /** Declares the mounted primary control; the adapter owns its focus and reveal. */
   readonly focusTargetRef: RefCallback<GridEditorFocusTarget>;
   readonly target: GridCellTarget;
 };

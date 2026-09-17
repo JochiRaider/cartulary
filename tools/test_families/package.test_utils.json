@@ -29,6 +29,7 @@
           "@cartulary/test-utils marker anchoring reacquires marker geometry after an ordinary grid remount",
           "@cartulary/test-utils marker anchoring times out with bounded diagnostics when the target never becomes observable",
           "@cartulary/test-utils selector choreography asserts group rows remain presentation-only",
+          "@cartulary/test-utils selector choreography captures correction geometry without field values or layout mutations",
           "@cartulary/test-utils selector choreography checks required filter field selection before opening and stops after rejection",
           "@cartulary/test-utils selector choreography exposes exact public facade runtime shapes",
           "@cartulary/test-utils selector choreography fails required grouping selection closed and propagates rejection",

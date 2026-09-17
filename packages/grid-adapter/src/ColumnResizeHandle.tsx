@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { elementCssScale, normalizeMeasuredColumnWidth } from "./columnSizing";
+import { normalizeMeasuredColumnWidth } from "./columnSizing";
 import type { GridColumnSizingIntent } from "./core";
+import { elementCssScale } from "./viewportGeometry";
 
 export function ColumnResizeHandle({
   fieldKey,

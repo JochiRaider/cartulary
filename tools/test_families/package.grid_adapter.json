@@ -893,6 +893,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.grid_adapter.regression.mounted_editor_reveal_d7786aa49d",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/editorReveal.test.ts",
+        "titles": [
+          "mounted editor reveal avoids sticky headers and frozen columns and clamps unreachable scroll destinations",
+          "mounted editor reveal coalesces layout work and cancels detached superseded or unfocused editor lifetimes",
+          "mounted editor reveal intersects ancestor client clipping and accounts for grid borders and scrollbars",
+          "mounted editor reveal keeps RTL scroll offsets within the negative horizontal range",
+          "mounted editor reveal reveals the actual control in local scroll units at CSS zoom without touching text or focus",
+          "mounted editor reveal uses minimal translations and leaves an oversized spanning control stable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.grid_adapter.regression.nested_editor_interaction",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",

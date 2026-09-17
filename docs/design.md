@@ -965,6 +965,11 @@ counts and details follow Core 03 REQ-03-299/100 and Core 04 authorization.
 
 Design contract. Below the supported minimum inline size, keyboard session logout and safe navigation MUST remain available. Omission of mobile/touch-specific gestures is conformant.
 
+Design contract. When a grid editor remains available below the supported minimum,
+the focused-control reveal contract in §12.5 MUST still apply. This bounded
+correction-access guarantee does not change the minimum inline size for full
+desktop design support. Horizontal grid scrolling remains permitted.
+
 ### 7.5 Responsive overflow algorithm
 
 Design contract. Responsive overflow MUST use the region assignment table below. The table is exhaustive for shell controls in this revision. Top-bar and view-bar control assignment is keyed only by the shell chrome mode selected in §7.4; a vertical-only resize at a fixed inline size MUST preserve the selected rendered location, truncation, popover path, and accessible label for each shell control.
@@ -1750,6 +1755,23 @@ Design contract. Grid editors MUST preserve visible cell context and row identit
 
 Design contract. Invalid editor state MUST show field-local message and accessible invalid state. It MUST NOT rely on red border alone.
 
+Design contract. Editor activation, rejection focus recovery, and keyboard focus
+within correction controls MUST reveal the actual mounted focused control. A
+control whose border box fits the usable grid viewport MUST be fully contained
+there with a visible focus indicator. The usable viewport excludes clipping
+ancestors, browser viewport edges, and grid-owned sticky or frozen obstructions.
+Rejection feedback and active-editor or viewport resizing MUST recheck that
+containment without changing the draft, caret, row geometry, or persisted column
+width. CSS zoom MUST be accounted for in geometry and scroll coordinates.
+
+Design contract. An oversized control MUST receive maximum useful exposure with
+native text/caret scrolling preserved. Correction controls MUST wrap within
+available space and remain individually reachable; simultaneous containment of
+the whole toolbar is not required. Correction placement MUST remain anchored to
+the original cell within the grid work area. Cancellation MUST remain reachable.
+Reveal work MUST stop when the editor is detached, superseded, or no longer owns
+focus; background outcomes MUST NOT move focus away from newer work.
+
 Design contract. Existing-row editor choice is driven by declared grid-editable field capability and semantic scalar or reference contract, never by display labels. Enum, boolean, numeric, RFC 3339 timestamp, reference, single-line text, and multiline text editors share one commit, cancel, validation, conflict, and focus-restoration posture. Multiline editors use `Enter` to commit and `Shift+Enter` for a newline. A dirty editor MUST retain its local value across rejection, stale refresh, and read-only transition until the user cancels or an accepted result replaces it.
 
 ### 12.6 Menus and popovers
@@ -1867,6 +1889,7 @@ Design contract. `dark_graphite` MUST satisfy WCAG 2.2 AA for all required state
 | --- | --- |
 | Keyboard access | Every action reachable by pointer is reachable by keyboard unless the action is pointer-only by owner behavior and has a keyboard alternative. |
 | Focus visibility | Focus indicator uses `{border.focus}` or a token-pair row in §14.3. |
+| Focused editor containment | §12.5 applies at supported and below-minimum widths, including CSS zoom; each fitting focused editor or correction control is fully revealed. |
 | State communication | Conflict, pending, invalid, read-only, selected, disabled, evidence blocked, auto-resolved, dismissed, and unresolved states have non-color cues. |
 | Accessible names | Icon-only controls use §3.11 accessible names. Rows include human-readable surface context and are not named only by `record_id`. |
 | Reduced motion | §6.3 governs reduced-motion behavior. |
@@ -2131,6 +2154,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-053` | §14.2 | Live-region test | The live-region matrix maps each listed event to `polite`, `assertive`, or no live announcement. | Event announcement behavior undefined. |
 | `D-AC-054` | §14.1 | Accessibility report | Row accessible names include human-readable surface context and are not raw `record_id` alone. | Row accessible name uses only ID or implementation coordinate. |
 | `D-AC-055` | §14.3 | Contrast report | Contrast pair matrix covers every token pair used in required fixtures and forbids unlisted pairings. | Fixture uses unlisted pair or failing ratio. |
+| `D-AC-056` | §7.4, §12.5, §14.1 | Independent viewport correction-access fixtures and geometry diagnostics | Fitting focused editors and correction actions are fully contained at supported and below-minimum widths, including CSS zoom; oversized controls preserve scrolling, individual action access, and cancellation. | Clipping, focus theft, draft or column-width changes, unreachable correction actions, or one failed viewport preventing later cases. |
 
 ### 18.7 Visual-fixture execution criteria
 

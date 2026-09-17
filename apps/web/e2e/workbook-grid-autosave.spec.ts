@@ -1,4 +1,5 @@
 import {
+  readGridTargetGeometry,
   scrollGridCellIntoView,
   sortByHeader,
 } from "@cartulary/test-utils/grid";
@@ -7,7 +8,9 @@ import {
   genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
+  gridScrollportSelector,
   gridShellTestId,
+  gridSortHeaderTestId,
   incidentLandingTestId,
   rowCellTestId,
   timelineScalarEditorTestId,
@@ -33,7 +36,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import type { Locator, Page, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { revokeAllSessions } from "./support/auth/sessions";
@@ -118,6 +121,7 @@ async function activate(
   view: string,
   record: string,
   field: string,
+  beforeActivation?: () => Promise<void>,
 ) {
   const contract = requireViewContract(view).fieldMap[field];
   if (contract?.defaultHidden) {
@@ -134,6 +138,7 @@ async function activate(
     recordId: record,
     cellKey: field,
   });
+  await beforeActivation?.();
   await page.getByTestId(rowCellTestId(record, field)).click();
   const input = editor(page, view, record, field);
   await expect(input).toBeFocused();
@@ -328,8 +333,13 @@ test("Committed grid invalid timestamps survive detachment and clear only with e
       exact: true,
     })
     .click();
-  await clear.press("Enter");
+  expect(bodies).toHaveLength(1);
+  await expect(
+    page.getByText("Clear on commit", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Commit", exact: true }).click();
   await expect(clear).toHaveCount(0);
+  expect(bodies).toHaveLength(2);
   expect(JSON.parse(bodies[1] ?? "{}").changes).toEqual([
     { field_key: field, value: null },
   ]);
@@ -953,11 +963,172 @@ test("Committed grid dependent inspector writes wait for the accepted row versio
   }
 });
 
-test("a11y.grid-autosave correction actions preserve keyboard access composition and narrow-layout focus", async ({
+function correctionAccess({
+  width,
+  height,
+  zoom,
+}: {
+  width: number;
+  height: number;
+  zoom: number;
+}) {
+  return async ({ page }: { page: Page }, info: TestInfo) => {
+    const f = await fixture(page, evidenceViewSchemaId);
+    const field = "evidence.requested_at";
+    const inputId = `grid-editor-${f.row.record_id}-${field}`;
+    const samples: { stage: string; geometry: unknown }[] = [];
+    const sample = async (stage: string, targetId = inputId) => {
+      samples.push({
+        stage,
+        geometry: await readGridTargetGeometry(page, targetId),
+      });
+    };
+    let writes = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "PATCH" &&
+        request.url().endsWith(`/records/${f.row.record_id}`)
+      )
+        writes++;
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width, height });
+    await page.evaluate((zoom) => {
+      document.documentElement.style.zoom = String(zoom);
+    }, zoom);
+    try {
+      const input = await activate(page, f.view, f.row.record_id, field, () =>
+        sample("before-activation", rowCellTestId(f.row.record_id, field)),
+      );
+      await sample("mounted");
+      await input.dispatchEvent("compositionstart");
+      await input.fill("  unfinished timestamp  ");
+      await input.dispatchEvent("keydown", {
+        key: "Enter",
+        isComposing: true,
+        bubbles: true,
+      });
+      await expect(input).toBeFocused();
+      await expect(input).toHaveValue("  unfinished timestamp  ");
+      await input.dispatchEvent("compositionend", {
+        data: "  unfinished timestamp  ",
+      });
+      await input.press("Enter");
+      await expect(input).toHaveAttribute("aria-invalid", "true");
+      await sample("rejected");
+      await expect(input).toBeFocused();
+      await expect(input).toHaveValue("  unfinished timestamp  ");
+      await expect(input).toBeInViewport({ ratio: 1 });
+      await input.press("Alt+ArrowDown");
+      const clear = page.getByRole("button", {
+        name: "Clear Requested",
+        exact: true,
+      });
+      const commit = page.getByRole("button", { name: "Commit", exact: true });
+      const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+      await sample("clear-focused");
+      await expect(clear).toBeFocused();
+      await expect(clear).toBeInViewport({ ratio: 1 });
+      await clear.press("Tab");
+      await sample("commit-focused");
+      await expect(commit).toBeFocused();
+      await expect(commit).toBeInViewport({ ratio: 1 });
+      await commit.press("Tab");
+      await sample("cancel-focused");
+      await expect(cancel).toBeFocused();
+      await expect(cancel).toBeInViewport({ ratio: 1 });
+      await cancel.press("Shift+Tab");
+      await expect(commit).toBeFocused();
+      await commit.press("Shift+Tab");
+      await expect(clear).toBeFocused();
+      await expect(input).toHaveValue("  unfinished timestamp  ");
+      expect(writes).toBe(0);
+      await info.attach("grid-correction-active", {
+        body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+        contentType: "image/png",
+      });
+      await clear.press("Escape");
+      await expect(input).toHaveCount(0);
+      await expect(
+        page.getByRole("gridcell").filter({
+          has: page.getByTestId(rowCellTestId(f.row.record_id, field)),
+        }),
+      ).toBeFocused();
+      expect(writes).toBe(0);
+    } finally {
+      await info.attach("grid-correction-geometry", {
+        body: JSON.stringify(
+          { width, height, cssZoom: zoom, samples },
+          null,
+          2,
+        ),
+        contentType: "application/json",
+      });
+      await info.attach("grid-correction-viewport", {
+        body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+        contentType: "image/png",
+      });
+    }
+  };
+}
+
+test(
+  "a11y.grid-autosave correction access 1280x720 CSS zoom 1",
+  correctionAccess({ width: 1280, height: 720, zoom: 1 }),
+);
+
+test(
+  "a11y.grid-autosave correction access 768x720 CSS zoom 1",
+  correctionAccess({ width: 768, height: 720, zoom: 1 }),
+);
+
+test(
+  "a11y.grid-autosave correction access 767x720 CSS zoom 1",
+  correctionAccess({ width: 767, height: 720, zoom: 1 }),
+);
+
+test(
+  "a11y.grid-autosave correction access 390x720 CSS zoom 1",
+  correctionAccess({ width: 390, height: 720, zoom: 1 }),
+);
+
+test(
+  "a11y.grid-autosave correction access 1536x1440 CSS zoom 2",
+  correctionAccess({ width: 1536, height: 1440, zoom: 2 }),
+);
+
+test(
+  "a11y.grid-autosave correction access 1280x720 CSS zoom 2",
+  correctionAccess({ width: 1280, height: 720, zoom: 2 }),
+);
+
+async function correctionActions(page: Page, input: Locator, info?: TestInfo) {
+  await input.press("Alt+ArrowDown");
+  const toolbar = page.getByRole("group", {
+    name: "Cell actions",
+    exact: true,
+  });
+  const actions = toolbar.getByRole("button");
+  for (let index = 0; index < (await actions.count()); index++) {
+    const action = actions.nth(index);
+    await expect(action).toBeFocused();
+    await expect(action).toBeInViewport({ ratio: 1 });
+    if (index + 1 < (await actions.count())) await action.press("Tab");
+  }
+  if (info)
+    await info.attach("grid-correction-actions", {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  await page.keyboard.press("Escape");
+  await expect(input).toHaveCount(0);
+}
+
+test("a11y.grid-autosave correction access survives viewport column and oversized editor changes", async ({
   page,
 }, info) => {
-  const f = await fixture(page, evidenceViewSchemaId),
-    field = "evidence.requested_at";
+  const f = await fixture(page, evidenceViewSchemaId);
+  const field = "evidence.requested_at";
   let writes = 0;
   page.on("request", (request) => {
     if (
@@ -966,60 +1137,172 @@ test("a11y.grid-autosave correction actions preserve keyboard access composition
     )
       writes++;
   });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const [width, zoom] of [
-    [1280, 1],
-    [390, 1],
-    [1280, 2],
-  ] as const) {
-    await page.setViewportSize({ width, height: 720 });
-    await page.evaluate((zoom) => {
-      document.documentElement.style.zoom = String(zoom);
-    }, zoom);
-    const input = await activate(page, f.view, f.row.record_id, field);
-    await input.dispatchEvent("compositionstart");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const input = await activate(page, f.view, f.row.record_id, field);
+  await input.fill("  unfinished timestamp  ");
+  await input.press("Enter");
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await input.evaluate((element) =>
+    (element as HTMLInputElement).setSelectionRange(3, 7),
+  );
+  const header = page.getByTestId(gridSortHeaderTestId(f.view, field));
+  const box = await header.boundingBox();
+  if (!box) throw new Error("Requested header is unavailable");
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width + 78, box.y + box.height / 2);
+  await page.mouse.up();
+  await expect
+    .poll(() =>
+      input.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).width),
+      ),
+    )
+    .toBe(300);
+  await page.setViewportSize({ width: 390, height: 720 });
+  await expect(input).toBeFocused();
+  await expect(input).toBeInViewport({ ratio: 1 });
+  expect(
+    await input.evaluate((element) => [
+      (element as HTMLInputElement).selectionStart,
+      (element as HTMLInputElement).selectionEnd,
+    ]),
+  ).toEqual([3, 7]);
+  await page.setViewportSize({ width: 260, height: 400 });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("  unfinished timestamp  ");
+  const scrollport = page
+    .getByTestId(gridShellTestId(f.view))
+    .locator(gridScrollportSelector());
+  const geometry = await input.boundingBox();
+  const available = await scrollport.boundingBox();
+  expect(geometry?.width).toBe(300);
+  expect(geometry?.width).toBeGreaterThan(available?.width ?? 0);
+  await info.attach("oversized-editor-geometry", {
+    body: JSON.stringify(
+      await readGridTargetGeometry(
+        page,
+        `grid-editor-${f.row.record_id}-${field}`,
+      ),
+    ),
+    contentType: "application/json",
+  });
+  await correctionActions(page, input, info);
+  expect(writes).toBe(0);
+  expect(
+    await header.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).width),
+    ),
+  ).toBe(300);
+});
+
+test("a11y.grid-autosave correction actions remain visible at a virtualized bottom edge", async ({
+  page,
+}, info) => {
+  const f = await fixture(page, evidenceViewSchemaId);
+  await Promise.all(
+    Array.from({ length: 24 }, (_, index) =>
+      createViewRow(page, f.incident, f.view, {
+        client_txn_id: uniqueTxn("gea-edge"),
+        "evidence.title": `Middle ${String(index).padStart(2, "0")}`,
+      }),
+    ),
+  );
+  const last = await createViewRow(page, f.incident, f.view, {
+    client_txn_id: uniqueTxn("gea-last"),
+    "evidence.title": "ZZ bottom edge",
+  });
+  await page.reload();
+  await sortByHeader(page, f.view, "evidence.title");
+  await page.setViewportSize({ width: 390, height: 480 });
+  const field = "evidence.requested_at";
+  const targetId = `grid-editor-${last.record_id}-${field}`;
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/records/${last.record_id}`)
+    )
+      writes++;
+  });
+  const input = await activate(page, f.view, last.record_id, field);
+  try {
     await input.fill("  unfinished timestamp  ");
-    await input.dispatchEvent("keydown", {
-      key: "Enter",
-      isComposing: true,
-      bubbles: true,
-    });
-    await expect(input).toBeFocused();
-    await expect(input).toHaveValue("  unfinished timestamp  ");
-    await input.dispatchEvent("compositionend", {
-      data: "  unfinished timestamp  ",
-    });
     await input.press("Enter");
     await expect(input).toHaveAttribute("aria-invalid", "true");
     await expect(input).toBeInViewport({ ratio: 1 });
-    await input.press("Alt+ArrowDown");
-    const clear = page.getByRole("button", {
-      name: "Clear Requested",
-      exact: true,
+    const scrollport = page
+      .getByTestId(gridShellTestId(f.view))
+      .locator(gridScrollportSelector());
+    expect(
+      await scrollport.evaluate((element) => element.scrollTop),
+    ).toBeGreaterThan(0);
+    await info.attach("bottom-edge-geometry", {
+      body: JSON.stringify(await readGridTargetGeometry(page, targetId)),
+      contentType: "application/json",
     });
-    await expect(clear).toBeFocused();
-    await expect(clear).toBeInViewport({ ratio: 1 });
-    await clear.press("Tab");
-    await expect(
-      page.getByRole("button", { name: "Commit", exact: true }),
-    ).toBeFocused();
-    await page.keyboard.press("Shift+Tab");
-    await expect(clear).toBeFocused();
-    await info.attach(`grid-autosave-${width}-${zoom}`, {
-      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    await correctionActions(page, input, info);
+    expect(writes).toBe(0);
+  } finally {
+    await info.attach("bottom-edge-viewport", {
+      body: await page.screenshot(),
       contentType: "image/png",
     });
-    await info.attach(`grid-autosave-aria-${width}-${zoom}`, {
-      body: await page
-        .getByRole("group", { name: "Edit Requested", exact: true })
-        .ariaSnapshot(),
-      contentType: "text/plain",
-    });
-    await clear.press("Escape");
-    await expect(input).toHaveCount(0);
-    expect(writes).toBe(0);
   }
 });
+
+function correctionFamily(
+  view: string,
+  field: string,
+  seed: Record<string, string>,
+) {
+  return async ({ page }: { page: Page }) => {
+    const incident = await createIncident(
+      page,
+      uniqueIncidentKey("GEA-CONTROL"),
+      "Correction editor families",
+    );
+    const row = await createViewRow(page, incident, view, {
+      client_txn_id: uniqueTxn("gea-control"),
+      ...seed,
+    });
+    await page.goto(`/?incident_id=${incident}&view_schema_id=${view}`);
+    await page.setViewportSize({ width: 390, height: 720 });
+    let writes = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "PATCH" &&
+        request.url().endsWith(`/records/${row.record_id}`)
+      )
+        writes++;
+    });
+    const input = await activate(page, view, row.record_id, field);
+    await expect(input).toBeInViewport({ ratio: 1 });
+    await input.press("Escape");
+    const cell = page
+      .getByRole("gridcell")
+      .filter({ has: page.getByTestId(rowCellTestId(row.record_id, field)) });
+    await expect(cell).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(input).toBeFocused();
+    await expect(input).toBeInViewport({ ratio: 1 });
+    if ((await input.evaluate((element) => element.tagName)) === "TEXTAREA")
+      await input.fill("  Line one\nLine two  ");
+    await correctionActions(page, input);
+    expect(writes).toBe(0);
+  };
+}
+
+test(
+  "a11y.grid-autosave multiline correction access uses the shared adapter",
+  correctionFamily(notesViewSchemaId, "note.body", { "note.title": "Note" }),
+);
+test(
+  "a11y.grid-autosave select correction access uses the shared adapter",
+  correctionFamily(findingsViewSchemaId, "finding.kind", {
+    "finding.statement": "Finding",
+  }),
+);
 
 test("Committed grid different-field successors preserve collaboration versions and require review for changed authoring fields", async ({
   page,
