@@ -264,9 +264,8 @@ export function EntityWorkbookSurface({
     recordId: selectedRecordId,
     row: selectedObservation,
     rowVersion: (row) => row.rowVersion,
-    scope: `${inspectorResetKey}:${currentUserId}:${currentIncidentRole}`,
-    readable:
-      currentIncidentRole !== null && loadState.kind !== "permission_denied",
+    scope: `${inspectorResetKey}:${currentUserId}`,
+    readable: !!currentIncidentRole && loadState.kind !== "permission_denied",
   });
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 import { semanticJSONDigest } from "../../contract/index.mjs";
@@ -239,6 +239,7 @@ function typescriptSpecifiers(source) {
 
 function referencedWorkspaceDependencies(root, workspace, workspaces, entries, byName) {
   const names = [];
+  const contracts = new Set();
   const sourceEntries = entries.filter((entry) =>
     under(entry.path, workspace.root) &&
     entry.kind === "file" &&
@@ -254,6 +255,19 @@ function referencedWorkspaceDependencies(root, workspace, workspaces, entries, b
         }
         const dependency = workspaces.find((candidate) => under(resolved, candidate.root));
         if (!dependency) {
+          if (under(resolved, "contracts") && resolved.endsWith(".json")) {
+            const contract = entries.find((candidate) => candidate.path === resolved);
+            const filename = path.join(root, resolved);
+            // The immutable index proves content; the filesystem check also rejects
+            // a file or ancestor replaced by a symlink after snapshot capture.
+            if (realpathSync(filename) !== path.join(realpathSync(root), resolved) ||
+                !lstatSync(filename).isFile()) {
+              throw new Error("contract dependency is not a contained regular file");
+            }
+            JSON.parse(checkedSourceText(root, contract));
+            contracts.add(resolved);
+            continue;
+          }
           throw new Error("relative TypeScript dependency has no proved workspace");
         }
         if (dependency.name !== workspace.name) names.push(dependency.name);
@@ -265,7 +279,7 @@ function referencedWorkspaceDependencies(root, workspace, workspaces, entries, b
       if (dependency && dependency !== workspace.name) names.push(dependency);
     }
   }
-  return [...new Set(names)].sort(compareASCII);
+  return { names: [...new Set(names)].sort(compareASCII), contracts: [...contracts].sort(compareASCII) };
 }
 
 function typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache) {
@@ -285,19 +299,22 @@ function typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache)
     workspaces: [...selected.values()].map((workspace) => workspace.root).sort(compareASCII),
   });
   if (resolverCache?.has(cacheKey)) return resolverCache.get(cacheKey);
-  const selectedWorkspaceNames = cached(
+  const selectedDependencies = cached(
     resolverCache,
     closureCacheKey("typescript-workspace-set", {
       workspaces: [...selected.values()].map((workspace) => workspace.root).sort(compareASCII),
     }),
     () => {
       const transitive = new Map(selected);
+      const contracts = new Set();
       const pending = [...transitive.values()];
       while (pending.length > 0) {
         const workspace = pending.shift();
+        const referenced = referencedWorkspaceDependencies(root, workspace, workspaces, entries, byName);
+        for (const contract of referenced.contracts) contracts.add(contract);
         const dependencies = [
           ...declaredWorkspaceDependencies(workspace, byName),
-          ...referencedWorkspaceDependencies(root, workspace, workspaces, entries, byName),
+          ...referenced.names,
         ];
         for (const name of dependencies.sort(compareASCII)) {
           if (transitive.has(name)) continue;
@@ -307,12 +324,13 @@ function typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache)
           pending.push(dependency);
         }
       }
-      return [...transitive.keys()].sort(compareASCII);
+      return { names: [...transitive.keys()].sort(compareASCII), contracts: [...contracts].sort(compareASCII) };
     },
   );
-  const selectedWorkspaces = selectedWorkspaceNames.map((name) => byName.get(name));
+  const selectedWorkspaces = selectedDependencies.names.map((name) => byName.get(name));
   const workspaceEntries = entries.filter((entry) =>
-    selectedWorkspaces.some((workspace) => under(entry.path, workspace.root)),
+    selectedWorkspaces.some((workspace) => under(entry.path, workspace.root)) ||
+    selectedDependencies.contracts.includes(entry.path),
   );
   const closure = digestClosure(
     "typescript_workspaces",

@@ -413,7 +413,7 @@ export function IncidentCollaborationSession({
           socketRef.current = null;
           return;
         }
-        if (event.code === 1008) {
+        if (event.code === 1008 && event.reason !== "heartbeat_timeout") {
           terminate(socket, "authorization_lost", {
             kind: "authorization_lost",
           });

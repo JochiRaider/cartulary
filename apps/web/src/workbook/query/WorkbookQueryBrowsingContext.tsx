@@ -39,6 +39,9 @@ class WorkbookQueryBrowsingRegistry {
       if (this.grids.get(view) === grid) this.grids.delete(view);
     };
   }
+  grid(view: string) {
+    return this.grids.get(view)?.current ?? null;
+  }
   prepareBrowse(view: string) {
     const grid = this.grids.get(view)?.current;
     const anchor = grid?.getActiveCell?.();

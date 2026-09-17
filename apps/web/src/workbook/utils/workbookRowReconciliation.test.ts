@@ -52,5 +52,30 @@ describe("workbook row reconciliation", () => {
     expect(
       reconcileWorkbookRecordRows([stableVersioned], [nextVersion])[0],
     ).toBe(nextVersion);
+    const lifecycleReceipt = {
+      recordId: "record-grouped",
+      rowVersion: 2,
+      captureState: "reviewed",
+      rawRow: {
+        cells: { "timeline.capture_state": { value: "reviewed" } },
+        group_values: { "timeline.capture_state": "rough" },
+      },
+    };
+    const acceptedQuery = {
+      ...lifecycleReceipt,
+      rawRow: {
+        ...lifecycleReceipt.rawRow,
+        group_values: { "timeline.capture_state": "reviewed" },
+      },
+    };
+    expect(
+      reconcileWorkbookRecordRows([lifecycleReceipt], [acceptedQuery])[0],
+    ).toBe(acceptedQuery);
+    expect(
+      reconcileWorkbookRecordRows(
+        [acceptedQuery],
+        [structuredClone(acceptedQuery)],
+      )[0],
+    ).toBe(acceptedQuery);
   });
 });

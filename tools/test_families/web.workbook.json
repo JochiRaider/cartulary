@@ -3581,7 +3581,8 @@
         "file": "apps/web/src/workbook/workbookRecoveryNavigation.test.tsx",
         "titles": [
           "conceals revoked owner summaries and keeps focus in the recovery list",
-          "coordinates independent recovery owners without losing retained authoring"
+          "coordinates independent recovery owners without losing retained authoring",
+          "restores the resolved cell only for the current recovery activation"
         ]
       },
       "evidence_class": "unit",

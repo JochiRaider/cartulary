@@ -11,7 +11,6 @@ import {
   workbookConflictControlTestId,
   workbookConflictResolverTestId,
   workbookEditRecoveryDiscardButtonTestId,
-  workbookEditRecoveryTestId,
   workbookInspectorToggleTestId,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
@@ -40,6 +39,10 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { safelyRemoveRoute } from "./support/transport/requestInterception";
 import { createViewRow, patchRecord } from "./support/workbook/query";
+import {
+  expectRecoveryFocus,
+  openRecoveryItem,
+} from "./support/workbook/recovery";
 import {
   createSavedView,
   selectSavedView,
@@ -138,6 +141,7 @@ test("Preserve save transitions and exact saved-view conflict scope across workb
       });
       conflicted.release();
       await conflicted.waitForCompletion;
+      await openRecoveryItem(page, /^Same-field conflict ·/);
       await expect(
         page.getByTestId(workbookConflictResolverTestId()),
       ).toBeVisible();
@@ -160,18 +164,15 @@ test("Preserve save transitions and exact saved-view conflict scope across workb
       const action = page.getByTestId(saveStateActionButtonTestId());
       await action.focus();
       await action.press("Enter");
+      await expectRecoveryFocus(page, "Recovery");
+      await openRecoveryItem(page, /^Same-field conflict ·/);
       const resolver = page.getByTestId(workbookConflictResolverTestId());
       await expect(resolver).toBeVisible();
-      await expect
-        .poll(() =>
-          resolver.evaluate((element) =>
-            element.contains(document.activeElement),
-          ),
-        )
-        .toBe(true);
+      await expectRecoveryFocus(page, "Same-field conflict");
       await page.keyboard.press("Escape");
       await expect(action).toBeFocused();
       await action.press("Enter");
+      await openRecoveryItem(page, /^Same-field conflict ·/);
       await page
         .getByTestId(workbookConflictControlTestId("keep-saved"))
         .click();
@@ -298,7 +299,7 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
     await page.setViewportSize({ width: 1440, height: 900 });
     await action.focus();
     await action.press("Enter");
-    await expect(page.getByTestId(workbookEditRecoveryTestId())).toBeFocused();
+    await expectRecoveryFocus(page, "Queued edit recovery");
     await page.getByTestId(workbookEditRecoveryDiscardButtonTestId()).click();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
     await expect
@@ -332,7 +333,7 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
       "Conflict A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
     );
     await terminalAction.click();
-    await expect(page.getByTestId(workbookEditRecoveryTestId())).toBeFocused();
+    await expectRecoveryFocus(page, "Queued edit recovery");
     await page.getByTestId(workbookEditRecoveryDiscardButtonTestId()).click();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   } finally {
@@ -387,10 +388,10 @@ test("Keep queue overflow globally accessible after real editor admission reache
       "Conflict The local pending queue is full. Existing queued edits are retained; the current edit remains unsaved local work.",
     );
     await action.click();
-    const overflow = page.getByRole("complementary", {
+    const overflow = page.getByRole("region", {
       name: "Workbook queued edit overflow",
     });
-    await expect(overflow).toBeFocused();
+    await expectRecoveryFocus(page, "Pending queue full");
     await expect(overflow).toContainText(
       "current edit remains unsaved local work",
     );
@@ -403,7 +404,7 @@ test("Keep queue overflow globally accessible after real editor admission reache
     // Reattach the source surface before replay; old editor presentation stays detached.
     await selectSurface(page, timelineViewSchemaId);
     await page.getByTestId(saveStateActionButtonTestId()).click();
-    await expect(overflow).toBeFocused();
+    await expectRecoveryFocus(page, "Pending queue full");
     patches.connect();
     await expect
       .poll(() => successfulPatchCalls(patches.calls).length, {
@@ -419,7 +420,7 @@ test("Keep queue overflow globally accessible after real editor admission reache
       ),
     ).toEqual(rows.slice(0, 64).map((_, index) => `Queued edit ${index}`));
     await expect.poll(() => pendingReplayCount(page)).toBe(0);
-    await expect(overflow).toBeFocused();
+    await expectRecoveryFocus(page, "Pending queue full");
     await expectServerSummaries(
       page,
       incidentId,
@@ -442,7 +443,7 @@ test("Keep queue overflow globally accessible after real editor admission reache
     await expect(overflow).not.toBeVisible();
     await expect(page.getByTestId(saveStateActionButtonTestId())).toBeFocused();
     await page.getByTestId(saveStateActionButtonTestId()).press("Enter");
-    await expect(overflow).toBeFocused();
+    await expectRecoveryFocus(page, "Pending queue full");
     await overflow
       .getByRole("button", { name: "Close queued edit notice" })
       .click();

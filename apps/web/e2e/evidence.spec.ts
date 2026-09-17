@@ -42,7 +42,10 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
-import { openTimelineInspector } from "./support/workbook/rowMutations";
+import {
+  editGenericCell,
+  openTimelineInspector,
+} from "./support/workbook/rowMutations";
 
 test.beforeEach(({ page }) => {
   failOnUnexpectedPageError(page);
@@ -327,6 +330,13 @@ test("tracks requested evidence before a blob exists and later advances it", asy
     surface: evidenceViewSchemaId,
     targetTestId: evidencePreviewButtonTestId(requested.record_id),
   });
+  const attachedResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/evidence-records/${requested.record_id}/attach-blob`),
+  );
   await page
     .getByTestId(evidenceAttachFileInputTestId(requested.record_id))
     .setInputFiles({
@@ -338,11 +348,14 @@ test("tracks requested evidence before a blob exists and later advances it", asy
       ),
     });
 
-  const advanced = await waitForEvidenceRow(
-    page,
-    incidentId,
-    "Requested package",
-  );
+  const attached = await attachedResponse;
+  expect(attached.ok()).toBe(true);
+  const advanced = (
+    (await attached.json()) as AttachBlobToEvidenceRecordResponse
+  ).data.row;
+  expect(advanced.record_id).toBe(requested.record_id);
+  expect(advanced.row_version).toBeGreaterThan(requested.row_version);
+  expect(advanced.cells["evidence.lifecycle_state"]?.value).toBe("requested");
   await scrollGridTargetIntoView({
     page,
     surface: evidenceViewSchemaId,
@@ -352,7 +365,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
     page.getByTestId(
       rowCellTestId(advanced.record_id, "evidence.lifecycle_state"),
     ),
-  ).toHaveText("available");
+  ).toHaveText("requested");
   await scrollGridTargetIntoView({
     page,
     surface: evidenceViewSchemaId,
@@ -361,6 +374,18 @@ test("tracks requested evidence before a blob exists and later advances it", asy
   await expect(
     page.getByTestId(
       rowCellTestId(advanced.record_id, "evidence.upload_state"),
+    ),
+  ).toHaveText("available");
+  await editGenericCell(
+    page,
+    evidenceViewSchemaId,
+    advanced.record_id,
+    "evidence.lifecycle_state",
+    "available",
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(advanced.record_id, "evidence.lifecycle_state"),
     ),
   ).toHaveText("available");
   expect(

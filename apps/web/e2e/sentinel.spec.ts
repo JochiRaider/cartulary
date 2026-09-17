@@ -95,6 +95,10 @@ import {
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import {
+  openReferenceCandidates,
+  selectReferenceCandidates,
+} from "./support/workbook/references";
+import {
   editGenericCell,
   openGenericInspectorForRecord,
   openTimelineInspector,
@@ -469,6 +473,7 @@ test("groups paste conflicts and preserves selection continuity", async ({
       ),
     ),
   ).toBeVisible();
+  await openRecoveryItem(page, /^Paste · Timeline$/);
   await expect(
     page.getByTestId(workbookConflictControlTestId("paste-navigator")),
   ).toBeVisible();
@@ -515,6 +520,12 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
     .getByTestId(workbookInspectorToggleTestId(notesViewSchemaId))
     .click();
   await page
+    .getByTestId(genericCreateFieldTestId("note.title"))
+    .fill("Workbook inspector linked-notes linked note");
+  await page
+    .getByTestId(genericCreateFieldTestId("note.body"))
+    .fill("Created from the Notes tab with a source record link.");
+  await page
     .getByRole("button", { name: "Choose source", exact: true })
     .click();
   await expect(
@@ -522,12 +533,6 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
       .getByRole("combobox", { name: "Note source", exact: true })
       .locator(`option[value="${source.record_id}"]`),
   ).toHaveCount(1, { timeout: 15_000 });
-  await page
-    .getByTestId(genericCreateFieldTestId("note.title"))
-    .fill("Workbook inspector linked-notes linked note");
-  await page
-    .getByTestId(genericCreateFieldTestId("note.body"))
-    .fill("Created from the Notes tab with a source record link.");
   await page
     .getByRole("combobox", { name: "Note source", exact: true })
     .selectOption(source.record_id as string);
@@ -1067,9 +1072,11 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await page
       .getByTestId(genericEditActionSelectTestId(commLogViewSchemaId))
       .selectOption("add");
-    await page
-      .getByTestId(genericEditValueTestId(commLogViewSchemaId))
-      .selectOption(existingParty.record_id as string);
+    await selectReferenceCandidates(
+      page,
+      genericEditValueTestId(commLogViewSchemaId),
+      existingParty.record_id as string,
+    );
     await submitGenericEditAndWait(
       page,
       commLogViewSchemaId,
@@ -1446,6 +1453,7 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     .getByRole("button", { name: "Close recovery", exact: true })
     .click();
 
+  await openTimelineInspector(page, source.record_id as string);
   const comm = await createFromTimelineWorkflow(page, incidentId, {
     actionKey: "create_related.comm_log",
     targetViewSchemaId: commLogViewSchemaId,
@@ -1630,12 +1638,10 @@ async function exerciseDecisionRecovery(
     status === "executed" ? "remains executed" : "status changes to superseded",
   );
   await page.getByTestId(decisionSupersessionTestId("confirm")).click();
+  await openRecoveryItem(page, /^Decision supersession ·/);
   await expect(
-    page.getByText("1 supersession outcome unknown.", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByTestId(workbookInspectorCloseButtonTestId(decisionsViewSchemaId))
-    .click();
+    page.getByRole("region", { name: "Decision action recovery", exact: true }),
+  ).toContainText("The outcome is unknown. The server may have committed.");
   const beforeReplay = {
     rows: await queryViewRows(page, incidentId, decisionsViewSchemaId),
     targetHistory: await fetchFullRecordHistory(page, target.record_id),
@@ -1782,12 +1788,23 @@ test("Task lifecycle binds selected rows and atomically blocks completes and reo
   await page
     .getByLabel("Blocked reason", { exact: true })
     .fill("Waiting on evidence");
-  await page
-    .getByLabel("Task lifecycle owner")
-    .selectOption(workerAdmin.user_id);
+  await selectReferenceCandidates(
+    page,
+    "task-lifecycle-owner",
+    workerAdmin.user_id,
+  );
   await status.focus();
   await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Task lifecycle owner")).toBeFocused();
+  await expect(
+    page.getByLabel("Task lifecycle owner value", { exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", {
+      name: "Choose task lifecycle owner",
+      exact: true,
+    }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
     page.getByLabel("Blocked reason", { exact: true }),
@@ -1853,8 +1870,9 @@ test("Task lifecycle binds selected rows and atomically blocks completes and reo
     page.getByTestId(rowCellTestId(target.record_id, "task.title")),
   ).toHaveCount(0);
   await expect(
-    page.getByText("Select a saved row to inspect its details."),
-  ).toBeVisible();
+    page.getByRole("complementary").filter({ has: status }),
+  ).toHaveAttribute("data-record-id", target.record_id);
+  await expect(status).toHaveValue("done");
   await removeFilterChip(page, taskRequestsViewSchemaId, "task.status");
   await activateSemanticGridCell(
     page.getByTestId(rowCellTestId(target.record_id, "task.title")),
@@ -2095,6 +2113,7 @@ test("Task lifecycle compound conflicts keep saved without losing the atomic dra
       ),
     )
     .click();
+  await openRecoveryItem(page, /^Same-field conflict ·/);
   const resolver = page.getByTestId(workbookConflictResolverTestId());
   await expect(resolver).toBeVisible();
   await expect(
@@ -2107,6 +2126,11 @@ test("Task lifecycle compound conflicts keep saved without losing the atomic dra
   await expect(resolver).toHaveCount(0);
   const afterKeep = await fetchFullRecordHistory(page, target.record_id);
   expect(afterKeep).toEqual(beforeKeep);
+  await openGenericInspectorForRecord(
+    page,
+    taskRequestsViewSchemaId,
+    target.record_id,
+  );
   await expect(page.getByLabel("Blocked reason", { exact: true })).toHaveValue(
     "Retained atomic reason",
   );
@@ -2277,10 +2301,14 @@ test("Task Request and Decision workbook workflows stay native", async ({
     page,
     genericEditValueTestId(decisionsViewSchemaId),
     support.record_id as string,
+    evidenceViewSchemaId,
   );
-  await page
-    .getByTestId(genericEditValueTestId(decisionsViewSchemaId))
-    .selectOption(support.record_id as string);
+  await selectReferenceCandidates(
+    page,
+    genericEditValueTestId(decisionsViewSchemaId),
+    support.record_id as string,
+    evidenceViewSchemaId,
+  );
   await submitGenericEditAndWait(
     page,
     decisionsViewSchemaId,
@@ -2556,12 +2584,21 @@ test("Task Request and Decision workbook workflows stay native", async ({
       ) ?? false
     );
   });
-  await editGenericCell(
+  await openGenericInspectorForRecord(
     page,
     taskRequestsViewSchemaId,
     task.record_id,
-    "task.decision_record_id",
-    "",
+  );
+  await page
+    .getByTestId(genericEditFieldSelectTestId(taskRequestsViewSchemaId))
+    .selectOption("task.decision_record_id");
+  await page
+    .getByRole("button", { name: "Clear Decision", exact: true })
+    .click();
+  await submitGenericEditAndWait(
+    page,
+    taskRequestsViewSchemaId,
+    task.record_id,
   );
   const clearRequest = await clearRequestPromise;
   expect(clearRequest.postDataJSON()).toMatchObject({
@@ -3340,8 +3377,13 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
     if (savedViewId === undefined) {
       throw new Error(`missing saved view for ${surface.viewSchemaId}`);
     }
+    await activeSelector.click();
+    const savedBrowser = page.getByRole("dialog", {
+      name: "Saved views",
+      exact: true,
+    });
     await expect(
-      activeSelector.getByTestId(
+      savedBrowser.getByTestId(
         savedViewOptionTestId(surface.viewSchemaId, savedViewId),
       ),
     ).toHaveAttribute("data-view-schema-id", surface.viewSchemaId);
@@ -3353,11 +3395,18 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
         continue;
       }
       await expect(
-        activeSelector.getByTestId(
+        savedBrowser.getByTestId(
           savedViewOptionTestId(surface.viewSchemaId, otherSavedViewId),
         ),
       ).toHaveCount(0);
     }
+    await savedBrowser
+      .getByTestId(savedViewOptionTestId(surface.viewSchemaId, savedViewId))
+      .click();
+    await expect(activeSelector).toHaveAttribute(
+      "data-selected-saved-view-id",
+      savedViewId,
+    );
     await expect(topBar.locator(savedViewFamilySelector())).toHaveCount(0);
     await expect(statusStrip.getByTestId(saveStateTestId())).toBeVisible();
   }
@@ -3675,6 +3724,15 @@ async function setGenericCreateField(
     targetTestId: fieldTestId,
   });
   const input = page.getByTestId(fieldTestId);
+  if (
+    await page
+      .getByRole("region", { name: /^Choose /u })
+      .or(page.getByRole("dialog", { name: /^Choose /u }))
+      .isVisible()
+  ) {
+    await selectReferenceCandidates(page, fieldTestId, value);
+    return;
+  }
   const tagName = await input.evaluate((element) => element.tagName);
   const inputType = await input.getAttribute("type");
   if (inputType === "checkbox") {
@@ -3738,11 +3796,7 @@ async function editExtendedSurfaceCell(
   }
   if (tagName === "SELECT") {
     if (typeof value === "string") {
-      await waitForGenericOption(
-        page,
-        genericEditValueTestId(viewSchemaId),
-        value,
-      );
+      await expect(input.locator(`option[value="${value}"]`)).toHaveCount(1);
     }
     await input.selectOption(value);
   } else {
@@ -3757,34 +3811,14 @@ async function waitForGenericOption(
   value: string,
   referenceView?: string,
 ) {
-  await scrollGridTargetIntoView({
+  const { candidates } = await openReferenceCandidates(
     page,
-    surface: currentWorkbookSurface(page),
-    targetTestId: testId,
-  });
-  const control = page.getByTestId(testId);
-  if (
-    (await control.evaluate((element) => element.tagName)) === "DIV" &&
-    !(await control
-      .getByRole("button", { name: "Apply references", exact: true })
-      .count())
-  )
-    await control
-      .getByRole("button", { name: /^Choose /u })
-      .first()
-      .click();
-  if (
-    referenceView &&
-    (await control
-      .getByRole("combobox", { name: "Reference surface", exact: true })
-      .count())
-  )
-    await control
-      .getByRole("combobox", { name: "Reference surface", exact: true })
-      .selectOption(referenceView);
-  await expect(control.locator(`option[value="${value}"]`)).toHaveCount(1, {
-    timeout: 15_000,
-  });
+    testId,
+    referenceView,
+  );
+  await expect(
+    candidates.locator(`option[value="${value}"], option[value$=":${value}"]`),
+  ).toHaveCount(1);
 }
 
 async function setGenericGridScroll(page: Page, viewSchemaId: string) {

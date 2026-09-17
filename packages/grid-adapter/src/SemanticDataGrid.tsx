@@ -408,7 +408,19 @@ function useGridRegistration<Row>(
               gridAnchorKey(target.anchor),
             );
             if (position) {
-              vendorHandle.current?.scrollToCell(position);
+              const cell = cellElementsRef.current.get(
+                gridAnchorKey(target.anchor),
+              )?.cell;
+              // A rendered target can scroll synchronously. The vendor's
+              // virtual scroll sentinel persists until intersection, and would
+              // otherwise override a caller's restored viewport on later renders.
+              if (cell?.isConnected)
+                cell.scrollIntoView({
+                  behavior: "instant",
+                  block: "nearest",
+                  inline: "nearest",
+                });
+              else vendorHandle.current?.scrollToCell(position);
               vendorHandle.current?.selectCell(position);
             }
           }

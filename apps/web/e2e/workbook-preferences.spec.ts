@@ -94,6 +94,9 @@ test("preferences persist exact base and saved identities and explicit clears th
       savedViewOptionTestId(timelineViewSchemaId, saved.saved_view_id),
     )
     .click();
+  await expect(
+    page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("data-selected-saved-view-id", saved.saved_view_id);
   await page
     .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
     .selectOption("timeline.capture_state");

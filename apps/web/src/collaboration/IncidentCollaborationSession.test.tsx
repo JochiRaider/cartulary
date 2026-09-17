@@ -319,6 +319,18 @@ describe("IncidentCollaborationSession", () => {
         last_seen_stream_seq: 7,
       },
     });
+    // A dead connection does not revoke the authenticated session. In
+    // particular, server clock advances may expire cursors and heartbeats
+    // together; only actual authorization loss may clear protected state.
+    onEvent.mockClear();
+    act(() => {
+      resumedSocket?.onclose?.({ code: 1008, reason: "heartbeat_timeout" });
+      vi.advanceTimersByTime(1000);
+    });
+    expect(onEvent.mock.calls).not.toContainEqual([
+      { kind: "authorization_lost" },
+    ]);
+    expect(FakeWebSocket.instances).toHaveLength(3);
   });
 
   it("keeps replayable events unsynchronized until the owner completes reset", () => {

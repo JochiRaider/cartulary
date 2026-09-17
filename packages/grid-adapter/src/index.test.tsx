@@ -735,10 +735,10 @@ describe("grid-adapter", () => {
       resourceId: "flow-row-1",
     } as const;
 
-    render(
+    const grid = (label: string) => (
       <SemanticDataGrid
         ref={handle}
-        accessibleLabel="Accepted Network Flow resources"
+        accessibleLabel={label}
         columns={[
           {
             fieldKey: "label",
@@ -760,8 +760,9 @@ describe("grid-adapter", () => {
         interactionMode={{ kind: "read_only", label: "Analysis is read-only" }}
         onSelectRow={onSelectRow}
         surface={extensionSurface}
-      />,
+      />
     );
+    const rendered = render(grid("Accepted Network Flow resources"));
 
     expect(
       screen.getByRole("grid", { name: "Accepted Network Flow resources" }),
@@ -779,9 +780,21 @@ describe("grid-adapter", () => {
       rowIdentity,
       surface: extensionSurface,
     };
+    const viewport = handle.current?.getScrollElement();
+    if (!viewport) throw new Error("Missing grid viewport");
+    const scroll = vi
+      .spyOn(HTMLElement.prototype, "scrollIntoView")
+      .mockImplementation(() => {
+        viewport.scrollLeft = 830;
+      });
     expect(
       await handle.current?.requestFocus({ kind: "cell", anchor: anchor }),
     ).toBe("focused");
+    viewport.scrollLeft = 752;
+    // A later projection render must not continue a completed focus scroll.
+    rendered.rerender(grid("Refreshed Network Flow resources"));
+    expect(viewport.scrollLeft).toBe(752);
+    scroll.mockRestore();
   });
 
   it("groups extension resources in the live grid without changing their identities", async () => {

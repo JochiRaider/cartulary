@@ -183,7 +183,14 @@ test("Timeline Evidence creation survives a real collection conflict and links o
     await route.fulfill({ response });
   });
   await begin(page, f.incident, f.source.record_id);
+  const conflictedLink = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/api/v1/records/${f.source.record_id}`) &&
+      response.status() === 409,
+  );
   await submit(page);
+  await conflictedLink;
   await expect.poll(() => creations.length).toBe(1);
   const retained = await recovery(page);
   await expect.poll(() => links.length).toBe(1);
@@ -197,6 +204,10 @@ test("Timeline Evidence creation survives a real collection conflict and links o
   await page
     .getByRole("button", { name: "Discard local draft", exact: true })
     .click();
+  await expect(
+    page.getByRole("region", { name: "Recovery navigation", exact: true }),
+  ).toBeHidden();
+  await recovery(page);
   await expect(retained).toContainText(
     "Evidence created; Timeline link incomplete.",
   );
@@ -441,7 +452,13 @@ test("Timeline Evidence accepted writes survive failed projections and recover t
     await route.fulfill({ response });
   });
   await begin(page, f.incident, f.source.record_id);
+  const linkedResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/records/${f.source.record_id}`),
+  );
   await submit(page);
+  expect((await linkedResponse).ok()).toBe(true);
   const retained = await recovery(page);
   await expect(retained).toContainText("Projection refresh is incomplete");
   expect(writes).toBe(2);

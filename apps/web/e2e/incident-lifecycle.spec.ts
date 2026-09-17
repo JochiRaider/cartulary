@@ -33,6 +33,7 @@ import {
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { createViewRow } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 import { ensureTimelineGridTargetVisible } from "./support/workbook/rowMutations";
 import { createSavedView } from "./support/workbook/savedViews";
 
@@ -442,7 +443,11 @@ test("lifecycle closure retains rejected workbook work and allowed configuration
     name: "Discard blocked edit",
     exact: true,
   });
+  await openRecoveryItem(page, /^Queued edit recovery ·/);
   await expect(discard).toBeVisible();
+  await page
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .click();
   const panel = await openLifecycle(page);
   await expect(
     panel.getByText(/Current accepted state: Closed, read-only/u),
@@ -522,6 +527,7 @@ test("lifecycle closure retains rejected workbook work and allowed configuration
     "aria-readonly",
     "false",
   );
+  await openRecoveryItem(page, /^Queued edit recovery ·/);
   await expect(discard).toBeVisible();
   expect(patches).toHaveLength(1);
   await expect(
@@ -529,6 +535,9 @@ test("lifecycle closure retains rejected workbook work and allowed configuration
   ).toHaveCount(0);
   await discard.click();
   await expect(discard).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .click();
   await cell.click();
   await editor.fill("Fresh source action after reopening");
   await editor.press("Tab");

@@ -1,17 +1,17 @@
 import { performance } from "node:perf_hooks";
-
 import {
   applyFilterChip,
   assertMarkerAnchoredToGridTarget,
   assertMountedGridRowCountAtMost,
   changeGrouping,
   scrollGridCellIntoView,
-  scrollGridToOffset,
+  scrollGridTargetIntoView,
   sortByHeader,
 } from "@cartulary/test-utils/grid";
 import {
   authTestId,
   cellPresenceMarkerTestId,
+  conflictMarkerTestId,
   currentIncidentRoleTestId,
   gridRowGutterTestId,
   gridRowTestId,
@@ -71,6 +71,7 @@ import {
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { assertRecordFieldMutationAnchor } from "./support/workbook/mutationAnchors";
 import { createViewRow } from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 
 const presenceInteractionThresholdMs = 1000;
 
@@ -1263,9 +1264,26 @@ test("keeps live updates conflict markers and presence markers anchored to recor
         `collaboration-conflict ${scenario.name} remote details`,
         `e604-${scenario.name}-live-patch`,
       );
-      await expect(
-        page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
-      ).toHaveAttribute(gridRowVersionAttribute, "2");
+      // The live lifecycle change can move this record to another virtualized
+      // group. Locate it again before observing the accepted row version.
+      await expect(async () => {
+        await scrollGridCellIntoView({
+          page,
+          surface: timelineViewSchemaId,
+          recordId,
+          cellKey: "timeline.activity_synopsis_text",
+        });
+        // Observe once so the outer retry can relocate the row again after
+        // a query commit changes its virtualized group.
+        expect(
+          await page
+            .getByTestId(gridRowTestId(timelineViewSchemaId, recordId))
+            .evaluateAll(
+              (elements, attribute) => elements[0]?.getAttribute(attribute),
+              gridRowVersionAttribute,
+            ),
+        ).toBe("2");
+      }).toPass({ timeout: 5_000 });
 
       const expectedValue = `collaboration-conflict ${sortLabel} ${scenario.name} anchored local`;
       const heldPatch = patchController.holdNextPatch();
@@ -1373,16 +1391,39 @@ test("keeps live updates conflict markers and presence markers anchored to recor
       remoteValue: "collaboration-conflict Alpha remote",
       txnPrefix: "e604-alpha-remote-conflict",
     });
-    await scrollGridToOffset(page, timelineViewSchemaId, 0);
-    await expect(
-      page.getByTestId(
-        timelineScalarEditorTestId({
-          fieldKey: "timeline.activity_synopsis_text",
-          recordId: alphaId,
-          surface: "grid",
-        }),
+    await page
+      .getByRole("button", { name: "Close recovery", exact: true })
+      .click();
+    const retainedEditorId = timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: alphaId,
+      surface: "grid",
+    });
+    // The row may remount as a display or retain its editor after regrouping.
+    // Its conflict marker identifies the same record/field in either state.
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: conflictMarkerTestId(
+        alphaId,
+        "timeline.activity_synopsis_text",
       ),
-    ).toHaveValue("collaboration-conflict Alpha local");
+    });
+    if ((await page.getByTestId(retainedEditorId).count()) === 0)
+      await alphaInput.click();
+    await assertMarkerAnchoredToGridTarget({
+      anchorKind: "cell",
+      markerTestId: conflictMarkerTestId(
+        alphaId,
+        "timeline.activity_synopsis_text",
+      ),
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: retainedEditorId,
+    });
+    await expect(page.getByTestId(retainedEditorId)).toHaveValue(
+      "collaboration-conflict Alpha local",
+    );
   } finally {
     await patchController.dispose();
     await remotePage?.context().close();
@@ -1701,6 +1742,7 @@ test("replays queued unsent writes after re-authentication without silent reload
         await expect(page.getByTestId(saveStateTestId())).toHaveText(
           "Conflict",
         );
+        await openRecoveryItem(page, /^Same-field conflict ·/);
         await expect(
           page.getByTestId(workbookConflictResolverTestId()),
         ).toBeVisible();

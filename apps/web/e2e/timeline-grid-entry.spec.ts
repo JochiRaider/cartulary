@@ -593,10 +593,7 @@ test("Timeline rejected edits keep correction local and preserve rough date text
     await expect(page.getByTestId(rowCellTestId(id, synopsis))).toHaveText(
       "Concurrent saved fact",
     );
-    await page
-      .getByRole("button", { name: "Close recovery", exact: true })
-      .click();
-    await selectCell(page, id);
+    await expect(cell(page, id)).toBeFocused();
     await page.keyboard.type("Continued after conflict");
     await page.keyboard.press("Enter");
     await waitForViewRowByCell(
@@ -1290,6 +1287,7 @@ test("Timeline paste keeps ordered grouped conflicts and per-cell attributed cor
       synopsis,
       "Client first",
     );
+    await openRecoveryItem(page, /^Paste ·/);
     await page
       .getByRole("button", { name: "Review conflicts", exact: true })
       .click();

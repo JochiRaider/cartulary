@@ -173,8 +173,8 @@ export function useGenericWorkbookInspectorComposition({
       null,
     ),
     rowVersion: (row) => row.row_version,
-    scope: `${inspectorResetKey}:${currentUserId}:${currentIncidentRole}`,
-    readable: currentIncidentRole !== null,
+    scope: `${inspectorResetKey}:${currentUserId}`,
+    readable: !!currentIncidentRole,
   });
   useLayoutEffect(() => {
     // Query rows can arrive before the shell's authority effect. Admit their

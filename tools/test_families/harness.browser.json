@@ -802,7 +802,7 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "none",
+      "fixture_capability": "object_store_namespace",
       "minimum_tier": "standard",
       "service_dependencies": [
         "object_store"

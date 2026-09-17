@@ -25,3 +25,12 @@ export async function openRecoveryItem(page: Page, name: RegExp) {
   }).toPass({ timeout: 10_000 });
   return panel;
 }
+
+/** The common panel heading owns focus after explicit recovery activation. */
+export async function expectRecoveryFocus(page: Page, label: string) {
+  const heading = page
+    .getByRole("region", { name: "Recovery navigation", exact: true })
+    .locator(":scope > h2");
+  await expect(heading).toHaveText(label);
+  await expect(heading).toBeFocused();
+}

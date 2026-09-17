@@ -1,3 +1,5 @@
+import { savedViewJSONEqual } from "../models/workbookSavedViews";
+
 type RecordIdentity = {
   readonly recordId: string | null;
   readonly rowVersion?: number | null;
@@ -21,8 +23,11 @@ export function reconcileWorkbookRecordRows<Row extends RecordIdentity>(
     if (previous === undefined) return row;
     if (
       typeof previous.rowVersion === "number" &&
-      previous.rowVersion === row.rowVersion
+      previous.rowVersion === row.rowVersion &&
+      savedViewJSONEqual(previous, row)
     ) {
+      // A mutation receipt can have the same version as a later query while
+      // lacking its group/projection metadata. Reuse only equivalent rows.
       return previous;
     }
     return shallowEqualRecord(previous, row) ? previous : row;

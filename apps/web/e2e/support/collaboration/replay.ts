@@ -517,6 +517,11 @@ export async function exerciseSameFieldResolver({
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
 
+  const grid = page.getByRole("grid");
+  const viewport = await grid.evaluate((element) => ({
+    top: element.scrollTop,
+    left: element.scrollLeft,
+  }));
   if (action === "keep_saved") {
     await page.getByTestId(workbookConflictControlTestId("keep-saved")).click();
   } else if (action === "use_unsaved") {
@@ -552,6 +557,12 @@ export async function exerciseSameFieldResolver({
       .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
       .locator("xpath=ancestor::*[@role='gridcell'][1]"),
   ).toBeFocused();
+  expect(
+    await grid.evaluate((element) => ({
+      top: element.scrollTop,
+      left: element.scrollLeft,
+    })),
+  ).toEqual(viewport);
 }
 
 export async function exerciseRevokedPendingReplay({

@@ -30,6 +30,10 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createViewRow, waitForViewRowByCell } from "./support/workbook/query";
+import {
+  openReferenceCandidates,
+  selectReferenceCandidates,
+} from "./support/workbook/references";
 import { editGenericCell } from "./support/workbook/rowMutations";
 
 test("creates and edits required workbook mutation surfaces through typed generic controls", async ({
@@ -524,6 +528,15 @@ async function setGenericCreateField(
       targetTestId: testId,
     });
   const input = page.getByTestId(testId);
+  if (
+    await page
+      .getByRole("region", { name: /^Choose /u })
+      .or(page.getByRole("dialog", { name: /^Choose /u }))
+      .isVisible()
+  ) {
+    await selectReferenceCandidates(page, testId, value);
+    return;
+  }
   const tagName = await input.evaluate((element) => element.tagName);
   if (tagName === "DIV") {
     const trigger = input.getByRole("button", { name: /^Choose /u }).first();
@@ -548,26 +561,8 @@ async function setGenericCreateField(
 }
 
 async function waitForGenericOption(page: Page, testId: string, value: string) {
-  const contract = listViewContracts().find((contract) =>
-    contract.fields.some(
-      (field) => genericCreateFieldTestId(field.fieldKey) === testId,
-    ),
-  );
-  if (!contract) throw new Error(`Missing create control ${testId}`);
-  if (!(await page.getByTestId(testId).count()))
-    await scrollGridTargetIntoView({
-      page,
-      surface: contract.viewSchemaId,
-      targetTestId: testId,
-    });
-  const input = page.getByTestId(testId);
-  const trigger = input.getByRole("button", { name: /^Choose /u }).first();
-  if (
-    (await trigger.count()) &&
-    (await trigger.getAttribute("aria-expanded")) !== "true"
-  )
-    await trigger.click();
-  await expect(input.locator(`option[value="${value}"]`)).toHaveCount(1, {
-    timeout: 15_000,
-  });
+  const { candidates } = await openReferenceCandidates(page, testId, undefined);
+  await expect(
+    candidates.locator(`option[value="${value}"], option[value$=":${value}"]`),
+  ).toHaveCount(1);
 }

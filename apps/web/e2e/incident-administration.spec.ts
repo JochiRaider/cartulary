@@ -813,6 +813,10 @@ test("Verify System views switcher keyboard entry, roving focus, selection, dism
   await page.getByTestId(surfaceTabTestId(lastBuiltInTabId)).focus();
   await page.keyboard.press("Tab");
 
+  await expect(
+    page.getByRole("button", { name: /^Recovery \(\d+\)$/u }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
   const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
   await expect(trigger).toBeFocused();
   await expect(

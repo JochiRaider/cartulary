@@ -28,7 +28,11 @@ import {
   openNoteFixture,
 } from "./support/workbook/noteCreate";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
-import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
+import {
+  expectRecoveryFocus,
+  openRecoveryItem,
+  recoveryEntry,
+} from "./support/workbook/recovery";
 
 test("Incident revocation conceals retained Note authoring and late atomic acceptance without ending the account session", async ({
   page,
@@ -335,12 +339,7 @@ test("Note response loss after commit replays exact bytes after navigation and a
     .getByRole("button", { name: "Retry refresh", exact: true })
     .click();
   await expect(recovery).toHaveCount(0);
-  await expect(
-    page.getByRole("region", {
-      name: "Active workbook surface focus target",
-      exact: true,
-    }),
-  ).toBeFocused();
+  await expectRecoveryFocus(page, "Recovery");
   expect(requests).toHaveLength(2);
   const notes = await queryViewRows(page, f.incident, notesViewSchemaId);
   expect(notes).toHaveLength(1);

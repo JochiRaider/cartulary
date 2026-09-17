@@ -788,7 +788,7 @@ Every Core 01 §3.3.6.1 public `error.code` token MUST map to exactly one `cartu
 
 | `cartulary.error_class` | Public `error_code` values |
 | --- | --- |
-| `request_invalid` | `invalid_view_query`, `invalid_pagination_request`, `invalid_list_query`, `invalid_mutation_payload`, `invalid_evidence_handle_request`, `invalid_blob_create_request`, `invalid_incident_create`, `invalid_incident_patch`, `invalid_incident_lifecycle_request`, `invalid_rollback_request`, `invalid_auth_request`, `invalid_enterprise_auth_request`, `invalid_import_request`, `invalid_snapshot_request`, `invalid_release_request`, `invalid_reference_pack_request`, `invalid_incident_bundle_request` |
+| `request_invalid` | `invalid_view_query`, `invalid_saved_view_read_request`, `invalid_pagination_request`, `invalid_list_query`, `invalid_mutation_payload`, `invalid_evidence_handle_request`, `invalid_blob_create_request`, `invalid_incident_create`, `invalid_incident_patch`, `invalid_incident_lifecycle_request`, `invalid_rollback_request`, `invalid_auth_request`, `invalid_enterprise_auth_request`, `invalid_import_request`, `invalid_snapshot_request`, `invalid_release_request`, `invalid_reference_pack_request`, `invalid_incident_bundle_request` |
 | `authentication` | `invalid_credentials`, `mfa_required`, `mfa_setup_required`, `credential_bootstrap_rejected`, `invalid_current_password`, `invalid_second_factor`, `totp_setup_not_pending`, `enterprise_auth_transaction_rejected`, `provider_response_rejected`, `provider_identity_rejected` |
 | `authorization` | `authorization_denied` |
 | `capability_unavailable` | `extension_profile_not_claimed`, `extension_capability_not_supported`, `auth_provider_not_found`, `auth_provider_disabled` |

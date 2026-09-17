@@ -51,6 +51,10 @@ import {
   queryViewRows,
   readWorkbookMutation,
 } from "./support/workbook/query";
+import {
+  expectRecoveryFocus,
+  openRecoveryItem,
+} from "./support/workbook/recovery";
 
 const exactScenarioTitle =
   "Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.";
@@ -1046,6 +1050,7 @@ test(
             ),
           ),
         ).toBeVisible();
+        await openRecoveryItem(stalePage, /^Paste · Timeline$/);
         await expect(
           stalePage.getByTestId(
             workbookConflictControlTestId("paste-navigator"),
@@ -1184,6 +1189,7 @@ test(
       );
       expect(unknownEnvelope.error.retryable).toBe(false);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      await openRecoveryItem(page, /^Queued edit recovery ·/);
       const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
       await expect(recoveryPanel).toBeVisible();
       await expect(recoveryPanel).toContainText(
@@ -1327,6 +1333,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       expect(blockedCall?.status).toBe(409);
       const blockedClientTxnId = String(blockedCall?.body.client_txn_id);
 
+      await openRecoveryItem(page, /^Queued edit recovery ·/);
       const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
       await expect(recoveryPanel).toBeVisible();
       expect(await recoveryPanel.getByRole("button").allTextContents()).toEqual(
@@ -1364,7 +1371,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       );
 
       await page.getByTestId(saveStateActionButtonTestId()).click();
-      await expect(recoveryPanel).toBeFocused();
+      await expectRecoveryFocus(page, "Queued edit recovery");
       const retryButton = page.getByTestId(
         workbookEditRecoveryRetryButtonTestId(),
       );
@@ -1380,6 +1387,9 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       expect(retriedCall?.body.changes).toEqual(blockedCall?.body.changes);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(recoveryPanel).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Close recovery", exact: true })
+        .click();
     });
 
     await test.step("discard restores committed display without a server mutation", async () => {
@@ -1392,6 +1402,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         "end-to-end.mutation-lifecycle.row-01 discard local",
       );
       await expect.poll(() => patchController.calls.length).toBe(5);
+      await openRecoveryItem(page, /^Queued edit recovery ·/);
       await expect(
         page.getByTestId(workbookEditRecoveryTestId()),
       ).toBeVisible();
@@ -1413,6 +1424,9 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         ),
       ).toHaveText("end-to-end.mutation-lifecycle.row-01 discard base");
       expect(patchController.calls).toHaveLength(5);
+      await page
+        .getByRole("button", { name: "Close recovery", exact: true })
+        .click();
     });
   } finally {
     await patchController.dispose();
@@ -1456,6 +1470,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         );
         expect(serverPatch.ok()).toBeTruthy();
 
+        await openRecoveryItem(stalePage, /^Queued edit recovery ·/);
         await stalePage
           .getByTestId(workbookEditRecoveryRetryButtonTestId())
           .click();
@@ -1468,6 +1483,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         expect(retriedCall?.body.base_row_version).toBe(
           sameFieldRow.row_version,
         );
+        await openRecoveryItem(stalePage, /^Same-field conflict ·/);
         await expect(
           stalePage.getByTestId(workbookConflictLocalValueTestId()),
         ).toHaveValue("end-to-end.mutation-lifecycle.row-01 resolver local");

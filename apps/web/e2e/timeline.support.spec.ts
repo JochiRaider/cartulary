@@ -140,24 +140,20 @@ test("sort filter group and expand-collapse helpers emit canonical query contrac
     ),
   ).toHaveText("reviewed");
 
-  const sortRequest = waitForTimelineQuery(page, incidentId);
+  const expectedSortBody = {
+    limit: 100,
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
+  };
+  const sortRequest = waitForTimelineQuery(page, incidentId, expectedSortBody);
   await sortByHeader(
     page,
     timelineViewSchemaId,
     "timeline.activity_synopsis_text",
   );
-  expect(readPostBody(await sortRequest)).toEqual({
-    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
-  });
+  expect(readPostBody(await sortRequest)).toEqual(expectedSortBody);
 
-  const filterRequest = waitForTimelineQuery(page, incidentId);
-  await applyFilterChip(
-    page,
-    timelineViewSchemaId,
-    "timeline.capture_state",
-    "reviewed",
-  );
-  expect(readPostBody(await filterRequest)).toEqual({
+  const expectedFilterBody = {
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -166,16 +162,27 @@ test("sort filter group and expand-collapse helpers emit canonical query contrac
       },
     ],
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
-  });
+  };
+  const filterRequest = waitForTimelineQuery(
+    page,
+    incidentId,
+    expectedFilterBody,
+  );
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  expect(readPostBody(await filterRequest)).toEqual(expectedFilterBody);
   await expect(
     page.getByTestId(
       rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
     ),
   ).toHaveText("Beta summary");
 
-  const groupRequest = waitForTimelineQuery(page, incidentId);
-  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
-  expect(readPostBody(await groupRequest)).toEqual({
+  const expectedGroupBody = {
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -184,11 +191,15 @@ test("sort filter group and expand-collapse helpers emit canonical query contrac
       },
     ],
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
-  });
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
+  };
+  const groupRequest = waitForTimelineQuery(
+    page,
+    incidentId,
+    expectedGroupBody,
+  );
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await groupRequest)).toEqual(expectedGroupBody);
   const reviewedGroupTestId = gridGroupRowTestId(
     timelineViewSchemaId,
     "timeline.capture_state",
@@ -223,11 +234,9 @@ test("sort filter group and expand-collapse helpers emit canonical query contrac
   ).toBeVisible();
 
   const expectedRemoveReviewedFilterBody = {
+    limit: 100,
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   };
   const removeReviewedFilterRequest = waitForTimelineQuery(
     page,
@@ -301,6 +310,7 @@ test("reviewed edit demotion refreshes the filtered query and renders the filter
       response.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
   );
   const expectedPostEditQueryBody = {
+    limit: 100,
     filters: [
       {
         arg: { value: "reviewed" },
@@ -309,10 +319,7 @@ test("reviewed edit demotion refreshes the filtered query and renders the filter
       },
     ],
     group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   };
   const postEditQuery = waitForTimelineQuery(
     page,

@@ -961,6 +961,9 @@ func (h *Harness) preparePackageBucket(
 
 func failObjectStoreSetup(t testing.TB, defaultStage string, err error) {
 	t.Helper()
+	if diagnostic, ok := ReadinessDiagnosticText(err); ok {
+		t.Log(diagnostic)
+	}
 	testfailure.Fail(t, objectStoreSetupEnvelope(defaultStage, err))
 }
 

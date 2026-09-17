@@ -8,6 +8,7 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  currentIncidentRoleTestId,
   draftCellTestId,
   entityInspectButtonTestId,
   entityInspectorTestId,
@@ -517,6 +518,15 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     // The current editor membership still permits reading this incident and
     // its history. A denied rollback withdraws that action, not incident access.
     await expect(memberPage).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+    const account = memberPage.getByRole("button", {
+      name: "Account and application navigation",
+      exact: true,
+    });
+    await account.click();
+    await expect(
+      memberPage.getByTestId(currentIncidentRoleTestId()),
+    ).toHaveText("Current incident role: editor");
+    await account.click();
     await expect(memberPage.getByTestId(rowHistoryPanelTestId())).toContainText(
       target.record_id,
     );
@@ -530,6 +540,17 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
         rowHistoryRollbackPreviewTestId(retainedRollbackAnchor),
       ),
     ).toHaveCount(0);
+    // Read authority survives the action denial. Explicitly reload history;
+    // the newly accepted page may present rollback only as disabled.
+    await memberPage
+      .getByTestId(rowHistoryPanelTestId())
+      .getByRole("button", { name: /^(Open history|Refresh history)$/ })
+      .click();
+    await expect(
+      memberPage.getByTestId(
+        historyActionTestId(retainedRollbackItem, "history_entry"),
+      ),
+    ).toBeDisabled();
     await openRecoveryItem(
       memberPage,
       /^(Soft-delete row|Restore[^·]*|Reverse[^·]*) ·/,

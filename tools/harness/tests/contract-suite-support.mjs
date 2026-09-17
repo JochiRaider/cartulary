@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import {
   chmodSync,
@@ -1387,6 +1388,80 @@ function cacheableRowUnit(context, row) {
   );
 }
 
+function assertContractFixtureDependencies(context, profile, row, unit) {
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-contract-dependencies."));
+  const selectedWorkspace = row.selector.file.split("/").slice(0, 2).join("/");
+  const importer = "packages/cache-fixture/src/codec.ts";
+  const fixture = "contracts/tabularingest/clipboard.v1.json";
+  const write = (relative, contents) => {
+    const filename = path.join(fixtureRoot, relative);
+    mkdirSync(path.dirname(filename), { recursive: true });
+    writeFileSync(filename, contents);
+  };
+  const snapshot = (directory = fixtureRoot) => readdirSync(directory).flatMap((name) => {
+    const filename = path.join(directory, name);
+    const stat = lstatSync(filename);
+    if (stat.isDirectory()) return snapshot(filename);
+    return [{
+      path: path.relative(fixtureRoot, filename).replaceAll("\\", "/"),
+      kind: stat.isSymbolicLink() ? "symlink" : "file",
+      mode: "0644",
+      byte_digest: stat.isSymbolicLink() ? `sha256:${"0".repeat(64)}` :
+        `sha256:${createHash("sha256").update(readFileSync(filename)).digest("hex")}`,
+    }];
+  });
+  const resolve = (entries = snapshot()) => resolveCacheDependencyClosure({
+    root: fixtureRoot, entries, profile, unit,
+    resolverCache: new Map([["test-catalog", context.catalog]]),
+  });
+  const importFixture = (specifier) => write(importer, `import fixture from "${specifier}";\nexport default fixture;\n`);
+  try {
+    write(`${selectedWorkspace}/package.json`, JSON.stringify({ name: "@fixture/selected", dependencies: { "@fixture/codec": "workspace:*" } }));
+    write(row.selector.file, 'import fixture from "@fixture/codec";\n');
+    write("packages/cache-fixture/package.json", JSON.stringify({ name: "@fixture/codec" }));
+    importFixture("../../../" + fixture);
+    write(fixture, '{"version":1}\n');
+    const initial = resolve();
+    assert.equal(initial.strategy, "typescript_workspaces");
+    assert.ok(initial.entries.some((entry) => entry.path === fixture));
+    assert.equal(resolve(snapshot().filter((entry) => entry.path !== fixture)).strategy, "broad_fallback", "imports absent from the snapshot must fail closed");
+    const captured = snapshot();
+    write(fixture, '{"version":2}\n');
+    const changed = resolve();
+    assert.equal(changed.strategy, "typescript_workspaces");
+    assert.notEqual(changed.digest, initial.digest, "contract content must invalidate the workspace closure");
+    assert.equal(resolve(captured).strategy, "broad_fallback", "snapshot drift must not produce a narrow key");
+    write(fixture, "invalid JSON");
+    assert.equal(resolve().strategy, "broad_fallback", "malformed contracts are unsupported");
+    rmSync(path.join(fixtureRoot, fixture));
+    assert.equal(resolve().strategy, "broad_fallback", "missing imports must fail closed");
+    mkdirSync(path.join(fixtureRoot, fixture));
+    assert.equal(resolve().strategy, "broad_fallback", "a directory cannot satisfy a JSON import");
+    rmSync(path.join(fixtureRoot, fixture), { recursive: true });
+    write(fixture, '{"version":1}\n');
+    assert.equal(resolve().digest, initial.digest, "restoring the same dependency restores its closure");
+    const renamed = "contracts/tabularingest/renamed.json";
+    renameSync(path.join(fixtureRoot, fixture), path.join(fixtureRoot, renamed));
+    importFixture("../../../" + renamed);
+    assert.equal(resolve().strategy, "typescript_workspaces");
+    assert.notEqual(resolve().digest, initial.digest);
+    symlinkSync(path.join(fixtureRoot, renamed), path.join(fixtureRoot, fixture));
+    importFixture("../../../" + fixture);
+    assert.equal(resolve().strategy, "broad_fallback", "symlinked contract imports are unsupported");
+    rmSync(path.join(fixtureRoot, fixture));
+    renameSync(path.join(fixtureRoot, "contracts/tabularingest"), path.join(fixtureRoot, "contract-fixtures"));
+    symlinkSync(path.join(fixtureRoot, "contract-fixtures"), path.join(fixtureRoot, "contracts/tabularingest"));
+    importFixture("../../../" + renamed);
+    assert.equal(resolve().strategy, "broad_fallback", "symlinked ancestors must not escape containment");
+    for (const unsupported of ["../../../../outside.json", "../../../contract-fixtures/renamed.json", "../../../contracts/unsupported.txt"]) {
+      importFixture(unsupported);
+      assert.equal(resolve().strategy, "broad_fallback");
+    }
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 async function assertDependencyClosureContract(context) {
   const source = buildSourceSnapshot(root);
   const profile = context.cacheRegistry.profiles.find((entry) => entry.profile_id === "test_rows");
@@ -1485,6 +1560,7 @@ async function assertDependencyClosureContract(context) {
 
   const vitestRow = context.catalog.rows.find((row) => row.runner === "vitest");
   const vitestUnit = cacheableRowUnit(context, vitestRow);
+  assertContractFixtureDependencies(context, profile, vitestRow, vitestUnit);
   const tsClosure = resolveCacheDependencyClosure({ root, entries: source.entries, profile, unit: vitestUnit });
   assert.equal(tsClosure.strategy, "typescript_workspaces");
   assert.ok(tsClosure.entries.some((entry) => entry.path === vitestRow.selector.file));

@@ -370,6 +370,68 @@ describe("useTimelineRowMutationCoordinator", () => {
     runtime.invalidate({ kind: "runtime_disposed" });
   });
 
+  it("reconciles same-version query grouping after a lifecycle receipt while retaining local drafts", () => {
+    const runtime = runtimeFixture();
+    const source = timelineRow(1, "grouped record");
+    if (!source.rawRow) throw new Error("Missing source row");
+    const initial = {
+      ...source,
+      rawRow: {
+        ...source.rawRow,
+        group_values: { "timeline.capture_state": "rough" },
+      },
+    };
+    const { result, unmount } = renderCoordinator(runtime, [initial]);
+    act(() => {
+      result.current.coordinator.commands.acceptCommittedTimelineRow(initial);
+      result.current.coordinator.commands.acceptTimelineActionResult({
+        captureState: "reviewed",
+        changeSetId: "20000000-0000-4000-8000-000000000002",
+        incidentId,
+        reason: null,
+        recordId,
+        replacementRecordId: null,
+        rowVersion: 2,
+      });
+    });
+    const receipt =
+      result.current.coordinator.commands.latestCommittedTimelineRow(recordId);
+    if (!receipt?.rawRow) throw new Error("Missing accepted lifecycle receipt");
+    expect(receipt.captureState).toBe("reviewed");
+    expect(receipt.rawRow.group_values).toEqual({
+      "timeline.capture_state": "rough",
+    });
+    const local = {
+      ...receipt,
+      pendingSignature: "pending-row-edit",
+      collectionDrafts: { ...receipt.collectionDrafts, tags: "unsaved tag" },
+    };
+    const authoritative = rowFromApi({
+      ...receipt.rawRow,
+      group_values: { "timeline.capture_state": "reviewed" },
+    });
+    const draft = createDraftRow(1);
+    const reconciled = reconcileCommittedRowsWithLocalDrafts({
+      currentRows: [local, draft],
+      incomingRows: [authoritative],
+      materializeRow: (row) => row,
+      nextDraftIndex: () => 2,
+    });
+    expect(reconciled.committedRows[0]?.rawRow?.group_values).toEqual({
+      "timeline.capture_state": "reviewed",
+    });
+    expect(reconciled.committedRows[0]?.rowVersion).toBe(2);
+    expect(reconciled.committedRows[0]?.pendingSignature).toBe(
+      local.pendingSignature,
+    );
+    expect(reconciled.committedRows[0]?.collectionDrafts).toBe(
+      local.collectionDrafts,
+    );
+    expect(reconciled.rows).toContain(draft);
+    unmount();
+    runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
   it("admits conflict server state without collapsing its local draft", async () => {
     const runtime = runtimeFixture();
     const initial = timelineRow(5, "committed value");

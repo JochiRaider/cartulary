@@ -11,6 +11,7 @@ import {
 
 import {
   type BrowserPageLike,
+  delay,
   isLocatorVisible,
   requireEvaluate,
   requireSelectOption,
@@ -29,10 +30,15 @@ export async function assertActiveFilterChipVisible(
   const chip = page.getByTestId(
     workbookQueryEntryTestId(surface, "filter", fieldKey),
   );
-  if (!(await isLocatorVisible(chip))) {
-    throw new Error(
-      `Expected active filter chip for ${fieldKey} on ${surface} to be visible`,
-    );
+  // Chips describe the accepted query and can appear after the Apply action.
+  // Observe readiness without changing query state or interacting with the grid.
+  const deadline = Date.now() + 5_000;
+  while (!(await isLocatorVisible(chip))) {
+    if (Date.now() >= deadline)
+      throw new Error(
+        `Expected active filter chip for ${fieldKey} on ${surface} to be visible`,
+      );
+    await delay(50);
   }
 }
 

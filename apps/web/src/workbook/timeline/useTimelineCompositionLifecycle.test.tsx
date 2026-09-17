@@ -104,10 +104,10 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
     },
   };
   const { result, rerender } = renderHook(
-    ({ inspectorResetKey }) =>
+    ({ inspectorResetKey, currentIncidentRole }) =>
       useTimelineInspectorStateComposition({
         continuity,
-        currentIncidentRole: "editor",
+        currentIncidentRole,
         dismissedMentionsByRow: {},
         observedMentions: [],
         inspectorResetKey,
@@ -115,7 +115,12 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
         selectedMentionRef: null,
         workbookFocusAnchorRef,
       }),
-    { initialProps: { inspectorResetKey: "inspector-1" } },
+    {
+      initialProps: {
+        inspectorResetKey: "inspector-1",
+        currentIncidentRole: "reviewer",
+      },
+    },
   );
 
   act(() => {
@@ -127,13 +132,18 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
     true,
   );
   expect(capture).toHaveBeenCalledWith();
+  rerender({ inspectorResetKey: "inspector-1", currentIncidentRole: "editor" });
+  expect(result.current.snapshot.selection.selectedRow).toBe(committedRow);
+  expect(result.current.snapshot.selection.selectedRowId).toBe("record-1");
 
   act(() => {
     result.current.commands.setOpen(false);
   });
   expect(capture).toHaveBeenLastCalledWith(workbookFocusAnchorRef.current);
 
-  rerender({ inspectorResetKey: "inspector-2" });
+  rerender({ inspectorResetKey: "inspector-1", currentIncidentRole: "" });
+  expect(result.current.snapshot.selection.selectedRow).toBeNull();
+  rerender({ inspectorResetKey: "inspector-2", currentIncidentRole: "editor" });
   expect(result.current.snapshot.selection.selectedRowId).toBeNull();
 });
 

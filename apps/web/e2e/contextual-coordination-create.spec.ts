@@ -245,9 +245,17 @@ test("Accepted coordination refresh recovery sends reads only and keeps the sour
       await route.fulfill({ response });
     },
   );
+  const createdResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/views/${f.target.viewSchemaId}/rows`),
+  );
   await f.form
     .getByTestId(genericCreateSubmitTestId(f.target.viewSchemaId))
     .click();
+  // Source validation may still be reading after the click. Activating
+  // Recovery detaches that form, so wait for accepted creation first.
+  expect((await createdResponse).ok()).toBe(true);
   await openRecoveryItem(page, /^Coordination creation ·/);
   const recovery = page.getByRole("region", {
     name: "Retained Coordination authoring",

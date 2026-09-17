@@ -13,6 +13,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { useWorkbookRecoveryNavigation } from "../../shared/WorkbookRecoveryBoundary";
+import { useWorkbookBrowsingRegistry } from "../query/WorkbookQueryBrowsingContext";
 import type {
   WorkbookMutationRuntime,
   WorkbookMutationSnapshot,
@@ -84,6 +86,8 @@ export function WorkbookSameFieldConflictResolver({
   readonly snapshot: Pick<WorkbookMutationSnapshot, "conflicts">;
   readonly summaryRef: RefObject<HTMLDivElement | null>;
 }) {
+  const navigation = useWorkbookRecoveryNavigation();
+  const browsing = useWorkbookBrowsingRegistry();
   const [activeKey, setActiveKey] = useState<string | null>(
     activation?.conflictKey ?? snapshot.conflicts[0]?.key ?? null,
   );
@@ -108,6 +112,16 @@ export function WorkbookSameFieldConflictResolver({
   const submit = async (
     resolutionKind: "keep_saved" | "merged_value" | "use_unsaved",
   ) => {
+    const activation = navigation?.getSnapshot().activation;
+    const panel = resolverRef.current?.closest(
+      '[aria-label="Recovery navigation"]',
+    );
+    const view = conflict.origin.viewSchemaId;
+    const grid = browsing?.grid(view);
+    const scrollElement = grid?.getScrollElement();
+    const viewport = scrollElement
+      ? { top: scrollElement.scrollTop, left: scrollElement.scrollLeft }
+      : null;
     setSubmitting(true);
     setMessage(null);
     try {
@@ -117,6 +131,49 @@ export function WorkbookSameFieldConflictResolver({
         resolutionKind,
       });
       setMessage(nextMessage);
+      const current = navigation?.getSnapshot();
+      if (
+        nextMessage === null &&
+        current?.open &&
+        current.activation === activation &&
+        panel?.contains(document.activeElement)
+      ) {
+        // Only this explicit activation may continue to the original cell.
+        // A detached/retargeted resolver or newer work must keep its own focus.
+        navigation?.close();
+        const handoffActivation = navigation?.getSnapshot().activation;
+        const currentGrid = browsing?.grid(view);
+        if (
+          currentGrid &&
+          scrollElement?.isConnected &&
+          currentGrid.getScrollElement() === scrollElement
+        ) {
+          const result = await currentGrid.requestFocus({
+            kind: "cell",
+            anchor: {
+              surface: { kind: "view_schema", viewSchemaId: view },
+              rowIdentity: {
+                kind: "core_record",
+                recordId: conflict.conflict.record_id,
+              },
+              fieldKey: conflict.conflict.field_key,
+            },
+          });
+          // Semantic focus may scroll a rendered cell fully into view. This
+          // explicit resolution owns the captured viewport as well as the cell.
+          if (
+            result === "focused" &&
+            viewport &&
+            scrollElement?.isConnected &&
+            browsing?.grid(view)?.getScrollElement() === scrollElement &&
+            navigation?.getSnapshot().activation === handoffActivation &&
+            !navigation?.getSnapshot().open
+          ) {
+            scrollElement.scrollTop = viewport.top;
+            scrollElement.scrollLeft = viewport.left;
+          }
+        }
+      }
     } finally {
       setSubmitting(false);
     }

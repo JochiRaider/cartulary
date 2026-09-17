@@ -82,8 +82,10 @@ export function useTimelineInspectorSelection({
       ) ??
       null,
     rowVersion: (row) => row.rowVersion ?? 0,
-    scope: `${inspectorResetKey}:${currentIncidentRole}`,
-    readable: currentIncidentRole !== null && currentIncidentRole !== undefined,
+    // Role changes invalidate action authority independently. An accepted
+    // incident reader still owns the same source projection.
+    scope: inspectorResetKey,
+    readable: !!currentIncidentRole,
   });
   const draftRow = useMemo(
     () => rows.find((row) => row.recordId === null) ?? null,
