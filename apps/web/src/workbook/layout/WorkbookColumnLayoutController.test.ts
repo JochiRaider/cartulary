@@ -1,0 +1,174 @@
+import type {
+  GridColumnMeasurement,
+  GridColumnSizingPort,
+} from "@cartulary/grid-adapter";
+import { requireViewContract } from "@cartulary/view-contracts";
+import { describe, expect, it, vi } from "vitest";
+import { parseWorkbookColumnWidth } from "../models/workbookColumnSizing";
+import {
+  buildSavedViewLayoutJson,
+  workbookLayoutStateFromSavedViewLayoutJson,
+} from "../models/workbookQuery";
+import { WorkbookColumnLayoutController } from "./WorkbookColumnLayoutController";
+import { applyWorkbookLayoutToColumns } from "./workbookColumnLayout";
+
+const id = "cartulary.view.timeline.v2";
+const field = "timeline.activity_synopsis_text";
+const other = "timeline.raw_activity_text";
+const contract = requireViewContract(id);
+function harness() {
+  const owner = new WorkbookColumnLayoutController();
+  const requests: {
+    resolve: (result: GridColumnMeasurement) => void;
+    signal: AbortSignal;
+  }[] = [];
+  const port: GridColumnSizingPort = {
+    unavailableReason: () => null,
+    subscribe: () => () => undefined,
+    measureVisibleContent: (_field, { signal }) =>
+      new Promise((resolve) => requests.push({ resolve, signal })),
+  };
+  const unbind = owner.bind(id, { defaultWidth: () => 300, port });
+  owner.activate("timeline:base");
+  const fit = () =>
+    owner.onIntent(id, { kind: "fit_visible", fieldKey: field });
+  return { owner, requests, unbind, fit, port };
+}
+describe("Workbook column sizing", () => {
+  it("preserves sparse defaults and unrelated layout while enforcing portable bounds", () => {
+    const { owner } = harness();
+    owner.move(id, field, "earlier");
+    owner.hide(id, other, true);
+    owner.onIntent(id, { kind: "set_width", fieldKey: other, widthPx: 4096 });
+    owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx: 300 });
+    expect(owner.read(id, field).overridden).toBe(true);
+    const before = owner.currentLayoutStateForSurface(id);
+    for (const widthPx of [
+      39,
+      4097,
+      40.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ])
+      owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx });
+    expect(owner.currentLayoutStateForSurface(id)).toEqual(before);
+    owner.restoreDefault(id, field);
+    expect(owner.currentLayoutStateForSurface(id)).toEqual({
+      ...before,
+      columnWidths: { [other]: 4096 },
+    });
+    owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx: 40 });
+    const columns = applyWorkbookLayoutToColumns(
+      contract,
+      [
+        {
+          fieldKey: field,
+          label: "Summary",
+          renderCell: () => null,
+          width: 300,
+        },
+      ],
+      owner.currentLayoutStateForSurface(id),
+    );
+    expect(columns[0]).toMatchObject({
+      width: 40,
+      minWidth: 40,
+      maxWidth: 4096,
+    });
+    expect(
+      buildSavedViewLayoutJson(contract, owner.currentLayoutStateForSurface(id))
+        .column_widths,
+    ).toContainEqual({ field_key: field, width_px: 40 });
+  });
+  it("validates numeric input without truncating saved fractional widths", () => {
+    for (const text of ["", " ", "39", "4097", "40.5", "abc", "Infinity"])
+      expect(parseWorkbookColumnWidth(text)).toBeNull();
+    expect(parseWorkbookColumnWidth("40")).toBe(40);
+    expect(parseWorkbookColumnWidth("4096")).toBe(4096);
+    const decoded = workbookLayoutStateFromSavedViewLayoutJson(contract, {
+      column_widths: [{ field_key: field, width_px: 100.7 }],
+    });
+    expect(buildSavedViewLayoutJson(contract, decoded).column_widths).toEqual(
+      [],
+    );
+  });
+  it("fits once and reports header-only and capped results", async () => {
+    const h = harness();
+    const completed = h.fit();
+    h.requests[0]?.resolve({
+      kind: "measured",
+      widthPx: 4096,
+      capped: true,
+      cellCount: 0,
+    });
+    await completed;
+    expect(h.owner.currentLayoutStateForSurface(id).columnWidths[field]).toBe(
+      4096,
+    );
+    expect(h.owner.getSnapshot().notice).toContain("using the header");
+    expect(h.owner.getSnapshot().notice).toContain("Maximum width reached");
+    expect(h.owner.getSnapshot().pendingField).toBeNull();
+    h.owner.refresh();
+    expect(h.requests).toHaveLength(1);
+  });
+  it("rejects obsolete results after newer commands configuration changes and departure", async () => {
+    for (const change of [
+      (h: ReturnType<typeof harness>) =>
+        h.owner.onIntent(id, {
+          kind: "set_width",
+          fieldKey: field,
+          widthPx: 480,
+        }),
+      (h: ReturnType<typeof harness>) => h.owner.restoreDefault(id, field),
+      (h: ReturnType<typeof harness>) => h.owner.hide(id, field, true),
+      (h: ReturnType<typeof harness>) => h.owner.move(id, field, "earlier"),
+      (h: ReturnType<typeof harness>) => h.owner.reset(id),
+      (h: ReturnType<typeof harness>) =>
+        h.owner.applyLayoutStateForSurface(
+          id,
+          h.owner.currentLayoutStateForSurface(id),
+        ),
+      (h: ReturnType<typeof harness>) =>
+        h.owner.activate("timeline:replacement-saved-view"),
+      (h: ReturnType<typeof harness>) => h.owner.cancel(),
+      (h: ReturnType<typeof harness>) => h.unbind(),
+      (h: ReturnType<typeof harness>) => h.owner.dispose(),
+    ]) {
+      const h = harness();
+      const completed = h.fit();
+      change(h);
+      const before = h.owner.currentLayoutStateForSurface(id);
+      expect(h.requests[0]?.signal.aborted).toBe(true);
+      h.requests[0]?.resolve({
+        kind: "measured",
+        widthPx: 800,
+        capped: false,
+        cellCount: 4,
+      });
+      await completed;
+      expect(h.owner.currentLayoutStateForSurface(id)).toEqual(before);
+    }
+  });
+  it("repeated fitting admits only the newest result and unavailable content changes nothing", async () => {
+    const h = harness();
+    const first = h.fit();
+    const second = h.fit();
+    h.requests[0]?.resolve({
+      kind: "measured",
+      widthPx: 800,
+      capped: false,
+      cellCount: 2,
+    });
+    h.requests[1]?.resolve({
+      kind: "unavailable",
+      reason: "Fonts are loading.",
+    });
+    await Promise.all([first, second]);
+    expect(h.owner.currentLayoutStateForSurface(id).columnWidths).toEqual({});
+    expect(h.owner.getSnapshot().notice).toBe("Fonts are loading.");
+    h.owner.hide(id, field, true);
+    const measure = vi.spyOn(h.port, "measureVisibleContent");
+    h.fit();
+    expect(measure).not.toHaveBeenCalled();
+  });
+});

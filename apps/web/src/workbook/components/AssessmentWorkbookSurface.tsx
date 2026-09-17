@@ -32,6 +32,7 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { useAssessmentWorkbookInspectorComposition } from "../features/assessments/useAssessmentWorkbookInspectorComposition";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
+import { useWorkbookColumnSizingBinding } from "../layout/useWorkbookColumnSizingBinding";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -131,7 +132,7 @@ export function AssessmentWorkbookSurface({
   queryState,
 }: AssessmentWorkbookSurfaceProps) {
   const {
-    commands: { onColumnReorder, onColumnWidthChange },
+    commands: { onColumnReorder, onColumnSizingIntent },
     snapshot: {
       chromeMode,
       density,
@@ -185,27 +186,32 @@ export function AssessmentWorkbookSurface({
           ? observedSelection
           : null))
       : null;
-  const anchorColumns = useMemo<readonly GridColumn<WorkbookQueryRow>[]>(
+  const defaultColumns = useMemo<readonly GridColumn<WorkbookQueryRow>[]>(
+    () =>
+      assessmentsContract.fields.map((field) => ({
+        fieldKey: field.fieldKey,
+        headerTestId: gridSortHeaderTestId(
+          assessmentsViewSchemaId,
+          field.fieldKey,
+        ),
+        label: field.label,
+        width: assessmentColumnWidth(field.fieldKey),
+        renderCell: () => null,
+        sortableFieldKey: resolveHeaderSortFieldKey(
+          assessmentsContract,
+          field.fieldKey,
+        ),
+      })),
+    [],
+  );
+  const anchorColumns = useMemo(
     () =>
       applyWorkbookLayoutToColumns(
         assessmentsContract,
-        assessmentsContract.fields.map((field) => ({
-          fieldKey: field.fieldKey,
-          headerTestId: gridSortHeaderTestId(
-            assessmentsViewSchemaId,
-            field.fieldKey,
-          ),
-          label: field.label,
-          width: assessmentColumnWidth(field.fieldKey),
-          renderCell: () => null,
-          sortableFieldKey: resolveHeaderSortFieldKey(
-            assessmentsContract,
-            field.fieldKey,
-          ),
-        })),
+        defaultColumns,
         layoutState,
       ),
-    [layoutState],
+    [defaultColumns, layoutState],
   );
   const gridRows = useMemo<readonly GridDataRow<WorkbookQueryRow>[]>(
     () =>
@@ -243,6 +249,11 @@ export function AssessmentWorkbookSurface({
       };
     }, [queryState.groupBy]);
   const gridHandleRef = useRef<GridHandle | null>(null);
+  useWorkbookColumnSizingBinding({
+    columns: defaultColumns,
+    commands: layout.commands,
+    gridHandleRef,
+  });
   const assessmentFocus = useWorkbookGridContinuity({
     columns: anchorColumns,
     continuityResetKey,
@@ -414,7 +425,6 @@ export function AssessmentWorkbookSurface({
                   }
             }
             columns={columns}
-            columnWidths={layoutState.columnWidths}
             dataState={dataState}
             density={density}
             grouping={grouping}
@@ -442,7 +452,7 @@ export function AssessmentWorkbookSurface({
               );
             }}
             onColumnReorder={onColumnReorder}
-            onColumnWidthChange={onColumnWidthChange}
+            onColumnSizingIntent={onColumnSizingIntent}
             onSelectRow={(rowIdentity) => {
               if (rowIdentity.kind === "core_record") {
                 selectAssessment(rowIdentity.recordId);

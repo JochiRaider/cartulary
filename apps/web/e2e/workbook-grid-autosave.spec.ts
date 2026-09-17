@@ -124,9 +124,8 @@ async function activate(
     await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
     const option = page
       .getByTestId(workbookColumnsMenuTestId(view))
-      .getByRole("menuitemcheckbox", { name: contract.label, exact: true });
-    if ((await option.getAttribute("aria-checked")) !== "true")
-      await option.click();
+      .getByRole("checkbox", { name: contract.label, exact: true });
+    if (!(await option.isChecked())) await option.click();
     await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
   }
   await scrollGridCellIntoView({
@@ -1203,12 +1202,11 @@ test("Committed grid drafts stay on their original target through saved views hi
     await selectSavedView(page, f.view, originalView.saved_view_id);
     await expect(input).toHaveCount(0);
     await page.getByTestId(workbookColumnsMenuTriggerTestId(f.view)).click();
-    const requested = page.getByRole("menuitemcheckbox", {
+    const requested = page.getByRole("checkbox", {
       name: "Requested",
       exact: true,
     });
-    if ((await requested.getAttribute("aria-checked")) === "false")
-      await requested.click();
+    if (!(await requested.isChecked())) await requested.click();
     await page.getByTestId(workbookColumnsMenuTriggerTestId(f.view)).click();
     const restored = await activate(page, f.view, f.row.record_id, field);
     await expect(restored).toHaveValue("  unfinished original timestamp  ");

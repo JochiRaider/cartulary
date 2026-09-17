@@ -1,6 +1,10 @@
 import type { GridColumn } from "@cartulary/grid-adapter";
 import type { ViewContract } from "@cartulary/view-contracts";
 import {
+  isWorkbookColumnWidth,
+  workbookColumnSizing,
+} from "../models/workbookColumnSizing";
+import {
   buildSavedViewLayoutJson,
   type WorkbookLayoutState,
 } from "../models/workbookQuery";
@@ -51,7 +55,24 @@ export function applyWorkbookLayoutToColumns<Row>(
       return [];
     }
     const width = layout.columnWidths[fieldKey];
-    return [width === undefined ? column : { ...column, width }];
+    return [
+      {
+        ...column,
+        minWidth: workbookColumnSizing.minimumWidthPx,
+        maxWidth: workbookColumnSizing.maximumWidthPx,
+        width:
+          width ??
+          (column.width === undefined
+            ? undefined
+            : Math.max(
+                workbookColumnSizing.minimumWidthPx,
+                Math.min(
+                  workbookColumnSizing.maximumWidthPx,
+                  Math.round(column.width),
+                ),
+              )),
+      },
+    ];
   });
 }
 
@@ -138,16 +159,27 @@ export function setWorkbookColumnWidth(
   width: number,
 ): WorkbookResolvedLayoutState {
   const current = resolveWorkbookLayoutState(contract, state);
-  if (
-    !contract.fieldMap[fieldKey] ||
-    !Number.isSafeInteger(width) ||
-    width < 40 ||
-    width > 4096
-  ) {
+  if (!contract.fieldMap[fieldKey] || !isWorkbookColumnWidth(width)) {
     return current;
   }
   return resolveWorkbookLayoutState(contract, {
     ...current,
     columnWidths: { ...current.columnWidths, [fieldKey]: width },
   });
+}
+
+export function restoreWorkbookColumnDefault(
+  contract: ViewContract,
+  state: WorkbookLayoutState,
+  fieldKey: string,
+): WorkbookResolvedLayoutState {
+  const current = resolveWorkbookLayoutState(contract, state);
+  if (
+    !contract.fieldMap[fieldKey] ||
+    current.columnWidths[fieldKey] === undefined
+  )
+    return current;
+  const widths = { ...current.columnWidths };
+  delete widths[fieldKey];
+  return { ...current, columnWidths: widths };
 }

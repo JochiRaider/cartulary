@@ -12,7 +12,9 @@ repeated viewport subtraction in surface components.
 
 | File | Responsibility |
 | --- | --- |
-| [useWorkbookColumnLayoutController.ts](useWorkbookColumnLayoutController.ts) | Per-schema column state, active column commands, saved-layout application, and startup resets. |
+| [useWorkbookColumnLayoutController.ts](useWorkbookColumnLayoutController.ts) | React subscription and active-schema commands for the sole working-layout owner. |
+| [WorkbookColumnLayoutController.ts](WorkbookColumnLayoutController.ts) | Sole working-layout store, sparse width commands, mounted measurement capabilities and cancellation across configuration replacement. |
+| [useWorkbookColumnSizingBinding.ts](useWorkbookColumnSizingBinding.ts) | Supplies source defaults and the mounted neutral GridHandle sizing capability; never owns widths or vendor nodes. |
 | [useWorkbookLayoutFacade.ts](useWorkbookLayoutFacade.ts) | Composition facade for effective density, responsive mode, interaction mode, column state, and surface layout commands. |
 | [useWorkbookResponsiveLayout.ts](useWorkbookResponsiveLayout.ts) | Viewport subscription and semantic responsive-layout snapshot. |
 | [workbookColumnLayout.ts](workbookColumnLayout.ts) | Contract-normalized column ordering, visibility, width, movement, and materialization helpers. |
@@ -24,9 +26,19 @@ repeated viewport subtraction in surface components.
 
 ## Tests
 
+`WorkbookColumnLayoutController.test.ts` covers portable bounds, sparse
+restoration, numeric validation and obsolete measurement rejection.
+
 | File | Responsibility |
 | --- | --- |
 | [useWorkbookResponsiveLayout.test.tsx](useWorkbookResponsiveLayout.test.tsx) | Tests viewport fallbacks and effective root width under zoom. |
 | [workbookDensity.test.ts](workbookDensity.test.ts) | Tests for effective Workbook density. |
 | [workbookLayoutPolicy.test.ts](workbookLayoutPolicy.test.ts) | Architecture checks prohibiting viewport-subtraction, row-count geometry, synthetic rows, and surface-private minimum-height workarounds. |
 | [workbookResponsiveLayout.test.ts](workbookResponsiveLayout.test.ts) | Tests for responsive classification and query-control capacity. |
+
+A new Workbook surface builds all semantic columns with its declared defaults,
+marks committed presentation eligibility, and calls `useWorkbookColumnSizingBinding`
+with its existing GridHandle ref and layout commands. Apply the working layout
+through `applyWorkbookLayoutToColumns` and send header intents to
+`onColumnSizingIntent`. The view bar consumes `commands.sizing`; it does not
+import vendor coordinates or retain a second width map.

@@ -18,6 +18,7 @@ import {
   type SemanticDataGridProps,
 } from "./core";
 import { SemanticDataGrid as SemanticDataGridDomUnit } from "./domUnitBinding";
+import { GridOperationalStatePlane } from "./GridOperationalStatePlane";
 import {
   type GridColumn,
   type GridDataRow,
@@ -1194,6 +1195,45 @@ describe("grid-adapter", () => {
       expect(document.activeElement).toBe(screen.getByRole("grid")),
     );
     expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+  });
+
+  it("keeps action focus pending across replacement presentation callbacks and cancels on departure", () => {
+    const requestFocus = vi.fn<GridHandle["requestFocus"]>(
+      () => new Promise(() => {}),
+    );
+    const renderState = (ready: boolean) => (
+      <GridOperationalStatePlane
+        surface={testSurface}
+        requestFocus={requestFocus}
+        interactionMode={{ kind: "editable" }}
+        dataState={
+          ready
+            ? {
+                kind: "empty",
+                message: "No records",
+                action: { label: "Add record", onInvoke: () => {} },
+              }
+            : {
+                kind: "filtered_empty",
+                action: { label: "Clear filters", onInvoke: () => {} },
+              }
+        }
+      />
+    );
+    const view = render(renderState(false));
+    const clear = screen.getByRole("button", { name: "Clear filters" });
+    clear.focus();
+    fireEvent.click(clear);
+    clear.blur();
+    view.rerender(renderState(true));
+    expect(requestFocus).toHaveBeenCalledOnce();
+    const signal = requestFocus.mock.calls[0]?.[1]?.signal;
+    expect(signal?.aborted).toBe(false);
+    view.rerender(renderState(true));
+    expect(signal?.aborted).toBe(false);
+    expect(requestFocus).toHaveBeenCalledOnce();
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
   });
 
   it("compiles semantic row and cell state into private classes, markers, and ARIA", async () => {
@@ -3520,7 +3560,12 @@ function OperationalActionReplacementHarness({
       dataRows={[]}
       dataState={
         ready
-          ? { kind: "ready" }
+          ? {
+              kind: "empty",
+              message: "No records yet.",
+              // Real empty surfaces keep a newly presented create action.
+              action: { label: "Add record", onInvoke: () => {} },
+            }
           : refreshing
             ? { kind: "refreshing", surfaceLabel: "Support records" }
             : {

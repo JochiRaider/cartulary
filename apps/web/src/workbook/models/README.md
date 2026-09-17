@@ -45,6 +45,7 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 
 | File | Responsibility |
 | --- | --- |
+| [workbookColumnSizing.ts](workbookColumnSizing.ts) | Shared integer width validation downstream of the authored design projection. |
 | [workbookContractRows.ts](workbookContractRows.ts) | Contract-backed row normalization and grid-column materialization helpers for workbook surfaces. |
 | [workbookGridQueryControls.test.ts](workbookGridQueryControls.test.ts) | Tests ordered-sort lifecycle, duplicate/limit rejection, and reference-preserving no-ops. |
 | [workbookGridQueryControls.ts](workbookGridQueryControls.ts) | Pure query-control projection, closure-free command descriptors, exact controlled-value parsers, ordered-sort commands, and surface-keyed transient reducer. |

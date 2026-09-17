@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import type { Column } from "react-data-grid";
+import { ColumnResizeHandle } from "./ColumnResizeHandle";
 import {
   type ClipboardRepresentations,
   clipboardRepresentations,
@@ -17,6 +18,7 @@ import type {
   GridActionsColumn,
   GridCellAnchor,
   GridColumn,
+  GridColumnSizingIntent,
   GridDataRow,
   GridDraftRow,
   GridEditCommitOutcome,
@@ -49,6 +51,10 @@ export type GridCompiledBulkSelection<Row> = {
 };
 
 type CompileGridColumnsInput<Row> = {
+  readonly onColumnSizingIntent?:
+    | ((intent: GridColumnSizingIntent) => void)
+    | undefined;
+  readonly onColumnSizingStart?: (() => void) | undefined;
   readonly actionsColumn: GridActionsColumn<Row> | undefined;
   readonly bulkSelection: GridCompiledBulkSelection<Row> | undefined;
   readonly clearEditorSeed: () => void;
@@ -133,6 +139,8 @@ function gridMutationTarget<Row>(
 }
 
 export function compileGridColumns<Row>({
+  onColumnSizingIntent,
+  onColumnSizingStart,
   actionsColumn,
   bulkSelection,
   clearEditorSeed,
@@ -296,6 +304,7 @@ export function compileGridColumns<Row>({
       key: column.fieldKey,
       headerCellClass: "cartulary-grid-header-cell",
       minWidth: column.minWidth,
+      maxWidth: column.maxWidth,
       name: column.label,
       renderHeaderCell: ({ sortDirection }) => (
         <span
@@ -313,6 +322,16 @@ export function compileGridColumns<Row>({
           {column.label}
           {sortDirection === "ASC" ? " Asc" : null}
           {sortDirection === "DESC" ? " Desc" : null}
+          {onColumnSizingIntent ? (
+            <ColumnResizeHandle
+              fieldKey={column.fieldKey}
+              label={column.label}
+              minWidth={column.minWidth}
+              maxWidth={column.maxWidth}
+              onIntent={onColumnSizingIntent}
+              onStart={() => onColumnSizingStart?.()}
+            />
+          ) : null}
         </span>
       ),
       renderCell: ({ row }) => {
@@ -332,6 +351,10 @@ export function compileGridColumns<Row>({
             rangeSelected={isCellRangeSelected(row, column)}
             registerSemanticCell={registerSemanticCell}
             semanticState={semanticState}
+            committed={
+              column.isCellContentCommitted?.(row.data) !== false &&
+              !semanticState.stateIds.includes("pending")
+            }
             onPaste={(clipboardText, delivery) =>
               onPasteCellContent?.(
                 row,
@@ -419,7 +442,7 @@ export function compileGridColumns<Row>({
             : null}
         </span>
       ),
-      resizable: true,
+      resizable: false,
       summaryCellClass: "cartulary-grid-data-cell cartulary-grid-draft-cell",
       sortable:
         column.sortableFieldKey !== null &&
@@ -920,6 +943,7 @@ function SemanticGridCellContent({
   rangeSelected = false,
   registerSemanticCell,
   semanticState,
+  committed = false,
 }: {
   readonly anchor: GridCellAnchor;
   readonly children: ReactNode;
@@ -944,6 +968,7 @@ function SemanticGridCellContent({
     token: object,
   ) => void;
   readonly semanticState: GridResolvedSemanticState;
+  readonly committed?: boolean | undefined;
 }) {
   const registrationToken = useRef({}).current;
   return (
@@ -951,6 +976,7 @@ function SemanticGridCellContent({
     <span
       className="cartulary-grid-cell-content"
       data-grid-editing={editing ? "true" : undefined}
+      data-grid-sizing-committed={committed && !editing ? "true" : undefined}
       data-grid-field-key={fieldKey}
       data-grid-primary-state={semanticState.primary}
       ref={(node) => {

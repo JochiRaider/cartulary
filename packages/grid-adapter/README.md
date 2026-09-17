@@ -30,6 +30,22 @@ accessible description and explicit continuation controls outside the grid.
 
 ## Verification
 
+Column sizing uses `columnSizing.ts` for normalization and cancellable intrinsic
+measurement of production DOM. `useGridColumnSizing.ts` binds viewport/font and
+presentation lifetime; `ColumnResizeHandle.tsx` translates pointer deltas into
+CSS pixels. Semantic bounds come from callers. The neutral port returns
+measurements without storing widths or defining saved-view behavior. Editors and
+owner-declared local-value presentations are excluded. `columnSizing.test.tsx`
+covers command translation, bounds, unavailable geometry and cancellation;
+production geometry requires browser evidence.
+
+Compiled `GridColumn.width` is the only width input. The adapter does not seed a
+second vendor width map: a grouped remount or saved configuration replacement
+must render the owner's current widths. Viewport observation follows replacement
+grid roots and clipping ancestors. Completed measurements remain fixed until
+another explicit command; observer and font events only invalidate pending work
+and update availability.
+
 Use `make task-guide ROLE=module-author OWNER=package.grid_adapter` from the
 repository root to select current semantic, production-binding, browser,
 accessibility and visual evidence. Application fakes cannot establish RDG focus,

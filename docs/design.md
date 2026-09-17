@@ -1078,6 +1078,31 @@ an entry; `Delete` performs the chip's clear or remove operation.
 
 Design contract. The View bar MUST expose a keyboard-accessible `Columns` control that lists semantic field labels, reports visibility, supports show or hide, move earlier or later, and reset, and remains usable when every data column is hidden. Pointer header drag MAY provide the same reorder operation as a convenience but MUST NOT be the only reorder mechanism. Adapter-private structural columns are excluded from this control and from saved layout.
 
+Design contract. Columns uses a labelled non-modal panel with native visibility
+checkboxes, move buttons and a per-column `Width` action. Its sizing panel exposes
+current/default width, an integer input, `Apply width`, `Fit visible content`,
+`Restore default` and `Cancel`. Numeric input MUST report invalid values locally
+without changing layout. Widths use REQ-01-143's inclusive `40..4096` CSS-pixel
+range. Pointer boundaries resize; Ctrl/Cmd+Left/Right on a focused header resizes
+by `10` CSS pixels. Resize gestures MUST NOT sort, reorder or activate an editor.
+
+Fit's description MUST identify header and saved content currently on screen,
+excluding drafts and unloaded rows. Hidden or horizontally off-screen columns
+disable Fit with a reason while Set width and Restore default remain available.
+Fit measures current density, typography, padding and indicators, including the
+existing compact collection summary. Finite gesture fractions round to the
+nearest integer; fitted extents round up, then both clamp to the adopted range.
+At the maximum, feedback MUST explain that content may remain clipped. Unready
+fonts require another explicit activation after readiness; readiness never fits.
+
+The panel MUST remain usable with long labels, narrow supported viewports, zoom
+and text spacing. Escape from sizing cancels unapplied input/pending measurement
+and returns focus to that column's Width action; closing Columns returns to its
+trigger. Outside dismissal preserves destination focus. Cancel does not undo an
+already completed action. Completed sizing uses one concise polite announcement;
+drag movement does not announce every intermediate pixel. Core 03 REQ-03-295
+owns focus borrowing, sparse defaults and the distinct reset operations.
+
 Design contract. Sort controls MUST expose the complete ordered sort list and priority. Ordinary header activation replaces the list. Ctrl/Cmd header activation adds, cycles, or removes the field. The View bar Sort control MUST expose keyboard-operable `Add sort`, direction, `Move earlier`, `Move later`, and `Remove` actions for every sort entry without requiring discovery of the modifier gesture.
 
 Design contract. Bulk record selection MUST appear only on a surface with an adopted bulk command. Its checkbox column MUST be visually distinct from inspector-row context and active-cell focus, identify select-all as current-page selection, omit controls for group and draft rows, and announce the selected committed-record count after changes.
@@ -1807,6 +1832,8 @@ Design contract. Live-region behavior MUST use this matrix.
 | Auto-resolution batch complete | Polite. | Count auto-resolved and count unresolved. |
 | Toast warning or error | Follows toast severity. | Message text plus action name if present. |
 | Menu open/close | No live announcement beyond focus and ARIA state. | None. |
+| Column Apply width, Fit, Restore default or Reset columns completes | Polite, once per completed operation. | Field and result; header-only or capped fit when applicable. |
+| Header drag movement | No live announcement for each movement. | Current header geometry and explicit Columns controls remain available. |
 
 ### 14.3 Contrast pair matrix
 

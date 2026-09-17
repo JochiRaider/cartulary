@@ -153,6 +153,14 @@ describe("Timeline collection inspection", () => {
     });
     expect(props.queueCollectionSave).not.toHaveBeenCalled();
     other.unmount();
+    const widthControl = document.createElement("button");
+    widthControl.dataset.gridEditorExternalAction = "true";
+    document.body.append(widthControl);
+    input.focus();
+    fireEvent.blur(input, { relatedTarget: widthControl });
+    expect(props.queueCollectionSave).not.toHaveBeenCalled();
+    expect(props.retainDraft).toHaveBeenLastCalledWith("pending raw Ω");
+    widthControl.remove();
     rerender(
       <TimelineCollectionCell
         {...props}

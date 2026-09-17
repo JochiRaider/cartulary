@@ -972,7 +972,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-long-columns-linux.png",
-      "sha256": "51d907b43adb24c600eb498199129a3c70d85914fa5551b2d443e6d2e9b6020c"
+      "sha256": "b93cb4447222f20f7c0de16c25389e06281808de526ee28fed2160a4b31b532c"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-base-linux.png",

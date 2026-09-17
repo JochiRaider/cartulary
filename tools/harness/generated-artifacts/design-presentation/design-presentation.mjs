@@ -106,6 +106,11 @@ function assertExactRows(filePath, field, actual, expected) {
 
 export function renderDesignPresentationTypeScript(document) {
   const source = {
+    workbookColumnSizing: {
+      minimumWidthPx: document.projection.workbook_column_sizing.minimum_width_px,
+      maximumWidthPx: document.projection.workbook_column_sizing.maximum_width_px,
+      keyboardStepPx: document.projection.workbook_column_sizing.keyboard_step_px,
+    },
     presence: document.projection.presence,
     errorPresentations: document.projection.error_presentations.map((entry) => ({
       actions: entry.actions,

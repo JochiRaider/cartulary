@@ -182,6 +182,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.grid_adapter.regression.column_sizing_contract",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/columnSizing.test.tsx",
+        "titles": [
+          "Grid column sizing normalizes finite measurements once with owner bounds and CSS zoom",
+          "Grid column sizing rejects unavailable columns and cancels pending measurement on abort or invalidation",
+          "Grid column sizing routes production header keyboard and double-click intents without sorting"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.grid_adapter.regression.core_builds_one_group_bucket_per_normalized_comm_ba814e2f02",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",
@@ -826,6 +852,7 @@
           "grid-adapter groups extension resources in the live grid without changing their identities",
           "grid-adapter keeps RDG row identity stable across reorder, sort, rerender, and editable cells",
           "grid-adapter keeps a rejected inter-cell transition on its semantic draft and opens the destination only after acceptance",
+          "grid-adapter keeps action focus pending across replacement presentation callbacks and cancels on departure",
           "grid-adapter keeps editable cells mounted across repeated parent renders with an actions column",
           "grid-adapter keeps embedded actions independent and routes labeled pointer and keyboard fill through semantic targets",
           "grid-adapter keeps grouped editable draft cells stable across repeated local edits",
@@ -841,6 +868,7 @@
           "grid-adapter renders the production DataGrid with bounded fixed-height row output",
           "grid-adapter renders, selects, and focuses extension resources without Core identities",
           "grid-adapter retains semantic editor drafts for validation outcomes and closes only after acceptance",
+          "grid-adapter returns focus to the semantic grid root when an activated state action is replaced without owner focus",
           "grid-adapter runs active-cell, navigation, range, copy, paste, fill, and handle behavior through both semantic bindings",
           "grid-adapter runs editor outcomes and draft focus through both semantic bindings",
           "grid-adapter runs fail-closed capability admission through both semantic bindings",

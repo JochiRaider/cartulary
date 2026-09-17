@@ -229,6 +229,19 @@
   background: var(--ct-colors-surface-2);
 }
 
+.cartulary-grid-column-resize {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: var(--ct-spacing-sm);
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
 .cartulary-grid-header-cell,
 .cartulary-grid-selection-cell,
 .cartulary-grid-gutter-cell,

@@ -418,6 +418,7 @@ describe("workbook query controls", () => {
     };
     const { rerender } = render(
       <WorkbookGridControls
+        sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={defaultWorkbookLayoutState(contract)}
@@ -567,6 +568,7 @@ describe("workbook query controls", () => {
 
     rerender(
       <WorkbookGridControls
+        sizing={sizing}
         chromeMode="narrow_desktop"
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -603,6 +605,7 @@ describe("workbook query controls", () => {
 
     rerender(
       <WorkbookGridControls
+        sizing={sizing}
         chromeMode="compact_desktop"
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -922,3 +925,17 @@ describe("workbook query controls", () => {
     });
   });
 });
+
+const sizing = {
+  read: () => ({
+    defaultWidth: 240,
+    width: 240,
+    overridden: false,
+    unavailableReason: "Column measurement is unavailable.",
+  }),
+  onIntent: vi.fn(),
+  restoreDefault: vi.fn(),
+  cancel: vi.fn(),
+  pendingField: null,
+  notice: null,
+};

@@ -1,5 +1,13 @@
-import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
+import type {
+  GridColumnSizingIntent,
+  GridDensity,
+  GridInteractionMode,
+} from "@cartulary/grid-adapter";
 import { useWorkbookResponsiveLayout } from "./useWorkbookResponsiveLayout";
+import type {
+  WorkbookColumnSizingBinding,
+  WorkbookColumnSizingControls,
+} from "./WorkbookColumnLayoutController";
 import type { WorkbookResolvedLayoutState } from "./workbookColumnLayout";
 import {
   type AccountDensityMode,
@@ -33,7 +41,11 @@ export type WorkbookSurfaceLayoutOwner = {
       sourceFieldKey: string,
       targetFieldKey: string,
     ) => void;
-    readonly onColumnWidthChange: (fieldKey: string, width: number) => void;
+    readonly onColumnSizingIntent: (intent: GridColumnSizingIntent) => void;
+    readonly bindColumnSizing: (
+      binding: WorkbookColumnSizingBinding,
+    ) => () => void;
+    readonly sizing: WorkbookColumnSizingControls;
     readonly onResetColumns: () => void;
   };
   readonly snapshot: {

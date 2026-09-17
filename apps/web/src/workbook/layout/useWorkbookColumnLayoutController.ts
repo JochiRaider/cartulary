@@ -1,106 +1,68 @@
+import type { GridColumnSizingIntent } from "@cartulary/grid-adapter";
 import type { ViewContract } from "@cartulary/view-contracts";
-import { useCallback, useMemo, useState } from "react";
-import type { WorkbookLayoutState } from "../models/workbookQuery";
-import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 import {
-  defaultWorkbookLayoutState,
-  moveWorkbookColumn,
-  reorderWorkbookColumns,
-  resolveWorkbookLayoutState,
-  setWorkbookColumnHidden,
-  setWorkbookColumnWidth,
-  type WorkbookResolvedLayoutState,
-} from "./workbookColumnLayout";
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
+import {
+  WorkbookColumnLayoutController,
+  type WorkbookColumnSizingBinding,
+} from "./WorkbookColumnLayoutController";
 
 export function useWorkbookColumnLayoutController({
   activeContract,
+  contextKey = activeContract.viewSchemaId,
 }: {
   readonly activeContract: ViewContract;
+  readonly contextKey?: string | undefined;
 }) {
-  const [entries, setEntries] = useState<
-    Readonly<Record<string, WorkbookResolvedLayoutState>>
-  >({});
-
-  const currentLayoutStateForSurface = useCallback(
-    (viewSchemaId: string): WorkbookResolvedLayoutState =>
-      entries[viewSchemaId] ??
-      defaultWorkbookLayoutState(workbookContractForViewSchemaId(viewSchemaId)),
-    [entries],
-  );
-
-  const applyLayoutStateForSurface = useCallback(
-    (viewSchemaId: string, state: WorkbookLayoutState) => {
-      const contract = workbookContractForViewSchemaId(viewSchemaId);
-      setEntries((current) => ({
-        ...current,
-        [viewSchemaId]: resolveWorkbookLayoutState(contract, state),
-      }));
-    },
-    [],
-  );
-
-  const updateActive = useCallback(
-    (
-      update: (
-        current: WorkbookResolvedLayoutState,
-      ) => WorkbookResolvedLayoutState,
-    ) => {
-      setEntries((current) => {
-        const previous =
-          current[activeContract.viewSchemaId] ??
-          defaultWorkbookLayoutState(activeContract);
-        return {
-          ...current,
-          [activeContract.viewSchemaId]: update(previous),
-        };
-      });
-    },
-    [activeContract],
-  );
-
-  const activeLayoutState = currentLayoutStateForSurface(
-    activeContract.viewSchemaId,
-  );
-  const activeLayoutControls = useMemo(
+  const owner = useMemo(() => new WorkbookColumnLayoutController(), []);
+  const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  useLayoutEffect(() => owner.activate(contextKey), [owner, contextKey]);
+  useEffect(() => () => owner.dispose(), [owner]);
+  const id = activeContract.viewSchemaId;
+  const commands = useMemo(
     () => ({
-      layoutState: activeLayoutState,
-      onColumnHiddenChange: (fieldKey: string, hidden: boolean) => {
-        updateActive((current) =>
-          setWorkbookColumnHidden(activeContract, current, fieldKey, hidden),
-        );
-      },
-      onColumnMove: (fieldKey: string, direction: "earlier" | "later") => {
-        updateActive((current) =>
-          moveWorkbookColumn(activeContract, current, fieldKey, direction),
-        );
-      },
-      onColumnReorder: (sourceFieldKey: string, targetFieldKey: string) => {
-        updateActive((current) =>
-          reorderWorkbookColumns(
-            activeContract,
-            current,
-            sourceFieldKey,
-            targetFieldKey,
-          ),
-        );
-      },
-      onResetColumns: () => {
-        updateActive(() => defaultWorkbookLayoutState(activeContract));
-      },
-      onColumnWidthChange: (fieldKey: string, width: number) => {
-        updateActive((current) =>
-          setWorkbookColumnWidth(activeContract, current, fieldKey, width),
-        );
-      },
+      onColumnHiddenChange: (field: string, hidden: boolean) =>
+        owner.hide(id, field, hidden),
+      onColumnMove: (field: string, direction: "earlier" | "later") =>
+        owner.move(id, field, direction),
+      onColumnReorder: (from: string, to: string) =>
+        owner.reorder(id, from, to),
+      onColumnSizingIntent: (intent: GridColumnSizingIntent) =>
+        owner.onIntent(id, intent),
+      onRestoreColumnDefault: (field: string) =>
+        owner.restoreDefault(id, field),
+      onCancelColumnSizing: owner.cancel,
+      bindColumnSizing: (binding: WorkbookColumnSizingBinding) =>
+        owner.bind(id, binding),
+      readColumnSizing: (field: string) => owner.read(id, field),
+      onResetColumns: () => owner.reset(id),
     }),
-    [activeContract, activeLayoutState, updateActive],
+    [owner, id],
   );
-
+  const activeLayoutState = owner.currentLayoutStateForSurface(id);
   return {
     commands: {
-      applyLayoutStateForSurface,
-      currentLayoutStateForSurface,
+      applyLayoutStateForSurface: owner.applyLayoutStateForSurface,
+      currentLayoutStateForSurface: owner.currentLayoutStateForSurface,
     },
-    snapshot: { activeLayoutControls, activeLayoutState },
+    snapshot: {
+      activeLayoutState,
+      activeLayoutControls: {
+        ...commands,
+        layoutState: activeLayoutState,
+        sizing: {
+          read: commands.readColumnSizing,
+          onIntent: commands.onColumnSizingIntent,
+          restoreDefault: commands.onRestoreColumnDefault,
+          cancel: commands.onCancelColumnSizing,
+          pendingField: snapshot.pendingField,
+          notice: snapshot.notice,
+        },
+      },
+    },
   };
 }

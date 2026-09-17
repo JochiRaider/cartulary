@@ -55,12 +55,11 @@ export async function ordinaryField(page: Page, view: string, key: string) {
     if (view === hostsViewSchemaId || view === identitiesViewSchemaId) {
       await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
       const menu = page.getByTestId(workbookColumnsMenuTestId(view));
-      const column = menu.getByRole("menuitemcheckbox", {
+      const column = menu.getByRole("checkbox", {
         name: field.label,
         exact: true,
       });
-      if ((await column.getAttribute("aria-checked")) !== "true")
-        await column.click();
+      if (!(await column.isChecked())) await column.click();
       await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
     } else await page.getByTestId(workbookInspectorToggleTestId(view)).click();
   }

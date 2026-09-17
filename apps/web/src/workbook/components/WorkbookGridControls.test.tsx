@@ -13,12 +13,10 @@ import {
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  defaultWorkbookLayoutState,
-  type WorkbookResolvedLayoutState,
-} from "../layout/workbookColumnLayout";
+import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
+import { defaultWorkbookLayoutState } from "../layout/workbookColumnLayout";
 import { workbookOrderedSortLimit } from "../models/workbookGridQueryControls";
 import {
   defaultFilterDraft,
@@ -40,6 +38,7 @@ describe("WorkbookGridControls", () => {
     const onRemoveFilter = vi.fn();
     render(
       <WorkbookGridControls
+        sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={defaultWorkbookLayoutState(contract)}
@@ -93,6 +92,7 @@ describe("WorkbookGridControls", () => {
     const onRemoveFilter = vi.fn();
     render(
       <WorkbookGridControls
+        sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={defaultWorkbookLayoutState(contract)}
@@ -242,7 +242,11 @@ describe("WorkbookGridControls", () => {
       queryState: emptyWorkbookQueryState(),
     };
     const { rerender } = render(
-      <WorkbookGridControls {...common} surface={timelineSurface} />,
+      <WorkbookGridControls
+        sizing={sizing}
+        {...common}
+        surface={timelineSurface}
+      />,
     );
     expect(screen.getByText("Select a supported filter field.")).toBeInstanceOf(
       HTMLElement,
@@ -254,6 +258,7 @@ describe("WorkbookGridControls", () => {
 
     rerender(
       <WorkbookGridControls
+        sizing={sizing}
         {...common}
         defaultFilterPopoverOpen={false}
         surface="cartulary.view.hosts.v1"
@@ -270,6 +275,7 @@ describe("WorkbookGridControls", () => {
     const onFilterDraftChange = vi.fn();
     render(
       <WorkbookGridControls
+        sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={defaultWorkbookLayoutState(contract)}
@@ -317,6 +323,57 @@ describe("WorkbookGridControls", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("validates explicit sizing and restores one default with predictable cancellation focus", () => {
+    render(<StatefulGridControls />);
+    const trigger = screen.getByRole("button", { name: "Columns" });
+    fireEvent.click(trigger);
+    const firstLabel =
+      requireViewContract(timelineSurface).fields[0]?.label ?? "";
+    const widthLabel = `Width for ${firstLabel}`;
+    fireEvent.click(screen.getByRole("button", { name: widthLabel }));
+    const input = screen.getByRole("textbox", { name: "Width in CSS pixels" });
+    expect(document.activeElement).toBe(input);
+    for (const value of ["", "39", "4097", "40.5", "invalid"]) {
+      fireEvent.change(input, { target: { value } });
+      fireEvent.click(screen.getByRole("button", { name: "Apply width" }));
+      expect(screen.getByRole("alert").textContent).toContain("40 to 4096");
+      expect(screen.getByText(/Current: 240 px/)).toBeTruthy();
+      expect((input as HTMLInputElement).value).toBe(value);
+    }
+    for (const value of ["40", "4096", "240"]) {
+      fireEvent.change(input, { target: { value } });
+      fireEvent.click(screen.getByRole("button", { name: "Apply width" }));
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(
+        screen.getByText(new RegExp(`Current: ${value} px.*Custom width`)),
+      ).toBeTruthy();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Restore default" }));
+    expect(screen.queryByText(/Custom width/)).toBeNull();
+    expect(screen.getByText(/Current: 240 px/)).toBeTruthy();
+    fireEvent.change(input, { target: { value: "unapplied" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: widthLabel }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: widthLabel }));
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Width in CSS pixels",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("240");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Column controls" }), {
+      key: "Escape",
+    });
+    expect(document.activeElement).toBe(trigger);
+    expect(
+      screen.queryByRole("dialog", { name: "Column controls" }),
+    ).toBeNull();
+  });
+
   it("keeps column commands available when every data column is hidden", () => {
     const contract = requireViewContract(timelineSurface);
     const layout = defaultWorkbookLayoutState(contract);
@@ -325,6 +382,7 @@ describe("WorkbookGridControls", () => {
     const onResetColumns = vi.fn();
     render(
       <WorkbookGridControls
+        sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={{ ...layout, hiddenFieldKeys: layout.columnOrder }}
@@ -343,12 +401,10 @@ describe("WorkbookGridControls", () => {
     fireEvent.click(
       screen.getByTestId(workbookColumnsMenuTriggerTestId(timelineSurface)),
     );
-    const visibilityItems = screen.getAllByRole("menuitemcheckbox");
+    const visibilityItems = screen.getAllByRole("checkbox");
     expect(visibilityItems).toHaveLength(layout.columnOrder.length);
     expect(
-      visibilityItems.every(
-        (item) => item.getAttribute("aria-checked") === "false",
-      ),
+      visibilityItems.every((item) => !(item as HTMLInputElement).checked),
     ).toBe(true);
     const first = layout.columnOrder[0];
     const last = layout.columnOrder.at(-1);
@@ -359,14 +415,14 @@ describe("WorkbookGridControls", () => {
     const lastLabel = contract.fieldMap[last]?.label ?? last;
     expect(
       (
-        screen.getByRole("menuitem", {
+        screen.getByRole("button", {
           name: `Move ${firstLabel} earlier`,
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
     expect(
       (
-        screen.getByRole("menuitem", {
+        screen.getByRole("button", {
           name: `Move ${lastLabel} later`,
         }) as HTMLButtonElement
       ).disabled,
@@ -376,7 +432,7 @@ describe("WorkbookGridControls", () => {
     if (firstVisibilityItem === undefined) return;
     fireEvent.click(firstVisibilityItem);
     expect(onColumnHiddenChange).toHaveBeenCalledWith(first, false);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Reset columns" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset columns" }));
     expect(onResetColumns).toHaveBeenCalledOnce();
   });
 });
@@ -386,14 +442,20 @@ function StatefulGridControls() {
   const [queryState, setQueryState] = useState<WorkbookQueryState>(
     emptyWorkbookQueryState(),
   );
-  const [layoutState] = useState<WorkbookResolvedLayoutState>(() =>
-    defaultWorkbookLayoutState(contract),
+  const owner = useWorkbookColumnLayoutController({ activeContract: contract });
+  const controls = owner.snapshot.activeLayoutControls;
+  const layoutState = controls.layoutState;
+  useLayoutEffect(
+    () =>
+      controls.bindColumnSizing({ defaultWidth: () => 240, port: undefined }),
+    [controls.bindColumnSizing],
   );
   const [filterDraft, setFilterDraft] = useState(() =>
     defaultFilterDraft(contract),
   );
   return (
     <WorkbookGridControls
+      sizing={controls.sizing}
       contract={contract}
       filterDraft={filterDraft}
       layoutState={layoutState}
@@ -401,8 +463,8 @@ function StatefulGridControls() {
       onClearFilters={() => {
         setQueryState((current) => ({ ...current, filters: [] }));
       }}
-      onColumnHiddenChange={() => undefined}
-      onColumnMove={() => undefined}
+      onColumnHiddenChange={controls.onColumnHiddenChange}
+      onColumnMove={controls.onColumnMove}
       onFilterDraftChange={setFilterDraft}
       onGroupByChange={(groupBy) => {
         setQueryState((current) => ({ ...current, groupBy }));
@@ -415,7 +477,7 @@ function StatefulGridControls() {
           ),
         }));
       }}
-      onResetColumns={() => undefined}
+      onResetColumns={controls.onResetColumns}
       onSortChange={(sort) => {
         setQueryState((current) => ({ ...current, sort }));
       }}
@@ -424,3 +486,17 @@ function StatefulGridControls() {
     />
   );
 }
+
+const sizing = {
+  read: () => ({
+    defaultWidth: 240,
+    width: 240,
+    overridden: false,
+    unavailableReason: "Column measurement is unavailable.",
+  }),
+  onIntent: vi.fn(),
+  restoreDefault: vi.fn(),
+  cancel: vi.fn(),
+  pendingField: null,
+  notice: null,
+};

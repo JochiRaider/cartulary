@@ -143,6 +143,9 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
   return (
     <fieldset
       ref={cellRef}
+      data-grid-sizing-draft={
+        isInputActive || props.retainedDraft !== undefined ? "true" : undefined
+      }
       aria-label={`${label} collection ${isInspector ? "editor" : "cell"}`}
       style={isInspector ? inspectorCollectionStyle : collectionCellStyle}
     >
@@ -323,6 +326,10 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
           const inspecting =
             suppressInspectionBlur.current ||
             props.isInspectionControlTarget(event.relatedTarget) ||
+            (event.relatedTarget instanceof Element &&
+              event.relatedTarget.closest(
+                '[data-grid-editor-external-action="true"]',
+              ) !== null) ||
             (event.relatedTarget instanceof Node &&
               cellRef.current?.contains(event.relatedTarget));
           suppressInspectionBlur.current = false;

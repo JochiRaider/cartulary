@@ -50,7 +50,6 @@ export const TimelineWorkbookGrid = forwardRef<
     readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
     readonly clipboardPaste: GridClipboardPasteContract;
     readonly columns: readonly GridColumn<WorkbookRow>[];
-    readonly columnWidths: Readonly<Record<string, number>>;
     readonly density: GridDensity;
     readonly dataState: GridDataState;
     readonly getCellState: (input: {
@@ -67,7 +66,9 @@ export const TimelineWorkbookGrid = forwardRef<
       sourceFieldKey: string,
       targetFieldKey: string,
     ) => void;
-    readonly onColumnWidthChange: (fieldKey: string, width: number) => void;
+    readonly onColumnSizingIntent: (
+      intent: import("@cartulary/grid-adapter").GridColumnSizingIntent,
+    ) => void;
     readonly onFillCells: (intent: GridFillIntent) => void;
     readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
     readonly onSelectRecord: (recordId: string) => void;
@@ -88,7 +89,6 @@ export const TimelineWorkbookGrid = forwardRef<
     bulkSelection,
     clipboardPaste,
     columns,
-    columnWidths,
     dataState,
     density,
     getCellState,
@@ -98,7 +98,7 @@ export const TimelineWorkbookGrid = forwardRef<
     interactionMode,
     onActiveCellChange,
     onColumnReorder,
-    onColumnWidthChange,
+    onColumnSizingIntent,
     onFillCells,
     onSortChange,
     onSelectRecord,
@@ -181,7 +181,6 @@ export const TimelineWorkbookGrid = forwardRef<
           clipboardPaste={clipboardPaste}
           coreRecordBulkSelection={bulkSelection}
           columns={columns}
-          columnWidths={columnWidths}
           dataState={dataState}
           density={density}
           draftRow={timelineDraftRow}
@@ -200,7 +199,7 @@ export const TimelineWorkbookGrid = forwardRef<
           interactionMode={interactionMode}
           onActiveCellChange={onActiveCellChange}
           onColumnReorder={onColumnReorder}
-          onColumnWidthChange={onColumnWidthChange}
+          onColumnSizingIntent={onColumnSizingIntent}
           onFillCells={onFillCells}
           onSortChange={onSortChange}
           onSelectRow={(rowIdentity) => {

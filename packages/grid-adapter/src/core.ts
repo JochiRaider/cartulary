@@ -33,7 +33,38 @@ export type GridColumn<Row> = {
   readonly valueKind?: string | undefined;
   readonly align?: "left" | "center" | "right" | undefined;
   readonly minWidth?: number | undefined;
+  readonly maxWidth?: number | undefined;
+  /** False when the displayed value includes local, uncommitted authoring. */
+  readonly isCellContentCommitted?: ((row: Row) => boolean) | undefined;
   readonly width?: number | undefined;
+};
+
+export type GridColumnSizingIntent =
+  | {
+      readonly kind: "set_width";
+      readonly fieldKey: string;
+      readonly widthPx: number;
+    }
+  | { readonly kind: "fit_visible"; readonly fieldKey: string };
+
+export type GridColumnMeasurement =
+  | {
+      readonly kind: "measured";
+      readonly widthPx: number;
+      readonly capped: boolean;
+      readonly cellCount: number;
+    }
+  | { readonly kind: "unavailable"; readonly reason: string }
+  | { readonly kind: "cancelled" };
+
+/** Observational capability: no width store, vendor nodes, or persistence policy. */
+export type GridColumnSizingPort = {
+  readonly unavailableReason: (fieldKey: string) => string | null;
+  readonly measureVisibleContent: (
+    fieldKey: string,
+    options: { readonly signal: AbortSignal },
+  ) => Promise<GridColumnMeasurement>;
+  readonly subscribe: (listener: () => void) => () => void;
 };
 
 export type GridSurfaceIdentity =
@@ -195,7 +226,6 @@ type SemanticDataGridBaseProps<Row> = {
     | GridCoreRecordBulkSelection<Row>
     | undefined;
   readonly cellRange?: GridCellRange | null | undefined;
-  readonly columnWidths?: Readonly<Record<string, number>> | undefined;
   readonly dataState?: GridDataState | undefined;
   readonly density?: GridDensity | undefined;
   readonly draftRow?: GridDraftRow<Row> | undefined;
@@ -223,8 +253,8 @@ type SemanticDataGridBaseProps<Row> = {
   readonly onColumnReorder?:
     | ((sourceFieldKey: string, targetFieldKey: string) => void)
     | undefined;
-  readonly onColumnWidthChange?:
-    | ((fieldKey: string, width: number) => void)
+  readonly onColumnSizingIntent?:
+    | ((intent: GridColumnSizingIntent) => void)
     | undefined;
   readonly onSelectRow?: ((rowIdentity: GridRowIdentity) => void) | undefined;
   readonly dataRows: readonly GridDataRow<Row>[];
@@ -389,6 +419,7 @@ export type GridFocusTarget =
 export type GridFocusResult = "focused" | "unavailable" | "cancelled";
 
 export type GridHandle = {
+  readonly columnSizing?: GridColumnSizingPort | undefined;
   readonly activateEdit: (
     anchor: GridCellAnchor,
     seed?:

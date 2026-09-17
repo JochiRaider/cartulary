@@ -3,7 +3,6 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import {
   type Dispatch,
   type SetStateAction,
-  useCallback,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -26,14 +25,8 @@ import { WorkbookActiveSurfaceFrame } from "../workbook/components/WorkbookActiv
 import { WorkbookBatchRecovery } from "../workbook/components/WorkbookBatchRecovery";
 import { WorkbookHistoryContext } from "../workbook/history/WorkbookHistoryContext";
 import { useWorkbookRecoveryFocus } from "../workbook/hooks/useWorkbookRecoveryFocus";
-import {
-  defaultWorkbookLayoutState,
-  moveWorkbookColumn,
-  reorderWorkbookColumns,
-  setWorkbookColumnHidden,
-  setWorkbookColumnWidth,
-  type WorkbookResolvedLayoutState,
-} from "../workbook/layout/workbookColumnLayout";
+import { useWorkbookColumnLayoutController } from "../workbook/layout/useWorkbookColumnLayoutController";
+import type { WorkbookResolvedLayoutState } from "../workbook/layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../workbook/layout/workbookResponsiveLayout";
 import {
   defaultFilterDraft,
@@ -111,9 +104,6 @@ export type TimelineWorkbookRuntimeFixtureProps = {
   readonly onColumnReorder?:
     | ((sourceFieldKey: string, targetFieldKey: string) => void)
     | undefined;
-  readonly onColumnWidthChange?:
-    | ((fieldKey: string, width: number) => void)
-    | undefined;
   readonly onResetColumns?: (() => void) | undefined;
   readonly onRefreshEntities?: (() => Promise<void> | void) | undefined;
   readonly interactionMode?: GridInteractionMode | undefined;
@@ -147,7 +137,6 @@ export function TimelineWorkbookRuntimeFixture({
   onColumnHiddenChange,
   onColumnMove,
   onColumnReorder,
-  onColumnWidthChange,
   onResetColumns,
   onRefreshEntities,
   interactionMode = { kind: "editable" },
@@ -159,43 +148,19 @@ export function TimelineWorkbookRuntimeFixture({
   const [filterDraft, setFilterDraft] = useState<FilterDraft>(
     providedFilterDraft ?? defaultFilterDraft(timelineContract),
   );
-  const [layoutState, setLayoutState] = useState<WorkbookResolvedLayoutState>(
-    providedLayoutState ?? defaultWorkbookLayoutState(timelineContract),
-  );
-  const setColumnHidden = useCallback((fieldKey: string, hidden: boolean) => {
-    setLayoutState((current) =>
-      setWorkbookColumnHidden(timelineContract, current, fieldKey, hidden),
-    );
-  }, []);
-  const moveColumn = useCallback(
-    (fieldKey: string, direction: "earlier" | "later") => {
-      setLayoutState((current) =>
-        moveWorkbookColumn(timelineContract, current, fieldKey, direction),
+  const layoutOwner = useWorkbookColumnLayoutController({
+    activeContract: timelineContract,
+    contextKey: incidentId,
+  });
+  const columnControls = layoutOwner.snapshot.activeLayoutControls;
+  const layoutState = columnControls.layoutState;
+  useLayoutEffect(() => {
+    if (providedLayoutState)
+      layoutOwner.commands.applyLayoutStateForSurface(
+        timelineContract.viewSchemaId,
+        providedLayoutState,
       );
-    },
-    [],
-  );
-  const reorderColumn = useCallback(
-    (sourceFieldKey: string, targetFieldKey: string) => {
-      setLayoutState((current) =>
-        reorderWorkbookColumns(
-          timelineContract,
-          current,
-          sourceFieldKey,
-          targetFieldKey,
-        ),
-      );
-    },
-    [],
-  );
-  const setColumnWidth = useCallback((fieldKey: string, width: number) => {
-    setLayoutState((current) =>
-      setWorkbookColumnWidth(timelineContract, current, fieldKey, width),
-    );
-  }, []);
-  const resetColumns = useCallback(() => {
-    setLayoutState(defaultWorkbookLayoutState(timelineContract));
-  }, []);
+  }, [providedLayoutState, layoutOwner.commands.applyLayoutStateForSurface]);
   const [runtimeAssembly] = useState(() => {
     const transactionIds = createBrowserSecureTransactionIdPort();
     const pendingMutationPort = createWorkbookPendingMutationAdapter({
@@ -455,11 +420,16 @@ export function TimelineWorkbookRuntimeFixture({
                 layout: {
                   commands: {
                     onColumnHiddenChange:
-                      onColumnHiddenChange ?? setColumnHidden,
-                    onColumnMove: onColumnMove ?? moveColumn,
-                    onColumnReorder: onColumnReorder ?? reorderColumn,
-                    onColumnWidthChange: onColumnWidthChange ?? setColumnWidth,
-                    onResetColumns: onResetColumns ?? resetColumns,
+                      onColumnHiddenChange ??
+                      columnControls.onColumnHiddenChange,
+                    onColumnMove: onColumnMove ?? columnControls.onColumnMove,
+                    onColumnReorder:
+                      onColumnReorder ?? columnControls.onColumnReorder,
+                    onColumnSizingIntent: columnControls.onColumnSizingIntent,
+                    bindColumnSizing: columnControls.bindColumnSizing,
+                    sizing: columnControls.sizing,
+                    onResetColumns:
+                      onResetColumns ?? columnControls.onResetColumns,
                   },
                   snapshot: {
                     chromeMode,

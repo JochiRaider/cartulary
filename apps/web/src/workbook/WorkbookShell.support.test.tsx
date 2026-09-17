@@ -1292,8 +1292,8 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Columns" }));
-    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Hosts" }));
-    fireEvent.keyDown(screen.getByRole("menu", { name: "Column controls" }), {
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hosts" }));
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Column controls" }), {
       key: "Escape",
     });
     const overflowButton = await screen.findByTestId(

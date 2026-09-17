@@ -1,4 +1,5 @@
 import {
+  cartularyDesignPresentation,
   gridScrollportClassName,
   workbookGridDensityMetrics,
   workbookGridRowHeightPx,
@@ -8,6 +9,7 @@ import type {
   ForwardedRef,
   MutableRefObject,
   ReactElement,
+  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   RefAttributes,
 } from "react";
@@ -22,9 +24,7 @@ import {
   useState,
 } from "react";
 import {
-  type CalculatedColumn,
   type Column,
-  type ColumnWidths,
   DataGrid,
   type DataGridHandle,
   type DataGridProps,
@@ -37,6 +37,7 @@ import {
   type ClipboardRepresentations,
   clipboardRepresentations,
 } from "./clipboardCodec";
+import { elementCssScale, normalizeMeasuredColumnWidth } from "./columnSizing";
 import {
   assertGridRows,
   type GridCellAnchor,
@@ -135,6 +136,7 @@ import {
   mergeGridSemanticState,
   resolveGridSemanticState,
 } from "./semanticState";
+import { useGridColumnSizing } from "./useGridColumnSizing";
 
 const emptySelectedRecordIds: ReadonlySet<string> = new Set();
 
@@ -938,7 +940,6 @@ function useSemanticDataGrid<Row>(
     coreRecordBulkSelection,
     cellRange: controlledCellRange,
     columns,
-    columnWidths,
     dataState = { kind: "ready" },
     density = "default",
     draftRow: ownerDraftRow,
@@ -950,7 +951,7 @@ function useSemanticDataGrid<Row>(
     onActiveCellChange,
     onCellRangeChange,
     onColumnReorder,
-    onColumnWidthChange,
+    onColumnSizingIntent,
     onCopyCell,
     onFillCells,
     onSelectRow,
@@ -970,6 +971,50 @@ function useSemanticDataGrid<Row>(
   const effectiveInteractionMode = capabilities.interactionMode;
   const editable = capabilities.editable;
   const vendorHandle = useRef<DataGridHandle>(null);
+  const sizing = useGridColumnSizing({
+    getRoot: () => vendorHandle.current?.element ?? null,
+    columns,
+    rows: dataRows,
+    density,
+    dataState: dataState.kind,
+    interactionMode: effectiveInteractionMode.kind,
+    surfaceKey: gridSurfaceIdentityKey(surface),
+    groupingFieldKey: grouping?.fieldKey ?? null,
+  });
+  const onHeaderSizingKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (
+      !onColumnSizingIntent ||
+      !(event.ctrlKey || event.metaKey) ||
+      event.altKey ||
+      !["ArrowLeft", "ArrowRight"].includes(event.key)
+    )
+      return;
+    const header =
+      event.target instanceof HTMLElement
+        ? event.target.closest<HTMLElement>('[role="columnheader"]')
+        : null;
+    const column = columns.find(
+      (entry) => entry.fieldKey === header?.dataset.gridFieldKey,
+    );
+    if (!header || !column) return;
+    event.preventDefault();
+    event.stopPropagation();
+    sizing.invalidate();
+    const direction = getComputedStyle(header).direction === "rtl" ? -1 : 1;
+    const widthPx = normalizeMeasuredColumnWidth(
+      header.getBoundingClientRect().width / elementCssScale(header) +
+        direction *
+          (event.key === "ArrowRight" ? 1 : -1) *
+          cartularyDesignPresentation.workbookColumnSizing.keyboardStepPx,
+      column,
+    );
+    if (widthPx !== null)
+      onColumnSizingIntent({
+        kind: "set_width",
+        fieldKey: column.fieldKey,
+        widthPx,
+      });
+  };
   const dataRowsRef = useRef(dataRows);
   dataRowsRef.current = dataRows;
   const semanticPresentationRef = useRef<GridRdgPresentationModel<Row>>(
@@ -1069,6 +1114,8 @@ function useSemanticDataGrid<Row>(
   const compiledColumns = useMemo(
     () =>
       compileGridColumns({
+        onColumnSizingIntent,
+        onColumnSizingStart: sizing.invalidate,
         actionsColumn,
         bulkSelection: compiledBulkSelection,
         clearEditorSeed,
@@ -1089,6 +1136,8 @@ function useSemanticDataGrid<Row>(
       }),
     [
       actionsColumn,
+      onColumnSizingIntent,
+      sizing.invalidate,
       cellStateFor,
       clearEditorSeed,
       clipboardPaste,
@@ -1247,18 +1296,6 @@ function useSemanticDataGrid<Row>(
       });
     });
   });
-  const rdgColumnWidths = useMemo<ColumnWidths | undefined>(
-    () =>
-      columnWidths === undefined
-        ? undefined
-        : new Map(
-            Object.entries(columnWidths).map(([fieldKey, width]) => [
-              fieldKey,
-              { type: "resized" as const, width },
-            ]),
-          ),
-    [columnWidths],
-  );
   const sortColumns = useMemo(
     () =>
       sort.map((entry) => ({
@@ -1314,6 +1351,7 @@ function useSemanticDataGrid<Row>(
   useImperativeHandle(
     ref,
     () => ({
+      columnSizing: sizing.port,
       activateEdit: (anchor, seed) => {
         const position = semanticPresentationRef.current.positions.get(
           gridAnchorKey(anchor),
@@ -1415,6 +1453,7 @@ function useSemanticDataGrid<Row>(
     }),
     [
       activeEditorSessionRef,
+      sizing.port,
       activeCellAnchor,
       pendingEditorSeedRef,
       clearEditorSeed,
@@ -1435,7 +1474,6 @@ function useSemanticDataGrid<Row>(
     bottomSummaryRows:
       !editable || draftRow === undefined ? undefined : [draftRow],
     className: `${gridScrollportClassName()} cartulary-grid rdg-dark`,
-    columnWidths: rdgColumnWidths,
     columns: compiledColumns,
     // Production grids always use RDG's row and column virtualization. A
     // result-size threshold would create two interaction runtimes and let
@@ -1604,14 +1642,6 @@ function useSemanticDataGrid<Row>(
       }
       return row;
     },
-    onColumnResize: (
-      column: CalculatedColumn<GridDataRow<Row>, GridDraftRow<Row>>,
-      width: number,
-    ) => {
-      if (columns.some((candidate) => candidate.fieldKey === column.key)) {
-        onColumnWidthChange?.(column.key, width);
-      }
-    },
     onColumnsReorder: (sourceKey: string, targetKey: string) => {
       if (
         columns.some((column) => column.fieldKey === sourceKey) &&
@@ -1737,6 +1767,7 @@ function useSemanticDataGrid<Row>(
       interactionMode={effectiveInteractionMode}
       keyboardAnnouncement={keyboardAnnouncement}
       onDoubleClickCapture={onDoubleClickCapture}
+      onKeyDownCapture={onHeaderSizingKeyDown}
       onMouseDownCapture={onMouseDownCapture}
       positionMap={semanticPresentationRef.current}
       range={cellRange}
@@ -1804,6 +1835,7 @@ function GridBindingFrame<Row>({
   interactionMode,
   keyboardAnnouncement,
   onDoubleClickCapture,
+  onKeyDownCapture,
   onMouseDownCapture,
   positionMap,
   range,
@@ -1826,6 +1858,9 @@ function GridBindingFrame<Row>({
   readonly onDoubleClickCapture: (
     event: ReactMouseEvent<HTMLDivElement>,
   ) => void;
+  readonly onKeyDownCapture?:
+    | ((event: ReactKeyboardEvent<HTMLDivElement>) => void)
+    | undefined;
   readonly onMouseDownCapture: (event: ReactMouseEvent<HTMLDivElement>) => void;
   readonly positionMap: GridSemanticPresentationModel<Row>;
   readonly range: GridCellRange | null;
@@ -1845,6 +1880,7 @@ function GridBindingFrame<Row>({
         } as CSSProperties
       }
       onDoubleClickCapture={onDoubleClickCapture}
+      onKeyDownCapture={onKeyDownCapture}
       onMouseDownCapture={onMouseDownCapture}
     >
       <div

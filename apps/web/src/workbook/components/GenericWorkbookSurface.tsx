@@ -55,6 +55,7 @@ import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice"
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatchRecovery";
+import { useWorkbookColumnSizingBinding } from "../layout/useWorkbookColumnSizingBinding";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -156,7 +157,7 @@ export function ContractWorkbookSurface({
   rows,
 }: ContractWorkbookSurfaceProps) {
   const {
-    commands: { onColumnReorder, onColumnWidthChange },
+    commands: { onColumnReorder, onColumnSizingIntent },
     snapshot: {
       chromeMode,
       density,
@@ -445,6 +446,11 @@ export function ContractWorkbookSurface({
       };
     }, [contract.fieldMap, queryState.groupBy, surface]);
   const gridHandleRef = useRef<GridHandle | null>(null);
+  useWorkbookColumnSizingBinding({
+    columns: anchorColumns,
+    commands: layout.commands,
+    gridHandleRef,
+  });
   const genericFocus = useWorkbookGridContinuity({
     columns: visibleAnchorColumns,
     continuityResetKey,
@@ -536,6 +542,12 @@ export function ContractWorkbookSurface({
             />
           );
         },
+        isCellContentCommitted: (row) =>
+          mutationRuntime.visibleEdit(
+            contract.viewSchemaId,
+            row.record_id,
+            column.fieldKey,
+          ) === undefined,
         renderCell: ({ row }) => {
           return (
             <WorkbookContinuityCell
@@ -736,7 +748,6 @@ export function ContractWorkbookSurface({
               ref={registerGridHandle}
               actionsColumn={rowActionsColumn}
               columns={columns}
-              columnWidths={layoutState.columnWidths}
               dataState={dataState}
               density={density}
               fillViewportInline={
@@ -766,7 +777,7 @@ export function ContractWorkbookSurface({
                 );
               }}
               onColumnReorder={onColumnReorder}
-              onColumnWidthChange={onColumnWidthChange}
+              onColumnSizingIntent={onColumnSizingIntent}
               clipboardPaste={clipboardPaste}
               onSortChange={onSortChange}
               dataRows={gridRecordRows}

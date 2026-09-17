@@ -21,7 +21,11 @@ describe("useNetworkFlowGridLayout", () => {
       ),
     );
     act(() =>
-      result.current.onColumnWidthChange("network_flow.flow_start_utc", 40),
+      result.current.onColumnSizingIntent({
+        kind: "set_width",
+        fieldKey: "network_flow.flow_start_utc",
+        widthPx: 144,
+      }),
     );
 
     expect(

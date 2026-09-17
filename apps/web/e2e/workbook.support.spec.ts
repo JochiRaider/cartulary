@@ -297,8 +297,8 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   await columnsTrigger.click();
   const analystColumn = page
     .getByTestId(workbookColumnsMenuTestId(timelineViewSchemaId))
-    .getByRole("menuitemcheckbox", { name: "Analyst", exact: true });
-  await expect(analystColumn).toHaveAttribute("aria-checked", "true");
+    .getByRole("checkbox", { name: "Analyst", exact: true });
+  await expect(analystColumn).toBeChecked();
   await analystColumn.click();
   await columnsTrigger.click();
   const layoutResponse = page.waitForResponse(
@@ -329,7 +329,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await selectSavedView(page, timelineViewSchemaId, savedView.saved_view_id);
   await columnsTrigger.click();
-  await expect(analystColumn).toHaveAttribute("aria-checked", "false");
+  await expect(analystColumn).not.toBeChecked();
 });
 
 function waitForTimelineQuery(page: Page, incidentId: string) {

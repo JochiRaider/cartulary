@@ -323,6 +323,31 @@ Verified by: AC-152, AC-231
 
 **REQ-03-295**
 The workbook MUST own column order, hidden field keys, and sparse widths by `view_schema_id` using `cartulary.layout.v1`. Selecting or starting on a saved view MUST apply its layout; create and update MUST capture the current working semantic layout; duplicate MUST copy the selected saved configuration’s semantic layout under REQ-03-026; dirty comparison MUST include that layout; and reset MUST restore the selected saved-view layout or the schema default when no saved view is selected. The complete nontechnical field permutation remains authoritative even when fields are hidden. Structural grid columns, selection, focus, scroll, expansion, inspector, and vendor state MUST NOT enter the saved layout.
+
+The reset above is saved-view Reset. `Reset columns` MUST restore only schema
+column order, default visibility and empty width overrides, preserving query and
+selected saved-view identity. Restoring one column's default MUST remove only its
+sparse width override. Setting a width equal to its current default MUST retain
+an explicit override. All rendered data-column widths and sizing gestures MUST
+honor REQ-01-143's integer CSS-pixel range. Omitted widths use the surface's
+declared defaults, including Timeline's adaptive defaults; explicit widths remain
+fixed until another explicit sizing or configuration action.
+
+Fit MUST be a one-time operation over the header and currently viewport-visible,
+authorized committed-cell presentation of that field. It MUST exclude unloaded
+and overscan-only rows, draft rows, active editors, local-value overlays, group
+rows and structural columns. It MUST NOT fetch, scroll, expand collections or
+disable virtualization. Empty and collapsed results use the header alone.
+Unavailable geometry or unready fonts MUST leave layout unchanged. A cancelled
+or obsolete measurement MUST NOT change layout or focus. Subsequent query,
+collaboration, font or viewport changes MUST NOT refit an explicit width.
+
+Local column controls MAY borrow editor focus without submitting or discarding
+raw authoring. Pointer sizing MUST preserve the active editor and caret. Hiding
+an edited field or resetting it out of presentation MUST detach only its editor
+presentation, retaining work under REQ-03-298. Layout actions MUST NOT dispatch
+record mutations. This exception does not alter ordinary editor-to-cell or
+outside-focus acceptance rules in REQ-03-218/300.
 Profiles: base
 Verified by: AC-480
 

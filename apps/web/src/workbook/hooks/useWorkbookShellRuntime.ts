@@ -4,6 +4,7 @@ import type {
   ExtensionAvailabilityTag,
   ExtensionWorkspaceIdentity,
 } from "../../extensions/extensionAvailability";
+import { sheetRefKey } from "../../shared/sheetRef";
 import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { SavedViewBinding } from "../savedviews/savedViewOperationModel";
@@ -82,6 +83,7 @@ export function useWorkbookShellRuntime({
   } = workbookQueries.commands;
   const workbookLayouts = useWorkbookColumnLayoutController({
     activeContract,
+    contextKey: `${incidentId}:${surface}:${surfaceSelectionVersionRef.current}:${sheetRefKey(startupSheetRef)}`,
   });
   const { activeLayoutControls, activeLayoutState } = workbookLayouts.snapshot;
   const { applyLayoutStateForSurface, currentLayoutStateForSurface } =

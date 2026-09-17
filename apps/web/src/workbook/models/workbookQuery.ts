@@ -4,6 +4,7 @@ import {
   type ViewContract,
 } from "@cartulary/view-contracts";
 import type { WorkbookProtocolQueryViewRequest } from "../adapters/workbookProtocolTypes";
+import { isWorkbookColumnWidth } from "./workbookColumnSizing";
 
 export type WorkbookFilter = {
   readonly arg: Record<string, unknown>;
@@ -504,9 +505,7 @@ export function workbookLayoutStateFromSavedViewLayoutJson(
       ? value.column_widths.filter(isObjectRecord).map((entry) => ({
           fieldKey: typeof entry.field_key === "string" ? entry.field_key : "",
           widthPx:
-            typeof entry.width_px === "number"
-              ? Math.trunc(entry.width_px)
-              : Number.NaN,
+            typeof entry.width_px === "number" ? entry.width_px : Number.NaN,
         }))
       : [],
     hiddenFieldKeys: Array.isArray(value.hidden_field_keys)
@@ -740,12 +739,7 @@ function canonicalColumnWidths(
     ? values.map((value) => [value.fieldKey, value.widthPx] as const)
     : Object.entries(values ?? {});
   for (const [fieldKey, widthPx] of entries) {
-    if (
-      !allowed.has(fieldKey) ||
-      !Number.isSafeInteger(widthPx) ||
-      widthPx < 40 ||
-      widthPx > 4096
-    ) {
+    if (!allowed.has(fieldKey) || !isWorkbookColumnWidth(widthPx)) {
       continue;
     }
     widths.set(fieldKey, widthPx);

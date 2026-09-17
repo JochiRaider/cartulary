@@ -8,6 +8,7 @@
     "schema_id",
     "owner_id",
     "verification_id",
+    "workbook_column_sizing",
     "presence",
     "initial_loading",
     "grid_data_state_presentations",
@@ -18,6 +19,16 @@
     "error_presentations"
   ],
   "properties": {
+    "workbook_column_sizing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_width_px", "maximum_width_px", "keyboard_step_px"],
+      "properties": {
+        "minimum_width_px": { "const": 40 },
+        "maximum_width_px": { "const": 4096 },
+        "keyboard_step_px": { "const": 10 }
+      }
+    },
     "schema_id": { "const": "cartulary.design_presentation.v1" },
     "owner_id": { "const": "package.ui" },
     "verification_id": { "const": "package.ui.verification.machine_owned_presentation" },

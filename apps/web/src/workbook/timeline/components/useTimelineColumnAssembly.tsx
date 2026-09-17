@@ -143,6 +143,15 @@ export function useTimelineColumnAssembly({
         return {
           contractWritable:
             timelineContract.fieldMap[binding.fieldKey]?.gridEditable === true,
+          isCellContentCommitted: (row) =>
+            row.recordId !== null &&
+            row.pendingSignature === null &&
+            (binding.kind !== "scalar" ||
+              editorDraftRegistry.draftValue({
+                field: binding.key,
+                rowKey: row.key,
+                surface: "grid",
+              }) === undefined),
           fieldKey: binding.fieldKey,
           getClipboardValue: (row) =>
             stringifyGridValue(

@@ -16,13 +16,12 @@ export async function showTimelineCollectionColumns(
     workbookColumnsMenuTestId(timelineViewSchemaId),
   );
   for (const label of [...labels].reverse()) {
-    const visibility = menu.getByRole("menuitemcheckbox", {
+    const visibility = menu.getByRole("checkbox", {
       name: label,
       exact: true,
     });
-    if ((await visibility.getAttribute("aria-checked")) === "false")
-      await visibility.click();
-    const earlier = menu.getByRole("menuitem", {
+    if (!(await visibility.isChecked())) await visibility.click();
+    const earlier = menu.getByRole("button", {
       name: `Move ${label} earlier`,
       exact: true,
     });
@@ -34,7 +33,7 @@ export async function showTimelineCollectionColumns(
       await earlier.click();
     await expect(earlier).toBeDisabled();
   }
-  await menu.getByRole("menuitemcheckbox").first().focus();
+  await menu.getByRole("checkbox").first().focus();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
 }

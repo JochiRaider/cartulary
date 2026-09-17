@@ -20,6 +20,7 @@ import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarke
 import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
 import { admitEvidenceFile } from "../../features/evidence/evidenceFileOperation";
 import { useWorkbookSemanticGridFocus } from "../../hooks/useWorkbookSemanticGridFocus";
+import { useWorkbookColumnSizingBinding } from "../../layout/useWorkbookColumnSizingBinding";
 import { applyWorkbookLayoutToColumns } from "../../layout/workbookColumnLayout";
 import {
   type WorkbookQueryLoadState,
@@ -91,7 +92,7 @@ export function useTimelineWorkbookPresentation({
       onColumnHiddenChange: handleColumnHiddenChange,
       onColumnMove: handleColumnMove,
       onColumnReorder: handleColumnReorder,
-      onColumnWidthChange: handleColumnWidthChange,
+      onColumnSizingIntent: handleColumnSizingIntent,
       onResetColumns: handleResetColumns,
     },
     snapshot: {
@@ -275,6 +276,11 @@ export function useTimelineWorkbookPresentation({
     rowGutterWidth: timelineRowGutterWidth,
     timelineContract,
     updateTimelineSurfaceFocusAnchor,
+  });
+  useWorkbookColumnSizingBinding({
+    columns: timelineColumns,
+    commands: layout.commands,
+    gridHandleRef: grid.refs.gridHandle,
   });
   const visibleTimelineColumns = useMemo(
     () =>
@@ -558,7 +564,6 @@ export function useTimelineWorkbookPresentation({
       bulkSelection: timelineBulkSelection,
       clipboardPaste: timelineClipboardPaste,
       columns: visibleTimelineColumns,
-      columnWidths: layoutState.columnWidths,
       dataState: timelineDataState,
       density,
       getCellState,
@@ -569,7 +574,7 @@ export function useTimelineWorkbookPresentation({
       interactionMode,
       onActiveCellChange: handleActiveCellChange,
       onColumnReorder: handleColumnReorder,
-      onColumnWidthChange: handleColumnWidthChange,
+      onColumnSizingIntent: handleColumnSizingIntent,
       onFillCells: handleFillCells,
       onSelectRecord: handleSelectRow,
       onSortChange: handleQuerySortChange,
@@ -664,6 +669,7 @@ export function useTimelineWorkbookPresentation({
               defaultFilterPopoverOpen: true,
               filterDraft,
               layoutState,
+              sizing: layout.commands.sizing,
               onApplyFilter: applyQueryFilter,
               onClearFilters: handleClearFilters,
               onColumnHiddenChange: handleColumnHiddenChange,

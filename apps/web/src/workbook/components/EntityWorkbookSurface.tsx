@@ -56,6 +56,7 @@ import type {
   WorkbookInspectorFeedback,
 } from "../inspector/workbookInspectorErrorModel";
 import { workbookInspectorLocalErrorPresentation } from "../inspector/workbookInspectorErrorModel";
+import { useWorkbookColumnSizingBinding } from "../layout/useWorkbookColumnSizingBinding";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -218,7 +219,7 @@ export function EntityWorkbookSurface({
   viewQuery,
 }: EntityWorkbookSurfaceProps) {
   const {
-    commands: { onColumnReorder, onColumnWidthChange },
+    commands: { onColumnReorder, onColumnSizingIntent },
     snapshot: {
       chromeMode,
       density,
@@ -365,6 +366,11 @@ export function EntityWorkbookSurface({
     };
   }, [contract.fieldMap, queryState.groupBy, surface]);
   const gridHandleRef = useRef<GridHandle | null>(null);
+  useWorkbookColumnSizingBinding({
+    columns: entityAnchorColumns,
+    commands: layout.commands,
+    gridHandleRef,
+  });
   const entityFocus = useWorkbookGridContinuity({
     columns: visibleEntityAnchorColumns,
     continuityResetKey,
@@ -628,6 +634,12 @@ export function EntityWorkbookSurface({
             />
           );
         },
+        isCellContentCommitted: (row) =>
+          mutationRuntime.visibleEdit(
+            contract.viewSchemaId,
+            row.recordId,
+            column.fieldKey,
+          ) === undefined,
         renderCell: ({ row }) => {
           const visibleEdit = mutationRuntime.visibleEdit(
             contract.viewSchemaId,
@@ -772,7 +784,6 @@ export function EntityWorkbookSurface({
               allowPasteCreateRows
               actionsColumn={entityActionsColumn}
               columns={entityColumns}
-              columnWidths={layoutState.columnWidths}
               dataState={dataState}
               density={density}
               draftRow={entityDraftRow}
@@ -799,7 +810,7 @@ export function EntityWorkbookSurface({
                 );
               }}
               onColumnReorder={onColumnReorder}
-              onColumnWidthChange={onColumnWidthChange}
+              onColumnSizingIntent={onColumnSizingIntent}
               clipboardPaste={clipboardPaste}
               onSortChange={onSortChange}
               dataRows={entityGridRows}

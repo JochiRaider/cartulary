@@ -138,7 +138,6 @@ export function NetworkFlowAcceptedGrid({
           activeRowIdentity={activeAnchor?.rowIdentity ?? null}
           cellRange={cellRange}
           columns={columns}
-          columnWidths={layout.columnWidths}
           dataRows={dataRows}
           dataState={dataState}
           density="default"
@@ -151,7 +150,9 @@ export function NetworkFlowAcceptedGrid({
           onActiveCellChange={onActiveAnchorChange}
           onCellRangeChange={onCellRangeChange}
           onColumnReorder={layout.onColumnReorder}
-          onColumnWidthChange={layout.onColumnWidthChange}
+          onColumnSizingIntent={(intent) =>
+            layout.onColumnSizingIntent(intent, gridRef.current?.columnSizing)
+          }
           onSortChange={(nextSort) =>
             onSortChange(
               nextSort.flatMap((entry) =>
@@ -250,7 +251,6 @@ export function NetworkFlowRejectedGrid({
           activeRowIdentity={activeAnchor?.rowIdentity ?? null}
           cellRange={cellRange}
           columns={columns}
-          columnWidths={layout.columnWidths}
           dataRows={dataRows}
           dataState={dataState}
           density="default"
@@ -263,7 +263,9 @@ export function NetworkFlowRejectedGrid({
           onActiveCellChange={onActiveAnchorChange}
           onCellRangeChange={onCellRangeChange}
           onColumnReorder={layout.onColumnReorder}
-          onColumnWidthChange={layout.onColumnWidthChange}
+          onColumnSizingIntent={(intent) =>
+            layout.onColumnSizingIntent(intent, gridRef.current?.columnSizing)
+          }
           surface={networkFlowGridSurface("network_flow.rejected_rows.v1")}
         />
       )}
@@ -391,7 +393,6 @@ export function NetworkFlowContributorGrid({
           onActiveCellChange={semanticPageSelection ? setAnchor : undefined}
           onCellRangeChange={semanticPageSelection ? setRange : undefined}
           columns={columns}
-          columnWidths={layout.columnWidths}
           dataRows={dataRows}
           dataState={dataState}
           density="default"
@@ -403,7 +404,9 @@ export function NetworkFlowContributorGrid({
               "Network Flow contributors are read-only and preserve server order within workspace table groups.",
           }}
           onColumnReorder={layout.onColumnReorder}
-          onColumnWidthChange={layout.onColumnWidthChange}
+          onColumnSizingIntent={(intent) =>
+            layout.onColumnSizingIntent(intent, gridRef.current?.columnSizing)
+          }
           rowGutter={{ label: "Source row", minWidth: 56, width: 64 }}
           surface={networkFlowGridSurface("network_flow.graph_contributors.v1")}
         />

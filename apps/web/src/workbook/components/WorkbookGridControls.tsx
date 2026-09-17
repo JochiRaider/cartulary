@@ -1,6 +1,7 @@
 import { workbookViewBarQueryControlsTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useEffect, useMemo, useReducer, useRef } from "react";
+import type { WorkbookColumnSizingControls } from "../layout/WorkbookColumnLayoutController";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
@@ -45,6 +46,7 @@ export type WorkbookGridControlsProps = {
   readonly queryState: WorkbookQueryState;
   readonly subjectKey?: string | undefined;
   readonly surface: string;
+  readonly sizing: WorkbookColumnSizingControls;
 };
 
 export function WorkbookGridControls({
@@ -65,6 +67,7 @@ export function WorkbookGridControls({
   queryState,
   subjectKey: suppliedSubjectKey,
   surface,
+  sizing,
 }: WorkbookGridControlsProps) {
   const subjectKey = suppliedSubjectKey ?? surface;
   const queryEntryRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -257,6 +260,7 @@ export function WorkbookGridControls({
         triggerRef={filterTriggerRef}
       />
       <WorkbookColumnsControl
+        sizing={sizing}
         isOpen={surfaceState.openPanel === "columns"}
         onClose={closePanel}
         onCommand={onCommand}

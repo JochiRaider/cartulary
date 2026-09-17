@@ -1,4 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import type {
+  GridColumnSizingIntent,
+  GridColumnSizingPort,
+} from "@cartulary/grid-adapter";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type NetworkFlowGridSchemaId,
   type NetworkFlowPresentationColumn,
@@ -17,6 +21,12 @@ export type NetworkFlowGridLayout = {
 
 export function useNetworkFlowGridLayout(gridSchemaId: LayoutGridSchemaId) {
   const key = layoutKey(gridSchemaId);
+  const pending = useRef<AbortController | null>(null);
+  const cancelSizing = useCallback(() => {
+    pending.current?.abort();
+    pending.current = null;
+  }, []);
+  useEffect(() => cancelSizing, [cancelSizing]);
   const [layout, setLayout] = useState<NetworkFlowGridLayout>(() => {
     const stored = sessionLayouts.get(key);
     if (stored !== undefined) {
@@ -33,13 +43,14 @@ export function useNetworkFlowGridLayout(gridSchemaId: LayoutGridSchemaId) {
 
   const update = useCallback(
     (mutate: (current: NetworkFlowGridLayout) => NetworkFlowGridLayout) => {
+      cancelSizing();
       setLayout((current) => {
         const next = mutate(current);
         sessionLayouts.set(key, next);
         return next;
       });
     },
-    [key],
+    [key, cancelSizing],
   );
 
   const onColumnReorder = useCallback(
@@ -52,23 +63,37 @@ export function useNetworkFlowGridLayout(gridSchemaId: LayoutGridSchemaId) {
     [update],
   );
 
-  const onColumnWidthChange = useCallback(
-    (fieldKey: string, width: number) => {
+  const onColumnSizingIntent = useCallback(
+    (intent: GridColumnSizingIntent, port?: GridColumnSizingPort) => {
+      cancelSizing();
       const column = metadata.find(
-        (candidate) => candidate.field_key === fieldKey,
+        (candidate) => candidate.field_key === intent.fieldKey,
       );
-      if (column === undefined) {
+      if (!column) return;
+      const apply = (width: number) => {
+        if (!Number.isSafeInteger(width) || width < column.minimum_width_px)
+          return;
+        update((current) => ({
+          ...current,
+          widths: { ...current.widths, [intent.fieldKey]: width },
+        }));
+      };
+      if (intent.kind === "set_width") {
+        apply(intent.widthPx);
         return;
       }
-      update((current) => ({
-        ...current,
-        widths: {
-          ...current.widths,
-          [fieldKey]: Math.max(column.minimum_width_px, Math.round(width)),
-        },
-      }));
+      if (!port) return;
+      const abort = new AbortController();
+      pending.current = abort;
+      void port
+        .measureVisibleContent(intent.fieldKey, { signal: abort.signal })
+        .then((result) => {
+          if (pending.current !== abort || abort.signal.aborted) return;
+          pending.current = null;
+          if (result.kind === "measured") apply(result.widthPx);
+        });
     },
-    [metadata, update],
+    [metadata, update, cancelSizing],
   );
 
   const setColumnVisible = useCallback(
@@ -90,16 +115,17 @@ export function useNetworkFlowGridLayout(gridSchemaId: LayoutGridSchemaId) {
   );
 
   const reset = useCallback(() => {
+    cancelSizing();
     const next = defaultLayout(gridSchemaId);
     sessionLayouts.set(key, next);
     setLayout(next);
-  }, [gridSchemaId, key]);
+  }, [gridSchemaId, key, cancelSizing]);
 
   return {
     allColumns: metadata,
     columnWidths: layout.widths,
     onColumnReorder,
-    onColumnWidthChange,
+    onColumnSizingIntent,
     orderedVisibleFieldKeys: layout.order.filter((fieldKey) =>
       layout.visible.has(fieldKey),
     ),

@@ -487,6 +487,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.column_sizing_contract",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/layout/WorkbookColumnLayoutController.test.ts",
+        "titles": [
+          "Workbook column sizing fits once and reports header-only and capped results",
+          "Workbook column sizing preserves sparse defaults and unrelated layout while enforcing portable bounds",
+          "Workbook column sizing rejects obsolete results after newer commands configuration changes and departure",
+          "Workbook column sizing repeated fitting admits only the newest result and unavailable content changes nothing",
+          "Workbook column sizing validates numeric input without truncating saved fractional widths"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.committed_grid_autosave",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1599,7 +1629,8 @@
           "WorkbookGridControls keeps column commands available when every data column is hidden",
           "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
           "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
-          "WorkbookGridControls parses filter controls exactly and restores focus on Escape"
+          "WorkbookGridControls parses filter controls exactly and restores focus on Escape",
+          "WorkbookGridControls validates explicit sizing and restores one default with predictable cancellation focus"
         ]
       },
       "evidence_class": "unit",

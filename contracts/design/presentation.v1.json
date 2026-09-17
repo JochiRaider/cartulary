@@ -2,6 +2,11 @@
   "schema_id": "cartulary.design_presentation.v1",
   "owner_id": "package.ui",
   "verification_id": "package.ui.verification.machine_owned_presentation",
+  "workbook_column_sizing": {
+    "minimum_width_px": 40,
+    "maximum_width_px": 4096,
+    "keyboard_step_px": 10
+  },
   "presence": {
     "capacities": { "header": 5, "row": 3, "cell": 2 },
     "mode_priority": { "editing": 1, "focused": 2, "viewing": 3, "idle": 4 },

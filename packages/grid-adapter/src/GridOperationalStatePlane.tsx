@@ -64,7 +64,18 @@ export function GridOperationalStatePlane({
   const [actionPending, setActionPending] = useState(false);
   const actionOrigin = useRef<HTMLButtonElement | null>(null);
   const activatedAction = useRef<GridDataStateAction | null>(null);
+  const focusAbort = useRef<AbortController | null>(null);
+  const surfaceKey = gridSurfaceIdentityKey(surface);
   const action = dataPresentation.action;
+
+  // A surface identity change ends the focus lifetime even if the plane survives.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: surface identity owns this cancellation lifetime.
+  useEffect(() => {
+    return () => {
+      focusAbort.current?.abort();
+      focusAbort.current = null;
+    };
+  }, [surfaceKey]);
 
   useEffect(() => {
     const previous = activatedAction.current;
@@ -81,7 +92,6 @@ export function GridOperationalStatePlane({
     actionOrigin.current = null;
     setActionPending(false);
     const activeElement = document.activeElement;
-    const abort = new AbortController();
     if (
       origin !== null &&
       (activeElement === origin ||
@@ -89,14 +99,20 @@ export function GridOperationalStatePlane({
         activeElement === null ||
         !activeElement.isConnected)
     ) {
+      focusAbort.current?.abort();
+      const abort = new AbortController();
+      focusAbort.current = abort;
       void requestFocus({ kind: "root" }, { signal: abort.signal });
     }
-    return () => abort.abort();
+    // Presentation callbacks may be recreated while the semantic root mounts.
+    // Only a new action, surface departure or user navigation ends this request.
+    return undefined;
   }, [action, dataState.kind, requestFocus]);
 
   const invokeAction = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => {
       if (action === undefined || actionPending) return;
+      focusAbort.current?.abort();
       actionOrigin.current = event.currentTarget;
       activatedAction.current = action;
       setActionPending(true);
