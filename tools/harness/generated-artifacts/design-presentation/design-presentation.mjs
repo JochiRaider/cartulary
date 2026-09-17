@@ -106,6 +106,12 @@ function assertExactRows(filePath, field, actual, expected) {
 
 export function renderDesignPresentationTypeScript(document) {
   const source = {
+    gridCellRangeSelection: {
+      stationaryTolerancePx: document.projection.grid_cell_range_selection.stationary_tolerance_px,
+      edgeBandPx: document.projection.grid_cell_range_selection.edge_band_px,
+      maximumScrollPxPerSecond: document.projection.grid_cell_range_selection.maximum_scroll_px_per_second,
+      maximumFrameMs: document.projection.grid_cell_range_selection.maximum_frame_ms,
+    },
     workbookColumnSizing: {
       minimumWidthPx: document.projection.workbook_column_sizing.minimum_width_px,
       maximumWidthPx: document.projection.workbook_column_sizing.maximum_width_px,

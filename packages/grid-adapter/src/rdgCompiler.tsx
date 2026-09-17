@@ -73,6 +73,9 @@ type CompileGridColumnsInput<Row> = {
     row: GridDataRow<Row>,
     column: GridColumn<Row>,
   ) => boolean;
+  readonly isCellRangePreview?:
+    | ((row: GridDataRow<Row>, column: GridColumn<Row>) => boolean)
+    | undefined;
   readonly readEditorSeed: (
     target: Parameters<GridEditorAdapter<Row>["commit"]>[0]["target"],
     retainAcrossVersions?: boolean,
@@ -151,6 +154,7 @@ export function compileGridColumns<Row>({
   editable,
   draftFocusTargetRef,
   isCellRangeSelected,
+  isCellRangePreview,
   onEditorKeyboardAction,
   onPasteCellContent,
   registerEditorSession,
@@ -292,6 +296,9 @@ export function compileGridColumns<Row>({
           ),
           isCellRangeSelected(row, column)
             ? "cartulary-grid-cell-is-range-selected"
+            : undefined,
+          isCellRangePreview?.(row, column)
+            ? "cartulary-grid-cell-is-range-preview"
             : undefined,
         ]
           .filter((value) => value !== undefined)
@@ -1049,7 +1056,8 @@ function markSemanticDataCell(
   for (const className of [...cell.classList]) {
     if (
       className.startsWith("cartulary-grid-cell-state-") ||
-      className.startsWith("cartulary-grid-cell-is-")
+      (className.startsWith("cartulary-grid-cell-is-") &&
+        !className.startsWith("cartulary-grid-cell-is-range-"))
     ) {
       cell.classList.remove(className);
     }
@@ -1113,6 +1121,10 @@ function draftMarker<Row>(
     ref: (node: HTMLSpanElement | null) => {
       const semanticRow = node?.closest<HTMLElement>('[role="row"]');
       if (semanticRow === undefined || semanticRow === null) return;
+      // Draft focus is native editor focus; it is never accepted range membership.
+      node
+        ?.closest('[role="gridcell"]')
+        ?.setAttribute("aria-selected", "false");
       semanticRow.classList.add("cartulary-grid-draft-row");
       semanticRow.dataset.cartularyGridDraftRow = "true";
       semanticRow.dataset.gridPrimaryState = "draft";

@@ -64,7 +64,6 @@ import {
   focusAdjacentOutsideGrid,
   isGridFillHandleTarget,
   isInteractiveCellActionTarget,
-  semanticAnchorFromDomTarget,
   visibleGridPageSize,
 } from "./domInteraction";
 import {
@@ -73,6 +72,7 @@ import {
   type PendingEditorSeed,
 } from "./editorSessionPolicy";
 import { GridOperationalStatePlane } from "./GridOperationalStatePlane";
+import type { RegisteredGridCell } from "./gridInteractionDom";
 import {
   compileGridColumns,
   type GridCompiledBulkSelection,
@@ -119,13 +119,14 @@ import {
   navigateSemanticPresentation,
   planSemanticPasteTargets,
   resolveVisibleGridCellRange,
-  retainGridCellRange,
   sameGridCellAnchor,
   sameGridCellRange,
   semanticAnchor,
+  semanticPresentationContainsAnchor,
   semanticTarget,
 } from "./semanticPresentation";
 import {
+  extendSemanticCellRange,
   resolveSemanticBulkSelection,
   toggleAllSemanticRecords,
   toggleSemanticRecordRange,
@@ -137,13 +138,11 @@ import {
   resolveGridSemanticState,
 } from "./semanticState";
 import { useGridColumnSizing } from "./useGridColumnSizing";
+import { useGridInteraction } from "./useGridInteraction";
 
 const emptySelectedRecordIds: ReadonlySet<string> = new Set();
 
-type SemanticCellRegistration = {
-  readonly cell: HTMLElement;
-  readonly token: object;
-};
+type SemanticCellRegistration = RegisteredGridCell;
 
 function useStableStringArray(values: readonly string[]): readonly string[] {
   const stableRef = useRef(values);
@@ -386,8 +385,6 @@ function useGridSemanticState<Row>({
 }
 
 function useGridRegistration<Row>(
-  surface: GridSurfaceIdentity,
-  rangeRef: MutableRefObject<GridCellRange | null>,
   presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>,
   vendorHandle: MutableRefObject<DataGridHandle | null>,
   draftFieldKeysRef: MutableRefObject<readonly string[]>,
@@ -466,18 +463,6 @@ function useGridRegistration<Row>(
     if (!editable) focusRequests.cancel();
     return () => focusRequests.cancel();
   }, [focusRequests, editable]);
-  const isCellRangeSelected = useCallback(
-    (
-      row: GridDataRow<Row>,
-      column: SemanticDataGridProps<Row>["columns"][number],
-    ) =>
-      gridCellRangeContains(presentationRef.current, rangeRef.current, {
-        fieldKey: column.fieldKey,
-        rowIdentity: row.rowIdentity,
-        surface,
-      }),
-    [presentationRef, rangeRef, surface],
-  );
   const registerSemanticCell = useCallback(
     (anchor: GridCellAnchor, cell: HTMLElement | null, token: object) => {
       const key = gridAnchorKey(anchor);
@@ -487,7 +472,7 @@ function useGridRegistration<Row>(
         }
         return;
       }
-      cellElementsRef.current.set(key, { cell, token });
+      cellElementsRef.current.set(key, { anchor, cell, token });
       focusRequests.refresh();
     },
     [focusRequests],
@@ -513,7 +498,6 @@ function useGridRegistration<Row>(
     requestFocus,
     focusDraftCell,
     draftFocusTargetRef,
-    isCellRangeSelected,
     registerSemanticCell,
   };
 }
@@ -802,130 +786,6 @@ function useGridFillController<Row>({
   return { dispatchFillIntent, dispatchSemanticFill };
 }
 
-function useGridPointerController<Row>({
-  activeEditorSessionRef,
-  dataRows,
-  prepareEditorActivation,
-  presentationRef,
-  surface,
-  vendorHandle,
-}: {
-  readonly activeEditorSessionRef: MutableRefObject<ActiveEditorSession | null>;
-  readonly dataRows: readonly GridDataRow<Row>[];
-  readonly prepareEditorActivation: (
-    row: GridDataRow<Row>,
-    fieldKey: string,
-    activation: GridEditorActivation,
-  ) => boolean;
-  readonly presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>;
-  readonly surface: GridSurfaceIdentity;
-  readonly vendorHandle: MutableRefObject<DataGridHandle | null>;
-}) {
-  const cellActivatorRef = useRef<{
-    readonly activate: () => void;
-    readonly anchorKey: string;
-  } | null>(null);
-  const transitionPendingRef = useRef(false);
-  const pointerEpoch = useRef(0);
-  useEffect(() => {
-    const invalidate = () => {
-      pointerEpoch.current += 1;
-    };
-    document.addEventListener("keydown", invalidate, true);
-    return () => document.removeEventListener("keydown", invalidate, true);
-  }, []);
-  const onMouseDownCapture = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      const epoch = ++pointerEpoch.current;
-      cellActivatorRef.current = null;
-      if (!isUnmodifiedCellPointer(event)) return;
-      const anchor = semanticAnchorFromDomTarget(event.target, surface);
-      if (anchor === null) return;
-      const origin = { x: event.clientX, y: event.clientY };
-      window.addEventListener(
-        "mouseup",
-        (mouseUpEvent) => {
-          if (!isStationaryPrimaryRelease(mouseUpEvent, origin)) return;
-          const row = dataRows.find((candidate) =>
-            gridRowIdentitiesEqual(candidate.rowIdentity, anchor.rowIdentity),
-          );
-          const position = presentationRef.current.positions.get(
-            gridAnchorKey(anchor),
-          );
-          if (row === undefined || position === undefined) return;
-          window.setTimeout(() => {
-            if (
-              pointerEpoch.current !== epoch ||
-              activeEditorSessionRef.current !== null ||
-              !prepareEditorActivation(row, anchor.fieldKey, {
-                initialSelection: "end",
-                source: "pointer",
-              })
-            ) {
-              return;
-            }
-            const activator = cellActivatorRef.current;
-            cellActivatorRef.current = null;
-            if (activator?.anchorKey === gridAnchorKey(anchor)) {
-              activator.activate();
-              return;
-            }
-            vendorHandle.current?.selectCell(position, { enableEditor: true });
-          }, 0);
-        },
-        { capture: true, once: true },
-      );
-    },
-    [
-      activeEditorSessionRef,
-      dataRows,
-      prepareEditorActivation,
-      presentationRef,
-      surface,
-      vendorHandle,
-    ],
-  );
-  const onDoubleClickCapture = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (!isGridFillHandleTarget(event.target)) return;
-      event.preventDefault();
-      event.stopPropagation();
-    },
-    [],
-  );
-  return {
-    cellActivatorRef,
-    onDoubleClickCapture,
-    onMouseDownCapture,
-    transitionPendingRef,
-  };
-}
-
-function isUnmodifiedCellPointer(
-  event: ReactMouseEvent<HTMLDivElement>,
-): boolean {
-  return (
-    event.button === 0 &&
-    !event.altKey &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    !event.shiftKey &&
-    !isInteractiveCellActionTarget(event.target) &&
-    !isGridFillHandleTarget(event.target)
-  );
-}
-
-function isStationaryPrimaryRelease(
-  event: MouseEvent,
-  origin: { readonly x: number; readonly y: number },
-): boolean {
-  return (
-    event.button === 0 &&
-    Math.abs(event.clientX - origin.x) <= 4 &&
-    Math.abs(event.clientY - origin.y) <= 4
-  );
-}
-
 function useSemanticDataGrid<Row>(
   props: SemanticDataGridProps<Row>,
   ref: ForwardedRef<GridHandle>,
@@ -937,6 +797,7 @@ function useSemanticDataGrid<Row>(
     allowPasteCreateRows = false,
     actionsColumn,
     clipboardPaste,
+    cellRangeSelection,
     coreRecordBulkSelection,
     cellRange: controlledCellRange,
     columns,
@@ -1020,7 +881,6 @@ function useSemanticDataGrid<Row>(
   const semanticPresentationRef = useRef<GridRdgPresentationModel<Row>>(
     emptyRdgPresentationModel(surface),
   );
-  const pendingRangeEndRef = useRef<GridCellAnchor | null>(null);
   const [keyboardAnnouncement, setKeyboardAnnouncement] = useState("");
   const gridBusy =
     dataState.kind === "initial_loading" || dataState.kind === "refreshing";
@@ -1045,18 +905,47 @@ function useSemanticDataGrid<Row>(
       : [];
   const {
     cellElementsRef: semanticCellElementsRef,
-    requestFocus,
+    requestFocus: requestRegisteredFocus,
     draftFocusTargetRef,
     focusDraftCell,
-    isCellRangeSelected,
     registerSemanticCell,
   } = useGridRegistration(
-    surface,
-    cellRangeRef,
     semanticPresentationRef,
     vendorHandle,
     draftFieldKeysRef,
     editable,
+  );
+  const cancelInteractionRef = useRef<() => void>(() => {});
+  const requestFocus = useCallback<GridHandle["requestFocus"]>(
+    (target) => {
+      cancelInteractionRef.current();
+      if (
+        target.kind === "cell" &&
+        semanticPresentationContainsAnchor(
+          semanticPresentationRef.current,
+          target.anchor,
+        )
+      ) {
+        if (
+          !sameGridCellAnchor(cellRangeRef.current?.end ?? null, target.anchor)
+        )
+          updateCellRange({ start: target.anchor, end: target.anchor });
+      } else if (target.kind === "draft") updateCellRange(null);
+      return requestRegisteredFocus(target);
+    },
+    [cellRangeRef, requestRegisteredFocus, updateCellRange],
+  );
+  const isCellRangeSelected = useCallback(
+    (
+      row: GridDataRow<Row>,
+      column: SemanticDataGridProps<Row>["columns"][number],
+    ) =>
+      gridCellRangeContains(semanticPresentationRef.current, cellRange, {
+        surface,
+        rowIdentity: row.rowIdentity,
+        fieldKey: column.fieldKey,
+      }),
+    [cellRange, surface],
   );
   const {
     activeEditorSessionRef,
@@ -1074,6 +963,81 @@ function useSemanticDataGrid<Row>(
     focusDraftCell,
     requestFocus,
   );
+  const interaction = useGridInteraction({
+    read: () => ({
+      active: activeEditorSessionRef.current?.target ?? activeCellAnchor,
+      editor: activeEditorSessionRef.current,
+      model: semanticPresentationRef.current,
+      range: cellRangeRef.current,
+      enabled: cellRangeSelection?.kind === "contiguous",
+      available:
+        !gridDataStateBlocksInteraction(dataState) && dataRows.length > 0,
+      scopeKey: JSON.stringify([
+        gridSurfaceIdentityKey(surface),
+        cellRangeSelection?.scopeKey,
+        grouping?.fieldKey,
+      ]),
+      authorityKey: effectiveInteractionMode.kind,
+    }),
+    root: () => vendorHandle.current?.element ?? null,
+    cells: () => semanticCellElementsRef.current,
+    changeRange: updateCellRange,
+    announce: setKeyboardAnnouncement,
+    accept: (range, edit, inspect) => {
+      const anchor = range.end;
+      const position = semanticPresentationRef.current.positions.get(
+        gridAnchorKey(anchor),
+      );
+      const row = dataRowsRef.current.find((candidate) =>
+        gridRowIdentitiesEqual(candidate.rowIdentity, anchor.rowIdentity),
+      );
+      if (position === undefined || row === undefined) return;
+      const editing =
+        edit &&
+        prepareEditorActivation(row, anchor.fieldKey, {
+          initialSelection: "end",
+          source: "pointer",
+        });
+      updateCellRange(editing ? null : range);
+      publishActiveCell(anchor);
+      if (inspect) onSelectRow?.(anchor.rowIdentity);
+      vendorHandle.current?.selectCell(position, {
+        enableEditor: editing,
+        shouldFocusCell: true,
+      });
+      // RDG may elide selecting its already-active position. The semantic
+      // focus owner still owes this admitted click/range a focus transition.
+      if (!editing) void requestFocus({ kind: "cell", anchor });
+    },
+  });
+  cancelInteractionRef.current = interaction.controller.cancel;
+  const isCellRangePreview = useCallback(
+    (
+      row: GridDataRow<Row>,
+      column: SemanticDataGridProps<Row>["columns"][number],
+    ) => {
+      const anchor = {
+        surface,
+        rowIdentity: row.rowIdentity,
+        fieldKey: column.fieldKey,
+      };
+      return (
+        interaction.preview !== null &&
+        (sameGridCellAnchor(interaction.preview.start, anchor) ||
+          gridCellRangeContains(
+            semanticPresentationRef.current,
+            interaction.preview,
+            anchor,
+          ))
+      );
+    },
+    [interaction.preview, surface],
+  );
+  const onDoubleClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!isGridFillHandleTarget(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
   useLayoutEffect(() => {
     if (!gridDataStatePresentsAuthorizedRows(dataState)) clearEditorSeed();
   }, [clearEditorSeed, dataState]);
@@ -1125,6 +1089,7 @@ function useSemanticDataGrid<Row>(
         retainEditorDraft,
         editable,
         isCellRangeSelected,
+        isCellRangePreview,
         onEditorKeyboardAction: handleEditorKeyboardAction,
         onPasteCellContent:
           clipboardPaste === undefined ? undefined : handleSemanticPaste,
@@ -1148,6 +1113,7 @@ function useSemanticDataGrid<Row>(
       handleEditorKeyboardAction,
       handleSemanticPaste,
       isCellRangeSelected,
+      isCellRangePreview,
       registerEditorSession,
       registerSemanticCell,
       readEditorSeed,
@@ -1225,9 +1191,6 @@ function useSemanticDataGrid<Row>(
     const previous = previousPresentationRef.current;
     const current = semanticPresentationRef.current;
     previousPresentationRef.current = current;
-    updateCellRange(
-      retainGridCellRange(previous, current, cellRangeRef.current),
-    );
     if (!retainedCellHadFocus || retainedAnchor === null) return;
     const key = gridAnchorKey(retainedAnchor);
     const before = previous.positions.get(key);
@@ -1275,7 +1238,6 @@ function useSemanticDataGrid<Row>(
         activation: { ...seed.activation, selectionRange: retainedSelection },
       };
     }
-    pendingRangeEndRef.current = retainedAnchor;
     const restoreSeed = pendingEditorSeedRef.current;
     const activeElement = document.activeElement;
     // RDG resets an out-of-bounds editor during its own render. Selecting in
@@ -1335,24 +1297,12 @@ function useSemanticDataGrid<Row>(
   );
   const prepareEditorActivationRef = useRef(prepareEditorActivation);
   prepareEditorActivationRef.current = prepareEditorActivation;
-  const {
-    cellActivatorRef: pointerCellActivatorRef,
-    onDoubleClickCapture,
-    onMouseDownCapture,
-    transitionPendingRef: pointerTransitionPendingRef,
-  } = useGridPointerController({
-    activeEditorSessionRef,
-    dataRows,
-    prepareEditorActivation,
-    presentationRef: semanticPresentationRef,
-    surface,
-    vendorHandle,
-  });
   useImperativeHandle(
     ref,
     () => ({
       columnSizing: sizing.port,
       activateEdit: (anchor, seed) => {
+        interaction.controller.cancel();
         const position = semanticPresentationRef.current.positions.get(
           gridAnchorKey(anchor),
         );
@@ -1376,6 +1326,7 @@ function useSemanticDataGrid<Row>(
           return false;
         }
         vendorHandle.current?.scrollToCell(position);
+        updateCellRange(null);
         vendorHandle.current?.selectCell(position, { enableEditor: true });
         return true;
       },
@@ -1394,6 +1345,7 @@ function useSemanticDataGrid<Row>(
         return true;
       },
       detachEdit: () => {
+        interaction.controller.cancel();
         const session = activeEditorSessionRef.current;
         activeEditorSessionRef.current = null;
         clearEditorSeed();
@@ -1435,6 +1387,16 @@ function useSemanticDataGrid<Row>(
           intent,
         );
         if (next === null) return null;
+        updateCellRange(
+          intent.shiftKey === true && intent.key.startsWith("Arrow")
+            ? extendSemanticCellRange(
+                semanticPresentationRef.current,
+                current,
+                cellRangeRef.current,
+                next,
+              )
+            : { start: next, end: next },
+        );
         void requestFocus({ kind: "cell", anchor: next });
         return next;
       },
@@ -1453,6 +1415,9 @@ function useSemanticDataGrid<Row>(
     }),
     [
       activeEditorSessionRef,
+      interaction.controller,
+      updateCellRange,
+      cellRangeRef,
       sizing.port,
       activeCellAnchor,
       pendingEditorSeedRef,
@@ -1481,77 +1446,26 @@ function useSemanticDataGrid<Row>(
     enableVirtualization,
     headerRowHeight: workbookGridRowHeightPx(density),
     headerRowClass: "cartulary-grid-header-row",
-    onCellMouseDown: (args, event) => {
-      const session = activeEditorSessionRef.current;
-      const destination = semanticAnchor(
-        args.row,
-        args.column.key,
-        columns,
-        surface,
-      );
-      if (session === null) {
-        pointerCellActivatorRef.current =
-          destination === null
-            ? null
-            : {
-                activate: () => args.selectCell(true),
-                anchorKey: gridAnchorKey(destination),
-              };
-        return;
-      }
-      if (
-        destination === null ||
-        sameGridCellAnchor(session.target, destination)
-      ) {
-        return;
-      }
-      event.preventDefault();
+    onCellMouseDown: (_args, event) => {
+      // The interaction owner admits cell selection; embedded actions own themselves.
       event.preventGridDefault();
-      if (pointerTransitionPendingRef.current) return;
-      const destinationIsInteractive = isInteractiveCellActionTarget(
-        event.target,
-      );
-      pointerTransitionPendingRef.current = true;
-      void session.requestCommit().then((accepted) => {
-        pointerTransitionPendingRef.current = false;
-        if (!accepted) {
-          session.focus();
-          return;
-        }
-        const currentRow = dataRowsRef.current.find((candidate) =>
-          gridRowIdentitiesEqual(candidate.rowIdentity, args.row.rowIdentity),
-        );
-        const shouldEdit =
-          !destinationIsInteractive &&
-          currentRow !== undefined &&
-          prepareEditorActivation(currentRow, args.column.key, {
-            initialSelection: "end",
-            source: "pointer",
-          });
-        args.selectCell(shouldEdit);
-      });
     },
-    onCellClick: ({ column, row, selectCell }, event) => {
-      onSelectRow?.(row.rowIdentity);
-      const anchor = semanticAnchor(row, column.key, columns, surface);
-      if (anchor === null) return;
-      pendingRangeEndRef.current = null;
-      publishActiveCell(anchor);
-      updateCellRange({ end: anchor, start: anchor });
+    onCellClick: ({ column, row }, event) => {
       if (
-        pointerTransitionPendingRef.current ||
-        isInteractiveCellActionTarget(event.target)
-      ) {
+        (interaction.binding.current?.handledPointer && event.detail !== 0) ||
+        isInteractiveCellActionTarget(event.target) ||
+        isGridFillHandleTarget(event.target) ||
+        event.button !== 0 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      )
         return;
-      }
-      if (
-        prepareEditorActivation(row, column.key, {
-          initialSelection: "end",
-          source: "pointer",
-        })
-      ) {
-        selectCell(true);
-      }
+      const anchor = semanticAnchor(row, column.key, columns, surface);
+      if (anchor !== null) interaction.click(anchor, event.shiftKey);
+    },
+    onCellDoubleClick: (_args, event) => {
+      event.preventGridDefault();
     },
     onCellCopy: ({ column, row }, event) => {
       const anchor = semanticAnchor(row, column.key, columns, surface);
@@ -1623,7 +1537,6 @@ function useSemanticDataGrid<Row>(
         dispatchFillIntent,
         gridElement: vendorHandle.current?.element ?? null,
         pendingEditorSeedRef,
-        pendingRangeEndRef,
         positionMap: semanticPresentationRef.current,
         setKeyboardAnnouncement,
         surface,
@@ -1664,21 +1577,13 @@ function useSemanticDataGrid<Row>(
         ? undefined
         : () => {},
     onSelectedCellChange: ({ column, row }) => {
+      if (interaction.controller.active) return;
       const anchor =
         row === undefined
           ? null
           : semanticAnchor(row, column.key, columns, surface);
-      const preserveRange = sameGridCellAnchor(
-        pendingRangeEndRef.current,
-        anchor,
-      );
-      pendingRangeEndRef.current = null;
+      // Vendor notifications publish focus only. Explicit semantic commands own selection.
       publishActiveCell(anchor);
-      if (!preserveRange) {
-        updateCellRange(
-          anchor === null ? null : { end: anchor, start: anchor },
-        );
-      }
     },
     onSortColumnsChange: (next: SortColumn[]) => {
       const semanticSort: readonly GridSortEntry[] = next.map((entry) => ({
@@ -1768,7 +1673,6 @@ function useSemanticDataGrid<Row>(
       keyboardAnnouncement={keyboardAnnouncement}
       onDoubleClickCapture={onDoubleClickCapture}
       onKeyDownCapture={onHeaderSizingKeyDown}
-      onMouseDownCapture={onMouseDownCapture}
       positionMap={semanticPresentationRef.current}
       range={cellRange}
       selectedRecordCount={selectedRows.size}
@@ -1836,7 +1740,6 @@ function GridBindingFrame<Row>({
   keyboardAnnouncement,
   onDoubleClickCapture,
   onKeyDownCapture,
-  onMouseDownCapture,
   positionMap,
   range,
   selectedRecordCount,
@@ -1861,7 +1764,6 @@ function GridBindingFrame<Row>({
   readonly onKeyDownCapture?:
     | ((event: ReactKeyboardEvent<HTMLDivElement>) => void)
     | undefined;
-  readonly onMouseDownCapture: (event: ReactMouseEvent<HTMLDivElement>) => void;
   readonly positionMap: GridSemanticPresentationModel<Row>;
   readonly range: GridCellRange | null;
   readonly selectedRecordCount: number;
@@ -1881,7 +1783,6 @@ function GridBindingFrame<Row>({
       }
       onDoubleClickCapture={onDoubleClickCapture}
       onKeyDownCapture={onKeyDownCapture}
-      onMouseDownCapture={onMouseDownCapture}
     >
       <div
         className="cartulary-grid-binding-content"
@@ -1937,7 +1838,6 @@ function executeSemanticKeyDecision<Row>({
   dispatchFillIntent,
   gridElement,
   pendingEditorSeedRef,
-  pendingRangeEndRef,
   positionMap,
   setKeyboardAnnouncement,
   surface,
@@ -1960,7 +1860,6 @@ function executeSemanticKeyDecision<Row>({
   readonly dispatchFillIntent: (intent: GridFillIntent) => void;
   readonly gridElement: HTMLDivElement | null;
   readonly pendingEditorSeedRef: MutableRefObject<PendingEditorSeed | null>;
-  readonly pendingRangeEndRef: MutableRefObject<GridCellAnchor | null>;
   readonly positionMap: GridRdgPresentationModel<Row>;
   readonly setKeyboardAnnouncement: (value: string) => void;
   readonly surface: GridSurfaceIdentity;
@@ -1979,13 +1878,13 @@ function executeSemanticKeyDecision<Row>({
       focusAdjacentOutsideGrid(gridElement, decision.backwards);
       return;
     case "begin_edit":
+      updateCellRange(null);
       executeBeginEditDecision(decision, args, pendingEditorSeedRef, surface);
       return;
     case "navigate":
       executeNavigateDecision(
         decision,
         args,
-        pendingRangeEndRef,
         positionMap,
         surface,
         updateCellRange,
@@ -2040,7 +1939,6 @@ function executeBeginEditDecision(
 function executeNavigateDecision<Row>(
   decision: Extract<SemanticGridDecision, { readonly kind: "navigate" }>,
   args: GridSelectCellArgs,
-  pendingRangeEndRef: MutableRefObject<GridCellAnchor | null>,
   positionMap: GridRdgPresentationModel<Row>,
   surface: GridSurfaceIdentity,
   updateCellRange: (range: GridCellRange | null) => void,
@@ -2049,10 +1947,9 @@ function executeNavigateDecision<Row>(
     gridAnchorKey(decision.target),
   );
   if (nextPosition === undefined) return;
-  if (decision.range !== null) {
-    pendingRangeEndRef.current = decision.target;
-    updateCellRange(decision.range);
-  }
+  updateCellRange(
+    decision.range ?? { start: decision.target, end: decision.target },
+  );
   if (decision.timelineMeasurement && surface.kind === "view_schema") {
     performance.mark("cartulary.workbook.selection_change_accepted", {
       detail: {
@@ -2110,12 +2007,7 @@ function GridRangeAnnouncement<Row>({
     positionMap,
     range,
   });
-  if (
-    expanded === null ||
-    (expanded.fieldKeys.length === 1 && expanded.rowIdentities.length === 1)
-  ) {
-    return null;
-  }
+  if (expanded === null) return null;
   return (
     <span
       aria-live="polite"

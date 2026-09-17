@@ -1,4 +1,42 @@
-import type { GridDataRow, GridSortEntry } from "./core";
+import type {
+  GridCellAnchor,
+  GridCellRange,
+  GridDataRow,
+  GridSortEntry,
+} from "./core";
+import {
+  type GridSemanticCoordinateModel,
+  semanticPresentationContainsAnchor,
+} from "./semanticPresentation";
+
+/** Pointer and keyboard extensions share the same anchor admission and range. */
+export function extendSemanticCellRange(
+  model: GridSemanticCoordinateModel,
+  active: GridCellAnchor | null,
+  range: GridCellRange | null,
+  destination: GridCellAnchor,
+): GridCellRange | null {
+  if (!semanticPresentationContainsAnchor(model, destination)) return null;
+  const start =
+    [range?.start, active].find(
+      (anchor): anchor is GridCellAnchor =>
+        anchor != null && semanticPresentationContainsAnchor(model, anchor),
+    ) ?? destination;
+  // Editor targets can also carry versioned mutation admission. A selection
+  // captures identity only; operation planners admit current versions later.
+  return {
+    start: {
+      surface: start.surface,
+      rowIdentity: start.rowIdentity,
+      fieldKey: start.fieldKey,
+    },
+    end: {
+      surface: destination.surface,
+      rowIdentity: destination.rowIdentity,
+      fieldKey: destination.fieldKey,
+    },
+  };
+}
 
 export type SemanticBulkSelectionState<Row> = {
   readonly allSelected: boolean;

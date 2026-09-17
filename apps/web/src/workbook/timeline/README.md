@@ -53,3 +53,15 @@ Conflict cell state and local recovery buttons project the retained Workbook
 conflict store, including batch groups. Timeline's local conflict draft queue
 remains with scalar mutation coordination; it does not own batch presentation
 or determine which retained batch conflicts remain actionable.
+
+## Cell-range interaction
+
+Timeline explicitly enables Adapter contiguous selection. Mutation composition
+supplies a scope key from the incident/authority lifetime, sheet and accepted
+canonical query; pending query overrides do not replace selection identity.
+Adapter owns the sole completed `GridCellRange` and tentative pointer state.
+Range completion focuses its endpoint and preserves inspector context and bulk
+checkbox state. Scalar sessions retain raw text, validation, deduplicated commit
+and rejected-draft recovery. Existing clipboard and one-column fill planners
+retain their stable-ID, row-version, authorization and grouped-fill boundaries.
+Selection creates no records or bulk operations.

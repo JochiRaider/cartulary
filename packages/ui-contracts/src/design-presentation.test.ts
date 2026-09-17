@@ -8,6 +8,12 @@ import {
 
 describe("design presentation projection", () => {
   it("exports the adopted loading and transient timing rules", () => {
+    expect(cartularyDesignPresentation.gridCellRangeSelection).toEqual({
+      stationaryTolerancePx: 4,
+      edgeBandPx: 32,
+      maximumScrollPxPerSecond: 720,
+      maximumFrameMs: 32,
+    });
     expect(cartularyDesignPresentation.initialLoading).toMatchObject({
       announceOncePerGeneration: true,
       delayMs: 2000,

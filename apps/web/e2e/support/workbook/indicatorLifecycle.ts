@@ -15,6 +15,7 @@ import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 import { createViewRow } from "./query";
+import { activateCommittedGridCell } from "./rowMutations";
 export async function createLifecycleFixture(page: Page) {
   const incidentId = await createIncident(
     page,
@@ -52,8 +53,7 @@ export async function openLifecycleEditor(
   const cell = page
     .getByTestId(rowCellTestId(recordId, "indicator.indicator_type"))
     .locator("xpath=ancestor::*[@role='gridcell'][1]");
-  await cell.dispatchEvent("mousedown", { button: 0 });
-  await cell.focus();
+  await activateCommittedGridCell(cell);
   const action = page.getByTestId(
     workbookInspectorFeatureActionTestId(
       indicatorsViewSchemaId,

@@ -499,7 +499,6 @@ export function gridCellRangeContains(
   anchor: GridCellAnchor,
 ): boolean {
   if (range === null) return false;
-  if (sameGridCellAnchor(range.start, range.end)) return false;
   const startColumn = positionMap.fieldKeys.indexOf(range.start.fieldKey);
   const endColumn = positionMap.fieldKeys.indexOf(range.end.fieldKey);
   const column = positionMap.fieldKeys.indexOf(anchor.fieldKey);

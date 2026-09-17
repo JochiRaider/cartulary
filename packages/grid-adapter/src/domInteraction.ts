@@ -1,10 +1,8 @@
-import type { GridCellAnchor, GridSurfaceIdentity } from "./core";
-
 export function isInteractiveCellActionTarget(target: EventTarget): boolean {
   return (
     target instanceof Element &&
     target.closest(
-      "button, a, input, select, textarea, [role='button'], [data-grid-prevent-cell-edit='true']",
+      "button, a, input, select, textarea, [role='button'], [role='checkbox'], [role='link'], [contenteditable], [data-grid-editor-interaction], [data-grid-prevent-cell-edit='true']",
     ) !== null
   );
 }
@@ -14,41 +12,6 @@ export function isGridFillHandleTarget(target: EventTarget): boolean {
     target instanceof Element &&
     target.closest(".rdg-cell-drag-handle") !== null
   );
-}
-
-export function semanticAnchorFromDomTarget(
-  target: EventTarget,
-  surface: GridSurfaceIdentity,
-): GridCellAnchor | null {
-  if (!(target instanceof Element) || surface.kind !== "view_schema") {
-    return null;
-  }
-  const cell = target.closest<HTMLElement>('[role="gridcell"]');
-  const content =
-    target.closest<HTMLElement>(
-      ".cartulary-grid-cell-content[data-grid-field-key]",
-    ) ??
-    cell?.querySelector<HTMLElement>(
-      ".cartulary-grid-cell-content[data-grid-field-key]",
-    );
-  const row = cell?.closest<HTMLElement>(
-    '[role="row"][data-grid-row-identity-kind="core_record"]',
-  );
-  const fieldKey = content?.getAttribute("data-grid-field-key");
-  const recordId = row?.getAttribute("data-grid-record-id");
-  if (
-    fieldKey === undefined ||
-    fieldKey === null ||
-    recordId === undefined ||
-    recordId === null
-  ) {
-    return null;
-  }
-  return {
-    fieldKey,
-    rowIdentity: { kind: "core_record", recordId },
-    surface,
-  };
 }
 
 export function visibleGridPageSize(

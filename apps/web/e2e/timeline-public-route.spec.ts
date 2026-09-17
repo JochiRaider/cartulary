@@ -55,6 +55,7 @@ import {
   expectRecoveryFocus,
   openRecoveryItem,
 } from "./support/workbook/recovery";
+import { activateCommittedGridCell } from "./support/workbook/rowMutations";
 
 const exactScenarioTitle =
   "Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.";
@@ -974,8 +975,7 @@ test(
             ),
           )
           .locator("xpath=ancestor::*[@role='gridcell'][1]");
-        await staleStartCell.dispatchEvent("mousedown", { button: 0 });
-        await staleStartCell.focus();
+        await activateCommittedGridCell(staleStartCell);
         await expect(
           stalePage.getByTestId(workbookFocusAnchorTestId()),
         ).toHaveText(

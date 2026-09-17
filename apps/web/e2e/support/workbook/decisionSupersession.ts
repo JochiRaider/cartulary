@@ -10,6 +10,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
 import { createViewRow } from "./query";
+import { activateCommittedGridCell } from "./rowMutations";
 export async function openDecisionReviewFixture(
   page: Page,
   navigate: (url: string) => Promise<unknown> = (url) => page.goto(url),
@@ -50,8 +51,7 @@ export async function openDecisionReviewFixture(
   const cell = page
     .getByTestId(rowCellTestId(target.record_id, "decision.summary"))
     .locator("xpath=ancestor::*[@role='gridcell'][1]");
-  await cell.dispatchEvent("mousedown", { button: 0 });
-  await cell.focus();
+  await activateCommittedGridCell(cell);
   const start = page.getByTestId(
     workbookInspectorFeatureActionTestId(
       decisionsViewSchemaId,

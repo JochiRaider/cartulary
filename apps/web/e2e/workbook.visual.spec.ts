@@ -275,7 +275,10 @@ import {
   queryViewRows,
 } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
-import { openTimelineInspector } from "./support/workbook/rowMutations";
+import {
+  activateCommittedGridCell,
+  openTimelineInspector,
+} from "./support/workbook/rowMutations";
 import {
   createSavedView,
   createSavedViewFromCurrentSurface,
@@ -1180,10 +1183,9 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       selectedRow.record_id,
       "timeline.activity_synopsis_text",
     );
-    await captureSummary
-      .locator("xpath=ancestor::*[@role='gridcell'][1]")
-      .dispatchEvent("mousedown", { button: 0 });
-    await page.keyboard.press("Escape");
+    await activateCommittedGridCell(
+      captureSummary.locator("xpath=ancestor::*[@role='gridcell'][1]"),
+    );
 
     const timelineScrollportSelector = `${dataTestIdSelector(
       gridShellTestId(timelineViewSchemaId),

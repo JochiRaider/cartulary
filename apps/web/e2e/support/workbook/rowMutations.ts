@@ -26,9 +26,18 @@ import {
   requireViewContract,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page, Response } from "@playwright/test";
+import type { Locator, Page, Response } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { readWorkbookMutation } from "./query";
+
+/** Select committed content through a complete pointer gesture, then cancel only
+ * the newly opened editor. Use from navigation mode, before authoring a draft. */
+export async function activateCommittedGridCell(cell: Locator): Promise<void> {
+  await cell.click({ position: { x: 3, y: 3 } });
+  if (await cell.page().locator('[data-grid-editing="true"]').count())
+    await cell.page().keyboard.press("Escape");
+  await expect(cell).toBeFocused();
+}
 
 async function waitForSaveState(
   page: Page,
@@ -383,8 +392,7 @@ export async function openGenericInspectorForRecord(
   const selectedCell = page
     .getByTestId(selectedCellTestId)
     .locator("xpath=ancestor::*[@role='gridcell'][1]");
-  await selectedCell.dispatchEvent("mousedown", { button: 0 });
-  await selectedCell.focus();
+  await activateCommittedGridCell(selectedCell);
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${viewSchemaId}:${recordId}:${selectionFieldKey}`,
   );

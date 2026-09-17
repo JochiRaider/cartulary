@@ -346,6 +346,20 @@
   box-shadow: inset 0 0 0 1px var(--ct-colors-accent);
 }
 
+.cartulary-grid-cell-is-range-preview {
+  outline: 1px dashed var(--ct-colors-accent);
+  outline-offset: -2px;
+}
+
+.cartulary-grid[data-grid-pointer-selecting="true"] {
+  user-select: none;
+}
+
+.cartulary-grid[data-grid-pointer-selecting="true"]
+  :is(input, textarea, [contenteditable]) {
+  user-select: text;
+}
+
 .cartulary-grid-cell-state-read-only {
   background-image: repeating-linear-gradient(
     -45deg,

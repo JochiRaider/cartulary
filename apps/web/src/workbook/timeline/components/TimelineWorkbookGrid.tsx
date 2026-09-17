@@ -49,6 +49,7 @@ export const TimelineWorkbookGrid = forwardRef<
     readonly activeRecordId: string | null;
     readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
     readonly clipboardPaste: GridClipboardPasteContract;
+    readonly cellRangeScopeKey: string;
     readonly columns: readonly GridColumn<WorkbookRow>[];
     readonly density: GridDensity;
     readonly dataState: GridDataState;
@@ -88,6 +89,7 @@ export const TimelineWorkbookGrid = forwardRef<
     activeRecordId,
     bulkSelection,
     clipboardPaste,
+    cellRangeScopeKey,
     columns,
     dataState,
     density,
@@ -170,6 +172,10 @@ export const TimelineWorkbookGrid = forwardRef<
         testId={gridShellTestId(timelineViewSchemaId)}
       >
         <SemanticDataGrid
+          cellRangeSelection={{
+            kind: "contiguous",
+            scopeKey: cellRangeScopeKey,
+          }}
           keyboardNavigation="spreadsheet"
           ref={ref}
           activeRowIdentity={

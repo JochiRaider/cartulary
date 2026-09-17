@@ -73,7 +73,7 @@ export function createColumnSizingPort(
     const header = headerFor(root, fieldKey);
     if (
       !header ||
-      !intersects(header.getBoundingClientRect(), visibleViewport(root))
+      !intersects(header.getBoundingClientRect(), visibleGridViewport(root))
     )
       return "Scroll this column into view to fit it.";
     if (document.fonts?.status === "loading")
@@ -92,7 +92,7 @@ export function createColumnSizingPort(
       root.scrollTop,
       root.clientWidth,
       root.clientHeight,
-      visibleViewport(root),
+      visibleGridViewport(root),
       [header, ...nodesFor(root, fieldKey)]
         .filter((node) => node !== undefined)
         .map((node) => {
@@ -169,7 +169,7 @@ export function createColumnSizingPort(
             return;
           }
           const cells = nodesFor(root, fieldKey);
-          const bodyRect = visibleViewport(root);
+          const bodyRect = visibleGridViewport(root);
           const viewport = {
             ...bodyRect,
             top: Math.max(bodyRect.top, header.getBoundingClientRect().bottom),
@@ -246,7 +246,7 @@ function rect(value: DOMRect) {
 }
 
 /** A grid may be wider than its containing pane without disabling virtualization. */
-function visibleViewport(root: HTMLElement) {
+export function visibleGridViewport(root: HTMLElement) {
   const bounds = rect(root.getBoundingClientRect());
   bounds.left = Math.max(bounds.left, 0);
   bounds.top = Math.max(bounds.top, 0);

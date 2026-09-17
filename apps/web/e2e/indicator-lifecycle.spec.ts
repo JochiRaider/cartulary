@@ -23,7 +23,10 @@ import {
 } from "./support/workbook/indicatorLifecycle";
 import { createViewRow } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
-import { openGenericInspectorForRecord } from "./support/workbook/rowMutations";
+import {
+  activateCommittedGridCell,
+  openGenericInspectorForRecord,
+} from "./support/workbook/rowMutations";
 
 test("Indicator intervals recover a response lost after commit with the original receipt and History rollback", async ({
   page,
@@ -345,8 +348,7 @@ test("Indicator recovery fences late malformed receipts and replays the original
   const cell = page
     .getByTestId(rowCellTestId(other.record_id, "indicator.indicator_type"))
     .locator("xpath=ancestor::*[@role='gridcell'][1]");
-  await cell.dispatchEvent("mousedown", { button: 0 });
-  await cell.focus();
+  await activateCommittedGridCell(cell);
   editor = page.getByTestId(indicatorLifecycleTestId("editor"));
   const otherFrom = editor.getByLabel("Effective from (UTC)", { exact: true });
   await otherFrom.fill("2030-01-01T00:00");

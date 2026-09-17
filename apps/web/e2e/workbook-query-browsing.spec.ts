@@ -67,6 +67,7 @@ import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
+  activateCommittedGridCell,
   openGenericInspectorForRecord,
   openTimelineInspector,
 } from "./support/workbook/rowMutations";
@@ -602,10 +603,9 @@ test("Workbook browsing retains off-window drafts and sheet anchors through twen
   const lastCell = page.getByTestId(
     rowCellTestId(last.record_id, "note.title"),
   );
-  await lastCell
-    .locator('xpath=ancestor::*[@role="gridcell"][1]')
-    .dispatchEvent("mousedown", { button: 0 });
-  await lastCell.locator('xpath=ancestor::*[@role="gridcell"][1]').focus();
+  await activateCommittedGridCell(
+    lastCell.locator('xpath=ancestor::*[@role="gridcell"][1]'),
+  );
   await switchOrdinarySheet(page, timelineViewSchemaId);
   const beforeReturn = reads.length;
   await switchOrdinarySheet(page, view);

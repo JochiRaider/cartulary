@@ -8,7 +8,6 @@ import {
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, TestInfo } from "@playwright/test";
-
 import { expect, test } from "../fixtures";
 import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
 import {
@@ -18,6 +17,7 @@ import {
   startAc043SnapshotTraffic,
 } from "../support/performance/ac043Snapshot";
 import { uniqueTxn } from "../support/runtime/fixtureIdentity";
+import { activateCommittedGridCell } from "../support/workbook/rowMutations";
 import {
   ac043FixtureDigest,
   attachMeasurementObservation,
@@ -93,8 +93,7 @@ function semanticGridCell(content: Locator) {
 async function activateSemanticGridCell(content: Locator) {
   await expect(content).toBeVisible({ timeout: 10_000 });
   const cell = semanticGridCell(content);
-  await cell.dispatchEvent("mousedown", { button: 0 });
-  await cell.focus();
+  await activateCommittedGridCell(cell);
 }
 
 async function attachObservation(

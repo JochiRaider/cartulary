@@ -383,6 +383,12 @@ export function useTimelineMutationComposition({
     refs: rowMutations.refs,
     snapshot: {
       browsing,
+      cellRangeScopeKey: JSON.stringify([
+        incident.id,
+        incident.continuityResetKey,
+        timelineSurfaceIdentity,
+        browsing.canonicalQuery,
+      ]),
       collaboration: collaboration.snapshot,
       conflict: {
         activeConflict,

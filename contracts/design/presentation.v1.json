@@ -2,6 +2,12 @@
   "schema_id": "cartulary.design_presentation.v1",
   "owner_id": "package.ui",
   "verification_id": "package.ui.verification.machine_owned_presentation",
+  "grid_cell_range_selection": {
+    "stationary_tolerance_px": 4,
+    "edge_band_px": 32,
+    "maximum_scroll_px_per_second": 720,
+    "maximum_frame_ms": 32
+  },
   "workbook_column_sizing": {
     "minimum_width_px": 40,
     "maximum_width_px": 4096,

@@ -563,6 +563,7 @@ export function useTimelineWorkbookPresentation({
       activeRecordId: selectedRowId,
       bulkSelection: timelineBulkSelection,
       clipboardPaste: timelineClipboardPaste,
+      cellRangeScopeKey: mutation.snapshot.cellRangeScopeKey,
       columns: visibleTimelineColumns,
       dataState: timelineDataState,
       density,

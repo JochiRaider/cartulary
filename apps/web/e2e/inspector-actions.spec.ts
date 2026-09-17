@@ -68,6 +68,7 @@ import {
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import {
+  activateCommittedGridCell,
   clickTimelineRowAction,
   openTimelineInspector,
 } from "./support/workbook/rowMutations";
@@ -721,8 +722,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
   const createdSummaryCell = createdSummary.locator(
     "xpath=ancestor::*[@role='gridcell'][1]",
   );
-  await createdSummaryCell.dispatchEvent("mousedown", { button: 0 });
-  await createdSummaryCell.focus();
+  await activateCommittedGridCell(createdSummaryCell);
   const pasteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&

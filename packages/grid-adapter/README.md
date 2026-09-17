@@ -69,3 +69,31 @@ The grid publishes a destination range only after synchronous source acceptance;
 asynchronous scalar completion does not move a newer selection. Native event
 identity deduplicates delivery, while separate gestures remain distinct actions.
 The authored JSON corpus under `contracts/tabularingest` is shared with Go tests.
+
+## Contiguous cell interaction
+
+`GridCellRange` remains the only completed selection. `gridInteractionController`
+classifies stationary release, drag and Shift extension; `gridInteractionDom`
+owns capture, current registered-cell geometry and bounded edge scrolling.
+`useGridInteraction` binds their mounted lifetime. Tentative outlines are private
+and never authorize clipboard or mutation operations. Keyboard and pointer
+extension share `extendSemanticCellRange`; explicit semantic navigation replaces
+selection, while vendor focus notifications only acknowledge the active cell.
+Admitted destinations use the semantic focus owner even when the vendor already
+considers the endpoint active. Entering a native recordless draft clears the
+completed range without creating a record or taking ownership of its text.
+
+An explicitly authorized consumer enables `cellRangeSelection` with kind
+`contiguous` and an opaque accepted-surface `scopeKey`. Omission preserves existing
+keyboard selection and ordinary editing without enabling pointer ranges. No
+consumer supplies pointer IDs, coordinates, DOM nodes or a second selection store.
+Scope/authority changes cancel intentions; captured ordered membership is retained
+only when `retainGridCellRange` accepts it. Value/version refreshes and appends
+outside the range can preserve selection. Group headers, collapsed rows, hidden
+fields and drafts are excluded. Read-only members gain no mutation rights.
+
+The existing editor session remains the commit gate. A rejected departure retains
+the exact draft; superseding gestures abandon only destinations, never write
+settlement. The old mouse-down/window mouse-up timer, vendor click activation and
+unconditional vendor range collapse have been retired. Native editors, embedded
+actions, column sizing/reordering and fill handles keep their separate ownership.

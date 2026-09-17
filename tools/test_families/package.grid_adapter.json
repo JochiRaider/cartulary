@@ -849,6 +849,7 @@
           "grid-adapter does not repeat seed retention on rerender or navigate after focus leaves a pending editor",
           "grid-adapter does not republish an unchanged semantic anchor when the active record updates",
           "grid-adapter fails closed when untyped callers attach Core mutation capabilities to extension grids",
+          "grid-adapter gates completed ranges through the production editor and preserves rejection and supersession",
           "grid-adapter groups extension resources in the live grid without changing their identities",
           "grid-adapter keeps RDG row identity stable across reorder, sort, rerender, and editable cells",
           "grid-adapter keeps a rejected inter-cell transition on its semantic draft and opens the destination only after acceptance",
@@ -861,6 +862,7 @@
           "grid-adapter keeps the bottom create draft recordless and usable with zero committed rows",
           "grid-adapter owns semantic navigation, range extension, keyboard entry, cancellation, and grid exit",
           "grid-adapter preserves typed bucket order, scoped expansion, and draft exclusion",
+          "grid-adapter refocuses an already-active readable cell after focus leaves the grid",
           "grid-adapter rejects missing and duplicate saved record identities",
           "grid-adapter renders data and actions columns without freezing implementation geometry",
           "grid-adapter renders semantic data states without manufacturing rows and keeps interaction mode independent",
@@ -901,6 +903,63 @@
         "file": "packages/grid-adapter/src/index.test.tsx",
         "titles": [
           "defers nested editor navigation and dismissal without submitting the parent cell"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.range_interaction",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/gridInteraction.test.ts",
+        "titles": [
+          "semantic range interaction applies only a current accepted destination and never discards superseded writes",
+          "semantic range interaction bounds edge speed and elapsed work on both axes including narrow viewports",
+          "semantic range interaction classifies tolerance once and shares pointer and keyboard anchors through reversal",
+          "semantic range interaction edits stationary clicks immediately and uses active or destination fallback for extension",
+          "semantic range interaction keeps pending editor selection tentative and retains the rejected draft attachment",
+          "semantic range interaction preserves exact members on append and invalidates accepted scope and authority intentions",
+          "semantic range interaction requires pointer adoption and rejects missing structural or hidden destinations",
+          "semantic range interaction restores prior selection on cancellation without retaining invalid or substituted membership",
+          "semantic range interaction resumes scrolling after acceptance and cancels a released destination on newer authoring"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.range_pointer_binding",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/gridInteraction.test.ts",
+        "titles": [
+          "range pointer binding owns capture cleanup and compatibility clicks while preserving native controls",
+          "range pointer binding scrolls both axes with bounded frame work and stops after outside release"
         ]
       },
       "evidence_class": "unit",

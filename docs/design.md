@@ -1203,7 +1203,7 @@ Design contract. Grid keyboard behavior MUST use the modes below.
 | --- | --- | --- | --- | --- |
 | `grid_navigation` | `Tab` into grid, committed edit, canceled edit, restored focus | Enter edit, leave grid, overlay opens | Active cell | No direct text mutation. |
 | `grid_edit` | One primary click, printable key on writable cell, explicit edit command; non-Timeline `Enter` | Commit, cancel, declared blur commit | Declared primary editor control | Yes. |
-| `grid_range_selection` | `Shift+Arrow*` in navigation mode | Modifier release, explicit collapse, edit entry | Active range | No direct mutation. |
+| `grid_range_selection` | `Shift+Arrow*`; Timeline primary drag or Shift-click under Core 03 §13.4 | Gesture/modifier release ends extension, preserving the completed range; replacement, edit entry or semantic invalidation clears/replaces it | Endpoint after completion; original editor while acceptance is pending | No direct mutation. |
 | `grid_disabled_or_read_only` | Active cell is non-writable | Move focus, leave grid, overlay opens | Active cell or containing row | No mutation. |
 
 Design contract. The key-command table is exhaustive for grid-owned key chords in this revision.
@@ -1241,7 +1241,25 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | `Ctrl/Cmd+V` | `grid_navigation` | Clipboard has text. | Dispatch base-profile paste handling for active surface. | Paste plan governs. | Yes. |
 | `Ctrl/Cmd+D` | `grid_range_selection` | Selection is a writable one-column vertical range with at least two committed rows. | Dispatch `fill_down_v1` using the top cell as source and every remaining row as an explicit stable-ID target. | One semantic fill batch. | Yes. |
 
-Design contract. Pointer activation uses the same semantic edit state machine as keyboard activation. The first primary click on an eligible committed scalar cell MUST create one editor, focus its declared primary control, and place a collapsed caret immediately after the existing text without selecting it. A second click inside that editor MAY reposition the caret. Read-only cells remain selectable, embedded action controls do not activate the parent scalar editor, and double-click does not define another edit mode.
+Design contract. Pointer activation uses the same semantic edit state machine as keyboard activation. The first stationary unmodified primary click on an eligible committed scalar cell MUST create one editor on release without an artificial delay, focus its declared primary control, and place a collapsed caret immediately after the existing text without selecting it. A second click inside that editor MAY reposition the caret. Read-only cells remain selectable, embedded action controls do not activate the parent scalar editor, and double-click does not define another edit mode.
+
+Design contract. Timeline contiguous selection follows Core 03 §13.4. Stationary
+tolerance is 4 CSS pixels on each axis; crossing either bound permanently
+classifies a drag. Pointer position and geometry MUST use the same CSS coordinate
+space, including supported zoom. Edge scrolling uses a 32 CSS-pixel band and
+linear speed from zero at its inner boundary to 720 CSS pixels/second at or
+beyond its outer edge. Frame elapsed time is clamped to 32 milliseconds. Each
+frame performs at most one scroll write and one endpoint resolution in the
+existing clipped grid scrollport. Pending editor acceptance suspends scrolling.
+These values are projected through `contracts/design/presentation.v1.json`.
+
+Design contract. Completed range feedback MUST retain non-color selection cues
+and MUST remain distinct from active-cell focus, inspector-row context and bulk
+checkboxes. Tentative range feedback uses a dashed outline and MUST NOT expose
+accepted `aria-selected` state. The existing editor keeps visible focus while
+departure awaits acceptance. During a tentative gesture Escape cancels only
+that gesture and consumes the key without applying the editor Escape action;
+otherwise §8.5 is unchanged. A completed range does not itself add a new Escape action.
 
 Design contract. The fill handle uses `{colors.accent}`, exposes `Drag to fill this value`, and appears only on an eligible selected committed scalar cell in `grid_navigation`. It is absent for edit, read-only, grouped, draft, presentation-only, and collection states. Pointer drag and keyboard fill share one semantic intent path. Vendor double-click fill-to-end behavior is disabled.
 
@@ -1834,6 +1852,9 @@ Design contract. Live-region behavior MUST use this matrix.
 | Menu open/close | No live announcement beyond focus and ARIA state. | None. |
 | Column Apply width, Fit, Restore default or Reset columns completes | Polite, once per completed operation. | Field and result; header-only or capped fit when applicable. |
 | Header drag movement | No live announcement for each movement. | Current header geometry and explicit Columns controls remain available. |
+| Cell range completes | Polite, once per completed gesture or keyboard extension. | Selected row and column counts; no record identifiers or cell contents. |
+| Cell range awaits editor acceptance or is canceled | Polite, once per transition. | Waiting for the edit to save, or selection canceled. |
+| Cell range pointer movement | No live announcement for each movement. | Tentative outline remains available visually. |
 
 ### 14.3 Contrast pair matrix
 

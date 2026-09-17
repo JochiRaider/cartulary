@@ -2442,7 +2442,7 @@ Profiles: base
 Verified by: AC-005, AC-043, AC-231
 
 **REQ-03-300**
-One primary pointer click on a committed cell whose active view contract declares `grid_editable=true` and whose direct-value editor is authorized MUST create exactly one edit session, focus that editor's declared primary control, and place a collapsed caret immediately after the existing scalar text without selecting that text. A subsequent click inside the same editor MAY reposition its caret, but double-click MUST NOT create a second edit transition, duplicate presence publication, or duplicate mutation dispatch.
+One stationary unmodified primary pointer click on a committed cell whose active view contract declares `grid_editable=true` and whose direct-value editor is authorized MUST create exactly one edit session on release, focus that editor's declared primary control, and place a collapsed caret immediately after the existing scalar text without selecting that text. No artificial click delay or double-click requirement is permitted. A subsequent click inside the same editor MAY reposition its caret, but double-click MUST NOT create a second edit transition, duplicate presence publication, or duplicate mutation dispatch. Timeline range gestures follow §13.4 and MUST NOT also activate that cell's editor.
 
 A pointer click on a read-only, derived, unauthorized, lifecycle-blocked, collection-valued, or otherwise non-grid-editable cell MUST preserve ordinary cell or row selection without creating an editor. Recordless create-draft controls remain immediately editable. Buttons, checkboxes, relationship chips, overflow controls, collection-token controls, and other owner-declared embedded actions MUST execute only their declared action and MUST NOT activate a parent scalar editor.
 
@@ -2531,6 +2531,69 @@ The current base-profile explicit bulk command vocabulary is:
 Each command MUST commit as one attributable batch when all accepted target mutations commit, MUST record one visible `change_set` for the committed non-conflicting portion, and MUST reject presentation-only, group-row, vendor-coordinate, row-index-only, missing, deleted, wrong-surface, wrong-type, or foreign-incident targets. Bulk target ownership and visibility MUST be validated before row-version comparison, conflict construction, batch commit, or response row serialization. Later expansion MAY add additional explicit command kinds, but MUST NOT reinterpret these command identifiers.
 
 The fill affordance MUST appear only for a selected writable non-collection committed cell in navigation mode and MUST expose the label `Drag to fill this value`. Pointer drag and `Ctrl+D` or `Cmd+D` MUST construct the same semantic `fill_down_v1` intent from stable record identifiers and current row versions. Keyboard fill uses the top cell of the selected range as source and every remaining committed row as an explicit target. Vendor-provided double-click fill-to-end behavior MUST be suppressed and MUST dispatch no mutation.
+
+### 13.4 Timeline contiguous cell selection
+
+The main Timeline MUST support primary-pointer drag and Shift-click selection
+using the same contiguous cell range as Shift+Arrow. A stationary click retains
+REQ-03-300. Once movement crosses the design-owned CSS-pixel tolerance on either
+axis, the gesture remains a range drag even if it returns to its origin. It MUST
+NOT open an editor, move data, create records, or dispatch fill. Native editor
+text selection and embedded actions, including buttons, links, chips, checkboxes,
+reference popups, header sizing/reorder and fill handles, retain their owners.
+
+A range has a stable surface, anchor record/field and endpoint record/field.
+Shift-click or Shift-drag extends the valid completed range's anchor, otherwise
+the valid active cell, otherwise establishes the destination as anchor. Extension
+intent is sampled at pointer-down; Shift changes during that gesture MUST NOT
+re-anchor or clear selection. Unsupported modifier/button combinations MUST NOT
+start a range; adding them cancels a tentative gesture. Completed selection MUST
+survive pointer and modifier release. Completion moves active-cell focus to the
+endpoint so Shift+Arrow can continue extension, but MUST NOT retarget or open the
+inspector or change bulk record-checkbox selection. Ordinary stationary clicks
+retain their existing row-inspection behavior.
+
+Range membership consists of visible committed records and visible data fields
+in presentation order. Selection MAY cross expanded group headers, which are
+skipped; omission of expanded records from a range between its endpoints is not
+permitted. Collapsed records, group/structural rows, recordless drafts and hidden
+fields MUST NOT be members. Readable read-only cells can participate without
+gaining mutation capability. Grouped fill remains unavailable. Copy and eligible
+fill use existing representation and admission owners; a rectangle grants no
+new bulk operation or mutation authority.
+
+Tentative gesture, completed selection, active-cell focus, inspector context,
+and editor authoring MUST have separate lifetimes. Leaving an editor uses the
+existing deduplicated acceptance gate. While acceptance is pending, the client
+MUST retain editor focus and exact draft, distinguish the proposed range as
+tentative, and suspend gesture edge scrolling. It MUST NOT publish that range
+as accepted. Rejection retains the original focusable editor. Acceptance may
+complete only the latest still-current gesture whose semantic destination and
+captured membership remain valid. Superseding selection/focus intent MUST NOT
+discard an earlier write's authoritative outcome or another authoring revision.
+
+Release outside the grid completes an admitted drag at its last valid bounded
+endpoint. A stationary release outside its originating cell MUST NOT edit it.
+Escape during a tentative gesture, pointer cancellation, unexpected lost
+capture, window interruption, detachment, or authority transition cancels the
+gesture and restores the previous still-valid selection. This Escape consumes
+only the tentative gesture and MUST NOT discard an editor draft; outside that
+gesture the ordinary Escape hierarchy applies. Cleanup MUST stop capture,
+listeners and scrolling, and a compatibility click from a handled gesture MUST
+NOT create another selection or edit transition.
+
+Edge scrolling MUST remain inside the grid's loaded window and owned scrollport,
+with bounded work per animation frame and virtualization enabled. It MUST NOT
+fetch pages, expand groups, scroll the document or select unloaded records.
+The gesture captures its eligible record/field membership at initiation and
+resolves endpoints against current presentation geometry. A data update MUST NOT
+silently substitute members. Completed ranges survive value/version-only updates
+and outside-range appends when their exact ordered members remain unchanged;
+otherwise they invalidate. Accepted query/sheet scope or grouping-key changes
+invalidate ranges. Pending or failed query replacements retain selection under
+the still-accepted presentation. Ordinary replacement navigation, stationary
+selection or edit entry replaces/clears the range; a canceled tentative gesture
+does not restore members that have become invalid or unauthorized.
 
 ## 14. Sorting, filtering, and grouping
 

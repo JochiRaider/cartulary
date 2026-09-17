@@ -8,6 +8,7 @@
     "schema_id",
     "owner_id",
     "verification_id",
+    "grid_cell_range_selection",
     "workbook_column_sizing",
     "presence",
     "initial_loading",
@@ -19,6 +20,17 @@
     "error_presentations"
   ],
   "properties": {
+    "grid_cell_range_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stationary_tolerance_px", "edge_band_px", "maximum_scroll_px_per_second", "maximum_frame_ms"],
+      "properties": {
+        "stationary_tolerance_px": { "const": 4 },
+        "edge_band_px": { "const": 32 },
+        "maximum_scroll_px_per_second": { "const": 720 },
+        "maximum_frame_ms": { "const": 32 }
+      }
+    },
     "workbook_column_sizing": {
       "type": "object",
       "additionalProperties": false,

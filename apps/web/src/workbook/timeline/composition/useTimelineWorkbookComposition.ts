@@ -379,6 +379,7 @@ export function useTimelineWorkbookComposition({
         },
       },
       snapshot: {
+        cellRangeScopeKey: mutation.snapshot.cellRangeScopeKey,
         collaboration: {
           presence: mutation.snapshot.collaboration.presence,
         },

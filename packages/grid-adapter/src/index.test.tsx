@@ -442,15 +442,16 @@ describe("grid-adapter", () => {
         alphaState,
       );
       await waitFor(() => expect(onActiveCellChange).toHaveBeenCalledTimes(2));
-      expect(
-        await handle.current?.requestFocus({ kind: "cell", anchor: alpha }),
-      ).toBe("focused");
+      await act(async () => {
+        expect(
+          await handle.current?.requestFocus({ kind: "cell", anchor: alpha }),
+        ).toBe("focused");
+      });
 
       const alphaCell = screen
         .getByText("Alpha")
         .closest<HTMLElement>('[role="gridcell"]');
       if (alphaCell === null) throw new Error(`Missing ${name} Alpha cell`);
-      fireEvent.mouseDown(alphaCell);
       fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
       await waitFor(() =>
         expect(onCellRangeChange).toHaveBeenCalledWith({
@@ -1593,6 +1594,133 @@ describe("grid-adapter", () => {
     ).toBeNull();
   });
 
+  it("refocuses an already-active readable cell after focus leaves the grid", async () => {
+    render(
+      <>
+        <button type="button">External focus</button>
+        <SemanticDataGrid
+          surface={testSurface}
+          columns={columns}
+          dataRows={[
+            {
+              kind: "data",
+              rowIdentity: { kind: "core_record", recordId: "readable" },
+              mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+              data: { label: "Readable cell", state: "open" },
+            },
+          ]}
+        />
+      </>,
+    );
+    const target = screen.getByText("Readable cell");
+    fireEvent.click(target);
+    const cell = target.closest('[role="gridcell"]');
+    await waitFor(() => expect(document.activeElement).toBe(cell));
+    screen.getByRole("button", { name: "External focus" }).focus();
+    fireEvent.click(target);
+    await waitFor(() => expect(document.activeElement).toBe(cell));
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("gates completed ranges through the production editor and preserves rejection and supersession", async () => {
+    let finish: (
+      outcome:
+        | { kind: "accepted" }
+        | { kind: "validation_error"; message: string },
+    ) => void = () => {};
+    const commit = vi.fn(
+      () =>
+        new Promise<
+          { kind: "accepted" } | { kind: "validation_error"; message: string }
+        >((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const onRange = vi.fn();
+    const inspect = vi.fn();
+    const rows: readonly GridDataRow<HarnessRow>[] = ["a", "b", "c"].map(
+      (id) => ({
+        kind: "data",
+        rowIdentity: { kind: "core_record", recordId: id },
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        data: { label: id, state: "open" },
+      }),
+    );
+    render(
+      <SemanticDataGrid
+        surface={testSurface}
+        dataRows={rows}
+        cellRangeSelection={{ kind: "contiguous", scopeKey: "accepted-query" }}
+        onCellRangeChange={onRange}
+        onSelectRow={inspect}
+        columns={[
+          {
+            fieldKey: "label",
+            label: "Label",
+            contractWritable: true,
+            renderCell: ({ row }) => (
+              <span data-testid={`gate-${row.label}`}>{row.label}</span>
+            ),
+            editor: {
+              commit,
+              initialDraftValue: (row) => row.label,
+              renderEditor: (context) => (
+                <input
+                  aria-label="Range draft"
+                  ref={context.focusTargetRef}
+                  value={String(context.draftValue)}
+                  onChange={(event) =>
+                    context.setDraftValue(event.target.value)
+                  }
+                />
+              ),
+            },
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("gate-a"));
+    const input = await screen.findByRole("textbox", { name: "Range draft" });
+    fireEvent.change(input, { target: { value: " exact rejected draft " } });
+    onRange.mockClear();
+    inspect.mockClear();
+    fireEvent.click(screen.getByTestId("gate-b"), { shiftKey: true });
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(input);
+    await waitFor(() =>
+      expect(
+        document.querySelectorAll(".cartulary-grid-cell-is-range-preview")
+          .length,
+      ).toBeGreaterThan(0),
+    );
+    expect(onRange).not.toHaveBeenCalled();
+    await act(async () =>
+      finish({ kind: "validation_error", message: "Rejected" }),
+    );
+    expect((input as HTMLInputElement).value).toBe(" exact rejected draft ");
+    expect(document.activeElement).toBe(input);
+    expect(onRange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "accepted draft" } });
+    fireEvent.click(screen.getByTestId("gate-b"), { shiftKey: true });
+    fireEvent.click(screen.getByTestId("gate-c"), { shiftKey: true });
+    expect(commit).toHaveBeenCalledTimes(2);
+    await act(async () => finish({ kind: "accepted" }));
+    await waitFor(() =>
+      expect(onRange.mock.calls.at(-1)?.[0]).toEqual({
+        start: gridAnchor("a", "label"),
+        end: gridAnchor("c", "label"),
+      }),
+    );
+    expect(inspect).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "Range draft" })).toBeNull();
+    expect(screen.getByTestId("gate-c").closest('[role="gridcell"]')).toBe(
+      document.activeElement,
+    );
+    expect(
+      document.querySelectorAll(".cartulary-grid-cell-is-range-preview"),
+    ).toHaveLength(0);
+  });
+
   it("translates live cell events and the restricted handle through semantic coordinates", async () => {
     const onActiveCellChange = vi.fn();
     const onCopyCell = vi.fn();
@@ -1654,9 +1782,27 @@ describe("grid-adapter", () => {
       throw new Error("Expected live RDG cell");
     // Exercise the production pointer path: users click the rendered static
     // content, not the vendor-owned gridcell wrapper.
-    fireEvent.mouseDown(cellContent);
-    fireEvent.mouseUp(cellContent);
-    fireEvent.click(cellContent);
+    const pointer = (type: string) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        buttons: type === "pointerup" ? 0 : 1,
+      });
+      Object.defineProperties(event, {
+        pointerId: { value: 1 },
+        pointerType: { value: "mouse" },
+      });
+      fireEvent(cellContent, event);
+    };
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => cellContent,
+    });
+    pointer("pointerdown");
+    pointer("pointerup");
+    fireEvent.click(cellContent, { detail: 1 });
+    Reflect.deleteProperty(document, "elementFromPoint");
     await waitFor(() => expect(onActiveCellChange).toHaveBeenCalled());
     const editor = await screen.findByRole("textbox", {
       name: "Semantic editor",
@@ -1831,13 +1977,22 @@ describe("grid-adapter", () => {
       </>,
     );
 
-    const alphaCell = (await screen.findByTestId("keyboard-Alpha")).closest(
+    let alphaCell = (await screen.findByTestId("keyboard-Alpha")).closest(
       '[role="gridcell"]',
     );
     if (!(alphaCell instanceof HTMLElement)) {
       throw new Error("Expected Alpha grid cell");
     }
-    fireEvent.mouseDown(alphaCell);
+    fireEvent.click(alphaCell);
+    fireEvent.keyDown(
+      await screen.findByRole("textbox", { name: "Keyboard editor" }),
+      { key: "Escape" },
+    );
+    alphaCell = screen
+      .getByTestId("keyboard-Alpha")
+      .closest('[role="gridcell"]');
+    if (!(alphaCell instanceof HTMLElement))
+      throw new Error("Missing focused source");
     fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
     expect(
       await screen.findByText("Selected 2 rows by 1 columns."),
@@ -1989,11 +2144,19 @@ describe("grid-adapter", () => {
     expect(onAction).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("textbox", { name: "Fill editor" })).toBeNull();
 
-    const alphaCell = screen
+    let alphaCell = screen
       .getByTestId("fill-Alpha")
       .closest<HTMLElement>('[role="gridcell"]');
     if (alphaCell === null) throw new Error("Expected fill source cell");
-    fireEvent.mouseDown(alphaCell);
+    fireEvent.click(alphaCell);
+    fireEvent.keyDown(
+      await screen.findByRole("textbox", { name: "Fill editor" }),
+      { key: "Escape" },
+    );
+    alphaCell = screen
+      .getByTestId("fill-Alpha")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (alphaCell === null) throw new Error("Missing focused fill source");
     const fillHandle = await waitFor(() => {
       const handle = document.querySelector<HTMLElement>(
         ".rdg-cell-drag-handle",

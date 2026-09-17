@@ -13,6 +13,7 @@ import {
   type GridSemanticPresentationModel,
   navigateSemanticPresentation,
 } from "./semanticPresentation";
+import { extendSemanticCellRange } from "./semanticSelectionPolicy";
 
 export type NormalizedGridKey = {
   readonly altKey: boolean;
@@ -145,7 +146,7 @@ export function decideSemanticGridKey<Row>({
     kind: "navigate",
     range:
       input.shiftKey && input.key.startsWith("Arrow")
-        ? { start: range?.start ?? anchor, end: target }
+        ? extendSemanticCellRange(model, anchor, range, target)
         : null,
     target,
     timelineMeasurement:

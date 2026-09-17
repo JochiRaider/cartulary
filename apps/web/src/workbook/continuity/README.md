@@ -22,3 +22,9 @@ inside private continuity/grid-adapter implementations.
 | --- | --- |
 | [gridViewportContinuity.test.ts](gridViewportContinuity.test.ts) | Tests for viewport capture, restoration, and visibility helpers. |
 | [workbookContinuityPort.test.ts](workbookContinuityPort.test.ts) | Tests for opaque capture tokens, stable semantic identities, one-shot restoration, and idempotent cleanup. |
+
+Pointer range gestures remain within Grid Adapter. Continuity does not retain
+another selection model or editor draft. Explicit focus commands replace a range
+when targeting a different endpoint; returning focus to the completed endpoint
+preserves its anchor for Shift+Arrow, copy and eligible fill. Current source-owned
+scope and membership determine whether deferred destinations remain available.

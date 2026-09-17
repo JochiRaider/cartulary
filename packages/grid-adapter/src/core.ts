@@ -216,6 +216,13 @@ export type GridViewportProps = PropsWithChildren<{
 }>;
 
 type SemanticDataGridBaseProps<Row> = {
+  /** Explicit adoption; scope changes invalidate selection without remounting editors. */
+  readonly cellRangeSelection?:
+    | {
+        readonly kind: "contiguous";
+        readonly scopeKey: string;
+      }
+    | undefined;
   readonly keyboardNavigation?: "region" | "spreadsheet" | undefined;
   readonly accessibleLabel?: string | undefined;
   readonly allowPasteCreateRows?: boolean | undefined;

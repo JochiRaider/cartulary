@@ -40,7 +40,10 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
-import { openGenericInspectorForRecord } from "./support/workbook/rowMutations";
+import {
+  activateCommittedGridCell,
+  openGenericInspectorForRecord,
+} from "./support/workbook/rowMutations";
 
 async function fixture(page: Page, view: string = hostsViewSchemaId) {
   const incident = await createIncident(
@@ -241,8 +244,7 @@ test("Inspector acknowledged refresh recovery preserves newer grid focus and nev
   const cell = page
     .getByTestId(id)
     .locator("xpath=ancestor::*[@role='gridcell'][1]");
-  await cell.dispatchEvent("mousedown", { button: 0 });
-  await cell.focus();
+  await activateCommittedGridCell(cell);
   release();
   const recovery = page.getByRole("button", {
     name: "Refresh saved change",

@@ -1017,6 +1017,36 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-timeline-range-selection",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.range_accessibility",
+            "module.timeline.browser.range_authority",
+            "module.timeline.browser.range_cancellation",
+            "module.timeline.browser.range_departure",
+            "module.timeline.browser.range_gestures",
+            "module.timeline.browser.range_live_membership",
+            "module.timeline.browser.range_presentation",
+            "module.timeline.browser.range_rejection_query",
+            "module.timeline.browser.range_scrolling"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-range-selection.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-timeline-related-evidence",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2406,6 +2436,36 @@
           ],
           "specs": [
             "apps/web/e2e/timeline-query.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-timeline-range-selection",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.range_accessibility",
+            "module.timeline.browser.range_authority",
+            "module.timeline.browser.range_cancellation",
+            "module.timeline.browser.range_departure",
+            "module.timeline.browser.range_gestures",
+            "module.timeline.browser.range_live_membership",
+            "module.timeline.browser.range_presentation",
+            "module.timeline.browser.range_rejection_query",
+            "module.timeline.browser.range_scrolling"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-range-selection.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

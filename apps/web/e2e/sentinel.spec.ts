@@ -99,6 +99,7 @@ import {
   selectReferenceCandidates,
 } from "./support/workbook/references";
 import {
+  activateCommittedGridCell,
   editGenericCell,
   openGenericInspectorForRecord,
   openTimelineInspector,
@@ -108,8 +109,7 @@ import { createSavedView } from "./support/workbook/savedViews";
 
 async function activateSemanticGridCell(content: Locator) {
   const cell = content.locator("xpath=ancestor::*[@role='gridcell'][1]");
-  await cell.dispatchEvent("mousedown", { button: 0 });
-  await cell.focus();
+  await activateCommittedGridCell(cell);
   return cell;
 }
 
@@ -380,8 +380,7 @@ test("groups paste conflicts and preserves selection continuity", async ({
   const pasteStartGridCell = pasteStartSummary.locator(
     "xpath=ancestor::*[@role='gridcell'][1]",
   );
-  await pasteStartGridCell.dispatchEvent("mousedown", { button: 0 });
-  await pasteStartGridCell.focus();
+  await activateCommittedGridCell(pasteStartGridCell);
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
   );

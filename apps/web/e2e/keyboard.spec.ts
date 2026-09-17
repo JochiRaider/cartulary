@@ -78,7 +78,10 @@ import {
   waitForViewRow,
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
-import { openTimelineInspector } from "./support/workbook/rowMutations";
+import {
+  activateCommittedGridCell,
+  openTimelineInspector,
+} from "./support/workbook/rowMutations";
 import {
   createSavedView,
   selectSavedView,
@@ -202,8 +205,7 @@ function semanticGridCell(content: Locator): Locator {
 
 async function activateSemanticGridCell(content: Locator): Promise<Locator> {
   const cell = semanticGridCell(content);
-  await cell.dispatchEvent("mousedown", { button: 0 });
-  await cell.focus();
+  await activateCommittedGridCell(cell);
   return cell;
 }
 
