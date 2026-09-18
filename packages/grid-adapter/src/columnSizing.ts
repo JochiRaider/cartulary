@@ -1,5 +1,9 @@
 import type { GridColumnMeasurement, GridColumnSizingPort } from "./core";
-import { elementCssScale, visibleGridViewport } from "./viewportGeometry";
+import {
+  elementCssScale,
+  gridColumnViewport,
+  visibleGridViewport,
+} from "./viewportGeometry";
 
 type SizingColumn = {
   readonly fieldKey: string;
@@ -58,7 +62,10 @@ export function createColumnSizingPort(
     const header = headerFor(root, fieldKey);
     if (
       !header ||
-      !intersects(header.getBoundingClientRect(), visibleGridViewport(root))
+      !intersects(
+        header.getBoundingClientRect(),
+        gridColumnViewport(root, header),
+      )
     )
       return "Scroll this column into view to fit it.";
     if (document.fonts?.status === "loading")
@@ -154,7 +161,7 @@ export function createColumnSizingPort(
             return;
           }
           const cells = nodesFor(root, fieldKey);
-          const bodyRect = visibleGridViewport(root);
+          const bodyRect = gridColumnViewport(root, header);
           const viewport = {
             ...bodyRect,
             top: Math.max(bodyRect.top, header.getBoundingClientRect().bottom),

@@ -10,7 +10,8 @@ import (
 	"sync"
 )
 
-const portableBundleVersion = 3
+const portableBundleVersion = 4
+const legacyPortableBundleVersion = 3
 
 var identifierPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
@@ -101,7 +102,7 @@ func canonicalDefinition() definition {
 				LogicalPath:               "data/indicators.ndjson",
 				ContentRole:               "source_rows",
 				SchemaID:                  "cartulary.incident_bundle.indicators.row.v1",
-				Versions:                  []int{portableBundleVersion},
+				Versions:                  []int{legacyPortableBundleVersion, portableBundleVersion},
 				StableIdentity:            []string{"record_id"},
 				StableIdentityInvariantID: "indicators.source_identity_admitted",
 			},
@@ -110,7 +111,7 @@ func canonicalDefinition() definition {
 				LogicalPath:               "data/indicator_observations.ndjson",
 				ContentRole:               "source_rows",
 				SchemaID:                  "cartulary.incident_bundle.indicator_observations.row.v1",
-				Versions:                  []int{portableBundleVersion},
+				Versions:                  []int{legacyPortableBundleVersion, portableBundleVersion},
 				StableIdentity:            []string{"indicator_observation_id"},
 				StableIdentityInvariantID: "indicators.source_identity_admitted",
 			},
@@ -119,7 +120,7 @@ func canonicalDefinition() definition {
 				LogicalPath:               "data/indicator_state_intervals.ndjson",
 				ContentRole:               "source_rows",
 				SchemaID:                  "cartulary.incident_bundle.indicator_state_intervals.row.v1",
-				Versions:                  []int{portableBundleVersion},
+				Versions:                  []int{legacyPortableBundleVersion, portableBundleVersion},
 				StableIdentity:            []string{"indicator_state_interval_id"},
 				StableIdentityInvariantID: "indicators.source_identity_admitted",
 			},
@@ -218,7 +219,7 @@ func validatePortabilityDescriptor(
 	if descriptor.ContentRole != "source_rows" {
 		return fmt.Errorf("indicators: portable path %s has invalid content role %q", descriptor.LogicalPath, descriptor.ContentRole)
 	}
-	if len(descriptor.Versions) != 1 || descriptor.Versions[0] != portableBundleVersion {
+	if !slices.Equal(descriptor.Versions, []int{legacyPortableBundleVersion, portableBundleVersion}) {
 		return fmt.Errorf("indicators: portable path %s has invalid bundle versions %v", descriptor.LogicalPath, descriptor.Versions)
 	}
 	if len(descriptor.StableIdentity) == 0 {

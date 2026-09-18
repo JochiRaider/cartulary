@@ -113,7 +113,7 @@ func authoredManifestInput() manifestInput {
 			logicalPath:               "data/incident.json",
 			contentRole:               "singleton_json",
 			schemaID:                  "cartulary.incident_bundle.incident.row.v1",
-			versions:                  []int{3},
+			versions:                  []int{3, 4},
 			stableIdentity:            []string{"id"},
 			stableIdentityInvariantID: "incident.source_identity_admitted",
 			columns:                   slices.Clone(expectedIncidentColumns),
@@ -135,7 +135,7 @@ func validateManifest(input manifestInput) (manifest, error) {
 	path := input.path
 	if path.logicalPath != "data/incident.json" || !safeLogicalPath(path.logicalPath) ||
 		path.contentRole != "singleton_json" || !safeSchemaID.MatchString(path.schemaID) ||
-		!slices.Equal(path.versions, []int{3}) || !slices.Equal(path.stableIdentity, []string{"id"}) ||
+		!slices.Equal(path.versions, []int{3, 4}) || !slices.Equal(path.stableIdentity, []string{"id"}) ||
 		path.stableIdentityInvariantID != expectedInvariants[0] {
 		return manifest{}, catalogError("source path, version, or schema generation drift")
 	}

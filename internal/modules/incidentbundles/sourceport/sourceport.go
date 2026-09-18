@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -303,7 +304,11 @@ func canonicalDescriptor(descriptor Descriptor) Descriptor {
 	descriptor.InvariantIDs = canonicalStrings(descriptor.InvariantIDs)
 	descriptor.Paths = append([]Path(nil), descriptor.Paths...)
 	sort.Slice(descriptor.Paths, func(i, j int) bool {
-		return descriptor.Paths[i].LogicalPath < descriptor.Paths[j].LogicalPath
+		left, right := descriptor.Paths[i], descriptor.Paths[j]
+		if left.LogicalPath != right.LogicalPath {
+			return left.LogicalPath < right.LogicalPath
+		}
+		return left.SchemaID < right.SchemaID
 	})
 	for index := range descriptor.Paths {
 		descriptor.Paths[index].Versions = canonicalInts(descriptor.Paths[index].Versions)
@@ -337,7 +342,8 @@ func validateDescriptor(descriptor Descriptor, allowedRelations map[string]struc
 			return fmt.Errorf("%w: family %s has unknown owner relation %s", ErrInvalidCatalog, descriptor.FamilyID, relationID)
 		}
 	}
-	seenPaths := map[string]struct{}{}
+	seenPaths := map[string]Path{}
+	seenVersions := map[string]map[int]struct{}{}
 	for _, path := range descriptor.Paths {
 		if strings.TrimSpace(path.LogicalPath) == "" || strings.TrimSpace(path.ContentRole) == "" ||
 			len(path.Versions) == 0 || len(path.StableIdentity) == 0 ||
@@ -347,13 +353,23 @@ func validateDescriptor(descriptor Descriptor, allowedRelations map[string]struc
 		if path.SchemaID != "" && !schemaIDPattern.MatchString(path.SchemaID) {
 			return fmt.Errorf("%w: invalid path schema id in %s", ErrInvalidCatalog, descriptor.FamilyID)
 		}
-		if _, duplicate := seenPaths[path.LogicalPath]; duplicate {
-			return fmt.Errorf("%w: duplicate path %s", ErrInvalidCatalog, path.LogicalPath)
+		if prior, exists := seenPaths[path.LogicalPath]; exists {
+			if prior.ContentRole != path.ContentRole || !slices.Equal(prior.StableIdentity, path.StableIdentity) || prior.StableIdentityInvariantID != path.StableIdentityInvariantID {
+				return fmt.Errorf("%w: inconsistent path identity %s", ErrInvalidCatalog, path.LogicalPath)
+			}
+		} else {
+			seenVersions[path.LogicalPath] = map[int]struct{}{}
+		}
+		for _, version := range path.Versions {
+			if _, duplicate := seenVersions[path.LogicalPath][version]; duplicate {
+				return fmt.Errorf("%w: duplicate path version %s", ErrInvalidCatalog, path.LogicalPath)
+			}
+			seenVersions[path.LogicalPath][version] = struct{}{}
 		}
 		if failure := descriptor.DeclaredFailure(path.StableIdentityInvariantID); errors.Is(failure, ErrInvalidCatalog) {
 			return failure
 		}
-		seenPaths[path.LogicalPath] = struct{}{}
+		seenPaths[path.LogicalPath] = path
 	}
 	for _, invariantID := range descriptor.InvariantIDs {
 		if !strings.HasPrefix(invariantID, descriptor.FamilyID+".") {

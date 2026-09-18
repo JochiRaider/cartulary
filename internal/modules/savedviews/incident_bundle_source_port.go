@@ -19,6 +19,10 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			LogicalPath: "data/saved_views.ndjson", ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.saved_views.row.v1",
 			Versions: []int{3}, StableIdentity: []string{"saved_view_id"}, StableIdentityInvariantID: "saved_views.source_identity_admitted",
+		}, {
+			LogicalPath: "data/saved_views.ndjson", ContentRole: "source_rows",
+			SchemaID: "cartulary.incident_bundle.saved_views.row.v2",
+			Versions: []int{4}, StableIdentity: []string{"saved_view_id"}, StableIdentityInvariantID: "saved_views.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"saved_views.row_shape_exact", "saved_views.identity_scope_legal", "saved_views.owner_tuple_legal",
@@ -69,9 +73,10 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 
 func savedViewPrivateImportContext(importContext sourceport.ImportContext) savedViewImportContext {
 	return savedViewImportContext{
-		IncidentID:   importContext.IncidentID,
-		ActorUserID:  importContext.ActorUserID,
-		Attributions: importContext.Attributions,
+		BundleVersion: importContext.BundleVersion,
+		IncidentID:    importContext.IncidentID,
+		ActorUserID:   importContext.ActorUserID,
+		Attributions:  importContext.Attributions,
 		ActorAdmitted: func(actorID string) bool {
 			_, ok := importContext.Actors.Lookup(actorID)
 			return ok

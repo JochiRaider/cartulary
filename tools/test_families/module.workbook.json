@@ -221,6 +221,47 @@
       ]
     },
     {
+      "row_id": "module.workbook.accessibility.frozen_column_correction",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-grid-autosave.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_frozen_column_correction",
+          "scenario_frozen_column_correction_zoom",
+          "scenario_scrollable_column_correction"
+        ],
+        "titles": [
+          "a11y.frozen-columns correction controls remain reachable beside adjacent frozen data",
+          "a11y.frozen-columns correction controls retain local CSS geometry at zoom two",
+          "a11y.frozen-columns scrollable correction controls remain beyond the data boundary"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.accessibility.grid_autosave",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -1709,6 +1750,78 @@
         ],
         "titles": [
           "Timeline Find searches committed loaded cells and reveals both virtualized axes without query or layout writes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.frozen_columns_layout",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "module.savedviews",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-column-sizing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_workbook_frozen_columns_layout"
+        ],
+        "titles": [
+          "Workbook frozen columns retain semantic placement saved bytes and drafts through suspension"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.frozen_columns_threshold",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "module.savedviews",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-column-sizing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_frozen_columns_threshold"
+        ],
+        "titles": [
+          "Workbook frozen prefixes reconcile hidden order all visible fields and exact viewport thresholds"
         ]
       },
       "evidence_class": "browser",

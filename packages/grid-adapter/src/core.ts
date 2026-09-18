@@ -232,6 +232,8 @@ type SemanticDataGridBaseProps<Row> = {
   readonly activeRowIdentity?: GridRowIdentity | null | undefined;
   readonly actionsColumn?: GridActionsColumn<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
+  /** Visible semantic leading prefix. Omission retains the consumer’s existing policy. */
+  readonly frozenDataColumnPrefix?: readonly string[] | undefined;
   readonly coreRecordBulkSelection?:
     | GridCoreRecordBulkSelection<Row>
     | undefined;
@@ -455,7 +457,22 @@ export type GridCellNavigationOptions = {
 
 export type GridCellNavigationResult = GridFocusResult | "rejected";
 
+export type GridFrozenColumnStatus =
+  | { readonly kind: "none"; readonly visibleCount: 0 }
+  | { readonly kind: "active"; readonly visibleCount: number }
+  | {
+      readonly kind: "suspended";
+      readonly visibleCount: number;
+      readonly reason: "geometry_unavailable" | "insufficient_space";
+    };
+
+export type GridFrozenColumnPort = {
+  readonly getSnapshot: () => GridFrozenColumnStatus;
+  readonly subscribe: (listener: () => void) => () => void;
+};
+
 export type GridHandle = {
+  readonly frozenColumns?: GridFrozenColumnPort | undefined;
   /** Capture current semantic membership without settling an editor or moving focus. */
   readonly captureClearIntent?: (delivery?: object) => GridClearIntent | null;
   /** Caller context composed with adapter-owned keyboard guidance. */

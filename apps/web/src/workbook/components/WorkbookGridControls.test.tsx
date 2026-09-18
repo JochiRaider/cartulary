@@ -38,6 +38,7 @@ describe("WorkbookGridControls", () => {
     const onRemoveFilter = vi.fn();
     render(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -92,6 +93,7 @@ describe("WorkbookGridControls", () => {
     const onRemoveFilter = vi.fn();
     render(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -243,6 +245,7 @@ describe("WorkbookGridControls", () => {
     };
     const { rerender } = render(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         {...common}
         surface={timelineSurface}
@@ -258,6 +261,7 @@ describe("WorkbookGridControls", () => {
 
     rerender(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         {...common}
         defaultFilterPopoverOpen={false}
@@ -275,6 +279,7 @@ describe("WorkbookGridControls", () => {
     const onFilterDraftChange = vi.fn();
     render(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -382,6 +387,7 @@ describe("WorkbookGridControls", () => {
     const onResetColumns = vi.fn();
     render(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -455,6 +461,7 @@ function StatefulGridControls() {
   );
   return (
     <WorkbookGridControls
+      freezing={controls.freezing}
       sizing={controls.sizing}
       contract={contract}
       filterDraft={filterDraft}

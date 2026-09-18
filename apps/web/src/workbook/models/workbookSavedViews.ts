@@ -69,17 +69,17 @@ export function normalizeSavedViewResource(
       ? record.saved_view_version
       : 0;
   const contract = requireViewContract(record.view_schema_id);
+  const layout = workbookLayoutStateFromSavedViewLayoutJson(
+    contract,
+    record.layout_json,
+  );
   if (
     version < 1 ||
     !isRecord(record.query_json) ||
-    !isRecord(record.layout_json) ||
+    layout === null ||
     !savedViewJSONEqual(
       record.query_json,
       savedViewQueryJsonForPersistence(contract, record.query_json),
-    ) ||
-    !savedViewJSONEqual(
-      record.layout_json,
-      savedViewLayoutJsonForPersistence(contract, record.layout_json),
     )
   )
     return null;
@@ -92,7 +92,7 @@ export function normalizeSavedViewResource(
     display_name: record.display_name,
     scope,
     query_json: structuredClone(record.query_json),
-    layout_json: structuredClone(record.layout_json),
+    layout_json: buildSavedViewLayoutJson(contract, layout),
     owner_user_id:
       typeof record.owner_user_id === "string" ? record.owner_user_id : null,
     saved_view_version: version,
@@ -159,8 +159,7 @@ export function savedViewLayoutJsonForPersistence(
   contract: ViewContract,
   value: unknown,
 ) {
-  return buildSavedViewLayoutJson(
-    contract,
-    workbookLayoutStateFromSavedViewLayoutJson(contract, value),
-  );
+  const layout = workbookLayoutStateFromSavedViewLayoutJson(contract, value);
+  if (layout === null) throw new Error("Invalid saved-view layout");
+  return buildSavedViewLayoutJson(contract, layout);
 }

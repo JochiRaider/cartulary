@@ -102,6 +102,41 @@ async function fixture(page: Page, view: string) {
   await page.goto(`/?incident_id=${incident}&view_schema_id=${view}`);
   await sockets.waitForAcceptedSocket();
   await expect(page.getByTestId(gridShellTestId(view))).toBeVisible();
+  await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
+  const columns = page.getByTestId(workbookColumnsMenuTestId(view));
+  const fields = requireViewContract(view).fields;
+  const boundaryField = requireViewContract(view).fieldMap[field];
+  if (!boundaryField) throw new Error("Missing freeze boundary fixture");
+  for (const entry of fields.slice(
+    0,
+    fields.findIndex((entry) => entry.fieldKey === field) + 1,
+  )) {
+    if (entry.fieldKey === "record_id" || entry.fieldKey === "row_version")
+      continue;
+    await columns
+      .getByRole("button", { name: `Width for ${entry.label}`, exact: true })
+      .click();
+    await columns
+      .getByRole("textbox", { name: "Width in CSS pixels" })
+      .fill(entry.fieldKey === field ? "220" : "40");
+    await columns
+      .getByRole("button", { name: "Apply width", exact: true })
+      .click();
+    await columns.getByRole("button", { name: "Cancel", exact: true }).click();
+  }
+  await columns
+    .getByRole("button", {
+      name: `Freeze through ${boundaryField.label}`,
+      exact: true,
+    })
+    .click();
+  await columns
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+    "data-grid-freeze-state",
+    "active",
+  );
   return { incident, view, field, row, other, sockets };
 }
 
@@ -974,7 +1009,9 @@ function correctionAccess({
   width,
   height,
   zoom,
+  frozenRegion,
 }: {
+  frozenRegion?: "frozen" | "scrollable";
   width: number;
   height: number;
   zoom: number;
@@ -982,6 +1019,47 @@ function correctionAccess({
   return async ({ page }: { page: Page }, info: TestInfo) => {
     const f = await fixture(page, evidenceViewSchemaId);
     const field = "evidence.requested_at";
+    if (frozenRegion) {
+      const menu = page.getByTestId(workbookColumnsMenuTestId(f.view));
+      await page.getByTestId(workbookColumnsMenuTriggerTestId(f.view)).click();
+      // Move title first, then requested ahead of it for the frozen-editor case.
+      for (const key of frozenRegion === "frozen"
+        ? ["evidence.title", field]
+        : ["evidence.title"]) {
+        const entry = requireViewContract(f.view).fieldMap[key];
+        if (!entry) throw new Error(`Missing correction field ${key}`);
+        const label = entry.label;
+        await menu.getByRole("checkbox", { name: label, exact: true }).check();
+        const earlier = menu.getByRole("button", {
+          name: `Move ${label} earlier`,
+          exact: true,
+        });
+        for (let i = 0; i < 40 && (await earlier.isEnabled()); i++)
+          await earlier.click();
+        await menu
+          .getByRole("button", { name: `Width for ${label}`, exact: true })
+          .click();
+        await menu
+          .getByRole("textbox", { name: "Width in CSS pixels" })
+          .fill(key === field ? "220" : "160");
+        await menu
+          .getByRole("button", { name: "Apply width", exact: true })
+          .click();
+        await menu.getByRole("button", { name: "Cancel", exact: true }).click();
+      }
+      const freeze = menu.getByRole("button", {
+        name: "Freeze through Title",
+        exact: true,
+      });
+      if (await freeze.isEnabled()) await freeze.click();
+      await menu
+        .getByRole("button", { name: "Close columns", exact: true })
+        .click();
+      await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+        "data-grid-freeze-state",
+        "active",
+      );
+    }
     const inputId = `grid-editor-${f.row.record_id}-${field}`;
     const samples: { stage: string; geometry: unknown }[] = [];
     const sample = async (stage: string, targetId = inputId) => {
@@ -1008,6 +1086,21 @@ function correctionAccess({
         sample("before-activation", rowCellTestId(f.row.record_id, field)),
       );
       await sample("mounted");
+      if (frozenRegion) {
+        const frozen = input.locator('xpath=ancestor::*[@role="gridcell"][1]');
+        if (frozenRegion === "frozen")
+          await expect(frozen).toHaveClass(/cartulary-grid-frozen-data/);
+        else {
+          await expect(frozen).not.toHaveClass(/cartulary-grid-frozen-data/);
+          const edge = await page
+            .locator('.cartulary-grid-frozen-data[role="columnheader"]')
+            .last()
+            .evaluate((node) => node.getBoundingClientRect().right);
+          const bounds = await input.boundingBox();
+          if (!bounds) throw new Error("Missing scrollable editor bounds");
+          expect(bounds.x).toBeGreaterThanOrEqual(edge);
+        }
+      }
       await input.dispatchEvent("compositionstart");
       await input.fill("  unfinished timestamp  ");
       await input.dispatchEvent("keydown", {
@@ -1956,3 +2049,32 @@ test("Existing reference closure role changes and access loss separate readable 
   await expect(page.getByTestId(authTestId("shell"))).toHaveCount(0);
   expect(writes).toBe(1);
 });
+
+test(
+  "a11y.frozen-columns correction controls remain reachable beside adjacent frozen data",
+  correctionAccess({
+    width: 1280,
+    height: 720,
+    zoom: 1,
+    frozenRegion: "frozen",
+  }),
+);
+test(
+  "a11y.frozen-columns scrollable correction controls remain beyond the data boundary",
+  correctionAccess({
+    width: 1280,
+    height: 720,
+    zoom: 1,
+    frozenRegion: "scrollable",
+  }),
+);
+
+test(
+  "a11y.frozen-columns correction controls retain local CSS geometry at zoom two",
+  correctionAccess({
+    width: 2048,
+    height: 1440,
+    zoom: 2,
+    frozenRegion: "frozen",
+  }),
+);

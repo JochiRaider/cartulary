@@ -25,6 +25,7 @@ export function useWorkbookColumnLayoutController({
   const id = activeContract.viewSchemaId;
   const commands = useMemo(
     () => ({
+      onFrozenBoundaryChange: (field: string | null) => owner.freeze(id, field),
       onColumnHiddenChange: (field: string, hidden: boolean) =>
         owner.hide(id, field, hidden),
       onColumnMove: (field: string, direction: "earlier" | "later") =>
@@ -54,6 +55,10 @@ export function useWorkbookColumnLayoutController({
       activeLayoutControls: {
         ...commands,
         layoutState: activeLayoutState,
+        freezing: {
+          status: owner.readFreezing(id),
+          onBoundaryChange: commands.onFrozenBoundaryChange,
+        },
         sizing: {
           read: commands.readColumnSizing,
           onIntent: commands.onColumnSizingIntent,

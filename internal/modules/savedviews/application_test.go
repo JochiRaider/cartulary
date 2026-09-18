@@ -2,7 +2,9 @@ package savedviews
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"testing"
 	"time"
 
@@ -17,14 +19,18 @@ func TestSavedViewApplicationOrderingAndNoOp_Unit(t *testing.T) {
 	incidentID := uuid.MustParse("00000000-0000-4000-8000-000000111103")
 	savedViewID := uuid.MustParse("00000000-0000-4000-8000-000000111104")
 	now := time.Date(2026, time.July, 29, 8, 30, 0, 0, time.UTC)
+	layout, layoutErr := viewschema.DefaultLayout("cartulary.view.timeline.v2")
+	if layoutErr != nil {
+		t.Fatal(layoutErr)
+	}
 	base := savedViewRecord{
 		SavedViewID:      savedViewID,
 		IncidentID:       incidentID,
-		ViewSchemaID:     "cartulary.view.timeline.v1",
+		ViewSchemaID:     "cartulary.view.timeline.v2",
 		Scope:            scopePrivate,
 		DisplayName:      "Current",
 		QueryJSON:        []byte(`{"filters":[],"sort":[]}`),
-		LayoutJSON:       []byte(`{"column_order":[]}`),
+		LayoutJSON:       layout,
 		OwnerUserID:      &actorUserID,
 		CreatedAt:        now.Add(-time.Hour),
 		UpdatedAt:        now.Add(-time.Minute),
@@ -93,6 +99,25 @@ func TestSavedViewApplicationOrderingAndNoOp_Unit(t *testing.T) {
 			t.Fatalf("no-op changed record: %#v", got)
 		}
 		assertSavedViewRepositoryEvents(t, repository.events, "lock")
+	})
+
+	t.Run("legacy and current equivalent patch has no write", func(t *testing.T) {
+		var legacy map[string]any
+		if err := json.Unmarshal(layout, &legacy); err != nil {
+			t.Fatal(err)
+		}
+		legacy["layout_schema_id"] = viewschema.LegacyLayoutSchemaID
+		delete(legacy, "frozen_through_field_key")
+		legacyBytes, _ := json.Marshal(legacy)
+		current := base
+		current.LayoutJSON = legacyBytes
+		next, changed, err := applyPatch(current, patchRequest{LayoutJSON: optionalJSON{Present: true, Value: layout}}, now)
+		if err != nil || changed || next.SavedViewVersion != current.SavedViewVersion || !next.UpdatedAt.Equal(current.UpdatedAt) {
+			t.Fatalf("legacy no-op changed: %+v / %v / %v", next, changed, err)
+		}
+		if string(current.LayoutJSON) != string(legacyBytes) {
+			t.Fatal("read mutated original bytes")
+		}
 	})
 
 	t.Run("changed patch updates exactly once", func(t *testing.T) {

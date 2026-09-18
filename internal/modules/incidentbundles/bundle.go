@@ -19,7 +19,7 @@ import (
 
 const (
 	bundleFormat              = "cartulary.incident_bundle"
-	bundleVersion             = 3
+	bundleVersion             = 4
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -345,7 +345,7 @@ func parseBundleVersion(manifestBytes []byte) (int, error) {
 		return 0, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	switch version {
-	case bundleVersion:
+	case 3, bundleVersion:
 		return version, nil
 	default:
 		return 0, &verificationError{ReasonCode: "unsupported_bundle_version"}
@@ -354,7 +354,7 @@ func parseBundleVersion(manifestBytes []byte) (int, error) {
 
 func requiredStructuredFilesForVersion(version int) ([]string, error) {
 	switch version {
-	case bundleVersion:
+	case 3, bundleVersion:
 		return requiredStructuredFilesV3, nil
 	default:
 		return nil, &verificationError{ReasonCode: "unsupported_bundle_version"}

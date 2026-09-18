@@ -113,10 +113,12 @@ export function savedViewConfigurationIsModified({
     contract,
     workbookQueryStateFromSavedViewQueryJson(contract, savedView.query_json),
   );
-  const savedLayoutJson = buildSavedViewLayoutJson(
+  const savedLayout = workbookLayoutStateFromSavedViewLayoutJson(
     contract,
-    workbookLayoutStateFromSavedViewLayoutJson(contract, savedView.layout_json),
+    savedView.layout_json,
   );
+  if (savedLayout === null) return true;
+  const savedLayoutJson = buildSavedViewLayoutJson(contract, savedLayout);
   return (
     stableJSONStringify(currentQueryJson) !==
       stableJSONStringify(savedQueryJson) ||

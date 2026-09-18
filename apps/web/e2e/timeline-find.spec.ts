@@ -140,6 +140,43 @@ async function seed(page: Page, count = 3) {
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
+  await page
+    .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+    .click();
+  const frozenColumns = page.getByTestId(
+    workbookColumnsMenuTestId(timelineViewSchemaId),
+  );
+  const fields = requireViewContract(timelineViewSchemaId).fields;
+  const boundary = fields.findIndex((field) => field.fieldKey === synopsis);
+  for (const field of fields.slice(0, boundary + 1)) {
+    if (field.fieldKey === "record_id" || field.fieldKey === "row_version")
+      continue;
+    await frozenColumns
+      .getByRole("button", { name: `Width for ${field.label}`, exact: true })
+      .click();
+    await frozenColumns
+      .getByRole("textbox", { name: "Width in CSS pixels" })
+      .fill(field.fieldKey === synopsis ? "220" : "40");
+    await frozenColumns
+      .getByRole("button", { name: "Apply width", exact: true })
+      .click();
+    await frozenColumns
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+  }
+  await frozenColumns
+    .getByRole("button", {
+      name: `Freeze through ${requireViewContract(timelineViewSchemaId).fieldMap[synopsis]?.label}`,
+      exact: true,
+    })
+    .click();
+  await frozenColumns
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+    "data-grid-freeze-state",
+    "active",
+  );
   await sortByHeader(page, timelineViewSchemaId, synopsis);
   await expect(cell(page, rows[0]?.record_id ?? "missing")).toBeVisible();
   return {
@@ -188,6 +225,34 @@ test("Timeline Find searches committed loaded cells and reveals both virtualized
 }) => {
   const f = await seed(page, 85);
   await showField(page, "Date Entered");
+  await showField(page, "Tags");
+  await page
+    .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+    .click();
+  const columns = page.getByTestId(
+    workbookColumnsMenuTestId(timelineViewSchemaId),
+  );
+  const later = columns.getByRole("button", {
+    name: "Move Date Entered later",
+    exact: true,
+  });
+  for (let i = 0; i < 40 && (await later.isEnabled()); i++) await later.click();
+  await columns
+    .getByRole("button", {
+      name: "Width for Data Source",
+      exact: true,
+    })
+    .click();
+  await columns
+    .getByRole("textbox", { name: "Width in CSS pixels" })
+    .fill("4096");
+  await columns
+    .getByRole("button", { name: "Apply width", exact: true })
+    .click();
+  await columns.getByRole("button", { name: "Cancel", exact: true }).click();
+  await columns
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
   const requests = observe(page, f.incident);
   await find(page, "needle", 86);
   await expect(grid(page).locator("[data-grid-record-id]")).not.toHaveCount(85);
@@ -205,20 +270,29 @@ test("Timeline Find searches committed loaded cells and reveals both virtualized
   await navigate(page);
   await expect(cell(page, f.last, raw)).toBeFocused();
   await expect(cell(page, f.last, raw)).toContainText("Far column target");
+  const frozenRight = await grid(page)
+    .locator('.cartulary-grid-frozen-data[role="columnheader"]')
+    .last()
+    .evaluate((node) => node.getBoundingClientRect().right);
+  const revealedBounds = await cell(page, f.last, raw).boundingBox();
+  if (!revealedBounds) throw new Error("Missing revealed Find cell");
+  expect(revealedBounds.x).toBeGreaterThanOrEqual(frozenRight);
   await expect(cell(page, f.last, raw)).toHaveAttribute(
     "aria-description",
     /Current Find match/,
   );
   await find(page, "needle", 86);
   await navigate(page, "Shift+Enter");
-  await expect(cell(page, f.rows[83]?.record_id ?? "missing")).toBeFocused();
-  await entry(page).click();
-  await navigate(page);
+  // Date Entered is now after Synopsis in the full semantic order. Previous
+  // therefore reaches this row's frozen Synopsis before wrapping to row one.
   await expect(cell(page, f.last)).toBeFocused();
   await entry(page).click();
   await navigate(page);
   await expect(cell(page, f.first)).toBeFocused();
   await expect(status(page)).toContainText("Wrapped to beginning.");
+  await entry(page).click();
+  await navigate(page);
+  await expect(cell(page, f.first, "timeline.data_source_text")).toBeFocused();
   expect(requests).toEqual([]);
 });
 

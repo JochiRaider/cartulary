@@ -55,6 +55,8 @@ function persistenceFields(changes: WorkbookSavedViewChanges) {
       : {
           layout_json: {
             layout_schema_id: changes.layoutJson.layout_schema_id,
+            frozen_through_field_key:
+              changes.layoutJson.frozen_through_field_key,
             column_order: [...changes.layoutJson.column_order],
             hidden_field_keys: [...changes.layoutJson.hidden_field_keys],
             column_widths: changes.layoutJson.column_widths.map((entry) => ({

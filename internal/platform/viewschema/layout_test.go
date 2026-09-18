@@ -10,10 +10,14 @@ func TestNormalizeLayoutAppendsMissingDefaultHiddenReadOnlyField(t *testing.T) {
 	layout := defaultLayoutMap(t, "cartulary.view.hosts.v1")
 	layout["column_order"] = removeStringValue(t, layout["column_order"], "host.reusable_identifiers")
 	layout["hidden_field_keys"] = removeStringValue(t, layout["hidden_field_keys"], "host.reusable_identifiers")
+	layout["frozen_through_field_key"] = "host.display_name"
 
 	normalized := normalizeLayoutMap(t, "cartulary.view.hosts.v1", layout)
 	columnOrder := stringSliceFromJSON(t, normalized["column_order"])
 	hiddenFieldKeys := stringSliceFromJSON(t, normalized["hidden_field_keys"])
+	if normalized["frozen_through_field_key"] != "host.display_name" {
+		t.Fatalf("field evolution changed the frozen boundary: %v", normalized)
+	}
 
 	if !slices.Contains(columnOrder, "host.reusable_identifiers") {
 		t.Fatalf("column_order must include evolved field, got %v", columnOrder)
@@ -112,4 +116,67 @@ func stringSliceFromJSON(t testing.TB, value any) []string {
 		result = append(result, fieldKey)
 	}
 	return result
+}
+
+func TestLayoutVersionCompatibilityAndFrozenBoundary_Unit(t *testing.T) {
+	const schema = "cartulary.view.hosts.v1"
+	t.Run("current round trip preserves hidden boundary and sparse widths", func(t *testing.T) {
+		layout := defaultLayoutMap(t, schema)
+		layout["frozen_through_field_key"] = "host.fqdn"
+		layout["column_widths"] = []any{map[string]any{"field_key": "host.fqdn", "width_px": 4096}}
+		first, err := normalizeLayout(t, schema, layout)
+		if err != nil {
+			t.Fatalf("current: %+v", err)
+		}
+		second, err := NormalizeLayout(first, schema)
+		if err != nil || string(first) != string(second) {
+			t.Fatalf("round trip changed: %s / %s / %+v", first, second, err)
+		}
+	})
+	t.Run("legacy conversion and original portable canonicality", func(t *testing.T) {
+		layout := defaultLayoutMap(t, schema)
+		delete(layout, "frozen_through_field_key")
+		layout["layout_schema_id"] = LegacyLayoutSchemaID
+		raw, _ := json.Marshal(layout)
+		legacy, err := NormalizeLegacyLayout(raw, schema)
+		if err != nil {
+			t.Fatalf("legacy: %+v", err)
+		}
+		normalized := normalizeLayoutMap(t, schema, layout)
+		if normalized["layout_schema_id"] != LayoutSchemaID || normalized["frozen_through_field_key"] != nil {
+			t.Fatal(normalized)
+		}
+		var original map[string]any
+		if json.Unmarshal(legacy, &original) != nil || original["layout_schema_id"] != LegacyLayoutSchemaID || len(original) != 4 {
+			t.Fatal(string(legacy))
+		}
+	})
+	for name, change := range map[string]func(map[string]any){
+		"unknown version":     func(m map[string]any) { m["layout_schema_id"] = "cartulary.layout.v99" },
+		"missing boundary":    func(m map[string]any) { delete(m, "frozen_through_field_key") },
+		"unknown boundary":    func(m map[string]any) { m["frozen_through_field_key"] = "host.unknown" },
+		"technical boundary":  func(m map[string]any) { m["frozen_through_field_key"] = "record_id" },
+		"non-string boundary": func(m map[string]any) { m["frozen_through_field_key"] = 1 },
+		"unknown member":      func(m map[string]any) { m["frozen_count"] = 1 },
+		"legacy extension":    func(m map[string]any) { m["layout_schema_id"] = LegacyLayoutSchemaID },
+		"duplicate order":     func(m map[string]any) { m["column_order"] = append(m["column_order"].([]any), "host.fqdn") },
+		"invalid width": func(m map[string]any) {
+			m["column_widths"] = []any{map[string]any{"field_key": "host.fqdn", "width_px": 4097}}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			layout := defaultLayoutMap(t, schema)
+			change(layout)
+			if _, err := normalizeLayout(t, schema, layout); err == nil {
+				t.Fatal("invalid layout accepted")
+			}
+		})
+	}
+	t.Run("duplicate JSON members", func(t *testing.T) {
+		raw, _ := DefaultLayout(schema)
+		duplicate := append([]byte(`{"frozen_through_field_key":null,`), raw[1:]...)
+		if _, err := NormalizeLayout(duplicate, schema); err == nil {
+			t.Fatal("duplicate JSON member accepted")
+		}
+	})
 }

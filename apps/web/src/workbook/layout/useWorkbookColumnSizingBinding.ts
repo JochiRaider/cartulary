@@ -17,23 +17,28 @@ export function useWorkbookColumnSizingBinding<Row>({
   latest.current = columns;
   const binding = useRef<{
     port: GridHandle["columnSizing"];
+    frozenColumns: GridHandle["frozenColumns"];
     bind: typeof commands.bindColumnSizing;
     dispose: () => void;
   } | null>(null);
   useLayoutEffect(() => {
     const port = gridHandleRef.current?.columnSizing;
+    const frozenColumns = gridHandleRef.current?.frozenColumns;
     if (
       binding.current !== null &&
       binding.current.port === port &&
+      binding.current.frozenColumns === frozenColumns &&
       binding.current.bind === commands.bindColumnSizing
     )
       return;
     binding.current?.dispose();
     binding.current = {
       port,
+      frozenColumns,
       bind: commands.bindColumnSizing,
       dispose: commands.bindColumnSizing({
         port,
+        frozenColumns,
         defaultWidth: (fieldKey) => {
           const width = latest.current.find(
             (column) => column.fieldKey === fieldKey,

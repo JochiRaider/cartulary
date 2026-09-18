@@ -8,6 +8,7 @@
     "maximum_scroll_px_per_second": 720,
     "maximum_frame_ms": 32
   },
+  "workbook_frozen_columns": { "minimum_scrollable_width_px": 240 },
   "workbook_column_sizing": {
     "minimum_width_px": 40,
     "maximum_width_px": 4096,

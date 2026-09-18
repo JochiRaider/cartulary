@@ -112,6 +112,9 @@ export function renderDesignPresentationTypeScript(document) {
       maximumScrollPxPerSecond: document.projection.grid_cell_range_selection.maximum_scroll_px_per_second,
       maximumFrameMs: document.projection.grid_cell_range_selection.maximum_frame_ms,
     },
+    workbookFrozenColumns: {
+      minimumScrollableWidthPx: document.projection.workbook_frozen_columns.minimum_scrollable_width_px,
+    },
     workbookColumnSizing: {
       minimumWidthPx: document.projection.workbook_column_sizing.minimum_width_px,
       maximumWidthPx: document.projection.workbook_column_sizing.maximum_width_px,

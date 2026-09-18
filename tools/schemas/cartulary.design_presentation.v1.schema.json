@@ -10,6 +10,7 @@
     "verification_id",
     "grid_cell_range_selection",
     "workbook_column_sizing",
+    "workbook_frozen_columns",
     "workbook_find",
     "presence",
     "initial_loading",
@@ -32,6 +33,7 @@
         "maximum_frame_ms": { "const": 32 }
       }
     },
+    "workbook_frozen_columns": { "type": "object", "additionalProperties": false, "required": ["minimum_scrollable_width_px"], "properties": { "minimum_scrollable_width_px": { "const": 240 } } },
     "workbook_column_sizing": {
       "type": "object",
       "additionalProperties": false,

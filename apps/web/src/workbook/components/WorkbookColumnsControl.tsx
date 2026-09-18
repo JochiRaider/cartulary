@@ -3,7 +3,10 @@ import {
   workbookColumnsMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { WorkbookColumnSizingControls } from "../layout/WorkbookColumnLayoutController";
+import type {
+  WorkbookColumnSizingControls,
+  WorkbookFrozenColumnControls,
+} from "../layout/WorkbookColumnLayoutController";
 import {
   parseWorkbookColumnWidth,
   workbookColumnSizing,
@@ -26,6 +29,7 @@ export function WorkbookColumnsControl({
   onToggle,
   projection,
   sizing,
+  freezing,
   surface,
 }: {
   readonly isOpen: boolean;
@@ -34,6 +38,7 @@ export function WorkbookColumnsControl({
   readonly onToggle: () => void;
   readonly projection: WorkbookGridQueryControlProjection;
   readonly sizing: WorkbookColumnSizingControls;
+  readonly freezing: WorkbookFrozenColumnControls;
   readonly surface: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -90,6 +95,23 @@ export function WorkbookColumnsControl({
   const selected = projection.columns.find(
     (column) => column.fieldKey === field,
   );
+  const boundaryIndex = projection.columns.findIndex(
+    (column) => column.fieldKey === projection.frozenThroughFieldKey,
+  );
+  const boundary = projection.columns[boundaryIndex];
+  const visibleCount = projection.columns
+    .slice(0, boundaryIndex + 1)
+    .filter((column) => !column.hidden).length;
+  const freezeMessage = boundary
+    ? `Freeze through ${boundary.label}${boundary.hidden ? " (hidden)" : ""}. ${visibleCount} visible data ${visibleCount === 1 ? "column" : "columns"}.` +
+      (visibleCount === 0
+        ? " Show a column in this prefix to freeze it."
+        : freezing.status?.kind === "suspended"
+          ? freezing.status.reason === "insufficient_space"
+            ? " Freezing paused: more scrollable space is needed."
+            : " Freezing paused while grid geometry is unavailable."
+          : "")
+    : "";
   return (
     <div
       ref={root}
@@ -102,6 +124,7 @@ export function WorkbookColumnsControl({
         aria-controls={isOpen ? workbookColumnsMenuTestId(surface) : undefined}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
+        title={freezeMessage || undefined}
         data-testid={workbookColumnsMenuTriggerTestId(surface)}
         type="button"
         onClick={() => {
@@ -143,6 +166,11 @@ export function WorkbookColumnsControl({
             else close();
           }}
         >
+          {freezeMessage ? (
+            <p>{freezeMessage}</p>
+          ) : (
+            <p>No frozen data columns.</p>
+          )}
           {(sizing.notice ?? notice) ? (
             <p aria-hidden="true">{sizing.notice ?? notice}</p>
           ) : null}
@@ -218,15 +246,48 @@ export function WorkbookColumnsControl({
                   >
                     Width
                   </button>
+                  <button
+                    style={{
+                      ...controlButtonStyle,
+                      gridColumn: "1 / -1",
+                      justifySelf: "start",
+                    }}
+                    type="button"
+                    aria-label={`Freeze through ${column.label}`}
+                    disabled={
+                      projection.frozenThroughFieldKey === column.fieldKey
+                    }
+                    onClick={() =>
+                      onCommand({
+                        kind: "columns_freeze",
+                        fieldKey: column.fieldKey,
+                      })
+                    }
+                  >
+                    Freeze through this column
+                  </button>
                 </div>
               ))}
               <div style={actionsStyle}>
                 <button
                   style={controlButtonStyle}
                   type="button"
+                  disabled={!boundary}
+                  onClick={() => {
+                    onCommand({ kind: "columns_freeze", fieldKey: null });
+                    setNotice("Columns unfrozen.");
+                  }}
+                >
+                  Unfreeze columns
+                </button>
+                <button
+                  style={controlButtonStyle}
+                  type="button"
                   onClick={() => {
                     onCommand({ kind: "columns_reset" });
-                    setNotice("Column order, visibility and widths reset.");
+                    setNotice(
+                      "Column order, visibility, widths and freezing reset.",
+                    );
                   }}
                 >
                   Reset columns
@@ -244,7 +305,7 @@ export function WorkbookColumnsControl({
         </div>
       ) : null}
       <span role="status" style={statusStyle}>
-        {sizing.notice ?? notice}
+        {[freezeMessage, sizing.notice ?? notice].filter(Boolean).join(" ")}
       </span>
     </div>
   );

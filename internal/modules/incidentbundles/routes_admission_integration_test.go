@@ -250,6 +250,15 @@ VALUES ($1, 'export', $2, $3, $4, $5, $5)
 	if countRows(t, second.DB, `SELECT count(*) FROM extension_job_commit_proofs WHERE job_id = $1`, jobID) != 1 {
 		t.Fatal("named recovery produced missing or duplicate terminal commit proofs")
 	}
+	storageRef := stringScalar(t, second.DB, `SELECT bundle_storage_ref FROM incident_bundle_exports WHERE export_job_id=$1`, jobID)
+	artifact, readErr := os.ReadFile(exportedBundleTestPath(t, second.Server, storageRef))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	var manifest incidentBundleManifestMirror
+	if err := json.Unmarshal(zipMemberBytes(t, artifact, "manifest.json"), &manifest); err != nil || manifest.BundleVersion != 4 {
+		t.Fatalf("previously queued export did not generate v4: version=%d err=%v", manifest.BundleVersion, err)
+	}
 }
 
 func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testing.T) {
@@ -527,6 +536,13 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if got := stringScalar(t, targetHarness.DB, `SELECT risk_ref_text FROM handoff_risk_refs WHERE handoff_record_id = $1`, seededState.HandoffArtifactRecordID); got != "Portable Risk" {
 		t.Fatalf("imported handoff risk ref changed: got %q", got)
 	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT layout_json->>'frozen_through_field_key' FROM saved_views WHERE saved_view_id=$1`, seededState.SavedViewID); got != "timeline.activity_synopsis_text" {
+		t.Fatalf("v4 import lost frozen configuration: %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT layout_json->>'layout_schema_id' FROM saved_views WHERE saved_view_id=$1`, seededState.SavedViewID); got != "cartulary.layout.v2" {
+		t.Fatalf("import persisted old layout: %q", got)
+	}
+
 	if got := stringScalar(t, targetHarness.DB, `SELECT display_name FROM saved_views WHERE saved_view_id = $1 AND owner_user_id = $2`, seededState.SavedViewID, targetAdminID); got != "Portable saved view" {
 		t.Fatalf("imported saved view owner/display changed: got %q", got)
 	}

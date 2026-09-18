@@ -10,6 +10,7 @@ import {
 } from "../models/workbookQuery";
 
 export type WorkbookResolvedLayoutState = {
+  readonly frozenThroughFieldKey: string | null;
   readonly columnOrder: readonly string[];
   readonly columnWidths: Readonly<Record<string, number>>;
   readonly hiddenFieldKeys: readonly string[];
@@ -22,6 +23,7 @@ export function resolveWorkbookLayoutState(
   const normalized = buildSavedViewLayoutJson(contract, state);
   return {
     columnOrder: normalized.column_order,
+    frozenThroughFieldKey: normalized.frozen_through_field_key,
     columnWidths: Object.fromEntries(
       normalized.column_widths.map((entry) => [
         entry.field_key,
@@ -182,4 +184,17 @@ export function restoreWorkbookColumnDefault(
   const widths = { ...current.columnWidths };
   delete widths[fieldKey];
   return { ...current, columnWidths: widths };
+}
+
+/** Resolve the boundary against the complete semantic order, including hidden fields. */
+export function workbookFrozenDataColumnPrefix(
+  state: WorkbookResolvedLayoutState,
+): readonly string[] {
+  const end =
+    state.frozenThroughFieldKey === null
+      ? -1
+      : state.columnOrder.indexOf(state.frozenThroughFieldKey);
+  return state.columnOrder
+    .slice(0, end + 1)
+    .filter((field) => !state.hiddenFieldKeys.includes(field));
 }

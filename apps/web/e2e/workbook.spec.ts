@@ -109,6 +109,7 @@ test("saved-view route foundation persists canonical state while browser lifecyc
       layout_json: {
         column_widths: unknown[];
         layout_schema_id: string;
+        frozen_through_field_key: string | null;
       };
       query_json: {
         filters: unknown[];
@@ -124,9 +125,10 @@ test("saved-view route foundation persists canonical state while browser lifecyc
   expect(createBody.data.query_json.sort).toEqual([]);
   expect(createBody.data.query_json.filters).toEqual([]);
   expect(createBody.data.layout_json.layout_schema_id).toBe(
-    "cartulary.layout.v1",
+    "cartulary.layout.v2",
   );
   expect(createBody.data.layout_json.column_widths).toEqual([]);
+  expect(createBody.data.layout_json.frozen_through_field_key).toBeNull();
 
   const listAfter = await page.request.get(
     `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
@@ -832,7 +834,8 @@ async function verifySavedViewPersistenceReplay(
       ],
     },
     layout_json: {
-      layout_schema_id: "cartulary.layout.v1",
+      layout_schema_id: "cartulary.layout.v2",
+      frozen_through_field_key: null,
     },
   });
   const savedView = (

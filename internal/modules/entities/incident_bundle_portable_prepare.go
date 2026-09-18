@@ -17,7 +17,7 @@ func prepareEntityImport(bundle sourceport.Bundle, importContext sourceport.Impo
 		bundleVersion: importContext.BundleVersion, contractMajor: sourceport.ContractMajor,
 	}}
 	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil ||
-		importContext.ActorUserID == uuid.Nil || importContext.BundleVersion != 3 {
+		importContext.ActorUserID == uuid.Nil || (importContext.BundleVersion != 3 && importContext.BundleVersion != 4) {
 		return preparedEntityImport{}, entitySourceFailure(entitySourceIdentity)
 	}
 

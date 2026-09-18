@@ -47,6 +47,8 @@ export type {
   GridFillIntent,
   GridFocusResult,
   GridFocusTarget,
+  GridFrozenColumnPort,
+  GridFrozenColumnStatus,
   GridGroupingDescriptor,
   GridGroupingScalar,
   GridHandle,

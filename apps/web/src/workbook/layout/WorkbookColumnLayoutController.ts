@@ -1,6 +1,8 @@
 import type {
   GridColumnSizingIntent,
   GridColumnSizingPort,
+  GridFrozenColumnPort,
+  GridFrozenColumnStatus,
 } from "@cartulary/grid-adapter";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { isWorkbookColumnWidth } from "../models/workbookColumnSizing";
@@ -18,6 +20,7 @@ import {
 } from "./workbookColumnLayout";
 
 export type WorkbookColumnSizingBinding = {
+  readonly frozenColumns?: GridFrozenColumnPort | undefined;
   readonly defaultWidth: (fieldKey: string) => number | undefined;
   readonly port: GridColumnSizingPort | undefined;
 };
@@ -34,6 +37,11 @@ export type WorkbookColumnSizingControls = {
   readonly cancel: () => void;
   readonly pendingField: string | null;
   readonly notice: string | null;
+};
+
+export type WorkbookFrozenColumnControls = {
+  readonly status: GridFrozenColumnStatus | null;
+  readonly onBoundaryChange: (field: string | null) => void;
 };
 
 /** The single working-layout store; bindings contain capabilities/defaults only. */
@@ -101,6 +109,19 @@ export class WorkbookColumnLayoutController {
     );
     this.publish({ notice: null });
   }
+  freeze = (id: string, field: string | null) => {
+    if (
+      field !== null &&
+      !this.currentLayoutStateForSurface(id).columnOrder.includes(field)
+    )
+      return;
+    this.update(id, (_c, state) => ({
+      ...state,
+      frozenThroughFieldKey: field,
+    }));
+  };
+  readFreezing = (id: string) =>
+    this.bindings.get(id)?.frozenColumns?.getSnapshot() ?? null;
   hide = (id: string, field: string, hidden: boolean) =>
     this.update(id, (c, s) => setWorkbookColumnHidden(c, s, field, hidden));
   move = (id: string, field: string, direction: "earlier" | "later") =>
@@ -132,9 +153,13 @@ export class WorkbookColumnLayoutController {
     this.cancel();
     this.bindings.set(id, binding);
     const unsubscribe = binding.port?.subscribe(() => this.publish());
+    const unsubscribeFreezing = binding.frozenColumns?.subscribe(() =>
+      this.publish(),
+    );
     this.publish();
     return () => {
       unsubscribe?.();
+      unsubscribeFreezing?.();
       if (this.bindings.get(id) !== binding) return;
       this.cancel();
       this.bindings.delete(id);

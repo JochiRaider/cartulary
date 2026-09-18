@@ -1542,6 +1542,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.frozen_column_layout",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/layout/WorkbookColumnLayoutController.test.ts",
+        "titles": [
+          "Workbook frozen layout preserves semantic boundaries through hidden reorder replacement and reset"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.generic_mutation_controls",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

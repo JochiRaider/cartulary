@@ -38,7 +38,10 @@ import {
   WorkbookSurfaceLayout,
   workbookSurfaceGridShellStyle,
 } from "../layout/WorkbookSurfaceLayout";
-import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
+import {
+  applyWorkbookLayoutToColumns,
+  workbookFrozenDataColumnPrefix,
+} from "../layout/workbookColumnLayout";
 import { assessmentColumnWidth } from "../models/assessmentWorkbookModel";
 import {
   genericCellLabel,
@@ -414,6 +417,7 @@ export function AssessmentWorkbookSurface({
           testId={gridShellTestId(assessmentsViewSchemaId)}
         >
           <SemanticDataGrid
+            frozenDataColumnPrefix={workbookFrozenDataColumnPrefix(layoutState)}
             rowGutter={workbookPresenceRowGutter}
             ref={registerGridHandle}
             activeRowIdentity={

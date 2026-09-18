@@ -1,57 +1,14 @@
-import { elementCssScale, visibleGridViewport } from "./viewportGeometry";
+import {
+  gridRevealDelta as editorRevealDelta,
+  elementCssScale,
+  gridContentViewport,
+  isFrozenDataCell,
+} from "./viewportGeometry";
 
-/** Minimal translation; an oversized target already spanning the viewport stays put. */
-export function editorRevealDelta(
-  start: number,
-  end: number,
-  low: number,
-  high: number,
-) {
-  if (
-    high <= low ||
-    (start >= low && end <= high) ||
-    (start <= low && end >= high)
-  )
-    return 0;
-  if (end - start > high - low) return start > low ? start - low : end - high;
-  return start < low ? start - low : end - high;
-}
+export { gridRevealDelta as editorRevealDelta } from "./viewportGeometry";
 
-function editorViewport(root: HTMLElement, target: HTMLElement) {
-  const bounds = visibleGridViewport(root);
-  for (const header of root.querySelectorAll<HTMLElement>(
-    '[role="columnheader"]',
-  )) {
-    const rect = header.getBoundingClientRect();
-    bounds.top = Math.max(bounds.top, Math.min(bounds.bottom, rect.bottom));
-    // Frozen columns are private vendor geometry, never source-owner policy.
-    const style = getComputedStyle(header);
-    if (
-      style.position !== "sticky" ||
-      style.insetInlineStart === "auto" ||
-      style.insetInlineStart === ""
-    )
-      continue;
-    if (
-      header.getAttribute("aria-colindex") ===
-      target.closest('[role="gridcell"]')?.getAttribute("aria-colindex")
-    )
-      continue;
-    if (getComputedStyle(root).direction === "rtl")
-      bounds.right = Math.min(bounds.right, rect.left);
-    else bounds.left = Math.max(bounds.left, rect.right);
-  }
-  for (const draftCell of root.querySelectorAll<HTMLElement>(
-    '[data-cartulary-grid-draft-row="true"] [role="gridcell"]',
-  )) {
-    if (getComputedStyle(draftCell).position !== "sticky") continue;
-    bounds.bottom = Math.min(
-      bounds.bottom,
-      draftCell.getBoundingClientRect().top,
-    );
-  }
-  return bounds;
-}
+const editorViewport = (root: HTMLElement, target: HTMLElement) =>
+  gridContentViewport(root, target, true);
 
 function positionToolbar(
   root: HTMLElement,
@@ -119,13 +76,14 @@ export function revealGridEditorTarget(
       rect.width + ring * 2 <= bounds.right - bounds.left ? ring : 0;
     const verticalRing =
       rect.height + ring * 2 <= bounds.bottom - bounds.top ? ring : 0;
-    const dx =
-      editorRevealDelta(
-        rect.left - horizontalRing,
-        rect.right + horizontalRing,
-        bounds.left,
-        bounds.right,
-      ) / scale;
+    const dx = isFrozenDataCell(target)
+      ? 0
+      : editorRevealDelta(
+          rect.left - horizontalRing,
+          rect.right + horizontalRing,
+          bounds.left,
+          bounds.right,
+        ) / scale;
     const dy =
       editorRevealDelta(
         rect.top - verticalRing,

@@ -428,6 +428,7 @@ export function TimelineWorkbookRuntimeFixture({
                     onColumnSizingIntent: columnControls.onColumnSizingIntent,
                     bindColumnSizing: columnControls.bindColumnSizing,
                     sizing: columnControls.sizing,
+                    freezing: columnControls.freezing,
                     onResetColumns:
                       onResetColumns ?? columnControls.onResetColumns,
                   },

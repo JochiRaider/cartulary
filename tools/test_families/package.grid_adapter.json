@@ -832,6 +832,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.grid_adapter.regression.frozen_column_placement",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/editorReveal.test.ts",
+        "titles": [
+          "frozen data placement admits only complete prefixes at the measured CSS pixel budget"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.grid_adapter.regression.index_suite_d804ef9789",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -78,7 +79,7 @@ func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) 
 	assessmentPath := assessmentDescriptor.Paths[0]
 	if assessmentPath.LogicalPath != "data/compromise_assessments.ndjson" ||
 		assessmentPath.ContentRole != "source_rows" ||
-		!slices.Equal(assessmentPath.Versions, []int{3}) ||
+		!slices.Equal(assessmentPath.Versions, []int{3, 4}) ||
 		!slices.Equal(assessmentPath.StableIdentity, []string{"record_id"}) ||
 		assessmentPath.StableIdentityInvariantID != "assessments.source_identity_admitted" {
 		t.Fatalf("assessment source path drifted: %#v", assessmentPath)
@@ -137,6 +138,38 @@ func TestSourcePortCatalogRejectsInvalidDescriptors_Unit(t *testing.T) {
 			}
 		})
 	}
+	t.Run("version-disjoint path grammars", func(t *testing.T) {
+		path := sourceport.Path{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.fixture.row.v1", Versions: []int{3}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.source_identity_admitted"}
+		current := path
+		current.SchemaID = "cartulary.fixture.row.v2"
+		current.Versions = []int{4}
+		for _, tc := range []struct {
+			name  string
+			paths []sourceport.Path
+			valid bool
+		}{
+			{"disjoint", []sourceport.Path{path, current}, true},
+			{"overlap", []sourceport.Path{path, path, current}, false},
+			{"duplicate version", []sourceport.Path{func() sourceport.Path { p := path; p.Versions = []int{3, 3, 4}; return p }()}, false},
+			{"changed identity", []sourceport.Path{path, func() sourceport.Path { p := current; p.StableIdentity = []string{"other"}; return p }()}, false},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := sourceport.NewCatalog(sourceport.CatalogOptions{
+					Ports: []sourceport.Port{sourceport.NewAdapter(sourceport.AdapterOptions{Descriptor: sourceport.Descriptor{FamilyID: "fixture", ContractMajor: sourceport.ContractMajor, OwnerID: "module.fixture", OwnerRelationIDs: []string{"owner"}, Paths: tc.paths, InvariantIDs: []string{"fixture.source_identity_admitted"}},
+						Export:   func(context.Context, sourceport.ExportContext) ([]incidentportability.File, error) { return nil, nil },
+						Prepare:  func(context.Context, sourceport.Bundle, sourceport.ImportContext) (any, error) { return nil, nil },
+						Apply:    func(context.Context, pgx.Tx, any, sourceport.ImportContext) error { return nil },
+						Validate: func(context.Context, pgx.Tx, any, sourceport.ImportContext) error { return nil },
+					})},
+					RequiredPathsByVersion: map[int][]string{3: {path.LogicalPath}, 4: {path.LogicalPath}}, AllowedRelationIDs: map[string]struct{}{"owner": {}},
+				})
+				if (err == nil) != tc.valid {
+					t.Fatalf("valid=%v error=%v", tc.valid, err)
+				}
+			})
+		}
+	})
+
 	t.Run("path identity selection and unknown path", assertSourcePathIdentityFailuresAreOrderIndependentAndUnknownPathsFailClosed)
 }
 
@@ -317,8 +350,18 @@ func assertAuthoredSourceCatalogV4(t *testing.T) {
 			t.Fatalf("authored family %q does not declare %q", family.FamilyID, invariantID)
 		}
 		for _, path := range family.Paths {
-			if !slices.Equal(path.Versions, []int{3}) {
-				t.Fatalf("authored path %q versions = %#v, want [3]", path.LogicalPath, path.Versions)
+			expectedVersions := []int{3, 4}
+			if family.FamilyID == "saved_views" {
+				if path.SchemaID == "cartulary.incident_bundle.saved_views.row.v1" {
+					expectedVersions = []int{3}
+				} else if path.SchemaID == "cartulary.incident_bundle.saved_views.row.v2" {
+					expectedVersions = []int{4}
+				} else {
+					t.Fatal("unknown saved view row schema")
+				}
+			}
+			if !slices.Equal(path.Versions, expectedVersions) {
+				t.Fatalf("authored path %q versions = %#v, want %v", path.LogicalPath, path.Versions, expectedVersions)
 			}
 			if path.StableIdentityInvariantID != invariantID {
 				t.Fatalf("authored path %q invariant = %q, want %q", path.LogicalPath, path.StableIdentityInvariantID, invariantID)
@@ -329,7 +372,7 @@ func assertAuthoredSourceCatalogV4(t *testing.T) {
 		t.Fatalf("authored special consumers = %d, want 3", len(authored.SpecialConsumers))
 	}
 	for _, consumer := range authored.SpecialConsumers {
-		if !slices.Equal(consumer.Versions, []int{3}) {
+		if !slices.Equal(consumer.Versions, []int{3, 4}) {
 			t.Fatalf("authored special consumer %q versions = %#v, want [3]", consumer.FamilyID, consumer.Versions)
 		}
 	}
@@ -428,35 +471,37 @@ func assertSavedViewsCatalogProjection(t *testing.T, descriptors []sourceport.De
 			break
 		}
 	}
-	if projection.FamilyID == "" || len(projection.Paths) != 1 || len(runtime.Paths) != 1 {
-		t.Fatal("authored and runtime saved_views catalogs must each expose one path")
+	if projection.FamilyID == "" || len(projection.Paths) != 2 || len(runtime.Paths) != 2 {
+		t.Fatal("authored and runtime saved_views catalogs must each expose two version-disjoint paths")
 	}
-	authoredPath := projection.Paths[0]
-	runtimePath := runtime.Paths[0]
-	if authoredPath.LogicalPath != runtimePath.LogicalPath ||
-		authoredPath.ContentRole != runtimePath.ContentRole ||
-		authoredPath.SchemaID != runtimePath.SchemaID ||
-		authoredPath.StableIdentityInvariantID != runtimePath.StableIdentityInvariantID ||
-		!slices.Equal(authoredPath.Versions, runtimePath.Versions) ||
-		!slices.Equal(authoredPath.StableIdentity, runtimePath.StableIdentity) {
-		t.Fatalf("saved_views path projection drift:\nauthored=%#v\nruntime=%#v", authoredPath, runtimePath)
-	}
-	authoredInvariants := append([]string(nil), projection.InvariantIDs...)
-	slices.Sort(authoredInvariants)
-	if !slices.Equal(authoredInvariants, runtime.InvariantIDs) {
-		t.Fatalf("saved_views invariant projection drift:\nauthored=%#v\nruntime=%#v", authoredInvariants, runtime.InvariantIDs)
-	}
+	for index := range runtime.Paths {
+		authoredPath := projection.Paths[index]
+		runtimePath := runtime.Paths[index]
+		if authoredPath.LogicalPath != runtimePath.LogicalPath ||
+			authoredPath.ContentRole != runtimePath.ContentRole ||
+			authoredPath.SchemaID != runtimePath.SchemaID ||
+			authoredPath.StableIdentityInvariantID != runtimePath.StableIdentityInvariantID ||
+			!slices.Equal(authoredPath.Versions, runtimePath.Versions) ||
+			!slices.Equal(authoredPath.StableIdentity, runtimePath.StableIdentity) {
+			t.Fatalf("saved_views path projection drift:\nauthored=%#v\nruntime=%#v", authoredPath, runtimePath)
+		}
+		authoredInvariants := append([]string(nil), projection.InvariantIDs...)
+		slices.Sort(authoredInvariants)
+		if !slices.Equal(authoredInvariants, runtime.InvariantIDs) {
+			t.Fatalf("saved_views invariant projection drift:\nauthored=%#v\nruntime=%#v", authoredInvariants, runtime.InvariantIDs)
+		}
 
-	var rowSchema rowSchemaProjection
-	readContractJSON(t, "saved_views.row.v1.schema.json", &rowSchema)
-	required := []string{
-		"saved_view_id", "incident_id", "view_schema_id", "scope", "display_name",
-		"query_json", "layout_json", "owner_user_id", "created_at", "updated_at",
-		"saved_view_version",
-	}
-	if rowSchema.ID != runtimePath.SchemaID || rowSchema.Type != "object" ||
-		rowSchema.AdditionalProperties || !slices.Equal(rowSchema.Required, required) {
-		t.Fatalf("saved_views row schema is not the exact closed runtime projection: %#v", rowSchema)
+		var rowSchema rowSchemaProjection
+		readContractJSON(t, fmt.Sprintf("saved_views.row.v%d.schema.json", index+1), &rowSchema)
+		required := []string{
+			"saved_view_id", "incident_id", "view_schema_id", "scope", "display_name",
+			"query_json", "layout_json", "owner_user_id", "created_at", "updated_at",
+			"saved_view_version",
+		}
+		if rowSchema.ID != runtimePath.SchemaID || rowSchema.Type != "object" ||
+			rowSchema.AdditionalProperties || !slices.Equal(rowSchema.Required, required) {
+			t.Fatalf("saved_views row schema is not the exact closed runtime projection: %#v", rowSchema)
+		}
 	}
 }
 

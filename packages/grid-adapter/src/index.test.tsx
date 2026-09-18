@@ -3267,6 +3267,23 @@ describe("grid-adapter", () => {
     );
     expect(grid).toBeTruthy();
     expect(screen.getAllByText("record-1").length).toBeGreaterThan(0);
+    expect(grid?.getAttribute("data-grid-freeze-state")).toBe("none");
+    for (const prefix of [
+      ["state"],
+      ["label", "label"],
+      ["label", "unknown"],
+    ]) {
+      expect(() =>
+        render(
+          <SemanticDataGrid
+            surface={testSurface}
+            columns={sizedColumns}
+            dataRows={rows}
+            frozenDataColumnPrefix={prefix}
+          />,
+        ),
+      ).toThrow("contiguous leading semantic prefix");
+    }
   });
 
   it("selects density token variables explicitly for every supported mode", async () => {

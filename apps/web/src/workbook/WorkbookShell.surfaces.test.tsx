@@ -102,6 +102,7 @@ import { buildGenericCreateRequest } from "./features/generic/genericCreateReque
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
 import type { NoteTransport } from "./features/notes/noteCreateOperation";
 import { buildGenericPatchChange } from "./models/genericWorkbookModel";
+import { buildSavedViewLayoutJson } from "./models/workbookQuery";
 import {
   savedViewJSONEqual,
   savedViewLayoutJsonForPersistence,
@@ -376,7 +377,8 @@ function testSavedViewResource(
     ...overrides,
     layout_json: savedViewLayoutJsonForPersistence(
       requireViewContract(overrides.view_schema_id),
-      overrides.layout_json ?? {},
+      overrides.layout_json ??
+        buildSavedViewLayoutJson(requireViewContract(overrides.view_schema_id)),
     ),
   };
 }
@@ -2550,17 +2552,19 @@ describe("WorkbookShell surface selection", () => {
           group_by: "timeline.capture_state",
           sort: [{ field_key: "timeline.activity_sort_ts", direction: "desc" }],
         },
-        layout_json: {
-          layout_schema_id: "cartulary.layout.v1",
-          column_order: [
-            "timeline.activity_synopsis_text",
-            "timeline.activity_utc_text",
-          ],
-          hidden_field_keys: ["timeline.raw_activity_text"],
-          column_widths: [
-            { field_key: "timeline.activity_synopsis_text", width_px: 360 },
-          ],
-        },
+        layout_json: buildSavedViewLayoutJson(
+          requireViewContract(timelineViewSchemaId),
+          {
+            columnOrder: [
+              "timeline.activity_synopsis_text",
+              "timeline.activity_utc_text",
+            ],
+            hiddenFieldKeys: ["timeline.raw_activity_text"],
+            columnWidths: [
+              { fieldKey: "timeline.activity_synopsis_text", widthPx: 360 },
+            ],
+          },
+        ),
       }),
       testSavedViewResource({
         saved_view_id: systemSavedViewId,

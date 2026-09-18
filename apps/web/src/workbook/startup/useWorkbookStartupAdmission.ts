@@ -73,6 +73,11 @@ function applyWorkbookStartupCommitPlan(input: {
     const contract = workbookContractForViewSchemaId(
       plan.identity.viewSchemaId,
     );
+    const layout = workbookLayoutStateFromSavedViewLayoutJson(
+      contract,
+      plan.savedView.layout_json,
+    );
+    if (layout === null) return;
     input.savedViewStatePort.upsertSavedView(plan.savedView);
     input.savedViewStatePort.applyQueryStateForSurface(
       plan.identity.viewSchemaId,
@@ -80,10 +85,7 @@ function applyWorkbookStartupCommitPlan(input: {
     );
     input.savedViewStatePort.applyLayoutStateForSurface(
       plan.identity.viewSchemaId,
-      workbookLayoutStateFromSavedViewLayoutJson(
-        contract,
-        plan.savedView.layout_json,
-      ),
+      layout,
     );
   }
   input.selectionPort.applyStartupIdentity(plan.identity);

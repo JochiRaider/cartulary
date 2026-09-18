@@ -98,17 +98,17 @@ func authoredManifestInput() manifestInput {
 		paths: []pathSpec{
 			{
 				kind: pathRecordLinks, logicalPath: "data/record_links.ndjson", contentRole: "source_rows",
-				versions: []int{3}, stableIdentity: []string{"record_link_id"}, relation: relationRecordLinks,
+				versions: []int{3, 4}, stableIdentity: []string{"record_link_id"}, relation: relationRecordLinks,
 				requiredColumns: []string{"record_link_id", "incident_id"},
 			},
 			{
 				kind: pathTagCatalog, logicalPath: "data/tags.ndjson", contentRole: "validation_rows",
-				versions: []int{3}, stableIdentity: []string{"normalized_tag_name", "tag_name"},
+				versions: []int{3, 4}, stableIdentity: []string{"normalized_tag_name", "tag_name"},
 				allowedColumns: []string{"tag_name", "normalized_tag_name"},
 			},
 			{
 				kind: pathRecordTags, logicalPath: "data/record_tags.ndjson", contentRole: "source_rows",
-				versions: []int{3}, stableIdentity: []string{"record_tag_id"}, relation: relationRecordTags,
+				versions: []int{3, 4}, stableIdentity: []string{"record_tag_id"}, relation: relationRecordTags,
 				requiredColumns: []string{"record_tag_id", "record_id", "incident_id"},
 			},
 		},
@@ -139,7 +139,7 @@ func validateManifest(input manifestInput) (manifest, error) {
 	for index, path := range input.paths {
 		if path.kind != expectedPaths[index] || !safeLogicalPath(path.logicalPath) ||
 			(path.contentRole != "source_rows" && path.contentRole != "validation_rows") ||
-			!slices.Equal(path.versions, []int{3}) || !validUniqueIdentifiers(path.stableIdentity) {
+			!slices.Equal(path.versions, []int{3, 4}) || !validUniqueIdentifiers(path.stableIdentity) {
 			return manifest{}, errInvalidManifest
 		}
 		if _, duplicate := seenPaths[path.logicalPath]; duplicate {

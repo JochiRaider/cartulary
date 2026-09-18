@@ -35,6 +35,7 @@ export function editorSeedForTarget(
     return null;
   }
   return {
+    retained: pending.retained === true,
     activation: pending.activation,
     hasValue: pending.hasValue,
     value: pending.value,

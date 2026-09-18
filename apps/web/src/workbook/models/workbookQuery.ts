@@ -77,6 +77,7 @@ export type WorkbookLayoutColumnWidth = {
 };
 
 export type WorkbookLayoutState = {
+  readonly frozenThroughFieldKey?: string | null | undefined;
   readonly columnOrder?: readonly string[] | undefined;
   readonly columnWidths?:
     | Readonly<Record<string, number>>
@@ -92,7 +93,8 @@ export type WorkbookSavedViewLayoutJson = {
     readonly width_px: number;
   }[];
   readonly hidden_field_keys: readonly string[];
-  readonly layout_schema_id: "cartulary.layout.v1";
+  readonly layout_schema_id: "cartulary.layout.v2";
+  readonly frozen_through_field_key: string | null;
 };
 
 export type FilterDraft =
@@ -451,7 +453,8 @@ export function buildSavedViewLayoutJson(
   const allowed = new Set(fieldKeys);
   const columnOrder = canonicalColumnOrder(fieldKeys, state.columnOrder);
   return {
-    layout_schema_id: "cartulary.layout.v1",
+    layout_schema_id: "cartulary.layout.v2",
+    frozen_through_field_key: state.frozenThroughFieldKey ?? null,
     column_order: columnOrder,
     hidden_field_keys: canonicalHiddenFieldKeys(
       allowed,
@@ -488,31 +491,77 @@ export function workbookQueryStateFromSavedViewQueryJson(
   };
 }
 
+/** Strict compatibility boundary. Failure must never become a default layout. */
 export function workbookLayoutStateFromSavedViewLayoutJson(
   contract: ViewContract,
   value: unknown,
-): WorkbookLayoutState {
-  if (!isObjectRecord(value)) {
-    return {};
+): WorkbookLayoutState | null {
+  if (!isObjectRecord(value)) return null;
+  const legacy = value.layout_schema_id === "cartulary.layout.v1";
+  if (!legacy && value.layout_schema_id !== "cartulary.layout.v2") return null;
+  const keys = [
+    "layout_schema_id",
+    "column_order",
+    "hidden_field_keys",
+    "column_widths",
+  ];
+  if (!legacy) keys.push("frozen_through_field_key");
+  if (
+    Object.keys(value).length !== keys.length ||
+    keys.some((key) => !Object.hasOwn(value, key))
+  )
+    return null;
+  const allowed = new Set(contract.fields.map((field) => field.fieldKey));
+  const validKeys = (input: unknown): input is string[] =>
+    Array.isArray(input) &&
+    input.every((key) => typeof key === "string" && allowed.has(key)) &&
+    new Set(input).size === input.length;
+  if (!validKeys(value.column_order) || !validKeys(value.hidden_field_keys))
+    return null;
+  const order = [...value.column_order];
+  const hidden = [...value.hidden_field_keys];
+  if (
+    hidden.some((key, index) => {
+      const previous = hidden[index - 1];
+      return previous !== undefined && previous > key;
+    })
+  )
+    return null;
+  const boundary = legacy ? null : value.frozen_through_field_key;
+  if (
+    boundary !== null &&
+    (typeof boundary !== "string" || !order.includes(boundary))
+  )
+    return null;
+  for (const field of contract.fields) {
+    if (order.includes(field.fieldKey)) continue;
+    if (!field.defaultHidden || field.writeKind !== "read_only") return null;
+    order.push(field.fieldKey);
+    if (!hidden.includes(field.fieldKey)) hidden.push(field.fieldKey);
+  }
+  hidden.sort();
+  if (!Array.isArray(value.column_widths)) return null;
+  const widths: WorkbookLayoutColumnWidth[] = [];
+  let previous = "";
+  for (const entry of value.column_widths) {
+    if (
+      !isObjectRecord(entry) ||
+      Object.keys(entry).length !== 2 ||
+      typeof entry.field_key !== "string" ||
+      !allowed.has(entry.field_key) ||
+      entry.field_key <= previous ||
+      typeof entry.width_px !== "number" ||
+      !isWorkbookColumnWidth(entry.width_px)
+    )
+      return null;
+    widths.push({ fieldKey: entry.field_key, widthPx: entry.width_px });
+    previous = entry.field_key;
   }
   return {
-    columnOrder: Array.isArray(value.column_order)
-      ? value.column_order.filter(
-          (fieldKey): fieldKey is string => typeof fieldKey === "string",
-        )
-      : [],
-    columnWidths: Array.isArray(value.column_widths)
-      ? value.column_widths.filter(isObjectRecord).map((entry) => ({
-          fieldKey: typeof entry.field_key === "string" ? entry.field_key : "",
-          widthPx:
-            typeof entry.width_px === "number" ? entry.width_px : Number.NaN,
-        }))
-      : [],
-    hiddenFieldKeys: Array.isArray(value.hidden_field_keys)
-      ? value.hidden_field_keys.filter(
-          (fieldKey): fieldKey is string => typeof fieldKey === "string",
-        )
-      : contract.defaultHiddenFields,
+    columnOrder: order,
+    columnWidths: widths,
+    hiddenFieldKeys: hidden,
+    frozenThroughFieldKey: boundary,
   };
 }
 

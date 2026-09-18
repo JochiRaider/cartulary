@@ -356,6 +356,37 @@
       ]
     },
     {
+      "row_id": "module.incidentbundles.integration.layout_legacy_conversion_replay",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.savedviews",
+        "module.timeline",
+        "platform.viewschema"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.compatibility"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestLegacyBundleLayoutConversionAndHistoricalReplay_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",

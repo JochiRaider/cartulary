@@ -5,6 +5,7 @@ import {
   editorRevealDelta,
   revealGridEditorTarget,
 } from "./editorReveal";
+import { frozenColumnPlacement } from "./useFrozenDataColumns";
 import { visibleGridViewport } from "./viewportGeometry";
 
 afterEach(() => {
@@ -211,4 +212,37 @@ describe("mounted editor reveal", () => {
     binding.refresh();
     expect(frames.size).toBe(0);
   });
+});
+
+it("frozen data placement admits only complete prefixes at the measured CSS pixel budget", () => {
+  expect(frozenColumnPlacement(0, null)).toEqual({
+    kind: "none",
+    visibleCount: 0,
+  });
+  for (const geometry of [
+    null,
+    { viewport: Number.NaN, structural: 44, prefix: 220 },
+    { viewport: 600, structural: 44, prefix: 0 },
+  ])
+    expect(frozenColumnPlacement(2, geometry)).toEqual({
+      kind: "suspended",
+      visibleCount: 2,
+      reason: "geometry_unavailable",
+    });
+  for (const [viewport, structural, prefix, kind] of [
+    [503.99, 44, 220, "suspended"],
+    [504, 44, 220, "active"],
+    [504.99, 44, 220, "active"],
+    [504, 44.01, 220, "suspended"],
+    [505, 44.01, 220, "active"],
+    [4400, 44, 4096, "active"],
+    [4379, 44, 4096, "suspended"],
+  ] as const) {
+    const geometry = { viewport, structural, prefix };
+    for (let observation = 0; observation < 5; observation++)
+      expect(frozenColumnPlacement(2, geometry)).toMatchObject({
+        kind,
+        visibleCount: 2,
+      });
+  }
 });

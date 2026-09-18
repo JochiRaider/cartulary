@@ -178,8 +178,14 @@ func TestIncidentSourcePrepareBindsPortOperationIncidentVersionAndContract_Unit(
 		})
 	}
 
+	currentVersion := importContext
+	currentVersion.bundleVersion = 4
+	currentPrepared, err := prepareIncidentBundleIncident(contract, validIncidentSourcePayload(t), currentVersion)
+	if err != nil || !currentPrepared.matches(contract, currentVersion) {
+		t.Fatalf("current bundle source binding: %v", err)
+	}
 	wrongVersion := importContext
-	wrongVersion.bundleVersion = 4
+	wrongVersion.bundleVersion = 5
 	if _, err := prepareIncidentBundleIncident(contract, validIncidentSourcePayload(t), wrongVersion); !errors.Is(err, errIncidentSourceCatalog) {
 		t.Fatalf("wrong source generation error = %v", err)
 	}

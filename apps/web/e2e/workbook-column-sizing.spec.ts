@@ -167,6 +167,26 @@ async function seed(page: Page, count = 2) {
   await firstColumn(page);
   return { incident, rows: await queryViewRows(page, incident, surface) };
 }
+async function setFreeze(
+  page: Page,
+  field: string | null,
+  view: string = surface,
+) {
+  await showColumns(page, view);
+  await columns(page, view)
+    .getByRole("button", {
+      name:
+        field === null
+          ? "Unfreeze columns"
+          : `Freeze through ${requireViewContract(view).fieldMap[field]?.label}`,
+      exact: true,
+    })
+    .click();
+  await columns(page, view)
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+}
+
 async function dragBoundary(page: Page, delta: number) {
   const box = await header(page).boundingBox();
   if (!box) throw new Error("Visible header geometry is required");
@@ -183,6 +203,7 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const f = await seed(page);
+  await setFreeze(page, summary);
   const defaultWidth = await width(header(page));
   const initialSort = await header(page).getAttribute("aria-sort");
   let mutations = 0;
@@ -280,11 +301,13 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
   );
   await createSavedViewFromCurrentSurface(page, surface);
   const saved = (await (await createdResponse).json()).data;
+  expect(saved.layout_json.frozen_through_field_key).toBe(summary);
   expect(saved.layout_json.column_widths).toContainEqual({
     field_key: summary,
     width_px: 4096,
   });
   await setWidth(page, "40");
+  await setFreeze(page, null);
   await expect(
     page.getByTestId(savedViewModifiedTestId(surface)),
   ).toBeVisible();
@@ -299,9 +322,13 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
     surface,
     saved.saved_view_id,
   );
-  expect(
-    (await (await duplicateResponse).json()).data.layout_json.column_widths,
-  ).toContainEqual({ field_key: summary, width_px: 4096 });
+  const duplicatedLayout = (await (await duplicateResponse).json()).data
+    .layout_json;
+  expect(duplicatedLayout.column_widths).toContainEqual({
+    field_key: summary,
+    width_px: 4096,
+  });
+  expect(duplicatedLayout.frozen_through_field_key).toBe(summary);
   await setWidth(page, "240");
   await widthPanel(page);
   await holdAnimationFrames(page);
@@ -429,11 +456,20 @@ test("Workbook sizing binds empty and hidden columns across all surface families
       await expect(
         page.getByRole("status").filter({ hasText: /using the header/ }),
       ).toBeVisible();
+      await setFreeze(page, field.fieldKey, view);
+      await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+        "data-grid-freeze-state",
+        "active",
+      );
       await showColumns(page, view);
       for (const checkbox of await columns(page, view)
         .getByRole("checkbox")
         .all())
         await checkbox.uncheck();
+      await expect(columns(page, view)).toContainText("0 visible data columns");
+      await expect(columns(page, view)).toContainText(
+        `${field.label} (hidden)`,
+      );
       const input = await widthPanel(page, field.fieldKey, view);
       await expect(
         columns(page, view).getByRole("button", {
@@ -457,6 +493,10 @@ test("Workbook sizing binds empty and hidden columns across all surface families
       await expect
         .poll(() => width(header(page, field.fieldKey, view)))
         .toBe(4096);
+      await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+        "data-grid-freeze-state",
+        "suspended",
+      );
     }
   }
   await setWidth(page, "200", "evidence.title", evidenceViewSchemaId);
@@ -777,4 +817,348 @@ test("a11y.column-sizing native controls retain keyboard focus at narrow width z
       (row) => row.row_version === 1,
     ),
   ).toBe(true);
+});
+
+test("Workbook frozen columns retain semantic placement saved bytes and drafts through suspension", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const f = await seed(page, 30);
+  await setWidth(page, "240");
+  const grid = page.locator(gridScrollportSelector());
+  const freeze = async () => {
+    await showColumns(page);
+    await columns(page)
+      .getByRole("button", {
+        name: `Freeze through ${requireViewContract(surface).fieldMap[summary]?.label}`,
+        exact: true,
+      })
+      .click();
+    await columns(page)
+      .getByRole("button", { name: "Close columns", exact: true })
+      .click();
+  };
+  await freeze();
+  await expect(grid).toHaveAttribute("data-grid-freeze-state", "active");
+  const initial = await header(page).boundingBox();
+  await grid.evaluate((node) => {
+    node.scrollLeft = 600;
+  });
+  await expect
+    .poll(async () => Math.round((await header(page).boundingBox())?.x ?? -1))
+    .toBe(Math.round(initial?.x ?? -2));
+  await expect(header(page)).toHaveClass(/cartulary-grid-frozen-boundary/);
+  await expect
+    .poll(() =>
+      header(page).evaluate(
+        (node) => getComputedStyle(node, "::before").borderInlineEndStyle,
+      ),
+    )
+    .toBe("double");
+  await setSavedViewDraftName(page, surface, "Frozen identifying column");
+  const response = page.waitForResponse(
+    (r) =>
+      r.request().method() === "POST" &&
+      r.url().endsWith(`/incidents/${f.incident}/saved-views`),
+  );
+  await createSavedViewFromCurrentSurface(page, surface);
+  const saved = (await (await response).json()).data;
+  expect(saved.layout_json.frozen_through_field_key).toBe(summary);
+  expect(saved.layout_json.layout_schema_id).toBe("cartulary.layout.v2");
+  const savedBytes = JSON.stringify(saved.layout_json);
+  await expect(page.getByTestId(savedViewModifiedTestId(surface))).toBeHidden();
+  const record = f.rows[0]?.record_id;
+  if (!record) throw new Error("Missing frozen row fixture");
+  await page.getByTestId(rowCellTestId(record, summary)).click();
+  const editor = page.getByTestId(
+    timelineScalarEditorTestId({
+      recordId: record,
+      fieldKey: summary,
+      surface: "grid",
+    }),
+  );
+  await editor.fill("Retained frozen draft");
+  await editor.evaluate((node) => {
+    (window as unknown as { frozenEditor: Element }).frozenEditor = node;
+  });
+  let writes = 0;
+  page.on("request", (r) => {
+    if (
+      r.method() !== "GET" &&
+      /\/(records|rows)(\/|$)/.test(new URL(r.url()).pathname)
+    )
+      writes += 1;
+  });
+  await showColumns(page);
+  // Layout commands borrow focus without submitting the unrelated draft.
+  await columns(page)
+    .getByRole("button", { name: "Unfreeze columns", exact: true })
+    .click();
+  await expect(editor).toHaveValue("Retained frozen draft");
+  await columns(page)
+    .getByRole("button", {
+      name: "Freeze through Activity Synopsis",
+      exact: true,
+    })
+    .click();
+  expect(
+    await editor.evaluate(
+      (node) =>
+        node === (window as unknown as { frozenEditor: Element }).frozenEditor,
+    ),
+  ).toBe(true);
+  for (const direction of ["later", "earlier"]) {
+    await columns(page)
+      .getByRole("button", {
+        name: `Move Activity Synopsis ${direction}`,
+        exact: true,
+      })
+      .click();
+    await expect(columns(page)).toBeVisible();
+    await expect(editor).toHaveCount(direction === "later" ? 0 : 1);
+    if (direction === "later")
+      await expect(
+        page.getByTestId(rowCellTestId(record, "timeline.date_entered_text")),
+      ).toHaveCount(1);
+  }
+  await columns(page)
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  // The retained semantic editor returns when its field returns to the vendor
+  // edit slot, without opening the intervening field or stealing command focus.
+  await expect(trigger(page)).toBeFocused();
+  await expect(editor).toHaveValue("Retained frozen draft");
+  await editor.evaluate((node) => {
+    (window as unknown as { frozenEditor: Element }).frozenEditor = node;
+  });
+  await showColumns(page);
+  await columns(page)
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(grid).toHaveAttribute("data-grid-freeze-state", "suspended");
+  await expect(grid.locator(".cartulary-grid-frozen-data")).toHaveCount(0);
+  await info.attach("frozen-layout-suspended", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await expect(page.getByTestId(savedViewModifiedTestId(surface))).toBeHidden();
+  expect(
+    JSON.stringify(
+      (await readSavedView(page, f.incident, saved.saved_view_id)).layout_json,
+    ),
+  ).toBe(savedBytes);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(grid).toHaveAttribute("data-grid-freeze-state", "active");
+  await expect(editor).toHaveValue("Retained frozen draft");
+  expect(
+    await editor.evaluate(
+      (node) =>
+        node === (window as unknown as { frozenEditor: Element }).frozenEditor,
+    ),
+  ).toBe(true);
+  expect(writes).toBe(0);
+  await showColumns(page);
+  await info.attach("frozen-layout-active-columns", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await columns(page)
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await info.attach("frozen-column-production-geometry", {
+    contentType: "application/json",
+    body: JSON.stringify(
+      await grid.evaluate((node) => ({
+        tracks: getComputedStyle(node).gridTemplateColumns,
+        width: node.getBoundingClientRect().width,
+        scrollLeft: node.scrollLeft,
+        frozen: [
+          ...node.querySelectorAll(
+            '.cartulary-grid-frozen-data[role="columnheader"]',
+          ),
+        ].map((header) => ({
+          key: (header as HTMLElement).dataset.gridFieldKey,
+          x: header.getBoundingClientRect().x,
+          width: header.getBoundingClientRect().width,
+        })),
+      })),
+    ),
+  });
+  await setFreeze(page, null);
+  await updateSavedViewFromCurrentSurface(page, surface, saved.saved_view_id);
+  expect(
+    (await readSavedView(page, f.incident, saved.saved_view_id)).layout_json
+      .frozen_through_field_key,
+  ).toBeNull();
+  await expect(page.getByTestId(savedViewModifiedTestId(surface))).toBeHidden();
+  await setFreeze(page, summary);
+  await updateSavedViewFromCurrentSurface(page, surface, saved.saved_view_id);
+  expect(
+    (await readSavedView(page, f.incident, saved.saved_view_id)).layout_json
+      .frozen_through_field_key,
+  ).toBe(summary);
+  await expect(editor).toHaveValue("Retained frozen draft");
+  expect(writes).toBe(0);
+});
+
+test("Workbook frozen prefixes reconcile hidden order all visible fields and exact viewport thresholds", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const f = await seed(page);
+  const raw = "timeline.raw_activity_text";
+  await firstColumn(page, raw);
+  await firstColumn(page, summary);
+  await setWidth(page, "120", summary);
+  await setWidth(page, "140", raw);
+  await showColumns(page);
+  const label = (field: string) => {
+    const entry = requireViewContract(surface).fieldMap[field];
+    if (!entry) throw new Error(`Missing field ${field}`);
+    return entry.label;
+  };
+  for (const checkbox of await columns(page).getByRole("checkbox").all()) {
+    if (
+      ![label(summary), label(raw)].includes(
+        await checkbox.evaluate(
+          (node) => node.parentElement?.textContent?.trim() ?? "",
+        ),
+      )
+    )
+      await checkbox.uncheck();
+  }
+  await columns(page)
+    .getByRole("button", { name: `Freeze through ${label(raw)}`, exact: true })
+    .click();
+  await expect(columns(page)).toContainText("2 visible data columns");
+  await columns(page)
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  const grid = page.locator(gridScrollportSelector());
+  const frozenKeys = () =>
+    grid
+      .locator('.cartulary-grid-frozen-data[role="columnheader"]')
+      .evaluateAll((nodes) =>
+        nodes.map((node) => (node as HTMLElement).dataset.gridFieldKey),
+      );
+  await expect.poll(frozenKeys).toEqual([summary, raw]);
+  await setSavedViewDraftName(page, surface, "All visible frozen prefix");
+  const created = page.waitForResponse(
+    (r) =>
+      r.request().method() === "POST" &&
+      r.url().endsWith(`/incidents/${f.incident}/saved-views`),
+  );
+  await createSavedViewFromCurrentSurface(page, surface);
+  const saved = (await (await created).json()).data;
+  const savedBytes = JSON.stringify(saved.layout_json);
+  const samples: unknown[] = [];
+  await trigger(page).focus();
+  for (const budget of [239, 240, 241, 240, 239, 241]) {
+    const measured = await grid.evaluate((node, budget) => {
+      const root = node as HTMLElement;
+      const style = getComputedStyle(root);
+      const tracks = style.gridTemplateColumns
+        .split(/\s+/)
+        .map(Number.parseFloat);
+      const headers = [
+        ...root.querySelectorAll<HTMLElement>('[role="columnheader"]'),
+      ];
+      const structural = headers.filter(
+        (header) =>
+          header.classList.contains("cartulary-grid-selection-header-cell") ||
+          header.classList.contains("cartulary-grid-gutter-header-cell"),
+      ).length;
+      const prefix = tracks.slice(0, structural + 2).reduce((a, b) => a + b, 0);
+      const borderAndScrollbar = root.offsetWidth - root.clientWidth;
+      root.style.minInlineSize = "0";
+      root.style.inlineSize = `${prefix + budget + borderAndScrollbar}px`;
+      root.style.maxInlineSize = `${prefix + budget + borderAndScrollbar}px`;
+      window.dispatchEvent(new Event("resize"));
+      return { budget, prefix, structural, tracks };
+    }, budget);
+    await expect(grid).toHaveAttribute(
+      "data-grid-freeze-state",
+      budget < 240 ? "suspended" : "active",
+    );
+    for (let frame = 0; frame < 3; frame++) {
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => {
+              window.dispatchEvent(new Event("resize"));
+              resolve();
+            }),
+          ),
+      );
+      await expect(grid).toHaveAttribute(
+        "data-grid-freeze-state",
+        budget < 240 ? "suspended" : "active",
+      );
+    }
+    await expect.poll(frozenKeys).toEqual(budget < 240 ? [] : [summary, raw]);
+    await expect(trigger(page)).toBeFocused();
+    await expect(
+      page.getByTestId(savedViewModifiedTestId(surface)),
+    ).toBeHidden();
+    samples.push({
+      ...measured,
+      clientWidth: await grid.evaluate((node) => node.clientWidth),
+    });
+  }
+  expect(
+    JSON.stringify(
+      (await readSavedView(page, f.incident, saved.saved_view_id)).layout_json,
+    ),
+  ).toBe(savedBytes);
+  await grid.evaluate((node) => {
+    const style = (node as HTMLElement).style;
+    style.removeProperty("inline-size");
+    style.removeProperty("max-inline-size");
+    style.removeProperty("min-inline-size");
+  });
+  await showColumns(page);
+  await columns(page)
+    .getByRole("checkbox", { name: label(raw), exact: true })
+    .uncheck();
+  await expect(columns(page)).toContainText(`${label(raw)} (hidden)`);
+  await expect(columns(page)).toContainText("1 visible data column.");
+  await expect.poll(frozenKeys).toEqual([summary]);
+  await columns(page)
+    .getByRole("button", { name: `Move ${label(raw)} earlier`, exact: true })
+    .click();
+  await expect(columns(page)).toContainText("0 visible data columns.");
+  await expect.poll(frozenKeys).toEqual([]);
+  await columns(page)
+    .getByRole("checkbox", { name: label(raw), exact: true })
+    .check();
+  await expect.poll(frozenKeys).toEqual([raw]);
+  await columns(page)
+    .getByRole("checkbox", { name: label(summary), exact: true })
+    .uncheck();
+  await columns(page)
+    .getByRole("checkbox", { name: label(raw), exact: true })
+    .uncheck();
+  await expect(columns(page)).toContainText(`${label(raw)} (hidden)`);
+  await columns(page)
+    .getByRole("button", { name: "Unfreeze columns", exact: true })
+    .click();
+  await expect(columns(page)).toContainText("No frozen data columns.");
+  await columns(page)
+    .getByRole("button", { name: "Reset columns", exact: true })
+    .click();
+  await columns(page)
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await expect(grid).toHaveAttribute("data-grid-freeze-state", "none");
+  await openSavedViewActionMenu(page, surface);
+  await page
+    .getByTestId(savedViewResetButtonTestId(surface, saved.saved_view_id))
+    .click();
+  await expect.poll(frozenKeys).toEqual([summary, raw]);
+  await expect(page.getByTestId(savedViewModifiedTestId(surface))).toBeHidden();
+  await info.attach("frozen-prefix-threshold-measurements", {
+    body: JSON.stringify(samples),
+    contentType: "application/json",
+  });
 });

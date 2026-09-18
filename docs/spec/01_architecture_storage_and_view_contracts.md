@@ -335,6 +335,14 @@ Breaking changes to route patterns, required request fields, required response f
 Profiles: base
 Verified by: AC-124, AC-125, AC-127, AC-131, AC-135, AC-219, AC-220, AC-231
 
+Layout v2 coordinated-upgrade exception. REQ-01-143's transition from the closed
+layout.v1 response to layout.v2 is an explicitly adopted breaking representation
+change on the existing saved-view and Workbook startup routes. It requires a
+coordinated server/client upgrade and a reviewed breaking OpenAPI disposition;
+it is not an additive-field compatibility claim. Keep immutable released schemas
+unchanged. Legacy input/storage conversion is boundary-only, not a second runtime
+layout. This exception does not authorize other breaking v1 route changes.
+
 **REQ-01-022**
 All public requests and responses MUST address writable surfaces by stable identifiers. The client MUST identify the incident by `incident_id`, the active view by `view_schema_id`, record-scoped target rows by `record_id`, mention-scoped targets by `entity_mention_id`, record-scoped optimistic writes by `base_row_version`, mention-scoped optimistic writes by `base_mention_row_version`, writable cells by `field_key`, and multi-change user actions by `client_txn_id`. The public surface MUST NOT require clients to address mutations by visible row order, tab label, column label, projection-table name, or storage-table name.
 Profiles: base
@@ -2635,7 +2643,8 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 
 ```json
 {
-  "layout_schema_id": "cartulary.layout.v1",
+  "layout_schema_id": "cartulary.layout.v2",
+  "frozen_through_field_key": null,
   "column_order": ["timeline.activity_utc_text", "timeline.activity_synopsis_text"],
   "hidden_field_keys": ["timeline.activity_time_pair_state"],
   "column_widths": [
@@ -2646,7 +2655,8 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 
 For `layout_json`:
 
-- `layout_schema_id` MUST be present and MUST equal `cartulary.layout.v1`,
+- `layout_schema_id` MUST be present and MUST equal `cartulary.layout.v2`,
+- `frozen_through_field_key` MUST be present and MUST be JSON `null` (no frozen data columns) or an exact declared non-technical field key in `column_order`; no other value is valid,
 - `column_order` MUST be present and MUST be a full permutation of the active schema's non-technical `fields[].field_key` values, with each key appearing exactly once,
 - `hidden_field_keys` MUST be present, MUST be unique, MUST use canonical ascending order, and MUST be a subset of `column_order`,
 - `column_widths` MUST be present and MUST be a unique sparse list ordered by `field_key asc`,
@@ -2657,9 +2667,27 @@ For `layout_json`:
 - `layout_json` MUST NOT store selection, scroll position, focused cell, transient popover state, open inspector state, preview state, presence, or other per-session or per-device client state,
 - `layout_json` MUST NOT be the authority for `saved_view_id`, `incident_id`, `view_schema_id`, `scope`, ownership, authorization, or startup/default surface selection.
 
+The frozen boundary denotes the contiguous leading prefix of the complete semantic
+column order through that field, including hidden fields in the ordering. Hidden
+fields render no cells; hiding the boundary preserves its identity, and reorder
+recomputes the prefix through the same identity. Structural selection, gutter and
+group columns are private to Grid Adapter and MUST NOT enter layout or the user's
+frozen-column count. Freezing changes placement, never logical field order or rights.
+
+The canonical current model is v2. Compatibility input MAY be the original closed
+v1 grammar containing exactly layout_schema_id, column_order, hidden_field_keys
+and column_widths; its schema ID MUST equal cartulary.layout.v1. Validate that
+original grammar before converting to v2 with frozen_through_field_key=null.
+Unknown versions or malformed/unknown members MUST fail rather than become defaults.
+The existing omitted-create and empty-object default rules remain explicit at
+request boundaries. Valid stored legacy layouts MUST normalize on read without
+writing storage, timestamps, versions or preferences. Normalize both sides of
+saved-view no-op comparison to the current model; representational conversion alone
+MUST NOT advance the version. New creates, material updates and imports persist v2.
+
 When an owner-contract revision adds a non-technical field to an existing `view_schema_id`, saved-view layout normalization MAY evolve an existing persisted or submitted `layout_json` only when every missing added key is default-hidden, read-only, and non-writable in the active schema. In that case the server MUST append the missing key to `column_order`, MUST include it in `hidden_field_keys`, and MUST preserve the canonical `hidden_field_keys` ascending order in the normalized result. Missing visible fields, missing writable fields, unknown fields, duplicate fields, technical fields, and unsorted caller-supplied `hidden_field_keys` remain invalid under this requirement; additive hidden-field evolution MUST NOT weaken the layout identity checks for other schema changes.
 Profiles: base
-Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
+Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231, AC-480B
 
 **REQ-01-144**
 `GET /api/v1/incidents/{incident_id}/saved-views` MUST return only the saved-view resources visible to the caller, MUST use the common success envelope with `data.saved_views[]` plus `meta.paging`, MUST order results by `updated_at desc, saved_view_id asc`, and MUST accept only `limit`, `cursor_token`, and optional `view_schema_id` under §3.3.7. This route is authoritative only for saved-view resources. Required base-profile surfaces in the authoritative `view_schema` registry are not discovered by this route unless a distinct saved-view object also exists for them. For clarity, absence of `cartulary.view.task_requests.v1` or `cartulary.view.decisions.v1` from this route MUST NOT be interpreted as absence of the required base surfaces themselves; those surfaces remain discoverable through the authoritative `view_schema` registry and directly addressable by `sheet_ref.kind='view_schema'`. Pagination failures on this route MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code` from the `invalid_pagination_request` registry in §3.3.6.2.
@@ -2683,7 +2711,7 @@ Profiles: base
 Verified by: AC-151A
 
 **REQ-01-145**
-`POST /api/v1/incidents/{incident_id}/saved-views` MUST accept a JSON object containing required `view_schema_id`, required `display_name`, required `query_json`, optional `layout_json`, and optional `scope`. `display_name` MUST be non-null, MUST satisfy `display_name_line_v1`, and MUST be compared after that normalization for request-time equality checks. `query_json` MUST be non-null. If `scope` is omitted, the server MUST treat it as `private`. If `layout_json` is omitted or supplied as `{}`, the server MUST normalize it to the canonical schema-derived default `cartulary.layout.v1` object for `view_schema_id`. If `layout_json` is supplied and non-empty, it MUST be non-null and MUST satisfy REQ-01-143. `query_json` MUST be validated and normalized using the same sort, filter, and grouping rules as `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`; within `query_json`, omission of `sort` MUST normalize to `sort=[]`, omission of `filters` MUST normalize to `filters=[]`, and explicit `group_by=null` is invalid. During that validation, a raw parsed `query_json.sort` length greater than `8` or a raw parsed `query_json.filters` length greater than `16` MUST fail with `400`, `error.code = invalid_mutation_payload`, `error.details.reason_code` equal to `sort_count_exceeded` or `filter_count_exceeded`, `error.details.field` equal to `query_json.sort` or `query_json.filters`, `error.details.requested_count = <raw count>`, and `error.details.max_count` equal to `8` or `16` as applicable. The server MUST NOT truncate or partially honor an oversize saved-view query array. No other top-level request members are allowed. The ordinary public create route MUST reject `scope='system'`, any supplied `null` for `display_name`, `query_json`, `layout_json`, or `scope`, any `query_json` or `layout_json` field reference not declared by the addressed `view_schema_id`, any use of `record_id` or `row_version` inside `query_json` or `layout_json`, and any unknown top-level member with `400` and `error.code = invalid_mutation_payload`. When the failure is attributable to one member path, `error.details.field` MUST identify that path, including paths such as `query_json.sort[0].field_key`, `query_json.filters[1].field_key`, and `layout_json.column_widths[0].field_key`. The created saved-view resource MUST expose the normalized `query_json` and canonical `layout_json`; persisted `layout_json` MUST NOT remain `{}` after a conformant write.
+`POST /api/v1/incidents/{incident_id}/saved-views` MUST accept a JSON object containing required `view_schema_id`, required `display_name`, required `query_json`, optional `layout_json`, and optional `scope`. `display_name` MUST be non-null, MUST satisfy `display_name_line_v1`, and MUST be compared after that normalization for request-time equality checks. `query_json` MUST be non-null. If `scope` is omitted, the server MUST treat it as `private`. If `layout_json` is omitted or supplied as `{}`, the server MUST normalize it to the canonical schema-derived default `cartulary.layout.v2` object for `view_schema_id`. If `layout_json` is supplied and non-empty, it MUST be non-null and MUST satisfy REQ-01-143. `query_json` MUST be validated and normalized using the same sort, filter, and grouping rules as `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`; within `query_json`, omission of `sort` MUST normalize to `sort=[]`, omission of `filters` MUST normalize to `filters=[]`, and explicit `group_by=null` is invalid. During that validation, a raw parsed `query_json.sort` length greater than `8` or a raw parsed `query_json.filters` length greater than `16` MUST fail with `400`, `error.code = invalid_mutation_payload`, `error.details.reason_code` equal to `sort_count_exceeded` or `filter_count_exceeded`, `error.details.field` equal to `query_json.sort` or `query_json.filters`, `error.details.requested_count = <raw count>`, and `error.details.max_count` equal to `8` or `16` as applicable. The server MUST NOT truncate or partially honor an oversize saved-view query array. No other top-level request members are allowed. The ordinary public create route MUST reject `scope='system'`, any supplied `null` for `display_name`, `query_json`, `layout_json`, or `scope`, any `query_json` or `layout_json` field reference not declared by the addressed `view_schema_id`, any use of `record_id` or `row_version` inside `query_json` or `layout_json`, and any unknown top-level member with `400` and `error.code = invalid_mutation_payload`. When the failure is attributable to one member path, `error.details.field` MUST identify that path, including paths such as `query_json.sort[0].field_key`, `query_json.filters[1].field_key`, and `layout_json.column_widths[0].field_key`. The created saved-view resource MUST expose the normalized `query_json` and canonical `layout_json`; persisted `layout_json` MUST NOT remain `{}` after a conformant write.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231, AC-360
 
@@ -5477,7 +5505,7 @@ Unless explicitly overridden below:
 - filter semantics MUST be type-driven unless a schema below explicitly overrides them: enum and boolean fields use exact-match inclusion, timestamp and date fields use exact or range predicates, scalar identifier text uses exact or prefix matching on the shared query-time text-comparison substrate defined by REQ-01-488, multi-value collections use `contains_any` and `contains_all`, and declared full-text predicates use the exact-token `full_text` contract from §3.3.4.1 on that same substrate,
 - for public discovery, `default_hidden` MUST equal membership in the schema's default-hidden field set, `sortable` MUST equal membership in `sort_fields`, `groupable` MUST equal membership in `grouping_fields`, `filter_ops` MUST equal the field's allowed operator set under this registry and §3.3.4.1, and `write_kind` MUST be `direct_value` for a declared write target, `action_payload` for a declared write action, and `read_only` otherwise,
 - for public discovery, `read_kind` MUST be `collection` for `collection_value_v1` fields, `timestamp` or `date` for temporal scalars, `boolean` for booleans, `number` for numeric scalars, `enum` for closed-vocabulary scalars with `enum_values` in declared token order, and `text` otherwise,
-- the canonical schema-derived default layout object MUST use `layout_schema_id='cartulary.layout.v1'`, `column_order` equal to the authoritative field-registry order of every schema-declared non-technical field, `hidden_field_keys` equal to the schema's default-hidden non-technical fields in canonical ascending order, and `column_widths=[]`,
+- the canonical schema-derived default layout object MUST use `layout_schema_id='cartulary.layout.v2'`, `column_order` equal to the authoritative field-registry order of every schema-declared non-technical field, `hidden_field_keys` equal to the schema's default-hidden non-technical fields in canonical ascending order, `column_widths=[]`, and `frozen_through_field_key=null`,
 - every writable field entry MUST declare `field_key`, read model, write target or write action, and `conflict_resolution_class`,
 - every entity-bearing writable field entry MUST declare `entity_binding_mode`,
 - every human-authored writable string field entry, and every writable string-bearing action member explicitly closed by §18, MUST declare `string_contract_id`,
@@ -7820,7 +7848,7 @@ Verified by: AC-164, AC-166, AC-236, AC-487, AC-490
 ```json
 {
   "bundle_format": "cartulary.incident_bundle",
-  "bundle_version": 3,
+  "bundle_version": 4,
   "bundle_id": "uuid",
   "incident_id": "uuid",
   "incident_key": "string",
@@ -8023,15 +8051,15 @@ projections and MUST NOT add, remove, or reinterpret a row in these registries.
 
 **REQ-01-635**
 Every newly generated Incident Bundle MUST use
-`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=3`.
-Version `3` is the sole admitted version. Import MUST parse
+`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=4`.
+Versions `3` and `4` are admitted; version `3` is import-only. Import MUST parse
 `manifest.bundle_version` before interpreting any source payload and MUST
 select exactly one codec only from that numeric value. Filename presence, file
 order, archive order, prior import history, and caller input MUST NOT select or
 override a codec. Omitted, JSON `null`, or non-integer
 `bundle_version` MUST fail before source preparation with
 `incident_bundle_import_rejected` and `reason_code='malformed_manifest'`.
-Every integer other than `3`, including retired numeric versions `1` and `2`, MUST fail
+Every integer other than `3` and `4`, including retired numeric versions `1` and `2`, MUST fail
 at the same boundary with `reason_code='unsupported_bundle_version'`. No
 fallback version exists.
 
@@ -8039,16 +8067,17 @@ The required Timeline path set is exactly:
 
 | Version | Export | Import | Exact Timeline paths |
 | --- | --- | --- | --- |
-| `3` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| `3` | Historical only | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| `4` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
 
 A retired Timeline path, a mixed retired/current path set, or an incomplete
-current path set under version `3` MUST fail before source preparation with
+current path set under version `3` or `4` MUST fail before source preparation with
 `reason_code='malformed_manifest'`. The admitted version has the following
 closed required core path registry; a missing, duplicate, or unknown member
 under `data/` MUST fail closed and every required path MUST have exactly one
 declared consumer or validator:
 
-| Family or special consumer | Version `3` paths |
+| Family or special consumer | Versions `3` and `4` paths |
 | --- | --- |
 | Incident | `data/incident.json` |
 | Actors | `data/actors.ndjson` |
@@ -8065,6 +8094,16 @@ declared consumer or validator:
 | Revisions | `data/change_sets.ndjson`, `data/change_set_mutations.ndjson`, `data/record_revisions.ndjson` |
 | Saved Views | `data/saved_views.ndjson` |
 | Reference Pack references | `data/reference_pack_refs.json` |
+
+Version 4 changes only the saved-view layout grammar in REQ-01-644/645. All
+other version-3 source shapes and invariants below apply unchanged to version 4.
+Every participating source and special consumer MUST explicitly admit both
+versions. Archive integrity MUST be verified against original bytes before any
+source preparation or conversion. Version selection MUST never depend on row
+content. Previously completed export/import jobs, artifacts and idempotency
+receipts MUST NOT be rewritten; normalized route-request hash inputs remain
+unchanged. Exact historical replay returns the original job/result. Every newly
+generated export, including an older queued job without an artifact, uses v4.
 
 Optional extensibility MUST use an owner-admitted `ext/**` path and MUST NOT add
 an implicit core-file fallback.
@@ -8705,7 +8744,10 @@ The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
 machine projections. The source catalog projection is
 `cartulary.incident_bundle_source_catalog.v4`, declares contract major `2`, and
-admits only path version `[3]` for every required source and special consumer.
+admits path versions `3` and `4` for every required source and special consumer.
+One logical path MAY have distinct schema bindings for disjoint version sets;
+each (version, path) MUST have exactly one source and one admitted shape.
+Overlapping bindings, duplicate versions and inconsistent identities are invalid.
 Each REQ-01-635 through REQ-01-646 requirement MUST map to
 at least one binary Core 04 acceptance criterion, and every such criterion MUST
 map back to an adopted requirement and selected verification owner and test
@@ -8718,7 +8760,7 @@ Profiles: incident_portability
 Verified by: AC-504, AC-505
 
 **REQ-01-670**
-For sole admitted Incident Bundle version `3`, source family `parties`, and
+For admitted Incident Bundle versions `3` and `4`, source family `parties`, and
 source contract major `2`, every nonblank line of `data/parties.ndjson` MUST
 be one closed JSON object with exactly these ten required members:
 `record_id`, `incident_id`, `display_name`, `party_kind`,
@@ -8774,14 +8816,14 @@ invariant when safe. They expose no row value, Party identity, SQL, relation,
 constraint, path, driver diagnostic, or storage topology. Cancellation or
 failure in prepare, apply, validation, claim validation, projection rebuild,
 or publication leaves no visible incident, Party, claim, projection,
-attribution, success result, or final object. Version `2` and every other
-integer are unsupported; no version-2 reader, converter, translator, feature
+attribution, success result, or final object. Versions `1`, `2` and every integer other than `3` and `4`
+are unsupported; no version-2 reader, converter, translator, feature
 flag, alias, fallback, or dual decoder exists.
 Profiles: incident_portability
 Verified by: AC-563
 
 **REQ-01-644**
-For Incident Bundle version `3`, source family `saved_views`,
+For Incident Bundle versions `3` and `4`, source family `saved_views`,
 contract major `2`, each non-empty logical row of
 `data/saved_views.ndjson` MUST be one JSON object containing exactly these
 eleven required members:
@@ -8794,7 +8836,7 @@ eleven required members:
 | `scope` | Exactly `private`, `shared`, or `system`. |
 | `display_name` | String already equal to its `display_name_line_v1` canonical result. |
 | `query_json` | Non-null object structurally equal to the REQ-01-142 canonical query for `view_schema_id`. |
-| `layout_json` | Non-null canonical `cartulary.layout.v1` object satisfying REQ-01-143; `{}` is invalid. |
+| `layout_json` | Bundle v3: canonical original closed `cartulary.layout.v1` object. Bundle v4: canonical `cartulary.layout.v2` object under REQ-01-143. `{}` and version/grammar mismatches are invalid. |
 | `owner_user_id` | UUID string for `private` and `shared`; JSON `null` for `system`. |
 | `created_at` | Canonical UTC RFC3339Nano string using `Z`. |
 | `updated_at` | Canonical UTC RFC3339Nano string using `Z`, not earlier than `created_at`. |
@@ -8811,7 +8853,7 @@ Verified by: AC-508
 
 **REQ-01-645**
 `data/saved_views.ndjson` MUST be present exactly once for admitted bundle
-version `3`. Export MUST include every incident-owned private, shared,
+versions `3` and `4`. Export MUST include every incident-owned private, shared,
 and system saved view, order rows by `saved_view_id` ascending, serialize
 lexicographically ordered canonical JSON with exactly one trailing LF per row,
 and emit a zero-byte member when no rows exist. Export MUST select and map the
@@ -8827,7 +8869,14 @@ The submitted display name, query, layout, and timestamps MUST already equal
 their canonical values; preparation MUST reject rather than repair
 noncanonical values. Query requires present `sort` and `filters` arrays, no
 inactive `group_by`, at most `8` raw sort items, and at most `16` raw filters.
-Layout requires all REQ-01-143 members and widths in `40..4096`.
+Layout requires every member of its selected original grammar and widths in
+`40..4096`. Validate a v3 row against its original canonical v1 representation
+before converting its admitted layout to v2 with a null frozen boundary. This
+explicit conversion is permitted only after archive integrity and original row
+validation; no malformed value may be repaired into acceptance. Prepared v2 bytes
+are the authoritative apply/transaction-validation value. The immutable v1 row
+schema remains the v3 contract; saved_views.row.v2 defines v4. V4 export MUST
+preserve non-null freezing, including after restore and re-export.
 
 An unknown or unadmitted schema MUST fail; import MUST NOT infer a schema or
 custom sheet from row content. Missing optional Reference Packs MAY degrade

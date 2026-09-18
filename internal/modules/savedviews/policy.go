@@ -3,6 +3,7 @@ package savedviews
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"time"
 
@@ -100,6 +101,11 @@ func normalizeMutationLayout(raw json.RawMessage, viewSchemaID string) ([]byte, 
 }
 
 func applyPatch(current savedViewRecord, request patchRequest, updatedAt time.Time) (savedViewRecord, bool, error) {
+	currentLayout, layoutErr := normalizeMutationLayout(current.LayoutJSON, current.ViewSchemaID)
+	if layoutErr != nil {
+		return savedViewRecord{}, false, errors.New("savedviews: invalid layout")
+	}
+	current.LayoutJSON = currentLayout
 	next := current
 	if request.DisplayName.Present {
 		next.DisplayName = request.DisplayName.Value
@@ -111,7 +117,11 @@ func applyPatch(current savedViewRecord, request patchRequest, updatedAt time.Ti
 		next.QueryJSON = append([]byte(nil), request.QueryJSON.Value...)
 	}
 	if request.LayoutJSON.Present {
-		next.LayoutJSON = append([]byte(nil), request.LayoutJSON.Value...)
+		layout, layoutErr := normalizeMutationLayout(request.LayoutJSON.Value, current.ViewSchemaID)
+		if layoutErr != nil {
+			return savedViewRecord{}, false, errors.New("savedviews: invalid layout")
+		}
+		next.LayoutJSON = layout
 	}
 
 	sameQuery, err := jsonStructurallyEqual(current.QueryJSON, next.QueryJSON)

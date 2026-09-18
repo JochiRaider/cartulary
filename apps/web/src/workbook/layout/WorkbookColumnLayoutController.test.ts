@@ -10,7 +10,10 @@ import {
   workbookLayoutStateFromSavedViewLayoutJson,
 } from "../models/workbookQuery";
 import { WorkbookColumnLayoutController } from "./WorkbookColumnLayoutController";
-import { applyWorkbookLayoutToColumns } from "./workbookColumnLayout";
+import {
+  applyWorkbookLayoutToColumns,
+  workbookFrozenDataColumnPrefix,
+} from "./workbookColumnLayout";
 
 const id = "cartulary.view.timeline.v2";
 const field = "timeline.activity_synopsis_text";
@@ -88,9 +91,7 @@ describe("Workbook column sizing", () => {
     const decoded = workbookLayoutStateFromSavedViewLayoutJson(contract, {
       column_widths: [{ field_key: field, width_px: 100.7 }],
     });
-    expect(buildSavedViewLayoutJson(contract, decoded).column_widths).toEqual(
-      [],
-    );
+    expect(decoded).toBeNull();
   });
   it("fits once and reports header-only and capped results", async () => {
     const h = harness();
@@ -171,4 +172,43 @@ describe("Workbook column sizing", () => {
     h.fit();
     expect(measure).not.toHaveBeenCalled();
   });
+});
+
+it("Workbook frozen layout preserves semantic boundaries through hidden reorder replacement and reset", () => {
+  const { owner } = harness();
+  const read = () => owner.currentLayoutStateForSurface(id);
+  const [first, second] = read().columnOrder;
+  if (!first || !second) throw new Error("Missing semantic column fixture");
+  owner.freeze(id, second);
+  expect(read().frozenThroughFieldKey).toBe(second);
+  expect(workbookFrozenDataColumnPrefix(read())).toEqual(
+    read()
+      .columnOrder.slice(0, 2)
+      .filter((key) => !read().hiddenFieldKeys.includes(key)),
+  );
+  const saved = read();
+  owner.hide(id, second, true);
+  expect(read().frozenThroughFieldKey).toBe(second);
+  expect(workbookFrozenDataColumnPrefix(read())).not.toContain(second);
+  owner.move(id, second, "earlier");
+  expect(read().columnOrder[0]).toBe(second);
+  expect(workbookFrozenDataColumnPrefix(read())).toEqual([]);
+  owner.hide(id, second, false);
+  expect(workbookFrozenDataColumnPrefix(read())).toEqual([second]);
+  owner.onIntent(id, { kind: "set_width", fieldKey: second, widthPx: 4096 });
+  expect(read().frozenThroughFieldKey).toBe(second);
+  owner.freeze(id, "unknown.field");
+  expect(read().frozenThroughFieldKey).toBe(second);
+  owner.freeze(id, null);
+  expect(workbookFrozenDataColumnPrefix(read())).toEqual([]);
+  expect(read().columnWidths[second]).toBe(4096);
+  owner.applyLayoutStateForSurface(id, saved);
+  expect(read()).toEqual(saved);
+  for (const key of read().columnOrder) owner.hide(id, key, true);
+  expect(workbookFrozenDataColumnPrefix(read())).toEqual([]);
+  expect(read().frozenThroughFieldKey).toBe(second);
+  owner.reset(id);
+  expect(read().frozenThroughFieldKey).toBeNull();
+  expect(read().columnWidths).toEqual({});
+  expect(read().columnOrder[0]).toBe(first);
 });

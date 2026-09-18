@@ -8,7 +8,12 @@ import {
   gridEdgeScrollDelta,
 } from "./gridInteractionController";
 import { semanticPresentationContainsAnchor } from "./semanticPresentation";
-import { elementCssScale, visibleGridViewport } from "./viewportGeometry";
+import {
+  elementCssScale,
+  gridColumnViewport,
+  gridViewportRegions,
+  visibleGridViewport,
+} from "./viewportGeometry";
 
 export type RegisteredGridCell = {
   readonly anchor: GridCellAnchor;
@@ -74,8 +79,9 @@ export function bindGridInteractionDom(
       )
         continue;
       const rect = entry.cell.getBoundingClientRect();
-      const left = Math.max(bounds.left, rect.left);
-      const right = Math.min(bounds.right, rect.right);
+      const region = gridColumnViewport(root, entry.cell);
+      const left = Math.max(region.left, rect.left);
+      const right = Math.min(region.right, rect.right);
       const top = Math.max(bodyTop, rect.top);
       const bottom = Math.min(bounds.bottom, rect.bottom);
       if (right <= left || bottom <= top) continue;
@@ -120,7 +126,10 @@ export function bindGridInteractionDom(
     }
     const scale = elementCssScale(root);
     if (controller.scrolling) {
-      const bounds = visibleGridViewport(root);
+      const regions = gridViewportRegions(root);
+      const bounds = regions.scrollable;
+      const inFrozenRegion =
+        position.x >= regions.frozen.left && position.x <= regions.frozen.right;
       const header = root.querySelector<HTMLElement>('[role="columnheader"]');
       const top = Math.max(
         bounds.top,
@@ -132,12 +141,14 @@ export function bindGridInteractionDom(
         Math.min(
           root.scrollWidth - root.clientWidth,
           root.scrollLeft +
-            gridEdgeScrollDelta(
-              position.x / scale,
-              bounds.left / scale,
-              bounds.right / scale,
-              elapsed,
-            ),
+            (inFrozenRegion
+              ? 0
+              : gridEdgeScrollDelta(
+                  position.x / scale,
+                  bounds.left / scale,
+                  bounds.right / scale,
+                  elapsed,
+                )),
         ),
       );
       const scrollTop = Math.max(

@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"slices"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
-const LayoutSchemaID = "cartulary.layout.v1"
+const LayoutSchemaID = "cartulary.layout.v2"
+
+const LegacyLayoutSchemaID = "cartulary.layout.v1"
 
 type LayoutError struct {
 	Field      string
@@ -15,10 +19,11 @@ type LayoutError struct {
 }
 
 type Layout struct {
-	LayoutSchemaID  string              `json:"layout_schema_id"`
-	ColumnOrder     []string            `json:"column_order"`
-	HiddenFieldKeys []string            `json:"hidden_field_keys"`
-	ColumnWidths    []LayoutColumnWidth `json:"column_widths"`
+	LayoutSchemaID        string              `json:"layout_schema_id"`
+	ColumnOrder           []string            `json:"column_order"`
+	HiddenFieldKeys       []string            `json:"hidden_field_keys"`
+	ColumnWidths          []LayoutColumnWidth `json:"column_widths"`
+	FrozenThroughFieldKey *string             `json:"frozen_through_field_key"`
 }
 
 type LayoutColumnWidth struct {
@@ -57,12 +62,15 @@ func NormalizeLayout(raw json.RawMessage, viewSchemaID string) (json.RawMessage,
 	}
 
 	var top map[string]json.RawMessage
+	if strictjson.ValidateObject(trimmed) != nil {
+		return nil, &LayoutError{Field: "layout_json", ReasonCode: "invalid_value"}
+	}
 	if err := json.Unmarshal(trimmed, &top); err != nil || top == nil {
 		return nil, &LayoutError{Field: "layout_json", ReasonCode: "invalid_value"}
 	}
 	for key := range top {
 		switch key {
-		case "layout_schema_id", "column_order", "hidden_field_keys", "column_widths":
+		case "layout_schema_id", "column_order", "hidden_field_keys", "column_widths", "frozen_through_field_key":
 		default:
 			return nil, &LayoutError{Field: "layout_json." + key, ReasonCode: "unknown_field"}
 		}
@@ -72,8 +80,26 @@ func NormalizeLayout(raw json.RawMessage, viewSchemaID string) (json.RawMessage,
 	if err != nil {
 		return nil, err
 	}
-	if layoutSchemaID != LayoutSchemaID {
+	if layoutSchemaID != LayoutSchemaID && layoutSchemaID != LegacyLayoutSchemaID {
 		return nil, &LayoutError{Field: "layout_json.layout_schema_id", ReasonCode: "invalid_layout_schema"}
+	}
+
+	var frozenThroughFieldKey *string
+	boundary, hasBoundary := top["frozen_through_field_key"]
+	if layoutSchemaID == LegacyLayoutSchemaID && hasBoundary {
+		return nil, &LayoutError{Field: "layout_json.frozen_through_field_key", ReasonCode: "unknown_field"}
+	}
+	if layoutSchemaID == LayoutSchemaID {
+		if !hasBoundary {
+			return nil, &LayoutError{Field: "layout_json.frozen_through_field_key", ReasonCode: "missing_required_field"}
+		}
+		if !bytes.Equal(bytes.TrimSpace(boundary), []byte("null")) {
+			value, boundaryErr := requiredString(top, "frozen_through_field_key")
+			if boundaryErr != nil {
+				return nil, boundaryErr
+			}
+			frozenThroughFieldKey = &value
+		}
 	}
 
 	columnOrder, layoutErr := requiredStringArray(top, "column_order")
@@ -97,6 +123,9 @@ func NormalizeLayout(raw json.RawMessage, viewSchemaID string) (json.RawMessage,
 	}
 	if !slices.IsSorted(hiddenFieldKeys) {
 		return nil, &LayoutError{Field: "layout_json.hidden_field_keys", ReasonCode: "invalid_field_order"}
+	}
+	if frozenThroughFieldKey != nil && !slices.Contains(columnOrder, *frozenThroughFieldKey) {
+		return nil, &LayoutError{Field: "layout_json.frozen_through_field_key", ReasonCode: "unknown_field_key"}
 	}
 	var evolveErr *LayoutError
 	columnOrder, hiddenFieldKeys, evolveErr = normalizeAdditiveHiddenFields(resource, columnOrder, hiddenFieldKeys)
@@ -137,15 +166,42 @@ func NormalizeLayout(raw json.RawMessage, viewSchemaID string) (json.RawMessage,
 	}
 
 	payload, marshalErr := json.Marshal(Layout{
-		LayoutSchemaID:  LayoutSchemaID,
-		ColumnOrder:     columnOrder,
-		HiddenFieldKeys: hiddenFieldKeys,
-		ColumnWidths:    widths,
+		LayoutSchemaID:        LayoutSchemaID,
+		ColumnOrder:           columnOrder,
+		HiddenFieldKeys:       hiddenFieldKeys,
+		ColumnWidths:          widths,
+		FrozenThroughFieldKey: frozenThroughFieldKey,
 	})
 	if marshalErr != nil {
 		return nil, &LayoutError{Field: "layout_json", ReasonCode: "invalid_value"}
 	}
 	return json.RawMessage(payload), nil
+}
+
+// NormalizeLegacyLayout validates and canonicalizes the original layout.v1
+// grammar for immutable portability boundaries. Runtime consumers use NormalizeLayout.
+func NormalizeLegacyLayout(raw json.RawMessage, viewSchemaID string) (json.RawMessage, *LayoutError) {
+	var header struct {
+		LayoutSchemaID string `json:"layout_schema_id"`
+	}
+	if json.Unmarshal(raw, &header) != nil || header.LayoutSchemaID != LegacyLayoutSchemaID {
+		return nil, &LayoutError{Field: "layout_json.layout_schema_id", ReasonCode: "invalid_layout_schema"}
+	}
+	current, layoutErr := NormalizeLayout(raw, viewSchemaID)
+	if layoutErr != nil {
+		return nil, layoutErr
+	}
+	var original map[string]json.RawMessage
+	if err := json.Unmarshal(current, &original); err != nil {
+		return nil, &LayoutError{Field: "layout_json", ReasonCode: "invalid_value"}
+	}
+	original["layout_schema_id"] = json.RawMessage(`"cartulary.layout.v1"`)
+	delete(original, "frozen_through_field_key")
+	payload, err := json.Marshal(original)
+	if err != nil {
+		return nil, &LayoutError{Field: "layout_json", ReasonCode: "invalid_value"}
+	}
+	return payload, nil
 }
 
 func defaultLayoutResource(resource ViewSchemaResource) Layout {

@@ -1,5 +1,9 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
+import {
+  buildSavedViewLayoutJson,
+  workbookLayoutStateFromSavedViewLayoutJson,
+} from "./workbookQuery";
 
 import {
   canMutateSavedView,
@@ -19,9 +23,8 @@ describe("workbookSavedViews", () => {
       display_name: "Analyst timeline",
       scope: "private",
       query_json: { filters: [], sort: [] },
-      layout_json: savedViewLayoutJsonForPersistence(
+      layout_json: buildSavedViewLayoutJson(
         requireViewContract("cartulary.view.timeline.v2"),
-        {},
       ),
       owner_user_id: "user-1",
       saved_view_version: 7,
@@ -49,9 +52,8 @@ describe("workbookSavedViews", () => {
       display_name: "Analyst timeline",
       scope: "private",
       query_json: { filters: [], sort: [] },
-      layout_json: savedViewLayoutJsonForPersistence(
+      layout_json: buildSavedViewLayoutJson(
         requireViewContract("cartulary.view.timeline.v2"),
-        {},
       ),
       owner_user_id: "user-1",
       saved_view_version: 1,
@@ -83,34 +85,46 @@ describe("workbookSavedViews", () => {
       ],
     });
 
-    const layout = savedViewLayoutJsonForPersistence(contract, {
-      column_widths: [
-        { field_key: "timeline.activity_synopsis_text", width_px: 320 },
-        { field_key: "timeline.unknown", width_px: 900 },
+    const current = buildSavedViewLayoutJson(contract, {
+      columnWidths: [
+        { fieldKey: "timeline.activity_synopsis_text", widthPx: 320 },
       ],
-      hidden_field_keys: ["timeline.raw_activity_text", "timeline.unknown"],
+      hiddenFieldKeys: ["timeline.raw_activity_text"],
+      frozenThroughFieldKey: "timeline.raw_activity_text",
     });
-    expect(layout.layout_schema_id).toBe("cartulary.layout.v1");
-    expect(layout.column_order).toContain("timeline.activity_synopsis_text");
-    expect(layout.column_order).not.toContain("timeline.unknown");
-    expect(layout.column_widths).toEqual([
-      { field_key: "timeline.activity_synopsis_text", width_px: 320 },
-    ]);
-    expect(layout.hidden_field_keys).toEqual(["timeline.raw_activity_text"]);
-    expect(
-      JSON.stringify(
-        savedViewLayoutJsonForPersistence(contract, {
-          active_panel: "history",
-          inspector_open: true,
-          local_form_state: { dirty: true },
-          merge_plans: ["row-1"],
-          preview_state: { record_id: "row-1" },
-          rollback_previews: ["row-1"],
-          stale_confirmation_state: { delete: true },
-        }),
-      ),
-    ).not.toMatch(
-      /active_panel|inspector_open|local_form_state|merge_plans|preview_state|rollback_previews|stale_confirmation_state/,
+    expect(savedViewLayoutJsonForPersistence(contract, current)).toEqual(
+      current,
     );
+    const { frozen_through_field_key: _boundary, ...legacy } = current;
+    const old = { ...legacy, layout_schema_id: "cartulary.layout.v1" };
+    expect(savedViewLayoutJsonForPersistence(contract, old)).toEqual({
+      ...current,
+      frozen_through_field_key: null,
+    });
+    for (const invalid of [
+      {},
+      { ...current, layout_schema_id: "cartulary.layout.v99" },
+      { ...current, frozen_through_field_key: "record_id" },
+      { ...current, frozen_through_field_key: "unknown" },
+      { ...old, frozen_through_field_key: null },
+      { ...current, inspector_open: true },
+      {
+        ...current,
+        column_widths: [
+          { field_key: "timeline.activity_synopsis_text", width_px: 100.7 },
+        ],
+      },
+      {
+        ...current,
+        column_order: [...current.column_order, current.column_order[0]],
+      },
+    ]) {
+      expect(
+        workbookLayoutStateFromSavedViewLayoutJson(contract, invalid),
+      ).toBeNull();
+      expect(() =>
+        savedViewLayoutJsonForPersistence(contract, invalid),
+      ).toThrow("Invalid saved-view layout");
+    }
   });
 });

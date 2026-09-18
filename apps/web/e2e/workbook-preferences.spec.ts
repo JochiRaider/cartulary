@@ -1,15 +1,19 @@
 import {
   gridGroupingSelectTestId,
+  gridScrollportSelector,
   incidentAdministrationTestId,
   savedViewOptionTestId,
   savedViewSelectorTestId,
   savedViewSetHomeButtonTestId,
   surfaceTabTestId,
+  workbookColumnsMenuTestId,
+  workbookColumnsMenuTriggerTestId,
   workbookPreferenceTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
   hostsViewSchemaId,
+  requireViewContract,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
@@ -76,7 +80,24 @@ test("preferences persist exact base and saved identities and explicit clears th
     uniqueIncidentKey("WP-FALLBACK"),
     "Preference fallback",
   );
+  const fields = requireViewContract(timelineViewSchemaId).fields.filter(
+    (field) =>
+      field.fieldKey !== "record_id" && field.fieldKey !== "row_version",
+  );
+  const boundaryField = fields[0];
+  if (!boundaryField) throw new Error("Missing startup boundary fixture");
+  const boundary = boundaryField.fieldKey;
   const saved = await createSavedView(page, id, {
+    layout_json: {
+      layout_schema_id: "cartulary.layout.v2",
+      column_order: fields.map((field) => field.fieldKey),
+      hidden_field_keys: fields
+        .filter((field) => field.defaultHidden)
+        .map((field) => field.fieldKey)
+        .sort(),
+      column_widths: [{ field_key: boundary, width_px: 160 }],
+      frozen_through_field_key: boundary,
+    },
     display_name: "Stored home",
     scope: "private",
     view_schema_id: timelineViewSchemaId,
@@ -127,13 +148,34 @@ test("preferences persist exact base and saved identities and explicit clears th
   await expect(
     page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
   ).toHaveValue("timeline.capture_state");
+  await page.goto(`/?incident_id=${id}`);
+  await expect(
+    page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("data-selected-saved-view-id", saved.saved_view_id);
+  await page
+    .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+    .click();
+  await expect(
+    page.getByTestId(workbookColumnsMenuTestId(timelineViewSchemaId)),
+  ).toContainText(`Freeze through ${boundaryField.label}`);
+  await page
+    .getByTestId(workbookColumnsMenuTestId(timelineViewSchemaId))
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+    "data-grid-freeze-state",
+    boundaryField.defaultHidden ? "none" : "active",
+  );
+
   await openIncidentControls(page);
   await actPreference(page, "home", "clear");
   const cleared = await read(page, id, "home");
   expect(cleared.home_sheet_ref).toBeNull();
   await actPreference(page, "home", "clear");
   expect(await read(page, id, "home")).toEqual(cleared);
-  expect(page.url()).toBe(url);
+  await expect(
+    page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("data-selected-saved-view-id", saved.saved_view_id);
   await page.goto(`/?incident_id=${id}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toHaveAttribute(
     "data-active-view-schema-id",

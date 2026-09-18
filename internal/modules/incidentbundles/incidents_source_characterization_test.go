@@ -35,7 +35,7 @@ func TestIncidentsSourcePortV3Characterization_Unit(t *testing.T) {
 	}
 	path := descriptor.Paths[0]
 	if path.LogicalPath != "data/incident.json" || path.ContentRole != "singleton_json" ||
-		!slices.Equal(path.Versions, []int{3}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
+		!slices.Equal(path.Versions, []int{3, 4}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
 		path.StableIdentityInvariantID != "incident.source_identity_admitted" {
 		t.Fatalf("incident source path drifted: %#v", path)
 	}

@@ -20,7 +20,7 @@ func TestSourceStateContributionsRemainExact_Unit(t *testing.T) {
 		gotPaths = append(gotPaths, path.LogicalPath)
 		gotRoles = append(gotRoles, path.ContentRole)
 		gotIdentities = append(gotIdentities, path.StableIdentity)
-		if !reflect.DeepEqual(path.Versions, []int{3}) {
+		if !reflect.DeepEqual(path.Versions, []int{3, 4}) {
 			t.Fatalf("path %q versions = %v, want [3]", path.LogicalPath, path.Versions)
 		}
 	}

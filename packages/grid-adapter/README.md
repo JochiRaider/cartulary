@@ -147,3 +147,25 @@ The opt-in `onClearCells` intent captures visible semantic membership through
 `src/semanticClear.ts`. Unmodified Delete in navigation and
 `GridHandle.captureClearIntent` share this capture; source owners decide eligibility
 and mutation meaning. The adapter preserves native editor Delete and Backspace.
+
+
+## Frozen semantic data prefix
+
+`frozenDataColumnPrefix` admits only a contiguous leading prefix of visible
+semantic columns. `useFrozenDataColumns.ts` measures resolved production CSS grid
+tracks and the clipped viewport independently of sticky placement, then applies
+the typed minimum scrollable budget. The whole prefix is active or suspended;
+there is no vendor layout store. Structural columns remain private. The read-only
+`GridHandle.frozenColumns` port reports changes in effective status without
+writing layout or reclaiming focus.
+
+`viewportGeometry.ts` owns structural, frozen-data and scrollable work areas for
+focus reveal, pointer hit testing, range edge scrolling, measurement and editor
+correction access. Frozen correction controls may use the full data area;
+scrollable targets remain beyond the frozen boundary. Compilation changes sticky
+flags on existing semantic cells without changing keys, order or mutation rights.
+
+Editor compilation requires the admitted semantic seed, so a vendor edit position
+left behind by reordering cannot open a different field. A retained editor that
+remounts while a layout command owns focus respects the existing external-action
+boundary; explicit editor activation still restores normal input focus.

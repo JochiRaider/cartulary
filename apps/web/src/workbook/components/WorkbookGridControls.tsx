@@ -1,7 +1,10 @@
 import { workbookViewBarQueryControlsTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useEffect, useMemo, useReducer, useRef } from "react";
-import type { WorkbookColumnSizingControls } from "../layout/WorkbookColumnLayoutController";
+import type {
+  WorkbookColumnSizingControls,
+  WorkbookFrozenColumnControls,
+} from "../layout/WorkbookColumnLayoutController";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
@@ -47,6 +50,7 @@ export type WorkbookGridControlsProps = {
   readonly subjectKey?: string | undefined;
   readonly surface: string;
   readonly sizing: WorkbookColumnSizingControls;
+  readonly freezing: WorkbookFrozenColumnControls;
 };
 
 export function WorkbookGridControls({
@@ -68,6 +72,7 @@ export function WorkbookGridControls({
   subjectKey: suppliedSubjectKey,
   surface,
   sizing,
+  freezing,
 }: WorkbookGridControlsProps) {
   const subjectKey = suppliedSubjectKey ?? surface;
   const queryEntryRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -101,6 +106,7 @@ export function WorkbookGridControls({
   const commandPorts: WorkbookGridCommandPorts = {
     contract,
     onClearFilters,
+    freezing,
     onColumnHiddenChange,
     onColumnMove,
     onGroupByChange,
@@ -261,6 +267,7 @@ export function WorkbookGridControls({
       />
       <WorkbookColumnsControl
         sizing={sizing}
+        freezing={freezing}
         isOpen={surfaceState.openPanel === "columns"}
         onClose={closePanel}
         onCommand={onCommand}
@@ -300,6 +307,7 @@ type WorkbookGridCommandPorts = Pick<
   WorkbookGridControlsProps,
   | "contract"
   | "onClearFilters"
+  | "freezing"
   | "onColumnHiddenChange"
   | "onColumnMove"
   | "onGroupByChange"
@@ -340,6 +348,9 @@ function executeWorkbookGridQueryCommand(
       return;
     case "column_move":
       ports.onColumnMove(command.fieldKey, command.direction);
+      return;
+    case "columns_freeze":
+      ports.freezing.onBoundaryChange(command.fieldKey);
       return;
     case "columns_reset":
       ports.onResetColumns();

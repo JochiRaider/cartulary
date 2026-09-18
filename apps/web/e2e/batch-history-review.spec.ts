@@ -3,6 +3,7 @@ import {
   scrollGridCellIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  gridScrollportSelector,
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryItemTestId,
@@ -11,8 +12,13 @@ import {
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
+  workbookColumnsMenuTestId,
+  workbookColumnsMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import {
+  requireViewContract,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createIncident } from "./support/incidents/fixtures";
@@ -54,6 +60,46 @@ async function reviewBatch(
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
+  await page
+    .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+    .click();
+  const columns = page.getByTestId(
+    workbookColumnsMenuTestId(timelineViewSchemaId),
+  );
+  const fields = requireViewContract(timelineViewSchemaId).fields;
+  const synopsisField =
+    requireViewContract(timelineViewSchemaId).fieldMap[synopsis];
+  if (!synopsisField) throw new Error("Missing Synopsis fixture");
+  for (const field of fields.slice(
+    0,
+    fields.findIndex((field) => field.fieldKey === synopsis) + 1,
+  )) {
+    if (field.fieldKey === "record_id" || field.fieldKey === "row_version")
+      continue;
+    await columns
+      .getByRole("button", { name: `Width for ${field.label}`, exact: true })
+      .click();
+    await columns
+      .getByRole("textbox", { name: "Width in CSS pixels" })
+      .fill(field.fieldKey === synopsis ? "220" : "40");
+    await columns
+      .getByRole("button", { name: "Apply width", exact: true })
+      .click();
+    await columns.getByRole("button", { name: "Cancel", exact: true }).click();
+  }
+  await columns
+    .getByRole("button", {
+      name: `Freeze through ${synopsisField.label}`,
+      exact: true,
+    })
+    .click();
+  await columns
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+    "data-grid-freeze-state",
+    "active",
+  );
   const historyReads: string[] = [],
     writes: { path: string; body: string }[] = [];
   const gridPatches: string[] = [];

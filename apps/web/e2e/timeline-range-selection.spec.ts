@@ -118,6 +118,43 @@ async function seed(page: Page, count = 4) {
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
+  await page
+    .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+    .click();
+  const frozenColumns = page.getByTestId(
+    workbookColumnsMenuTestId(timelineViewSchemaId),
+  );
+  const fields = requireViewContract(timelineViewSchemaId).fields;
+  const boundary = fields.findIndex((field) => field.fieldKey === synopsis);
+  for (const field of fields.slice(0, boundary + 1)) {
+    if (field.fieldKey === "record_id" || field.fieldKey === "row_version")
+      continue;
+    await frozenColumns
+      .getByRole("button", { name: `Width for ${field.label}`, exact: true })
+      .click();
+    await frozenColumns
+      .getByRole("textbox", { name: "Width in CSS pixels" })
+      .fill(field.fieldKey === synopsis ? "220" : "40");
+    await frozenColumns
+      .getByRole("button", { name: "Apply width", exact: true })
+      .click();
+    await frozenColumns
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+  }
+  await frozenColumns
+    .getByRole("button", {
+      name: `Freeze through ${requireViewContract(timelineViewSchemaId).fieldMap[synopsis]?.label}`,
+      exact: true,
+    })
+    .click();
+  await frozenColumns
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+    "data-grid-freeze-state",
+    "active",
+  );
   return { incident, rows, ids: rows.map((row) => row.record_id) };
 }
 async function drag(

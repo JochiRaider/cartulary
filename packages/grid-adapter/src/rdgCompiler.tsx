@@ -53,6 +53,7 @@ export type GridCompiledBulkSelection<Row> = {
 };
 
 type CompileGridColumnsInput<Row> = {
+  readonly frozenDataColumnPrefix?: readonly string[] | undefined;
   readonly onColumnSizingIntent?:
     | ((intent: GridColumnSizingIntent) => void)
     | undefined;
@@ -83,6 +84,7 @@ type CompileGridColumnsInput<Row> = {
     retainAcrossVersions?: boolean,
   ) => {
     readonly activation: GridEditorActivation;
+    readonly retained: boolean;
     readonly hasValue: boolean;
     readonly value: unknown;
   } | null;
@@ -144,6 +146,7 @@ function gridMutationTarget<Row>(
 }
 
 export function compileGridColumns<Row>({
+  frozenDataColumnPrefix = [],
   onColumnSizingIntent,
   onColumnSizingStart,
   actionsColumn,
@@ -289,9 +292,57 @@ export function compileGridColumns<Row>({
   }
 
   for (const column of columns) {
+    const frozen = frozenDataColumnPrefix.includes(column.fieldKey);
+    const boundary =
+      frozen && frozenDataColumnPrefix.at(-1) === column.fieldKey;
+    const frozenClasses = [
+      frozen ? "cartulary-grid-frozen-data" : "",
+      boundary ? "cartulary-grid-frozen-boundary" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const renderCell = (row: GridDataRow<Row>) => {
+      const semanticState = resolveGridSemanticState(
+        cellStateFor(row, column),
+        column.label,
+      );
+      const anchor = {
+        fieldKey: column.fieldKey,
+        rowIdentity: row.rowIdentity,
+        surface,
+      };
+      return (
+        <SemanticGridCellContent
+          anchor={anchor}
+          fieldKey={column.fieldKey}
+          rangeSelected={isCellRangeSelected(row, column)}
+          registerSemanticCell={registerSemanticCell}
+          semanticState={semanticState}
+          committed={
+            column.isCellContentCommitted?.(row.data) !== false &&
+            !semanticState.stateIds.includes("pending")
+          }
+          onPaste={(clipboardText, delivery) =>
+            onPasteCellContent?.(
+              row,
+              column.fieldKey,
+              clipboardText,
+              delivery,
+            ) === true
+          }
+        >
+          {column.renderCell({
+            anchor,
+            row: row.data,
+          })}
+        </SemanticGridCellContent>
+      );
+    };
     compiled.push({
+      frozen,
       cellClass: (row) =>
         [
+          frozenClasses,
           dataCellClass(
             column.align,
             resolveGridSemanticState(cellStateFor(row, column), column.label),
@@ -311,7 +362,7 @@ export function compileGridColumns<Row>({
         column.editor !== undefined &&
         column.valueKind !== "collection",
       key: column.fieldKey,
-      headerCellClass: "cartulary-grid-header-cell",
+      headerCellClass: `cartulary-grid-header-cell ${frozenClasses}`,
       minWidth: column.minWidth,
       maxWidth: column.maxWidth,
       name: column.label,
@@ -343,43 +394,7 @@ export function compileGridColumns<Row>({
           ) : null}
         </span>
       ),
-      renderCell: ({ row }) => {
-        const semanticState = resolveGridSemanticState(
-          cellStateFor(row, column),
-          column.label,
-        );
-        const anchor = {
-          fieldKey: column.fieldKey,
-          rowIdentity: row.rowIdentity,
-          surface,
-        };
-        return (
-          <SemanticGridCellContent
-            anchor={anchor}
-            fieldKey={column.fieldKey}
-            rangeSelected={isCellRangeSelected(row, column)}
-            registerSemanticCell={registerSemanticCell}
-            semanticState={semanticState}
-            committed={
-              column.isCellContentCommitted?.(row.data) !== false &&
-              !semanticState.stateIds.includes("pending")
-            }
-            onPaste={(clipboardText, delivery) =>
-              onPasteCellContent?.(
-                row,
-                column.fieldKey,
-                clipboardText,
-                delivery,
-              ) === true
-            }
-          >
-            {column.renderCell({
-              anchor,
-              row: row.data,
-            })}
-          </SemanticGridCellContent>
-        );
-      },
+      renderCell: ({ row }) => renderCell(row),
       renderEditCell:
         editable &&
         column.contractWritable === true &&
@@ -389,7 +404,12 @@ export function compileGridColumns<Row>({
               const target = gridMutationTarget(row, column.fieldKey, surface);
               const editorSeed =
                 target === null ? null : readEditorSeed(target);
-              return target === null ? null : (
+              // Vendor positions can temporarily refer to another field after
+              // reordering. Only the semantic editor owner can admit a target.
+              return target === null ||
+                readEditorSeed(target, true) === null ? (
+                renderCell(row)
+              ) : (
                 <SemanticGridEditor
                   key={`${target.rowIdentity.recordId}:${target.fieldKey}`}
                   adapter={column.editor as GridEditorAdapter<Row>}
@@ -537,6 +557,7 @@ function SemanticGridEditor<Row>({
   readonly rangeSelected: boolean;
   readonly editorSeed: {
     readonly activation: GridEditorActivation;
+    readonly retained: boolean;
     readonly hasValue: boolean;
     readonly value: unknown;
   } | null;
@@ -683,6 +704,13 @@ function SemanticGridEditor<Row>({
   useLayoutEffect(() => {
     const element = focusTargetRef.current;
     if (element === null) return;
+    const external = document.activeElement;
+    if (
+      initialAttachment.current.seed?.retained &&
+      external instanceof HTMLElement &&
+      external.closest('[data-grid-editor-external-action="true"]')
+    )
+      return;
     element.focus({ preventScroll: true });
     if (
       (element instanceof HTMLInputElement &&

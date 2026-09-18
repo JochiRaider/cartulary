@@ -27,6 +27,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -334,6 +335,16 @@ VALUES ($1, $2, 'Portable Risk', 'portable risk', $3)
 		t.Fatalf("seed handoff risk ref: %v", err)
 	}
 	savedViewID := uuid.New()
+	savedLayout, layoutErr := viewschema.DefaultLayout(timeline.TimelineViewSchemaID)
+	if layoutErr != nil {
+		t.Fatal(layoutErr)
+	}
+	var savedLayoutValue map[string]any
+	if err := json.Unmarshal(savedLayout, &savedLayoutValue); err != nil {
+		t.Fatal(err)
+	}
+	savedLayoutValue["frozen_through_field_key"] = "timeline.activity_synopsis_text"
+	savedLayout, _ = json.Marshal(savedLayoutValue)
 	if _, err := harness.DB.Exec(`
 INSERT INTO saved_views (
     saved_view_id, incident_id, view_schema_id, scope, display_name,
@@ -346,10 +357,10 @@ VALUES (
     'private',
     'Portable saved view',
     '{"filters":[{"field_key":"timeline.tags","op":"contains_any","arg":{"values":["portable"]}}]}'::jsonb,
-    '{}'::jsonb,
+    $5::jsonb,
     $3
 )
-`, savedViewID, incidentUUID, actorUUID, timeline.TimelineViewSchemaID); err != nil {
+`, savedViewID, incidentUUID, actorUUID, timeline.TimelineViewSchemaID, savedLayout); err != nil {
 		t.Fatalf("seed saved view: %v", err)
 	}
 

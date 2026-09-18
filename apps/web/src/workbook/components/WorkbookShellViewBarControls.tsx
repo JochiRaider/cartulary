@@ -43,6 +43,7 @@ export function workbookShellViewBarWorkingSet({
             filterDraft: snapshot.activeQueryControls.filterDraft,
             layoutState: snapshot.activeLayoutState,
             sizing: snapshot.activeLayoutControls.sizing,
+            freezing: snapshot.activeLayoutControls.freezing,
             onApplyFilter: snapshot.activeQueryControls.onApplyFilter,
             onClearFilters: snapshot.activeQueryControls.onClearFilters,
             onColumnHiddenChange:

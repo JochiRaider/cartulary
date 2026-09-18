@@ -131,7 +131,7 @@ A saved view MUST persist, at minimum:
 
 `layout_json` carries only shared portable layout state. Selection, scroll position, focused cell, local popover state, open inspector state, active inspector panel, preview state, local inspector forms, rollback previews, merge plans, stale confirmations, and presence remain client-local and MUST NOT be persisted as part of a saved view.
 
-Persisted saved-view `query_json` MUST use the same stable field-key grammar as workbook view queries. Omitted `sort` and `filters` members MUST persist as empty arrays. Inactive grouping MUST persist by omitting `query_json.group_by`; explicit JSON `null` for `group_by` is invalid. Omitted create-time `layout_json` and create-time `layout_json={}` MUST normalize to the schema-derived `cartulary.layout.v1` default before persistence.
+Persisted saved-view `query_json` MUST use the same stable field-key grammar as workbook view queries. Omitted `sort` and `filters` members MUST persist as empty arrays. Inactive grouping MUST persist by omitting `query_json.group_by`; explicit JSON `null` for `group_by` is invalid. Omitted create-time `layout_json` and create-time `layout_json={}` MUST normalize to the schema-derived `cartulary.layout.v2` default before persistence.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-151, AC-152, AC-231
 
@@ -319,13 +319,13 @@ Verified by: AC-152, AC-231
 **REQ-03-026**
 A user who can open a visible saved view MUST be able to duplicate it into a new saved view by persisting a normalized copy of its current `view_schema_id`, `query_json`, and `layout_json`.
 Profiles: base
-Verified by: AC-152, AC-231
+Verified by: AC-152, AC-231, AC-480
 
 **REQ-03-295**
-The workbook MUST own column order, hidden field keys, and sparse widths by `view_schema_id` using `cartulary.layout.v1`. Selecting or starting on a saved view MUST apply its layout; create and update MUST capture the current working semantic layout; duplicate MUST copy the selected saved configuration’s semantic layout under REQ-03-026; dirty comparison MUST include that layout; and reset MUST restore the selected saved-view layout or the schema default when no saved view is selected. The complete nontechnical field permutation remains authoritative even when fields are hidden. Structural grid columns, selection, focus, scroll, expansion, inspector, and vendor state MUST NOT enter the saved layout.
+The workbook MUST own column order, hidden field keys, sparse widths, and the nullable frozen-through field identity by `view_schema_id` using `cartulary.layout.v2`. Selecting or starting on a saved view MUST apply its layout; create and update MUST capture the current working semantic layout; duplicate MUST copy the selected saved configuration’s semantic layout under REQ-03-026; dirty comparison MUST include that layout; and reset MUST restore the selected saved-view layout or the schema default when no saved view is selected. The complete nontechnical field permutation remains authoritative even when fields are hidden. Structural grid columns, selection, focus, scroll, expansion, inspector, and vendor state MUST NOT enter the saved layout.
 
 The reset above is saved-view Reset. `Reset columns` MUST restore only schema
-column order, default visibility and empty width overrides, preserving query and
+column order, default visibility, empty width overrides and a null frozen boundary, preserving query and
 selected saved-view identity. Restoring one column's default MUST remove only its
 sparse width override. Setting a width equal to its current default MUST retain
 an explicit override. All rendered data-column widths and sizing gestures MUST
@@ -348,8 +348,24 @@ an edited field or resetting it out of presentation MUST detach only its editor
 presentation, retaining work under REQ-03-298. Layout actions MUST NOT dispatch
 record mutations. This exception does not alter ordinary editor-to-cell or
 outside-focus acceptance rules in REQ-03-218/300.
+The existing Columns surface MUST expose Freeze through this column and Unfreeze
+columns. Resolve the prefix against complete semantic order, preserve hidden
+boundary identity and recompute after reorder. All-hidden layouts retain a usable
+Columns control and their configured identity. Local freeze changes are available
+to readable surfaces independently of permission to persist a shared saved view.
+They MUST NOT submit, discard or replace unrelated authoring. Selection, traversal,
+clipboard, fill, clear and Find retain logical visible field order and source-owned
+mutation eligibility across the boundary. Existing retained authoring, query
+admission, saved-view replacement and authority transitions remain in force.
+
+Requested freezing and effective viewport placement MUST be separate. Adapter
+MUST suspend the entire data prefix when the design-owned work-area budget is
+unavailable, and resume when it fits without focus theft. Suspension, grouping,
+Inspector/Recovery opening and viewport changes MUST NOT rewrite configuration,
+shrink explicit widths or dirty a saved view. No disconnected/right pins, duplicate
+grids, row freezing, split panes or vendor state persistence are defined.
 Profiles: base
-Verified by: AC-480
+Verified by: AC-480, AC-480B
 
 **REQ-03-296**
 Workbook sorting MUST be a controlled ordered list. Ordinary header or View-bar activation replaces the list; Ctrl/Cmd activation adds, cycles, or removes one field without changing the relative priority of other entries; both pointer and keyboard-accessible controls MUST expose priority and removal; and the adopted eight-entry maximum MUST be enforced before a query is dispatched. Sort state MUST use semantic field keys and MUST NOT persist vendor coordinates.

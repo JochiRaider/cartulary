@@ -673,6 +673,7 @@ function WorkbookShellContent({
       onColumnSizingIntent: snapshot.activeLayoutControls.onColumnSizingIntent,
       bindColumnSizing: snapshot.activeLayoutControls.bindColumnSizing,
       sizing: snapshot.activeLayoutControls.sizing,
+      freezing: snapshot.activeLayoutControls.freezing,
       onResetColumns: snapshot.activeLayoutControls.onResetColumns,
     },
     columnState: snapshot.activeLayoutState,

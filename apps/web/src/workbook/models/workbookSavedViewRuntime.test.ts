@@ -60,6 +60,7 @@ describe("workbookSavedViewRuntime", () => {
         hidden_field_keys: layout.hidden_field_keys,
         column_order: layout.column_order,
         layout_schema_id: layout.layout_schema_id,
+        frozen_through_field_key: layout.frozen_through_field_key,
       },
     };
     expect(savedViewChanges(base, definition)).toEqual({});

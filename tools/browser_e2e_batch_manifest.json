@@ -1202,7 +1202,9 @@
           "selected_row_ids": [
             "module.workbook.browser.column_sizing_gestures_saved",
             "module.workbook.browser.column_sizing_surfaces",
-            "module.workbook.browser.column_sizing_viewport"
+            "module.workbook.browser.column_sizing_viewport",
+            "module.workbook.browser.frozen_columns_layout",
+            "module.workbook.browser.frozen_columns_threshold"
           ],
           "specs": [
             "apps/web/e2e/workbook-column-sizing.spec.ts"
@@ -2698,7 +2700,9 @@
           "selected_row_ids": [
             "module.workbook.browser.column_sizing_gestures_saved",
             "module.workbook.browser.column_sizing_surfaces",
-            "module.workbook.browser.column_sizing_viewport"
+            "module.workbook.browser.column_sizing_viewport",
+            "module.workbook.browser.frozen_columns_layout",
+            "module.workbook.browser.frozen_columns_threshold"
           ],
           "specs": [
             "apps/web/e2e/workbook-column-sizing.spec.ts"
@@ -3797,6 +3801,7 @@
           "browser_session_group": "browser-e2e-a11y-default",
           "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
           "selected_row_ids": [
+            "module.workbook.accessibility.frozen_column_correction",
             "module.workbook.accessibility.grid_autosave"
           ],
           "specs": [
@@ -4932,6 +4937,7 @@
           "execution_dependency": "browser_a11y",
           "workers": "1",
           "selected_row_ids": [
+            "module.workbook.accessibility.frozen_column_correction",
             "module.workbook.accessibility.grid_autosave"
           ],
           "specs": [

@@ -67,7 +67,12 @@ async function fixture() {
       query: { state },
       layout: {
         snapshot: {
-          state: { columnOrder: [], columnWidths: {}, hiddenFieldKeys: [] },
+          state: {
+            columnOrder: [],
+            columnWidths: {},
+            hiddenFieldKeys: [],
+            frozenThroughFieldKey: null,
+          },
         },
       },
       entities: { index: {} },

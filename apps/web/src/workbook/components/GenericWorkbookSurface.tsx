@@ -62,7 +62,10 @@ import {
   workbookGridWithNoticeStyle,
   workbookSurfaceGridShellStyle,
 } from "../layout/WorkbookSurfaceLayout";
-import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
+import {
+  applyWorkbookLayoutToColumns,
+  workbookFrozenDataColumnPrefix,
+} from "../layout/workbookColumnLayout";
 import {
   genericCellLabelForField,
   genericContractColumnWidth,
@@ -744,6 +747,9 @@ export function ContractWorkbookSurface({
             testId={gridShellTestId(surface)}
           >
             <SemanticDataGrid
+              frozenDataColumnPrefix={workbookFrozenDataColumnPrefix(
+                layoutState,
+              )}
               rowGutter={workbookPresenceRowGutter}
               ref={registerGridHandle}
               actionsColumn={rowActionsColumn}

@@ -1112,6 +1112,33 @@ an entry; `Delete` performs the chip's clear or remove operation.
 
 Design contract. The View bar MUST expose a keyboard-accessible `Columns` control that lists semantic field labels, reports visibility, supports show or hide, move earlier or later, and reset, and remains usable when every data column is hidden. Pointer header drag MAY provide the same reorder operation as a convenience but MUST NOT be the only reorder mechanism. Adapter-private structural columns are excluded from this control and from saved layout.
 
+Design contract. Columns MUST provide a per-field `Freeze through this column`
+action and `Unfreeze columns`, including when the boundary is hidden or all data
+columns are hidden. Report the configured boundary by field label, its hidden
+state, the visible data-column count, and temporary suspension. The existing
+view-bar sequence and density remain unchanged. A visible non-color boundary
+rule marks the last effective frozen data column. Status announcements occur once
+per effective transition, not per scroll frame or resize observation.
+
+Design contract. The minimum usable scrollable work area is `240` local CSS
+pixels. Measured production correction geometry is a 220px editor with a 2px
+outline and 2px offset on both sides; the budget exceeds its 228px focused extent.
+Let V be the clipped grid width, S its private frozen structural width, and P the
+complete requested visible data-prefix width. Enable that entire prefix exactly
+when floor(V) - ceil(S + P) >= 240, including all-visible-column freezing.
+Unknown geometry suspends data freezing; zero visible prefix cells render none.
+Widths and measurements MUST NOT depend on whether freezing is currently enabled.
+Never choose a shorter prefix or change authored widths/configuration. Re-evaluate
+on sizing, density, grouping, clipping, panel and viewport changes; resume without
+focus theft. Below-minimum and oversized correction-access rules still apply.
+
+Design contract. Focus reveal, Find, hit testing, dragging, edge scrolling, sizing
+measurement and editor correction use the same Adapter-owned region geometry.
+Scrollable cells MUST remain beyond the frozen region. A frozen editor MUST NOT
+treat itself or adjacent frozen data columns as an obstruction; its correction
+controls may use the nonstructural grid work area, anchored to the original cell.
+No geometry change may remount a still-present editor just to rebuild layout.
+
 Design contract. Columns uses a labelled non-modal panel with native visibility
 checkboxes, move buttons and a per-column `Width` action. Its sizing panel exposes
 current/default width, an integer input, `Apply width`, `Fit visible content`,

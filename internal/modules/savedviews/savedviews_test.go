@@ -495,8 +495,8 @@ func TestSavedViewOpenAPICreateInputIsLenient_Unit(t *testing.T) {
 
 	createLayout := schemaAt(t, schemas, "SavedViewCreateLayoutJSON")
 	variants, ok := createLayout["oneOf"].([]any)
-	if !ok || len(variants) != 2 {
-		t.Fatalf("create layout_json must allow empty object or canonical layout, got %#v", createLayout)
+	if !ok || len(variants) != 3 {
+		t.Fatalf("create layout_json must allow empty object, legacy layout or current layout, got %#v", createLayout)
 	}
 	emptyVariant, ok := variants[0].(map[string]any)
 	if !ok || emptyVariant["maxProperties"] != float64(0) {
@@ -508,7 +508,7 @@ func TestSavedViewOpenAPICreateInputIsLenient_Unit(t *testing.T) {
 	}
 
 	resourceLayout := schemaAt(t, schemas, "SavedViewLayoutJSON")
-	requireStringSet(t, resourceLayout["required"], []string{"layout_schema_id", "column_order", "hidden_field_keys", "column_widths"})
+	requireStringSet(t, resourceLayout["required"], []string{"layout_schema_id", "column_order", "hidden_field_keys", "column_widths", "frozen_through_field_key"})
 }
 
 func TestSavedViewScopeVocabulary_Unit(t *testing.T) {
@@ -871,8 +871,8 @@ func requireEmptyCanonicalQueryJSON(t testing.TB, query map[string]any) {
 
 func requireDefaultLayoutJSON(t testing.TB, layout map[string]any) {
 	t.Helper()
-	if layout["layout_schema_id"] != "cartulary.layout.v1" {
-		t.Fatalf("layout must use cartulary.layout.v1, got %#v", layout)
+	if layout["layout_schema_id"] != "cartulary.layout.v2" {
+		t.Fatalf("layout must use cartulary.layout.v2, got %#v", layout)
 	}
 	order := stringSliceFromAny(layout["column_order"])
 	if len(order) == 0 || contains(order, "record_id") || contains(order, "row_version") {

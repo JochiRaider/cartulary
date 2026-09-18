@@ -552,6 +552,9 @@
           },
           {
             "$ref": "#/components/schemas/SavedViewLayoutJSON"
+          },
+          {
+            "$ref": "#/components/schemas/SavedViewLegacyLayoutJSON"
           }
         ]
       },
@@ -675,7 +678,7 @@
         "properties": {
           "layout_schema_id": {
             "type": "string",
-            "const": "cartulary.layout.v1"
+            "const": "cartulary.layout.v2"
           },
           "column_order": {
             "type": "array",
@@ -694,13 +697,21 @@
             "items": {
               "$ref": "#/components/schemas/SavedViewColumnWidth"
             }
+          },
+          "frozen_through_field_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
           }
         },
         "required": [
           "layout_schema_id",
           "column_order",
           "hidden_field_keys",
-          "column_widths"
+          "column_widths",
+          "frozen_through_field_key"
         ]
       },
       "SavedViewColumnWidth": {
@@ -784,6 +795,40 @@
           "created_at",
           "updated_at",
           "saved_view_version"
+        ]
+      },
+      "SavedViewLegacyLayoutJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "layout_schema_id": {
+            "type": "string",
+            "const": "cartulary.layout.v1"
+          },
+          "column_order": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hidden_field_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "column_widths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedViewColumnWidth"
+            }
+          }
+        },
+        "required": [
+          "layout_schema_id",
+          "column_order",
+          "hidden_field_keys",
+          "column_widths"
         ]
       }
     }

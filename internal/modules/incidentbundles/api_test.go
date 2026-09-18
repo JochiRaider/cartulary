@@ -154,8 +154,8 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
 		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
 	}
-	if first.Manifest.BundleVersion != 3 {
-		t.Fatalf("manifest bundle_version must be numeric 3, got %#v", first.Manifest.BundleVersion)
+	if first.Manifest.BundleVersion != 4 {
+		t.Fatalf("manifest bundle_version must be numeric 4, got %#v", first.Manifest.BundleVersion)
 	}
 	if first.Manifest.SourceChangeSetHighWatermark == "" {
 		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
@@ -459,7 +459,15 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	for _, version := range []int{1, 2, 4} {
+	for _, version := range []int{3, 4} {
+		original := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) { manifest["bundle_version"] = version })
+		verified, err := verifyBundle(verificationInput{Bundle: original, Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}}})
+		if err != nil || verified.Manifest.BundleVersion != version {
+			t.Fatalf("original version %d integrity admission: %v", version, err)
+		}
+	}
+
+	for _, version := range []int{1, 2, 5} {
 		t.Run(fmt.Sprintf("unsupported_version_%d", version), func(t *testing.T) {
 			unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
 				manifest["bundle_version"] = version

@@ -2,6 +2,7 @@ package savedviews_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -22,7 +23,7 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "svd-incident", "incident_key": "IR-SVD", "title": "Saved view discovery"})
 	id := incident["incident_id"].(string)
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "svd-viewer@example.test", "Viewer", "SavedViewDiscovery1!", false, false, true)
-	viewer, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "svd-viewer@example.test", "SavedViewDiscovery1!", nil)
+	viewer, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "svd-viewer@example.test", "SavedViewDiscovery1!", nil)
 	scenariotest.CreateMembership(t, harness.Server, admin, id, map[string]any{"client_txn_id": "svd-member", "user_id": viewerID, "role": "viewer"})
 	const schema = "cartulary.view.timeline.v2"
 	for i := 0; i < 101; i++ {
@@ -42,6 +43,34 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 		}
 		return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	}
+	// Read both ordinary and system stored v1 resources through the current projection.
+	legacy := savedViewLayoutWith(t, func(layout map[string]any) {
+		layout["layout_schema_id"] = "cartulary.layout.v1"
+		delete(layout, "frozen_through_field_key")
+	})
+	legacyBytes, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, resourceID := range ids[:2] {
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE saved_views SET layout_json=$2 WHERE saved_view_id=$1`, resourceID, legacyBytes); err != nil {
+			t.Fatal(err)
+		}
+	}
+	type storedState struct {
+		Layout, Updated string
+		Version         int64
+	}
+	readStored := func(resourceID string) storedState {
+		var state storedState
+		if err := harness.DB.QueryRowContext(context.Background(), `SELECT layout_json::text,updated_at::text,saved_view_version FROM saved_views WHERE saved_view_id=$1`, resourceID).Scan(&state.Layout, &state.Updated, &state.Version); err != nil {
+			t.Fatal(err)
+		}
+		return state
+	}
+	beforeLegacy := readStored(ids[0])
+	beforeSystem := readStored(ids[1])
+
 	unfiltered := read("", viewer)["data"].(map[string]any)["saved_views"].([]any)
 	if len(unfiltered) != 100 || unfiltered[0].(map[string]any)["view_schema_id"] == schema {
 		t.Fatal("fixture must place active schema beyond first unfiltered page")
@@ -68,6 +97,22 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 			t.Fatal("list/detail envelope disagreement")
 		}
 	}
+	for _, row := range rows {
+		layout := row.(map[string]any)["layout_json"].(map[string]any)
+		if layout["layout_schema_id"] != "cartulary.layout.v2" || layout["frozen_through_field_key"] != nil {
+			t.Fatal("legacy read did not normalize", layout)
+		}
+	}
+	if readStored(ids[0]) != beforeLegacy || readStored(ids[1]) != beforeSystem {
+		t.Fatal("read rewrote legacy resource")
+	}
+	// Equivalent current-format PATCH also leaves the historical stored bytes untouched.
+	currentLayout := rows[0].(map[string]any)["layout_json"]
+	patchSavedViewHTTP(t, harness.Server.HTTP.URL, id, ids[0], viewer, viewerCSRF, map[string]any{"base_saved_view_version": beforeLegacy.Version, "layout_json": currentLayout})
+	if readStored(ids[0]) != beforeLegacy {
+		t.Fatal("normalized no-op rewrote stored v1")
+	}
+
 	missing := "00000000-0000-4000-8000-000000009999"
 	for _, resourceID := range []string{hidden, missing} {
 		resp := httptestx.DoJSON(t, http.MethodGet, endpoint+"/"+resourceID, nil, httptestx.WithCookies(viewer))

@@ -204,6 +204,7 @@ INSERT INTO incidents (
 	}
 
 	privateRow := validPortableSavedViewRow(t)
+	privateRow["layout_json"].(map[string]any)["frozen_through_field_key"] = "timeline.activity_synopsis_text"
 	sharedRow := validPortableSavedViewRow(t)
 	sharedRow["saved_view_id"] = "00000000-0000-4000-8000-000000110404"
 	sharedRow["scope"] = "shared"
@@ -218,6 +219,7 @@ INSERT INTO incidents (
 	payload = append(payload, encodePortableSavedViewRow(t, systemRow)...)
 	attributions := &recordingAttributionRecorder{localUserID: targetActorID}
 	importContext := savedViewImportContext{
+		BundleVersion: 4,
 		IncidentID:    incidentID,
 		ActorUserID:   targetActorID,
 		Attributions:  attributions,
@@ -300,6 +302,10 @@ SELECT saved_view_id, scope, owner_user_id
 		exportedRows[1]["owner_user_id"] != sourceActorID.String() ||
 		exportedRows[2]["owner_user_id"] != nil {
 		t.Fatalf("re-exported portable owners = %#v; want source/source/null", exportedRows)
+	}
+
+	if got := exportedRows[0]["layout_json"].(map[string]any)["frozen_through_field_key"]; got != "timeline.activity_synopsis_text" {
+		t.Fatalf("compatible restore/re-export lost frozen boundary: %v", got)
 	}
 
 	if err := tx.Rollback(ctx); err != nil {
@@ -713,8 +719,8 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 		"duplicate layout member": append(
 			bytes.Replace(
 				append([]byte(nil), bytes.TrimSpace(canonicalLine)...),
-				[]byte(`"layout_schema_id":"cartulary.layout.v1"`),
-				[]byte(`"layout_schema_id":"cartulary.layout.v1","layout_schema_id":"cartulary.layout.v1"`),
+				[]byte(`"layout_schema_id":"cartulary.layout.v2"`),
+				[]byte(`"layout_schema_id":"cartulary.layout.v2","layout_schema_id":"cartulary.layout.v2"`),
 				1,
 			),
 			'\n',
@@ -772,6 +778,42 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 }
 
 func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
+	t.Run("versioned layout grammar and lossless current preparation", func(t *testing.T) {
+		for _, version := range []int{3, 4} {
+			row := validPortableSavedViewRow(t)
+			layout := row["layout_json"].(map[string]any)
+			boundary := any("timeline.activity_synopsis_text")
+			if version == 3 {
+				layout["layout_schema_id"] = viewschema.LegacyLayoutSchemaID
+				delete(layout, "frozen_through_field_key")
+				boundary = nil
+			} else {
+				layout["frozen_through_field_key"] = boundary
+			}
+			original := encodePortableSavedViewRow(t, row)
+			ctx := strictSavedViewImportContext(t)
+			ctx.BundleVersion = version
+			prepared, err := prepareSavedViewImport(savedViewMapBundle{"data/saved_views.ndjson": original}, ctx)
+			if err != nil {
+				t.Fatalf("version %d: %v", version, err)
+			}
+			var got map[string]any
+			if len(prepared.rows) != 1 || json.Unmarshal(prepared.rows[0].LayoutJSON, &got) != nil {
+				t.Fatal("invalid prepared rows")
+			}
+			if got["layout_schema_id"] != viewschema.LayoutSchemaID || got["frozen_through_field_key"] != boundary {
+				t.Fatalf("lost layout: %v", got)
+			}
+			if !bytes.Equal(original, encodePortableSavedViewRow(t, row)) {
+				t.Fatal("original archive row mutated")
+			}
+			ctx.BundleVersion = 7 - version
+			if _, err := prepareSavedViewImport(savedViewMapBundle{"data/saved_views.ndjson": original}, ctx); err == nil {
+				t.Fatal("layout/bundle version mismatch accepted")
+			}
+		}
+	})
+
 	importContext := strictSavedViewImportContext(t)
 	cases := map[string]struct {
 		invariant string
@@ -1001,8 +1043,9 @@ func (b savedViewMapBundle) File(path string) ([]byte, bool) {
 func strictSavedViewImportContext(t testing.TB) savedViewImportContext {
 	t.Helper()
 	return savedViewImportContext{
-		IncidentID:  strictSavedViewIncidentID,
-		ActorUserID: uuid.MustParse("00000000-0000-4000-8000-000000110499"),
+		BundleVersion: 4,
+		IncidentID:    strictSavedViewIncidentID,
+		ActorUserID:   uuid.MustParse("00000000-0000-4000-8000-000000110499"),
 		ActorAdmitted: savedViewActorAdmission(
 			uuid.MustParse("00000000-0000-4000-8000-000000110403"),
 		),

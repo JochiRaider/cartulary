@@ -12,6 +12,7 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type postgresSavedViewRepository struct {
@@ -22,6 +23,7 @@ var (
 	errSavedViewNotFound        = errors.New("savedviews: saved view not found")
 	errSavedViewVersionConflict = errors.New("savedviews: saved view version conflict")
 	errSavedViewMutationDenied  = errors.New("savedviews: saved view mutation denied")
+	errUnknownStoredViewSchema  = errors.New("saved view has unknown stored view schema")
 )
 
 type savedViewVersionConflictError struct {
@@ -211,6 +213,11 @@ func getVisibleForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID,
 
 func ResolveStartupVisibleForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (StartupRecord, string, error) {
 	record, err := getVisibleForUpdateTx(ctx, tx, incidentID, savedViewID, userID)
+	// Keep startup's existing unavailable-schema fallback after visibility
+	// admission, without exposing or defaulting an undecodable layout.
+	if errors.Is(err, errUnknownStoredViewSchema) {
+		return StartupRecord{}, "unknown_view_schema", nil
+	}
 	if err == nil {
 		return startupRecord(record), "", nil
 	}
@@ -368,6 +375,13 @@ func recordFromSQL(row sqlc.SavedView) (savedViewRecord, error) {
 	if err != nil {
 		return savedViewRecord{}, fmt.Errorf("saved view updated at: %w", err)
 	}
+	layout, layoutErr := viewschema.NormalizeLayout(row.LayoutJson, row.ViewSchemaID)
+	if layoutErr != nil {
+		if layoutErr.ReasonCode == "unknown_view_schema" {
+			return savedViewRecord{}, errUnknownStoredViewSchema
+		}
+		return savedViewRecord{}, errors.New("saved view has invalid stored layout")
+	}
 	return savedViewRecord{
 		SavedViewID:      savedViewID,
 		IncidentID:       incidentID,
@@ -375,7 +389,7 @@ func recordFromSQL(row sqlc.SavedView) (savedViewRecord, error) {
 		Scope:            scope(row.Scope),
 		DisplayName:      row.DisplayName,
 		QueryJSON:        append([]byte(nil), row.QueryJson...),
-		LayoutJSON:       append([]byte(nil), row.LayoutJson...),
+		LayoutJSON:       layout,
 		OwnerUserID:      optionalUUIDFromPG(row.OwnerUserID),
 		CreatedAt:        createdAt,
 		UpdatedAt:        updatedAt,

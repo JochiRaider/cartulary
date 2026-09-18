@@ -63,7 +63,10 @@ import {
   workbookGridWithNoticeStyle,
   workbookSurfaceGridShellStyle,
 } from "../layout/WorkbookSurfaceLayout";
-import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
+import {
+  applyWorkbookLayoutToColumns,
+  workbookFrozenDataColumnPrefix,
+} from "../layout/workbookColumnLayout";
 import {
   type EntityRow,
   entityContractColumnWidth,
@@ -774,6 +777,9 @@ export function EntityWorkbookSurface({
             testId={gridShellTestId(surface)}
           >
             <SemanticDataGrid
+              frozenDataColumnPrefix={workbookFrozenDataColumnPrefix(
+                layoutState,
+              )}
               rowGutter={workbookPresenceRowGutter}
               ref={registerGridHandle}
               activeRowIdentity={

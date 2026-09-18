@@ -281,7 +281,7 @@ describe("workbook query controls", () => {
       ],
     });
 
-    expect(layout.layout_schema_id).toBe("cartulary.layout.v1");
+    expect(layout.layout_schema_id).toBe("cartulary.layout.v2");
     expect(layout.column_order.slice(0, 2)).toEqual([
       "timeline.activity_synopsis_text",
       "timeline.activity_utc_text",
@@ -363,29 +363,13 @@ describe("workbook query controls", () => {
     });
 
     expect(
-      buildSavedViewLayoutJson(
-        contract,
-        workbookLayoutStateFromSavedViewLayoutJson(contract, {
-          layout_schema_id: "cartulary.layout.v1",
-          column_order: [
-            "timeline.activity_synopsis_text",
-            "row_version",
-            "timeline.activity_utc_text",
-          ],
-          hidden_field_keys: ["timeline.raw_activity_text", "record_id"],
-          column_widths: [
-            { field_key: "timeline.activity_synopsis_text", width_px: 480 },
-            { field_key: "row_version", width_px: 80 },
-          ],
-        }),
-      ),
-    ).toMatchObject({
-      layout_schema_id: "cartulary.layout.v1",
-      column_widths: [
-        { field_key: "timeline.activity_synopsis_text", width_px: 480 },
-      ],
-      hidden_field_keys: ["timeline.raw_activity_text"],
-    });
+      workbookLayoutStateFromSavedViewLayoutJson(contract, {
+        layout_schema_id: "cartulary.layout.v1",
+        column_order: ["timeline.activity_synopsis_text", "row_version"],
+        hidden_field_keys: ["record_id"],
+        column_widths: [],
+      }),
+    ).toBeNull();
   });
 
   it("renders active filter chips and grouping controls by field key", () => {
@@ -418,6 +402,7 @@ describe("workbook query controls", () => {
     };
     const { rerender } = render(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -568,6 +553,7 @@ describe("workbook query controls", () => {
 
     rerender(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         chromeMode="narrow_desktop"
         contract={contract}
@@ -605,6 +591,7 @@ describe("workbook query controls", () => {
 
     rerender(
       <WorkbookGridControls
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         chromeMode="compact_desktop"
         contract={contract}

@@ -466,3 +466,13 @@
   border-style: solid;
   font-weight: 800;
 }
+
+/* A physical rule distinguishes the data freeze boundary without color alone. */
+.cartulary-grid-frozen-boundary::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  border-inline-end: 3px double currentColor;
+  pointer-events: none;
+}

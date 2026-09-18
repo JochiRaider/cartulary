@@ -13,11 +13,11 @@ repeated viewport subtraction in surface components.
 | File | Responsibility |
 | --- | --- |
 | [useWorkbookColumnLayoutController.ts](useWorkbookColumnLayoutController.ts) | React subscription and active-schema commands for the sole working-layout owner. |
-| [WorkbookColumnLayoutController.ts](WorkbookColumnLayoutController.ts) | Sole working-layout store, sparse width commands, mounted measurement capabilities and cancellation across configuration replacement. |
+| [WorkbookColumnLayoutController.ts](WorkbookColumnLayoutController.ts) | Sole working-layout store, sparse width and semantic freeze commands, mounted measurement capabilities and cancellation across configuration replacement. |
 | [useWorkbookColumnSizingBinding.ts](useWorkbookColumnSizingBinding.ts) | Supplies source defaults and the mounted neutral GridHandle sizing capability; never owns widths or vendor nodes. |
 | [useWorkbookLayoutFacade.ts](useWorkbookLayoutFacade.ts) | Composition facade for effective density, responsive mode, interaction mode, column state, and surface layout commands. |
 | [useWorkbookResponsiveLayout.ts](useWorkbookResponsiveLayout.ts) | Viewport subscription and semantic responsive-layout snapshot. |
-| [workbookColumnLayout.ts](workbookColumnLayout.ts) | Contract-normalized column ordering, visibility, width, movement, and materialization helpers. |
+| [workbookColumnLayout.ts](workbookColumnLayout.ts) | Contract-normalized column ordering, visibility, width, semantic frozen prefix, movement, and materialization helpers. |
 | [workbookDensity.ts](workbookDensity.ts) | Account density preference resolution. |
 | [workbookResponsiveLayout.ts](workbookResponsiveLayout.ts) | Responsive layout classification and surface-band helpers. |
 | [workbookShellStyles.ts](workbookShellStyles.ts) | Shared shell chrome, work-area, viewport-overlay, and responsive style slots. |
@@ -42,3 +42,10 @@ with its existing GridHandle ref and layout commands. Apply the working layout
 through `applyWorkbookLayoutToColumns` and send header intents to
 `onColumnSizingIntent`. The view bar consumes `commands.sizing`; it does not
 import vendor coordinates or retain a second width map.
+
+
+Freezing is authored only as a nullable boundary field in the complete semantic
+order. All shared Core-grid surfaces project its visible prefix to Grid Adapter.
+The existing mounted capability binding also subscribes to effective placement;
+viewport suspension is never written back into authored state or saved-view dirty
+comparison. Reset Columns clears the boundary; saved-view Reset restores it.

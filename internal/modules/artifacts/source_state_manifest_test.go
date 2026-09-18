@@ -174,7 +174,7 @@ func testSourceStateManifestDerivesExactRecoveryAndPortabilityState(t *testing.T
 	for index, want := range wantPaths {
 		got := paths[index]
 		if got.LogicalPath != want.logicalPath || got.ContentRole != "source_rows" ||
-			!slices.Equal(got.Versions, []int{3}) || !slices.Equal(got.StableIdentity, []string{want.stableIdentity}) {
+			!slices.Equal(got.Versions, []int{3, 4}) || !slices.Equal(got.StableIdentity, []string{want.stableIdentity}) {
 			t.Fatalf("source-port path %d = %#v, want %#v", index, got, want)
 		}
 	}

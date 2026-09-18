@@ -41,6 +41,7 @@ export type WorkbookGridQueryCommand =
       readonly direction: "earlier" | "later";
       readonly fieldKey: string;
     }
+  | { readonly kind: "columns_freeze"; readonly fieldKey: string | null }
   | { readonly kind: "columns_reset" };
 
 export type WorkbookSortCommand = Extract<
@@ -74,6 +75,7 @@ export type WorkbookColumnControlEntry = {
 };
 
 export type WorkbookGridQueryControlProjection = {
+  readonly frozenThroughFieldKey: string | null;
   readonly activeGroupLabel: string;
   readonly activeSortLabel: string | null;
   readonly chips: readonly WorkbookQueryChip[];
@@ -179,6 +181,7 @@ export function projectWorkbookGridQueryControls({
     queryState.sort.map((entry) => entry.fieldKey),
   );
   return {
+    frozenThroughFieldKey: layoutState.frozenThroughFieldKey,
     activeGroupLabel: fieldLabel(contract, queryState.groupBy) ?? "None",
     activeSortLabel: fieldLabel(contract, queryState.sort[0]?.fieldKey ?? null),
     chips,

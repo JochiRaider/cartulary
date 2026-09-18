@@ -52,6 +52,7 @@ export const TimelineWorkbookGrid = forwardRef<
     readonly clipboardPaste: GridClipboardPasteContract;
     readonly cellRangeScopeKey: string;
     readonly columns: readonly GridColumn<WorkbookRow>[];
+    readonly frozenDataColumnPrefix?: readonly string[] | undefined;
     readonly density: GridDensity;
     readonly dataState: GridDataState;
     readonly getCellState: (input: {
@@ -93,6 +94,7 @@ export const TimelineWorkbookGrid = forwardRef<
     clipboardPaste,
     cellRangeScopeKey,
     columns,
+    frozenDataColumnPrefix,
     dataState,
     density,
     getCellState,
@@ -175,6 +177,7 @@ export const TimelineWorkbookGrid = forwardRef<
         testId={gridShellTestId(timelineViewSchemaId)}
       >
         <SemanticDataGrid
+          frozenDataColumnPrefix={frozenDataColumnPrefix}
           cellRangeSelection={{
             kind: "contiguous",
             scopeKey: cellRangeScopeKey,

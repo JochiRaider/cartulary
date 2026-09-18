@@ -7,6 +7,7 @@ import { useWorkbookResponsiveLayout } from "./useWorkbookResponsiveLayout";
 import type {
   WorkbookColumnSizingBinding,
   WorkbookColumnSizingControls,
+  WorkbookFrozenColumnControls,
 } from "./WorkbookColumnLayoutController";
 import type { WorkbookResolvedLayoutState } from "./workbookColumnLayout";
 import {
@@ -46,6 +47,7 @@ export type WorkbookSurfaceLayoutOwner = {
       binding: WorkbookColumnSizingBinding,
     ) => () => void;
     readonly sizing: WorkbookColumnSizingControls;
+    readonly freezing: WorkbookFrozenColumnControls;
     readonly onResetColumns: () => void;
   };
   readonly snapshot: {

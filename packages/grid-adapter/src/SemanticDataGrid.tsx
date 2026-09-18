@@ -140,9 +140,10 @@ import {
   mergeGridSemanticState,
   resolveGridSemanticState,
 } from "./semanticState";
+import { useFrozenDataColumns } from "./useFrozenDataColumns";
 import { useGridColumnSizing } from "./useGridColumnSizing";
 import { useGridInteraction } from "./useGridInteraction";
-import { elementCssScale } from "./viewportGeometry";
+import { elementCssScale, revealGridCell } from "./viewportGeometry";
 
 const emptySelectedRecordIds: ReadonlySet<string> = new Set();
 
@@ -417,12 +418,8 @@ function useGridRegistration<Row>(
               // A rendered target can scroll synchronously. The vendor's
               // virtual scroll sentinel persists until intersection, and would
               // otherwise override a caller's restored viewport on later renders.
-              if (cell?.isConnected)
-                cell.scrollIntoView({
-                  behavior: "instant",
-                  block: "nearest",
-                  inline: "nearest",
-                });
+              if (cell?.isConnected && vendorHandle.current?.element)
+                revealGridCell(vendorHandle.current.element, cell);
               else vendorHandle.current?.scrollToCell(position);
               vendorHandle.current?.selectCell(position);
             }
@@ -436,6 +433,8 @@ function useGridRegistration<Row>(
             )
               return { kind: "unavailable" };
             const element = draftFocusTargetsRef.current.get(target.fieldKey);
+            if (element instanceof HTMLElement && vendorHandle.current?.element)
+              revealGridCell(vendorHandle.current.element, element);
             return element ? { kind: "target", element } : { kind: "pending" };
           }
           if (target.kind === "cell") {
@@ -452,6 +451,8 @@ function useGridRegistration<Row>(
             const element = cellElementsRef.current.get(
               gridAnchorKey(target.anchor),
             )?.cell;
+            if (element instanceof HTMLElement && vendorHandle.current?.element)
+              revealGridCell(vendorHandle.current.element, element);
             return element ? { kind: "target", element } : { kind: "pending" };
           }
           const element = vendorHandle.current?.element;
@@ -753,6 +754,14 @@ function useSemanticDataGrid<Row>(
   const effectiveInteractionMode = capabilities.interactionMode;
   const editable = capabilities.editable;
   const vendorHandle = useRef<DataGridHandle>(null);
+  const freezing = useFrozenDataColumns({
+    getRoot: () => vendorHandle.current?.element ?? null,
+    columns,
+    prefix: props.frozenDataColumnPrefix,
+    structuralCount:
+      (coreRecordBulkSelection && editable ? 1 : 0) +
+      (grouping || rowGutter ? 1 : 0),
+  });
   const sizing = useGridColumnSizing({
     getRoot: () => vendorHandle.current?.element ?? null,
     columns,
@@ -1156,6 +1165,7 @@ function useSemanticDataGrid<Row>(
   const compiledColumns = useMemo(
     () =>
       compileGridColumns({
+        frozenDataColumnPrefix: freezing.activePrefix,
         onColumnSizingIntent,
         onColumnSizingStart: sizing.invalidate,
         actionsColumn,
@@ -1179,6 +1189,7 @@ function useSemanticDataGrid<Row>(
       }),
     [
       actionsColumn,
+      freezing.activePrefix,
       onColumnSizingIntent,
       sizing.invalidate,
       cellStateFor,
@@ -1392,6 +1403,7 @@ function useSemanticDataGrid<Row>(
               delivery,
             ),
       columnSizing: sizing.port,
+      frozenColumns: freezing.port,
       presentation: presentationPort,
       navigateToCell: cellNavigation.navigate,
       activateEdit: (anchor, seed) => {
@@ -1520,6 +1532,8 @@ function useSemanticDataGrid<Row>(
           anchor,
           positionMap: semanticPresentationRef.current,
           vendorHandle: vendorHandle.current,
+          cell: semanticCellElementsRef.current.get(gridAnchorKey(anchor))
+            ?.cell,
         }),
     }),
     [
@@ -1528,6 +1542,7 @@ function useSemanticDataGrid<Row>(
       updateCellRange,
       cellRangeRef,
       sizing.port,
+      freezing.port,
       presentationPort,
       cellNavigation,
       activeCellAnchor,
@@ -2238,6 +2253,7 @@ function scrollToSemanticAnchor(options: {
   readonly anchor: GridCellAnchor;
   readonly positionMap: GridRdgPositionMap;
   readonly vendorHandle: DataGridHandle | null;
+  readonly cell: HTMLElement | undefined;
 }): boolean {
   const { anchor, positionMap, vendorHandle } = options;
   if (
@@ -2247,7 +2263,9 @@ function scrollToSemanticAnchor(options: {
     return false;
   const position = positionMap.positions.get(gridAnchorKey(anchor));
   if (position === undefined) return false;
-  vendorHandle.scrollToCell(position);
+  if (options.cell?.isConnected && vendorHandle.element)
+    revealGridCell(vendorHandle.element, options.cell);
+  else vendorHandle.scrollToCell(position);
   return true;
 }
 

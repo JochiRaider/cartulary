@@ -23,7 +23,10 @@ import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecove
 import { admitEvidenceFile } from "../../features/evidence/evidenceFileOperation";
 import { useWorkbookSemanticGridFocus } from "../../hooks/useWorkbookSemanticGridFocus";
 import { useWorkbookColumnSizingBinding } from "../../layout/useWorkbookColumnSizingBinding";
-import { applyWorkbookLayoutToColumns } from "../../layout/workbookColumnLayout";
+import {
+  applyWorkbookLayoutToColumns,
+  workbookFrozenDataColumnPrefix,
+} from "../../layout/workbookColumnLayout";
 import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
@@ -588,6 +591,7 @@ export function useTimelineWorkbookPresentation({
       clipboardPaste: timelineClipboardPaste,
       cellRangeScopeKey: mutation.snapshot.cellRangeScopeKey,
       columns: visibleTimelineColumns,
+      frozenDataColumnPrefix: workbookFrozenDataColumnPrefix(layoutState),
       dataState: timelineDataState,
       density,
       getCellState: getFindCellState,
@@ -702,6 +706,7 @@ export function useTimelineWorkbookPresentation({
               filterDraft,
               layoutState,
               sizing: layout.commands.sizing,
+              freezing: layout.commands.freezing,
               onApplyFilter: applyQueryFilter,
               onClearFilters: handleClearFilters,
               onColumnHiddenChange: handleColumnHiddenChange,

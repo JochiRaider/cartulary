@@ -3,6 +3,33 @@
   "owner_id": "platform.viewschema",
   "rows": [
     {
+      "row_id": "platform.viewschema.unit.layout_version_compatibility",
+      "owner_id": "platform.viewschema",
+      "family_id": "platform.viewschema.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewschema.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewschema",
+        "tests": [
+          "TestLayoutVersionCompatibilityAndFrozenBoundary_Unit",
+          "TestNormalizeLayoutAppendsMissingDefaultHiddenReadOnlyField",
+          "TestNormalizeLayoutRejectsMissingVisibleField",
+          "TestNormalizeLayoutRejectsMissingWritableHiddenField"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "platform.viewschema.unit.source_and_public_projection",
       "owner_id": "platform.viewschema",
       "family_id": "platform.viewschema.unit",

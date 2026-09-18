@@ -112,14 +112,16 @@ export function useWorkbookSavedViewController({
   >(
     (id, query, layout) => {
       const contract = workbookContractForViewSchemaId(id);
+      const decodedLayout = workbookLayoutStateFromSavedViewLayoutJson(
+        contract,
+        layout,
+      );
+      if (decodedLayout === null) return;
       applyQueryStateForSurface(
         id,
         workbookQueryStateFromSavedViewQueryJson(contract, query),
       );
-      applyLayoutStateForSurface(
-        id,
-        workbookLayoutStateFromSavedViewLayoutJson(contract, layout),
-      );
+      applyLayoutStateForSurface(id, decodedLayout);
     },
     [applyQueryStateForSurface, applyLayoutStateForSurface],
   );
@@ -130,17 +132,16 @@ export function useWorkbookSavedViewController({
         .observations.get(resource.saved_view_id)?.resource;
       if (!current) return;
       const contract = workbookContractForViewSchemaId(current.view_schema_id);
+      const decodedLayout = workbookLayoutStateFromSavedViewLayoutJson(
+        contract,
+        current.layout_json,
+      );
+      if (decodedLayout === null) return;
       applyQueryStateForSurface(
         current.view_schema_id,
         workbookQueryStateFromSavedViewQueryJson(contract, current.query_json),
       );
-      applyLayoutStateForSurface(
-        current.view_schema_id,
-        workbookLayoutStateFromSavedViewLayoutJson(
-          contract,
-          current.layout_json,
-        ),
-      );
+      applyLayoutStateForSurface(current.view_schema_id, decodedLayout);
       applyWorkbookIdentity(savedViewIdentityForSelection(current), {
         reloadSheet: true,
       });

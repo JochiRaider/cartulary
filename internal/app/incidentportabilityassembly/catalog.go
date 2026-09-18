@@ -99,7 +99,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 			revisionsPort,
 			savedviews.NewIncidentBundleSourcePort(),
 		},
-		RequiredPathsByVersion: map[int][]string{3: v3},
+		RequiredPathsByVersion: map[int][]string{3: v3, 4: v3},
 		AllowedRelationIDs: map[string]struct{}{
 			"incident-core": {}, "record-envelope": {}, "record-revisions": {},
 			"timeline-source": {},
@@ -108,7 +108,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},
 		},
-		SpecialConsumers: map[int]map[string]string{3: special},
+		SpecialConsumers: map[int]map[string]string{3: special, 4: special},
 	})
 }
 
