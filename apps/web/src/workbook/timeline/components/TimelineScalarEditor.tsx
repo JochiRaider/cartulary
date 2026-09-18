@@ -121,7 +121,10 @@ export function TimelineScalarEditor({
   const handleFocus = () => {
     hasActiveEditRef.current = !readOnly;
     if (surface === "grid") onFocusAnchor(rowRecordId, presenceFieldKey);
-    if (rowRecordId) onFocusRecord(rowRecordId);
+    // Managed grid editors publish cell focus/presence. Explicit pointer
+    // inspection is already owned by the Adapter's admitted click.
+    if (rowRecordId && onCloseGridEditor === undefined)
+      onFocusRecord(rowRecordId);
     if (!readOnly) onEditModeChange(rowRecordId, presenceFieldKey, true);
   };
   const handleChange = (value: string) => {
@@ -172,6 +175,13 @@ export function TimelineScalarEditor({
   const handleKeyDown = (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (
+      event.nativeEvent.isComposing ||
+      (multiline && event.key === "Enter" && event.shiftKey)
+    ) {
+      event.stopPropagation();
+      return;
+    }
     if (readOnly) return;
     if (
       event.key === "Escape" &&

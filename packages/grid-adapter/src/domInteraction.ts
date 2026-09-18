@@ -7,6 +7,29 @@ export function isInteractiveCellActionTarget(target: EventTarget): boolean {
   );
 }
 
+/** Browser text and option interaction takes priority over grid departure. */
+export function nativeEditorOwnsKey(event: {
+  readonly target: EventTarget;
+  readonly key: string;
+  readonly shiftKey: boolean;
+}): boolean {
+  if (event.target instanceof HTMLTextAreaElement)
+    return event.key === "Enter" && event.shiftKey;
+  if (!(event.target instanceof HTMLSelectElement)) return false;
+  if (
+    event.key === "Enter" ||
+    event.key.startsWith("Arrow") ||
+    event.key === " "
+  )
+    return true;
+  return (
+    event.key === "Escape" &&
+    typeof CSS !== "undefined" &&
+    CSS.supports?.("selector(select:open)") === true &&
+    event.target.matches(":open")
+  );
+}
+
 export function isGridFillHandleTarget(target: EventTarget): boolean {
   return (
     target instanceof Element &&

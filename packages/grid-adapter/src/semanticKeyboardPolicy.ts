@@ -12,6 +12,8 @@ import {
   coreRowVersion,
   type GridSemanticPresentationModel,
   navigateSemanticPresentation,
+  resolveSemanticCellRange,
+  semanticPresentationContainsAnchor,
 } from "./semanticPresentation";
 import { extendSemanticCellRange } from "./semanticSelectionPolicy";
 
@@ -27,8 +29,10 @@ export type SemanticGridDecision =
   | { readonly kind: "focus_draft"; readonly fieldKey: string }
   | { readonly announcement: string; readonly kind: "reject" }
   | { readonly backwards: boolean; readonly kind: "exit_grid" }
+  | { readonly kind: "collapse_range"; readonly target: GridCellAnchor }
   | {
       readonly kind: "begin_edit";
+      readonly range: GridCellRange | null;
       readonly seed: PendingEditorSeed;
       readonly timelineMeasurement: boolean;
     }
@@ -67,6 +71,7 @@ export function decideSemanticGridKey<Row>({
   model,
   pageSize,
   range,
+  rangeKeyboardEntry,
   readOnlyLabel,
   row,
 }: {
@@ -79,9 +84,28 @@ export function decideSemanticGridKey<Row>({
   readonly model: GridSemanticPresentationModel<Row>;
   readonly pageSize: number;
   readonly range: GridCellRange | null;
+  readonly rangeKeyboardEntry?: "cycle" | undefined;
   readonly readOnlyLabel: string;
   readonly row: GridDataRow<Row>;
 }): SemanticGridDecision {
+  const retainedRange =
+    rangeKeyboardEntry === "cycle"
+      ? activeMultiCellRange(model, range, anchor)
+      : null;
+  if (!input.altKey && !input.ctrlOrMetaKey && !input.shiftKey) {
+    if (input.key === "Escape" && retainedRange !== null)
+      return { kind: "collapse_range", target: anchor };
+    if (input.key === "F2" && rangeKeyboardEntry === "cycle")
+      return editDecision({
+        anchor,
+        column,
+        editable,
+        input,
+        readOnlyLabel,
+        row,
+        range: retainedRange,
+      });
+  }
   if (input.ctrlOrMetaKey && input.key.toLowerCase() === "d") {
     return { kind: "fill", range };
   }
@@ -91,7 +115,13 @@ export function decideSemanticGridKey<Row>({
     !input.ctrlOrMetaKey &&
     (input.key === "Enter" || input.key === "Tab")
   ) {
-    return decideSpreadsheetNavigation(model, anchor, input, draftFieldKeys);
+    return decideSpreadsheetNavigation(
+      model,
+      anchor,
+      input,
+      draftFieldKeys,
+      retainedRange,
+    );
   }
   if (input.key === "Tab") {
     return { backwards: input.shiftKey, kind: "exit_grid" };
@@ -115,6 +145,7 @@ export function decideSemanticGridKey<Row>({
       readOnlyLabel,
       row,
       seed: input.key,
+      range: retainedRange,
     });
   }
   if (input.key === "Backspace" || input.key === "Delete") {
@@ -162,7 +193,35 @@ export function decideSpreadsheetNavigation<Row>(
   anchor: GridCellAnchor,
   input: Pick<NormalizedGridKey, "key" | "shiftKey">,
   draftFieldKeys: readonly string[] = [],
+  range: GridCellRange | null = null,
 ): SemanticGridDecision {
+  const retained = activeMultiCellRange(model, range, anchor);
+  const members =
+    retained === null ? null : resolveSemanticCellRange(model, retained);
+  if (members !== null) {
+    const rows = members.rowIdentities;
+    const fields = members.fieldKeys;
+    const row = rows.findIndex((identity) =>
+      gridRowIdentitiesEqual(identity, anchor.rowIdentity),
+    );
+    const column = fields.indexOf(anchor.fieldKey);
+    const rowMajor = input.key === "Tab";
+    const stride = rowMajor ? fields.length : rows.length;
+    const index = rowMajor ? row * stride + column : column * stride + row;
+    const size = rows.length * fields.length;
+    const next = (index + (input.shiftKey ? -1 : 1) + size) % size;
+    const rowIdentity =
+      rows[rowMajor ? Math.floor(next / stride) : next % stride];
+    const fieldKey =
+      fields[rowMajor ? next % stride : Math.floor(next / stride)];
+    if (rowIdentity !== undefined && fieldKey !== undefined)
+      return {
+        kind: "navigate",
+        range: retained,
+        target: { surface: anchor.surface, rowIdentity, fieldKey },
+        timelineMeasurement: false,
+      };
+  }
   const backwards = input.shiftKey;
   const rowIndex = model.rowIdentities.findIndex((identity) =>
     gridRowIdentitiesEqual(identity, anchor.rowIdentity),
@@ -205,6 +264,24 @@ export function decideSpreadsheetNavigation<Row>(
     : { kind: "ignore" };
 }
 
+export function activeMultiCellRange<Row>(
+  model: GridSemanticPresentationModel<Row>,
+  range: GridCellRange | null,
+  active: GridCellAnchor,
+): GridCellRange | null {
+  if (range === null || !semanticPresentationContainsAnchor(model, active))
+    return null;
+  const members = resolveSemanticCellRange(model, range);
+  return members !== null &&
+    members.fieldKeys.length * members.rowIdentities.length > 1 &&
+    members.fieldKeys.includes(active.fieldKey) &&
+    members.rowIdentities.some((identity) =>
+      gridRowIdentitiesEqual(identity, active.rowIdentity),
+    )
+    ? range
+    : null;
+}
+
 function editDecision<Row>({
   anchor,
   column,
@@ -213,6 +290,7 @@ function editDecision<Row>({
   readOnlyLabel,
   row,
   seed,
+  range = null,
 }: {
   readonly anchor: GridCellAnchor;
   readonly column: GridColumn<Row> | undefined;
@@ -221,6 +299,7 @@ function editDecision<Row>({
   readonly readOnlyLabel: string;
   readonly row: GridDataRow<Row>;
   readonly seed?: unknown;
+  readonly range?: GridCellRange | null;
 }): SemanticGridDecision {
   const rejection = editRejection(column, editable, readOnlyLabel);
   if (rejection !== null) return { announcement: rejection, kind: "reject" };
@@ -233,6 +312,7 @@ function editDecision<Row>({
     input.key === "Enter" && isTimelineSummary(anchor);
   return {
     kind: "begin_edit",
+    range,
     seed: {
       activation: editActivation(input, hasSeed, timelineMeasurement),
       anchor,
@@ -262,11 +342,10 @@ function editActivation(
   timelineMeasurement: boolean,
 ): GridEditorActivation {
   return {
-    initialSelection: initialEditSelection(
-      hasSeed,
-      input.shiftKey,
-      timelineMeasurement,
-    ),
+    initialSelection:
+      input.key === "F2"
+        ? "end"
+        : initialEditSelection(hasSeed, input.shiftKey, timelineMeasurement),
     source: editSource(input, hasSeed),
   };
 }
@@ -284,6 +363,7 @@ function editSource(
   input: NormalizedGridKey,
   hasSeed: boolean,
 ): GridEditorActivation["source"] {
+  if (input.key === "F2") return "f2";
   if (!hasSeed) return input.shiftKey ? "shift_enter" : "enter";
   return input.key === "Backspace" || input.key === "Delete"
     ? "clear"

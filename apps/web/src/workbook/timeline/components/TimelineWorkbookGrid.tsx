@@ -175,6 +175,7 @@ export const TimelineWorkbookGrid = forwardRef<
           cellRangeSelection={{
             kind: "contiguous",
             scopeKey: cellRangeScopeKey,
+            keyboardEntry: "cycle",
           }}
           keyboardNavigation="spreadsheet"
           ref={ref}

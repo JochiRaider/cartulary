@@ -823,8 +823,17 @@ test("Timeline spreadsheet keys commit and navigate across multiple rows", async
     await expect(cell(page, id)).toBeFocused();
     await page.keyboard.press("Enter");
   }
-  await expect(page.getByTestId(draftCellTestId(synopsis))).toBeFocused();
+  const summaryDraft = page.getByTestId(draftCellTestId(synopsis));
+  await expect(summaryDraft).toBeFocused();
   await page.keyboard.press("Shift+Enter");
+  await expect(summaryDraft).toBeFocused();
+  await expect(summaryDraft).toHaveValue("\n");
+  await summaryDraft.fill("");
+  await page.keyboard.press("Tab");
+  await expect(page.getByTestId(draftCellTestId(source))).toBeFocused();
+  await page.keyboard.press("Shift+Enter");
+  await expect(cell(page, required(rows[2]).record_id, source)).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
   await expect(cell(page, required(rows[2]).record_id)).toBeFocused();
   await page.keyboard.press("ArrowUp");
   await expect(cell(page, required(rows[1]).record_id)).toBeFocused();

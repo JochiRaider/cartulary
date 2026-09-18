@@ -1206,7 +1206,7 @@ not complete a focus request; obsolete requests cannot restore focus.
 | `System views` switcher | `Tab` to button | Arrow keys by group and item | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Saved-view selector | `Tab` to selector | Arrow keys in menu | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Filter chips | `Tab` to chip group | Arrow keys between chips | `Enter` opens editor; `Delete` removes focused chip | Apply control commits | `Esc` closes editor | Close chip editor | Focused chip or chip group | Filter control |
-| Grid navigation mode | `Tab` to grid or one primary click on a committed cell | §8.6 key-command table | One primary click or printable key enters edit when writable; non-Timeline surfaces also use `Enter` | Not applicable | `Esc` no-op | No-op | Active cell | Grid container |
+| Grid navigation mode | `Tab` to grid or one primary click on a committed cell | §8.6 key-command table | One primary click or printable key enters edit when writable; Timeline also uses `F2`; non-Timeline surfaces also use `Enter` | Not applicable | Timeline multi-cell range: collapse to active cell | §8.5 | Active cell | Grid container |
 | Grid edit mode | From active writable cell | §8.6 key-command table | Editor-specific | `Enter`, blur by explicit commit, or declared commit shortcut | `Esc` discards uncommitted editor value | Exit edit mode | Edited cell | Grid container |
 | Relationship chip | `Tab` or arrow within cell | Arrow keys within chip list | `Enter` opens inspect/action menu | Action commits through owner route | `Esc` closes menu | Close menu | Invoking chip | Owning cell |
 | Inspector tab/section | `Tab` to inspector | Arrow keys for tabs; headings tabbable only when interactive | `Enter` or `Space` opens control | Control-specific | `Esc` closes overlay inspector only | Close overlay inspector in responsive bands | Invoking row/control | Active grid container |
@@ -1226,9 +1226,11 @@ Design contract. When multiple dismissible layers are open, `Esc` MUST resolve e
 | 2 | Same-field conflict resolver open | Close resolver without committing and return focus to conflicted cell if still present. |
 | 3 | Evidence preview open | Close preview and return focus to invoking evidence affordance if still present. |
 | 4 | Menu or popover open | Close menu or popover and return focus to invoking control. |
-| 5 | Grid cell editor open | Discard uncommitted editor value and return to grid navigation mode. |
-| 6 | Inspector open as overlay | Close inspector and return focus to invoking row or control. |
-| 7 | No dismissible layer | No-op. |
+| 5 | Tentative Timeline range gesture | Cancel only that gesture and restore the previous still-valid selection; do not discard an editor draft. |
+| 6 | Grid cell editor open | Discard uncommitted editor value and return to grid navigation mode, retaining a still-valid completed range. |
+| 7 | Timeline grid navigation owns focus and a completed multi-cell range exists | Collapse the range to the active cell and consume this action. |
+| 8 | Inspector open as overlay | Close inspector and return focus to invoking row or control. |
+| 9 | No dismissible layer | No-op. |
 
 Design contract. Focus restoration MUST use this fallback ladder when the invoking element no longer exists:
 
@@ -1246,7 +1248,7 @@ Design contract. Grid keyboard behavior MUST use the modes below.
 | --- | --- | --- | --- | --- |
 | `grid_navigation` | `Tab` into grid, committed edit, canceled edit, restored focus | Enter edit, leave grid, overlay opens | Active cell | No direct text mutation. |
 | `grid_edit` | One primary click, printable key on writable cell, explicit edit command; non-Timeline `Enter` | Commit, cancel, declared blur commit | Declared primary editor control | Yes. |
-| `grid_range_selection` | `Shift+Arrow*`; Timeline primary drag or Shift-click under Core 03 §13.4 | Gesture/modifier release ends extension, preserving the completed range; replacement, edit entry or semantic invalidation clears/replaces it | Endpoint after completion; original editor while acceptance is pending | No direct mutation. |
+| `grid_range_selection` | `Shift+Arrow*`; Timeline primary drag or Shift-click under Core 03 §13.4 | Gesture/modifier release ends extension, preserving the completed range; replacement, non-retaining edit entry or semantic invalidation clears/replaces it | Endpoint initially; active member during traversal; original editor while acceptance is pending | No direct mutation. |
 | `grid_disabled_or_read_only` | Active cell is non-writable | Move focus, leave grid, overlay opens | Active cell or containing row | No mutation. |
 
 Design contract. The key-command table is exhaustive for grid-owned key chords in this revision.
@@ -1264,9 +1266,14 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | `End` | `grid_navigation` | Current row has visible navigation cell. | Move to last visible navigation cell in current row. | None. | Yes. |
 | `Ctrl/Cmd+Home` | `grid_navigation` | Query result has visible rows. | Move to first visible row and first visible navigation cell. | None. | Yes. |
 | `Ctrl/Cmd+End` | `grid_navigation` | Query result has visible rows. | Move to last visible row and last visible navigation cell. | None. | Yes. |
-| `Enter` / `Shift+Enter` | Timeline `grid_navigation` | Visible target row or authorized trailing draft exists. | Move vertically in the same field, down / up respectively. | None. | Yes. |
-| `Tab` / `Shift+Tab` | Timeline `grid_navigation` | Visible data fields exist. | Move horizontally and wrap across rows; leave for the adjacent shell region only at the outer Tab boundary. | None. | Yes when consumed. |
-| `Enter` / `Shift+Enter` / `Tab` / `Shift+Tab` | Timeline `grid_edit` | Editor value accepted. | Commit once, then perform the corresponding Timeline navigation; rejection keeps the draft and original editor accessible. | Commit. | Yes. |
+| `Enter` / `Shift+Enter` | Timeline `grid_navigation` | Valid completed multi-cell range. | Move forward/reverse in column-major order, wrapping inside the range; keep endpoints unchanged. | None. | Yes. |
+| `Tab` / `Shift+Tab` | Timeline `grid_navigation` | Valid completed multi-cell range. | Move forward/reverse in row-major order, wrapping inside the range; keep endpoints unchanged. | None. | Yes. |
+| `Enter` / `Shift+Enter` | Timeline `grid_navigation` | No valid multi-cell range; visible target row or authorized trailing draft exists. | Move vertically in the same field, down / up respectively. | None. | Yes. |
+| `Tab` / `Shift+Tab` | Timeline `grid_navigation` | No valid multi-cell range; visible data fields exist. | Move horizontally and wrap across rows; leave for the adjacent shell region only at the outer Tab boundary. | None. | Yes when consumed. |
+| `Enter` / `Shift+Enter` / `Tab` / `Shift+Tab` | Timeline `grid_edit` | Editor owns departure; value accepted; captured destination remains current. | Commit once, then perform the corresponding Timeline navigation; rejection keeps exact draft, original eligible editor and valid range. | Commit. | Yes. |
+| `Shift+Enter` | Multiline `grid_edit` | Textarea owns input. | Insert newline without traversal. | None. | No. |
+| `Enter` | Native select `grid_edit` | Select owns input. | Preserve native option interaction; Tab/Shift+Tab or explicit Commit departs through acceptance. | None. | No. |
+| `F2` | Timeline `grid_navigation` | Active direct-value cell writable; no modifiers. | Enter existing editor, preserve current/retained value, place supported caret at end; retain valid multi-cell range. | None. | Yes when consumed. |
 | `Enter` | non-Timeline `grid_navigation` | Active cell writable. | Enter non-Timeline `grid_edit`; seed editor with existing cell value. | None. | Yes. |
 | `Enter` | non-Timeline `grid_edit` | Editor value valid for local commit. | Commit editor value and return to non-Timeline `grid_navigation`. | Commit. | Yes. |
 | `Shift+Enter` | non-Timeline `grid_navigation` | Active cell writable. | Enter non-Timeline `grid_edit`; seed editor with existing cell value and place caret at end. | None. | Yes. |
@@ -1274,10 +1281,11 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | `Shift+Tab` | non-Timeline `grid_navigation` | No editor open. | Leave grid to previous major shell region. | None. | No after focus transfer. |
 | `Tab` | non-Timeline `grid_edit` | Editor value valid for local commit. | Commit editor value and move to next major shell region. | Commit. | Yes. |
 | `Shift+Tab` | non-Timeline `grid_edit` | Editor value valid for local commit. | Commit editor value and move to previous major shell region. | Commit. | Yes. |
-| `Escape` | `grid_edit` | Editor open. | Discard uncommitted editor value and return to `grid_navigation`. | Cancel. | Yes. |
-| `Escape` | `grid_navigation` | No higher-priority dismissible layer. | No-op. | None. | No. |
-| Printable character | `grid_navigation` | Active cell writable. | Enter `grid_edit`; seed editor with printed character. | None. | Yes. |
-| Printable character | `grid_navigation` | Active cell read-only. | Do not mutate; expose read-only state. | None. | Yes. |
+| `Escape` | `grid_edit` | Editor open; no higher-priority owner. | Discard uncommitted editor value and return to `grid_navigation`, retaining valid range. | Cancel. | Yes. |
+| `Escape` | Timeline `grid_navigation` | Valid completed multi-cell range; no higher-priority owner. | Collapse to active cell; consume only this action. | None. | Yes. |
+| `Escape` | `grid_navigation` | No range-collapse action or higher-priority dismissible layer. | Existing Inspector/shell hierarchy, otherwise no-op. | None. | No at grid level. |
+| Printable character | `grid_navigation` | Active cell writable; no higher-priority assigned application shortcut. | Enter `grid_edit`; seed editor with printed character; Timeline retains a valid multi-cell range. | None. | Yes. |
+| Printable character | `grid_navigation` | Active cell read-only; no higher-priority assigned application shortcut. | Do not mutate; expose read-only state. | None. | Yes. |
 | `Backspace` | `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
 | `Delete` | `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
 | `Ctrl/Cmd+C` | `grid_navigation` or `grid_range_selection` | Selection exists. | Copy selected visible cell values using workbook copy presentation. | None. | Yes. |
@@ -1303,7 +1311,14 @@ checkboxes. Tentative range feedback uses a dashed outline and MUST NOT expose
 accepted `aria-selected` state. The existing editor keeps visible focus while
 departure awaits acceptance. During a tentative gesture Escape cancels only
 that gesture and consumes the key without applying the editor Escape action;
-otherwise §8.5 is unchanged. A completed range does not itself add a new Escape action.
+otherwise §8.5 applies, including grid-owned collapse of a completed multi-cell
+range. Active-cell traversal MUST preserve completed range geometry. Shift+Arrow
+after traversal keeps the original anchor and sets its endpoint one step from
+the current active cell, even when this shrinks the rectangle. Find match,
+Inspector context and bulk checkbox selection remain independent. No range key
+fetches rows, expands groups or enters the creation draft. Native text selection,
+select/popup controls and IME composition retain local ownership; composition
+events MUST NOT activate grid commands.
 
 Design contract. The fill handle uses `{colors.accent}`, exposes `Drag to fill this value`, and appears only on an eligible selected committed scalar cell in `grid_navigation`. It is absent for edit, read-only, grouped, draft, presentation-only, and collection states. Pointer drag and keyboard fill share one semantic intent path. Vendor double-click fill-to-end behavior is disabled.
 
@@ -1772,7 +1787,7 @@ the original cell within the grid work area. Cancellation MUST remain reachable.
 Reveal work MUST stop when the editor is detached, superseded, or no longer owns
 focus; background outcomes MUST NOT move focus away from newer work.
 
-Design contract. Existing-row editor choice is driven by declared grid-editable field capability and semantic scalar or reference contract, never by display labels. Enum, boolean, numeric, RFC 3339 timestamp, reference, single-line text, and multiline text editors share one commit, cancel, validation, conflict, and focus-restoration posture. Multiline editors use `Enter` to commit and `Shift+Enter` for a newline. A dirty editor MUST retain its local value across rejection, stale refresh, and read-only transition until the user cancels or an accepted result replaces it.
+Design contract. Existing-row editor choice is driven by declared grid-editable field capability and semantic scalar or reference contract, never by display labels. Enum, boolean, numeric, RFC 3339 timestamp, reference, single-line text, and multiline text editors share one commit, cancel, validation, conflict, and focus-restoration posture. Multiline editors use `Enter` to commit and `Shift+Enter` for a newline, including within a retained Timeline range. Native selects own Enter and ordinary option interaction; Tab/Shift+Tab or explicit Commit departs through acceptance. The existing `Alt+ArrowDown` correction-action shortcut remains available from the primary editor, including a closed select. Native picker dismissal and reference-popup keys precede parent editor commands. IME composition is never a grid command. A dirty editor MUST retain its local value across rejection, stale refresh, and read-only transition until the user cancels or an accepted result replaces it.
 
 ### 12.6 Menus and popovers
 
@@ -1915,6 +1930,8 @@ Design contract. Live-region behavior MUST use this matrix.
 | Column Apply width, Fit, Restore default or Reset columns completes | Polite, once per completed operation. | Field and result; header-only or capped fit when applicable. |
 | Header drag movement | No live announcement for each movement. | Current header geometry and explicit Columns controls remain available. |
 | Cell range completes | Polite, once per completed gesture or keyboard extension. | Selected row and column counts; no record identifiers or cell contents. |
+| Timeline multi-cell range active | Accessible description while selected; do not repeat dimensions on every internal move. | Enter/Tab traverse the range; Escape returns to ordinary navigation. |
+| Timeline range collapses through Escape | Polite, once. | Selection collapsed to the active cell; no record identifiers or cell contents. |
 | Cell range awaits editor acceptance or is canceled | Polite, once per transition. | Waiting for the edit to save, or selection canceled. |
 | Cell range pointer movement | No live announcement for each movement. | Tentative outline remains available visually. |
 | Find results settle | Polite, once for the latest settled input/snapshot. | Matching-cell count in loaded rows; no searched text. |

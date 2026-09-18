@@ -489,7 +489,36 @@ describe("keyboard and grid anchor coverage", () => {
       "20000000-0000-4000-8000-000000000002",
       "timeline.activity_synopsis_text",
     );
-    fireEvent.keyDown(record2Editor, { key: "Enter", shiftKey: true });
+    // Multiline Shift+Enter belongs to native text entry. Reverse traversal
+    // starts only after returning to grid navigation mode.
+    expect(
+      fireEvent.keyDown(record2Editor, { key: "Enter", shiftKey: true }),
+    ).toBe(true);
+    expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
+      `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000002:timeline.activity_synopsis_text`,
+    );
+    fireEvent.keyDown(record2Editor, { key: "Escape" });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen
+          .getByTestId(
+            rowCellTestId(
+              "20000000-0000-4000-8000-000000000002",
+              "timeline.activity_synopsis_text",
+            ),
+          )
+          .closest('[role="gridcell"]'),
+      );
+    });
+    fireEvent.keyDown(
+      screen.getByTestId(
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000002",
+          "timeline.activity_synopsis_text",
+        ),
+      ),
+      { key: "Enter", shiftKey: true },
+    );
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,

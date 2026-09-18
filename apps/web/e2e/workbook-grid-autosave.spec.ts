@@ -602,7 +602,14 @@ test("Committed grid numeric boolean enum multiline and stable-reference input r
           request.method() === "PATCH" &&
           request.url().endsWith(`/records/${entry.row.record_id}`),
       );
-      await input.press("Enter");
+      if (tag === "SELECT") {
+        await input.press("Enter");
+        await expect(input).toBeFocused();
+        // Native picker dismissal precedes acceptance-gated Tab departure.
+        await input.press("Escape");
+        await expect(input).toBeFocused();
+        await input.press("Tab");
+      } else await input.press("Enter");
       expect((await request).postDataJSON().changes).toEqual([
         { field_key: entry.field, value: entry.expected },
       ]);

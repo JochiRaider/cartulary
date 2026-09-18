@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { GridCellAnchor, GridPresentationSnapshot } from "./core";
+import type {
+  GridCellAnchor,
+  GridCellRange,
+  GridPresentationSnapshot,
+} from "./core";
 import type { ActiveEditorSession } from "./editorSessionPolicy";
 import { createSemanticCellNavigation } from "./semanticCellNavigation";
 import { createGridPresentationPort } from "./semanticPresentationPort";
@@ -126,4 +130,76 @@ describe("semantic presentation port", () => {
     expect(port.getSnapshot()).toBeNull();
     unsubscribe();
   });
+});
+
+it("retains a captured range across compatible appends and cancels changed membership scope or authority", async () => {
+  for (const change of [
+    "append",
+    "reorder",
+    "range",
+    "scope",
+    "authority",
+    "unavailable",
+  ] as const) {
+    const second = {
+      ...anchor,
+      rowIdentity: { kind: "core_record" as const, recordId: "second" },
+    };
+    const range: GridCellRange = { start: anchor, end: second };
+    let accept: (accepted: boolean) => void = () => {};
+    const session: ActiveEditorSession = {
+      target: anchor,
+      focus: vi.fn(),
+      cancel: vi.fn(),
+      detach: vi.fn(),
+      requestCommit: () =>
+        new Promise((resolve) => {
+          accept = resolve;
+        }),
+    };
+    const state = {
+      available: true,
+      authority: "editable",
+      scope: "accepted",
+      editor: session,
+      range,
+      presentation: {
+        ...model(),
+        rowIdentities: [anchor.rowIdentity, second.rowIdentity],
+      },
+    };
+    const focus = vi.fn(async () => "focused" as const),
+      changeRange = vi.fn();
+    const owner = createSemanticCellNavigation({
+      read: () => state,
+      focus,
+      changeRange,
+      cancelInteraction: vi.fn(),
+    });
+    const result = owner.depart({ kind: "cell", anchor: second }, { range });
+    if (change === "append")
+      state.presentation = {
+        ...state.presentation,
+        rowIdentities: [
+          ...state.presentation.rowIdentities,
+          { kind: "core_record", recordId: "outside" },
+        ],
+      };
+    if (change === "reorder")
+      state.presentation = {
+        ...state.presentation,
+        rowIdentities: [second.rowIdentity, anchor.rowIdentity],
+      };
+    if (change === "range") state.range = { start: anchor, end: anchor };
+    if (change === "scope") state.scope = "replacement";
+    if (change === "authority") state.authority = "read_only";
+    if (change === "unavailable") state.available = false;
+    owner.reconcile();
+    accept(true);
+    expect(await result).toBe(change === "append" ? "focused" : "cancelled");
+    expect(focus).toHaveBeenCalledTimes(change === "append" ? 1 : 0);
+    expect(changeRange).toHaveBeenCalledTimes(change === "append" ? 1 : 0);
+    if (change === "append") expect(changeRange).toHaveBeenCalledWith(range);
+    expect(session.cancel).not.toHaveBeenCalled();
+  }
 });

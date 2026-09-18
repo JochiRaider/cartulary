@@ -40,3 +40,10 @@ semantic models and commands. Surface layout regions live in
 | [TimelineCollectionCell.test.tsx](TimelineCollectionCell.test.tsx) | Tests hidden collection-item inspection without editing or committing pending text. |
 | [TimelineEvidencePanel.test.tsx](TimelineEvidencePanel.test.tsx) | Tests for Timeline evidence panel behavior. |
 | [TimelineScalarEditor.test.tsx](TimelineScalarEditor.test.tsx) | Characterizes controlled scalar drafts, read-only behavior, presence publication, and commit lifecycle. |
+
+Timeline enables Grid Adapter's optional cyclic range entry. The Adapter owns
+semantic traversal, range retention, F2 activation and acceptance-gated departure.
+Timeline retains field authorization and mutation ownership. Managed scalar
+focus publishes its semantic anchor and presence without selecting Inspector
+context; stationary pointer inspection remains explicit. Multiline Shift+Enter
+and composition remain local text input.

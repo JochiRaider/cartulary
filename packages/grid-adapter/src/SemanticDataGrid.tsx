@@ -505,14 +505,7 @@ function useGridRegistration<Row>(
   };
 }
 
-function useGridEditorController<Row>(
-  presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>,
-  vendorHandle: MutableRefObject<DataGridHandle | null>,
-  keyboardNavigation: "region" | "spreadsheet",
-  draftFieldKeysRef: MutableRefObject<readonly string[]>,
-  focusDraftCell: (fieldKey: string) => void,
-  requestFocus: GridHandle["requestFocus"],
-) {
+function useGridEditorController() {
   const pendingEditorSeedRef = useRef<PendingEditorSeed | null>(null);
   const activeEditorSessionRef = useRef<ActiveEditorSession | null>(null);
   const readEditorSeed = useCallback(
@@ -563,86 +556,9 @@ function useGridEditorController<Row>(
   const clearEditorSeed = useCallback(() => {
     pendingEditorSeedRef.current = null;
   }, []);
-  const handleEditorKeyboardAction = useCallback(
-    (
-      target: PendingEditorSeed["anchor"],
-      action:
-        | { readonly kind: "exit"; readonly backwards: boolean }
-        | { readonly kind: "move"; readonly rowDelta: -1 | 1 },
-    ) => {
-      // Creation can hand off to an editor before the original draft's
-      // accepted Enter/Tab callback arrives. That navigation ends the edit
-      // intent just as a committed-cell editor's accepted close does.
-      const current = pendingEditorSeedRef.current;
-      if (current !== null && !sameGridCellAnchor(current.anchor, target))
-        return;
-      if (current !== null) {
-        // A draft's accepted navigation can arrive after creation mounted its
-        // committed-cell editor. End that local session before moving focus;
-        // its mutation has already settled and needs no second submission.
-        const session = activeEditorSessionRef.current;
-        if (session !== null && sameGridCellAnchor(session.target, target))
-          session.cancel(false);
-      }
-      clearEditorSeed();
-      if (keyboardNavigation === "spreadsheet") {
-        const decision = decideSpreadsheetNavigation(
-          presentationRef.current,
-          target,
-          {
-            key: action.kind === "exit" ? "Tab" : "Enter",
-            shiftKey:
-              action.kind === "exit" ? action.backwards : action.rowDelta < 0,
-          },
-          draftFieldKeysRef.current,
-        );
-        if (decision.kind === "focus_draft") {
-          focusDraftCell(decision.fieldKey);
-          return;
-        }
-        if (decision.kind === "exit_grid") {
-          focusAdjacentOutsideGrid(
-            vendorHandle.current?.element ?? null,
-            decision.backwards,
-          );
-          return;
-        }
-        void requestFocus({
-          kind: "cell",
-          anchor: decision.kind === "navigate" ? decision.target : target,
-        });
-        return;
-      }
-      if (action.kind === "exit") {
-        focusAdjacentOutsideGrid(
-          vendorHandle.current?.element ?? null,
-          action.backwards,
-        );
-        return;
-      }
-      const next = navigateSemanticPresentation(
-        presentationRef.current,
-        target,
-        {
-          key: action.rowDelta < 0 ? "ArrowUp" : "ArrowDown",
-        },
-      );
-      void requestFocus({ kind: "cell", anchor: next ?? target });
-    },
-    [
-      clearEditorSeed,
-      presentationRef,
-      vendorHandle,
-      keyboardNavigation,
-      draftFieldKeysRef,
-      focusDraftCell,
-      requestFocus,
-    ],
-  );
   return {
     activeEditorSessionRef,
     clearEditorSeed,
-    handleEditorKeyboardAction,
     pendingEditorSeedRef,
     readEditorSeed,
     retainEditorDraft,
@@ -892,6 +808,9 @@ function useSemanticDataGrid<Row>(
     [presentationPort],
   );
   const [keyboardAnnouncement, setKeyboardAnnouncement] = useState("");
+  const [contextDescription, setAccessibleDescription] = useState<
+    string | undefined
+  >();
   const gridBusy =
     dataState.kind === "initial_loading" || dataState.kind === "refreshing";
   useGridDomPresentation(vendorHandle, accessibleLabel, gridBusy, editable);
@@ -938,13 +857,27 @@ function useSemanticDataGrid<Row>(
         )
       ) {
         if (
-          !sameGridCellAnchor(cellRangeRef.current?.end ?? null, target.anchor)
+          !(cellRangeSelection?.keyboardEntry === "cycle"
+            ? gridCellRangeContains(
+                semanticPresentationRef.current,
+                cellRangeRef.current,
+                target.anchor,
+              )
+            : sameGridCellAnchor(
+                cellRangeRef.current?.end ?? null,
+                target.anchor,
+              ))
         )
           updateCellRange({ start: target.anchor, end: target.anchor });
       } else if (target.kind === "draft") updateCellRange(null);
       return requestRegisteredFocus(target, options);
     },
-    [cellRangeRef, requestRegisteredFocus, updateCellRange],
+    [
+      cellRangeRef,
+      cellRangeSelection?.keyboardEntry,
+      requestRegisteredFocus,
+      updateCellRange,
+    ],
   );
   const isCellRangeSelected = useCallback(
     (
@@ -961,19 +894,16 @@ function useSemanticDataGrid<Row>(
   const {
     activeEditorSessionRef,
     clearEditorSeed,
-    handleEditorKeyboardAction,
     pendingEditorSeedRef,
     readEditorSeed,
     retainEditorDraft,
     registerEditorSession,
-  } = useGridEditorController(
-    semanticPresentationRef,
-    vendorHandle,
-    keyboardNavigation,
-    draftFieldKeysRef,
-    focusDraftCell,
-    requestFocus,
-  );
+  } = useGridEditorController();
+  const interactionScopeKey = JSON.stringify([
+    gridSurfaceIdentityKey(surface),
+    cellRangeSelection?.scopeKey,
+    grouping?.fieldKey,
+  ]);
   const interaction = useGridInteraction({
     read: () => ({
       active: activeEditorSessionRef.current?.target ?? activeCellAnchor,
@@ -983,11 +913,7 @@ function useSemanticDataGrid<Row>(
       enabled: cellRangeSelection?.kind === "contiguous",
       available:
         !gridDataStateBlocksInteraction(dataState) && dataRows.length > 0,
-      scopeKey: JSON.stringify([
-        gridSurfaceIdentityKey(surface),
-        cellRangeSelection?.scopeKey,
-        grouping?.fieldKey,
-      ]),
+      scopeKey: interactionScopeKey,
       authorityKey: effectiveInteractionMode.kind,
     }),
     root: () => vendorHandle.current?.element ?? null,
@@ -1025,10 +951,12 @@ function useSemanticDataGrid<Row>(
   const navigationState = useRef({
     available: !gridDataStateBlocksInteraction(dataState),
     authority: effectiveInteractionMode.kind,
+    scope: interactionScopeKey,
   });
   navigationState.current = {
     available: !gridDataStateBlocksInteraction(dataState),
     authority: effectiveInteractionMode.kind,
+    scope: interactionScopeKey,
   };
   const cellNavigation = useMemo(
     () =>
@@ -1037,25 +965,124 @@ function useSemanticDataGrid<Row>(
           ...navigationState.current,
           presentation: presentationPort.getSnapshot(),
           editor: activeEditorSessionRef.current,
+          range: cellRangeRef.current,
         }),
-        focus: (target, options) => {
-          if (options?.signal?.aborted) return Promise.resolve("cancelled");
-          // Explicit departure navigation selects one cell; recovery requestFocus
-          // keeps its existing completed-range restoration semantics.
-          if (target.kind === "cell")
-            updateCellRange({ start: target.anchor, end: target.anchor });
-          return requestFocus(target, options);
-        },
+        focus: requestFocus,
+        changeRange: updateCellRange,
+        exit: (backwards) =>
+          focusAdjacentOutsideGrid(
+            vendorHandle.current?.element ?? null,
+            backwards,
+          ),
         cancelInteraction: () => cancelInteractionRef.current(),
       }),
-    [activeEditorSessionRef, presentationPort, requestFocus, updateCellRange],
+    [
+      activeEditorSessionRef,
+      cellRangeRef,
+      presentationPort,
+      requestFocus,
+      updateCellRange,
+    ],
+  );
+  const handleEditorKeyboardAction = useCallback(
+    (
+      target: GridCellAnchor,
+      action:
+        | { readonly kind: "exit"; readonly backwards: boolean }
+        | { readonly kind: "move"; readonly rowDelta: -1 | 1 },
+    ) => {
+      const editor = activeEditorSessionRef.current;
+      if (editor !== null && !sameGridCellAnchor(editor.target, target)) return;
+      const model = semanticPresentationRef.current;
+      const decision =
+        keyboardNavigation === "spreadsheet"
+          ? decideSpreadsheetNavigation(
+              model,
+              target,
+              {
+                key: action.kind === "exit" ? "Tab" : "Enter",
+                shiftKey:
+                  action.kind === "exit"
+                    ? action.backwards
+                    : action.rowDelta < 0,
+              },
+              draftFieldKeysRef.current,
+              cellRangeSelection?.keyboardEntry === "cycle"
+                ? cellRangeRef.current
+                : null,
+            )
+          : action.kind === "exit"
+            ? { kind: "exit_grid" as const, backwards: action.backwards }
+            : {
+                kind: "navigate" as const,
+                range: null,
+                target:
+                  navigateSemanticPresentation(model, target, {
+                    key: action.rowDelta < 0 ? "ArrowUp" : "ArrowDown",
+                  }) ?? target,
+              };
+      if (decision.kind === "focus_draft") {
+        void cellNavigation.depart(
+          { kind: "draft", fieldKey: decision.fieldKey },
+          {
+            isCurrent: () =>
+              draftFieldKeysRef.current.includes(decision.fieldKey),
+          },
+        );
+      } else if (decision.kind === "exit_grid") {
+        void cellNavigation.depart({
+          kind: "exit",
+          backwards: decision.backwards,
+        });
+      } else {
+        void cellNavigation.depart(
+          {
+            kind: "cell",
+            anchor: decision.kind === "navigate" ? decision.target : target,
+          },
+          {
+            range:
+              decision.kind === "navigate"
+                ? (decision.range ?? undefined)
+                : undefined,
+          },
+        );
+      }
+    },
+    [
+      activeEditorSessionRef,
+      cellNavigation,
+      cellRangeRef,
+      cellRangeSelection?.keyboardEntry,
+      keyboardNavigation,
+    ],
   );
   useLayoutEffect(() => {
+    cellNavigation.reconcile();
+  });
+  useLayoutEffect(() => {
+    const externalFocus = (event: FocusEvent) => {
+      if (
+        event.target instanceof Node &&
+        !vendorHandle.current?.element?.contains(event.target)
+      )
+        cellNavigation.cancel();
+    };
     document.addEventListener("pointerdown", cellNavigation.cancel, true);
     document.addEventListener("keydown", cellNavigation.cancel, true);
+    document.addEventListener("input", cellNavigation.cancel, true);
+    document.addEventListener("compositionstart", cellNavigation.cancel, true);
+    document.addEventListener("focusin", externalFocus, true);
     return () => {
       document.removeEventListener("pointerdown", cellNavigation.cancel, true);
       document.removeEventListener("keydown", cellNavigation.cancel, true);
+      document.removeEventListener("input", cellNavigation.cancel, true);
+      document.removeEventListener(
+        "compositionstart",
+        cellNavigation.cancel,
+        true,
+      );
+      document.removeEventListener("focusin", externalFocus, true);
       cellNavigation.cancel();
     };
   }, [cellNavigation]);
@@ -1352,10 +1379,12 @@ function useSemanticDataGrid<Row>(
   useImperativeHandle(
     ref,
     () => ({
+      setAccessibleDescription,
       columnSizing: sizing.port,
       presentation: presentationPort,
       navigateToCell: cellNavigation.navigate,
       activateEdit: (anchor, seed) => {
+        cellNavigation.cancel();
         interaction.controller.cancel();
         const position = semanticPresentationRef.current.positions.get(
           gridAnchorKey(anchor),
@@ -1385,6 +1414,7 @@ function useSemanticDataGrid<Row>(
         return true;
       },
       cancelEdit: (anchor) => {
+        cellNavigation.cancel();
         const session = activeEditorSessionRef.current;
         if (
           session === null ||
@@ -1399,6 +1429,7 @@ function useSemanticDataGrid<Row>(
         return true;
       },
       detachEdit: () => {
+        cellNavigation.cancel();
         interaction.controller.cancel();
         const session = activeEditorSessionRef.current;
         activeEditorSessionRef.current = null;
@@ -1411,7 +1442,10 @@ function useSemanticDataGrid<Row>(
         vendorHandle.current?.element?.contains(target) === true,
       getActiveCell: () =>
         pendingEditorSeedRef.current?.anchor ?? activeCellAnchor,
-      requestFocus,
+      requestFocus: (target, options) => {
+        cellNavigation.cancel();
+        return requestFocus(target, options);
+      },
       focusAdjacentRegion: (backwards) =>
         focusAdjacentOutsideGrid(
           vendorHandle.current?.element ?? null,
@@ -1431,6 +1465,12 @@ function useSemanticDataGrid<Row>(
           keyboardNavigation === "spreadsheet" &&
           (intent.key === "Enter" || intent.key === "Tab")
         ) {
+          const session = activeEditorSessionRef.current;
+          if (session !== null) {
+            if (!sameGridCellAnchor(session.target, current)) return null;
+            session.cancel(false);
+          }
+          clearEditorSeed();
           handleEditorKeyboardAction(
             current,
             intent.key === "Tab"
@@ -1498,6 +1538,15 @@ function useSemanticDataGrid<Row>(
     // summary-row or aggregation capability.
     bottomSummaryRows:
       !editable || draftRow === undefined ? undefined : [draftRow],
+    "aria-description":
+      [
+        contextDescription,
+        cellRangeSelection?.keyboardEntry === "cycle"
+          ? "Within a selected range, Tab moves across rows and Enter moves down columns, wrapping at the edge. Shift reverses direction. Escape returns to a single active cell. F2 edits the active cell."
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined,
     className: `${gridScrollportClassName()} cartulary-grid rdg-dark`,
     columns: compiledColumns,
     // Production grids always use RDG's row and column virtualization. A
@@ -1552,6 +1601,13 @@ function useSemanticDataGrid<Row>(
     },
     onCellKeyDown: (args, event) => {
       if (args.mode !== "SELECT" || !isDataRow<Row>(args.row)) return;
+      if (
+        event.nativeEvent.isComposing ||
+        isInteractiveCellActionTarget(event.target)
+      ) {
+        event.preventGridDefault();
+        return;
+      }
       const anchor = semanticAnchor(
         args.row,
         args.column.key,
@@ -1575,6 +1631,7 @@ function useSemanticDataGrid<Row>(
           workbookGridRowHeightPx(density),
         ),
         range: cellRangeRef.current,
+        rangeKeyboardEntry: cellRangeSelection?.keyboardEntry,
         readOnlyLabel:
           effectiveInteractionMode.kind === "read_only"
             ? effectiveInteractionMode.label
@@ -1582,8 +1639,10 @@ function useSemanticDataGrid<Row>(
         row: args.row,
       });
       if (decision.kind === "ignore") return;
+      setKeyboardAnnouncement("");
       event.preventDefault();
       event.preventGridDefault();
+      if (decision.kind === "collapse_range") event.stopPropagation();
       if (decision.kind === "focus_draft") {
         updateCellRange(null);
         focusDraftCell(decision.fieldKey);
@@ -1837,6 +1896,7 @@ function GridBindingFrame<Row>({
 }) {
   const blocking = gridDataStateBlocksInteraction(dataState);
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: bridges already-consumed RDG Escape without adding an interactive surface.
     <div
       className="cartulary-grid-state-frame"
       style={
@@ -1849,6 +1909,13 @@ function GridBindingFrame<Row>({
       }
       onDoubleClickCapture={onDoubleClickCapture}
       onKeyDownCapture={onKeyDownCapture}
+      onKeyDown={(event) => {
+        // RDG passes a copy of the React event to onCellKeyDown. Its native
+        // cancellation survives, but React's propagation flag stays on the
+        // copy. Bridge an owned Escape before it reaches the shell ladder.
+        if (event.key === "Escape" && event.nativeEvent.defaultPrevented)
+          event.stopPropagation();
+      }}
     >
       <div
         className="cartulary-grid-binding-content"
@@ -1876,13 +1943,25 @@ function GridBindingFrame<Row>({
         columns={columns}
         dataRows={dataRows}
         positionMap={positionMap}
-        range={range}
+        range={
+          keyboardAnnouncement === "Selection collapsed to the active cell."
+            ? null
+            : range
+        }
       />
       {keyboardAnnouncement === "" ? null : (
         <span
-          aria-live="assertive"
+          aria-live={
+            keyboardAnnouncement === "Selection collapsed to the active cell."
+              ? "polite"
+              : "assertive"
+          }
           className="cartulary-grid-live-region"
-          role="alert"
+          role={
+            keyboardAnnouncement === "Selection collapsed to the active cell."
+              ? "status"
+              : "alert"
+          }
         >
           {keyboardAnnouncement}
         </span>
@@ -1943,8 +2022,12 @@ function executeSemanticKeyDecision<Row>({
     case "exit_grid":
       focusAdjacentOutsideGrid(gridElement, decision.backwards);
       return;
+    case "collapse_range":
+      updateCellRange({ start: decision.target, end: decision.target });
+      setKeyboardAnnouncement("Selection collapsed to the active cell.");
+      return;
     case "begin_edit":
-      updateCellRange(null);
+      updateCellRange(decision.range);
       executeBeginEditDecision(decision, args, pendingEditorSeedRef, surface);
       return;
     case "navigate":

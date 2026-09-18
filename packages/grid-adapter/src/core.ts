@@ -222,6 +222,8 @@ type SemanticDataGridBaseProps<Row> = {
     | {
         readonly kind: "contiguous";
         readonly scopeKey: string;
+        /** Explicitly adopted cyclic traversal and retained keyboard edit entry. */
+        readonly keyboardEntry?: "cycle" | undefined;
       }
     | undefined;
   readonly keyboardNavigation?: "region" | "spreadsheet" | undefined;
@@ -360,6 +362,7 @@ export type GridEditorActivation = {
   readonly source:
     | "clear"
     | "enter"
+    | "f2"
     | "pointer"
     | "printable"
     | "programmatic"
@@ -450,6 +453,8 @@ export type GridCellNavigationOptions = {
 export type GridCellNavigationResult = GridFocusResult | "rejected";
 
 export type GridHandle = {
+  /** Caller context composed with adapter-owned keyboard guidance. */
+  readonly setAccessibleDescription?: (description: string | undefined) => void;
   /** True only for the grid navigation cell itself, never a nested editor/control. */
   readonly ownsNavigationFocus?: (target: EventTarget | null) => boolean;
   readonly presentation?: GridPresentationPort;

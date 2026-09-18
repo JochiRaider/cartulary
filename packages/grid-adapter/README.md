@@ -111,3 +111,34 @@ out of vendor DOM details when deciding focus-scoped application shortcuts.
 
 Sources provide the optional `findMatch` semantic state. Its accessible marker
 and current-match indication coexist with primary state, focus and selection.
+
+## Retained range keyboard entry
+
+An adopted consumer may enable `cellRangeSelection.keyboardEntry: "cycle"`.
+Timeline uses this capability. Omission retains each consumer's existing policy.
+`semanticKeyboardPolicy` computes Tab row-major and Enter column-major cycles
+from `resolveSemanticCellRange`, with Shift reversing the order. Active identity
+moves independently of the original endpoints. `semanticCellNavigation` captures
+the same decision before the existing editor session settles; exact membership,
+accepted scope, authority and newer input determine whether focus may apply.
+Rejection retains the original editor. Abandoning a destination does not cancel
+an accepted write. No traversal fetches records or includes creation drafts.
+
+Printable entry and F2 retain valid geometry; F2 preserves the value and puts a
+supported text caret at the end. Multiline Shift+Enter, native select Enter,
+reference popups, nested controls and IME keep their local keys. Editor Escape
+precedes grid-owned Escape, which collapses a multi-cell range to its active
+member. Shift+Arrow extends from that member while retaining the original anchor.
+Explicit replacement navigation (including Find) still replaces selection;
+restoring focus within a retained range does not. Delete/Backspace retain their
+single-cell policy. Managed editor focus does not request Inspector selection.
+
+The retired editor-completion calculation is now a pre-settlement semantic plan;
+there is no second traversal session or mutation gate. `rangeKeyboard.test.ts`,
+`semanticCellNavigation.test.ts` and the production binding tests establish the
+neutral policy and settlement boundary; Timeline browser rows establish physical
+focus, native editing, virtualization and layout behavior.
+
+`GridHandle.setAccessibleDescription` accepts caller context such as loaded-window
+limits. Adapter composes it with its own keyboard guidance and owns the DOM
+attribute; callers must not overwrite that presentation through the scrollport.

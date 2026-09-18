@@ -6,6 +6,7 @@ import type {
   GridClipboardInput,
   GridColumn,
   GridDataRow,
+  GridExpandedCellRange,
   GridGroupingDescriptor,
   GridGroupingScalar,
   GridNavigationIntent,
@@ -167,26 +168,51 @@ export function retainGridCellRange(
   if (range === null) return null;
   if (!gridSurfaceIdentitiesEqual(previous.surface, current.surface))
     return null;
-  const members = (model: GridSemanticCoordinateModel) => {
-    const start = model.rowIdentities.findIndex((row) =>
-      gridRowIdentitiesEqual(row, range.start.rowIdentity),
-    );
-    const end = model.rowIdentities.findIndex((row) =>
-      gridRowIdentitiesEqual(row, range.end.rowIdentity),
-    );
-    const left = model.fieldKeys.indexOf(range.start.fieldKey),
-      right = model.fieldKeys.indexOf(range.end.fieldKey);
-    if (start < 0 || end < 0 || left < 0 || right < 0) return null;
-    return JSON.stringify([
-      model.rowIdentities
-        .slice(Math.min(start, end), Math.max(start, end) + 1)
-        .map(gridRowIdentityKey),
-      model.fieldKeys.slice(Math.min(left, right), Math.max(left, right) + 1),
-    ]);
+  const before = resolveSemanticCellRange(previous, range);
+  const after = resolveSemanticCellRange(current, range);
+  return before !== null &&
+    after !== null &&
+    before.fieldKeys.length === after.fieldKeys.length &&
+    before.fieldKeys.every(
+      (field, index) => field === after.fieldKeys[index],
+    ) &&
+    before.rowIdentities.length === after.rowIdentities.length &&
+    before.rowIdentities.every((row, index) => {
+      const next = after.rowIdentities[index];
+      return next !== undefined && gridRowIdentitiesEqual(row, next);
+    })
+    ? range
+    : null;
+}
+
+/** Ordered membership comes from semantic presentation, never mounted cells. */
+export function resolveSemanticCellRange(
+  model: GridSemanticCoordinateModel,
+  range: GridCellRange,
+): GridExpandedCellRange | null {
+  if (
+    !semanticPresentationContainsAnchor(model, range.start) ||
+    !semanticPresentationContainsAnchor(model, range.end)
+  )
+    return null;
+  const firstRow = model.rowIdentities.findIndex((row) =>
+    gridRowIdentitiesEqual(row, range.start.rowIdentity),
+  );
+  const lastRow = model.rowIdentities.findIndex((row) =>
+    gridRowIdentitiesEqual(row, range.end.rowIdentity),
+  );
+  const firstField = model.fieldKeys.indexOf(range.start.fieldKey);
+  const lastField = model.fieldKeys.indexOf(range.end.fieldKey);
+  return {
+    rowIdentities: model.rowIdentities.slice(
+      Math.min(firstRow, lastRow),
+      Math.max(firstRow, lastRow) + 1,
+    ),
+    fieldKeys: model.fieldKeys.slice(
+      Math.min(firstField, lastField),
+      Math.max(firstField, lastField) + 1,
+    ),
   };
-  const before = members(previous),
-    after = members(current);
-  return before !== null && before === after ? range : null;
 }
 
 export function buildSemanticCoordinateModel<Row>({
@@ -448,27 +474,9 @@ export function resolveVisibleGridCellRange<Row>({
   readonly positionMap: GridSemanticCoordinateModel;
   readonly range: GridCellRange;
 }) {
-  if (
-    !gridSurfaceIdentitiesEqual(range.start.surface, positionMap.surface) ||
-    !gridSurfaceIdentitiesEqual(range.end.surface, positionMap.surface)
-  ) {
-    return null;
-  }
-  const startColumn = positionMap.fieldKeys.indexOf(range.start.fieldKey);
-  const endColumn = positionMap.fieldKeys.indexOf(range.end.fieldKey);
-  const startRow = positionMap.rowIdentities.findIndex((identity) =>
-    gridRowIdentitiesEqual(identity, range.start.rowIdentity),
-  );
-  const endRow = positionMap.rowIdentities.findIndex((identity) =>
-    gridRowIdentitiesEqual(identity, range.end.rowIdentity),
-  );
-  if (startColumn < 0 || endColumn < 0 || startRow < 0 || endRow < 0) {
-    return null;
-  }
-  const fieldKeys = positionMap.fieldKeys.slice(
-    Math.min(startColumn, endColumn),
-    Math.max(startColumn, endColumn) + 1,
-  );
+  const members = resolveSemanticCellRange(positionMap, range);
+  if (members === null) return null;
+  const { fieldKeys, rowIdentities } = members;
   if (
     !fieldKeys.every((fieldKey) =>
       columns.some((column) => column.fieldKey === fieldKey),
@@ -476,10 +484,6 @@ export function resolveVisibleGridCellRange<Row>({
   ) {
     return null;
   }
-  const rowIdentities = positionMap.rowIdentities.slice(
-    Math.min(startRow, endRow),
-    Math.max(startRow, endRow) + 1,
-  );
   if (
     rowIdentities.some(
       (rowIdentity) =>

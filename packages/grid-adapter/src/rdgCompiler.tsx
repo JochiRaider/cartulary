@@ -29,6 +29,7 @@ import type {
   GridSemanticStateInput,
   GridSurfaceIdentity,
 } from "./core";
+import { nativeEditorOwnsKey } from "./domInteraction";
 import { bindGridEditorReveal } from "./editorReveal";
 import {
   type GridResolvedSemanticState,
@@ -393,6 +394,7 @@ export function compileGridColumns<Row>({
                   key={`${target.rowIdentity.recordId}:${target.fieldKey}`}
                   adapter={column.editor as GridEditorAdapter<Row>}
                   baseState={cellStateFor(row, column)}
+                  rangeSelected={isCellRangeSelected(row, column)}
                   editorSeed={editorSeed}
                   retainEditorDraft={retainEditorDraft}
                   fieldLabel={column.label}
@@ -517,6 +519,7 @@ function SemanticGridEditor<Row>({
   retainEditorDraft,
   adapter,
   baseState,
+  rangeSelected,
   editorSeed,
   fieldLabel,
   isCurrent,
@@ -531,6 +534,7 @@ function SemanticGridEditor<Row>({
   readonly retainEditorDraft: CompileGridColumnsInput<Row>["retainEditorDraft"];
   readonly adapter: GridEditorAdapter<Row>;
   readonly baseState: GridSemanticStateInput;
+  readonly rangeSelected: boolean;
   readonly editorSeed: {
     readonly activation: GridEditorActivation;
     readonly hasValue: boolean;
@@ -816,29 +820,11 @@ function SemanticGridEditor<Row>({
   const commit = async (draftValueOverride?: unknown) => {
     await commitDraft(draftValueOverride);
   };
-  const handleKeyboardAction = async (
-    action:
-      | { readonly kind: "exit"; readonly backwards: boolean }
-      | { readonly kind: "move"; readonly rowDelta: -1 | 1 },
-    draftValueOverride?: unknown,
-  ) => {
-    const sequence = ++navigationSequenceRef.current;
-    const draftRevision = draftRevisionRef.current;
-    const next = await commitDraft(draftValueOverride);
-    if (
-      next?.kind === "accepted" &&
-      !cancelledRef.current &&
-      closedCommitSequenceRef.current === latestCommitSequenceRef.current &&
-      sequence === navigationSequenceRef.current &&
-      draftRevisionRef.current === draftRevision
-    ) {
-      queueMicrotask(() => onKeyboardAction(target, action));
-    }
-  };
   return (
     <SemanticGridCellContent
       anchor={target}
       editing
+      rangeSelected={rangeSelected}
       fieldKey={target.fieldKey}
       registerSemanticCell={registerSemanticCell}
       semanticState={semanticState}
@@ -876,6 +862,7 @@ function SemanticGridEditor<Row>({
             return;
           }
         }
+        if (nativeEditorOwnsKey(event)) return;
         if (
           event.key !== "Escape" &&
           event.target instanceof Element &&
@@ -891,16 +878,13 @@ function SemanticGridEditor<Row>({
         if (event.key === "Tab") {
           event.preventDefault();
           event.stopPropagation();
-          void handleKeyboardAction({
-            backwards: event.shiftKey,
-            kind: "exit",
-          });
+          onKeyboardAction(target, { backwards: event.shiftKey, kind: "exit" });
           return;
         }
         if (event.key === "Enter") {
           event.preventDefault();
           event.stopPropagation();
-          void handleKeyboardAction({
+          onKeyboardAction(target, {
             kind: "move",
             rowDelta: event.shiftKey ? -1 : 1,
           });

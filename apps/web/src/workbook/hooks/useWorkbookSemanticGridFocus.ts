@@ -75,13 +75,11 @@ export function useWorkbookSemanticGridFocus<Row>({
       browsingRegistry
         ?.find(viewSchemaId)
         ?.rememberAnchor(anchor.rowIdentity.recordId);
-    if (browsingRegistry?.find(viewSchemaId))
-      gridHandleRef.current
-        ?.getScrollElement()
-        ?.setAttribute(
-          "aria-description",
-          "Row indices and selection refer to the loaded window. Use the workbook browsing controls to reach additional records.",
-        );
+    gridHandleRef.current?.setAccessibleDescription?.(
+      browsingRegistry?.find(viewSchemaId)
+        ? "Row indices and selection refer to the loaded window. Use the workbook browsing controls to reach additional records."
+        : undefined,
+    );
   });
   const { acknowledge, cancel: cancelRequest, request } = focusOwner;
   const latestRequest = useRef(request);

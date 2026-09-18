@@ -3957,3 +3957,216 @@ it("defers nested editor navigation and dismissal without submitting the parent 
     cleanup();
   }
 });
+
+it("cycles a retained rectangle through production editing rejection latest departure and Escape", async () => {
+  const handle = createRef<GridHandle>();
+  let acknowledge: (
+    result:
+      | { kind: "accepted" }
+      | { kind: "validation_error"; message: string },
+  ) => void = () => {};
+  const commit = vi.fn(
+    () =>
+      new Promise<
+        { kind: "accepted" } | { kind: "validation_error"; message: string }
+      >((resolve) => {
+        acknowledge = resolve;
+      }),
+  );
+  const rangeChange = vi.fn();
+  const shellEscape = vi.fn();
+  render(
+    // biome-ignore lint/a11y/noStaticElementInteractions: observes the parent Escape ladder.
+    <section onKeyDown={shellEscape}>
+      <SemanticDataGrid
+        ref={handle}
+        surface={testSurface}
+        keyboardNavigation="spreadsheet"
+        cellRangeSelection={{
+          kind: "contiguous",
+          scopeKey: "accepted",
+          keyboardEntry: "cycle",
+        }}
+        onCellRangeChange={rangeChange}
+        columns={["label", "state"].map((fieldKey) => ({
+          fieldKey,
+          label: fieldKey,
+          contractWritable: true,
+          renderCell: ({ row }: { row: HarnessRow }) => (
+            <span data-testid={`${row.label}-${fieldKey}`}>
+              {row[fieldKey as keyof HarnessRow]}
+            </span>
+          ),
+          editor: {
+            commit,
+            initialDraftValue: (row: HarnessRow) =>
+              row[fieldKey as keyof HarnessRow],
+            renderEditor: (context: GridEditorRenderContext<HarnessRow>) => (
+              <input
+                aria-label="Range entry"
+                ref={context.focusTargetRef}
+                value={String(context.draftValue)}
+                onChange={(event) => context.setDraftValue(event.target.value)}
+              />
+            ),
+          },
+        }))}
+        dataRows={["A", "B"].map((label) => ({
+          kind: "data" as const,
+          data: { label, state: "open" },
+          rowIdentity: { kind: "core_record" as const, recordId: label },
+          mutationIdentity: {
+            kind: "core_row_version" as const,
+            baseRowVersion: 1,
+          },
+        }))}
+      />
+    </section>,
+  );
+  const cell = (row: string, field: string) => {
+    const value = screen
+      .getByTestId(`${row}-${field}`)
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (!value) throw new Error("Missing range cell");
+    return value;
+  };
+  await act(async () => {
+    await handle.current?.requestFocus({
+      kind: "cell",
+      anchor: gridAnchor("A", "label"),
+    });
+  });
+  fireEvent.keyDown(cell("A", "label"), { key: "ArrowRight", shiftKey: true });
+  fireEvent.keyDown(cell("A", "state"), { key: "ArrowDown", shiftKey: true });
+  const range = {
+    start: gridAnchor("A", "label"),
+    end: gridAnchor("B", "state"),
+  };
+  expect(rangeChange).toHaveBeenLastCalledWith(range);
+  expect(document.activeElement).toBe(cell("B", "state"));
+  fireEvent.keyDown(document.activeElement as Element, { key: "Tab" });
+  expect(document.activeElement).toBe(cell("A", "label"));
+  expect(rangeChange).toHaveBeenLastCalledWith(range);
+  fireEvent.keyDown(document.activeElement as Element, { key: "F2" });
+  const input = (await screen.findByRole("textbox", {
+    name: "Range entry",
+  })) as HTMLInputElement;
+  expect(input.value).toBe("A");
+  expect(input.selectionStart).toBe(1);
+  expect(
+    input.closest('[role="gridcell"]')?.getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.change(input, { target: { value: " raw rejected " } });
+  fireEvent.keyDown(input, { key: "Tab" });
+  await act(async () =>
+    acknowledge({ kind: "validation_error", message: "Rejected" }),
+  );
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe(" raw rejected ");
+  expect(rangeChange).toHaveBeenLastCalledWith(range);
+  fireEvent.keyDown(input, { key: "Enter" });
+  fireEvent.keyDown(input, { key: "Tab" });
+  fireEvent.keyDown(input, { key: "Tab" });
+  expect(commit).toHaveBeenCalledTimes(2);
+  await act(async () => acknowledge({ kind: "accepted" }));
+  await waitFor(() => expect(document.activeElement).toBe(cell("A", "state")));
+  expect(rangeChange).toHaveBeenLastCalledWith(range);
+  expect(commit.mock.calls[1]).toEqual([
+    expect.objectContaining({
+      draftValue: " raw rejected ",
+      target: expect.objectContaining(gridAnchor("A", "label")),
+    }),
+  ]);
+  shellEscape.mockClear();
+  fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+  expect(shellEscape).not.toHaveBeenCalled();
+  expect(rangeChange).toHaveBeenLastCalledWith({
+    start: gridAnchor("A", "state"),
+    end: gridAnchor("A", "state"),
+  });
+  expect(
+    screen
+      .getByText("Selection collapsed to the active cell.")
+      .getAttribute("role"),
+  ).toBe("status");
+});
+
+it("keeps multiline select and composition keys local in the production editor", async () => {
+  for (const kind of ["text", "select"] as const) {
+    const commit = vi.fn(async () => ({ kind: "accepted" as const }));
+    const handle = createRef<GridHandle>();
+    render(
+      <SemanticDataGrid
+        ref={handle}
+        surface={testSurface}
+        keyboardNavigation="spreadsheet"
+        cellRangeSelection={{
+          kind: "contiguous",
+          scopeKey: "accepted",
+          keyboardEntry: "cycle",
+        }}
+        columns={[
+          {
+            fieldKey: "label",
+            label: "Label",
+            contractWritable: true,
+            renderCell: ({ row }: { row: HarnessRow }) => row.label,
+            editor: {
+              commit,
+              initialDraftValue: (row) => row.label,
+              renderEditor: (context) =>
+                kind === "text" ? (
+                  <textarea
+                    aria-label="Local control"
+                    ref={context.focusTargetRef}
+                    value={String(context.draftValue)}
+                    onChange={(event) =>
+                      context.setDraftValue(event.target.value)
+                    }
+                  />
+                ) : (
+                  <select
+                    aria-label="Local control"
+                    ref={context.focusTargetRef}
+                    value={String(context.draftValue)}
+                    onChange={(event) =>
+                      context.setDraftValue(event.target.value)
+                    }
+                  >
+                    <option>A</option>
+                    <option>B</option>
+                  </select>
+                ),
+            },
+          },
+        ]}
+        dataRows={[
+          {
+            kind: "data",
+            data: { label: "A", state: "open" },
+            rowIdentity: { kind: "core_record", recordId: "A" },
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+          },
+        ]}
+      />,
+    );
+    await act(async () => {
+      await handle.current?.requestFocus({
+        kind: "cell",
+        anchor: gridAnchor("A", "label"),
+      });
+    });
+    fireEvent.keyDown(document.activeElement as Element, { key: "F2" });
+    const control = await screen.findByLabelText("Local control");
+    expect(
+      fireEvent.keyDown(control, { key: "Enter", shiftKey: kind === "text" }),
+    ).toBe(true);
+    for (const key of ["Enter", "Tab", "Escape"])
+      fireEvent.keyDown(control, { key, isComposing: true });
+    expect(document.activeElement).toBe(control);
+    expect(commit).not.toHaveBeenCalled();
+    fireEvent.keyDown(control, { key: "Tab" });
+    await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
+    cleanup();
+  }
+});

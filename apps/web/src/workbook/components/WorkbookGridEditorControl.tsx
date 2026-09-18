@@ -91,6 +91,8 @@ export function workbookGridEditorAdapter<Row>({
       const draftValue = String(context.draftValue ?? "");
       const commitOnEnter = (event: KeyboardEvent<HTMLFieldSetElement>) => {
         if (event.nativeEvent.isComposing) return;
+        if (event.target instanceof HTMLSelectElement && event.key === "Enter")
+          return;
         if (
           event.target instanceof Element &&
           event.target.closest(

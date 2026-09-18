@@ -2438,6 +2438,10 @@ Verified by: AC-006, AC-188, AC-189, AC-190, AC-205, AC-231
 
 **REQ-03-217**
 Selecting a cell and typing MUST edit it immediately.
+On Timeline, eligible printable entry edits only the active cell and retains a
+valid completed multi-cell range under §13.4. Unmodified `F2` MUST enter the
+active cell's existing authorized direct-value editor without replacing its
+current or retained value, placing a collapsed caret at the end where supported.
 Profiles: base
 Verified by: AC-005, AC-043, AC-231
 
@@ -2446,13 +2450,14 @@ One stationary unmodified primary pointer click on a committed cell whose active
 
 A pointer click on a read-only, derived, unauthorized, lifecycle-blocked, collection-valued, or otherwise non-grid-editable cell MUST preserve ordinary cell or row selection without creating an editor. Recordless create-draft controls remain immediately editable. Buttons, checkboxes, relationship chips, overflow controls, collection-token controls, and other owner-declared embedded actions MUST execute only their declared action and MUST NOT activate a parent scalar editor.
 
-Moving from an active editor to another cell or outside focus MUST use one deduplicated commit transition. The destination MAY open only after acceptance. Validation, same-field conflict, stale-target, authorization, and other rejection outcomes MUST retain the exact local draft, semantic target, and focusable original editor. `Escape` MUST cancel the draft and return focus to the same semantic cell anchor.
+Moving from an active editor to another cell or outside focus MUST use one deduplicated commit transition. The destination MAY open only after acceptance. Validation, same-field conflict, stale-target, authorization, and other rejection outcomes MUST retain the exact local draft, semantic target, and focusable original editor. `Escape` MUST cancel the draft and return focus to the same semantic cell anchor. Eligible Timeline keyboard entry, rejection and editor cancellation retain a still-valid completed range under §13.4; editor cancellation MUST NOT also collapse that range. Authority loss remains subject to REQ-03-299/100.
 Profiles: base
 Verified by: AC-485
 
 **REQ-03-218**
-Enter MUST commit and move vertically. Tab MUST commit and move horizontally.
-On Timeline, `Enter` and `Shift+Enter` in grid navigation mode MUST move to the
+Editor-owned departure uses Enter to commit and move vertically and Tab to
+commit and move horizontally, subject to the local-key exceptions below.
+On Timeline without a valid completed multi-cell range, `Enter` and `Shift+Enter` in grid navigation mode MUST move to the
 next and previous visible row respectively, preserving the field. `Tab` and
 `Shift+Tab` MUST move between visible data fields and wrap across rows. At the
 outer Tab boundary, focus MUST leave for the adjacent shell region. The trailing
@@ -2460,7 +2465,18 @@ creation draft participates when creation is authorized; navigation alone MUST
 NOT create an empty record. In edit mode, these keys MUST commit once and perform
 the same movement only after acceptance. Rejection MUST retain the exact draft
 and original focusable editor. Arrow keys in an editor retain caret ownership.
-This Timeline decision does not change another surface's navigation policy.
+With a valid completed multi-cell range, Timeline uses §13.4's cyclic traversal
+for grid navigation and accepted editor departure. Multiline `Shift+Enter` MUST
+insert a newline without committing or traversing. Existing correction-action
+access via `Alt+ArrowDown` MUST remain available from the primary editor,
+including a closed native select; an open native picker retains dismissal.
+Native select `Enter` MUST
+remain native; `Tab`/`Shift+Tab` or explicit Commit controls depart through the
+existing acceptance gate. Native option navigation and picker dismissal, nested
+reference/collection controls and IME composition retain local ownership. No
+grid command may interpret a composition event as entry, commit, cancellation
+or traversal. This Timeline decision does not change another surface's outer
+navigation policy.
 Profiles: base
 Verified by: AC-005, AC-043, AC-231
 
@@ -2488,12 +2504,14 @@ The base profile MUST support:
 
 - Arrow keys to move selection,
 - Enter and Shift+Enter row navigation,
+- Timeline `F2` direct-value edit entry and §13.4 range traversal/exit,
 - `Ctrl+V` for paste,
 - `Ctrl+D` or `Cmd+D` for fill-down across a selected valid one-column vertical range,
 - `Ctrl+K` for quick link or resolve on the current cell,
 - `Space` to preview linked evidence for the selected row,
 - `Alt+H` to open history for the selected row,
-- `Esc` to close the inspector and return focus to the prior cell.
+- `Esc` to close the inspector and return focus to the prior cell, after
+  higher-priority local cancellation and §13.4's grid-owned range collapse.
 Profiles: base
 Verified by: AC-005, AC-231, AC-538
 
@@ -2550,7 +2568,10 @@ intent is sampled at pointer-down; Shift changes during that gesture MUST NOT
 re-anchor or clear selection. Unsupported modifier/button combinations MUST NOT
 start a range; adding them cancels a tentative gesture. Completed selection MUST
 survive pointer and modifier release. Completion moves active-cell focus to the
-endpoint so Shift+Arrow can continue extension, but MUST NOT retarget or open the
+endpoint, but subsequent traversal MUST keep active cell and range geometry
+distinct. Shift+Arrow extends from the current active cell while retaining the
+original range anchor and making its destination the new endpoint; this MAY
+shrink the rectangle. Completion and traversal MUST NOT retarget or open the
 inspector or change bulk record-checkbox selection. Ordinary stationary clicks
 retain their existing row-inspection behavior.
 
@@ -2593,8 +2614,51 @@ and outside-range appends when their exact ordered members remain unchanged;
 otherwise they invalidate. Accepted query/sheet scope or grouping-key changes
 invalidate ranges. Pending or failed query replacements retain selection under
 the still-accepted presentation. Ordinary replacement navigation, stationary
-selection or edit entry replaces/clears the range; a canceled tentative gesture
+selection or edit entry other than the eligible keyboard entry below replaces/clears the range; a canceled tentative gesture
 does not restore members that have become invalid or unauthorized.
+
+#### Retained range keyboard entry
+
+When Timeline grid navigation owns focus and a valid completed range contains
+more than one cell, `Tab` MUST visit its members in row-major presentation order
+and `Enter` in column-major presentation order. `Shift` reverses the corresponding
+order. Passing the last member wraps to the first; reverse movement wraps from
+first to last. The current active member determines the next destination,
+independently of anchor/endpoints and selection direction. These keys MUST NOT
+alter selection geometry, fetch rows, expand groups or enter the creation draft.
+For `A1 B1 / A2 B2`, Tab cycles `A1, B1, A2, B2, A1` and Enter cycles
+`A1, A2, B1, B2, A1`. Completion at B2 initially keeps B2 active.
+
+Eligible printable input and unmodified `F2` MUST edit only the active cell's
+authorized direct value while retaining the still-valid rectangle. Readable read-only cells
+remain traversable without acquiring edit rights. Assigned application shortcuts
+under REQ-03-220, including Space evidence preview, retain priority; F2 permits
+native leading-whitespace entry. Delete/Backspace preserve
+their existing single-cell clear/edit and range-retirement semantics; selection
+MUST NOT imply bulk clear, fill-all or another multi-record mutation. Ordinary
+stationary clicks retain REQ-03-300's replacement and single-click editing.
+
+Editor departure MUST capture its semantic destination and selection disposition
+against the accepted presentation before awaiting the existing deduplicated
+acceptance gate. Only the latest still-current intent may move after acceptance;
+repeated pending keys replace that destination rather than accumulating skipped
+cells or submitting again. Revalidate exact ordered range membership, destination,
+accepted scope and authority before movement. A compatible value/version update
+or append outside the range may preserve that destination. Membership or scope
+invalidation cancels movement without discarding an authoritative write outcome,
+newer authoring or existing recovery. Rejection keeps the exact draft, original
+eligible focusable editor and still-valid range. Explicit Commit saves without
+inventing a movement intent. Editor focus MUST NOT silently select an Inspector
+subject; explicit pointer inspection retains its owner.
+
+Higher-priority popup, tentative-gesture and editor cancellation keep Escape
+ownership. When grid navigation owns focus and a completed multi-cell range
+exists, Escape MUST collapse it to the active cell and consume that action.
+Subsequent Escape follows the existing Inspector/shell hierarchy. No-range and
+one-cell navigation preserve REQ-03-218, including authorized trailing-draft
+participation and outer Tab exit. Find focus borrowing and explicit replacement
+navigation preserve §13.5's selection consequences. Other consumers require
+explicit adoption of this keyboard capability.
 
 ### 13.5 Timeline Find in loaded rows
 
