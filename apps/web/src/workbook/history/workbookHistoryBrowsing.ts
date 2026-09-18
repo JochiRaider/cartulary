@@ -22,6 +22,7 @@ export type HistoryAcceptedChain = {
   readonly pages: readonly HistoryPageProvenance[];
 };
 export type HistoryBrowsingState = {
+  readonly maxRetainedPages?: number;
   readonly scope: HistoryReadScope;
   readonly recordId: string;
   readonly viewSchemaId: string;
@@ -42,8 +43,10 @@ export function initialHistoryBrowsing(
   scope: HistoryReadScope,
   recordId: string,
   viewSchemaId: string,
+  maxRetainedPages?: number,
 ): HistoryBrowsingState {
   return {
+    ...(maxRetainedPages === undefined ? {} : { maxRetainedPages }),
     scope,
     recordId,
     viewSchemaId,
@@ -188,9 +191,22 @@ export function acceptHistoryPage(
     prior && prior.row_version > current.rowVersion
       ? { rowVersion: prior.row_version, deleted: prior.deleted }
       : current;
+  const pages = [...(previous?.pages ?? []), origin];
+  const retainedPages =
+    state.maxRetainedPages === undefined
+      ? pages
+      : pages.slice(-state.maxRetainedPages);
+  if (state.maxRetainedPages !== undefined) {
+    const retained = new Set(retainedPages);
+    for (const [id, page] of provenance)
+      if (!retained.has(page)) provenance.delete(id);
+  }
   const data: HistoryPage = {
     ...page,
-    items,
+    items:
+      state.maxRetainedPages === undefined
+        ? items
+        : items.filter((item) => provenance.has(item.history_item_ref)),
     row_version: Math.max(page.row_version, latest.rowVersion),
     deleted:
       page.row_version >= latest.rowVersion ? page.deleted : latest.deleted,
@@ -200,13 +216,14 @@ export function acceptHistoryPage(
     pending: null,
     failure: null,
     chainValid: true,
-    cursors: request.request.cursorToken
+    cursors: (request.request.cursorToken
       ? [...state.cursors, request.request.cursorToken]
-      : state.cursors,
+      : state.cursors
+    ).slice(state.maxRetainedPages === undefined ? 0 : -state.maxRetainedPages),
     accepted: {
       data,
       provenance,
-      pages: [...(previous?.pages ?? []), origin],
+      pages: retainedPages,
     },
   };
 }

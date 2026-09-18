@@ -1,13 +1,15 @@
 import { rowHistoryReadControlTestId } from "@cartulary/ui-contracts";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
-import type { HistoryLookupState } from "./HistoryActionLookup";
+import type { HistoryLookupState } from "./HistoryPageLookup";
 
 export function HistoryLookupFeedback({
   state,
   onContinue,
   onRestart,
   onCancel,
+  purpose = "action",
 }: {
+  readonly purpose?: "action" | "change";
   readonly state: HistoryLookupState | undefined;
   readonly onContinue: () => void;
   readonly onRestart: () => void;
@@ -26,7 +28,9 @@ export function HistoryLookupFeedback({
       <p role={state.failure ? "alert" : "status"}>
         {state.failure?.message ??
           (state.phase === "checking"
-            ? "Checking this action against current history…"
+            ? purpose === "change"
+              ? "Looking for this change in current history…"
+              : "Checking this action against current history…"
             : state.phase === "paused"
               ? "More history remains to be checked."
               : state.phase === "cancelled"
@@ -41,7 +45,9 @@ export function HistoryLookupFeedback({
           {state.phase === "paused" ? "Continue checking" : "Retry checking"}
         </WorkbookInspectorActionButton>
       ) : null}
-      {state.phase === "restart_required" ? (
+      {state.phase === "restart_required" ||
+      (purpose === "change" &&
+        ["changed", "cancelled", "unavailable"].includes(state.phase)) ? (
         <WorkbookInspectorActionButton
           data-testid={rowHistoryReadControlTestId("restart-checking")}
           onClick={onRestart}

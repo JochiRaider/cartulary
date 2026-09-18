@@ -1629,7 +1629,9 @@ test("Timeline clear retains partial null conflicts and resolves the captured va
     expect(result.data.conflicts).toHaveLength(1);
     expect(result.data.conflicts[0].client_value).toBeNull();
     await openRecoveryItem(page, /^Clear contents ·/);
-    await expect(page.getByText(/1 conflicts need review/)).toBeVisible();
+    await expect(
+      page.getByText(/1 original conflict; 1 unresolved/),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "Review conflicts", exact: true })
       .click();

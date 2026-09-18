@@ -1,13 +1,20 @@
-import { requireViewContract } from "@cartulary/view-contracts";
-import { useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   useWorkbookRecoverySource,
   WorkbookRecoveryDetail,
 } from "../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryItem } from "../../shared/workbookRecoveryNavigation";
+import { WorkbookHistoryReview } from "../history/WorkbookHistoryReview";
+import {
+  type HistoryReviewLocator,
+  historyReviewAuthorized,
+} from "../history/workbookHistoryReview";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { workbookBatchOutcome } from "../runtime/workbookBatchOutcome";
 import { workbookBatchRecoveryItems } from "../runtime/workbookBatchRecoveryItems";
 import type { WorkbookStatusAction } from "../utils/workbookStatusSecondary";
+import { WorkbookBatchRecordChoices } from "./WorkbookBatchRecordChoices";
 import { inputStyle } from "./workbookGridControlStyles";
 
 export function WorkbookBatchRecovery({
@@ -19,20 +26,71 @@ export function WorkbookBatchRecovery({
     | ((invoker: HTMLButtonElement, action: WorkbookStatusAction) => void)
     | undefined;
 }) {
+  useSyncExternalStore(runtime.history.subscribe, runtime.history.getSnapshot);
   const owner = runtime.batches;
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
   const mutation = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot);
-  const selected = useWorkbookRecoverySource(
-    "batch",
-    workbookBatchRecoveryItems(
-      snapshot,
-      new Set(
-        mutation.conflicts.flatMap((entry) =>
-          entry.batchOperationId ? [entry.batchOperationId] : [],
-        ),
-      ),
-    ),
-  );
+  const conflictCounts = new Map<string, number>();
+  for (const conflict of mutation.conflicts) {
+    const id = conflict.batchOperationId;
+    if (id) conflictCounts.set(id, (conflictCounts.get(id) ?? 0) + 1);
+  }
+  const [review, setReview] = useState<{
+    readonly batchId: string;
+    readonly locator: HistoryReviewLocator;
+  } | null>(null);
+  const invoker = useRef<HTMLElement | null>(null);
+  const restoreFocus = useRef(false);
+  const currentReview =
+    snapshot.authority &&
+    review &&
+    historyReviewAuthorized(review.locator, runtime.history.readScope)
+      ? review
+      : null;
+  useLayoutEffect(() => {
+    if (review && !currentReview) {
+      setReview(null);
+      invoker.current = null;
+    }
+  }, [review, currentReview]);
+  const items: WorkbookRecoveryItem[] = [
+    ...workbookBatchRecoveryItems(snapshot, conflictCounts),
+  ];
+  if (
+    currentReview &&
+    !items.some((item) => item.id === currentReview.batchId)
+  ) {
+    items.push({
+      id: currentReview.batchId,
+      label: "Change review",
+      summary: "Reviewing the selected Timeline record",
+      origin: "Timeline",
+      sheetRef: { kind: "view_schema", id: currentReview.locator.viewSchemaId },
+      attention: "completed",
+      order: Number.MAX_SAFE_INTEGER,
+    });
+  }
+  const selected = useWorkbookRecoverySource("batch", items, {
+    detach: () => {
+      setReview(null);
+      invoker.current = null;
+    },
+  });
+  useLayoutEffect(() => {
+    // A detached DOM node can retain React props and the pruned receipt closure.
+    if (invoker.current && !invoker.current.isConnected) invoker.current = null;
+    if (!restoreFocus.current) return;
+    restoreFocus.current = false;
+    const target = invoker.current;
+    if (
+      target?.isConnected &&
+      !target.closest("[hidden], [inert], [disabled]") &&
+      (document.activeElement === document.body ||
+        document.activeElement?.closest("#workbook-recovery-panel"))
+    )
+      target.focus({ preventScroll: true });
+    invoker.current = null;
+  });
   const entries = snapshot.entries;
   return (
     <WorkbookRecoveryDetail source="batch" item={selected}>
@@ -50,30 +108,20 @@ export function WorkbookBatchRecovery({
                 (conflict) => conflict.batchOperationId === entry.id,
               );
             const firstConflict = conflicts[0];
-            const label =
-              entry.plan.operation === "pasteWorkbookClipboard"
-                ? "Paste"
-                : entry.plan.request.kind === "fill_down_v1"
-                  ? "Fill"
-                  : entry.plan.request.kind === "clear_cells_v1"
-                    ? "Clear contents"
-                    : "Tag assignment";
+            const outcome = workbookBatchOutcome(entry, conflicts.length);
+            const { label } = outcome;
             return (
               <section key={entry.id} aria-label={`${label} ${index + 1}`}>
-                <strong>
-                  {label} {index + 1} ·{" "}
-                  {requireViewContract(entry.plan.request.view_schema_id).title}
-                </strong>
-                <p>
-                  {entry.phase === "uncertain"
-                    ? "The result is unknown. Retry checks the original action without duplicating accepted work."
-                    : entry.phase === "rejected"
-                      ? (entry.failure?.message ??
-                        "The batch was rejected. Review the original range.")
-                      : entry.phase === "acknowledged"
-                        ? `${entry.receipt?.rows.length ? "Accepted work is saved." : "No row changes were needed or accepted."}${conflicts.length ? ` ${conflicts.length} conflicts need review.` : ""}${entry.reconciliation === "required" ? " The view could not refresh." : ""}`
-                        : "Waiting for earlier work or applying this batch."}
-                </p>
+                <p role="status">{outcome.detail}</p>
+                {outcome.refresh !== "none" ? (
+                  <p role="status">
+                    {outcome.refresh === "refreshing"
+                      ? "Refreshing the view…"
+                      : outcome.refresh === "required"
+                        ? "The view could not refresh. The acknowledged result is unchanged."
+                        : "View refresh is pending."}
+                  </p>
+                ) : null}
                 {entry.phase === "rejected" || entry.phase === "uncertain" ? (
                   <label
                     style={{ display: "grid", gap: "var(--ct-spacing-xs)" }}
@@ -82,15 +130,7 @@ export function WorkbookBatchRecovery({
                     <textarea
                       readOnly
                       aria-label="Original batch input"
-                      value={
-                        entry.plan.operation === "pasteWorkbookClipboard"
-                          ? entry.plan.request.clipboard_text
-                          : entry.plan.request.kind === "fill_down_v1"
-                            ? (entry.plan.request.value ?? "")
-                            : entry.plan.request.kind === "clear_cells_v1"
-                              ? `Clear ${entry.plan.request.field_keys?.length ?? 0} fields to null`
-                              : (entry.plan.request.tag_name ?? "")
-                      }
+                      value={outcome.originalInput}
                       style={{
                         ...inputStyle,
                         maxInlineSize: "100%",
@@ -134,9 +174,59 @@ export function WorkbookBatchRecovery({
                     Discard this action
                   </WorkbookInspectorActionButton>
                 ) : null}
+                {outcome.canReview && entry.receipt ? (
+                  <div hidden={currentReview?.batchId === entry.id}>
+                    <WorkbookBatchRecordChoices
+                      receipt={entry.receipt}
+                      onReview={(record) => {
+                        const scope = runtime.history.readScope;
+                        const latest = owner
+                          .getSnapshot()
+                          .entries.find((item) => item.id === entry.id);
+                        if (
+                          !scope ||
+                          !latest?.receipt?.changeSetId ||
+                          !latest.receipt.rows.some(
+                            (row) => row.record_id === record.recordId,
+                          )
+                        )
+                          return;
+                        if (
+                          currentReview?.batchId === entry.id &&
+                          currentReview.locator.recordId === record.recordId
+                        )
+                          return;
+                        invoker.current =
+                          document.activeElement instanceof HTMLElement
+                            ? document.activeElement
+                            : null;
+                        setReview({
+                          batchId: entry.id,
+                          locator: {
+                            scope,
+                            viewSchemaId: latest.receipt.viewSchemaId,
+                            recordId: record.recordId,
+                            changeSetId: latest.receipt.changeSetId,
+                            label: record.label,
+                          },
+                        });
+                      }}
+                    />
+                  </div>
+                ) : null}
               </section>
             );
           })}
+        {currentReview?.batchId === selected ? (
+          <WorkbookHistoryReview
+            key={`${currentReview.locator.recordId}:${currentReview.locator.changeSetId}`}
+            locator={currentReview.locator}
+            onClose={() => {
+              restoreFocus.current = true;
+              setReview(null);
+            }}
+          />
+        ) : null}
       </section>
     </WorkbookRecoveryDetail>
   );

@@ -14,13 +14,20 @@ export function WorkbookHistoryEvent({
   actions,
   event,
   testId,
+  highlighted = false,
 }: {
+  readonly highlighted?: boolean;
   readonly actions?: ReactNode | undefined;
   readonly event: WorkbookHistoryEventPresentation;
   readonly testId?: string | undefined;
 }) {
   return (
     <li data-testid={testId} style={eventStyle}>
+      {highlighted ? (
+        <strong data-history-requested-change="true" tabIndex={-1}>
+          Requested change
+        </strong>
+      ) : null}
       <div style={headerStyle}>
         <strong>{event.summary || event.operation}</strong>
         <time dateTime={event.committedAt}>

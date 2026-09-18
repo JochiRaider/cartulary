@@ -1663,6 +1663,55 @@ Verified by: AC-007, AC-215, AC-231
 
 ### 10.2 Minimum history presentation
 
+#### Explicit Timeline batch review
+
+Timeline clear, clipboard table paste, fill-down and multi-row tag assignment
+MUST expose factual outcomes through the existing Recovery presentation. Requested
+targets, returned records, original receipt conflicts, currently unresolved
+conflicts and read reconciliation are separate facts. Receipt rows MUST NOT be
+described as the complete affected-record inventory of a change set or used to
+infer changed-cell counts. Empty acknowledged receipts with conflicts mean no
+batch changes committed; empty receipts without conflicts mean no changes were
+needed. Failed follow-up reads MUST NOT erase acknowledgement or permit write
+retry in place of read recovery. Completion remains passive and MUST NOT change
+selection, move focus, interrupt typing or open a panel.
+
+For an acknowledged material Timeline batch with a change-set identifier,
+Recovery MUST offer explicit selection of a returned record and Review this
+change. This is a read locator, not rollback authorization. Recovery History has
+its own explicit record subject, independently of the Inspector's canonical
+subject under REQ-03-285. Opening, switching and closing review MUST preserve
+unrelated authoring and the grid query, selection and Inspector context. A row
+outside the loaded query window MUST remain addressable directly through its
+record History; review MUST NOT silently alter the query or load its remainder.
+
+Only the explicitly selected record may initiate review History reads. Current
+History supplies the subject's current version, deletion state and legal actions;
+receipt values remain historical observations. The requested change-set identity
+MUST remain fixed while browsing. Every matching loaded logical item is identified
+by structured change-set identity; a match MUST NOT be represented as complete
+change-set membership or a manufactured single-entry selector. Lookup permits
+at most three page reads per explicit activation within the existing bounded
+observation lifetime and offers Continue, Retry, Restart and Cancel. An unfinished
+or paused lookup MUST NOT be reported as absence. Terminal absence requires
+exhausted server continuation.
+
+Active batch review retains at most three response pages and bounded continuation
+bookkeeping; discarded earlier pages require an explicit restart. Only the active
+minimal locator, small presentation context and this browsing state may outlive
+receipt pruning. Completed receipts and affected-record inventories MUST NOT be
+copied or pinned for navigation. Newer completion MUST NOT replace an open review.
+Closing or detaching review releases disposable reads and review state; admitted
+History actions retain their existing independent owner lifetime. REQ-03-100/299
+govern concealment and retirement across authority changes.
+
+Review MUST submit no mutation until an existing History action is explicitly
+chosen and confirmed. REQ-03-140/144 and Core 01 §3.3.5.0 continue to govern action
+metadata, permission, selectors, concurrency and replay. Whole-change-set reversal
+MUST identify that it reverses all reversible entries, potentially affecting
+records beyond the displayed row and receipt list. A reversal MUST NOT invalidate
+the original batch acknowledgement or silently resolve its outstanding conflicts.
+
 **REQ-03-139**
 In the base profile, the history panel for a selected row MUST show:
 

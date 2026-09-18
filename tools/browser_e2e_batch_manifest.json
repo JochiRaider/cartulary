@@ -149,6 +149,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-batch-history-review",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.batch_history_review_clear",
+            "module.timeline.browser.batch_history_review_fill",
+            "module.timeline.browser.batch_history_review_paste",
+            "module.timeline.browser.batch_history_review_tag"
+          ],
+          "specs": [
+            "apps/web/e2e/batch-history-review.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-collaboration",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1610,6 +1635,31 @@
           ],
           "specs": [
             "apps/web/e2e/autoresolve.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-batch-history-review",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.batch_history_review_clear",
+            "module.timeline.browser.batch_history_review_fill",
+            "module.timeline.browser.batch_history_review_paste",
+            "module.timeline.browser.batch_history_review_tag"
+          ],
+          "specs": [
+            "apps/web/e2e/batch-history-review.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

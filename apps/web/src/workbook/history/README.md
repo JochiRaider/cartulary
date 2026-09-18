@@ -13,6 +13,9 @@ receipt and successful projection refresh are separate observations.
 
 | File | Responsibility |
 | --- | --- |
+| [HistoryPageLookup.ts](HistoryPageLookup.ts) | Shared bounded read search, page validation, cancellation and authority fencing. |
+| [workbookHistoryReview.ts](workbookHistoryReview.ts) | Minimal authorized read locator and three-page review policy, distinct from pending actions. |
+| [WorkbookHistoryReview.tsx](WorkbookHistoryReview.tsx) | Explicit Recovery review using current row History and existing confirmed actions. |
 | [HistoryActionLookup.ts](HistoryActionLookup.ts) | Incremental paged lookup for a retained History action without treating paused scans as absence. |
 | [HistoryLookupFeedback.tsx](HistoryLookupFeedback.tsx) | History action lookup progress, paused-search, failure, and continuation feedback. |
 | [historyOperationPresentation.ts](historyOperationPresentation.ts) | Projects History operation state into user-facing status. |
@@ -29,6 +32,7 @@ receipt and successful projection refresh are separate observations.
 
 | File | Responsibility |
 | --- | --- |
+| [WorkbookBatchHistoryReview.test.tsx](WorkbookBatchHistoryReview.test.tsx) | Explicit off-window review, pruning lifetime, current action gates and existing reversal ownership. |
 | [HistoryActionLookup.test.ts](HistoryActionLookup.test.ts) | Tests bounded History action lookup, explicit continuation, and failed-page retry. |
 | [workbookHistoryBrowsing.characterization.test.tsx](workbookHistoryBrowsing.characterization.test.tsx) | Tests server-owned continuation and retained accepted History after refresh failure. |
 | [workbookHistoryBrowsing.test.ts](workbookHistoryBrowsing.test.ts) | Tests short/empty page continuation, stable server ordering, deduplication, and eligibility refresh. |

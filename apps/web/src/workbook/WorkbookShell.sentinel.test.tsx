@@ -1350,7 +1350,7 @@ describe("keyboard and grid anchor coverage", () => {
     await screen.findByText("Completed", { selector: "summary" });
     fireEvent.click(screen.getByText("Completed", { selector: "summary" }));
     fireEvent.click(screen.getByRole("button", { name: /^Tag assignment ·/ }));
-    await screen.findByText("Accepted work is saved.");
+    await screen.findByText(/Saved changes\. 2 records returned\./);
     expect(screen.getByText("2 selected")).toBeTruthy();
   });
 

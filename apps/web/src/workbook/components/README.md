@@ -115,3 +115,8 @@ from the accepted page; callers supply their own maximum and semantic target.
 Source-review callers alone request captured row versions. Apply never dispatches
 a write. WorkbookRecordCandidatePicker remains the native selection presentation
 used by Party linking and Timeline mentions as well as authoring.
+
+`WorkbookBatchRecordChoices.tsx` presents up to twenty returned Timeline records
+with local search and explicit review activation. Its test verifies bounded
+choices and absence of implicit activation. Receipt lifetime remains with the
+batch owner; this presentation retains no independent inventory.

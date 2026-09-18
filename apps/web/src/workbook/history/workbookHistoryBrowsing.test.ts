@@ -56,6 +56,56 @@ function loaded(refs = ["a"], cursor: string | null = "next") {
   );
 }
 describe("History browsing state", () => {
+  it("bounds review payloads provenance and continuation while preserving ordinary browsing", () => {
+    let review = initialHistoryBrowsing(scope, "record", "view", 3);
+    let ordinary = initial();
+    for (let index = 0; index < 12; index++) {
+      for (const [state, update] of [
+        [
+          review,
+          (next: typeof review) => {
+            review = next;
+          },
+        ],
+        [
+          ordinary,
+          (next: typeof review) => {
+            ordinary = next;
+          },
+        ],
+      ] as const) {
+        const requested = beginHistoryRead(
+          state,
+          index === 0 ? "initial" : "continuation",
+        );
+        update(
+          acceptHistoryPage(
+            requested,
+            required(requested.pending),
+            page([`entry-${index}`], `cursor-${index}`),
+            current,
+          ),
+        );
+      }
+      expect(review.accepted?.pages.length).toBeLessThanOrEqual(3);
+      expect(review.accepted?.data.items.length).toBeLessThanOrEqual(3);
+      expect(review.accepted?.provenance.size).toBeLessThanOrEqual(3);
+      expect(review.cursors.length).toBeLessThanOrEqual(3);
+    }
+    expect(
+      review.accepted?.data.items.map((entry) => entry.history_item_ref),
+    ).toEqual(["entry-9", "entry-10", "entry-11"]);
+    expect(ordinary.accepted?.data.items).toHaveLength(12);
+    const restart = beginHistoryRead(review, "refresh");
+    expect(restart.pending?.request).toEqual({});
+    const refreshed = acceptHistoryPage(
+      restart,
+      required(restart.pending),
+      page(["newest"], "fresh"),
+      current,
+    );
+    expect(refreshed.accepted?.data.items).toHaveLength(1);
+  });
   it("uses server continuation for short and empty pages and preserves server order", () => {
     let state = loaded();
     expect(state.accepted?.data.paging.has_more).toBe(true);

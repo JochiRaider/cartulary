@@ -963,6 +963,32 @@ Recovery provides an accessible return to the grid; it does not make the grid
 inert except while an owner-required nested modal is active. Protected summaries,
 counts and details follow Core 03 REQ-03-299/100 and Core 04 authorization.
 
+Design contract. Timeline batch detail presents saved work, unresolved conflicts
+and refresh obligations independently, using human action and field labels.
+Requested scope is explicitly labeled; no changed-cell count or complete
+change-set scope is inferred from receipt rows. Completed outcomes stay in the
+existing Completed group outside the attention count. No-op and conflicts-only
+outcomes offer no navigation to a nonexistent change set.
+
+For an acknowledged material batch, affected-record choices appear in the same
+Recovery detail with local search and pages of at most 20 compact historical
+receipt labels. Each choice exposes Review this change. Searching or paging these
+choices MUST NOT read History. Explicit activation attaches the shared row-centric
+History presentation with an independent review subject under Core 03 §10.2;
+the Inspector keeps its canonical subject. Current History, not receipt values,
+determines current state and legal actions. Whole-change-set confirmation states
+that other records beyond the displayed row and receipt list can be affected.
+
+Review keeps its requested change set and selected record through newer batch
+completion and receipt pruning. After pruning, the active record remains
+reviewable without retaining the old receipt or its choice inventory. Closing
+the review restores its eligible invoker or the existing semantic fallback;
+late reads never move focus away from newer interaction. Lookup feedback clearly
+distinguishes checking, paused continuation, read failure, restart, cancellation
+and terminal absence. Use concise polite progress/result announcements and
+ordinary keyboard-operable controls, with textual state cues independent of
+color. Completion never opens review or interrupts grid authoring.
+
 Design contract. Below the supported minimum inline size, keyboard session logout and safe navigation MUST remain available. Omission of mobile/touch-specific gestures is conformant.
 
 Design contract. When a grid editor remains available below the supported minimum,

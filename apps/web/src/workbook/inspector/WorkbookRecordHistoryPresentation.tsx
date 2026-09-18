@@ -59,6 +59,7 @@ export function WorkbookRecordHistoryLoadedPresentation({
   pendingAction,
   subject,
   onCancelPendingAction,
+  requestedChangeSetId,
   onConfirmPendingAction,
   onPreviewDeleteRestore,
   onPreviewRollback,
@@ -71,6 +72,7 @@ export function WorkbookRecordHistoryLoadedPresentation({
   readonly focus: HistoryFocusBindings;
   readonly pendingAction: WorkbookRecordHistoryPendingAction | null;
   readonly subject: WorkbookInspectorSubject;
+  readonly requestedChangeSetId?: string | undefined;
   readonly onCancelPendingAction: () => void;
   readonly onConfirmPendingAction: () => void;
   readonly onPreviewDeleteRestore: (operation: "delete" | "restore") => void;
@@ -97,6 +99,7 @@ export function WorkbookRecordHistoryLoadedPresentation({
         onConfirm={onConfirmPendingAction}
       />
       <WorkbookRecordHistoryEvents
+        requestedChangeSetId={requestedChangeSetId}
         actions={actions}
         busy={busy}
         canMutate={canMutate}
@@ -209,7 +212,7 @@ function WorkbookRecordHistoryConfirmation({
         pendingAction.target.kind === "row_restore"
           ? "for this row; independent relationships and evidence remain unchanged"
           : pendingAction.target.kind === "change_set"
-            ? "including its source-owned affected records"
+            ? "for all reversible changes in this change set, including affected records beyond the displayed row or returned record list"
             : "for this history entry"
       }
       technicalFields={[
@@ -228,6 +231,7 @@ function WorkbookRecordHistoryConfirmation({
 }
 
 function WorkbookRecordHistoryEvents({
+  requestedChangeSetId,
   actions,
   busy,
   canMutate,
@@ -236,6 +240,7 @@ function WorkbookRecordHistoryEvents({
   subject,
   onPreviewRollback,
 }: {
+  readonly requestedChangeSetId?: string | undefined;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
   readonly busy: boolean;
   readonly canMutate: boolean;
@@ -253,6 +258,7 @@ function WorkbookRecordHistoryEvents({
         const event = workbookHistoryEventPresentation(item);
         return (
           <WorkbookHistoryEvent
+            highlighted={item.change_set_id === requestedChangeSetId}
             actions={
               actions.has("rollback") ? (
                 <WorkbookRecordHistoryRollbackActions

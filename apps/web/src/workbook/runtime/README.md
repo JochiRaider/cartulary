@@ -116,3 +116,8 @@ execution meaning. Only FIFO units enter replay counts. Feature review alone is
 not a same-field conflict. `workbookBatchRecoveryItems.ts` projects one batch item
 including its receipt and conflicts; the surface registry exposes only remaining
 read debt. Conflict storage owns drafts and resolution, never panel-open state.
+
+`workbookBatchOutcome.ts` owns factual batch outcome and requested-scope wording
+for Recovery list/detail. Its focused tests cover every Timeline operation and
+receipt/conflict/read state. `workbookBatchRecoveryItems.ts` adapts those facts
+to navigation without changing save-state accounting.

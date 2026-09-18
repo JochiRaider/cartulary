@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WorkbookRecordHistoryPendingAction } from "../inspector/workbookRecordHistoryModel";
 import { HistoryActionLookup } from "./HistoryActionLookup";
+import { HistoryPageLookup } from "./HistoryPageLookup";
 import { WorkbookRecordHistoryOwner } from "./WorkbookRecordHistoryOwner";
 import type { HistoryAttempt } from "./workbookHistoryOperation";
 import type {
@@ -87,6 +88,33 @@ function setup(
 }
 
 describe("History action lookup", () => {
+  it("publishes bounded navigation without retaining an extra result page payload", async () => {
+    const onPage = vi.fn();
+    const lookup = new HistoryPageLookup({
+      scope,
+      recordId: "record",
+      viewSchemaId: "view",
+      currentScope: () => scope,
+      latestVersion: () => 8,
+      maxRetainedPages: 3,
+      retainResultPage: false,
+      unavailable: { kind: "stale_target", message: "Change unavailable" },
+      evaluate: () => null,
+      onPage,
+      read: vi
+        .fn()
+        .mockResolvedValueOnce({ kind: "accepted", value: page("cursor") })
+        .mockResolvedValueOnce({
+          kind: "accepted",
+          value: page("cursor", true),
+        }),
+    });
+    expect((await lookup.run()).phase).toBe("restart_required");
+    expect(onPage).toHaveBeenCalledTimes(1);
+    expect(lookup.snapshot.page).toBeNull();
+    // Rejected continuation must not pin another raw response beside accepted browsing pages.
+    expect(lookup.snapshot.pagesChecked).toBe(2);
+  });
   it("pauses after three pages and resumes without claiming absence", async () => {
     const t = setup([page("a"), page("b"), page("c"), page(null, true)]);
     expect((await t.lookup.run()).phase).toBe("paused");

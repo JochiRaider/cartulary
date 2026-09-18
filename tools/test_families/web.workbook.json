@@ -399,6 +399,41 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.batch_history_review",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/history/WorkbookBatchHistoryReview.test.tsx",
+        "titles": [
+          "Batch History review cancels delayed reads on close and never reclaims newer focus",
+          "Batch History review clears protected review on History suspension scoped revocation and account replacement",
+          "Batch History review delegates confirmed whole-change reversal to the existing owner without changing the batch receipt",
+          "Batch History review invalidates confirmation on demotion or closure while keeping current authorized reading",
+          "Batch History review keeps the active locator after receipt pruning and releases it on explicit close",
+          "Batch History review pauses bounded lookup and retries expired and failed pages without claiming absence",
+          "Batch History review reads only the explicitly chosen off-window record and marks multiple later-page entries without writing",
+          "Batch History review reviews partial success while preserving the existing unresolved-conflict action gate",
+          "Batch History review uses current deletion metadata and keeps record absence separate from incident authority"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.batch_operation_retention",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -423,6 +458,63 @@
           "Workbook batch operation ownership retains conflicts-only acceptance and blocks only overlapping batches until resolution",
           "Workbook batch operation ownership retains overlapping actions and explicitly replays the identical uncertain attempt",
           "Workbook batch operation ownership suspends queued work through role loss and closure without changing its targets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.batch_outcome_facts",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/workbookBatchOutcome.test.ts",
+        "titles": [
+          "Batch outcome facts keeps Entity reuse out of Timeline review and preserves grouping and concealment",
+          "Batch outcome facts labels requested targets including creation slots without inventing changed cells or complete scope",
+          "Batch outcome facts separates all outcomes from refresh and current conflicts for every Timeline operation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.batch_record_choices",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookBatchRecordChoices.test.tsx",
+        "titles": [
+          "Batch record choices omit absent changes and non-Timeline consumers",
+          "Batch record choices page and search locally with at most twenty explicit review controls"
         ]
       },
       "evidence_class": "unit",
@@ -1803,6 +1895,7 @@
           "History action lookup fences duplicate activation and cancelled late responses",
           "History action lookup finds all advertised selectors and rejects changed eligibility or targets",
           "History action lookup pauses after three pages and resumes without claiming absence",
+          "History action lookup publishes bounded navigation without retaining an extra result page payload",
           "History action lookup refetches valid provenance and starts a fresh chain only after absence",
           "History action lookup rejects session replacement and changed current versions",
           "History action lookup requires explicit restart for non-progressing cursors",
@@ -1867,6 +1960,7 @@
       "selector": {
         "file": "apps/web/src/workbook/history/workbookHistoryBrowsing.test.ts",
         "titles": [
+          "History browsing state bounds review payloads provenance and continuation while preserving ordinary browsing",
           "History browsing state conceals protected entries on access or session loss",
           "History browsing state deduplicates overlap in place and accepts refreshed eligibility",
           "History browsing state distinguishes a genuinely empty terminal first page",

@@ -4,10 +4,15 @@ import {
   useLayoutEffect,
   useReducer,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import { observeAsyncOperation } from "../../services/asyncObservation";
 import type { HistoryActionLookup } from "../history/HistoryActionLookup";
+import {
+  type HistoryLookupState,
+  HistoryPageLookup,
+} from "../history/HistoryPageLookup";
 import { useWorkbookHistoryRuntime } from "../history/WorkbookHistoryContext";
 import type { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import {
@@ -22,6 +27,11 @@ import {
   type HistoryPage,
   sameHistoryReadScope,
 } from "../history/workbookHistoryPage";
+import {
+  type HistoryReviewLocator,
+  historyReviewAuthorized,
+  historyReviewPageLimit,
+} from "../history/workbookHistoryReview";
 import type { RecordRouteCommandPort } from "../mutations/workbookMutationCommandPorts";
 import {
   workbookInspectorErrorPresentation,
@@ -58,7 +68,9 @@ export function useWorkbookRecordHistoryController({
   presentation,
   presentationActive = true,
   initialHistory,
+  locator,
 }: {
+  readonly locator?: HistoryReviewLocator;
   readonly initialHistory?: RecordHistoryData;
   readonly presentationActive?: boolean;
   readonly beginMutation?: () => () => void;
@@ -99,16 +111,26 @@ export function useWorkbookRecordHistoryController({
   const effectsRef = useRef(ownerEffects);
   const coordinateRef = useRef(coordinate);
   const targetSubjectRef = useRef(subject);
-  targetSubjectRef.current = subject;
-  const targetIdentity =
-    subject === null
+  targetSubjectRef.current =
+    subject ??
+    (locator && snapshot.subject?.recordId === locator.recordId
+      ? snapshot.subject
+      : null);
+  const presentedSubject = targetSubjectRef.current;
+  const locatorRef = useRef(locator);
+  locatorRef.current = locator;
+  const locationScan = useRef<HistoryPageLookup | null>(null);
+  const [locationLookup, setLocationLookup] = useState<HistoryLookupState>();
+  const targetIdentity = locator
+    ? `${locator.recordId}:${locator.viewSchemaId}:${locator.changeSetId}`
+    : subject === null
       ? "none"
       : `${subject.viewSchemaId}:${subject.recordId}:${subject.rowVersion}:${subject.kind}`;
   const mounted = useRef(true);
   const activeRef = useRef(presentationActive);
   activeRef.current = presentationActive;
   const bindingGeneration = useRef(0);
-  const bindingIdentity = `${subject?.viewSchemaId}:${subject?.recordId}:${presentationActive}`;
+  const bindingIdentity = `${presentedSubject?.viewSchemaId ?? locator?.viewSchemaId}:${presentedSubject?.recordId ?? locator?.recordId}:${presentationActive}`;
   const generation = useRef(0);
   useLayoutEffect(() => {
     void bindingIdentity;
@@ -154,12 +176,16 @@ export function useWorkbookRecordHistoryController({
       mounted.current = false;
       generation.current += 1;
       readAbort.current?.abort();
+      locationScan.current?.cancel();
       previewAbort.current?.abort();
       previewReview.current?.lookup.cancel();
     };
   }, []);
   useLayoutEffect(() => {
     void targetIdentity;
+    locationScan.current?.cancel();
+    locationScan.current = null;
+    setLocationLookup(undefined);
     generation.current += 1;
     reloadRetarget.current =
       snapshotRef.current.phase !== "idle" &&
@@ -198,6 +224,7 @@ export function useWorkbookRecordHistoryController({
               scope,
               activeSubject.recordId,
               activeSubject.viewSchemaId,
+              locatorRef.current ? historyReviewPageLimit : undefined,
             );
       const kind = requestedKind ?? (browsing.accepted ? "refresh" : "initial");
       const requested = beginHistoryRead(browsing, kind, retry);
@@ -236,38 +263,169 @@ export function useWorkbookRecordHistoryController({
     },
     [owner, dispatchHistory],
   );
+  const runLocation = useCallback(
+    async (restart = false) => {
+      const locator = locatorRef.current;
+      const scope = owner?.readScope;
+      if (
+        !owner ||
+        !scope ||
+        !locator ||
+        !mounted.current ||
+        !activeRef.current ||
+        !historyReviewAuthorized(locator, scope)
+      )
+        return;
+      if (locationScan.current?.snapshot.phase === "checking") return;
+      if (restart || !locationScan.current) {
+        locationScan.current?.cancel();
+        readAbort.current?.abort();
+        previewAbort.current?.abort();
+        previewReview.current?.lookup.cancel();
+        previewReview.current = null;
+        dispatchHistory({ type: "cancel" });
+        let browsing = initialHistoryBrowsing(
+          scope,
+          locator.recordId,
+          locator.viewSchemaId,
+          historyReviewPageLimit,
+        );
+        locationScan.current = new HistoryPageLookup({
+          scope,
+          recordId: locator.recordId,
+          viewSchemaId: locator.viewSchemaId,
+          currentScope: () => owner.readScope,
+          latestVersion: () => owner.latestVersion(locator.recordId) ?? 0,
+          read: (request, signal) =>
+            owner.load(locator.recordId, signal, request),
+          maxRetainedPages: historyReviewPageLimit,
+          retainResultPage: false,
+          unavailable: {
+            kind: "stale_target",
+            message:
+              "This change was not found in this record's current retained history.",
+          },
+          evaluate: (page) =>
+            page.items.some(
+              (item) => item.change_set_id === locator.changeSetId,
+            )
+              ? { phase: "matched" }
+              : null,
+          onPage: (page) => {
+            if (
+              !mounted.current ||
+              !activeRef.current ||
+              locatorRef.current !== locator ||
+              !sameHistoryReadScope(scope, owner.readScope)
+            )
+              return;
+            const current = {
+              recordId: locator.recordId,
+              viewSchemaId: locator.viewSchemaId,
+              rowVersion: page.row_version,
+              ...(page.deleted
+                ? { kind: "deleted" as const, stateLabel: "Deleted" }
+                : { kind: "live" as const }),
+              label: locator.label,
+              surfaceLabel: "Timeline",
+            };
+            targetSubjectRef.current = current;
+            dispatchHistory({ type: "retarget", subject: current });
+            const requested = beginHistoryRead(
+              browsing,
+              browsing.accepted ? "continuation" : "initial",
+            );
+            if (!requested.pending) return;
+            browsing = acceptHistoryPage(requested, requested.pending, page, {
+              rowVersion: page.row_version,
+              deleted: page.deleted,
+            });
+            dispatchHistory({ type: "browsing_changed", browsing });
+          },
+        });
+      }
+      const scan = locationScan.current;
+      const running = scan.run();
+      setLocationLookup({
+        ...scan.snapshot,
+        page: null,
+        provenance: undefined,
+      });
+      const result = await running;
+      if (
+        !mounted.current ||
+        !activeRef.current ||
+        locationScan.current !== scan ||
+        !sameHistoryReadScope(scope, owner.readScope)
+      )
+        return;
+      setLocationLookup({ ...result, page: null, provenance: undefined });
+      if (!["paused", "failed", "restart_required"].includes(result.phase))
+        locationScan.current = null;
+      if (result.failure) {
+        const accepted = snapshotRef.current.browsing;
+        if (accepted) {
+          const pending = beginHistoryRead(accepted, "refresh");
+          if (pending.pending) {
+            const failed = rejectHistoryRead(
+              pending,
+              pending.pending,
+              result.failure,
+            );
+            // Lookup failure retains normal reading; only an access/unavailable result conceals it.
+            if (!failed.accepted)
+              dispatchHistory({ type: "browsing_changed", browsing: failed });
+          }
+        }
+      }
+    },
+    [owner, dispatchHistory],
+  );
+  const stopLocation = useCallback(() => {
+    locationScan.current?.cancel();
+    if (locationScan.current)
+      setLocationLookup({
+        ...locationScan.current.snapshot,
+        page: null,
+        provenance: undefined,
+      });
+    locationScan.current = null;
+  }, []);
   useLayoutEffect(() => {
-    if (!owner || !subject) return;
-    return owner.registerRecordPresentation(subject.recordId, async () => {
-      const current = targetSubjectRef.current;
-      if (
-        !mounted.current ||
-        !activeRef.current ||
-        !current ||
-        current.recordId !== subject.recordId ||
-        snapshotRef.current.phase === "idle"
-      )
-        return;
-      previewAbort.current?.abort();
-      previewReview.current?.lookup.cancel();
-      previewReview.current = null;
-      dispatchHistory({ type: "cancel" });
-      const refreshed = await load(current);
-      if (
-        !mounted.current ||
-        !activeRef.current ||
-        targetSubjectRef.current?.recordId !== current.recordId
-      )
-        return;
-      if (
-        !refreshed?.browsing?.accepted ||
-        refreshed.browsing.failure ||
-        refreshed.browsing.accepted.data.row_version <
-          (owner.latestVersion(current.recordId) ?? 0)
-      )
-        throw new Error("Decision history refresh remains incomplete");
-    });
-  }, [owner, subject, load, dispatchHistory]);
+    if (!owner || !presentedSubject) return;
+    return owner.registerRecordPresentation(
+      presentedSubject.recordId,
+      async () => {
+        const current = targetSubjectRef.current;
+        if (
+          !mounted.current ||
+          !activeRef.current ||
+          !current ||
+          current.recordId !== presentedSubject.recordId ||
+          snapshotRef.current.phase === "idle"
+        )
+          return;
+        previewAbort.current?.abort();
+        previewReview.current?.lookup.cancel();
+        previewReview.current = null;
+        dispatchHistory({ type: "cancel" });
+        const refreshed = await load(current);
+        if (
+          !mounted.current ||
+          !activeRef.current ||
+          targetSubjectRef.current?.recordId !== current.recordId
+        )
+          return;
+        if (
+          !refreshed?.browsing?.accepted ||
+          refreshed.browsing.failure ||
+          refreshed.browsing.accepted.data.row_version <
+            (owner.latestVersion(current.recordId) ?? 0)
+        )
+          throw new Error("Decision history refresh remains incomplete");
+      },
+    );
+  }, [owner, presentedSubject, load, dispatchHistory]);
   useLayoutEffect(() => {
     if (priorScopeKey.current === scopeKey) return;
     const wasOpen = snapshotRef.current.phase !== "idle";
@@ -287,6 +445,9 @@ export function useWorkbookRecordHistoryController({
     previewAbort.current?.abort();
     previewReview.current?.lookup.cancel();
     previewReview.current = null;
+    locationScan.current?.cancel();
+    locationScan.current = null;
+    setLocationLookup(undefined);
     const retained = snapshotRef.current.browsing;
     if (sameSession && retained?.accepted && nextScope) {
       dispatchHistory({ type: "cancel" });
@@ -294,13 +455,14 @@ export function useWorkbookRecordHistoryController({
         type: "browsing_changed",
         browsing: { ...retained, scope: nextScope, pending: null },
       });
+      if (locatorRef.current) void runLocation(true);
       return;
     }
     dispatchHistory({ type: "clear" });
     dispatchHistory({ type: "retarget", subject: targetSubjectRef.current });
     if (wasOpen && owner?.readable && targetSubjectRef.current)
       void load(targetSubjectRef.current);
-  }, [scopeKey, dispatchHistory, load, owner]);
+  }, [scopeKey, dispatchHistory, load, owner, runLocation]);
   useEffect(() => {
     void targetIdentity;
     if (reloadRetarget.current && snapshotRef.current.subject) {
@@ -310,6 +472,7 @@ export function useWorkbookRecordHistoryController({
   }, [load, targetIdentity]);
   useLayoutEffect(() => {
     if (presentationActive) return;
+    stopLocation();
     generation.current += 1;
     readAbort.current?.abort();
     previewAbort.current?.abort();
@@ -325,8 +488,12 @@ export function useWorkbookRecordHistoryController({
           message: "History reading stopped. Retry to continue.",
         }),
       });
-  }, [presentationActive, dispatchHistory]);
+  }, [presentationActive, dispatchHistory, stopLocation]);
   const open = useCallback(() => {
+    if (locatorRef.current) {
+      void runLocation(true);
+      return;
+    }
     const active = snapshotRef.current.subject ?? targetSubjectRef.current;
     if (active) {
       generation.current += 1;
@@ -337,7 +504,7 @@ export function useWorkbookRecordHistoryController({
       dispatchHistory({ type: "retarget", subject: active });
       void load(active);
     }
-  }, [load, dispatchHistory]);
+  }, [load, dispatchHistory, runLocation]);
   const settle = useCallback(
     async (active: WorkbookInspectorSubject, signal: AbortSignal) => {
       owner?.acceptVersion(active.recordId, active.rowVersion);
@@ -442,6 +609,7 @@ export function useWorkbookRecordHistoryController({
     ) => {
       const active = snapshotRef.current.subject;
       if (!active || !canMutate || !owner) return;
+      if (locationScan.current) stopLocation();
       const pending = build(active);
       if (!pending) return;
       previewPending.current = pending;
@@ -496,7 +664,15 @@ export function useWorkbookRecordHistoryController({
       previewReview.current = { lookup, pending, token };
       await runPreview();
     },
-    [canMutate, owner, settle, dispatchHistory, rejectReview, runPreview],
+    [
+      canMutate,
+      owner,
+      settle,
+      dispatchHistory,
+      rejectReview,
+      runPreview,
+      stopLocation,
+    ],
   );
   const previewDeleteRestore = useCallback(
     (operation: "delete" | "restore") => {
@@ -601,6 +777,7 @@ export function useWorkbookRecordHistoryController({
                 scope,
                 nextSubject.recordId,
                 nextSubject.viewSchemaId,
+                locatorRef.current ? historyReviewPageLimit : undefined,
               ),
               "initial",
             );
@@ -694,14 +871,19 @@ export function useWorkbookRecordHistoryController({
   return {
     commands: {
       cancel,
+      continueLocation: () => void runLocation(),
+      restartLocation: () => void runLocation(true),
+      cancelLocation: stopLocation,
       clearFeedback: () => dispatchHistory({ type: "feedback_cleared" }),
       confirm,
       open,
       loadOlder: () => {
+        if (locationScan.current) stopLocation();
         const active = snapshotRef.current.subject;
         if (active) void load(active, undefined, "continuation");
       },
       retryRead: () => {
+        if (locationScan.current) stopLocation();
         const state = snapshotRef.current;
         const failure = state.browsing?.failure;
         if (state.subject && failure)
@@ -718,6 +900,7 @@ export function useWorkbookRecordHistoryController({
       load,
     },
     snapshot,
+    locationLookup,
     operations,
   };
 }

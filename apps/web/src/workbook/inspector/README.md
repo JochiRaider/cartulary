@@ -41,7 +41,7 @@ Source-specific composition belongs in [features](../features/README.md) and
 
 | File | Responsibility |
 | --- | --- |
-| [useWorkbookRecordHistoryController.ts](useWorkbookRecordHistoryController.ts) | Binds inspector History reads and actions to the record subject and History owner. |
+| [useWorkbookRecordHistoryController.ts](useWorkbookRecordHistoryController.ts) | Binds shared History reads/actions to the canonical Inspector subject or an explicit Recovery read locator and the existing History owner. |
 | [useWorkbookRecordHistoryFocus.ts](useWorkbookRecordHistoryFocus.ts) | History action focus coordination using stable action and rollback identities. |
 | [workbookHistoryPresentationModel.test.ts](workbookHistoryPresentationModel.test.ts) | Tests consistent History technical-field ordering and rollback/pending labels. |
 | [workbookHistoryPresentationModel.ts](workbookHistoryPresentationModel.ts) | Builds History event, rollback-label, and pending-operation presentation. |

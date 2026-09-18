@@ -24,6 +24,7 @@ export function WorkbookRecoveryEntry({
       style={{ whiteSpace: "nowrap", flexShrink: 0 }}
       aria-expanded={state.open}
       aria-controls="workbook-recovery-panel"
+      data-grid-editor-external-action="true"
       onClick={(event) => {
         invokerRef.current = event.currentTarget;
         if (state.open) navigation.close();

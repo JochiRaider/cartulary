@@ -98,19 +98,19 @@ describe("Workbook batch operation ownership", () => {
       const id = required(owner.admit(plan(), { delivery: {} }));
       await settle();
       expect(
-        workbookBatchRecoveryItems(owner.getSnapshot(), new Set()),
+        workbookBatchRecoveryItems(owner.getSnapshot(), new Map()),
       ).toMatchObject([{ id, attention: "attention" }]);
       await owner.retry(id);
       await settle();
       expect(
-        workbookBatchRecoveryItems(owner.getSnapshot(), new Set([id])),
+        workbookBatchRecoveryItems(owner.getSnapshot(), new Map([[id, 1]])),
       ).toMatchObject([{ id, attention: "attention" }]);
       expect(
-        workbookBatchRecoveryItems(owner.getSnapshot(), new Set()),
+        workbookBatchRecoveryItems(owner.getSnapshot(), new Map()),
       ).toMatchObject([{ id, attention: "completed" }]);
       owner.suspend();
       expect(
-        workbookBatchRecoveryItems(owner.getSnapshot(), new Set()),
+        workbookBatchRecoveryItems(owner.getSnapshot(), new Map()),
       ).toEqual([]);
     }
   });

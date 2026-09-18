@@ -8740,7 +8740,7 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
   await expectDecisionControlReachable(page, retry);
   fail = false;
   await retry.press("Enter");
-  await expect(recovery).toContainText("Accepted work is saved.");
+  await expect(recovery).toContainText("Saved changes.");
   expect(attempts).toHaveLength(2);
   expect(attempts[0]).toBe(attempts[1]);
   await testInfo.attach("batch-recovery-tree", {

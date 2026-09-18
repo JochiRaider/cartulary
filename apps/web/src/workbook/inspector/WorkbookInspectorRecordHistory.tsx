@@ -87,6 +87,8 @@ export type HistoryBrowsingControls = {
 };
 
 export function WorkbookRecordHistoryPanel({
+  requestedChangeSetId,
+  locatingChange = false,
   actions,
   canMutate,
   destructiveSubject = "this record",
@@ -102,6 +104,8 @@ export function WorkbookRecordHistoryPanel({
   onPreviewDeleteRestore,
   onPreviewRollback,
 }: {
+  readonly requestedChangeSetId?: string | undefined;
+  readonly locatingChange?: boolean | undefined;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
   readonly canMutate: boolean;
   readonly destructiveSubject?: string;
@@ -228,7 +232,8 @@ export function WorkbookRecordHistoryPanel({
     state.lookup?.phase === "checking" ||
     state.lookup?.phase === "paused";
   const browsing = state.browsing;
-  const readBlocked = retainedPending || state.phase === "submitting";
+  const readBlocked =
+    locatingChange || retainedPending || state.phase === "submitting";
   const reading = Boolean(browsing?.pending);
   const refreshBlocked =
     readBlocked ||
@@ -251,7 +256,17 @@ export function WorkbookRecordHistoryPanel({
         </WorkbookInspectorActionButton>
       )}
       <WorkbookInspectorTechnicalDetails
-        fields={[{ label: "Record ID", value: presentedRecordId }]}
+        fields={[
+          { label: "Record ID", value: presentedRecordId },
+          ...(requestedChangeSetId
+            ? [
+                {
+                  label: "Requested change set ID",
+                  value: requestedChangeSetId,
+                },
+              ]
+            : []),
+        ]}
       />
       {state.phase === "idle" && !browsingControls ? (
         <WorkbookInspectorActionButton
@@ -390,6 +405,7 @@ export function WorkbookRecordHistoryPanel({
             ]}
           />
           <WorkbookRecordHistoryLoadedPresentation
+            requestedChangeSetId={requestedChangeSetId}
             actions={actions}
             busy={busy}
             canMutate={canMutate}
