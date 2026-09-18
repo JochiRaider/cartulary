@@ -22,6 +22,7 @@ type TimelineOperations interface {
 	PatchRow(context.Context, timeline.PatchRowCommand) (timeline.MutationResult, error)
 	ResolveConflict(context.Context, timeline.ConflictResolveCommand) (timeline.MutationResult, error)
 	ApplyClipboardPaste(context.Context, timeline.ClipboardPasteCommand) (timeline.BatchMutationResult, error)
+	ApplyClearCells(context.Context, timeline.ClearCellsCommand) (timeline.BatchMutationResult, error)
 	ApplyFillDown(context.Context, timeline.FillDownCommand) (timeline.BatchMutationResult, error)
 	ApplyMultiRowTagAssignment(context.Context, timeline.MultiRowTagAssignmentCommand) (timeline.BatchMutationResult, error)
 	SupersedeRow(context.Context, timeline.SupersedeCommand) (timeline.MutationResult, error)

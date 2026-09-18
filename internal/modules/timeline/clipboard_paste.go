@@ -18,7 +18,6 @@ type ownerBatchRowPlanV1 struct {
 
 type ownerBatchCellV1 struct {
 	FieldKey string
-	Value    string
 	Change   PatchChange
 }
 
@@ -71,7 +70,6 @@ func buildClipboardOwnerRows(plan tabularingest.TabularRowPlanV1) ([]ownerBatchR
 			}
 			row.Cells = append(row.Cells, ownerBatchCellV1{
 				FieldKey: cell.FieldKey,
-				Value:    cell.RawValue,
 				Change:   change,
 			})
 		}
@@ -102,7 +100,6 @@ func buildFillDownOwnerRows(fieldKey string, rawValue string, rowCount int) ([]o
 			RowOrdinal: index + 1,
 			Cells: []ownerBatchCellV1{{
 				FieldKey: fieldKey,
-				Value:    rawValue,
 				Change:   change,
 			}},
 		})
@@ -130,7 +127,6 @@ func buildTagAssignmentOwnerRows(tagName string, normalizedTag string, rowCount 
 			RowOrdinal: index + 1,
 			Cells: []ownerBatchCellV1{{
 				FieldKey: "timeline.tags",
-				Value:    tagName,
 				Change:   change,
 			}},
 		})

@@ -10,6 +10,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
+  type MouseEvent,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -170,6 +171,7 @@ export function useTimelineWorkbookPresentation({
     focusDraftRow,
     handleCreateBlankDraftRow,
     handleFillCells,
+    handleClearCells,
     handleWorkAreaKeyDown: handleTimelineWorkAreaKeyDown,
   } = interaction.commands.grid;
   const {
@@ -598,6 +600,7 @@ export function useTimelineWorkbookPresentation({
       onColumnReorder: handleColumnReorder,
       onColumnSizingIntent: handleColumnSizingIntent,
       onFillCells: handleFillCells,
+      onClearCells: handleClearCells,
       onSelectRecord: handleSelectRow,
       onSortChange: handleQuerySortChange,
       ref: registerFindGrid,
@@ -670,6 +673,12 @@ export function useTimelineWorkbookPresentation({
     },
     viewBar: {
       find: find.control,
+      onClearContents: (event: MouseEvent<HTMLButtonElement>) =>
+        handleClearCells(
+          grid.refs.gridHandle.current?.captureClearIntent?.(
+            event.nativeEvent,
+          ) ?? null,
+        ),
       addRowDisabled: interactionMode.kind === "read_only",
       chromeMode,
       bulk:

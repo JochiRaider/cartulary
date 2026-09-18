@@ -329,6 +329,7 @@ export class WorkbookTimelineMutationOwner {
     const registration = runtime.registerDriver({
       kind: "timeline_row",
       drain: this.driver.drain,
+      acceptBatchPredecessor: this.driver.acceptBatchPredecessor,
     });
     if (!registration.accepted)
       throw new Error("Timeline mutation owner is already registered.");

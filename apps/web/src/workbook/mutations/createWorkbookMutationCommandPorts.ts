@@ -86,6 +86,32 @@ export function createWorkbookMutationCommandPorts(
           return clientTxnId;
         },
       },
+      clear: {
+        clearCells(input, admission) {
+          const targets = timelineBulkTargets(input.targets);
+          if (
+            !targets ||
+            input.fieldKeys.length < 1 ||
+            input.fieldKeys.length > 10
+          )
+            return null;
+          return context.batches.admit(
+            {
+              operation: "applyWorkbookBulkMutation",
+              request: {
+                kind: "clear_cells_v1",
+                field_keys: [...input.fieldKeys] as NonNullable<
+                  ApplyWorkbookBulkMutationRequest["field_keys"]
+                >,
+                targets,
+                view_schema_id: timelineViewSchemaId,
+              },
+              recordIds: input.targets.map((target) => target.recordId),
+            },
+            admission,
+          );
+        },
+      },
       fill: {
         fillDown(input, admission) {
           const targets = timelineBulkTargets(input.targets);

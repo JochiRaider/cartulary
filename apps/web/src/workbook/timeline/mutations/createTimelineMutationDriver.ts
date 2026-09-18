@@ -8,6 +8,10 @@ import type {
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookMutationOwnerEnvelope } from "../../runtime/WorkbookMutationDriverRegistry";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import type {
+  WorkbookBatchAttempt,
+  WorkbookBatchReceipt,
+} from "../../runtime/workbookBatchOperation";
 import { workbookPendingMutationFailureResult } from "../../runtime/workbookPendingMutationSettlement";
 import {
   refreshBlocksWorkbookPendingUnit,
@@ -40,7 +44,11 @@ import {
 } from "../models/timelineMutationDriverPlans";
 import { buildFollowOnCapturePatch } from "../models/timelineMutationIntents";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
-import { rowFromApi, type WorkbookRow } from "../models/timelineRowModel";
+import {
+  normalizeTimelineFullRow,
+  rowFromApi,
+  type WorkbookRow,
+} from "../models/timelineRowModel";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -99,7 +107,7 @@ export type TimelineMutationDriverPorts = {
   readonly acceptEditorPredecessor: (
     row: WorkbookRow,
     fields: readonly string[],
-    previousValues: RowValues,
+    previousValues?: RowValues,
   ) => void;
   readonly applyAcceptedRowMutation: (
     rowKey: string,
@@ -968,6 +976,50 @@ export function createTimelineMutationDriver(
   };
 
   return {
+    acceptBatchPredecessor: (
+      receipt: WorkbookBatchReceipt,
+      attempt: WorkbookBatchAttempt,
+    ) => {
+      const { plan } = attempt;
+      if (
+        receipt.viewSchemaId !== "cartulary.view.timeline.v2" ||
+        plan.operation !== "applyWorkbookBulkMutation" ||
+        plan.request.kind !== "clear_cells_v1"
+      )
+        return;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
+      for (const accepted of receipt.rows) {
+        const committed = rowFromApi(
+          normalizeTimelineFullRow(accepted, "clear predecessor"),
+        );
+        const fields = (plan.request.field_keys ?? []).filter(
+          (field) =>
+            !receipt.conflicts.some(
+              (conflict) =>
+                conflict.record_id === accepted.record_id &&
+                conflict.field_key === field,
+            ),
+        );
+        ports.acceptEditorPredecessor(committed, fields);
+        for (const unit of pending.model.snapshot().units) {
+          if (
+            unit.recordId !== accepted.record_id ||
+            pending.model.wasDispatched(unit.id)
+          )
+            continue;
+          const context = contextByUnitId.get(unit.id);
+          if (!context) continue;
+          const values = { ...context.rowSnapshot.committedValues };
+          for (const binding of timelineScalarBindings)
+            if (fields.includes(binding.fieldKey))
+              values[binding.key] = committed.committedValues[binding.key];
+          contextByUnitId.set(unit.id, {
+            ...context,
+            rowSnapshot: { ...context.rowSnapshot, committedValues: values },
+          });
+        }
+      }
+    },
     drain: replayPendingQueue,
     detachPresentation: () => completionCallbacksRef.current.clear(),
     discardBlockedEdit,

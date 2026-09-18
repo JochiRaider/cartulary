@@ -55,7 +55,9 @@ export function WorkbookBatchRecovery({
                 ? "Paste"
                 : entry.plan.request.kind === "fill_down_v1"
                   ? "Fill"
-                  : "Tag assignment";
+                  : entry.plan.request.kind === "clear_cells_v1"
+                    ? "Clear contents"
+                    : "Tag assignment";
             return (
               <section key={entry.id} aria-label={`${label} ${index + 1}`}>
                 <strong>
@@ -85,7 +87,9 @@ export function WorkbookBatchRecovery({
                           ? entry.plan.request.clipboard_text
                           : entry.plan.request.kind === "fill_down_v1"
                             ? (entry.plan.request.value ?? "")
-                            : (entry.plan.request.tag_name ?? "")
+                            : entry.plan.request.kind === "clear_cells_v1"
+                              ? `Clear ${entry.plan.request.field_keys?.length ?? 0} fields to null`
+                              : (entry.plan.request.tag_name ?? "")
                       }
                       style={{
                         ...inputStyle,

@@ -45,6 +45,11 @@ function LineComparison({
   return (
     <section aria-label={label} style={comparisonStyle}>
       <h3 style={comparisonTitleStyle}>{label}</h3>
+      {value === null ? (
+        <p>Cleared (null)</p>
+      ) : value === "" ? (
+        <p>Empty text</p>
+      ) : null}
       {testId ? (
         <textarea
           aria-hidden="true"

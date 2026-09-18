@@ -265,6 +265,15 @@ func validateOwnerBatchShape(request ownerBatchApplyV1) error {
 	if request.RequestHash == nil {
 		return fmt.Errorf("owner_batch_apply_v1 request hash is required")
 	}
+	if request.Operation == OwnerBatchOperationClearCellsV1 {
+		seen := make(map[uuid.UUID]bool, len(request.Targets))
+		for _, target := range request.Targets {
+			if target.Kind != "record" || target.RecordID == uuid.Nil || target.BaseRowVersion < 1 || seen[target.RecordID] {
+				return fmt.Errorf("invalid or duplicate clear-cells target")
+			}
+			seen[target.RecordID] = true
+		}
+	}
 	_, _, err := ownerBatchOperationMetadata(request.Operation)
 	return err
 }
@@ -273,7 +282,7 @@ func ownerBatchOperationMetadata(operation string) (routeKey string, originKind 
 	switch operation {
 	case OwnerBatchOperationClipboardPasteV1:
 		return clipboardPasteRouteKey, "clipboard_paste", nil
-	case OwnerBatchOperationFillDownV1, OwnerBatchOperationMultiRowTagAssignmentV1:
+	case OwnerBatchOperationFillDownV1, OwnerBatchOperationMultiRowTagAssignmentV1, OwnerBatchOperationClearCellsV1:
 		return bulkMutationRouteKey, "bulk_edit", nil
 	default:
 		return "", "", fmt.Errorf("unsupported owner_batch_apply_v1 operation %q", operation)
@@ -306,8 +315,12 @@ func (s *store) validateOwnerBatchTargetsTx(ctx context.Context, tx pgx.Tx, inci
 		if !ok || envelope.IncidentID != incidentID || envelope.RecordType != "timeline_event" || envelope.DeletedAt != nil {
 			return ErrRecordNotFound
 		}
-		if _, err := s.loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID); err != nil {
+		current, err := s.loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID)
+		if err != nil {
 			return err
+		}
+		if current.CaptureState == captureStateSuperseded {
+			return newIllegalTransitionError("superseded_terminal", current.CaptureState, captureStateEnriched)
 		}
 	}
 	return nil
@@ -478,11 +491,17 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	for _, cell := range acceptedCells {
 		applyPatchChangeToSource(&next, cell.Change)
 	}
+	// Conflict filtering changes what may be written, not which fields were
+	// submitted. Never regenerate a submitted counterpart behind its conflict.
+	submittedChanges := make([]PatchChange, 0, len(rowPlan.Cells))
+	for _, cell := range rowPlan.Cells {
+		submittedChanges = append(submittedChanges, cell.Change)
+	}
 	profile, err := getTimeConversionProfileTx(ctx, tx, current.IncidentID, now.UTC())
 	if err != nil {
 		return batchAppliedRow{}, nil, err
 	}
-	applyTimelineTimeConversion(&next, profile)
+	applyTimelineDatePatch(&next, current, profile, submittedChanges)
 	beforeProjected := projectRecord(current, nil)
 	if err := s.hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
 		return batchAppliedRow{}, nil, err

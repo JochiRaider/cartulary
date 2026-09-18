@@ -13,7 +13,9 @@ export function workbookBatchRecoveryItems(
         ? "Paste"
         : entry.plan.request.kind === "fill_down_v1"
           ? "Fill"
-          : "Tag assignment";
+          : entry.plan.request.kind === "clear_cells_v1"
+            ? "Clear contents"
+            : "Tag assignment";
     const conflicted = conflictedBatches.has(entry.id);
     const completed =
       entry.phase === "acknowledged" &&
@@ -24,7 +26,9 @@ export function workbookBatchRecoveryItems(
         ? entry.plan.request.clipboard_text
         : entry.plan.request.kind === "fill_down_v1"
           ? (entry.plan.request.value ?? "")
-          : (entry.plan.request.tag_name ?? "");
+          : entry.plan.request.kind === "clear_cells_v1"
+            ? `Clear ${entry.plan.request.field_keys?.length ?? 0} fields to null`
+            : (entry.plan.request.tag_name ?? "");
     const previewSource = Array.from(
       original.slice(0, 256).replace(/\s+/gu, " ").trim(),
     );

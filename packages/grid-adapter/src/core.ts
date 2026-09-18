@@ -256,6 +256,7 @@ type SemanticDataGridBaseProps<Row> = {
     | undefined;
   readonly onCopyCell?: ((intent: GridCellCopyIntent) => void) | undefined;
   readonly onFillCells?: ((intent: GridFillIntent) => void) | undefined;
+  readonly onClearCells?: ((intent: GridClearIntent) => void) | undefined;
   readonly clipboardPaste?: GridClipboardPasteContract | undefined;
   readonly onSortChange?:
     | ((sort: readonly GridSortEntry[]) => void)
@@ -288,6 +289,7 @@ export type SemanticDataGridProps<Row> =
       | "draftRow"
       | "interactionMode"
       | "onFillCells"
+      | "onClearCells"
       | "clipboardPaste"
     > & {
       readonly surface: Extract<
@@ -303,6 +305,7 @@ export type SemanticDataGridProps<Row> =
         readonly label: string;
       };
       readonly onFillCells?: never;
+      readonly onClearCells?: never;
       readonly clipboardPaste?: never;
     });
 
@@ -453,6 +456,8 @@ export type GridCellNavigationOptions = {
 export type GridCellNavigationResult = GridFocusResult | "rejected";
 
 export type GridHandle = {
+  /** Capture current semantic membership without settling an editor or moving focus. */
+  readonly captureClearIntent?: (delivery?: object) => GridClearIntent | null;
   /** Caller context composed with adapter-owned keyboard guidance. */
   readonly setAccessibleDescription?: (description: string | undefined) => void;
   /** True only for the grid navigation cell itself, never a nested editor/control. */
@@ -499,6 +504,14 @@ export type GridCellCopyIntent = {
   readonly anchor: GridCellAnchor;
   readonly range: GridCellRange;
   readonly expandedRange: GridExpandedCellRange;
+};
+
+export type GridClearIntent = {
+  readonly anchor: GridCellAnchor;
+  readonly range: GridCellRange;
+  readonly expandedRange: GridExpandedCellRange;
+  readonly targets: readonly GridCellTarget[];
+  readonly delivery: object;
 };
 
 export type GridClipboardDimensions = {

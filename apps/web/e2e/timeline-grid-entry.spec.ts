@@ -1517,3 +1517,145 @@ test("Timeline fill and tagging retain conflicts-only receipts and independent l
     await held.dispose();
   }
 });
+
+test("Timeline clear retries exact lost receipts and recovers acknowledged reads without another write", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 2),
+    target = required(rows[0]).record_id;
+  const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`;
+  const queryPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
+  const attempts: string[] = [],
+    changes: string[] = [];
+  let failReads = false;
+  let reportLoss = () => {};
+  const lost = new Promise<void>((resolve) => {
+    reportLoss = resolve;
+  });
+  await page.route(`**${queryPath}`, async (route) => {
+    if (!failReads) {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "internal_error", message: "Temporary read failure" },
+      }),
+    });
+  });
+  await page.route(`**${path}`, async (route) => {
+    attempts.push(required(route.request().postData()));
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    const result = await response.json();
+    changes.push(result.data.change_set_id);
+    if (attempts.length === 1) {
+      await route.abort("connectionfailed");
+      reportLoss();
+    } else {
+      failReads = true;
+      await route.fulfill({ response });
+    }
+  });
+  try {
+    await selectCell(page, target);
+    await page.keyboard.press("Delete");
+    await lost;
+    await page.getByRole("button", { name: "Hosts", exact: true }).click();
+    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    await expect(
+      page.getByTestId(timelineMutationSubstrateReadyTestId()),
+    ).toBeVisible();
+    const revisions = await fetchRecordHistoryCount(page, target);
+    expect(revisions).toBe(2);
+    await openRecoveryItem(page, /^Clear contents ·/);
+    const retry = page.getByRole("button", {
+      name: "Retry clear contents",
+      exact: true,
+    });
+    await tabTo(page, retry);
+    await page.keyboard.press("Enter");
+    await expect.poll(() => attempts.length).toBe(2);
+    const refresh = page.getByRole("button", {
+      name: "Retry refresh",
+      exact: true,
+    });
+    await expect(refresh).toBeVisible();
+    failReads = false;
+    await tabTo(page, refresh);
+    await page.keyboard.press("Enter");
+    await expect(refresh).toHaveCount(0);
+    expect(attempts).toEqual([attempts[0], attempts[0]]);
+    expect(changes).toEqual([changes[0], changes[0]]);
+    expect(await fetchRecordHistoryCount(page, target)).toBe(revisions);
+    expect(
+      (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+        (row) => row.record_id === target,
+      )?.cells[synopsis]?.value,
+    ).toBeNull();
+  } finally {
+    failReads = false;
+    if (!page.isClosed()) {
+      await page.unroute(`**${path}`);
+      await page.unroute(`**${queryPath}`);
+    }
+  }
+});
+
+test("Timeline clear retains partial null conflicts and resolves the captured value", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 2),
+    first = required(rows[0]).record_id,
+    second = required(rows[1]).record_id;
+  const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`;
+  const held = await holdBrowserRequest(page, { method: "POST", path });
+  try {
+    await selectCell(page, first);
+    await page.keyboard.press("Shift+ArrowDown");
+    const response = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(path) && response.request().method() === "POST",
+    );
+    await page.keyboard.press("Delete");
+    await held.waitForHit;
+    await externalPatch(page, incidentId, first, synopsis, "Concurrent source");
+    held.release();
+    const result = await (await response).json();
+    expect(result.data.rows).toHaveLength(1);
+    expect(result.data.rows[0].record_id).toBe(second);
+    expect(result.data.conflicts).toHaveLength(1);
+    expect(result.data.conflicts[0].client_value).toBeNull();
+    await openRecoveryItem(page, /^Clear contents ·/);
+    await expect(page.getByText(/1 conflicts need review/)).toBeVisible();
+    await page
+      .getByRole("button", { name: "Review conflicts", exact: true })
+      .click();
+    await expect(
+      page.getByRole("region", { name: "Your unsaved value", exact: true }),
+    ).toContainText("Cleared (null)");
+    const resolved = page.waitForResponse(
+      (response) =>
+        response.url().includes("/resolve") &&
+        response.request().method() === "POST",
+    );
+    await page
+      .getByRole("button", { name: "Use my unsaved value", exact: true })
+      .click();
+    const request = (await resolved).request().postDataJSON();
+    expect(request.resolved_value).toBeNull();
+    await expect
+      .poll(async () =>
+        (await queryViewRows(page, incidentId, timelineViewSchemaId)).map(
+          (row) => row.cells[synopsis]?.value,
+        ),
+      )
+      .toEqual([null, null]);
+    expect(await fetchRecordHistoryCount(page, first)).toBe(3);
+    expect(await fetchRecordHistoryCount(page, second)).toBe(2);
+  } finally {
+    await held.dispose();
+  }
+});

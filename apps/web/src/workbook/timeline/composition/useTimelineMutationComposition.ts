@@ -330,6 +330,7 @@ export function useTimelineMutationComposition({
   });
   useTimelineMutationRuntimeBindings({
     applyAcceptedRowMutation: rowMutations.commands.applyAcceptedRowMutation,
+    applyAcceptedBatchRows: rowMutations.commands.applyAcceptedBatchRows,
     discardBlockedEdit: replay.discardBlockedEdit,
     editorDraftRegistry: foundation.editorDraftRegistry,
     editorPort: grid.editorPort,

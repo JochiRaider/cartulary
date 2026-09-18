@@ -75,6 +75,7 @@ func TestUnit_PayloadBuildersExposeStableShapes(t *testing.T) {
 			got = append(got, facadeType.Method(index).Name)
 		}
 		want := []string{
+			"ApplyClearCells",
 			"ApplyClipboardPaste",
 			"ApplyFillDown",
 			"ApplyMultiRowTagAssignment",

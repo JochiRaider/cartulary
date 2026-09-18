@@ -140,6 +140,29 @@ SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version,
 }
 
 func applyTimelineTimeConversion(record *sourcerepository.Snapshot, profile TimeConversionProfile) {
+	applyTimelineTimeConversionTargets(record, profile, true, true)
+}
+
+// Only explicit date edits may generate an unsubmitted counterpart. In particular,
+// null is a value, not permission to regenerate a submitted or previously cleared cell.
+func applyTimelineDatePatch(record *sourcerepository.Snapshot, before sourcerepository.Snapshot, profile TimeConversionProfile, changes []PatchChange) {
+	if stringPointersEqual(before.ActivityUTCText, record.ActivityUTCText) &&
+		stringPointersEqual(before.ActivityLocalText, record.ActivityLocalText) &&
+		before.ActivityUTCGenerated == record.ActivityUTCGenerated &&
+		before.ActivityLocalGenerated == record.ActivityLocalGenerated {
+		return
+	}
+	utcSubmitted, localSubmitted := false, false
+	for _, change := range changes {
+		utcSubmitted = utcSubmitted || change.FieldKey == "timeline.activity_utc_text"
+		localSubmitted = localSubmitted || change.FieldKey == "timeline.activity_local_text"
+	}
+	applyTimelineTimeConversionTargets(record, profile,
+		!utcSubmitted && localSubmitted && record.ActivityLocalText != nil,
+		!localSubmitted && utcSubmitted && record.ActivityUTCText != nil)
+}
+
+func applyTimelineTimeConversionTargets(record *sourcerepository.Snapshot, profile TimeConversionProfile, generateUTC, generateLocal bool) {
 	if !profile.Enabled || profile.LocalOffsetMinutes == nil {
 		record.ActivityTimePairState = "disabled"
 		return
@@ -155,7 +178,7 @@ func applyTimelineTimeConversion(record *sourcerepository.Snapshot, profile Time
 	utcParsed, utcOK := timecontract.ParseUTC(record.ActivityUTCText)
 	localParsed, localOK := timecontract.ParseLocalWithFixedOffset(record.ActivityLocalText, offsetMinutes)
 
-	if !utcEmpty && (localEmpty || record.ActivityLocalGenerated) {
+	if generateLocal && !utcEmpty && (localEmpty || record.ActivityLocalGenerated) {
 		if !utcOK {
 			record.ActivityTimePairState = "conversion_unavailable"
 			return
@@ -167,7 +190,7 @@ func applyTimelineTimeConversion(record *sourcerepository.Snapshot, profile Time
 		record.ActivityTimePairState = "paired_generated"
 		return
 	}
-	if !localEmpty && (utcEmpty || record.ActivityUTCGenerated) {
+	if generateUTC && !localEmpty && (utcEmpty || record.ActivityUTCGenerated) {
 		if !localOK {
 			record.ActivityTimePairState = "conversion_unavailable"
 			return
@@ -189,6 +212,9 @@ func applyTimelineTimeConversion(record *sourcerepository.Snapshot, profile Time
 	}
 	if utcParsed.Equal(localParsed.UTC) && localParsed.OffsetSeconds == offsetMinutes*60 {
 		record.ActivityTimePairState = "paired_user_preserved"
+		if record.ActivityUTCGenerated || record.ActivityLocalGenerated {
+			record.ActivityTimePairState = "paired_generated"
+		}
 		return
 	}
 	record.ActivityTimePairState = "paired_mismatch"

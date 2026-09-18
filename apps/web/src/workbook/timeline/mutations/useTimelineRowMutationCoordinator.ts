@@ -39,10 +39,14 @@ import { reconcileDiscardedTimelineUnit } from "../models/timelineDiscardedRecon
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import {
   rowFromApi,
+  type TimelineApiRow,
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import type { AutoResolutionNotice } from "../models/workbookMentionChips";
+import {
+  type AutoResolutionNotice,
+  buildAutoResolutionNotices,
+} from "../models/workbookMentionChips";
 
 type TimelineMutationApplyOptions = {
   readonly clearActiveCollectionFocusKey?: string | undefined;
@@ -379,6 +383,47 @@ export function useTimelineRowMutationCoordinator({
     ],
   );
 
+  const applyAcceptedBatchRows = useCallback(
+    (rows: readonly TimelineApiRow[]) => {
+      const committed = rows.map(
+        (row) => acceptCommittedTimelineRow(rowFromApi(row)).row,
+      );
+      if (!mountedRef.current || committed.length === 0) return;
+      // One receipt is one presentation commit. Per-row flushes can exhaust
+      // React's nested update limit for a virtualized selected rectangle.
+      const notices: AutoResolutionNotice[] = [];
+      commitTimelineProjection(() => {
+        updateRows((current) => {
+          let projected = current;
+          for (const row of committed) {
+            const projection = projectAcceptedTimelineRow({
+              committed: row,
+              currentRows: projected,
+              nextDraftIndex,
+              rowKey: row.key,
+            });
+            notices.push(
+              ...buildAutoResolutionNotices(projection.previousRow, row),
+            );
+            projected = projection.rows;
+          }
+          rowsRef.current = projected;
+          return projected;
+        });
+      }, true);
+      pruneAutoResolutionNoticesForRows(committed);
+      appendAutoResolutionNotices(setAutoResolutionNotices, notices);
+    },
+    [
+      acceptCommittedTimelineRow,
+      nextDraftIndex,
+      pruneAutoResolutionNoticesForRows,
+      rowsRef,
+      setAutoResolutionNotices,
+      updateRows,
+    ],
+  );
+
   const socketTransactions = useMemo(
     () => createTimelineSocketTransactionAdapter(mutationRuntime),
     [mutationRuntime],
@@ -513,6 +558,7 @@ export function useTimelineRowMutationCoordinator({
       acceptTimelineRecordVersion,
       activateConflict,
       applyAcceptedRowMutation,
+      applyAcceptedBatchRows,
       beginRefreshInFlight,
       beginSave,
       currentCommittedTimelineRow,

@@ -5,7 +5,10 @@ import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRunt
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineRowMutationEditorPort } from "../models/timelineControllerPorts";
 import { timelineScalarBindingForField } from "../models/timelineFieldRegistry";
-import { normalizeTimelineFullRow } from "../models/timelineRowModel";
+import {
+  normalizeTimelineFullRow,
+  type TimelineApiRow,
+} from "../models/timelineRowModel";
 
 function normalizeResolvedTimelineMutation(input: {
   readonly expectedRecordId: string;
@@ -28,6 +31,7 @@ function normalizeResolvedTimelineMutation(input: {
 
 export function useTimelineMutationRuntimeBindings({
   applyAcceptedRowMutation,
+  applyAcceptedBatchRows,
   discardBlockedEdit,
   editorDraftRegistry,
   editorPort,
@@ -38,6 +42,7 @@ export function useTimelineMutationRuntimeBindings({
     rowKey: string,
     mutation: Pick<WorkbookPendingMutationAccepted, "row" | "viewSchemaId">,
   ) => unknown;
+  readonly applyAcceptedBatchRows: (rows: readonly TimelineApiRow[]) => void;
   readonly discardBlockedEdit: (unitId: string) => boolean;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly editorPort: TimelineRowMutationEditorPort;
@@ -49,6 +54,7 @@ export function useTimelineMutationRuntimeBindings({
 }) {
   const current = useRef({
     applyAcceptedRowMutation,
+    applyAcceptedBatchRows,
     discardBlockedEdit,
     editorDraftRegistry,
     editorPort,
@@ -56,6 +62,7 @@ export function useTimelineMutationRuntimeBindings({
   });
   current.current = {
     applyAcceptedRowMutation,
+    applyAcceptedBatchRows,
     discardBlockedEdit,
     editorDraftRegistry,
     editorPort,
@@ -111,13 +118,10 @@ export function useTimelineMutationRuntimeBindings({
           }
         },
         (unitId) => current.current.discardBlockedEdit(unitId),
-        (rows) => {
-          for (const row of rows)
-            current.current.applyAcceptedRowMutation(row.record_id, {
-              row: normalizeTimelineFullRow(row, "batch receipt"),
-              viewSchemaId: timelineViewSchemaId,
-            });
-        },
+        (rows) =>
+          current.current.applyAcceptedBatchRows(
+            rows.map((row) => normalizeTimelineFullRow(row, "batch receipt")),
+          ),
       ),
     [mutationRuntime],
   );

@@ -38,6 +38,7 @@ it("useTimelineMutationRuntimeBindings retains registration through callback cha
     ({ loadRows }) =>
       useTimelineMutationRuntimeBindings({
         applyAcceptedRowMutation,
+        applyAcceptedBatchRows: vi.fn(),
         discardBlockedEdit,
         editorDraftRegistry,
         editorPort,

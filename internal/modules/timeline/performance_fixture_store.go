@@ -109,7 +109,7 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 			if !ok {
 				return PerformanceFixtureResult{}, fmt.Errorf("build timeline performance fixture collection %s", field.key)
 			}
-			cells = append(cells, ownerBatchCellV1{FieldKey: field.key, Value: field.value, Change: change})
+			cells = append(cells, ownerBatchCellV1{FieldKey: field.key, Change: change})
 		}
 		mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, command.Actor, command.IncidentID, recordIDs[index], cells, "clipboard_paste", now)
 		if err != nil {

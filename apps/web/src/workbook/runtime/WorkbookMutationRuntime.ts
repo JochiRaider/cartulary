@@ -739,6 +739,7 @@ export class WorkbookMutationRuntime {
             .some((entry) => entry.batchOperationId === id),
         accepted: (receipt, attempt) => {
           this.rememberClientTransaction(attempt.id);
+          this.drivers.acceptBatchPredecessor(receipt, attempt);
           this.surfaces.invalidate(receipt.viewSchemaId);
           for (const row of receipt.rows) {
             this.history.acceptVersion(row.record_id, row.row_version);

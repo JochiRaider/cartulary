@@ -154,6 +154,7 @@ export function useTimelineWorkbookComposition({
   });
   const interaction = useTimelineInteractionComposition({
     foundation: {
+      editorDraftRegistry: foundation.refs.editorDraftRegistry,
       activateCollectionInput:
         foundation.commands.editor.activateCollectionInput,
       activeCollectionInputKey:

@@ -42,6 +42,19 @@ export interface TimelineFillMutationPort {
   ): string | null;
 }
 
+export interface TimelineClearMutationPort {
+  clearCells(
+    input: {
+      readonly fieldKeys: readonly string[];
+      readonly targets: readonly {
+        readonly recordId: string;
+        readonly baseRowVersion: number;
+      }[];
+    },
+    admission: WorkbookBatchAdmission,
+  ): string | null;
+}
+
 export type TimelineRelatedRecordCreated = {
   readonly changeSetId: string;
   readonly recordId: string;
@@ -57,6 +70,7 @@ export interface TimelineRelatedRecordPort {
 }
 
 export type TimelineMutationCommandPorts = {
+  readonly clear: TimelineClearMutationPort;
   readonly fill: TimelineFillMutationPort;
   readonly identity: TimelineMutationIdentityPort;
   readonly related: TimelineRelatedRecordPort;

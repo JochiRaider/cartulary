@@ -82,6 +82,25 @@ func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPaste
 	})
 }
 
+func (f *Facade) ApplyClearCells(ctx context.Context, command ClearCellsCommand) (BatchMutationResult, error) {
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return BatchMutationResult{}, err
+	}
+	rows, err := buildClearCellsOwnerRows(command.FieldKeys, len(command.Targets))
+	if err != nil {
+		return BatchMutationResult{}, err
+	}
+	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
+		ClientTxnID: command.ClientTxnID,
+		Operation:   OwnerBatchOperationClearCellsV1,
+		Targets:     command.Targets,
+		Rows:        rows,
+		RequestHash: command.RequestHash,
+		RequestID:   command.RequestID,
+		Now:         command.Now,
+	})
+}
+
 func (f *Facade) ApplyFillDown(ctx context.Context, command FillDownCommand) (BatchMutationResult, error) {
 	if err := requireRequestFingerprint(command.RequestHash); err != nil {
 		return BatchMutationResult{}, err

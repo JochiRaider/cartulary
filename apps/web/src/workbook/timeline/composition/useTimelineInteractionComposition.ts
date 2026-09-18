@@ -9,7 +9,9 @@ import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutF
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useTimelineBulkTagController } from "../bulk/useTimelineBulkTagController";
+import { useTimelineClearController } from "../bulk/useTimelineClearController";
 import { useTimelineFillController } from "../bulk/useTimelineFillController";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineClipboardPasteController } from "../hooks/useTimelineClipboardPasteController";
 import { useTimelineKeyboardController } from "../hooks/useTimelineKeyboardController";
 import type { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
@@ -31,6 +33,7 @@ type TimelineInteractionCompositionInput = {
   readonly foundation: {
     readonly activateCollectionInput: (focusKey: string) => void;
     readonly activeCollectionInputKey: string | null;
+    readonly editorDraftRegistry: TimelineEditorDraftRegistry;
     readonly bulkTagPort: BulkInput["port"];
     readonly clipboardPastePort: ClipboardInput["clipboardPaste"];
     readonly deactivateCollectionInput: (focusKey: string) => void;
@@ -214,6 +217,36 @@ export function useTimelineInteractionComposition({
     rowsRef: foundation.rowsRef,
     setError: foundation.setRefreshError,
   }).commands;
+  const clear = useTimelineClearController({
+    authorized: canEdit && !loadAccessLost,
+    contract: timelineContract,
+    getVisibleFieldKeys: () =>
+      new Set(
+        grid.timelineAnchorColumnsRef.current.map((column) => column.fieldKey),
+      ),
+    hasUnsubmittedDraft: (row, fieldKey) => {
+      const binding = timelineScalarBindingForField(fieldKey);
+      if (!binding) return true;
+      const pending = foundation.pendingSavesRefs;
+      const admitted = pending.pendingQueueRef.current.model
+        .snapshot()
+        .units.flatMap((unit) => {
+          const revisions = pending.replayContextByUnitId.get(
+            unit.id,
+          )?.draftRevisions;
+          return revisions ? [revisions] : [];
+        });
+      return foundation.editorDraftRegistry.hasUnsubmittedScalarDraft(
+        row.key,
+        binding.key,
+        admitted,
+      );
+    },
+    port: mutation.mutationCommands.clear,
+    precedingSaves: () => foundation.pendingSavesRefs.saveQueueRef.current,
+    rowsRef: foundation.rowsRef,
+    setError: foundation.setRefreshError,
+  });
   const handleCreateBlankDraftRow = useCallback(
     (row: WorkbookRow) => {
       const currentRows = foundation.rowsRef.current;
@@ -258,6 +291,7 @@ export function useTimelineInteractionComposition({
         focusDraftRow: grid.focusDraftRow,
         handleCreateBlankDraftRow,
         handleFillCells: fill.onFillCells,
+        handleClearCells: clear,
         handleWorkAreaKeyDown: keyboard.onWorkAreaKeyDown,
       },
     },

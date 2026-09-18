@@ -26,6 +26,7 @@ type WorkbookViewBarProps = {
   readonly addRowDisabled?: boolean | undefined;
   readonly addRowLabel?: string | undefined;
   readonly chromeMode?: WorkbookChromeMode | undefined;
+  readonly iconOnlyActions?: boolean | undefined;
   readonly inspectorButtonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onAddRow?: (() => void) | undefined;
   readonly onInspectorToggle?: (() => void) | undefined;
@@ -39,6 +40,7 @@ export function WorkbookViewBar({
   addRowDisabled = false,
   addRowLabel = "Add row",
   chromeMode = "base",
+  iconOnlyActions = false,
   inspectorButtonRef,
   onAddRow,
   onInspectorToggle,
@@ -48,6 +50,7 @@ export function WorkbookViewBar({
   workingSet,
 }: WorkbookViewBarProps) {
   const compactActions =
+    iconOnlyActions ||
     chromeMode === "compact_desktop" ||
     chromeMode === "below_supported_minimum";
   return (

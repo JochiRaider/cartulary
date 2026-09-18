@@ -845,6 +845,7 @@
         "titles": [
           "cycles a retained rectangle through production editing rejection latest departure and Escape",
           "grid-adapter can fill available inline space on demand",
+          "grid-adapter captures clear from Delete and the action handle while retaining the range and native keys",
           "grid-adapter compiles semantic row and cell state into private classes, markers, and ARIA",
           "grid-adapter detaches an unsubmitted editor for explicit browsing without committing or reopening it on return",
           "grid-adapter does not repeat seed retention on rerender or navigate after focus leaves a pending editor",
@@ -994,7 +995,9 @@
           "range keyboard entry cycles every member and boundary in both orders and directions without changing reversed geometry",
           "range keyboard entry preserves ordinary draft shell and region navigation unless a valid multi-cell range is adopted",
           "range keyboard entry retains geometry only for eligible typing and F2 and extends from the traversed active cell",
-          "range keyboard entry uses presented membership including read-only fields and respects hidden reordered and removed members"
+          "range keyboard entry uses presented membership including read-only fields and respects hidden reordered and removed members",
+          "selected-cell clear capture admits only unmodified Delete as the optional clear chord",
+          "selected-cell clear capture captures reversed visible membership including offscreen rows without filtering fields"
         ]
       },
       "evidence_class": "unit",

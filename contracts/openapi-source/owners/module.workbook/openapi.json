@@ -2740,7 +2740,8 @@
             "type": "string",
             "enum": [
               "fill_down_v1",
-              "multi_row_tag_assignment_v1"
+              "multi_row_tag_assignment_v1",
+              "clear_cells_v1"
             ]
           },
           "field_key": {
@@ -2759,6 +2760,28 @@
             "items": {
               "$ref": "#/components/schemas/WorkbookBulkMutationTarget"
             }
+          },
+          "field_keys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "timeline.date_entered_text",
+                "timeline.analyst_text",
+                "timeline.mitre_stage_text",
+                "timeline.device_object_text",
+                "timeline.ip_address_text",
+                "timeline.activity_utc_text",
+                "timeline.activity_local_text",
+                "timeline.raw_activity_text",
+                "timeline.activity_synopsis_text",
+                "timeline.data_source_text"
+              ]
+            },
+            "description": "clear_cells_v1 only: ordered distinct clearable operational text fields. Each field on every explicit target is assigned authoritative null."
           }
         },
         "required": [
@@ -2766,7 +2789,49 @@
           "client_txn_id",
           "kind",
           "targets"
-        ]
+        ],
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "clear_cells_v1"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "then": {
+          "required": [
+            "field_keys"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "field_key"
+                ]
+              },
+              {
+                "required": [
+                  "value"
+                ]
+              },
+              {
+                "required": [
+                  "tag_name"
+                ]
+              }
+            ]
+          }
+        },
+        "else": {
+          "not": {
+            "required": [
+              "field_keys"
+            ]
+          }
+        },
+        "description": "Explicit Timeline batch. clear_cells_v1 requires field_keys and forbids field_key, value and tag_name. Clear targets must be unique by record_id; target and field array order is preserved in request identity and conflict ordering. Unchanged targets are omitted from result rows; all-no-op and conflicts-only receipts have no change_set_id. Existing command meanings are unchanged."
       },
       "WorkbookBatchMutationData": {
         "type": "object",

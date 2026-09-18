@@ -1,11 +1,16 @@
 package mutationpolicy
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+)
 
 const (
 	MaxPatchChanges      = 32
 	MaxCollectionActions = 64
 	MaxOwnerBatchTargets = 500
+	MaxClearFields       = 10
 	MaxVisibleTextRunes  = 32_768
 )
 
@@ -29,6 +34,21 @@ func DirectWritableFieldKeys() []string {
 func IsDirectWritableField(fieldKey string) bool {
 	_, found := slices.BinarySearch(directWritableFieldKeys, fieldKey)
 	return found
+}
+
+func ValidClearFields(fieldKeys []string) bool {
+	if len(fieldKeys) == 0 || len(fieldKeys) > MaxClearFields {
+		return false
+	}
+	seen := make(map[string]bool, len(fieldKeys))
+	for _, fieldKey := range fieldKeys {
+		field, ok := viewschema.LookupField("cartulary.view.timeline.v2", fieldKey)
+		if seen[fieldKey] || !IsDirectWritableField(fieldKey) || !ok || !field.Writable || !field.GridEditable || !field.Clearable {
+			return false
+		}
+		seen[fieldKey] = true
+	}
+	return true
 }
 
 func IsValidVisibleText(value string) bool {

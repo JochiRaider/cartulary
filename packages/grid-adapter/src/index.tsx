@@ -27,6 +27,7 @@ export type {
   GridCellRange,
   GridCellStateInput,
   GridCellTarget,
+  GridClearIntent,
   GridClipboardDimensions,
   GridClipboardInput,
   GridClipboardPasteContract,

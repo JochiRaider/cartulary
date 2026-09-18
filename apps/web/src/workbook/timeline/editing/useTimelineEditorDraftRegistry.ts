@@ -86,6 +86,21 @@ export function createTimelineEditorDraftRegistry(
   const draftValueForFocusKey = (focusKey: string) => draftValues.get(focusKey);
 
   return {
+    hasUnsubmittedScalarDraft(
+      rowKey: string,
+      field: keyof RowValues,
+      admitted: readonly ReadonlyMap<string, number>[],
+    ) {
+      return timelineScalarEditorSurfaces.some((surface) => {
+        const key = inputFocusKey(rowKey, field, surface);
+        return (
+          draftValues.has(key) &&
+          !admitted.some(
+            (revisions) => revisions.get(key) === store.revision(key),
+          )
+        );
+      });
+    },
     activeInput(target: EventTarget | null = document.activeElement) {
       for (const [focusKey, element] of inputElements) {
         if (element === target) {
@@ -418,13 +433,18 @@ export function createTimelineEditorDraftRegistry(
     acceptPredecessor(
       row: WorkbookRow,
       fields: readonly string[],
-      previousValues: RowValues,
+      previousValues?: RowValues,
     ) {
       for (const binding of timelineScalarBindings) {
         if (!fields.includes(binding.fieldKey)) continue;
         for (const surface of timelineScalarEditorSurfaces) {
           const key = inputFocusKey(row.key, binding.key, surface);
-          if (store.baseline(key) === previousValues[binding.key])
+          // Clear admission excludes existing unsubmitted drafts, so omitted
+          // prior values advance only authoring begun after that command.
+          if (
+            previousValues === undefined ||
+            store.baseline(key) === previousValues[binding.key]
+          )
             store.advanceBaseline(key, row.committedValues[binding.key]);
         }
       }

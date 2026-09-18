@@ -219,7 +219,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return MutationResult{}, err
 	}
-	applyTimelineTimeConversion(&next, profile)
+	applyTimelineDatePatch(&next, current, profile, request.CanonicalChange)
 
 	beforeProjected := projectRecord(current, nil)
 	if err := s.hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {

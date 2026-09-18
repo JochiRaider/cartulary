@@ -734,6 +734,14 @@ async function expectTextSpacingViewBarResilience(
         ...chipButtons.map(
           (button, index) => [`chip-${index}`, button] as const,
         ),
+        ...Array.from(
+          viewBar.querySelectorAll<HTMLButtonElement>("button"),
+        ).flatMap((button) => {
+          const label = button.getAttribute("aria-label");
+          return label === "Find in loaded rows" || label === "Clear contents"
+            ? [[label, button] as const]
+            : [];
+        }),
         [
           "inspector",
           requireElement(select(inspectorSelector), "Inspector button"),
@@ -9131,4 +9139,78 @@ test("a11y.saved-view-discovery keyboard activation dismissal scope and bounded 
       },
     });
   }
+});
+
+test("a11y.timeline-clear selected-cell action retains keyboard access across supported layouts", async ({
+  page,
+}, testInfo) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("A11YCLEAR"),
+    "Clear accessibility",
+  );
+  const field = "timeline.activity_synopsis_text";
+  const created = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("clear-a11y-seed"),
+    [field]: "Clear this source",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  const cell = await mountedGridCell(
+    page,
+    timelineViewSchemaId,
+    created.record_id,
+    field,
+  );
+  await cell.click();
+  await page.keyboard.press("Escape");
+  const clear = page.getByRole("button", {
+    name: "Clear contents",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1280, height: 720 },
+    { width: 1024, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page
+      .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+      .focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(clear).toBeFocused();
+    await expectDecisionControlReachable(page, clear);
+    await expectVisibleFocus(clear);
+    const response = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/bulk-mutations") &&
+        response.request().method() === "POST",
+    );
+    await page.keyboard.press("Enter");
+    expect((await response).ok()).toBe(true);
+    await expect(clear).toBeFocused();
+    await testInfo.attach(`timeline-clear-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  }
+  await page.setViewportSize({ width: 2560, height: 1440 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "#root * { letter-spacing:0.12em !important; word-spacing:0.16em !important; line-height:1.5 !important; }",
+  });
+  await expectDecisionControlReachable(page, clear);
+  await expectVisibleFocus(clear);
+  await testInfo.attach("timeline-clear-zoom-spacing", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
 });

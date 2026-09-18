@@ -1542,6 +1542,34 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 Clipboard-paste and explicit bulk-mutation record targets MUST be scoped to the path `{incident_id}` before row-version evaluation, conflict-window loading, same-field conflict construction, mutation side effects, change-set persistence, projection refresh, live-event publication, idempotent success persistence, or response row serialization. A missing, foreign-incident, wrong-view, wrong-type, or deleted record target is not a same-field conflict; it MUST abort the whole batch without committing creates, patches, conflicts-only success payloads, change sets, revisions, projections, or live events. Clipboard-paste and explicit bulk-mutation batch results MUST use the common success envelope on valid batch evaluation, including when every target cell becomes a same-field conflict and no row mutation commits. In that conflicts-only case, `rows[]` MUST be empty and `change_set_id` MUST be omitted. Same-field conflict entries in `conflicts[]` MUST use the Core 03 §3.3.4 conflict object. `same_field_conflict` remains the error code for single-record patch conflict responses; clipboard-paste and bulk batch conflicts are batch result members rather than a separate public error family.
 
 **REQ-01-672**
+The Timeline `clear_cells_v1` bulk command accepts exactly `view_schema_id`,
+`client_txn_id`, `kind`, `field_keys`, and `targets`. Its view is
+`cartulary.view.timeline.v2`. `field_keys` contains 1 through 10 distinct current
+§7.4.1 operational text keys whose contracts declare writable, grid-editable and
+clearable direct values. `targets` contains 1 through 500 distinct records, each
+with exactly `record_id` and positive integer `base_row_version`. Every named
+field on every named record is an explicit authoritative null assignment; there
+is no `value` member. Unknown members, duplicate keys/records, creation targets,
+ineligible fields and over-limit arrays MUST fail with `invalid_mutation_payload`
+before mutation. Array order is semantic, preserved in normalized request identity
+and results; UUIDs and object serialization canonicalize. Conflict ordering is
+target order followed by field order. The rectangle and visible membership are
+client presentation concerns and MUST NOT be transmitted as inferred selectors.
+
+Clear uses the existing bulk route's actor/incident/view transaction identity.
+Exact replay MUST return the original receipt before fresh concurrency evaluation;
+a different normalized request using that identity MUST fail with
+`client_txn_conflict`. `rows` contains each materially changed record once in
+target order. A wholly unchanged or conflicts-only result has empty `rows` and
+no `change_set_id`; accepted nonconflicting changes share one change set and each
+changed record advances once regardless of selected field count. Already-null
+assignments MUST NOT manufacture material changes, attribution, revisions,
+projection writes or Collaboration effects. Null MUST remain null in conflict
+payloads, explicit resolution, source snapshots and replay; merge-computation-only
+normalization does not change that value. Existing paste, fill and tag commands
+retain their meanings. Unsupported clear commands MUST NOT be translated into
+another command or independent record patches.
+
 Timeline clipboard-paste requests MUST admit at most 64 columns. Timeline
 clipboard-paste and explicit bulk-mutation requests MUST each admit at most
 500 targets. An over-limit request MUST fail after authorization succeeds and
@@ -5537,6 +5565,7 @@ Verified by: AC-396
   - `timeline.evidence_count` is a non-negative integer projection field, hidden by default, read-only, not groupable, not filterable in the current profile, and MUST serialize as `0` when the row has no attached evidence. It counts successfully finalized, associated files whose blob upload state is `available`, independently of Evidence custody lifecycle. Metadata-only Evidence and incomplete uploads MUST NOT increment this file count
 - `timeline.activity_time_pair_state` uses exactly `disabled`, `empty`, `paired_generated`, `paired_user_preserved`, `paired_mismatch`, and `conversion_unavailable`
 - when the incident time-conversion profile is enabled and exactly one Activity Date field can be parsed, the server MAY generate the paired field only when the paired field is `null`, empty, or server-generated; it MUST NOT overwrite a non-empty user-authored paired value
+- generation on an existing row requires an accepted explicit non-null Activity Date edit in that mutation. Explicitly submitted Activity Date fields, including `null` and `""`, MUST NOT be overwritten by generation. An explicit clear MUST preserve the unselected source text; unrelated edits MUST NOT regenerate a cleared date. A later explicit date edit MAY generate only an unsubmitted eligible counterpart. These rules also govern conflict resolution. Recompute the existing pair state without generating text for a clear: disabled conversion is `disabled`, an empty pair is `empty`, and an incomplete enabled pair is `conversion_unavailable`; existing parse/mismatch rules govern complete pairs. Sort projections derive from remaining source values under the ordinary projection contract. No additional persisted clear marker or pair-state enum is introduced.
 - conversion parsing is separate from storage: the UTC parser accepts `YYYY-MM-DDTHH:MM[:SS]Z` and `YYYY-MM-DD HH:MM[:SS]Z`; the local parser accepts `YYYY-MM-DDTHH:MM[:SS]` and `YYYY-MM-DD HH:MM[:SS]` interpreted with the fixed incident offset; generated UTC text uses `YYYY-MM-DDTHH:MM:SSZ`, and generated local text uses `YYYY-MM-DDTHH:MM:SS±HH:MM`
 - `timeline.raw_activity_text` is inert escaped text; pasted formulas, HTML, Markdown, URLs, or script-like text MUST be stored and displayed as source text and MUST NOT execute or become active links through this cell contract
 - exact import and clipboard-paste header mapping for Timeline v2 is case-sensitive and alias-free: `Date Entered` -> `timeline.date_entered_text`, `Analyst` -> `timeline.analyst_text`, `MITRE` -> `timeline.mitre_stage_text`, `Device/Object` -> `timeline.device_object_text`, `IP Address` -> `timeline.ip_address_text`, `Activity Date (UTC)` -> `timeline.activity_utc_text`, `Activity Date (Local Time)` -> `timeline.activity_local_text`, `RAW Activity` -> `timeline.raw_activity_text`, `Activity Synopsis` -> `timeline.activity_synopsis_text`, and `Data Source` -> `timeline.data_source_text`

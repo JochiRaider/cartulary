@@ -77,6 +77,65 @@ function gridAnchor(recordId: string, fieldKey: string) {
 }
 
 describe("grid-adapter", () => {
+  it("captures clear from Delete and the action handle while retaining the range and native keys", async () => {
+    for (const { Grid } of semanticContractBindings) {
+      const handle = createRef<GridHandle>();
+      const onClearCells = vi.fn();
+      const range = {
+        start: gridAnchor("b", "state"),
+        end: gridAnchor("a", "label"),
+      };
+      const dataRows: GridDataRow<HarnessRow>[] = ["a", "b"].map(
+        (recordId) => ({
+          kind: "data",
+          rowIdentity: { kind: "core_record", recordId },
+          mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+          data: { label: recordId, state: "open" },
+        }),
+      );
+      const changed = vi.fn();
+      const view = render(
+        <Grid
+          ref={handle}
+          surface={testSurface}
+          columns={columns}
+          dataRows={dataRows}
+          cellRange={range}
+          cellRangeSelection={{
+            kind: "contiguous",
+            scopeKey: "clear",
+            keyboardEntry: "cycle",
+          }}
+          onCellRangeChange={changed}
+          onClearCells={onClearCells}
+        />,
+      );
+      await act(async () => {
+        await handle.current?.requestFocus({ kind: "cell", anchor: range.end });
+      });
+      const active = document.activeElement;
+      if (!(active instanceof HTMLElement)) throw new Error("Missing cell");
+      const event = new KeyboardEvent("keydown", {
+        key: "Delete",
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(active, event);
+      fireEvent(active, event);
+      fireEvent.keyDown(active, { key: "Delete", repeat: true });
+      expect(onClearCells).toHaveBeenCalledTimes(1);
+      expect(onClearCells.mock.calls[0]?.[0].targets).toHaveLength(4);
+      expect(handle.current?.captureClearIntent?.()?.targets).toHaveLength(4);
+      expect(changed).not.toHaveBeenCalled();
+      fireEvent.keyDown(active, { key: "Backspace" });
+      expect(onClearCells).toHaveBeenCalledTimes(1);
+      fireEvent.keyDown(active, { key: "Delete", isComposing: true });
+      expect(onClearCells).toHaveBeenCalledTimes(1);
+      fireEvent.keyDown(active, { key: "Delete" });
+      expect(onClearCells).toHaveBeenCalledTimes(2);
+      view.unmount();
+    }
+  });
   it("detaches an unsubmitted editor for explicit browsing without committing or reopening it on return", async () => {
     const handle = createRef<GridHandle>();
     const commit = vi.fn(async () => ({ kind: "accepted" as const }));

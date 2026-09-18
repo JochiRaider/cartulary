@@ -1,6 +1,7 @@
 import {
   type GridCellAnchor,
   type GridCellStateInput,
+  type GridClearIntent,
   type GridClipboardPasteContract,
   type GridColumn,
   type GridCoreRecordBulkSelection,
@@ -70,6 +71,7 @@ export const TimelineWorkbookGrid = forwardRef<
     readonly onColumnSizingIntent: (
       intent: import("@cartulary/grid-adapter").GridColumnSizingIntent,
     ) => void;
+    readonly onClearCells: (intent: GridClearIntent) => void;
     readonly onFillCells: (intent: GridFillIntent) => void;
     readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
     readonly onSelectRecord: (recordId: string) => void;
@@ -102,6 +104,7 @@ export const TimelineWorkbookGrid = forwardRef<
     onColumnReorder,
     onColumnSizingIntent,
     onFillCells,
+    onClearCells,
     onSortChange,
     onSelectRecord,
     rowGutter,
@@ -208,6 +211,7 @@ export const TimelineWorkbookGrid = forwardRef<
           onColumnReorder={onColumnReorder}
           onColumnSizingIntent={onColumnSizingIntent}
           onFillCells={onFillCells}
+          onClearCells={onClearCells}
           onSortChange={onSortChange}
           onSelectRow={(rowIdentity) => {
             if (rowIdentity.kind === "core_record") {

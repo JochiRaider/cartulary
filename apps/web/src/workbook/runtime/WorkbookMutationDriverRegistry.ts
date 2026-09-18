@@ -1,4 +1,8 @@
 import type { PendingReplayUnitState } from "../utils/workbookPendingQueue";
+import type {
+  WorkbookBatchAttempt,
+  WorkbookBatchReceipt,
+} from "./workbookBatchOperation";
 
 export type WorkbookMutationOwnerEnvelope =
   | {
@@ -25,6 +29,10 @@ export type WorkbookManagedPatchMutationDriver = {
 
 export type WorkbookTimelineRowMutationDriver = {
   readonly kind: "timeline_row";
+  readonly acceptBatchPredecessor?: (
+    receipt: WorkbookBatchReceipt,
+    attempt: WorkbookBatchAttempt,
+  ) => void;
   readonly drain: (
     unit: PendingReplayUnitState,
     envelope: Extract<
@@ -106,6 +114,13 @@ class WorkbookMutationDriverRegistryState {
     this.#owners.delete(unitId);
   }
 
+  acceptBatchPredecessor(
+    receipt: WorkbookBatchReceipt,
+    attempt: WorkbookBatchAttempt,
+  ): void {
+    this.#timelineRowDriver?.acceptBatchPredecessor?.(receipt, attempt);
+  }
+
   envelope(unitId: string): WorkbookMutationOwnerEnvelope | null {
     return this.#owners.get(unitId) ?? null;
   }
@@ -139,6 +154,10 @@ export function createWorkbookMutationDriverRegistry() {
     claim: (unitId: string, envelope: WorkbookMutationOwnerEnvelope) =>
       state.claim(unitId, envelope),
     release: (unitId: string) => state.release(unitId),
+    acceptBatchPredecessor: (
+      receipt: WorkbookBatchReceipt,
+      attempt: WorkbookBatchAttempt,
+    ) => state.acceptBatchPredecessor(receipt, attempt),
     envelope: (unitId: string) => state.envelope(unitId),
     drain: (unit: PendingReplayUnitState) => state.drain(unit),
   };

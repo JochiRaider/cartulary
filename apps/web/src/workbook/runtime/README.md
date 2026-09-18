@@ -64,7 +64,8 @@ surface-specific commands enter through registered semantic capabilities.
 | [WorkbookBatchOperationOwner.test.ts](WorkbookBatchOperationOwner.test.ts) | Exact capture/replay, overlap, conflicts-only acceptance, read debt, role/closure/session changes and obsolete callbacks. |
 | [WorkbookSurfaceRegistry.test.ts](WorkbookSurfaceRegistry.test.ts) | Registration, authorization and debt generation fencing plus failed-read/remount recovery. |
 
-The owner serves Timeline paste, Hosts/Identities paste, fill and collection tagging.
+The owner serves Timeline paste, selected-cell clear, Hosts/Identities paste, fill
+and collection tagging.
 Source planners retain semantic fields, rows, values and create/reuse rules.
 Later overlapping actions wait through uncertainty and unresolved conflicts.
 Batch boundaries prevent pending autosave coalescing across admission; preceding
@@ -74,6 +75,11 @@ later edits cannot become prerequisites or overtake an overlapping batch. The co
 batch grouping separate from compound-operation restrictions. Unresolved payloads
 are never evicted. Settled receipts may be released after their read/conflict
 obligations; the latest completed receipt per surface remains available.
+
+Accepted batch predecessors are delivered through the registered source driver
+before presentation or later queue dispatch. Timeline advances only later local
+clear successors and preserves dispatched attempts and conflicted fields. Batch
+receipts apply as one mounted projection commit, including virtualized members.
 
 Surface registrations follow mounted lifetime and dereference current callbacks.
 Refresh completion must match registration, authority and debt generations.

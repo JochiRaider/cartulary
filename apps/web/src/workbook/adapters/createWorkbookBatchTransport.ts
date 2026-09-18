@@ -59,10 +59,12 @@ export function createWorkbookBatchTransport(options: {
         const contract = requireViewContract(timelineViewSchemaId);
         if (
           plan.request.view_schema_id !== timelineViewSchemaId ||
-          (plan.request.kind === "fill_down_v1"
-            ? contract.fieldMap[plan.request.field_key ?? ""]?.gridEditable !==
-              true
-            : !plan.request.tag_name?.trim())
+          (plan.request.kind === "clear_cells_v1"
+            ? !validClearRequest(plan.request)
+            : plan.request.kind === "fill_down_v1"
+              ? contract.fieldMap[plan.request.field_key ?? ""]
+                  ?.gridEditable !== true
+              : !plan.request.tag_name?.trim())
         )
           throw new Error("Invalid bulk plan");
       }
@@ -172,11 +174,13 @@ export function validateWorkbookBatchReceipt(
     const columns =
       plan.operation === "pasteWorkbookClipboard"
         ? plan.request.columns
-        : [
-            plan.request.kind === "fill_down_v1"
-              ? plan.request.field_key
-              : "timeline.tags",
-          ];
+        : plan.request.kind === "clear_cells_v1"
+          ? (plan.request.field_keys ?? [])
+          : [
+              plan.request.kind === "fill_down_v1"
+                ? plan.request.field_key
+                : "timeline.tags",
+            ];
     const conflicts: WorkbookSameFieldConflictPayload[] = [];
     let lastOrder = -1;
     for (const raw of conflictValues) {
@@ -204,7 +208,10 @@ export function validateWorkbookBatchReceipt(
         column < 0 ||
         target.target.base_row_version !== conflict.base_row_version ||
         contract.fieldMap[conflict.field_key]?.conflictResolutionClass !==
-          conflict.conflict_resolution_class
+          conflict.conflict_resolution_class ||
+        (plan.operation === "applyWorkbookBulkMutation" &&
+          plan.request.kind === "clear_cells_v1" &&
+          conflict.client_value !== null)
       )
         return null;
       const order = target.index * columns.length + column;
@@ -218,12 +225,32 @@ export function validateWorkbookBatchReceipt(
     } else {
       const seen = new Set<string>();
       let created = 0;
+      let previousTargetIndex = -1;
       for (const row of rows) {
         if (seen.has(row.record_id)) return null;
         seen.add(row.record_id);
         const target = records.get(row.record_id);
         if (target) {
           if (row.row_version <= target.target.base_row_version) return null;
+          if (
+            plan.operation === "applyWorkbookBulkMutation" &&
+            plan.request.kind === "clear_cells_v1"
+          ) {
+            if (target.index <= previousTargetIndex) return null;
+            previousTargetIndex = target.index;
+            for (const field of columns) {
+              if (
+                field &&
+                !conflicts.some(
+                  (conflict) =>
+                    conflict.record_id === row.record_id &&
+                    conflict.field_key === field,
+                ) &&
+                row.cells[field]?.value !== null
+              )
+                return null;
+            }
+          }
         } else {
           if (
             plan.operation !== "pasteWorkbookClipboard" ||
@@ -251,4 +278,41 @@ export function validateWorkbookBatchReceipt(
   } catch {
     return null;
   }
+}
+
+function validClearRequest(
+  request: Omit<
+    import("./workbookProtocolTypes").WorkbookProtocolBulkRequest,
+    "client_txn_id"
+  >,
+): boolean {
+  const fields = request.field_keys;
+  const contract = requireViewContract(timelineViewSchemaId);
+  return (
+    fields !== undefined &&
+    fields.length >= 1 &&
+    fields.length <= 10 &&
+    new Set(fields).size === fields.length &&
+    fields.every((key) => {
+      const field = contract.fieldMap[key];
+      return (
+        field?.patchWritable &&
+        field.gridEditable &&
+        field.clearable &&
+        field.writeKind === "direct_value"
+      );
+    }) &&
+    request.field_key === undefined &&
+    request.value === undefined &&
+    request.tag_name === undefined &&
+    request.targets.length <= 500 &&
+    new Set(request.targets.map((target) => target.record_id)).size ===
+      request.targets.length &&
+    request.targets.every(
+      (target) =>
+        target.record_id !== "" &&
+        Number.isSafeInteger(target.base_row_version) &&
+        target.base_row_version > 0,
+    )
+  );
 }

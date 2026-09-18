@@ -2505,6 +2505,7 @@ The base profile MUST support:
 - Arrow keys to move selection,
 - Enter and Shift+Enter row navigation,
 - Timeline `F2` direct-value edit entry and §13.4 range traversal/exit,
+- unmodified Timeline `Delete` and an accessible `Clear contents` action under §13.3,
 - `Ctrl+V` for paste,
 - `Ctrl+D` or `Cmd+D` for fill-down across a selected valid one-column vertical range,
 - `Ctrl+K` for quick link or resolve on the current cell,
@@ -2546,10 +2547,56 @@ The current base-profile explicit bulk command vocabulary is:
 
 - `fill_down_v1`: copies one submitted source value for one writable non-collection field into explicit stable row targets identified by `record_id` and `base_row_version`;
 - `multi_row_tag_assignment_v1`: applies one submitted tag label to explicit stable Timeline row targets through the `timeline.tags` collection contract.
+- `clear_cells_v1`: assigns authoritative null to the explicitly named eligible operational text fields on explicit stable Timeline record targets under Core 01 §3.3.5.
 
 Each command MUST commit as one attributable batch when all accepted target mutations commit, MUST record one visible `change_set` for the committed non-conflicting portion, and MUST reject presentation-only, group-row, vendor-coordinate, row-index-only, missing, deleted, wrong-surface, wrong-type, or foreign-incident targets. Bulk target ownership and visibility MUST be validated before row-version comparison, conflict construction, batch commit, or response row serialization. Later expansion MAY add additional explicit command kinds, but MUST NOT reinterpret these command identifiers.
 
 The fill affordance MUST appear only for a selected writable non-collection committed cell in navigation mode and MUST expose the label `Drag to fill this value`. Pointer drag and `Ctrl+D` or `Cmd+D` MUST construct the same semantic `fill_down_v1` intent from stable record identifiers and current row versions. Keyboard fill uses the top cell of the selected range as source and every remaining committed row as an explicit target. Vendor-provided double-click fill-to-end behavior MUST be suppressed and MUST dispatch no mutation.
+
+#### Selected Timeline cell clearing
+
+When Timeline grid navigation owns focus, unmodified Delete MUST invoke
+`clear_cells_v1` for the selected committed cell or completed contiguous rectangle.
+The accessible `Clear contents` action MUST invoke the same planner. This is an
+explicit mutation command and does not require a confirmation form. It MUST NOT
+be implemented by empty-string fill, clipboard paste or independent PATCH loops.
+Native editors, text selections, nested controls, menus and IME retain Delete;
+Backspace retains active-cell empty-editor entry and its existing range retirement.
+
+Capture exactly the ordered visible committed membership at activation, including
+virtualized records and records in expanded groups. Headers, collapsed records,
+hidden fields and recordless drafts are not members. The planner MUST reject the
+whole selection before admission if any captured member is stale, unsupported,
+unauthorized, lifecycle-blocked, derived, collection-valued or not writable,
+grid-editable and clearable. It MUST provide a local accessible explanation without
+protected-content disclosure. It MUST NOT skip members, load pages, expand groups,
+create/delete records or remove columns. Server visibility means current
+authorization, not a browser's presentation configuration.
+
+Unsubmitted conflicting grid or Inspector drafts MUST require explicit resolution
+before clear admission; activation MUST NOT submit, discard or overwrite them.
+Borrowing action focus MUST NOT blur-submit unrelated authoring. Previously
+admitted writes remain captured predecessors under the retained batch owner;
+accepted predecessors may advance only undispatched bases. Later overlapping
+writes MUST NOT overtake an admitted clear. Selection changes cannot retarget it.
+Duplicate delivery of one event and held-key repetition MUST NOT create duplicate
+attempts; deliberate later actions remain distinct.
+
+Preserve the completed range and active cell while their exact semantic membership
+remains valid. Do not open/retarget Inspector or alter record-checkbox selection.
+Existing accepted-query and membership invalidation rules apply. Pending values
+MUST NOT be painted as authoritative nulls. Feedback MUST distinguish admission
+rejection, pending, uncertain, partial acceptance, conflicts-only, no-op,
+acknowledgement and refresh-required states. Every unresolved cell conflict and
+committed result remains available through existing recovery owners. Null and
+empty text MUST be distinguishable in comparison and correction controls.
+
+After dispatch, retain exact request bytes, transaction identity, actor, incident
+and semantic targets independently of presentation attachment. Uncertain retry
+reuses that attempt unchanged; correction/new actions use existing new-request
+rules. Acknowledgement survives detachment and refresh failure; acknowledged
+recovery performs reads only. Newer interaction cancels obsolete focus intentions,
+never authoritative settlement. REQ-03-100/299 govern concealment and retirement.
 
 ### 13.4 Timeline contiguous cell selection
 
@@ -2633,9 +2680,10 @@ Eligible printable input and unmodified `F2` MUST edit only the active cell's
 authorized direct value while retaining the still-valid rectangle. Readable read-only cells
 remain traversable without acquiring edit rights. Assigned application shortcuts
 under REQ-03-220, including Space evidence preview, retain priority; F2 permits
-native leading-whitespace entry. Delete/Backspace preserve
-their existing single-cell clear/edit and range-retirement semantics; selection
-MUST NOT imply bulk clear, fill-all or another multi-record mutation. Ordinary
+native leading-whitespace entry. Delete invokes only the explicit selected-cell
+clear command in §13.3; Backspace preserves its existing single-cell empty-editor
+and range-retirement semantics. Selection alone MUST NOT mutate or imply fill-all
+or another multi-record mutation. Ordinary
 stationary clicks retain REQ-03-300's replacement and single-click editing.
 
 Editor departure MUST capture its semantic destination and selection disposition
@@ -2975,7 +3023,7 @@ Profiles: base
 Verified by: AC-119, AC-120, AC-124, AC-125, AC-188, AC-189, AC-190, AC-191, AC-192, AC-193, AC-231
 
 **REQ-03-237**
-When exposed over the public HTTP surface, Timeline reads MUST use the view-shaped query route `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`. New Timeline rows MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. Updates to existing Timeline rows MUST use `PATCH /api/v1/records/{record_id}` with `view_schema_id`, `base_row_version`, `client_txn_id`, and `changes[]` keyed by `field_key`. Group headers remain client-local presentation state and MUST NOT appear as writable API rows.
+When exposed over the public HTTP surface, Timeline reads MUST use the view-shaped query route `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`. New Timeline rows MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. Ordinary individual updates MUST use `PATCH /api/v1/records/{record_id}` with `view_schema_id`, `base_row_version`, `client_txn_id`, and `changes[]` keyed by `field_key`; explicitly adopted batches and actions use their Core 01 §3.3.5 routes. Group headers remain client-local presentation state and MUST NOT appear as writable API rows.
 Profiles: base
 Verified by: AC-119, AC-120, AC-124, AC-125, AC-188, AC-189, AC-190, AC-191, AC-192, AC-193, AC-231
 
@@ -3003,6 +3051,11 @@ For the lifecycle machine in §6, the current Timeline write surfaces and row-an
 
 - `capture-state-material`: any committed change to one of the ten visible Timeline v2 operational fields, Timeline-row evidence attach or detach, and row-anchored source-bound MITRE/entity/indicator observation create, link, dismiss, or equivalent typed-link mutation initiated from the row or its inspector.
 - not `capture-state-material`: hidden tag edits, generated conversion-pair updates that only fill a server-generated paired Activity Date value, explicit `mark-reviewed` or `supersede` lifecycle actions, selection, focus, presence, sort, filter, grouping, projection rebuild, and idempotent no-op retry.
+
+An effective `clear_cells_v1` assignment is a material operational-field change;
+an already-null assignment is not. Clearing source text MUST NOT manufacture
+mention, observation, link, tag or Evidence removal. Date clearing and later
+conversion follow Core 01 §7.4.1, including explicit-null conflict resolution.
 
 **REQ-03-239**
 Any future Timeline writable `field_key`, dedicated Timeline action route, or row-anchored mutation surface MUST declare whether it is `capture-state-material` before it can claim base-profile conformance.

@@ -89,6 +89,7 @@ import {
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
 import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
 import { createSemanticCellNavigation } from "./semanticCellNavigation";
+import { captureSemanticClear, isClearNavigationKey } from "./semanticClear";
 import {
   mergeSemanticFillIntents,
   planSemanticCopy,
@@ -710,6 +711,7 @@ function useSemanticDataGrid<Row>(
   ref: ForwardedRef<GridHandle>,
   enableVirtualization: boolean,
 ) {
+  const deliveredClearEvents = useRef(new WeakSet<object>());
   const {
     accessibleLabel,
     activeRowIdentity = null,
@@ -1380,6 +1382,15 @@ function useSemanticDataGrid<Row>(
     ref,
     () => ({
       setAccessibleDescription,
+      captureClearIntent: (delivery) =>
+        interaction.controller.pointerId !== null
+          ? null
+          : captureSemanticClear(
+              semanticPresentationRef.current,
+              activeCellAnchor,
+              cellRangeRef.current,
+              delivery,
+            ),
       columnSizing: sizing.port,
       presentation: presentationPort,
       navigateToCell: cellNavigation.navigate,
@@ -1541,6 +1552,9 @@ function useSemanticDataGrid<Row>(
     "aria-description":
       [
         contextDescription,
+        props.onClearCells
+          ? "Delete clears selected cell contents. Backspace edits the active cell."
+          : undefined,
         cellRangeSelection?.keyboardEntry === "cycle"
           ? "Within a selected range, Tab moves across rows and Enter moves down columns, wrapping at the edge. Shift reverses direction. Escape returns to a single active cell. F2 edits the active cell."
           : undefined,
@@ -1618,6 +1632,31 @@ function useSemanticDataGrid<Row>(
       const semanticColumn = columns.find(
         (column) => column.fieldKey === anchor.fieldKey,
       );
+      if (props.onClearCells && isClearNavigationKey(event)) {
+        event.preventGridDefault();
+        if (window.getSelection()?.isCollapsed === false) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (
+          event.repeat ||
+          interaction.controller.pointerId !== null ||
+          deliveredClearEvents.current.has(event.nativeEvent)
+        )
+          return;
+        deliveredClearEvents.current.add(event.nativeEvent);
+        const intent = captureSemanticClear(
+          semanticPresentationRef.current,
+          anchor,
+          cellRangeRef.current,
+          event.nativeEvent,
+        );
+        if (intent) props.onClearCells(intent);
+        else
+          setKeyboardAnnouncement(
+            "Clear contents requires an available committed cell selection.",
+          );
+        return;
+      }
       const decision = decideSemanticGridKey({
         anchor,
         column: semanticColumn,

@@ -3998,6 +3998,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_clear_planning",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/bulk/useTimelineClearController.test.tsx",
+        "titles": [
+          "Timeline clear planning captures one ordered null command and preserves predecessor ownership",
+          "Timeline clear planning distinguishes admitted draft revisions from newer grid and Inspector authoring",
+          "Timeline clear planning rejects an entire selection for capability membership authority or unsubmitted drafts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_committed_idle_refreshes_once_19e6098c0e",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -7414,6 +7442,7 @@
         "titles": [
           "createWorkbookClipboardPasteAdapter accepts ordered repeated Entity reuse and historical empty-conflict receipts",
           "createWorkbookClipboardPasteAdapter rejects invalid capture and delegates action identity to retained admission",
+          "createWorkbookClipboardPasteAdapter retains exact clear bytes and rejects lossy null receipts",
           "createWorkbookClipboardPasteAdapter retains uncertainty for malformed success and replays captured create bytes",
           "createWorkbookClipboardPasteAdapter sends one exact generated request and preserves typed rows and conflicts",
           "createWorkbookClipboardPasteAdapter validates complete fill and tag receipts including conflicts-only and no-op outcomes"

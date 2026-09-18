@@ -506,6 +506,15 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 	requireNoTimelineSourceText(t, harness, foreignID)
 	requireNoChangeSetForClientTxn(t, harness, "txn-workbook_interaction-i-9-01-cross-fill-down")
 
+	clearBody := requireBulkMutationStatus(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
+		"view_schema_id": timeline.TimelineViewSchemaID, "client_txn_id": "cross-clear", "kind": "clear_cells_v1", "field_keys": []string{"timeline.activity_synopsis_text"},
+		"targets": []map[string]any{{"record_id": localID.String(), "base_row_version": 1}, {"record_id": foreignID.String(), "base_row_version": 99}},
+	}, http.StatusNotFound)
+	requireNoVersionOracle(t, clearBody)
+	requireTimelineSummaryAndVersion(t, harness, localID, "Local batch target", 1)
+	requireTimelineSummaryAndVersion(t, harness, foreignID, "Foreign batch target", 1)
+	requireNoChangeSetForClientTxn(t, harness, "cross-clear")
+
 	tagBody := requireBulkMutationStatus(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
 		"client_txn_id":  "txn-workbook_interaction-i-9-01-cross-tag",
@@ -541,7 +550,7 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 		name string
 		id   uuid.UUID
 	}{{"missing", uuid.New()}, {"deleted", deletedID}, {"wrong-type", hostID}} {
-		for _, kind := range []string{"paste", "fill_down_v1", "multi_row_tag_assignment_v1"} {
+		for _, kind := range []string{"paste", "fill_down_v1", "multi_row_tag_assignment_v1", "clear_cells_v1"} {
 			t.Run(invalid.name+"/"+kind, func(t *testing.T) {
 				txn := "batch-invalid-" + invalid.name + "-" + kind
 				body := map[string]any{"view_schema_id": timeline.TimelineViewSchemaID, "client_txn_id": txn}
@@ -556,6 +565,8 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 					body["targets"], body["kind"] = targets, kind
 					if kind == "fill_down_v1" {
 						body["field_key"], body["value"] = "timeline.raw_activity_text", "Forbidden fill"
+					} else if kind == "clear_cells_v1" {
+						body["field_keys"] = []string{"timeline.activity_synopsis_text"}
 					} else {
 						body["tag_name"] = "forbidden-tag"
 					}
@@ -576,6 +587,7 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 		{entitycontract.IdentitiesViewSchemaID, "identity.display_name", "paste"},
 		{timeline.TimelineViewSchemaID, "timeline.raw_activity_text", "fill_down_v1"},
 		{timeline.TimelineViewSchemaID, "timeline.tags", "multi_row_tag_assignment_v1"},
+		{timeline.TimelineViewSchemaID, "timeline.activity_synopsis_text", "clear_cells_v1"},
 	} {
 		for _, mode := range []string{"excessive", "wrong-view"} {
 			txn := fmt.Sprintf("batch-%s-%s-%s", mode, action.view, action.kind)
@@ -593,6 +605,8 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 				body["kind"] = action.kind
 				if action.kind == "fill_down_v1" {
 					body["field_key"], body["value"] = action.field, "Forbidden fill"
+				} else if action.kind == "clear_cells_v1" {
+					body["field_keys"] = []string{action.field}
 				} else {
 					body["tag_name"] = "forbidden-tag"
 				}

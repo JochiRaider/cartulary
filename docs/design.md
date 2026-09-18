@@ -988,8 +988,9 @@ Design contract. Responsive overflow MUST use the region assignment table below.
 | Columns control | View bar after Filters | View bar after Filters | View bar after Filters | Not required |
 | Active group/sort/filter chips | View bar after Columns; overflow remains in `Filters` | View bar after Columns; overflow remains in `Filters` | Inside the `Filters` popover | Not required |
 | Timeline Find | View bar after active chips or their overflow path | View bar after active chips or their overflow path | View bar after the `Filters` entry path, compact icon button | Not required |
-| Inspector opener | View bar after Timeline Find when present | View bar after Timeline Find when present | View bar after Timeline Find when present | Safe conflict access required |
-| Row-create action | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed | Not required |
+| Timeline Clear contents | View bar after Find, compact Clear caption | View bar after Find, icon button | View bar after Find, icon button | Safe selected-cell action when available |
+| Inspector opener | View bar after Timeline Clear contents when present | View bar after Timeline Clear contents when present; Timeline uses an icon button | View bar after Timeline Clear contents when present | Safe conflict access required |
+| Row-create action | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed; Timeline uses an icon button | View bar after the inspector opener when allowed | Not required |
 | Account/application menu | Upper-right top bar | Upper-right top bar | Upper-right top bar | Safe navigation location |
 | Primary save label | Status strip | Status strip | Status strip | Status strip when unsaved work exists |
 | Secondary status message | Status strip | Status strip with truncation rule | Accessible-only summary after primary label | Not required |
@@ -1216,6 +1217,24 @@ not complete a focus request; obsolete requests cannot restore focus.
 | Dialog | Triggering action | `Tab` trapped within dialog | `Enter` or `Space` activates focused action | Primary or destructive confirmation as declared | `Esc` safe-cancel only when declared | See §8.5 | Invoking control | Dialog safe control or shell top bar |
 | Same-field conflict resolver | Conflicted cell | `Tab` through compare and actions | `Enter` or `Space` activates focused resolution action | Explicit resolution action only | `Esc` closes resolver without committing | Close resolver | Conflicted cell | Active grid container |
 
+Timeline exposes a compact, keyboard-reachable `Clear contents` view-bar action
+after Find and before Inspector. Its visible caption is `Clear` at the base
+width and its eraser icon alone below that width; the full accessible name
+`Clear contents` and a descriptive tooltip remain available at every width.
+At narrow Timeline widths, Inspector and Add row use their existing icon-button
+treatment with complete accessible names and tooltips, preserving Find's label,
+the saved-view allocation and the required query-chip slots on one view-bar row.
+It invokes the same selected-cell planner as
+Delete, independently of record-checkbox actions. Focus borrowing preserves the
+range and MUST NOT blur-submit authoring. An unavailable action exposes a safe
+local reason and the existing authoring/recovery path; no confirmation form is
+required for an eligible clear. Editors, native text selections, embedded controls,
+menus and composition keep Delete ownership. Backspace retains empty-editor entry.
+Clear feedback distinguishes pending, rejected, uncertain, partial/conflicts-only,
+no-op, saved and saved-but-refresh-required results; null is never displayed as
+saved before acknowledgement. Comparison controls label null as `Cleared (null)`
+and an empty string as `Empty text`, independently of non-color conflict cues.
+
 ### 8.5 Escape priority ladder
 
 Design contract. When multiple dismissible layers are open, `Esc` MUST resolve exactly one layer using this priority order.
@@ -1287,7 +1306,8 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | Printable character | `grid_navigation` | Active cell writable; no higher-priority assigned application shortcut. | Enter `grid_edit`; seed editor with printed character; Timeline retains a valid multi-cell range. | None. | Yes. |
 | Printable character | `grid_navigation` | Active cell read-only; no higher-priority assigned application shortcut. | Do not mutate; expose read-only state. | None. | Yes. |
 | `Backspace` | `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
-| `Delete` | `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
+| `Delete` | Timeline `grid_navigation` | Unmodified; completed committed selection; Core 03 §13.3 eligibility. | Invoke explicit Clear contents for the current cell or rectangle; retain valid range and active cell. | One retained clear batch; local explanation on rejection. | Yes. |
+| `Delete` | non-Timeline `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
 | `Ctrl/Cmd+C` | `grid_navigation` or `grid_range_selection` | Selection exists. | Copy selected visible cell values using workbook copy presentation. | None. | Yes. |
 | `Ctrl/Cmd+F` | Timeline `grid_navigation` or `grid_range_selection` | Grid navigation owns the event. | Open or refocus Find under Core 03 §13.5. | Borrow focus without submitting or discarding authoring. | Yes, only in the owned context. |
 | `Ctrl/Cmd+V` | `grid_navigation` | Clipboard has text. | Dispatch base-profile paste handling for active surface. | Paste plan governs. | Yes. |

@@ -23,6 +23,7 @@ type SemanticGridCapabilityInput<Row> = Pick<
   | "draftRow"
   | "interactionMode"
   | "onFillCells"
+  | "onClearCells"
   | "surface"
 >;
 
@@ -69,6 +70,7 @@ function hasCoreMutationCapability<Row>(
     input.draftRow !== undefined ||
     input.interactionMode?.kind === "editable" ||
     input.onFillCells !== undefined ||
+    input.onClearCells !== undefined ||
     input.clipboardPaste !== undefined
   );
 }

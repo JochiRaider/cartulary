@@ -565,6 +565,42 @@
       ]
     },
     {
+      "row_id": "module.workbook.accessibility.timeline_clear",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_timeline_clear_accessibility"
+        ],
+        "titles": [
+          "a11y.timeline-clear selected-cell action retains keyboard access across supported layouts"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.accessibility.timeline_related_evidence",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -6159,6 +6195,36 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestPartiesSurface_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.integration.timeline_clear_cells",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestTimelineClearCellsAuthoritativeBatch_Integration",
+          "TestTimelineClearCellsConflictsRetainNull_Integration",
+          "TestTimelineClearDateIntent_Integration",
+          "TestTimelineClearPreservesRelationshipsAndHistory_Integration"
         ]
       },
       "evidence_class": "integration",

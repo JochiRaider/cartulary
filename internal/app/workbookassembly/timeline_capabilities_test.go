@@ -17,6 +17,7 @@ var _ TimelineOperations = (*timeline.Facade)(nil)
 
 func TestTimelineOperationsCapabilityBoundary_Unit(t *testing.T) {
 	wantMethods := []string{
+		"ApplyClearCells",
 		"ApplyClipboardPaste",
 		"ApplyFillDown",
 		"ApplyMultiRowTagAssignment",

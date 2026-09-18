@@ -73,6 +73,12 @@ func newTimelineBulkProvider(owner TimelineOperations) (workbook.BulkProvider, e
 			var result timeline.BatchMutationResult
 			var err error
 			switch request.Kind {
+			case timeline.OwnerBatchOperationClearCellsV1:
+				result, err = owner.ApplyClearCells(ctx, timeline.ClearCellsCommand{
+					Actor: command.Actor, IncidentID: command.IncidentID, ClientTxnID: request.ClientTxnID,
+					FieldKeys: request.FieldKeys, Targets: request.Targets,
+					RequestHash: timelineadmission.BulkMutationRequestHash(request), RequestID: command.RequestID, Now: command.Now,
+				})
 			case timeline.OwnerBatchOperationFillDownV1:
 				result, err = owner.ApplyFillDown(ctx, timeline.FillDownCommand{
 					Actor: command.Actor, IncidentID: command.IncidentID, ClientTxnID: request.ClientTxnID,

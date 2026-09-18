@@ -12,6 +12,7 @@ import (
 
 const (
 	OwnerBatchOperationClipboardPasteV1        = "clipboard_paste_v1"
+	OwnerBatchOperationClearCellsV1            = "clear_cells_v1"
 	OwnerBatchOperationFillDownV1              = "fill_down_v1"
 	OwnerBatchOperationMultiRowTagAssignmentV1 = "multi_row_tag_assignment_v1"
 )
@@ -56,6 +57,17 @@ type ClipboardPasteCommand struct {
 	ClientTxnID string
 	Plan        tabularingest.TabularRowPlanV1
 	BuildPlan   func() (tabularingest.TabularRowPlanV1, error)
+	Targets     []OwnerBatchTargetV1
+	RequestHash []byte
+	RequestID   string
+	Now         time.Time
+}
+
+type ClearCellsCommand struct {
+	Actor       authn.UserRecord
+	IncidentID  uuid.UUID
+	ClientTxnID string
+	FieldKeys   []string
 	Targets     []OwnerBatchTargetV1
 	RequestHash []byte
 	RequestID   string

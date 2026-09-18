@@ -5164,13 +5164,700 @@ export interface WorkbookBatchSameFieldConflict {
   [k: string]: unknown;
 }
 /**
+ * Explicit Timeline batch. clear_cells_v1 requires field_keys and forbids field_key, value and tag_name. Clear targets must be unique by record_id; target and field array order is preserved in request identity and conflict ordering. Unchanged targets are omitted from result rows; all-no-op and conflicts-only receipts have no change_set_id. Existing command meanings are unchanged.
+ *
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "WorkbookBulkMutationRequest".
  */
 export interface WorkbookBulkMutationRequest {
   client_txn_id: string;
   field_key?: string;
-  kind: "fill_down_v1" | "multi_row_tag_assignment_v1";
+  /**
+   * clear_cells_v1 only: ordered distinct clearable operational text fields. Each field on every explicit target is assigned authoritative null.
+   *
+   * @minItems 1
+   * @maxItems 10
+   */
+  field_keys?:
+    | [
+        | "timeline.date_entered_text"
+        | "timeline.analyst_text"
+        | "timeline.mitre_stage_text"
+        | "timeline.device_object_text"
+        | "timeline.ip_address_text"
+        | "timeline.activity_utc_text"
+        | "timeline.activity_local_text"
+        | "timeline.raw_activity_text"
+        | "timeline.activity_synopsis_text"
+        | "timeline.data_source_text"
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ]
+    | [
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        ),
+        (
+          | "timeline.date_entered_text"
+          | "timeline.analyst_text"
+          | "timeline.mitre_stage_text"
+          | "timeline.device_object_text"
+          | "timeline.ip_address_text"
+          | "timeline.activity_utc_text"
+          | "timeline.activity_local_text"
+          | "timeline.raw_activity_text"
+          | "timeline.activity_synopsis_text"
+          | "timeline.data_source_text"
+        )
+      ];
+  kind: "fill_down_v1" | "multi_row_tag_assignment_v1" | "clear_cells_v1";
   tag_name?: string;
   /**
    * @minItems 1

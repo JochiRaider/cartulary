@@ -178,6 +178,7 @@ type BulkMutationRequest struct {
 	ClientTxnID   string
 	Kind          string
 	FieldKey      string
+	FieldKeys     []string
 	Value         string
 	TagName       string
 	NormalizedTag string
@@ -194,6 +195,7 @@ func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkM
 		"client_txn_id":  {},
 		"kind":           {},
 		"field_key":      {},
+		"field_keys":     {},
 		"value":          {},
 		"tag_name":       {},
 		"targets":        {},
@@ -223,6 +225,17 @@ func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkM
 		return BulkMutationRequest{}, invalidMutationPayload("kind", "invalid_value")
 	}
 	switch request.Kind {
+	case timeline.OwnerBatchOperationClearCellsV1:
+		for _, forbidden := range []string{"field_key", "value", "tag_name"} {
+			if _, present := raw[forbidden]; present {
+				return BulkMutationRequest{}, invalidMutationPayload(forbidden, "forbidden_field")
+			}
+		}
+		if value, ok := raw["field_keys"]; !ok {
+			return BulkMutationRequest{}, invalidMutationPayload("field_keys", "missing_required_field")
+		} else if err := json.Unmarshal(value, &request.FieldKeys); err != nil || !mutationpolicy.ValidClearFields(request.FieldKeys) {
+			return BulkMutationRequest{}, invalidMutationPayload("field_keys", "invalid_value")
+		}
 	case timeline.OwnerBatchOperationFillDownV1:
 		if _, hasTag := raw["tag_name"]; hasTag {
 			return BulkMutationRequest{}, invalidMutationPayload("tag_name", "forbidden_field")
@@ -262,6 +275,11 @@ func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkM
 	default:
 		return BulkMutationRequest{}, invalidMutationPayload("kind", "invalid_value")
 	}
+	if request.Kind != timeline.OwnerBatchOperationClearCellsV1 {
+		if _, present := raw["field_keys"]; present {
+			return BulkMutationRequest{}, invalidMutationPayload("field_keys", "forbidden_field")
+		}
+	}
 	if value, ok := raw["targets"]; !ok {
 		return BulkMutationRequest{}, invalidMutationPayload("targets", "missing_required_field")
 	} else if err := decodeBatchTargets(value, false, &request.Targets); err != nil {
@@ -269,6 +287,15 @@ func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkM
 			return BulkMutationRequest{}, invalidMutationPayload("base_row_version", err.Error())
 		}
 		return BulkMutationRequest{}, invalidMutationPayload("targets", err.Error())
+	}
+	if request.Kind == timeline.OwnerBatchOperationClearCellsV1 {
+		seen := make(map[uuid.UUID]bool, len(request.Targets))
+		for _, target := range request.Targets {
+			if seen[target.RecordID] {
+				return BulkMutationRequest{}, invalidMutationPayload("targets", "duplicate_target")
+			}
+			seen[target.RecordID] = true
+		}
 	}
 	return request, nil
 }
@@ -279,6 +306,14 @@ func BulkMutationRequestHash(request BulkMutationRequest) []byte {
 		targets = append(targets, map[string]any{
 			"record_id":        target.RecordID.String(),
 			"base_row_version": target.BaseRowVersion,
+		})
+	}
+	if request.Kind == timeline.OwnerBatchOperationClearCellsV1 {
+		return valuecodec.CanonicalJSONSHA256(map[string]any{
+			"view_schema_id": request.ViewSchemaID,
+			"kind":           request.Kind,
+			"field_keys":     request.FieldKeys,
+			"targets":        targets,
 		})
 	}
 	fieldKey := request.FieldKey

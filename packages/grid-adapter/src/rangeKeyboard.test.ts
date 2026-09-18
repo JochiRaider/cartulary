@@ -5,6 +5,7 @@ import type {
   GridColumn,
   GridDataRow,
 } from "./core";
+import { captureSemanticClear, isClearNavigationKey } from "./semanticClear";
 import {
   decideSemanticGridKey,
   decideSpreadsheetNavigation,
@@ -273,5 +274,58 @@ describe("range keyboard entry", () => {
     expect(
       decideSemanticGridKey({ ...base, input: key("ArrowDown") }),
     ).toMatchObject({ kind: "navigate", range: null });
+  });
+});
+
+describe("selected-cell clear capture", () => {
+  it("captures reversed visible membership including offscreen rows without filtering fields", () => {
+    const range = { start: cell("3", "c"), end: cell("1", "a") };
+    const delivery = {};
+    const captured = captureSemanticClear(model, range.start, range, delivery);
+    expect(captured?.targets).toHaveLength(9);
+    expect(captured?.expandedRange).toEqual({
+      fieldKeys: ["a", "b", "c"],
+      rowIdentities: dataRows.map((row) => row.rowIdentity),
+    });
+    expect(captured?.targets[0]).toMatchObject({
+      rowIdentity: { recordId: "1" },
+      fieldKey: "a",
+      mutationIdentity: { baseRowVersion: 1 },
+    });
+    expect(captured?.anchor).toBe(range.start);
+    expect(captured?.delivery).toBe(delivery);
+    const reordered = { ...model, fieldKeys: ["c", "a"] };
+    expect(
+      captureSemanticClear(reordered, range.start, range)?.expandedRange
+        .fieldKeys,
+    ).toEqual(["c", "a"]);
+    expect(
+      captureSemanticClear(
+        {
+          ...model,
+          rowIdentities: dataRows.slice(1).map((row) => row.rowIdentity),
+        },
+        range.start,
+        range,
+      ),
+    ).toBeNull();
+    expect(
+      captureSemanticClear({ ...model, dataRows: [] }, range.start, range),
+    ).toBeNull();
+    expect(captureSemanticClear(model, null, null)).toBeNull();
+  });
+  it("admits only unmodified Delete as the optional clear chord", () => {
+    const event = {
+      key: "Delete",
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+    };
+    expect(isClearNavigationKey(event)).toBe(true);
+    for (const modifier of ["altKey", "ctrlKey", "metaKey", "shiftKey"])
+      expect(isClearNavigationKey({ ...event, [modifier]: true })).toBe(false);
+    for (const key of ["Backspace", "Enter", "F2"])
+      expect(isClearNavigationKey({ ...event, key })).toBe(false);
   });
 });

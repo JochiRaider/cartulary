@@ -1031,6 +1031,8 @@
         "apps/web/src/workbook/timeline/adapters/timelineProjectionCommitAdapter.ts",
         "apps/web/src/workbook/timeline/bulk/useTimelineBulkTagController.test.tsx",
         "apps/web/src/workbook/timeline/bulk/useTimelineBulkTagController.ts",
+        "apps/web/src/workbook/timeline/bulk/useTimelineClearController.test.tsx",
+        "apps/web/src/workbook/timeline/bulk/useTimelineClearController.ts",
         "apps/web/src/workbook/timeline/bulk/useTimelineFillController.test.tsx",
         "apps/web/src/workbook/timeline/bulk/useTimelineFillController.ts",
         "apps/web/src/workbook/timeline/collaboration/TimelineCollaborationBoundary.tsx",

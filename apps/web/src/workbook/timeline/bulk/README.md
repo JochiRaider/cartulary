@@ -2,7 +2,7 @@
 
 [Parent](../README.md) · [Source overview](../../../README.md)
 
-Timeline bulk tagging and fill workflows over stable record and field identities.
+Timeline clear, bulk tagging and fill workflows over stable record and field identities.
 
 Controllers capture current-page record identities and submitted values. The
 Workbook batch owner retains admitted operations, overlap ordering, receipts,
@@ -21,3 +21,7 @@ conflicts and recovery independently of controller lifetime.
 | --- | --- |
 | [useTimelineBulkTagController.test.tsx](useTimelineBulkTagController.test.tsx) | Tests current-page IDs, pruning, captured submission, same-frame delivery guarding, authorization and draft retention. |
 | [useTimelineFillController.test.tsx](useTimelineFillController.test.tsx) | Tests ordered scalar fill planning, unsupported-target rejection and semantic admission to retained recovery. |
+
+`useTimelineClearController.ts` owns the shared selected-cell clear planner and
+admission for Delete and the view-bar action. `useTimelineClearController.test.tsx`
+covers exact membership, capabilities, drafts and retained dispatch.

@@ -71,6 +71,88 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("createWorkbookClipboardPasteAdapter", () => {
+  it("retains exact clear bytes and rejects lossy null receipts", async () => {
+    const clear: WorkbookBatchPlan = {
+      operation: "applyWorkbookBulkMutation",
+      recordIds: [recordId],
+      request: {
+        kind: "clear_cells_v1",
+        view_schema_id: timelineViewSchemaId,
+        field_keys: [field],
+        targets: [{ record_id: recordId, base_row_version: 2 }],
+      },
+    };
+    const adapter = transport();
+    const attempt = adapter.capture(clear, authority, "txn-clear");
+    expect(JSON.parse(attempt.body)).toEqual({
+      ...clear.request,
+      client_txn_id: "txn-clear",
+    });
+    expect(attempt.path).toContain("/bulk-mutations");
+    const data = {
+      view_schema_id: timelineViewSchemaId,
+      rows: [],
+      conflicts: [{ ...conflict, client_value: null }],
+    };
+    expect(
+      validateWorkbookBatchReceipt(attempt, data)?.conflicts[0]?.client_value,
+    ).toBeNull();
+    expect(
+      validateWorkbookBatchReceipt(attempt, {
+        ...data,
+        conflicts: [{ ...conflict, client_value: "" }],
+      }),
+    ).toBeNull();
+    const cleared = fullWorkbookViewRow(
+      requireViewContract(timelineViewSchemaId),
+      recordId,
+      3,
+      { [field]: null },
+    );
+    const changed = {
+      ...data,
+      rows: [cleared],
+      conflicts: [],
+      change_set_id: changeSetId,
+    };
+    expect(
+      validateWorkbookBatchReceipt(attempt, changed)?.rows[0]?.cells[field]
+        ?.value,
+    ).toBeNull();
+    expect(
+      validateWorkbookBatchReceipt(attempt, {
+        ...changed,
+        rows: [
+          fullWorkbookViewRow(
+            requireViewContract(timelineViewSchemaId),
+            recordId,
+            3,
+            { [field]: "" },
+          ),
+        ],
+      }),
+    ).toBeNull();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce(successEnvelope({ ...changed, rows: [] }))
+      .mockResolvedValueOnce(successEnvelope(changed));
+    vi.stubGlobal("fetch", fetch);
+    expect(await adapter.send(attempt, new AbortController().signal)).toEqual({
+      kind: "uncertain",
+    });
+    expect(await adapter.send(attempt, new AbortController().signal)).toEqual({
+      kind: "uncertain",
+    });
+    expect(
+      await adapter.send(attempt, new AbortController().signal),
+    ).toMatchObject({ kind: "acknowledged" });
+    expect(fetch.mock.calls.map((call) => call[1]?.body)).toEqual([
+      attempt.body,
+      attempt.body,
+      attempt.body,
+    ]);
+  });
   it("sends one exact generated request and preserves typed rows and conflicts", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       successEnvelope({

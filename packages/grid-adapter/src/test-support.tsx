@@ -26,6 +26,7 @@ import {
   useState,
 } from "react";
 import { clipboardRepresentations } from "./clipboardCodec";
+import { captureSemanticClear, isClearNavigationKey } from "./semanticClear";
 
 export type {
   ClipboardDecodeResult,
@@ -205,7 +206,7 @@ function useTestSupportFocus<Row>(
     },
     [focusCommand, presentation],
   );
-  return { focusSemanticAnchor, publishActiveCell };
+  return { focusSemanticAnchor, publishActiveCell, activeCellRef };
 }
 
 function useTestSupportRange(
@@ -226,6 +227,7 @@ function useTestSupportRange(
 }
 
 function useTestSupportGridHandle<Row>({
+  activeCellRef,
   keyboardNavigation,
   rangeKeyboardEntry,
   rangeRef,
@@ -244,6 +246,7 @@ function useTestSupportGridHandle<Row>({
   setActiveEditor,
   surface,
 }: {
+  readonly activeCellRef: MutableRefObject<GridCellAnchor | null>;
   readonly keyboardNavigation: "region" | "spreadsheet";
   readonly rangeKeyboardEntry: "cycle" | undefined;
   readonly rangeRef: MutableRefObject<GridCellRange | null>;
@@ -316,6 +319,13 @@ function useTestSupportGridHandle<Row>({
   useImperativeHandle(
     ref,
     () => ({
+      captureClearIntent: (delivery) =>
+        captureSemanticClear(
+          latest.current.presentation,
+          activeCellRef.current,
+          rangeRef.current,
+          delivery,
+        ),
       activateEdit: (anchor, seed) => {
         const row = dataRows.find((candidate) =>
           gridRowIdentitiesEqual(candidate.rowIdentity, anchor.rowIdentity),
@@ -392,6 +402,7 @@ function useTestSupportGridHandle<Row>({
         semanticPresentationContainsAnchor(presentation, anchor),
     }),
     [
+      activeCellRef,
       activeEditor,
       focusRequests,
       keyboardNavigation,
@@ -1451,6 +1462,7 @@ function useSemanticDataGridTestSupport<Row>(
     onCellRangeChange,
     onCopyCell,
     onFillCells,
+    onClearCells,
     onSelectRow,
     onSortChange,
     dataRows: ownerDataRows,
@@ -1468,6 +1480,7 @@ function useSemanticDataGridTestSupport<Row>(
     draftRow: ownerDraftRow,
     interactionMode,
     onFillCells,
+    onClearCells,
     surface,
   });
   const effectiveInteractionMode = capabilities.interactionMode;
@@ -1512,12 +1525,11 @@ function useSemanticDataGridTestSupport<Row>(
       setActiveEditor(null);
   }, [activeEditor, editable, semanticPresentation, surface]);
   const focusCommand = useRef<GridHandle["requestFocus"] | null>(null);
-  const { focusSemanticAnchor, publishActiveCell } = useTestSupportFocus(
-    semanticPresentation,
-    focusCommand,
-    onActiveCellChange,
-  );
+  const clearEvents = useRef(new WeakSet<object>());
+  const { focusSemanticAnchor, publishActiveCell, activeCellRef } =
+    useTestSupportFocus(semanticPresentation, focusCommand, onActiveCellChange);
   const focusRequests = useTestSupportGridHandle({
+    activeCellRef,
     keyboardNavigation,
     rangeKeyboardEntry: cellRangeSelection?.keyboardEntry,
     rangeRef,
@@ -1582,6 +1594,33 @@ function useSemanticDataGridTestSupport<Row>(
     >
       <div
         className="cartulary-grid-state-frame"
+        onKeyDownCapture={(event) => {
+          if (
+            !onClearCells ||
+            !isClearNavigationKey(event) ||
+            event.nativeEvent.isComposing ||
+            !(event.target instanceof HTMLElement) ||
+            event.target.getAttribute("role") !== "gridcell" ||
+            window.getSelection()?.isCollapsed === false
+          )
+            return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.repeat || clearEvents.current.has(event.nativeEvent))
+            return;
+          clearEvents.current.add(event.nativeEvent);
+          const intent = captureSemanticClear(
+            semanticPresentation,
+            activeCellRef.current,
+            rangeRef.current,
+            event.nativeEvent,
+          );
+          if (intent) onClearCells(intent);
+          else
+            setKeyboardAnnouncement(
+              "Clear contents requires an available committed cell selection.",
+            );
+        }}
         style={
           {
             "--cartulary-grid-state-row-height": `${workbookGridRowHeightPx(density)}px`,

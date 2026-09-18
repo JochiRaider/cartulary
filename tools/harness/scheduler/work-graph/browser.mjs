@@ -436,8 +436,9 @@ function targetFinalizer(root, stage, target, groupUnits, resetUnits, needs, own
         target,
         "--groups",
         stage.groups.map((group) => group.name).sort(compareASCII).join(","),
-        "--group-targets",
-        groupTargets.join(","),
+        // The finalizer accumulates repeated mappings. Keep each argument
+        // bounded as the selected browser group inventory grows.
+        ...groupTargets.flatMap((entry) => ["--group-targets", entry]),
         "--children",
         target === stage.target ? stage.summaryChildren.join(",") : "",
         "--reset-prefix",

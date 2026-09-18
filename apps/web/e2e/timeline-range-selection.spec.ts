@@ -11,6 +11,7 @@ import {
   gridGroupRowTestId,
   gridScrollportSelector,
   rowCellTestId,
+  saveStateTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -1176,5 +1177,379 @@ test("Timeline pending range entry retains conflicts and cancels deleted destina
     } finally {
       await held.dispose();
     }
+  }
+});
+
+test("Timeline clear preserves reversed rectangles and commits one nullable batch", async ({
+  page,
+}) => {
+  const f = await seed(page, 3),
+    first = required(f.ids[0]),
+    second = required(f.ids[1]);
+  const attempts: string[] = [],
+    patches: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/bulk-mutations"))
+      attempts.push(required(request.postData()));
+    if (request.method() === "PATCH") patches.push(request.url());
+  });
+  await reveal(page, first, source);
+  await page
+    .getByRole("checkbox", { name: `Select record ${first}`, exact: true })
+    .check();
+  await drag(page, cell(page, second, source), cell(page, first));
+  await dimensions(page, 2, 2);
+  const response = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/bulk-mutations") &&
+      response.request().method() === "POST",
+  );
+  await page.keyboard.down("Delete");
+  await page.keyboard.down("Delete");
+  await page.keyboard.up("Delete");
+  const result = await (await response).json();
+  expect(result.data.rows).toHaveLength(2);
+  expect(result.data.conflicts).toEqual([]);
+  expect(result.data.change_set_id).toBeTruthy();
+  expect(attempts).toHaveLength(1);
+  expect(JSON.parse(required(attempts[0]))).toMatchObject({
+    kind: "clear_cells_v1",
+    view_schema_id: timelineViewSchemaId,
+    field_keys: [synopsis, source],
+    targets: [
+      { record_id: first, base_row_version: 1 },
+      { record_id: second, base_row_version: 1 },
+    ],
+  });
+  expect(JSON.parse(required(attempts[0]))).not.toHaveProperty("value");
+  await expect
+    .poll(async () =>
+      (await queryViewRows(page, f.incident, timelineViewSchemaId))
+        .filter((row) => [first, second].includes(row.record_id))
+        .map((row) => [
+          row.cells[synopsis]?.value,
+          row.cells[source]?.value,
+          row.row_version,
+        ]),
+    )
+    .toEqual([
+      [null, null, 2],
+      [null, null, 2],
+    ]);
+  await dimensions(page, 2, 2);
+  await expect(cell(page, first)).toBeFocused();
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  await expect(
+    page.getByRole("checkbox", { name: `Select record ${first}`, exact: true }),
+  ).toBeChecked();
+  const noOpResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/bulk-mutations") &&
+      response.request().method() === "POST",
+  );
+  const action = page.getByRole("button", {
+    name: "Clear contents",
+    exact: true,
+  });
+  await action.focus();
+  await page.keyboard.press("Enter");
+  const noOp = await (await noOpResponse).json();
+  expect(noOp.data.rows).toEqual([]);
+  expect(noOp.data.change_set_id).toBeUndefined();
+  await dimensions(page, 2, 2);
+  await expect(action).toBeFocused();
+  expect(attempts).toHaveLength(2);
+  expect(JSON.parse(required(attempts[0])).client_txn_id).not.toBe(
+    JSON.parse(required(attempts[1])).client_txn_id,
+  );
+  const duplicateResponse = page.waitForResponse((response) =>
+    response.url().endsWith("/bulk-mutations"),
+  );
+  await action.evaluate((button) => {
+    const delivery = new MouseEvent("click", { bubbles: true });
+    button.dispatchEvent(delivery);
+    button.dispatchEvent(delivery);
+  });
+  await duplicateResponse;
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  expect(attempts).toHaveLength(3);
+  expect(patches).toEqual([]);
+});
+
+test("Timeline clear rejects unsubmitted authoring and preserves native Delete", async ({
+  page,
+}) => {
+  const f = await seed(page, 2),
+    first = required(f.ids[0]);
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" ||
+      request.url().endsWith("/bulk-mutations")
+    )
+      writes.push(request.url());
+  });
+  await reveal(page, first);
+  await cell(page, first).click();
+  await editor(page, first).fill("Unsubmitted source");
+  await page
+    .getByRole("button", { name: "Clear contents", exact: true })
+    .click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "blocked by unsaved work" }),
+  ).toBeVisible();
+  await expect(editor(page, first)).toHaveValue("Unsubmitted source");
+  expect(writes).toEqual([]);
+  await editor(page, first).focus();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Delete");
+  await expect(editor(page, first)).toHaveValue("");
+  expect(writes).toEqual([]);
+  expect(
+    (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+      (row) => row.record_id === first,
+    )?.cells[synopsis]?.value,
+  ).toBe(required(f.rows[0]).cells[synopsis]?.value);
+});
+
+test("Timeline clear rejects mixed derived membership and respects closed access", async ({
+  page,
+}) => {
+  const f = await seed(page, 2),
+    first = required(f.ids[0]);
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/bulk-mutations")) writes.push(request.url());
+  });
+  const field = "timeline.evidence_count";
+  const menu = page.getByTestId(
+    workbookColumnsMenuTestId(timelineViewSchemaId),
+  );
+  await page
+    .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+    .click();
+  await menu
+    .getByRole("checkbox", {
+      name: required(requireViewContract(timelineViewSchemaId).fieldMap[field])
+        .label,
+      exact: true,
+    })
+    .check();
+  await menu
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await reveal(page, first);
+  await cell(page, first).click();
+  await page.keyboard.press("Escape");
+  await reveal(page, first, field);
+  await cell(page, first, field).click({ modifiers: ["Shift"] });
+  await page.keyboard.press("Delete");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "available, editable Timeline cells" }),
+  ).toBeVisible();
+  expect(writes).toEqual([]);
+  const lifecycle = await currentLifecycle(page, f.incident);
+  expect(
+    (
+      await lifecycleAction(page, f.incident, "closeIncident", {
+        client_txn_id: uniqueTxn("clear-close"),
+        base_incident_version: lifecycle.incident_version,
+        reason: "Clear closed access",
+      })
+    ).ok,
+  ).toBe(true);
+  await expect(grid(page)).toHaveAttribute("aria-readonly", "true");
+  await page
+    .getByRole("button", { name: "Clear contents", exact: true })
+    .click();
+  expect(writes).toEqual([]);
+});
+
+test("Timeline clear captures offscreen loaded membership and orders later overlapping edits", async ({
+  page,
+}) => {
+  const f = await seed(page, 120),
+    first = required(f.ids[0]),
+    last = required(f.ids[99]);
+  await reveal(page, first);
+  await cell(page, first).click();
+  await page.keyboard.press("Escape");
+  for (let i = 0; i < 99; i++) await page.keyboard.press("Shift+ArrowDown");
+  await expect(cell(page, first)).toHaveCount(0);
+  await expect(cell(page, last)).toBeFocused();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^Selected / }),
+  ).toHaveText("Selected 100 rows by 1 columns.");
+  const path = `/api/v1/incidents/${f.incident}/views/${timelineViewSchemaId}/bulk-mutations`;
+  const held = await holdBrowserRequest(page, { method: "POST", path });
+  const queries: string[] = [],
+    writes: { path: string; body: Record<string, unknown> }[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith(`/views/${timelineViewSchemaId}/query`))
+      queries.push(request.url());
+    if (request.url().endsWith(path) || request.method() === "PATCH")
+      writes.push({ path: request.url(), body: request.postDataJSON() });
+  });
+  try {
+    await page.keyboard.press("Delete");
+    await held.waitForHit;
+    expect(
+      (writes[0]?.body.targets as { record_id: string }[]).map(
+        (target) => target.record_id,
+      ),
+    ).toEqual(f.ids.slice(0, 100));
+    expect(queries).toEqual([]);
+    await expect(cell(page, last)).toContainText(
+      String(required(f.rows[99]).cells[synopsis]?.value),
+    );
+    await page.keyboard.type("Later value");
+    await page.keyboard.press("Tab");
+    expect(writes).toHaveLength(1);
+    held.release();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+            (row) => row.record_id === last,
+          )?.cells[synopsis]?.value,
+      )
+      .toBe("Later value");
+    expect(writes).toHaveLength(2);
+    expect(writes[1]?.body.base_row_version).toBe(2);
+    const saved = await queryViewRows(page, f.incident, timelineViewSchemaId);
+    expect(
+      saved
+        .filter((row) => f.ids.slice(0, 99).includes(row.record_id))
+        .every((row) => row.cells[synopsis]?.value === null),
+    ).toBe(true);
+    await reveal(page, last);
+    await cell(page, last).click();
+    await page.keyboard.press("Escape");
+    const next = await holdBrowserRequest(page, { method: "POST", path });
+    try {
+      await page.keyboard.press("Delete");
+      await next.waitForHit;
+      await page.keyboard.type("Still authoring");
+      await expect(editor(page, last)).toHaveValue("Still authoring");
+      next.release();
+      await expect
+        .poll(
+          async () =>
+            (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+              (row) => row.record_id === last,
+            )?.cells[synopsis]?.value,
+        )
+        .toBeNull();
+      await expect(editor(page, last)).toHaveValue("Still authoring");
+      await expect(editor(page, last)).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect
+        .poll(
+          async () =>
+            (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+              (row) => row.record_id === last,
+            )?.cells[synopsis]?.value,
+        )
+        .toBe("Still authoring");
+    } finally {
+      await next.dispose();
+    }
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline clear includes expanded group records and excludes collapsed membership", async ({
+  page,
+}) => {
+  const f = await seed(page, 4),
+    first = required(f.ids[0]),
+    second = required(f.ids[1]),
+    third = required(f.ids[2]);
+  await clickTimelineRowAction(
+    page,
+    first,
+    timelineRowMarkReviewedButtonTestId(first),
+  );
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  const groupId = gridGroupRowTestId(
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  await collapseGridGroup({
+    page,
+    surface: timelineViewSchemaId,
+    groupTestId: groupId,
+  });
+  await reveal(page, second, source);
+  await drag(page, cell(page, second), cell(page, third, source));
+  const response = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/bulk-mutations") &&
+      response.request().method() === "POST",
+  );
+  await page.keyboard.press("Delete");
+  const received = await response;
+  expect(received.ok()).toBe(true);
+  const request = received.request().postDataJSON();
+  expect(
+    request.targets.map((target: { record_id: string }) => target.record_id),
+  ).toEqual([second, third]);
+  expect(request.field_keys).toEqual([synopsis, source]);
+  const saved = await queryViewRows(page, f.incident, timelineViewSchemaId);
+  expect(
+    saved.find((row) => row.record_id === first)?.cells[synopsis]?.value,
+  ).toBe(required(f.rows[0]).cells[synopsis]?.value);
+});
+
+test("Timeline clear waits for captured autosave predecessors", async ({
+  page,
+}) => {
+  const f = await seed(page, 2),
+    first = required(f.ids[0]);
+  await reveal(page, first);
+  const held = await holdBrowserRequest(page, {
+    method: "PATCH",
+    path: `/api/v1/records/${first}`,
+  });
+  const writes: { method: string; body: Record<string, unknown> }[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" ||
+      request.url().endsWith("/bulk-mutations")
+    )
+      writes.push({ method: request.method(), body: request.postDataJSON() });
+  });
+  try {
+    await cell(page, first).click();
+    await editor(page, first).fill("Prior autosave");
+    await page.keyboard.press("Tab");
+    await held.waitForHit;
+    await page
+      .getByRole("button", { name: "Clear contents", exact: true })
+      .click();
+    expect(writes).toHaveLength(1);
+    held.release();
+    await expect.poll(() => writes.length).toBe(2);
+    expect(writes[1]).toMatchObject({
+      method: "POST",
+      body: {
+        kind: "clear_cells_v1",
+        targets: [{ record_id: first, base_row_version: 2 }],
+      },
+    });
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+            (row) => row.record_id === first,
+          )?.cells[synopsis]?.value,
+      )
+      .toBeNull();
+  } finally {
+    await held.dispose();
   }
 });

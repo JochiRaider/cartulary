@@ -142,3 +142,8 @@ focus, native editing, virtualization and layout behavior.
 `GridHandle.setAccessibleDescription` accepts caller context such as loaded-window
 limits. Adapter composes it with its own keyboard guidance and owns the DOM
 attribute; callers must not overwrite that presentation through the scrollport.
+
+The opt-in `onClearCells` intent captures visible semantic membership through
+`src/semanticClear.ts`. Unmodified Delete in navigation and
+`GridHandle.captureClearIntent` share this capture; source owners decide eligibility
+and mutation meaning. The adapter preserves native editor Delete and Backspace.

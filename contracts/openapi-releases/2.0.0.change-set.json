@@ -1784,6 +1784,42 @@
       "classification": "additive",
       "owner_id": "module.savedviews",
       "rationale": "Expose an independently authorized saved-resource read using the existing resource envelope and concealed missing-resource behavior."
+    },
+    {
+      "fingerprint": "2cf8619deb78788e88590c16c5ab42c29465841c950923d4b5acb760fb561a31",
+      "classification": "non_behavioral",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt explicit Timeline clear_cells_v1 with ordered semantic fields and targets assigning null. Existing command shapes, hashes, routes, and receipts retain their meaning; older servers reject clear."
+    },
+    {
+      "fingerprint": "9628758fa74c394d587cc2eec1c24a2852715fe35216379176757fcd88fd79a1",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt explicit Timeline clear_cells_v1 with ordered semantic fields and targets assigning null. Existing command shapes, hashes, routes, and receipts retain their meaning; older servers reject clear."
+    },
+    {
+      "fingerprint": "bc7f655a38969753546d6a2043a248ed04fda73cc12f8abd322d493976a2b04c",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt explicit Timeline clear_cells_v1 with ordered semantic fields and targets assigning null. Existing command shapes, hashes, routes, and receipts retain their meaning; older servers reject clear."
+    },
+    {
+      "fingerprint": "01bf180b08926ef058d84b260a800522fc91668a65b6fc7a0e0df0ecd2b04824",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt explicit Timeline clear_cells_v1 with ordered semantic fields and targets assigning null. Existing command shapes, hashes, routes, and receipts retain their meaning; older servers reject clear."
+    },
+    {
+      "fingerprint": "41ca5561f518783c852befad245446981ae6fc23689a79e3ea78b8f7ec3073ef",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt explicit Timeline clear_cells_v1 with ordered semantic fields and targets assigning null. Existing command shapes, hashes, routes, and receipts retain their meaning; older servers reject clear."
+    },
+    {
+      "fingerprint": "57c0bd409ecf663cba2bece9e8d7ecb069b43383ef34c658cf829c32073a6bc6",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt explicit Timeline clear_cells_v1 with ordered semantic fields and targets assigning null. Existing command shapes, hashes, routes, and receipts retain their meaning; older servers reject clear."
     }
   ]
 }

@@ -23,3 +23,10 @@ The retained Timeline mutation owner also exposes the file-draft promotion port.
 Screenshot-only creation and ordinary first input share its existing creation
 identity. [timelineFileDraftRecovery.test.ts](timelineFileDraftRecovery.test.ts)
 verifies both orderings, detached acceptance and follow-on edits.
+
+`createTimelineMutationDriver` receives accepted clear predecessors through the
+Workbook driver registry. It advances later undispatched scalar baselines without
+altering exact dispatched attempts or conflicted fields. The editor draft registry
+retains newer authoring, including an editor still open at acknowledgement.
+`useTimelineRowMutationCoordinator.applyAcceptedBatchRows` publishes a complete
+batch receipt in one projection commit and preserves existing mention notices.
