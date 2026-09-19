@@ -1,10 +1,8 @@
 package harnesscontrol
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,24 +13,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-const testNetworkFlowFaultSchemaID = "cartulary.test.network_flow_fault_control.v1"
+const testNetworkFlowFaultSchemaID = "cartulary.test.network_flow_fault_control.v2"
 
 const (
-	NetworkFlowFaultBoundaryImportBeforeOwnerPrepare                = "network_flow.import.before_owner_prepare"
-	NetworkFlowFaultBoundaryImportAfterOwnerPrepare                 = "network_flow.import.after_owner_prepare"
-	NetworkFlowFaultBoundaryImportAfterIndicatorPrepare             = "network_flow.import.after_indicator_prepare"
-	NetworkFlowFaultBoundaryImportAfterAuditPrepare                 = "network_flow.import.after_audit_prepare"
-	NetworkFlowFaultBoundaryImportAfterIdempotencyPrepare           = "network_flow.import.after_idempotency_prepare"
-	NetworkFlowFaultBoundaryImportAfterTerminalPublicationPrepare   = "network_flow.import.after_terminal_publication_prepare"
+	NetworkFlowFaultBoundaryImportBeforeOwnerApply                  = "network_flow.import.before_owner_apply"
+	NetworkFlowFaultBoundaryImportAfterOwnerApply                   = "network_flow.import.after_owner_apply"
 	NetworkFlowFaultBoundaryImportBeforeTransactionCommit           = "network_flow.import.before_transaction_commit"
 	NetworkFlowFaultBoundaryImportAfterTransactionCommitBeforeReply = "network_flow.import.after_transaction_commit_before_reply"
 	NetworkFlowFaultBoundaryWorkerBeforeHandlerStart                = "network_flow.worker.before_handler_start"
-	NetworkFlowFaultBoundaryWorkerBeforeApplyStart                  = "network_flow.worker.before_apply_start"
 	NetworkFlowFaultBoundaryWorkerBeforeCancellationCheck           = "network_flow.worker.before_cancellation_check"
 	NetworkFlowFaultBoundaryWorkerBeforeFinalCommit                 = "network_flow.worker.before_final_commit"
-	NetworkFlowFaultBoundaryWorkerAfterFinalCommitBeforePublication = "network_flow.worker.after_final_commit_before_terminal_publication"
-	NetworkFlowFaultBoundaryWorkerAfterPublicationBeforeAck         = "network_flow.worker.after_terminal_publication_before_ack"
-	NetworkFlowFaultBoundaryWorkerBeforeReplayReconciliation        = "network_flow.worker.before_replay_reconciliation"
+	NetworkFlowFaultBoundaryWorkerAfterCompletedPublication         = "network_flow.worker.after_completed_publication"
 )
 
 const (
@@ -45,21 +36,14 @@ const (
 
 var (
 	networkFlowFaultBoundaries = map[string]struct{}{
-		NetworkFlowFaultBoundaryImportBeforeOwnerPrepare:                {},
-		NetworkFlowFaultBoundaryImportAfterOwnerPrepare:                 {},
-		NetworkFlowFaultBoundaryImportAfterIndicatorPrepare:             {},
-		NetworkFlowFaultBoundaryImportAfterAuditPrepare:                 {},
-		NetworkFlowFaultBoundaryImportAfterIdempotencyPrepare:           {},
-		NetworkFlowFaultBoundaryImportAfterTerminalPublicationPrepare:   {},
+		NetworkFlowFaultBoundaryImportBeforeOwnerApply:                  {},
+		NetworkFlowFaultBoundaryImportAfterOwnerApply:                   {},
 		NetworkFlowFaultBoundaryImportBeforeTransactionCommit:           {},
 		NetworkFlowFaultBoundaryImportAfterTransactionCommitBeforeReply: {},
 		NetworkFlowFaultBoundaryWorkerBeforeHandlerStart:                {},
-		NetworkFlowFaultBoundaryWorkerBeforeApplyStart:                  {},
 		NetworkFlowFaultBoundaryWorkerBeforeCancellationCheck:           {},
 		NetworkFlowFaultBoundaryWorkerBeforeFinalCommit:                 {},
-		NetworkFlowFaultBoundaryWorkerAfterFinalCommitBeforePublication: {},
-		NetworkFlowFaultBoundaryWorkerAfterPublicationBeforeAck:         {},
-		NetworkFlowFaultBoundaryWorkerBeforeReplayReconciliation:        {},
+		NetworkFlowFaultBoundaryWorkerAfterCompletedPublication:         {},
 	}
 
 	networkFlowFaultKinds = map[string]struct{}{
@@ -213,19 +197,8 @@ func (s *networkFlowFaultService) handleArm(w http.ResponseWriter, r *http.Reque
 
 func decodeNetworkFlowFaultRequest(r *http.Request) (networkFlowFaultRequest, error) {
 	var request networkFlowFaultRequest
-	if r.Body == nil {
-		return request, errors.New("body is required")
-	}
-	defer r.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil {
-		return request, fmt.Errorf("decode body: %w", err)
-	}
-	if decoder.Decode(&struct{}{}) != io.EOF {
-		return request, errors.New("body must contain a single JSON object")
-	}
-	return request, nil
+	err := decodeControlRequest(r, &request, "boundary", "fault_kind", "consume_once")
+	return request, err
 }
 
 func (r networkFlowFaultRequest) networkFlowFault() (NetworkFlowFault, error) {
@@ -241,8 +214,8 @@ func (r networkFlowFaultRequest) networkFlowFault() (NetworkFlowFault, error) {
 	if !r.ConsumeOnce {
 		return NetworkFlowFault{}, errors.New("consume_once must be true")
 	}
-	if isWorkerFaultKind(faultKind) && !strings.HasPrefix(boundary, "network_flow.worker.") {
-		return NetworkFlowFault{}, errors.New("worker fault kinds require a worker boundary")
+	if !validFaultCombination(boundary, faultKind) {
+		return NetworkFlowFault{}, errors.New("fault_kind is not supported at this boundary")
 	}
 	if faultKind == NetworkFlowFaultKindReturnError {
 		if !isSafeNetworkFlowFaultErrorCode(errorCode) {
@@ -267,8 +240,17 @@ func (r networkFlowFaultRequest) networkFlowFault() (NetworkFlowFault, error) {
 	}, nil
 }
 
-func isWorkerFaultKind(faultKind string) bool {
-	return faultKind == NetworkFlowFaultKindWorkerCrash || faultKind == NetworkFlowFaultKindWorkerCancel
+func validFaultCombination(boundary, kind string) bool {
+	switch kind {
+	case NetworkFlowFaultKindWorkerCancel:
+		return boundary == NetworkFlowFaultBoundaryWorkerBeforeCancellationCheck
+	case NetworkFlowFaultKindWorkerCrash:
+		return boundary == NetworkFlowFaultBoundaryWorkerBeforeHandlerStart || boundary == NetworkFlowFaultBoundaryWorkerBeforeFinalCommit || boundary == NetworkFlowFaultBoundaryWorkerAfterCompletedPublication
+	case NetworkFlowFaultKindPanic, NetworkFlowFaultKindCancelContext:
+		return boundary != NetworkFlowFaultBoundaryImportAfterTransactionCommitBeforeReply && boundary != NetworkFlowFaultBoundaryWorkerAfterCompletedPublication
+	default:
+		return true
+	}
 }
 
 func isSafeNetworkFlowFaultErrorCode(value string) bool {

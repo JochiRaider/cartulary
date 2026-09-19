@@ -83,7 +83,7 @@ func TestNetworkFlowRandomnessRouteArmsDeterministicCollisionStream(t *testing.T
 		t.Fatalf("unexpected count/control response: %#v", data)
 	}
 
-	if _, ok, err := random.ConsumeNetworkFlowRandomUUID(NetworkFlowRandomStreamRowID); err != nil || ok {
+	if _, ok, err := random.ConsumeNetworkFlowRandomUUID(NetworkFlowRandomStreamCursorNonce); err != nil || ok {
 		t.Fatalf("wrong stream must be absent, got ok=%v err=%v", ok, err)
 	}
 	first, ok, err := random.ConsumeNetworkFlowRandomUUID(NetworkFlowRandomStreamTableID)
@@ -128,23 +128,23 @@ func TestNetworkFlowRandomnessRouteConsumesHexBytes(t *testing.T) {
 	server := startNetworkFlowRandomnessHTTPServer(t, testRuntimeEnabledEnv(), random)
 
 	body := map[string]any{
-		"stream":       NetworkFlowRandomStreamSafeDigestNonce,
+		"stream":       NetworkFlowRandomStreamCursorNonce,
 		"value_kind":   NetworkFlowRandomValueKindHexBytes,
-		"values":       []string{"000102ff"},
+		"values":       []string{"000102030405060708090aff"},
 		"consume_once": true,
 		"exhaustion":   networkFlowRandomnessExhaustionFailClosed,
 	}
 	arm := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-randomness", body))
 	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), arm), http.StatusCreated)
 
-	value, ok, err := random.ConsumeNetworkFlowRandomHexBytes(NetworkFlowRandomStreamSafeDigestNonce)
+	value, ok, err := random.ConsumeNetworkFlowRandomHexBytes(NetworkFlowRandomStreamCursorNonce)
 	if err != nil || !ok {
 		t.Fatalf("expected deterministic hex bytes, ok=%v err=%v", ok, err)
 	}
-	if got := hex.EncodeToString(value); got != "000102ff" {
+	if got := hex.EncodeToString(value); got != "000102030405060708090aff" {
 		t.Fatalf("unexpected deterministic bytes: %s", got)
 	}
-	if _, ok, err := random.ConsumeNetworkFlowRandomString(NetworkFlowRandomStreamSafeDigestNonce); ok || !errors.Is(err, ErrNetworkFlowRandomnessKindMismatch) {
+	if _, ok, err := random.ConsumeNetworkFlowRandomUUID(NetworkFlowRandomStreamCursorNonce); ok || !errors.Is(err, ErrNetworkFlowRandomnessKindMismatch) {
 		t.Fatalf("wrong value-kind consumer must fail closed, ok=%v err=%v", ok, err)
 	}
 }
@@ -159,8 +159,8 @@ func TestNetworkFlowRandomnessRouteRejectsInvalidRequests(t *testing.T) {
 		{"stream": NetworkFlowRandomStreamTableID, "value_kind": "integer", "values": []string{"01234567-89ab-cdef-0123-456789abcdef"}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
 		{"stream": NetworkFlowRandomStreamTableID, "value_kind": NetworkFlowRandomValueKindUUID, "values": []string{}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
 		{"stream": NetworkFlowRandomStreamTableID, "value_kind": NetworkFlowRandomValueKindUUID, "values": []string{"01234567-89AB-cdef-0123-456789abcdef"}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
-		{"stream": NetworkFlowRandomStreamCursorNonce, "value_kind": NetworkFlowRandomValueKindToken, "values": []string{"bad token"}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
-		{"stream": NetworkFlowRandomStreamSafeDigestNonce, "value_kind": NetworkFlowRandomValueKindHexBytes, "values": []string{"FF"}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
+		{"stream": NetworkFlowRandomStreamCursorNonce, "value_kind": "token", "values": []string{"bad token"}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
+		{"stream": NetworkFlowRandomStreamCursorNonce, "value_kind": NetworkFlowRandomValueKindHexBytes, "values": []string{"FF"}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
 		{"stream": NetworkFlowRandomStreamTableID, "value_kind": NetworkFlowRandomValueKindUUID, "values": []string{"01234567-89ab-cdef-0123-456789abcdef"}, "consume_once": false, "exhaustion": networkFlowRandomnessExhaustionFailClosed},
 		{"stream": NetworkFlowRandomStreamTableID, "value_kind": NetworkFlowRandomValueKindUUID, "values": []string{"01234567-89ab-cdef-0123-456789abcdef"}, "consume_once": true, "exhaustion": "fallback"},
 		{"stream": NetworkFlowRandomStreamTableID, "value_kind": NetworkFlowRandomValueKindUUID, "values": []string{"01234567-89ab-cdef-0123-456789abcdef"}, "consume_once": true, "exhaustion": networkFlowRandomnessExhaustionFailClosed, "unexpected": true},

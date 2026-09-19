@@ -1479,53 +1479,12 @@ export interface IndicatorLinkResult {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "SourceProfileList".
+ * via the `definition` "TableList".
  */
-export interface SourceProfileList {
-  schema_id: "cartulary.network_flow.source_profile_list.v1";
-  source_profiles: SourceProfile[];
-  effective_limits: EffectiveLimits;
+export interface TableList {
+  schema_id: "cartulary.network_flow_table_list.v1";
+  tables: NetworkFlowTable[];
   meta: CountMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "SourceProfile".
- */
-export interface SourceProfile {
-  source_profile_id: "cisco_sna_netflow_csv_v1";
-  display_name: "Cisco Secure Network Analytics NetFlow CSV";
-  conformance_status: "required_v1";
-  default_parser_profile_id: "rfc4180_headered_csv_v1";
-  required_field_keys: FieldKey[];
-  optional_field_keys: FieldKey[];
-  system_derived_field_keys: "network_flow.observation_source_ref"[];
-  supported_timestamp_modes: ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "EffectiveLimits".
- */
-export interface EffectiveLimits {
-  "network_flow.max_active_tables_per_incident": PositiveInt;
-  "network_flow.max_retained_tables_per_incident": PositiveInt;
-  "network_flow.max_selected_tables_per_query": PositiveInt;
-  "network_flow.max_columns_per_csv": PositiveInt;
-  "network_flow.max_header_scalar_length": PositiveInt;
-  "network_flow.max_raw_cell_scalar_length": PositiveInt;
-  "network_flow.max_rows_per_csv": PositiveInt;
-  "network_flow.max_accepted_rows_per_table": PositiveInt;
-  "network_flow.max_rejected_row_diagnostics": NonNegativeInt;
-  "network_flow.max_filters_per_query": NonNegativeInt;
-  "network_flow.max_sorts_per_query": NonNegativeInt;
-  "network_flow.max_query_limit": PositiveInt;
-  "network_flow.max_graph_vertices": PositiveInt;
-  "network_flow.max_graph_edges": NonNegativeInt;
-  "network_flow.max_example_row_refs_per_edge": NonNegativeInt;
-  "network_flow.max_binding_source_row_refs": PositiveInt;
-  "network_flow.max_aggregate_counter_digits": PositiveInt;
-  "network_flow.max_active_graph_views_per_incident": 32;
-  "network_flow.max_retained_graph_views_per_incident": 128;
-  "network_flow.max_nonterminal_graph_jobs_per_incident": 4;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -1533,15 +1492,6 @@ export interface EffectiveLimits {
  */
 export interface CountMeta {
   count: NonNegativeInt;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "TableList".
- */
-export interface TableList {
-  schema_id: "cartulary.network_flow_table_list.v1";
-  tables: NetworkFlowTable[];
-  meta: CountMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -1905,6 +1855,20 @@ export interface GraphResultLimits {
  */
 export interface ContributorMeta {
   paging: PagingMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "SourceProfile".
+ */
+export interface SourceProfile {
+  source_profile_id: "cisco_sna_netflow_csv_v1";
+  display_name: "Cisco Secure Network Analytics NetFlow CSV";
+  conformance_status: "required_v1";
+  default_parser_profile_id: "rfc4180_headered_csv_v1";
+  required_field_keys: FieldKey[];
+  optional_field_keys: FieldKey[];
+  system_derived_field_keys: "network_flow.observation_source_ref"[];
+  supported_timestamp_modes: ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema

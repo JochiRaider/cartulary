@@ -70,7 +70,7 @@ type graphViewMaterializationPayload struct {
 func (payload graphViewMaterializationPayload) valid() bool {
 	return payload.SchemaID == "cartulary.network_flow.graph_view_materialization_payload.v1" &&
 		payload.IncidentID != uuid.Nil && graphViewIDPattern.MatchString(payload.GraphViewID) &&
-		payload.MaterializationGeneration > 0 && payload.SourceSnapshotID != ""
+		payload.MaterializationGeneration > 0 && sourceSnapshotIDPattern.MatchString(payload.SourceSnapshotID)
 }
 
 func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution jobs.Execution) error {
@@ -98,7 +98,12 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		}
 		return err
 	}
-	if err := json.Unmarshal(rawPayload, &payload); err != nil || !payload.valid() {
+	expectedIncident := uuid.Nil
+	if job.Scope.IncidentID != nil {
+		expectedIncident = *job.Scope.IncidentID
+	}
+	payload, err = decodeGraphViewMaterializationPayload(rawPayload, expectedIncident)
+	if err != nil {
 		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
 	submitterID, err := uuid.Parse(job.SubmittedByUserID)

@@ -2,13 +2,11 @@ package networkflow
 
 import (
 	"encoding/json"
-
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 // The link boundary validates the full echoed query without changing graph or
 // contributor admission. Current effective limits apply only after replay.
-func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSemanticRequest, *httpapi.APIError) {
+func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSemanticRequest, *semanticFailure) {
 	object, apiErr := linkObject(raw, "graph_query")
 	if apiErr != nil {
 		return graphSemanticRequest{}, apiErr
@@ -18,15 +16,15 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	}
 	var tables []string
 	if json.Unmarshal(object["selected_table_ids"], &tables) != nil || len(tables) < 1 || len(tables) > 64 {
-		return graphSemanticRequest{}, invalidNetworkFlowRequestHTTP("selected_table_ids", "type_mismatch")
+		return graphSemanticRequest{}, invalidNetworkFlowRequest("selected_table_ids", "type_mismatch")
 	}
 	seen := map[string]bool{}
 	for _, id := range tables {
 		if !linkTableIDPattern.MatchString(id) {
-			return graphSemanticRequest{}, invalidNetworkFlowRequestHTTP("selected_table_ids", "type_mismatch")
+			return graphSemanticRequest{}, invalidNetworkFlowRequest("selected_table_ids", "type_mismatch")
 		}
 		if seen[id] {
-			return graphSemanticRequest{}, &httpapi.APIError{Status: 400, Code: "network_flow_invalid_table_scope", Details: map[string]any{"reason_code": "duplicate_table_id", "mode": "selected_tables", "table_ids": tables, "limit_key": nil, "retry_action": "correct_request"}}
+			return graphSemanticRequest{}, &semanticFailure{kind: failureInvalidTableScope, reason: "duplicate_table_id", details: failureDetails{TableIDs: tables, LinkGraph: true}}
 		}
 		seen[id] = true
 	}
@@ -47,7 +45,7 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	var filters []json.RawMessage
 	_ = json.Unmarshal(object["filters"], &filters)
 	if len(filters) > 16 {
-		return graphSemanticRequest{}, invalidNetworkFlowRequestHTTP("filters", "type_mismatch")
+		return graphSemanticRequest{}, invalidNetworkFlowRequest("filters", "type_mismatch")
 	}
 	for _, filter := range filters {
 		entry, err := linkObject(filter, "filters")
@@ -66,19 +64,19 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	admissionLimits := limits
 	admissionLimits.MaxSelectedTablesPerQuery = 64
 	admissionLimits.MaxFiltersPerQuery = 16
-	query, apiErr := decodeGraphSemanticRequestHTTP(raw, admissionLimits)
-	if apiErr != nil && apiErr.Code == "network_flow_invalid_filter" {
+	query, apiErr := decodeGraphSemanticRequest(raw, admissionLimits)
+	if apiErr != nil && apiErr.kind == failureInvalidFilter {
 		// Preserve filter input ordering and safe structural context, never values.
 		for index := range filters {
 			prefix, _ := json.Marshal(filters[:index+1])
-			if _, err := decodeFiltersHTTP(prefix, admissionLimits); err != nil {
+			if _, err := decodeFilters(prefix, admissionLimits); err != nil {
 				var entry map[string]json.RawMessage
 				_ = json.Unmarshal(filters[index], &entry)
-				apiErr.Details["field_key"] = linkNullable(linkString(entry, "field_key"))
-				apiErr.Details["op"] = linkNullable(linkString(entry, "op"))
-				apiErr.Details["filter_index"] = index
-				if apiErr.Details["reason_code"] == "value_forbidden" {
-					apiErr.Details["reason_code"] = "invalid_value"
+				apiErr.details.FieldKey = optionalStringPtr(linkString(entry, "field_key"))
+				apiErr.details.Op = optionalStringPtr(linkString(entry, "op"))
+				apiErr.details.FilterIndex = &index
+				if apiErr.reason == "value_forbidden" {
+					apiErr.reason = "invalid_value"
 				}
 				break
 			}
@@ -92,30 +90,13 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	return query, nil
 }
 
-func completeLinkGraphError(apiErr *httpapi.APIError, tables []string) *httpapi.APIError {
-	if apiErr.Details == nil {
-		apiErr.Details = map[string]any{}
+func completeLinkGraphError(f *semanticFailure, tables []string) *semanticFailure {
+	f.details.LinkGraph = true
+	if f.details.TableIDs == nil {
+		f.details.TableIDs = append([]string{}, tables...)
 	}
-	if _, ok := apiErr.Details["retry_action"]; !ok {
-		apiErr.Details["retry_action"] = "correct_request"
+	if f.kind == failureInvalidRequest && f.reason == "invalid_timestamp" {
+		f.reason = "type_mismatch"
 	}
-	if apiErr.Code == "network_flow_invalid_table_scope" {
-		if _, ok := apiErr.Details["mode"]; !ok {
-			apiErr.Details["mode"] = "selected_tables"
-		}
-		if _, ok := apiErr.Details["table_ids"]; !ok {
-			if tables == nil {
-				tables = []string{}
-			}
-			apiErr.Details["table_ids"] = tables
-		}
-		if _, ok := apiErr.Details["limit_key"]; !ok {
-			apiErr.Details["limit_key"] = nil
-		}
-	}
-	// A missing/null scalar was handled before semantic query normalization.
-	if apiErr.Code == "network_flow_invalid_request" && apiErr.Details["reason_code"] == "invalid_timestamp" {
-		apiErr.Details["reason_code"] = "type_mismatch"
-	}
-	return apiErr
+	return f
 }

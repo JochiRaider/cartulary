@@ -2,36 +2,26 @@ package harnesscontrol
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
-	"unicode"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-const testNetworkFlowRandomnessSchemaID = "cartulary.test.network_flow_randomness_control.v1"
+const testNetworkFlowRandomnessSchemaID = "cartulary.test.network_flow_randomness_control.v2"
 
 const (
-	NetworkFlowRandomStreamTableID           = "network_flow.table_id"
-	NetworkFlowRandomStreamRowID             = "network_flow.row_id"
-	NetworkFlowRandomStreamDiagnosticID      = "network_flow.diagnostic_id"
-	NetworkFlowRandomStreamImportJobID       = "network_flow.import_job_id"
-	NetworkFlowRandomStreamImportSourceRef   = "network_flow.import_source_ref"
-	NetworkFlowRandomStreamCursorNonce       = "network_flow.cursor_nonce"
-	NetworkFlowRandomStreamSafeDigestNonce   = "network_flow.safe_digest_nonce"
-	NetworkFlowRandomStreamGraphInvocationID = "network_flow.graph_invocation_id"
+	NetworkFlowRandomStreamTableID     = "network_flow.table_id"
+	NetworkFlowRandomStreamCursorNonce = "network_flow.cursor_nonce"
 )
 
 const (
 	NetworkFlowRandomValueKindUUID     = "uuid"
-	NetworkFlowRandomValueKindToken    = "token"
 	NetworkFlowRandomValueKindHexBytes = "hex_bytes"
 )
 
@@ -44,19 +34,12 @@ var (
 
 var (
 	networkFlowRandomStreams = map[string]struct{}{
-		NetworkFlowRandomStreamTableID:           {},
-		NetworkFlowRandomStreamRowID:             {},
-		NetworkFlowRandomStreamDiagnosticID:      {},
-		NetworkFlowRandomStreamImportJobID:       {},
-		NetworkFlowRandomStreamImportSourceRef:   {},
-		NetworkFlowRandomStreamCursorNonce:       {},
-		NetworkFlowRandomStreamSafeDigestNonce:   {},
-		NetworkFlowRandomStreamGraphInvocationID: {},
+		NetworkFlowRandomStreamTableID:     {},
+		NetworkFlowRandomStreamCursorNonce: {},
 	}
 
 	networkFlowRandomValueKinds = map[string]struct{}{
 		NetworkFlowRandomValueKindUUID:     {},
-		NetworkFlowRandomValueKindToken:    {},
 		NetworkFlowRandomValueKindHexBytes: {},
 	}
 )
@@ -129,10 +112,6 @@ func RegisterNetworkFlowRandomnessRoutes(random *NetworkFlowRandomnessRegistry) 
 		mux.HandleFunc("POST /api/v1/test/runtime/network-flow-randomness", service.handleArm)
 		return nil
 	}
-}
-
-func (r *NetworkFlowRandomnessRegistry) ConsumeNetworkFlowRandomString(stream string) (string, bool, error) {
-	return r.consume(stream, NetworkFlowRandomValueKindToken)
 }
 
 func (r *NetworkFlowRandomnessRegistry) ConsumeNetworkFlowRandomUUID(stream string) (uuid.UUID, bool, error) {
@@ -271,19 +250,8 @@ func (s *networkFlowRandomnessService) handleArm(w http.ResponseWriter, r *http.
 
 func decodeNetworkFlowRandomnessRequest(r *http.Request) (networkFlowRandomnessRequest, error) {
 	var request networkFlowRandomnessRequest
-	if r.Body == nil {
-		return request, errors.New("body is required")
-	}
-	defer r.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil {
-		return request, fmt.Errorf("decode body: %w", err)
-	}
-	if decoder.Decode(&struct{}{}) != io.EOF {
-		return request, errors.New("body must contain a single JSON object")
-	}
-	return request, nil
+	err := decodeControlRequest(r, &request, "stream", "value_kind", "values", "consume_once", "exhaustion")
+	return request, err
 }
 
 func (r networkFlowRandomnessRequest) networkFlowRandomnessStream() (networkFlowRandomnessStream, error) {
@@ -295,6 +263,9 @@ func (r networkFlowRandomnessRequest) networkFlowRandomnessStream() (networkFlow
 	}
 	if _, ok := networkFlowRandomValueKinds[valueKind]; !ok {
 		return networkFlowRandomnessStream{}, errors.New("value_kind is not supported")
+	}
+	if (stream == NetworkFlowRandomStreamTableID && valueKind != NetworkFlowRandomValueKindUUID) || (stream == NetworkFlowRandomStreamCursorNonce && valueKind != NetworkFlowRandomValueKindHexBytes) {
+		return networkFlowRandomnessStream{}, errors.New("value_kind does not match stream")
 	}
 	if len(r.Values) == 0 || len(r.Values) > 256 {
 		return networkFlowRandomnessStream{}, errors.New("values must include 1..256 deterministic entries")
@@ -331,13 +302,9 @@ func validateNetworkFlowRandomnessValue(valueKind string, value string) error {
 		if parsed.String() != value {
 			return errors.New("must be canonical lowercase UUID text")
 		}
-	case NetworkFlowRandomValueKindToken:
-		if !isNetworkFlowRandomnessToken(value) {
-			return errors.New("must be an ASCII token no longer than 128 characters")
-		}
 	case NetworkFlowRandomValueKindHexBytes:
 		if !isNetworkFlowRandomnessHexBytes(value) {
-			return errors.New("must be lowercase even-length hex bytes no longer than 512 characters")
+			return errors.New("must be exactly 12 bytes encoded as lowercase hex")
 		}
 	default:
 		return errors.New("unsupported value kind")
@@ -345,29 +312,8 @@ func validateNetworkFlowRandomnessValue(valueKind string, value string) error {
 	return nil
 }
 
-func isNetworkFlowRandomnessToken(value string) bool {
-	if value == "" || len(value) > 128 {
-		return false
-	}
-	for _, r := range value {
-		if r > unicode.MaxASCII {
-			return false
-		}
-		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			continue
-		}
-		switch r {
-		case '.', '_', ':', '-':
-			continue
-		default:
-			return false
-		}
-	}
-	return true
-}
-
 func isNetworkFlowRandomnessHexBytes(value string) bool {
-	if value == "" || len(value) > 512 || len(value)%2 != 0 {
+	if len(value) != 24 {
 		return false
 	}
 	for _, r := range value {

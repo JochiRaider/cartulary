@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,6 +47,7 @@ type ServerHarness struct {
 }
 
 type ServerOptions struct {
+	ConfigureRuntime          func(*server.Options)
 	Prefix                    string
 	Database                  *pgtest.TestDatabase
 	Env                       map[string]string
@@ -263,6 +265,7 @@ func (r *Runtime) startServer(
 	}
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{
+		ConfigureRuntime: options.ConfigureRuntime,
 		Env:              env,
 		Dependencies:     options.Dependencies,
 		AdditionalRoutes: append([]httpapi.RouteRegistrar(nil), options.AdditionalRoutes...),

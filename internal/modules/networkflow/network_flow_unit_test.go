@@ -335,11 +335,11 @@ func AssertTimestampRules(t *testing.T) {
 		"2026-07-10 12:00:00Z",
 		"2026-07-10T12:00:00-00:00",
 	} {
-		if _, err := parseTimestamp(value, profile); err == nil {
+		if _, err := parseTimestampForRecord(value, profile, nil); err == nil {
 			t.Fatalf("timestamp %q should be rejected", value)
 		}
 	}
-	if got, err := parseTimestamp("2026-07-10T12:00:00Z", profile); err != nil || !got.Equal(time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)) {
+	if got, err := parseTimestampForRecord("2026-07-10T12:00:00Z", profile, nil); err != nil || !got.Equal(time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)) {
 		t.Fatalf("valid timestamp got %s err=%v", got, err)
 	}
 	assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t)

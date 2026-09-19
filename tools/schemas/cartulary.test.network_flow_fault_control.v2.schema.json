@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.network_flow_fault_control.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fault_id",
+    "boundary",
+    "fault_kind",
+    "consume_once"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.test.network_flow_fault_control.v2"
+    },
+    "fault_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "boundary": {
+      "type": "string",
+      "enum": [
+        "network_flow.import.before_owner_apply",
+        "network_flow.import.after_owner_apply",
+        "network_flow.import.before_transaction_commit",
+        "network_flow.import.after_transaction_commit_before_reply",
+        "network_flow.worker.before_handler_start",
+        "network_flow.worker.before_cancellation_check",
+        "network_flow.worker.before_final_commit",
+        "network_flow.worker.after_completed_publication"
+      ]
+    },
+    "fault_kind": {
+      "type": "string",
+      "enum": [
+        "return_error",
+        "panic",
+        "cancel_context",
+        "worker_crash",
+        "worker_cancel"
+      ]
+    },
+    "error_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,127}$"
+    },
+    "correlation_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "consume_once": {
+      "const": true
+    },
+    "extensions": {
+      "$ref": "cartulary.harness.defs.v1#/$defs/extensions"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "fault_kind": {
+            "const": "worker_cancel"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "boundary": {
+            "const": "network_flow.worker.before_cancellation_check"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "fault_kind": {
+            "const": "worker_crash"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "boundary": {
+            "enum": [
+              "network_flow.worker.before_handler_start",
+              "network_flow.worker.before_final_commit",
+              "network_flow.worker.after_completed_publication"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "fault_kind": {
+            "enum": [
+              "panic",
+              "cancel_context"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "boundary": {
+            "not": {
+              "enum": [
+                "network_flow.import.after_transaction_commit_before_reply",
+                "network_flow.worker.after_completed_publication"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "fault_kind": {
+            "const": "return_error"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "error_code"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "error_code"
+          ]
+        }
+      }
+    }
+  ]
+}

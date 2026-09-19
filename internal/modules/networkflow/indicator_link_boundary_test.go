@@ -21,17 +21,17 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 		query["filters"] = []any{map[string]any{"field_key": "network_flow.not_authorized", "op": "eq", "value": "protected"}}
 		raw, _ = json.Marshal(query)
 		_, apiErr := decodeLinkGraphQuery(raw, defaultEffectiveLimits())
-		if apiErr == nil || apiErr.Code != "network_flow_invalid_filter" || apiErr.Details["filter_index"] != 0 || apiErr.Details["op"] != "eq" || apiErr.Details["retry_action"] == nil {
+		if apiErr == nil || string(apiErr.kind) != "network_flow_invalid_filter" || semanticHTTPError(apiErr).Details["filter_index"] != 0 || semanticHTTPError(apiErr).Details["op"] != "eq" || semanticHTTPError(apiErr).Details["retry_action"] == nil {
 			t.Fatalf("missing filter context: %v", apiErr)
 		}
 		query["filters"] = []any{map[string]any{"field_key": fieldSrcIP, "op": "eq", "value": "192.0.2.1", "extra": true}}
 		raw, _ = json.Marshal(query)
 		_, apiErr = decodeLinkGraphQuery(raw, defaultEffectiveLimits())
-		if apiErr == nil || apiErr.Code != "network_flow_invalid_request" || apiErr.Details["reason_code"] != "unknown_member" {
+		if apiErr == nil || string(apiErr.kind) != "network_flow_invalid_request" || semanticHTTPError(apiErr).Details["reason_code"] != "unknown_member" {
 			t.Fatalf("nested unknown member: %v", apiErr)
 		}
 		apiErr = linkMembers(map[string]json.RawMessage{"a": json.RawMessage(`null`)}, map[string]string{"a": "string", "z": "string"})
-		if apiErr == nil || apiErr.Details["reason_code"] != "missing_member" || apiErr.Details["field"] != "z" {
+		if apiErr == nil || semanticHTTPError(apiErr).Details["reason_code"] != "missing_member" || semanticHTTPError(apiErr).Details["field"] != "z" {
 			t.Fatal("missing members must precede explicit null")
 		}
 	})
@@ -69,7 +69,7 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 			}
 		}
 		for _, body := range []string{`{"z":true,"a":true}`, `{"schema_id":null}`, `{"schema_id":"first","schema_id":"second"}`} {
-			_, apiErr := decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/", strings.NewReader(body)), defaultEffectiveLimits())
+			_, apiErr := decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/", strings.NewReader(body)), defaultEffectiveLimits())
 			if apiErr == nil {
 				t.Fatal("malformed request admitted")
 			}

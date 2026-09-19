@@ -364,25 +364,6 @@ func strictSortString(object map[string]json.RawMessage, member string) (string,
 	return value, nil
 }
 
-func sortRows(rows []flowRow, specs []sortSpec) []flowRow {
-	effective := effectiveSort(specs)
-	sorted := append([]flowRow(nil), rows...)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		for _, spec := range effective {
-			cmp := compareRowFieldForSort(sorted[i], sorted[j], spec)
-			if cmp == 0 {
-				continue
-			}
-			return cmp < 0
-		}
-		if sorted[i].NetworkFlowTableID != sorted[j].NetworkFlowTableID {
-			return sorted[i].NetworkFlowTableID < sorted[j].NetworkFlowTableID
-		}
-		return sorted[i].RowID < sorted[j].RowID
-	})
-	return sorted
-}
-
 func effectiveSort(specs []sortSpec) []sortSpec {
 	result := append([]sortSpec(nil), specs...)
 	seen := make(map[string]struct{}, len(result))
@@ -545,26 +526,6 @@ func compareRowField(a, b flowRow, field string) int {
 		return compareIPValues(left, right)
 	}
 	return compareFilterValues(field, left, right)
-}
-
-func compareRowFieldForSort(a, b flowRow, spec sortSpec) int {
-	left := rowPublicFieldValue(a, spec.FieldKey)
-	right := rowPublicFieldValue(b, spec.FieldKey)
-	if left == nil || right == nil {
-		switch {
-		case left == nil && right == nil:
-			return 0
-		case left == nil:
-			return 1
-		default:
-			return -1
-		}
-	}
-	cmp := compareRowField(a, b, spec.FieldKey)
-	if spec.Direction == "desc" {
-		return -cmp
-	}
-	return cmp
 }
 
 func compareIPValues(left any, right any) int {
@@ -787,23 +748,6 @@ func compareRowToPosition(row flowRow, position rowCursorPosition) int {
 	return 0
 }
 
-func pageFlowRowsAfter(rows []flowRow, position *rowCursorPosition, limit int) ([]flowRow, bool) {
-	start := 0
-	if position != nil {
-		start = sort.Search(len(rows), func(index int) bool {
-			return compareRowToPosition(rows[index], *position) > 0
-		})
-	}
-	if start >= len(rows) {
-		return []flowRow{}, false
-	}
-	end := start + limit
-	if end >= len(rows) {
-		return rows[start:], false
-	}
-	return rows[start:end], true
-}
-
 func newContributorCursorPosition(row flowRow, tableRanks map[string]int) contributorCursorPosition {
 	return contributorCursorPosition{WorkspaceTableOrder: tableRanks[row.NetworkFlowTableID], Row: newRowCursorPosition(row, nil)}
 }
@@ -834,26 +778,6 @@ func newDiagnosticCursorPosition(value rejectedRowDiagnostic) diagnosticCursorPo
 		FieldKey: value.FieldKey, ErrorCode: value.ErrorCode, ReasonCode: value.ReasonCode,
 		DiagnosticID: value.DiagnosticID,
 	}
-}
-
-func pageDiagnosticsAfter(rows []rejectedRowDiagnostic, position *diagnosticCursorPosition, limit int) ([]rejectedRowDiagnostic, bool) {
-	start := 0
-	if position != nil {
-		needle := rejectedRowDiagnostic{
-			SourceRowNumber: position.SourceRowNumber, SourceColumnOrdinal: position.SourceColumnOrdinal,
-			FieldKey: position.FieldKey, ErrorCode: position.ErrorCode, ReasonCode: position.ReasonCode,
-			DiagnosticID: position.DiagnosticID,
-		}
-		start = sort.Search(len(rows), func(index int) bool { return compareDiagnostics(rows[index], needle) > 0 })
-	}
-	if start >= len(rows) {
-		return []rejectedRowDiagnostic{}, false
-	}
-	end := start + limit
-	if end >= len(rows) {
-		return rows[start:], false
-	}
-	return rows[start:end], true
 }
 
 func queryHash(value any) string {

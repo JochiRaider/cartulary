@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.network_flow_randomness_control.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "control_id",
+    "stream",
+    "value_kind",
+    "value_count",
+    "remaining_count",
+    "consume_once",
+    "exhaustion"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.test.network_flow_randomness_control.v2"
+    },
+    "control_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stream": {
+      "type": "string",
+      "enum": [
+        "network_flow.table_id",
+        "network_flow.cursor_nonce"
+      ]
+    },
+    "value_kind": {
+      "type": "string",
+      "enum": [
+        "uuid",
+        "hex_bytes"
+      ]
+    },
+    "value_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    },
+    "remaining_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 256
+    },
+    "consume_once": {
+      "const": true
+    },
+    "exhaustion": {
+      "const": "fail_closed"
+    },
+    "extensions": {
+      "$ref": "cartulary.harness.defs.v1#/$defs/extensions"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stream": {
+            "const": "network_flow.table_id"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value_kind": {
+            "const": "uuid"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stream": {
+            "const": "network_flow.cursor_nonce"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value_kind": {
+            "const": "hex_bytes"
+          }
+        }
+      }
+    }
+  ]
+}

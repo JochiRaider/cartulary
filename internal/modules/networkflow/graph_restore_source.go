@@ -1,9 +1,7 @@
 package networkflow
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -127,10 +125,11 @@ func ReconcileGraphRestoreJobsTx(ctx context.Context, tx pgx.Tx) (int, error) {
 			return count, nil
 		}
 		for _, restored := range page {
-			var payload graphViewMaterializationPayload
-			decoder := json.NewDecoder(bytes.NewReader(restored.HandlerPayloadJSON))
-			decoder.DisallowUnknownFields()
-			if err := decoder.Decode(&payload); err != nil || !payload.valid() || restored.IncidentID == nil || payload.IncidentID != *restored.IncidentID {
+			expectedIncident := uuid.Nil
+			if restored.IncidentID != nil {
+				expectedIncident = *restored.IncidentID
+			}
+			if _, err := decodeGraphViewMaterializationPayload(restored.HandlerPayloadJSON, expectedIncident); err != nil {
 				return 0, fmt.Errorf("restored Network Flow graph job %s has an invalid payload", restored.JobID)
 			}
 			if err := jobs.ReconcileRestoredNonterminalTx(ctx, tx, restored.JobID, GraphViewMaterializationJobKind); err != nil {

@@ -2,23 +2,23 @@ package networkflow
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type store struct {
+	tableIDEntropy  io.Reader
 	pool            postgres.DB
 	limits          EffectiveLimits
 	incidentLocks   IncidentLockPort
@@ -36,6 +36,10 @@ func withOwnerParticipants(incidentLocks IncidentLockPort, auditAppender Adminis
 		s.auditAppender = auditAppender
 		s.indicators = indicatorParticipant
 	}
+}
+
+func withTableIDEntropy(reader io.Reader) storeOption {
+	return func(s *store) { s.tableIDEntropy = newEntropyReader(reader) }
 }
 
 func withSafeDigester(digester safeDigester) storeOption {
@@ -166,26 +170,14 @@ type retainedCounts struct {
 
 func newStore(pool postgres.DB, limits EffectiveLimits, options ...storeOption) *store {
 	store := &store{
-		pool:   pool,
-		limits: limits,
+		pool:           pool,
+		limits:         limits,
+		tableIDEntropy: newEntropyReader(nil),
 	}
 	for _, option := range options {
 		option(store)
 	}
 	return store
-}
-
-func (s *store) CreateTable(ctx context.Context, params createTableParams) (tableRecord, error) {
-	var table tableRecord
-	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		var err error
-		table, err = s.CreateTableTx(ctx, tx, params)
-		return err
-	})
-	if err != nil {
-		return tableRecord{}, err
-	}
-	return table, nil
 }
 
 func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTableParams) (tableRecord, error) {
@@ -300,27 +292,6 @@ func (s *store) GetActiveTable(ctx context.Context, incidentID uuid.UUID, tableI
 	return table, nil
 }
 
-func (s *store) GetTable(ctx context.Context, incidentID uuid.UUID, tableID string) (tableRecord, error) {
-	return getTable(ctx, s.pool, incidentID, tableID, false)
-}
-
-func (s *store) RetainedCounts(ctx context.Context, incidentID uuid.UUID) (retainedCounts, error) {
-	return retainedCountsTx(ctx, s.pool, incidentID)
-}
-
-func (s *store) RenameTable(ctx context.Context, params renameTableParams) (tableRecord, error) {
-	var table tableRecord
-	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		var err error
-		table, err = s.renameTableTx(ctx, tx, params)
-		return err
-	})
-	if err != nil {
-		return tableRecord{}, err
-	}
-	return table, nil
-}
-
 func (s *store) renameTableTx(ctx context.Context, tx pgx.Tx, params renameTableParams) (tableRecord, error) {
 	now := normalizedNow(params.Now)
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
@@ -405,19 +376,6 @@ func (s *store) renameTableTx(ctx context.Context, tx pgx.Tx, params renameTable
 		}
 	}
 	return updated, nil
-}
-
-func (s *store) SoftDeleteTable(ctx context.Context, params softDeleteTableParams) (tableRecord, error) {
-	var table tableRecord
-	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		var err error
-		table, err = s.softDeleteTableTx(ctx, tx, params)
-		return err
-	})
-	if err != nil {
-		return tableRecord{}, err
-	}
-	return table, nil
 }
 
 func (s *store) softDeleteTableTx(ctx context.Context, tx pgx.Tx, params softDeleteTableParams) (tableRecord, error) {
@@ -620,38 +578,6 @@ SELECT ` + flowRowColumnList() + `
 	return ctx.Err()
 }
 
-func (s *store) ListRejectedRowDiagnostics(ctx context.Context, incidentID uuid.UUID, tableID string) ([]rejectedRowDiagnostic, error) {
-	if _, err := s.GetActiveTable(ctx, incidentID, tableID); err != nil {
-		return nil, err
-	}
-	rows, err := s.pool.Query(ctx, `
-SELECT diagnostic_id, source_row_number, source_column_ordinal, raw_header_sha256,
-       field_key, error_code, reason_code, safe_sample, raw_value_sha256, message_key,
-       message_args, message, limit_name, limit_value, actual_value
-  FROM network_flow_rejected_row_diagnostics
- WHERE incident_id = $1
-   AND network_flow_table_id = $2
- ORDER BY source_row_number ASC, source_column_ordinal ASC NULLS LAST,
-          field_key ASC NULLS LAST, error_code ASC, diagnostic_id ASC
-`, incidentID, tableID)
-	if err != nil {
-		return nil, fmt.Errorf("list network flow rejected-row diagnostics: %w", err)
-	}
-	defer rows.Close()
-	diagnostics := []rejectedRowDiagnostic{}
-	for rows.Next() {
-		diagnostic, err := scanRejectedRowDiagnostic(rows)
-		if err != nil {
-			return nil, err
-		}
-		diagnostics = append(diagnostics, diagnostic)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan network flow rejected-row diagnostics: %w", err)
-	}
-	return diagnostics, nil
-}
-
 type insertTableParams struct {
 	IncidentID                uuid.UUID
 	DisplayName               string
@@ -673,12 +599,12 @@ type insertTableParams struct {
 
 func (s *store) insertTableWithGeneratedID(ctx context.Context, tx pgx.Tx, params insertTableParams) (string, tableRecord, error) {
 	for attempt := 0; attempt < 8; attempt++ {
-		tableID, err := newTableID()
+		tableID, err := newTableID(s.tableIDEntropy)
 		if err != nil {
 			return "", tableRecord{}, err
 		}
 		table, err := insertTableTx(ctx, tx, tableID, params)
-		if isUniqueViolationOnConstraint(err, "network_flow_tables_pkey") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
 		if err != nil {
@@ -701,6 +627,7 @@ INSERT INTO network_flow_tables (
     $1, $2, $3, 1, 'active', $4, $5, $6, $7, $8, $9, $10, $11, $12,
     $13, $14, $15, $16, $17, $17
 )
+ON CONFLICT ON CONSTRAINT network_flow_tables_pkey DO NOTHING
 RETURNING `+tableColumnList(), tableID, params.IncidentID, params.DisplayName, params.SourceImportSessionID, params.SourceImportUnitID, params.SourceContentSHA256, params.SourceFilenameDisplay, params.SourceFilenameDigest, params.SourceFilenameDigestKeyID, params.MappingFingerprint, params.SourceProfileID, params.ParserProfileID, params.RowCountAccepted, params.RowCountRejected, params.DiagnosticsTruncated, params.CreatedByUserID, params.CreatedAt)
 	table, err := scanTable(row)
 	if err != nil {
@@ -936,9 +863,9 @@ SELECT COUNT(*) FILTER (WHERE table_status = 'active') AS active_count,
 	return counts, nil
 }
 
-func newTableID() (string, error) {
+func newTableID(entropy io.Reader) (string, error) {
 	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
+	if _, err := io.ReadFull(entropy, bytes[:]); err != nil {
 		return "", fmt.Errorf("generate network flow table id: %w", err)
 	}
 	return "nft_" + hex.EncodeToString(bytes[:]), nil
@@ -1120,17 +1047,6 @@ func optionalStringPtr(value string) *string {
 	return &value
 }
 
-func isUniqueViolationOnConstraint(err error, constraintName string) bool {
-	if err == nil {
-		return false
-	}
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) {
-		return false
-	}
-	return pgErr.Code == "23505" && pgErr.ConstraintName == constraintName
-}
-
 func compareDiagnostics(a, b rejectedRowDiagnostic) int {
 	if a.SourceRowNumber != b.SourceRowNumber {
 		if a.SourceRowNumber < b.SourceRowNumber {
@@ -1197,4 +1113,13 @@ func compareNullableStringNullsLast(a, b *string) int {
 	default:
 		return 0
 	}
+}
+
+func (s *store) ensureActiveTables(ctx context.Context, incident uuid.UUID, tables []string) *semanticFailure {
+	for _, table := range tables {
+		if _, err := s.GetActiveTable(ctx, incident, table); err != nil {
+			return tableReadFailure(err)
+		}
+	}
+	return nil
 }

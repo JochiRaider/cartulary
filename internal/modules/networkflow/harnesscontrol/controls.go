@@ -6,6 +6,8 @@ import (
 )
 
 type Controls struct {
+	// Crash is installed only by an owned harness process, never by a product owner.
+	Crash           func()
 	Faults          *NetworkFlowFaultRegistry
 	Randomness      *NetworkFlowRandomnessRegistry
 	Transitions     *NetworkFlowAuthTransitionRegistry

@@ -34,7 +34,7 @@ func TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembe
 func assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T) {
 	t.Helper()
 	seconds := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "seconds"})
-	if got, err := parseTimestamp("2026-07-10T12:00:00+02:30", seconds); err != nil || !got.Equal(time.Date(2026, 7, 10, 9, 30, 0, 0, time.UTC)) {
+	if got, err := parseTimestampForRecord("2026-07-10T12:00:00+02:30", seconds, nil); err != nil || !got.Equal(time.Date(2026, 7, 10, 9, 30, 0, 0, time.UTC)) {
 		t.Fatalf("offset timestamp = %v, %v", got, err)
 	}
 	for _, value := range []string{
@@ -42,15 +42,15 @@ func assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T)
 		"2026-07-10T12:00:60Z", "2026-07-10T24:00:00Z", "2026-02-29T12:00:00Z",
 		"2026-07-10T12:00:00-00:00", "2026-07-10T12:00:00.1Z",
 	} {
-		if _, err := parseTimestamp(value, seconds); err == nil {
+		if _, err := parseTimestampForRecord(value, seconds, nil); err == nil {
 			t.Fatalf("invalid timestamp %q was accepted", value)
 		}
 	}
 	milliseconds := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "milliseconds"})
-	if _, err := parseTimestamp("2026-07-10T12:00:00.123Z", milliseconds); err != nil {
+	if _, err := parseTimestampForRecord("2026-07-10T12:00:00.123Z", milliseconds, nil); err != nil {
 		t.Fatalf("millisecond timestamp: %v", err)
 	}
-	if _, err := parseTimestamp("2026-07-10T12:00:00.1234Z", milliseconds); timestampReason(err) != "precision_exceeded" {
+	if _, err := parseTimestampForRecord("2026-07-10T12:00:00.1234Z", milliseconds, nil); timestampReason(err) != "precision_exceeded" {
 		t.Fatalf("precision reason = %q, %v", timestampReason(err), err)
 	}
 
@@ -65,13 +65,13 @@ func assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T)
 	if err := validateTimestampProfile(iana, 0); err != nil {
 		t.Fatalf("validate IANA profile: %v", err)
 	}
-	if _, err := parseTimestamp("2026-11-01T01:30:00", iana); timestampReason(err) != "ambiguous_local_time" {
+	if _, err := parseTimestampForRecord("2026-11-01T01:30:00", iana, nil); timestampReason(err) != "ambiguous_local_time" {
 		t.Fatalf("fold reason = %q, %v", timestampReason(err), err)
 	}
-	if _, err := parseTimestamp("2026-03-08T02:30:00", iana); timestampReason(err) != "nonexistent_local_time" {
+	if _, err := parseTimestampForRecord("2026-03-08T02:30:00", iana, nil); timestampReason(err) != "nonexistent_local_time" {
 		t.Fatalf("gap reason = %q, %v", timestampReason(err), err)
 	}
-	if got, err := parseTimestamp("2026-07-10T12:00:00", iana); err != nil || !got.Equal(time.Date(2026, 7, 10, 16, 0, 0, 0, time.UTC)) {
+	if got, err := parseTimestampForRecord("2026-07-10T12:00:00", iana, nil); err != nil || !got.Equal(time.Date(2026, 7, 10, 16, 0, 0, 0, time.UTC)) {
 		t.Fatalf("IANA local timestamp = %v, %v", got, err)
 	}
 }

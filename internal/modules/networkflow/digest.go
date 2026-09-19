@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -155,16 +156,17 @@ func mappingFingerprint(mapping approvedMapping, sourceContentSHA256 string) str
 	return sha256Hex(b.Bytes())
 }
 
-func safeDigest(keyID string, key []byte, valueClass string, canonicalValue string) (string, string) {
-	if keyID == "" || len(key) == 0 {
-		keyID = "network-flow-ws14"
-		key = []byte("network-flow-ws14-engineering-only-safe-digest-key")
+var safeDigestClassPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
+
+func safeDigest(keyID string, key []byte, valueClass string, canonicalValue string) (string, string, error) {
+	if !safeKeyIDPattern.MatchString(keyID) || len(key) != 32 || !safeDigestClassPattern.MatchString(valueClass) {
+		return "", "", fmt.Errorf("network flow safe-digest material is invalid")
 	}
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow.safe_digest.v1")
 	writeDigestPart(&b, valueClass)
 	b.WriteString(canonicalValue)
-	return hmacSHA256Hex(key, b.Bytes()), keyID
+	return hmacSHA256Hex(key, b.Bytes()), keyID, nil
 }
 
 func writeDigestPart(b *bytes.Buffer, value string) {

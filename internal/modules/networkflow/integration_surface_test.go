@@ -69,6 +69,7 @@ var WithEffectiveLimits = withEffectiveLimits
 var WithOwnerParticipants = withOwnerParticipants
 var WithResourceIntentAppender = withResourceIntentAppender
 var WithSafeDigester = withSafeDigester
+var WithTableIDEntropy = withTableIDEntropy
 
 const WorkspaceKeyNetworkAnalysis = workspaceKeyNetworkAnalysis
 

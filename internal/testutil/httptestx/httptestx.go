@@ -163,6 +163,7 @@ const (
 )
 
 type ServerOptions struct {
+	ConfigureRuntime func(*server.Options)
 	Loaded           *configassembly.Loaded
 	Env              map[string]string
 	Dependencies     httpapi.DependencySet
@@ -215,7 +216,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		projectionCapability    *ProjectionCapability
 		indicatorSourceText     indicators.SourceTextPort
 	)
-	runtime, err := server.NewRuntime(context.Background(), loaded, server.Options{
+	runtimeOptions := server.Options{
 		Env:         env,
 		Now:         clock.Now,
 		Postgres:    options.Postgres,
@@ -240,7 +241,11 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 			Dependencies:     options.Dependencies,
 			AdditionalRoutes: routes,
 		},
-	})
+	}
+	if options.ConfigureRuntime != nil {
+		options.ConfigureRuntime(&runtimeOptions)
+	}
+	runtime, err := server.NewRuntime(context.Background(), loaded, runtimeOptions)
 	if err != nil {
 		t.Fatalf("start app runtime: %v", err)
 	}

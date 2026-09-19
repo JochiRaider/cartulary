@@ -70,6 +70,12 @@ func newTestNetworkFlowStore(
 
 type testNetworkFlowSafeDigester struct{}
 
+type invalidKeySafeDigester struct{}
+
+func (invalidKeySafeDigester) Digest(valueClass, value string) (string, string, error) {
+	return SafeDigest("missing", nil, valueClass, value)
+}
+
 type failingResourceIntentAppender struct {
 	err error
 }
@@ -79,11 +85,11 @@ func (a failingResourceIntentAppender) AppendResourceIntentTx(context.Context, p
 }
 
 func (testNetworkFlowSafeDigester) Digest(valueClass string, canonicalValue string) (string, string, error) {
-	digest, keyID := SafeDigest("test-safe-v1", []byte("0123456789abcdef0123456789abcdef"), valueClass, canonicalValue)
-	return digest, keyID, nil
+	return SafeDigest("test-safe-v1", []byte("0123456789abcdef0123456789abcdef"), valueClass, canonicalValue)
 }
 
 func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.T) {
+	t.Run("functional table entropy", assertNetworkFlowTableEntropyTransactions)
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-create")
 	sessionID, unitID := seedImportSessionUnit(t, harness.DB, incidentID, actor.ID, "C:\\tmp\\flows.csv")
 	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
@@ -239,6 +245,29 @@ func TestNetworkFlowResourceIntentFailureRollsBackSourceMutation_Integration(t *
 	appender := revisionsupport.MustAppender(t)
 	store := newTestNetworkFlowStore(t, harness.DB, appender)
 	table := createTestTable(t, harness.DB, store, actor.ID, incidentID, "flows.csv", nil, 1)
+	t.Run("invalid digest key rolls back mutation and effects", func(t *testing.T) {
+		count := func(table string) int {
+			t.Helper()
+			var n int
+			if err := harness.DB.QueryRow(context.Background(), "SELECT count(*) FROM "+table).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			return n
+		}
+		audits, receipts := count("deployment_admin_audit_events"), count("route_idempotency")
+		broken := newTestNetworkFlowStore(t, harness.DB, appender, WithSafeDigester(invalidKeySafeDigester{}))
+		_, err := broken.RenameTable(context.Background(), RenameTableParams{IncidentID: incidentID, ActorUserID: actor.ID, TableID: table.TableID, BaseTableVersion: table.TableVersion, DisplayName: "must not commit", ClientTxnID: "digest-failure", RequestID: "digest-failure", Now: time.Now().UTC()})
+		if err == nil {
+			t.Fatal("missing digest key accepted")
+		}
+		current, err := store.GetActiveTable(context.Background(), incidentID, table.TableID)
+		if err != nil || current.DisplayName != table.DisplayName || current.TableVersion != table.TableVersion {
+			t.Fatalf("digest failure changed table: %#v %v", current, err)
+		}
+		if count("deployment_admin_audit_events") != audits || count("route_idempotency") != receipts {
+			t.Fatal("digest failure committed effects")
+		}
+	})
 	intentFailure := errors.New("reject invalid extension resource payload")
 	failingStore := newTestNetworkFlowStore(
 		t,

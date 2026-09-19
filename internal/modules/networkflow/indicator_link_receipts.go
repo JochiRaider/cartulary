@@ -1,10 +1,12 @@
 package networkflow
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
@@ -136,4 +138,54 @@ func validatePersistedIndicatorLinkFamily(ctx context.Context, reader extensions
 		}
 		after = next
 	}
+}
+
+type indicatorLinkReceiptAdapter struct {
+	reader *authn.Store
+	store  *store
+}
+
+func (s *indicatorLinkReceiptAdapter) replay(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte, incidentID uuid.UUID) (indicatorLinkOutcome, bool, *semanticFailure) {
+	existing, err := s.reader.GetRouteIdempotency(ctx, key)
+	if err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return indicatorLinkOutcome{}, true, clientTxnFailure(key.ClientTxnID)
+		}
+		payload, err := decodeStoredNetworkFlowResponse(existing.ResponseJSON)
+		if err != nil {
+			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
+		}
+		if err := validateIndicatorLinkReceipt(payload, existing.StatusCode, incidentID); err != nil {
+			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
+		}
+		indicatorID, err := indicatorIDFromLinkPayload(payload)
+		if err != nil {
+			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
+		}
+		if _, err := s.store.GetActiveIndicator(ctx, incidentID, indicatorID); err != nil {
+			if errors.Is(err, errTableNotFound) {
+				return indicatorLinkOutcome{}, true, indicatorLinkForbidden("", "", "existing_indicator", "target_not_visible")
+			}
+			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
+		}
+		return indicatorLinkOutcome{receipt: &storedMutationReceipt{payload: payload, status: existing.StatusCode}}, true, nil
+	}
+	if !errors.Is(err, authn.ErrNotFound) {
+		return indicatorLinkOutcome{}, false, internalSemanticFailure(err)
+	}
+	return indicatorLinkOutcome{}, false, nil
+}
+func (indicatorLinkReceiptAdapter) saveTx(ctx context.Context, tx pgx.Tx, mutation indicatorLinkMutation, binding indicatorBindingRecord, duplicate bool) error {
+	payload, status := indicatorLinkOutcomeResponse(indicatorLinkOutcome{binding: binding, duplicate: duplicate})
+	return authn.InsertRouteIdempotencyPayload(ctx, tx, indicatorLinkIdempotencyKey(mutation.Actor.ID, mutation.IncidentID, mutation.Request.ClientTxnID), nil, mutation.RequestHash, status, payload)
+}
+func indicatorLinkOutcomeResponse(outcome indicatorLinkOutcome) (map[string]any, int) {
+	if outcome.receipt != nil {
+		return outcome.receipt.payload, outcome.receipt.status
+	}
+	status := 201
+	if outcome.duplicate {
+		status = 200
+	}
+	return indicatorLinkPayload(outcome.binding, outcome.duplicate), status
 }

@@ -11,6 +11,11 @@ import (
 
 func assertSemanticBoundary(t *testing.T) {
 	allowedImports := map[string]bool{
+		"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction": true,
+		"github.com/JochiRaider/cartulary/internal/modules/indicators":            true,
+		"github.com/JochiRaider/cartulary/internal/modules/imports":               true,
+		"github.com/JochiRaider/cartulary/internal/platform/extensionstore":       true,
+		"regexp":          true,
 		"bytes":           true,
 		"context":         true,
 		"crypto/sha256":   true,
@@ -40,7 +45,7 @@ func assertSemanticBoundary(t *testing.T) {
 		"unicode/utf8":            true,
 	}
 
-	for _, path := range []string{"semantic_failure.go", "query.go", "query_filter.go", "mapping.go", "graph.go", "graph_source_composer.go", "saved_graph_application.go", "graph_temporal.go", "graph_projection_adapter.go", "graph_response_v2.go", "graph_telemetry.go"} {
+	for _, path := range []string{"graph_materialization_payload.go", "application.go", "table_receipts.go", "indicator_link.go", "indicator_link_admission.go", "indicator_link_graph_admission.go", "indicator_link_receipts.go", "transaction_participants.go", "semantic_failure.go", "query.go", "query_filter.go", "mapping.go", "graph.go", "graph_source_composer.go", "saved_graph_application.go", "graph_temporal.go", "graph_projection_adapter.go", "graph_response_v2.go", "graph_telemetry.go"} {
 		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 		if err != nil {
 			t.Fatal(err)

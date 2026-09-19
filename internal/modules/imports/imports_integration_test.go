@@ -1786,6 +1786,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 }
 
 func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
+	t.Run("functional harness fault controls", assertNetworkFlowImportFaultConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartServer(t, appsupport.ServerOptions{
 		Prefix: "network-flow-import-apply",

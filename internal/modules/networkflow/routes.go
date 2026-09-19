@@ -35,6 +35,8 @@ type routeService struct {
 	now             func() time.Time
 	graphComposer   *graphSourceComposer
 	transactions    *crossownertransaction.Coordinator
+	tables          *tableApplication
+	links           *indicatorLinkApplication
 	savedGraphs     *savedGraphApplication
 	jobManager      GraphViewJobManager
 }
@@ -57,6 +59,8 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*routeService,
 		return nil, fmt.Errorf("network flow configured key rings unavailable")
 	}
 	return &routeService{
+		tables:          &tableApplication{store: module.store, incidentAccess: admission.NewChecker(deps.PostgresHandle()), safeDigester: module.safeDigester, now: now},
+		links:           &indicatorLinkApplication{store: module.store, incidentAccess: admission.NewChecker(deps.PostgresHandle()), receipts: indicatorLinkReceiptAdapter{reader: authn.NewStore(deps.PostgresHandle()), store: module.store}, safeDigester: module.safeDigester, now: now, transactions: module.transactions, graphComposer: module.graphComposer},
 		store:           module.store,
 		incidentAccess:  admission.NewChecker(deps.PostgresHandle()),
 		authStore:       authn.NewStore(deps.PostgresHandle()),
@@ -549,18 +553,7 @@ func (s *routeService) resolveInitialTableScope(ctx context.Context, incidentID 
 }
 
 func (s *routeService) ensureActiveTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string) *httpapi.APIError {
-	for _, tableID := range tableIDs {
-		if _, err := s.store.GetActiveTable(ctx, incidentID, tableID); err != nil {
-			if errors.Is(err, errTableNotFound) {
-				return networkFlowAPIError(http.StatusNotFound, "network_flow_table_not_found", "network_flow_table_id", "not_found")
-			}
-			if errors.Is(err, errTableNotActive) {
-				return networkFlowAPIError(http.StatusConflict, "network_flow_table_not_active", "network_flow_table_id", "soft_deleted")
-			}
-			return httpapi.InternalAPIError(err)
-		}
-	}
-	return nil
+	return semanticHTTPError(s.store.ensureActiveTables(ctx, incidentID, tableIDs))
 }
 
 func acceptedRowsQueryEcho(filters []queryFilter, sortSpecs []sortSpec, effective []sortSpec, tableIDs []string) map[string]any {

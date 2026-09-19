@@ -230,9 +230,8 @@ func validateSavedGraphJobFacts(ctx context.Context, reader extensionstore.Queri
 		if err != nil || identity != key || retained.RouteKey != key.RouteKey || retained.ScopeKey != key.ScopeKey || retained.RequestSHA256 != hashText {
 			return errSavedGraphCutoverIncompatible
 		}
-		var payload graphViewMaterializationPayload
-		var members map[string]any
-		if json.Unmarshal(retained.Payload, &members) != nil || len(members) != 5 || json.Unmarshal(retained.Payload, &payload) != nil || !payload.valid() || payload.IncidentID != graph.IncidentID || payload.GraphViewID != graph.GraphViewID || payload.MaterializationGeneration != graph.MaterializationGeneration || payload.SourceSnapshotID != graph.DesiredSourceSnapshotID {
+		payload, err := decodeGraphViewMaterializationPayload(retained.Payload, graph.IncidentID)
+		if err != nil || payload.GraphViewID != graph.GraphViewID || payload.MaterializationGeneration != graph.MaterializationGeneration || payload.SourceSnapshotID != graph.DesiredSourceSnapshotID {
 			return errSavedGraphCutoverIncompatible
 		}
 	}

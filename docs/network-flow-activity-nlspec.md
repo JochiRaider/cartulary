@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 6.0.0
+document_version: 6.0.1
 contract_major: 6
 profile_id: network_flow_activity
 document_class: nlspec
@@ -18,7 +18,7 @@ It replaces public major 5 without a compatibility decoder or alias. Semantic
 query v2, Graph Projection v2, deterministic identities, private storage layout,
 and compatible durable state version 4 remain unchanged.
 
-Document version: `6.0.0`. Contract major: `6`. Durable state version is `4`
+Document version: `6.0.1`. Contract major: `6`. Durable state version is `4`
 with minimum migratable version `3` and the existing executable `3 -> 4`
 migration. Inert verified earlier ledger facts remain admissible under §27.
 Before readiness or mutations, §28 requires side-effect-free compatibility
@@ -2490,9 +2490,9 @@ All successful GET, PATCH, DELETE, and read-query routes in Table 17-A return HT
 
 | Member | Type | Required | Nullable | Rule |
 | --- | --- | ---: | ---: | --- |
-| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_source_profile_list.v1`. |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow.source_profile_list.v2`; this is the sole current discovery response. |
 | `source_profiles[]` | array | Yes | No | Conformant v1 source profile objects from Table 17-B2 ordered by `source_profile_id ASC`. |
-| `effective_limits` | object | Yes | No | Contains every Table 20-A limit key exactly once with the current effective integer value. |
+| `effective_limits` | object | Yes | No | Contains every current resource-limit key from §20 and its adopted extensions exactly once with the current effective integer value, including the saved-graph and temporal limits. |
 | `meta` | object | Yes | No | Contains exactly `count`, equal to `source_profiles.length`. |
 
 **Table 17-B2. Source profile list item**
@@ -4063,7 +4063,7 @@ Restored materialization jobs use Core 01 §3.3.9.3 with exact kind
 `network_flow_activity.graph_view_materialize_v1`, profile
 `network_flow_activity`, and pages of 256. Network Flow retains unknown-member
 rejection and payload schema, incident, graph ID, positive generation and
-nonempty snapshot validation. It reconciles each closed page in ascending ID
+canonical source-snapshot identity validation. It reconciles each closed page in ascending ID
 order, returns the complete selected count only on success, and returns zero
 with an error on any failure. No per-incident quota is a global restore cap.
 Graph Projection §9 and Core 01 REQ-01-625A retain the single transaction,
@@ -4082,6 +4082,38 @@ at durable participant boundaries; exact lease scope/expiry/rollback races;
 restore page boundaries and whole-transaction rollback; semantic error mapping;
 and a positive production API/dependency boundary. Control-registry tests alone
 are not product rollback evidence. Executable inputs MUST NOT depend on Markdown.
+
+### 29.1 Application and materialization admission closure
+
+Revision 6.0.1 adopts this closure without changing public major 6, state 4,
+valid payload v1 bytes, digest identity, receipts, or Graph Projection contracts.
+Private table and indicator-link applications MUST own typed commands/outcomes
+and distinct receipt adapters. Reusable admission and transaction participants
+MUST return semantic failures, not HTTP statuses or envelopes. Current incident
+admission precedes replay; table replay remains under incident serialization
+without rechecking current table lifecycle/version. Indicator-link replay retains
+current target visibility checks. Fresh mutations retain their transaction
+rechecks, atomic effects, and existing no-op semantics. Persisted-state validation
+MUST use semantic decoders directly. Only transport adapters format HTTP errors.
+
+Worker execution, restore reconciliation, and retained-job startup admission MUST
+use one strict owner decoder for materialization payload v1. It admits exactly
+`schema_id`, `incident_id`, `graph_view_id`, `materialization_generation`, and
+`source_snapshot_id`, with no missing, null, duplicate, unknown, mistyped, or
+trailing members/data. Schema ID is exactly
+`cartulary.network_flow.graph_view_materialization_payload.v1`; incident is a
+nonzero canonical UUID matching the enclosing job incident, graph ID has the
+current Network Flow graph-view format, generation is a positive int64, and
+snapshot has the §6 identifier format. Failed admission returns no usable
+payload identity. Worker failure may finalize the executing job but MUST NOT
+mutate a declaration selected by rejected payload bytes. Contextual job,
+declaration, generation and snapshot equality checks remain mandatory.
+Malformed retained bytes remain unchanged; startup/restore fail before readiness.
+
+Safe-digest helpers MUST require an explicit valid key ID, 32-byte deployment key,
+and nonempty safe value-class token, and return an error for invalid inputs.
+There is no engineering-key fallback. Rotation policy remains with the key ring;
+valid digests and historical epochs remain unchanged.
 
 ## Appendix E. Future-only decision backlog and rationale
 

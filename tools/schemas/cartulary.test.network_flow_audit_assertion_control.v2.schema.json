@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.network_flow_audit_assertion_control.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "assertion_id",
+    "assertion_kind",
+    "event_code",
+    "operation_ref",
+    "actor_ref",
+    "incident_ref",
+    "resource_kind",
+    "resource_ref",
+    "baseline_count",
+    "expected_final_count",
+    "consume_once"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.test.network_flow_audit_assertion_control.v2"
+    },
+    "assertion_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "assertion_kind": {
+      "type": "string",
+      "enum": [
+        "exact_count",
+        "zero_occurrences",
+        "no_audit_replay"
+      ]
+    },
+    "event_code": {
+      "type": "string",
+      "enum": [
+        "network_flow_table_created",
+        "network_flow_table_renamed",
+        "network_flow_table_soft_deleted",
+        "network_flow_graph_query_executed",
+        "network_flow_indicator_binding_created",
+        "network_flow_indicator_binding_reused"
+      ]
+    },
+    "operation_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "actor_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "incident_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "resource_kind": {
+      "type": "string",
+      "enum": [
+        "network_flow_table",
+        "network_flow_graph",
+        "network_flow_indicator_binding"
+      ]
+    },
+    "resource_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "baseline_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "expected_final_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "correlation_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "consume_once": {
+      "const": true
+    },
+    "extensions": {
+      "$ref": "cartulary.harness.defs.v1#/$defs/extensions"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_code": {
+            "enum": [
+              "network_flow_table_created",
+              "network_flow_table_renamed",
+              "network_flow_table_soft_deleted"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "resource_kind": {
+            "const": "network_flow_table"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_code": {
+            "enum": [
+              "network_flow_graph_query_executed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "resource_kind": {
+            "const": "network_flow_graph"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_code": {
+            "enum": [
+              "network_flow_indicator_binding_created",
+              "network_flow_indicator_binding_reused"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "resource_kind": {
+            "const": "network_flow_indicator_binding"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_code": {
+            "const": "network_flow_graph_query_executed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "assertion_kind": {
+            "not": {
+              "const": "no_audit_replay"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "assertion_kind": {
+            "const": "zero_occurrences"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "baseline_count": {
+            "const": 0
+          },
+          "expected_final_count": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@ package networkflow
 
 import (
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"time"
 )
 
@@ -16,6 +17,16 @@ type semanticFailure struct {
 type failureKind string
 
 const (
+	failureInvalidIndicatorSelector failureKind = "network_flow_invalid_indicator_selector"
+	failureInvalidIndicatorTarget   failureKind = "network_flow_invalid_indicator_target"
+	failureIndicatorLinkForbidden   failureKind = "network_flow_indicator_link_forbidden"
+	failureIndicatorLinkAmbiguous   failureKind = "network_flow_indicator_link_ambiguous"
+	failureResourceLimit            failureKind = "network_flow_resource_limit_exceeded"
+	failureTransactionConflict      failureKind = "transaction_conflict"
+	failureTransactionTimeout       failureKind = "service_unavailable"
+	failureClientTxnConflict        failureKind = "client_txn_conflict"
+	failureAdmission                failureKind = "incident_admission"
+
 	failureInternal                   failureKind = "internal_error"
 	failureInvalidRequest             failureKind = "network_flow_invalid_request"
 	failureInvalidFilter              failureKind = "network_flow_invalid_filter"
@@ -36,6 +47,12 @@ const (
 )
 
 type failureDetails struct {
+	LinkContext, LinkGraph                                            bool
+	SelectorKind, LinkFieldKey, TargetMode, Candidate                 string
+	ActualKind, SourceTableID, RequiredRole, ClientTxnID, OperationID string
+	TableIDs                                                          []string
+	TimeoutSeconds                                                    float64
+
 	Field                           string
 	FieldKey, Op                    *string
 	FilterIndex                     *int
@@ -64,4 +81,15 @@ func tableReadFailure(err error) *semanticFailure {
 	default:
 		return internalSemanticFailure(err)
 	}
+}
+
+func clientTxnFailure(txn string) *semanticFailure {
+	return &semanticFailure{kind: failureClientTxnConflict, details: failureDetails{ClientTxnID: txn}}
+}
+func applicationAdmissionFailure(err error, role string) *semanticFailure {
+	var denied *admission.Denied
+	if errors.As(err, &denied) {
+		return &semanticFailure{kind: failureAdmission, cause: err, details: failureDetails{RequiredRole: role}}
+	}
+	return internalSemanticFailure(err)
 }

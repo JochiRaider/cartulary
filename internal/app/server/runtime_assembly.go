@@ -76,7 +76,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
+// networkFlowComposition decorates owner dependencies before any worker starts.
+// Ordinary composition leaves this nil; no control registry is a runtime dependency.
+type networkFlowComposition interface {
+	WrapDatabase(postgres.DB) postgres.DB
+	ConfigureNetworkFlow(networkflow.ModuleDependencies) networkflow.ModuleDependencies
+	WrapImportFacade(imports.ExtensionImportFacade) imports.ExtensionImportFacade
+}
+
 type Options struct {
+	NetworkFlowComposition    networkFlowComposition
 	Env                       map[string]string
 	HTTP                      httpapi.Options
 	Postgres                  postgres.AdmittedPool
@@ -641,6 +650,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		normalizedCfg.Telemetry.Resource.ServiceVersion,
 		postgresPool,
 	)
+	if options.NetworkFlowComposition != nil {
+		postgresHandle = options.NetworkFlowComposition.WrapDatabase(postgresHandle)
+	}
 	if err := dependencies.runBootstrap(ctx, configassembly.BootstrapSettings(normalizedCfg), postgresPool); err != nil {
 		runtime.Close()
 		return nil, err
@@ -987,7 +999,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		networkFlowTelemetry = newNetworkFlowTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	}
 	incidentTransactionParticipant := incidents.NewTransactionParticipant()
-	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
+	networkFlowDependencies := networkflow.ModuleDependencies{
 		Postgres:        postgresHandle,
 		ImportSources:   importSourcePort,
 		KeyRings:        networkFlowKeyRings,
@@ -1002,7 +1014,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		JobRunner:       runtime.jobRunner,
 		JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(networkFlowJobFinalizer),
 		GraphTelemetry:  networkFlowTelemetry,
-	})
+	}
+	if options.NetworkFlowComposition != nil {
+		networkFlowDependencies = options.NetworkFlowComposition.ConfigureNetworkFlow(networkFlowDependencies)
+	}
+	networkFlowModule, err := networkflow.NewModule(networkFlowDependencies)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Network Flow module: %w", err)
@@ -1130,7 +1146,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	analyticalImportFacades := []imports.ExtensionImportFacade{}
 	if networkFlowRouteAdmitted {
-		analyticalImportFacades = append(analyticalImportFacades, networkFlowModule.ImportOwner())
+		facade := networkFlowModule.ImportOwner()
+		if options.NetworkFlowComposition != nil {
+			facade = options.NetworkFlowComposition.WrapImportFacade(facade)
+		}
+		analyticalImportFacades = append(analyticalImportFacades, facade)
 	}
 	importModule, err := imports.NewModule(imports.ModuleDependencies{
 		Postgres:            postgresHandle,

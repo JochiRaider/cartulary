@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	networkflowharnesscontrol "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
@@ -33,8 +34,10 @@ func (harnessServerProfile) runtimeOptions(lookup func(string) (string, bool)) O
 	testClock := httpapi.NewTestClock()
 	harnessControls := harnessruntime.NewControls()
 	networkFlowControls := networkflowharnesscontrol.NewControls()
+	networkFlowControls.Crash = func() { os.Exit(86) }
 	return Options{
-		Now: testClock.Now,
+		NetworkFlowComposition: networkFlowControls,
+		Now:                    testClock.Now,
 		HTTP: httpapi.Options{
 			Dependencies: httpapi.DependencySet{PublicErrorFaults: harnessControls.PublicErrorFaults},
 			AdditionalRoutes: append(

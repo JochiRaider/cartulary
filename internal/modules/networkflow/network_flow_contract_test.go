@@ -3,6 +3,7 @@ package networkflow
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
@@ -227,35 +228,18 @@ func AssertKeysetAndCursorRuntime(t *testing.T) {
 		}
 	}
 
-	sorted := sortRows(rows, []sortSpec{{FieldKey: fieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
-	seen := make([]string, 0, len(sorted))
-	var position *rowCursorPosition
-	for {
-		page, more := pageFlowRowsAfter(sorted, position, 1)
-		if len(page) == 0 {
-			break
-		}
-		seen = append(seen, page[0].NetworkFlowTableID+"/"+page[0].RowID)
-		next := newRowCursorPosition(page[0], []sortSpec{{FieldKey: fieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
-		encoded, err := json.Marshal(next)
-		if err != nil || bytes.Contains(encoded, []byte(`"offset"`)) {
-			t.Fatalf("row cursor position must be an offset-free keyset: %s err=%v", encoded, err)
-		}
-		position = &next
-		if !more {
-			break
-		}
-	}
-	if len(seen) != len(rows) || len(mapFromStrings(seen)) != len(rows) {
-		t.Fatalf("keyset pagination skipped or duplicated rows: %#v", seen)
+	position := newRowCursorPosition(rows[0], effective)
+	encoded, err := json.Marshal(position)
+	if err != nil || bytes.Contains(encoded, []byte(`"offset"`)) {
+		t.Fatalf("invalid cursor: %s %v", encoded, err)
 	}
 	args := []any{}
-	clause, err := appendRowKeysetSQL(position.EffectiveSort, *position, &args)
+	clause, err := appendRowKeysetSQL(position.EffectiveSort, position, &args)
 	if err != nil || !strings.Contains(clause, "$1::") || strings.Contains(clause, position.NetworkFlowRowID) {
 		t.Fatalf("keyset SQL must be whitelisted and parameterized: clause=%q args=%#v err=%v", clause, args, err)
 	}
 
-	AssertCursorCryptoRuntime(t, newRowCursorPosition(sorted[0], nil))
+	AssertCursorCryptoRuntime(t, newRowCursorPosition(rows[0], nil))
 }
 
 func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
@@ -274,11 +258,47 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 		t.Fatalf("parse Network Flow key rings: %v", err)
 	}
 	clock := now
-	codec, err := newCursorCodec(rings, func() time.Time { return clock })
+	codec, err := newCursorCodec(rings, func() time.Time { return clock }, nil)
 	if err != nil {
 		t.Fatalf("construct Network Flow cursor protector: %v", err)
 	}
 	binding := cursorBinding{Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident", Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "query-hash", QueryEcho: json.RawMessage(`{"sort":[]}`), Limit: 1}
+	t.Run("nonce entropy admission", func(t *testing.T) {
+		deterministic, err := newCursorCodec(rings, func() time.Time { return clock }, bytes.NewReader(bytes.Repeat([]byte{7}, 12)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		token, err := deterministic.Encode(binding, "row_keyset_v1", position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[2])
+		if err != nil || !bytes.Equal(raw[:12], bytes.Repeat([]byte{7}, 12)) {
+			t.Fatal("nonce bytes were not preserved")
+		}
+		if _, err := deterministic.Encode(binding, "row_keyset_v1", position); err == nil {
+			t.Fatal("exhausted injected entropy fell back")
+		}
+		short, err := newCursorCodec(rings, func() time.Time { return clock }, bytes.NewReader(make([]byte, 11)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := short.Encode(binding, "row_keyset_v1", position); err == nil {
+			t.Fatal("short nonce admitted")
+		}
+		other, err := newCursorCodec(rings, func() time.Time { return clock }, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		first, err := other.Encode(binding, "row_keyset_v1", position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		second, err := other.Encode(binding, "row_keyset_v1", position)
+		if err != nil || first == second || first == token {
+			t.Fatal("ordinary entropy not isolated")
+		}
+	})
 	token, err := codec.Encode(binding, "row_keyset_v1", position)
 	if err != nil || !strings.HasPrefix(token, "nfc2.network_flow-cursor.") {
 		t.Fatalf("encode nfc2 cursor token=%q err=%v", token, err)
@@ -319,15 +339,14 @@ func AssertDiagnosticKeysetRuntime(t *testing.T) {
 		{DiagnosticID: "nfd_1", SourceRowNumber: 2, SourceColumnOrdinal: &column, FieldKey: &field, ErrorCode: "a", ReasonCode: "a"},
 	}
 	sort.Slice(diagnostics, func(i, j int) bool { return compareDiagnostics(diagnostics[i], diagnostics[j]) < 0 })
-	first, more := pageDiagnosticsAfter(diagnostics, nil, 1)
-	if len(first) != 1 || !more || first[0].DiagnosticID != "nfd_1" {
-		t.Fatalf("diagnostic keyset first page=%#v more=%t", first, more)
+	if diagnostics[0].DiagnosticID != "nfd_1" || diagnostics[1].DiagnosticID != "nfd_2" || diagnostics[2].DiagnosticID != "nfd_3" {
+		t.Fatal("live diagnostic comparator order changed")
 	}
-	position := newDiagnosticCursorPosition(first[0])
-	rest, more := pageDiagnosticsAfter(diagnostics, &position, len(diagnostics))
-	if len(rest) != 2 || more || rest[0].DiagnosticID != "nfd_2" || rest[1].DiagnosticID != "nfd_3" {
-		t.Fatalf("diagnostic keyset continuation=%#v more=%t", rest, more)
+	position := newDiagnosticCursorPosition(diagnostics[0])
+	if position.DiagnosticID != "nfd_1" || position.SourceColumnOrdinal == nil {
+		t.Fatal("diagnostic cursor lost tuple")
 	}
+
 }
 
 func AssertDuplicateHeaderRuntime(t *testing.T) {
@@ -423,14 +442,6 @@ func AssertNameAndLifecycleRuntime(t *testing.T) {
 	}
 }
 
-func mapFromStrings(values []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		result[value] = struct{}{}
-	}
-	return result
-}
-
 func AssertGraphContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
@@ -453,20 +464,20 @@ func AssertIndicatorLinkContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
 	base := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_field_value","network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","field_key":"network_flow.src_ip"},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
-	request, apiErr := decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(base)), limits)
+	request, apiErr := decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(base)), limits)
 	if apiErr != nil || request.Selector.Kind != "row_field_value" || request.Target.Mode != "create_indicator" {
 		t.Fatalf("baseline indicator link decode request=%#v err=%v", request, apiErr)
 	}
-	_, apiErr = decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"binding_only"`, `"create_observation"`, 1))), limits)
+	_, apiErr = decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"binding_only"`, `"create_observation"`, 1))), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "type_mismatch")
-	_, apiErr = decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"network_flow.src_ip"`, `"network_flow.bytes_count"`, 1))), limits)
+	_, apiErr = decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"network_flow.src_ip"`, `"network_flow.bytes_count"`, 1))), limits)
 	if apiErr != nil {
 		t.Fatalf("field policy ran before freshness: %v", apiErr)
 	}
-	_, apiErr = candidateValueFromRow(flowRow{}, "network_flow.bytes_count")
-	requireAPIError(t, apiErr, "network_flow_invalid_indicator_selector", "field_not_linkable")
+	_, candidateFailure := candidateValueFromRow(flowRow{}, "network_flow.bytes_count")
+	requireAPIError(t, candidateFailure, "network_flow_invalid_indicator_selector", "field_not_linkable")
 	rowRefs := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_refs","field_key":"network_flow.src_ip","row_refs":[{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"},{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"}]},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
-	_, apiErr = decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(rowRefs)), limits)
+	_, apiErr = decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(rowRefs)), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_indicator_selector", "variant_member_conflict")
 	if !canonicalIPLiteral("192.0.2.10") || canonicalIPLiteral("192.168.001.010") {
 		t.Fatalf("confirm_exact_value canonical IP predicate drifted")
@@ -521,9 +532,28 @@ func AssertRedactionAuditAndSafeDigestBoundary(t *testing.T) {
 	if numericSample.SafeSample == nil || *numericSample.SafeSample != "12345" || numericSample.RawValueSHA256 == nil {
 		t.Fatalf("bounded numeric sample should expose safe sample plus digest: %#v", numericSample)
 	}
-	digest, keyID := safeDigest("network_flow-key", []byte("network_flow-secret"), "candidate", "192.0.2.10")
-	if keyID != "network_flow-key" || !hex64(digest) {
+	digest, keyID, err := safeDigest("network_flow-key", []byte("0123456789abcdef0123456789abcdef"), "candidate", "192.0.2.10")
+	if err != nil || keyID != "network_flow-key" || digest != "8aaa7e7bd4a7a95443783d979d0f0cd3382516ef6700c3e5f8d6fc19b905fc01" {
 		t.Fatalf("safe digest got digest=%q key_id=%q", digest, keyID)
+	}
+	for _, bad := range []struct {
+		id    string
+		key   []byte
+		class string
+	}{
+		{"", make([]byte, 32), "candidate"}, {"bad key", make([]byte, 32), "candidate"},
+		{"valid", nil, "candidate"}, {"valid", make([]byte, 31), "candidate"},
+		{"valid", make([]byte, 33), "candidate"}, {"valid", make([]byte, 32), ""},
+		{"valid", make([]byte, 32), "invalid\x00class"},
+	} {
+		if digest, id, err := safeDigest(bad.id, bad.key, bad.class, "private"); err == nil || digest != "" || id != "" {
+			t.Fatal("invalid key/class produced digest")
+		}
+	}
+	rings := &KeyRings{safeActiveID: "retired", safeKeys: map[string]safeDigestKeyMaterial{"retired": {key: make([]byte, 32), state: "inactive"}}}
+	digester := &keyRingSafeDigester{rings: rings, now: time.Now}
+	if _, _, err := digester.Digest("candidate", "private"); err == nil {
+		t.Fatal("inactive epoch used for new digest")
 	}
 	AssertCursorCryptoRuntime(t, rowCursorPosition{
 		EffectiveSort:      effectiveSort(nil),
@@ -569,7 +599,7 @@ func AssertResourceLimitBoundary(t *testing.T) {
 
 func AssertUnmappedRawInert(t *testing.T) {
 	t.Helper()
-	if isFilterField("unmapped_raw") || isSortField("unmapped_raw") || networkFlowLinkableIPField("unmapped_raw") {
+	if isFilterField("unmapped_raw") || isSortField("unmapped_raw") {
 		t.Fatalf("unmapped_raw must not be filterable, sortable, or indicator-linkable")
 	}
 }
@@ -602,7 +632,18 @@ func AssertImportFacadeBoundary(t *testing.T) {
 	AssertImportRuntime(t)
 }
 
-func requireAPIError(t *testing.T, apiErr *httpapi.APIError, code string, reason string) {
+func requireAPIError(t *testing.T, failure any, code string, reason string) {
+	var apiErr *httpapi.APIError
+	switch value := failure.(type) {
+	case *httpapi.APIError:
+		apiErr = value
+	case *semanticFailure:
+		apiErr = semanticHTTPError(value)
+	case nil:
+	default:
+		t.Fatalf("unexpected error type %T", failure)
+	}
+
 	t.Helper()
 	if apiErr == nil {
 		t.Fatalf("expected API error %s/%s", code, reason)

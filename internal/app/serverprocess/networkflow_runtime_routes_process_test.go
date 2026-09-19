@@ -9,6 +9,7 @@ import (
 )
 
 func TestNetworkFlowHarnessRuntimeRouteServerProcessContribution(t *testing.T) {
+	t.Run("owned crash recovery", assertNetworkFlowOwnedProcessCrashRecovery)
 	publicOrigin := "http://127.0.0.1:4173"
 	server := startHarnessRuntimeServerProcess(t, "network-flow-test-runtime", map[string]string{
 		"CARTULARY_ENABLE_TEST_ROUTES":    "1",

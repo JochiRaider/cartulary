@@ -772,29 +772,29 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test.network_flow_audit_assertion_control.v1",
-      "path": "tools/schemas/cartulary.test.network_flow_audit_assertion_control.v1.schema.json",
+      "schema_id": "cartulary.test.network_flow_audit_assertion_control.v2",
+      "path": "tools/schemas/cartulary.test.network_flow_audit_assertion_control.v2.schema.json",
       "classification": "public_contract",
       "producer": "Network Flow test route",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test.network_flow_auth_transition_control.v1",
-      "path": "tools/schemas/cartulary.test.network_flow_auth_transition_control.v1.schema.json",
+      "schema_id": "cartulary.test.network_flow_auth_transition_control.v2",
+      "path": "tools/schemas/cartulary.test.network_flow_auth_transition_control.v2.schema.json",
       "classification": "public_contract",
       "producer": "Network Flow test route",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test.network_flow_fault_control.v1",
-      "path": "tools/schemas/cartulary.test.network_flow_fault_control.v1.schema.json",
+      "schema_id": "cartulary.test.network_flow_fault_control.v2",
+      "path": "tools/schemas/cartulary.test.network_flow_fault_control.v2.schema.json",
       "classification": "public_contract",
       "producer": "Network Flow test route",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test.network_flow_randomness_control.v1",
-      "path": "tools/schemas/cartulary.test.network_flow_randomness_control.v1.schema.json",
+      "schema_id": "cartulary.test.network_flow_randomness_control.v2",
+      "path": "tools/schemas/cartulary.test.network_flow_randomness_control.v2.schema.json",
       "classification": "public_contract",
       "producer": "Network Flow test route",
       "validation": "json-shape-check"

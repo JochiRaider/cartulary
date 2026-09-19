@@ -71,11 +71,6 @@ func (s *routeService) composeGraphHTTP(ctx context.Context, incidentID uuid.UUI
 	return value0, semanticHTTPError(value1)
 }
 
-func (s *routeService) composeGraphSourceFromSemanticHTTP(ctx context.Context, incidentID uuid.UUID, semantic graphSemanticRequest) (graphComposition, *httpapi.APIError) {
-	value0, value1 := s.graphComposer.composeGraphSourceFromSemantic(ctx, incidentID, semantic)
-	return value0, semanticHTTPError(value1)
-}
-
 func rowMatchesGraphQueryHTTP(row flowRow, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation) (bool, *httpapi.APIError) {
 	value0, value1 := rowMatchesGraphQuery(row, filters, timeRange, aggregation)
 	return value0, semanticHTTPError(value1)
@@ -84,11 +79,6 @@ func rowMatchesGraphQueryHTTP(row flowRow, filters []queryFilter, timeRange grap
 func (s *routeService) queryGraphContributorPageHTTP(ctx context.Context, incidentID uuid.UUID, semantic graphSemanticRequest, expectedDigest string, selector graphSelector, position *contributorCursorPosition, limit int) ([]flowRow, bool, map[string]int, *httpapi.APIError) {
 	value0, value1, value2, value3 := s.graphComposer.queryGraphContributorPage(ctx, incidentID, semantic, expectedDigest, selector, position, limit)
 	return value0, value1, value2, semanticHTTPError(value3)
-}
-
-func graphProjectionFailedForContextHTTP(err error) *httpapi.APIError {
-	value0 := graphProjectionFailedForContext(err)
-	return semanticHTTPError(value0)
 }
 
 func graphQueryStaleHTTP(reason string, digest string) *httpapi.APIError {

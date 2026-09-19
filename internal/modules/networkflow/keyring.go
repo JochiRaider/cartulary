@@ -263,8 +263,7 @@ func (d *keyRingSafeDigester) Digest(valueClass string, canonicalValue string) (
 	if !ok || entry.state != "active" || len(entry.key) != 32 {
 		return "", "", errors.New("network flow active safe-digest key unavailable")
 	}
-	digest, keyID := safeDigest(d.rings.safeActiveID, entry.key, valueClass, canonicalValue)
-	return digest, keyID, nil
+	return safeDigest(d.rings.safeActiveID, entry.key, valueClass, canonicalValue)
 }
 
 func (r *KeyRings) purgeExpiredLocked(now time.Time) {

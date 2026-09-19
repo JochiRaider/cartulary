@@ -1,10 +1,8 @@
 package harnesscontrol
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,25 +13,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-const testNetworkFlowAuthTransitionSchemaID = "cartulary.test.network_flow_auth_transition_control.v1"
+const testNetworkFlowAuthTransitionSchemaID = "cartulary.test.network_flow_auth_transition_control.v2"
 
 const (
-	NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization            = "network_flow.route.before_authorization"
-	NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup = "network_flow.route.after_authorization_before_lookup"
-	NetworkFlowAuthTransitionBoundaryRouteAfterLookupBeforeResponse      = "network_flow.route.after_lookup_before_response"
-	NetworkFlowAuthTransitionBoundaryCursorBeforeAuthorizationRecheck    = "network_flow.cursor.before_authorization_recheck"
-	NetworkFlowAuthTransitionBoundaryWebSocketBeforeInvalidationPublish  = "network_flow.websocket.before_invalidation_publish"
-	NetworkFlowAuthTransitionBoundaryFixtureAfterTransition              = "network_flow.fixture.after_transition"
+	NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization         = "network_flow.route.before_authorization"
+	NetworkFlowAuthTransitionBoundaryCursorBeforeAuthorizationRecheck = "network_flow.cursor.before_authorization_recheck"
 )
 
 const (
 	NetworkFlowAuthTransitionKindIncidentMembershipRevoked   = "incident_membership_revoked"
 	NetworkFlowAuthTransitionKindIncidentMembershipRestored  = "incident_membership_restored"
-	NetworkFlowAuthTransitionKindIncidentSoftDeleted         = "incident_soft_deleted"
+	NetworkFlowAuthTransitionKindIncidentDeleted             = "incident_deleted"
 	NetworkFlowAuthTransitionKindNetworkFlowTableSoftDeleted = "network_flow_table_soft_deleted"
 	NetworkFlowAuthTransitionKindNetworkFlowTableRenamed     = "network_flow_table_renamed"
 	NetworkFlowAuthTransitionKindSessionRevoked              = "session_revoked"
-	NetworkFlowAuthTransitionKindExtensionClaimRemoved       = "extension_claim_removed"
 )
 
 const (
@@ -45,33 +38,19 @@ const (
 	NetworkFlowAuthResourceNetworkFlowWorkspace    = "network_flow_workspace"
 )
 
-const (
-	NetworkFlowHiddenResponseNotFound                   = "not_found"
-	NetworkFlowHiddenResponseForbiddenWithoutResource   = "forbidden_without_resource"
-	NetworkFlowHiddenResponseEmptyCollection            = "empty_collection"
-	NetworkFlowHiddenResponseCursorRejected             = "cursor_rejected"
-	NetworkFlowHiddenResponseExtensionProfileNotClaimed = "extension_profile_not_claimed"
-	NetworkFlowHiddenResponseInvalidationEvent          = "invalidation_event"
-)
-
 var (
 	networkFlowAuthTransitionBoundaries = map[string]struct{}{
-		NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization:            {},
-		NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup: {},
-		NetworkFlowAuthTransitionBoundaryRouteAfterLookupBeforeResponse:      {},
-		NetworkFlowAuthTransitionBoundaryCursorBeforeAuthorizationRecheck:    {},
-		NetworkFlowAuthTransitionBoundaryWebSocketBeforeInvalidationPublish:  {},
-		NetworkFlowAuthTransitionBoundaryFixtureAfterTransition:              {},
+		NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization:         {},
+		NetworkFlowAuthTransitionBoundaryCursorBeforeAuthorizationRecheck: {},
 	}
 
 	networkFlowAuthTransitionKinds = map[string]struct{}{
 		NetworkFlowAuthTransitionKindIncidentMembershipRevoked:   {},
 		NetworkFlowAuthTransitionKindIncidentMembershipRestored:  {},
-		NetworkFlowAuthTransitionKindIncidentSoftDeleted:         {},
+		NetworkFlowAuthTransitionKindIncidentDeleted:             {},
 		NetworkFlowAuthTransitionKindNetworkFlowTableSoftDeleted: {},
 		NetworkFlowAuthTransitionKindNetworkFlowTableRenamed:     {},
 		NetworkFlowAuthTransitionKindSessionRevoked:              {},
-		NetworkFlowAuthTransitionKindExtensionClaimRemoved:       {},
 	}
 
 	networkFlowAuthResourceKinds = map[string]struct{}{
@@ -82,33 +61,23 @@ var (
 		NetworkFlowAuthResourceNetworkFlowContributors: {},
 		NetworkFlowAuthResourceNetworkFlowWorkspace:    {},
 	}
-
-	networkFlowHiddenResponseKinds = map[string]struct{}{
-		NetworkFlowHiddenResponseNotFound:                   {},
-		NetworkFlowHiddenResponseForbiddenWithoutResource:   {},
-		NetworkFlowHiddenResponseEmptyCollection:            {},
-		NetworkFlowHiddenResponseCursorRejected:             {},
-		NetworkFlowHiddenResponseExtensionProfileNotClaimed: {},
-		NetworkFlowHiddenResponseInvalidationEvent:          {},
-	}
 )
 
 type NetworkFlowAuthTransitionRegistry struct {
 	mu          sync.Mutex
 	transitions map[string]NetworkFlowAuthTransition
+	fixtures    map[string]string
 }
 
 type NetworkFlowAuthTransition struct {
-	ID                      string
-	Boundary                string
-	TransitionKind          string
-	ActorRef                string
-	IncidentRef             string
-	ResourceKind            string
-	ResourceRef             string
-	HiddenResponseKind      string
-	MustNotDiscloseResource bool
-	CorrelationKey          string
+	ID             string
+	Boundary       string
+	TransitionKind string
+	ActorRef       string
+	IncidentRef    string
+	ResourceKind   string
+	ResourceRef    string
+	CorrelationKey string
 }
 
 type networkFlowAuthTransitionService struct {
@@ -117,35 +86,31 @@ type networkFlowAuthTransitionService struct {
 }
 
 type networkFlowAuthTransitionRequest struct {
-	Boundary                string  `json:"boundary"`
-	TransitionKind          string  `json:"transition_kind"`
-	ActorRef                string  `json:"actor_ref"`
-	IncidentRef             string  `json:"incident_ref"`
-	ResourceKind            string  `json:"resource_kind"`
-	ResourceRef             string  `json:"resource_ref"`
-	HiddenResponseKind      string  `json:"hidden_response_kind"`
-	MustNotDiscloseResource bool    `json:"must_not_disclose_resource"`
-	CorrelationKey          *string `json:"correlation_key"`
-	ConsumeOnce             bool    `json:"consume_once"`
+	Boundary       string  `json:"boundary"`
+	TransitionKind string  `json:"transition_kind"`
+	ActorRef       string  `json:"actor_ref"`
+	IncidentRef    string  `json:"incident_ref"`
+	ResourceKind   string  `json:"resource_kind"`
+	ResourceRef    string  `json:"resource_ref"`
+	CorrelationKey *string `json:"correlation_key"`
+	ConsumeOnce    bool    `json:"consume_once"`
 }
 
 type networkFlowAuthTransitionResult struct {
-	SchemaID                string `json:"schema_id"`
-	ControlID               string `json:"control_id"`
-	Boundary                string `json:"boundary"`
-	TransitionKind          string `json:"transition_kind"`
-	ActorRef                string `json:"actor_ref"`
-	IncidentRef             string `json:"incident_ref"`
-	ResourceKind            string `json:"resource_kind"`
-	ResourceRef             string `json:"resource_ref"`
-	HiddenResponseKind      string `json:"hidden_response_kind"`
-	MustNotDiscloseResource bool   `json:"must_not_disclose_resource"`
-	CorrelationKey          string `json:"correlation_key,omitempty"`
-	ConsumeOnce             bool   `json:"consume_once"`
+	SchemaID       string `json:"schema_id"`
+	ControlID      string `json:"control_id"`
+	Boundary       string `json:"boundary"`
+	TransitionKind string `json:"transition_kind"`
+	ActorRef       string `json:"actor_ref"`
+	IncidentRef    string `json:"incident_ref"`
+	ResourceKind   string `json:"resource_kind"`
+	ResourceRef    string `json:"resource_ref"`
+	CorrelationKey string `json:"correlation_key,omitempty"`
+	ConsumeOnce    bool   `json:"consume_once"`
 }
 
 func NewNetworkFlowAuthTransitionRegistry() *NetworkFlowAuthTransitionRegistry {
-	return &NetworkFlowAuthTransitionRegistry{transitions: map[string]NetworkFlowAuthTransition{}}
+	return &NetworkFlowAuthTransitionRegistry{transitions: map[string]NetworkFlowAuthTransition{}, fixtures: map[string]string{}}
 }
 
 func RegisterNetworkFlowAuthTransitionRoutes(transitions *NetworkFlowAuthTransitionRegistry) httpapi.RouteRegistrar {
@@ -199,6 +164,7 @@ func (r *NetworkFlowAuthTransitionRegistry) Clear() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.transitions = map[string]NetworkFlowAuthTransition{}
+	r.fixtures = map[string]string{}
 }
 
 func (r *NetworkFlowAuthTransitionRegistry) arm(transition NetworkFlowAuthTransition) bool {
@@ -237,41 +203,32 @@ func (s *networkFlowAuthTransitionService) handleArm(w http.ResponseWriter, r *h
 		})
 		return
 	}
+	if !s.transitions.fixtureBound(transition) {
+		_ = httpapi.WriteError(w, r, http.StatusBadRequest, "invalid_network_flow_auth_transition_request", "unresolved fixture references", map[string]any{"reason": "unresolved_fixture_reference"})
+		return
+	}
 	if !s.transitions.arm(transition) {
 		_ = httpapi.WriteError(w, r, http.StatusConflict, "test_network_flow_auth_transition_already_armed", "Network Flow auth transition is already armed", map[string]any{})
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, networkFlowAuthTransitionResult{
-		SchemaID:                testNetworkFlowAuthTransitionSchemaID,
-		ControlID:               transition.ID,
-		Boundary:                transition.Boundary,
-		TransitionKind:          transition.TransitionKind,
-		ActorRef:                transition.ActorRef,
-		IncidentRef:             transition.IncidentRef,
-		ResourceKind:            transition.ResourceKind,
-		ResourceRef:             transition.ResourceRef,
-		HiddenResponseKind:      transition.HiddenResponseKind,
-		MustNotDiscloseResource: true,
-		CorrelationKey:          transition.CorrelationKey,
-		ConsumeOnce:             true,
+		SchemaID:       testNetworkFlowAuthTransitionSchemaID,
+		ControlID:      transition.ID,
+		Boundary:       transition.Boundary,
+		TransitionKind: transition.TransitionKind,
+		ActorRef:       transition.ActorRef,
+		IncidentRef:    transition.IncidentRef,
+		ResourceKind:   transition.ResourceKind,
+		ResourceRef:    transition.ResourceRef,
+		CorrelationKey: transition.CorrelationKey,
+		ConsumeOnce:    true,
 	})
 }
 
 func decodeNetworkFlowAuthTransitionRequest(r *http.Request) (networkFlowAuthTransitionRequest, error) {
 	var request networkFlowAuthTransitionRequest
-	if r.Body == nil {
-		return request, errors.New("body is required")
-	}
-	defer r.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil {
-		return request, fmt.Errorf("decode body: %w", err)
-	}
-	if decoder.Decode(&struct{}{}) != io.EOF {
-		return request, errors.New("body must contain a single JSON object")
-	}
-	return request, nil
+	err := decodeControlRequest(r, &request, "boundary", "transition_kind", "actor_ref", "incident_ref", "resource_kind", "resource_ref", "consume_once")
+	return request, err
 }
 
 func (r networkFlowAuthTransitionRequest) networkFlowAuthTransition() (NetworkFlowAuthTransition, error) {
@@ -281,7 +238,6 @@ func (r networkFlowAuthTransitionRequest) networkFlowAuthTransition() (NetworkFl
 	incidentRef := strings.TrimSpace(r.IncidentRef)
 	resourceKind := strings.TrimSpace(r.ResourceKind)
 	resourceRef := strings.TrimSpace(r.ResourceRef)
-	hiddenResponseKind := strings.TrimSpace(r.HiddenResponseKind)
 	if _, ok := networkFlowAuthTransitionBoundaries[boundary]; !ok {
 		return NetworkFlowAuthTransition{}, errors.New("boundary is not a supported Network Flow auth-transition boundary")
 	}
@@ -300,12 +256,6 @@ func (r networkFlowAuthTransitionRequest) networkFlowAuthTransition() (NetworkFl
 	if !isNetworkFlowAuthTransitionRef(resourceRef) {
 		return NetworkFlowAuthTransition{}, errors.New("resource_ref must be an ASCII fixture reference no longer than 128 characters")
 	}
-	if _, ok := networkFlowHiddenResponseKinds[hiddenResponseKind]; !ok {
-		return NetworkFlowAuthTransition{}, errors.New("hidden_response_kind is not supported")
-	}
-	if !r.MustNotDiscloseResource {
-		return NetworkFlowAuthTransition{}, errors.New("must_not_disclose_resource must be true")
-	}
 	if !r.ConsumeOnce {
 		return NetworkFlowAuthTransition{}, errors.New("consume_once must be true")
 	}
@@ -317,16 +267,14 @@ func (r networkFlowAuthTransitionRequest) networkFlowAuthTransition() (NetworkFl
 		}
 	}
 	return NetworkFlowAuthTransition{
-		ID:                      uuid.NewString(),
-		Boundary:                boundary,
-		TransitionKind:          transitionKind,
-		ActorRef:                actorRef,
-		IncidentRef:             incidentRef,
-		ResourceKind:            resourceKind,
-		ResourceRef:             resourceRef,
-		HiddenResponseKind:      hiddenResponseKind,
-		MustNotDiscloseResource: true,
-		CorrelationKey:          correlationKey,
+		ID:             uuid.NewString(),
+		Boundary:       boundary,
+		TransitionKind: transitionKind,
+		ActorRef:       actorRef,
+		IncidentRef:    incidentRef,
+		ResourceKind:   resourceKind,
+		ResourceRef:    resourceRef,
+		CorrelationKey: correlationKey,
 	}, nil
 }
 
@@ -349,4 +297,46 @@ func isNetworkFlowAuthTransitionRef(value string) bool {
 		}
 	}
 	return true
+}
+
+// RequireConsumed is called by a fixture before reporting success. Pending
+// controls are missing evidence, including controls for unresolved references.
+func (r *NetworkFlowAuthTransitionRegistry) RequireConsumed() error {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.transitions) != 0 {
+		return errors.New("required Network Flow authorization transitions were not consumed")
+	}
+	return nil
+}
+
+// BindFixture reserves verified fixture references within this registry instance.
+// A different set of rows cannot take over already bound symbolic references.
+func (r *NetworkFlowAuthTransitionRegistry) BindFixture(actor, incident, kind, resource, identity string) error {
+	if !isNetworkFlowAuthTransitionRef(actor) || !isNetworkFlowAuthTransitionRef(incident) || !isNetworkFlowAuthTransitionRef(resource) || identity == "" {
+		return errors.New("invalid fixture binding")
+	}
+	if _, ok := networkFlowAuthResourceKinds[kind]; !ok {
+		return errors.New("unknown fixture resource kind")
+	}
+	key := networkFlowAuthTransitionKey("", actor, incident, kind, resource)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if old, ok := r.fixtures[key]; ok && old != identity {
+		return errors.New("fixture references already bound to different rows")
+	}
+	if r.fixtures == nil {
+		r.fixtures = map[string]string{}
+	}
+	r.fixtures[key] = identity
+	return nil
+}
+func (r *NetworkFlowAuthTransitionRegistry) fixtureBound(t NetworkFlowAuthTransition) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.fixtures[networkFlowAuthTransitionKey("", t.ActorRef, t.IncidentRef, t.ResourceKind, t.ResourceRef)]
+	return ok
 }

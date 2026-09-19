@@ -211,6 +211,12 @@ describe("NetworkAnalysisWorkspace", () => {
     if (!decodedSourceProfiles.ok) {
       throw new Error(JSON.stringify(decodedSourceProfiles.error));
     }
+    expect(
+      networkFlowDecoders.sourceProfileList.decode({
+        ...sourceProfileListResource(),
+        schema_id: "cartulary.network_flow.source_profile_list.v1",
+      }).ok,
+    ).toBe(false);
     let releaseContributors = () => {};
     const contributorResponseGate = new Promise<void>((resolve) => {
       releaseContributors = resolve;

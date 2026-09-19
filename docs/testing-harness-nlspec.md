@@ -2671,10 +2671,10 @@ parity-checked with every harness-public row in this table.
 | `cartulary.browser_reset_attempt.v1`            | `tools/schemas/cartulary.browser_reset_attempt.v1.schema.json`            | present           | Browser reset lifecycle  | Before a browser reset unit reaches a terminal state. |
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
 | `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
-| `cartulary.test.network_flow_fault_control.v1`  | `tools/schemas/cartulary.test.network_flow_fault_control.v1.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
-| `cartulary.test.network_flow_randomness_control.v1` | `tools/schemas/cartulary.test.network_flow_randomness_control.v1.schema.json` | present       | Network Flow randomness-control route | Before an armed deterministic Network Flow random stream is accepted. |
-| `cartulary.test.network_flow_auth_transition_control.v1` | `tools/schemas/cartulary.test.network_flow_auth_transition_control.v1.schema.json` | present | Network Flow auth-transition control route | Before an armed Network Flow auth-transition control is accepted. |
-| `cartulary.test.network_flow_audit_assertion_control.v1` | `tools/schemas/cartulary.test.network_flow_audit_assertion_control.v1.schema.json` | present | Network Flow audit-assertion control route | Before an armed Network Flow audit-count or replay assertion is accepted. |
+| `cartulary.test.network_flow_fault_control.v2`  | `tools/schemas/cartulary.test.network_flow_fault_control.v2.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
+| `cartulary.test.network_flow_randomness_control.v2` | `tools/schemas/cartulary.test.network_flow_randomness_control.v2.schema.json` | present       | Network Flow randomness-control route | Before an armed deterministic Network Flow random stream is accepted. |
+| `cartulary.test.network_flow_auth_transition_control.v2` | `tools/schemas/cartulary.test.network_flow_auth_transition_control.v2.schema.json` | present | Network Flow auth-transition control route | Before an armed Network Flow auth-transition control is accepted. |
+| `cartulary.test.network_flow_audit_assertion_control.v2` | `tools/schemas/cartulary.test.network_flow_audit_assertion_control.v2.schema.json` | present | Network Flow audit-assertion control route | Before an armed Network Flow audit-count or replay assertion is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
 | `cartulary.network_flow_fixture_manifest.v2`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v2.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for behavior execution. |
 | `cartulary.network_flow_fixture_scenario.v2`    | `tools/schemas/cartulary.network_flow_fixture_scenario.v2.schema.json`    | present           | Network Flow fixture scenario validator | Before a Network Flow fixture scenario is selected for behavior execution. |
@@ -3113,10 +3113,10 @@ Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
 | Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v1`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
 | Browser reset attempt                                | Browser reset lifecycle                         | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v1`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative lifecycle-unit failure evidence. |
 | Test clock-control response                          | Test clock route                               | clock-control transcript or target-owned clock-control dir       | `cartulary.test.clock_control.v1`                             | Clock mode, current RFC3339 timestamp, offset seconds, and fixed timestamp when mode is fixed | Retained only by the target or fixture transcript that controls the clock; never production API evidence. |
-| Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v1`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
-| Network Flow randomness-control response             | Network Flow randomness-control route           | Network Flow fixture transcript or target-owned randomness-control dir | `cartulary.test.network_flow_randomness_control.v1`           | Control ID, exact stream token, value kind, value count, remaining count, `consume_once=true`, and `exhaustion="fail_closed"` | Retained only by the target or fixture transcript that arms deterministic fixture randomness; never production API evidence. |
-| Network Flow auth-transition-control response        | Network Flow auth-transition-control route      | Network Flow fixture transcript or target-owned auth-transition-control dir | `cartulary.test.network_flow_auth_transition_control.v1`      | Control ID, exact boundary token, transition kind, actor ref, incident ref, resource kind/ref, hidden response kind, optional correlation key, `must_not_disclose_resource=true`, and `consume_once=true` | Retained only by the target or fixture transcript that arms route-time authorization or hidden-resource assertions; never production API evidence. |
-| Network Flow audit-assertion-control response        | Network Flow audit-assertion-control route      | Network Flow fixture transcript or target-owned audit-assertion-control dir | `cartulary.test.network_flow_audit_assertion_control.v1`     | Assertion ID, assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, expected replay increment, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms exact-count or replay-silence assertions; never product audit evidence by itself. |
+| Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v2`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
+| Network Flow randomness-control response             | Network Flow randomness-control route           | Network Flow fixture transcript or target-owned randomness-control dir | `cartulary.test.network_flow_randomness_control.v2`           | Control ID, exact stream token, value kind, value count, remaining count, `consume_once=true`, and `exhaustion="fail_closed"` | Retained only by the target or fixture transcript that arms deterministic fixture randomness; never production API evidence. |
+| Network Flow auth-transition-control response        | Network Flow auth-transition-control route      | Network Flow fixture transcript or target-owned auth-transition-control dir | `cartulary.test.network_flow_auth_transition_control.v2`      | Control ID, exact boundary token, transition kind, actor ref, incident ref, resource kind/ref, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms route-time authorizations; never production API evidence. |
+| Network Flow audit-assertion-control response        | Network Flow audit-assertion-control route      | Network Flow fixture transcript or target-owned audit-assertion-control dir | `cartulary.test.network_flow_audit_assertion_control.v2`     | Assertion ID, assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms exact-count or replay-silence assertions; never product audit evidence by itself. |
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v4`                  | Active `rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
 | Release-readiness projection                         | Unified scheduler                               | `target-summaries/release-readiness-evidence.json`                  | `cartulary.harness_target_summary.v1`                          | Exact producer-unit references, inclusive interval union, status, cache accounting, and evidence refs from the canonical run | Retained as part of the release-check canonical run; no parallel release-evidence format is written. |
 | Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v2`                   | Fixture identity, source files, expected artifacts, transcript files, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations are retained under the selected target's run root. |
@@ -4821,23 +4821,16 @@ Verified by: TH-HARNESS-AC-050
 **TH-HARNESS-REQ-456**
 Network Flow fault boundaries are closed tokens owned by the harness. They identify where an opted-in Network Flow test implementation checks for an armed fault; they do not define product state-machine semantics. The supported boundary tokens are exactly:
 
-| Boundary token                                                     | Harness use |
-| ------------------------------------------------------------------ | ----------- |
-| `network_flow.import.before_owner_prepare`                         | Fault before Network Flow table or diagnostic state is prepared for the shared unit of work. |
-| `network_flow.import.after_owner_prepare`                          | Fault after Network Flow owner state has been prepared but before later participants are prepared. |
-| `network_flow.import.after_indicator_prepare`                      | Fault after indicator create/dedupe or binding participants have prepared their writes. |
-| `network_flow.import.after_audit_prepare`                          | Fault after transactional audit occurrences have been prepared. |
-| `network_flow.import.after_idempotency_prepare`                    | Fault after idempotency-success state has been prepared. |
-| `network_flow.import.after_terminal_publication_prepare`           | Fault after terminal import-result publication has been prepared. |
-| `network_flow.import.before_transaction_commit`                    | Fault immediately before the shared transaction commit. |
-| `network_flow.import.after_transaction_commit_before_reply`        | Fault after the shared transaction commits but before the apply caller receives the terminal response. |
-| `network_flow.worker.before_handler_start`                         | Fault before a durable Network Flow worker handler starts owner work. |
-| `network_flow.worker.before_apply_start`                           | Fault before the worker starts an apply attempt. |
-| `network_flow.worker.before_cancellation_check`                    | Fault before the worker observes a cancellation gate. |
-| `network_flow.worker.before_final_commit`                          | Fault before the worker reaches the final shared transaction commit. |
-| `network_flow.worker.after_final_commit_before_terminal_publication` | Fault after final commit and before terminal-result publication or recovery reconciliation. |
-| `network_flow.worker.after_terminal_publication_before_ack`        | Fault after terminal publication and before the worker acknowledges durable completion. |
-| `network_flow.worker.before_replay_reconciliation`                 | Fault before worker recovery reconciles an already-committed operation with terminal publication. |
+| Boundary token | Real consumer |
+| --- | --- |
+| `network_flow.import.before_owner_apply` | Import facade immediately before owner apply in the borrowed transaction. |
+| `network_flow.import.after_owner_apply` | Import facade after owner apply, before enclosing transaction commit. |
+| `network_flow.import.before_transaction_commit` | Decorated enclosing Import transaction commit. |
+| `network_flow.import.after_transaction_commit_before_reply` | After successful commit, before its caller returns. |
+| `network_flow.worker.before_handler_start` | Decorated Network Flow worker handler entry. |
+| `network_flow.worker.before_cancellation_check` | Decorated Jobs execution observation. |
+| `network_flow.worker.before_final_commit` | Finalizer mutation callback, after owner writes and before the shared final commit. |
+| `network_flow.worker.after_completed_publication` | After successful atomic finalization/publication. |
 
 Verified by: TH-HARNESS-AC-050
 
@@ -4852,7 +4845,7 @@ The request body MUST be a JSON object with exactly the fields below.
 | `correlation_key` | no       | Optional ASCII token matching `^[A-Za-z0-9._:-]{1,128}$`; when supplied, consumption requires the same key. |
 | `consume_once`    | yes      | Must be `true`; persistent or multi-consume faults are not accepted. |
 
-Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported boundary, unsupported fault kind, worker-only fault kind on an import boundary, invalid or misplaced `error_code`, invalid `correlation_key`, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_network_flow_fault_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_fault_control.v1` in the standard success envelope. The response MUST include a generated `fault_id`, exact `boundary`, exact `fault_kind`, optional `error_code`, optional `correlation_key`, and `consume_once=true`. The response MUST NOT include the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, raw fixture source paths, or private runtime state.
+Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported boundary, unsupported fault kind, worker-only fault kind on an import boundary, invalid or misplaced `error_code`, invalid `correlation_key`, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_network_flow_fault_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_fault_control.v2` in the standard success envelope. The response MUST include a generated `fault_id`, exact `boundary`, exact `fault_kind`, optional `error_code`, optional `correlation_key`, and `consume_once=true`. The response MUST NOT include the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, raw fixture source paths, or private runtime state.
 Verified by: TH-HARNESS-AC-050
 
 **TH-HARNESS-REQ-458**
@@ -4872,16 +4865,10 @@ Verified by: TH-HARNESS-AC-052
 **TH-HARNESS-REQ-466**
 Network Flow deterministic-randomness streams are closed harness tokens. They identify fixture-only injection points and do not define product identity semantics, digest algorithms, cursor algorithms, Graph Projection semantics, or public API compatibility. The supported stream tokens are exactly:
 
-| Stream token                             | Harness use |
-| ---------------------------------------- | ----------- |
-| `network_flow.table_id`                  | Deterministic table identity and table-name collision fixtures. |
-| `network_flow.row_id`                    | Deterministic row identity fixtures. |
-| `network_flow.diagnostic_id`             | Deterministic diagnostic identity and diagnostic-order fixtures. |
-| `network_flow.import_job_id`             | Deterministic import/apply job identity fixtures. |
-| `network_flow.import_source_ref`         | Deterministic opaque import-source reference fixtures. |
-| `network_flow.cursor_nonce`              | Deterministic cursor nonce, replay, TTL, and rotation fixtures. |
-| `network_flow.safe_digest_nonce`         | Deterministic safe-digest salt or key-bound comparison fixtures without exposing production secrets. |
-| `network_flow.graph_invocation_id`       | Deterministic ephemeral Graph Projection invocation fixtures. |
+| Stream token | Real consumer |
+| --- | --- |
+| `network_flow.table_id` | Table allocation; canonical UUID values map to 16 entropy bytes. |
+| `network_flow.cursor_nonce` | Cursor encryption; hex bytes must have the AEAD nonce length (12 bytes). |
 
 Verified by: TH-HARNESS-AC-052
 
@@ -4891,16 +4878,16 @@ The request body MUST be a JSON object with exactly the fields below.
 | Field          | Required | Behavior |
 | -------------- | -------- | -------- |
 | `stream`       | yes      | One of the closed Network Flow stream tokens in TH-HARNESS-REQ-466. |
-| `value_kind`   | yes      | One of `uuid`, `token`, or `hex_bytes`. |
+| `value_kind`   | yes      | `uuid` for table IDs; `hex_bytes` for cursor nonces. No other pairing is accepted. |
 | `values`       | yes      | Ordered deterministic values, length `1..256`; duplicate values are allowed only to exercise collision behavior. |
 | `consume_once` | yes      | Must be `true`; persistent or multi-consume values are not accepted. |
 | `exhaustion`   | yes      | Must be `fail_closed`; an armed stream exhausted by fixture code MUST fail the fixture rather than silently falling back to production randomness. |
 
-For `value_kind="uuid"`, each value MUST be canonical lowercase UUID text. For `value_kind="token"`, each value MUST match `^[A-Za-z0-9._:-]{1,128}$`. For `value_kind="hex_bytes"`, each value MUST be lowercase, even-length hex text no longer than 512 characters.
+For `value_kind="uuid"`, each value MUST be canonical lowercase UUID text. For `value_kind="hex_bytes"`, each value MUST be exactly 24 lowercase hexadecimal characters encoding the 12-byte cursor nonce. No other value kind is supported.
 Verified by: TH-HARNESS-AC-052
 
 **TH-HARNESS-REQ-468**
-Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported stream, unsupported value kind, an empty or oversized `values` array, a value that does not match the selected `value_kind`, `consume_once` other than `true`, or `exhaustion` other than `fail_closed` MUST fail with `400`, `error.code=invalid_network_flow_randomness_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_randomness_control.v1` in the standard success envelope. The response MUST include a generated `control_id`, exact `stream`, exact `value_kind`, `value_count`, `remaining_count`, `consume_once=true`, and `exhaustion="fail_closed"`. The response MUST NOT include deterministic values, the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, production secret material, raw fixture source paths, or private runtime state.
+Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported stream, unsupported value kind, an empty or oversized `values` array, a value that does not match the selected `value_kind`, `consume_once` other than `true`, or `exhaustion` other than `fail_closed` MUST fail with `400`, `error.code=invalid_network_flow_randomness_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_randomness_control.v2` in the standard success envelope. The response MUST include a generated `control_id`, exact `stream`, exact `value_kind`, `value_count`, `remaining_count`, `consume_once=true`, and `exhaustion="fail_closed"`. The response MUST NOT include deterministic values, the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, production secret material, raw fixture source paths, or private runtime state.
 Verified by: TH-HARNESS-AC-052
 
 **TH-HARNESS-REQ-469**
@@ -4914,7 +4901,28 @@ Verified by: TH-HARNESS-AC-052
 Verified by: TH-HARNESS-AC-053
 
 **TH-HARNESS-REQ-471**
-Network Flow authorization-transition boundaries, transition kinds, resource kinds, and hidden-response kinds are closed harness tokens. They identify fixture-only injection and assertion points and do not define product authorization semantics, incident membership rules, hidden-resource status codes, cursor algorithms, WebSocket contracts, or public API compatibility. The supported boundary tokens are exactly `network_flow.route.before_authorization`, `network_flow.route.after_authorization_before_lookup`, `network_flow.route.after_lookup_before_response`, `network_flow.cursor.before_authorization_recheck`, `network_flow.websocket.before_invalidation_publish`, and `network_flow.fixture.after_transition`. The supported `transition_kind` values are exactly `incident_membership_revoked`, `incident_membership_restored`, `incident_soft_deleted`, `network_flow_table_soft_deleted`, `network_flow_table_renamed`, `session_revoked`, and `extension_claim_removed`. The supported `resource_kind` values are exactly `incident`, `network_flow_table`, `network_flow_cursor`, `network_flow_graph`, `network_flow_contributors`, and `network_flow_workspace`. The supported `hidden_response_kind` values are exactly `not_found`, `forbidden_without_resource`, `empty_collection`, `cursor_rejected`, `extension_profile_not_claimed`, and `invalidation_event`.
+Network Flow authorization transitions change real fixture state at existing
+admission boundaries. Supported boundaries are exactly
+`network_flow.route.before_authorization` and
+`network_flow.cursor.before_authorization_recheck`. Supported transitions are
+`incident_membership_revoked`, `incident_membership_restored`,
+`incident_deleted`, `network_flow_table_soft_deleted`,
+`network_flow_table_renamed`, and `session_revoked`. Resource kinds remain
+`incident`, `network_flow_table`, `network_flow_cursor`, `network_flow_graph`,
+`network_flow_contributors`, and `network_flow_workspace`. Fixture drivers assert
+actual owner-defined outcomes; controls MUST NOT select or substitute a response.
+Hidden-response kinds and `must_not_disclose_resource` are retired request fields.
+Only fixture-owned actor/incident/resource references may resolve to state.
+The incident-deletion fixture removes its owned disposable incident without
+retained audit or receipt references (existing referential protections remain): Incidents has no
+soft-delete state, and this control does not introduce a product deletion API.
+A fixture consumer binds references to verified rows in its owned runtime before
+arming, rejects unresolved or conflicting bindings, applies the state change
+after exact consumption, and then issues the real authenticated
+request. The cursor boundary is immediately before the continuation request's
+ordinary authorization. No response-time reauthorization or envelope substitution
+is added.
+
 Verified by: TH-HARNESS-AC-053
 
 **TH-HARNESS-REQ-472**
@@ -4928,19 +4936,17 @@ The request body MUST be a JSON object with exactly the fields below.
 | `incident_ref`               | yes      | Safe fixture incident reference matching `^[A-Za-z0-9._:-]{1,128}$`. |
 | `resource_kind`              | yes      | One of the closed resource kinds in TH-HARNESS-REQ-471. |
 | `resource_ref`               | yes      | Safe fixture resource reference matching `^[A-Za-z0-9._:-]{1,128}$`. |
-| `hidden_response_kind`       | yes      | One of the closed hidden-response kinds in TH-HARNESS-REQ-471. |
-| `must_not_disclose_resource` | yes      | Must be `true`; controls that allow resource disclosure are not accepted. |
 | `correlation_key`            | no       | Optional safe fixture correlation key matching `^[A-Za-z0-9._:-]{1,128}$`; when supplied, consumption requires the same key. |
 | `consume_once`               | yes      | Must be `true`; persistent or multi-consume transitions are not accepted. |
 
 Verified by: TH-HARNESS-AC-053
 
 **TH-HARNESS-REQ-473**
-Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported boundary, unsupported transition kind, unsupported resource kind, unsupported hidden-response kind, unsafe refs, `must_not_disclose_resource` other than `true`, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_network_flow_auth_transition_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_auth_transition_control.v1` in the standard success envelope. The response MUST include a generated `control_id`, exact boundary, transition kind, actor ref, incident ref, resource kind/ref, hidden response kind, optional correlation key, `must_not_disclose_resource=true`, and `consume_once=true`. The response MUST NOT include product session credentials, membership row IDs, role grants, route-token material, raw hidden resource details, database credentials, object-store credentials, raw fixture source paths, or private runtime state.
+Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported boundary, unsupported transition kind, unsupported resource kind, unsafe refs, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_network_flow_auth_transition_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_auth_transition_control.v2` in the standard success envelope. The response MUST include a generated `control_id`, exact boundary, transition kind, actor ref, incident ref, resource kind/ref, optional correlation key, and `consume_once=true`. The response MUST NOT include product session credentials, membership row IDs, role grants, route-token material, raw hidden resource details, database credentials, object-store credentials, raw fixture source paths, or private runtime state.
 Verified by: TH-HARNESS-AC-053
 
 **TH-HARNESS-REQ-474**
-An armed Network Flow auth-transition control is in-memory harness runtime state and is consumed only by an opted-in Network Flow test implementation at the exact boundary, actor ref, incident ref, resource ref, and optional correlation key. A mismatch MUST leave the control pending. A consumed control MUST be removed before the fixture applies the transition or hidden-resource assertion, so retry/replay reaches ordinary behavior unless another control has been armed. A request to arm a duplicate exact boundary/actor/incident/resource tuple while one is pending MUST fail before replacement with HTTP `409`, `error.code=test_network_flow_auth_transition_already_armed`; independent tuples MAY be armed concurrently. Browser reset MUST replace the backend process, so registered auth-transition controls cannot survive into the replacement backend.
+An armed Network Flow auth-transition control is in-memory harness runtime state and is consumed only by an opted-in Network Flow test implementation at the exact boundary, actor ref, incident ref, resource ref, and optional correlation key. A mismatch MUST leave the control pending. A consumed control MUST be removed before the fixture applies the transition, so retry/replay reaches ordinary behavior unless another control has been armed. A request to arm a duplicate exact boundary/actor/incident/resource tuple while one is pending MUST fail before replacement with HTTP `409`, `error.code=test_network_flow_auth_transition_already_armed`; independent tuples MAY be armed concurrently. Browser reset MUST replace the backend process, so registered auth-transition controls cannot survive into the replacement backend.
 Verified by: TH-HARNESS-AC-053
 
 ### 12.2.8 Network Flow Audit Assertion Control
@@ -4950,7 +4956,7 @@ Verified by: TH-HARNESS-AC-053
 Verified by: TH-HARNESS-AC-054
 
 **TH-HARNESS-REQ-476**
-Network Flow audit assertion kinds, event codes, and resource kinds are closed harness tokens. They identify fixture-only assertion points and do not define product audit semantics, audit storage, operation authorization, event payload shape, or public API compatibility. The supported `assertion_kind` values are exactly `exact_count`, `zero_occurrences`, and `no_audit_replay`. The supported `event_code` values are exactly `network_flow_table_created`, `network_flow_table_renamed`, `network_flow_table_soft_deleted`, `network_flow_graph_query_executed`, `network_flow_indicator_binding_created`, and `network_flow_indicator_binding_reused`. The supported `resource_kind` values are exactly `network_flow_table`, `network_flow_graph`, `network_flow_indicator_binding`, and `network_flow_import`.
+Network Flow audit assertion kinds, event codes, and resource kinds are closed harness tokens. They identify fixture-only assertion points and do not define product audit semantics, audit storage, operation authorization, event payload shape, or public API compatibility. The supported `assertion_kind` values are exactly `exact_count`, `zero_occurrences`, and `no_audit_replay`. The supported `event_code` values are exactly `network_flow_table_created`, `network_flow_table_renamed`, `network_flow_table_soft_deleted`, `network_flow_graph_query_executed`, `network_flow_indicator_binding_created`, and `network_flow_indicator_binding_reused`. The supported `resource_kind` values are exactly `network_flow_table`, `network_flow_graph`, and `network_flow_indicator_binding`.
 Verified by: TH-HARNESS-AC-054
 
 **TH-HARNESS-REQ-477**
@@ -4967,20 +4973,59 @@ The request body MUST be a JSON object with exactly the fields below.
 | `resource_ref`              | yes      | Safe fixture resource reference matching `^[A-Za-z0-9._:-]{1,128}$`. |
 | `baseline_count`            | yes      | Non-negative count before the exercised product operation, maximum `1000000`. |
 | `expected_final_count`      | yes      | Exact count expected after the exercised product operation, maximum `1000000`. |
-| `expected_replay_increment` | yes      | Exact additional occurrence count expected from committed replay, maximum `1000000`; no-audit replay assertions require `0`. |
 | `correlation_key`           | no       | Optional safe fixture correlation key matching `^[A-Za-z0-9._:-]{1,128}$`; when supplied, consumption requires the same key. |
 | `consume_once`              | yes      | Must be `true`; persistent or multi-consume assertions are not accepted. |
 
-`expected_final_count` MUST be greater than or equal to `baseline_count`. For `assertion_kind="zero_occurrences"`, `baseline_count`, `expected_final_count`, and `expected_replay_increment` MUST all be `0`. For `assertion_kind="no_audit_replay"`, `expected_replay_increment` MUST be `0`.
+`expected_final_count` MUST be greater than or equal to `baseline_count`. For `assertion_kind="zero_occurrences"`, `baseline_count` and `expected_final_count` MUST both be `0`. For `assertion_kind="no_audit_replay"`, the fixture MUST replay the adopted idempotent operation and observe no count increase. Graph query has no replay contract and MUST reject this assertion kind. The redundant `expected_replay_increment` field is retired in v2.
 Verified by: TH-HARNESS-AC-054
 
 **TH-HARNESS-REQ-478**
-Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported assertion kind, unsupported event code, unsupported resource kind, unsafe refs, negative or oversized counts, `expected_final_count < baseline_count`, assertion-kind count-rule violations, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_network_flow_audit_assertion_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_audit_assertion_control.v1` in the standard success envelope. The response MUST include a generated `assertion_id`, exact assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, expected replay increment, optional correlation key, and `consume_once=true`. The response MUST NOT include product session credentials, raw audit payloads, raw source data, safe-digest key material, cursor tokens, membership row IDs, role grants, database credentials, object-store credentials, raw fixture source paths, or private runtime state.
+Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported assertion kind, unsupported event code, unsupported resource kind, unsafe refs, negative or oversized counts, `expected_final_count < baseline_count`, assertion-kind count-rule violations, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_network_flow_audit_assertion_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_audit_assertion_control.v2` in the standard success envelope. The response MUST include a generated `assertion_id`, exact assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, optional correlation key, and `consume_once=true`. The response MUST NOT include product session credentials, raw audit payloads, raw source data, safe-digest key material, cursor tokens, membership row IDs, role grants, database credentials, object-store credentials, raw fixture source paths, or private runtime state.
 Verified by: TH-HARNESS-AC-054
 
 **TH-HARNESS-REQ-479**
-An armed Network Flow audit assertion is in-memory harness runtime state and is consumed only by an opted-in Network Flow test implementation at the exact event code, operation ref, resource kind/ref, and optional correlation key. A mismatch MUST leave the assertion pending. A consumed assertion MUST be removed before the fixture compares the observed product audit counts, so retry/replay reaches ordinary behavior unless another assertion has been armed. A request to arm a duplicate exact event/operation/resource tuple while one is pending MUST fail before replacement with HTTP `409`, `error.code=test_network_flow_audit_assertion_already_armed`; independent tuples MAY be armed concurrently. Browser reset MUST replace the backend process, so registered audit assertions cannot survive into the replacement backend.
+An armed Network Flow audit assertion is in-memory harness runtime state and is consumed only by an opted-in Network Flow test implementation at the exact actor ref, incident ref, event code, operation ref, resource kind/ref, and optional correlation key. A mismatch MUST leave the assertion pending. A consumed assertion MUST be removed before the fixture compares the observed product audit counts, so retry/replay reaches ordinary behavior unless another assertion has been armed. A request to arm a duplicate exact actor/incident/event/operation/resource tuple while one is pending MUST fail before replacement with HTTP `409`, `error.code=test_network_flow_audit_assertion_already_armed`; independent tuples MAY be armed concurrently. Browser reset MUST replace the backend process, so registered audit assertions cannot survive into the replacement backend.
 Verified by: TH-HARNESS-AC-054
+
+### 12.2.9 Functional Network Flow control admission
+
+All four v2 control request decoders MUST reject duplicate members, trailing
+data, missing required fields and null members in addition to unknown members.
+Shared enablement/host/origin/token admission precedes this decoding.
+
+The v2 control families above replace v1 in one coordinated harness/fixture
+release; old tokens and schemas have no compatibility alias. Every accepted
+token MUST have a real consumer and an executed assertion; registry mechanics
+alone are not product evidence. Production owners MUST NOT import control
+registries. Consumers use instance-scoped dependency decorators assembled before
+serving. Ordinary builds contain no control routes or registry dependencies.
+
+Fault effects `return_error`, `panic`, and `cancel_context` are available at
+precommit boundaries. `worker_crash` is available at worker entry, before final
+commit, and after completed publication and terminates only the owned child
+process. `worker_cancel` is available before the Jobs cancellation observation.
+Postcommit error injection preserves committed state and proves replay.
+Unsupported boundary/effect combinations MUST fail arming. Controls match the
+operation correlation, are consumed before their effects, and leave mismatches
+pending. No control introduces a phase between atomically committed effects.
+Import correlation is the import-unit UUID; worker correlation is the job UUID.
+A precommit fault may interrupt an attempt that Jobs subsequently retries. The
+fixture MUST prove rollback before allowing that retry and then assert the
+owner-defined recovered outcome.
+
+Audit references MUST bind to verified actor/incident rows and an exact operation
+(client transaction ID or request ID) in the owned runtime before arming. Event
+codes MUST use their actual resource kind. Matching includes actor and incident
+as well as operation, event, resource and optional correlation; a mismatched actor
+or incident leaves the assertion pending. Failed assertions remain failed even
+after consumption.
+
+Audit consumers MUST read committed owner audit records after a real operation
+or durable completion, verify baseline and final counts, and scope by actor,
+incident, operation, event, resource and correlation. Missing/unconsumed or failed
+required assertions fail the fixture. No-extra-audit replay applies only to
+adopted replay operations. Table creation through Imports uses the resulting
+table resource. Controls do not create new product audit events.
 
 ### 12.3 Retired Runtime Reset Route
 
@@ -5642,7 +5687,7 @@ Verified by: TH-HARNESS-AC-049
 **TH-HARNESS-REQ-658**
 Network Flow fault controls are harness mechanics for exercising adopted
 product-owned commit, worker, cancellation, replay, and recovery behavior. A
-fixture or target MAY use `cartulary.test.network_flow_fault_control.v1` only
+fixture or target MAY use `cartulary.test.network_flow_fault_control.v2` only
 from a row routed through the Network Flow behavior verification. Fault-control
 boundary names, fault kinds, correlation keys, and route responses MUST NOT be
 cited as independent product semantics, public API compatibility, Core 05
@@ -5663,7 +5708,7 @@ Verified by: TH-HARNESS-AC-051
 Network Flow deterministic-randomness evidence is harness mechanics for
 exercising adopted product-owned identity, nonce, digest, collision, ordering,
 and replay behavior. A fixture or target MAY use
-`cartulary.test.network_flow_randomness_control.v1` only from a row routed
+`cartulary.test.network_flow_randomness_control.v2` only from a row routed
 through the Network Flow behavior verification. Stream names, value kinds,
 collision values, response counts, and fail-closed exhaustion behavior MUST
 NOT be cited as independent product semantics, public API compatibility, Core
@@ -5675,9 +5720,9 @@ Verified by: TH-HARNESS-AC-052
 Network Flow auth-transition evidence is harness mechanics for exercising
 adopted product-owned route authorization, hidden-resource, cursor recheck, and
 extension-resource invalidation behavior. A fixture or target MAY use
-`cartulary.test.network_flow_auth_transition_control.v1` only from a row
+`cartulary.test.network_flow_auth_transition_control.v2` only from a row
 routed through the Network Flow behavior verification. Boundary names,
-transition kinds, safe fixture refs, hidden-response kinds, correlation keys,
+transition kinds, safe fixture refs, correlation keys,
 and route responses MUST NOT be cited as independent product semantics, public
 API compatibility, production authorization policy, Core 05 publication
 evidence, or performance evidence.
@@ -5688,9 +5733,9 @@ Network Flow audit-assertion evidence is harness mechanics for exercising
 adopted product-owned domain audit occurrence counts, transactional audit
 boundaries, exact idempotency replay behavior, and no-audit failure cases. A
 fixture or target MAY use
-`cartulary.test.network_flow_audit_assertion_control.v1` only from a row routed
+`cartulary.test.network_flow_audit_assertion_control.v2` only from a row routed
 through the Network Flow behavior verification. Assertion kinds, event codes,
-safe fixture refs, baseline counts, expected final counts, replay increments,
+safe fixture refs, baseline counts, expected final counts,
 correlation keys, and route responses MUST NOT be cited as independent product
 semantics, public API compatibility, audit storage design, Core 05 publication
 evidence, or performance evidence.

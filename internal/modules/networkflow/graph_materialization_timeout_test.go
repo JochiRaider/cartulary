@@ -12,6 +12,7 @@ import (
 )
 
 func TestGraphViewMaterializationDeadlineIsTerminalBeforePublication_Unit(t *testing.T) {
+	t.Run("shared payload and worker rejection", assertMaterializationPayloadAdmission)
 	manager := &deadlineGraphViewJobManager{}
 	finalizer := &deadlineGraphViewFinalizer{}
 	module := &Module{

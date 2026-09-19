@@ -74,7 +74,7 @@ func TestNetworkFlowFaultRouteArmsOneShotBoundaryFault(t *testing.T) {
 		t.Fatalf("unexpected scoped fault response: %#v", data)
 	}
 
-	if _, ok := faults.ConsumeNetworkFlowFault(NetworkFlowFaultBoundaryImportAfterOwnerPrepare); ok {
+	if _, ok := faults.ConsumeNetworkFlowFault(NetworkFlowFaultBoundaryImportAfterOwnerApply); ok {
 		t.Fatal("wrong boundary must not consume pending Network Flow fault")
 	}
 	if _, ok := faults.ConsumeNetworkFlowFault(NetworkFlowFaultBoundaryImportBeforeTransactionCommit); ok {
@@ -120,11 +120,16 @@ func TestNetworkFlowFaultRouteRejectsSecondArmWhilePending(t *testing.T) {
 }
 
 func TestNetworkFlowFaultRouteRejectsInvalidRequests(t *testing.T) {
+	assertStrictNetworkFlowControlRequests(t)
 	service := &networkFlowFaultService{
 		guard:  httpapi.TestRouteGuard{Token: testRuntimeResetToken},
 		faults: NewNetworkFlowFaultRegistry(),
 	}
 	for _, body := range []map[string]any{
+		{"boundary": "network_flow.import.before_owner_prepare", "fault_kind": NetworkFlowFaultKindReturnError, "error_code": "retired_token", "consume_once": true},
+		{"boundary": NetworkFlowFaultBoundaryWorkerBeforeCancellationCheck, "fault_kind": NetworkFlowFaultKindWorkerCrash, "consume_once": true},
+		{"boundary": NetworkFlowFaultBoundaryWorkerBeforeFinalCommit, "fault_kind": NetworkFlowFaultKindWorkerCancel, "consume_once": true},
+		{"boundary": NetworkFlowFaultBoundaryImportAfterTransactionCommitBeforeReply, "fault_kind": NetworkFlowFaultKindPanic, "consume_once": true},
 		{"boundary": "network_flow.import.unknown", "fault_kind": NetworkFlowFaultKindReturnError, "error_code": "network_flow_fault_probe", "consume_once": true},
 		{"boundary": NetworkFlowFaultBoundaryImportBeforeTransactionCommit, "fault_kind": "unknown", "consume_once": true},
 		{"boundary": NetworkFlowFaultBoundaryImportBeforeTransactionCommit, "fault_kind": NetworkFlowFaultKindReturnError, "consume_once": true},

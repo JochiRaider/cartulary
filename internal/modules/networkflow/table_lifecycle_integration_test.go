@@ -21,6 +21,7 @@ import (
 )
 
 func TestTableLifecycleAdmissionAndReplay_Integration(t *testing.T) {
+	t.Run("functional authorization controls", assertNetworkFlowAuthorizationConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "table-lifecycle")
 	login, actorText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)

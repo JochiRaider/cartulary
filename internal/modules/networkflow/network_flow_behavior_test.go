@@ -69,6 +69,7 @@ func TestNetworkFlow_DuplicateHeaderOrdinalEvidence_Integration(t *testing.T) {
 }
 
 func TestNetworkFlow_CursorInvalidationEvidence_Integration(t *testing.T) {
+	t.Run("key rotation", TestNetworkFlowKeyRingsAndCursorRotation)
 	AssertKeysetAndCursorRuntime(t)
 }
 

@@ -132,10 +132,6 @@ func sourceFieldOrdinal(mappings []fieldMapping, fieldKey string) int {
 	return 0
 }
 
-func parseTimestamp(value string, profile timestampProfile) (time.Time, error) {
-	return parseTimestampForRecord(value, profile, nil)
-}
-
 func parseTimestampForRecord(value string, profile timestampProfile, record *csvRecord) (time.Time, error) {
 	switch profile.Mode {
 	case "rfc3339":

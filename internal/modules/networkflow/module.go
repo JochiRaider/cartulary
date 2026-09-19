@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -26,20 +27,22 @@ type ImportSourcePort interface {
 }
 
 type ModuleDependencies struct {
-	Postgres        postgres.DB
-	ImportSources   ImportSourcePort
-	KeyRings        *KeyRings
-	EffectiveLimits EffectiveLimits
-	Now             func() time.Time
-	IncidentLocks   IncidentLockPort
-	AuditAppender   AdministrativeAuditPort
-	Indicators      IndicatorParticipationPort
-	ResourceIntents ResourceIntentAppender
-	GraphViewJobs   GraphViewJobTransactions
-	JobManager      GraphViewJobManager
-	JobRunner       GraphViewJobRunner
-	JobFinalizer    GraphViewJobFinalizer
-	GraphTelemetry  GraphTelemetryObserver
+	TableIDEntropy     io.Reader
+	CursorNonceEntropy io.Reader
+	Postgres           postgres.DB
+	ImportSources      ImportSourcePort
+	KeyRings           *KeyRings
+	EffectiveLimits    EffectiveLimits
+	Now                func() time.Time
+	IncidentLocks      IncidentLockPort
+	AuditAppender      AdministrativeAuditPort
+	Indicators         IndicatorParticipationPort
+	ResourceIntents    ResourceIntentAppender
+	GraphViewJobs      GraphViewJobTransactions
+	JobManager         GraphViewJobManager
+	JobRunner          GraphViewJobRunner
+	JobFinalizer       GraphViewJobFinalizer
+	GraphTelemetry     GraphTelemetryObserver
 }
 
 // Module is the single Network Flow composition facade. Transport and generic
@@ -89,7 +92,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		if err != nil {
 			return nil, err
 		}
-		cursorProtector, err = newCursorCodec(dependencies.KeyRings, now)
+		cursorProtector, err = newCursorCodec(dependencies.KeyRings, now, dependencies.CursorNonceEntropy)
 		if err != nil {
 			return nil, err
 		}
@@ -99,6 +102,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		limits,
 		withOwnerParticipants(dependencies.IncidentLocks, dependencies.AuditAppender, dependencies.Indicators),
 		withSafeDigester(safeDigester),
+		withTableIDEntropy(dependencies.TableIDEntropy),
 		withResourceIntentAppender(dependencies.ResourceIntents),
 	)
 	module := &Module{

@@ -1,10 +1,8 @@
 package harnesscontrol
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-const testNetworkFlowAuditAssertionSchemaID = "cartulary.test.network_flow_audit_assertion_control.v1"
+const testNetworkFlowAuditAssertionSchemaID = "cartulary.test.network_flow_audit_assertion_control.v2"
 
 const (
 	NetworkFlowAuditAssertionExactCount      = "exact_count"
@@ -36,7 +34,6 @@ const (
 	NetworkFlowAuditResourceTable            = "network_flow_table"
 	NetworkFlowAuditResourceGraph            = "network_flow_graph"
 	NetworkFlowAuditResourceIndicatorBinding = "network_flow_indicator_binding"
-	NetworkFlowAuditResourceImport           = "network_flow_import"
 )
 
 var (
@@ -59,28 +56,28 @@ var (
 		NetworkFlowAuditResourceTable:            {},
 		NetworkFlowAuditResourceGraph:            {},
 		NetworkFlowAuditResourceIndicatorBinding: {},
-		NetworkFlowAuditResourceImport:           {},
 	}
 )
 
 type NetworkFlowAuditAssertionRegistry struct {
 	mu         sync.Mutex
 	assertions map[string]NetworkFlowAuditAssertion
+	fixtures   map[string]string
+	failed     bool
 }
 
 type NetworkFlowAuditAssertion struct {
-	ID                      string
-	AssertionKind           string
-	EventCode               string
-	OperationRef            string
-	ActorRef                string
-	IncidentRef             string
-	ResourceKind            string
-	ResourceRef             string
-	BaselineCount           int
-	ExpectedFinalCount      int
-	ExpectedReplayIncrement int
-	CorrelationKey          string
+	ID                 string
+	AssertionKind      string
+	EventCode          string
+	OperationRef       string
+	ActorRef           string
+	IncidentRef        string
+	ResourceKind       string
+	ResourceRef        string
+	BaselineCount      int
+	ExpectedFinalCount int
+	CorrelationKey     string
 }
 
 type networkFlowAuditAssertionService struct {
@@ -89,39 +86,37 @@ type networkFlowAuditAssertionService struct {
 }
 
 type networkFlowAuditAssertionRequest struct {
-	AssertionKind           string  `json:"assertion_kind"`
-	EventCode               string  `json:"event_code"`
-	OperationRef            string  `json:"operation_ref"`
-	ActorRef                string  `json:"actor_ref"`
-	IncidentRef             string  `json:"incident_ref"`
-	ResourceKind            string  `json:"resource_kind"`
-	ResourceRef             string  `json:"resource_ref"`
-	BaselineCount           int     `json:"baseline_count"`
-	ExpectedFinalCount      int     `json:"expected_final_count"`
-	ExpectedReplayIncrement int     `json:"expected_replay_increment"`
-	CorrelationKey          *string `json:"correlation_key"`
-	ConsumeOnce             bool    `json:"consume_once"`
+	AssertionKind      string  `json:"assertion_kind"`
+	EventCode          string  `json:"event_code"`
+	OperationRef       string  `json:"operation_ref"`
+	ActorRef           string  `json:"actor_ref"`
+	IncidentRef        string  `json:"incident_ref"`
+	ResourceKind       string  `json:"resource_kind"`
+	ResourceRef        string  `json:"resource_ref"`
+	BaselineCount      int     `json:"baseline_count"`
+	ExpectedFinalCount int     `json:"expected_final_count"`
+	CorrelationKey     *string `json:"correlation_key"`
+	ConsumeOnce        bool    `json:"consume_once"`
 }
 
 type networkFlowAuditAssertionResult struct {
-	SchemaID                string `json:"schema_id"`
-	AssertionID             string `json:"assertion_id"`
-	AssertionKind           string `json:"assertion_kind"`
-	EventCode               string `json:"event_code"`
-	OperationRef            string `json:"operation_ref"`
-	ActorRef                string `json:"actor_ref"`
-	IncidentRef             string `json:"incident_ref"`
-	ResourceKind            string `json:"resource_kind"`
-	ResourceRef             string `json:"resource_ref"`
-	BaselineCount           int    `json:"baseline_count"`
-	ExpectedFinalCount      int    `json:"expected_final_count"`
-	ExpectedReplayIncrement int    `json:"expected_replay_increment"`
-	CorrelationKey          string `json:"correlation_key,omitempty"`
-	ConsumeOnce             bool   `json:"consume_once"`
+	SchemaID           string `json:"schema_id"`
+	AssertionID        string `json:"assertion_id"`
+	AssertionKind      string `json:"assertion_kind"`
+	EventCode          string `json:"event_code"`
+	OperationRef       string `json:"operation_ref"`
+	ActorRef           string `json:"actor_ref"`
+	IncidentRef        string `json:"incident_ref"`
+	ResourceKind       string `json:"resource_kind"`
+	ResourceRef        string `json:"resource_ref"`
+	BaselineCount      int    `json:"baseline_count"`
+	ExpectedFinalCount int    `json:"expected_final_count"`
+	CorrelationKey     string `json:"correlation_key,omitempty"`
+	ConsumeOnce        bool   `json:"consume_once"`
 }
 
 func NewNetworkFlowAuditAssertionRegistry() *NetworkFlowAuditAssertionRegistry {
-	return &NetworkFlowAuditAssertionRegistry{assertions: map[string]NetworkFlowAuditAssertion{}}
+	return &NetworkFlowAuditAssertionRegistry{assertions: map[string]NetworkFlowAuditAssertion{}, fixtures: map[string]string{}}
 }
 
 func RegisterNetworkFlowAuditAssertionRoutes(assertions *NetworkFlowAuditAssertionRegistry) httpapi.RouteRegistrar {
@@ -145,29 +140,25 @@ func RegisterNetworkFlowAuditAssertionRoutes(assertions *NetworkFlowAuditAsserti
 	}
 }
 
-func (r *NetworkFlowAuditAssertionRegistry) ConsumeNetworkFlowAuditAssertion(eventCode string, operationRef string, resourceKind string, resourceRef string) (NetworkFlowAuditAssertion, bool) {
-	return r.ConsumeNetworkFlowAuditAssertionFor(eventCode, operationRef, resourceKind, resourceRef, "")
-}
+type NetworkFlowAuditScope struct{ EventCode, OperationRef, ActorRef, IncidentRef, ResourceKind, ResourceRef, CorrelationKey string }
 
-func (r *NetworkFlowAuditAssertionRegistry) ConsumeNetworkFlowAuditAssertionFor(eventCode string, operationRef string, resourceKind string, resourceRef string, correlationKey string) (NetworkFlowAuditAssertion, bool) {
+func (a NetworkFlowAuditAssertion) Scope() NetworkFlowAuditScope {
+	return NetworkFlowAuditScope{a.EventCode, a.OperationRef, a.ActorRef, a.IncidentRef, a.ResourceKind, a.ResourceRef, a.CorrelationKey}
+}
+func (r *NetworkFlowAuditAssertionRegistry) Consume(scope NetworkFlowAuditScope) (NetworkFlowAuditAssertion, bool) {
 	if r == nil {
 		return NetworkFlowAuditAssertion{}, false
 	}
-	key := networkFlowAuditAssertionKey(eventCode, operationRef, resourceKind, resourceRef)
-	correlationKey = strings.TrimSpace(correlationKey)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	assertion, ok := r.assertions[key]
-	if !ok {
-		return NetworkFlowAuditAssertion{}, false
-	}
-	if assertion.CorrelationKey != "" && assertion.CorrelationKey != correlationKey {
+	key := networkFlowAuditAssertionKey(scope)
+	a, ok := r.assertions[key]
+	if !ok || (a.CorrelationKey != "" && a.CorrelationKey != scope.CorrelationKey) {
 		return NetworkFlowAuditAssertion{}, false
 	}
 	delete(r.assertions, key)
-	return assertion, true
+	return a, true
 }
-
 func (r *NetworkFlowAuditAssertionRegistry) Clear() {
 	if r == nil {
 		return
@@ -175,6 +166,8 @@ func (r *NetworkFlowAuditAssertionRegistry) Clear() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.assertions = map[string]NetworkFlowAuditAssertion{}
+	r.fixtures = map[string]string{}
+	r.failed = false
 }
 
 func (r *NetworkFlowAuditAssertionRegistry) arm(assertion NetworkFlowAuditAssertion) bool {
@@ -183,7 +176,7 @@ func (r *NetworkFlowAuditAssertionRegistry) arm(assertion NetworkFlowAuditAssert
 	if r.assertions == nil {
 		r.assertions = map[string]NetworkFlowAuditAssertion{}
 	}
-	key := networkFlowAuditAssertionKey(assertion.EventCode, assertion.OperationRef, assertion.ResourceKind, assertion.ResourceRef)
+	key := networkFlowAuditAssertionKey(assertion.Scope())
 	if _, exists := r.assertions[key]; exists {
 		return false
 	}
@@ -191,8 +184,8 @@ func (r *NetworkFlowAuditAssertionRegistry) arm(assertion NetworkFlowAuditAssert
 	return true
 }
 
-func networkFlowAuditAssertionKey(eventCode string, operationRef string, resourceKind string, resourceRef string) string {
-	return strings.TrimSpace(eventCode) + "\x00" + strings.TrimSpace(operationRef) + "\x00" + strings.TrimSpace(resourceKind) + "\x00" + strings.TrimSpace(resourceRef)
+func networkFlowAuditAssertionKey(s NetworkFlowAuditScope) string {
+	return strings.Join([]string{s.EventCode, s.OperationRef, s.ActorRef, s.IncidentRef, s.ResourceKind, s.ResourceRef}, "\x00")
 }
 
 func (s *networkFlowAuditAssertionService) handleArm(w http.ResponseWriter, r *http.Request) {
@@ -213,43 +206,35 @@ func (s *networkFlowAuditAssertionService) handleArm(w http.ResponseWriter, r *h
 		})
 		return
 	}
+	if !s.assertions.fixtureBound(assertion.Scope()) {
+		_ = httpapi.WriteError(w, r, http.StatusBadRequest, "invalid_network_flow_audit_assertion_request", "unresolved fixture references", map[string]any{"reason": "unresolved_fixture_reference"})
+		return
+	}
 	if !s.assertions.arm(assertion) {
 		_ = httpapi.WriteError(w, r, http.StatusConflict, "test_network_flow_audit_assertion_already_armed", "Network Flow audit assertion is already armed", map[string]any{})
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, networkFlowAuditAssertionResult{
-		SchemaID:                testNetworkFlowAuditAssertionSchemaID,
-		AssertionID:             assertion.ID,
-		AssertionKind:           assertion.AssertionKind,
-		EventCode:               assertion.EventCode,
-		OperationRef:            assertion.OperationRef,
-		ActorRef:                assertion.ActorRef,
-		IncidentRef:             assertion.IncidentRef,
-		ResourceKind:            assertion.ResourceKind,
-		ResourceRef:             assertion.ResourceRef,
-		BaselineCount:           assertion.BaselineCount,
-		ExpectedFinalCount:      assertion.ExpectedFinalCount,
-		ExpectedReplayIncrement: assertion.ExpectedReplayIncrement,
-		CorrelationKey:          assertion.CorrelationKey,
-		ConsumeOnce:             true,
+		SchemaID:           testNetworkFlowAuditAssertionSchemaID,
+		AssertionID:        assertion.ID,
+		AssertionKind:      assertion.AssertionKind,
+		EventCode:          assertion.EventCode,
+		OperationRef:       assertion.OperationRef,
+		ActorRef:           assertion.ActorRef,
+		IncidentRef:        assertion.IncidentRef,
+		ResourceKind:       assertion.ResourceKind,
+		ResourceRef:        assertion.ResourceRef,
+		BaselineCount:      assertion.BaselineCount,
+		ExpectedFinalCount: assertion.ExpectedFinalCount,
+		CorrelationKey:     assertion.CorrelationKey,
+		ConsumeOnce:        true,
 	})
 }
 
 func decodeNetworkFlowAuditAssertionRequest(r *http.Request) (networkFlowAuditAssertionRequest, error) {
 	var request networkFlowAuditAssertionRequest
-	if r.Body == nil {
-		return request, errors.New("body is required")
-	}
-	defer r.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil {
-		return request, fmt.Errorf("decode body: %w", err)
-	}
-	if decoder.Decode(&struct{}{}) != io.EOF {
-		return request, errors.New("body must contain a single JSON object")
-	}
-	return request, nil
+	err := decodeControlRequest(r, &request, "assertion_kind", "event_code", "operation_ref", "actor_ref", "incident_ref", "resource_kind", "resource_ref", "baseline_count", "expected_final_count", "consume_once")
+	return request, err
 }
 
 func (r networkFlowAuditAssertionRequest) networkFlowAuditAssertion() (NetworkFlowAuditAssertion, error) {
@@ -278,10 +263,16 @@ func (r networkFlowAuditAssertionRequest) networkFlowAuditAssertion() (NetworkFl
 	if _, ok := networkFlowAuditResourceKinds[resourceKind]; !ok {
 		return NetworkFlowAuditAssertion{}, errors.New("resource_kind is not supported")
 	}
+	if auditResourceForEvent(eventCode) != resourceKind {
+		return NetworkFlowAuditAssertion{}, errors.New("resource_kind does not match event_code")
+	}
+	if assertionKind == NetworkFlowAuditAssertionNoAuditReplay && eventCode == NetworkFlowAuditEventGraphQueryExecuted {
+		return NetworkFlowAuditAssertion{}, errors.New("graph query has no replay contract")
+	}
 	if !isNetworkFlowAuditAssertionRef(resourceRef) {
 		return NetworkFlowAuditAssertion{}, errors.New("resource_ref must be an ASCII fixture reference no longer than 128 characters")
 	}
-	if err := validateNetworkFlowAuditAssertionCounts(assertionKind, r.BaselineCount, r.ExpectedFinalCount, r.ExpectedReplayIncrement); err != nil {
+	if err := validateNetworkFlowAuditAssertionCounts(assertionKind, r.BaselineCount, r.ExpectedFinalCount); err != nil {
 		return NetworkFlowAuditAssertion{}, err
 	}
 	if !r.ConsumeOnce {
@@ -295,26 +286,24 @@ func (r networkFlowAuditAssertionRequest) networkFlowAuditAssertion() (NetworkFl
 		}
 	}
 	return NetworkFlowAuditAssertion{
-		ID:                      uuid.NewString(),
-		AssertionKind:           assertionKind,
-		EventCode:               eventCode,
-		OperationRef:            operationRef,
-		ActorRef:                actorRef,
-		IncidentRef:             incidentRef,
-		ResourceKind:            resourceKind,
-		ResourceRef:             resourceRef,
-		BaselineCount:           r.BaselineCount,
-		ExpectedFinalCount:      r.ExpectedFinalCount,
-		ExpectedReplayIncrement: r.ExpectedReplayIncrement,
-		CorrelationKey:          correlationKey,
+		ID:                 uuid.NewString(),
+		AssertionKind:      assertionKind,
+		EventCode:          eventCode,
+		OperationRef:       operationRef,
+		ActorRef:           actorRef,
+		IncidentRef:        incidentRef,
+		ResourceKind:       resourceKind,
+		ResourceRef:        resourceRef,
+		BaselineCount:      r.BaselineCount,
+		ExpectedFinalCount: r.ExpectedFinalCount,
+		CorrelationKey:     correlationKey,
 	}, nil
 }
 
-func validateNetworkFlowAuditAssertionCounts(assertionKind string, baselineCount int, expectedFinalCount int, expectedReplayIncrement int) error {
+func validateNetworkFlowAuditAssertionCounts(assertionKind string, baselineCount int, expectedFinalCount int) error {
 	for name, value := range map[string]int{
-		"baseline_count":            baselineCount,
-		"expected_final_count":      expectedFinalCount,
-		"expected_replay_increment": expectedReplayIncrement,
+		"baseline_count":       baselineCount,
+		"expected_final_count": expectedFinalCount,
 	} {
 		if value < 0 || value > 1_000_000 {
 			return fmt.Errorf("%s must be between 0 and 1000000", name)
@@ -325,13 +314,10 @@ func validateNetworkFlowAuditAssertionCounts(assertionKind string, baselineCount
 	}
 	switch assertionKind {
 	case NetworkFlowAuditAssertionZeroOccurrences:
-		if baselineCount != 0 || expectedFinalCount != 0 || expectedReplayIncrement != 0 {
+		if baselineCount != 0 || expectedFinalCount != 0 {
 			return errors.New("zero_occurrences requires all count fields to be zero")
 		}
-	case NetworkFlowAuditAssertionNoAuditReplay:
-		if expectedReplayIncrement != 0 {
-			return errors.New("no_audit_replay requires expected_replay_increment=0")
-		}
+
 	}
 	return nil
 }
@@ -355,4 +341,58 @@ func isNetworkFlowAuditAssertionRef(value string) bool {
 		}
 	}
 	return true
+}
+
+func auditResourceForEvent(event string) string {
+	switch event {
+	case NetworkFlowAuditEventGraphQueryExecuted:
+		return NetworkFlowAuditResourceGraph
+	case NetworkFlowAuditEventIndicatorBindingCreated, NetworkFlowAuditEventIndicatorBindingReused:
+		return NetworkFlowAuditResourceIndicatorBinding
+	default:
+		return NetworkFlowAuditResourceTable
+	}
+}
+func (r *NetworkFlowAuditAssertionRegistry) BindFixture(scope NetworkFlowAuditScope, identity string) error {
+	if identity == "" {
+		return errors.New("missing fixture identity")
+	}
+	for _, ref := range []string{scope.OperationRef, scope.ActorRef, scope.IncidentRef, scope.ResourceRef} {
+		if !isNetworkFlowAuditAssertionRef(ref) {
+			return errors.New("invalid fixture reference")
+		}
+	}
+	if _, ok := networkFlowAuditEventCodes[scope.EventCode]; !ok || auditResourceForEvent(scope.EventCode) != scope.ResourceKind {
+		return errors.New("invalid fixture event resource")
+	}
+	key := networkFlowAuditAssertionKey(scope)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if previous, ok := r.fixtures[key]; ok && previous != identity {
+		return errors.New("audit fixture references already bound to different rows or operation")
+	}
+	if r.fixtures == nil {
+		r.fixtures = map[string]string{}
+	}
+	r.fixtures[key] = identity
+	return nil
+}
+func (r *NetworkFlowAuditAssertionRegistry) fixtureBound(scope NetworkFlowAuditScope) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.fixtures[networkFlowAuditAssertionKey(scope)]
+	return ok
+}
+func (r *NetworkFlowAuditAssertionRegistry) RecordFailure() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.failed = true
+}
+func (r *NetworkFlowAuditAssertionRegistry) RequireConsumed() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.failed || len(r.assertions) != 0 {
+		return errors.New("required Network Flow audit assertions failed or remain pending")
+	}
+	return nil
 }

@@ -37,7 +37,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 		t.Fatalf("parse key rings: %v", err)
 	}
 	clock := now
-	codec, err := newCursorCodec(rings, func() time.Time { return clock })
+	codec, err := newCursorCodec(rings, func() time.Time { return clock }, nil)
 	if err != nil {
 		t.Fatalf("create cursor codec: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	oldCodec, err := newCursorCodec(&KeyRings{
 		cursorActiveID: "cursor-v1",
 		cursorKeys:     map[string]cursorKeyMaterial{"cursor-v1": oldMaterial},
-	}, func() time.Time { return oldClock })
+	}, func() time.Time { return oldClock }, nil)
 	if err != nil {
 		t.Fatalf("create prior cursor codec: %v", err)
 	}

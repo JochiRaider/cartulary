@@ -90,7 +90,7 @@ func validatePersistedGraphViewFamily(ctx context.Context, querier extensionstor
 			selectedProjectionVersion = declaration.SelectedResult.ProjectionVersion
 		}
 
-		semantic, apiErr := decodeGraphSemanticRequestHTTP(semanticQuery, limits)
+		semantic, apiErr := decodeGraphSemanticRequest(semanticQuery, limits)
 		if apiErr != nil {
 			return fmt.Errorf("saved graph %s has an unsupported semantic query", graphViewID)
 		}

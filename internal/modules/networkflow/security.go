@@ -3,10 +3,10 @@ package networkflow
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"sync"
@@ -28,10 +28,11 @@ type cursorCipher struct {
 }
 
 type cursorCodec struct {
-	mu          sync.Mutex
-	activeKeyID string
-	keys        map[string]cursorCipher
-	now         func() time.Time
+	nonceEntropy io.Reader
+	mu           sync.Mutex
+	activeKeyID  string
+	keys         map[string]cursorCipher
+	now          func() time.Time
 }
 
 type cursorProtector interface {
@@ -66,14 +67,14 @@ type cursorPayload struct {
 	ExpiresAt    time.Time         `json:"expires_at"`
 }
 
-func newCursorCodec(rings *KeyRings, now func() time.Time) (*cursorCodec, error) {
+func newCursorCodec(rings *KeyRings, now func() time.Time, entropy io.Reader) (*cursorCodec, error) {
 	if rings == nil || rings.cursorActiveID == "" {
 		return nil, fmt.Errorf("network flow cursor key ring unavailable")
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	codec := &cursorCodec{activeKeyID: rings.cursorActiveID, keys: make(map[string]cursorCipher), now: now}
+	codec := &cursorCodec{nonceEntropy: newEntropyReader(entropy), activeKeyID: rings.cursorActiveID, keys: make(map[string]cursorCipher), now: now}
 	for keyID, material := range rings.cursorKeys {
 		block, err := aes.NewCipher(material.key)
 		if err != nil {
@@ -125,7 +126,7 @@ func (c *cursorCodec) Encode(binding cursorBinding, positionKind string, positio
 		return "", err
 	}
 	nonce := make([]byte, key.aead.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
+	if _, err := io.ReadFull(c.nonceEntropy, nonce); err != nil {
 		return "", err
 	}
 	aad := []byte("nfc2." + c.activeKeyID)

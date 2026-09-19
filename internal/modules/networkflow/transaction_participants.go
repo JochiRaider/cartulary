@@ -16,7 +16,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -80,8 +79,6 @@ type indicatorLinkMutation struct {
 type indicatorLinkCommitResult struct {
 	Binding   indicatorBindingRecord
 	Duplicate bool
-	Payload   map[string]any
-	Status    int
 }
 
 func (c *transactionCapability) ValidateIndicatorLinkTarget(ctx context.Context, mutation indicatorLinkMutation) error {
@@ -127,10 +124,10 @@ func validateIndicatorLinkSourcesTx(ctx context.Context, tx pgx.Tx, mutation ind
 		var status string
 		err := tx.QueryRow(ctx, `SELECT table_status FROM network_flow_tables WHERE incident_id = $1 AND network_flow_table_id = $2`, mutation.IncidentID, id).Scan(&status)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return &indicatorLinkPreconditionError{APIError: linkSourceTableError(tableReadError(errTableNotFound), id)}
+			return linkSourceTableError(tableReadFailure(errTableNotFound), id)
 		}
 		if err == nil && status != "active" {
-			return &indicatorLinkPreconditionError{APIError: &httpapi.APIError{Status: 409, Code: "network_flow_table_not_active", Details: map[string]any{"reason_code": "soft_deleted", "network_flow_table_id": id, "table_status": linkNullable(status), "allowed_states": []string{"active"}, "retry_action": "refresh_resource"}}}
+			return linkSourceTableError(tableReadFailure(errTableNotActive), id)
 		}
 		if err != nil {
 			return err
@@ -143,16 +140,10 @@ func validateIndicatorLinkSourcesTx(ctx context.Context, tx pgx.Tx, mutation ind
 			return err
 		}
 		if !accepted {
-			return &indicatorLinkPreconditionError{APIError: invalidIndicatorSelector("row_refs", "row_not_accepted")}
+			return invalidIndicatorSelector("row_refs", "row_not_accepted")
 		}
 	}
 	return nil
-}
-
-type indicatorLinkPreconditionError struct{ APIError *httpapi.APIError }
-
-func (*indicatorLinkPreconditionError) Error() string {
-	return "indicator link source is no longer applicable"
 }
 
 func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation indicatorLinkMutation) (indicatorLinkCommitResult, error) {
@@ -194,15 +185,10 @@ func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation
 	if err != nil {
 		return indicatorLinkCommitResult{}, err
 	}
-	status := 201
-	if duplicate {
-		status = 200
-	}
-	payload := indicatorLinkPayload(binding, duplicate)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, c.tx, indicatorLinkIdempotencyKey(mutation.Actor.ID, mutation.IncidentID, mutation.Request.ClientTxnID), nil, mutation.RequestHash, status, payload); err != nil {
+	if err := (indicatorLinkReceiptAdapter{}).saveTx(ctx, c.tx, mutation, binding, duplicate); err != nil {
 		return indicatorLinkCommitResult{}, err
 	}
-	return indicatorLinkCommitResult{Binding: binding, Duplicate: duplicate, Payload: payload, Status: status}, nil
+	return indicatorLinkCommitResult{Binding: binding, Duplicate: duplicate}, nil
 }
 
 func validateIndicatorTargetLogical(record indicators.IndicatorReference, candidateValue string, targetType string) error {

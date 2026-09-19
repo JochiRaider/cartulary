@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,12 +21,14 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	hc "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -41,7 +45,8 @@ import (
 
 func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-pagination-recovery")
+	controls := hc.NewControls()
+	harness := claimedNetworkFlowServerWithControlsForRouteTest(t, runtime, "network-flow-pagination-recovery", "", controls)
 	login, actorText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	start := harness.Server.Clock.Now().Truncate(time.Second)
 	httptestx.SetClockFixed(t, harness.Server, start)
@@ -55,6 +60,11 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 		rows[i].SrcIP = "192.0.2.1"
 		rows[i].DstIP = "192.0.2.2"
 	}
+	rows[0].BytesCount = "18446744073709551615"
+	rows[1].BytesCount = "9"
+	rows[2].BytesCount = "100"
+	port := int32(22)
+	rows[0].SrcPort, rows[1].SrcPort, rows[2].SrcPort = &port, &port, nil
 	diagnostics := []RejectedRowDiagnostic{testDiagnostic(4, "network_flow_invalid_ip"), testDiagnostic(5, "network_flow_invalid_ip"), testDiagnostic(6, "network_flow_invalid_ip")}
 	for i := range diagnostics {
 		diagnostics[i].DiagnosticID = "nfd_" + strings.Repeat(string(rune('a'+i)), 64)
@@ -63,11 +73,27 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	AssertLiveSQLKeysetBoundaries(t, store, incidentID, table.TableID)
 	root := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow"
 	query := func(path string, body map[string]any) map[string]any {
 		response := httptestx.DoJSON(t, http.MethodPost, root+path, body, httptestx.WithCookies(login.SessionCookie))
 		return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 	}
+	t.Run("functional cursor entropy", func(t *testing.T) {
+		const nonce = "000102030405060708090a0b"
+		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-randomness", map[string]any{"stream": "network_flow.cursor_nonce", "value_kind": "hex_bytes", "values": []string{nonce}, "consume_once": true, "exhaustion": "fail_closed"}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+		path := "/tables/" + table.TableID + "/query"
+		result := query(path, map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1})
+		token := result["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
+		raw, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[2])
+		if err != nil || hex.EncodeToString(raw[:12]) != nonce {
+			t.Fatal("route cursor did not use armed nonce")
+		}
+		response := httptestx.DoJSON(t, http.MethodPost, root+path, map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1}, httptestx.WithCookies(login.SessionCookie))
+		httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
+		controls.Randomness.Clear()
+	})
+
 	graph := query("/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}})
 	selector := graph["vertex_selectors"].([]any)[0].(map[string]any)["selector"]
 	for _, route := range []struct {
@@ -164,6 +190,9 @@ func TestNetworkFlowEffectiveResourceLimitsReachDiscovery_Integration(t *testing
 		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+	if data["schema_id"] != "cartulary.network_flow.source_profile_list.v2" {
+		t.Fatal("unexpected discovery contract", data["schema_id"])
+	}
 	limits := data["effective_limits"].(map[string]any)
 	if len(limits) != 23 || limits["network_flow.max_graph_vertices"] != float64(7000) ||
 		limits["network_flow.max_graph_edges"] != float64(0) ||
@@ -468,6 +497,7 @@ func requireNoNetworkFlowResourceChange(t testing.TB, socket *incidentwstest.Cli
 }
 
 func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
+	t.Run("functional committed audit controls", assertNetworkFlowCommittedAuditConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-routes-graph-link")
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -1289,6 +1319,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 }
 
 func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
+	t.Run("functional worker faults", assertNetworkFlowWorkerFaultConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-saved-graph-routes")
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -1587,6 +1618,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 			if count == 513 {
 				for _, defect := range []string{
 					"handler_payload_json = '{}'::jsonb",
+					"handler_payload_json = handler_payload_json || '{\"source_snapshot_id\":\"not-a-snapshot\"}'::jsonb",
 					"handler_payload_json = handler_payload_json || '{\"unknown\":true}'::jsonb",
 					"handler_payload_json = handler_payload_json || '{\"schema_id\":\"invalid\"}'::jsonb",
 					"handler_payload_json = handler_payload_json || '{\"graph_view_id\":\"invalid\"}'::jsonb",
@@ -2024,6 +2056,9 @@ func claimedNetworkFlowServerWithLimitsForRouteTest(
 	prefix string,
 	resourceLimits string,
 ) *appsupport.ServerHarness {
+	return claimedNetworkFlowServerWithControlsForRouteTest(t, runtime, prefix, resourceLimits, nil)
+}
+func claimedNetworkFlowServerWithControlsForRouteTest(t testing.TB, runtime *appsupport.Runtime, prefix, resourceLimits string, controls *hc.Controls) *appsupport.ServerHarness {
 	t.Helper()
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	rings, err := ParseKeyRings([]byte(`{
@@ -2046,7 +2081,7 @@ func claimedNetworkFlowServerWithLimitsForRouteTest(
 	if resourceLimits != "" {
 		environment["CARTULARY__NETWORK_FLOW_ACTIVITY__RESOURCE_LIMITS"] = resourceLimits
 	}
-	return runtime.StartServer(t, appsupport.ServerOptions{
+	options := appsupport.ServerOptions{
 		Prefix: prefix,
 		Env:    environment,
 		Dependencies: httpapi.DependencySet{
@@ -2054,7 +2089,13 @@ func claimedNetworkFlowServerWithLimitsForRouteTest(
 			Now:             func() time.Time { return now },
 		},
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
+	}
+	if controls != nil {
+		options.TestRouteMode = httptestx.TestRouteModeHarnessOwned
+		options.AdditionalRoutes = controls.Contribution().Routes
+		options.ConfigureRuntime = func(o *server.Options) { o.NetworkFlowComposition = controls }
+	}
+	return runtime.StartServer(t, options)
 }
 
 func networkFlowRouteCountRows(t testing.TB, db *sql.DB, query string, args ...any) int {

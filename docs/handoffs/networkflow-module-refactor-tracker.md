@@ -2,22 +2,33 @@
 
 ## Execution authority and current status
 
-The user explicitly authorized implementation of the complete remediation plan
-on 2026-09-19. This supersedes the earlier tracker-only write restrictions,
-optional-slice defaults and strict observed-behavior freeze in §§1–12. Those
-sections retain the historical planning inventory and evidence; §§13–14 record
-current execution and takes precedence for task scope/status. Adopted owners
-remain behavioral authority. Staging is preserved.
+The 2026-09-19 implementation request authorizes the complete F-18–F-23
+remediation. Section 16 records execution and supersedes the documentation-only
+planning scope in §15. The ordered workstreams S-09 through S-16 are complete;
+§15.10–15.11 and the final S-16 record contain the current handoff and evidence.
+Existing staged changes and historical evidence are preserved; staging is unchanged.
 
-Selected order: specification closure → S-00 → S-06 → S-01 → S-02 → S-03 →
-S-04 → S-07 → S-08 → S-05. Update this artifact after each workstream and
-before starting the next. All slices are authorized; adoption, implementation
-and passing evidence remain distinct. No extra per-slice permission is required.
+Sections 1–14 preserve the previous planning and implementation history. The
+2026-09-19 authorization of the earlier remediation superseded its tracker-only
+restrictions, optional-slice defaults and observed-behavior freeze for that
+effort. Its completed order was specification closure → S-00 → S-06 → S-01 →
+S-02 → S-03 → S-04 → S-07 → S-08 → S-05. **S-05 remains the final completed
+slice of that effort**; its passing evidence does not certify the new iteration.
+Historical statements of "current" status and authorization in §§1–14 apply
+to their recorded sessions, not the current implementation request.
 
-Retain public/durable identity, authorization, receipts, exact reads, atomicity
-and recovery. Replace HTTP-coupled semantics, Service reuse, all-at-once Jobs
-reads, global cleanup gauges and excessive exports. Remove obsolete adapters,
-SQL and production aliases rather than creating compatibility shims.
+The authorized execution order is S-09 → S-10 → S-11 → S-12 → S-13 → S-14 → S-15a →
+S-15b → S-15c → S-15d → S-16. Each workstream, including every S-15
+substream, was recorded before the next began.
+Planning completion, owner adoption, implementation readiness, implementation
+completion and verified completion remain separate states. Adopted behavioral
+owners remain authoritative.
+
+Prefer clean structural fixes and remove unnecessary compatibility burden.
+Retain meaningful identity, authorization, replay, atomicity, exact-read and
+recovery guarantees. The user selected **functional consumers for all four
+harness control families, with unsupported tokens pruned**. These decisions
+govern this implementation; assertion-level evidence is recorded in §16.
 
 ## 1. Scope and Source Posture
 
@@ -1293,3 +1304,927 @@ supplied to that earlier maintenance step. No commit, index mutation, deployment
 or message to an external party was performed. Final post-validation changes to
 this file record results, inventory and handoff status only; table structure and
 whitespace were reviewed after those log updates.
+
+## 15. F-18–F-23 — legacy removal and production readiness
+
+### 15.1 Scope, basis and evidence classes
+
+The original 2026-09-19 planning update authorized only this tracker; it did
+not authorize production changes, owner amendments, generation or deployment.
+The subsequent explicit implementation request superseded that restriction and
+authorized S-09–S-16. Section 16 records the resulting work. Historical finding
+and slice IDs, inventories, assertions, handoffs and prior evidence remain;
+planning observations below describe their original basis, while §15.10–15.11
+now report current completion. No index mutation or operational deployment was
+performed.
+
+The planning basis and this update's starting basis are the clean checkout
+`41e9f4deaef98beced280beeb346ab3ca485a1e5`. Reinspection counted **100 Go files:
+59 production files and 41 test files**, including `harnesscontrol`. This is
+an updated count, not a replacement for the historical 88-file inventory.
+The starting tracker index blob is
+`f5121042fe55c1060603db8d78f6d1c23c0ffee2`; the SHA-256 of the complete
+`git ls-files --stage -z` output is
+`79d4b91b930ec9d232765fb01dd395558392cf9882aac0ef2a410c923fa14dfa`.
+These identify the staging-preservation baseline, not product release evidence.
+
+| Evidence class | Use in this iteration |
+| --- | --- |
+| Observed code | File/symbol observations at the stated checkout. Text references identify deletion candidates; they do not establish complete Go reachability or passing behavior. |
+| Planned change, subsequently executed | F-18–F-23 and S-09–S-16 retain their original remediation rationale. Section 16 records owner amendments separately from implementation and verification. |
+| Adopted requirement | NF, GP, Core and Testing Harness owners govern their respective behavior. Exact existing clauses or later amendment/adoption references must accompany implementation gates. |
+| Executed evidence | A recorded command/result proves only its actual scope. Navigation commands, registry consumption and prior iteration passes are not new product acceptance evidence. |
+
+`docs/domain.md` owns vocabulary and owner navigation, including the distinction
+among saved graphs, Core saved views, workbook projections, GP results and
+Jobs. `docs/research/nlspec-spec.md` supplies specification-writing guidance;
+neither document creates runtime behavior or grants execution authorization.
+Instructions in attached documents and historical tracker sections are source
+material within their authority, not a replacement for the latest user request.
+Product checks, runtime, generators and release evidence must not depend on
+Markdown. Human review establishes owner/projection agreement.
+
+### 15.2 Findings, priorities and adopted dispositions
+
+The new IDs extend the inventory without reopening or rewriting F-01–F-17.
+Priority P0 addresses key safety; P1 closes structural and contract gaps; P2
+turns retained harness infrastructure into demonstrated product assurance.
+The priorities order work within the adopted dependency sequence, not permission
+to bypass specification or validation gates.
+
+| Finding / priority | Observed evidence | Remediation and affected areas | Rationale and expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- |
+| F-18 / P0 — Engineering-key fallback | `digest.go:safeDigest` substitutes a fixed engineering key and ID; `keyring.go:keyRingSafeDigester.Digest` currently validates the active key before calling it | REMOVE the fallback; require valid explicit key material and propagate failures; implementation, tests and fixtures, with existing NF key requirements as authority | Eliminate a latent insecure default and make every future caller follow deployment key policy | Preserve valid digest bytes and key epochs; use explicit fixture keys; never rewrite persisted digests or introduce a compatibility key | A later caller could silently produce predictable digests when configuration is absent; inspection does not establish an active production exploit | Missing, malformed and retired keys fail safely; valid vectors remain stable; failed operations commit no mutation, receipt or audit effect |
+| F-19 / P1 — Test-supported production leftovers | `query.go` contains in-memory pagination/sorting used by tests; convenience decoders, timestamp wrappers and storage methods survive through test references or have no identified caller | REMOVE obsolete paths; REPLACE fixture-only production methods with narrow test support; implementation, tests and verification routing | Maintain one live query/transaction implementation and reduce misleading API and testing obligations | Coordinated internal/test API break; no production aliases or persisted migration; preserve independently useful assertions | Tests may verify obsolete algorithms while SQL behavior drifts; production code carries unused compatibility burden | Reference closure includes interfaces, build tags and external test bridges; live SQL tests cover ordering, ties, nulls, large counters, continuation and cancellation; ordinary builds exclude fixture conveniences |
+| F-20 / P1 — Stale source-profile contracts | NF §17.3 Table 17-B1 names `cartulary.network_flow_source_profile_list.v1`; the route/backend/frontend use `cartulary.network_flow.source_profile_list.v2`; the authored schema index retains both dotted v1 and v2 projections | REPLACE the owner/projection discrepancy by explicitly adopting the current v2 response; REMOVE the obsolete v1 projection and exclusively orphaned definitions after adoption; specification, contracts, generated outputs, tests and documentation | Establish one current response and eliminate generated compatibility baggage; do not infer authority from existing implementation alone | Recommend retaining the current v2 wire shape; coordinate removal of unused generated Go/TypeScript surfaces; preserve independently supported v1 contracts | Future changes can target inconsistent requirements or accidentally reintroduce an obsolete response | Owner text, route declaration, backend response, frontend decoder and generated schema agree; generated artifacts come from authored inputs through Make |
+| F-21 / P1 — Remaining transport coupling | `extension_state.go` calls `decodeGraphSemanticRequestHTTP`; `application.go` table commands and indicator-link admission/participants carry route-service or HTTP-error responsibilities | REPLACE HTTP-coupled reusable logic with private table/link application components, semantic failures and dedicated receipt adapters; implementation, tests, boundary documentation and necessary owner clarification | Complete cohesive application boundaries for future consumers without route-service reuse or HTTP envelopes inside participants | Preserve admission precedence, privacy, receipt bytes and the distinct table/link/saved-graph replay algorithms; no generic mutation framework or new public API | Future commands inherit transport dependencies; refactors can reorder security-sensitive checks or couple unrelated replay policies | Persisted validation calls semantic decoding directly; real HTTP/command/transaction assertions retain replay, rollback, rechecks, redaction and captured-attempt continuity |
+| F-22 / P1 — Divergent materialization-payload admission | `graph_view_jobs.go` uses permissive `json.Unmarshal`; `graph_restore_source.go` uses a separate decoder with `DisallowUnknownFields` | REPLACE worker, restore and startup decoding with one private strict decoder using transport-independent JSON validation; implementation, tests and owner clarification where needed | Give workers and restore one interpretation as job payloads evolve | Preserve valid payload format and durable state version; reject malformed inputs without silently rewriting retained jobs | A worker may accept payloads that restore rejects, or the consumers may select different identities | All three consumers (worker, restore, startup) reject duplicate/unknown members, trailing data, invalid identities and incident mismatches before owner mutation; later-page failure rolls back the whole restore and never publishes readiness |
+| F-23 / P2 — Harness controls without product consumers | Four control registries expose arming/consumption mechanics; inspected consumption is registry testing, and server-process coverage proves route contribution rather than product effects | REPLACE unused mechanics with real fault/randomness/auth-transition/audit consumers; REMOVE unsupported tokens; harness owner, implementation, contracts, tests, routing and documentation | Make retained infrastructure earn its maintenance cost through observable product assurance | Coordinated harness vocabulary/fixture migration; preserve production API behavior and shared harness security; no dual compatibility surface | Controls can imply rollback, authorization or audit assurance without exercising a product consumer | Each retained token maps to an owner requirement, named consumer, actual assertion, selector, command and passing artifact; ordinary builds contain no control routes or registry dependencies |
+
+### 15.3 Deletion inventory and retention rules
+
+This inventory was established in planning and closed in S-09/S-11/S-12/S-15.
+Reference review included production and test callers, interfaces, build tags,
+generated roots and external test bridges. The dispositions below are complete;
+§16 records replacement assertions, builds and caller migrations. Production-only
+reference counts were a screening aid, not the reachability proof.
+
+| Candidate | Completed disposition | Replacement or preservation evidence |
+| --- | --- | --- |
+| `sortRows`, `pageFlowRowsAfter`, `pageDiagnosticsAfter` and exclusively dependent comparators/helpers | REMOVE obsolete in-memory query paths | Transfer meaningful sort/cursor/diagnostic assertions to the real SQL query path; retain comparators independently used by live graph or diagnostic behavior |
+| `parseTimestamp` | REMOVE test-only convenience wrapper | Call the live timestamp parser from focused tests with explicit record context; retain timestamp modes, precision, DST and timezone rules |
+| `decodeIndicatorLinkRequest` | REMOVE test-only request wrapper | Exercise the actual route/object-admission path; retain strict JSON and security-sensitive error precedence |
+| `networkFlowLinkableIPField` | REMOVE test-only policy duplicate | Verify the live selector/field admission boundary and its negative cases |
+| `store.GetTable` and `store.ListRejectedRowDiagnostics` | REMOVE unused/unbounded convenience access after reference closure | Retain live authorized table reads and bounded diagnostic queries; fixture reads must not create a second product read path |
+| `store.CreateTable`, `store.RenameTable`, `store.SoftDeleteTable`, `store.RetainedCounts` and aliases supporting only tests | REMOVE from production where fixture-only; REPLACE with narrow fixture operations | Keep live transaction participants and transaction-bound methods; preserve real database rollback/concurrency assertions and external test placement needed to avoid import cycles |
+| `SourceProfileList` v1 projection and exclusively orphaned definitions | REMOVE through S-12 after NF owner adoption | Trace references from all current schema roots, generators, frontend adapters and supported persisted formats; keep shared definitions that remain live |
+| Synthetic/unused harness tokens | REMOVE only through the S-09/S-15 owner-aligned capability matrix | Preserve all four functional control families; no accepted token may remain without a meaningful consumer and acceptance assertion |
+
+Retain identity and digest algorithms, supported migration verification,
+current-state admission, historical receipts, exact-result leases, recovery
+reconciliation and negative compatibility tests. A `v1` name is not deletion
+evidence. Preserve the private NF transaction helper, atomic owner participants,
+NF intents/App translation/Collaboration delivery, immutable analytical rows,
+frontend adapters and authored/generated separation. Do not broaden this
+iteration into speculative package relocation or a generic transaction facade.
+
+### 15.4 Owner decisions and adoption gates
+
+| Gate | Existing authority and proposed action | Completion evidence | Current state |
+| --- | --- | --- | --- |
+| G-NEXT-KEY | NF §6.7, especially NF-REQ-045/045a/045b, and §20.1 already require deployment keys and preserve historical digest epochs; implement F-18 without weakening those requirements | Existing clause references, valid-vector comparison and failure/rollback assertions | CLOSED — existing owner retained; S-10 vectors and transaction rollback pass |
+| G-NEXT-SCHEMA | NF §17.3 Table 17-B1 conflicts with downstream response projections; recommend explicit current v2 adoption before pruning the v1 schema | Exact owner revision/adoption record, version-action rationale, affected authored/generated surface and human agreement review | ADOPTED — NF 6.0.1 §17.3; S-12 generated/backend/frontend agreement passes |
+| G-NEXT-APPLICATION | NF §§5.5, 15, 17, 28–29 own admission/replay and application boundaries; extend the semantic boundary to the remaining table/link/state seams without unifying their replay algorithms | Existing references and any necessary clarification, application dependency design and assertion mapping | ADOPTED / COMPLETE — NF 6.0.1 §29.1; S-13 boundaries and replay assertions pass |
+| G-NEXT-PAYLOAD | NF §29 owns restore payload meaning; Core Common Jobs owns job lifecycle and GP §9/Core Recovery own atomic restore and readiness | Explicit shared-decoder admission contract, worker/restore behavior mapping and malformed-payload assertions | ADOPTED / COMPLETE — NF 6.0.1 §29.1; S-14 and S-16 corpus covers all three consumers, payload v1 retained |
+| G-NEXT-HARNESS | Testing Harness §§12.2.5–12.2.8, TH-HARNESS-REQ-455–459 and 465–479, own control mechanics; product owners define the expected effects | Reduced token/consumer matrix, exact owner amendments, fixture migration notes and replacement acceptance/routing records | ADOPTED / COMPLETE — Testing Harness §§12.2.5–12.2.9; S-15a–S-15d v2 controls and consumers pass |
+
+The S-09 source-profile adoption states the exact current
+`cartulary.network_flow.source_profile_list.v2` response and its current fields
+as the sole emitted shape. It does not retain a second decoder or an alias.
+The adopted shared payload contract requires one closed JSON object, strict
+member handling and NF-owned identity validation; job and restore adapters keep
+their distinct failure outcomes. Harness amendments must name real boundaries
+and fixture obligations without creating product state-machine stages.
+
+S-09 must record each amendment's exact document/version/section and adoption
+reference. If adopted owners themselves conflict, record the conflicting
+passages and block only the dependent work until the conflict is resolved.
+An accepted tracker plan, a machine projection or a passing test does not meet
+an owner-adoption gate. Future execution authorization applies to its selected
+scope once; technical adoption/evidence gates do not imply repeated per-slice
+permission requests.
+
+### 15.5 Workstreams, dependencies, risks and exit criteria
+
+All workstreams below are **COMPLETE**, in the opening notice's exact order.
+The table retains the planned dependencies, risks and exit criteria; §16 records
+each outcome and the evidence that closes it. S-16 is the final completed slice.
+
+| Workstream | Scope and dependencies | Main execution risk | Exit criteria |
+| --- | --- | --- | --- |
+| S-09 — Specification and deletion inventory | Establish F-18–F-23, full reference evidence, retained invariants, affected projections and the reduced harness matrix; precedes all implementation | Mistaking test-only references, historical prose or a proposed contract for authority or proof | Every candidate has a retain/remove/replace disposition; owner amendments and adoption references are explicit; unsupported tokens have a removal disposition; preservation assertions have selectors and a baseline or assigned defect |
+| S-10 — Key hardening | Depends on S-09; remove engineering defaults and provide explicit test keys | Accidentally changing valid digest bytes or invalidating historical epochs | Valid vectors stable; missing/invalid/retired keys fail safely; production fallback absent; failures commit no domain, receipt or audit effects |
+| S-11 — Dead-code removal | Depends on S-09–S-10; delete obsolete paths and transfer useful assertions to live boundaries | Deleting a live interface/build-tag consumer or losing coverage while tests become shorter | Ordinary builds contain no identified fixture conveniences; live SQL covers ordering, ties, nulls, large counters, continuation and cancellation; necessary external integration coverage survives |
+| S-12 — Contract cleanup | Depends on S-11 and G-NEXT-SCHEMA adoption in S-09; remove obsolete authored definitions and regenerate through Make | Pruning a shared definition or treating implementation behavior as unrecorded owner adoption | Owner text, route/backend/frontend and generated schemas agree; obsolete response surface absent; independently supported old-version contracts retained |
+| S-13 — Application boundary completion | Depends on S-12 and G-NEXT-APPLICATION; separate table/link commands, receipt adapters, transport mapping and persisted-state validation | Reordering admission/replay or introducing a generic abstraction that couples unrelated commands | Reusable components carry semantic failures only; real routes, transaction rechecks, rollback, privacy and captured-attempt continuity pass; distinct replay policies remain |
+| S-14 — Shared job-payload admission | Depends on S-13 and G-NEXT-PAYLOAD; unify worker/restore/startup decoding | Accepting different identities or weakening whole-restore rollback | Valid payload parity; strict malformed-input rejection; incident agreement; late-page failure rolls back and blocks readiness; valid state-4 restore remains supported |
+| S-15a — Functional fault controls | Depends on S-13–S-14 and G-NEXT-HARNESS; bind controls to actual owner-apply, transaction and worker boundaries | Proving only consumption, or adding a fictitious phase between atomic effects | Precommit faults prove rollback; postcommit failures prove immutable replay; crash uses an owned child process and recovery evidence; effects are correlated and consumed once |
+| S-15b — Functional randomness controls | Depends on S-15a and G-NEXT-HARNESS; bind table allocation and cursor entropy seams | Leaking deterministic fixture behavior into production or replacing deterministic identities with randomness | Primary-key-only conflict handling, collision retry in a usable transaction, eight-attempt exhaustion, nonce behavior, stream mismatch and fail-closed exhaustion pass; production entropy and identity algorithms remain intact |
+| S-15c — Functional authorization transitions | Depends on S-15b and G-NEXT-HARNESS; apply real fixture state changes at supported admission boundaries | Inventing response-time authorization semantics or allowing a harness control to bypass product admission | Membership/session loss, table changes, cursor rechecks and nondisclosure are demonstrated through actual responses; unsupported checkpoint tokens are retired |
+| S-15d — Functional audit assertions | Depends on S-15c and G-NEXT-HARNESS; inspect committed owner audit state after real operations | Counting attempted/uncommitted appends or unrelated concurrent operations | Exact scoped counts cover creation, rename, deletion, graph query, binding creation/reuse, denied operations and replay; registry-only evidence remains separately classified |
+| S-16 — Validation and handoff | Depends on every prior exit criterion, including all four S-15 records | Reusing previous passes to certify changed code, missing collaborator rows, or conflating repository completion with rollout | Required gates pass; deletion inventory, assertion matrix, owner review, compatibility notes, rollout/rollback and all seven handoff tables are complete; external operational steps remain explicit |
+
+After each workstream and before the next, record the checkout/worktree basis,
+changed files, owner decisions/adoption references, compatibility effects,
+executed assertions, exact Make commands, run/artifact paths, failures, skipped
+checks with reasons and each exit-criterion result. S-15a–S-15d require separate
+records; an aggregate S-15 pass cannot hide an unimplemented family. A required
+failing preservation assertion blocks the dependent slice, and a required final
+failure blocks S-16 verified completion.
+
+### 15.6 Harness capability and consumer contract
+
+The user chose to make all four control families functional, then chose to
+prune unsupported tokens. Preserve these two decisions together: neither a
+wholesale deletion of the controls nor implementation of every historical token
+is the accepted direction.
+
+| Family | Retained purpose and consumer | Removal/simplification direction | Required product evidence |
+| --- | --- | --- | --- |
+| Faults | Real Imports owner-apply and transaction boundaries, worker handler entry/final commit/completed publication; wrappers around the actual participating ports | Replace hypothetical prepare/publication checkpoints with named real stages; never split atomically committed effects to satisfy a test token | Rollback of observable durable state before commit; exact replay after committed response failure; worker cancellation/crash/recovery through actual Jobs/owner coordination |
+| Randomness | `network_flow.table_id` drives actual table allocation; `network_flow.cursor_nonce` drives the cursor entropy seam in fixtures | Remove `network_flow.row_id`, `network_flow.diagnostic_id`, `network_flow.safe_digest_nonce`, `network_flow.graph_invocation_id`, `network_flow.import_job_id` and `network_flow.import_source_ref` from this NF control surface | Collision recovery and eight-collision failure without partial effects; reproducible nonce scenarios, key rotation/TTL/replay assertions as applicable; no fallback after an armed sequence is exhausted |
+| Authorization transitions | Real fixture transitions and supported route/cursor admission boundaries, with exact actor/incident/resource/correlation matching | Remove speculative response-time or publication-time checkpoints that would invent new product authorization semantics; retain owner-defined admission stages | Actual membership/session loss, table rename/deletion and cursor rechecks; safe failure/hidden-resource responses, not synthetic envelope substitution |
+| Audit assertions | Fixture support reads committed audit occurrences through owner-aware capabilities after a real operation | Do not keep assertion tokens without a real operation/count consumer; do not add a product audit event merely to satisfy a harness token | Exact scoped creation/rename/deletion/query/binding counts, zero-occurrence denial/rollback and no-extra-occurrence replay |
+
+Assemble consumers in harness builds and fixture support. Production owners
+must not import harness registries, expose control routes in ordinary builds,
+or change their authorization model. Prefer decorators over existing dependency
+ports. Any necessary additional seam must be narrow, instance-scoped and
+installed before serving; global mutable hooks are prohibited. Preserve the
+shared test-route enablement, host/origin and token checks before body decoding.
+
+Consume a matched control before applying its effect. Mismatches leave the
+control pending; exhausted deterministic streams fail the fixture. Reset uses
+owned process replacement, which clears runtime control state; do not revive
+the retired reset route. Crash tests terminate only their owned child process.
+Audit assertions inspect committed counts, not registry consumption or attempted
+appends. No harness effect may change row IDs, safe-digest algorithms, GP result
+identity, owner transaction atomicity or receipt meaning.
+
+The S-09 adopted owner matrix defined each real boundary/effect before
+implementation. The S-16 closure below supplies one row per retained token
+containing: owner requirement, exact consumer/boundary, valid effect
+combinations, fixture identity/correlation scope, expected durable and public
+outcome, assertion/selector, removal or migration mapping, and later command/run
+evidence. Tokens without such a row are removed through the harness owner
+amendment; they are not silently left accepted but inert. This refinement is an
+implementation-readiness deliverable, not a new product compatibility promise.
+
+### 15.7 Acceptance matrix and command routing
+
+These assertions are **CLOSED** by new execution in §16. The previous
+AC-COMP/AC-CMD/AC-GP/AC-JOB and C-01–C-16 matrices remain historical evidence;
+they were not reused to certify this iteration. S-16 maps new collaborator and
+final-gate runs to the changed implementation.
+
+| Assertion group | Required scenarios | Owning workstream / evidence boundary |
+| --- | --- | --- |
+| AC-NEXT-KEY | Explicit valid keys and stable digest vectors; missing/malformed/retired keys; no committed mutation/receipt/audit on failure | S-10; semantic/key-ring tests plus actual mutation rollback |
+| AC-NEXT-DEAD | Production/interface/build-tag/test-bridge reference closure; ordinary build; SQL ordering/ties/nulls/large counters/continuation/cancellation | S-11; source audit plus real query/transaction assertions |
+| AC-NEXT-SCHEMA | One current source-profile response; old unused exports/validators removed; shared current definitions retained | S-12; human owner review, generated drift, backend and frontend boundary tests |
+| AC-NEXT-APPLICATION | Semantic state validation; table/link admission before replay and transaction rechecks; distinct receipt policies; partial failures; safe unknown errors; captured attempts | S-13; real authenticated HTTP and owner transaction tests, dependency guards and affected frontend scenarios |
+| AC-NEXT-PAYLOAD | Worker/restore/startup valid parity; duplicate/unknown/trailing/malformed data; schema/ID/generation/snapshot/incident validation; cancellation; later-page rollback/readiness | S-14; shared-decoder tests and actual worker/restore composition, retaining 0/1/256/257/512/513-page-boundary coverage |
+| AC-NEXT-FAULT | Matching/mismatching controls; precommit rollback; postcommit replay; cancellation; owned-process crash/restart and reconciliation | S-15a; registry mechanics separately from service-backed/process product evidence |
+| AC-NEXT-RANDOM | Table collision/retry exhaustion; cursor nonce/key/TTL scenarios; wrong stream/kind; exhausted sequence; ordinary-build entropy isolation | S-15b; real allocation and cursor consumers |
+| AC-NEXT-AUTH | Exact fixture scoping; membership/session transitions; table changes; cursor admission; nondisclosure; controls absent from ordinary builds | S-15c; actual admitted/denied operations and applicable browser scenarios |
+| AC-NEXT-AUDIT | Scoped committed occurrence counts for each retained event; failed/denied operations; replay without extra occurrences | S-15d; real operations and owner-aware audit reads |
+| AC-NEXT-HANDOFF | All required assertions and gates pass; adoption/projection review; complete removal/migration inventory; operational steps separate | S-16; final evidence and seven handoff tables |
+
+Use the live public Make surface rather than copying a permanent target catalog.
+For subsequent work, resolve exact rows through
+`make task-guide ROLE=module-author OWNER=<owner-id>` and
+`make explain-test-owner OWNER=<owner-id>`, then use
+`make test-slice OWNER=<owner-id> ROWS=<selected-row-ids>` and
+`make service-backed-test-slice OWNER=<owner-id> ROWS=<selected-row-ids>`.
+Update authored selectors and collaborator accounting before regenerating
+topology. Current NF routing has 93 rows, 44 service-backed; counts are discovery
+facts, not a coverage or completeness claim.
+
+Route affected coverage to NF, Imports, Jobs, Recovery, Reporting, GP,
+application server, frontend NF and browser harness owners as appropriate.
+Preserve the Reporting-owned exact-result lease row even when its test is in
+NF. Run ordinary and harness builds, positive API/dependency guards, and real
+Imports/Jobs/Recovery/Reporting/GP boundaries. Frontend validation includes
+type checking, import boundaries and affected stateful replay, selection,
+refresh/retirement, authority-loss and pagination scenarios.
+
+Before broader final verification run `make agent-finalize`. Supply retained
+successful `RESULTS_DIR` evidence only when valid; otherwise explicitly record
+that retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+The selected final gates include `make generate-drift`,
+`make generated-artifact-policy-check`, `make json-shape-check`,
+`make migration-drift`, `make harness-contract`, `make frontend-typecheck`,
+`make frontend-import-boundary-check`, `make lint-markdown` and `make check`,
+plus selected frontend/service-backed/stateful assertions. Use `make generate`
+for changed authored inputs; never hand-edit generated roots. Record actual
+commands and artifacts, including failures and justified skips; product tests
+must not read this tracker or other Markdown.
+
+### 15.8 Compatibility, rollout and rollback
+
+Retain public major 6 and durable state 4 where their contracts are preserved.
+F-20 requires an explicit owner reconciliation and version-action record rather
+than treating an existing downstream schema as authority. Internal Go/test API
+changes may break coordinated repository callers; do not preserve obsolete
+production aliases. Valid job payloads, identities, receipts, key epochs and
+supported recovery history remain intact. No new database migration is proposed
+by this iteration; do not edit historical migrations or undo the previous
+additive Jobs index.
+
+Publish harness vocabulary changes together with their fixture/runner callers,
+owner/projection updates and release notes. Retired tokens have explicit removal
+or replacement mappings; no unsupported token is dual-supported as a shim.
+Roll back harness/application changes with their matching fixture and generated
+contract versions. Do not roll back by restoring an engineering key fallback.
+
+S-16 must human-review owner/projection agreement and prepare a release handoff
+covering changed interfaces, removed helpers/schemas/tokens, required caller
+changes, verification artifacts and remaining deployment steps. The previous
+release's deployment and telemetry cutover remain external unless separately
+executed and evidenced. Repository verified completion and operational rollout
+must be reported separately; earlier successful runs cannot certify this work.
+
+### 15.9 Documentation execution and planning evidence
+
+| Command or inspection | Session and result | Evidence scope |
+| --- | --- | --- |
+| `make help` | Prior planning turn: PASS | Public task discovery only |
+| `make task-guide ROLE=module-author OWNER=module.networkflow` | Prior planning turn: PASS | Narrow NF verification guidance; no product assertions executed |
+| `make explain-test-owner OWNER=module.networkflow` | Prior planning turn: PASS; 93 rows, 44 service-backed | Authored routing discovery, not evidence that requirements are complete |
+| `make task-guide ROLE=module-author OWNER=platform.harness` | Prior planning turn: FAILED, unknown active owner | Corrected navigation error, not a product failure |
+| `make task-guide ROLE=module-author OWNER=app.server` and `make task-guide ROLE=module-author OWNER=harness.browser` | Prior planning turn: PASS | Correct owner guidance after the unsuccessful lookup |
+| `git diff --check` | Prior planning turn: PASS with no edits | Whitespace check of that clean planning basis only |
+| `git status --short`, `git rev-parse HEAD`, `git diff --cached --stat`, index and file-count inspection | Documentation execution: PASS at start; clean checkout and counts match §15.1 | Starting basis and staging-preservation record |
+| `make explain-target TARGET=lint-markdown DETAIL=summary` | Documentation execution: PASS | Confirmed public target and artifact locations |
+| `make lint-markdown` | Documentation execution: PASS, exit 0; run root `.cartulary/test-results/20260919T141429Z-p44134`, summary `adhoc/lint-markdown/tool-run-summary.json`, duration 81,720 ms | Required repository Markdown check; existing default globs omit this tracker, so target success alone does not lint this file |
+| Direct tracker structure/link/history audit and `git diff --check` | Documentation execution: PASS; repeated after final result logging | New tables have consistent columns, numbered sections resolve, referenced source paths exist, existing links and §§1–14 are unchanged; only the tracker changed and the complete staged-entry digest matches §15.1 |
+
+This update changes only this tracker. Owner documents, source bodies, contracts,
+generated artifacts, tests, task manifests and Markdown tooling were inspected
+read-only. Product suites, code generation, migrations, `make agent-finalize`
+and broader final gates are **NOT RUN: documentation-only scope**. No retained
+product success is claimed for F-18–F-23. The Markdown target's existing globs
+omit this handoff; its coverage limitation is recorded rather than changing
+configuration outside the authorized file.
+
+The final edit records the completed Markdown result and documentation handoff;
+the direct structure/history/index and whitespace checks are repeated on those
+final bytes. No product readiness or implementation-completion claim follows
+from these documentation checks.
+
+### 15.10 Current handoff tables
+
+These seven current handoffs supersede the planning-only statuses originally
+recorded here. The seven historical tables in §10 remain unchanged.
+
+#### Scope and authority
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| COMPLETE | F-18–F-23 and S-09–S-16 closed. NF 6.0.1 §§17.3/29.1 and Testing Harness §§12.2.5–12.2.9 adopted before changed requirements were implemented. Prior S-05 history and the initial index are preserved. | Maintainer review of this coordinated change; no further repository remediation gate remains. |
+
+#### Backend module boundary
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| COMPLETE | Explicit digest keys, live SQL coverage, private table/link commands and separate receipts, semantic participants/state validation, one three-consumer payload decoder, bounded collision-safe allocation. | Extend these private owner boundaries; preserve distinct replay, atomicity, exact lease and recovery rules. |
+
+#### Frontend module boundary
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| COMPLETE | Sole source-profile v2 response and generated decoding; 66 frontend units and all six stateful NF scenarios pass, including captured operations, authority loss, pagination and saved-graph continuity. | Ship matching generated contracts and frontend together; no v1 alias or speculative relocation. |
+
+#### Contract and codegen
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| COMPLETE | Retired SourceProfileList/EffectiveLimits and all four harness v1 schemas; generated outputs and v2 attachments agree with owners. Major 6/state 4/payload v1 retained; no SQL migration. | Use Make generation from authored contracts; see release notes for removed exports/tokens and caller migration. |
+
+#### Tests and harness
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| COMPLETE | All four families have real consumers and scoped product assertions. Strict guards/decoding, rollback, committed replay, owned crash recovery, entropy, real authorization transitions and committed audit baselines/counts pass. S-16 records fresh cross-owner/final evidence. | Keep each retained token linked to its consumer and assertion; fixture failures or pending required controls must fail. |
+
+#### Security and authorization
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| COMPLETE | No engineering fallback; digest failures roll back. Admission precedence, hidden targets, safe errors, authorization rechecks and per-instance entropy preserved. Ordinary build exposes no control registry/routes. | Rollback must retain key hardening and strict state admission; do not restore unsupported controls or synthetic responses. |
+
+#### Open risks and next session
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| REPOSITORY COMPLETE / OPERATIONS EXTERNAL | No required repository failure or unresolved finding remains. Historical fixture failures and the justified retained-run maintenance skip remain in §16. Deployment and prior telemetry cutover were not performed. | Operational owner deploys compatible code/contracts/fixtures as a unit and separately records deployment and telemetry evidence. |
+
+### 15.11 Completion assessment for this iteration
+
+| Completion level | Current result | Required basis |
+| --- | --- | --- |
+| Planning content | COMPLETE | Findings, workstreams, rationale, dependencies, risks, validation and migration retained. |
+| Specification adoption | COMPLETE | Owner amendments recorded in S-09; explicit incident-deletion and audit v2 refinements recorded before their consumers. |
+| Implementation readiness | COMPLETE | Deletion/reference closure, consumer matrix and preservation assertions assigned before implementation. |
+| Implementation completion | COMPLETE | S-10–S-15d completed separately and recorded before progression. |
+| Verified completion | COMPLETE | New assertion-level runs and S-16 final gates pass; historical results are not substituted. |
+| Documentation and implementation handoff | COMPLETE | Seven tables closed; owner/projection review, release notes, file inventory and final evidence recorded. |
+| Operational rollout | EXTERNAL / NOT EXECUTED | Deployment and earlier telemetry cutover require separate operational evidence. |
+
+## 16. F-18–F-23 execution ledger
+
+### S-09 — specification closure and readiness
+
+Status: COMPLETE. Basis: `41e9f4deaef98beced280beeb346ab3ca485a1e5`;
+only the tracker was staged at entry. Initial complete index SHA-256:
+`00aaecb0cd7529b2e468f41b88150501254481b2bf014a8f2c28c32371a7ffcd`. The index is not changed by this effort.
+
+Owner adoption is recorded in NF revision 6.0.1 §17.3 and §29.1 and Testing
+Harness §§12.2.5–12.2.9. Public major 6, durable state 4, payload v1, and valid
+identity/receipt bytes remain. Harness response schemas move to v2 together with
+callers. GP and Core ownership is unchanged. Domain vocabulary remains accurate.
+
+The §15.3 inventory is confirmed by production/test/interface reference search:
+remove sortRows/pageFlowRowsAfter/pageDiagnosticsAfter; remove parseTimestamp
+and test request/policy wrappers; delete unused GetTable and unbounded diagnostic
+listing. Move fixture-only CreateTable/RenameTable/SoftDeleteTable/RetainedCounts
+operations into test compilation, preserving transaction-bound implementation
+and external bridges. Retain comparators used by live graph/cursor code, private
+transactions, exact leases, receipt validation, and migration history. Remove
+SourceProfileList v1 and only its exclusive definitions after schema traversal.
+
+| Assertion / owner | Consumer and required evidence | Slice / baseline disposition |
+| --- | --- | --- |
+| AC-NEXT-KEY / NF §6.7 | Digester and real rename/import mutations; valid vectors, invalid keys, complete rollback | S-10; missing failure assertions assigned F-18 |
+| AC-NEXT-DEAD / NF §§13,17 | SQL row/diagnostic keysets, timestamp parser and actual object admission | S-11; obsolete-path assertions assigned F-19 |
+| AC-NEXT-SCHEMA / NF §17.3 | v2 backend discovery and frontend generated decoder | S-12; owner discrepancy adopted above |
+| AC-NEXT-APPLICATION / NF §§15,17,28,29.1 | Table/link applications, receipt adapters, real HTTP and transaction rechecks | S-13; transport defects assigned F-21 |
+| AC-NEXT-PAYLOAD / NF §29.1 | Worker, restore AND startup; strict shared admission, whole-restore rollback | S-14; divergent admission assigned F-22 |
+| AC-NEXT-FAULT / TH §12.2.5, NF §29 | Eight named real boundaries in TH-REQ-456; rollback/replay/cancellation/crash | S-15a; accepted-but-inert controls assigned F-23 |
+| AC-NEXT-RANDOM / TH §12.2.6, NF §6 | table_id allocation and cursor_nonce encryption; collision success/exhaustion | S-15b; also repair retry in aborted PostgreSQL transaction |
+| AC-NEXT-AUTH / TH §12.2.7, Core 04 | Route and continuation admission; six real transitions, scoped actual responses | S-15c; remove synthetic response selector and late checkpoints |
+| AC-NEXT-AUDIT / TH §12.2.8, NF §16 | Committed audit reads for all six current events; scoped baseline/final/replay counts | S-15d; remove import resource and add actor/incident matching |
+
+Exact selectors are maintained in authored owner manifests as assertions move;
+existing entrypoints include table lifecycle admission/replay, pagination recovery,
+effective-limit discovery, saved-graph cutover/lifecycle, all four harness support
+rows, Reporting exact-result leases, and Recovery rebuild tests. Product assertions
+have not run in S-09: identified baseline defects are assigned above, not passes.
+`make task-guide ROLE=module-author OWNER=module.networkflow` resolves narrow
+verification. `git diff --check` validates edits. Documentation lint is deferred
+to S-16; no product evidence reads Markdown. S-09 exits: owner closure, deletion
+dispositions, consumer/effect contract, compatibility decisions and assigned
+assertions complete. Next: S-10.
+
+### S-10 — explicit safe-digest keys
+
+Status: COMPLETE. Removed fixed engineering key/ID, made the private helper
+fallible, validated key ID/32-byte material/value class, and propagated errors
+through the key-ring digester. Tests use explicit keys; valid digest bytes and
+historical epochs remain unchanged. Added a fixed independent HMAC vector,
+invalid-material/class and inactive-epoch cases, and real PostgreSQL rename
+rollback assertions for table state, audit occurrences and receipts.
+
+`make format`: PASS (`20260919T143826Z-p52685`).
+`make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.network_flow_selector_covers_logs_telemetry_audi_61f27d1e10`:
+PASS (`20260919T143832Z-p56992`).
+`make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.resource_intent_failure_rolls_back_source_mutation_8a4c3d2e1f`:
+initial FAIL (`20260919T143842Z-p57811`): new fixture omitted client transaction
+attribution, skipping the audited branch. Corrected fixture; PASS
+(`20260919T143942Z-p75983`, 3/3 units). All run roots are under
+`.cartulary/test-results/`. No production failure was waived. Broader validation
+is reserved for S-16. Exit: fallback absent, stable valid vector and invalid-key
+rollback demonstrated. Next: S-11.
+
+### S-11 — obsolete-path removal
+
+Status: COMPLETE. Removed in-memory row/diagnostic pagination, sortRows and its
+exclusive comparator; retained the comparator used by live graph contributors.
+Removed parseTimestamp and switched tests to parseTimestampForRecord with explicit
+record context. Removed production request/policy wrappers and unused GetTable /
+unbounded ListRejectedRowDiagnostics. Fixture convenience transactions now live
+in store_fixture_test.go; production transaction-bound methods remain. Added live
+SQL assertions for numeric uint64 ordering, ties/nulls, one-row continuations and
+cancellation to the real pagination integration fixture. Existing diagnostic
+pagination and lifecycle tests retain real PostgreSQL coverage.
+
+`make format`: PASS (`20260919T144151Z-p94030`). First targeted test/build attempts
+failed because net/http was removed while error formatting still used it
+(`20260919T144206Z-p98462`, `20260919T144206Z-p98475`); restored that import pending
+S-13 transport extraction. Corrected runs: `make test-slice OWNER=module.networkflow
+ROWS=module.networkflow.unit.network_flow_selector_covers_linking_an_endpoint_cfa3b46c37,module.networkflow.unit.network_flow_selector_covers_timestamp_profile_p_bdf924da13,module.networkflow.unit.query_authoring_admission`
+PASS (`20260919T144226Z-p8099`); `make service-backed-test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.pagination_recovery,module.networkflow.store.network_flow_selector_covers_only_active_and_sof_400db83232`
+PASS (`20260919T144238Z-p8901`, 4/4 units, includes ordinary helper build).
+Run roots: `.cartulary/test-results/`. No persisted/API migration. Reference search
+confirms obsolete production names absent and fixture methods test-only.
+Exit criteria satisfied; broader guards run in S-16. Next: S-12.
+
+### S-12 — source-profile contract closure
+
+Status: COMPLETE. NF §17.3 now adopts only source_profile_list.v2. Removed the
+unused SourceProfileList v1 root and its exclusive EffectiveLimits definition;
+shared SourceProfile, CountMeta and EffectiveLimitsV2 remain. Repository reference
+search found no authored callers of the removed exports. Generated Go/TypeScript
+and dependent import fingerprints were regenerated, never hand-edited. Added
+actual discovery schema-ID assertion and frontend rejection of the retired ID.
+No wire/state migration or alias was introduced.
+
+`make generate`: PASS (`20260919T144342Z-p27075`). `make generate-drift`: PASS
+(`20260919T144419Z-p30250`). `make service-backed-test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.effective_resource_limit_discovery`: PASS
+(`20260919T144420Z-p30493`). `make test-slice OWNER=module.networkflow
+ROWS=module.networkflow.frontend_integration.verify_production_network_flow_grids_read_only_b_f662be335e`:
+PASS (`20260919T144430Z-p42901`). `make frontend-typecheck`: PASS
+(`20260919T144438Z-p52323`). Run roots are under `.cartulary/test-results/`.
+Owner table, backend route, schema, generated decoder and browser agree on v2 and
+current effective limits. Final schema/policy gates remain S-16. Next: S-13.
+
+### S-13 — table/link application boundaries
+
+Status: COMPLETE. Added private tableApplication and indicatorLinkApplication
+with typed outcomes and separate receipt adapters. Table replay remains inside
+incident serialization after admission and does not reread table lifecycle.
+Indicator-link admission now precedes replay within the application itself,
+including non-HTTP callers; target visibility and fresh transaction rechecks
+remain. Participant results contain binding facts rather than HTTP payloads.
+Reusable link/graph admission and participants now carry semanticFailure with
+closed kinds and typed safe context; HTTP formatting is isolated in adapters.
+Persisted-state graph validation calls the semantic decoder directly. Extended
+the positive semantic dependency guard over the new applications and adapters.
+No wire, receipt-byte, state, identity or browser-attempt migration.
+
+`make format`: PASS (`20260919T144959Z-p54143`, `20260919T145010Z-p58531`).
+Intermediate targeted compiles failed on moved helper/test signatures
+(`20260919T145022Z-p62873`, `20260919T145116Z-p63496`); corrected references and
+kept transport conversion in test adapters. `make test-slice OWNER=module.networkflow
+ROWS=module.networkflow.unit.network_flow_selector_covers_linking_an_endpoint_cfa3b46c37,module.networkflow.unit.query_authoring_admission,module.networkflow.unit.table_lifecycle_contract`:
+PASS (`20260919T145143Z-p64040`). `make service-backed-test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.table_lifecycle_admission_replay,module.networkflow.integration.bounded_graph_contributor_pipeline,module.networkflow.integration.extension_state_v4_v1_rejection`:
+PASS (`20260919T145144Z-p64275`, 4/4 units). Run roots under
+`.cartulary/test-results/`. These execute real table replay/role races, link
+selector/target/replay and participant rollback, state admission and safe error
+mapping. Broader captured-attempt browser regressions remain S-16. Next: S-14.
+
+### S-14 — shared materialization payload admission
+
+Status: COMPLETE. Added one private strictjson-based decoder for exactly five
+fields, canonical enclosing incident identity, graph ID, positive int64 generation
+and canonical source snapshot. Worker, restore and retained-job startup admission
+all use it. Rejected payloads return the zero value, so job failure cannot select
+a declaration from invalid bytes. Valid payload v1/state-4 bytes remain unchanged;
+malformed retained state is rejected without rewriting it.
+
+Added shared malformed-byte cases exercised through the actual worker handler,
+including duplicate/unknown members, null/missing/wrong types, trailing data,
+generation/identity errors and incident mismatch. Added startup unknown-member
+rejection and later-page invalid-snapshot rollback to existing real fixtures.
+`make format`: PASS (`20260919T145430Z-p87914`). `make test-slice OWNER=module.networkflow
+ROWS=module.networkflow.unit.time_bucket_graph_backend,module.networkflow.unit.query_authoring_admission`:
+PASS (`20260919T145444Z-p92274`). `make service-backed-test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.saved_graph_lifecycle_v2,module.networkflow.integration.saved_graph_cutover_v6`:
+PASS (`20260919T145445Z-p92527`, 3/3 units), including 0/1/256/257/512/513 restore
+pages, cancellation and whole-transaction rollback. Run roots under
+`.cartulary/test-results/`. Next: S-15a.
+
+### S-15a — functional fault controls
+
+Status: COMPLETE. Harness §12.2.5/§12.2.9 now names the eight real boundaries,
+import-unit/job correlation, and interruption/retry semantics. Published fault
+control v2 and removed the v1 schema/attachment and hypothetical stages. Added
+instance decorators for the Import facade/transaction, Jobs handler/observation,
+and the atomic graph finalizer. The application facade installs decorators before
+worker registration; only the harness profile imports controls and installs owned
+process termination. Added reusable pre-start test composition. Product owners
+import no registries. Postcommit errors preserve the committed outcome.
+
+New real Import assertions cover all three precommit boundaries with error,
+panic and context cancellation, the postcommit error, committed tables/outcomes/
+audit deltas, and immutable replay. Worker assertions cover error/panic/context
+cancellation, actual Jobs cancellation, publication rollback, recovery, and
+postpublication replay. The packaged process fixture crashes at entry, precommit
+and postpublication, restarts its own child against retained state, and checks
+exact result counts and receipt identity. Guards, matching, one-shot consumption,
+retired-token and unsupported-combination rejection remain covered.
+
+Validation under `.cartulary/test-results/`:
+
+- `make format`: PASS (`20260919T151242Z-p55548`, `20260919T151423Z-p88095`).
+- `make test-slice OWNER=module.networkflow ROWS=module.networkflow.support_integration.network_flow_fault_route_disabled_by_default_8b0741837f`:
+  PASS (`20260919T151325Z-p87351`).
+- `make service-backed-test-slice OWNER=module.imports ROWS=module.imports.integration.network_flow_atomic_unit_commit_6b6ded6873`:
+  PASS (`20260919T150908Z-p69142`, 3/3).
+- `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.saved_graph_lifecycle_v2`:
+  PASS (`20260919T151122Z-p37283`, 3/3).
+- `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27`:
+  PASS (`20260919T151505Z-p11534`, 7/7, ordinary/harness prerequisite builds).
+- `make json-shape-check`: PASS (`20260919T151442Z-p10922`); `git diff --check`: PASS.
+
+Earlier new-fixture failures remain visible: Import column naming and assumed
+terminal failures (`20260919T150503Z-p23773`); worker retry semantics and nested
+response lookup (`20260919T150625Z-p46431`, `20260919T150909Z-p69367`); process
+recovery polling initially omitted lease classification plus the retry cadence
+(`20260919T151056Z-p9528`, `20260919T151248Z-p59874`). Corrected those assertions;
+precommit simulated Commit failure also now closes its transaction before the
+Imports recovery read, matching pgx Commit lifecycle. A concurrent formatter
+invalidated a process-build source snapshot (`20260919T151424Z-p88267`, harness
+failure); the stable-source rerun passed. No skipped required assertions. Next:
+S-15b, with separate table-ID/cursor entropy and collision-safe allocation.
+
+### S-15b — functional randomness and transaction-safe ID allocation
+
+Status: COMPLETE. Added separate construction-time table-ID and cursor-nonce
+readers, each serialized per instance and defaulting to crypto/rand. Harness
+assembly supplies readers backed by the two retained streams. Table UUIDs map
+exactly to 16 bytes; cursor nonces require exactly 12 bytes. Removed the other six
+streams, token values/string consumer, and randomness v1 schema/attachment;
+published v2 without aliases. Exhausted or wrong-kind armed streams fail closed.
+Harness §12.2.6 prose now agrees with its exact 12-byte limit.
+
+Table INSERT now uses `ON CONFLICT ON CONSTRAINT network_flow_tables_pkey DO
+NOTHING RETURNING`; only pgx.ErrNoRows retries, at most eight times. Removed the
+obsolete unique-violation retry helper. No migration, ID-format, encryption,
+public-major or durable-state change. New PostgreSQL assertions prove collision
+then success, eight collisions, exhaustion without partial tables/rows/audit, and
+an unrelated unique-constraint error without retry. Actual HTTP pagination proves
+nonce bytes and fail-closed exhaustion. Cursor evidence now explicitly includes
+existing key-rotation tests, TTL, short entropy, and ordinary instance isolation.
+
+`make format`: PASS (`20260919T152415Z-p91282`).
+`make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.network_flow_selector_covers_cursor_continuation_0f6e2c662c,module.networkflow.support_integration.network_flow_randomness_route_disabled_by_defaul_a63c6ef32a`:
+PASS (`20260919T152433Z-p95636`, 2/2). Semantic/query unit evidence also passed
+(`20260919T152040Z-p49098`). `make service-backed-test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.pagination_recovery,module.networkflow.store.network_flow_selector_covers_only_active_and_sof_400db83232`:
+PASS (`20260919T152302Z-p73113`, 4/4). Initial new fixtures used the wrong nested
+cursor field and required middleware request IDs from a bare control mux
+(`20260919T152041Z-p49341`); corrected those fixture checks. `make json-shape-check`:
+PASS (`20260919T152434Z-p95857`). All roots under `.cartulary/test-results/`.
+No required skips. Next: S-15c.
+
+### S-15c — functional authorization transitions
+
+Status: COMPLETE. Published auth-transition v2, removed v1 projection/attachment,
+four unsupported checkpoints, extension-claim removal, hidden-response tokens and
+both synthetic response-selection fields. Harness §12.2.7 now specifies the
+fixture driver and verified reference binding before arming. Because Incidents
+has no soft-delete state, the adopted v2 vocabulary uses `incident_deleted` for
+removing a disposable owned fixture incident; no product deletion API or weak
+referential integrity was introduced.
+
+Added networkflowsupport.AuthorizationFixture. It resolves real membership,
+actor/session ownership and incident/table ownership, prevents symbolic bindings
+from being reassigned to different rows, consumes exact scope/correlation before
+changing state, and issues no response. Fixtures then make ordinary authenticated
+HTTP requests. Registry arming rejects unresolved references; a fixture cannot
+complete with pending required transitions. The integration matrix covers all
+six resource kinds, membership loss/restoration, hidden-response details,
+continuation authorization, table rename/deletion, incident absence and session
+revocation. Existing table/link transaction-race assertions remain selected.
+
+`make format`: PASS (`20260919T153313Z-p30660`). `make test-slice
+OWNER=module.networkflow ROWS=module.networkflow.support_integration.network_flow_auth_transition_route_disabled_by_d_07779f71d9`:
+PASS (`20260919T153133Z-p12142`). `make service-backed-test-slice
+OWNER=module.networkflow ROWS=module.networkflow.integration.table_lifecycle_admission_replay,module.networkflow.integration.bounded_graph_contributor_pipeline`:
+PASS (`20260919T153351Z-p35128`, 3/3). `make json-shape-check`: PASS
+(`20260919T153353Z-p35346`). Roots under `.cartulary/test-results/`.
+The initial fixture attempted to delete a product-created incident protected by
+its audit FK (`20260919T153134Z-p12363`); retained that protection and corrected the
+deletion case to seed a disposable incident without retained references. No
+required skips. Product authorization/status/privacy and session semantics remain
+unchanged. Next: S-15d, committed audit consumers.
+
+### S-15d — committed audit assertion consumers
+
+Status: COMPLETE. Published audit-assertion v2 and removed its v1 schema/attachment,
+unsupported import resource and redundant expected_replay_increment field.
+Harness §12.2.8/§12.2.9 adopts exact event/resource pairing, verified fixture
+binding, full actor/incident/operation/event/resource/correlation matching, and
+replay only for adopted idempotent operations (never graph query). Projection
+conditions now express the fault combinations and audit event/resource rules.
+
+Added Auth-owned committed occurrence reader and networkflowsupport.AuditFixture.
+It reads the real pre-operation baseline, binds actor/incident and transaction or
+request correlation, consumes an exact assertion, reads committed records after
+HTTP or durable completion, resolves newly allocated resource IDs from the real
+operation, and optionally verifies replay produces no increment. Failed assertions
+remain failed after consumption; missing or pending required assertions cannot
+report success. No product audit event or payload was changed.
+
+Real fixtures exercise all six event codes: Imports table creation under fault,
+rollback/recovery and replay; table rename/delete and replay; graph query; binding
+creation/reuse and replay. They cover denied and rolled-back zero counts, no-op
+rename, a nonzero observed baseline, and concurrent actors/incidents sharing a
+request correlation. Deliberately wrong baseline/final counts and pending
+assertions prove fixture failure. Shared strict control decoding now rejects
+missing/null/duplicate/unknown fields and trailing JSON across all four families,
+after unchanged route guards.
+
+`make format`: PASS (`20260919T154547Z-p1294`). `make test-slice
+OWNER=module.networkflow ROWS=module.networkflow.support_integration.network_flow_audit_assertion_route_disabled_by_d_611b731957,module.networkflow.support_integration.network_flow_auth_transition_route_disabled_by_d_07779f71d9,module.networkflow.support_integration.network_flow_randomness_route_disabled_by_defaul_a63c6ef32a,module.networkflow.support_integration.network_flow_fault_route_disabled_by_default_8b0741837f`:
+PASS (`20260919T154622Z-p5775`, one grouped Go unit).
+`make service-backed-test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.bounded_graph_contributor_pipeline`: PASS
+(`20260919T154623Z-p6012`, 3/3, including negative-evidence cases).
+`make service-backed-test-slice OWNER=module.imports
+ROWS=module.imports.integration.network_flow_atomic_unit_commit_6b6ded6873`: PASS
+(`20260919T154331Z-p65123`, 3/3). `make json-shape-check`: PASS
+(`20260919T154624Z-p6234`; final projection-condition rerun recorded in S-16).
+Roots under `.cartulary/test-results/`. No required failures or skips remain in
+this slice. Next: S-16, final validation and handoff completion.
+
+### S-16 — validation and handoff completion
+
+Status: COMPLETE. All F-18–F-23 dispositions and S-09–S-15d exit criteria are
+closed by this iteration's evidence. The seven current handoffs in §15.10 and
+completion assessment in §15.11 replace their planning-only statuses. Historical
+findings, IDs, ledgers and command results remain. No operational deployment,
+telemetry cutover, commit or index mutation was performed.
+
+Final assertion review added the same malformed byte corpus to startup and
+restore consumers, alongside the existing actual worker corpus. The valid
+startup control proves that rejection is reached after registration/receipt
+identity checks and before reading a commit proof. Rejected restore bytes cannot
+reach job reconciliation. Byte-level doubles deliberately preserve duplicate
+JSON members that PostgreSQL JSONB normalizes; live tests separately retain valid
+restore sizes 0/1/256/257/512/513 and whole-transaction later-page rollback.
+`make format` passed (`20260919T155323Z-p27075`); `make test-slice
+OWNER=module.networkflow ROWS=module.networkflow.unit.time_bucket_graph_backend`
+passed (`20260919T155339Z-p32339`).
+
+The first final `make check` found two now-unused HTTP forwarding helpers in
+`semantic_http_adapter.go`: `composeGraphSourceFromSemanticHTTP` and
+`graphProjectionFailedForContextHTTP` (staticcheck U1000, related to S-13).
+Reference closure found only their definitions, so both were removed; no aliases
+or replacement algorithm was introduced. The failed run is
+`20260919T155535Z-p6497`; its lint diagnostics are in
+`unit-logs/target-lint-go/stdout.log` and its canonical result in `run-summary.json`.
+`make explain-run RESULTS_DIR=.cartulary/test-results/20260919T155535Z-p6497`
+confirmed 936 passed, one failed and no skipped/cancelled units. After deletion,
+`make format` passed (`20260919T160549Z-p10086`), `make lint-go` passed (exit 0),
+and `make test-slice OWNER=module.networkflow
+ROWS=module.networkflow.unit.query_authoring_admission,module.networkflow.unit.time_bucket_graph_backend`
+passed (`20260919T160607Z-p14772`). `make agent-finalize` passed again with
+RESULTS_DIR unset (`20260919T160633Z-p27090`) before the successful full recheck.
+
+#### Final routing and command evidence
+
+For each of `module.networkflow`, `module.imports`, `platform.jobs`,
+`module.recovery`, `module.reporting`, `module.graphprojection`, `app.server`,
+`web.networkflow`, and `harness.browser`, both
+`make task-guide ROLE=module-author OWNER=<owner>` and
+`make explain-test-owner OWNER=<owner>` passed before selection. Existing authored
+rows already route the strengthened assertions through their actual entrypoints;
+no synthetic row or docs-derived evidence was added. Reporting remains owner of
+exact-result lease evidence.
+
+All run IDs below are beneath `.cartulary/test-results/`; each run contains its
+`run-summary.json`, manifest and unit logs/artifacts. Work-unit counts include
+prerequisites and grouped runners; they are not assertion counts.
+
+| Exact Make command | Result | Run root |
+| --- | --- | --- |
+| `make agent-finalize` | PASS 1/1; RESULTS_DIR unset, retained-run maintenance skipped | `20260919T155401Z-p35862` |
+| `make generate-drift` | PASS 4/4 | `20260919T155435Z-p39997` |
+| `make generated-artifact-policy-check` | PASS 3/3 | `20260919T155435Z-p40006` |
+| `make json-shape-check` | PASS 3/3; also final S-15d projection-conditions pass at `20260919T154801Z-p24611` | `20260919T155435Z-p40013` |
+| `make migration-drift` | PASS 5/5 | `20260919T155435Z-p40025` |
+| `make harness-contract` | PASS 2/2 | `20260919T155435Z-p40230` |
+| `make frontend-typecheck` | PASS 2/2 | `20260919T155435Z-p40193` |
+| `make frontend-import-boundary-check` | PASS 2/2 | `20260919T155435Z-p40205` |
+| `make build-server` | PASS 4/4 | `20260919T155435Z-p40380` |
+| `make build-server-harness` | PASS 4/4 | `20260919T155435Z-p40386` |
+| `make test-slice OWNER=web.networkflow` | PASS 66/66; captured table/link/graph attempts and v2 decoding included | `20260919T155435Z-p40092` |
+| `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.browser_stateful.exploration_navigation,module.networkflow.browser_stateful.pagination_recovery,module.networkflow.browser_stateful.saved_graph_deferred_navigation,module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle,module.networkflow.browser_stateful.saved_graph_read_recovery,module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf` | PASS 15/15; all six stateful scenarios | `20260919T155456Z-p49148` |
+| `make service-backed-test-slice OWNER=module.reporting ROWS=module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2` | PASS 3/3 | `20260919T155455Z-p48602` |
+| `make service-backed-test-slice OWNER=platform.jobs ROWS=platform.jobs.integration.claim_recovery_and_publication,platform.jobs.integration.runner_and_recovery,platform.jobs.integration.runner_failure_security,platform.jobs.integration.lifecycle_and_progress` | PASS 3/3 | `20260919T155547Z-p30418` |
+| `make service-backed-test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.result_v2_atomicity_and_queries,module.graphprojection.storage.result_v2_cleanup_locking,module.graphprojection.storage.restore_publication` | PASS 5/5 | `20260919T155640Z-p92565` |
+| `make service-backed-test-slice OWNER=module.recovery ROWS=module.recovery.integration.restore_readiness_selects_the_latest_retained_su_e71d710085,module.recovery.integration.restore_target_serving_admission_cancels_mutatio_f73b480d23,module.recovery.integration.selected_backup_restore_fails_before_readiness_w_3a6ccb7d7a` | PASS 4/4 | `20260919T155734Z-p21159` |
+| `make service-backed-test-slice OWNER=app.server ROWS=app.server.integration.extension_application_process_lease_43130392c4,app.server.integration.server_shared_and_restore_exclusive_serving_leas_1da2a38098,app.server.process.the_standalone_server_keeps_harness_routes_disab_4dc8b1f7d9` | PASS 8/8 | `20260919T155849Z-p53452` |
+| `make service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.integration.runtime_reset_recovery_purpose_contract,harness.browser.integration.postgres_cleanup_target_scoped_coordination` | PASS 4/4 | `20260919T160003Z-p3455` |
+| `make check` | PASS 937/937; no failures or skips | `20260919T160653Z-p31022` |
+| `make lint-markdown` | PASS; scoped documentation maintenance | `20260919T161243Z-p37068` (`adhoc/lint-markdown/tool-run-summary.json`) |
+
+No required assertion is skipped or failing. Retained-run maintenance is the
+only finalization skip: the successful final check was not retroactively supplied
+to the earlier `agent-finalize`. Initial fixture mistakes/failures in S-10 and
+S-15 and the S-16 lint failure remain visible alongside their passing replacements.
+Broader release publication and deployment were not requested or represented as
+repository verification.
+
+#### Retained harness token → consumer → product assertion closure
+
+All fault tokens below carry the `network_flow.` prefix. All use
+`harnesscontrol/fault_consumers.go`, installed by harness application assembly;
+production owners do not import the registries. NF §29.1 and the existing Imports,
+Jobs and GP atomicity owners define product outcomes; Harness §§12.2.5/12.2.9
+define control mechanics.
+
+| Retained fault boundary | Real boundary and assertion | Routed evidence |
+| --- | --- | --- |
+| `import.before_owner_apply` | Import facade before owner writes; error/panic/context cancellation, no partial effects, recovered/replayed outcome | Imports atomic-unit row, S-15a/S-15d |
+| `import.after_owner_apply` | Same transaction after owner writes; all three precommit effects roll back | Imports atomic-unit row, S-15a/S-15d |
+| `import.before_transaction_commit` | Decorated actual transaction commit; rollback closes the transaction and Jobs can recover | Imports atomic-unit row, S-15a/S-15d |
+| `import.after_transaction_commit_before_reply` | Error only after actual commit; table/audit/receipt remain, replay has no extra occurrence | Imports atomic-unit row, S-15a/S-15d |
+| `worker.before_handler_start` | Real registered handler; error/panic/context cancellation and owned child crash/restart | NF saved-graph lifecycle and packaged-process rows, S-15a |
+| `worker.before_cancellation_check` | Real Jobs observation; precommit effects and Jobs cancellation produce owner-defined terminal outcomes | NF saved-graph lifecycle, S-15a |
+| `worker.before_final_commit` | Transaction participant before atomic finalization; rollback and owned-process crash recovery | NF lifecycle and packaged-process rows, S-15a |
+| `worker.after_completed_publication` | Completed finalization; error/crash preserve selected result and immutable receipt on restart/replay | NF lifecycle and packaged-process rows, S-15a |
+
+| Retained randomness token / kind | Consumer and assertion | Routed evidence |
+| --- | --- | --- |
+| `network_flow.table_id` / `uuid` | Store allocation via its own reader; collision-success, eight collisions, exhaustion, unrelated constraint error, transaction remains usable | NF store row, S-15b |
+| `network_flow.cursor_nonce` / `hex_bytes` | Cursor encryption via a separate reader; exact nonce, length, exhaustion, TTL/rotation and instance isolation | NF pagination service and cursor unit rows, S-15b |
+
+Authorization uses `networkflowsupport.AuthorizationFixture.Before`, then an
+ordinary authenticated HTTP request. Both retained boundaries
+`network_flow.route.before_authorization` and
+`network_flow.cursor.before_authorization_recheck` have actual consumers. All six
+resource kinds (incident, table, workspace, graph, contributors, cursor) exercise
+membership loss/restoration with real responses and empty hidden-resource details.
+NF/Core authorization owners retain admission semantics; Harness §12.2.7 owns
+fixture mechanics.
+
+| Retained transition kind | State change and assertion | Routed evidence |
+| --- | --- | --- |
+| `incident_membership_revoked` | Delete exact membership; hidden resources and continuation denial, unrelated scope stays pending | NF table-lifecycle row, S-15c |
+| `incident_membership_restored` | Restore verified prior membership; real requests succeed again | Same |
+| `session_revoked` | Auth-owned session revocation; actual session-required response | Same |
+| `incident_deleted` | Remove disposable owned fixture incident; real not-found and other incident unaffected, FK protection retained | Same |
+| `network_flow_table_renamed` | Change exact table metadata; new name visible, continuation remains valid | Same |
+| `network_flow_table_soft_deleted` | Change exact lifecycle; actual table-not-active continuation response | Same |
+
+Audit uses `networkflowsupport.AuditFixture` and Auth-owned
+`storetest.CountAuditOccurrences`. Exact scope includes actor, incident, operation,
+event, resource and correlation. Harness §12.2.8/12.2.9 governs mechanics; NF §16
+retains product events. Assertion kinds `exact_count`, `zero_occurrences` and
+`no_audit_replay` each have positive and negative fixture evidence, including
+nonzero baseline, incorrect counts, pending assertions and concurrent isolation.
+
+| Retained event code / resource | Committed occurrence assertion | Routed evidence |
+| --- | --- | --- |
+| `network_flow_table_created` / table | Real Imports apply under rollback/recovery/postcommit faults and immutable replay | Imports atomic-unit row, S-15d |
+| `network_flow_table_renamed` / table | Exact committed increment, no-op/denied/rolled-back zero, nonzero baseline and replay | NF graph/link row, S-15d |
+| `network_flow_table_soft_deleted` / table | Exact committed increment and replay silence | Same |
+| `network_flow_graph_query_executed` / graph | Real query count; replay assertion rejected because no adopted replay | Same |
+| `network_flow_indicator_binding_created` / binding | Real binding creation and receipt replay count | Same |
+| `network_flow_indicator_binding_reused` / binding | Real reuse and receipt replay count | Same |
+
+All four support rows additionally prove guards before decoding, malformed control
+rejection, duplicates/conflicts, mismatches, consume-once and clearing. These are
+mechanics evidence, kept separate from the real effects above. Exact selectors
+and successful artifacts appear in their individual S-15 records.
+
+#### Owner/projection review, removal closure and release handoff
+
+Human review confirms NF 6.0.1 §17.3, route declarations, backend response,
+authored schemas, generated validators and frontend decoding all use sole
+source-profile v2. Shared SourceProfile remains; only SourceProfileList and its
+exclusive EffectiveLimits definition were retired. Valid product major/state,
+identity, digest, receipt, audit-event, lease and recovery contracts did not change.
+The Graph Projection NLSpec and domain vocabulary/navigation were reviewed and
+need no amendment. Jobs execution, GP results, Reporting leases and Recovery
+coordination remain with their existing owners.
+
+Harness v2 schema attachments, closed tokens, condition rules and consumers agree
+with §§12.2.5–12.2.9. Final editorial review removed stale hidden-response/replay-field
+wording, made the existing audit duplicate-scope clause explicitly include actor
+and incident, and kept the preexisting Reporting paragraph under NF §29 rather
+than nesting it under new §29.1. No new runtime requirement was introduced by
+these final editorial adjustments.
+
+The [release notes](networkflow-f18-f23-release-notes.md) identify every removed
+helper/export/schema/token family and its caller/fixture migration. The final
+reference search found no live retired source-profile v1 or obsolete helper
+caller; the source-profile v1 string remains solely in its rejection fixture.
+Build-tag and external-test closure is also backed by ordinary/harness builds and
+real external integration tests. Test-only store conveniences remain `_test.go`;
+no production forwarding alias or database migration was added.
+
+Rollout pairs code with regenerated Go/TypeScript and v2 harness fixtures.
+Rollback must use compatible code retaining explicit keys and strict state
+admission; it cannot restore the engineering fallback or silently rewrite retained
+jobs. Deployment and the prior telemetry cutover remain external and unevidenced
+by this repository run.
+
+#### Changed-file inventory for this iteration
+
+Authored source, test support, owner documents, contracts and generated outputs
+are listed together below; generated files were produced through Make.
+
+```text
+apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx
+contracts/network-flow/index.json
+contracts/network-flow/schemas.v3.json
+docs/handoffs/networkflow-f18-f23-release-notes.md
+docs/handoffs/networkflow-module-refactor-tracker.md
+docs/network-flow-activity-nlspec.md
+docs/testing-harness-nlspec.md
+internal/app/server/runtime_assembly.go
+internal/app/server/server_profile_harness.go
+internal/app/serverprocess/networkflow_fault_recovery_process_test.go
+internal/app/serverprocess/networkflow_runtime_routes_process_test.go
+internal/gen/contractimports/artifacts_gen.go
+internal/gen/contractnetworkflow/artifacts_gen.go
+internal/gen/importtargetregistry/registry_gen.go
+internal/modules/auth/testsupport/storetest/audit_occurrences.go
+internal/modules/imports/imports_integration_test.go
+internal/modules/imports/network_flow_harness_fault_test.go
+internal/modules/networkflow/application.go
+internal/modules/networkflow/digest.go
+internal/modules/networkflow/entropy.go
+internal/modules/networkflow/extension_state.go
+internal/modules/networkflow/graph_materialization_payload.go
+internal/modules/networkflow/graph_materialization_payload_test.go
+internal/modules/networkflow/graph_materialization_timeout_test.go
+internal/modules/networkflow/graph_restore_source.go
+internal/modules/networkflow/graph_view_jobs.go
+internal/modules/networkflow/harness_audit_integration_test.go
+internal/modules/networkflow/harness_authorization_integration_test.go
+internal/modules/networkflow/harness_randomness_integration_test.go
+internal/modules/networkflow/harness_worker_integration_test.go
+internal/modules/networkflow/harnesscontrol/control_json.go
+internal/modules/networkflow/harnesscontrol/control_json_test.go
+internal/modules/networkflow/harnesscontrol/controls.go
+internal/modules/networkflow/harnesscontrol/fault_consumers.go
+internal/modules/networkflow/harnesscontrol/network_flow_audit_assertion.go
+internal/modules/networkflow/harnesscontrol/network_flow_audit_assertion_integration_test.go
+internal/modules/networkflow/harnesscontrol/network_flow_auth_transition.go
+internal/modules/networkflow/harnesscontrol/network_flow_auth_transition_integration_test.go
+internal/modules/networkflow/harnesscontrol/network_flow_fault.go
+internal/modules/networkflow/harnesscontrol/network_flow_fault_integration_test.go
+internal/modules/networkflow/harnesscontrol/network_flow_randomness.go
+internal/modules/networkflow/harnesscontrol/network_flow_randomness_integration_test.go
+internal/modules/networkflow/harnesscontrol/randomness_consumers.go
+internal/modules/networkflow/indicator_link.go
+internal/modules/networkflow/indicator_link_admission.go
+internal/modules/networkflow/indicator_link_boundary_test.go
+internal/modules/networkflow/indicator_link_fixture_test.go
+internal/modules/networkflow/indicator_link_graph_admission.go
+internal/modules/networkflow/indicator_link_http.go
+internal/modules/networkflow/indicator_link_receipts.go
+internal/modules/networkflow/integration_surface_test.go
+internal/modules/networkflow/keyring.go
+internal/modules/networkflow/keyring_test.go
+internal/modules/networkflow/module.go
+internal/modules/networkflow/network_flow_behavior_test.go
+internal/modules/networkflow/network_flow_contract_test.go
+internal/modules/networkflow/network_flow_unit_test.go
+internal/modules/networkflow/query.go
+internal/modules/networkflow/query_sql_test_bridge_test.go
+internal/modules/networkflow/routes.go
+internal/modules/networkflow/routes_integration_test.go
+internal/modules/networkflow/saved_graph_admission.go
+internal/modules/networkflow/saved_graph_admission_integration_test.go
+internal/modules/networkflow/security.go
+internal/modules/networkflow/semantic_boundary_test.go
+internal/modules/networkflow/semantic_failure.go
+internal/modules/networkflow/semantic_http_adapter.go
+internal/modules/networkflow/semantic_http_errors.go
+internal/modules/networkflow/store.go
+internal/modules/networkflow/store_fixture_test.go
+internal/modules/networkflow/store_test.go
+internal/modules/networkflow/table_http.go
+internal/modules/networkflow/table_lifecycle_integration_test.go
+internal/modules/networkflow/table_receipts.go
+internal/modules/networkflow/timestamp.go
+internal/modules/networkflow/timestamp_test.go
+internal/modules/networkflow/transaction_participants.go
+internal/testutil/appsupport/runtime.go
+internal/testutil/httptestx/httptestx.go
+internal/testutil/networkflowsupport/audit.go
+internal/testutil/networkflowsupport/authorization.go
+internal/testutil/networkflowsupport/graph_source.go
+packages/protocol-ts/src/generated/import-target-registry.ts
+packages/protocol-ts/src/generated/network-flow-types.ts
+packages/protocol-ts/src/generated/network-flow-validators.ts
+tools/harness_schema_attachments.json
+tools/schemas/cartulary.test.network_flow_audit_assertion_control.v1.schema.json
+tools/schemas/cartulary.test.network_flow_audit_assertion_control.v2.schema.json
+tools/schemas/cartulary.test.network_flow_auth_transition_control.v1.schema.json
+tools/schemas/cartulary.test.network_flow_auth_transition_control.v2.schema.json
+tools/schemas/cartulary.test.network_flow_fault_control.v1.schema.json
+tools/schemas/cartulary.test.network_flow_fault_control.v2.schema.json
+tools/schemas/cartulary.test.network_flow_randomness_control.v1.schema.json
+tools/schemas/cartulary.test.network_flow_randomness_control.v2.schema.json
+```
+
+The Markdown target's current globs omit this tracker and the new release notes.
+Their table structure, local links/anchors and heading progression were reviewed
+separately; these are documentation checks, not product evidence.
+Tracker review checked all seven current tables, local links/anchors, unique slice
+headings, preserved historical sections/findings and unchanged staging. The final
+index SHA-256 equals the S-09 basis:
+`00aaecb0cd7529b2e468f41b88150501254481b2bf014a8f2c28c32371a7ffcd`.
+`git diff --check` passes. Markdown remains outside runtime, generator, test,
+conformance and release-evidence inputs. Final tracker edits after validation
+record results and completion only.

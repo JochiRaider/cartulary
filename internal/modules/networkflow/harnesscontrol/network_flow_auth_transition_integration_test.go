@@ -9,7 +9,7 @@ import (
 )
 
 func TestNetworkFlowAuthTransitionRouteDisabledByDefault(t *testing.T) {
-	transitions := NewNetworkFlowAuthTransitionRegistry()
+	transitions := newBoundAuthTransitionRegistry(t)
 	server := startNetworkFlowAuthTransitionHTTPServer(t, map[string]string{}, transitions)
 
 	resp := doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-auth-transitions", networkFlowAuthTransitionBody()))
@@ -27,7 +27,7 @@ func TestNetworkFlowAuthTransitionRouteRequiresHarnessAuthorization(t *testing.T
 				"http://127.0.0.1:4173": {},
 			},
 		},
-		transitions: NewNetworkFlowAuthTransitionRegistry(),
+		transitions: newBoundAuthTransitionRegistry(t),
 	}
 
 	missingOrigin := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, "http://127.0.0.1:8080/api/v1/test/runtime/network-flow-auth-transitions", networkFlowAuthTransitionBody()))
@@ -56,7 +56,7 @@ func TestNetworkFlowAuthTransitionRouteRequiresHarnessAuthorization(t *testing.T
 }
 
 func TestNetworkFlowAuthTransitionRouteArmsExactHiddenResourceTransition(t *testing.T) {
-	transitions := NewNetworkFlowAuthTransitionRegistry()
+	transitions := newBoundAuthTransitionRegistry(t)
 	server := startNetworkFlowAuthTransitionHTTPServer(t, testRuntimeEnabledEnv(), transitions)
 
 	body := networkFlowAuthTransitionBody()
@@ -67,42 +67,37 @@ func TestNetworkFlowAuthTransitionRouteArmsExactHiddenResourceTransition(t *test
 	if data["schema_id"] != testNetworkFlowAuthTransitionSchemaID {
 		t.Fatalf("unexpected schema_id: %#v", data)
 	}
-	if data["boundary"] != NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup || data["transition_kind"] != NetworkFlowAuthTransitionKindIncidentMembershipRevoked {
+	if data["boundary"] != NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization || data["transition_kind"] != NetworkFlowAuthTransitionKindIncidentMembershipRevoked {
 		t.Fatalf("unexpected transition response: %#v", data)
 	}
-	if data["resource_kind"] != NetworkFlowAuthResourceNetworkFlowTable || data["hidden_response_kind"] != NetworkFlowHiddenResponseNotFound {
-		t.Fatalf("unexpected hidden-resource response: %#v", data)
-	}
-	if data["must_not_disclose_resource"] != true || data["consume_once"] != true || data["correlation_key"] != "query:page-1" {
+	if data["consume_once"] != true {
 		t.Fatalf("unexpected control flags: %#v", data)
 	}
 
-	if _, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1"); ok {
+	if _, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryCursorBeforeAuthorizationRecheck, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1"); ok {
 		t.Fatal("wrong boundary must not consume pending auth transition")
 	}
-	if _, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-2", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1"); ok {
+	if _, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-2", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1"); ok {
 		t.Fatal("wrong actor must not consume pending auth transition")
 	}
-	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowCursor, "network-flow-table:table-1"); ok {
+	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowCursor, "network-flow-table:table-1"); ok {
 		t.Fatal("wrong resource kind must not consume pending auth transition")
 	}
-	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1"); ok {
+	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1"); ok {
 		t.Fatal("unscoped consume must not consume a correlation-scoped auth transition")
 	}
-	transition, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1")
-	if !ok {
+	transition, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1")
+	if !ok || transition.TransitionKind != NetworkFlowAuthTransitionKindIncidentMembershipRevoked {
 		t.Fatal("expected exact boundary, refs, and correlation key to consume auth transition")
 	}
-	if transition.HiddenResponseKind != NetworkFlowHiddenResponseNotFound || !transition.MustNotDiscloseResource {
-		t.Fatalf("unexpected consumed transition: %#v", transition)
-	}
-	if _, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1"); ok {
+
+	if _, ok := transitions.ConsumeNetworkFlowAuthTransitionFor(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1", "query:page-1"); ok {
 		t.Fatal("auth transition must be consumed once")
 	}
 }
 
 func TestNetworkFlowAuthTransitionRouteAllowsIndependentKeysAndRejectsDuplicate(t *testing.T) {
-	transitions := NewNetworkFlowAuthTransitionRegistry()
+	transitions := newBoundAuthTransitionRegistry(t)
 	server := startNetworkFlowAuthTransitionHTTPServer(t, testRuntimeEnabledEnv(), transitions)
 
 	first := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-auth-transitions", networkFlowAuthTransitionBody()))
@@ -110,17 +105,16 @@ func TestNetworkFlowAuthTransitionRouteAllowsIndependentKeysAndRejectsDuplicate(
 
 	secondBody := networkFlowAuthTransitionBody()
 	secondBody["resource_ref"] = "network-flow-table:table-2"
-	secondBody["hidden_response_kind"] = NetworkFlowHiddenResponseEmptyCollection
 	second := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-auth-transitions", secondBody))
 	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), second), http.StatusCreated)
 
 	duplicate := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-auth-transitions", networkFlowAuthTransitionBody()))
 	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), duplicate), http.StatusConflict, "test_network_flow_auth_transition_already_armed")
 
-	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1"); !ok {
+	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1"); !ok {
 		t.Fatal("first transition must remain armed after duplicate rejection")
 	}
-	if transition, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-2"); !ok || transition.HiddenResponseKind != NetworkFlowHiddenResponseEmptyCollection {
+	if transition, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-2"); !ok || transition.TransitionKind != NetworkFlowAuthTransitionKindIncidentMembershipRevoked {
 		t.Fatalf("second independent transition missing or mutated: %#v ok=%v", transition, ok)
 	}
 }
@@ -128,34 +122,35 @@ func TestNetworkFlowAuthTransitionRouteAllowsIndependentKeysAndRejectsDuplicate(
 func TestNetworkFlowAuthTransitionRouteRejectsInvalidRequests(t *testing.T) {
 	service := &networkFlowAuthTransitionService{
 		guard:       httpapi.TestRouteGuard{Token: testRuntimeResetToken},
-		transitions: NewNetworkFlowAuthTransitionRegistry(),
+		transitions: newBoundAuthTransitionRegistry(t),
 	}
-	for _, body := range []map[string]any{
-		{"boundary": "network_flow.route.unknown", "transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked, "actor_ref": "actor:analyst-1", "incident_ref": "incident:alpha", "resource_kind": NetworkFlowAuthResourceNetworkFlowTable, "resource_ref": "network-flow-table:table-1", "hidden_response_kind": NetworkFlowHiddenResponseNotFound, "must_not_disclose_resource": true, "consume_once": true},
-		{"boundary": NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "transition_kind": "unknown", "actor_ref": "actor:analyst-1", "incident_ref": "incident:alpha", "resource_kind": NetworkFlowAuthResourceNetworkFlowTable, "resource_ref": "network-flow-table:table-1", "hidden_response_kind": NetworkFlowHiddenResponseNotFound, "must_not_disclose_resource": true, "consume_once": true},
-		{"boundary": NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked, "actor_ref": "bad actor", "incident_ref": "incident:alpha", "resource_kind": NetworkFlowAuthResourceNetworkFlowTable, "resource_ref": "network-flow-table:table-1", "hidden_response_kind": NetworkFlowHiddenResponseNotFound, "must_not_disclose_resource": true, "consume_once": true},
-		{"boundary": NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked, "actor_ref": "actor:analyst-1", "incident_ref": "incident:alpha", "resource_kind": "network_flow_secret", "resource_ref": "network-flow-table:table-1", "hidden_response_kind": NetworkFlowHiddenResponseNotFound, "must_not_disclose_resource": true, "consume_once": true},
-		{"boundary": NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked, "actor_ref": "actor:analyst-1", "incident_ref": "incident:alpha", "resource_kind": NetworkFlowAuthResourceNetworkFlowTable, "resource_ref": "network-flow-table:table-1", "hidden_response_kind": "raw_resource", "must_not_disclose_resource": true, "consume_once": true},
-		{"boundary": NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked, "actor_ref": "actor:analyst-1", "incident_ref": "incident:alpha", "resource_kind": NetworkFlowAuthResourceNetworkFlowTable, "resource_ref": "network-flow-table:table-1", "hidden_response_kind": NetworkFlowHiddenResponseNotFound, "must_not_disclose_resource": false, "consume_once": true},
-		{"boundary": NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked, "actor_ref": "actor:analyst-1", "incident_ref": "incident:alpha", "resource_kind": NetworkFlowAuthResourceNetworkFlowTable, "resource_ref": "network-flow-table:table-1", "hidden_response_kind": NetworkFlowHiddenResponseNotFound, "must_not_disclose_resource": true, "consume_once": false},
-		{"boundary": NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked, "actor_ref": "actor:analyst-1", "incident_ref": "incident:alpha", "resource_kind": NetworkFlowAuthResourceNetworkFlowTable, "resource_ref": "network-flow-table:table-1", "hidden_response_kind": NetworkFlowHiddenResponseNotFound, "must_not_disclose_resource": true, "consume_once": true, "unexpected": true},
+	for field, values := range map[string][]any{
+		"boundary":        {"unknown", "network_flow.route.after_lookup_before_response"},
+		"transition_kind": {"unknown", "incident_soft_deleted", "extension_claim_removed"},
+		"actor_ref":       {"", "bad ref"}, "incident_ref": {"", "bad ref"}, "resource_ref": {"", "bad ref"},
+		"resource_kind": {"unknown"}, "correlation_key": {"bad key"}, "consume_once": {false},
+		"hidden_response_kind": {"not_found"}, "must_not_disclose_resource": {true}, "unexpected": {true},
 	} {
-		req := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, "/api/v1/test/runtime/network-flow-auth-transitions", body))
-		recorder := httptest.NewRecorder()
-		service.handleArm(recorder, req)
-		requireTestRuntimeResetErrorEnvelope(t, recorder.Result(), http.StatusBadRequest, "invalid_network_flow_auth_transition_request")
+		for _, value := range values {
+			body := networkFlowAuthTransitionBody()
+			body[field] = value
+			req := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, "/api/v1/test/runtime/network-flow-auth-transitions", body))
+			recorder := httptest.NewRecorder()
+			service.handleArm(recorder, req)
+			requireTestRuntimeResetErrorEnvelope(t, recorder.Result(), http.StatusBadRequest, "invalid_network_flow_auth_transition_request")
+		}
 	}
 }
 
 func TestNetworkFlowAuthTransitionRegistryClearRemovesArmedTransitions(t *testing.T) {
-	transitions := NewNetworkFlowAuthTransitionRegistry()
+	transitions := newBoundAuthTransitionRegistry(t)
 	server := startNetworkFlowAuthTransitionHTTPServer(t, testRuntimeEnabledEnv(), transitions)
 
 	arm := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-auth-transitions", networkFlowAuthTransitionBody()))
 	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), arm), http.StatusCreated)
 
 	transitions.Clear()
-	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1"); ok {
+	if _, ok := transitions.ConsumeNetworkFlowAuthTransition(NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, "actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, "network-flow-table:table-1"); ok {
 		t.Fatal("clear must remove armed Network Flow auth transitions")
 	}
 }
@@ -180,14 +175,23 @@ func startNetworkFlowAuthTransitionHTTPServer(t testing.TB, env map[string]strin
 
 func networkFlowAuthTransitionBody() map[string]any {
 	return map[string]any{
-		"boundary":                   NetworkFlowAuthTransitionBoundaryRouteAfterAuthorizationBeforeLookup,
-		"transition_kind":            NetworkFlowAuthTransitionKindIncidentMembershipRevoked,
-		"actor_ref":                  "actor:analyst-1",
-		"incident_ref":               "incident:alpha",
-		"resource_kind":              NetworkFlowAuthResourceNetworkFlowTable,
-		"resource_ref":               "network-flow-table:table-1",
-		"hidden_response_kind":       NetworkFlowHiddenResponseNotFound,
-		"must_not_disclose_resource": true,
-		"consume_once":               true,
+		"boundary":        NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization,
+		"transition_kind": NetworkFlowAuthTransitionKindIncidentMembershipRevoked,
+		"actor_ref":       "actor:analyst-1",
+		"incident_ref":    "incident:alpha",
+		"resource_kind":   NetworkFlowAuthResourceNetworkFlowTable,
+		"resource_ref":    "network-flow-table:table-1",
+		"consume_once":    true,
 	}
+}
+
+func newBoundAuthTransitionRegistry(t testing.TB) *NetworkFlowAuthTransitionRegistry {
+	t.Helper()
+	r := NewNetworkFlowAuthTransitionRegistry()
+	for _, resource := range []string{"network-flow-table:table-1", "network-flow-table:table-2"} {
+		if err := r.BindFixture("actor:analyst-1", "incident:alpha", NetworkFlowAuthResourceNetworkFlowTable, resource, "owned-fixture:"+resource); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return r
 }
