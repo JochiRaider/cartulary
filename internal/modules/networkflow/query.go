@@ -246,7 +246,12 @@ func ensureAllowedMembers(raw map[string]json.RawMessage, allowed ...string) *se
 	for _, key := range allowed {
 		allowedSet[key] = struct{}{}
 	}
+	keys := make([]string, 0, len(raw))
 	for key := range raw {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
 		if _, ok := allowedSet[key]; !ok {
 			return invalidNetworkFlowRequest(key, "unknown_member")
 		}
@@ -898,4 +903,14 @@ func invalidLimit(field string, reason string) *semanticFailure {
 
 func cursorInvalid(reason string) *semanticFailure {
 	return newSemanticFailure(failureCursorInvalid, "", reason)
+}
+
+// Member selection is stable regardless of Go map iteration or JSON wire order.
+func sortedObjectKeys(object map[string]json.RawMessage) []string {
+	keys := make([]string, 0, len(object))
+	for key := range object {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

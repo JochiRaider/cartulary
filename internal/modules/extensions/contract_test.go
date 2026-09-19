@@ -351,7 +351,7 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 			break
 		}
 	}
-	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(6) {
+	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(7) {
 		t.Fatalf("Network Flow browser descriptor is not claimable major 5: %#v", networkFlow)
 	}
 	requireJSONStrings(t, networkFlow["workspace_keys"], []string{"network_analysis"}, "Network Flow workspace keys")
@@ -380,9 +380,9 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	requireJSONStrings(t, importRow["public_schema_ids"], []string{}, "Import client support public schemas")
 
 	row := rowsByProfile["network_flow_activity"]
-	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(6) ||
-		row["client_asset_set_id"] != "network_flow_activity.standard.v6" {
-		t.Fatalf("client support row does not select Network Flow major 6: %#v", row)
+	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(7) ||
+		row["client_asset_set_id"] != "network_flow_activity.standard.v7" {
+		t.Fatalf("client support row does not select Network Flow major 7: %#v", row)
 	}
 	requireJSONStrings(t, row["workspace_keys"], []string{"network_analysis"}, "client support workspaces")
 	requireJSONStrings(t, row["capability_ids"], []string{}, "client support capabilities")
@@ -408,7 +408,7 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	}
 }
 
-func TestNetworkFlowV6StateJobsAndReportingProjection_Unit(t *testing.T) {
+func TestNetworkFlowV7StateJobsAndReportingProjection_Unit(t *testing.T) {
 	coreJobs := readGeneratedExtensionObject(t, "contracts/extensions/fragments/core01.profile-jobs.json")
 	for _, rawFact := range coreJobs["facts"].([]any) {
 		if rawFact.(map[string]any)["profile_id"] == "network_flow_activity" {
@@ -485,7 +485,7 @@ func TestNetworkFlowV6StateJobsAndReportingProjection_Unit(t *testing.T) {
 		"network_flow_activity.reporting_graph_source",
 	} {
 		if !contributionKinds[contributionID] {
-			t.Fatalf("Network Flow v6 profile omits contribution %q", contributionID)
+			t.Fatalf("Network Flow v7 profile omits contribution %q", contributionID)
 		}
 	}
 
@@ -799,12 +799,12 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	}
 	requireExactStrings(t, inactiveConfiguration.VerificationIDs, []string{extensionsBehaviorVerification}, "inactive configuration verification_ids")
 	requireExactStrings(t, inactiveConfiguration.Selector.Tests, []string{"TestInactiveConfigurationCatalog_Unit"}, "inactive configuration selector.tests")
-	networkFlowV6Projection, exists := rows["module.extensions.unit.network_flow_v5_state_jobs_reporting_projection"]
+	networkFlowV7Projection, exists := rows["module.extensions.unit.network_flow_v5_state_jobs_reporting_projection"]
 	if !exists {
-		t.Fatal("Network Flow v6 extension projection row is missing")
+		t.Fatal("Network Flow v7 extension projection row is missing")
 	}
-	requireExactStrings(t, networkFlowV6Projection.VerificationIDs, []string{extensionsBehaviorVerification}, "Network Flow v6 projection verification_ids")
-	requireExactStrings(t, networkFlowV6Projection.Selector.Tests, []string{"TestNetworkFlowV6StateJobsAndReportingProjection_Unit"}, "Network Flow v6 projection selector.tests")
+	requireExactStrings(t, networkFlowV7Projection.VerificationIDs, []string{extensionsBehaviorVerification}, "Network Flow v7 projection verification_ids")
+	requireExactStrings(t, networkFlowV7Projection.Selector.Tests, []string{"TestNetworkFlowV7StateJobsAndReportingProjection_Unit"}, "Network Flow v7 projection selector.tests")
 	if got, want := len(rows), len(extensionBoundaryExpectations)+5+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
 		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
 	}

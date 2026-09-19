@@ -40,14 +40,10 @@ func newReportingGraphSource(db postgres.DB, declarations reportingGraphDeclarat
 }
 
 func (m *Module) ReportingGraphSource() *ReportingGraphSource {
-	if m == nil || m.store == nil {
+	if m == nil {
 		return nil
 	}
-	source, err := newReportingGraphSource(m.store.pool, m.store)
-	if err != nil {
-		return nil
-	}
-	return source
+	return m.reportingSource
 }
 
 func (*ReportingGraphSource) SourceOwnerID() string { return ProfileID }

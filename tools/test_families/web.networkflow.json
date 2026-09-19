@@ -1205,7 +1205,7 @@
       "selector": {
         "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "titles": [
-          "networkFlowContractAdapter decodes saved graphs only through the generated major-6 contract"
+          "networkFlowContractAdapter decodes saved graphs only through the generated major-7 contract"
         ]
       },
       "evidence_class": "unit",

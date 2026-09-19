@@ -10,6 +10,7 @@ import (
 )
 
 func TestNetworkFlowConfigurationContribution_Unit(t *testing.T) {
+	t.Run("module construction", assertModuleComposition)
 	t.Run("owner parses only its closed overlay paths", func(t *testing.T) {
 		configuration, finding := ApplyConfigurationOverlay(Configuration{}, []string{"network_flow_activity", "claimed"}, "true")
 		if finding != nil || !configuration.Claimed {

@@ -8,14 +8,37 @@ import (
 
 	contractgraphprojection "github.com/JochiRaider/cartulary/internal/gen/contractgraphprojection"
 	contractnetworkflow "github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow"
+	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 )
 
-func TestNetworkFlowV6GraphContractProjection_Unit(t *testing.T) {
+func TestNetworkFlowV7GraphContractProjection_Unit(t *testing.T) {
 	t.Parallel()
+	policy := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/operation-policy.v1.json")
+	if policy["contract_major"] != float64(7) || policy["query_completion_boundary"] != "audit_transaction_commit" || policy["durable_state_version"] != float64(4) || policy["semantic_query_version"] != float64(2) || policy["job_payload_version"] != float64(1) {
+		t.Fatalf("operation policy cutover drift: %#v", policy)
+	}
+	policies := map[string]map[string]any{}
+	for _, raw := range policy["operations"].([]any) {
+		entry := raw.(map[string]any)
+		policies[entry["route_id"].(string)] = entry
+	}
+	for _, route := range networkflowroutes.All() {
+		entry, ok := policies[route.RouteID]
+		if !ok {
+			t.Fatalf("missing policy for %s", route.RouteID)
+		}
+		mutation := strings.HasSuffix(route.RouteID, ".create") || strings.HasSuffix(route.RouteID, ".patch") || strings.HasSuffix(route.RouteID, ".delete") || strings.HasSuffix(route.RouteID, ".refresh")
+		if entry["csrf_required"] != mutation || (entry["body"] == "forbidden") != (route.Method == "GET") {
+			t.Fatalf("admission projection drift for %s", route.RouteID)
+		}
+	}
+	if len(policies) != len(networkflowroutes.All()) {
+		t.Fatal("unbound operation policies")
+	}
 
 	index := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/index.json")
-	if index["contract_major"] != float64(6) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
-		t.Fatalf("Network Flow contract identity = %#v; want major 6/index v3", index)
+	if index["contract_major"] != float64(7) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
+		t.Fatalf("Network Flow contract identity = %#v; want major 7/index v3", index)
 	}
 	graphSchemas := make([]string, 0)
 	for _, rawSchemaID := range index["public_schema_ids"].([]any) {
@@ -45,7 +68,7 @@ func TestNetworkFlowV6GraphContractProjection_Unit(t *testing.T) {
 		"cartulary.network_flow.graph_view_result.v4",
 	}
 	if !slices.Equal(graphSchemas, wantGraphSchemas) {
-		t.Fatalf("Network Flow v6 Graph schema allowlist = %#v; want %#v", graphSchemas, wantGraphSchemas)
+		t.Fatalf("Network Flow v7 Graph schema allowlist = %#v; want %#v", graphSchemas, wantGraphSchemas)
 	}
 
 	routesDocument := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/routes.v1.json")

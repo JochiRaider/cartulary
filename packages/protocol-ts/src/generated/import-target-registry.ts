@@ -32,9 +32,9 @@ export type ImportTargetFrontendProjection = {
 };
 
 export const importTargetRegistry = {
-  "registry_sha256": "fd13dab4e940613026e5779bd99dd45ff8863e324ca2dc6ee6c102dbb4015a56",
+  "registry_sha256": "4ac3fbbf38fa1177304f01d52823ee27d3c273d1cfdb35998e2884debc1d1822",
   "schema_id": "cartulary.import_target_frontend_projection.v1",
-  "source_sha256": "a630139a74bc4213bfba1bb1955e265ebf469b122b78c6c5c87cc5b30830bc04",
+  "source_sha256": "78d9fcaee197d4f4c70ed261d9eb765ffd595b94dcdf108bc544f9034390e033",
   "targets": [
     {
       "activation_policy": "always",
@@ -298,10 +298,10 @@ export const importTargetRegistry = {
       "entity_bearing_default": "target_owned_explicit_binding_only",
       "extension_profile_id": "network_flow_activity",
       "mapping_contract_schema_id": "cartulary.network_flow.approved_mapping.v1",
-      "owner_contract_ref": "network_flow_activity@6",
+      "owner_contract_ref": "network_flow_activity@7",
       "public_projection_disposition": "extension_claim_gated",
       "registry_order": 17,
-      "row_sha256": "d13de1bfe20718e4146851700ee09943cd3583b330342e72e172e4312c2056a1",
+      "row_sha256": "f69d895881fac58f5628a6d1ff1513dc7eacd4c7851431c642aab64d3bf74078",
       "target_id": "network_flow_table:network_flow_activity",
       "target_kind": "network_flow_table",
       "target_view_schema_id": null

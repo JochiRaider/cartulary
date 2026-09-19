@@ -136,7 +136,7 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 | `enterprise_authentication` | `true` | `1` | Enterprise Authentication owner sections in Core 01/Core 04 | `[]` |
 | `import` | `true` | `1` | Import owner sections in Core 01 | `[]` |
 | `incident_portability` | `true` | `1` | Incident Portability owner sections in Core 01 | `[]` |
-| `network_flow_activity` | `true` | `6` | `docs/network-flow-activity-nlspec.md` version `6.0.0` | exactly `import@1` |
+| `network_flow_activity` | `true` | `7` | `docs/network-flow-activity-nlspec.md` version `7.0.0` | exactly `import@1` |
 | `reference_pack` | `true` | `1` | Reference Pack owner sections in Core 01 | `[]` |
 | `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
 

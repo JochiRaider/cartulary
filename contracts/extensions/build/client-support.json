@@ -12,13 +12,13 @@
     },
     {
       "profile_id": "network_flow_activity",
-      "contract_major": 6,
+      "contract_major": 7,
       "workspace_keys": [
         "network_analysis"
       ],
       "capability_ids": [],
       "public_schema_ids": [],
-      "client_asset_set_id": "network_flow_activity.standard.v6"
+      "client_asset_set_id": "network_flow_activity.standard.v7"
     }
   ]
 }

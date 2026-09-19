@@ -14,6 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -50,7 +52,11 @@ type ModuleDependencies struct {
 // sibling stores independently.
 type Module struct {
 	store           *store
-	importOwner     imports.ExtensionImportFacade
+	active          *activeApplications
+	incidentAccess  incidentAdmissionChecker
+	authStore       *authn.Store
+	reportingSource *ReportingGraphSource
+	graphVerifier   *graphSourceComposer
 	importSources   ImportSourcePort
 	transactions    *crossownertransaction.Coordinator
 	cursorProtector cursorProtector
@@ -107,17 +113,27 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	)
 	module := &Module{
 		store: store, importSources: dependencies.ImportSources,
+		incidentAccess:  admission.NewChecker(dependencies.Postgres),
+		authStore:       authn.NewStore(dependencies.Postgres),
 		cursorProtector: cursorProtector, safeDigester: safeDigester,
 		limits: limits, now: now, graphProjection: newGraphProjectionAdapter(),
 		graphViewJobs: dependencies.GraphViewJobs, jobManager: dependencies.JobManager,
 		jobRunner: dependencies.JobRunner, jobFinalizer: dependencies.JobFinalizer,
 		graphTelemetry: dependencies.GraphTelemetry,
 	}
-	composer, err := newGraphSourceComposer(store, limits, module.graphProjection, now, dependencies.GraphTelemetry)
+	composer, err := newGraphSourceComposer(store, limits, module.graphProjection, dependencies.GraphTelemetry)
 	if err != nil {
 		return nil, err
 	}
 	module.graphComposer = composer
+	module.graphVerifier, err = newGraphSourceComposer(store, limits, module.graphProjection, nil)
+	if err != nil {
+		return nil, err
+	}
+	module.reportingSource, err = newReportingGraphSource(dependencies.Postgres, store)
+	if err != nil {
+		return nil, err
+	}
 	return module, nil
 }
 
@@ -125,8 +141,8 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 // Registration is explicit so constructing a module never starts work or
 // hides process-level concurrency.
 func (m *Module) RegisterGraphViewWorker() error {
-	if m == nil || m.jobRunner == nil || m.jobManager == nil || m.jobFinalizer == nil || m.graphProjection == nil {
-		return errors.New("network flow graph view worker dependencies unavailable")
+	if err := m.prepareActiveApplications(); err != nil {
+		return err
 	}
 	return m.jobRunner.RegisterHandler(graphViewWorkerKind, m.handleGraphViewMaterialization)
 }
@@ -142,15 +158,14 @@ func (m *Module) InstallCrossOwnerCoordinator(coordinator *crossownertransaction
 		return errors.New("network flow cross-owner transaction coordinator already installed")
 	}
 	m.transactions = coordinator
-	m.importOwner = newImportFacade(m.store, m.importSources, m.limits, m.now, m.safeDigester)
 	return nil
 }
 
-func (m *Module) ImportOwner() imports.ExtensionImportFacade {
-	if m == nil {
-		return nil
+func (m *Module) ImportOwner() (imports.ExtensionImportFacade, error) {
+	if err := m.prepareActiveApplications(); err != nil {
+		return nil, err
 	}
-	return m.importOwner
+	return m.active.importOwner, nil
 }
 
 func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {

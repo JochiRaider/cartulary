@@ -915,7 +915,7 @@ describe("@cartulary/protocol-ts family conformance", () => {
   it("decodes exact Network Flow contracts without exposing payload data on failure", () => {
     expect(networkFlowContractDescriptor).toEqual({
       profile_id: "network_flow_activity",
-      contract_major: 6,
+      contract_major: 7,
     });
 
     const valid = networkFlowDecoders.tableList.decode({

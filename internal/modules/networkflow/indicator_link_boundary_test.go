@@ -68,7 +68,7 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 				}
 			}
 		}
-		for _, body := range []string{`{"z":true,"a":true}`, `{"schema_id":null}`, `{"schema_id":"first","schema_id":"second"}`} {
+		for _, body := range []string{`{"z":true,"a":true}`, `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","z":true,"a":true}`, `{"schema_id":null}`, `{"schema_id":"first","schema_id":"second"}`} {
 			_, apiErr := decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/", strings.NewReader(body)), defaultEffectiveLimits())
 			if apiErr == nil {
 				t.Fatal("malformed request admitted")
@@ -78,8 +78,14 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 					t.Fatalf("required admission detail %s absent", key)
 				}
 			}
-			if strings.Contains(body, `"z"`) && apiErr.Details["field"] != "a" {
-				t.Fatal("unknown members not checked in canonical order")
+			if strings.Contains(body, `"z"`) {
+				wantField := "schema_id"
+				if strings.Contains(body, schemaIndicatorLinkRequest) {
+					wantField = "a"
+				}
+				if apiErr.Details["field"] != wantField {
+					t.Fatalf("schema admission must precede canonical unknown-member order: got %v want %s", apiErr.Details["field"], wantField)
+				}
 			}
 		}
 	})

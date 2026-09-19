@@ -86,7 +86,6 @@ type graphSemanticRequest struct {
 }
 
 type graphComposition struct {
-	SemanticSchemaID string
 	Aggregation      graphAggregation
 	Digest           string
 	SemanticQuery    map[string]any
@@ -233,7 +232,7 @@ func decodeGraphAggregationV2(raw json.RawMessage) (graphAggregation, *semanticF
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
 		return graphAggregation{}, invalidGraphAggregation("aggregation", "variant_member_conflict")
 	}
-	for key := range object {
+	for _, key := range sortedObjectKeys(object) {
 		if key != "mode" && key != "include_example_row_refs" && key != "bucket_width_seconds" {
 			return graphAggregation{}, invalidGraphAggregation("aggregation."+key, "variant_member_conflict")
 		}
@@ -308,7 +307,7 @@ func decodeGraphResultLimits(raw json.RawMessage, limits EffectiveLimits) (graph
 		"max_contributing_rows_per_graph": {},
 		"max_time_buckets_per_graph":      {},
 	}
-	for key := range object {
+	for _, key := range sortedObjectKeys(object) {
 		if _, ok := allowed[key]; !ok {
 			return graphResultLimits{}, invalidLimitOverride(key, "unknown_limit_key", key, 0, 0, 0)
 		}
@@ -521,7 +520,7 @@ func decodeGraphSemanticRequest(raw json.RawMessage, limits EffectiveLimits) (gr
 		return graphSemanticRequest{}, apiErr
 	}
 	resultLimits := effectiveGraphResultLimits(limits)
-	rawObject := graphSemanticQueryResource(schemaID, tableIDs, filters, timeRange, aggregation, resultLimits)
+	rawObject := graphSemanticQueryResource(tableIDs, filters, timeRange, aggregation)
 	return graphSemanticRequest{
 		SchemaID:         schemaID,
 		SelectedTableIDs: tableIDs,
@@ -944,27 +943,6 @@ func graphProjectionRelationships(composition graphComposition) []any {
 	return out
 }
 
-func graphEdgeAnnotations(composition graphComposition) []any {
-	edgeIDs := sortedGraphEdgeIDs(composition.Edges)
-	out := make([]any, 0, len(edgeIDs))
-	for _, edgeID := range edgeIDs {
-		edge := composition.Edges[edgeID]
-		refs := []any{}
-		if composition.IncludeExamples {
-			for _, row := range edge.ExampleRows {
-				refs = append(refs, rowRefResource(row))
-			}
-		}
-		out = append(out, map[string]any{
-			"edge_id":                  edge.EdgeID,
-			"example_row_refs":         refs,
-			"example_refs_truncated":   len(refs) < edge.FlowRowCount,
-			"example_refs_total_count": edge.FlowRowCount,
-		})
-	}
-	return out
-}
-
 func canonicalGraphContributorPredicate(incidentID uuid.UUID, selector graphSelector) (graphContributorPredicate, *semanticFailure) {
 	if selector.SourceVertexID != "" {
 		expected := endpointID(incidentID, "ip", selector.EndpointValue)
@@ -1033,13 +1011,13 @@ func graphContributorQueryEcho(request graphContributorQueryRequest) map[string]
 	}
 }
 
-func graphSemanticQueryResource(schemaID string, tableIDs []string, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation, limits graphResultLimits) map[string]any {
+func graphSemanticQueryResource(tableIDs []string, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation) map[string]any {
 	normalizedFilters := filters
 	if normalizedFilters == nil {
 		normalizedFilters = []queryFilter{}
 	}
 	resource := map[string]any{
-		"schema_id":          schemaID,
+		"schema_id":          schemaGraphSemanticQueryV2,
 		"selected_table_ids": tableIDs,
 		"filters":            normalizedFilters,
 		"time_range":         graphTimeRangeResource(timeRange),

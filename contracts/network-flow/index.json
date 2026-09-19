@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "schema_id": "cartulary.network_flow_contract_index.v3",
   "profile_id": "network_flow_activity",
-  "contract_major": 6,
+  "contract_major": 7,
   "family_id": "network-flow",
   "contract_files": {
     "routes": "contracts/network-flow/routes.v1.json",
@@ -17,7 +17,8 @@
     "resource_limits": "contracts/network-flow/resource-limits.v2.json",
     "resource_limits_configuration_schema": "contracts/network-flow/resource-limits-config.v2.schema.json",
     "graph_semantics": "contracts/network-flow/graph-semantics.v2.json",
-    "timezone_provenance": "contracts/network-flow/timezone/tzdb-2026c.provenance.json"
+    "timezone_provenance": "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
+    "operation_policy": "contracts/network-flow/operation-policy.v1.json"
   },
   "public_schema_ids": [
     "cartulary.network_flow.timestamp_profile.v1",

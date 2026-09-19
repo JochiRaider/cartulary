@@ -22,12 +22,11 @@ const (
 )
 
 type graphProjectionPort interface {
-	ProjectEphemeral(context.Context, string, json.RawMessage) (map[string]any, error)
-	ProjectSaved(context.Context, string, json.RawMessage, func(context.Context) error) (graphprojection.ProjectionResultV2, error)
+	Project(context.Context, string, json.RawMessage, func(context.Context) error) (graphprojection.ProjectionResultV2, error)
 }
 
-func (a *graphProjectionAdapter) ProjectSaved(ctx context.Context, graphViewID string, input json.RawMessage, cancellationCheck func(context.Context) error) (graphprojection.ProjectionResultV2, error) {
-	result, err := graphprojection.ProjectV2(ctx, graphprojection.InvocationContextV2{GraphViewID: graphViewID, SourceOwnerID: graphSourceOwnerID, CancellationCheck: cancellationCheck}, input)
+func (a *graphProjectionAdapter) Project(ctx context.Context, graphViewID string, input json.RawMessage, cancellationCheck func(context.Context) error) (graphprojection.ProjectionResultV2, error) {
+	result, err := a.project(ctx, graphprojection.InvocationContextV2{GraphViewID: graphViewID, SourceOwnerID: graphSourceOwnerID, CancellationCheck: cancellationCheck}, input)
 	if err == nil {
 		return result, nil
 	}
@@ -42,7 +41,9 @@ func (a *graphProjectionAdapter) ProjectSaved(ctx context.Context, graphViewID s
 	return graphprojection.ProjectionResultV2{}, &graphProjectionAdapterError{cause: err, reason: "projection_unavailable"}
 }
 
-type graphProjectionAdapter struct{}
+type graphProjectionAdapter struct {
+	project func(context.Context, graphprojection.InvocationContextV2, []byte) (graphprojection.ProjectionResultV2, error)
+}
 
 type graphProjectionAdapterError struct {
 	cause  error
@@ -58,22 +59,7 @@ func (e *graphProjectionAdapterError) Unwrap() error {
 }
 
 func newGraphProjectionAdapter() graphProjectionPort {
-	return &graphProjectionAdapter{}
-}
-
-func (a *graphProjectionAdapter) ProjectEphemeral(ctx context.Context, graphViewID string, input json.RawMessage) (map[string]any, error) {
-	result, err := graphprojection.ProjectV2(ctx, graphprojection.InvocationContextV2{GraphViewID: graphViewID, SourceOwnerID: graphSourceOwnerID}, input)
-	if err == nil {
-		return result.Resource(), nil
-	}
-	var projectionErr *graphprojection.ProjectionErrorV2
-	if errors.As(err, &projectionErr) {
-		if projectionErr.Code == "invalid_projection_request" || projectionErr.Code == "projection_validation_failed" || projectionErr.Code == "projection_resource_limit_exceeded" {
-			return nil, &graphProjectionAdapterError{cause: err, reason: "adapter_contract_rejected"}
-		}
-		return nil, &graphProjectionAdapterError{cause: err, reason: "projection_unavailable"}
-	}
-	return nil, &graphProjectionAdapterError{cause: err, reason: "projection_unavailable"}
+	return &graphProjectionAdapter{project: graphprojection.ProjectV2}
 }
 
 func deriveNetworkFlowGraphViewID(key string) (string, error) {
@@ -106,16 +92,4 @@ func validGraphProjectionIdentifier(value string) bool {
 		last = character
 	}
 	return !unicode.IsSpace(first) && !unicode.IsSpace(last)
-}
-
-// graphProjectionFailedForProjectionError is retained beside the sole provider
-// adapter so provider-specific errors cannot leak into the composer or routes.
-func graphProjectionFailedForProjectionError(err error) *semanticFailure {
-	var projectionErr *graphprojection.ProjectionErrorV2
-	if errors.As(err, &projectionErr) {
-		if projectionErr.Code == "invalid_projection_request" || projectionErr.Code == "projection_validation_failed" || projectionErr.Code == "projection_resource_limit_exceeded" {
-			return graphProjectionFailed("adapter_contract_rejected")
-		}
-	}
-	return graphProjectionFailed("projection_unavailable")
 }

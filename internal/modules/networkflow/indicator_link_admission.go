@@ -25,11 +25,15 @@ var (
 // follow committed replay and current resource checks, including field policy.
 func decodeIndicatorLinkObject(raw map[string]json.RawMessage, limits EffectiveLimits) (request indicatorLinkRequest, apiErr *semanticFailure) {
 	defer func() { apiErr = completeLinkError(apiErr, request, "") }()
-	if apiErr = linkMembers(raw, map[string]string{"schema_id": "string", "client_txn_id": "string", "selector": "object", "target": "object", "observation_mode": "string", "confirm_exact_value": "string"}); apiErr != nil {
+	if _, failure := requiredJSONString(raw, "schema_id"); failure != nil {
+		apiErr = failure
 		return
 	}
 	if linkString(raw, "schema_id") != schemaIndicatorLinkRequest {
 		apiErr = invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
+		return
+	}
+	if apiErr = linkMembers(raw, map[string]string{"schema_id": "string", "client_txn_id": "string", "selector": "object", "target": "object", "observation_mode": "string", "confirm_exact_value": "string"}); apiErr != nil {
 		return
 	}
 	request.ClientTxnID = linkString(raw, "client_txn_id")

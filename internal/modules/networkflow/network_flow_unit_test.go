@@ -110,12 +110,58 @@ func TestGraphProjectionFailureClassification(t *testing.T) {
 			err:    fmt.Errorf("graph projection dependency unavailable"),
 			reason: "projection_unavailable",
 		},
+		{name: "resource limit", err: &graphprojection.ProjectionErrorV2{Code: "projection_resource_limit_exceeded"}, reason: "adapter_contract_rejected"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			requireAPIError(t, graphProjectionFailedForProjectionErrorHTTP(test.err), "network_flow_graph_projection_failed", test.reason)
+			adapter := &graphProjectionAdapter{project: func(context.Context, graphprojection.InvocationContextV2, []byte) (graphprojection.ProjectionResultV2, error) {
+				return graphprojection.ProjectionResultV2{}, test.err
+			}}
+			_, err := adapter.Project(context.Background(), "gv_classification", nil, nil)
+			var failure *graphProjectionAdapterError
+			if !errors.As(err, &failure) || failure.reason != test.reason || !errors.Is(err, test.err) {
+				t.Fatalf("live projection classification: %v", err)
+			}
+			composition := graphComposition{SourceTables: []tableRecord{{IncidentID: IncidentID()}}}
+			_, semantic := (&graphSourceComposer{graphProjection: adapter}).projectNetworkFlowGraph(context.Background(), "nfsnap_test", composition)
+			requireAPIError(t, semanticHTTPError(semantic), "network_flow_graph_projection_failed", test.reason)
+			if !errors.Is(semantic, test.err) {
+				t.Fatal("semantic boundary lost provider cause")
+			}
 		})
 	}
+	for _, cause := range []error{context.Canceled, context.DeadlineExceeded} {
+		ctx := context.Background()
+		adapter := newGraphProjectionAdapter()
+		calls := 0
+		_, err := adapter.Project(ctx, "gv_callback", nil, func(context.Context) error { calls++; return cause })
+		if calls != 1 || !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancellation callback: calls=%d err=%v", calls, err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := newGraphProjectionAdapter().Project(ctx, "gv_cancel", nil, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("context cancellation cause: %v", err)
+	}
+	deadlineCtx, stop := context.WithDeadline(context.Background(), time.Unix(1, 0))
+	defer stop()
+	_, deadlineErr := newGraphProjectionAdapter().Project(deadlineCtx, "gv_deadline", nil, nil)
+	if !errors.Is(deadlineErr, context.DeadlineExceeded) {
+		t.Fatalf("deadline cause: %v", deadlineErr)
+	}
+
+	_, err = newGraphProjectionAdapter().Project(context.Background(), "gv_reject", []byte(`{}`), nil)
+	var rejected *graphProjectionAdapterError
+	if !errors.As(err, &rejected) || rejected.reason != "adapter_contract_rejected" {
+		t.Fatalf("actual rejection: %v", err)
+	}
+	if _, err := newGraphSourceComposer(&constructorOnlyGraphReader{}, defaultEffectiveLimits(), nil, nil); err == nil {
+		t.Fatal("missing projector accepted")
+	}
+	AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t)
+
 }
 
 func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
@@ -141,7 +187,7 @@ func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
 
 func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	t.Helper()
-	semanticQuery := graphSemanticQueryResource(schemaGraphSemanticQueryV2, []string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}, graphResultLimits{})
+	semanticQuery := graphSemanticQueryResource([]string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
 	if encoded := string(canonicalJSON(semanticQuery)); !strings.Contains(encoded, `"filters":[]`) {
 		t.Fatalf("default-materialized semantic graph filters = %s, want empty array", encoded)
 	}
@@ -201,7 +247,8 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 		t.Fatalf("derive graph view ID: %v", err)
 	}
 	input := networkFlowProjectionInput("nfsnap_"+strings.Repeat("b", 64), composition)
-	result, err := adapter.ProjectEphemeral(context.Background(), graphViewID, canonicalJSON(input))
+	projected, err := adapter.Project(context.Background(), graphViewID, canonicalJSON(input), nil)
+	result := projected.Resource()
 	if err != nil {
 		var projectionErr *graphprojection.ProjectionErrorV2
 		if errors.As(err, &projectionErr) {
@@ -388,11 +435,11 @@ func AssertUint64DecimalGrammar(t *testing.T) {
 func AssertCIDRFamilyBehavior(t *testing.T) {
 	t.Helper()
 	row := flowRowFixture()
-	matched, apiErr := rowMatchesFilterHTTP(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
+	matched, apiErr := rowMatchesFilter(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
 	if apiErr != nil || !matched {
 		t.Fatalf("expected IPv4 CIDR to match src_ip: matched=%v err=%v", matched, apiErr)
 	}
-	matched, apiErr = rowMatchesFilterHTTP(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "2001:db8::/32"})
+	matched, apiErr = rowMatchesFilter(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "2001:db8::/32"})
 	if apiErr != nil {
 		t.Fatalf("IPv6 CIDR against IPv4 source should not error: %v", apiErr)
 	}
@@ -401,7 +448,7 @@ func AssertCIDRFamilyBehavior(t *testing.T) {
 	}
 	mapped := row
 	mapped.SrcIP = "::ffff:192.0.2.10"
-	matched, apiErr = rowMatchesFilterHTTP(mapped, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
+	matched, apiErr = rowMatchesFilter(mapped, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
 	if apiErr != nil {
 		t.Fatalf("IPv4 CIDR against mapped IPv6 source should not error: %v", apiErr)
 	}
@@ -412,7 +459,7 @@ func AssertCIDRFamilyBehavior(t *testing.T) {
 
 func AssertErrorDetailShape(t *testing.T) {
 	t.Helper()
-	err := invalidFilterHTTP("value", "duplicate_in_value")
+	err := semanticHTTPError(invalidFilter("value", "duplicate_in_value"))
 	if err.Status != 400 || err.Code != "network_flow_invalid_filter" {
 		t.Fatalf("unexpected API error envelope core fields: %#v", err)
 	}
@@ -541,7 +588,7 @@ func AssertAllFixtureRuntimeBehavior(t *testing.T) {
 							continue
 						}
 						executed++
-						_, _ = decodeAcceptedRowQueryRequestHTTP(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, defaultLimits())
+						_, _ = decodeAcceptedRowQueryRequest(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, defaultLimits())
 					}
 				case file.Role == "mapping" && strings.HasSuffix(file.LogicalPath, ".json"):
 					executed++

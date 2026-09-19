@@ -89,7 +89,7 @@ func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incid
 		}
 		semantic := request.Semantic
 		semantic.SelectedTableIDs = selectedTableIDs
-		semantic.Raw = graphSemanticQueryResource(semantic.SchemaID, selectedTableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation, semantic.ResultLimits)
+		semantic.Raw = graphSemanticQueryResource(selectedTableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
 		semanticJSON := canonicalJSON(semantic.Raw)
 		snapshotID, err := graphViewSourceSnapshotTx(ctx, tx, incidentID, semantic)
 		if err != nil {

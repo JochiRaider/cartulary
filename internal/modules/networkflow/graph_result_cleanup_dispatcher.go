@@ -35,8 +35,8 @@ type GraphResultCleanupDispatcher struct {
 }
 
 func (module *Module) NewGraphResultCleanupDispatcher(onUnexpectedLoss func()) (*GraphResultCleanupDispatcher, error) {
-	if module == nil || module.store == nil || module.store.pool == nil {
-		return nil, errors.New("compose Network Flow graph-result cleanup dispatcher: module persistence is required")
+	if err := module.prepareActiveApplications(); err != nil {
+		return nil, err
 	}
 	sweeper, err := newGraphResultCleanupService(module.store.pool, module.store)
 	if err != nil {

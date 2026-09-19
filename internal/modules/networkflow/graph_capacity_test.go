@@ -189,7 +189,6 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 		MappingFingerprint: strings.Repeat("d", 64),
 	}
 	composition := graphComposition{
-		SemanticSchemaID: schemaGraphSemanticQueryV2,
 		Aggregation:      graphAggregation{Mode: workload.Mode, BucketWidthSeconds: workload.BucketWidth},
 		Digest:           "capacity_" + workload.Name,
 		ResultLimits:     effectiveGraphResultLimits(workload.Limits),
@@ -203,7 +202,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	if workload.Buckets > 0 {
 		start := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
 		end := start.Add(time.Duration(int64(workload.Buckets)*workload.BucketWidth) * time.Second)
-		buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, workload.BucketWidth, int(workload.Limits.MaxTimeBucketsPerGraph))
+		buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, workload.BucketWidth, int(workload.Limits.MaxTimeBucketsPerGraph))
 		if apiErr != nil {
 			t.Fatalf("construct %s buckets: %#v", workload.Name, apiErr)
 		}
@@ -219,7 +218,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 			row.FlowStartUTC = bucket.StartUTC.Add(time.Second)
 			row.FlowEndUTC = row.FlowStartUTC.Add(time.Second)
 		}
-		if apiErr := composeGraphRowHTTP(incidentID, row, map[string]tableRecord{table.TableID: table}, &composition); apiErr != nil {
+		if apiErr := composeGraphRow(incidentID, row, map[string]tableRecord{table.TableID: table}, &composition); apiErr != nil {
 			t.Fatalf("execute %s row %d: %#v", workload.Name, index+1, apiErr)
 		}
 	}
@@ -230,7 +229,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 			workload.Rows, workload.Vertices, workload.Edges, workload.Buckets,
 		)
 	}
-	if apiErr := validateGraphLimitsHTTP(composition); apiErr != nil {
+	if apiErr := validateGraphLimits(composition); apiErr != nil {
 		t.Fatalf("validate %s result limits: %#v", workload.Name, apiErr)
 	}
 
@@ -241,7 +240,8 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	if err != nil {
 		t.Fatalf("derive %s graph view ID: %v", workload.Name, err)
 	}
-	projection, err := projector.ProjectEphemeral(context.Background(), graphViewID, projectionInput)
+	projected, err := projector.Project(context.Background(), graphViewID, projectionInput, nil)
+	projection := projected.Resource()
 	if err != nil {
 		t.Fatalf("project %s workload: %v", workload.Name, err)
 	}

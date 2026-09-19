@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_operation_policy.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "profile_id",
+    "contract_major",
+    "admission_algorithm_id",
+    "dispatch_owner",
+    "admission_stages",
+    "unknown_member_order",
+    "array_error_order",
+    "continuation_admission",
+    "undeclared_query_parameters",
+    "bodyless_content",
+    "query_completion_algorithm_id",
+    "query_completion_boundary",
+    "query_retry",
+    "transaction_replay",
+    "post_commit_delivery_failure",
+    "saved_jobs_missing_history",
+    "saved_jobs_operational_failure",
+    "durable_state_version",
+    "semantic_query_version",
+    "job_payload_version",
+    "operations",
+    "schema_member_order"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.network_flow_operation_policy.v1"
+    },
+    "profile_id": {
+      "const": "network_flow_activity"
+    },
+    "contract_major": {
+      "const": 7
+    },
+    "admission_algorithm_id": {
+      "const": "network_flow_route_admission_v1"
+    },
+    "dispatch_owner": {
+      "const": "core"
+    },
+    "admission_stages": {
+      "const": [
+        "session_and_csrf",
+        "incident_visibility_role_lifecycle",
+        "resource_path",
+        "query_body_framing",
+        "semantic_request",
+        "application_and_owner_replay"
+      ]
+    },
+    "unknown_member_order": {
+      "const": "lexicographic"
+    },
+    "array_error_order": {
+      "const": "index"
+    },
+    "continuation_admission": {
+      "const": "fresh"
+    },
+    "undeclared_query_parameters": {
+      "const": "reject"
+    },
+    "bodyless_content": {
+      "const": "reject"
+    },
+    "query_completion_algorithm_id": {
+      "const": "network_flow_graph_query_completion_v1"
+    },
+    "query_completion_boundary": {
+      "const": "audit_transaction_commit"
+    },
+    "query_retry": {
+      "const": "new_execution"
+    },
+    "transaction_replay": {
+      "const": "never_automatic"
+    },
+    "post_commit_delivery_failure": {
+      "const": "retain_occurrence"
+    },
+    "saved_jobs_missing_history": {
+      "const": "retained_declaration_facts"
+    },
+    "saved_jobs_operational_failure": {
+      "const": "internal_error"
+    },
+    "durable_state_version": {
+      "const": 4
+    },
+    "semantic_query_version": {
+      "const": 2
+    },
+    "job_payload_version": {
+      "const": 1
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 19,
+      "maxItems": 19,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "route_id",
+          "csrf_required",
+          "role",
+          "body"
+        ],
+        "properties": {
+          "route_id": {
+            "type": "string",
+            "pattern": "^nf\\.[a-z_.]+$"
+          },
+          "csrf_required": {
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "member",
+              "editor|admin",
+              "reviewer|admin"
+            ]
+          },
+          "body": {
+            "enum": [
+              "required",
+              "forbidden"
+            ]
+          }
+        }
+      }
+    },
+    "schema_member_order": {
+      "const": [
+        "schema",
+        "unknown_members",
+        "operation_fields"
+      ]
+    }
+  }
+}

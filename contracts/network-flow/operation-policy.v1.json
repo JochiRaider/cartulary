@@ -1,0 +1,151 @@
+{
+  "schema_id": "cartulary.network_flow_operation_policy.v1",
+  "profile_id": "network_flow_activity",
+  "contract_major": 7,
+  "admission_algorithm_id": "network_flow_route_admission_v1",
+  "dispatch_owner": "core",
+  "admission_stages": [
+    "session_and_csrf",
+    "incident_visibility_role_lifecycle",
+    "resource_path",
+    "query_body_framing",
+    "semantic_request",
+    "application_and_owner_replay"
+  ],
+  "unknown_member_order": "lexicographic",
+  "array_error_order": "index",
+  "continuation_admission": "fresh",
+  "undeclared_query_parameters": "reject",
+  "bodyless_content": "reject",
+  "query_completion_algorithm_id": "network_flow_graph_query_completion_v1",
+  "query_completion_boundary": "audit_transaction_commit",
+  "query_retry": "new_execution",
+  "transaction_replay": "never_automatic",
+  "post_commit_delivery_failure": "retain_occurrence",
+  "saved_jobs_missing_history": "retained_declaration_facts",
+  "saved_jobs_operational_failure": "internal_error",
+  "durable_state_version": 4,
+  "semantic_query_version": 2,
+  "job_payload_version": 1,
+  "operations": [
+    {
+      "route_id": "nf.graph_views.contributors.query",
+      "csrf_required": false,
+      "role": "member",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.graph_views.create",
+      "csrf_required": true,
+      "role": "editor|admin",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.graph_views.delete",
+      "csrf_required": true,
+      "role": "reviewer|admin",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.graph_views.get",
+      "csrf_required": false,
+      "role": "member",
+      "body": "forbidden"
+    },
+    {
+      "route_id": "nf.graph_views.list",
+      "csrf_required": false,
+      "role": "member",
+      "body": "forbidden"
+    },
+    {
+      "route_id": "nf.graph_views.patch",
+      "csrf_required": true,
+      "role": "editor|admin",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.graph_views.refresh",
+      "csrf_required": true,
+      "role": "editor|admin",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.graph_views.result",
+      "csrf_required": false,
+      "role": "member",
+      "body": "forbidden"
+    },
+    {
+      "route_id": "nf.graphs.contributors.query",
+      "csrf_required": false,
+      "role": "member",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.graphs.query",
+      "csrf_required": false,
+      "role": "member",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.indicator_links.create",
+      "csrf_required": true,
+      "role": "editor|admin",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.rejected_rows.query",
+      "csrf_required": false,
+      "role": "member",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.rows.query",
+      "csrf_required": false,
+      "role": "member",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.source_profiles.list",
+      "csrf_required": false,
+      "role": "member",
+      "body": "forbidden"
+    },
+    {
+      "route_id": "nf.tables.delete",
+      "csrf_required": true,
+      "role": "reviewer|admin",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.tables.get",
+      "csrf_required": false,
+      "role": "member",
+      "body": "forbidden"
+    },
+    {
+      "route_id": "nf.tables.list",
+      "csrf_required": false,
+      "role": "member",
+      "body": "forbidden"
+    },
+    {
+      "route_id": "nf.tables.patch",
+      "csrf_required": true,
+      "role": "editor|admin",
+      "body": "required"
+    },
+    {
+      "route_id": "nf.tables.query",
+      "csrf_required": false,
+      "role": "member",
+      "body": "required"
+    }
+  ],
+  "schema_member_order": [
+    "schema",
+    "unknown_members",
+    "operation_fields"
+  ]
+}

@@ -1675,7 +1675,9 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestDefaultGraphV2IdentityFixture_Unit",
-          "TestStreamingDefaultGraphV1Golden_Unit",
+          "TestGraphProjectionFailureClassification",
+          "TestGraphQueryCompletion_Unit",
+          "TestStreamingDefaultGraphV2Metadata_Unit",
           "TestStreamingGraphDatabaseErrorsRemainVisible_Unit",
           "TestStreamingGraphLimitsAndCanonicalSelectors_Unit",
           "TestStreamingGraphRetainedStateFollowsAggregateCardinality_Unit"
@@ -2366,7 +2368,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowV6GraphContractProjection_Unit",
+          "TestNetworkFlowV7GraphContractProjection_Unit",
           "TestNetworkFlow_CrossTableGraphEvidence_Integration"
         ]
       },
@@ -2583,7 +2585,8 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestQueryAuthoringAdmission_Unit"
+          "TestQueryAuthoringAdmission_Unit",
+          "TestSavedGraphReadFailures_Unit"
         ]
       },
       "evidence_class": "unit",

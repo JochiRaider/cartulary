@@ -64,7 +64,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"enterprise_authentication": 1,
 		"import":                    1,
 		"incident_portability":      1,
-		"network_flow_activity":     6,
+		"network_flow_activity":     7,
 		"reference_pack":            1,
 		"snapshot_reporting":        1,
 	}
@@ -184,7 +184,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			t.Fatalf("invalid live worker runtime contract %#v", liveWorker)
 		}
 	}
-	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 6 {
+	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 7 {
 		t.Fatalf("Network Flow v5 adopted profile = %#v/%t", networkFlow, ok)
 	}
 

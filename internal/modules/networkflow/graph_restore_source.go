@@ -29,7 +29,7 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSour
 	}
 	limits := defaultEffectiveLimits()
 	store := newStore(db, limits)
-	composer, err := newGraphSourceComposer(store, limits, newGraphProjectionAdapter(), func() time.Time { return time.Now().UTC() }, nil)
+	composer, err := newGraphSourceComposer(store, limits, newGraphProjectionAdapter(), nil)
 	if err != nil {
 		return graphrestore.RestoreSourceRegistration{}, err
 	}

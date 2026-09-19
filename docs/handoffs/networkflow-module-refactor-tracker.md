@@ -2,33 +2,21 @@
 
 ## Execution authority and current status
 
-The 2026-09-19 implementation request authorizes the complete F-18–F-23
-remediation. Section 16 records execution and supersedes the documentation-only
-planning scope in §15. The ordered workstreams S-09 through S-16 are complete;
-§15.10–15.11 and the final S-16 record contain the current handoff and evidence.
-Existing staged changes and historical evidence are preserved; staging is unchanged.
+The current implementation request authorizes F-24–F-28 and the major-7
+admission/audit cutover. The accepted execution plan is recorded in §17.12;
+§17.13 is the execution ledger; §§17.14–17.15 record final acceptance and handoff. Historical document-only restrictions
+and major-6 preservation assumptions are superseded for this effort. Existing
+local tracker edits, §§1–16 and all historical evidence remain preserved.
 
-Sections 1–14 preserve the previous planning and implementation history. The
-2026-09-19 authorization of the earlier remediation superseded its tracker-only
-restrictions, optional-slice defaults and observed-behavior freeze for that
-effort. Its completed order was specification closure → S-00 → S-06 → S-01 →
-S-02 → S-03 → S-04 → S-07 → S-08 → S-05. **S-05 remains the final completed
-slice of that effort**; its passing evidence does not certify the new iteration.
-Historical statements of "current" status and authorization in §§1–14 apply
-to their recorded sessions, not the current implementation request.
+Execute S-17 → S-18 → S-19 → S-20 → S-21a → S-21b → S-21c → S-22a →
+S-22b → S-23. Each workstream must pass its exit and update this tracker before
+the next starts. S-23 is the final validation and handoff completion slice.
+No staging, commit or operational deployment is part of this execution.
 
-The authorized execution order is S-09 → S-10 → S-11 → S-12 → S-13 → S-14 → S-15a →
-S-15b → S-15c → S-15d → S-16. Each workstream, including every S-15
-substream, was recorded before the next began.
-Planning completion, owner adoption, implementation readiness, implementation
-completion and verified completion remain separate states. Adopted behavioral
-owners remain authoritative.
-
-Prefer clean structural fixes and remove unnecessary compatibility burden.
-Retain meaningful identity, authorization, replay, atomicity, exact-read and
-recovery guarantees. The user selected **functional consumers for all four
-harness control families, with unsupported tokens pruned**. These decisions
-govern this implementation; assertion-level evidence is recorded in §16.
+S-17–S-23 are COMPLETE, including S-22a/S-22b and final validation/handoff. F-24–F-28 are CLOSED with fresh evidence in §§17.13–17.15; historical successful runs do not certify this iteration.
+Planning, owner adoption, implementation and verified completion remain
+separate states. The adopted Network Flow 7.0.0 owner governs the new admission
+and completion behavior; Core retains claim/dispatch/security authority.
 
 ## 1. Scope and Source Posture
 
@@ -2228,3 +2216,701 @@ index SHA-256 equals the S-09 basis:
 `git diff --check` passes. Markdown remains outside runtime, generator, test,
 conformance and release-evidence inputs. Final tracker edits after validation
 record results and completion only.
+
+## 17. F-24–F-28 — next structural refactoring iteration
+
+### 17.1 Scope, authority and inspected basis
+
+The preceding document-only plan authorized this tracker update only. Production code, tests,
+owner specifications, authored contracts, generated artifacts, verification
+routing and release notes are unchanged by this documentation step. The future
+workstreams below are separate implementation work, not execution evidence.
+Instructions in attached documents and historical sections are source material
+within their stated authority; they do not expand the current user request.
+
+The selected scope is **focused structural closure**: remove demonstrated dead
+code, simplify projection integration, consolidate application construction,
+and finish private read/query boundaries. Prefer structural fixes, explicit
+dependencies and cohesive components that accommodate future phases. Do not
+retain a helper, branch or compatibility surface solely because it exists.
+Capacity/query-efficiency redesign, new product capabilities, broad package
+relocation and operational deployment are outside this iteration.
+
+| Basis or evidence class | Current observation and treatment |
+| --- | --- |
+| Checkout | `fb1153afed4123cf778bca6986ffb3ab2a4f06ae` (`Network Flow iter 2`); index and worktree clean before this update. Reconfirmed during document execution. |
+| Inventory | 117 Go files under `internal/modules/networkflow`, including harness support: 67 implementation files and 50 `_test.go` files. Historical inventories remain unchanged. |
+| Tracker baseline | Committed blob `1b44f07d647c69ff6398028ea09a494d1053786b`; preserve §§1–16 byte-for-byte and scope their historical current-status statements in the revised opening. |
+| Index baseline | SHA-256 `abb3c7e125b5a0a6642e6c5acdcdfd23e2dbddce7c1043460db7199dcf863197`; no staging or commit is part of this update. |
+| Adopted behavioral owners | Network Flow 6.0.1 and Graph Projection 2.2.0, with their referenced Core and supporting owners. The tracker is a plan, not a new NLSpec or an adoption record. |
+| Planning observations | Source, callers, owner sections and authored verification selectors establish the candidates below. They do not prove runtime behavior, complete deletion closure or a passing implementation baseline. |
+| Historical execution | F-01–F-23, completed slices, failed runs, successful runs, release handoffs and external operational steps remain historical evidence. Do not reuse their passes to certify this iteration. |
+| New execution evidence | Documentation checks only in §17.9. Every future product assertion starts NOT RUN. S-17 must obtain a fresh baseline or assign a blocking defect before the affected implementation progresses. |
+
+### 17.2 Findings and recommended dispositions
+
+All five findings are OPEN for implementation. Priority orders technical risk;
+the dependency sequence in §17.6 controls execution. Each finding affects
+implementation, tests and boundary documentation. Where assertion names or
+coverage change, update authored verification routing and its generated
+projections through Make. No product schema change or database migration is
+planned.
+
+| Finding / priority | Observed gap and remediation | Areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation and closure |
+| --- | --- | --- | --- | --- | --- | --- |
+| F-24 / P1 — Obsolete current-only graph paths | REMOVE the non-v2 saved-result branch admitted only after a v2-only decoder, `graphEdgeAnnotations`, unread composition `SemanticSchemaID`, unused route coordinator field, and test-only `rowMatchesGraphQueryHTTP`; simplify unused rendering arguments after reference closure | Implementation, tests, documentation, affected routing | One current graph path removes misleading extension points and lets tests exercise supported metadata | Internal callers/fixtures migrate together; valid response, identity and digest bytes stay unchanged; no forwarding aliases | Obsolete response behavior continues to appear covered while the live v2 path can regress | AC-STRUCT-DEAD and AC-STRUCT-GRAPH pass; reference closure includes interfaces, ordinary/harness builds, generated references and external test bridges |
+| F-25 / P1 — Duplicated projection adaptation and implicit construction | REPLACE separate ephemeral/saved adapter implementations with one private typed invocation returning `ProjectionResultV2`, with optional cancellation observation; centralize live provider-error classification; REMOVE the test-only duplicate classifier, unused actor/time parameters, composer clock dependency and implicit projector fallback | Implementation, tests, documentation, affected routing | One provider adapter and explicit construction prevent drift and preserve deterministic semantics as consumers grow | Keep separate caller identity and Jobs lifecycle policies; preserve projection bytes, cancellation/deadline behavior and safe public errors; actor/time remain with authorization, audit and operational owners | Missing dependencies are concealed and copied error mappings can diverge; tests can pass against a classifier the product never uses | AC-STRUCT-PROJECTION and AC-STRUCT-GRAPH exercise the actual adapter, stable vectors, rejection, cancellation, timeout and redaction; no fallback construction remains |
+| F-26 / P1 — Read/query behavior remains HTTP-owned | REPLACE route-owned orchestration with private table-query, graph-query and saved-graph-read applications, typed inputs/outcomes and semantic failures; move SQL/cursor coordination, source validation, graph-query audit, exact reads and status resolution | Implementation, tests, boundary documentation, affected routing; owner clarification only if S-17 identifies a changed requirement | Future consumers reuse behavior without importing route services; distinct read lifecycles remain cohesive and independently testable | Preserve route-specific admission/error precedence, cursor formats, wire shapes, session handling, audit occurrences and exact binding; no generic query framework or shared mutation receipt policy | Security-sensitive ordering and read lifecycle changes remain coupled to transport; future consumers duplicate orchestration | AC-STRUCT-ADMISSION, AC-STRUCT-ROWS, AC-STRUCT-AUDIT, AC-STRUCT-SAVED and AC-STRUCT-BOUNDARY pass through typed components and authenticated HTTP |
+| F-27 / P1 — Construction depends on transport assembly | REPLACE domain assembly from HTTP dependencies with module-owned construction using one database, clock, coordinator and owner ports; validate active-entry dependencies before registration/publication; construct the Reporting provider once and propagate construction failures | Implementation, server composition tests, documentation, affected routing; no new activation contract | One coherent dependency graph prevents mixed handles/clocks and failures deferred until a request or worker runs | Retain inactive-profile module construction, existing activation authority, single-assignment coordinator installation and inactive Reporting/Recovery contributions; no new public activation flag | Unconditional key requirements would break inactive composition; incomplete active checks leave late failures or missing application components | AC-STRUCT-ASSEMBLY and AC-STRUCT-HARNESS prove inactive/active construction, missing-dependency failure, coordinator ordering and consistent dependency identity |
+| F-28 / P2 — Test bridges obscure live semantics; guards miss local coupling | REMOVE migrated wrappers in `semantic_http_test_bridge_test.go` and obsolete production HTTP forwarders; move semantic assertions to semantic results; retain mapper and authenticated HTTP tests; REPLACE import-only coverage with guards that also reject same-package transport references | Tests, obsolete implementation helpers, boundary documentation, affected routing | Tests verify live behavior and enforce dependency direction instead of preserving obsolete assertion APIs | Coordinated test-support/selector changes only; keep independently useful external fixture bridges compiled only in tests | Import-only guards can pass while a reusable component still calls route helpers or returns HTTP errors | AC-STRUCT-BOUNDARY maps every deleted bridge to migrated assertions; guards detect forbidden local transport types/helpers and protect all new components |
+
+### 17.3 Deletion and retention inventory
+
+Paths below are relative to `internal/modules/networkflow` unless explicitly
+qualified. These are inspected candidate dispositions, not claims that S-17
+reference closure is already complete. Before deletion, search production
+callers, interfaces, generated references, build tags, fixture assembly and
+external integration bridges. Record each caller migration and the assertion
+that replaces any useful test coverage. Age and version suffixes alone are
+insufficient deletion evidence.
+
+| Candidate or surface | Disposition | Reference evidence and required handling | Slice |
+| --- | --- | --- | --- |
+| Non-v2 branch in `graph_view_routes.go` saved-result handler | REMOVE | `decodeGraphSemanticRequest` admits v2 only; the following schema branch's alternative cannot be reached by admitted state. Keep strict rejection at untrusted/stored input boundaries. | S-18 |
+| `graphEdgeAnnotations` in `graph.go` | REMOVE | Called by that unreachable branch and `graph_streaming_test.go`; migrate the streaming assertion to actual v2 metadata binding and result output. | S-18 |
+| `graphComposition.SemanticSchemaID` | REMOVE | Assigned by the composer and test fixtures, with no reads found. Remove assignments; do not remove schema validation from admitted input. | S-18 |
+| `routeService.transactions` and its assignment | REMOVE | No reads on the route service; similarly named module/link application coordinator fields are live and retained. | S-18 |
+| `rowMatchesGraphQueryHTTP` | REMOVE | Production wrapper is called only by temporal tests; tests should assert the live semantic predicate and failure. | S-18 |
+| `graphSemanticQueryResource` arguments | REPLACE | The result-limit argument is unused; admitted callers use current v2. Specialize rendering to v2 and remove redundant arguments after checking all callers; retain the discriminator in wire output. | S-18 |
+| `ProjectEphemeral` / `ProjectSaved` adapter implementations | REPLACE | Both invoke `graphprojection.ProjectV2` and duplicate provider-error mapping. Use one typed private invocation; convert its resource at the Network Flow response/composition boundary. | S-19 |
+| `graphProjectionFailedForProjectionError` | REMOVE | Only the test HTTP bridge calls this duplicate classifier. Transfer classification assertions to the live shared adapter and central public error mapping. | S-19 |
+| Composer actor/time arguments and injected `now` | REMOVE | Actor/time reach unused projection parameters; the injected clock supplies only that unused timestamp. Retain duration telemetry and clocks needed by audit, cursors, commands and Jobs. | S-19 |
+| Nil-projector fallback | REMOVE | The composer constructor already requires a projection dependency. Construct valid components explicitly and reject unavailable dependencies at construction/active entry. | S-19 |
+| Application literals in `newRouteService`; repeated Reporting provider construction | REPLACE | Domain applications currently derive admission, receipt readers and clocks from HTTP dependencies alongside the module's store. Module composition must construct and retain coherent application/provider instances. | S-20 |
+| `routeService` read/query methods in `routes.go`, `graph_routes.go`, `graph_view_routes.go` | REPLACE | Live SQL, cursor, source, audit and exact-result orchestration migrates to three private applications; HTTP handlers remain adapters. | S-21a–S-21c |
+| Per-request composer copy with telemetry disabled | REPLACE | Saved-result verification currently copies the composer and clears its observer. Assemble an explicit source-verification dependency without telemetry observation, reusing the same semantic implementation. | S-21c |
+| `semantic_http_test_bridge_test.go` and remaining obsolete semantic HTTP wrappers | REMOVE after caller migration | Preserve semantic assertions, public error translation and real route coverage; do not retain aliases merely to keep old test signatures. | S-22 |
+| Import-only semantic boundary guard | REPLACE | The hand-maintained import check does not detect local route-service types, `APIError` aliases or transport helper calls. Add local-reference coverage without Markdown inputs or a general code-generation framework. | S-22 |
+| `rowMatchesGraphQuery`, `rowMatchesFilter`, identity derivation/validation and canonicalization | RETAIN | Live composer/link callers and owner-defined identity rules; preserve vectors and bounded behavior. Do not confuse these predicates with previously removed in-memory pagination paths. | S-17 preservation ledger |
+| Expired-Jobs-history status fallback | RETAIN | `graphViewMaterializationStatus` derives status from retained declaration/result/failure facts when Jobs history is absent. This is supported history behavior, distinct from missing-dependency fallback construction. | S-21c preservation |
+| Nullable-port semantics, supported state/recovery history and exact-result leases | RETAIN | Adopted semantics and durable guarantees serve current/future consumers. No rewrite, silent deletion, migration retirement or weakening of admission. | All slices |
+| Separate table/link/saved-graph receipt adapters and transaction participants | RETAIN | Distinct admission/replay policies, immutable outcomes and atomic effects are meaningful guarantees. Do not introduce a shared mutation framework during query extraction. | S-20–S-23 preservation |
+| Four functional harness families and inactive module contributions | RETAIN | Exercise current controls through real consumers; keep ordinary-build isolation and Core-owned activation. Do not revive retired tokens or require active secrets for an inactive profile. | S-20, S-23 |
+
+### 17.4 Owner mapping and adoption gates
+
+[Domain](../domain.md) owns vocabulary/navigation within its boundary.
+[The NLSpec research guide](../research/nlspec-spec.md) informs the distinction
+between intent, specification and implementation; it does not adopt subsystem
+behavior. The adopted owners below control their named behavior. Existing code,
+tracker acceptance and passing tests do not establish specification adoption.
+
+| Owner and exact sections | Required preservation or decision | Affected findings / assertions | Adoption and version posture |
+| --- | --- | --- | --- |
+| [Network Flow 6.0.1](../network-flow-activity-nlspec.md) §§5, 13, 16–17, 28–29.1 | Admission precedence, cursors, routes, audit, saved lifecycle, private semantic failures and distinct receipt policies | F-26–F-28; AC-STRUCT-ADMISSION, ROWS, AUDIT, SAVED, BOUNDARY | Existing adopted requirements; proposed private read components implement them. S-17 records route-specific ordering and identifies any actual gap requiring amendment. |
+| Network Flow §§14, 26–27, 29 | Current-only graph semantics, mapping, source snapshots, temporal metadata, one reusable composer and safe errors | F-24–F-26; AC-STRUCT-DEAD, GRAPH, PROJECTION | Remove unreachable alternatives under existing authority. Retain semantic v2, public major 6 and valid digests. |
+| Network Flow §§20.1, 25, 28–29.1 and their referenced Core Extensions owners | Keys, claim/publication admission, inactive contribution safety, strict persisted-state admission | F-27; AC-STRUCT-ASSEMBLY, RECOVERY, HARNESS | Core retains activation authority. No new activation flag, public capability, secret-loading policy or state version. |
+| [Graph Projection 2.2.0](../graph_projection_nlspec.md) §§3–7 | Native-v2 invocation, normalization, deterministic identity/result and provider errors; no actor/time ownership | F-25; AC-STRUCT-GRAPH, PROJECTION | Use the existing typed result and cancellation capability; no new public Graph Projection interface or projection schema. |
+| Graph Projection §§8–9; Network Flow §§28–29; existing Reporting and Recovery owners | Exact result selection/leases, retention, restore transaction and readiness | F-26–F-27; AC-STRUCT-SAVED, RECOVERY | Reporting keeps lease policy/assertion ownership; Graph Projection keeps result persistence; Recovery keeps coordination. No history translation or migration. |
+| Core Common Jobs and Imports owners, as referenced by Network Flow §§18, 28–29 | Jobs execution/finalization, import apply and atomic owner effects | F-25–F-27; AC-STRUCT-ASSEMBLY, AUDIT, RECOVERY, HARNESS | No lifecycle or transaction ownership transfer; provider adapter consolidation does not unify application replay algorithms. |
+| Adopted Testing Harness owner; `contracts/verification/**`, `tools/test_catalog_owner.json`, `tools/test_families/**` | Harness semantics versus executable routing/accounting | F-24–F-28; AC-STRUCT-HARNESS, BOUNDARY, HANDOFF | Harness v2 controls remain unchanged. Only necessary assertion/caller routing changes are proposed; generate downstream outputs through Make. |
+
+No owner amendment is adopted by this update, and no product contract version
+change is currently proposed. S-17 must either cite the existing owner provision
+that permits each change or record an actual amendment with owner, exact
+section, revision, adoption reference, affected projections, compatibility
+decision and assertions. A changed requirement cannot be implemented before
+that record exists. Human review establishes owner/projection agreement;
+runtime, generators, product tests, conformance and release-evidence inputs
+must not read, stat, hash or otherwise depend on Markdown.
+
+### 17.5 Target application and construction boundaries
+
+Keep the supported public Module facade and required source-owner/dependency
+types. The new applications and projection invocation are private; no general
+command/query framework, authorization cache or compatibility API is added.
+
+1. The module supplies one domain database, clock, limits, crypto capabilities
+   and owner ports. Complete coordinator-dependent applications during the
+   existing single-assignment composition step, while routes/workers remain
+   quiescent. Application constructors perform no IO or hidden work. HTTP
+   assembly receives completed applications and retains transport auth/session
+   framing; it does not choose another domain database or clock.
+2. Preserve inactive-profile module construction and its Reporting/Recovery
+   contributions. Validate all required active dependencies before worker
+   registration or route publication, through existing activation entrypoints.
+   A missing active dependency fails before work starts. Do not turn that check
+   into a second claim authority or require active keys for inactive startup.
+3. Use one private projection invocation returning `ProjectionResultV2` and
+   accepting an optional cancellation-observation capability. Keep caller
+   identity selection, audit and Jobs finalization at their existing owners.
+   Centralize provider-error classification and retain wrapped causes and safe
+   adapter-specific translation. No default projector is constructed mid-call.
+4. Private table-query, graph-query and saved-graph-read applications accept
+   typed inputs and return typed outcomes or semantic failures. Read admission
+   yields a private request-scoped value so adapters preserve each route's
+   current admission-before-semantic-decoding rules. Every continuation obtains
+   fresh admission; these values are not cached across requests or used to skip
+   transaction rechecks. S-17 records exact ordering, including route-specific
+   path, envelope and query framing; do not impose one uniform precedence.
+5. HTTP adapters retain authentication/CSRF framing, request/path extraction,
+   session handling, status/envelope translation and presentation. Query
+   applications own live SQL/cursor orchestration, graph source validation,
+   graph-query audit and exact saved-result reads. Reuse existing SQL, cursor
+   crypto and source composition. Saved-result verification receives an
+   explicitly assembled source dependency without telemetry observation;
+   workers/restore retain their contextual limits and observation policies.
+6. Preserve distinct table, indicator-link and saved-graph command admission,
+   receipt, replay and transaction behavior. Do not add response-time
+   authorization or broaden replay/no-extra-audit guarantees to operations
+   without adopted replay semantics.
+
+### 17.6 Workstreams, dependencies, risks and exit criteria
+
+Proposed execution order: **S-17 → S-18 → S-19 → S-20 → S-21a → S-21b →
+S-21c → S-22 → S-23**. Every row is a separate workstream, initially
+**PLANNED / NOT EXECUTED**. This document update does not complete S-17.
+
+Once implementation is authorized, a required failing assertion blocks the
+affected slice and progression. After each slice satisfies its exit criteria,
+record its evidence and update this tracker before starting the next, including
+each S-21 substream. Preserve failures and justified skips; do not mark a skipped
+required assertion as passed. S-23 is the final validation and handoff slice.
+
+| Slice | Finding and work | Dependencies | Principal risk | Exit criteria |
+| --- | --- | --- | --- | --- |
+| S-17 — Authority, reference closure and baseline | All findings: revalidate checkout/index, owners, complete retain/remove/replace inventory, route ordering, assertion IDs and live selectors; record adoption before changed requirements | Future implementation authorization; this completed document plan | Treating historical names, tests or tracker acceptance as owner authority; deleting necessary behavior | Every candidate has reference evidence and caller/fixture disposition; every invariant has a fresh baseline or assigned blocking defect; owner/projection/version decisions recorded; tracker checkpoint complete |
+| S-18 — Obsolete graph surface removal | F-24: migrate meaningful streaming/temporal/metadata assertions, then delete obsolete branches, fields and wrappers | S-17 exit and tracker update | Losing current response metadata or leaving disconnected fixtures | AC-STRUCT-DEAD and relevant GRAPH assertions pass; current v2 responses retained, retired references absent, no aliases; tracker updated |
+| S-19 — Projection integration | F-25: one typed invocation and live classifier, explicit dependency construction, remove unused operational inputs | S-18 exit and tracker update | Identity drift, error-policy drift or changed cancellation behavior | AC-STRUCT-PROJECTION and GRAPH pass on actual adapter/consumer paths; current deterministic bytes and caller policies retained; tracker updated |
+| S-20 — Construction and active readiness | F-27: module-owned services/provider, coherent database/clock/ports, active checks at existing gates | S-19 exit and tracker update | Breaking inactive startup, mixed dependencies, hidden starts or premature worker registration | AC-STRUCT-ASSEMBLY and relevant HARNESS assertions pass; ordinary/harness assembly succeeds, missing active dependencies fail before work, inactive contributions remain usable; tracker updated |
+| S-21a — Table and row queries | F-26: source profiles, table list/get, accepted-row and diagnostic reads; preserve live SQL and cursor algorithms | S-20 exit and tracker update | Admission precedence, sort/null/counter or pagination regression | Relevant ADMISSION and ROWS assertions pass through private application, authenticated HTTP and live PostgreSQL; route layer no longer orchestrates these reads; tracker updated |
+| S-21b — Ephemeral graph queries | F-26: graph query/contributor orchestration and committed query audit; reuse composer/adapter | S-21a exit and tracker update | Duplicate audit, stale-source handling, unbounded retained data or cancellation regression | GRAPH, relevant ADMISSION, AUDIT and contributor ROWS assertions pass; no alternate graph algorithm or audit path added; tracker updated |
+| S-21c — Saved-graph reads | F-26: declaration list/get/status, exact retrieval, source verification/metadata and contributors | S-21b exit and tracker update | Mismatched result exposure, lease redirection or weakened retained-history semantics | SAVED, relevant ADMISSION, RECOVERY and Reporting lease assertions pass, including withdrawn authority and refresh/deletion races; no per-request composer mutation/copy; tracker updated |
+| S-22 — Semantic test and boundary closure | F-28: finish bridge removal, live assertion migration and local-reference guards; update authored routing and regenerate affected outputs through Make | S-21c exit and tracker update | Passing tests against disconnected helpers or guards that ignore local coupling | AC-STRUCT-BOUNDARY passes; every bridge deletion has migrated assertions and current selectors; all new components protected, no docs-derived checks; tracker updated |
+| S-23 — Validation and handoff completion | All findings: fresh final verification, inventory/assertion closure, owner review, compatibility/release notes and seven handoff tables | S-22 and every earlier exit and tracker checkpoint | Broad targets conceal unexercised assertions; repository success is mistaken for deployment | AC-STRUCT-HANDOFF and all required assertions/gates pass; F-24–F-28 closed with new evidence; removed callers/surfaces and rollback documented; seven tables complete; operational work reported separately |
+
+### 17.7 Assertion matrix and live routing
+
+The assertion IDs below define this iteration's planned evidence obligations.
+Every status is **NOT RUN** for F-24–F-28. Existing selector existence establishes
+routing only, not complete scenario coverage. S-17 maps each assertion to exact
+test names/scenarios, supplies missing assertions through their real owners and
+records a fresh baseline or blocking defect. Do not invent a passing selector
+or let a renamed/removed test silently disappear from accounting.
+
+| Assertion ID | Required scenarios | Slice responsibility | Initial owner / routing anchors |
+| --- | --- | --- | --- |
+| AC-STRUCT-DEAD | All candidate definitions/callers accounted for; current metadata replaces old annotation coverage; no unreachable compatibility branch or production test-only helper remains | S-17 baseline; S-18 closure; S-22 audit | `module.networkflow`; R-STRUCT-GRAPH, R-STRUCT-TEMPORAL; production surface and reference inspection |
+| AC-STRUCT-GRAPH | Current v2 response, deterministic graph/snapshot/selector identities, stable digest vectors, temporal buckets/empty buckets, contributing-row bounds and cancellation | S-18, S-19, S-21b | `module.networkflow`, `module.graphprojection`; R-STRUCT-GRAPH, R-STRUCT-TEMPORAL, R-STRUCT-CONTRIBUTORS, R-STRUCT-GP |
+| AC-STRUCT-PROJECTION | Actual shared invocation: success, provider contract rejection, resource limit, cancellation, deadline and unknown error; safe public translation; no fallback projector; valid construction and preserved causes | S-19 | `module.networkflow`, `module.graphprojection`; extend actual adapter tests under routed owner rows in S-17; R-STRUCT-GP supports provider parity |
+| AC-STRUCT-ADMISSION | Per-route authentication/path/query/body/admission/error ordering; hidden targets, session/membership withdrawal and restoration; fresh continuation checks; preserve command transaction rechecks and replay policies | S-20, S-21a–S-21c | `module.networkflow`, `app.server`, `web.networkflow`; R-STRUCT-QUERY, R-STRUCT-PAGES, R-STRUCT-SAVED, R-STRUCT-READ-RECOVERY, R-STRUCT-BROWSER-PAGES |
+| AC-STRUCT-ROWS | Live SQL order/ties/nulls/large counters, page boundaries and forward continuation, diagnostics, expired/wrong-kind/wrong-bound cursors, stale selected tables, cancellation, bounded contributor iteration | S-21a, S-21b, S-21c | `module.networkflow`; R-STRUCT-PAGES, R-STRUCT-CONTRIBUTORS, R-STRUCT-BROWSER-PAGES |
+| AC-STRUCT-AUDIT | Real committed graph-query occurrences scoped to actor/incident/operation/correlation; denied/failed/rolled-back zero counts; unchanged no-op and replay guarantees only where adopted | S-20, S-21b, S-23 preservation | `module.networkflow`, `module.imports`, `platform.jobs`; retained actual harness audit consumers and authenticated query tests; S-17 records exact test selectors |
+| AC-STRUCT-SAVED | Exact selected binding/metadata, stale or mismatched source rejection, refresh/deletion races, materialization status with expired Jobs history, withdrawn read authority, exact Reporting lease identity/expiry/release behavior | S-21c | `module.networkflow`, `module.reporting`; R-STRUCT-SAVED, R-STRUCT-TEMPORAL-SAVED, R-STRUCT-READ-RECOVERY, R-STRUCT-EXACT-BROWSER, R-STRUCT-LEASE |
+| AC-STRUCT-ASSEMBLY | Inactive construction without active keys, complete active composition, each missing active dependency, single-assignment/order, no premature work, consistent domain database/clock and retained Reporting provider | S-20 | `app.server`, `module.networkflow`; R-STRUCT-CONFIG, R-STRUCT-SERVER, R-STRUCT-PROCESS; add direct construction cases through authored routing |
+| AC-STRUCT-RECOVERY | Shared strict worker/restore/startup payload admission; invalid bytes do not select declarations or change retained state; supported history; bounded pages and whole-restore rollback before readiness | S-20, S-21c, S-23 preservation | `module.networkflow`, `platform.jobs`, `module.recovery`, `module.graphprojection`, `module.reporting`; reroute actual prior payload/recovery cases from live catalogs, not historical results |
+| AC-STRUCT-HARNESS | Ordinary-build isolation; retained fault/randomness/auth-transition/audit consumers still exercise real effects; exact fixture scope, single consumption and no global entropy/control hooks | S-20, S-23 | `module.networkflow`, `app.server`, `harness.browser`; R-STRUCT-PROCESS plus actual functional consumer selectors established in S-17 |
+| AC-STRUCT-BOUNDARY | Private read components and reusable/persisted semantics exclude HTTP types, statuses and helpers, including same-package references; semantic assertions use live components; centralized mapper and real HTTP tests retained | S-21a–S-22 | `module.networkflow`, `app.server`, `web.networkflow`; positive production/dependency guards and R-STRUCT-WEB-BOUNDARY; extend authored routing for new guards |
+| AC-STRUCT-HANDOFF | Every required assertion has fresh passing evidence; every deletion has caller/fixture migration; owner/projection review, versions, release/rollback and seven handoff tables complete | S-23 | All affected owners; exact final command/artifact ledger and human document review |
+
+The following are verified existing row IDs at the inspected basis. These
+tracker aliases are human navigation aids only; no runtime or test reads them.
+Use the owning manifest for runner, exact test/scenario selectors, services and
+claim posture. Revalidate them before execution.
+
+| Routing anchor | Owner | Existing row ID |
+| --- | --- | --- |
+| R-STRUCT-GRAPH | `module.networkflow` | `module.networkflow.unit.bounded_graph_aggregation_and_selectors` |
+| R-STRUCT-TEMPORAL | `module.networkflow` | `module.networkflow.unit.time_bucket_graph_backend` |
+| R-STRUCT-CONTRIBUTORS | `module.networkflow` | `module.networkflow.integration.bounded_graph_contributor_pipeline` |
+| R-STRUCT-GP | `module.graphprojection` | `module.graphprojection.engine.v2_pure_determinism` |
+| R-STRUCT-QUERY | `module.networkflow` | `module.networkflow.unit.query_authoring_admission` |
+| R-STRUCT-PAGES | `module.networkflow` | `module.networkflow.integration.pagination_recovery` |
+| R-STRUCT-SAVED | `module.networkflow` | `module.networkflow.integration.saved_graph_lifecycle_v2` |
+| R-STRUCT-TEMPORAL-SAVED | `module.networkflow` | `module.networkflow.integration.time_bucket_saved_graph_lifecycle` |
+| R-STRUCT-READ-RECOVERY | `module.networkflow` | `module.networkflow.browser_stateful.saved_graph_read_recovery` |
+| R-STRUCT-EXACT-BROWSER | `module.networkflow` | `module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle` |
+| R-STRUCT-BROWSER-PAGES | `module.networkflow` | `module.networkflow.browser_stateful.pagination_recovery` |
+| R-STRUCT-LEASE | `module.reporting` | `module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2` |
+| R-STRUCT-CONFIG | `module.networkflow` | `module.networkflow.unit.configuration_claim_and_manifest_admission` |
+| R-STRUCT-SERVER | `app.server` | `app.server.unit.invalid_deployment_config_and_bootstrap_prefligh_a87fd921ec` |
+| R-STRUCT-PROCESS | `module.networkflow` | `module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27` |
+| R-STRUCT-WEB-BOUNDARY | `web.networkflow` | `web.networkflow.boundary_support.networkflowboundarypolicy_suite_6f1f265586` |
+
+R-STRUCT-GRAPH currently includes `TestStreamingDefaultGraphV1Golden_Unit`.
+Its legacy name does not authorize deleting its useful streaming assertions.
+S-18 must migrate them to current response metadata and update the selector if
+renamed. R-STRUCT-LEASE remains Reporting-owned even though its Go test resides
+in Network Flow. Source package placement does not transfer verification owner.
+
+### 17.8 Validation, compatibility and release handoff
+
+Preserve public major **6**, durable state **4**, valid materialization payload
+**v1**, source-profile response **v2**, semantic query **v2**, valid identifiers
+and digest bytes, immutable receipts, atomic owner effects and exact-result
+leases. No product schema, migration, dual reader, compatibility export or
+harness vocabulary change is expected. Remove private helpers and test APIs
+with their callers in one coordinated repository change. Preserve supported
+history, current strict admission and all four functional harness families.
+
+For each future slice, first use `make task-guide ROLE=module-author OWNER=<owner>`
+and `make explain-test-owner OWNER=<owner>`, then select the narrowest covering
+`make test-slice OWNER=<owner> ROWS=<row-id,...>` and
+`make service-backed-test-slice OWNER=<owner> ROWS=<row-id,...>` targets. Resolve
+runner/services/build-tag coverage through the live task surface; broad target
+success does not substitute for a required assertion. Route affected evidence
+across `module.networkflow`, `module.graphprojection`, `module.reporting`,
+`module.imports`, `platform.jobs`, `module.recovery`, `app.server`,
+`web.networkflow` and `harness.browser` according to actual ownership.
+
+Each slice execution record must include changed files, owner decisions and
+adoption references, compatibility effects, assertion IDs/test selectors,
+exact Make commands, run/artifact paths, failures, skips with reasons, and
+individual exit-criterion outcomes. Do not claim a complete baseline or product
+pass from a source inspection or registry-only harness assertion.
+
+S-23 performs this final sequence after all earlier checkpoints:
+
+1. Run `make agent-finalize` before broader verification. Supply `RESULTS_DIR`
+   only for valid retained successful evidence; otherwise explicitly record
+   that retained-run maintenance was skipped because it was unset. Historical
+   runs from S-16 do not certify changed code.
+2. Run `make generate-drift`, `make generated-artifact-policy-check`,
+   `make json-shape-check`, `make migration-drift` and `make harness-contract`.
+   If implementation changed authored routing, regenerate affected outputs
+   through their Make owners before checking drift; never hand-edit generated
+   outputs or create Markdown-dependent executable inputs.
+3. Run ordinary and harness build coverage through current Make routing,
+   `make frontend-typecheck`, `make frontend-import-boundary-check`, affected
+   frontend/stateful browser scenarios and `make check`. Include Reporting's
+   exact-result lease row and actual retained harness consumers.
+4. Run `make lint-markdown` and separately review tracker structure, local
+   links/anchors, history and seven handoffs because its current lint globs omit
+   this tracker. Review owner/projection agreement and the complete caller,
+   fixture and selector migration inventory.
+5. Close F-24–F-28 only after every required assertion and final gate passes.
+   Record failures and justified skips visibly, complete seven handoff tables,
+   and publish human release notes listing removed helpers/fields/test bridges,
+   private adapter changes, caller migrations and active-readiness hardening.
+
+Rollout pairs implementation with its matching callers, fixtures and any
+regenerated routing artifacts. No database migration is anticipated. Rollback
+uses compatible code that retains existing key requirements, strict payload
+admission, durable identity, receipts and lease guarantees; it must not restore
+the engineering-key fallback or obsolete compatibility readers. Repository
+verification and operational deployment are separate outcomes. Deployment and
+the earlier telemetry cutover remain external until executed and evidenced;
+this refactor does not claim a new capacity or operational-readiness certificate.
+
+### 17.9 Document execution and validation evidence
+
+The earlier Plan Mode pass inspected owners, source and live routing without
+editing files or running product tests. The accepted document-update request
+now permits this tracker edit. Only the opening current-status text and the
+new §17 change; §§1–16 retain their complete contents and historical evidence.
+No S-17–S-23 implementation slice has begun.
+
+| Check / action | Result for this document update | Evidence or limitation |
+| --- | --- | --- |
+| Repository/index basis | PASS | Clean initial status; HEAD, tracker blob, index hash and Go inventory reconfirmed in §17.1. |
+| Owner/source review | COMPLETE for planning | Named domain/research/NLSpecs and the live projection/composer/route/module/test seams establish §17.2–17.5; full reference closure and runtime baselines remain S-17 work. |
+| `make task-guide ROLE=module-author OWNER=module.networkflow` and `make explain-test-owner OWNER=module.networkflow` | PASS | Both commands exited 0 in this document execution. Owner explanation reports 93 rows, 44 service-backed, and the narrow slice targets. Navigation evidence only; no product assertion is implied. |
+| `make lint-markdown` | PASS | Exit 0; run `.cartulary/test-results/20260919T201614Z-p88758`, summary `adhoc/lint-markdown/tool-run-summary.json`, duration 82,510 ms. Existing globs omit this tracker; this pass does not replace its separate document audit. |
+| Tracker structure, links, IDs, dependencies, routing anchors and preserved history | PASS after dependency clarification | Read-only audit: 11 new subsections, five findings, nine ordered slices, twelve assertion obligations, sixteen live routing anchors, four local links, sixteen new tables and seven current handoffs. §§1–16 match the committed baseline byte-for-byte. Initial literal predecessor check flagged S-23's collective dependency wording; explicitly naming S-22 resolved it, and the repeated chain/heading/whitespace check passed. No product test or executable policy added. |
+| `git diff --check`, index comparison and changed-file review | PASS | Only this tracker has an unstaged delta; no staged changes. Index SHA-256 equals §17.1. Historical body preserved exactly; final evidence/status edits are subject to the same read-only document audit. |
+| Product tests, generation, builds, `make check`, frontend/browser suites and deployment | NOT RUN — outside document-only scope | Planned for future slices; no owner specification, product contract, implementation, test, routing or generated file changed. |
+| `make agent-finalize` / retained-run maintenance | NOT RUN — no broader product verification in this documentation step | Finalization belongs to S-23; no retained successful product run is supplied or recertified here. |
+
+The manual document audit is documentation maintenance, not runtime, product
+test, conformance or release evidence. Final edits record these results and
+completion statuses; the substantive plan and completed historical evidence
+remain intact. No product checks or lint globs were changed to make Markdown
+part of an executable product input.
+
+### 17.10 Current planning handoff tables
+
+These seven tables are the current handoff for F-24–F-28. They supersede only
+the current-session interpretation of earlier tables; all earlier handoffs
+and completed iteration records remain intact. Future slices update their
+affected rows and append execution evidence before progression.
+
+#### Scope and authority
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| DOCUMENT PLAN COMPLETE | Only this tracker changed. F-24–F-28 target focused structural closure; all future slices remain PLANNED / NOT EXECUTED. §17.9 records documentation validation; existing adopted owners remain authoritative. | Future implementation begins with S-17 after implementation authorization, not by interpreting this plan as adoption. |
+
+#### Backend module boundary
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| PLANNED / NOT IMPLEMENTED | F-24/F-25 remove obsolete graph paths and consolidate the private projection adapter. F-27 centralizes construction. F-26 introduces separate table-query, graph-query and saved-read applications. F-28 closes semantic/test boundaries. | S-17 reference/admission baseline, then ordered S-18–S-22 exits; preserve inactive composition and distinct command receipts. |
+
+#### Frontend module boundary
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| PRESERVATION PLANNED; NOT VERIFIED | No UI/product feature or wire-shape change is proposed. Preserve captured attempts, committed pagination, saved-result exposure and withdrawal on authority loss. | Run affected `web.networkflow` and stateful browser rows against the extracted live HTTP paths; record selectors/results during S-21/S-23. |
+
+#### Contract and codegen
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| NO PRODUCT VERSION CHANGE PLANNED | Retain public 6, state 4, payload v1, source-profile v2, semantic v2 and harness v2. Private/test caller changes are coordinated; routing output changes follow authored inputs through Make. No new owner adoption is claimed. | S-17 records owner/projection decisions; S-22 regenerates affected routing if needed; S-23 checks drift, shapes, policy and human owner agreement. |
+
+#### Tests and harness
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| ASSERTIONS PLANNED / PRODUCT TESTS NOT RUN | Twelve AC-STRUCT obligations and live row anchors are recorded. Existing rows are starting points, not proof of full coverage. All four functional harness families and ordinary-build isolation remain required. | S-17 assigns exact assertions/baselines; each slice runs current owner targets; S-23 completes fresh final gates and preserves all failed/skipped evidence. |
+
+#### Security and authorization
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| PRESERVATION PLANNED; NOT VERIFIED | Preserve route-specific precedence, fresh continuation admission, current target visibility, transaction rechecks, safe errors, explicit digest keys, immutable receipts, strict payload admission and exact leases. No response-time auth or shared receipt framework. | AC-STRUCT-ADMISSION, PROJECTION, AUDIT, ASSEMBLY, RECOVERY and HARNESS require actual consumer assertions; Reporting retains lease-test ownership. |
+
+#### Open risks and next session
+
+| Status | Current handoff | Next action / gate |
+| --- | --- | --- |
+| IMPLEMENTATION OUTSTANDING; OPERATIONS EXTERNAL | Full deletion closure and new runtime baselines are pending; inactive/active assembly and admission precedence are the main sequencing risks. S-16 remains historical completion. Deployment and telemetry cutover remain external. | After this document is complete and implementation is authorized, begin S-17. Finish the overall future effort with S-23 validation, release notes and all seven handoff updates; do not jump from planning to verified readiness. |
+
+### 17.11 Completion assessment for this iteration
+
+| Dimension | Current status | Completion condition |
+| --- | --- | --- |
+| Planning content | COMPLETE | Five findings, explicit dispositions, owner mapping, nine ordered workstreams, twelve assertion obligations, compatibility and seven handoffs recorded. |
+| Document update and audit | COMPLETE | §17.9 checks pass; only tracker changed, history/index preserved and current handoffs reflect document completion. |
+| Owner adoption | NO NEW AMENDMENT ADOPTED | Existing owners control the plan; S-17 records any necessary amendment before changed requirements are implemented. |
+| Implementation readiness | PENDING S-17 | Full caller closure, route precedence, exact assertion mapping and fresh baseline or assigned blocking defect required. |
+| Implementation completion | NOT STARTED | S-17–S-22 exits and every tracker checkpoint remain future work. |
+| Verified completion and release handoff | NOT STARTED | S-23 and every required assertion/final gate must pass with new evidence. |
+| Operational rollout | EXTERNAL / NOT EXECUTED | Coordinated deployment and prior telemetry cutover need separate execution evidence. |
+
+### 17.12 Accepted implementation plan and owner adoption
+
+The current user request explicitly adopts the broader major-7 plan. This
+section supersedes the structural-only and major-6 assumptions in §§17.1–17.8;
+§17.9 remains the historical document-update record. The previous S-22 is split
+into S-22a contract cutover and S-22b boundary closure.
+
+Adoption: Network Flow 7.0.0, NF-REQ-176 / Table 21-C adopts
+`network_flow_route_admission_v1`; §16.3 adopts
+`network_flow_graph_query_completion_v1`; NF-REQ-210–212 adopt private read
+applications, coherent active construction and compatible state preservation.
+Core 00 recognition and Core 04 discovery assertions follow major 7. Core 01
+REQ-01-548 remains reserved dispatch authority. Domain concepts do not change.
+
+| Slice | Required change | Exit and dependency |
+| --- | --- | --- |
+| S-17 | Adopt owners; fresh baseline; reference/selector closure | Recorded adoption, baseline and caller dispositions before S-18 |
+| S-18 | Delete F-24 obsolete paths; migrate useful graph assertions | DEAD/GRAPH pass before S-19 |
+| S-19 | One typed projection invocation; explicit dependencies and live classification | PROJECTION/GRAPH pass before S-20 |
+| S-20 | Module-owned active bundle; retained Reporting provider; fallible import contribution | ASSEMBLY/HARNESS pass before S-21a |
+| S-21a | Common admission for all 19 operations; typed table/row/diagnostic application | ADMISSION/ROWS pass before S-21b |
+| S-21b | Typed graph/contributor application; audit completion at commit | GRAPH/AUDIT/ROWS pass before S-21c |
+| S-21c | Typed saved reads; explicit source verifier; safe missing-result classification | SAVED/RECOVERY/lease evidence before S-22a |
+| S-22a | Major-7 discovery, Imports and browser contract cutover; generation | CONTRACT/drift and unchanged durable bytes before S-22b |
+| S-22b | Remove migrated bridges; enforce local-reference boundaries; routing closure | BOUNDARY and functional consumer evidence before S-23 |
+| S-23 | Fresh final verification, release notes and seven handoffs | All required assertions pass; close each finding separately |
+
+Add AC-STRUCT-CONTRACT: current discovery, runtime bindings, Imports owner
+reference, standard frontend entrypoint and supported-major checks agree on 7;
+unsupported clients retain Base behavior; state 4, semantic v2, payload v1,
+resource schemas, identities, receipts, import state and exact leases remain
+compatible. No database migration, translator or dual-major runtime is planned.
+
+Read applications accept typed owner inputs/outcomes and semantic failures.
+HTTP owns authentication/CSRF framing, extraction, session handling and rendering.
+Admission is fresh per request/continuation. Command receipt/replay and transaction
+policies remain distinct. Query audit commits after successful computation and
+before HTTP delivery; post-commit delivery failure cannot erase the occurrence.
+Retained Jobs history absence is distinct from operational lookup failure.
+
+Every slice record includes changed files, owner decisions, compatibility,
+assertion/test selectors, exact Make commands, artifact roots, failures/skips
+and exit outcomes. Routing changes accompany their tests, not just final closure.
+Required failing checks block the affected slice; expected new-major differences
+are tracked separately from preservation failures. The final commands and
+handoffs remain §17.8 with major 7 replacing its public-major-6 assumption.
+
+### 17.13 Implementation execution ledger
+
+#### S-17 — Specification closure and baseline (COMPLETE)
+
+Checkout: `fb1153afed4123cf778bca6986ffb3ab2a4f06ae`. Initial worktree contained
+only the pre-existing tracker edit (392 insertions / 9 deletions); index unchanged.
+Owner amendments: Network Flow NLSpec, Core 00 recognition, Core 04 conformance.
+The attached-document restrictions are historical; the current user request is
+execution authority. Public compatibility changes require major 7; no durable
+schema or identity change is adopted.
+
+Reference closure confirms the §17.3 candidates. Projection callers are the
+composer, materialization worker and unit/capacity fixtures; constructor callers
+include restore and telemetry fixtures. Graph annotation callers are the
+unreachable saved-result branch and streaming golden. The temporal wrapper has
+only temporal-test callers. Separate command receipt participants, strict
+payload decoder, supported historical state and Reporting leases remain live.
+
+`make task-guide ROLE=module-author OWNER=module.networkflow` selects narrow
+owner slices. Baseline unit command:
+`make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.bounded_graph_aggregation_and_selectors,module.networkflow.unit.time_bucket_graph_backend,module.networkflow.unit.query_authoring_admission`
+PASS, run `.cartulary/test-results/20260919T203336Z-p95881`.
+Service-backed pagination/saved-lifecycle baseline is running. New-major admission,
+audit delivery, complete active construction and local-reference guard assertions
+will be added in their named workstreams; they are not claimed covered by these
+baseline selectors. Historical §17.7 routing anchors remain starting points only.
+
+Service-backed baseline command:
+`make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.pagination_recovery,module.networkflow.integration.saved_graph_lifecycle_v2`
+PASS, run `.cartulary/test-results/20260919T203336Z-p95894` (3/3 units).
+S-17 exit: owner adoption and compatibility decisions recorded; caller
+migrations assigned; fresh preservation baseline passed. No baseline defect
+blocks S-18. Specification/projection divergence is intentional until S-22a;
+this development checkout is not an independently releasable major-7 build.
+
+#### S-18 — Obsolete graph removal (COMPLETE)
+
+Removed the unreachable non-v2 result branch, old annotation generator,
+unread composition schema field, route coordinator field and test-only
+production predicate wrapper. Specialized semantic rendering to admitted v2.
+Migrated the streaming golden to real v2 projection/metadata binding, preserving
+bounded aggregation/example assertions; temporal tests now use the live predicate.
+Changed Network Flow graph/composer/routes/semantic adapter, related unit/temporal/
+capacity fixtures, saved command caller and authored test-family selector.
+
+Validation: the S-17 focused unit command PASS at
+`.cartulary/test-results/20260919T203724Z-p15319`; `make generate` PASS at
+`.cartulary/test-results/20260919T203745Z-p16390`.
+Reference search found no remaining deleted-symbol or old streaming-selector
+references in implementation/tooling. AC-STRUCT-DEAD and relevant GRAPH exits
+pass; valid identities and response semantics unchanged. No aliases retained.
+The narrow tests compile the module and its external integration bridges.
+
+#### S-19 — Projection integration (COMPLETE)
+
+One private typed `Project` invocation now serves ephemeral and saved callers;
+resource conversion stays at the consumer. Removed unused composer actor/time
+and clock dependency, nil-projector fallback and duplicate test classifier.
+Updated module/restore constructors, worker, capacity/temporal/streaming fixtures
+and actual live classification tests; routed classification assertions explicitly.
+Wrapped provider causes survive semantic translation; callback cancellation retains
+Graph Projection's existing cancellation normalization, while context deadlines
+retain their deadline cause.
+
+Focused Network Flow unit rows (S-18 rows plus graph telemetry) PASS at
+`.cartulary/test-results/20260919T204101Z-p21752` (2/2 units).
+`make generate` PASS at `.cartulary/test-results/20260919T204127Z-p22692`.
+`make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism`
+PASS at `.cartulary/test-results/20260919T204137Z-p25651`.
+Preserved failed iterations: `.cartulary/test-results/20260919T203929Z-p19806`
+(unused migrated test import), selector preflight rejection (ASCII ordering), and
+`.cartulary/test-results/20260919T204025Z-p20733` (test initially expected callback
+deadline instead of the provider's defined cancellation normalization). All were
+change-related and corrected; production provider semantics were not weakened.
+AC-STRUCT-PROJECTION and GRAPH exits pass; identity vectors remain unchanged.
+
+#### S-20 checkpoint — COMPLETE
+
+- Base construction now retains the incident/auth dependencies, one Reporting provider (with immediate constructor error propagation), and one unobserved source verifier. Active composition validates every required dependency before publishing an immutable application bundle or registering any contribution. Import contribution is fallible; server assembly propagates it. HTTP cannot substitute a domain database or clock.
+- Construction tests use ports that panic on I/O, verify inactive Recovery/Reporting availability, reject each missing active dependency before registration, prove single-assignment coordinator ordering, and retain provider/facade identity. Constructors do not start work. AC-STRUCT-ASSEMBLY and AC-STRUCT-HARNESS are satisfied for this checkpoint; full process and harness scenarios remain required in S-23.
+- Changed: module/application composition, routes, Reporting source, cleanup dispatcher, server runtime assembly, configuration/construction tests. Private Go caller migration only; no durable bytes changed.
+- `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.configuration_claim_and_manifest_admission,module.networkflow.unit.query_authoring_admission` passed at `.cartulary/test-results/20260919T204651Z-p27963`.
+- `make build-server build-server-harness` passed at `.cartulary/test-results/20260919T204657Z-p28858` and `.cartulary/test-results/20260919T204657Z-p28860` (4/4 units each).
+- Historical failures retained: `.cartulary/test-results/20260919T204257Z-p26381` and `.cartulary/test-results/20260919T204404Z-p26947` failed compilation because the moved interface left an unused pgx import; removed and rerun successfully. No required S-20 check skipped.
+
+#### S-21a checkpoint — COMPLETE
+
+- All 19 operations use common current session/CSRF, incident visibility/role/lifecycle, resource-path, and query/body admission. Malformed incidents are concealed; invalid table/graph paths use safe resource envelopes. Bodyless reads reject content. Saved contributor decoding now precedes declaration lookup. Core reserved-family dispatch remains outside this admission path.
+- Added `tableQueryApplication` with typed outcomes for profile limits, table list/get, accepted rows and diagnostics. SQL paging, scope resolution, keyset/cursor binding and current direct-call admission belong to the application; presentation remains separate. Request decoders now have transport-independent owner-value implementations. Unknown-member selection is deterministic, including graph aggregation/limits. Command transaction/receipt order is retained.
+- AC-STRUCT-ADMISSION/ROWS/BOUNDARY: fresh direct-call admission is covered under `TestQueryAuthoringAdmission_Unit`; all-19 authenticated competing-error matrix and functional authorization transitions are under `TestTableLifecycleAdmissionAndReplay_Integration`; SQL paging/cursor behavior remains under `TestNetworkFlowPaginationRecovery_Integration`. Existing routed selectors retained.
+- `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.query_authoring_admission,module.networkflow.unit.configuration_claim_and_manifest_admission` passed at `.cartulary/test-results/20260919T205508Z-p89567` (prior passes also at `20260919T205316Z-p65534` and `20260919T205434Z-p70976`).
+- `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.pagination_recovery,module.networkflow.integration.table_lifecycle_admission_replay` at `.cartulary/test-results/20260919T205259Z-p51309` passed paging but failed the new matrix's fixture setup: incident closure must populate `closed_at`. Corrected fixture; lifecycle-only rerun passed 3/3 at `.cartulary/test-results/20260919T205432Z-p70707`.
+- Historical compile failures: `.cartulary/test-results/20260919T205051Z-p50028` (imports moved too aggressively) and `.cartulary/test-results/20260919T205139Z-p50662` (saved-contributor decode movement temporarily preceded declaration-dependent semantic decoding). Corrected before the passing runs. No required S-21a check skipped. Public compatibility change is the adopted major-7 error ordering; durable bytes unchanged.
+
+#### S-21b checkpoint — COMPLETE
+
+- `graphQueryApplication` owns execution, contributors, source/cursor checks and committed query audit. It returns typed owner outcomes. Admission is fresh for direct calls, and query audit rechecks authority inside its transaction before appending. Failed computation/cancellation cannot begin audit; transaction errors retain causes and never trigger automatic replay. Post-commit session/delivery failures cannot reverse the occurrence.
+- `TestGraphQueryCompletion_Unit` calls the actual handler/application with controlled transaction and transport ports: denied/computation/limit/cancel failures, audit rollback, commit rejection, indeterminate commit, session failure, failed response write, and independent retry. All pass. Existing PostgreSQL harness assertions verify committed audit correlation and bounded contributors. AC-STRUCT-AUDIT/GRAPH/BOUNDARY covered.
+- Changed graph read application/presentation, handler, active composition, session port typing, authored test routing; removed route composition adapter. Successful response/identity and persisted bytes retained.
+- `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.bounded_graph_aggregation_and_selectors,module.networkflow.unit.query_authoring_admission` passed at `.cartulary/test-results/20260919T210040Z-p12024`.
+- `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.bounded_graph_contributor_pipeline` passed 3/3 at `.cartulary/test-results/20260919T210012Z-p93213`.
+- `make generate` passed at `.cartulary/test-results/20260919T210055Z-p12883`; routing regenerated. Historical test compilation failures retained at `20260919T205942Z-p92497` and `20260919T210011Z-p92945`: ambiguous embedded test database/transaction methods and an external-package digest fixture reference. Fixed with explicit database and digest test ports. No required check skipped.
+
+#### S-21c checkpoint — COMPLETE
+
+- `savedGraphReadApplication` now owns declaration list/get, exact selected-result reads, source verification, response metadata and contributors. A retained unobserved composer replaces per-request mutation/copying. Contributors validate the complete immutable envelope before querying source rows. HTTP has no store/composer/Jobs/cursor/digest dependencies; it retains limits, authentication, applications and presentation.
+- Replaced the general materialization status helper with typed missing-selected-result classification. Only explicit missing history (or no recorded job) uses declaration failure facts. Unexpected Jobs errors retain their causes and map safely; inconsistent successful/unknown Jobs states fail closed. Existing selected results cannot manufacture a Jobs status.
+- AC-STRUCT-SAVED/BOUNDARY: `TestSavedGraphReadFailures_Unit` covers both result/contributor operations for missing history, retained failures, live Jobs states, operational failure and invalid inference. Existing exact binding, saved lifecycle, temporal, source/race/authority, restore and Reporting lease scenarios retained.
+- `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.query_authoring_admission,module.networkflow.unit.bounded_graph_aggregation_and_selectors` passed at `.cartulary/test-results/20260919T210447Z-p17226`.
+- `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.saved_graph_lifecycle_v2,module.networkflow.integration.time_bucket_saved_graph_lifecycle` passed 3/3 at `.cartulary/test-results/20260919T210448Z-p17477`.
+- Reporting task guide passed; `make service-backed-test-slice OWNER=module.reporting ROWS=module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2` passed 3/3 at `.cartulary/test-results/20260919T210550Z-p57211`. Its initial concurrent run `20260919T210450Z-p17720` failed shared service-image warm-stamp preparation (`warm.stamp.tmp` rename), unrelated to product behavior; rerun passed. Service preparation will be serialized for final validation.
+- `make generate` passed at `.cartulary/test-results/20260919T210529Z-p54134`. Historical compile failure at `20260919T210322Z-p16483` was unused imports after extraction, corrected. No required check skipped. Compatible selected results and lease ownership remain unchanged.
+
+#### S-22a checkpoint — COMPLETE
+
+- Recognition, implementation/client bindings and asset identities now publish major 7; Imports publishes `network_flow_activity@7`. Browser support accepts only 7, with explicit major-6/future-major rejection tests. Frontend entrypoint metadata and its attached schema moved to v7; generated registries/Go/TypeScript artifacts regenerated together.
+- Added `contracts/network-flow/operation-policy.v1.json`, its closed attached schema and index/shape-check integration: versioned admission/completion policies, all 19 operation obligations, fresh continuations, failure commitment and unchanged state 4/semantic 2/job payload 1. The owner now states exact field-error ordering without delegating normative authority to implementation. Decoders implement schema-before-members and deterministic member selection. Saved-state admission algorithm and migration lineage deliberately retained.
+- AC-STRUCT-CONTRACT: Network Flow graph/import projection, Extensions recognition/publication/state projection, Imports composition and browser decoder/client tests pass. No database migration, receipt/import translation or Graph/Reporting resource-schema change.
+- `make generate` passed at `.cartulary/test-results/20260919T211207Z-p87065`; `make json-shape-check` passed 3/3 at `20260919T211018Z-p82589`. Earlier generation `20260919T210913Z-p76021` failed on a stale frontend test title selector; updated authored routing and regenerated.
+- Network Flow focused projection/import rows passed at `20260919T211049Z-p83546`; final query/projection rows passed at `20260919T211208Z-p87639`. Extensions projection/claim/publication rows passed at `20260919T211049Z-p83547`; Imports module-composition row passed at `20260919T211049Z-p83585`; web.networkflow saved decoder/client rows passed 3/3 at `20260919T211049Z-p83566`.
+- `make frontend-typecheck frontend-import-boundary-check` passed at `20260919T211050Z-p84300` and `20260919T211050Z-p84304`. Extensions task guide passed after routing correction. One attempted Network Flow slice used nonexistent row `module.networkflow.unit.import_facade_binding`; selection rejected before execution, corrected to `module.networkflow.unit.network_flow_selector_covers_import_facade_previ_2371e1f671`. No required check skipped. Stateful browser and comprehensive retained-state checks remain explicit S-23 gates.
+
+#### S-22b checkpoint — COMPLETE
+
+- Deleted `semantic_http_test_bridge_test.go` and all now-unused production forwarding wrappers. Temporal, streaming, filter, limit, predicate, schema and projection assertions invoke live semantic functions. The dedicated mapper assertions still validate HTTP status/envelope/redaction; authenticated all-operation tests remain separate.
+- Assertion migration: bucket arithmetic/timestamps/lowerable limits/row composition/current metadata/predicate/filter bridges now call their unsuffixed owner functions in `graph_temporal_test.go`, `graph_capacity_test.go`, `graph_streaming_test.go`, `network_flow_unit_test.go`, `network_flow_contract_test.go` and `query_authoring_test.go`. `requireAPIError` checks semantic kinds/reasons directly for semantic values. No removed assertion is replaced solely by a helper declaration. Provider result resource conversion resides at the Network Flow presentation boundary.
+- Extended import checks with declaration/reference tracing through local types, function aliases, helper chains and methods. All three query applications and semantic request decoding are included, and future `*_application.go` files are automatically guarded. Synthetic forbidden-reference fixtures demonstrate failures. Request value/route-key declarations moved out of transport files. Receipt adapters remain explicit owner ports; their durable-wire encoding is not an application HTTP dependency.
+- Reviewed owner consistency and corrected remaining current major-6 references in admission/discovery/Imports/acceptance/owner identity/rollout sections. Historical cutover algorithm ID remains unchanged. AC-STRUCT-BOUNDARY/DEAD/HARNESS closure is recorded; four functional harness consumers stay routed through pagination, table lifecycle and graph-contributor integration rows.
+- `make format` passed at `.cartulary/test-results/20260919T211654Z-p93501`.
+- `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.query_authoring_admission,module.networkflow.unit.bounded_graph_aggregation_and_selectors,module.networkflow.unit.time_bucket_graph_backend,module.networkflow.unit.configuration_claim_and_manifest_admission` passed at `.cartulary/test-results/20260919T211702Z-p97906` (earlier bridge/reference passes at `20260919T211427Z-p91257` and `20260919T211553Z-p92374`).
+- `make generate` passed at `.cartulary/test-results/20260919T211704Z-p98123`. `git diff --check` passed. No required S-22b check skipped. Proceed to S-23 final repository validation and seven-part handoff; deployment remains unevidenced.
+
+#### S-23 — Validation and handoff completion (COMPLETE)
+
+All preceding slice checkpoints are complete. Final review removed the remaining
+production `requireIncidentMembership` forwarding helper and moved its assertion
+to the live role-admission method. The release handoff is
+[Network Flow major 7](networkflow-major7-release.md). No staging, commit,
+deployment, migration, receipt rewrite or historical-data deletion was performed.
+
+Final command evidence (run roots are under `.cartulary/test-results/`):
+
+| Command / selection | Result and run |
+| --- | --- |
+| `make agent-finalize` | PASS, `20260919T211819Z-p2520`. Retained-run maintenance skipped because `RESULTS_DIR` was unset; `unit-artifacts/finalize-summary.json` records the reason. No retained full-run evidence was asserted. |
+| `make generate-drift` | PASS, `20260919T211854Z-p6498`, 4/4 units |
+| `make generated-artifact-policy-check` | PASS, `20260919T211854Z-p6500`, 3/3 units |
+| `make json-shape-check` | PASS, `20260919T211854Z-p6502`, 3/3 units |
+| `make migration-drift` | PASS, `20260919T211854Z-p6506`, 5/5 units |
+| `make harness-contract` | PASS, `20260919T211854Z-p6588`, 2/2 units |
+| `make build-server build-server-harness` | PASS, `20260919T212007Z-p17324` and `20260919T212007Z-p17327`, 4/4 units each |
+| `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.pagination_recovery,module.networkflow.integration.table_lifecycle_admission_replay,module.networkflow.integration.bounded_graph_contributor_pipeline,module.networkflow.integration.saved_graph_lifecycle_v2,module.networkflow.integration.time_bucket_saved_graph_lifecycle,module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27` | PASS, `20260919T212022Z-p47925`, 8/8 units |
+| `make test-slice OWNER=module.networkflow` | `20260919T212008Z-p17423`: 92/93 rows passed, including every selected integration, stateful browser, accessibility, measurement and visual row. One old indicator-link precedence assertion failed; corrected and rerun below. This run is retained as mixed evidence, not a full-suite pass. |
+| `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.network_flow_selector_covers_linking_an_endpoint_cfa3b46c37` | PASS, `20260919T212707Z-p55783`. The test now covers schema-before-members and lexical unknown-member selection separately. Failed diagnostic rerun retained at `20260919T212315Z-p18820`. |
+| `make service-backed-test-slice OWNER=module.extensions ROWS=module.extensions.browser_stateful.bc015_availability_continuity_d538000c38` | PASS, `20260919T212646Z-p25397`, 11/11 units; unsupported-major continuity preserves Base. |
+| `make test-slice OWNER=module.extensions ROWS=module.extensions.unit.coordinator_registry_1dce9a539a` | PASS, `20260919T212841Z-p9296`; corrected the adoption matrix's remaining major-6 fixture expectation to 7. |
+| `make format` | PASS, `20260919T212635Z-p20921`; no unrelated authored files changed |
+
+One attempted narrow selection named a nonexistent authorization row and was
+rejected before execution. Actual authorization assertions remain routed under
+the existing deployment-admin/no-bypass and lifecycle rows. The first broad
+`make check` run subsequently failed; its Extensions adoption-matrix failure
+was change-related and its corrected narrow result is recorded above. Final
+broad, frontend, Markdown and human-review outcomes are recorded below.
+
+Additional final evidence:
+
+| Command / selection | Result and run |
+| --- | --- |
+| `make frontend-typecheck` | PASS, `20260919T212916Z-p16545`, 2/2 units |
+| `make frontend-import-boundary-check` | PASS, `20260919T212916Z-p16549`, 2/2 units |
+| `make lint-markdown` | PASS, `20260919T212916Z-p16559`; `adhoc/lint-markdown/tool-run-summary.json` |
+| `make service-backed-test-slice OWNER=module.reporting ROWS=module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2` | PASS, `20260919T213426Z-p45188`, 3/3 units; evidence remains Reporting-owned |
+| `make service-backed-test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.restore_publication` | PASS, `20260919T213528Z-p66082`, 3/3 units; exact publication, rollback at every precommit phase and indeterminate outcomes |
+| `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.configuration_claim_and_manifest_admission` | PASS, `20260919T213529Z-p66489`; Reporting provider identity now compared across active-bundle construction |
+| `make lint-go` | PASS after correcting the construction assertion flagged by SA4000 |
+| Initial `make check` | FAIL, `20260919T212723Z-p56875`, 935/937 units. Two change-related failures: Extensions adoption fixture still expected 6, and staticcheck rejected the construction assertion's identical expressions. Both corrected and independently verified; full rerun required below. |
+| Final `make check` | PASS, `20260919T213619Z-p91979`, 937/937 units; includes the corrected Extensions fixture, Network Flow selector and staticcheck gates |
+| `make service-backed-test-slice OWNER=module.recovery ROWS=module.recovery.integration.atomic_typed_terminal_evidence_7a41f0d8c2` | PASS, `20260919T213620Z-p92118`, 3/3 units; Recovery composition, typed evidence and audit-failure rollback |
+| Final `make generate-drift` | PASS, `20260919T213803Z-p71694`, 4/4 units |
+| Final `make lint-markdown` | PASS, `20260919T213803Z-p71782`; `adhoc/lint-markdown/tool-run-summary.json`; final handoff status/links separately reviewed |
+
+Human review: §§1–16 remain byte-equivalent to the checkout history after
+trimming their trailing section whitespace; pre-existing §17 planning content
+is preserved. Current owner/projection references agree on 7, while unchanged
+saved-state admission retains its historical algorithm ID. Comparing
+`schemas.v3.json` with the checkout shows only `contract_major` changed; no
+resource definition or persisted representation changed. Authored migrations
+are untouched. No retired private symbol or forwarding alias remains in live
+source. Ordinary and harness builds cover the external test bridges.
+
+Current release/tracker relative links resolve, and their §17 anchor agrees
+with the heading. Three links in preserved historical sections reference two
+absent historical release files (`networkflow-remediation-release.md` and
+`networkflow-f18-f23-release-notes.md`). They are historical references, not
+current release instructions or evidence for this iteration; this session
+neither recreated their contents nor silently rewrote that history. Current
+handoff and rollout authority are the major-7 release document and §§17.12–17.15.
+
+### 17.14 Final assertion and finding closure
+
+The following is the current acceptance ledger. The NOT RUN/PLANNED statuses
+in §§17.7 and 17.10–17.11 are preserved planning history. Each assertion below
+has specific consumer evidence; broad success alone does not establish it.
+
+| Assertion | Evidence and outcome |
+| --- | --- |
+| AC-STRUCT-DEAD | PASS: complete reference closure; obsolete non-v2 branch, annotations, schema/coordinator fields, operational parameters and forwarding helpers removed. Streaming/current metadata assertions migrated and passing. |
+| AC-STRUCT-GRAPH | PASS: graph/temporal/streaming owner rows, Graph Projection deterministic vectors and bounded contributor integration preserve identities, counters, empty buckets, examples and cancellation. |
+| AC-STRUCT-PROJECTION | PASS: actual adapter invocation/classifier tests cover valid input, provider rejection, limits, cancellation, deadlines and unknown failures; causes retained, public details redacted. One native result port; no fallback projector. |
+| AC-STRUCT-ADMISSION | PASS: all-19 route matrix under `TestTableLifecycleAdmissionAndReplay_Integration`; schema/member ordering tests; direct application admission; functional authority transitions and browser continuation/withdrawal scenarios. Unclaimed dispatch remains Core-owned. |
+| AC-STRUCT-ROWS | PASS: live pagination/diagnostic integration and stateful pagination rows exercise nullable ports, large counters, stable ordering/ties, cursor expiry/binding, stale sources and bounded contributor iteration. |
+| AC-STRUCT-AUDIT | PASS: `TestGraphQueryCompletion_Unit` covers precommit failures, rollback, indeterminate outcomes, post-commit session/write failures and new retry occurrences. Real PostgreSQL audit-control consumers verify committed occurrence/correlation and replay/no-op preservation. |
+| AC-STRUCT-SAVED | PASS: `TestSavedGraphReadFailures_Unit`, saved/temporal lifecycle, exact-result/read-recovery browser rows and Reporting's exact lease row cover complete binding, missing versus failed lookup, refresh/deletion, stale sources and lease expiry/release. |
+| AC-STRUCT-ASSEMBLY | PASS: configuration composition cases reject every missing dependency before registration; verify inactive contributions, coordinator ordering/reinstallation, retained provider and domain database/clock. Ordinary/harness server builds and packaged process tests pass. |
+| AC-STRUCT-RECOVERY | PASS: saved-state admission validates strict worker/restore/startup payloads and supported history; restore publication tests reject malformed state and roll back every precommit phase. Existing admission algorithm, state 4 and migration lineage retained. |
+| AC-STRUCT-HARNESS | PASS: actual fault/randomness consumers under pagination, auth-transition consumers under lifecycle, audit consumers under graph contributors, harness-route isolation and packaged ordinary process assertions. Registry membership alone is not the evidence. |
+| AC-STRUCT-BOUNDARY | PASS: live semantic tests replace deleted bridges; import and local declaration/alias/helper/method guards cover all three read applications and future application files. Synthetic forbidden references fail the guard; dedicated mapper and authenticated HTTP tests remain. |
+| AC-STRUCT-CONTRACT | PASS: discovery/bindings/Imports/generated registries/browser support agree on major 7; unsupported-major Base continuity passes. Resource schemas, state 4, semantic v2, payload v1, digests, immutable receipts and exact leases are unchanged. |
+| AC-STRUCT-HANDOFF | PASS: clean `make check` passed all 937 units; required focused/service/browser/drift/Markdown gates and human review complete. Release/rollback instructions, thirteen assertion outcomes, individual finding closure and all seven handoffs recorded. |
+
+| Finding | Remediation outcome | Closure gate |
+| --- | --- | --- |
+| F-24 | Obsolete surfaces deleted; current metadata/identity coverage retained without aliases | CLOSED; S-23 gates passed |
+| F-25 | Single native projection port, live classifier and explicit dependencies | CLOSED; S-23 gates passed |
+| F-26 | Three typed read applications; adopted major-7 admission/completion; safe saved-read failures | CLOSED; S-23 gates passed |
+| F-27 | Retained base/provider composition; complete active bundle; fallible Imports contribution | CLOSED; S-23 gates passed |
+| F-28 | Disconnected bridges removed; live semantic/HTTP assertions and local-reference guards | CLOSED; S-23 gates passed |
+
+### 17.15 Current seven-part handoff
+
+#### Scope and authority
+
+| Status | Delivered scope | Continuing authority |
+| --- | --- | --- |
+| VERIFIED | Ordered S-17–S-22b checkpoints precede S-23; owner amendments precede changed behavior. Tracker history and initial local edits preserved. | Network Flow 7.0.0 governs behavior; Core retains reserved dispatch/activation/security; `docs/domain.md` remains vocabulary/navigation and needed no amendment. §§17.12–17.15 supersede historical structural-only/major-6 planning. |
+
+#### Backend module boundary
+
+| Status | Delivered boundary | Caller handoff |
+| --- | --- | --- |
+| VERIFIED | `table_query_application.go`, `graph_query_application.go`, `saved_graph_read_application.go`, `operation_admission.go` and `application_composition.go` own coherent operations and construction. HTTP extracts/presents; semantic failures retain safe kinds/details/causes. | `Module.ImportOwner()` now returns a facade and error; server assembly propagates failure. Native `Project` replaces private ephemeral/saved adapter methods. Worker/restore/cleanup callers migrated. No exported compatibility aliases. |
+
+#### Frontend module boundary
+
+| Status | Delivered behavior | Delivery requirement |
+| --- | --- | --- |
+| VERIFIED | Browser supports 7 only. Unsupported discovery hides Network Analysis and preserves Base. Stateful pagination, exact saved result, recovery, deferred navigation and authority withdrawal pass. | Deliver browser assets with the server and generated registries. Successful response schemas and client continuity policies remain unchanged. |
+
+#### Contracts and codegen
+
+| Status | Delivered projections | Compatibility |
+| --- | --- | --- |
+| VERIFIED | Core recognition, implementation/client bindings, Imports owner reference, frontend-entrypoints v7 and versioned operation policy agree. Make-generated Go/TypeScript/routing outputs pass drift/shape/artifact gates. | Public 7/document 7.0.0; state 4, semantic v2, payload v1, source profiles v2, Graph/Reporting contracts and canonical stored bytes unchanged. No active dual-major client path, migration or receipt translation. |
+
+#### Tests and harness
+
+| Status | Evidence | Maintenance handoff |
+| --- | --- | --- |
+| VERIFIED | Exact commands, row selectors, artifact roots and corrected failures are in S-23 above. The 13 obligations are mapped individually; functional controls, backend process, browser, accessibility and visual assertions are retained. | Keep authored routing with each future assertion change and regenerate through Make. Reporting owns lease evidence. Tests/generators/runtime evidence do not depend on Markdown. Retained-run maintenance was skipped only because `RESULTS_DIR` was unset. |
+
+#### Security and authorization
+
+| Status | Delivered guarantees | Operational meaning |
+| --- | --- | --- |
+| VERIFIED | Fresh session/CSRF and current incident visibility/role/lifecycle precede path/framing/semantics for all 19 claimed operations. Hidden incidents and malformed resource identifiers use safe envelopes. Continuations re-admit. Commands retain transaction rechecks and immutable replay receipts. | Query success commits its audit before delivery; post-commit transport failure does not erase it. Indeterminate transactions are not automatically replayed. Unexpected Jobs failures propagate safely; only explicit missing history permits lookup fallback. Exact immutable saved bindings and Reporting leases remain enforced. |
+
+#### Open risks and next actions
+
+| Status | Remaining action | Release/rollback instruction |
+| --- | --- | --- |
+| REPOSITORY COMPLETE; DEPLOYMENT EXTERNAL | No F-24–F-28 repository remediation remains open. Operational rollout and telemetry-consumer deployment require separate execution evidence. Historical missing release-note links are recorded above and are not current instructions. | Follow [major-7 release handoff](networkflow-major7-release.md): quiesce the preceding release, ship server/browser/registries together, run existing read-only state admission before readiness and record deployment evidence. Prefer a forward fix; any rollback must preserve adopted admission, audit, security and durable-state guarantees. |
+
+S-23 exit: all required acceptance obligations and repository gates passed.
+Every implementation workstream has a completed checkpoint; all five findings
+are closed. The seven handoffs and major-7 release/rollback instructions are
+complete. No required product check was skipped. The only maintenance skip was
+retained-run maintenance with `RESULTS_DIR` unset. Deployment remains separately
+evidenced; repository completion does not claim it occurred.

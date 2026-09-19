@@ -145,7 +145,7 @@ const value = {
       "capability_ids": [],
       "claim_config_key": "network_flow_activity.claimed",
       "claimable": true,
-      "contract_major": 6,
+      "contract_major": 7,
       "contributions": [
         {
           "contribution_id": "network_flow_activity.backup_restore",

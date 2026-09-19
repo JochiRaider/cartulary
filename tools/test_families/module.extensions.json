@@ -865,7 +865,7 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestNetworkFlowV6StateJobsAndReportingProjection_Unit"
+          "TestNetworkFlowV7StateJobsAndReportingProjection_Unit"
         ]
       },
       "evidence_class": "unit",

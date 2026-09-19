@@ -122,7 +122,7 @@ export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 export { networkFlowQueryMetadata };
 export const decodeNetworkFlowFilter = networkFlowDecoders.filter.decode;
 
-const supportedNetworkFlowContractMajors = new Set([6]);
+const supportedNetworkFlowContractMajors = new Set([7]);
 
 export function isSupportedNetworkFlowContract(
   descriptor: {

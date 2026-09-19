@@ -16,7 +16,7 @@ import (
 func NewGraphViewAuthorityTestHandler(store *store, manager GraphViewJobManager, finalizer GraphViewJobFinalizer) jobs.HandlerFunc {
 	module := &Module{store: store, limits: store.limits, now: time.Now,
 		graphProjection: newGraphProjectionAdapter(), jobManager: manager, jobFinalizer: finalizer}
-	module.graphComposer = &graphSourceComposer{store: store, limits: store.limits, graphProjection: module.graphProjection, now: module.now}
+	module.graphComposer = &graphSourceComposer{store: store, limits: store.limits, graphProjection: module.graphProjection}
 	return module.handleGraphViewMaterialization
 }
 

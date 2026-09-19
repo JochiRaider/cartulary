@@ -126,9 +126,9 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 	if binding.SchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
 		binding.TargetKind != targetKindNetworkFlowTable ||
 		binding.ExtensionProfileID != ProfileID ||
-		binding.OwnerContractRef != "network_flow_activity@6" ||
+		binding.OwnerContractRef != "network_flow_activity@7" ||
 		binding.FacadeID != "network_flow_import_facade_v1" ||
-		binding.ContractMajor != 6 ||
+		binding.ContractMajor != 7 ||
 		binding.MappingSchemaID != "cartulary.network_flow.approved_mapping.v1" ||
 		binding.PreviewRequestSchemaID != "cartulary.network_flow.import_preview_request.v1" ||
 		binding.PreviewResultSchemaID != "cartulary.network_flow.import_preview_result.v1" ||
@@ -144,12 +144,12 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 func AssertJSONAdmissionAndErrorDetails(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
-	_, apiErr := decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","visible_label":"Source IP"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","visible_label":"Source IP"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "unknown_member")
-	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "duplicate_member")
 	for _, body := range []string{`[]`, `{`, `{"schema_id":null}`} {
-		_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(body), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+		_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(body), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 		requireAPIError(t, apiErr, "network_flow_invalid_request", "")
 	}
 }
@@ -183,17 +183,17 @@ func AssertMappingApprovalBoundary(t *testing.T) {
 func AssertQueryAndTableScopeBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
-	_, apiErr := decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.rows_query_request.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`), schemaRowsQueryRequest, schemaRowsQueryContinuation, limits)
+	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.rows_query_request.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`), schemaRowsQueryRequest, schemaRowsQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "empty_resolved_scope")
-	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"Source IP","op":"eq","value":"192.0.2.10"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"Source IP","op":"eq","value":"192.0.2.10"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "unknown_field")
-	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"network_flow.src_ip","op":"in","value":["198.51.100.200","198.51.100.200"]}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"network_flow.src_ip","op":"in","value":["198.51.100.200","198.51.100.200"]}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "duplicate_in_value")
-	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_sort", "unknown_field")
 	for _, maximum := range []int64{50, 150, 1000} {
 		limits.MaxQueryLimit = maximum
-		request, apiErr := decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+		request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 		if apiErr != nil || request.Limit != int(min(200, maximum)) {
 			t.Fatalf("default query limit for maximum %d got request=%#v err=%v", maximum, request, apiErr)
 		}
@@ -445,13 +445,13 @@ func AssertNameAndLifecycleRuntime(t *testing.T) {
 func AssertGraphContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
-	_, apiErr := decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]},"aggregation":{"mode":"default_flow_edge_v1"}}`)), limits)
+	_, apiErr := decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "empty_resolved_scope")
-	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"},"aggregation":{"mode":"default_flow_edge_v1"}}`)), limits)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "unknown_member")
-	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"time_bucket_v1"}}`)), limits)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"time_bucket_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_graph_aggregation", "missing_width")
-	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":999999}}`)), limits)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":999999}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "above_maximum")
 	first := graphQueryDigestV2(IncidentID(), []string{"nft_b", "nft_a"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
 	second := graphQueryDigestV2(IncidentID(), []string{"nft_a", "nft_b"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
@@ -490,7 +490,7 @@ func AssertAuthorizationBoundary(t *testing.T) {
 	userID := uuid.New()
 	missing := &authorizationAccess{err: &admission.Denied{Code: admission.DenialNotVisible}}
 	service := &routeService{incidentAccess: missing}
-	if _, apiErr := service.requireIncidentMembership(context.Background(), incidentID, userID); apiErr == nil || apiErr.Status != 404 || apiErr.Code != "incident_not_found" {
+	if _, apiErr := service.requireIncidentRole(context.Background(), incidentID, userID, admission.RolesMember, ""); apiErr == nil || apiErr.Status != 404 || apiErr.Code != "incident_not_found" {
 		t.Fatalf("missing membership result = %#v, want owner-derived incident_not_found", apiErr)
 	}
 	viewer := &authorizationAccess{grant: admission.Grant{Role: admission.RoleViewer}}
@@ -583,17 +583,17 @@ func AssertResourceLimitBoundary(t *testing.T) {
 			t.Fatalf("effective limit resource missing %q in %#v", key, resource)
 		}
 	}
-	_, apiErr := decodeLowerableGraphLimitHTTP([]byte("0"), "max_vertices", 1, int(limits.MaxGraphVertices))
+	_, apiErr := decodeLowerableGraphLimit([]byte("0"), "max_vertices", 1, int(limits.MaxGraphVertices))
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "below_minimum")
 	configured := limits
 	configured.MaxGraphVertices = 7000
 	configured.MaxGraphEdges = 0
 	configured.MaxExampleRowRefsPerEdge = 20
-	request, apiErr := decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":6000,"max_edges":0,"max_example_row_refs_per_edge":0}}`)), configured)
+	request, apiErr := decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":6000,"max_edges":0,"max_example_row_refs_per_edge":0}}`), configured)
 	if apiErr != nil || request.Limits.MaxVertices != 6000 || request.Limits.MaxEdges != 0 || request.Limits.MaxExampleRowRefsPerEdge != 0 {
 		t.Fatalf("lower request overrides = %#v / %v", request.Limits, apiErr)
 	}
-	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":7001}}`)), configured)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":7001}}`), configured)
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "above_maximum")
 }
 
@@ -638,7 +638,10 @@ func requireAPIError(t *testing.T, failure any, code string, reason string) {
 	case *httpapi.APIError:
 		apiErr = value
 	case *semanticFailure:
-		apiErr = semanticHTTPError(value)
+		if value == nil || string(value.kind) != code || reason != "" && value.reason != reason {
+			t.Fatalf("semantic failure = %#v want %s/%s", value, code, reason)
+		}
+		return
 	case nil:
 	default:
 		t.Fatalf("unexpected error type %T", failure)

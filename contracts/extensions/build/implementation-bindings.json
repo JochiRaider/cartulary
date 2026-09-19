@@ -56,8 +56,8 @@
     },
     {
       "profile_id": "network_flow_activity",
-      "contract_major": 6,
-      "implementation_id": "cartulary.network_flow_activity.builtin.v6",
+      "contract_major": 7,
+      "implementation_id": "cartulary.network_flow_activity.builtin.v7",
       "state_ownership_kind": "extension_versioned",
       "implemented_contribution_ids": [
         "network_flow_activity.backup_restore",

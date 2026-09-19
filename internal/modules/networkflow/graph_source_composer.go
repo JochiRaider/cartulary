@@ -20,21 +20,20 @@ type graphSourceComposer struct {
 	store           graphSourceReader
 	limits          EffectiveLimits
 	graphProjection graphProjectionPort
-	now             func() time.Time
 	graphTelemetry  GraphTelemetryObserver
 }
 
-func newGraphSourceComposer(source graphSourceReader, limits EffectiveLimits, projection graphProjectionPort, now func() time.Time, observer GraphTelemetryObserver) (*graphSourceComposer, error) {
-	if source == nil || projection == nil || now == nil {
+func newGraphSourceComposer(source graphSourceReader, limits EffectiveLimits, projection graphProjectionPort, observer GraphTelemetryObserver) (*graphSourceComposer, error) {
+	if source == nil || projection == nil {
 		return nil, errors.New("network flow graph composition dependencies are required")
 	}
 	if err := checkEffectiveLimits(limits); err != nil {
 		return nil, err
 	}
-	return &graphSourceComposer{store: source, limits: limits, graphProjection: projection, now: now, graphTelemetry: observer}, nil
+	return &graphSourceComposer{store: source, limits: limits, graphProjection: projection, graphTelemetry: observer}, nil
 }
 
-func (s *graphSourceComposer) composeGraph(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, request graphQueryRequest) (graphComposition, *semanticFailure) {
+func (s *graphSourceComposer) composeGraph(ctx context.Context, incidentID uuid.UUID, request graphQueryRequest) (graphComposition, *semanticFailure) {
 	composition, apiErr := s.composeGraphSource(ctx, incidentID, request)
 	if apiErr != nil {
 		return graphComposition{}, apiErr
@@ -44,7 +43,7 @@ func (s *graphSourceComposer) composeGraph(ctx context.Context, incidentID uuid.
 	}
 	sourceSnapshotID := graphSourceSnapshotDigest(incidentID, composition.SourceTables, composition.Digest)
 	projectionStarted := time.Now()
-	projection, apiErr := s.projectNetworkFlowGraph(ctx, actorUserID, sourceSnapshotID, composition, s.now())
+	projection, apiErr := s.projectNetworkFlowGraph(ctx, sourceSnapshotID, composition)
 	s.observeGraphPhase(ctx, graphTelemetryPhaseProjection, request.Aggregation.Mode, projectionStarted, apiErr)
 	if apiErr != nil {
 		return graphComposition{}, apiErr
@@ -64,10 +63,8 @@ func (s *graphSourceComposer) composeGraphSource(ctx context.Context, incidentID
 	if apiErr != nil {
 		return graphComposition{}, apiErr
 	}
-	schemaID := schemaGraphSemanticQueryV2
 	digest := graphQueryDigestV2(incidentID, tableIDs, request.Filters, request.TimeRange, request.Aggregation)
 	composition := graphComposition{
-		SemanticSchemaID: schemaID,
 		Aggregation:      request.Aggregation,
 		Digest:           digest,
 		ResultLimits:     request.Limits,
@@ -129,7 +126,7 @@ func (s *graphSourceComposer) composeGraphSource(ctx context.Context, incidentID
 		s.observeGraphPhase(ctx, graphTelemetryPhaseSourceScan, request.Aggregation.Mode, scanStarted, apiErr)
 		return graphComposition{}, apiErr
 	}
-	composition.SemanticQuery = graphSemanticQueryResource(schemaID, tableIDs, request.Filters, request.TimeRange, request.Aggregation, request.Limits)
+	composition.SemanticQuery = graphSemanticQueryResource(tableIDs, request.Filters, request.TimeRange, request.Aggregation)
 	s.observeGraphPhase(ctx, graphTelemetryPhaseSourceScan, request.Aggregation.Mode, scanStarted, nil)
 	return composition, nil
 }
@@ -152,7 +149,6 @@ func (s *graphSourceComposer) composeGraphSourceFromSemantic(ctx context.Context
 	if apiErr != nil {
 		return graphComposition{}, apiErr
 	}
-	composition.SemanticSchemaID = semantic.SchemaID
 	composition.SemanticQuery = semantic.Raw
 	composition.Digest = graphQueryDigestForSemantic(incidentID, composition.SelectedTableIDs, semantic)
 	return composition, nil
@@ -217,7 +213,7 @@ func (s *graphSourceComposer) resolveGraphTables(ctx context.Context, incidentID
 	return selected, tableIDs, tableRanks, nil
 }
 
-func (s *graphSourceComposer) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.UUID, sourceSnapshotID string, composition graphComposition, requestedAt time.Time) (map[string]any, *semanticFailure) {
+func (s *graphSourceComposer) projectNetworkFlowGraph(ctx context.Context, sourceSnapshotID string, composition graphComposition) (map[string]any, *semanticFailure) {
 	if err := ctx.Err(); err != nil {
 		return nil, graphProjectionFailedForContext(err)
 	}
@@ -226,29 +222,29 @@ func (s *graphSourceComposer) projectNetworkFlowGraph(ctx context.Context, actor
 		graphViewKeySnapshot = graphViewKeySnapshot[len("nfsnap_"):]
 	}
 	graphViewKey := "network_flow_activity:" + composition.SourceTables[0].IncidentID.String() + ":" + graphViewKeySnapshot
-	projector := s.graphProjection
-	if projector == nil {
-		projector = newGraphProjectionAdapter()
-	}
 	graphViewID, err := deriveNetworkFlowGraphViewID(graphViewKey)
 	if err != nil {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
 	input := networkFlowProjectionInput(sourceSnapshotID, composition)
-	projectionResource, err := projector.ProjectEphemeral(ctx, graphViewID, canonicalJSON(input))
+	projection, err := s.graphProjection.Project(ctx, graphViewID, canonicalJSON(input), nil)
 	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			return nil, graphProjectionFailed("projection_cancelled")
+		failure := graphProjectionFailed("projection_unavailable")
+		switch {
+		case errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled):
+			failure.reason = "projection_cancelled"
+		case errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded):
+			failure.reason = "projection_timeout"
+		default:
+			var adapterErr *graphProjectionAdapterError
+			if errors.As(err, &adapterErr) {
+				failure.reason = adapterErr.reason
+			}
 		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, graphProjectionFailed("projection_timeout")
-		}
-		var adapterErr *graphProjectionAdapterError
-		if errors.As(err, &adapterErr) {
-			return nil, graphProjectionFailed(adapterErr.reason)
-		}
-		return nil, graphProjectionFailed("projection_unavailable")
+		failure.cause = err
+		return nil, failure
 	}
+	projectionResource := graphProjectionResource(projection)
 	summary, ok := projectionResource["validation_summary"].(map[string]any)
 	if !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
 		return nil, graphProjectionFailed("adapter_contract_rejected")

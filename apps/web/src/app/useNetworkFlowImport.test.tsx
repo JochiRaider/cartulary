@@ -43,7 +43,7 @@ function setup() {
               profile_id: "network_flow_activity",
               claimed: withdrawn !== "network_flow_activity",
               claimable: true,
-              contract_major: 6,
+              contract_major: 7,
               route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
               workspace_keys: ["network_analysis"],
               capabilities: [],

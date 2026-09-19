@@ -12,11 +12,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-func TestStreamingDefaultGraphV1Golden_Unit(t *testing.T) {
+func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 	incidentID := IncidentID()
 	tableA := tableRecord{IncidentID: incidentID, TableID: "nft_" + strings.Repeat("a", 64), MappingFingerprint: strings.Repeat("1", 64)}
 	tableB := tableRecord{IncidentID: incidentID, TableID: "nft_" + strings.Repeat("b", 64), MappingFingerprint: strings.Repeat("2", 64)}
@@ -76,13 +75,29 @@ func TestStreamingDefaultGraphV1Golden_Unit(t *testing.T) {
 		t.Fatal("graph edge retained contributor rows")
 	}
 
-	golden := map[string]any{
-		"entities":      graphProjectionEntities(composition),
-		"relationships": graphProjectionRelationships(composition),
-		"annotations":   graphEdgeAnnotations(composition),
+	composition.Aggregation = graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}
+	projectedResult, err := newGraphProjectionAdapter().Project(context.Background(), "gv_streaming", canonicalJSON(networkFlowProjectionInput("nfsnap_"+strings.Repeat("a", 64), composition)), nil)
+	projection := projectedResult.Resource()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := sha256Hex(canonicalJSON(golden)); got != "a650c1c8a12e5adca802874fb8ace5a5a373ba838a2afc05cf5472f742991be7" {
-		t.Fatalf("persisted-v1 streaming golden = %s", got)
+	composition.GraphProjection = projection
+	if failure := bindGraphV2ResponseMetadata(&composition); failure != nil {
+		t.Fatal(failure)
+	}
+	if len(composition.VertexSelectors) != 2 || len(composition.EdgeAnnotations) != 1 {
+		t.Fatalf("current metadata cardinality: %+v", composition)
+	}
+	annotation := composition.EdgeAnnotations[0].(map[string]any)
+	projected := projection["edges"].([]any)[0].(map[string]any)
+	if annotation["projected_edge_id"] != projected["edge_id"] ||
+		!reflect.DeepEqual(annotation["selector"], graphSelectorResource(graphSelectorForEdge(edge))) ||
+		annotation["example_refs_total_count"] != 2 || annotation["example_refs_truncated"] != true ||
+		!reflect.DeepEqual(annotation["example_row_refs"], []any{rowRefResource(rows[0])}) {
+		t.Fatalf("current metadata binding: %+v", annotation)
+	}
+	if !reflect.DeepEqual(graphQueryResultResource(composition)["edge_annotations"], composition.EdgeAnnotations) {
+		t.Fatal("response omitted current metadata")
 	}
 }
 
@@ -105,7 +120,7 @@ func TestStreamingGraphRetainedStateFollowsAggregateCardinality_Unit(t *testing.
 	}
 	for index := 0; index < contributingRows; index++ {
 		row.SourceRowNumber = int64(index + 1)
-		if apiErr := composeGraphRowHTTP(incidentID, row, nil, &composition); apiErr != nil {
+		if apiErr := composeGraphRow(incidentID, row, nil, &composition); apiErr != nil {
 			t.Fatalf("compose repeated contributor %d: %#v", index, apiErr)
 		}
 	}
@@ -127,12 +142,12 @@ func TestStreamingGraphLimitsAndCanonicalSelectors_Unit(t *testing.T) {
 		Vertices: map[string]*graphVertex{}, Edges: map[string]*graphEdge{},
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 1, MaxExampleRowRefsPerEdge: 0, MaxAggregateCounterDigits: 39, MaxContributingRows: 1},
 	}
-	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row, row}, map[string]tableRecord{}, &composition); apiErr == nil || apiErr.Code != "network_flow_graph_limit_exceeded" || apiErr.Details["reason_code"] != "contributing_row_limit_exceeded" || apiErr.Details["actual"] != 2 {
+	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row, row}, map[string]tableRecord{}, &composition); apiErr == nil || string(apiErr.kind) != "network_flow_graph_limit_exceeded" || apiErr.reason != "contributing_row_limit_exceeded" || apiErr.details.Actual != 2 {
 		t.Fatalf("contributing-row limit+1 = %#v", apiErr)
 	}
 
 	vertexLimited := graphComposition{Vertices: map[string]*graphVertex{}, Edges: map[string]*graphEdge{}, ResultLimits: graphResultLimits{MaxVertices: 1, MaxEdges: 1, MaxAggregateCounterDigits: 39, MaxContributingRows: 2}}
-	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row}, map[string]tableRecord{}, &vertexLimited); apiErr == nil || apiErr.Details["reason_code"] != "vertex_limit_exceeded" || len(vertexLimited.Vertices) != 2 {
+	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row}, map[string]tableRecord{}, &vertexLimited); apiErr == nil || apiErr.reason != "vertex_limit_exceeded" || len(vertexLimited.Vertices) != 2 {
 		t.Fatalf("vertex limit+1 = %#v / %d", apiErr, len(vertexLimited.Vertices))
 	}
 
@@ -144,19 +159,19 @@ func TestStreamingGraphLimitsAndCanonicalSelectors_Unit(t *testing.T) {
 		"source_endpoint_value": row.SrcIP, "destination_endpoint_value": row.DstIP,
 		"protocol": row.IPProtocol, "destination_port_present": true, "destination_port": port,
 	})
-	selector, apiErr := decodeGraphSelectorHTTP(raw)
+	selector, apiErr := decodeGraphSelector(raw)
 	if apiErr != nil {
 		t.Fatalf("decode canonical edge selector: %#v", apiErr)
 	}
-	predicate, apiErr := canonicalGraphContributorPredicateHTTP(incidentID, selector)
+	predicate, apiErr := canonicalGraphContributorPredicate(incidentID, selector)
 	if apiErr != nil || predicate.Kind != "default_edge" || predicate.DestinationPort == nil || *predicate.DestinationPort != port {
 		t.Fatalf("canonical edge predicate = %#v err=%#v", predicate, apiErr)
 	}
 	selector.SourceEdgeID = flowEdgeID(incidentID, dstID, srcID, row.IPProtocol, row.DstPort)
-	if _, apiErr := canonicalGraphContributorPredicateHTTP(incidentID, selector); apiErr == nil || apiErr.Details["reason_code"] != "id_key_mismatch" {
+	if _, apiErr := canonicalGraphContributorPredicate(incidentID, selector); apiErr == nil || apiErr.reason != "id_key_mismatch" {
 		t.Fatalf("mismatched selector ID = %#v", apiErr)
 	}
-	if _, apiErr := decodeGraphSelectorHTTP(json.RawMessage(`{"kind":"default_edge","source_edge_id":"nff_invalid","source_endpoint_value":"192.0.2.10","destination_endpoint_value":"198.51.100.20","protocol":6,"destination_port_present":false,"destination_port":443}`)); apiErr == nil || apiErr.Details["reason_code"] != "variant_member_conflict" {
+	if _, apiErr := decodeGraphSelector(json.RawMessage(`{"kind":"default_edge","source_edge_id":"nff_invalid","source_endpoint_value":"192.0.2.10","destination_endpoint_value":"198.51.100.20","protocol":6,"destination_port_present":false,"destination_port":443}`)); apiErr == nil || apiErr.reason != "variant_member_conflict" {
 		t.Fatalf("conflicting destination-port selector = %#v", apiErr)
 	}
 }
@@ -198,9 +213,9 @@ func (db *graphQueryErrorDB) Query(context.Context, string, ...any) (pgx.Rows, e
 
 var _ postgres.DB = (*graphQueryErrorDB)(nil)
 
-func composeGraphObjectsForTest(incidentID uuid.UUID, rows []flowRow, tableByID map[string]tableRecord, composition *graphComposition) *httpapi.APIError {
+func composeGraphObjectsForTest(incidentID uuid.UUID, rows []flowRow, tableByID map[string]tableRecord, composition *graphComposition) *semanticFailure {
 	for _, row := range rows {
-		if apiErr := composeGraphRowHTTP(incidentID, row, tableByID, composition); apiErr != nil {
+		if apiErr := composeGraphRow(incidentID, row, tableByID, composition); apiErr != nil {
 			return apiErr
 		}
 	}

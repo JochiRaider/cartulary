@@ -201,6 +201,7 @@ const networkFlowContractFilesKeys = new Set([
   "resource_limits",
   "resource_limits_configuration_schema",
   "graph_semantics",
+  "operation_policy",
 ]);
 const networkFlowClosurePolicyKeys = new Set([
   "objects_closed_by_default",
@@ -1158,13 +1159,20 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   assertRequiredKeys(contractIndex, networkFlowContractIndexKeys, file);
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(contractIndex.contract_major, 6, `${file}.contract_major`);
+  requireExact(contractIndex.contract_major, 7, `${file}.contract_major`);
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
 
   const contractFiles = requireObject(contractIndex.contract_files, `${file}.contract_files`);
   assertObjectKeys(contractFiles, networkFlowContractFilesKeys, `${file}.contract_files`);
   assertRequiredKeys(contractFiles, networkFlowContractFilesKeys, `${file}.contract_files`);
+  requireExact(contractFiles.operation_policy, "contracts/network-flow/operation-policy.v1.json", `${file}.contract_files.operation_policy`);
+  const operationPolicy = readShapeFile(contractFiles.operation_policy, contractFiles.operation_policy);
+  validateSchemaSync("cartulary.network_flow_operation_policy.v1", operationPolicy);
+  const policyRoutes = new Set(operationPolicy.operations.map((operation) => operation.route_id));
+  const routePolicies = readShapeFile(contractFiles.routes, contractFiles.routes).routes;
+  assertExactIDSet(policyRoutes, routePolicies.map((route) => route.route_id), "Network Flow operation admission");
+  if (policyRoutes.size !== operationPolicy.operations.length) throw new Error("duplicate Network Flow operation policy");
   const routeFile = networkFlowContractRepoPath(contractFiles.routes, `${file}.contract_files.routes`);
   const schemaFile = networkFlowContractRepoPath(contractFiles.schemas, `${file}.contract_files.schemas`);
   const errorFile = networkFlowContractRepoPath(contractFiles.errors, `${file}.contract_files.errors`);
@@ -1450,7 +1458,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertRequiredKeys(routeContracts, networkFlowRouteContractKeys, file);
   requireSchemaID(routeContracts, "cartulary.network_flow_route_contracts.v1", file);
   requireExact(routeContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(routeContracts.contract_major, 6, `${file}.contract_major`);
+  requireExact(routeContracts.contract_major, 7, `${file}.contract_major`);
   requireExact(
     routeContracts.route_root,
     "/api/v1/incidents/{incident_id}/network-flow",
@@ -1910,7 +1918,7 @@ function validateNetworkFlowErrorContractsShape(file) {
   assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
   requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
   requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(errorContracts.contract_major, 6, `${file}.contract_major`);
+  requireExact(errorContracts.contract_major, 7, `${file}.contract_major`);
   assertExactIDSet(
     new Set(requireStringArray(errorContracts.retry_actions, `${file}.retry_actions`, { nonEmpty: true })),
     new Set([
@@ -2070,7 +2078,7 @@ function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
   requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v3", `${file}.$id`);
   requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v3", file);
   requireExact(bundle.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(bundle.contract_major, 6, `${file}.contract_major`);
+  requireExact(bundle.contract_major, 7, `${file}.contract_major`);
   const defs = requireObject(bundle.$defs, `${file}.$defs`);
   const actualSchemaIDs = new Set();
   for (const [defName, def] of Object.entries(defs)) {

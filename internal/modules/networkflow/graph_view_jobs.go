@@ -155,7 +155,7 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		return err
 	}
 	projectionStarted := time.Now()
-	projection, err := m.graphProjection.ProjectSaved(ctx, payload.GraphViewID, canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition)), func(checkCtx context.Context) error {
+	projection, err := m.graphProjection.Project(ctx, payload.GraphViewID, canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition)), func(checkCtx context.Context) error {
 		observed, observeErr := m.jobManager.ObserveExecution(checkCtx, execution)
 		if observeErr != nil {
 			return observeErr

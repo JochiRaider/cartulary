@@ -5,6 +5,8 @@ import (
 	"errors"
 	"go/parser"
 	"go/token"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 )
@@ -45,7 +47,18 @@ func assertSemanticBoundary(t *testing.T) {
 		"unicode/utf8":            true,
 	}
 
-	for _, path := range []string{"graph_materialization_payload.go", "application.go", "table_receipts.go", "indicator_link.go", "indicator_link_admission.go", "indicator_link_graph_admission.go", "indicator_link_receipts.go", "transaction_participants.go", "semantic_failure.go", "query.go", "query_filter.go", "mapping.go", "graph.go", "graph_source_composer.go", "saved_graph_application.go", "graph_temporal.go", "graph_projection_adapter.go", "graph_response_v2.go", "graph_telemetry.go"} {
+	roots := []string{"graph_materialization_payload.go", "application.go", "table_receipts.go", "indicator_link.go", "indicator_link_admission.go", "indicator_link_graph_admission.go", "indicator_link_receipts.go", "transaction_participants.go", "semantic_failure.go", "query.go", "query_filter.go", "mapping.go", "graph.go", "graph_source_composer.go", "saved_graph_application.go", "graph_temporal.go", "graph_projection_adapter.go", "graph_response_v2.go", "graph_telemetry.go", "table_query_application.go", "graph_query_application.go", "saved_graph_read_application.go", "request_decoding.go"}
+	applicationFiles, err := filepath.Glob("*_application.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range applicationFiles {
+		if !slices.Contains(roots, path) {
+			roots = append(roots, path)
+		}
+	}
+	assertSemanticReferences(t, roots)
+	for _, path := range roots {
 		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 		if err != nil {
 			t.Fatal(err)

@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "contract_major": 6,
+  "contract_major": 7,
   "errors": [
     {
       "code": "network_flow_invalid_request",

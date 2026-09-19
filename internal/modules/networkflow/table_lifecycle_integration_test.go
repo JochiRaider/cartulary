@@ -28,6 +28,9 @@ func TestTableLifecycleAdmissionAndReplay_Integration(t *testing.T) {
 	actor := uuid.MustParse(actorText)
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "table-lifecycle-incident", "incident_key": "IR-TABLE-LIFECYCLE", "title": "Table lifecycle"})
 	id := uuid.MustParse(incident["incident_id"].(string))
+	t.Run("major7 admission matrix", func(t *testing.T) {
+		assertMajor7AdmissionMatrix(t, harness.Server.HTTP.URL, harness.Pool, id, actor, login.SessionCookie, login.CSRFCookie)
+	})
 	ctx := context.Background()
 	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
 	table := createTestTable(t, harness.Pool, store, actor, id, "lifecycle.csv", nil, 1)

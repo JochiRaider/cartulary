@@ -1,6 +1,7 @@
 package networkflow
 
 import (
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"math"
 	"time"
 )
@@ -193,4 +194,8 @@ func graphResultLimitsResourceV2(limits graphResultLimits) map[string]any {
 
 func malformedStoredGraphResult() *semanticFailure {
 	return newSemanticFailure(failureGraphMaterializationFailed, "", "projection_rejected")
+}
+
+func graphProjectionResource(result graphprojection.ProjectionResultV2) map[string]any {
+	return result.Resource()
 }

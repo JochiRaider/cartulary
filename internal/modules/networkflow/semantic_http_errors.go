@@ -21,7 +21,7 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 	}
 	status := http.StatusBadRequest
 	switch f.kind {
-	case failureInvalidRequest, failureInvalidFilter, failureInvalidSort,
+	case failureInvalidDisplayName, failureInvalidRequest, failureInvalidFilter, failureInvalidSort,
 		failureInvalidTableScope, failureInvalidLimit, failureCursorInvalid,
 		failureInvalidLimitOverride, failureInvalidGraphAggregation, failureInvalidTimeRange:
 	case failureInvalidIndicatorSelector, failureInvalidIndicatorTarget, failureIndicatorLinkAmbiguous:
@@ -31,9 +31,9 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 		status = http.StatusConflict
 	case failureTransactionTimeout:
 		status = http.StatusServiceUnavailable
-	case failureTableNotFound:
+	case failureTableNotFound, failureGraphViewNotFound:
 		status = http.StatusNotFound
-	case failureTableNotActive, failureGraphQueryStale:
+	case failureTableNotActive, failureGraphQueryStale, failureGraphViewNotMaterialized:
 		status = http.StatusConflict
 	case failureGraphLimitExceeded, failureCounterSumLimitExceeded, failureResourceLimit:
 		status = http.StatusRequestEntityTooLarge
@@ -50,6 +50,8 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 		details["field"] = d.Field
 	}
 	switch f.kind {
+	case failureInvalidDisplayName:
+		details["max_length"], details["normalized_length"], details["retry_action"] = d.Limit, d.Actual, "correct_request"
 	case failureInvalidFilter:
 		details["field_key"], details["op"], details["filter_index"] = nil, nil, nil
 		if d.FieldKey != nil {

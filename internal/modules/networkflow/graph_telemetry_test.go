@@ -12,10 +12,10 @@ import (
 func TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit(t *testing.T) {
 	// An embedded nil reader panics if construction performs source I/O.
 	reader := &constructorOnlyGraphReader{}
-	if _, err := newGraphSourceComposer(reader, defaultEffectiveLimits(), newGraphProjectionAdapter(), time.Now, nil); err != nil {
+	if _, err := newGraphSourceComposer(reader, defaultEffectiveLimits(), newGraphProjectionAdapter(), nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := newGraphSourceComposer(nil, defaultEffectiveLimits(), newGraphProjectionAdapter(), time.Now, nil); err == nil {
+	if _, err := newGraphSourceComposer(nil, defaultEffectiveLimits(), newGraphProjectionAdapter(), nil); err == nil {
 		t.Fatal("missing source accepted")
 	}
 

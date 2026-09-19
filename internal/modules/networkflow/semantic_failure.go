@@ -28,6 +28,7 @@ const (
 	failureAdmission                failureKind = "incident_admission"
 
 	failureInternal                   failureKind = "internal_error"
+	failureInvalidDisplayName         failureKind = "network_flow_invalid_display_name"
 	failureInvalidRequest             failureKind = "network_flow_invalid_request"
 	failureInvalidFilter              failureKind = "network_flow_invalid_filter"
 	failureInvalidSort                failureKind = "network_flow_invalid_sort"
@@ -37,6 +38,8 @@ const (
 	failureInvalidLimitOverride       failureKind = "network_flow_invalid_limit_override"
 	failureInvalidGraphAggregation    failureKind = "network_flow_invalid_graph_aggregation"
 	failureInvalidTimeRange           failureKind = "network_flow_invalid_time_range"
+	failureGraphViewNotFound          failureKind = "network_flow_graph_view_not_found"
+	failureGraphViewNotMaterialized   failureKind = "network_flow_graph_view_not_materialized"
 	failureTableNotFound              failureKind = "network_flow_table_not_found"
 	failureTableNotActive             failureKind = "network_flow_table_not_active"
 	failureGraphQueryStale            failureKind = "network_flow_graph_query_stale"
@@ -90,6 +93,14 @@ func applicationAdmissionFailure(err error, role string) *semanticFailure {
 	var denied *admission.Denied
 	if errors.As(err, &denied) {
 		return &semanticFailure{kind: failureAdmission, cause: err, details: failureDetails{RequiredRole: role}}
+	}
+	return internalSemanticFailure(err)
+}
+
+func tableNameFailure(err error) *semanticFailure {
+	var invalid *invalidDisplayNameError
+	if errors.As(err, &invalid) {
+		return &semanticFailure{kind: failureInvalidDisplayName, reason: invalid.ReasonCode, details: failureDetails{Field: "display_name", Limit: 64, Actual: invalid.NormalizedLength}, cause: err}
 	}
 	return internalSemanticFailure(err)
 }

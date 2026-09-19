@@ -1146,7 +1146,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	analyticalImportFacades := []imports.ExtensionImportFacade{}
 	if networkFlowRouteAdmitted {
-		facade := networkFlowModule.ImportOwner()
+		facade, err := networkFlowModule.ImportOwner()
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Network Flow import contribution: %w", err)
+		}
 		if options.NetworkFlowComposition != nil {
 			facade = options.NetworkFlowComposition.WrapImportFacade(facade)
 		}

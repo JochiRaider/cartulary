@@ -31,11 +31,6 @@ func graphViewMutationBytes(route, pathIdentity string, body map[string]any) []b
 	return input.Bytes()
 }
 
-func (s *routeService) requireSavedGraphRole(ctx context.Context, incidentID, actorID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
-	grant, err := s.incidentAccess.Check(ctx, incidentID, actorID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleOpen})
-	return grant, savedGraphAdmissionError(err, requiredRole)
-}
-
 func savedGraphAdmissionError(err error, requiredRole string) *httpapi.APIError {
 	switch {
 	case err == nil:

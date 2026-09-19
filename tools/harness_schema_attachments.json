@@ -506,8 +506,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_frontend_entrypoints.v6",
-      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v6.schema.json",
+      "schema_id": "cartulary.network_flow_frontend_entrypoints.v7",
+      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v7.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow frontend contract owner",
       "validation": "json-shape-check"
@@ -517,6 +517,13 @@
       "path": "tools/schemas/cartulary.network_flow_graph_semantics.v2.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow graph semantic contract owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.network_flow_operation_policy.v1",
+      "path": "tools/schemas/cartulary.network_flow_operation_policy.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Network Flow contract owner",
       "validation": "json-shape-check"
     },
     {
