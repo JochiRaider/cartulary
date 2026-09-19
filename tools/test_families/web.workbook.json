@@ -4390,7 +4390,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineKeyboardController.test.tsx",
         "titles": [
-          "useTimelineKeyboardController owns collection commit and close behavior without unreachable editor shortcuts",
+          "useTimelineKeyboardController owns collection settlement and cancellation without unreachable editor shortcuts",
           "useTimelineKeyboardController owns scalar commit, navigation, range, draft, unavailable, and inspector focus order",
           "useTimelineKeyboardController owns work-area shortcuts and leaves controls, menus, dialogs, and unavailable actions unconsumed"
         ]

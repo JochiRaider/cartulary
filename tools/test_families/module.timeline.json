@@ -601,6 +601,150 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.collection_input_authoring",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-collection-input.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_collection_input_authoring"
+        ],
+        "titles": [
+          "Timeline collection authoring isolates surfaces and settles native departure once"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser.collection_input_characterization",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-collection-input.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_collection_input_characterization"
+        ],
+        "titles": [
+          "Timeline collection input production characterization"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser.collection_input_lifetime",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-collection-input.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_collection_input_lifetime"
+        ],
+        "titles": [
+          "Timeline collection drafts survive detachment and retire with authority"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser.collection_input_promotion",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-collection-input.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_collection_input_promotion"
+        ],
+        "titles": [
+          "Timeline collection authoring follows first-input record promotion without submission"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.range_accessibility",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -2140,6 +2284,7 @@
         "titles": [
           "Timeline collection inspection keeps complete mention details readable when management capability is lost",
           "Timeline collection inspection keeps recordless draft text local and registers independent editor surfaces",
+          "Timeline collection inspection mounts only explicit grid authoring, preserves native selection on refresh, and retains independent detached drafts",
           "Timeline collection inspection targets hidden tags without editing or committing pending text"
         ]
       },
@@ -2467,7 +2612,6 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineKeyboardIntentModel.test.ts",
         "titles": [
-          "maps collection save, navigation, and close intent",
           "maps scalar navigation without performing focus or save effects",
           "maps work-area shortcuts to semantic panel and mention intent"
         ]
@@ -2496,6 +2640,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/editing/useTimelineEditorDraftRegistry.test.tsx",
         "titles": [
+          "Timeline editor draft registry exposes retained grid collection work for unavailable targets without empty cancellations or Inspector drafts",
           "Timeline editor draft registry invalidates drafts when the runtime lifetime changes",
           "Timeline editor draft registry keeps grid and inspector drafts distinct and clears only submitted values",
           "Timeline editor draft registry materializes inspector submissions without unrelated grid authoring",
@@ -2506,7 +2651,8 @@
           "Timeline editor draft registry retains authoring baselines across remount and requires review only for relevant changes",
           "Timeline editor draft registry retains collection text across refresh and clears only the submitted version",
           "Timeline editor draft registry retains refused local values across surface detachment without retaining input references",
-          "Timeline editor draft registry retires only captured revisions in the originating editor context"
+          "Timeline editor draft registry retires only captured revisions in the originating editor context",
+          "Timeline editor draft registry settles repeated collection callers once per surface revision and admits later identical tokens"
         ]
       },
       "evidence_class": "unit",

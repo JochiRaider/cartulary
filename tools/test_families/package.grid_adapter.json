@@ -1102,6 +1102,7 @@
         "titles": [
           "semantic focus requests cancels superseded and aborted requests without focusing their late controls",
           "semantic focus requests does not complete against a detached control and releases cancelled lifetimes",
+          "semantic focus requests keeps explicit cell focus out of roving descendant controls",
           "semantic focus requests rejects unavailable and disabled targets and cancels on user navigation",
           "semantic focus requests waits for registration and acknowledges only the declared primary control"
         ]

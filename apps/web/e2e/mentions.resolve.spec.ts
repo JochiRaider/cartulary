@@ -409,7 +409,7 @@ test("collection chips disclose exact members without edits across keyboard and 
     page.getByTestId(
       timelineCollectionInputTestId(row.record_id, hostRefsFieldKey),
     ),
-  ).toHaveValue("pending local Ω");
+  ).toHaveValue("");
   await hiddenHost.press("Escape");
   await expect(hostOverflow).toBeFocused();
   await expect(gridInput).toHaveValue("pending local Ω");

@@ -9,7 +9,6 @@ import type { TimelineReplayContext } from "./timelineControllerPorts";
 import { reconcileDiscardedTimelineUnit } from "./timelineDiscardedReconciliation";
 import { timelineFieldBinding } from "./timelineFieldRegistry";
 import {
-  decideTimelineCollectionCommit,
   planTimelineCollectionMutation,
   planTimelineScalarMutation,
 } from "./timelineMutationQueueAdmission";
@@ -139,19 +138,11 @@ describe("Timeline mutation models", () => {
       }),
     ).toMatchObject({ kind: "rejected", outcome: { kind: "conflict" } });
     expect(
-      decideTimelineCollectionCommit({
-        draftValue: "host-a",
-        priorKeyboardCommitValue: "host-a",
-        source: "blur",
-      }),
-    ).toEqual({ admit: false, nextKeyboardCommitValue: null });
-    expect(
       planTimelineCollectionMutation({
         clientTxnId: "txn-3",
         draftValue: "host-a",
         effectiveRow: row,
         fieldKey: "timeline.host_refs",
-        pendingSignature: undefined,
       }),
     ).toMatchObject({ kind: "admit" });
   });

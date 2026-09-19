@@ -1454,6 +1454,13 @@ Design contract. Collection cells MAY display compact summaries under the capaci
 
 Design contract. Compact Timeline relationship and tag collections use one inline item in every supported density and layout band. Additional items use a keyboard- and pointer-operable `+N` disclosure into the owning row's Relationships inspector, targeting the specific collection. The inspector exposes the complete collection without applying the grid's one-item capacity. Required state markers and the overflow control do not truncate; flexible labels may truncate within the shared row box. Recordless draft input remains local, fully inspectable text and does not require saving to inspect. This collection capacity does not change the active-query chip capacities in §7.5.
 
+Committed Timeline collection cells keep their compact summary and explicit Add
+control while token authoring is inactive. Add opens raw entry directly; retained
+local text remains distinct from the committed chips and resumes only by explicit
+activation after presentation detachment. Grid and Inspector token drafts are
+independent. Core 03 REQ-03-219 owns their activation, native text editing,
+cancellation and settlement; ordinary cell selection does not imply scalar edit.
+
 ### 9.4 Auto-resolution disclosure
 
 Design contract. If a value is auto-resolved, the user MUST be able to tell it was auto-resolved, inspect the match reason when `alias_text` is present in `chip_state_input_v1`, and correct it through the same surface or inspector.

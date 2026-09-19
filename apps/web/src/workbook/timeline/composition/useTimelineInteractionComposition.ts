@@ -31,12 +31,9 @@ type MutationCommandOutput = ReturnType<
 
 type TimelineInteractionCompositionInput = {
   readonly foundation: {
-    readonly activateCollectionInput: (focusKey: string) => void;
-    readonly activeCollectionInputKey: string | null;
     readonly editorDraftRegistry: TimelineEditorDraftRegistry;
     readonly bulkTagPort: BulkInput["port"];
     readonly clipboardPastePort: ClipboardInput["clipboardPaste"];
-    readonly deactivateCollectionInput: (focusKey: string) => void;
     readonly pendingSavesRefs: ClipboardInput["pendingSavesRefs"];
     readonly recordTiming: KeyboardInput["recordTiming"];
     readonly rows: readonly WorkbookRow[];
@@ -47,6 +44,7 @@ type TimelineInteractionCompositionInput = {
   readonly grid: {
     readonly currentTimelineAnchorFor: KeyboardInput["currentTimelineAnchorFor"];
     readonly focusDraftRow: () => void;
+    readonly prepareTimelineCollectionNavigation: KeyboardInput["prepareTimelineCollectionNavigation"];
     readonly navigateTimelineDraftFocus?: KeyboardInput["navigateTimelineDraftFocus"];
     readonly navigateTimelineFocusAnchor: KeyboardInput["navigateTimelineFocusAnchor"];
     readonly resolveTimelinePasteTargetResolution: ClipboardInput["resolveTimelinePasteTargetResolution"];
@@ -143,6 +141,9 @@ export function useTimelineInteractionComposition({
     [mutation.queueScalarSave],
   );
   const { commands: keyboard } = useTimelineKeyboardController({
+    editorDraftRegistry: foundation.editorDraftRegistry,
+    prepareTimelineCollectionNavigation:
+      grid.prepareTimelineCollectionNavigation,
     navigateTimelineDraftFocus: grid.navigateTimelineDraftFocus,
     clearRowHistory: inspector.clearRowHistory,
     currentTimelineAnchorFor: grid.currentTimelineAnchorFor,
@@ -194,7 +195,11 @@ export function useTimelineInteractionComposition({
       }
       return clipboard.handleGridPaste(intent);
     },
-    [clipboard.handleGridPaste, foundation.setRefreshError, mutation],
+    [
+      clipboard.handleGridPaste,
+      foundation.setRefreshError,
+      mutation.commitScalarGridEdit,
+    ],
   );
   const clipboardPaste = useMemo(
     () => ({
@@ -261,26 +266,13 @@ export function useTimelineInteractionComposition({
     },
     [foundation.rowsRef, mutation.queueScalarSave],
   );
-  const collectionKeyboardCommitRef =
-    foundation.pendingSavesRefs.collectionKeyboardCommitRef;
-  const handleCollectionInputChange = useCallback(
-    (focusKey: string, value: string) => {
-      if (collectionKeyboardCommitRef.current.get(focusKey) !== value) {
-        collectionKeyboardCommitRef.current.delete(focusKey);
-      }
-    },
-    [collectionKeyboardCommitRef],
-  );
   return {
     commands: {
       bulk: bulk.commands,
       editor: {
         activateConflictCell: mutation.activateConflict,
-        activateCollectionInput: foundation.activateCollectionInput,
         commitScalarGridEdit: mutation.commitScalarGridEdit,
-        deactivateCollectionInput: foundation.deactivateCollectionInput,
         handleBlur,
-        handleCollectionInputChange,
         handleCollectionKeyDown: keyboard.onCollectionEditorKeyDown,
         handleKeyDown: keyboard.onScalarEditorKeyDown,
         handlePaste: clipboard.handlePaste,
@@ -298,9 +290,7 @@ export function useTimelineInteractionComposition({
     ports: {},
     snapshot: {
       bulk: bulk.snapshot,
-      editor: {
-        activeCollectionInputKey: foundation.activeCollectionInputKey,
-      },
+      editor: {},
     },
   };
 }

@@ -56,7 +56,6 @@ export type TimelineCollectionSave = (
   fieldKey: CollectionFieldKey,
   focusField: CollectionDraftKey,
   draftValueOverride?: string,
-  source?: "keyboard" | "blur",
   surface?: TimelineScalarEditorSurface,
 ) => void;
 

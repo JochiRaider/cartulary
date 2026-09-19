@@ -64,28 +64,40 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
   expect(result.current.snapshot.rows[0]?.recordId).toBeNull();
   expect(initialRowsRef.current).toBe(result.current.snapshot.rows);
 
+  const initialFoundation = result.current;
   act(() => {
-    result.current.commands.editor.activateCollectionInput(
+    result.current.refs.editorDraftRegistry.activateCollectionInput(
       "record-1:tags:grid",
     );
   });
-  expect(result.current.snapshot.editor.activeCollectionInputKey).toBe(
-    "record-1:tags:grid",
-  );
+  expect(
+    result.current.refs.editorDraftRegistry.isCollectionInputActive(
+      "record-1:tags:grid",
+    ),
+  ).toBe(true);
+  expect(result.current).toBe(initialFoundation);
   act(() => {
-    result.current.commands.editor.deactivateCollectionInput(
+    result.current.refs.editorDraftRegistry.deactivateCollectionInput(
       "record-2:tags:grid",
     );
   });
-  expect(result.current.snapshot.editor.activeCollectionInputKey).toBe(
-    "record-1:tags:grid",
-  );
+  expect(
+    result.current.refs.editorDraftRegistry.isCollectionInputActive(
+      "record-1:tags:grid",
+    ),
+  ).toBe(true);
+  expect(result.current).toBe(initialFoundation);
   act(() => {
-    result.current.commands.editor.deactivateCollectionInput(
+    result.current.refs.editorDraftRegistry.deactivateCollectionInput(
       "record-1:tags:grid",
     );
   });
-  expect(result.current.snapshot.editor.activeCollectionInputKey).toBeNull();
+  expect(
+    result.current.refs.editorDraftRegistry.isCollectionInputActive(
+      "record-1:tags:grid",
+    ),
+  ).toBe(false);
+  expect(result.current).toBe(initialFoundation);
 
   act(() => {
     result.current.commands.rows.replaceRows([]);

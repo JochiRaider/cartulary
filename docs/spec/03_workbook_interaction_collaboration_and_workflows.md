@@ -2547,6 +2547,34 @@ Verified by: AC-005, AC-043, AC-231
 
 **REQ-03-219**
 Relationship cells MUST accept raw typing and MUST NOT require picker-first interaction.
+
+Timeline Host reference, Identity reference and Tag token controls are collection
+authoring, not direct-value scalar editors. Ordinary committed collection-cell
+selection MUST NOT activate token authoring. The explicit Add control MUST
+remain pointer- and keyboard-operable and focus raw token entry without another
+confirmation step. Recordless collection inputs remain immediately usable.
+
+Collection raw drafts MUST follow REQ-03-298's memory-local authority lifetime,
+semantic target retention and authoring-revision settlement rules. Grid and
+Inspector collection authoring are independent: entry, acknowledgement or
+cancellation in one context MUST NOT overwrite or clear another context's draft.
+Detaching presentation retains authorized work; reattachment alone MUST NOT
+activate a retained grid editor or restore obsolete focus. A newer committed row
+version alone MUST NOT replace an active token input or disturb its raw text,
+caret, selection or composition. Accepted submissions retire only their captured
+authoring revisions; later text and composition remain owned by the current
+authoring session.
+
+Collection Enter/Tab departure and its resulting blur MUST share one logical
+commit and settlement outcome under REQ-03-035/218. Inspection and owner-declared
+focus borrowing MUST NOT submit token text. Composition and native popup keys
+retain local ownership. Outside those higher-priority contexts, Escape MUST
+cancel only the current context's unsubmitted token draft, without submitting,
+closing the Inspector or collapsing a valid range in the same action. Grid focus
+returns to the original semantic cell; Inspector focus returns to that visible
+collection group; recordless entry retains its immediate empty input. Escape
+MUST NOT retract an admitted or uncertain mutation or discard another field's
+work. Its later outcome MUST NOT reopen or refocus the detached presentation.
 Profiles: base
 Verified by: AC-005, AC-043, AC-231
 

@@ -130,6 +130,7 @@ export function observationOwnerFixture() {
     ],
     source: () => observationSource,
     ready: () => true,
+    subscribe: () => () => {},
     prepare: async () => true,
   };
   return {

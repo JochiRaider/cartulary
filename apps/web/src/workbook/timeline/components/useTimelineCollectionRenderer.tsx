@@ -16,14 +16,10 @@ import type {
 } from "./TimelineWorkbookRendererTypes";
 
 export function useTimelineCollectionRenderer({
-  activateCollectionInput,
-  activeCollectionInputKey,
-  deactivateCollectionInput,
   entityIndex,
   editorDraftRegistry,
   elementRegistry,
   handleInspectCollection,
-  handleCollectionInputChange,
   handleCollectionKeyDown,
   handleSelectRow,
   queueCollectionSave,
@@ -32,9 +28,6 @@ export function useTimelineCollectionRenderer({
   timelineBindingLabel,
   updateTimelineSurfaceFocusAnchor,
 }: {
-  readonly activateCollectionInput: (focusKey: string) => void;
-  readonly activeCollectionInputKey: string | null;
-  readonly deactivateCollectionInput: (focusKey: string) => void;
   readonly entityIndex: TimelineEntityIndex;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly elementRegistry: TimelineInspectorElementRegistry;
@@ -42,10 +35,6 @@ export function useTimelineCollectionRenderer({
     recordId: string,
     fieldKey: CollectionFieldKey,
     itemRef: string,
-  ) => void;
-  readonly handleCollectionInputChange: (
-    focusKey: string,
-    value: string,
   ) => void;
   readonly handleCollectionKeyDown: TimelineCollectionKeyDown;
   readonly handleSelectRow: (recordId: string) => void;
@@ -72,24 +61,10 @@ export function useTimelineCollectionRenderer({
         registerTrigger={elementRegistry.registerCollectionTrigger}
         rememberReturnFocus={elementRegistry.rememberCollectionReturnFocus}
         handleInspectCollection={handleInspectCollection}
-        retainedDraft={editorDraftRegistry.draftValue({
-          rowKey: row.key,
-          field: binding.draftKey,
-          surface: "grid",
-        })}
-        retainDraft={(value) =>
-          editorDraftRegistry.setDraft(
-            { rowKey: row.key, field: binding.draftKey, surface: "grid" },
-            value,
-          )
-        }
-        activateCollectionInput={activateCollectionInput}
-        activeCollectionInputKey={activeCollectionInputKey}
+        editorDraftRegistry={editorDraftRegistry}
         binding={binding}
-        deactivateCollectionInput={deactivateCollectionInput}
         entityIndex={entityIndex}
         {...(focusTargetRef === undefined ? {} : { focusTargetRef })}
-        handleCollectionInputChange={handleCollectionInputChange}
         handleCollectionKeyDown={handleCollectionKeyDown}
         handleSelectRow={handleSelectRow}
         label={timelineBindingLabel(binding.fieldKey)}
@@ -101,14 +76,10 @@ export function useTimelineCollectionRenderer({
       />
     ),
     [
-      activateCollectionInput,
-      activeCollectionInputKey,
-      deactivateCollectionInput,
       entityIndex,
       editorDraftRegistry,
       elementRegistry,
       handleInspectCollection,
-      handleCollectionInputChange,
       handleCollectionKeyDown,
       handleSelectRow,
       queueCollectionSave,

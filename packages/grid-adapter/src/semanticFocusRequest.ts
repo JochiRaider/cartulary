@@ -58,7 +58,19 @@ export function createSemanticFocusRequests(driver: {
         !element.matches("input, select, textarea, button, a[href]")
       )
         element.tabIndex = -1;
-      element.focus({ preventScroll: true });
+      // Explicit semantic cell focus must not enter a vendor roving child.
+      // Native capture observers still receive the focus; only the delegated
+      // descendant-redirection handler is suppressed for this one request.
+      const retainCellFocus = (event: FocusEvent) => {
+        if (event.target === element) event.stopPropagation();
+      };
+      if (request.target.kind === "cell")
+        element.addEventListener("focusin", retainCellFocus, true);
+      try {
+        element.focus({ preventScroll: true });
+      } finally {
+        element.removeEventListener("focusin", retainCellFocus, true);
+      }
       if (document.activeElement !== element) return;
       // Ref replacement during the commit must not acknowledge a detached target.
       queueMicrotask(() => {

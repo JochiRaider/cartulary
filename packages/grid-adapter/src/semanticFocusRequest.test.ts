@@ -8,6 +8,42 @@ import {
 afterEach(() => document.body.replaceChildren());
 
 describe("semantic focus requests", () => {
+  it("keeps explicit cell focus out of roving descendant controls", async () => {
+    const root = document.createElement("div");
+    const cell = document.createElement("div");
+    const chip = document.createElement("button");
+    cell.append(chip);
+    root.append(cell);
+    document.body.append(root);
+    root.addEventListener("focusin", (event) => {
+      if (event.target === cell) chip.focus();
+    });
+    const nativeObserver = vi.fn();
+    document.addEventListener("focusin", nativeObserver, true);
+    try {
+      const requests = createSemanticFocusRequests({
+        prepare: () => {},
+        resolve: () => ({ kind: "target", element: cell }),
+      });
+      expect(
+        await requests.requestFocus({
+          kind: "cell",
+          anchor: {
+            surface: { kind: "view_schema", viewSchemaId: "timeline" },
+            rowIdentity: { kind: "core_record", recordId: "row" },
+            fieldKey: "refs",
+          },
+        }),
+      ).toBe("focused");
+      expect(document.activeElement).toBe(cell);
+      expect(nativeObserver).toHaveBeenCalledOnce();
+      chip.focus();
+      expect(document.activeElement).toBe(chip);
+    } finally {
+      document.removeEventListener("focusin", nativeObserver, true);
+    }
+  });
+
   it("waits for registration and acknowledges only the declared primary control", async () => {
     let resolution: GridFocusResolution = { kind: "pending" };
     const requests = createSemanticFocusRequests({

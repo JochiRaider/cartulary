@@ -26,9 +26,7 @@ import { useTimelineScalarRenderers } from "./useTimelineScalarRenderers";
 export type { TimelineWorkbookRenderers } from "./TimelineWorkbookRendererTypes";
 
 export function useTimelineWorkbookRenderers({
-  activateCollectionInput,
   activateConflictCell,
-  activeCollectionInputKey,
   conflictQueue,
   commitScalarGridEdit,
   editorDraftRegistry,
@@ -38,7 +36,6 @@ export function useTimelineWorkbookRenderers({
   entityIndex,
   gridShellWidth,
   handleBlur,
-  handleCollectionInputChange,
   handleCollectionKeyDown,
   handleEditModePresence,
   handleKeyDown,
@@ -48,13 +45,10 @@ export function useTimelineWorkbookRenderers({
   readOnly,
   readCurrentRow,
   rowGutterWidth,
-  deactivateCollectionInput,
   timelineContract,
   updateTimelineSurfaceFocusAnchor,
 }: {
-  readonly activateCollectionInput: (focusKey: string) => void;
   readonly activateConflictCell: (key: string | null) => void;
-  readonly activeCollectionInputKey: string | null;
   readonly conflictQueue: Record<string, { readonly key: string }>;
   readonly commitScalarGridEdit: TimelineScalarGridCommit;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
@@ -71,10 +65,6 @@ export function useTimelineWorkbookRenderers({
   readonly entityIndex: TimelineEntityIndex;
   readonly gridShellWidth: number;
   readonly handleBlur: TimelineScalarBlurCommit;
-  readonly handleCollectionInputChange: (
-    focusKey: string,
-    value: string,
-  ) => void;
   readonly handleCollectionKeyDown: TimelineCollectionKeyDown;
   readonly handleEditModePresence: (
     recordId: string | null,
@@ -88,7 +78,6 @@ export function useTimelineWorkbookRenderers({
   readonly readOnly: boolean;
   readonly readCurrentRow?: ((row: WorkbookRow) => WorkbookRow) | undefined;
   readonly rowGutterWidth: number;
-  readonly deactivateCollectionInput: (focusKey: string) => void;
   readonly timelineContract: ViewContract;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -136,16 +125,12 @@ export function useTimelineWorkbookRenderers({
     editorDraftRegistry,
     elementRegistry,
     handleInspectCollection,
-    activateCollectionInput,
-    activeCollectionInputKey,
     entityIndex,
-    handleCollectionInputChange,
     handleCollectionKeyDown,
     handleSelectRow,
     queueCollectionSave,
     readOnly,
     registerInput,
-    deactivateCollectionInput,
     timelineBindingLabel,
     updateTimelineSurfaceFocusAnchor,
   });

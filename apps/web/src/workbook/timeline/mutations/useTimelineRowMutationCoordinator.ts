@@ -49,7 +49,6 @@ import {
 } from "../models/workbookMentionChips";
 
 type TimelineMutationApplyOptions = {
-  readonly clearActiveCollectionFocusKey?: string | undefined;
   readonly continueOnFreshDraft?: boolean;
   readonly detectAutoResolution?: boolean;
   readonly promoteToCommittedRowInspect?: boolean;
@@ -139,7 +138,6 @@ export function useTimelineRowMutationCoordinator({
   committedRows,
   sheetRef,
   advanceViewportContinuity,
-  clearActiveCollectionInputKey,
   clearViewportContinuity,
   createdRowPresentationScopeKey,
   editorDraftRegistry,
@@ -162,7 +160,6 @@ export function useTimelineRowMutationCoordinator({
     token?: number,
     options?: { readonly target?: TimelineViewportContinuityTarget | null },
   ) => void;
-  readonly clearActiveCollectionInputKey: (focusKey: string) => void;
   readonly clearViewportContinuity: (token: number) => void;
   readonly createdRowPresentationScopeKey: string;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
@@ -312,9 +309,6 @@ export function useTimelineRowMutationCoordinator({
           rowsRef.current = projection.rows;
           return projection.rows;
         });
-        if (options.clearActiveCollectionFocusKey !== undefined) {
-          clearActiveCollectionInputKey(options.clearActiveCollectionFocusKey);
-        }
       }, true);
       if (projection === undefined) {
         throw new Error("Timeline accepted projection was not committed.");
@@ -353,7 +347,18 @@ export function useTimelineRowMutationCoordinator({
         // Finish the identity handoff before a waiting Enter/Tab completion
         // applies newer navigation, so a late editor mount cannot steal focus.
         commitTimelineProjection(() => {
-          editorPort.activateEdit({ ...captureEditor, recordId });
+          if (captureEditor.collectionFocusKey) {
+            const input = editorDraftRegistry.inputElementForFocusKey(
+              captureEditor.collectionFocusKey,
+            );
+            if (input && !input.readOnly) {
+              input.focus({ preventScroll: true });
+              input.setSelectionRange(
+                captureEditor.selectionRange.start,
+                captureEditor.selectionRange.end,
+              );
+            }
+          } else editorPort.activateEdit({ ...captureEditor, recordId });
         }, true);
       }
       completeAcceptedContinuity({
@@ -376,7 +381,6 @@ export function useTimelineRowMutationCoordinator({
       nextDraftIndex,
       pruneAutoResolutionNoticesForRows,
       rowsRef,
-      clearActiveCollectionInputKey,
       setAutoResolutionNotices,
       updateRows,
       setSelectedRowId,

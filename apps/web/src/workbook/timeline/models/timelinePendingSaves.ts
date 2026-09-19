@@ -1,3 +1,4 @@
+import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import type { WorkbookPendingQueueRuntime } from "../../runtime/workbookPendingReplayRuntime";
 import type {
   TimelineMutableRef,
@@ -5,7 +6,15 @@ import type {
 } from "./timelineControllerPorts";
 
 export type TimelinePendingSavesRefs = {
-  readonly collectionKeyboardCommitRef: TimelineMutableRef<Map<string, string>>;
+  readonly collectionCommits: Map<
+    string,
+    {
+      readonly revision: number;
+      readonly value: string;
+      outcome?: GridEditCommitOutcome;
+      readonly listeners: Set<(outcome: GridEditCommitOutcome) => void>;
+    }
+  >;
   readonly pendingQueueRef: TimelineMutableRef<WorkbookPendingQueueRuntime>;
   readonly pendingReplayOrderRef: TimelineMutableRef<number>;
   readonly replayContextByUnitId: Map<string, TimelineReplayContext>;
@@ -26,7 +35,7 @@ export function timelinePendingSavesRefsFor(
     return existing;
   }
   const refs: TimelinePendingSavesRefs = {
-    collectionKeyboardCommitRef: { current: new Map() },
+    collectionCommits: new Map(),
     pendingQueueRef: { current: pendingQueue },
     pendingReplayOrderRef: { current: 1 },
     replayContextByUnitId: new Map(),

@@ -1,4 +1,4 @@
-/** Memory-only scalar drafts keyed by a source owner's opaque row and editor identities.
+/** Memory-only authoring drafts keyed by a source owner's opaque row and editor identities.
  * Mounted controls, capture algorithms and listeners remain source-owned.
  */
 export class WorkbookLocalDraftStore {
@@ -21,8 +21,13 @@ export class WorkbookLocalDraftStore {
     for (const listener of this.listeners) listener();
   }
 
-  write(key: string, value: string, baseline?: string): void {
-    if (this.draftValues.get(key) === value) return;
+  write(
+    key: string,
+    value: string,
+    baseline?: string,
+    newRevision = false,
+  ): void {
+    if (!newRevision && this.draftValues.get(key) === value) return;
     if (!this.draftValues.has(key) && baseline !== undefined)
       this.baselines.set(key, baseline);
     this.draftValues.set(key, value);

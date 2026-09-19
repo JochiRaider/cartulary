@@ -995,7 +995,7 @@ function useSemanticDataGrid<Row>(
       updateCellRange,
     ],
   );
-  const handleEditorKeyboardAction = useCallback(
+  const prepareEditorKeyboardAction = useCallback(
     (
       target: GridCellAnchor,
       action:
@@ -1003,7 +1003,8 @@ function useSemanticDataGrid<Row>(
         | { readonly kind: "move"; readonly rowDelta: -1 | 1 },
     ) => {
       const editor = activeEditorSessionRef.current;
-      if (editor !== null && !sameGridCellAnchor(editor.target, target)) return;
+      if (editor !== null && !sameGridCellAnchor(editor.target, target))
+        return null;
       const model = semanticPresentationRef.current;
       const decision =
         keyboardNavigation === "spreadsheet"
@@ -1032,41 +1033,64 @@ function useSemanticDataGrid<Row>(
                     key: action.rowDelta < 0 ? "ArrowUp" : "ArrowDown",
                   }) ?? target,
               };
-      if (decision.kind === "focus_draft") {
-        void cellNavigation.depart(
-          { kind: "draft", fieldKey: decision.fieldKey },
-          {
-            isCurrent: () =>
-              draftFieldKeysRef.current.includes(decision.fieldKey),
-          },
-        );
-      } else if (decision.kind === "exit_grid") {
-        void cellNavigation.depart({
-          kind: "exit",
-          backwards: decision.backwards,
-        });
-      } else {
-        void cellNavigation.depart(
-          {
-            kind: "cell",
-            anchor: decision.kind === "navigate" ? decision.target : target,
-          },
-          {
-            range:
-              decision.kind === "navigate"
-                ? (decision.range ?? undefined)
-                : undefined,
-          },
-        );
-      }
+      const capturedPresentation = presentationPort.getSnapshot();
+      const capturedState = navigationState.current;
+      return () => {
+        if (
+          !navigationState.current.available ||
+          navigationState.current.authority !== capturedState.authority ||
+          navigationState.current.scope !== capturedState.scope ||
+          presentationPort.getSnapshot() !== capturedPresentation
+        )
+          return;
+        if (decision.kind === "focus_draft") {
+          void cellNavigation.depart(
+            { kind: "draft", fieldKey: decision.fieldKey },
+            {
+              isCurrent: () =>
+                draftFieldKeysRef.current.includes(decision.fieldKey),
+            },
+          );
+        } else if (decision.kind === "exit_grid") {
+          void cellNavigation.depart({
+            kind: "exit",
+            backwards: decision.backwards,
+          });
+        } else {
+          void cellNavigation.depart(
+            {
+              kind: "cell",
+              anchor: decision.kind === "navigate" ? decision.target : target,
+            },
+            {
+              range:
+                decision.kind === "navigate"
+                  ? (decision.range ?? undefined)
+                  : undefined,
+            },
+          );
+        }
+      };
     },
     [
+      presentationPort,
       activeEditorSessionRef,
       cellNavigation,
       cellRangeRef,
       cellRangeSelection?.keyboardEntry,
       keyboardNavigation,
     ],
+  );
+  const handleEditorKeyboardAction = useCallback(
+    (
+      target: GridCellAnchor,
+      action:
+        | { readonly kind: "exit"; readonly backwards: boolean }
+        | { readonly kind: "move"; readonly rowDelta: -1 | 1 },
+    ) => {
+      prepareEditorKeyboardAction(target, action)?.();
+    },
+    [prepareEditorKeyboardAction],
   );
   useLayoutEffect(() => {
     cellNavigation.reconcile();
@@ -1483,6 +1507,15 @@ function useSemanticDataGrid<Row>(
       getScrollElement: () => vendorHandle.current?.element ?? null,
       isAnchorRendered: (anchor) =>
         semanticCellElementsRef.current.has(gridAnchorKey(anchor)),
+      prepareNavigation: (current, intent) => {
+        if (intent.key !== "Enter" && intent.key !== "Tab") return null;
+        return prepareEditorKeyboardAction(
+          current,
+          intent.key === "Tab"
+            ? { kind: "exit", backwards: intent.shiftKey === true }
+            : { kind: "move", rowDelta: intent.shiftKey ? -1 : 1 },
+        );
+      },
       moveFocus: (current, intent) => {
         if (
           keyboardNavigation === "spreadsheet" &&
@@ -1552,6 +1585,7 @@ function useSemanticDataGrid<Row>(
       semanticCellElementsRef,
       keyboardNavigation,
       handleEditorKeyboardAction,
+      prepareEditorKeyboardAction,
     ],
   );
   const sharedProps: DataGridProps<

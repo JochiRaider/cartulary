@@ -77,3 +77,29 @@ export function focusAdjacentOutsideGrid(
   target.focus();
   return document.activeElement === target;
 }
+
+/** Capture a native Tab destination before asynchronous source settlement. */
+export function adjacentTabStop(
+  source: HTMLElement,
+  backwards: boolean,
+): HTMLElement | null {
+  const elements = [
+    ...document.querySelectorAll<HTMLElement>(
+      "a[href], button, input, select, textarea, [tabindex]",
+    ),
+  ]
+    .filter(
+      (element) =>
+        element.tabIndex >= 0 &&
+        !element.hasAttribute("disabled") &&
+        !element.closest('[hidden], [inert], [aria-hidden="true"]') &&
+        element.getClientRects().length > 0,
+    )
+    .sort(
+      (a, b) =>
+        (a.tabIndex > 0 ? a.tabIndex : Infinity) -
+        (b.tabIndex > 0 ? b.tabIndex : Infinity),
+    );
+  const index = elements.indexOf(source);
+  return index < 0 ? null : (elements[index + (backwards ? -1 : 1)] ?? null);
+}

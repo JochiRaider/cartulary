@@ -30,6 +30,7 @@ import {
   forwardRef,
   type ReactNode,
   type Ref,
+  useCallback,
   useMemo,
 } from "react";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
@@ -40,6 +41,10 @@ import type { WorkbookRow } from "../models/timelineRowModel";
 import { compareTimelineGroupValues } from "../models/timelineRowsModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
+const timelineGridSurface = {
+  kind: "view_schema" as const,
+  viewSchemaId: timelineViewSchemaId,
+};
 
 export const TimelineWorkbookGrid = forwardRef<
   GridHandle,
@@ -119,6 +124,24 @@ export const TimelineWorkbookGrid = forwardRef<
   },
   ref,
 ) {
+  const activeRowIdentity = useMemo(
+    () =>
+      activeRecordId === null
+        ? null
+        : { kind: "core_record" as const, recordId: activeRecordId },
+    [activeRecordId],
+  );
+  const semanticCellState = useCallback(
+    ({ anchor }: { readonly anchor: GridCellAnchor }) =>
+      getCellState({
+        fieldKey: anchor.fieldKey,
+        recordId:
+          anchor.rowIdentity.kind === "core_record"
+            ? anchor.rowIdentity.recordId
+            : "",
+      }),
+    [getCellState],
+  );
   const grouping = useMemo<GridGroupingDescriptor<WorkbookRow> | null>(
     () =>
       groupBy === null
@@ -185,11 +208,7 @@ export const TimelineWorkbookGrid = forwardRef<
           }}
           keyboardNavigation="spreadsheet"
           ref={ref}
-          activeRowIdentity={
-            activeRecordId === null
-              ? null
-              : { kind: "core_record", recordId: activeRecordId }
-          }
+          activeRowIdentity={activeRowIdentity}
           allowPasteCreateRows
           clipboardPaste={clipboardPaste}
           coreRecordBulkSelection={bulkSelection}
@@ -198,15 +217,7 @@ export const TimelineWorkbookGrid = forwardRef<
           density={density}
           draftRow={timelineDraftRow}
           fillViewportInline
-          getCellState={({ anchor }) =>
-            getCellState({
-              fieldKey: anchor.fieldKey,
-              recordId:
-                anchor.rowIdentity.kind === "core_record"
-                  ? anchor.rowIdentity.recordId
-                  : "",
-            })
-          }
+          getCellState={semanticCellState}
           getRowState={getRowState}
           grouping={grouping}
           interactionMode={interactionMode}
@@ -224,10 +235,7 @@ export const TimelineWorkbookGrid = forwardRef<
           rowGutter={rowGutter}
           dataRows={timelineGridRows}
           sort={sort}
-          surface={{
-            kind: "view_schema",
-            viewSchemaId: timelineViewSchemaId,
-          }}
+          surface={timelineGridSurface}
         />
         <div aria-hidden="true" style={visuallyHiddenStyle}>
           {rows.map((row) => (

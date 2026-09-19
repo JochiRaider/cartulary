@@ -122,7 +122,6 @@ export function useTimelineFind(input: {
                     collection.fieldKey,
                     collection.draftKey,
                     value,
-                    "keyboard",
                     editor.surface,
                     resolve,
                   );

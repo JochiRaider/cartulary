@@ -90,6 +90,7 @@ export function useTimelineInspectorStateComposition({
   const elementRegistry = useTimelineInspectorElementRegistry(
     coordinator.snapshot,
   );
+  const setCoordinatorOpen = coordinator.commands.setOpen;
   const setOpen = useCallback(
     (next: SetStateAction<boolean>) => {
       const nextOpen = typeof next === "function" ? next(isOpen) : next;
@@ -100,9 +101,9 @@ export function useTimelineInspectorStateComposition({
           workbookFocusAnchorRef.current,
         );
       }
-      coordinator.commands.setOpen(next);
+      setCoordinatorOpen(next);
     },
-    [continuity, coordinator.commands, isOpen, workbookFocusAnchorRef],
+    [continuity, setCoordinatorOpen, isOpen, workbookFocusAnchorRef],
   );
   return {
     commands: {

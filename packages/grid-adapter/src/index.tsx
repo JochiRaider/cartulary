@@ -1,4 +1,5 @@
 export { gridRowIdentitiesEqual } from "./core";
+export { adjacentTabStop } from "./domInteraction";
 
 import type { ForwardedRef } from "react";
 import { forwardRef } from "react";

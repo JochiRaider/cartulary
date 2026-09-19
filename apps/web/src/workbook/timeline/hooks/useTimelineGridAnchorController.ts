@@ -132,11 +132,15 @@ export function useTimelineGridAnchorController({
   const restoreTimelineFocusAnchor = useCallback(
     async (
       anchor: GridCellAnchor | WorkbookContinuityAnchor,
+      options?: { readonly presentation: "cell" },
     ): Promise<boolean> => {
       if (!("rowIdentity" in anchor)) {
         return continuityPort.focus(anchor);
       }
-      if (anchor.rowIdentity.kind !== "core_record") {
+      if (
+        options?.presentation === "cell" ||
+        anchor.rowIdentity.kind !== "core_record"
+      ) {
         return (
           (await gridHandleRef.current?.requestFocus({
             kind: "cell",
@@ -260,13 +264,11 @@ export function useTimelineGridAnchorController({
     ],
   );
 
-  const navigateTimelineDraftFocus = useCallback(
+  const prepareTimelineCollectionNavigation = useCallback(
     (rowKey: string, fieldKey: string, intent: GridNavigationIntent) => {
-      const committed = currentTimelineAnchorFor(rowKey, fieldKey);
-      if (committed !== null) {
-        gridHandleRef.current?.moveFocus(committed, intent);
-        return;
-      }
+      const handle = gridHandleRef.current;
+      const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
+      if (anchor) return handle?.prepareNavigation?.(anchor, intent) ?? null;
       const fields = timelineAnchorColumnsRef.current
         .filter(
           (column) =>
@@ -274,44 +276,47 @@ export function useTimelineGridAnchorController({
             column.draftWritable === true,
         )
         .map((column) => column.fieldKey);
-      const index = fields.indexOf(fieldKey);
       const previous = rowsRef.current
         .filter((row) => row.recordId !== null)
         .at(-1);
-      if (intent.key === "Tab") {
-        const next = fields[index + (intent.shiftKey ? -1 : 1)];
+      const next =
+        intent.key === "Tab"
+          ? fields[fields.indexOf(fieldKey) + (intent.shiftKey ? -1 : 1)]
+          : intent.key === "Enter" && !intent.shiftKey
+            ? fieldKey
+            : undefined;
+      const previousField =
+        intent.key === "Tab"
+          ? timelineAnchorColumnsRef.current.at(-1)?.fieldKey
+          : fieldKey;
+      return () => {
+        if (!handle || !gridHandleRef.current) return;
         if (next !== undefined) {
-          gridHandleRef.current?.requestFocus({
-            kind: "draft",
-            fieldKey: next,
-          });
-          return;
-        }
-        if (!intent.shiftKey || previous === undefined) {
-          gridHandleRef.current?.focusAdjacentRegion?.(
-            intent.shiftKey === true,
-          );
-          return;
-        }
-      }
-      if (intent.shiftKey && previous?.recordId) {
-        const targetField =
-          intent.key === "Tab"
-            ? timelineAnchorColumnsRef.current.at(-1)?.fieldKey
-            : fieldKey;
-        if (targetField !== undefined)
-          gridHandleRef.current?.requestFocus({
-            kind: "cell",
-            anchor: {
-              surface: {
-                kind: "view_schema",
-                viewSchemaId: timelineViewSchemaId,
+          if (
+            timelineAnchorColumnsRef.current.some(
+              (column) => column.fieldKey === next && column.draftWritable,
+            )
+          )
+            void handle.requestFocus({ kind: "draft", fieldKey: next });
+        } else if (intent.shiftKey && previous?.recordId && previousField) {
+          if (rowsRef.current.some((row) => row.recordId === previous.recordId))
+            void handle.requestFocus({
+              kind: "cell",
+              anchor: {
+                surface: {
+                  kind: "view_schema",
+                  viewSchemaId: timelineViewSchemaId,
+                },
+                rowIdentity: {
+                  kind: "core_record",
+                  recordId: previous.recordId,
+                },
+                fieldKey: previousField,
               },
-              rowIdentity: { kind: "core_record", recordId: previous.recordId },
-              fieldKey: targetField,
-            },
-          });
-      }
+            });
+        } else if (intent.key === "Tab")
+          handle.focusAdjacentRegion?.(intent.shiftKey === true);
+      };
     },
     [
       currentTimelineAnchorFor,
@@ -320,7 +325,23 @@ export function useTimelineGridAnchorController({
       timelineAnchorColumnsRef,
     ],
   );
+  const navigateTimelineDraftFocus = useCallback(
+    (rowKey: string, fieldKey: string, intent: GridNavigationIntent) => {
+      const committed = currentTimelineAnchorFor(rowKey, fieldKey);
+      if (committed !== null) {
+        gridHandleRef.current?.moveFocus(committed, intent);
+        return;
+      }
+      prepareTimelineCollectionNavigation(rowKey, fieldKey, intent)?.();
+    },
+    [
+      currentTimelineAnchorFor,
+      gridHandleRef,
+      prepareTimelineCollectionNavigation,
+    ],
+  );
   return {
+    prepareTimelineCollectionNavigation,
     navigateTimelineDraftFocus,
     currentTimelineAnchorFor,
     navigateTimelineFocusAnchor,

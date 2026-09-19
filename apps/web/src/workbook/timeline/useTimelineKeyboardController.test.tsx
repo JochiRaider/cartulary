@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { initialWorkbookRecordHistoryState } from "../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";
 import { useTimelineKeyboardController } from "./hooks/useTimelineKeyboardController";
 import {
   normalizeTimelineFullRow,
@@ -81,6 +82,7 @@ function controller(
 ) {
   const calls: string[] = [];
   const mocks = {
+    editorDraftRegistry: createTimelineEditorDraftRegistry(),
     clearRowHistory: vi.fn(() => calls.push("clear-history")),
     currentTimelineAnchorFor: vi.fn(
       overrides.currentTimelineAnchorFor ?? (() => anchor),
@@ -99,6 +101,9 @@ function controller(
       calls.push(`navigate-${intent.key}-${intent.shiftKey}`),
     ),
     openRowHistory: vi.fn(() => calls.push("open-history")),
+    prepareTimelineCollectionNavigation: vi.fn(
+      () => () => calls.push("collection-navigate"),
+    ),
     queueCollectionSave: vi.fn(() => calls.push("save-collection")),
     queueScalarSave: vi.fn(() => calls.push("save-scalar")),
     recordTiming: vi.fn(() => calls.push("timing")),
@@ -261,7 +266,7 @@ describe("useTimelineKeyboardController", () => {
     ).toHaveBeenCalledWith(focusAnchor);
   });
 
-  it("owns collection commit and close behavior without unreachable editor shortcuts", () => {
+  it("owns collection settlement and cancellation without unreachable editor shortcuts", () => {
     const input = document.createElement("input");
     input.value = "host mention";
     const { calls, mocks, result } = controller({ selectedRowId: recordId });
@@ -276,14 +281,14 @@ describe("useTimelineKeyboardController", () => {
     );
     expect(enter.preventDefault).toHaveBeenCalledOnce();
     expect(enter.stopPropagation).toHaveBeenCalledOnce();
-    expect(calls).toEqual(["save-collection", "navigate-Enter-false"]);
+    expect(calls).toEqual(["save-collection"]);
     expect(mocks.queueCollectionSave).toHaveBeenCalledWith(
       "row-key",
       "timeline.host_refs",
       "hostRefs",
       "host mention",
-      "keyboard",
       "grid",
+      expect.any(Function),
     );
 
     calls.length = 0;
@@ -301,13 +306,7 @@ describe("useTimelineKeyboardController", () => {
     );
     expect(escapeEvent.preventDefault).toHaveBeenCalledOnce();
     expect(escapeEvent.stopPropagation).toHaveBeenCalledOnce();
-    expect(calls).toEqual([
-      "row-null",
-      "mention-null",
-      "message-null",
-      "clear-history",
-      "restore-focus",
-    ]);
+    expect(calls).toEqual(["restore-focus"]);
 
     calls.length = 0;
     const quickLink = keyboardEvent({

@@ -21,7 +21,6 @@ import {
 } from "../models/timelineFieldRegistry";
 import type { TimelinePendingReplayAdmission } from "../models/timelineMutationDriverPlans";
 import {
-  decideTimelineCollectionCommit,
   planTimelineCollectionMutation,
   planTimelineScalarMutation,
   type TimelineMutationAdmission,
@@ -161,7 +160,7 @@ export function useTimelineMutationCommands({
       readonly rowKey: string;
       readonly rowSnapshot: WorkbookRow;
       readonly surface: TimelineScalarEditorSurface;
-      readonly viewportContinuityToken: number;
+      readonly viewportContinuityToken: number | undefined;
       readonly visibleEdit?: PendingReplayUnitInput["visibleEdit"];
       readonly onSettled?:
         | ((outcome: GridEditCommitOutcome) => void)
@@ -171,7 +170,8 @@ export function useTimelineMutationCommands({
         rowSnapshot.recordId &&
         captureActionBlocksRecord(rowSnapshot.recordId)
       ) {
-        clearViewportContinuity(viewportContinuityToken);
+        if (viewportContinuityToken !== undefined)
+          clearViewportContinuity(viewportContinuityToken);
         onSettled?.({
           kind: "conflict",
           message:
@@ -358,12 +358,14 @@ export function useTimelineMutationCommands({
       fieldKey: CollectionFieldKey,
       focusField: CollectionDraftKey,
       draftValueOverride?: string,
-      source: "keyboard" | "blur" = "blur",
       surface: TimelineScalarEditorSurface = "grid",
       onSettled?: (outcome: GridEditCommitOutcome) => void,
     ) => {
-      const focusKey = inputFocusKey(rowKey, focusField, surface);
-      const commitKey = inputFocusKey(rowKey, focusField, "grid");
+      const focusKey = inputFocusKey(
+        editorDraftRegistry.resolveRowKey(rowKey),
+        focusField,
+        surface,
+      );
       const rowSnapshot = rowsRef.current.find(
         (candidate) =>
           candidate.key === editorDraftRegistry.resolveRowKey(rowKey),
@@ -376,23 +378,44 @@ export function useTimelineMutationCommands({
         return;
       }
       const draftValue =
-        draftValueOverride ?? rowSnapshot.collectionDrafts[focusField];
-      const priorKeyboardCommitValue =
-        pendingSavesRefs.collectionKeyboardCommitRef.current.get(commitKey);
-      const commitDecision = decideTimelineCollectionCommit({
-        draftValue,
-        priorKeyboardCommitValue,
-        source,
-      });
-      if (commitDecision.nextKeyboardCommitValue === null) {
-        pendingSavesRefs.collectionKeyboardCommitRef.current.delete(commitKey);
-      } else {
-        pendingSavesRefs.collectionKeyboardCommitRef.current.set(
-          commitKey,
-          commitDecision.nextKeyboardCommitValue,
-        );
+        draftValueOverride ??
+        editorDraftRegistry.draftValueForFocusKey(focusKey) ??
+        (surface === "grid" ? rowSnapshot.collectionDrafts[focusField] : "");
+      const prior = pendingSavesRefs.collectionCommits.get(focusKey);
+      const currentRevision = editorDraftRegistry.revisionForFocusKey(focusKey);
+      if (
+        prior &&
+        prior.value === draftValue &&
+        (prior.revision === currentRevision || currentRevision === 0)
+      ) {
+        if (onSettled) {
+          if (prior.outcome) onSettled(prior.outcome);
+          else prior.listeners.add(onSettled);
+        }
+        return;
       }
-      if (!commitDecision.admit) return;
+      if (draftValue.trim() === "") {
+        onSettled?.({ kind: "accepted" });
+        return;
+      }
+      // Capture legacy/recordless callers at the same runtime-owned boundary.
+      editorDraftRegistry.setDraft(
+        { rowKey: rowSnapshot.key, field: focusField, surface },
+        draftValue,
+      );
+      const commit: NonNullable<
+        ReturnType<typeof pendingSavesRefs.collectionCommits.get>
+      > = {
+        revision: editorDraftRegistry.revisionForFocusKey(focusKey),
+        value: draftValue,
+        listeners: new Set(onSettled ? [onSettled] : []),
+      };
+      pendingSavesRefs.collectionCommits.set(focusKey, commit);
+      const settle = (outcome: GridEditCommitOutcome) => {
+        commit.outcome = outcome;
+        for (const listener of commit.listeners) listener(outcome);
+        commit.listeners.clear();
+      };
       const snapshot =
         rowSnapshot.recordId === null
           ? rowSnapshot
@@ -407,41 +430,41 @@ export function useTimelineMutationCommands({
                 [focusField]: draftValue,
               },
             };
+      const materialized = editorDraftRegistry.materializeRow(
+        collectionSnapshot,
+        { surface },
+      );
       const effectiveSnapshot =
-        editorDraftRegistry.materializeRow(collectionSnapshot);
+        snapshot.recordId === null
+          ? materialized
+          : { ...materialized, values: { ...snapshot.committedValues } };
       const clientTxnId = nextClientTxnId();
-      let admission = planTimelineCollectionMutation({
+      const admission = planTimelineCollectionMutation({
         clientTxnId,
         draftValue,
         effectiveRow: effectiveSnapshot,
         fieldKey,
-        pendingSignature:
-          pendingSavesRefs.pendingSignaturesRef.current.get(rowKey),
       });
-      if (admission.kind === "accepted_duplicate" && onSettled !== undefined) {
-        admission = planTimelineCollectionMutation({
-          clientTxnId,
-          draftValue,
-          effectiveRow: effectiveSnapshot,
-          fieldKey,
-          pendingSignature: undefined,
-        });
-      }
       if (admission.kind !== "admit") {
-        if (admission.kind === "accepted_no_change")
-          onSettled?.({ kind: "accepted" });
+        settle(
+          admission.kind === "rejected"
+            ? admission.outcome
+            : { kind: "accepted" },
+        );
         return;
       }
-      const viewportContinuityToken = beginViewportContinuity(
-        snapshot.recordId === null || onSettled !== undefined
-          ? {
-              kind: "scroll-only",
-            }
-          : {
-              kind: "row-inspect",
-              recordId: snapshot.recordId,
-            },
-      );
+      if (snapshot.recordId === null)
+        editorDraftRegistry.beginCapture(snapshot.key);
+      // A caller awaiting settlement owns its captured departure. Starting a
+      // second restoration here would race that destination after acceptance.
+      const viewportContinuityToken =
+        onSettled === undefined
+          ? beginViewportContinuity(
+              snapshot.recordId === null
+                ? { kind: "scroll-only" }
+                : { kind: "row-inspect", recordId: snapshot.recordId },
+            )
+          : undefined;
       enqueueAutosaveReplayForPendingMutation({
         clientTxnId,
         continueOnFreshDraft:
@@ -449,12 +472,16 @@ export function useTimelineMutationCommands({
         detectAutoResolution: true,
         focusField,
         focusKey,
-        mutationSignature: admission.mutationSignature,
+        mutationSignature: JSON.stringify([
+          admission.mutationSignature,
+          focusKey,
+          commit.revision,
+        ]),
         payloadIntent: admission.payloadIntent,
         promoteToCommittedRowInspect:
           surface === "inspector" && snapshot.recordId === null,
         rowKey: effectiveSnapshot.key,
-        onSettled,
+        onSettled: settle,
         surface,
         rowSnapshot: effectiveSnapshot,
         viewportContinuityToken,

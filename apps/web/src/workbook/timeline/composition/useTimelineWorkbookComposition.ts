@@ -44,8 +44,6 @@ export function useTimelineWorkbookComposition({
     collaborationProjection: runtime.collaborationProjection,
     foundation: {
       committedRows: foundation.ports.committedRows,
-      clearActiveCollectionInputKey:
-        foundation.commands.editor.deactivateCollectionInput,
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
       loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
       nextDraftIndex: foundation.commands.rows.allocateDraftIndex,
@@ -155,14 +153,8 @@ export function useTimelineWorkbookComposition({
   const interaction = useTimelineInteractionComposition({
     foundation: {
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
-      activateCollectionInput:
-        foundation.commands.editor.activateCollectionInput,
-      activeCollectionInputKey:
-        foundation.snapshot.editor.activeCollectionInputKey,
       bulkTagPort: foundation.ports.bulkTag,
       clipboardPastePort: foundation.ports.clipboardPaste,
-      deactivateCollectionInput:
-        foundation.commands.editor.deactivateCollectionInput,
       pendingSavesRefs: foundation.refs.pendingSaves,
       recordTiming: foundation.commands.recordTiming,
       rows: foundation.snapshot.rows,
@@ -173,6 +165,8 @@ export function useTimelineWorkbookComposition({
     grid: {
       currentTimelineAnchorFor: grid.commands.anchors.currentTimelineAnchorFor,
       focusDraftRow: grid.commands.focusDraftRow,
+      prepareTimelineCollectionNavigation:
+        grid.commands.anchors.prepareTimelineCollectionNavigation,
       navigateTimelineDraftFocus:
         grid.commands.anchors.navigateTimelineDraftFocus,
       navigateTimelineFocusAnchor:
@@ -336,9 +330,9 @@ export function useTimelineWorkbookComposition({
       },
       refs: {
         editorDraftRegistry: foundation.refs.editorDraftRegistry,
+        rows: foundation.refs.rows,
       },
       snapshot: {
-        editor: foundation.snapshot.editor,
         initialLoadGenerationKey: foundation.snapshot.initialLoadGenerationKey,
         lifecycle: foundation.snapshot.lifecycle,
         mentions: foundation.snapshot.mentions,

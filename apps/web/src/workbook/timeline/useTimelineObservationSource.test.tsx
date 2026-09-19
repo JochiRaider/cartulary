@@ -1,5 +1,6 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup, renderHook } from "@testing-library/react";
+import { useSyncExternalStore } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
 import { observationSource } from "../../testing/observationTestSupport";
@@ -51,7 +52,7 @@ it("Observation source preparation preserves raw committed strings and rejects s
   const { result, rerender } = renderHook(
     (props) => {
       const port = useTimelineObservationSource(props);
-      renderedReady = port.ready();
+      renderedReady = useSyncExternalStore(port.subscribe, port.ready);
       return port;
     },
     { initialProps: options },
@@ -99,6 +100,21 @@ it("Observation source preparation preserves raw committed strings and rejects s
     ),
   ).toBe(false);
   expect(waitForIdle).toHaveBeenCalledTimes(1);
+  act(() => drafts.clearAll());
+  expect(renderedReady).toBe(true);
+  act(() =>
+    drafts.setDraft(
+      { rowKey: row.key, field: "hostRefs", surface: "inspector" },
+      "raw independent host?",
+    ),
+  );
+  expect(renderedReady).toBe(false);
+  expect(
+    await result.current.prepare(
+      observationSource,
+      new AbortController().signal,
+    ),
+  ).toBe(false);
   act(() => drafts.clearAll());
   expect(renderedReady).toBe(true);
   const pending = deferred<TimelineCommittedRecordIdleResult>();

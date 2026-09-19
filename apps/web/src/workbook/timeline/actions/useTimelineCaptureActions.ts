@@ -153,18 +153,24 @@ export function useTimelineCaptureActions(options: {
             (row) => row.recordId === review.target.recordId,
           ) ?? committed.row;
         if (!live) return null;
-        const materialized = current.current.drafts.materializeRow(live);
         if (
-          Object.entries(materialized.values).some(
-            ([field, value]) =>
-              value !==
-              committed.row?.committedValues[
-                field as keyof typeof materialized.values
-              ],
-          ) ||
-          Object.values(materialized.collectionDrafts).some(
-            (value) => value.trim() !== "",
-          )
+          (["grid", "inspector"] as const).some((surface) => {
+            const materialized = current.current.drafts.materializeRow(live, {
+              surface,
+            });
+            return (
+              Object.entries(materialized.values).some(
+                ([field, value]) =>
+                  value !==
+                  committed.row?.committedValues[
+                    field as keyof typeof materialized.values
+                  ],
+              ) ||
+              Object.values(materialized.collectionDrafts).some(
+                (value) => value.trim() !== "",
+              )
+            );
+          })
         )
           return null;
         if (

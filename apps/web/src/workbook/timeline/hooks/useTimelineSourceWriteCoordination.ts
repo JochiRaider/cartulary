@@ -31,17 +31,21 @@ export function useTimelineSourceWriteCoordination(options: {
               (row) => row.recordId === recordId,
             ) ?? current.current.committedRow?.(recordId);
           if (!row) return true;
-          const materialized = current.current.drafts.materializeRow(row);
-          return (
-            !Object.entries(materialized.values).some(
-              ([key, value]) =>
-                value !==
-                row.committedValues[key as keyof typeof row.committedValues],
-            ) &&
-            !Object.values(materialized.collectionDrafts).some(
-              (value) => value.trim() !== "",
-            )
-          );
+          return (["grid", "inspector"] as const).every((surface) => {
+            const materialized = current.current.drafts.materializeRow(row, {
+              surface,
+            });
+            return (
+              !Object.entries(materialized.values).some(
+                ([key, value]) =>
+                  value !==
+                  row.committedValues[key as keyof typeof row.committedValues],
+              ) &&
+              !Object.values(materialized.collectionDrafts).some(
+                (value) => value.trim() !== "",
+              )
+            );
+          });
         };
         if (!clean()) return false;
         if (

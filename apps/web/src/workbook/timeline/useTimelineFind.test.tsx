@@ -249,7 +249,7 @@ describe("Timeline Find integration", () => {
     f.input.registry.setDraft(identity, "bad tag");
     editor.focus();
     vi.mocked(f.input.queueCollectionSave).mockImplementation(
-      (_row, _field, _draft, _value, _source, _surface, callback) =>
+      (_row, _field, _draft, _value, _surface, callback) =>
         callback?.({ kind: "validation_error", message: "invalid" }),
     );
     await f.open();

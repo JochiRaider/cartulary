@@ -1,4 +1,4 @@
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useRef } from "react";
 import {
   type ObservationSource,
   observationSourceFields,
@@ -9,7 +9,10 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
-import { timelineScalarBindings } from "../models/timelineFieldRegistry";
+import {
+  timelineCollectionBindings,
+  timelineScalarBindings,
+} from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
 export function useTimelineObservationSource(options: {
@@ -25,15 +28,10 @@ export function useTimelineObservationSource(options: {
 }): ObservationSourcePort {
   const rowKey = options.available ? options.selectedRow?.key : undefined,
     drafts = options.drafts;
-  useSyncExternalStore(
-    useCallback(
-      (listener) => (rowKey ? drafts.subscribeRow(rowKey, listener) : () => {}),
-      [drafts, rowKey],
-    ),
-    useCallback(
-      () => (rowKey ? drafts.rowDraftSnapshot(rowKey) : "[]"),
-      [drafts, rowKey],
-    ),
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      rowKey ? drafts.subscribeRow(rowKey, listener) : () => {},
+    [drafts, rowKey],
   );
   const current = useRef(options);
   current.current = options;
@@ -87,6 +85,16 @@ export function useTimelineObservationSource(options: {
           draft !== undefined && draft !== row.committedValues[binding.key]
         );
       }) &&
+      !timelineCollectionBindings.some(
+        (binding) =>
+          (
+            current.current.drafts.draftValue({
+              rowKey: row.key,
+              field: binding.draftKey,
+              surface: "inspector",
+            }) ?? ""
+          ).trim() !== "",
+      ) &&
       !Object.values(materialized.collectionDrafts).some(
         (value) => value.trim() !== "",
       ) &&
@@ -102,6 +110,7 @@ export function useTimelineObservationSource(options: {
     );
   };
   return {
+    subscribe,
     fields:
       options.available && options.selectedRow?.rawRow
         ? observationSourceFields(view, options.selectedRow.rawRow)

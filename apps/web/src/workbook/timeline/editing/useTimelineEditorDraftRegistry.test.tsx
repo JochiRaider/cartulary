@@ -1,9 +1,12 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { WorkbookLocalDraftStore } from "../../models/WorkbookLocalDraftStore";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
+import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import {
   normalizeTimelineFullRow,
   rowFromApi,
@@ -28,6 +31,166 @@ function committedRow() {
 }
 
 describe("Timeline editor draft registry", () => {
+  it("exposes retained grid collection work for unavailable targets without empty cancellations or Inspector drafts", () => {
+    const registry = createTimelineEditorDraftRegistry();
+    const identity = {
+      rowKey: recordId,
+      field: "hostRefs" as const,
+      surface: "grid" as const,
+    };
+    registry.setDraft(identity, "  retained Ω  ");
+    registry.setDraft({ ...identity, field: "tags" }, "");
+    registry.setDraft({ ...identity, surface: "inspector" }, "Inspector work");
+    const drafts = registry.retainedGridDrafts();
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0]).toMatchObject({
+      rowKey: recordId,
+      fieldKey: "timeline.host_refs",
+      value: "  retained Ω  ",
+    });
+    drafts[0]?.discard();
+    expect(registry.retainedGridDrafts()).toEqual([]);
+    expect(registry.draftValue({ ...identity, surface: "inspector" })).toBe(
+      "Inspector work",
+    );
+  });
+
+  it("settles repeated collection callers once per surface revision and admits later identical tokens", () => {
+    const row = committedRow();
+    const registry = createTimelineEditorDraftRegistry();
+    const runtime = new WorkbookMutationRuntime(
+      { incidentId: "incident", clientInstanceId: "test" },
+      { create: () => "id" },
+      { execute: vi.fn() },
+    );
+    const enqueue =
+      vi.fn<
+        Parameters<
+          typeof useTimelineMutationCommands
+        >[0]["enqueuePendingReplayUnit"]
+      >();
+    const rowsRef = { current: [row] };
+    let txn = 0;
+    const hook = renderHook(() =>
+      useTimelineMutationCommands({
+        captureActionBlocksRecord: () => false,
+        beginViewportContinuity: () => 1,
+        clearViewportContinuity: vi.fn(),
+        clientInstanceId: "test",
+        conflictQueueRef: { current: {} },
+        editorDraftRegistry: registry,
+        enqueuePendingReplayUnit: enqueue,
+        incidentId: "incident",
+        latestCommittedTimelineRow: () => row,
+        nextClientTxnId: () => String(++txn),
+        pendingSavesRefs: timelinePendingSavesRefsFor(
+          runtime,
+          runtime.pendingQueue(),
+        ),
+        rowsRef,
+        rowStoreCommands: {
+          replaceRows: (rows) => {
+            rowsRef.current = rows;
+          },
+          updateRows: (update) => {
+            rowsRef.current = update(rowsRef.current);
+          },
+        },
+      }),
+    );
+    const grid = {
+      rowKey: row.key,
+      field: "hostRefs" as const,
+      surface: "grid" as const,
+    };
+    const inspector = { ...grid, surface: "inspector" as const };
+    const first = vi.fn(),
+      second = vi.fn(),
+      other = vi.fn();
+    registry.setDraft(grid, "raw Ω");
+    const captured = registry.captureRow(
+      row.key,
+      "grid",
+      new Set(["timeline.host_refs"]),
+    );
+    hook.result.current.commands.queueCollectionSave(
+      row.key,
+      "timeline.host_refs",
+      "hostRefs",
+      "raw Ω",
+      "grid",
+      first,
+    );
+    hook.result.current.commands.queueCollectionSave(
+      row.key,
+      "timeline.host_refs",
+      "hostRefs",
+      "raw Ω",
+      "grid",
+      second,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+    registry.setDraft(inspector, "raw Ω");
+    hook.result.current.commands.queueCollectionSave(
+      row.key,
+      "timeline.host_refs",
+      "hostRefs",
+      "raw Ω",
+      "inspector",
+      other,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(enqueue.mock.calls[0]?.[0].mutationSignature).not.toBe(
+      enqueue.mock.calls[1]?.[0].mutationSignature,
+    );
+    registry.setDraft(grid, "newer text");
+    registry.clearSubmittedRow(
+      row.key,
+      row.values,
+      { hostRefs: "raw Ω" },
+      captured,
+    );
+    enqueue.mock.calls[0]?.[1]?.({ kind: "accepted" });
+    expect(first).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
+    expect(second).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
+    expect(other).not.toHaveBeenCalled();
+    expect(registry.draftValue(grid)).toBe("newer text");
+    expect(registry.draftValue(inspector)).toBe("raw Ω");
+    registry.setDraft(grid, "raw Ω");
+    hook.result.current.commands.queueCollectionSave(
+      row.key,
+      "timeline.host_refs",
+      "hostRefs",
+      "raw Ω",
+      "grid",
+      first,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(3);
+    expect(enqueue.mock.calls[0]?.[0].mutationSignature).not.toBe(
+      enqueue.mock.calls[2]?.[0].mutationSignature,
+    );
+    enqueue.mock.calls[2]?.[1]?.({
+      kind: "validation_error",
+      message: "Rejected",
+    });
+    hook.result.current.commands.queueCollectionSave(
+      row.key,
+      "timeline.host_refs",
+      "hostRefs",
+      "raw Ω",
+      "grid",
+      second,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(3);
+    expect(second).toHaveBeenLastCalledWith({
+      kind: "validation_error",
+      message: "Rejected",
+    });
+    expect(registry.draftValue(grid)).toBe("raw Ω");
+    hook.unmount();
+  });
+
   it("retains authoring baselines across remount and requires review only for relevant changes", () => {
     const store = new WorkbookLocalDraftStore();
     const original = createTimelineEditorDraftRegistry(store);
@@ -336,25 +499,43 @@ describe("Timeline editor draft registry", () => {
     expect(registry.materializeRow(committedRow()).collectionDrafts.tags).toBe(
       "newer text",
     );
-    const accepted = registry.materializeRow(committedRow());
-    const gridInput = document.createElement("input");
-    const inspectorInput = document.createElement("input");
-    gridInput.value = "newer text";
-    inspectorInput.value = "typed after dispatch";
-    registry.registerInput(identity, gridInput);
-    registry.registerInput(
-      { ...identity, surface: "inspector" },
-      inspectorInput,
+    const inspector = { ...identity, surface: "inspector" as const };
+    registry.setDraft(inspector, "independent Inspector text");
+    const revisions = registry.captureRow(
+      recordId,
+      "grid",
+      new Set(["timeline.tags"]),
     );
+    expect(
+      registry.materializeRow(committedRow(), { surface: "inspector" })
+        .collectionDrafts.tags,
+    ).toBe("independent Inspector text");
     registry.clearSubmittedRow(
       recordId,
-      accepted.values,
-      accepted.collectionDrafts,
-      registry.captureRow(recordId, "inspector"),
+      submitted.values,
+      submitted.collectionDrafts,
+      revisions,
     );
     expect(registry.draftValue(identity)).toBeUndefined();
-    expect(gridInput.value).toBe("");
-    expect(inspectorInput.value).toBe("typed after dispatch");
+    expect(registry.draftValue(inspector)).toBe("independent Inspector text");
+    registry.setDraft(identity, "new token");
+    const captured = registry.captureRow(
+      recordId,
+      "grid",
+      new Set(["timeline.tags"]),
+    );
+    registry.setDraft(identity, "new token", undefined, true);
+    registry.clearSubmittedRow(
+      recordId,
+      submitted.values,
+      submitted.collectionDrafts,
+      captured,
+    );
+    expect(registry.draftValue(identity)).toBe("new token");
+    expect(
+      registry.captureRow(recordId, "grid", new Set(["timeline.analyst_text"]))
+        .size,
+    ).toBe(0);
   });
 
   it("invalidates drafts when the runtime lifetime changes", () => {

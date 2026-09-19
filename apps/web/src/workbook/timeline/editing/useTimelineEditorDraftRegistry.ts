@@ -54,8 +54,29 @@ export function createTimelineEditorDraftRegistry(
   const inputIdentities = new Map<string, TimelineInputIdentity>();
   const inputElements = new Map<string, TimelineEditorElement>();
   const rowListeners = new Map<string, Set<() => void>>();
+  const inputListeners = new Map<string, Set<() => void>>();
+  let activeCollectionInputKey: string | null = null;
+  const publishInput = (key: string | null) => {
+    if (key !== null)
+      for (const listener of inputListeners.get(key) ?? []) listener();
+  };
+  const activateCollectionInput = (key: string) => {
+    if (activeCollectionInputKey === key) return;
+    const previous = activeCollectionInputKey;
+    activeCollectionInputKey = key;
+    publishInput(previous);
+    publishInput(key);
+  };
+  const deactivateCollectionInput = (key: string) => {
+    if (activeCollectionInputKey !== key) return;
+    activeCollectionInputKey = null;
+    publishInput(key);
+  };
   const publishRow = (rowKey: string) => {
     for (const listener of rowListeners.get(rowKey) ?? []) listener();
+    for (const key of inputListeners.keys()) {
+      if (key.startsWith(`${rowKey}:`)) publishInput(key);
+    }
   };
 
   const rememberFocusKey = (rowKey: string, focusKey: string) => {
@@ -76,6 +97,7 @@ export function createTimelineEditorDraftRegistry(
   const clearRow = (rowKey: string) => {
     for (const focusKey of focusKeysByRow.get(rowKey) ?? []) {
       store.remove(focusKey);
+      deactivateCollectionInput(focusKey);
       inputElements.delete(focusKey);
       inputIdentities.delete(focusKey);
     }
@@ -86,6 +108,20 @@ export function createTimelineEditorDraftRegistry(
   const draftValueForFocusKey = (focusKey: string) => draftValues.get(focusKey);
 
   return {
+    activateCollectionInput,
+    deactivateCollectionInput,
+    isCollectionInputActive: (key: string) => activeCollectionInputKey === key,
+    collectionInputSnapshot: (key: string) =>
+      JSON.stringify([draftValues.get(key), activeCollectionInputKey === key]),
+    subscribeInput(key: string, listener: () => void) {
+      const listeners = inputListeners.get(key) ?? new Set<() => void>();
+      listeners.add(listener);
+      inputListeners.set(key, listeners);
+      return () => {
+        listeners.delete(listener);
+        if (!listeners.size) inputListeners.delete(key);
+      };
+    },
     hasUnsubmittedScalarDraft(
       rowKey: string,
       field: keyof RowValues,
@@ -116,25 +152,29 @@ export function createTimelineEditorDraftRegistry(
       return [...focusKeysByRow.keys()]
         .filter((key) => !key.startsWith("draft-"))
         .flatMap((rowKey) =>
-          timelineScalarBindings.flatMap((binding) => {
-            const key = inputFocusKey(rowKey, binding.key, "grid"),
-              value = draftValues.get(key);
-            return value === undefined
-              ? []
-              : [
-                  {
-                    key,
-                    rowKey,
-                    fieldKey: binding.fieldKey,
-                    value,
-                    discard: () => {
-                      store.remove(key);
-                      forgetFocusKeyIfUnused(rowKey, key);
-                      publishRow(rowKey);
+          [...timelineScalarBindings, ...timelineCollectionBindings].flatMap(
+            (binding) => {
+              const scalar = "key" in binding;
+              const field = scalar ? binding.key : binding.draftKey;
+              const key = inputFocusKey(rowKey, field, "grid"),
+                value = draftValues.get(key);
+              return value === undefined || (!scalar && value === "")
+                ? []
+                : [
+                    {
+                      key,
+                      rowKey,
+                      fieldKey: binding.fieldKey,
+                      value,
+                      discard: () => {
+                        store.remove(key);
+                        forgetFocusKeyIfUnused(rowKey, key);
+                        publishRow(rowKey);
+                      },
                     },
-                  },
-                ];
-          }),
+                  ];
+            },
+          ),
         );
     },
     resolveRowKey(rowKey: string) {
@@ -150,6 +190,7 @@ export function createTimelineEditorDraftRegistry(
       acceptedDraftRows.set(rowKey, committed.key);
       let active: {
         fieldKey: string;
+        collectionFocusKey?: string;
         value: string;
         selectionRange: { start: number; end: number };
       } | null = null;
@@ -176,17 +217,18 @@ export function createTimelineEditorDraftRegistry(
           if (
             surface === "grid" &&
             element !== undefined &&
-            element === document.activeElement &&
-            "key" in binding
+            element === document.activeElement
           ) {
             active = {
               fieldKey: binding.fieldKey,
+              ...("key" in binding ? {} : { collectionFocusKey: nextKey }),
               value: element.value,
               selectionRange: {
                 start: element.selectionStart ?? element.value.length,
                 end: element.selectionEnd ?? element.value.length,
               },
             };
+            if (!("key" in binding)) activateCollectionInput(nextKey);
           }
         }
       }
@@ -212,11 +254,13 @@ export function createTimelineEditorDraftRegistry(
     },
     clearAll() {
       store.clear();
+      activeCollectionInputKey = null;
       acceptedDraftRows.clear();
       captureRows.clear();
       inputElements.clear();
       inputIdentities.clear();
       for (const rowKey of rowListeners.keys()) publishRow(rowKey);
+      for (const key of inputListeners.keys()) publishInput(key);
     },
     clearRow,
     clearScalarDraftsForRow(
@@ -267,26 +311,20 @@ export function createTimelineEditorDraftRegistry(
         revisions.get(inputFocusKey(originalRowKey, field, surface)) ===
           store.revision(inputFocusKey(rowKey, field, surface));
       for (const binding of timelineCollectionBindings) {
-        const focusKey = inputFocusKey(rowKey, binding.draftKey, "grid");
-        if (
-          submittedCollections !== undefined &&
-          owns(binding.draftKey, "grid") &&
-          draftValues.get(focusKey) === submittedCollections[binding.draftKey]
-        ) {
-          store.remove(focusKey);
-          // A socket may have mounted this version before HTTP settlement.
-          // Clear only this accepted submission in each mounted presentation.
-          for (const surface of timelineScalarEditorSurfaces) {
-            const element = inputElements.get(
-              inputFocusKey(rowKey, binding.draftKey, surface),
-            );
-            if (
-              element &&
-              element.value === submittedCollections[binding.draftKey]
-            )
-              element.value = "";
+        for (const surface of timelineScalarEditorSurfaces) {
+          const focusKey = inputFocusKey(rowKey, binding.draftKey, surface);
+          if (
+            draftValues.has(focusKey) &&
+            (revisions !== undefined
+              ? owns(binding.draftKey, surface)
+              : surface === "grid" &&
+                submittedCollections !== undefined &&
+                draftValues.get(focusKey) ===
+                  submittedCollections[binding.draftKey])
+          ) {
+            store.remove(focusKey);
+            forgetFocusKeyIfUnused(rowKey, focusKey);
           }
-          forgetFocusKeyIfUnused(rowKey, focusKey);
         }
       }
       for (const binding of timelineScalarBindings) {
@@ -330,15 +368,23 @@ export function createTimelineEditorDraftRegistry(
     },
     draftValueForFocusKey,
     revisionForFocusKey: (focusKey: string) => store.revision(focusKey),
-    captureRow(rowKey: string, surface: TimelineScalarEditorSurface) {
+    captureRow(
+      rowKey: string,
+      surface: TimelineScalarEditorSurface,
+      fields?: ReadonlySet<string>,
+    ) {
       return new Map(
         [
-          ...timelineScalarBindings.map((binding) =>
-            inputFocusKey(rowKey, binding.key, surface),
-          ),
-          ...timelineCollectionBindings.map((binding) =>
-            inputFocusKey(rowKey, binding.draftKey, "grid"),
-          ),
+          ...timelineScalarBindings
+            .filter(
+              (binding) => fields === undefined || fields.has(binding.fieldKey),
+            )
+            .map((binding) => inputFocusKey(rowKey, binding.key, surface)),
+          ...timelineCollectionBindings
+            .filter(
+              (binding) => fields === undefined || fields.has(binding.fieldKey),
+            )
+            .map((binding) => inputFocusKey(rowKey, binding.draftKey, surface)),
         ]
           .filter((key) => draftValues.has(key))
           .map((key) => [key, store.revision(key)]),
@@ -359,8 +405,8 @@ export function createTimelineEditorDraftRegistry(
     materializeRow(
       row: WorkbookRow,
       preferred?: {
-        readonly field: keyof RowValues;
-        readonly value: string | undefined;
+        readonly field?: keyof RowValues;
+        readonly value?: string | undefined;
         readonly surface?: TimelineScalarEditorSurface;
       },
     ): WorkbookRow {
@@ -385,10 +431,17 @@ export function createTimelineEditorDraftRegistry(
         nextValues ??= { ...row.values };
         nextValues[binding.key] = draftValue;
       }
-      let collections = row.collectionDrafts;
+      let collections =
+        preferred?.surface === "inspector" && row.recordId !== null
+          ? { hostRefs: "", identityRefs: "", tags: "" }
+          : row.collectionDrafts;
       for (const binding of timelineCollectionBindings) {
         const value = draftValueForFocusKey(
-          inputFocusKey(row.key, binding.draftKey, "grid"),
+          inputFocusKey(
+            row.key,
+            binding.draftKey,
+            preferred?.surface ?? "grid",
+          ),
         );
         if (value !== undefined && value !== collections[binding.draftKey])
           collections = { ...collections, [binding.draftKey]: value };
@@ -481,6 +534,7 @@ export function createTimelineEditorDraftRegistry(
       identity: TimelineInputIdentity,
       value: string,
       baseline?: WorkbookRow,
+      newRevision = false,
     ) {
       const focusKey = inputFocusKey(
         identity.rowKey,
@@ -494,6 +548,7 @@ export function createTimelineEditorDraftRegistry(
         baseline && identity.field in baseline.committedValues
           ? baseline.committedValues[identity.field as keyof RowValues]
           : undefined,
+        newRevision,
       );
       publishRow(identity.rowKey);
     },

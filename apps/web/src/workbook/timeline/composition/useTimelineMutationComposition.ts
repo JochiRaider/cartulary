@@ -49,7 +49,6 @@ type TimelineMutationCompositionInput = {
     readonly committedRows: ReturnType<
       typeof useTimelineCommittedRows
     >["commands"];
-    readonly clearActiveCollectionInputKey: (focusKey: string) => void;
     readonly editorDraftRegistry: TimelineEditorDraftRegistry;
     readonly nextDraftIndex: () => number;
     readonly loadAccessLost: boolean;
@@ -144,7 +143,6 @@ export function useTimelineMutationComposition({
     committedRows: foundation.committedRows,
     sheetRef: incident.sheetRef,
     advanceViewportContinuity: grid.advanceViewportContinuity,
-    clearActiveCollectionInputKey: foundation.clearActiveCollectionInputKey,
     clearViewportContinuity: grid.clearViewportContinuity,
     createdRowPresentationScopeKey,
     editorDraftRegistry: foundation.editorDraftRegistry,
@@ -348,9 +346,12 @@ export function useTimelineMutationComposition({
     () => mutationCommands.identity.createLogicalActionId(),
     [mutationCommands.identity],
   );
+  const captureActionBlocksRecord = useCallback(
+    (recordId: string) => mutationRuntime.timelineActionBlocksRecord(recordId),
+    [mutationRuntime],
+  );
   const mutations = useTimelineMutationCommands({
-    captureActionBlocksRecord: (recordId) =>
-      mutationRuntime.timelineActionBlocksRecord(recordId),
+    captureActionBlocksRecord,
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     clientInstanceId: mutationRuntime.scope.clientInstanceId,

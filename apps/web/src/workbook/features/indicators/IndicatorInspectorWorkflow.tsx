@@ -71,6 +71,8 @@ function ObservationWorkflowOwner(
     />
   );
 }
+const noSourceSubscription = () => () => {};
+const sourceNotReady = () => false;
 function ObservationWorkflow({
   owner,
   subject,
@@ -82,6 +84,10 @@ function ObservationWorkflow({
   generation: number;
 }) {
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const sourceReady = useSyncExternalStore(
+    props.source?.subscribe ?? noSourceSubscription,
+    props.source?.ready ?? sourceNotReady,
+  );
   const { kind, recordId } = subject;
   const sourceFieldId = useId();
   const collection = useMemo(
@@ -185,7 +191,7 @@ function ObservationWorkflow({
     subject.kind === "source" &&
     props.action === "indicator.observations.manage";
   const source = props.source?.source(field),
-    ready = props.source?.ready() === true;
+    ready = sourceReady;
   const createBusy = entries.some(
     (entry) =>
       entry.attempt.intent.action === "create" &&

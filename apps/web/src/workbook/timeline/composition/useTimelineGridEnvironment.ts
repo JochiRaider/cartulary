@@ -56,15 +56,13 @@ export function useTimelineGridEnvironment({
     viewportContinuityRequest: interactions.snapshot.viewportContinuityRequest,
     viewportContinuityTokenRef,
   });
+  const updateTimelineFocusAnchor =
+    interactions.commands.updateTimelineFocusAnchor;
   const updateTimelineSurfaceFocusAnchor = useCallback(
     (recordId: string | null, fieldKey: string) => {
-      interactions.commands.updateTimelineFocusAnchor(
-        recordId,
-        fieldKey,
-        timelineViewSchemaId,
-      );
+      updateTimelineFocusAnchor(recordId, fieldKey, timelineViewSchemaId);
     },
-    [interactions.commands],
+    [updateTimelineFocusAnchor],
   );
   const anchors = useTimelineGridAnchorController({
     editorDraftRegistry,

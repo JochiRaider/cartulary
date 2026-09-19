@@ -103,7 +103,6 @@ export type TimelineQueueCollectionSave = (
   field: CollectionFieldKey,
   draft: CollectionDraftKey,
   currentValue?: string,
-  source?: "keyboard" | "blur",
   surface?: TimelineScalarEditorSurface,
   onSettled?: (outcome: GridEditCommitOutcome) => void,
 ) => void;

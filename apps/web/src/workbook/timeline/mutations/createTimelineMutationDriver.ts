@@ -113,7 +113,6 @@ export type TimelineMutationDriverPorts = {
     rowKey: string,
     accepted: WorkbookPendingMutationAccepted,
     options?: {
-      clearActiveCollectionFocusKey?: string;
       continueOnFreshDraft?: boolean;
       detectAutoResolution?: boolean;
       promoteToCommittedRowInspect?: boolean;
@@ -129,6 +128,7 @@ export type TimelineMutationDriverPorts = {
   readonly captureEditorDrafts: (
     rowKey: string,
     surface: TimelineScalarEditorSurface,
+    fields?: ReadonlySet<string>,
   ) => ReadonlyMap<string, number>;
   readonly clearViewportContinuity: (token: number) => void;
   readonly conflictQueueRef: TimelineMutableRef<Record<string, unknown>>;
@@ -289,7 +289,19 @@ export function createTimelineMutationDriver(
       ...input
     } = unit;
     const meta: TimelineReplayContext = {
-      draftRevisions: ports.captureEditorDrafts(input.rowKey, surface),
+      draftRevisions: ports.captureEditorDrafts(
+        input.rowKey,
+        surface,
+        input.kind === "create"
+          ? undefined
+          : new Set(
+              (
+                (input.payloadIntent.changes ?? []) as readonly {
+                  field_key: string;
+                }[]
+              ).map((change) => change.field_key),
+            ),
+      ),
       sheetRef: ports.sheetRef,
       focusField,
       focusKey,
@@ -714,14 +726,7 @@ export function createTimelineMutationDriver(
             : undefined,
         meta.draftRevisions,
       );
-      const clearActiveCollectionFocusKey =
-        meta.surface === "grid" && isCollectionDraftKey(meta.focusField)
-          ? meta.focusKey
-          : undefined;
       applyAcceptedRowMutation(unit.rowKey, accepted, {
-        ...(clearActiveCollectionFocusKey === undefined
-          ? {}
-          : { clearActiveCollectionFocusKey }),
         continueOnFreshDraft:
           meta.continueOnFreshDraft && meta.rowSnapshot.recordId === null,
         detectAutoResolution: meta.detectAutoResolution,

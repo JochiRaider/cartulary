@@ -358,6 +358,41 @@ function useTestSupportGridHandle<Row>({
         testAnchorRect(cellElements.current, surface, anchor),
       isAnchorRendered: (anchor) =>
         semanticPresentationContainsAnchor(presentation, anchor),
+      prepareNavigation: (current, intent) => {
+        const decision = decideSpreadsheetNavigation(
+          presentation,
+          current,
+          { key: intent.key, shiftKey: intent.shiftKey === true },
+          [...draftFocusTargets.current.keys()],
+          rangeKeyboardEntry === "cycle" ? rangeRef.current : null,
+        );
+        return () => {
+          const live = latest.current;
+          if (
+            !live.editable ||
+            live.presentation.fieldKeys.join() !==
+              presentation.fieldKeys.join() ||
+            live.presentation.rowIdentities.length !==
+              presentation.rowIdentities.length ||
+            !live.presentation.rowIdentities.every(
+              (row, i) =>
+                presentation.rowIdentities[i] !== undefined &&
+                gridRowIdentitiesEqual(row, presentation.rowIdentities[i]),
+            )
+          )
+            return;
+          if (decision.kind === "navigate") {
+            updateRange(decision.range);
+            focusSemanticAnchor(decision.target);
+          } else if (decision.kind === "focus_draft")
+            void focusRequests.requestFocus({
+              kind: "draft",
+              fieldKey: decision.fieldKey,
+            });
+          else if (decision.kind === "exit_grid")
+            focusAdjacentOutsideGrid(scrollElement.current, decision.backwards);
+        };
+      },
       moveFocus: (current, intent) => {
         if (
           keyboardNavigation === "spreadsheet" &&
@@ -1037,7 +1072,7 @@ function TestGridDataCell<Row>({
           range: rangeRef.current,
         })
       }
-      onFocus={() => {
+      onFocusCapture={() => {
         const preserveRange =
           sameGridCellAnchor(pendingRangeEnd.current, anchor) ||
           (keyboardPolicy.rangeKeyboardEntry === "cycle" &&

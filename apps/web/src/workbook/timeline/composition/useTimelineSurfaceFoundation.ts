@@ -57,9 +57,6 @@ export function useTimelineSurfaceFoundation({
   });
   const [loadAccessLost, setLoadAccessLost] = useState(false);
   const [initialLoadGenerationKey, setInitialLoadGenerationKey] = useState(0);
-  const [activeCollectionInputKey, setActiveCollectionInputKey] = useState<
-    string | null
-  >(null);
   const rows = useTimelineRows();
   const mentions = useTimelineMentions(mentionOwner);
   const pendingSaves = useTimelinePendingSaves({
@@ -86,21 +83,9 @@ export function useTimelineSurfaceFoundation({
     },
     [],
   );
-  const activateCollectionInput = useCallback((focusKey: string) => {
-    setActiveCollectionInputKey(focusKey);
-  }, []);
-  const deactivateCollectionInput = useCallback((focusKey: string) => {
-    setActiveCollectionInputKey((current) =>
-      current === focusKey ? null : current,
-    );
-  }, []);
 
   return {
     commands: {
-      editor: {
-        activateCollectionInput,
-        deactivateCollectionInput,
-      },
       lifecycle: {
         setInitialLoadGenerationKey,
         setIsInitialLoading: runtime.lifecycle.setIsInitialLoading,
@@ -133,7 +118,6 @@ export function useTimelineSurfaceFoundation({
       rows: rows.rowsRef,
     },
     snapshot: {
-      editor: { activeCollectionInputKey },
       initialLoadGenerationKey,
       lifecycle: {
         isInitialLoading: runtime.lifecycle.isInitialLoading,

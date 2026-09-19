@@ -3,6 +3,7 @@ import type {
   GridEditCommitOutcome,
   GridNavigationIntent,
 } from "@cartulary/grid-adapter";
+import { adjacentTabStop } from "@cartulary/grid-adapter";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -17,17 +18,18 @@ import {
 } from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { TimelineScalarSaveOptions } from "../models/timelineControllerPorts";
 import {
   type CollectionDraftKey,
   type CollectionFieldKey,
+  inputFocusKey,
   type RowValues,
   type TimelineScalarEditorSurface,
   timelineScalarBindings,
 } from "../models/timelineFieldRegistry";
 import {
-  mapTimelineCollectionEditorIntent,
   mapTimelineScalarEditorIntent,
   mapTimelineWorkAreaInspectorIntent,
   type TimelineEditorKeyboardIntent,
@@ -47,7 +49,6 @@ type QueueCollectionSave = (
   fieldKey: CollectionFieldKey,
   draftKey: CollectionDraftKey,
   currentValue?: string,
-  source?: "keyboard" | "blur",
   surface?: TimelineScalarEditorSurface,
   onSettled?: (outcome: GridEditCommitOutcome) => void,
 ) => void;
@@ -162,6 +163,8 @@ function executeScalarSaveIntent({
 }
 
 export function useTimelineKeyboardController({
+  editorDraftRegistry,
+  prepareTimelineCollectionNavigation,
   navigateTimelineDraftFocus,
   clearRowHistory,
   currentTimelineAnchorFor,
@@ -182,6 +185,12 @@ export function useTimelineKeyboardController({
   timelineRowForEventTarget,
   workbookFocusAnchorRef,
 }: {
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
+  readonly prepareTimelineCollectionNavigation: (
+    rowKey: string,
+    fieldKey: string,
+    intent: GridNavigationIntent,
+  ) => (() => void) | null;
   readonly navigateTimelineDraftFocus?:
     | ((rowKey: string, fieldKey: string, intent: GridNavigationIntent) => void)
     | undefined;
@@ -210,6 +219,7 @@ export function useTimelineKeyboardController({
   ) => void;
   readonly restoreTimelineFocusAnchor: (
     anchor: GridCellAnchor | WorkbookContinuityAnchor,
+    options?: { readonly presentation: "cell" },
   ) => unknown;
   readonly rowHistory: WorkbookRecordHistoryState;
   readonly selectedRowId: string | null;
@@ -231,9 +241,12 @@ export function useTimelineKeyboardController({
     };
     document.addEventListener("keydown", advance, true);
     document.addEventListener("pointerdown", advance, true);
+    document.addEventListener("wheel", advance, true);
     return () => {
+      advance();
       document.removeEventListener("keydown", advance, true);
       document.removeEventListener("pointerdown", advance, true);
+      document.removeEventListener("wheel", advance, true);
     };
   }, []);
   const [pendingInspectorFocus, setPendingInspectorFocus] = useState<{
@@ -370,87 +383,101 @@ export function useTimelineKeyboardController({
         event.nativeEvent.isComposing ||
         event.key.startsWith("Arrow") ||
         event.key === "Home" ||
-        event.key === "End" ||
-        (surface === "inspector" && event.key === "Tab")
+        event.key === "End"
       ) {
         event.stopPropagation();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
+        if (surface === "grid" && anchor)
+          restoreTimelineFocusAnchor(anchor, { presentation: "cell" });
         return;
       }
       if (
-        surface === "grid" &&
-        navigateTimelineDraftFocus !== undefined &&
-        (event.key === "Enter" || event.key === "Tab")
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        const original = event.currentTarget;
-        const sequence = interactionSequence.current;
-        const navigation: GridNavigationIntent = {
-          key: event.key,
-          shiftKey: event.shiftKey,
-        };
-        queueCollectionSave(
-          rowKey,
-          fieldKey,
-          draftKey,
-          original.value,
-          "keyboard",
-          surface,
-          (outcome) => {
-            if (sequence !== interactionSequence.current) return;
-            if (outcome.kind === "accepted")
-              navigateTimelineDraftFocus(rowKey, fieldKey, navigation);
-            else if (original.isConnected)
-              original.focus({ preventScroll: true });
-          },
-        );
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        (event.key !== "Enter" && event.key !== "Tab")
+      )
         return;
-      }
-      const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
-      const intent = mapTimelineCollectionEditorIntent({
-        event,
-        hasCommittedAnchor: anchor !== null,
-        inspectorCanClose:
-          selectedRowId !== null ||
-          rowHistory.subject !== null ||
-          rowHistory.phase !== "idle",
-      });
-      if (intent.preventDefault) event.preventDefault();
-      if (intent.stopPropagation) event.stopPropagation();
-      if (intent.kind === "close_inspector") {
-        closeInspectorFromEditor(anchor);
-        return;
-      }
-      if (intent.kind === "navigate" && anchor !== null) {
-        navigateTimelineFocusAnchor(anchor, intent.navigation);
-        return;
-      }
-      if (intent.kind !== "save") return;
+      event.preventDefault();
+      event.stopPropagation();
+      const original = event.currentTarget;
+      const sequence = interactionSequence.current;
+      const authoringKey = inputFocusKey(rowKey, draftKey, surface);
+      const revision = editorDraftRegistry.revisionForFocusKey(authoringKey);
+      const destination =
+        surface === "inspector" && event.key === "Tab"
+          ? adjacentTabStop(original, event.shiftKey)
+          : null;
+      const inspectorEnterAnchor =
+        surface === "inspector" &&
+        event.key === "Enter" &&
+        original.value.trim() !== ""
+          ? currentTimelineAnchorFor(rowKey, "timeline.activity_synopsis_text")
+          : null;
+      const navigate =
+        surface === "grid"
+          ? prepareTimelineCollectionNavigation(rowKey, fieldKey, {
+              key: event.key,
+              shiftKey: event.shiftKey,
+            })
+          : null;
       queueCollectionSave(
         rowKey,
         fieldKey,
         draftKey,
-        event.currentTarget.value,
-        "keyboard",
+        original.value,
         surface,
+        (outcome) => {
+          const currentRevision = editorDraftRegistry.revisionForFocusKey(
+            inputFocusKey(
+              editorDraftRegistry.resolveRowKey(rowKey),
+              draftKey,
+              surface,
+            ),
+          );
+          if (currentRevision !== 0 && currentRevision !== revision) return;
+          const eligible = original.isConnected
+            ? original
+            : editorDraftRegistry.inputElementForFocusKey(
+                inputFocusKey(rowKey, draftKey, surface),
+              );
+          const acceptedPromotion =
+            outcome.kind === "accepted" &&
+            editorDraftRegistry.resolveRowKey(rowKey) !== rowKey;
+          if (
+            sequence !== interactionSequence.current ||
+            (!eligible && !acceptedPromotion) ||
+            eligible?.readOnly ||
+            eligible?.disabled
+          )
+            return;
+          if (outcome.kind === "accepted") {
+            navigate?.();
+            if (inspectorEnterAnchor)
+              restoreTimelineFocusAnchor(inspectorEnterAnchor, {
+                presentation: "cell",
+              });
+            if (
+              destination?.isConnected &&
+              !destination.hasAttribute("disabled") &&
+              !destination.closest('[hidden], [inert], [aria-hidden="true"]')
+            )
+              destination.focus({ preventScroll: true });
+          } else eligible?.focus({ preventScroll: true });
+        },
       );
-      if (
-        surface === "grid" &&
-        intent.navigateAfterSave !== null &&
-        anchor !== null
-      ) {
-        navigateTimelineFocusAnchor(anchor, intent.navigateAfterSave);
-      }
     },
     [
-      closeInspectorFromEditor,
       currentTimelineAnchorFor,
-      navigateTimelineFocusAnchor,
-      navigateTimelineDraftFocus,
+      editorDraftRegistry,
+      prepareTimelineCollectionNavigation,
       queueCollectionSave,
-      rowHistory.phase,
-      rowHistory.subject,
-      selectedRowId,
+      restoreTimelineFocusAnchor,
     ],
   );
 

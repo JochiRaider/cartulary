@@ -5,11 +5,18 @@ import {
   relationshipOverflowButtonTestId,
   timelineCollectionInputTestId,
 } from "@cartulary/ui-contracts";
-import { type KeyboardEvent, useRef } from "react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import {
   WorkbookRelationshipChip,
   workbookRelationshipChipBaseStyle,
 } from "../../components/WorkbookRelationshipChip";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { projectTimelineCollectionPresentation } from "../models/timelineCollectionPresentation";
 import {
   type CollectionFieldKey,
@@ -27,15 +34,12 @@ import type {
 import { inputStyle } from "./TimelineWorkbookStyles";
 
 type TimelineCollectionCellProps = {
-  readonly activateCollectionInput: (key: string) => void;
-  readonly activeCollectionInputKey: string | null;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly binding: TimelineCollectionBinding;
-  readonly deactivateCollectionInput: (key: string) => void;
   readonly entityIndex: TimelineEntityIndex;
   readonly focusTargetRef?:
     | ((element: HTMLInputElement | null) => void)
     | undefined;
-  readonly handleCollectionInputChange: (key: string, value: string) => void;
   readonly handleCollectionKeyDown: TimelineCollectionKeyDown;
   readonly handleSelectRow: (recordId: string) => void;
   readonly handleInspectCollection: (
@@ -67,8 +71,6 @@ type TimelineCollectionCellProps = {
   ) => void;
   readonly row: WorkbookRow;
   readonly surface: TimelineScalarEditorSurface;
-  readonly retainedDraft: string | undefined;
-  readonly retainDraft: (value: string) => void;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
     fieldKey: string,
@@ -81,23 +83,76 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const controls = useRef(new Map<string, HTMLButtonElement>());
   const suppressInspectionBlur = useRef(false);
+  const composing = useRef(false);
+  const focusOnActivation = useRef(false);
+  const registry = props.editorDraftRegistry;
   const focusKey = inputFocusKey(row.key, binding.draftKey, surface);
+  useSyncExternalStore(
+    useCallback(
+      (listener) => registry.subscribeInput(focusKey, listener),
+      [registry, focusKey],
+    ),
+    useCallback(
+      () => registry.collectionInputSnapshot(focusKey),
+      [registry, focusKey],
+    ),
+  );
+  const retainedDraft = registry.draftValue({
+    rowKey: row.key,
+    field: binding.draftKey,
+    surface,
+  });
+  const retainDraft = (value: string, newRevision = false) =>
+    registry.setDraft(
+      { rowKey: row.key, field: binding.draftKey, surface },
+      value,
+      undefined,
+      newRevision,
+    );
   const presentation = projectTimelineCollectionPresentation({
     binding,
     entityIndex: props.entityIndex,
     row,
   });
   const isInspector = surface === "inspector";
-  const draft = props.retainedDraft ?? row.collectionDrafts[binding.draftKey];
+  const draft =
+    retainedDraft ??
+    (surface === "grid" ? row.collectionDrafts[binding.draftKey] : "");
   const isInputActive =
     isInspector ||
     row.recordId === null ||
-    props.activeCollectionInputKey === focusKey ||
-    draft !== "";
+    (!props.readOnly && registry.isCollectionInputActive(focusKey));
+  const { focusTargetRef, registerInput } = props;
+  const register = useCallback(
+    (element: HTMLInputElement | null) => {
+      inputRef.current = element;
+      focusTargetRef?.(element);
+      registerInput(row.key, binding.draftKey, surface, element);
+    },
+    [focusTargetRef, registerInput, row.key, binding.draftKey, surface],
+  );
+  useLayoutEffect(
+    () => () => registry.deactivateCollectionInput(focusKey),
+    [registry, focusKey],
+  );
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (props.readOnly && !isInspector)
+      registry.deactivateCollectionInput(focusKey);
+    if (!isInputActive || !input || composing.current) return;
+    if (input.value !== draft) input.value = draft;
+    if (focusOnActivation.current && !props.readOnly) {
+      focusOnActivation.current = false;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+    if (draft === "" && document.activeElement !== input)
+      registry.deactivateCollectionInput(focusKey);
+  }, [draft, isInputActive, props.readOnly, registry, focusKey, isInspector]);
   const activateInput = () => {
     if (props.readOnly) return;
-    props.activateCollectionInput(focusKey);
-    inputRef.current?.focus({ preventScroll: true });
+    focusOnActivation.current = true;
+    registry.activateCollectionInput(focusKey);
   };
   const inspect = (itemRef: string, triggerRef: string | null = itemRef) => {
     if (row.recordId === null) return;
@@ -105,7 +160,7 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
       document.activeElement === inputRef.current;
     if (!isInspector)
       props.rememberReturnFocus(row.recordId, binding.fieldKey, triggerRef);
-    if (inputRef.current) props.retainDraft(inputRef.current.value);
+    if (inputRef.current) retainDraft(inputRef.current.value);
     props.updateTimelineSurfaceFocusAnchor(row.recordId, binding.fieldKey);
     props.handleInspectCollection(row.recordId, binding.fieldKey, itemRef);
   };
@@ -143,8 +198,9 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
   return (
     <fieldset
       ref={cellRef}
+      tabIndex={isInspector ? -1 : undefined}
       data-grid-sizing-draft={
-        isInputActive || props.retainedDraft !== undefined ? "true" : undefined
+        isInputActive || draft !== "" ? "true" : undefined
       }
       aria-label={`${label} collection ${isInspector ? "editor" : "cell"}`}
       style={isInspector ? inspectorCollectionStyle : collectionCellStyle}
@@ -284,94 +340,121 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
           Add
         </button>
       ) : null}
-      <input
-        aria-label={`${label} ${row.recordId ?? "draft row"}`}
-        data-testid={
-          row.recordId === null
-            ? draftTimelineCollectionInputTestId(binding.fieldKey)
-            : timelineCollectionInputTestId(
-                row.recordId,
-                binding.fieldKey,
-                surface,
-              )
-        }
-        key={`${row.key}:${binding.draftKey}:${row.rowVersion ?? "draft"}`}
-        ref={(element) => {
-          inputRef.current = element;
-          props.focusTargetRef?.(element);
-          props.registerInput(row.key, binding.draftKey, surface, element);
-        }}
-        readOnly={props.readOnly}
-        tabIndex={isInputActive ? 0 : -1}
-        style={
-          isInputActive
-            ? isInspector
-              ? inputStyle
-              : collectionCellInputStyle
-            : inactiveInputStyle
-        }
-        type="text"
-        defaultValue={draft}
-        onChange={(event) => {
-          if (!props.readOnly) {
-            props.retainDraft(event.currentTarget.value);
-            props.handleCollectionInputChange(
-              inputFocusKey(row.key, binding.draftKey, "grid"),
-              event.currentTarget.value,
-            );
+      {!isInputActive && draft !== "" ? (
+        <span
+          style={emptyRelationshipStyle}
+          role="note"
+          aria-label={`${label} token draft retained`}
+        >
+          Draft
+        </span>
+      ) : null}
+      {isInputActive ? (
+        <input
+          aria-label={`${label} ${row.recordId ?? "draft row"}`}
+          data-testid={
+            row.recordId === null
+              ? draftTimelineCollectionInputTestId(binding.fieldKey)
+              : timelineCollectionInputTestId(
+                  row.recordId,
+                  binding.fieldKey,
+                  surface,
+                )
           }
-        }}
-        onBlur={(event) => {
-          if (props.readOnly) return;
-          const inspecting =
-            suppressInspectionBlur.current ||
-            props.isInspectionControlTarget(event.relatedTarget) ||
-            (event.relatedTarget instanceof Element &&
-              event.relatedTarget.closest(
-                '[data-grid-editor-external-action="true"]',
-              ) !== null) ||
-            (event.relatedTarget instanceof Node &&
-              cellRef.current?.contains(event.relatedTarget));
-          suppressInspectionBlur.current = false;
-          if (inspecting) {
-            props.retainDraft(event.currentTarget.value);
-            return;
-          }
-          props.queueCollectionSave(
-            row.key,
-            binding.fieldKey,
-            binding.draftKey,
-            event.currentTarget.value,
-            "blur",
-            surface,
-          );
-          if (event.currentTarget.value.trim() === "")
-            props.deactivateCollectionInput(focusKey);
-        }}
-        onFocus={() => {
-          props.activateCollectionInput(focusKey);
-          props.updateTimelineSurfaceFocusAnchor(
-            row.recordId,
-            binding.fieldKey,
-          );
-          if (row.recordId !== null) props.handleSelectRow(row.recordId);
-        }}
-        onKeyDown={(event) => {
-          if (!props.readOnly)
-            props.handleCollectionKeyDown(
-              event,
+          key={focusKey}
+          ref={register}
+          readOnly={props.readOnly}
+          style={isInspector ? inputStyle : collectionCellInputStyle}
+          type="text"
+          defaultValue={draft}
+          onCompositionStart={(event) => {
+            composing.current = true;
+            if (!props.readOnly) retainDraft(event.currentTarget.value, true);
+          }}
+          onCompositionEnd={(event) => {
+            composing.current = false;
+            if (!props.readOnly) retainDraft(event.currentTarget.value);
+          }}
+          onChange={(event) => {
+            if (!props.readOnly) {
+              retainDraft(event.currentTarget.value);
+            }
+          }}
+          onBlur={(event) => {
+            if (props.readOnly || composing.current) return;
+            const inspecting =
+              suppressInspectionBlur.current ||
+              props.isInspectionControlTarget(event.relatedTarget) ||
+              (event.relatedTarget instanceof Element &&
+                event.relatedTarget.closest(
+                  '[data-grid-editor-external-action="true"]',
+                ) !== null) ||
+              (event.relatedTarget instanceof Node &&
+                cellRef.current?.contains(event.relatedTarget));
+            suppressInspectionBlur.current = false;
+            if (inspecting) {
+              retainDraft(event.currentTarget.value);
+              return;
+            }
+            props.queueCollectionSave(
               row.key,
               binding.fieldKey,
               binding.draftKey,
+              event.currentTarget.value,
               surface,
             );
-          if (event.key !== "Tab" && event.key !== "Escape")
-            event.stopPropagation();
-        }}
-        placeholder={
-          isInputActive ? `Add ${label.toLowerCase()} token` : undefined
-        }
-      />
+            if (event.currentTarget.value.trim() === "")
+              registry.deactivateCollectionInput(focusKey);
+          }}
+          onFocus={() => {
+            if (!isInspector) registry.activateCollectionInput(focusKey);
+            props.updateTimelineSurfaceFocusAnchor(
+              row.recordId,
+              binding.fieldKey,
+            );
+            if (row.recordId !== null) props.handleSelectRow(row.recordId);
+          }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || composing.current) {
+              event.stopPropagation();
+              return;
+            }
+            if (event.defaultPrevented) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!props.readOnly) {
+                event.currentTarget.value = "";
+                retainDraft("", true);
+                registry.deactivateCollectionInput(focusKey);
+              }
+              if (isInspector) cellRef.current?.focus({ preventScroll: true });
+              else if (row.recordId !== null)
+                props.handleCollectionKeyDown(
+                  event,
+                  row.key,
+                  binding.fieldKey,
+                  binding.draftKey,
+                  surface,
+                );
+              return;
+            }
+            if (!props.readOnly)
+              props.handleCollectionKeyDown(
+                event,
+                row.key,
+                binding.fieldKey,
+                binding.draftKey,
+                surface,
+              );
+            if (event.key !== "Tab" && event.key !== "Escape")
+              event.stopPropagation();
+          }}
+          placeholder={
+            isInputActive ? `Add ${label.toLowerCase()} token` : undefined
+          }
+        />
+      ) : null}
     </fieldset>
   );
 }
@@ -443,18 +526,6 @@ const collectionCellInputStyle = {
   blockSize: "100%",
   paddingBlock: 0,
   paddingInline: "0.1rem",
-};
-const inactiveInputStyle = {
-  ...gridCellInputStyle,
-  position: "absolute" as const,
-  insetBlockStart: 0,
-  insetInlineStart: 0,
-  inlineSize: 1,
-  blockSize: 1,
-  minHeight: 0,
-  padding: 0,
-  opacity: 0,
-  pointerEvents: "none" as const,
 };
 const collectionOverflowStyle = {
   flex: "0 0 auto",

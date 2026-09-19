@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -13,6 +14,7 @@ import {
 } from "../../../testing/timelineMentionTestSupport";
 import { WorkbookTimelineMentionOperationOwner } from "../actions/WorkbookTimelineMentionOperationOwner";
 import { createTimelineMentionResolutionAdapter } from "../adapters/createTimelineMentionResolutionAdapter";
+import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { createTimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
 import { timelineCollectionBindings } from "../models/timelineFieldRegistry";
@@ -39,12 +41,9 @@ function fixture(
 ): ComponentProps<typeof TimelineCollectionCell> {
   const draft = createDraftRow(1);
   return {
-    activateCollectionInput: vi.fn(),
-    activeCollectionInputKey: null,
+    editorDraftRegistry: createTimelineEditorDraftRegistry(),
     binding: timelineCollectionBindings[2],
-    deactivateCollectionInput: vi.fn(),
     entityIndex: {},
-    handleCollectionInputChange: vi.fn(),
     handleCollectionKeyDown: vi.fn(),
     handleSelectRow: vi.fn(),
     handleInspectCollection: vi.fn(),
@@ -86,8 +85,6 @@ function fixture(
       },
     },
     surface: "grid",
-    retainedDraft: undefined,
-    retainDraft: vi.fn(),
     updateTimelineSurfaceFocusAnchor: vi.fn(),
   };
 }
@@ -96,16 +93,20 @@ describe("Timeline collection inspection", () => {
   it("targets hidden tags without editing or committing pending text", () => {
     const registry = inspectionRegistry();
     const props = fixture(registry);
+    const identity = {
+      rowKey: props.row.key,
+      field: "tags" as const,
+      surface: "grid" as const,
+    };
+    props.editorDraftRegistry.setDraft(identity, "pending raw Ω");
+    props.editorDraftRegistry.activateCollectionInput("record-1:tags:grid");
     const onGridKeyDown = vi.fn();
     const { rerender } = render(
       <table onKeyDown={onGridKeyDown}>
         <tbody>
           <tr>
             <td>
-              <TimelineCollectionCell
-                {...props}
-                retainedDraft="pending raw Ω"
-              />
+              <TimelineCollectionCell {...props} />
             </td>
           </tr>
         </tbody>
@@ -138,7 +139,9 @@ describe("Timeline collection inspection", () => {
       null,
     );
     expect(props.queueCollectionSave).not.toHaveBeenCalled();
-    expect(props.retainDraft).toHaveBeenCalledWith("pending raw Ω");
+    expect(props.editorDraftRegistry.draftValue(identity)).toBe(
+      "pending raw Ω",
+    );
     const other = render(
       <TimelineCollectionCell
         {...fixture(registry)}
@@ -159,15 +162,12 @@ describe("Timeline collection inspection", () => {
     input.focus();
     fireEvent.blur(input, { relatedTarget: widthControl });
     expect(props.queueCollectionSave).not.toHaveBeenCalled();
-    expect(props.retainDraft).toHaveBeenLastCalledWith("pending raw Ω");
+    expect(props.editorDraftRegistry.draftValue(identity)).toBe(
+      "pending raw Ω",
+    );
     widthControl.remove();
     rerender(
-      <TimelineCollectionCell
-        {...props}
-        surface="inspector"
-        readOnly
-        retainedDraft="pending raw Ω"
-      />,
+      <TimelineCollectionCell {...props} surface="inspector" readOnly />,
     );
     expect(
       screen.queryByRole("button", { name: "Inspect 2 more tags" }),
@@ -182,12 +182,81 @@ describe("Timeline collection inspection", () => {
       "tag-2",
       tags[1],
     );
-    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(
-      "pending raw Ω",
-    );
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("");
     expect((screen.getByRole("textbox") as HTMLInputElement).readOnly).toBe(
       true,
     );
+  });
+
+  it("mounts only explicit grid authoring, preserves native selection on refresh, and retains independent detached drafts", () => {
+    const props = fixture();
+    const grid = {
+      rowKey: props.row.key,
+      field: "tags" as const,
+      surface: "grid" as const,
+    };
+    const inspector = { ...grid, surface: "inspector" as const };
+    const view = render(<TimelineCollectionCell {...props} />);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add tags token" }));
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    fireEvent.change(input, { target: { value: "raw Ω 東京" } });
+    input.setSelectionRange(2, 5, "backward");
+    view.rerender(
+      <TimelineCollectionCell
+        {...props}
+        row={{ ...props.row, rowVersion: 4 }}
+      />,
+    );
+    expect(screen.getByRole("textbox")).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect([
+      input.selectionStart,
+      input.selectionEnd,
+      input.selectionDirection,
+    ]).toEqual([2, 5, "backward"]);
+    act(() => props.editorDraftRegistry.setDraft(inspector, "Inspector only"));
+    const captured = props.editorDraftRegistry.captureRow(
+      props.row.key,
+      "grid",
+      new Set(["timeline.tags"]),
+    );
+    fireEvent.compositionStart(input);
+    act(() =>
+      props.editorDraftRegistry.clearSubmittedRow(
+        props.row.key,
+        props.row.values,
+        { tags: "raw Ω 東京" },
+        captured,
+      ),
+    );
+    expect(input.value).toBe("raw Ω 東京");
+    fireEvent.compositionEnd(input);
+    view.unmount();
+    expect(props.editorDraftRegistry.draftValue(grid)).toBe("raw Ω 東京");
+    render(<TimelineCollectionCell {...props} />);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByLabelText("Tags token draft retained")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add tags token" }));
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(
+      "raw Ω 東京",
+    );
+    expect(props.editorDraftRegistry.draftValue(inspector)).toBe(
+      "Inspector only",
+    );
+    const restored = screen.getByRole("textbox");
+    fireEvent.compositionStart(restored);
+    fireEvent.keyDown(restored, { key: "Escape", isComposing: true });
+    expect(props.editorDraftRegistry.draftValue(grid)).toBe("raw Ω 東京");
+    fireEvent.compositionEnd(restored);
+    fireEvent.keyDown(restored, { key: "Escape" });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(props.editorDraftRegistry.draftValue(grid)).toBe("");
+    expect(props.editorDraftRegistry.draftValue(inspector)).toBe(
+      "Inspector only",
+    );
+    expect(props.queueCollectionSave).not.toHaveBeenCalled();
   });
 
   it("keeps recordless draft text local and registers independent editor surfaces", () => {

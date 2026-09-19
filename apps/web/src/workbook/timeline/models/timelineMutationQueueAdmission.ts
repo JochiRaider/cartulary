@@ -75,40 +75,16 @@ export function planTimelineScalarMutation({
   };
 }
 
-export type TimelineCollectionCommitDecision = {
-  readonly admit: boolean;
-  readonly nextKeyboardCommitValue: string | null;
-};
-
-export function decideTimelineCollectionCommit({
-  draftValue,
-  priorKeyboardCommitValue,
-  source,
-}: {
-  readonly draftValue: string;
-  readonly priorKeyboardCommitValue: string | undefined;
-  readonly source: "blur" | "keyboard";
-}): TimelineCollectionCommitDecision {
-  return source === "keyboard"
-    ? { admit: true, nextKeyboardCommitValue: draftValue }
-    : {
-        admit: priorKeyboardCommitValue !== draftValue,
-        nextKeyboardCommitValue: null,
-      };
-}
-
 export function planTimelineCollectionMutation({
   clientTxnId,
   draftValue,
   effectiveRow,
   fieldKey,
-  pendingSignature,
 }: {
   readonly clientTxnId: string;
   readonly draftValue: string;
   readonly effectiveRow: WorkbookRow;
   readonly fieldKey: CollectionFieldKey;
-  readonly pendingSignature: string | undefined;
 }): TimelineMutationAdmission {
   const payloadIntent =
     effectiveRow.recordId === null
@@ -116,9 +92,6 @@ export function planTimelineCollectionMutation({
       : buildCollectionPatchIntent(fieldKey, draftValue, clientTxnId);
   if (payloadIntent === null) return { kind: "accepted_no_change" };
   const mutationSignature = buildStableMutationSignature(payloadIntent);
-  if (mutationSignature === pendingSignature) {
-    return { kind: "accepted_duplicate" };
-  }
   return {
     kind: "admit",
     mutationSignature,

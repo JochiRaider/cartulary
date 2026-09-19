@@ -506,6 +506,11 @@ export type GridHandle = {
   readonly getAnchorRect: (anchor: GridCellAnchor) => DOMRectReadOnly | null;
   readonly getScrollElement: () => HTMLDivElement | null;
   readonly isAnchorRendered: (anchor: GridCellAnchor) => boolean;
+  /** Capture a keyboard destination before a source-owned editor settles. */
+  readonly prepareNavigation?: (
+    current: GridCellAnchor,
+    intent: GridNavigationIntent,
+  ) => (() => void) | null;
   readonly moveFocus: (
     current: GridCellAnchor,
     intent: GridNavigationIntent,

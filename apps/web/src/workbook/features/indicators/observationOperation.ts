@@ -77,6 +77,7 @@ export type ObservationBinding = Readonly<{
   reconcile: () => Promise<void>;
 }>;
 export type ObservationSourcePort = Readonly<{
+  subscribe: (listener: () => void) => () => void;
   fields: readonly { fieldKey: string; label: string; value: string }[];
   source: (fieldKey: string) => ObservationSource | null;
   ready: () => boolean;

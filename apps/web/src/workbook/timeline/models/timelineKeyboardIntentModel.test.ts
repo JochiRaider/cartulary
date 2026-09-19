@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  mapTimelineCollectionEditorIntent,
   mapTimelineScalarEditorIntent,
   mapTimelineWorkAreaInspectorIntent,
 } from "./timelineKeyboardIntentModel";
@@ -65,44 +64,6 @@ describe("Timeline keyboard intent mapping", () => {
       preserveInputFocus: true,
       preventDefault: true,
       recordBlankRowTiming: true,
-      stopPropagation: true,
-    });
-  });
-
-  it("maps collection save, navigation, and close intent", () => {
-    expect(
-      mapTimelineCollectionEditorIntent({
-        event: { key: "Enter" },
-        hasCommittedAnchor: true,
-        inspectorCanClose: false,
-      }),
-    ).toMatchObject({
-      kind: "save",
-      navigateAfterSave: { key: "Enter", shiftKey: false },
-      preventDefault: true,
-      stopPropagation: true,
-    });
-    expect(
-      mapTimelineCollectionEditorIntent({
-        event: { key: "ArrowDown" },
-        hasCommittedAnchor: true,
-        inspectorCanClose: false,
-      }),
-    ).toEqual({
-      kind: "navigate",
-      navigation: { key: "ArrowDown", shiftKey: false },
-      preventDefault: true,
-      stopPropagation: true,
-    });
-    expect(
-      mapTimelineCollectionEditorIntent({
-        event: { key: "Escape" },
-        hasCommittedAnchor: true,
-        inspectorCanClose: true,
-      }),
-    ).toEqual({
-      kind: "close_inspector",
-      preventDefault: true,
       stopPropagation: true,
     });
   });

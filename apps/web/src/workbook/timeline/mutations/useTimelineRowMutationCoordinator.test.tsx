@@ -127,7 +127,6 @@ function renderCoordinator(
         pendingSavesRefs: pending.refs,
         rowsRef,
         selectedRowId,
-        clearActiveCollectionInputKey: () => undefined,
         setAutoResolutionNotices,
         setPendingQueueSnapshot: pending.commands.setPendingQueueSnapshot,
         rowStoreCommands: { replaceRows, updateRows },

@@ -150,20 +150,22 @@ export function useTimelineWorkbookPresentation({
   const { autoResolutionNotices } = foundation.snapshot.mentions;
   const pendingQueueSnapshot = foundation.snapshot.pendingQueue;
   const editorDraftRegistry = foundation.refs.editorDraftRegistry;
+  const currentRows = foundation.refs.rows;
+  const readCurrentRow = useCallback(
+    (row: WorkbookRow) =>
+      currentRows.current.find((candidate) => candidate.key === row.key) ?? row,
+    [currentRows],
+  );
   const gridShellRef = grid.refs.gridShell;
   const timelineGridShellWidth = grid.snapshot.gridShellWidth;
   const { workbookFocusAnchor } = grid.snapshot;
   const updateTimelineSurfaceFocusAnchor =
     grid.commands.updateTimelineSurfaceFocusAnchor;
 
-  const { activeCollectionInputKey } = interaction.snapshot.editor;
   const {
     activateConflictCell,
-    activateCollectionInput,
     commitScalarGridEdit,
-    deactivateCollectionInput,
     handleBlur,
-    handleCollectionInputChange,
     handleCollectionKeyDown,
     handleKeyDown,
     handlePaste,
@@ -269,20 +271,16 @@ export function useTimelineWorkbookPresentation({
     renderTimelineInspectorEditor,
     timelineColumns,
   } = useTimelineWorkbookRenderers({
-    activateCollectionInput,
     activateConflictCell,
-    activeCollectionInputKey,
     elementRegistry: inspector.ports.elements,
     handleInspectCollection,
     commitScalarGridEdit,
     conflictQueue,
-    deactivateCollectionInput,
     editorDraftRegistry,
     editingPresenceForCell,
     entityIndex,
     gridShellWidth: timelineGridShellWidth,
     handleBlur,
-    handleCollectionInputChange,
     handleCollectionKeyDown,
     handleEditModePresence,
     handleKeyDown,
@@ -290,8 +288,7 @@ export function useTimelineWorkbookPresentation({
     handleSelectRow,
     queueCollectionSave,
     readOnly: interactionMode.kind === "read_only",
-    readCurrentRow: (row) =>
-      rows.find((candidate) => candidate.key === row.key) ?? row,
+    readCurrentRow,
     rowGutterWidth: timelineRowGutterWidth,
     timelineContract,
     updateTimelineSurfaceFocusAnchor,

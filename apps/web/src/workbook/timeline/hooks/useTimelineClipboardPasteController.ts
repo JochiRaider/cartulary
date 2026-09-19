@@ -76,11 +76,11 @@ export function useTimelineClipboardPasteController(input: {
           intent.targetResolution,
           current.targetResolution,
         ) ||
-        timelinePastePlanAdmission(
-          current.targetResolution,
-          intent.input,
-          input,
-        ).kind !== "accepted"
+        timelinePastePlanAdmission(current.targetResolution, intent.input, {
+          canCreateRows: input.canCreateRows,
+          editable: input.editable,
+          grouped: input.grouped,
+        }).kind !== "accepted"
       ) {
         input.setError(
           "Paste targets changed or are unavailable for this Timeline.",
@@ -123,7 +123,15 @@ export function useTimelineClipboardPasteController(input: {
         ) !== null
       );
     },
-    [input],
+    [
+      input.canCreateRows,
+      input.editable,
+      input.grouped,
+      input.clipboardPaste,
+      input.pendingSavesRefs,
+      input.resolveTimelinePasteTargetResolution,
+      input.setError,
+    ],
   );
   return { commands: { handlePaste, handleGridPaste } };
 }
