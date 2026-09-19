@@ -27,19 +27,19 @@ type cursorCipher struct {
 	retireAt      *time.Time
 }
 
-type CursorCodec struct {
+type cursorCodec struct {
 	mu          sync.Mutex
 	activeKeyID string
 	keys        map[string]cursorCipher
 	now         func() time.Time
 }
 
-type CursorProtector interface {
-	Encode(CursorBinding, string, any) (string, error)
-	Decode(string) (CursorPayload, string)
+type cursorProtector interface {
+	Encode(cursorBinding, string, any) (string, error)
+	Decode(string) (cursorPayload, string)
 }
 
-type CursorBinding struct {
+type cursorBinding struct {
 	Route       string
 	ActorUserID string
 	SessionID   string
@@ -50,7 +50,7 @@ type CursorBinding struct {
 	Limit       int
 }
 
-type CursorPayload struct {
+type cursorPayload struct {
 	Version      string            `json:"version"`
 	PositionKind string            `json:"position_kind"`
 	Position     json.RawMessage   `json:"position"`
@@ -66,14 +66,14 @@ type CursorPayload struct {
 	ExpiresAt    time.Time         `json:"expires_at"`
 }
 
-func newCursorCodec(rings *KeyRings, now func() time.Time) (*CursorCodec, error) {
+func newCursorCodec(rings *KeyRings, now func() time.Time) (*cursorCodec, error) {
 	if rings == nil || rings.cursorActiveID == "" {
 		return nil, fmt.Errorf("network flow cursor key ring unavailable")
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	codec := &CursorCodec{activeKeyID: rings.cursorActiveID, keys: make(map[string]cursorCipher), now: now}
+	codec := &cursorCodec{activeKeyID: rings.cursorActiveID, keys: make(map[string]cursorCipher), now: now}
 	for keyID, material := range rings.cursorKeys {
 		block, err := aes.NewCipher(material.key)
 		if err != nil {
@@ -88,9 +88,9 @@ func newCursorCodec(rings *KeyRings, now func() time.Time) (*CursorCodec, error)
 	return codec, nil
 }
 
-func (c *CursorCodec) Encode(binding CursorBinding, positionKind string, position any) (string, error) {
+func (c *cursorCodec) Encode(binding cursorBinding, positionKind string, position any) (string, error) {
 	if c == nil || positionKind == "" || position == nil {
-		return "", ErrInvalidCursor
+		return "", errInvalidCursor
 	}
 	current := c.now().UTC()
 	c.mu.Lock()
@@ -98,14 +98,14 @@ func (c *CursorCodec) Encode(binding CursorBinding, positionKind string, positio
 	key, ok := c.keys[c.activeKeyID]
 	c.mu.Unlock()
 	if !ok || key.state != "active" {
-		return "", ErrInvalidCursor
+		return "", errInvalidCursor
 	}
 	positionJSON, err := json.Marshal(position)
 	if err != nil {
 		return "", err
 	}
 	issuedAt := current
-	payload := CursorPayload{
+	payload := cursorPayload{
 		Version:      cursorVersion,
 		PositionKind: positionKind,
 		Position:     positionJSON,
@@ -133,16 +133,16 @@ func (c *CursorCodec) Encode(binding CursorBinding, positionKind string, positio
 	return "nfc2." + c.activeKeyID + "." + base64.RawURLEncoding.EncodeToString(sealed), nil
 }
 
-func (c *CursorCodec) Decode(token string) (CursorPayload, string) {
+func (c *cursorCodec) Decode(token string) (cursorPayload, string) {
 	if c == nil || token == "" {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	if len(token) > 4096 {
-		return CursorPayload{}, "too_long"
+		return cursorPayload{}, "too_long"
 	}
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 || parts[0] != "nfc2" || !safeKeyIDPattern.MatchString(parts[1]) {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	current := c.now().UTC()
 	c.mu.Lock()
@@ -150,37 +150,37 @@ func (c *CursorCodec) Decode(token string) (CursorPayload, string) {
 	key, ok := c.keys[parts[1]]
 	c.mu.Unlock()
 	if !ok {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	sealed, err := base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	nonceSize := key.aead.NonceSize()
 	if len(sealed) <= nonceSize {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	payload, err := key.aead.Open(nil, sealed[:nonceSize], sealed[nonceSize:], []byte("nfc2."+parts[1]))
 	if err != nil {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
-	var decoded CursorPayload
+	var decoded cursorPayload
 	if err := json.Unmarshal(payload, &decoded); err != nil {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	if decoded.Version != cursorVersion || decoded.PositionKind == "" || len(decoded.Position) == 0 || !json.Valid(decoded.Position) || decoded.Route == "" || decoded.ActorUserID == "" || decoded.IncidentID == "" || decoded.Limit < 1 || decoded.QueryHash == "" || len(decoded.QueryEcho) == 0 || !json.Valid(decoded.QueryEcho) {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	if decoded.IssuedAt.After(current) || !current.Before(decoded.ExpiresAt) || !decoded.ExpiresAt.Equal(decoded.IssuedAt.Add(cursorTTL)) {
-		return CursorPayload{}, "expired"
+		return cursorPayload{}, "expired"
 	}
 	if key.state == "decrypt_only" && (key.deactivatedAt == nil || !decoded.IssuedAt.Before(*key.deactivatedAt)) {
-		return CursorPayload{}, "malformed"
+		return cursorPayload{}, "malformed"
 	}
 	return decoded, ""
 }
 
-func (c *CursorCodec) purgeRetiredLocked(now time.Time) {
+func (c *cursorCodec) purgeRetiredLocked(now time.Time) {
 	for keyID, key := range c.keys {
 		if key.retireAt != nil && !now.Before(*key.retireAt) {
 			delete(c.keys, keyID)
@@ -188,7 +188,7 @@ func (c *CursorCodec) purgeRetiredLocked(now time.Time) {
 	}
 }
 
-func (c CursorPayload) Validate(binding CursorBinding) string {
+func (c cursorPayload) Validate(binding cursorBinding) string {
 	if c.Route != binding.Route {
 		return "route_mismatch"
 	}

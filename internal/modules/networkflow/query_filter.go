@@ -9,11 +9,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]Filter, *httpapi.APIError) {
+func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]queryFilter, *semanticFailure) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
@@ -27,20 +25,20 @@ func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]F
 	if int64(len(entries)) > limits.MaxFiltersPerQuery {
 		return nil, invalidFilter("filters", "too_many_filters")
 	}
-	filters := make([]Filter, 0, len(entries))
+	filters := make([]queryFilter, 0, len(entries))
 	seen := map[string]struct{}{}
 	for index, entry := range entries {
 		filter, apiErr := decodeFilterEntry(entry)
 		if apiErr != nil {
-			apiErr.Details["filter_index"] = index
+			apiErr.details.FilterIndex = &index
 			return nil, apiErr
 		}
 		key := string(canonicalJSON(filter))
 		if _, exists := seen[key]; exists {
 			apiErr := invalidFilter("filters", "duplicate_filter")
-			apiErr.Details["field_key"] = filter.FieldKey
-			apiErr.Details["op"] = filter.Op
-			apiErr.Details["filter_index"] = index
+			apiErr.details.FieldKey = &filter.FieldKey
+			apiErr.details.Op = &filter.Op
+			apiErr.details.FilterIndex = &index
 			return nil, apiErr
 		}
 		seen[key] = struct{}{}
@@ -53,7 +51,7 @@ func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]F
 	return filters, nil
 }
 
-func decodeFilterEntry(entry json.RawMessage) (filter Filter, apiErr *httpapi.APIError) {
+func decodeFilterEntry(entry json.RawMessage) (filter queryFilter, apiErr *semanticFailure) {
 	defer func() {
 		if apiErr == nil {
 			return
@@ -64,50 +62,50 @@ func decodeFilterEntry(entry json.RawMessage) (filter Filter, apiErr *httpapi.AP
 		_ = json.Unmarshal(context["field_key"], &field)
 		_ = json.Unmarshal(context["op"], &op)
 		if isFilterField(field) {
-			apiErr.Details["field_key"] = field
+			apiErr.details.FieldKey = &field
 		}
 		if len(op) <= 32 {
-			apiErr.Details["op"] = op
+			apiErr.details.Op = &op
 		}
 	}()
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(entry, &object); err != nil || object == nil {
-		return Filter{}, invalidFilter("filters", "invalid_value")
+		return queryFilter{}, invalidFilter("filters", "invalid_value")
 	}
 	if apiErr := ensureAllowedMembers(object, "field_key", "op", "value"); apiErr != nil {
-		return Filter{}, invalidFilter("filters", "unknown_member")
+		return queryFilter{}, invalidFilter("filters", "unknown_member")
 	}
 	field, apiErr := requiredJSONString(object, "field_key")
 	if apiErr != nil || !isFilterField(field) {
-		return Filter{}, invalidFilter("field_key", "unknown_field")
+		return queryFilter{}, invalidFilter("field_key", "unknown_field")
 	}
 	op, apiErr := requiredJSONString(object, "op")
 	if apiErr != nil {
-		return Filter{}, invalidFilter("op", "operator_not_allowed")
+		return queryFilter{}, invalidFilter("op", "operator_not_allowed")
 	}
-	filter = Filter{FieldKey: field, Op: op}
+	filter = queryFilter{FieldKey: field, Op: op}
 	if !filterOpAllowed(filter) {
-		return Filter{}, invalidFilter("op", "operator_not_allowed")
+		return queryFilter{}, invalidFilter("op", "operator_not_allowed")
 	}
 	valueRaw, hasValue := object["value"]
 	if op == "is_null" || op == "not_null" {
 		if hasValue {
-			return Filter{}, invalidFilter("value", "value_forbidden")
+			return queryFilter{}, invalidFilter("value", "value_forbidden")
 		}
 	} else {
 		if !hasValue || bytes.Equal(bytes.TrimSpace(valueRaw), []byte("null")) {
-			return Filter{}, invalidFilter("value", "invalid_value")
+			return queryFilter{}, invalidFilter("value", "invalid_value")
 		}
 		value, apiErr := normalizeFilterValue(field, op, valueRaw)
 		if apiErr != nil {
-			return Filter{}, apiErr
+			return queryFilter{}, apiErr
 		}
 		filter.Value = value
 	}
 	return filter, nil
 }
 
-func normalizeFilterValue(field, op string, raw json.RawMessage) (any, *httpapi.APIError) {
+func normalizeFilterValue(field, op string, raw json.RawMessage) (any, *semanticFailure) {
 	switch op {
 	case "in":
 		var entries []json.RawMessage
@@ -152,12 +150,12 @@ func normalizeFilterValue(field, op string, raw json.RawMessage) (any, *httpapi.
 	}
 }
 
-func normalizeFilterScalar(field string, raw json.RawMessage) (any, *httpapi.APIError) {
+func normalizeFilterScalar(field string, raw json.RawMessage) (any, *semanticFailure) {
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return nil, invalidFilter("value", "invalid_value")
 	}
 	switch field {
-	case FieldSrcIP, FieldDstIP, FieldEndpointIP:
+	case fieldSrcIP, fieldDstIP, fieldEndpointIP:
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidFilter("value", "invalid_value")
@@ -167,13 +165,13 @@ func normalizeFilterScalar(field string, raw json.RawMessage) (any, *httpapi.API
 			return nil, invalidFilter("value", "invalid_value")
 		}
 		return canonical, nil
-	case FieldSrcPort, FieldDstPort:
+	case fieldSrcPort, fieldDstPort:
 		return normalizeFilterInteger(raw, 0, 65535)
-	case FieldIPProtocol:
+	case fieldIPProtocol:
 		return normalizeFilterInteger(raw, 0, 255)
 	case "source_row_number":
 		return normalizeFilterInteger(raw, 1, uint64(^uint64(0)>>1))
-	case FieldBytesCount, FieldPacketsCount:
+	case fieldBytesCount, fieldPacketsCount:
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidFilter("value", "invalid_value")
@@ -183,18 +181,18 @@ func normalizeFilterScalar(field string, raw json.RawMessage) (any, *httpapi.API
 			return nil, invalidFilter("value", "invalid_value")
 		}
 		return canonical, nil
-	case FieldFlowStartUTC, FieldFlowEndUTC:
+	case fieldFlowStartUTC, fieldFlowEndUTC:
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidFilter("value", "invalid_value")
 		}
-		profile := materializeTimestampProfile(TimestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "microseconds"})
+		profile := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "microseconds"})
 		parsed, err := parseExactRFC3339(value, profile)
 		if err != nil || !strings.ContainsAny(value[len("0001-01-01T00:00:00"):], "Z+-") {
 			return nil, invalidFilter("value", "invalid_value")
 		}
 		return formatTimestamp(parsed), nil
-	case FieldExporterID, FieldInputInterface, FieldOutputInterface:
+	case fieldExporterID, fieldInputInterface, fieldOutputInterface:
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidFilter("value", "invalid_value")
@@ -208,7 +206,7 @@ func normalizeFilterScalar(field string, raw json.RawMessage) (any, *httpapi.API
 	}
 }
 
-func normalizeFilterInteger(raw json.RawMessage, minimum, maximum uint64) (any, *httpapi.APIError) {
+func normalizeFilterInteger(raw json.RawMessage, minimum, maximum uint64) (any, *semanticFailure) {
 	text := string(raw)
 	if !unsignedDecimalRE.MatchString(text) {
 		return nil, invalidFilter("value", "invalid_value")
@@ -220,13 +218,13 @@ func normalizeFilterInteger(raw json.RawMessage, minimum, maximum uint64) (any, 
 	return json.Number(text), nil
 }
 
-func normalizeFilterRange(field string, raw json.RawMessage) (any, *httpapi.APIError) {
+func normalizeFilterRange(field string, raw json.RawMessage) (any, *semanticFailure) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
 		return nil, invalidFilter("value", "invalid_value")
 	}
 	upperName := "lte"
-	if field == FieldFlowStartUTC || field == FieldFlowEndUTC {
+	if field == fieldFlowStartUTC || field == fieldFlowEndUTC {
 		upperName = "lt"
 	}
 	if apiErr := ensureAllowedMembers(object, "gte", upperName); apiErr != nil {
@@ -262,10 +260,10 @@ func compareFilterValues(field string, left, right any) int {
 	if left == nil || right == nil {
 		return compareScalar(left, right)
 	}
-	if field == FieldExporterID || field == FieldInputInterface || field == FieldOutputInterface {
+	if field == fieldExporterID || field == fieldInputInterface || field == fieldOutputInterface {
 		return strings.Compare(fmt.Sprint(left), fmt.Sprint(right))
 	}
-	if field == FieldSrcIP || field == FieldDstIP || field == FieldEndpointIP {
+	if field == fieldSrcIP || field == fieldDstIP || field == fieldEndpointIP {
 		return compareIPValues(left, right)
 	}
 	return compareScalar(left, right)
@@ -292,7 +290,7 @@ var diagnosticQueryTokens = func() map[string]map[string]bool {
 	return result
 }()
 
-func decodeDiagnosticTokens(raw json.RawMessage, field string) ([]string, *httpapi.APIError) {
+func decodeDiagnosticTokens(raw json.RawMessage, field string) ([]string, *semanticFailure) {
 	if len(raw) == 0 {
 		return nil, nil
 	}

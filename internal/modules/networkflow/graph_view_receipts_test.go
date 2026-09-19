@@ -25,12 +25,12 @@ func TestGraphViewNameByteContract_Unit(t *testing.T) {
 		{"\u0085", "", "forbidden_control"},
 		{"\u009fgraph", "", "forbidden_control"},
 	} {
-		got, err := NormalizeGraphViewDisplayName(test.input)
+		got, err := normalizeGraphViewDisplayName(test.input)
 		if test.reason == "" {
 			if err != nil || got != test.want {
 				t.Fatalf("normalize %q = %q, %v", test.input, got, err)
 			}
-		} else if invalid, ok := err.(*InvalidDisplayNameError); !ok || invalid.ReasonCode != test.reason {
+		} else if invalid, ok := err.(*invalidDisplayNameError); !ok || invalid.ReasonCode != test.reason {
 			t.Fatalf("normalize %q error = %v; want %s", test.input, err, test.reason)
 		}
 	}
@@ -40,10 +40,10 @@ func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 	incident, actor, jobID := uuid.New(), uuid.New(), uuid.New()
 	query := canonicalJSON(map[string]any{"schema_id": schemaGraphSemanticQueryV2, "selected_table_ids": []string{"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}})
 	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
-	declaration := GraphViewDeclaration{
+	declaration := graphViewDeclaration{
 		GraphViewID: "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", IncidentID: incident,
-		DisplayName: "Repeated name", NormalizedDisplayName: "repeated name", DeclarationState: GraphViewDeclarationStateActive,
-		SemanticQueryJSON: query, SemanticQuerySHA256: GraphViewSemanticQuerySHA256(query), DesiredSourceSnapshotID: "nfsnap_example",
+		DisplayName: "Repeated name", NormalizedDisplayName: "repeated name", DeclarationState: graphViewDeclarationStateActive,
+		SemanticQueryJSON: query, SemanticQuerySHA256: graphViewSemanticQuerySHA256(query), DesiredSourceSnapshotID: "nfsnap_example",
 		GraphViewVersion: 1, MaterializationGeneration: 1, CreatedByUserID: actor, CreatedAt: now, UpdatedAt: now, LatestJobID: &jobID,
 	}
 	receipt := graphViewAcceptedPayload(declaration, jobID)

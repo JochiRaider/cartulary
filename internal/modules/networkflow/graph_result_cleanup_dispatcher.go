@@ -117,31 +117,50 @@ func (dispatcher *GraphResultCleanupDispatcher) Close(ctx context.Context) error
 	}
 }
 
-func (dispatcher *GraphResultCleanupDispatcher) runOnce(
-	ctx context.Context,
-	cursor *graphprojection.ResultCleanupCandidateV2,
-) (graphResultCleanupSweepResult, error) {
+type graphCleanupSchedule struct {
+	cursor               *graphprojection.ResultCleanupCandidateV2
+	restartFromBeginning bool
+	delay                time.Duration
+}
+
+func (dispatcher *GraphResultCleanupDispatcher) runOnce(ctx context.Context, schedule *graphCleanupSchedule) (graphResultCleanupSweepResult, error) {
 	dispatcher.runMu.Lock()
 	defer dispatcher.runMu.Unlock()
 	started := time.Now()
-	result, err := dispatcher.sweeper.SweepGraphResults(ctx, dispatcher.now().UTC(), cursor)
+	inputCursor := cloneCleanupCandidate(schedule.cursor)
+	result, err := dispatcher.sweeper.SweepGraphResults(ctx, dispatcher.now().UTC(), inputCursor)
+	if result.DeletedLeases > 0 && inputCursor != nil {
+		schedule.restartFromBeginning = true
+	}
+	if result.NextCursor != nil {
+		schedule.cursor = cloneCleanupCandidate(result.NextCursor)
+	}
+	schedule.delay = dispatcher.baseCadence
+	continuation := false
+	switch {
+	case err != nil:
+		schedule.delay = dispatcher.retryDelay
+	case result.HasMore:
+		continuation = true
+	case result.Exhausted && schedule.restartFromBeginning:
+		schedule.cursor = nil
+		schedule.restartFromBeginning = false
+		continuation = true
+	default:
+		schedule.cursor = nil
+		schedule.restartFromBeginning = false
+	}
+	if continuation {
+		schedule.delay = dispatcher.continuationDelay
+	}
 	telemetryResult, errorClass := graphTelemetryOutcomeForError(err)
 	observeGraphCleanupSafely(context.WithoutCancel(ctx), dispatcher.telemetry, GraphCleanupTelemetryObservation{
 		Operation: graphTelemetryOperationCleanup, Result: telemetryResult, ErrorClass: errorClass,
 		Duration:      nonnegativeGraphTelemetryDuration(started),
 		DeletedLeases: result.DeletedLeases, DeletedResults: result.DeletedResults,
-		HealthSnapshotValid: result.HealthSnapshotValid, EligibleResultBacklog: result.EligibleResultBacklog,
-		OldestEligibleResultAge: cloneDuration(result.OldestEligibleResultAge),
+		Examined: result.Examined, Continuation: continuation,
 	})
 	return result, err
-}
-
-func cloneDuration(value *time.Duration) *time.Duration {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
 }
 
 func (dispatcher *GraphResultCleanupDispatcher) run(ctx context.Context, done chan<- struct{}) {
@@ -155,8 +174,7 @@ func (dispatcher *GraphResultCleanupDispatcher) run(ctx context.Context, done ch
 
 	timer := time.NewTimer(0)
 	defer timer.Stop()
-	var cursor *graphprojection.ResultCleanupCandidateV2
-	restartFromBeginning := false
+	schedule := &graphCleanupSchedule{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -165,33 +183,11 @@ func (dispatcher *GraphResultCleanupDispatcher) run(ctx context.Context, done ch
 		case <-timer.C:
 		}
 
-		inputCursor := cloneCleanupCandidate(cursor)
-		result, err := dispatcher.runOnce(ctx, inputCursor)
+		_, _ = dispatcher.runOnce(ctx, schedule)
 		if ctx.Err() != nil {
 			expectedStop = true
 			return
 		}
-		if result.DeletedLeases > 0 && inputCursor != nil {
-			restartFromBeginning = true
-		}
-		if result.NextCursor != nil {
-			cursor = cloneCleanupCandidate(result.NextCursor)
-		}
-
-		delay := dispatcher.baseCadence
-		switch {
-		case err != nil:
-			delay = dispatcher.retryDelay
-		case result.HasMore:
-			delay = dispatcher.continuationDelay
-		case result.Exhausted && restartFromBeginning:
-			cursor = nil
-			restartFromBeginning = false
-			delay = dispatcher.continuationDelay
-		default:
-			cursor = nil
-			restartFromBeginning = false
-		}
-		timer.Reset(delay)
+		timer.Reset(schedule.delay)
 	}
 }

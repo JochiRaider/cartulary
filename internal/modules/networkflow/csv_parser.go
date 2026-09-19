@@ -20,15 +20,15 @@ const previewRecordLimit = 50
 
 var unsignedDecimalRE = regexp.MustCompile(`^(0|[1-9][0-9]*)$`)
 
-type ParsedCSV struct {
+type parsedCSV struct {
 	SourceContentSHA256  string
-	SourceColumns        []SourceColumnDescriptor
-	Records              []CSVRecord
-	Diagnostics          []RejectedRowDiagnostic
+	SourceColumns        []sourceColumnDescriptor
+	Records              []csvRecord
+	Diagnostics          []rejectedRowDiagnostic
 	DiagnosticsTruncated bool
 }
 
-type CSVRecord struct {
+type csvRecord struct {
 	SourceRowNumber int64
 	Fields          []string
 	RawFieldCount   int
@@ -42,29 +42,29 @@ const (
 	parseModeApply
 )
 
-func ParseCSVPreview(reader io.Reader, expectedSHA256 string, limits EffectiveLimits) (ParsedCSV, error) {
+func parseCSVPreview(reader io.Reader, expectedSHA256 string, limits EffectiveLimits) (parsedCSV, error) {
 	return parseCSV(reader, expectedSHA256, limits, parseModePreview)
 }
 
-func ParseCSVApply(reader io.Reader, expectedSHA256 string, limits EffectiveLimits) (ParsedCSV, error) {
+func parseCSVApply(reader io.Reader, expectedSHA256 string, limits EffectiveLimits) (parsedCSV, error) {
 	return parseCSV(reader, expectedSHA256, limits, parseModeApply)
 }
 
-func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, mode parseMode) (ParsedCSV, error) {
+func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, mode parseMode) (parsedCSV, error) {
 	sourceBytes, err := io.ReadAll(reader)
 	if err != nil {
-		return ParsedCSV{}, err
+		return parsedCSV{}, err
 	}
 	actualSHA256 := sha256Hex(sourceBytes)
 	if expectedSHA256 != "" && actualSHA256 != expectedSHA256 {
-		return ParsedCSV{}, ErrSourceChanged
+		return parsedCSV{}, errSourceChanged
 	}
 	sourceBytes, err = normalizeCSVBytes(sourceBytes)
 	if err != nil {
-		return ParsedCSV{}, err
+		return parsedCSV{}, err
 	}
 	if len(sourceBytes) == 0 {
-		return ParsedCSV{}, &SourceValidationError{Code: "network_flow_csv_empty_file", ReasonCode: "zero_bytes"}
+		return parsedCSV{}, &sourceValidationError{Code: "network_flow_csv_empty_file", ReasonCode: "zero_bytes"}
 	}
 	csvReader := csv.NewReader(bytes.NewReader(sourceBytes))
 	csvReader.FieldsPerRecord = -1
@@ -72,19 +72,19 @@ func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, m
 	header, err := csvReader.Read()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return ParsedCSV{}, &SourceValidationError{Code: "network_flow_csv_empty_file", ReasonCode: "zero_bytes"}
+			return parsedCSV{}, &sourceValidationError{Code: "network_flow_csv_empty_file", ReasonCode: "zero_bytes"}
 		}
-		return ParsedCSV{}, csvParseError(err)
+		return parsedCSV{}, csvParseError(err)
 	}
 	if int64(len(header)) > limits.MaxColumnsPerCSV {
-		return ParsedCSV{}, &SourceValidationError{Code: "network_flow_resource_limit_exceeded", ReasonCode: "column_limit_exceeded"}
+		return parsedCSV{}, &sourceValidationError{Code: "network_flow_resource_limit_exceeded", ReasonCode: "column_limit_exceeded"}
 	}
 	sourceColumns, err := sourceColumnsFromHeader(header, limits)
 	if err != nil {
-		return ParsedCSV{}, err
+		return parsedCSV{}, err
 	}
-	records := []CSVRecord{}
-	diagnostics := []RejectedRowDiagnostic{}
+	records := []csvRecord{}
+	diagnostics := []rejectedRowDiagnostic{}
 	sourceRowNumber := int64(1)
 	for {
 		row, err := csvReader.Read()
@@ -93,12 +93,12 @@ func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, m
 		}
 		sourceRowNumber++
 		if err != nil {
-			return ParsedCSV{}, csvParseError(err)
+			return parsedCSV{}, csvParseError(err)
 		}
 		if sourceRowNumber-1 > limits.MaxRowsPerCSV {
-			return ParsedCSV{}, &SourceValidationError{Code: "network_flow_resource_limit_exceeded", ReasonCode: "row_limit_exceeded"}
+			return parsedCSV{}, &sourceValidationError{Code: "network_flow_resource_limit_exceeded", ReasonCode: "row_limit_exceeded"}
 		}
-		record := CSVRecord{
+		record := csvRecord{
 			SourceRowNumber: sourceRowNumber,
 			Fields:          append([]string(nil), row...),
 			RawFieldCount:   len(row),
@@ -115,9 +115,9 @@ func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, m
 		}
 	}
 	if len(records) == 0 {
-		return ParsedCSV{}, &SourceValidationError{Code: "network_flow_no_data_rows", ReasonCode: "header_only"}
+		return parsedCSV{}, &sourceValidationError{Code: "network_flow_no_data_rows", ReasonCode: "header_only"}
 	}
-	return ParsedCSV{
+	return parsedCSV{
 		SourceContentSHA256:  actualSHA256,
 		SourceColumns:        sourceColumns,
 		Records:              records,
@@ -131,26 +131,26 @@ func normalizeCSVBytes(sourceBytes []byte) ([]byte, error) {
 		sourceBytes = sourceBytes[3:]
 	}
 	if bytes.Contains(sourceBytes, []byte{0xef, 0xbb, 0xbf}) {
-		return nil, &SourceValidationError{Code: "network_flow_invalid_utf8", ReasonCode: "bom_not_at_offset_zero"}
+		return nil, &sourceValidationError{Code: "network_flow_invalid_utf8", ReasonCode: "bom_not_at_offset_zero"}
 	}
 	if !utf8.Valid(sourceBytes) {
-		return nil, &SourceValidationError{Code: "network_flow_invalid_utf8", ReasonCode: "invalid_utf8_sequence"}
+		return nil, &sourceValidationError{Code: "network_flow_invalid_utf8", ReasonCode: "invalid_utf8_sequence"}
 	}
 	return sourceBytes, nil
 }
 
-func sourceColumnsFromHeader(header []string, limits EffectiveLimits) ([]SourceColumnDescriptor, error) {
-	columns := make([]SourceColumnDescriptor, 0, len(header))
+func sourceColumnsFromHeader(header []string, limits EffectiveLimits) ([]sourceColumnDescriptor, error) {
+	columns := make([]sourceColumnDescriptor, 0, len(header))
 	for index, value := range header {
 		if invalidHeaderText(value, limits) {
-			return nil, &SourceValidationError{Code: "network_flow_invalid_header", ReasonCode: "invalid_header_text"}
+			return nil, &sourceValidationError{Code: "network_flow_invalid_header", ReasonCode: "invalid_header_text"}
 		}
-		columns = append(columns, SourceColumnDescriptor{
+		columns = append(columns, sourceColumnDescriptor{
 			SourceColumnOrdinal:           index + 1,
 			RawHeaderText:                 value,
-			NormalizedHeaderForSuggestion: SourceAliasMatchKey(value),
+			NormalizedHeaderForSuggestion: sourceAliasMatchKey(value),
 			RawHeaderSHA256:               sha256Hex([]byte(value)),
-			SampleValues:                  []SafeSample{},
+			SampleValues:                  []safeSample{},
 		})
 	}
 	return columns, nil
@@ -171,7 +171,7 @@ func invalidHeaderText(value string, limits EffectiveLimits) bool {
 	return false
 }
 
-func addColumnSamples(columns []SourceColumnDescriptor, row []string) {
+func addColumnSamples(columns []sourceColumnDescriptor, row []string) {
 	for index := range columns {
 		value := row[index]
 		if value == "" {
@@ -187,15 +187,15 @@ func addColumnSamples(columns []SourceColumnDescriptor, row []string) {
 func csvParseError(err error) error {
 	var parseErr *csv.ParseError
 	if errors.As(err, &parseErr) {
-		return &SourceValidationError{Code: "network_flow_csv_malformed_quote", ReasonCode: "csv_parse_error"}
+		return &sourceValidationError{Code: "network_flow_csv_malformed_quote", ReasonCode: "csv_parse_error"}
 	}
 	return err
 }
 
-func ValidateRows(parsed ParsedCSV, mapping ApprovedMapping, mappingFingerprint string, limits EffectiveLimits) ([]FlowRow, []RejectedRowDiagnostic, bool, error) {
+func validateRows(parsed parsedCSV, mapping approvedMapping, mappingFingerprint string, limits EffectiveLimits) ([]flowRow, []rejectedRowDiagnostic, bool, error) {
 	fieldMappings := sourceFieldMappings(mapping)
-	accepted := []FlowRow{}
-	diagnostics := append([]RejectedRowDiagnostic(nil), parsed.Diagnostics...)
+	accepted := []flowRow{}
+	diagnostics := append([]rejectedRowDiagnostic(nil), parsed.Diagnostics...)
 	diagnosticsTruncated := parsed.DiagnosticsTruncated
 	for _, record := range parsed.Records {
 		if !record.FieldCountOK {
@@ -216,8 +216,8 @@ func ValidateRows(parsed ParsedCSV, mapping ApprovedMapping, mappingFingerprint 
 	return accepted, diagnostics, diagnosticsTruncated, nil
 }
 
-func validateRecord(record CSVRecord, mapping ApprovedMapping, mappingFingerprint string, fieldMappings map[string]FieldMapping) (FlowRow, []RejectedRowDiagnostic) {
-	diagnostics := []RejectedRowDiagnostic{}
+func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprint string, fieldMappings map[string]fieldMapping) (flowRow, []rejectedRowDiagnostic) {
+	diagnostics := []rejectedRowDiagnostic{}
 	values := map[string]any{}
 	var flowStart time.Time
 	var flowEnd time.Time
@@ -230,13 +230,13 @@ func validateRecord(record CSVRecord, mapping ApprovedMapping, mappingFingerprin
 		}
 		values[fieldKey] = value
 		switch fieldKey {
-		case FieldFlowStartUTC:
+		case fieldFlowStartUTC:
 			flowStart = value.(time.Time)
-		case FieldFlowEndUTC:
+		case fieldFlowEndUTC:
 			flowEnd = value.(time.Time)
 		}
 	}
-	for _, fieldKey := range []string{FieldInputInterface, FieldOutputInterface} {
+	for _, fieldKey := range []string{fieldInputInterface, fieldOutputInterface} {
 		if fieldMapping, ok := fieldMappings[fieldKey]; ok {
 			value, diagnostic := mappedValue(record, mapping, fieldMapping, fieldKey)
 			if diagnostic != nil {
@@ -249,65 +249,65 @@ func validateRecord(record CSVRecord, mapping ApprovedMapping, mappingFingerprin
 		}
 	}
 	if len(diagnostics) == 0 && flowEnd.Before(flowStart) {
-		diagnostics = append(diagnostics, diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMappings[FieldFlowEndUTC].SourceColumnOrdinal), headerHashPtr(mapping, fieldMappings[FieldFlowEndUTC].SourceColumnOrdinal), stringPtr(FieldFlowEndUTC), "network_flow_end_before_start", "cross_field_semantics", ""))
+		diagnostics = append(diagnostics, diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), headerHashPtr(mapping, fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), stringPtr(fieldFlowEndUTC), "network_flow_end_before_start", "cross_field_semantics", ""))
 	}
 	if len(diagnostics) > 0 {
-		return FlowRow{}, diagnostics
+		return flowRow{}, diagnostics
 	}
 	unmappedRaw := unmappedRawValues(record, mapping, fieldMappings)
-	sourceRowDigest := SourceRowDigest(mapping.ParserProfileID, record.SourceRowNumber, record.Fields)
+	sourceRowDigest := sourceRowDigest(mapping.ParserProfileID, record.SourceRowNumber, record.Fields)
 	normalizedValues := map[string]any{
-		FieldFlowStartUTC:         formatTimestamp(values[FieldFlowStartUTC].(time.Time)),
-		FieldFlowEndUTC:           formatTimestamp(values[FieldFlowEndUTC].(time.Time)),
-		FieldSrcIP:                values[FieldSrcIP],
-		FieldDstIP:                values[FieldDstIP],
-		FieldSrcPort:              values[FieldSrcPort],
-		FieldDstPort:              values[FieldDstPort],
-		FieldIPProtocol:           values[FieldIPProtocol],
-		FieldBytesCount:           values[FieldBytesCount],
-		FieldPacketsCount:         values[FieldPacketsCount],
-		FieldExporterID:           nil,
-		FieldInputInterface:       values[FieldInputInterface],
-		FieldOutputInterface:      values[FieldOutputInterface],
-		FieldTCPFlags:             nil,
-		FieldApplicationLabel:     nil,
-		FieldObservationSourceRef: map[string]any{},
+		fieldFlowStartUTC:         formatTimestamp(values[fieldFlowStartUTC].(time.Time)),
+		fieldFlowEndUTC:           formatTimestamp(values[fieldFlowEndUTC].(time.Time)),
+		fieldSrcIP:                values[fieldSrcIP],
+		fieldDstIP:                values[fieldDstIP],
+		fieldSrcPort:              values[fieldSrcPort],
+		fieldDstPort:              values[fieldDstPort],
+		fieldIPProtocol:           values[fieldIPProtocol],
+		fieldBytesCount:           values[fieldBytesCount],
+		fieldPacketsCount:         values[fieldPacketsCount],
+		fieldExporterID:           nil,
+		fieldInputInterface:       values[fieldInputInterface],
+		fieldOutputInterface:      values[fieldOutputInterface],
+		fieldTCPFlags:             nil,
+		fieldApplicationLabel:     nil,
+		fieldObservationSourceRef: map[string]any{},
 	}
-	normalizedDigest := NormalizedRowDigest(mappingFingerprint, normalizedValues, unmappedRaw)
+	normalizedDigest := normalizedRowDigest(mappingFingerprint, normalizedValues, unmappedRaw)
 	unmappedJSON, _ := json.Marshal(unmappedRaw)
-	srcPort := int32(values[FieldSrcPort].(int))
-	dstPort := int32(values[FieldDstPort].(int))
-	return FlowRow{
+	srcPort := int32(values[fieldSrcPort].(int))
+	dstPort := int32(values[fieldDstPort].(int))
+	return flowRow{
 		SourceRowNumber:           record.SourceRowNumber,
 		SourceRowDigestSHA256:     sourceRowDigest,
 		NormalizedRowDigestSHA256: normalizedDigest,
-		FlowStartUTC:              values[FieldFlowStartUTC].(time.Time),
-		FlowEndUTC:                values[FieldFlowEndUTC].(time.Time),
-		SrcIP:                     values[FieldSrcIP].(string),
-		DstIP:                     values[FieldDstIP].(string),
+		FlowStartUTC:              values[fieldFlowStartUTC].(time.Time),
+		FlowEndUTC:                values[fieldFlowEndUTC].(time.Time),
+		SrcIP:                     values[fieldSrcIP].(string),
+		DstIP:                     values[fieldDstIP].(string),
 		SrcPort:                   &srcPort,
 		DstPort:                   &dstPort,
-		IPProtocol:                int32(values[FieldIPProtocol].(int)),
-		BytesCount:                values[FieldBytesCount].(string),
-		PacketsCount:              values[FieldPacketsCount].(string),
-		InputInterface:            stringPtrFromAny(values[FieldInputInterface]),
-		OutputInterface:           stringPtrFromAny(values[FieldOutputInterface]),
+		IPProtocol:                int32(values[fieldIPProtocol].(int)),
+		BytesCount:                values[fieldBytesCount].(string),
+		PacketsCount:              values[fieldPacketsCount].(string),
+		InputInterface:            stringPtrFromAny(values[fieldInputInterface]),
+		OutputInterface:           stringPtrFromAny(values[fieldOutputInterface]),
 		UnmappedRaw:               unmappedJSON,
 	}, nil
 }
 
-func mappedValue(record CSVRecord, mapping ApprovedMapping, fieldMapping FieldMapping, fieldKey string) (any, *RejectedRowDiagnostic) {
+func mappedValue(record csvRecord, mapping approvedMapping, fieldMapping fieldMapping, fieldKey string) (any, *rejectedRowDiagnostic) {
 	if fieldMapping.SourceColumnOrdinal <= 0 || fieldMapping.SourceColumnOrdinal > len(record.Fields) {
 		diag := diagnostic(record.SourceRowNumber, nil, nil, stringPtr(fieldKey), errorCodeForField(fieldKey), "missing_or_empty", "")
 		return nil, &diag
 	}
 	raw := record.Fields[fieldMapping.SourceColumnOrdinal-1]
 	transformed := raw
-	if fieldMapping.TransformID == TransformTrimASCIISpace {
+	if fieldMapping.TransformID == transformTrimASCIISpace {
 		transformed = strings.Trim(transformed, " ")
 	}
 	if transformed == "" {
-		if fieldMapping.EmptyValuePolicy == EmptyPolicyNull {
+		if fieldMapping.EmptyValuePolicy == emptyPolicyNull {
 			return nil, nil
 		}
 		diag := diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMapping.SourceColumnOrdinal), headerHashPtr(mapping, fieldMapping.SourceColumnOrdinal), stringPtr(fieldKey), errorCodeForField(fieldKey), "missing_or_empty", raw)
@@ -318,24 +318,24 @@ func mappedValue(record CSVRecord, mapping ApprovedMapping, fieldMapping FieldMa
 		err   error
 	)
 	switch fieldMapping.TransformID {
-	case TransformTimestampProfile:
+	case transformTimestampProfile:
 		value, err = parseTimestampForRecord(transformed, mapping.TimestampProfile, &record)
-	case TransformIPLiteral:
+	case transformIPLiteral:
 		value, err = parseIPLiteral(transformed)
-	case TransformPortNumber:
+	case transformPortNumber:
 		value, err = parseBoundedDecimalInt(transformed, 65535)
-	case TransformProtocol:
+	case transformProtocol:
 		value, err = parseProtocol(transformed)
-	case TransformUint64Decimal:
+	case transformUint64Decimal:
 		value, err = parseUint64Decimal(transformed)
-	case TransformTrimASCIISpace:
+	case transformTrimASCIISpace:
 		value, err = parseBoundedText256(transformed)
 	default:
 		err = fmt.Errorf("unsupported transform")
 	}
 	if err != nil {
 		reason := "invalid_syntax"
-		if fieldMapping.TransformID == TransformTimestampProfile {
+		if fieldMapping.TransformID == transformTimestampProfile {
 			reason = timestampReason(err)
 		} else if errors.Is(err, errOutOfRange) {
 			reason = "out_of_range"
@@ -441,22 +441,22 @@ func containsForbiddenBoundedTextControl(value string) bool {
 	return false
 }
 
-func sourceFieldMappings(mapping ApprovedMapping) map[string]FieldMapping {
-	result := map[string]FieldMapping{}
+func sourceFieldMappings(mapping approvedMapping) map[string]fieldMapping {
+	result := map[string]fieldMapping{}
 	for _, fieldMapping := range mapping.FieldMappings {
-		if fieldMapping.MappingKind == MappingKindSourceColumn {
+		if fieldMapping.MappingKind == mappingKindSourceColumn {
 			result[fieldMapping.FieldKey] = fieldMapping
 		}
 	}
 	return result
 }
 
-func unmappedRawValues(record CSVRecord, mapping ApprovedMapping, fieldMappings map[string]FieldMapping) map[string]any {
+func unmappedRawValues(record csvRecord, mapping approvedMapping, fieldMappings map[string]fieldMapping) map[string]any {
 	used := map[int]struct{}{}
 	for _, fieldMapping := range fieldMappings {
 		used[fieldMapping.SourceColumnOrdinal] = struct{}{}
 	}
-	if mapping.UnknownColumnPolicy != UnknownColumnPolicyPreserve {
+	if mapping.UnknownColumnPolicy != unknownColumnPolicyPreserve {
 		return map[string]any{}
 	}
 	result := map[string]any{}
@@ -479,13 +479,13 @@ func unmappedRawValues(record CSVRecord, mapping ApprovedMapping, fieldMappings 
 	return result
 }
 
-func fieldCountDiagnostic(record CSVRecord, want int) RejectedRowDiagnostic {
+func fieldCountDiagnostic(record csvRecord, want int) rejectedRowDiagnostic {
 	return diagnostic(record.SourceRowNumber, nil, nil, nil, "network_flow_csv_field_count_mismatch", "field_count_mismatch", fmt.Sprintf("%d", record.RawFieldCount-want))
 }
 
-func diagnostic(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA256 *string, fieldKey *string, errorCode string, reasonCode string, rawValue string) RejectedRowDiagnostic {
+func diagnostic(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA256 *string, fieldKey *string, errorCode string, reasonCode string, rawValue string) rejectedRowDiagnostic {
 	sample := sampleForValue(rawValue)
-	diagnostic := RejectedRowDiagnostic{
+	diagnostic := rejectedRowDiagnostic{
 		SourceRowNumber:     sourceRowNumber,
 		SourceColumnOrdinal: sourceColumnOrdinal,
 		RawHeaderSHA256:     rawHeaderSHA256,
@@ -498,20 +498,20 @@ func diagnostic(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA2
 		MessageArgs:         json.RawMessage(`{}`),
 		Message:             errorCode + ": " + reasonCode,
 	}
-	diagnostic.DiagnosticID = DiagnosticID(sourceRowNumber, sourceColumnOrdinal, rawHeaderSHA256, fieldKey, errorCode, reasonCode)
+	diagnostic.DiagnosticID = diagnosticID(sourceRowNumber, sourceColumnOrdinal, rawHeaderSHA256, fieldKey, errorCode, reasonCode)
 	return diagnostic
 }
 
-func appendDiagnostic(diagnostics []RejectedRowDiagnostic, limits EffectiveLimits, diagnostic RejectedRowDiagnostic) []RejectedRowDiagnostic {
+func appendDiagnostic(diagnostics []rejectedRowDiagnostic, limits EffectiveLimits, diagnostic rejectedRowDiagnostic) []rejectedRowDiagnostic {
 	if limits.MaxRejectedRowDiagnostics >= 0 && int64(len(diagnostics)) >= limits.MaxRejectedRowDiagnostics {
 		return diagnostics
 	}
 	return append(diagnostics, diagnostic)
 }
 
-func sampleForValue(value string) SafeSample {
+func sampleForValue(value string) safeSample {
 	hash := sha256Hex([]byte(value))
-	sample := SafeSample{RawValueSHA256: &hash}
+	sample := safeSample{RawValueSHA256: &hash}
 	if unsignedDecimalRE.MatchString(value) && len(value) <= 32 {
 		v := value
 		sample.SafeSample = &v
@@ -528,7 +528,7 @@ func sourceColumnOrdinalPtr(value int) *int64 {
 	return &v
 }
 
-func headerHashPtr(mapping ApprovedMapping, ordinal int) *string {
+func headerHashPtr(mapping approvedMapping, ordinal int) *string {
 	if ordinal <= 0 || ordinal > len(mapping.SourceColumns) {
 		return nil
 	}
@@ -553,15 +553,15 @@ func stringPtrFromAny(value any) *string {
 
 func errorCodeForField(fieldKey string) string {
 	switch fieldKey {
-	case FieldFlowStartUTC, FieldFlowEndUTC:
+	case fieldFlowStartUTC, fieldFlowEndUTC:
 		return "network_flow_invalid_timestamp"
-	case FieldSrcIP, FieldDstIP:
+	case fieldSrcIP, fieldDstIP:
 		return "network_flow_invalid_ip"
-	case FieldSrcPort, FieldDstPort:
+	case fieldSrcPort, fieldDstPort:
 		return "network_flow_invalid_port"
-	case FieldIPProtocol:
+	case fieldIPProtocol:
 		return "network_flow_invalid_protocol"
-	case FieldBytesCount, FieldPacketsCount:
+	case fieldBytesCount, fieldPacketsCount:
 		return "network_flow_invalid_counter"
 	default:
 		return "network_flow_invalid_request"

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func tableResource(table TableRecord) map[string]any {
+func tableResource(table tableRecord) map[string]any {
 	return map[string]any{
 		"network_flow_table_id":         table.TableID,
 		"incident_id":                   table.IncidentID.String(),
@@ -31,7 +31,7 @@ func tableResource(table TableRecord) map[string]any {
 	}
 }
 
-func rowResource(row FlowRow) map[string]any {
+func rowResource(row flowRow) map[string]any {
 	return map[string]any{
 		"network_flow_row_id":          row.RowID,
 		"network_flow_table_id":        row.NetworkFlowTableID,
@@ -40,28 +40,28 @@ func rowResource(row FlowRow) map[string]any {
 		"source_row_digest_sha256":     row.SourceRowDigestSHA256,
 		"normalized_row_digest_sha256": row.NormalizedRowDigestSHA256,
 		"mapping_fingerprint":          row.MappingFingerprint,
-		FieldFlowStartUTC:              timestamp(row.FlowStartUTC),
-		FieldFlowEndUTC:                timestamp(row.FlowEndUTC),
-		FieldSrcIP:                     row.SrcIP,
-		FieldDstIP:                     row.DstIP,
-		FieldSrcPort:                   nullableInt32Value(row.SrcPort),
-		FieldDstPort:                   nullableInt32Value(row.DstPort),
-		FieldIPProtocol:                row.IPProtocol,
-		FieldBytesCount:                row.BytesCount,
-		FieldPacketsCount:              row.PacketsCount,
-		FieldExporterID:                nullableStringValue(row.ExporterID),
-		FieldInputInterface:            nullableStringValue(row.InputInterface),
-		FieldOutputInterface:           nullableStringValue(row.OutputInterface),
-		FieldTCPFlags:                  nullableInt32Value(row.TCPFlags),
-		FieldApplicationLabel:          nullableStringValue(row.ApplicationLabel),
+		fieldFlowStartUTC:              timestamp(row.FlowStartUTC),
+		fieldFlowEndUTC:                timestamp(row.FlowEndUTC),
+		fieldSrcIP:                     row.SrcIP,
+		fieldDstIP:                     row.DstIP,
+		fieldSrcPort:                   nullableInt32Value(row.SrcPort),
+		fieldDstPort:                   nullableInt32Value(row.DstPort),
+		fieldIPProtocol:                row.IPProtocol,
+		fieldBytesCount:                row.BytesCount,
+		fieldPacketsCount:              row.PacketsCount,
+		fieldExporterID:                nullableStringValue(row.ExporterID),
+		fieldInputInterface:            nullableStringValue(row.InputInterface),
+		fieldOutputInterface:           nullableStringValue(row.OutputInterface),
+		fieldTCPFlags:                  nullableInt32Value(row.TCPFlags),
+		fieldApplicationLabel:          nullableStringValue(row.ApplicationLabel),
 		"unmapped_raw":                 rawJSONValue(row.UnmappedRaw),
-		FieldObservationSourceRef:      rawJSONValue(row.ObservationSourceRef),
+		fieldObservationSourceRef:      rawJSONValue(row.ObservationSourceRef),
 		"created_at":                   timestamp(row.CreatedAt),
 		"created_by_user_id":           row.CreatedByUserID.String(),
 	}
 }
 
-func rowRefResource(row FlowRow) map[string]any {
+func rowRefResource(row flowRow) map[string]any {
 	return map[string]any{
 		"network_flow_table_id": row.NetworkFlowTableID,
 		"network_flow_row_id":   row.RowID,
@@ -70,7 +70,7 @@ func rowRefResource(row FlowRow) map[string]any {
 	}
 }
 
-func storedRowRefResource(ref NetworkFlowRowRef) map[string]any {
+func storedRowRefResource(ref networkFlowRowRef) map[string]any {
 	return map[string]any{
 		"network_flow_table_id": ref.NetworkFlowTableID,
 		"network_flow_row_id":   ref.NetworkFlowRowID,
@@ -79,7 +79,7 @@ func storedRowRefResource(ref NetworkFlowRowRef) map[string]any {
 	}
 }
 
-func indicatorBindingResource(binding IndicatorBindingRecord) map[string]any {
+func indicatorBindingResource(binding indicatorBindingRecord) map[string]any {
 	refs := make([]any, 0, len(binding.SourceRowRefs))
 	for _, ref := range binding.SourceRowRefs {
 		refs = append(refs, storedRowRefResource(ref))
@@ -108,7 +108,7 @@ func indicatorBindingResource(binding IndicatorBindingRecord) map[string]any {
 	}
 }
 
-func diagnosticResource(diagnostic RejectedRowDiagnostic) map[string]any {
+func diagnosticResource(diagnostic rejectedRowDiagnostic) map[string]any {
 	return map[string]any{
 		"diagnostic_id":         diagnostic.DiagnosticID,
 		"source_row_number":     diagnostic.SourceRowNumber,
@@ -130,29 +130,29 @@ func diagnosticResource(diagnostic RejectedRowDiagnostic) map[string]any {
 
 func sourceProfileResource() map[string]any {
 	return map[string]any{
-		"source_profile_id":         SourceProfileCiscoSNANetFlowCSV,
+		"source_profile_id":         sourceProfileCiscoSNANetFlowCSV,
 		"display_name":              "Cisco Secure Network Analytics NetFlow CSV",
 		"conformance_status":        "required_v1",
-		"default_parser_profile_id": ParserProfileRFC4180HeaderedCSV,
+		"default_parser_profile_id": parserProfileRFC4180HeaderedCSV,
 		"required_field_keys": []string{
-			FieldFlowStartUTC,
-			FieldFlowEndUTC,
-			FieldSrcIP,
-			FieldDstIP,
-			FieldSrcPort,
-			FieldDstPort,
-			FieldIPProtocol,
-			FieldBytesCount,
-			FieldPacketsCount,
+			fieldFlowStartUTC,
+			fieldFlowEndUTC,
+			fieldSrcIP,
+			fieldDstIP,
+			fieldSrcPort,
+			fieldDstPort,
+			fieldIPProtocol,
+			fieldBytesCount,
+			fieldPacketsCount,
 		},
 		"optional_field_keys": []string{
-			FieldExporterID,
-			FieldInputInterface,
-			FieldOutputInterface,
-			FieldTCPFlags,
-			FieldApplicationLabel,
+			fieldExporterID,
+			fieldInputInterface,
+			fieldOutputInterface,
+			fieldTCPFlags,
+			fieldApplicationLabel,
 		},
-		"system_derived_field_keys": []string{FieldObservationSourceRef},
+		"system_derived_field_keys": []string{fieldObservationSourceRef},
 		"supported_timestamp_modes": []string{"rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"},
 	}
 }

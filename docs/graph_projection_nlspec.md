@@ -400,6 +400,10 @@ implement only these typed capabilities:
   bounds, breaking ties by output order;
 - `AcquireLeaseTx`, `RenewLease`, and `ReleaseLease`: protect an exact result for
   an owner/purpose until a server-owned expiry;
+- `LookupUnexpiredLease`: read the stored lease identity for one exact result,
+  owner, resource and purpose at a caller-supplied observation time;
+- `ReleaseScopedLeasesTx`: release every lease matching one exact source owner,
+  lease owner, resource and purpose in a caller-owned transaction;
 - `DeleteExpiredLeasesTx`: delete at most a caller-supplied bound of expired
   leases at one captured observation time and report whether eligible work
   remains;
@@ -415,6 +419,32 @@ caller transaction commits. Partial envelope/object publication is forbidden.
 Leases are operational rows and do not enter result identity. Adapters accept
 borrowed database/transaction handles, start no hidden worker, and close no
 borrowed resource.
+
+### 8.0 Exact lease lookup and scoped release
+
+`LookupUnexpiredLease` belongs to the PostgreSQL result reader. Its key contains
+`ProjectionResultID`, `LeaseOwnerID`, `LeaseOwnerResourceID`, and `LeasePurpose`.
+It compares every member exactly and requires `leased_until > observedAt.UTC()`;
+equality is expired. It returns the stored lease ID, never a derived identity,
+and reports `ErrResultV2LeaseNotFound` for a missing or expired match. It does
+not join declarations or results, acquire a lease, sample a clock, normalize
+identities, or add an earlier binding-validation stage. Query and cancellation
+failures remain errors. Construction rejects a missing borrowed handle without IO.
+
+`ReleaseScopedLeasesTx` belongs to the PostgreSQL lease adapter. Its required
+scope contains `SourceOwnerID`, `LeaseOwnerID`, `LeaseOwnerResourceID`, and
+`LeasePurpose`. It joins only Graph-owned result and lease rows, deletes all
+exact matches including expired leases, and succeeds when none match. Empty
+scope members are invalid. It has no maintenance batch bound, declaration
+filter, hidden transaction, connection fallback, or partial-success outcome.
+The caller controls commit and rollback; failure is returned unchanged as an
+error. Neither operation changes result identity or source authorization.
+
+Lookup, renewal and exact-result reading remain separate operations. Renewal
+uses caller-supplied instants, assigns the requested valid expiry even when it
+shortens the previous expiry, and cannot resurrect an expired or deleted lease.
+A successful renewal may remain committed when a subsequent exact read fails.
+Consumers retain responsibility for release timing and typed disclosure policy.
 
 ### 8.1 Implementation and construction boundary
 

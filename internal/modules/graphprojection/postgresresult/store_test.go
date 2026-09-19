@@ -180,6 +180,64 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 		t.Fatalf("commit result lease: %v", err)
 	}
 
+	t.Run("exact lease lookup and borrowed scoped release", func(t *testing.T) {
+		key := postgresresult.ExactLeaseKey{ProjectionResultID: resultIDA, LeaseOwnerID: "snapshot_reporting", LeaseOwnerResourceID: "release-1", LeasePurpose: "render"}
+		got, err := reader.LookupUnexpiredLease(ctx, key, now)
+		if err != nil || got != leaseID {
+			t.Fatalf("stored lookup identity: %q %v", got, err)
+		}
+		if _, err := reader.LookupUnexpiredLease(ctx, key, now.Add(time.Hour)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
+			t.Fatalf("strict expiry: %v", err)
+		}
+		malformed := key
+		malformed.ProjectionResultID = "malformed"
+		if _, err := reader.LookupUnexpiredLease(ctx, malformed, now); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
+			t.Fatalf("lookup added earlier binding validation: %v", err)
+		}
+		canceled, cancel := context.WithCancel(ctx)
+		cancel()
+		if _, err := reader.LookupUnexpiredLease(canceled, key, now); !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancellation: %v", err)
+		}
+		if _, err := postgresresult.NewReader(nil); err == nil {
+			t.Fatal("missing reader handle accepted")
+		}
+		if _, err := postgresresult.NewLeaseReleaser(nil); err == nil {
+			t.Fatal("missing release transaction accepted")
+		}
+		releaseTx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = releaseTx.Rollback(ctx) }()
+		releaser, err := postgresresult.NewLeaseReleaser(releaseTx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := releaser.ReleaseScopedLeasesTx(ctx, postgresresult.LeaseReleaseScope{}); !errors.Is(err, graphprojection.ErrResultV2Invalid) {
+			t.Fatalf("empty scope: %v", err)
+		}
+		scope := postgresresult.LeaseReleaseScope{SourceOwnerID: "network_flow_activity", LeaseOwnerID: key.LeaseOwnerID, LeaseOwnerResourceID: key.LeaseOwnerResourceID, LeasePurpose: key.LeasePurpose}
+		for range 2 {
+			if err := releaser.ReleaseScopedLeasesTx(ctx, scope); err != nil {
+				t.Fatal(err)
+			}
+		}
+		releasedReader, _ := postgresresult.NewReader(releaseTx)
+		if _, err := releasedReader.LookupUnexpiredLease(ctx, key, now); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
+			t.Fatalf("release invisible in borrowed transaction: %v", err)
+		}
+		if err := releaseTx.Rollback(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := reader.LookupUnexpiredLease(ctx, key, now); err != nil || got != leaseID {
+			t.Fatalf("release committed caller transaction: %q %v", got, err)
+		}
+		if err := releaser.ReleaseScopedLeasesTx(ctx, scope); !errors.Is(err, pgx.ErrTxClosed) {
+			t.Fatalf("closed transaction hidden: %v", err)
+		}
+	})
+
 	tx, err = db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin protected cleanup transaction: %v", err)

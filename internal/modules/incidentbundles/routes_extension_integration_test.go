@@ -94,11 +94,11 @@ UPDATE network_flow_tables
 			}
 			present, presenceErr := networkflow.NewPortabilityStateBinding().RetainedAuthoritativeStatePresentTx(
 				context.Background(), publicationTx, uuid.MustParse(raceIncidentID), []string{
-					networkflow.ExtensionFamilyGraphViews,
-					networkflow.ExtensionFamilyIndicatorBindings,
-					networkflow.ExtensionFamilyRejectedRowDiagnostics,
-					networkflow.ExtensionFamilyRows,
-					networkflow.ExtensionFamilyTables,
+					"network_flow_activity.graph_views",
+					"network_flow_activity.indicator_bindings",
+					"network_flow_activity.rejected_row_diagnostics",
+					"network_flow_activity.rows",
+					"network_flow_activity.tables",
 				},
 			)
 			publication <- publicationResult{present: present, err: presenceErr}

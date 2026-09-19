@@ -18,17 +18,17 @@ import (
 
 const SavedGraphCutoverAlgorithmID = "network_flow_activity.saved_graph_cutover_v6"
 
-var ErrSavedGraphCutoverIncompatible = errors.New("saved graph retained state is incompatible with contract major 6")
+var errSavedGraphCutoverIncompatible = errors.New("saved graph retained state is incompatible with contract major 6")
 
 // ValidateSavedGraphAdmission reads all retained state in the caller's read-only
 // snapshot. It neither upgrades old receipts nor treats job expiry as expiry of
 // route replay obligations. Page sizes bound memory independently of retention.
 func ValidateSavedGraphAdmission(ctx context.Context, reader extensionstore.Querier, definition jobs.Definition) error {
-	if definition.JobKind != GraphViewMaterializationJobKind || definition.HandlerName != GraphViewWorkerKind || definition.Extension == nil || definition.Extension.OwnerProfileID != "network_flow_activity" {
-		return ErrSavedGraphCutoverIncompatible
+	if definition.JobKind != GraphViewMaterializationJobKind || definition.HandlerName != graphViewWorkerKind || definition.Extension == nil || definition.Extension.OwnerProfileID != "network_flow_activity" {
+		return errSavedGraphCutoverIncompatible
 	}
 	if err := validatePersistedGraphViewFamily(ctx, reader); err != nil {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	if err := validateSavedGraphSelectedBindings(ctx, reader); err != nil {
 		return err
@@ -52,7 +52,7 @@ func ValidateSavedGraphAdmission(ctx context.Context, reader extensionstore.Quer
 	}
 	after = uuid.Nil
 	for {
-		ids, err := jobs.ReadRetainedExtensionJobPage(ctx, reader, "network_flow_activity", GraphViewMaterializationJobKind, GraphViewWorkerKind, after)
+		ids, err := jobs.ReadRetainedExtensionJobPage(ctx, reader, "network_flow_activity", GraphViewMaterializationJobKind, graphViewWorkerKind, after)
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func validateSavedGraphAdmissionReceipt(ctx context.Context, reader extensionsto
 	key := savedGraphReceiptKey(record)
 	payload, err := decodeStoredNetworkFlowResponse(record.ResponseJSON)
 	if err != nil || len(record.RequestHash) != sha256.Size || validateGraphViewReceipt(key, record.StatusCode, payload, nil) != nil {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	if record.RouteKey == routeKeyGraphViewsDelete {
 		return nil
@@ -118,11 +118,11 @@ func validateSavedGraphAdmissionReceipt(ctx context.Context, reader extensionsto
 	if !matches() {
 		// A same-name rename acknowledges the unchanged version.
 		if record.RouteKey != routeKeyGraphViewsPatch {
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 		comparison["base_graph_view_version"] = graph.GraphViewVersion
 		if !matches() {
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 	}
 	if record.RouteKey == routeKeyGraphViewsPatch {
@@ -130,7 +130,7 @@ func validateSavedGraphAdmissionReceipt(ctx context.Context, reader extensionsto
 	}
 	retained, err := jobs.ReadRetainedExtensionJob(ctx, reader, *graph.LatestJobID)
 	if err != nil {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	if err := validateSavedGraphJobFacts(ctx, reader, definition, retained, key, record.RequestHash, graph); err != nil {
 		return err
@@ -141,55 +141,55 @@ func validateSavedGraphAdmissionReceipt(ctx context.Context, reader extensionsto
 func savedGraphJobIdentity(raw json.RawMessage) (authn.RouteIdempotencyKey, error) {
 	var identity map[string]any
 	if json.Unmarshal(raw, &identity) != nil || len(identity) != 6 || identity["schema_id"] != "cartulary.route_scoped_idempotency_identity.v1" {
-		return authn.RouteIdempotencyKey{}, ErrSavedGraphCutoverIncompatible
+		return authn.RouteIdempotencyKey{}, errSavedGraphCutoverIncompatible
 	}
 	actor, ok := identity["actor_user_id"].(string)
 	if !ok {
-		return authn.RouteIdempotencyKey{}, ErrSavedGraphCutoverIncompatible
+		return authn.RouteIdempotencyKey{}, errSavedGraphCutoverIncompatible
 	}
 	actorID, err := uuid.Parse(actor)
 	if err != nil || actorID == uuid.Nil {
-		return authn.RouteIdempotencyKey{}, ErrSavedGraphCutoverIncompatible
+		return authn.RouteIdempotencyKey{}, errSavedGraphCutoverIncompatible
 	}
 	route, ok := identity["route_identity"].(string)
 	if !ok {
-		return authn.RouteIdempotencyKey{}, ErrSavedGraphCutoverIncompatible
+		return authn.RouteIdempotencyKey{}, errSavedGraphCutoverIncompatible
 	}
 	txn, ok := identity["client_txn_id"].(string)
 	if !ok || txn == "" {
-		return authn.RouteIdempotencyKey{}, ErrSavedGraphCutoverIncompatible
+		return authn.RouteIdempotencyKey{}, errSavedGraphCutoverIncompatible
 	}
 	for _, kind := range []string{routeKeyGraphViewsCreate, routeKeyGraphViewsRefresh} {
 		if scope, ok := strings.CutPrefix(route, kind+":"); ok {
 			incident, _, found := strings.Cut(scope, ":")
 			if !found || identity["scope_kind"] != jobs.ScopeKindIncident || identity["scope_id"] != incident {
-				return authn.RouteIdempotencyKey{}, ErrSavedGraphCutoverIncompatible
+				return authn.RouteIdempotencyKey{}, errSavedGraphCutoverIncompatible
 			}
 			return authn.RouteIdempotencyKey{RouteKey: kind, ScopeKey: scope, ActorUserID: actorID, ClientTxnID: txn}, nil
 		}
 	}
-	return authn.RouteIdempotencyKey{}, ErrSavedGraphCutoverIncompatible
+	return authn.RouteIdempotencyKey{}, errSavedGraphCutoverIncompatible
 }
 
 func validateSavedGraphRetainedJob(ctx context.Context, reader extensionstore.Querier, definition jobs.Definition, id uuid.UUID) error {
 	retained, err := jobs.ReadRetainedExtensionJob(ctx, reader, id)
 	if err != nil {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	if !savedGraphRegistrationMatches(retained, definition) {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	identity := retained.IdempotencyIdentity
 	if retained.ExpiredAt != nil {
 		proof, proofErr := extensionstore.ReadJobCommitProof(ctx, reader, id)
 		if retained.Resource.Status != jobs.StatusSucceeded {
 			if !errors.Is(proofErr, extensionstore.ErrNotFound) || (retained.Resource.Status != jobs.StatusFailed && retained.Resource.Status != jobs.StatusCanceled) {
-				return ErrSavedGraphCutoverIncompatible
+				return errSavedGraphCutoverIncompatible
 			}
 			return nil
 		}
 		if proofErr != nil {
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 		identity = proof.IdempotencyIdentity
 	}
@@ -199,15 +199,15 @@ func validateSavedGraphRetainedJob(ctx context.Context, reader extensionstore.Qu
 	}
 	record, err := authn.GetRouteIdempotencyTx(ctx, reader, key)
 	if err != nil {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	payload, err := decodeStoredNetworkFlowResponse(record.ResponseJSON)
 	if err != nil || validateGraphViewReceipt(key, record.StatusCode, payload, nil) != nil {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	graph, err := graphViewDeclarationFromPublicResource(payload["graph_view"].(map[string]any))
 	if err != nil || graph.LatestJobID == nil || *graph.LatestJobID != id {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	return validateSavedGraphJobFacts(ctx, reader, definition, retained, key, record.RequestHash, graph)
 }
@@ -216,24 +216,24 @@ func savedGraphRegistrationMatches(retained jobs.RetainedExtensionJob, definitio
 	return retained.JobKind == definition.JobKind && retained.HandlerName == definition.HandlerName && retained.ProgressUnitID == definition.ProgressUnitID && retained.OwnerProfileID == definition.Extension.OwnerProfileID && retained.Resource.AuthPolicy == jobs.AuthPolicyIncidentMembership
 }
 
-func validateSavedGraphJobFacts(ctx context.Context, reader extensionstore.Querier, definition jobs.Definition, retained jobs.RetainedExtensionJob, key authn.RouteIdempotencyKey, hash []byte, graph GraphViewDeclaration) error {
+func validateSavedGraphJobFacts(ctx context.Context, reader extensionstore.Querier, definition jobs.Definition, retained jobs.RetainedExtensionJob, key authn.RouteIdempotencyKey, hash []byte, graph graphViewDeclaration) error {
 	if !savedGraphRegistrationMatches(retained, definition) || retained.Resource.Scope.IncidentID == nil || *retained.Resource.Scope.IncidentID != graph.IncidentID || retained.Resource.Scope.Kind != jobs.ScopeKindIncident || retained.Resource.SubmittedByUserID != key.ActorUserID.String() {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	id, err := uuid.Parse(retained.Resource.JobID)
 	if err != nil || graph.LatestJobID == nil || id != *graph.LatestJobID {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	hashText := hex.EncodeToString(hash)
 	if retained.ExpiredAt == nil {
 		identity, err := savedGraphJobIdentity(retained.IdempotencyIdentity)
 		if err != nil || identity != key || retained.RouteKey != key.RouteKey || retained.ScopeKey != key.ScopeKey || retained.RequestSHA256 != hashText {
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 		var payload graphViewMaterializationPayload
 		var members map[string]any
 		if json.Unmarshal(retained.Payload, &members) != nil || len(members) != 5 || json.Unmarshal(retained.Payload, &payload) != nil || !payload.valid() || payload.IncidentID != graph.IncidentID || payload.GraphViewID != graph.GraphViewID || payload.MaterializationGeneration != graph.MaterializationGeneration || payload.SourceSnapshotID != graph.DesiredSourceSnapshotID {
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 	}
 	proof, proofErr := extensionstore.ReadJobCommitProof(ctx, reader, id)
@@ -241,36 +241,36 @@ func validateSavedGraphJobFacts(ctx context.Context, reader extensionstore.Queri
 		switch retained.Resource.Status {
 		case jobs.StatusQueued, jobs.StatusRunning, jobs.StatusCancelRequested, jobs.StatusFailed, jobs.StatusCanceled:
 		default:
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 		if !errors.Is(proofErr, extensionstore.ErrNotFound) {
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 		return nil
 	}
 	if proofErr != nil || extensionstore.ValidateJobCommitProofSize(*proof, definition.Extension.MaxProofBytes) != nil || proof.OwnerProfileID != definition.Extension.OwnerProfileID || proof.OperationKind != definition.Extension.OperationKind || proof.FinalCommitID == "" || proof.CommittedAt.IsZero() || proof.NormalizedRequestSHA256 != hashText {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	identity, err := savedGraphJobIdentity(proof.IdempotencyIdentity)
 	if err != nil || identity != key {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	var summary jobs.ResultSummary
 	if json.Unmarshal(proof.TerminalResult, &summary) != nil {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	_, terminal, refs, digest, err := jobs.CanonicalExtensionTerminalSuccess(definition, &summary)
 	if err != nil || digest != proof.TerminalResultSHA256 || !savedGraphJSONEqual(terminal, proof.TerminalResult) || !savedGraphJSONEqual(refs, proof.ResourceRefs) || summary.Code != "network_flow_graph_view_materialized" || len(summary.ResourceRefs) != 1 {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	ref := summary.ResourceRefs[0]
 	if ref.Kind != graphViewResultResourceKind || ref.ID != graph.GraphViewID || ref.Route != graphViewRoute(graph.IncidentID, graph.GraphViewID) {
-		return ErrSavedGraphCutoverIncompatible
+		return errSavedGraphCutoverIncompatible
 	}
 	if retained.ExpiredAt == nil {
 		raw, _ := json.Marshal(retained.Resource.ResultSummary)
 		if !savedGraphJSONEqual(raw, terminal) {
-			return ErrSavedGraphCutoverIncompatible
+			return errSavedGraphCutoverIncompatible
 		}
 	}
 	return nil
@@ -313,7 +313,7 @@ func (r savedGraphAdmissionFamilies) ValidateFamilyState(ctx context.Context, id
 			return nil
 		}
 	}
-	return ErrSavedGraphCutoverIncompatible
+	return errSavedGraphCutoverIncompatible
 }
 
 func validateSavedGraphSelectedBindings(ctx context.Context, reader extensionstore.Querier) error {
@@ -327,7 +327,7 @@ func validateSavedGraphSelectedBindings(ctx context.Context, reader extensionsto
 		if err != nil {
 			return err
 		}
-		declarations := make([]GraphViewDeclaration, 0, 128)
+		declarations := make([]graphViewDeclaration, 0, 128)
 		for rows.Next() {
 			declaration, err := scanGraphViewDeclaration(rows)
 			if err != nil {
@@ -345,7 +345,7 @@ func validateSavedGraphSelectedBindings(ctx context.Context, reader extensionsto
 			binding, err := results.ReadResultEnvelope(ctx, declaration.SelectedResult.ProjectionResultID)
 			selected := declaration.SelectedResult
 			if err != nil || binding.GraphViewID != declaration.GraphViewID || binding.SourceOwnerID != ProfileID || binding.SourceSnapshotID != selected.SourceSnapshotID || binding.ProjectionSchemaID != selected.ProjectionSchemaID || binding.ProjectionVersion != selected.ProjectionVersion || binding.NormalizedConfigurationSHA256 != selected.NormalizedConfigurationSHA256 || binding.NormalizedSourceSHA256 != selected.NormalizedSourceSHA256 || binding.CanonicalOutputSHA256 != selected.CanonicalOutputSHA256 {
-				return ErrSavedGraphCutoverIncompatible
+				return errSavedGraphCutoverIncompatible
 			}
 			after = declaration.GraphViewID
 		}

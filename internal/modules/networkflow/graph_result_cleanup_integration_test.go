@@ -2,6 +2,7 @@ package networkflow_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -67,8 +69,7 @@ func TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integr
 	}
 
 	result, err := service.SweepGraphResults(ctx, now, nil)
-	if err != nil || result.Examined != 2 || result.DeletedResults != 1 || !result.Exhausted || result.HasMore ||
-		!result.HealthSnapshotValid || result.EligibleResultBacklog != 0 || result.OldestEligibleResultAge != nil {
+	if err != nil || result.Examined != 2 || result.DeletedResults != 1 || !result.Exhausted || result.HasMore {
 		t.Fatalf("source-owner cleanup result = %#v err=%v", result, err)
 	}
 	requireGraphResultCount(t, harness.DB, selectedResult.Binding.ProjectionResultID, 1)
@@ -102,23 +103,50 @@ func TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integr
 		PublishedAt:        selectedResult.PublishedAt,
 	}
 	first, err := service.SweepGraphResults(ctx, now.Add(time.Minute), cursor)
-	if err != nil || first.Examined != 8 || first.DeletedResults != 8 || !first.HasMore || first.NextCursor == nil ||
-		!first.HealthSnapshotValid || first.EligibleResultBacklog != 1 || first.OldestEligibleResultAge == nil ||
-		*first.OldestEligibleResultAge != 52*time.Second {
+	if err != nil || first.Examined != 8 || first.DeletedResults != 8 || !first.HasMore || first.NextCursor == nil {
 		t.Fatalf("first bounded cleanup = %#v err=%v", first, err)
 	}
 	second, err := service.SweepGraphResults(ctx, now.Add(time.Minute), first.NextCursor)
-	if err != nil || second.Examined != 1 || second.DeletedResults != 1 || second.HasMore || !second.Exhausted ||
-		!second.HealthSnapshotValid || second.EligibleResultBacklog != 0 || second.OldestEligibleResultAge != nil {
+	if err != nil || second.Examined != 1 || second.DeletedResults != 1 || second.HasMore || !second.Exhausted {
 		t.Fatalf("continued bounded cleanup = %#v err=%v", second, err)
 	}
 	for _, candidate := range bounded {
 		requireGraphResultCount(t, harness.DB, candidate.Binding.ProjectionResultID, 0)
 	}
 
+	for _, indeterminate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("confirmed progress before commit failure %t", indeterminate), func(t *testing.T) {
+			publishTx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			publisher, _ := postgresresult.NewPublisher(publishTx)
+			if err := publisher.PublishResult(ctx, unselectedResult); err != nil {
+				t.Fatal(err)
+			}
+			if err := publishTx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
+			db := &cleanupCommitFailureDB{DB: harness.DB, failAt: 3, indeterminate: indeterminate}
+			cleanup, err := NewGraphResultCleanupService(db, store)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := cleanup.SweepGraphResults(ctx, now, nil)
+			if err == nil || result.Examined != 1 || result.DeletedResults != 0 {
+				t.Fatalf("unconfirmed commit counted or confirmed progress lost: %#v %v", result, err)
+			}
+			wantRemaining := 1
+			if indeterminate {
+				wantRemaining = 0
+			}
+			requireGraphResultCount(t, harness.DB, unselectedResult.Binding.ProjectionResultID, wantRemaining)
+		})
+	}
+
 	SetGraphResultCleanupTestBounds(service, 8, time.Nanosecond)
 	timeBounded, err := service.SweepGraphResults(ctx, now.Add(2*time.Minute), nil)
-	if err != nil || timeBounded.Examined != 0 || !timeBounded.HasMore || timeBounded.Exhausted {
+	if !errors.Is(err, context.DeadlineExceeded) || timeBounded.Examined != 0 || timeBounded.DeletedLeases != 0 || timeBounded.Exhausted {
 		t.Fatalf("time-bounded cleanup = %#v err=%v", timeBounded, err)
 	}
 	SetGraphResultCleanupTestBounds(service, 8, 30*time.Second)
@@ -142,4 +170,37 @@ func requireGraphResultCount(t testing.TB, db interface {
 	if got != want {
 		t.Fatalf("graph result %s count=%d want=%d", resultID, got, want)
 	}
+}
+
+// Commit failures may follow a server commit. The sweep must not infer success.
+type cleanupCommitFailureDB struct {
+	postgres.DB
+	begins, failAt int
+	indeterminate  bool
+}
+
+func (db *cleanupCommitFailureDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	tx, err := db.DB.BeginTx(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	db.begins++
+	if db.begins == db.failAt {
+		return &cleanupCommitFailureTx{Tx: tx, indeterminate: db.indeterminate}, nil
+	}
+	return tx, nil
+}
+
+type cleanupCommitFailureTx struct {
+	pgx.Tx
+	indeterminate bool
+}
+
+func (tx *cleanupCommitFailureTx) Commit(ctx context.Context) error {
+	if tx.indeterminate {
+		if err := tx.Tx.Commit(ctx); err != nil {
+			return err
+		}
+	}
+	return errors.New("injected commit acknowledgement failure")
 }

@@ -14,7 +14,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -111,7 +110,7 @@ func validGraphProjectionIdentifier(value string) bool {
 
 // graphProjectionFailedForProjectionError is retained beside the sole provider
 // adapter so provider-specific errors cannot leak into the composer or routes.
-func graphProjectionFailedForProjectionError(err error) *httpapi.APIError {
+func graphProjectionFailedForProjectionError(err error) *semanticFailure {
 	var projectionErr *graphprojection.ProjectionErrorV2
 	if errors.As(err, &projectionErr) {
 		if projectionErr.Code == "invalid_projection_request" || projectionErr.Code == "projection_validation_failed" || projectionErr.Code == "projection_resource_limit_exceeded" {

@@ -49,7 +49,9 @@ Use this table as the default target-module registry. A local plan may split a r
 | `entities` | Hosts, identities, parties, mentions, stubs, resolution. | Alias handling, provenance, auto/manual resolution, merge/dedupe. |
 | `indicators` | Canonical indicators and observations. | Defanging, observation derivation, lifecycle intervals. |
 | `evidence` | Evidence records, object blobs, handles, preview/download, attach/finalize. | Object-store details, safe preview states, blocked states, blob lifecycle. |
-| `imports` | CSV/XLSX onboarding beyond ordinary clipboard paste. | Parser quirks, region detection, warnings, mapping fingerprints, provenance. |
+| `imports` | Generic upload/session and import lifecycle. | Framing, staging, unit orchestration and terminal publication; source-specific interpretation remains with its adopted owner. |
+| `networkflow` | Incident-scoped immutable flow tables, semantic graph input, saved-graph declarations and source-owner contributions. | Flow CSV interpretation, queries, application commands, source snapshots and explicit indicator binding; no Core saved views or generic job lifecycle. |
+| `graphprojection` | Pure deterministic graph derivation and immutable result capabilities. | Identity, bounded projection/traversal, exact persistence and leases, and distinct Graph restore; no source declarations, HTTP authorization or workers. |
 | `extensions` | Immutable extension registry admission, claim resolution, serving-epoch plan construction, state admission, validation-condition admission, and pure deadline policy. | Generated catalog integrity, dependency closure, collision checks, initialization/migration protocol, and typed projections for application composition. |
 | `incidentbundles` | Incident bundle export/import and extension portability orchestration. | State/claim blocking, participant admission, bounded preparation, scoped staging, and atomic target publication. |
 | `crossownertransaction` | Bounded multi-owner final-commit protocol. | Prepare/write separation, global serialization order, cancellation boundaries, typed capabilities, and closed commit outcomes. |

@@ -18,12 +18,12 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	}
 	var tables []string
 	if json.Unmarshal(object["selected_table_ids"], &tables) != nil || len(tables) < 1 || len(tables) > 64 {
-		return graphSemanticRequest{}, invalidNetworkFlowRequest("selected_table_ids", "type_mismatch")
+		return graphSemanticRequest{}, invalidNetworkFlowRequestHTTP("selected_table_ids", "type_mismatch")
 	}
 	seen := map[string]bool{}
 	for _, id := range tables {
 		if !linkTableIDPattern.MatchString(id) {
-			return graphSemanticRequest{}, invalidNetworkFlowRequest("selected_table_ids", "type_mismatch")
+			return graphSemanticRequest{}, invalidNetworkFlowRequestHTTP("selected_table_ids", "type_mismatch")
 		}
 		if seen[id] {
 			return graphSemanticRequest{}, &httpapi.APIError{Status: 400, Code: "network_flow_invalid_table_scope", Details: map[string]any{"reason_code": "duplicate_table_id", "mode": "selected_tables", "table_ids": tables, "limit_key": nil, "retry_action": "correct_request"}}
@@ -47,7 +47,7 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	var filters []json.RawMessage
 	_ = json.Unmarshal(object["filters"], &filters)
 	if len(filters) > 16 {
-		return graphSemanticRequest{}, invalidNetworkFlowRequest("filters", "type_mismatch")
+		return graphSemanticRequest{}, invalidNetworkFlowRequestHTTP("filters", "type_mismatch")
 	}
 	for _, filter := range filters {
 		entry, err := linkObject(filter, "filters")
@@ -66,12 +66,12 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	admissionLimits := limits
 	admissionLimits.MaxSelectedTablesPerQuery = 64
 	admissionLimits.MaxFiltersPerQuery = 16
-	query, apiErr := decodeGraphSemanticRequest(raw, admissionLimits)
+	query, apiErr := decodeGraphSemanticRequestHTTP(raw, admissionLimits)
 	if apiErr != nil && apiErr.Code == "network_flow_invalid_filter" {
 		// Preserve filter input ordering and safe structural context, never values.
 		for index := range filters {
 			prefix, _ := json.Marshal(filters[:index+1])
-			if _, err := decodeFilters(prefix, admissionLimits); err != nil {
+			if _, err := decodeFiltersHTTP(prefix, admissionLimits); err != nil {
 				var entry map[string]json.RawMessage
 				_ = json.Unmarshal(filters[index], &entry)
 				apiErr.Details["field_key"] = linkNullable(linkString(entry, "field_key"))

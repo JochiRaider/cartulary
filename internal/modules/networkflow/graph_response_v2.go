@@ -2,10 +2,7 @@ package networkflow
 
 import (
 	"math"
-	"net/http"
 	"time"
-
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func graphQueryResultResource(composition graphComposition) map[string]any {
@@ -24,7 +21,7 @@ func graphQueryResultResource(composition graphComposition) map[string]any {
 	}
 }
 
-func bindGraphV2ResponseMetadata(composition *graphComposition) *httpapi.APIError {
+func bindGraphV2ResponseMetadata(composition *graphComposition) *semanticFailure {
 	if composition == nil || composition.GraphProjection == nil {
 		return graphProjectionFailed("adapter_contract_rejected")
 	}
@@ -102,7 +99,7 @@ func deriveTimeBucketIndexFromExactResult(
 	width int64,
 	limit int,
 	projection map[string]any,
-) ([]graphTimeBucket, *httpapi.APIError) {
+) ([]graphTimeBucket, *semanticFailure) {
 	buckets, apiErr := graphTimeBuckets(timeRange, width, limit)
 	if apiErr != nil {
 		return nil, malformedStoredGraphResult()
@@ -194,9 +191,6 @@ func graphResultLimitsResourceV2(limits graphResultLimits) map[string]any {
 	return result
 }
 
-func malformedStoredGraphResult() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status: http.StatusInternalServerError, Code: "network_flow_graph_materialization_failed", Message: "network_flow_graph_materialization_failed",
-		Details: map[string]any{"reason_code": "projection_rejected", "retry_action": "do_not_retry"},
-	}
+func malformedStoredGraphResult() *semanticFailure {
+	return newSemanticFailure(failureGraphMaterializationFailed, "", "projection_rejected")
 }

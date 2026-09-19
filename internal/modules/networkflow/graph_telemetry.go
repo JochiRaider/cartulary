@@ -3,11 +3,9 @@ package networkflow
 import (
 	"context"
 	"errors"
-	"net/http"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -41,19 +39,17 @@ type GraphResultTelemetryObservation struct {
 	TimeBuckets      int
 }
 
-// GraphCleanupTelemetryObservation contains a post-sweep health snapshot from
-// the same source-owner eligibility predicate used by cleanup. Oldest age is
-// absent when no eligible result exists.
+// GraphCleanupTelemetryObservation reports confirmed committed progress and the
+// dispatcher's pacing decision. Freshness is measured by the observation adapter.
 type GraphCleanupTelemetryObservation struct {
-	Operation               string
-	Result                  string
-	ErrorClass              string
-	Duration                time.Duration
-	DeletedLeases           int
-	DeletedResults          int
-	HealthSnapshotValid     bool
-	EligibleResultBacklog   int64
-	OldestEligibleResultAge *time.Duration
+	Operation      string
+	Result         string
+	ErrorClass     string
+	Duration       time.Duration
+	DeletedLeases  int
+	DeletedResults int
+	Examined       int
+	Continuation   bool
 }
 
 // GraphTelemetryObserver is supplied by application assembly. Network Flow
@@ -88,34 +84,30 @@ func observeGraphCleanupSafely(ctx context.Context, observer GraphTelemetryObser
 	observer.ObserveGraphCleanup(ctx, observation)
 }
 
-func graphTelemetryOutcomeForAPIError(apiErr *httpapi.APIError) (string, string) {
-	if apiErr == nil {
+func graphTelemetryOutcomeForFailure(failure *semanticFailure) (string, string) {
+	if failure == nil {
 		return "success", ""
 	}
-	reason, _ := apiErr.Details["reason_code"].(string)
-	switch reason {
+	switch failure.reason {
 	case "projection_cancelled", "cancelled":
 		return "canceled", ""
 	case "projection_timeout", "timeout":
 		return "timeout", "timeout"
 	}
-	switch apiErr.Status {
-	case http.StatusConflict:
+	switch failure.kind {
+	case "network_flow_graph_query_stale", "network_flow_table_not_active":
 		return "conflict", "lifecycle_conflict"
-	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+	case "network_flow_graph_projection_failed":
 		return "failed", "dependency_unavailable"
+	case "network_flow_table_not_found":
+		return "rejected", "not_found"
+	case "network_flow_graph_limit_exceeded", "network_flow_counter_sum_limit_exceeded":
+		return "rejected", "policy_rejected"
+	case "internal_error", "network_flow_graph_materialization_failed":
+		return "failed", "internal_error"
+	default:
+		return "rejected", "request_invalid"
 	}
-	if apiErr.Status >= 400 && apiErr.Status < 500 {
-		switch apiErr.Code {
-		case "network_flow_table_not_found", "network_flow_graph_view_not_found":
-			return "rejected", "not_found"
-		case "network_flow_graph_limit_exceeded", "network_flow_counter_sum_limit_exceeded":
-			return "rejected", "policy_rejected"
-		default:
-			return "rejected", "request_invalid"
-		}
-	}
-	return "failed", "internal_error"
 }
 
 func graphTelemetryOutcomeForError(err error) (string, string) {
@@ -126,7 +118,7 @@ func graphTelemetryOutcomeForError(err error) (string, string) {
 		return "canceled", ""
 	case errors.Is(err, context.DeadlineExceeded):
 		return "timeout", "timeout"
-	case errors.Is(err, ErrGraphViewPublicationStale):
+	case errors.Is(err, errGraphViewPublicationStale):
 		return "conflict", "lifecycle_conflict"
 	case errors.Is(err, graphprojection.ErrResultV2IdentityConflict):
 		return "conflict", "invariant_violation"
@@ -135,17 +127,17 @@ func graphTelemetryOutcomeForError(err error) (string, string) {
 	}
 }
 
-func (s *Service) observeGraphPhase(
+func (s *graphSourceComposer) observeGraphPhase(
 	ctx context.Context,
 	phase string,
 	graphMode string,
 	started time.Time,
-	apiErr *httpapi.APIError,
+	apiErr *semanticFailure,
 ) {
 	if s == nil {
 		return
 	}
-	result, errorClass := graphTelemetryOutcomeForAPIError(apiErr)
+	result, errorClass := graphTelemetryOutcomeForFailure(apiErr)
 	observeGraphPhaseSafely(ctx, s.graphTelemetry, GraphPhaseTelemetryObservation{
 		Operation: graphTelemetryOperationMaterialization,
 		Phase:     phase, GraphMode: graphMode, Result: result, ErrorClass: errorClass,
@@ -171,7 +163,7 @@ func (m *Module) observeGraphPhase(
 	})
 }
 
-func (s *Service) observeGraphComposition(ctx context.Context, composition graphComposition) {
+func (s *graphSourceComposer) observeGraphComposition(ctx context.Context, composition graphComposition) {
 	if s == nil {
 		return
 	}

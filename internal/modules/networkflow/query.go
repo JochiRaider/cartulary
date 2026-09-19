@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 const (
@@ -27,19 +27,19 @@ const (
 	schemaRejectedRowsQueryContinuation = "cartulary.network_flow.rejected_rows_query_continuation.v1"
 )
 
-type Filter struct {
+type queryFilter struct {
 	FieldKey string `json:"field_key"`
 	Op       string `json:"op"`
 	Value    any    `json:"value,omitempty"`
 }
 
-type SortSpec struct {
+type sortSpec struct {
 	FieldKey  string `json:"field_key"`
 	Direction string `json:"direction"`
 }
 
 type rowCursorPosition struct {
-	EffectiveSort      []SortSpec `json:"effective_sort"`
+	EffectiveSort      []sortSpec `json:"effective_sort"`
 	Values             []any      `json:"values"`
 	NetworkFlowTableID string     `json:"network_flow_table_id"`
 	NetworkFlowRowID   string     `json:"network_flow_row_id"`
@@ -59,23 +59,23 @@ type contributorCursorPosition struct {
 	Row                 rowCursorPosition `json:"row"`
 }
 
-type TableScope struct {
+type tableScope struct {
 	Mode             string
 	ActiveTableID    string
 	SelectedTableIDs []string
 }
 
-type RowQueryRequest struct {
+type rowQueryRequest struct {
 	SchemaID     string
 	Continuation bool
 	CursorToken  string
-	TableScope   TableScope
-	Filters      []Filter
-	Sort         []SortSpec
+	TableScope   tableScope
+	Filters      []queryFilter
+	Sort         []sortSpec
 	Limit        int
 }
 
-type RejectedRowsQueryRequest struct {
+type rejectedRowsQueryRequest struct {
 	SchemaID     string
 	Continuation bool
 	CursorToken  string
@@ -86,109 +86,109 @@ type RejectedRowsQueryRequest struct {
 	Limit        int
 }
 
-func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, continuationSchemaID string, limits EffectiveLimits) (RowQueryRequest, *httpapi.APIError) {
+func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, continuationSchemaID string, limits EffectiveLimits) (rowQueryRequest, *semanticFailure) {
 	raw, apiErr := decodeNetworkFlowObject(reader)
 	if apiErr != nil {
-		return RowQueryRequest{}, apiErr
+		return rowQueryRequest{}, apiErr
 	}
 	schemaID, apiErr := requiredJSONString(raw, "schema_id")
 	if apiErr != nil {
-		return RowQueryRequest{}, apiErr
+		return rowQueryRequest{}, apiErr
 	}
 	switch schemaID {
 	case continuationSchemaID:
 		if apiErr := ensureAllowedMembers(raw, "schema_id", "cursor_token"); apiErr != nil {
-			return RowQueryRequest{}, apiErr
+			return rowQueryRequest{}, apiErr
 		}
 		token, apiErr := requiredJSONString(raw, "cursor_token")
 		if apiErr != nil {
-			return RowQueryRequest{}, apiErr
+			return rowQueryRequest{}, apiErr
 		}
-		return RowQueryRequest{SchemaID: schemaID, Continuation: true, CursorToken: token}, nil
+		return rowQueryRequest{SchemaID: schemaID, Continuation: true, CursorToken: token}, nil
 	case expectedSchemaID:
 	default:
-		return RowQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
+		return rowQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	allowed := []string{"schema_id", "filters", "sort", "limit"}
 	if expectedSchemaID == schemaRowsQueryRequest {
 		allowed = append(allowed, "table_scope")
 	}
 	if apiErr := ensureAllowedMembers(raw, allowed...); apiErr != nil {
-		return RowQueryRequest{}, apiErr
+		return rowQueryRequest{}, apiErr
 	}
-	request := RowQueryRequest{SchemaID: schemaID, Limit: defaultQueryLimit(limits)}
+	request := rowQueryRequest{SchemaID: schemaID, Limit: defaultQueryLimit(limits)}
 	if expectedSchemaID == schemaRowsQueryRequest {
 		scope, apiErr := requiredTableScope(raw["table_scope"], limits)
 		if apiErr != nil {
-			return RowQueryRequest{}, apiErr
+			return rowQueryRequest{}, apiErr
 		}
 		request.TableScope = scope
 	}
 	if value, ok := raw["limit"]; ok {
 		limit, apiErr := decodePositiveInt(value, "limit")
 		if apiErr != nil {
-			return RowQueryRequest{}, invalidLimit("limit", "not_integer")
+			return rowQueryRequest{}, invalidLimit("limit", "not_integer")
 		}
 		if limit < 1 {
-			return RowQueryRequest{}, invalidLimit("limit", "below_minimum")
+			return rowQueryRequest{}, invalidLimit("limit", "below_minimum")
 		}
 		if int64(limit) > limits.MaxQueryLimit {
-			return RowQueryRequest{}, invalidLimit("limit", "above_maximum")
+			return rowQueryRequest{}, invalidLimit("limit", "above_maximum")
 		}
 		request.Limit = limit
 	}
 	filters, apiErr := decodeFilters(raw["filters"], limits)
 	if apiErr != nil {
-		return RowQueryRequest{}, apiErr
+		return rowQueryRequest{}, apiErr
 	}
 	sortSpecs, apiErr := decodeSort(raw["sort"], limits)
 	if apiErr != nil {
-		return RowQueryRequest{}, apiErr
+		return rowQueryRequest{}, apiErr
 	}
 	request.Filters = filters
 	request.Sort = sortSpecs
 	return request, nil
 }
 
-func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (RejectedRowsQueryRequest, *httpapi.APIError) {
+func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (rejectedRowsQueryRequest, *semanticFailure) {
 	raw, apiErr := decodeNetworkFlowObject(reader)
 	if apiErr != nil {
-		return RejectedRowsQueryRequest{}, apiErr
+		return rejectedRowsQueryRequest{}, apiErr
 	}
 	schemaID, apiErr := requiredJSONString(raw, "schema_id")
 	if apiErr != nil {
-		return RejectedRowsQueryRequest{}, apiErr
+		return rejectedRowsQueryRequest{}, apiErr
 	}
 	if schemaID == schemaRejectedRowsQueryContinuation {
 		if apiErr := ensureAllowedMembers(raw, "schema_id", "cursor_token"); apiErr != nil {
-			return RejectedRowsQueryRequest{}, apiErr
+			return rejectedRowsQueryRequest{}, apiErr
 		}
 		token, apiErr := requiredJSONString(raw, "cursor_token")
 		if apiErr != nil {
-			return RejectedRowsQueryRequest{}, apiErr
+			return rejectedRowsQueryRequest{}, apiErr
 		}
-		return RejectedRowsQueryRequest{SchemaID: schemaID, Continuation: true, CursorToken: token}, nil
+		return rejectedRowsQueryRequest{SchemaID: schemaID, Continuation: true, CursorToken: token}, nil
 	}
 	if schemaID != schemaRejectedRowsQueryRequest {
-		return RejectedRowsQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
+		return rejectedRowsQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "error_codes", "field_keys", "source_row_range", "limit"); apiErr != nil {
-		return RejectedRowsQueryRequest{}, apiErr
+		return rejectedRowsQueryRequest{}, apiErr
 	}
-	request := RejectedRowsQueryRequest{SchemaID: schemaID, Limit: defaultQueryLimit(limits)}
-	var err *httpapi.APIError
+	request := rejectedRowsQueryRequest{SchemaID: schemaID, Limit: defaultQueryLimit(limits)}
+	var err *semanticFailure
 	request.ErrorCodes, err = decodeDiagnosticTokens(raw["error_codes"], "error_codes")
 	if err != nil {
-		return RejectedRowsQueryRequest{}, err
+		return rejectedRowsQueryRequest{}, err
 	}
 	request.FieldKeys, err = decodeDiagnosticTokens(raw["field_keys"], "field_keys")
 	if err != nil {
-		return RejectedRowsQueryRequest{}, err
+		return rejectedRowsQueryRequest{}, err
 	}
 	if value, ok := raw["source_row_range"]; ok {
 		gte, lte, apiErr := decodeIntegerRange(value)
 		if apiErr != nil {
-			return RejectedRowsQueryRequest{}, apiErr
+			return rejectedRowsQueryRequest{}, apiErr
 		}
 		request.SourceRowGTE = gte
 		request.SourceRowLTE = lte
@@ -196,37 +196,37 @@ func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (R
 	if value, ok := raw["limit"]; ok {
 		limit, apiErr := decodePositiveInt(value, "limit")
 		if apiErr != nil {
-			return RejectedRowsQueryRequest{}, invalidLimit("limit", "not_integer")
+			return rejectedRowsQueryRequest{}, invalidLimit("limit", "not_integer")
 		}
 		if limit < 1 {
-			return RejectedRowsQueryRequest{}, invalidLimit("limit", "below_minimum")
+			return rejectedRowsQueryRequest{}, invalidLimit("limit", "below_minimum")
 		}
 		if int64(limit) > limits.MaxQueryLimit {
-			return RejectedRowsQueryRequest{}, invalidLimit("limit", "above_maximum")
+			return rejectedRowsQueryRequest{}, invalidLimit("limit", "above_maximum")
 		}
 		request.Limit = limit
 	}
 	return request, nil
 }
 
-func decodeNetworkFlowObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
+func decodeNetworkFlowObject(reader io.Reader) (map[string]json.RawMessage, *semanticFailure) {
+	raw, err := strictjson.DecodeObject(reader)
 	if err == nil {
 		return raw, nil
 	}
 	switch {
-	case errors.Is(err, httpapi.ErrStrictJSONDuplicateMember):
+	case errors.Is(err, strictjson.ErrDuplicateMember):
 		return nil, invalidNetworkFlowRequest("", "duplicate_member")
-	case errors.Is(err, httpapi.ErrStrictJSONMalformed), errors.Is(err, httpapi.ErrStrictJSONTrailingData):
+	case errors.Is(err, strictjson.ErrMalformed), errors.Is(err, strictjson.ErrTrailingData):
 		return nil, invalidNetworkFlowRequest("", "malformed_json")
-	case errors.Is(err, httpapi.ErrStrictJSONNotObject):
+	case errors.Is(err, strictjson.ErrNotObject):
 		return nil, invalidNetworkFlowRequest("", "body_not_object")
 	default:
 		return nil, invalidNetworkFlowRequest("", "malformed_json")
 	}
 }
 
-func requiredJSONString(raw map[string]json.RawMessage, field string) (string, *httpapi.APIError) {
+func requiredJSONString(raw map[string]json.RawMessage, field string) (string, *semanticFailure) {
 	value, ok := raw[field]
 	if !ok {
 		return "", invalidNetworkFlowRequest(field, "missing_member")
@@ -241,7 +241,7 @@ func requiredJSONString(raw map[string]json.RawMessage, field string) (string, *
 	return out, nil
 }
 
-func ensureAllowedMembers(raw map[string]json.RawMessage, allowed ...string) *httpapi.APIError {
+func ensureAllowedMembers(raw map[string]json.RawMessage, allowed ...string) *semanticFailure {
 	allowedSet := map[string]struct{}{}
 	for _, key := range allowed {
 		allowedSet[key] = struct{}{}
@@ -254,58 +254,58 @@ func ensureAllowedMembers(raw map[string]json.RawMessage, allowed ...string) *ht
 	return nil
 }
 
-func requiredTableScope(raw json.RawMessage, limits EffectiveLimits) (TableScope, *httpapi.APIError) {
+func requiredTableScope(raw json.RawMessage, limits EffectiveLimits) (tableScope, *semanticFailure) {
 	if len(raw) == 0 {
-		return TableScope{}, invalidNetworkFlowRequest("table_scope", "missing_member")
+		return tableScope{}, invalidNetworkFlowRequest("table_scope", "missing_member")
 	}
 	if bytes.Equal(raw, []byte("null")) {
-		return TableScope{}, invalidNetworkFlowRequest("table_scope", "explicit_null")
+		return tableScope{}, invalidNetworkFlowRequest("table_scope", "explicit_null")
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return TableScope{}, invalidTableScope("table_scope", "unknown_mode")
+		return tableScope{}, invalidTableScope("table_scope", "unknown_mode")
 	}
 	mode, apiErr := requiredJSONString(object, "mode")
 	if apiErr != nil {
-		return TableScope{}, invalidTableScope("mode", "unknown_mode")
+		return tableScope{}, invalidTableScope("mode", "unknown_mode")
 	}
 	switch mode {
 	case "active_table":
 		if apiErr := ensureAllowedMembers(object, "mode", "active_table_id"); apiErr != nil {
-			return TableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
+			return tableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
 		}
 		tableID, apiErr := requiredJSONString(object, "active_table_id")
 		if apiErr != nil {
-			return TableScope{}, invalidTableScope("active_table_id", "empty_resolved_scope")
+			return tableScope{}, invalidTableScope("active_table_id", "empty_resolved_scope")
 		}
-		return TableScope{Mode: mode, ActiveTableID: tableID}, nil
+		return tableScope{Mode: mode, ActiveTableID: tableID}, nil
 	case "selected_tables":
 		if apiErr := ensureAllowedMembers(object, "mode", "selected_table_ids"); apiErr != nil {
-			return TableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
+			return tableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
 		}
 		tableIDs, apiErr := decodeStringArray(object["selected_table_ids"], "selected_table_ids", int(limits.MaxSelectedTablesPerQuery))
 		if apiErr != nil {
-			return TableScope{}, invalidTableScope("selected_table_ids", "empty_resolved_scope")
+			return tableScope{}, invalidTableScope("selected_table_ids", "empty_resolved_scope")
 		}
 		if len(tableIDs) > int(limits.MaxSelectedTablesPerQuery) {
-			return TableScope{}, invalidTableScope("selected_table_ids", "selected_table_limit_exceeded")
+			return tableScope{}, invalidTableScope("selected_table_ids", "selected_table_limit_exceeded")
 		}
-		return TableScope{Mode: mode, SelectedTableIDs: tableIDs}, nil
+		return tableScope{Mode: mode, SelectedTableIDs: tableIDs}, nil
 	case "all_active_tables":
 		if apiErr := ensureAllowedMembers(object, "mode"); apiErr != nil {
-			return TableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
+			return tableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
 		}
-		return TableScope{Mode: mode}, nil
+		return tableScope{Mode: mode}, nil
 	default:
-		return TableScope{}, invalidTableScope("mode", "unknown_mode")
+		return tableScope{}, invalidTableScope("mode", "unknown_mode")
 	}
 }
 
-func decodeFilters(raw json.RawMessage, limits EffectiveLimits) ([]Filter, *httpapi.APIError) {
+func decodeFilters(raw json.RawMessage, limits EffectiveLimits) ([]queryFilter, *semanticFailure) {
 	return decodeAndNormalizeFilters(raw, limits)
 }
 
-func decodeSort(raw json.RawMessage, limits EffectiveLimits) ([]SortSpec, *httpapi.APIError) {
+func decodeSort(raw json.RawMessage, limits EffectiveLimits) ([]sortSpec, *semanticFailure) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
@@ -316,10 +316,10 @@ func decodeSort(raw json.RawMessage, limits EffectiveLimits) ([]SortSpec, *httpa
 	if int64(len(encodedSpecs)) > limits.MaxSortsPerQuery {
 		return nil, invalidSort("sort", "too_many_sorts")
 	}
-	specs := make([]SortSpec, 0, len(encodedSpecs))
+	specs := make([]sortSpec, 0, len(encodedSpecs))
 	seen := map[string]struct{}{}
 	for _, encoded := range encodedSpecs {
-		object, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(encoded))
+		object, err := strictjson.DecodeObject(bytes.NewReader(encoded))
 		if err != nil || len(object) != 2 {
 			return nil, invalidSort("sort", "invalid_direction")
 		}
@@ -336,7 +336,7 @@ func decodeSort(raw json.RawMessage, limits EffectiveLimits) ([]SortSpec, *httpa
 		if directionErr != nil {
 			return nil, invalidSort("direction", "invalid_direction")
 		}
-		spec := SortSpec{FieldKey: fieldKey, Direction: direction}
+		spec := sortSpec{FieldKey: fieldKey, Direction: direction}
 		if !isSortField(spec.FieldKey) {
 			return nil, invalidSort("field_key", "unknown_field")
 		}
@@ -364,9 +364,9 @@ func strictSortString(object map[string]json.RawMessage, member string) (string,
 	return value, nil
 }
 
-func sortRows(rows []FlowRow, specs []SortSpec) []FlowRow {
+func sortRows(rows []flowRow, specs []sortSpec) []flowRow {
 	effective := effectiveSort(specs)
-	sorted := append([]FlowRow(nil), rows...)
+	sorted := append([]flowRow(nil), rows...)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		for _, spec := range effective {
 			cmp := compareRowFieldForSort(sorted[i], sorted[j], spec)
@@ -383,15 +383,15 @@ func sortRows(rows []FlowRow, specs []SortSpec) []FlowRow {
 	return sorted
 }
 
-func effectiveSort(specs []SortSpec) []SortSpec {
-	result := append([]SortSpec(nil), specs...)
+func effectiveSort(specs []sortSpec) []sortSpec {
+	result := append([]sortSpec(nil), specs...)
 	seen := make(map[string]struct{}, len(result))
 	for _, spec := range result {
 		seen[spec.FieldKey] = struct{}{}
 	}
-	defaults := []SortSpec{
-		{FieldKey: FieldFlowStartUTC, Direction: "asc"},
-		{FieldKey: FieldFlowEndUTC, Direction: "asc"},
+	defaults := []sortSpec{
+		{FieldKey: fieldFlowStartUTC, Direction: "asc"},
+		{FieldKey: fieldFlowEndUTC, Direction: "asc"},
 		{FieldKey: "source_row_number", Direction: "asc"},
 		{FieldKey: "network_flow_row_id", Direction: "asc"},
 	}
@@ -404,7 +404,7 @@ func effectiveSort(specs []SortSpec) []SortSpec {
 	return result
 }
 
-func sameSortSpecs(left, right []SortSpec) bool {
+func sameSortSpecs(left, right []sortSpec) bool {
 	if len(left) != len(right) {
 		return false
 	}
@@ -416,7 +416,7 @@ func sameSortSpecs(left, right []SortSpec) bool {
 	return true
 }
 
-func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
+func rowMatchesFilter(row flowRow, filter queryFilter) (bool, *semanticFailure) {
 	value := rowPublicFieldValue(row, filter.FieldKey)
 	switch filter.Op {
 	case "is_null":
@@ -452,7 +452,7 @@ func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
 		}
 		gte, hasGTE := object["gte"]
 		upperKey := "lte"
-		if filter.FieldKey == FieldFlowStartUTC || filter.FieldKey == FieldFlowEndUTC {
+		if filter.FieldKey == fieldFlowStartUTC || filter.FieldKey == fieldFlowEndUTC {
 			upperKey = "lt"
 		}
 		upper, hasUpper := object[upperKey]
@@ -488,7 +488,7 @@ func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
 		if err != nil {
 			return false, invalidFilter("value", "invalid_value")
 		}
-		if filter.FieldKey == FieldEndpointIP {
+		if filter.FieldKey == fieldEndpointIP {
 			src, srcOK := parseIP(row.SrcIP)
 			dst, dstOK := parseIP(row.DstIP)
 			return (srcOK && prefix.Contains(src)) || (dstOK && prefix.Contains(dst)), nil
@@ -501,31 +501,31 @@ func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
 	}
 }
 
-func rowPublicFieldValue(row FlowRow, field string) any {
+func rowPublicFieldValue(row flowRow, field string) any {
 	switch field {
-	case FieldSrcIP:
+	case fieldSrcIP:
 		return row.SrcIP
-	case FieldDstIP:
+	case fieldDstIP:
 		return row.DstIP
-	case FieldSrcPort:
+	case fieldSrcPort:
 		return nullableInt32Value(row.SrcPort)
-	case FieldDstPort:
+	case fieldDstPort:
 		return nullableInt32Value(row.DstPort)
-	case FieldIPProtocol:
+	case fieldIPProtocol:
 		return int64(row.IPProtocol)
-	case FieldFlowStartUTC:
+	case fieldFlowStartUTC:
 		return row.FlowStartUTC.UTC().Format(time.RFC3339Nano)
-	case FieldFlowEndUTC:
+	case fieldFlowEndUTC:
 		return row.FlowEndUTC.UTC().Format(time.RFC3339Nano)
-	case FieldBytesCount:
+	case fieldBytesCount:
 		return row.BytesCount
-	case FieldPacketsCount:
+	case fieldPacketsCount:
 		return row.PacketsCount
-	case FieldExporterID:
+	case fieldExporterID:
 		return nullableStringValue(row.ExporterID)
-	case FieldInputInterface:
+	case fieldInputInterface:
 		return nullableStringValue(row.InputInterface)
-	case FieldOutputInterface:
+	case fieldOutputInterface:
 		return nullableStringValue(row.OutputInterface)
 	case "source_row_number":
 		return row.SourceRowNumber
@@ -538,16 +538,16 @@ func rowPublicFieldValue(row FlowRow, field string) any {
 	}
 }
 
-func compareRowField(a, b FlowRow, field string) int {
+func compareRowField(a, b flowRow, field string) int {
 	left := rowPublicFieldValue(a, field)
 	right := rowPublicFieldValue(b, field)
-	if field == FieldSrcIP || field == FieldDstIP {
+	if field == fieldSrcIP || field == fieldDstIP {
 		return compareIPValues(left, right)
 	}
 	return compareFilterValues(field, left, right)
 }
 
-func compareRowFieldForSort(a, b FlowRow, spec SortSpec) int {
+func compareRowFieldForSort(a, b flowRow, spec sortSpec) int {
 	left := rowPublicFieldValue(a, spec.FieldKey)
 	right := rowPublicFieldValue(b, spec.FieldKey)
 	if left == nil || right == nil {
@@ -676,30 +676,30 @@ func nullableStringValue(value *string) any {
 	return *value
 }
 
-func filterOpAllowed(filter Filter) bool {
+func filterOpAllowed(filter queryFilter) bool {
 	switch filter.FieldKey {
-	case FieldSrcIP, FieldDstIP, FieldEndpointIP:
+	case fieldSrcIP, fieldDstIP, fieldEndpointIP:
 		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "cidr_contains"
-	case FieldSrcPort, FieldDstPort:
+	case fieldSrcPort, fieldDstPort:
 		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "range" || filter.Op == "is_null" || filter.Op == "not_null"
-	case FieldIPProtocol, "source_row_number":
+	case fieldIPProtocol, "source_row_number":
 		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "range"
-	case FieldFlowStartUTC, FieldFlowEndUTC:
+	case fieldFlowStartUTC, fieldFlowEndUTC:
 		return filter.Op == "range"
-	case FieldBytesCount, FieldPacketsCount:
+	case fieldBytesCount, fieldPacketsCount:
 		return filter.Op == "eq" || filter.Op == "range"
-	case FieldExporterID, FieldInputInterface, FieldOutputInterface:
+	case fieldExporterID, fieldInputInterface, fieldOutputInterface:
 		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "prefix" || filter.Op == "contains" || filter.Op == "is_null" || filter.Op == "not_null"
 	default:
 		return false
 	}
 }
 
-const FieldEndpointIP = "network_flow.endpoint_ip"
+const fieldEndpointIP = "network_flow.endpoint_ip"
 
 func isFilterField(field string) bool {
 	switch field {
-	case FieldSrcIP, FieldDstIP, FieldEndpointIP, FieldSrcPort, FieldDstPort, FieldIPProtocol, FieldFlowStartUTC, FieldFlowEndUTC, FieldBytesCount, FieldPacketsCount, FieldExporterID, FieldInputInterface, FieldOutputInterface, "source_row_number":
+	case fieldSrcIP, fieldDstIP, fieldEndpointIP, fieldSrcPort, fieldDstPort, fieldIPProtocol, fieldFlowStartUTC, fieldFlowEndUTC, fieldBytesCount, fieldPacketsCount, fieldExporterID, fieldInputInterface, fieldOutputInterface, "source_row_number":
 		return true
 	default:
 		return false
@@ -708,14 +708,14 @@ func isFilterField(field string) bool {
 
 func isSortField(field string) bool {
 	switch field {
-	case FieldSrcIP, FieldDstIP, FieldSrcPort, FieldDstPort, FieldIPProtocol, FieldFlowStartUTC, FieldFlowEndUTC, FieldBytesCount, FieldPacketsCount, FieldExporterID, FieldInputInterface, FieldOutputInterface, "source_row_number", "network_flow_row_id", "network_flow_table_id":
+	case fieldSrcIP, fieldDstIP, fieldSrcPort, fieldDstPort, fieldIPProtocol, fieldFlowStartUTC, fieldFlowEndUTC, fieldBytesCount, fieldPacketsCount, fieldExporterID, fieldInputInterface, fieldOutputInterface, "source_row_number", "network_flow_row_id", "network_flow_table_id":
 		return true
 	default:
 		return false
 	}
 }
 
-func newRowCursorPosition(row FlowRow, specs []SortSpec) rowCursorPosition {
+func newRowCursorPosition(row flowRow, specs []sortSpec) rowCursorPosition {
 	effective := effectiveSort(specs)
 	values := make([]any, 0, len(effective))
 	for _, spec := range effective {
@@ -742,7 +742,7 @@ func decodeRowCursorPosition(raw json.RawMessage) (rowCursorPosition, error) {
 	return position, nil
 }
 
-func compareRowToPosition(row FlowRow, position rowCursorPosition) int {
+func compareRowToPosition(row flowRow, position rowCursorPosition) int {
 	for index, spec := range position.EffectiveSort {
 		left := rowPublicFieldValue(row, spec.FieldKey)
 		right := position.Values[index]
@@ -762,7 +762,7 @@ func compareRowToPosition(row FlowRow, position rowCursorPosition) int {
 			continue
 		}
 		cmp := compareFilterValues(spec.FieldKey, left, right)
-		if spec.FieldKey == FieldSrcIP || spec.FieldKey == FieldDstIP {
+		if spec.FieldKey == fieldSrcIP || spec.FieldKey == fieldDstIP {
 			cmp = compareIPValues(left, right)
 		}
 		if spec.Direction == "desc" {
@@ -787,7 +787,7 @@ func compareRowToPosition(row FlowRow, position rowCursorPosition) int {
 	return 0
 }
 
-func pageFlowRowsAfter(rows []FlowRow, position *rowCursorPosition, limit int) ([]FlowRow, bool) {
+func pageFlowRowsAfter(rows []flowRow, position *rowCursorPosition, limit int) ([]flowRow, bool) {
 	start := 0
 	if position != nil {
 		start = sort.Search(len(rows), func(index int) bool {
@@ -795,7 +795,7 @@ func pageFlowRowsAfter(rows []FlowRow, position *rowCursorPosition, limit int) (
 		})
 	}
 	if start >= len(rows) {
-		return []FlowRow{}, false
+		return []flowRow{}, false
 	}
 	end := start + limit
 	if end >= len(rows) {
@@ -804,7 +804,7 @@ func pageFlowRowsAfter(rows []FlowRow, position *rowCursorPosition, limit int) (
 	return rows[start:end], true
 }
 
-func newContributorCursorPosition(row FlowRow, tableRanks map[string]int) contributorCursorPosition {
+func newContributorCursorPosition(row flowRow, tableRanks map[string]int) contributorCursorPosition {
 	return contributorCursorPosition{WorkspaceTableOrder: tableRanks[row.NetworkFlowTableID], Row: newRowCursorPosition(row, nil)}
 }
 
@@ -828,7 +828,7 @@ func mustMarshalJSON(value any) json.RawMessage {
 	return encoded
 }
 
-func newDiagnosticCursorPosition(value RejectedRowDiagnostic) diagnosticCursorPosition {
+func newDiagnosticCursorPosition(value rejectedRowDiagnostic) diagnosticCursorPosition {
 	return diagnosticCursorPosition{
 		SourceRowNumber: value.SourceRowNumber, SourceColumnOrdinal: value.SourceColumnOrdinal,
 		FieldKey: value.FieldKey, ErrorCode: value.ErrorCode, ReasonCode: value.ReasonCode,
@@ -836,10 +836,10 @@ func newDiagnosticCursorPosition(value RejectedRowDiagnostic) diagnosticCursorPo
 	}
 }
 
-func pageDiagnosticsAfter(rows []RejectedRowDiagnostic, position *diagnosticCursorPosition, limit int) ([]RejectedRowDiagnostic, bool) {
+func pageDiagnosticsAfter(rows []rejectedRowDiagnostic, position *diagnosticCursorPosition, limit int) ([]rejectedRowDiagnostic, bool) {
 	start := 0
 	if position != nil {
-		needle := RejectedRowDiagnostic{
+		needle := rejectedRowDiagnostic{
 			SourceRowNumber: position.SourceRowNumber, SourceColumnOrdinal: position.SourceColumnOrdinal,
 			FieldKey: position.FieldKey, ErrorCode: position.ErrorCode, ReasonCode: position.ReasonCode,
 			DiagnosticID: position.DiagnosticID,
@@ -847,7 +847,7 @@ func pageDiagnosticsAfter(rows []RejectedRowDiagnostic, position *diagnosticCurs
 		start = sort.Search(len(rows), func(index int) bool { return compareDiagnostics(rows[index], needle) > 0 })
 	}
 	if start >= len(rows) {
-		return []RejectedRowDiagnostic{}, false
+		return []rejectedRowDiagnostic{}, false
 	}
 	end := start + limit
 	if end >= len(rows) {
@@ -861,7 +861,7 @@ func queryHash(value any) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func decodePositiveInt(raw json.RawMessage, field string) (int, *httpapi.APIError) {
+func decodePositiveInt(raw json.RawMessage, field string) (int, *semanticFailure) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	var value any
@@ -879,7 +879,7 @@ func decodePositiveInt(raw json.RawMessage, field string) (int, *httpapi.APIErro
 	return int(parsed), nil
 }
 
-func decodeStringArray(raw json.RawMessage, field string, max int) ([]string, *httpapi.APIError) {
+func decodeStringArray(raw json.RawMessage, field string, max int) ([]string, *semanticFailure) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
@@ -904,7 +904,7 @@ func decodeStringArray(raw json.RawMessage, field string, max int) ([]string, *h
 	return values, nil
 }
 
-func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *httpapi.APIError) {
+func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *semanticFailure) {
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return nil, nil, invalidFilter("source_row_range", "invalid_value")
 	}
@@ -940,7 +940,7 @@ func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *httpapi.APIError)
 }
 
 func defaultQueryLimit(limits EffectiveLimits) int {
-	if limits.MaxQueryLimit <= 0 || limits.MaxQueryLimit > DefaultMaxQueryLimit {
+	if limits.MaxQueryLimit <= 0 || limits.MaxQueryLimit > defaultMaxQueryLimit {
 		return 200
 	}
 	if limits.MaxQueryLimit < 200 {
@@ -949,41 +949,29 @@ func defaultQueryLimit(limits EffectiveLimits) int {
 	return 200
 }
 
-func invalidNetworkFlowRequest(field string, reason string) *httpapi.APIError {
-	return networkFlowAPIError(400, "network_flow_invalid_request", field, reason)
+func invalidNetworkFlowRequest(field string, reason string) *semanticFailure {
+	return newSemanticFailure(failureInvalidRequest, field, reason)
 }
 
-func invalidFilter(field string, reason string) *httpapi.APIError {
+func invalidFilter(field string, reason string) *semanticFailure {
 	if reason == "value_forbidden" || reason == "unknown_member" {
 		reason = "invalid_value"
 	}
-	return &httpapi.APIError{Status: 400, Code: "network_flow_invalid_filter", Message: "network_flow_invalid_filter", Details: map[string]any{
-		"reason_code": reason, "field_key": nil, "op": nil, "filter_index": nil, "retry_action": "correct_request",
-	}}
+	return newSemanticFailure(failureInvalidFilter, "", reason)
 }
 
-func invalidSort(field string, reason string) *httpapi.APIError {
-	return networkFlowAPIError(400, "network_flow_invalid_sort", field, reason)
+func invalidSort(field string, reason string) *semanticFailure {
+	return newSemanticFailure(failureInvalidSort, field, reason)
 }
 
-func invalidTableScope(field string, reason string) *httpapi.APIError {
-	return networkFlowAPIError(400, "network_flow_invalid_table_scope", field, reason)
+func invalidTableScope(field string, reason string) *semanticFailure {
+	return newSemanticFailure(failureInvalidTableScope, field, reason)
 }
 
-func invalidLimit(field string, reason string) *httpapi.APIError {
-	return networkFlowAPIError(400, "network_flow_invalid_limit", field, reason)
+func invalidLimit(field string, reason string) *semanticFailure {
+	return newSemanticFailure(failureInvalidLimit, field, reason)
 }
 
-func cursorInvalid(reason string) *httpapi.APIError {
-	apiErr := networkFlowAPIError(400, "network_flow_cursor_invalid", "", reason)
-	apiErr.Details["retry_action"] = "restart_query"
-	return apiErr
-}
-
-func networkFlowAPIError(status int, code string, field string, reason string) *httpapi.APIError {
-	details := map[string]any{"reason_code": reason}
-	if field != "" {
-		details["field"] = field
-	}
-	return &httpapi.APIError{Status: status, Code: code, Message: code, Details: details}
+func cursorInvalid(reason string) *semanticFailure {
+	return newSemanticFailure(failureCursorInvalid, "", reason)
 }

@@ -23,7 +23,7 @@ const snapshotPath = "contracts/otel/otel_source_snapshot.v1.json";
 const generatedConstantsManifestPath = "contracts/otel/generated_constants_manifest.json";
 const importBoundaryPath = "contracts/otel/import_boundary.json";
 const errorClassRegistryPath = "contracts/otel/error_class_registry.json";
-const cartularySignalRegistryPath = "contracts/otel/cartulary_signal_registry.v1.json";
+const cartularySignalRegistryPath = "contracts/otel/cartulary_signal_registry.v2.json";
 const telemetryConfigSchemaPath = "contracts/otel/telemetry_config_schema.v2.json";
 const configHazardMatrixPath = "contracts/otel/config_hazard_fixture_matrix.v2.json";
 const corpusManifestPath = "internal/testutil/golden/otel/corpus_manifest.json";
@@ -130,8 +130,9 @@ const expectedMetricNames = [
   "cartulary.network_flow.cleanup.operations",
   "cartulary.network_flow.cleanup.sweep.duration",
   "cartulary.network_flow.cleanup.deleted",
-  "cartulary.network_flow.cleanup.eligible",
-  "cartulary.network_flow.cleanup.oldest_eligible_result.age",
+  "cartulary.network_flow.cleanup.examined",
+    "cartulary.network_flow.cleanup.continuation",
+  "cartulary.network_flow.cleanup.last_success.age",
   "cartulary.postgres.operation.duration",
   "cartulary.objectstore.operation.duration",
   "cartulary.objectstore.transfer.bytes",
@@ -442,11 +443,12 @@ function validateCartularySignalRegistry(registry, checks) {
     "cartulary.network_flow.cleanup.operations",
     "cartulary.network_flow.cleanup.sweep.duration",
     "cartulary.network_flow.cleanup.deleted",
-    "cartulary.network_flow.cleanup.eligible",
-    "cartulary.network_flow.cleanup.oldest_eligible_result.age",
+    "cartulary.network_flow.cleanup.examined",
+    "cartulary.network_flow.cleanup.continuation",
+    "cartulary.network_flow.cleanup.last_success.age",
   ];
   assert(
-    registry.schema_id === "cartulary.otel_signal_registry.v1" &&
+    registry.schema_id === "cartulary.otel_signal_registry.v2" &&
       JSON.stringify(registry.attribute_vocabulary) === JSON.stringify(expectedAttributes),
     "Cartulary signal registry binds the closed safe attribute vocabulary",
     checks,
@@ -470,8 +472,8 @@ function validateCartularySignalRegistry(registry, checks) {
   assert(
     attributesAreClosed &&
       registry.failure_policy === "telemetry_failure_never_changes_product_behavior" &&
-      registry.cleanup_age_source === "published_at",
-    "GP3 signals use only safe closed attributes, fail open, and measure cleanup age from published_at",
+      registry.cleanup_age_source === "monotonic_elapsed_since_last_success",
+    "GP3 signals use only safe closed attributes, fail open, and measure cleanup freshness without database reads",
     checks,
     "signals.safety_and_age",
   );
@@ -1828,12 +1830,13 @@ function validateGoldenCorpus(manifest, classification, checks) {
                 "cartulary.network_flow.cleanup.operations",
                 "cartulary.network_flow.cleanup.sweep.duration",
                 "cartulary.network_flow.cleanup.deleted",
-                "cartulary.network_flow.cleanup.eligible",
-                "cartulary.network_flow.cleanup.oldest_eligible_result.age",
+                "cartulary.network_flow.cleanup.examined",
+    "cartulary.network_flow.cleanup.continuation",
+                "cartulary.network_flow.cleanup.last_success.age",
               ]) &&
             gp3.queue_wait_source === "COALESCE(handler_next_attempt_at, submitted_at)" &&
             gp3.queue_wait_event === "successful_durable_claim_only" &&
-            gp3.cleanup_age_source === "published_at" &&
+            gp3.cleanup_age_source === "monotonic_elapsed_since_last_success" &&
             gp3.cleanup_age_forbidden_name === "time_unreachable" &&
             gp3.telemetry_failure_changes_product_behavior === false &&
             ["identifier", "digest", "label", "row", "property", "sql", "raw_error"].every((entry) =>
@@ -1843,7 +1846,7 @@ function validateGoldenCorpus(manifest, classification, checks) {
               "internal/platform/jobs/telemetry_integration_test.go::TestJobQueuedAndQueueWaitTelemetryUsesDurableEligibility_Integration",
               "internal/modules/networkflow/graph_telemetry_test.go::TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit",
               "internal/modules/networkflow/graph_result_cleanup_integration_test.go::TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integration",
-              "internal/app/server/network_flow_telemetry_test.go::TestNetworkFlowTelemetryUsesClosedSignalsAndPublishedAtAge_Unit",
+              "internal/app/server/network_flow_telemetry_test.go::TestNetworkFlowTelemetryUsesClosedSignalsAndCleanupFreshness_Unit",
               "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed",
             ]),
           "OTEL-CORPUS-019 records Jobs queue and privacy-safe Network Flow graph and cleanup telemetry invariants",

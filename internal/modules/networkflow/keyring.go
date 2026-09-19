@@ -14,7 +14,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
@@ -51,7 +50,7 @@ type safeDigestKeyMaterial struct {
 	retainUntil   *time.Time
 }
 
-type SafeDigester interface {
+type safeDigester interface {
 	Digest(valueClass string, canonicalValue string) (string, string, error)
 }
 
@@ -95,14 +94,6 @@ type safeDigestKeyManifest struct {
 	SecretRef     keyRingSecretRef `json:"secret_ref"`
 	DeactivatedAt string           `json:"deactivated_at,omitempty"`
 	RetainUntil   string           `json:"retain_until,omitempty"`
-}
-
-func ParseKeyRings(raw []byte, env map[string]string, now time.Time) (*KeyRings, error) {
-	registry := secretpurpose.NewRegistry()
-	if err := authn.RegisterMasterSecretPurpose(registry, env); err != nil {
-		return nil, err
-	}
-	return parseKeyRings(raw, env, now, registry)
 }
 
 func ParseKeyRingsWithRegistry(raw []byte, env map[string]string, now time.Time, registry *secretpurpose.Registry) (*KeyRings, error) {
@@ -247,7 +238,7 @@ func (r *KeyRings) loadSafeDigestRing(ring safeDigestKeyRingManifest, env map[st
 	return nil
 }
 
-func newSafeDigester(rings *KeyRings, now func() time.Time) (SafeDigester, error) {
+func newSafeDigester(rings *KeyRings, now func() time.Time) (safeDigester, error) {
 	if rings == nil || rings.safeActiveID == "" {
 		return nil, errors.New("network flow safe-digest key ring unavailable")
 	}
@@ -272,7 +263,7 @@ func (d *keyRingSafeDigester) Digest(valueClass string, canonicalValue string) (
 	if !ok || entry.state != "active" || len(entry.key) != 32 {
 		return "", "", errors.New("network flow active safe-digest key unavailable")
 	}
-	digest, keyID := SafeDigest(d.rings.safeActiveID, entry.key, valueClass, canonicalValue)
+	digest, keyID := safeDigest(d.rings.safeActiveID, entry.key, valueClass, canonicalValue)
 	return digest, keyID, nil
 }
 
@@ -405,7 +396,7 @@ func normalizedKeyRingSecretSuffix(name string) string {
 }
 
 func keyRingConfigError(path string, reason string, message string) error {
-	return &ConfigurationError{Finding: ConfigurationFinding{
+	return &configurationError{Finding: ConfigurationFinding{
 		Path:       path,
 		ReasonCode: reason,
 		Message:    message,

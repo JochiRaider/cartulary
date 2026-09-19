@@ -9,7 +9,7 @@ import (
 type GraphResultCleanupService = graphResultCleanupService
 type GraphResultCleanupSweepResult = graphResultCleanupSweepResult
 
-func NewGraphResultCleanupService(db postgres.DB, declarations *Store) (*GraphResultCleanupService, error) {
+func NewGraphResultCleanupService(db postgres.DB, declarations *store) (*GraphResultCleanupService, error) {
 	return newGraphResultCleanupService(db, declarations)
 }
 

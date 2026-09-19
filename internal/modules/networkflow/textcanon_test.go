@@ -32,7 +32,7 @@ func assertUnicode17TextCanonicalization(t *testing.T) {
 			t.Fatalf("excluded U+%04X was trimmed: %q", scalar, got)
 		}
 	}
-	if got, err := NormalizeTableDisplayNameInput(" \u0065\u0301 "); err != nil || got != "\u00e9" {
+	if got, err := normalizeTableDisplayNameInput(" \u0065\u0301 "); err != nil || got != "\u00e9" {
 		t.Fatalf("NFC normalization = %q, %v", got, err)
 	}
 }

@@ -1196,8 +1196,12 @@
       "family_id": "module.networkflow.integration",
       "collaborator_ids": [
         "app.server",
+        "module.collaboration",
         "module.extensions",
         "module.graphprojection",
+        "module.recovery",
+        "module.reporting",
+        "platform.audit",
         "platform.jobs"
       ],
       "verification_ids": [

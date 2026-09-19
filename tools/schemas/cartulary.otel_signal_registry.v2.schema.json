@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.otel_signal_registry.v1",
+  "$id": "cartulary.otel_signal_registry.v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "attribute_vocabulary", "forbidden_attribute_classes", "scopes", "closed_values", "failure_policy", "cleanup_age_source"],
   "properties": {
-    "schema_id": { "const": "cartulary.otel_signal_registry.v1" },
+    "schema_id": { "const": "cartulary.otel_signal_registry.v2" },
     "attribute_vocabulary": { "type": "array", "minItems": 7, "maxItems": 7, "uniqueItems": true, "items": { "type": "string" } },
     "forbidden_attribute_classes": { "type": "array", "minItems": 9, "uniqueItems": true, "items": { "type": "string" } },
     "scopes": {
@@ -38,6 +38,6 @@
     },
     "closed_values": { "type": "object" },
     "failure_policy": { "const": "telemetry_failure_never_changes_product_behavior" },
-    "cleanup_age_source": { "const": "published_at" }
+    "cleanup_age_source": { "const": "monotonic_elapsed_since_last_success" }
   }
 }

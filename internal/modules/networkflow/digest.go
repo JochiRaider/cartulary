@@ -26,7 +26,7 @@ func hmacSHA256Hex(key []byte, data []byte) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-func SourceRowDigest(parserProfileID string, sourceRowNumber int64, decodedFields []string) string {
+func sourceRowDigest(parserProfileID string, sourceRowNumber int64, decodedFields []string) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow.source_row_digest.v1")
 	writeDigestPart(&b, parserProfileID)
@@ -40,7 +40,7 @@ func SourceRowDigest(parserProfileID string, sourceRowNumber int64, decodedField
 	return sha256Hex(b.Bytes())
 }
 
-func NormalizedRowDigest(mappingFingerprint string, values map[string]any, unmappedRaw map[string]any) string {
+func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmappedRaw map[string]any) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow.normalized_row_digest.v1")
 	writeDigestPart(&b, mappingFingerprint)
@@ -62,7 +62,7 @@ func NormalizedRowDigest(mappingFingerprint string, values map[string]any, unmap
 	return sha256Hex(b.Bytes())
 }
 
-func RowID(incidentID uuid.UUID, tableID string, sourceRowNumber int64, sourceRowDigest string, normalizedRowDigest string) string {
+func rowID(incidentID uuid.UUID, tableID string, sourceRowNumber int64, sourceRowDigest string, normalizedRowDigest string) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow_row_id.v1")
 	writeDigestPart(&b, incidentID.String())
@@ -73,7 +73,7 @@ func RowID(incidentID uuid.UUID, tableID string, sourceRowNumber int64, sourceRo
 	return "nfr_" + sha256Hex(b.Bytes())
 }
 
-func EndpointID(incidentID uuid.UUID, endpointKind string, canonicalValue string) string {
+func endpointID(incidentID uuid.UUID, endpointKind string, canonicalValue string) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow_endpoint_id.v1")
 	writeDigestPart(&b, incidentID.String())
@@ -82,7 +82,7 @@ func EndpointID(incidentID uuid.UUID, endpointKind string, canonicalValue string
 	return "nfe_" + sha256Hex(b.Bytes())
 }
 
-func FlowEdgeID(incidentID uuid.UUID, srcEndpointID string, dstEndpointID string, ipProtocol int32, dstPort *int32) string {
+func flowEdgeID(incidentID uuid.UUID, srcEndpointID string, dstEndpointID string, ipProtocol int32, dstPort *int32) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow_flow_edge_id.v1")
 	writeDigestPart(&b, incidentID.String())
@@ -99,7 +99,7 @@ func FlowEdgeID(incidentID uuid.UUID, srcEndpointID string, dstEndpointID string
 	return "nff_" + sha256Hex(b.Bytes())
 }
 
-func DiagnosticID(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA256 *string, fieldKey *string, errorCode string, reasonCode string) string {
+func diagnosticID(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA256 *string, fieldKey *string, errorCode string, reasonCode string) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow_diagnostic_id.v1")
 	writeDigestPart(&b, strconv.FormatInt(sourceRowNumber, 10))
@@ -123,7 +123,7 @@ func DiagnosticID(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSH
 	return "nfd_" + sha256Hex(b.Bytes())
 }
 
-func MappingFingerprint(mapping ApprovedMapping, sourceContentSHA256 string) string {
+func mappingFingerprint(mapping approvedMapping, sourceContentSHA256 string) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow_mapping_fingerprint.v1")
 	writeDigestPart(&b, mapping.TargetKind)
@@ -134,7 +134,7 @@ func MappingFingerprint(mapping ApprovedMapping, sourceContentSHA256 string) str
 	writeDigestPart(&b, mapping.UnknownColumnPolicy)
 	b.Write(canonicalJSON(mapping.TimestampProfile))
 	b.WriteByte(0)
-	sourceColumns := append([]SourceColumnDescriptor(nil), mapping.SourceColumns...)
+	sourceColumns := append([]sourceColumnDescriptor(nil), mapping.SourceColumns...)
 	sort.SliceStable(sourceColumns, func(i, j int) bool {
 		return sourceColumns[i].SourceColumnOrdinal < sourceColumns[j].SourceColumnOrdinal
 	})
@@ -144,7 +144,7 @@ func MappingFingerprint(mapping ApprovedMapping, sourceContentSHA256 string) str
 		writeDigestPart(&b, column.NormalizedHeaderForSuggestion)
 		writeDigestPart(&b, column.RawHeaderSHA256)
 	}
-	fieldMappings := append([]FieldMapping(nil), mapping.FieldMappings...)
+	fieldMappings := append([]fieldMapping(nil), mapping.FieldMappings...)
 	sort.SliceStable(fieldMappings, func(i, j int) bool {
 		return mappingSortKey(fieldMappings[i]) < mappingSortKey(fieldMappings[j])
 	})
@@ -155,7 +155,7 @@ func MappingFingerprint(mapping ApprovedMapping, sourceContentSHA256 string) str
 	return sha256Hex(b.Bytes())
 }
 
-func SafeDigest(keyID string, key []byte, valueClass string, canonicalValue string) (string, string) {
+func safeDigest(keyID string, key []byte, valueClass string, canonicalValue string) (string, string) {
 	if keyID == "" || len(key) == 0 {
 		keyID = "network-flow-ws14"
 		key = []byte("network-flow-ws14-engineering-only-safe-digest-key")
@@ -266,31 +266,31 @@ func canonicalJSONArray(values []any) []byte {
 
 func registeredRowFieldKeys() []string {
 	return []string{
-		FieldFlowStartUTC,
-		FieldFlowEndUTC,
-		FieldSrcIP,
-		FieldDstIP,
-		FieldSrcPort,
-		FieldDstPort,
-		FieldIPProtocol,
-		FieldBytesCount,
-		FieldPacketsCount,
-		FieldExporterID,
-		FieldInputInterface,
-		FieldOutputInterface,
-		FieldTCPFlags,
-		FieldApplicationLabel,
-		FieldObservationSourceRef,
+		fieldFlowStartUTC,
+		fieldFlowEndUTC,
+		fieldSrcIP,
+		fieldDstIP,
+		fieldSrcPort,
+		fieldDstPort,
+		fieldIPProtocol,
+		fieldBytesCount,
+		fieldPacketsCount,
+		fieldExporterID,
+		fieldInputInterface,
+		fieldOutputInterface,
+		fieldTCPFlags,
+		fieldApplicationLabel,
+		fieldObservationSourceRef,
 	}
 }
 
-func mappingSortKey(mapping FieldMapping) string {
+func mappingSortKey(mapping fieldMapping) string {
 	switch mapping.MappingKind {
-	case MappingKindSourceColumn:
+	case mappingKindSourceColumn:
 		return strings.Join([]string{mapping.FieldKey, "source_column", strconv.Itoa(mapping.SourceColumnOrdinal), "", ""}, "\x00")
-	case MappingKindSystemDerivation:
+	case mappingKindSystemDerivation:
 		return strings.Join([]string{mapping.FieldKey, "system_derivation", "0", mapping.DerivationID, ""}, "\x00")
-	case MappingKindIgnoredSourceColumn:
+	case mappingKindIgnoredSourceColumn:
 		return strings.Join([]string{"", "ignored_source_column", strconv.Itoa(mapping.SourceColumnOrdinal), "", mapping.IgnoreReason}, "\x00")
 	default:
 		return strings.Join([]string{mapping.FieldKey, mapping.MappingKind, strconv.Itoa(mapping.SourceColumnOrdinal), mapping.DerivationID, mapping.IgnoreReason}, "\x00")

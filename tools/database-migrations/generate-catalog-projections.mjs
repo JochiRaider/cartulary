@@ -51,6 +51,7 @@ const ownersByVersion = new Map([
   [33, "networkflow"], [34, "graphprojection"], [35, "assessments"],
   [36, "entities"], [37, "entities"], [38, "indicators"], [39, "parties"],
   [40, "parties"], [41, "entities"], [42, "timeline"], [43, "savedviews"],
+  [44, "platform_jobs"],
 ]);
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;

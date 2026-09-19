@@ -25,7 +25,7 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 
 	field := "source.ip"
 	column := int64(2)
-	diagnostic := RejectedRowDiagnostic{
+	diagnostic := rejectedRowDiagnostic{
 		SourceRowNumber:     3,
 		SourceColumnOrdinal: &column,
 		FieldKey:            &field,
@@ -46,7 +46,7 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 		},
 		{
 			name:       "all rows rejected",
-			err:        allRowsRejectedOwnerError([]RejectedRowDiagnostic{diagnostic}, false),
+			err:        allRowsRejectedOwnerError([]rejectedRowDiagnostic{diagnostic}, false),
 			ownerCode:  "network_flow_all_rows_rejected",
 			coreReason: "owner_apply_validation_failed",
 		},
@@ -123,7 +123,7 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 	binding := (&importFacade{}).Binding()
 	if binding.SchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
-		binding.TargetKind != TargetKindNetworkFlowTable ||
+		binding.TargetKind != targetKindNetworkFlowTable ||
 		binding.ExtensionProfileID != ProfileID ||
 		binding.OwnerContractRef != "network_flow_activity@6" ||
 		binding.FacadeID != "network_flow_import_facade_v1" ||
@@ -142,36 +142,36 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 
 func AssertJSONAdmissionAndErrorDetails(t *testing.T) {
 	t.Helper()
-	limits := DefaultLimits()
-	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","visible_label":"Source IP"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	limits := defaultLimits()
+	_, apiErr := decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","visible_label":"Source IP"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "unknown_member")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "duplicate_member")
 	for _, body := range []string{`[]`, `{`, `{"schema_id":null}`} {
-		_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(body), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+		_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(body), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 		requireAPIError(t, apiErr, "network_flow_invalid_request", "")
 	}
 }
 
 func AssertMappingApprovalBoundary(t *testing.T) {
 	t.Helper()
-	mapping := approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV)
+	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	if err := validateApprovedMapping(mapping); err != nil {
 		t.Fatalf("baseline mapping should validate: %v", err)
 	}
 	mapping.SourceProfileID = "reserved_ipfix_v1"
 	err := validateApprovedMapping(mapping)
-	var mappingErr *MappingValidationError
+	var mappingErr *mappingValidationError
 	if !errors.As(err, &mappingErr) || mappingErr.Code != "network_flow_unsupported_source_profile" {
 		t.Fatalf("reserved source profile got %T %[1]v", err)
 	}
-	mapping = approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV)
-	mapping.FieldMappings = append(mapping.FieldMappings, FieldMapping{
-		MappingKind:         MappingKindSourceColumn,
-		FieldKey:            FieldExporterID,
+	mapping = approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
+	mapping.FieldMappings = append(mapping.FieldMappings, fieldMapping{
+		MappingKind:         mappingKindSourceColumn,
+		FieldKey:            fieldExporterID,
 		SourceColumnOrdinal: len(mapping.SourceColumns),
-		TransformID:         TransformTrimASCIISpace,
-		EmptyValuePolicy:    EmptyPolicyNull,
+		TransformID:         transformTrimASCIISpace,
+		EmptyValuePolicy:    emptyPolicyNull,
 	})
 	err = validateApprovedMapping(mapping)
 	if !errors.As(err, &mappingErr) || mappingErr.ReasonCode != "field_not_supported_by_profile" {
@@ -181,18 +181,18 @@ func AssertMappingApprovalBoundary(t *testing.T) {
 
 func AssertQueryAndTableScopeBoundary(t *testing.T) {
 	t.Helper()
-	limits := DefaultLimits()
-	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.rows_query_request.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`), schemaRowsQueryRequest, schemaRowsQueryContinuation, limits)
+	limits := defaultLimits()
+	_, apiErr := decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.rows_query_request.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`), schemaRowsQueryRequest, schemaRowsQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "empty_resolved_scope")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"Source IP","op":"eq","value":"192.0.2.10"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"Source IP","op":"eq","value":"192.0.2.10"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "unknown_field")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"network_flow.src_ip","op":"in","value":["198.51.100.200","198.51.100.200"]}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"network_flow.src_ip","op":"in","value":["198.51.100.200","198.51.100.200"]}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "duplicate_in_value")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_sort", "unknown_field")
 	for _, maximum := range []int64{50, 150, 1000} {
 		limits.MaxQueryLimit = maximum
-		request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+		request, apiErr := decodeAcceptedRowQueryRequestHTTP(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 		if apiErr != nil || request.Limit != int(min(200, maximum)) {
 			t.Fatalf("default query limit for maximum %d got request=%#v err=%v", maximum, request, apiErr)
 		}
@@ -201,7 +201,7 @@ func AssertQueryAndTableScopeBoundary(t *testing.T) {
 	if !strings.Contains(acceptedEcho, `"filters":[]`) || !strings.Contains(acceptedEcho, `"sort":[]`) {
 		t.Fatalf("accepted query echo must materialize omitted arrays: %s", acceptedEcho)
 	}
-	rejectedEcho := string(canonicalJSON(rejectedRowsQueryEcho(RejectedRowsQueryRequest{})))
+	rejectedEcho := string(canonicalJSON(rejectedRowsQueryEcho(rejectedRowsQueryRequest{})))
 	if !strings.Contains(rejectedEcho, `"error_codes":[]`) || !strings.Contains(rejectedEcho, `"field_keys":[]`) {
 		t.Fatalf("rejected query echo must materialize omitted arrays: %s", rejectedEcho)
 	}
@@ -211,13 +211,13 @@ func AssertQueryAndTableScopeBoundary(t *testing.T) {
 func AssertKeysetAndCursorRuntime(t *testing.T) {
 	t.Helper()
 	start := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
-	rows := []FlowRow{
+	rows := []flowRow{
 		{NetworkFlowTableID: "nft_b", RowID: "nfr_2", SourceRowNumber: 2, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), SrcIP: "2001:db8::1", DstIP: "198.51.100.2", BytesCount: "184467440737095516160", PacketsCount: "10"},
 		{NetworkFlowTableID: "nft_a", RowID: "nfr_3", SourceRowNumber: 1, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), SrcIP: "192.0.2.10", DstIP: "198.51.100.3", BytesCount: "9", PacketsCount: "2"},
 		{NetworkFlowTableID: "nft_a", RowID: "nfr_1", SourceRowNumber: 1, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), SrcIP: "192.0.2.2", DstIP: "198.51.100.1", BytesCount: "100", PacketsCount: "3"},
 	}
-	effective := effectiveSort([]SortSpec{{FieldKey: FieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
-	wantTail := []string{FieldFlowStartUTC, FieldFlowEndUTC, "source_row_number", "network_flow_row_id"}
+	effective := effectiveSort([]sortSpec{{FieldKey: fieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
+	wantTail := []string{fieldFlowStartUTC, fieldFlowEndUTC, "source_row_number", "network_flow_row_id"}
 	if len(effective) != 2+len(wantTail) {
 		t.Fatalf("effective sort length got %d: %#v", len(effective), effective)
 	}
@@ -227,7 +227,7 @@ func AssertKeysetAndCursorRuntime(t *testing.T) {
 		}
 	}
 
-	sorted := sortRows(rows, []SortSpec{{FieldKey: FieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
+	sorted := sortRows(rows, []sortSpec{{FieldKey: fieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
 	seen := make([]string, 0, len(sorted))
 	var position *rowCursorPosition
 	for {
@@ -236,7 +236,7 @@ func AssertKeysetAndCursorRuntime(t *testing.T) {
 			break
 		}
 		seen = append(seen, page[0].NetworkFlowTableID+"/"+page[0].RowID)
-		next := newRowCursorPosition(page[0], []SortSpec{{FieldKey: FieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
+		next := newRowCursorPosition(page[0], []sortSpec{{FieldKey: fieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
 		encoded, err := json.Marshal(next)
 		if err != nil || bytes.Contains(encoded, []byte(`"offset"`)) {
 			t.Fatalf("row cursor position must be an offset-free keyset: %s err=%v", encoded, err)
@@ -266,7 +266,7 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
   "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"network_flow-cursor","state":"active","secret_ref":{"kind":"env","name":"network_flow-cursor"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"network_flow-safe","state":"active","secret_ref":{"kind":"env","name":"network_flow-safe"}}]}
 }`
-	rings, err := ParseKeyRings([]byte(manifest), map[string]string{
+	rings, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), map[string]string{
 		"CARTULARY_SECRET_NETWORK_FLOW_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
 		"CARTULARY_SECRET_NETWORK_FLOW_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
 	}, now)
@@ -278,7 +278,7 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 	if err != nil {
 		t.Fatalf("construct Network Flow cursor protector: %v", err)
 	}
-	binding := CursorBinding{Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident", Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "query-hash", QueryEcho: json.RawMessage(`{"sort":[]}`), Limit: 1}
+	binding := cursorBinding{Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident", Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "query-hash", QueryEcho: json.RawMessage(`{"sort":[]}`), Limit: 1}
 	token, err := codec.Encode(binding, "row_keyset_v1", position)
 	if err != nil || !strings.HasPrefix(token, "nfc2.network_flow-cursor.") {
 		t.Fatalf("encode nfc2 cursor token=%q err=%v", token, err)
@@ -312,8 +312,8 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 func AssertDiagnosticKeysetRuntime(t *testing.T) {
 	t.Helper()
 	column := int64(3)
-	field := FieldSrcIP
-	diagnostics := []RejectedRowDiagnostic{
+	field := fieldSrcIP
+	diagnostics := []rejectedRowDiagnostic{
 		{DiagnosticID: "nfd_3", SourceRowNumber: 2, SourceColumnOrdinal: nil, FieldKey: nil, ErrorCode: "z", ReasonCode: "z"},
 		{DiagnosticID: "nfd_2", SourceRowNumber: 2, SourceColumnOrdinal: &column, FieldKey: &field, ErrorCode: "a", ReasonCode: "b"},
 		{DiagnosticID: "nfd_1", SourceRowNumber: 2, SourceColumnOrdinal: &column, FieldKey: &field, ErrorCode: "a", ReasonCode: "a"},
@@ -332,7 +332,7 @@ func AssertDiagnosticKeysetRuntime(t *testing.T) {
 
 func AssertDuplicateHeaderRuntime(t *testing.T) {
 	t.Helper()
-	parsed, err := ParseCSVApply(strings.NewReader("Source IP,Source IP\n192.0.2.1,192.0.2.2\n"), "", DefaultLimits())
+	parsed, err := parseCSVApply(strings.NewReader("Source IP,Source IP\n192.0.2.1,192.0.2.2\n"), "", defaultLimits())
 	if err != nil {
 		t.Fatalf("parse duplicate-header CSV: %v", err)
 	}
@@ -346,14 +346,14 @@ func AssertImportRuntime(t *testing.T) {
 	header := strings.Join(append(requiredCiscoFields(), "Notes"), ",")
 	valid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.0.2.10,198.51.100.2,443,51515,TCP,18446744073709551615,12,=1+1"
 	invalid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.168.001.010,198.51.100.2,443,51515,TCP,1,1,invalid"
-	parsed, err := ParseCSVApply(strings.NewReader(header+"\n"+valid+"\n"+invalid+"\n"), "", DefaultLimits())
+	parsed, err := parseCSVApply(strings.NewReader(header+"\n"+valid+"\n"+invalid+"\n"), "", defaultLimits())
 	if err != nil {
 		t.Fatalf("parse import CSV: %v", err)
 	}
-	mapping := approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV)
+	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	mapping.SourceColumns = parsed.SourceColumns
-	fingerprint := MappingFingerprint(mapping, parsed.SourceContentSHA256)
-	accepted, diagnostics, truncated, err := ValidateRows(parsed, mapping, fingerprint, DefaultLimits())
+	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
+	accepted, diagnostics, truncated, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
 	if err != nil || len(accepted) != 1 || len(diagnostics) != 1 || truncated {
 		t.Fatalf("partial import accepted=%d diagnostics=%d truncated=%t err=%v", len(accepted), len(diagnostics), truncated, err)
 	}
@@ -364,12 +364,12 @@ func AssertImportRuntime(t *testing.T) {
 		t.Fatalf("formula-like unmapped value must remain inert data: %s", accepted[0].UnmappedRaw)
 	}
 
-	allRejected, err := ParseCSVApply(strings.NewReader(header+"\n"+invalid+"\n"), "", DefaultLimits())
+	allRejected, err := parseCSVApply(strings.NewReader(header+"\n"+invalid+"\n"), "", defaultLimits())
 	if err != nil {
 		t.Fatalf("parse all-rejected CSV: %v", err)
 	}
 	mapping.SourceColumns = allRejected.SourceColumns
-	accepted, diagnostics, _, err = ValidateRows(allRejected, mapping, MappingFingerprint(mapping, allRejected.SourceContentSHA256), DefaultLimits())
+	accepted, diagnostics, _, err = validateRows(allRejected, mapping, mappingFingerprint(mapping, allRejected.SourceContentSHA256), defaultLimits())
 	if err != nil || len(accepted) != 0 || len(diagnostics) != 1 {
 		t.Fatalf("all-rejected import accepted=%d diagnostics=%d err=%v", len(accepted), len(diagnostics), err)
 	}
@@ -379,42 +379,42 @@ func AssertImportRuntime(t *testing.T) {
 	for range 51 {
 		many.WriteString(valid + "\n")
 	}
-	preview, err := ParseCSVPreview(strings.NewReader(many.String()), "", DefaultLimits())
+	preview, err := parseCSVPreview(strings.NewReader(many.String()), "", defaultLimits())
 	if err != nil || len(preview.Records) != previewRecordLimit {
 		t.Fatalf("preview record boundary got=%d err=%v", len(preview.Records), err)
 	}
-	apply, err := ParseCSVApply(strings.NewReader(many.String()), "", DefaultLimits())
+	apply, err := parseCSVApply(strings.NewReader(many.String()), "", defaultLimits())
 	if err != nil || len(apply.Records) != 51 {
 		t.Fatalf("apply record boundary got=%d err=%v", len(apply.Records), err)
 	}
-	limits := DefaultLimits()
+	limits := defaultLimits()
 	limits.MaxRowsPerCSV = 1
-	if _, err := ParseCSVApply(strings.NewReader(header+"\n"+valid+"\n"+valid+"\n"), "", limits); err == nil {
+	if _, err := parseCSVApply(strings.NewReader(header+"\n"+valid+"\n"+valid+"\n"), "", limits); err == nil {
 		t.Fatal("apply parser accepted rows above the configured row limit")
 	}
-	if _, err := ParseCSVApply(strings.NewReader(header+"\n"+valid+"\n"), strings.Repeat("0", 64), DefaultLimits()); !errors.Is(err, ErrSourceChanged) {
+	if _, err := parseCSVApply(strings.NewReader(header+"\n"+valid+"\n"), strings.Repeat("0", 64), defaultLimits()); !errors.Is(err, errSourceChanged) {
 		t.Fatalf("source hash mismatch got %T %[1]v", err)
 	}
-	if recovered, err := ParseCSVApply(strings.NewReader(header+"\n"+valid+"\n"), "", DefaultLimits()); err != nil || len(recovered.Records) != 1 {
+	if recovered, err := parseCSVApply(strings.NewReader(header+"\n"+valid+"\n"), "", defaultLimits()); err != nil || len(recovered.Records) != 1 {
 		t.Fatalf("parser did not recover independently after a rejected operation: records=%d err=%v", len(recovered.Records), err)
 	}
 }
 
 func AssertNameAndLifecycleRuntime(t *testing.T) {
 	t.Helper()
-	first, err := DeriveTableDisplayName("C:\\tmp\\flows.csv", map[string]struct{}{})
+	first, err := deriveTableDisplayName("C:\\tmp\\flows.csv", map[string]struct{}{})
 	if err != nil || first != "flows" {
 		t.Fatalf("derive initial display name=%q err=%v", first, err)
 	}
-	second, err := DeriveTableDisplayName("flows.csv", map[string]struct{}{first: {}})
+	second, err := deriveTableDisplayName("flows.csv", map[string]struct{}{first: {}})
 	if err != nil || second != "flows (2)" {
 		t.Fatalf("derive collision display name=%q err=%v", second, err)
 	}
-	states := LifecycleStates()
-	if len(states) != 2 || states[0] != TableStatusActive || states[1] != TableStatusSoftDeleted {
+	states := lifecycleStates()
+	if len(states) != 2 || states[0] != tableStatusActive || states[1] != tableStatusSoftDeleted {
 		t.Fatalf("closed lifecycle states drifted: %#v", states)
 	}
-	row := FlowRow{NetworkFlowTableID: "nft_stable", RowID: "nfr_stable", SourceRowNumber: 2}
+	row := flowRow{NetworkFlowTableID: "nft_stable", RowID: "nfr_stable", SourceRowNumber: 2}
 	before := rowRefResource(row)
 	_ = "renamed flows"
 	after := rowRefResource(row)
@@ -433,7 +433,7 @@ func mapFromStrings(values []string) map[string]struct{} {
 
 func AssertGraphContractBoundary(t *testing.T) {
 	t.Helper()
-	limits := DefaultLimits()
+	limits := defaultLimits()
 	_, apiErr := decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]},"aggregation":{"mode":"default_flow_edge_v1"}}`)), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "empty_resolved_scope")
 	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"},"aggregation":{"mode":"default_flow_edge_v1"}}`)), limits)
@@ -451,7 +451,7 @@ func AssertGraphContractBoundary(t *testing.T) {
 
 func AssertIndicatorLinkContractBoundary(t *testing.T) {
 	t.Helper()
-	limits := DefaultLimits()
+	limits := defaultLimits()
 	base := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_field_value","network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","field_key":"network_flow.src_ip"},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
 	request, apiErr := decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(base)), limits)
 	if apiErr != nil || request.Selector.Kind != "row_field_value" || request.Target.Mode != "create_indicator" {
@@ -463,7 +463,7 @@ func AssertIndicatorLinkContractBoundary(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("field policy ran before freshness: %v", apiErr)
 	}
-	_, apiErr = candidateValueFromRow(FlowRow{}, "network_flow.bytes_count")
+	_, apiErr = candidateValueFromRow(flowRow{}, "network_flow.bytes_count")
 	requireAPIError(t, apiErr, "network_flow_invalid_indicator_selector", "field_not_linkable")
 	rowRefs := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_refs","field_key":"network_flow.src_ip","row_refs":[{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"},{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"}]},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
 	_, apiErr = decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(rowRefs)), limits)
@@ -478,7 +478,7 @@ func AssertAuthorizationBoundary(t *testing.T) {
 	incidentID := uuid.New()
 	userID := uuid.New()
 	missing := &authorizationAccess{err: &admission.Denied{Code: admission.DenialNotVisible}}
-	service := &Service{incidentAccess: missing}
+	service := &routeService{incidentAccess: missing}
 	if _, apiErr := service.requireIncidentMembership(context.Background(), incidentID, userID); apiErr == nil || apiErr.Status != 404 || apiErr.Code != "incident_not_found" {
 		t.Fatalf("missing membership result = %#v, want owner-derived incident_not_found", apiErr)
 	}
@@ -521,7 +521,7 @@ func AssertRedactionAuditAndSafeDigestBoundary(t *testing.T) {
 	if numericSample.SafeSample == nil || *numericSample.SafeSample != "12345" || numericSample.RawValueSHA256 == nil {
 		t.Fatalf("bounded numeric sample should expose safe sample plus digest: %#v", numericSample)
 	}
-	digest, keyID := SafeDigest("network_flow-key", []byte("network_flow-secret"), "candidate", "192.0.2.10")
+	digest, keyID := safeDigest("network_flow-key", []byte("network_flow-secret"), "candidate", "192.0.2.10")
 	if keyID != "network_flow-key" || !hex64(digest) {
 		t.Fatalf("safe digest got digest=%q key_id=%q", digest, keyID)
 	}
@@ -535,7 +535,7 @@ func AssertRedactionAuditAndSafeDigestBoundary(t *testing.T) {
 
 func AssertResourceLimitBoundary(t *testing.T) {
 	t.Helper()
-	limits := DefaultLimits()
+	limits := defaultLimits()
 	resource := effectiveLimitsResource(limits)
 	for _, key := range []string{
 		"network_flow.max_active_tables_per_incident",
@@ -553,7 +553,7 @@ func AssertResourceLimitBoundary(t *testing.T) {
 			t.Fatalf("effective limit resource missing %q in %#v", key, resource)
 		}
 	}
-	_, apiErr := decodeLowerableGraphLimit([]byte("0"), "max_vertices", 1, int(limits.MaxGraphVertices))
+	_, apiErr := decodeLowerableGraphLimitHTTP([]byte("0"), "max_vertices", 1, int(limits.MaxGraphVertices))
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "below_minimum")
 	configured := limits
 	configured.MaxGraphVertices = 7000
@@ -591,7 +591,7 @@ func AssertFilenameDisplayBoundary(t *testing.T) {
 		"/tmp/.csv":        ".csv",
 		"file.":            "file.",
 	} {
-		if got := SanitizeSourceFilenameDisplay(input); got != want {
+		if got := sanitizeSourceFilenameDisplay(input); got != want {
 			t.Fatalf("sanitize filename %q got %q want %q", input, got, want)
 		}
 	}
@@ -619,38 +619,38 @@ func requireAPIError(t *testing.T, apiErr *httpapi.APIError, code string, reason
 	}
 }
 
-func approvedMappingFixture(sourceProfileID string) ApprovedMapping {
-	sourceColumns := make([]SourceColumnDescriptor, 0, len(requiredCiscoFields()))
-	fieldMappings := make([]FieldMapping, 0, len(requiredCiscoFields())+1)
+func approvedMappingFixture(sourceProfileID string) approvedMapping {
+	sourceColumns := make([]sourceColumnDescriptor, 0, len(requiredCiscoFields()))
+	fieldMappings := make([]fieldMapping, 0, len(requiredCiscoFields())+1)
 	for index, fieldKey := range requiredCiscoFields() {
 		ordinal := index + 1
-		sourceColumns = append(sourceColumns, SourceColumnDescriptor{
+		sourceColumns = append(sourceColumns, sourceColumnDescriptor{
 			SourceColumnOrdinal:           ordinal,
 			RawHeaderText:                 fieldKey,
-			NormalizedHeaderForSuggestion: SourceAliasMatchKey(fieldKey),
+			NormalizedHeaderForSuggestion: sourceAliasMatchKey(fieldKey),
 			RawHeaderSHA256:               strings.Repeat("a", 64),
 		})
-		fieldMappings = append(fieldMappings, FieldMapping{
-			MappingKind:         MappingKindSourceColumn,
+		fieldMappings = append(fieldMappings, fieldMapping{
+			MappingKind:         mappingKindSourceColumn,
 			FieldKey:            fieldKey,
 			SourceColumnOrdinal: ordinal,
 			TransformID:         defaultTransformForField(fieldKey),
 			EmptyValuePolicy:    defaultEmptyPolicyForField(fieldKey),
 		})
 	}
-	fieldMappings = append(fieldMappings, FieldMapping{
-		MappingKind:   MappingKindSystemDerivation,
-		FieldKey:      FieldObservationSourceRef,
+	fieldMappings = append(fieldMappings, fieldMapping{
+		MappingKind:   mappingKindSystemDerivation,
+		FieldKey:      fieldObservationSourceRef,
 		DerivationID:  "network_flow.observation_source_ref.v1",
 		Combinability: "single_source_only",
 	})
-	return ApprovedMapping{
-		TargetKind:          TargetKindNetworkFlowTable,
-		TargetTableSchemaID: TargetTableSchemaID,
+	return approvedMapping{
+		TargetKind:          targetKindNetworkFlowTable,
+		TargetTableSchemaID: targetTableSchemaID,
 		SourceProfileID:     sourceProfileID,
-		ParserProfileID:     ParserProfileRFC4180HeaderedCSV,
-		UnknownColumnPolicy: UnknownColumnPolicyPreserve,
-		TimestampProfile:    materializeTimestampProfile(TimestampProfile{}),
+		ParserProfileID:     parserProfileRFC4180HeaderedCSV,
+		UnknownColumnPolicy: unknownColumnPolicyPreserve,
+		TimestampProfile:    materializeTimestampProfile(timestampProfile{}),
 		SourceColumns:       sourceColumns,
 		FieldMappings:       fieldMappings,
 	}

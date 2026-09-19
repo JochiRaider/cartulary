@@ -3760,7 +3760,8 @@ termination is required-component loss.
 
 Each sweep captures one observation time, deletes at most 1,000 expired leases
 in one transaction, and processes at most eight result candidates or 30
-seconds. Each result transaction selects the oldest candidate for exact
+seconds. The 30-second budget starts before expired-lease deletion and MUST
+propagate a deadline to all database operations. Each result transaction selects the oldest candidate for exact
 `source_owner_id='network_flow_activity'` by `published_at` and result ID using
 `FOR UPDATE SKIP LOCKED`, checks authoritative selected bindings and unexpired
 leases in the same borrowed transaction, and deletes at most one unselected,
@@ -3780,9 +3781,11 @@ Network Flow emits telemetry only through the adopted
 `cartulary.network_flow` instrumentation scope. Required coverage is source
 validation, source scan, projection, and publication duration; contributing
 rows; result vertices, edges, and buckets; cleanup operation, duration,
-deleted leases/results, eligible backlog, and oldest eligible result age from
-`published_at`. It MUST NOT describe the latter as time since becoming
-unreachable because that transition is not stored.
+deleted leases/results, committed candidate examinations, paced-continuation
+state, and age since the last successful sweep. These bounded observations
+MUST NOT query a global eligibility count or claim backlog size, oldest eligible
+age, or time since becoming unreachable. The OpenTelemetry owner defines their
+exact instrument shapes and freshness rules.
 
 Allowed attributes are closed operation, phase, graph mode, result,
 graph-object kind, and safe error class. Incident, graph, result, row, job,
@@ -4027,6 +4030,58 @@ retry that can bypass unchanged incompatible state.
 A rejected cutover leaves the prior release usable. After major-6 receipts are
 written, rollback requires a compatible release or separately authorized
 restoration of the pre-cutover backup; a forward fix is the default.
+
+## 29. Application boundaries and bounded restore
+
+This section adopts the Network Flow remediation contracts without changing
+public major 6, durable state 4, semantic query v2, or result identity.
+
+Reusable query, mapping, temporal and graph semantics MUST use private typed
+failures with closed kinds/reasons, safe typed details and wrapped causes.
+They MUST NOT return HTTP errors or import transport helpers. The HTTP adapter
+alone translates these failures to §21 responses; worker, restore and telemetry
+adapters classify them independently. Unknown failures disclose no raw cause.
+Strict JSON semantics use the shared transport-independent strict JSON decoder.
+
+One private source composer serves routes, workers and the actual restore
+contribution. HTTP uses effective request/module limits; workers use configured
+module limits; restore uses canonical default limits and does not install a
+module telemetry observer. Restore enumerates active selected declarations in
+ascending graph-view ID order and requires reconstructed snapshots to match
+both selected and desired snapshots. Constructors perform no IO or hidden work.
+
+Saved-graph commands own cohesive create, refresh, rename and retire operations
+outside the HTTP service, with typed inputs/outcomes and a dedicated durable
+receipt adapter. Current admission precedes replay; fresh transaction admission,
+immutable historical receipts, version/generation separation, atomic side
+effects and after-commit notification retain §28 semantics. The supported public
+Go surface is the Module facade, required dependency/configuration types and
+source-owner contributions. Store, route service and implementation-only
+helpers are private; test bridges compile only in tests.
+
+Restored materialization jobs use Core 01 §3.3.9.3 with exact kind
+`network_flow_activity.graph_view_materialize_v1`, profile
+`network_flow_activity`, and pages of 256. Network Flow retains unknown-member
+rejection and payload schema, incident, graph ID, positive generation and
+nonempty snapshot validation. It reconciles each closed page in ascending ID
+order, returns the complete selected count only on success, and returns zero
+with an error on any failure. No per-incident quota is a global restore cap.
+Graph Projection §9 and Core 01 REQ-01-625A retain the single transaction,
+quiescence, Reporting reconciliation and readiness requirements.
+
+Reporting source reads use Graph Projection §8 lookup, renewal, exact read and
+NF-owned label conversion in that order. Lookup supplies lease owner
+`snapshot_reporting`, resource equal to the job ID, and purpose `render`.
+Release additionally scopes source owner `network_flow_activity`. A declaration
+refresh or retirement never redirects an already leased exact result. Existing
+entry checks and valid empty-release behavior remain; lease possession grants
+neither authorization nor permission to disclose labels.
+
+Acceptance requires real route, worker and NF restore paths; failure injection
+at durable participant boundaries; exact lease scope/expiry/rollback races;
+restore page boundaries and whole-transaction rollback; semantic error mapping;
+and a positive production API/dependency boundary. Control-registry tests alone
+are not product rollback evidence. Executable inputs MUST NOT depend on Markdown.
 
 ## Appendix E. Future-only decision backlog and rationale
 

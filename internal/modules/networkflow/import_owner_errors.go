@@ -178,7 +178,7 @@ func cloneOwnerSafeDetails(source map[string]any) map[string]any {
 }
 
 func allRowsRejectedOwnerError(
-	diagnostics []RejectedRowDiagnostic,
+	diagnostics []rejectedRowDiagnostic,
 	diagnosticsTruncated bool,
 ) error {
 	sampleCount := len(diagnostics)

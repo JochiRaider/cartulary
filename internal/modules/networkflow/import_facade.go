@@ -17,11 +17,11 @@ import (
 )
 
 type importFacade struct {
-	store        *Store
+	store        *store
 	sourceStore  ImportSourcePort
 	limits       EffectiveLimits
 	now          func() time.Time
-	safeDigester SafeDigester
+	safeDigester safeDigester
 }
 
 const (
@@ -36,14 +36,14 @@ const (
 	importCommitProtocolID      = "cartulary.imports.unit_commit.v1"
 )
 
-func newImportFacade(store *Store, sourceStore ImportSourcePort, limits EffectiveLimits, now func() time.Time, safeDigester SafeDigester) *importFacade {
+func newImportFacade(store *store, sourceStore ImportSourcePort, limits EffectiveLimits, now func() time.Time, safeDigester safeDigester) *importFacade {
 	return &importFacade{store: store, sourceStore: sourceStore, limits: limits, now: now, safeDigester: safeDigester}
 }
 
 func (f *importFacade) Binding() imports.ExtensionImportFacadeBinding {
 	return imports.ExtensionImportFacadeBinding{
 		SchemaID:               importFacadeBindingSchemaID,
-		TargetKind:             TargetKindNetworkFlowTable,
+		TargetKind:             targetKindNetworkFlowTable,
 		ExtensionProfileID:     ProfileID,
 		OwnerContractRef:       importOwnerContractRef,
 		FacadeID:               importFacadeID,
@@ -66,7 +66,7 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
 		)
 	}
-	if request.TargetKind != TargetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != MappingCandidateSchemaID {
+	if request.TargetKind != targetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != mappingCandidateSchemaID {
 		return imports.ExtensionImportMappingResult{}, importOwnerError(
 			"network_flow_mapping_invalid",
 			map[string]any{"reason_code": "variant_member_conflict"},
@@ -77,16 +77,16 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		return imports.ExtensionImportMappingResult{}, err
 	}
 	defer func() { _ = stream.Reader.Close() }()
-	parsed, err := ParseCSVPreview(stream.Reader, request.SourceCapability.SourceContentSHA256, f.limits)
+	parsed, err := parseCSVPreview(stream.Reader, request.SourceCapability.SourceContentSHA256, f.limits)
 	if err != nil {
 		return imports.ExtensionImportMappingResult{}, facadeError(err)
 	}
-	mapping, err := MaterializeApprovedMapping(request.OwnerMapping, parsed.SourceColumns)
+	mapping, err := materializeApprovedMapping(request.OwnerMapping, parsed.SourceColumns)
 	if err != nil {
 		return imports.ExtensionImportMappingResult{}, facadeError(err)
 	}
-	fingerprint := MappingFingerprint(mapping, parsed.SourceContentSHA256)
-	rows, diagnostics, diagnosticsTruncated, err := ValidateRows(parsed, mapping, fingerprint, f.limits)
+	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
+	rows, diagnostics, diagnosticsTruncated, err := validateRows(parsed, mapping, fingerprint, f.limits)
 	if err != nil {
 		return imports.ExtensionImportMappingResult{}, err
 	}
@@ -107,7 +107,7 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		"diagnostics_truncated":  diagnosticsTruncated,
 	}
 	return imports.ExtensionImportMappingResult{
-		OwnerMapping:        MarshalApprovedMapping(mapping),
+		OwnerMapping:        marshalApprovedMapping(mapping),
 		MappingFingerprint:  fingerprint,
 		OwnerResultSchemaID: importPreviewResultSchemaID,
 		OwnerResult:         ownerResult,
@@ -127,7 +127,7 @@ func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionI
 	var payload struct {
 		SchemaID             string                   `json:"schema_id"`
 		SourceContentSHA256  string                   `json:"source_content_sha256"`
-		SourceColumns        []SourceColumnDescriptor `json:"source_columns"`
+		SourceColumns        []sourceColumnDescriptor `json:"source_columns"`
 		MaterializedMapping  json.RawMessage          `json:"materialized_mapping"`
 		MappingFingerprint   string                   `json:"mapping_fingerprint"`
 		PreviewRecordCount   int                      `json:"preview_record_count"`
@@ -149,11 +149,11 @@ func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionI
 		payload.DiagnosticsTruncated {
 		return fmt.Errorf("network flow import preview result failed semantic validation")
 	}
-	approved, err := DecodeApprovedMapping(payload.MaterializedMapping)
+	approved, err := decodeApprovedMapping(payload.MaterializedMapping)
 	if err != nil {
 		return fmt.Errorf("validate network flow materialized preview mapping: %w", err)
 	}
-	if !sourceColumnsMatch(payload.SourceColumns, approved.SourceColumns) || MappingFingerprint(approved, payload.SourceContentSHA256) != payload.MappingFingerprint {
+	if !sourceColumnsMatch(payload.SourceColumns, approved.SourceColumns) || mappingFingerprint(approved, payload.SourceContentSHA256) != payload.MappingFingerprint {
 		return fmt.Errorf("network flow import preview result fingerprint mismatch")
 	}
 	for index, column := range payload.SourceColumns {
@@ -219,7 +219,7 @@ func (f *importFacade) ApplyImportUnitTx(
 			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
 		)
 	}
-	if request.TargetKind != TargetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != MappingCandidateSchemaID {
+	if request.TargetKind != targetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != mappingCandidateSchemaID {
 		return imports.ExtensionImportApplyResult{}, importOwnerError(
 			"network_flow_mapping_invalid",
 			map[string]any{"reason_code": "variant_member_conflict"},
@@ -252,13 +252,13 @@ func (f *importFacade) ApplyImportUnitTx(
 }
 
 type preparedImportApply struct {
-	params  CreateTableParams
+	params  createTableParams
 	request imports.ExtensionImportApplyRequest
-	parsed  ParsedCSV
-	mapping ApprovedMapping
+	parsed  parsedCSV
+	mapping approvedMapping
 }
 
-func (p preparedImportApply) result(table TableRecord) imports.ExtensionImportApplyResult {
+func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportApplyResult {
 	ownerResponse := map[string]any{
 		"schema_id":             importApplyResultID,
 		"import_session_id":     p.request.ImportSessionID.String(),
@@ -271,7 +271,7 @@ func (p preparedImportApply) result(table TableRecord) imports.ExtensionImportAp
 	}
 	return imports.ExtensionImportApplyResult{
 		ResourceRefs: []jobs.ResourceRef{{
-			Kind:  TargetKindNetworkFlowTable,
+			Kind:  targetKindNetworkFlowTable,
 			ID:    table.TableID,
 			Route: networkFlowTableRoute(p.request.IncidentID.String(), table.TableID),
 		}},
@@ -285,22 +285,22 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 		return preparedImportApply{}, err
 	}
 	defer func() { _ = stream.Reader.Close() }()
-	parsed, err := ParseCSVApply(stream.Reader, request.ExpectedSourceContentSHA256, f.limits)
+	parsed, err := parseCSVApply(stream.Reader, request.ExpectedSourceContentSHA256, f.limits)
 	if err != nil {
 		return preparedImportApply{}, facadeError(err)
 	}
-	mapping, err := DecodeApprovedMapping(request.OwnerMapping)
+	mapping, err := decodeApprovedMapping(request.OwnerMapping)
 	if err != nil {
 		return preparedImportApply{}, facadeError(err)
 	}
 	if !sourceColumnsMatch(mapping.SourceColumns, parsed.SourceColumns) {
 		return preparedImportApply{}, importOwnerError("network_flow_source_changed", nil)
 	}
-	fingerprint := MappingFingerprint(mapping, parsed.SourceContentSHA256)
+	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
 	if fingerprint != request.MappingFingerprint {
 		return preparedImportApply{}, importOwnerError("network_flow_source_changed", nil)
 	}
-	rows, diagnostics, diagnosticsTruncated, err := ValidateRows(parsed, mapping, fingerprint, f.limits)
+	rows, diagnostics, diagnosticsTruncated, err := validateRows(parsed, mapping, fingerprint, f.limits)
 	if err != nil {
 		return preparedImportApply{}, err
 	}
@@ -317,7 +317,7 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 		)
 	}
 	originalFilename := stream.OriginalFilename
-	filenameDisplay := SanitizeSourceFilenameDisplay(originalFilename)
+	filenameDisplay := sanitizeSourceFilenameDisplay(originalFilename)
 	filenameDigest, filenameDigestKeyID, err := f.safeDigester.Digest("source_filename", filenameDisplay)
 	if err != nil {
 		return preparedImportApply{}, err
@@ -326,7 +326,7 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	params := CreateTableParams{
+	params := createTableParams{
 		IncidentID:                request.IncidentID,
 		ActorUserID:               request.ActorUserID,
 		ImportSessionID:           request.ImportSessionID,
@@ -348,7 +348,7 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 	return preparedImportApply{params: params, request: request, parsed: parsed, mapping: mapping}, nil
 }
 
-func sourceColumnsMatch(approved []SourceColumnDescriptor, actual []SourceColumnDescriptor) bool {
+func sourceColumnsMatch(approved []sourceColumnDescriptor, actual []sourceColumnDescriptor) bool {
 	if len(approved) != len(actual) {
 		return false
 	}
@@ -363,9 +363,9 @@ func sourceColumnsMatch(approved []SourceColumnDescriptor, actual []SourceColumn
 	return true
 }
 
-func tableResultRef(incidentID string, table TableRecord) map[string]any {
+func tableResultRef(incidentID string, table tableRecord) map[string]any {
 	return map[string]any{
-		"kind":                  TargetKindNetworkFlowTable,
+		"kind":                  targetKindNetworkFlowTable,
 		"id":                    table.TableID,
 		"route":                 networkFlowTableRoute(incidentID, table.TableID),
 		"display_name":          table.DisplayName,
@@ -381,10 +381,10 @@ func networkFlowTableRoute(incidentID string, tableID string) string {
 }
 
 func facadeError(err error) error {
-	if errors.Is(err, ErrSourceChanged) {
+	if errors.Is(err, errSourceChanged) {
 		return importOwnerError("network_flow_source_changed", nil)
 	}
-	var sourceErr *SourceValidationError
+	var sourceErr *sourceValidationError
 	if errors.As(err, &sourceErr) {
 		if sourceErr.Code == "network_flow_no_data_rows" {
 			return importOwnerError("network_flow_no_data_rows", nil)
@@ -398,7 +398,7 @@ func facadeError(err error) error {
 			map[string]any{"reason_code": reasonCode},
 		)
 	}
-	var mappingErr *MappingValidationError
+	var mappingErr *mappingValidationError
 	if errors.As(err, &mappingErr) {
 		reasonCode := mappingErr.ReasonCode
 		if reasonCode == "" {
@@ -414,24 +414,24 @@ func facadeError(err error) error {
 }
 
 func storeApplyError(err error) error {
-	var invalidName *InvalidDisplayNameError
+	var invalidName *invalidDisplayNameError
 	switch {
 	case errors.As(err, &invalidName):
 		return importOwnerError(
 			"network_flow_mapping_invalid",
 			map[string]any{"reason_code": invalidName.ReasonCode},
 		)
-	case errors.Is(err, ErrTableLimitExceeded):
+	case errors.Is(err, errTableLimitExceeded):
 		return importOwnerError(
 			"network_flow_target_unavailable",
 			map[string]any{"reason_code": "network_flow_table_limit_exceeded"},
 		)
-	case errors.Is(err, ErrTableNameExhausted):
+	case errors.Is(err, errTableNameExhausted):
 		return importOwnerError(
 			"network_flow_target_unavailable",
 			map[string]any{"reason_code": "network_flow_table_name_exhausted"},
 		)
-	case errors.Is(err, ErrIDGenerationFailed):
+	case errors.Is(err, errIDGenerationFailed):
 		return importOwnerError("network_flow_internal_failure", nil)
 	default:
 		return err

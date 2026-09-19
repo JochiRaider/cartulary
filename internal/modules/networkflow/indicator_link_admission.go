@@ -26,7 +26,7 @@ var (
 // Link admission is closed and deterministic. Semantic checks deliberately
 // follow committed replay and current resource checks, including field policy.
 func decodeIndicatorLinkRequest(r *http.Request, limits EffectiveLimits) (indicatorLinkRequest, *httpapi.APIError) {
-	raw, apiErr := decodeNetworkFlowObject(r.Body)
+	raw, apiErr := decodeNetworkFlowObjectHTTP(r.Body)
 	if apiErr != nil {
 		return indicatorLinkRequest{}, completeLinkError(apiErr, indicatorLinkRequest{}, "")
 	}
@@ -39,21 +39,21 @@ func decodeIndicatorLinkObject(raw map[string]json.RawMessage, limits EffectiveL
 		return
 	}
 	if linkString(raw, "schema_id") != schemaIndicatorLinkRequest {
-		apiErr = invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
+		apiErr = invalidNetworkFlowRequestHTTP("schema_id", "invalid_schema_id")
 		return
 	}
 	request.ClientTxnID = linkString(raw, "client_txn_id")
 	if request.ClientTxnID == "" || utf8.RuneCountInString(request.ClientTxnID) > 160 {
-		apiErr = invalidNetworkFlowRequest("client_txn_id", "type_mismatch")
+		apiErr = invalidNetworkFlowRequestHTTP("client_txn_id", "type_mismatch")
 		return
 	}
 	if linkString(raw, "observation_mode") != "binding_only" {
-		apiErr = invalidNetworkFlowRequest("observation_mode", "type_mismatch")
+		apiErr = invalidNetworkFlowRequestHTTP("observation_mode", "type_mismatch")
 		return
 	}
 	request.ConfirmExactValue = linkString(raw, "confirm_exact_value")
 	if n := utf8.RuneCountInString(request.ConfirmExactValue); n < 1 || n > 45 {
-		apiErr = invalidNetworkFlowRequest("confirm_exact_value", "type_mismatch")
+		apiErr = invalidNetworkFlowRequestHTTP("confirm_exact_value", "type_mismatch")
 		return
 	}
 	var targetContext map[string]json.RawMessage
@@ -100,16 +100,16 @@ func decodeIndicatorSelector(raw json.RawMessage, limits EffectiveLimits) (selec
 	case "row_field_value":
 		selector.TableID, selector.RowID = linkString(object, "network_flow_table_id"), linkString(object, "network_flow_row_id")
 		if !linkRowIDPattern.MatchString(selector.RowID) {
-			return selector, invalidNetworkFlowRequest("network_flow_row_id", "type_mismatch")
+			return selector, invalidNetworkFlowRequestHTTP("network_flow_row_id", "type_mismatch")
 		}
 		if !linkTableIDPattern.MatchString(selector.TableID) {
-			return selector, invalidNetworkFlowRequest("network_flow_table_id", "type_mismatch")
+			return selector, invalidNetworkFlowRequestHTTP("network_flow_table_id", "type_mismatch")
 		}
 	case "row_refs":
 		var refs []json.RawMessage
 		_ = json.Unmarshal(object["row_refs"], &refs)
 		if len(refs) == 0 || len(refs) > 1000 {
-			return selector, invalidNetworkFlowRequest("row_refs", "type_mismatch")
+			return selector, invalidNetworkFlowRequestHTTP("row_refs", "type_mismatch")
 		}
 		seen := map[string]bool{}
 		for _, rawRef := range refs {
@@ -129,18 +129,18 @@ func decodeIndicatorSelector(raw json.RawMessage, limits EffectiveLimits) (selec
 			return selector, apiErr
 		}
 		if selector.GraphQuery.SchemaID != schemaGraphSemanticQueryV2 {
-			return selector, invalidNetworkFlowRequest("selector.graph_query.schema_id", "invalid_schema_id")
+			return selector, invalidNetworkFlowRequestHTTP("selector.graph_query.schema_id", "invalid_schema_id")
 		}
 		selector.GraphQueryDigest = linkString(object, "graph_query_digest")
 		if !linkDigestPattern.MatchString(selector.GraphQueryDigest) {
-			return selector, invalidNetworkFlowRequest("graph_query_digest", "type_mismatch")
+			return selector, invalidNetworkFlowRequestHTTP("graph_query_digest", "type_mismatch")
 		}
 		selector.VertexID, selector.EdgeID = linkString(object, "vertex_id"), linkString(object, "edge_id")
 		if selector.Kind == "graph_vertex" && !linkEndpointIDPattern.MatchString(selector.VertexID) {
-			return selector, invalidNetworkFlowRequest("vertex_id", "type_mismatch")
+			return selector, invalidNetworkFlowRequestHTTP("vertex_id", "type_mismatch")
 		}
 		if selector.Kind == "graph_edge" && !linkFlowEdgeIDPattern.MatchString(selector.EdgeID) {
-			return selector, invalidNetworkFlowRequest("edge_id", "type_mismatch")
+			return selector, invalidNetworkFlowRequestHTTP("edge_id", "type_mismatch")
 		}
 	}
 	return selector, nil
@@ -159,7 +159,7 @@ func decodeIndicatorTarget(raw json.RawMessage) (target indicatorLinkTarget, api
 	case "create_indicator":
 		members["indicator_type"] = "string"
 	default:
-		return target, invalidNetworkFlowRequest("target.mode", "type_mismatch")
+		return target, invalidNetworkFlowRequestHTTP("target.mode", "type_mismatch")
 	}
 	if apiErr := linkMembers(object, members); apiErr != nil {
 		return target, apiErr
@@ -168,7 +168,7 @@ func decodeIndicatorTarget(raw json.RawMessage) (target indicatorLinkTarget, api
 		var err error
 		target.IndicatorID, err = uuid.Parse(linkString(object, "indicator_id"))
 		if err != nil || target.IndicatorID == uuid.Nil || !linkUUIDPattern.MatchString(linkString(object, "indicator_id")) {
-			return target, invalidNetworkFlowRequest("target.indicator_id", "type_mismatch")
+			return target, invalidNetworkFlowRequestHTTP("target.indicator_id", "type_mismatch")
 		}
 	} else {
 		target.IndicatorType = linkString(object, "indicator_type")
@@ -176,35 +176,35 @@ func decodeIndicatorTarget(raw json.RawMessage) (target indicatorLinkTarget, api
 	return target, nil
 }
 
-func decodeLinkRowRef(raw json.RawMessage) (NetworkFlowRowRef, *httpapi.APIError) {
+func decodeLinkRowRef(raw json.RawMessage) (networkFlowRowRef, *httpapi.APIError) {
 	object, apiErr := linkObject(raw, "row_refs")
 	if apiErr != nil {
-		return NetworkFlowRowRef{}, apiErr
+		return networkFlowRowRef{}, apiErr
 	}
 	if apiErr := linkMembers(object, map[string]string{"network_flow_table_id": "string", "network_flow_row_id": "string", "source_row_number": "number", "mapping_fingerprint": "string"}); apiErr != nil {
-		return NetworkFlowRowRef{}, apiErr
+		return networkFlowRowRef{}, apiErr
 	}
-	var ref NetworkFlowRowRef
+	var ref networkFlowRowRef
 	if json.Unmarshal(raw, &ref) != nil || !validLinkRowRef(ref) {
-		return ref, invalidNetworkFlowRequest("row_refs", "type_mismatch")
+		return ref, invalidNetworkFlowRequestHTTP("row_refs", "type_mismatch")
 	}
 	return ref, nil
 }
 
-func validLinkRowRef(ref NetworkFlowRowRef) bool {
+func validLinkRowRef(ref networkFlowRowRef) bool {
 	return linkTableIDPattern.MatchString(ref.NetworkFlowTableID) && linkRowIDPattern.MatchString(ref.NetworkFlowRowID) && linkDigestPattern.MatchString(ref.MappingFingerprint) && ref.SourceRowNumber > 0
 }
 
 func linkObject(raw json.RawMessage, field string) (map[string]json.RawMessage, *httpapi.APIError) {
 	if len(raw) == 0 {
-		return nil, invalidNetworkFlowRequest(field, "missing_member")
+		return nil, invalidNetworkFlowRequestHTTP(field, "missing_member")
 	}
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		return nil, invalidNetworkFlowRequest(field, "explicit_null")
+		return nil, invalidNetworkFlowRequestHTTP(field, "explicit_null")
 	}
 	var object map[string]json.RawMessage
 	if json.Unmarshal(raw, &object) != nil || object == nil {
-		return nil, invalidNetworkFlowRequest(field, "type_mismatch")
+		return nil, invalidNetworkFlowRequestHTTP(field, "type_mismatch")
 	}
 	return object, nil
 }
@@ -217,7 +217,7 @@ func linkMembers(object map[string]json.RawMessage, members map[string]string) *
 	sort.Strings(keys)
 	for _, key := range keys {
 		if _, exists := members[key]; !exists {
-			return invalidNetworkFlowRequest(key, "unknown_member")
+			return invalidNetworkFlowRequestHTTP(key, "unknown_member")
 		}
 	}
 	keys = keys[:0]
@@ -227,12 +227,12 @@ func linkMembers(object map[string]json.RawMessage, members map[string]string) *
 	sort.Strings(keys)
 	for _, key := range keys {
 		if _, exists := object[key]; !exists {
-			return invalidNetworkFlowRequest(key, "missing_member")
+			return invalidNetworkFlowRequestHTTP(key, "missing_member")
 		}
 	}
 	for _, key := range keys {
 		if bytes.Equal(bytes.TrimSpace(object[key]), []byte("null")) && !strings.HasPrefix(members[key], "nullable:") {
-			return invalidNetworkFlowRequest(key, "explicit_null")
+			return invalidNetworkFlowRequestHTTP(key, "explicit_null")
 		}
 	}
 	for _, key := range keys {
@@ -257,7 +257,7 @@ func linkMembers(object map[string]json.RawMessage, members map[string]string) *
 		}
 		expected := strings.TrimPrefix(members[key], "nullable:")
 		if expected != "any" && kind != expected {
-			err := invalidNetworkFlowRequest(key, "type_mismatch")
+			err := invalidNetworkFlowRequestHTTP(key, "type_mismatch")
 			err.Details["actual_kind"] = kind
 			return err
 		}
@@ -325,7 +325,7 @@ func linkSourceTableError(apiErr *httpapi.APIError, tableID string) *httpapi.API
 		apiErr.Details["allowed_states"] = []string{"active"}
 		apiErr.Details["retry_action"] = "refresh_resource"
 		if apiErr.Code == "network_flow_table_not_active" {
-			apiErr.Details["table_status"] = TableStatusSoftDeleted
+			apiErr.Details["table_status"] = tableStatusSoftDeleted
 		}
 	}
 	return apiErr

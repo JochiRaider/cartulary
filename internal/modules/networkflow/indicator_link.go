@@ -37,7 +37,7 @@ type indicatorLinkSelector struct {
 	TableID          string
 	RowID            string
 	FieldKey         string
-	RowRefs          []NetworkFlowRowRef
+	RowRefs          []networkFlowRowRef
 	GraphQuery       graphSemanticRequest
 	GraphQueryDigest string
 	VertexID         string
@@ -53,12 +53,12 @@ type indicatorLinkTarget struct {
 type resolvedIndicatorLinkSelector struct {
 	SelectorKind            string
 	CandidateValue          string
-	SourceRowRefs           []NetworkFlowRowRef
+	SourceRowRefs           []networkFlowRowRef
 	SourceRowRefsTruncated  bool
 	SourceRowRefsTotalCount int64
 }
 
-func (s *Service) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
 	principal, apiErr := s.authenticate(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -71,17 +71,17 @@ func (s *Service) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	raw, apiErr := decodeNetworkFlowObject(r.Body)
+	raw, apiErr := decodeNetworkFlowObjectHTTP(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, completeLinkError(apiErr, indicatorLinkRequest{}, ""))
 		return
 	}
 	if pathErr != nil {
-		writeAPIError(w, r, completeLinkError(invalidNetworkFlowRequest("incident_id", "type_mismatch"), indicatorLinkRequest{}, ""))
+		writeAPIError(w, r, completeLinkError(invalidNetworkFlowRequestHTTP("incident_id", "type_mismatch"), indicatorLinkRequest{}, ""))
 		return
 	}
 	if r.URL.RawQuery != "" {
-		writeAPIError(w, r, completeLinkError(invalidNetworkFlowRequest("query", "unknown_member"), indicatorLinkRequest{}, ""))
+		writeAPIError(w, r, completeLinkError(invalidNetworkFlowRequestHTTP("query", "unknown_member"), indicatorLinkRequest{}, ""))
 		return
 	}
 	request, apiErr := decodeIndicatorLinkObject(raw, s.store.limits)
@@ -101,7 +101,7 @@ func (s *Service) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, status, payload)
 }
 
-func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.UUID, actor authn.UserRecord, request indicatorLinkRequest, requestHash []byte, requestID string) (payload map[string]any, status int, apiErr *httpapi.APIError) {
+func (s *routeService) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.UUID, actor authn.UserRecord, request indicatorLinkRequest, requestHash []byte, requestID string) (payload map[string]any, status int, apiErr *httpapi.APIError) {
 	candidate := ""
 	defer func() { apiErr = completeLinkError(apiErr, request, candidate) }()
 	idempotencyKey := indicatorLinkIdempotencyKey(actor.ID, incidentID, request.ClientTxnID)
@@ -128,7 +128,7 @@ func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.
 	}
 	if request.Target.Mode == "existing_indicator" {
 		target, err := s.store.GetActiveIndicator(ctx, incidentID, request.Target.IndicatorID)
-		if errors.Is(err, ErrTableNotFound) {
+		if errors.Is(err, errTableNotFound) {
 			return nil, 0, indicatorLinkForbidden(request.Selector.Kind, request.Selector.FieldKey, request.Target.Mode, "target_not_visible")
 		}
 		if err != nil {
@@ -198,7 +198,7 @@ func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.
 				Details: map[string]any{"reason_code": "extension_transaction_timeout", "operation_id": "network-flow-indicator-link:" + incidentID.String() + ":" + request.ClientTxnID, "timeout_seconds": s.transactions.Timeout().Seconds()},
 			}
 		}
-		if errors.Is(err, ErrInvalidStorageArgument) {
+		if errors.Is(err, errInvalidStorageArgument) {
 			return nil, 0, invalidIndicatorTarget("target", "target_value_mismatch")
 		}
 		return nil, 0, httpapi.InternalAPIError(err)
@@ -210,7 +210,7 @@ func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.
 	return committed.Payload, committed.Status, nil
 }
 
-func (s *Service) replayIndicatorLinkIfPresent(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte, incidentID uuid.UUID) (map[string]any, int, bool, *httpapi.APIError) {
+func (s *routeService) replayIndicatorLinkIfPresent(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte, incidentID uuid.UUID) (map[string]any, int, bool, *httpapi.APIError) {
 	existing, err := s.authStore.GetRouteIdempotency(ctx, key)
 	if err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
@@ -228,7 +228,7 @@ func (s *Service) replayIndicatorLinkIfPresent(ctx context.Context, key authn.Ro
 			return nil, 0, true, httpapi.InternalAPIError(err)
 		}
 		if _, err := s.store.GetActiveIndicator(ctx, incidentID, indicatorID); err != nil {
-			if errors.Is(err, ErrTableNotFound) {
+			if errors.Is(err, errTableNotFound) {
 				return nil, 0, true, indicatorLinkForbidden("", "", "existing_indicator", "target_not_visible")
 			}
 			return nil, 0, true, httpapi.InternalAPIError(err)
@@ -241,7 +241,7 @@ func (s *Service) replayIndicatorLinkIfPresent(ctx context.Context, key authn.Ro
 	return nil, 0, false, nil
 }
 
-func (s *Service) resolveIndicatorSelector(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
+func (s *routeService) resolveIndicatorSelector(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
 	switch selector.Kind {
 	case "row_field_value":
 		row, apiErr := s.getAcceptedRowForLink(ctx, incidentID, selector.TableID, selector.RowID, nil)
@@ -255,7 +255,7 @@ func (s *Service) resolveIndicatorSelector(ctx context.Context, incidentID uuid.
 		return resolvedIndicatorLinkSelector{
 			SelectorKind:            selector.Kind,
 			CandidateValue:          candidate,
-			SourceRowRefs:           []NetworkFlowRowRef{rowRefFromRow(row)},
+			SourceRowRefs:           []networkFlowRowRef{rowRefFromRow(row)},
 			SourceRowRefsTotalCount: 1,
 		}, nil
 	case "row_refs":
@@ -267,7 +267,7 @@ func (s *Service) resolveIndicatorSelector(ctx context.Context, incidentID uuid.
 	}
 }
 
-func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
+func (s *routeService) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
 	activeTables, err := s.store.ListActiveTables(ctx, incidentID)
 	if err != nil {
 		return resolvedIndicatorLinkSelector{}, httpapi.InternalAPIError(err)
@@ -276,7 +276,7 @@ func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UU
 	for index, table := range activeTables {
 		tableRanks[table.TableID] = index
 	}
-	rows := make([]FlowRow, 0, len(selector.RowRefs))
+	rows := make([]flowRow, 0, len(selector.RowRefs))
 	candidate := ""
 	for _, ref := range selector.RowRefs {
 		row, apiErr := s.getAcceptedRowForLink(ctx, incidentID, ref.NetworkFlowTableID, ref.NetworkFlowRowID, &ref)
@@ -297,7 +297,7 @@ func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UU
 		}
 	}
 	sortContributorRows(rows, tableRanks)
-	refs := make([]NetworkFlowRowRef, 0, len(rows))
+	refs := make([]networkFlowRowRef, 0, len(rows))
 	for _, row := range rows {
 		refs = append(refs, rowRefFromRow(row))
 	}
@@ -309,19 +309,19 @@ func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UU
 	}, nil
 }
 
-func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
+func (s *routeService) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
 	_ = actorUserID
 	for _, tableID := range selector.GraphQuery.SelectedTableIDs {
 		if apiErr := s.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
 			return resolvedIndicatorLinkSelector{}, linkSourceTableError(apiErr, tableID)
 		}
 	}
-	composition, apiErr := s.composeGraphSourceFromSemantic(ctx, incidentID, selector.GraphQuery)
+	composition, apiErr := s.composeGraphSourceFromSemanticHTTP(ctx, incidentID, selector.GraphQuery)
 	if apiErr != nil {
 		return resolvedIndicatorLinkSelector{}, apiErr
 	}
 	if composition.Digest != selector.GraphQueryDigest {
-		return resolvedIndicatorLinkSelector{}, graphQueryStale("digest_mismatch", selector.GraphQueryDigest)
+		return resolvedIndicatorLinkSelector{}, graphQueryStaleHTTP("digest_mismatch", selector.GraphQueryDigest)
 	}
 	var candidate string
 	var predicate graphContributorPredicate
@@ -329,19 +329,19 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 	case "graph_vertex":
 		vertex := composition.Vertices[selector.VertexID]
 		if vertex == nil {
-			return resolvedIndicatorLinkSelector{}, graphQueryStale("vertex_not_found", selector.GraphQueryDigest)
+			return resolvedIndicatorLinkSelector{}, graphQueryStaleHTTP("vertex_not_found", selector.GraphQueryDigest)
 		}
 		candidate = vertex.EndpointValue
 		predicate = graphContributorPredicate{Kind: "vertex", EndpointValue: vertex.EndpointValue}
 	case "graph_edge":
 		edge := composition.Edges[selector.EdgeID]
 		if edge == nil {
-			return resolvedIndicatorLinkSelector{}, graphQueryStale("edge_not_found", selector.GraphQueryDigest)
+			return resolvedIndicatorLinkSelector{}, graphQueryStaleHTTP("edge_not_found", selector.GraphQueryDigest)
 		}
 		switch selector.FieldKey {
-		case FieldSrcIP:
+		case fieldSrcIP:
 			candidate = edge.SrcEndpointValue
-		case FieldDstIP:
+		case fieldDstIP:
 			candidate = edge.DstEndpointValue
 		default:
 			return resolvedIndicatorLinkSelector{}, invalidIndicatorSelector("field_key", "field_not_linkable")
@@ -357,10 +357,10 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 		return resolvedIndicatorLinkSelector{}, invalidIndicatorSelector("kind", "unknown_selector_kind")
 	}
 	limit := int(s.store.limits.MaxBindingSourceRowRefs)
-	refs := make([]NetworkFlowRowRef, 0, limit)
+	refs := make([]networkFlowRowRef, 0, limit)
 	var total int64
-	err := s.store.IterateGraphContributorRows(ctx, incidentID, composition.SelectedTableIDs, predicate, func(row FlowRow) error {
-		matched, matchErr := rowMatchesGraphQuery(row, selector.GraphQuery.Filters, selector.GraphQuery.TimeRange, selector.GraphQuery.Aggregation)
+	err := s.store.IterateGraphContributorRows(ctx, incidentID, composition.SelectedTableIDs, predicate, func(row flowRow) error {
+		matched, matchErr := rowMatchesGraphQueryHTTP(row, selector.GraphQuery.Filters, selector.GraphQuery.TimeRange, selector.GraphQuery.Aggregation)
 		if matchErr != nil {
 			apiErr = matchErr
 			return errStopGraphIteration
@@ -379,7 +379,7 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 	}
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return resolvedIndicatorLinkSelector{}, graphProjectionFailedForContext(err)
+			return resolvedIndicatorLinkSelector{}, graphProjectionFailedForContextHTTP(err)
 		}
 		return resolvedIndicatorLinkSelector{}, httpapi.InternalAPIError(err)
 	}
@@ -395,39 +395,39 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 	}, nil
 }
 
-func (s *Service) getAcceptedRowForLink(ctx context.Context, incidentID uuid.UUID, tableID string, rowID string, suppliedRef *NetworkFlowRowRef) (FlowRow, *httpapi.APIError) {
+func (s *routeService) getAcceptedRowForLink(ctx context.Context, incidentID uuid.UUID, tableID string, rowID string, suppliedRef *networkFlowRowRef) (flowRow, *httpapi.APIError) {
 	if apiErr := s.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
-		return FlowRow{}, linkSourceTableError(apiErr, tableID)
+		return flowRow{}, linkSourceTableError(apiErr, tableID)
 	}
 	rows, err := s.store.ListRows(ctx, incidentID, tableID)
 	if err != nil {
-		return FlowRow{}, tableReadError(err)
+		return flowRow{}, tableReadError(err)
 	}
 	for _, row := range rows {
 		if row.RowID != rowID {
 			continue
 		}
 		if suppliedRef != nil && (row.SourceRowNumber != suppliedRef.SourceRowNumber || row.MappingFingerprint != suppliedRef.MappingFingerprint) {
-			return FlowRow{}, invalidIndicatorSelector("row_refs", "row_not_accepted")
+			return flowRow{}, invalidIndicatorSelector("row_refs", "row_not_accepted")
 		}
 		return row, nil
 	}
-	return FlowRow{}, invalidIndicatorSelector("network_flow_row_id", "row_not_accepted")
+	return flowRow{}, invalidIndicatorSelector("network_flow_row_id", "row_not_accepted")
 }
 
-func candidateValueFromRow(row FlowRow, fieldKey string) (string, *httpapi.APIError) {
+func candidateValueFromRow(row flowRow, fieldKey string) (string, *httpapi.APIError) {
 	switch fieldKey {
-	case FieldSrcIP:
+	case fieldSrcIP:
 		return row.SrcIP, nil
-	case FieldDstIP:
+	case fieldDstIP:
 		return row.DstIP, nil
 	default:
 		return "", invalidIndicatorSelector("field_key", "field_not_linkable")
 	}
 }
 
-func rowRefFromRow(row FlowRow) NetworkFlowRowRef {
-	return NetworkFlowRowRef{
+func rowRefFromRow(row flowRow) networkFlowRowRef {
+	return networkFlowRowRef{
 		NetworkFlowTableID: row.NetworkFlowTableID,
 		NetworkFlowRowID:   row.RowID,
 		SourceRowNumber:    row.SourceRowNumber,
@@ -435,7 +435,7 @@ func rowRefFromRow(row FlowRow) NetworkFlowRowRef {
 	}
 }
 
-func indicatorLinkPayload(binding IndicatorBindingRecord, duplicate bool) map[string]any {
+func indicatorLinkPayload(binding indicatorBindingRecord, duplicate bool) map[string]any {
 	return map[string]any{
 		"schema_id": schemaIndicatorLinkResult,
 		"binding":   indicatorBindingResource(binding),
@@ -513,7 +513,7 @@ func indicatorIDFromLinkPayload(payload map[string]any) (uuid.UUID, error) {
 }
 
 func networkFlowLinkableIPField(fieldKey string) bool {
-	return fieldKey == FieldSrcIP || fieldKey == FieldDstIP
+	return fieldKey == fieldSrcIP || fieldKey == fieldDstIP
 }
 
 func canonicalIPLiteral(value string) bool {

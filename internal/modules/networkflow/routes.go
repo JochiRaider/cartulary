@@ -25,20 +25,18 @@ const (
 	routeKeyTablesDelete = "nf.tables.delete"
 )
 
-type Service struct {
-	store           *Store
+type routeService struct {
+	store           *store
 	incidentAccess  incidentAdmissionChecker
 	authStore       *authn.Store
 	keys            authn.MasterKeys
-	cursorProtector CursorProtector
-	safeDigester    SafeDigester
+	cursorProtector cursorProtector
+	safeDigester    safeDigester
 	now             func() time.Time
-	graphProjection graphProjectionPort
+	graphComposer   *graphSourceComposer
 	transactions    *crossownertransaction.Coordinator
-	graphViewJobs   GraphViewJobTransactions
+	savedGraphs     *savedGraphApplication
 	jobManager      GraphViewJobManager
-	jobRunner       GraphViewJobRunner
-	graphTelemetry  GraphTelemetryObserver
 }
 
 type incidentAdmissionChecker interface {
@@ -46,7 +44,7 @@ type incidentAdmissionChecker interface {
 	CheckTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
 }
 
-func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, error) {
+func newRouteService(deps httpapi.DependencySet, module *Module) (*routeService, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -58,7 +56,7 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, erro
 	if module.cursorProtector == nil || module.safeDigester == nil {
 		return nil, fmt.Errorf("network flow configured key rings unavailable")
 	}
-	return &Service{
+	return &routeService{
 		store:           module.store,
 		incidentAccess:  admission.NewChecker(deps.PostgresHandle()),
 		authStore:       authn.NewStore(deps.PostgresHandle()),
@@ -66,16 +64,18 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, erro
 		cursorProtector: module.cursorProtector,
 		safeDigester:    module.safeDigester,
 		now:             now,
-		graphProjection: module.graphProjection,
+		graphComposer:   module.graphComposer,
 		transactions:    module.transactions,
-		graphViewJobs:   module.graphViewJobs,
-		jobManager:      module.jobManager,
-		jobRunner:       module.jobRunner,
-		graphTelemetry:  module.graphTelemetry,
+		savedGraphs: &savedGraphApplication{
+			store: module.store, incidentAccess: admission.NewChecker(deps.PostgresHandle()),
+			receipts:      savedGraphReceiptAdapter{reader: authn.NewStore(deps.PostgresHandle())},
+			graphViewJobs: module.graphViewJobs, jobRunner: module.jobRunner, now: now,
+		},
+		jobManager: module.jobManager,
 	}, nil
 }
 
-func (s *Service) handleSourceProfiles(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleSourceProfiles(w http.ResponseWriter, r *http.Request) {
 	incidentID, ok := parseIncidentPathValue(w, r)
 	if !ok {
 		return
@@ -105,7 +105,7 @@ func (s *Service) handleSourceProfiles(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Service) handleTablesCollection(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleTablesCollection(w http.ResponseWriter, r *http.Request) {
 	principal, apiErr := s.authenticate(r, false)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -143,7 +143,7 @@ func (s *Service) handleTablesCollection(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func (s *Service) handleTableResource(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleTableResource(w http.ResponseWriter, r *http.Request) {
 	stateChanging := r.Method == http.MethodPatch || r.Method == http.MethodDelete
 	principal, apiErr := s.authenticate(r, stateChanging)
 	if apiErr != nil {
@@ -230,7 +230,7 @@ func (s *Service) handleTableResource(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) handleTableRowsQuery(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleTableRowsQuery(w http.ResponseWriter, r *http.Request) {
 	incidentID, tableID, ok := parseIncidentTablePathValues(w, r)
 	if !ok {
 		return
@@ -244,7 +244,7 @@ func (s *Service) handleTableRowsQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := decodeAcceptedRowQueryRequest(r.Body, schemaTableQueryRequest, schemaTableQueryContinuation, s.store.limits)
+	request, apiErr := decodeAcceptedRowQueryRequestHTTP(r.Body, schemaTableQueryRequest, schemaTableQueryContinuation, s.store.limits)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -264,7 +264,7 @@ func (s *Service) handleTableRowsQuery(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
-func (s *Service) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 	incidentID, ok := parseIncidentPathValue(w, r)
 	if !ok {
 		return
@@ -278,7 +278,7 @@ func (s *Service) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := decodeAcceptedRowQueryRequest(r.Body, schemaRowsQueryRequest, schemaRowsQueryContinuation, s.store.limits)
+	request, apiErr := decodeAcceptedRowQueryRequestHTTP(r.Body, schemaRowsQueryRequest, schemaRowsQueryContinuation, s.store.limits)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -305,7 +305,7 @@ func (s *Service) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
-func (s *Service) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Request) {
 	incidentID, tableID, ok := parseIncidentTablePathValues(w, r)
 	if !ok {
 		return
@@ -319,7 +319,7 @@ func (s *Service) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := decodeRejectedRowsQueryRequest(r.Body, s.store.limits)
+	request, apiErr := decodeRejectedRowsQueryRequestHTTP(r.Body, s.store.limits)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -336,7 +336,7 @@ func (s *Service) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Request
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
-func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, sessionID string, route string, incidentID uuid.UUID, initialTableIDs []string, initialMode string, request RowQueryRequest) (map[string]any, *httpapi.APIError) {
+func (s *routeService) queryAcceptedRows(ctx context.Context, actorID string, sessionID string, route string, incidentID uuid.UUID, initialTableIDs []string, initialMode string, request rowQueryRequest) (map[string]any, *httpapi.APIError) {
 	var position *rowCursorPosition
 	var tableIDs []string
 	mode := initialMode
@@ -347,40 +347,40 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, session
 	if request.Continuation {
 		payload, reason := s.cursorProtector.Decode(request.CursorToken)
 		if reason != "" {
-			return nil, cursorInvalid(reason)
+			return nil, cursorInvalidHTTP(reason)
 		}
 		if payload.Route != route || payload.ActorUserID != actorID || payload.SessionID != sessionID || payload.IncidentID != incidentID.String() {
-			return nil, cursorInvalid(payloadMismatchReason(payload, route, actorID, incidentID.String()))
+			return nil, cursorInvalidHTTP(payloadMismatchReason(payload, route, actorID, incidentID.String()))
 		}
 		tableIDs = splitTableIDs(payload.Scope["table_ids"])
 		mode = payload.Scope["mode"]
 		limit = payload.Limit
 		if payload.PositionKind != "row_keyset_v1" {
-			return nil, cursorInvalid("malformed")
+			return nil, cursorInvalidHTTP("malformed")
 		}
 		decodedPosition, err := decodeRowCursorPosition(payload.Position)
 		if err != nil {
-			return nil, cursorInvalid("malformed")
+			return nil, cursorInvalidHTTP("malformed")
 		}
 		position = &decodedPosition
 		if len(tableIDs) == 0 {
-			return nil, cursorInvalid("scope_stale")
+			return nil, cursorInvalidHTTP("scope_stale")
 		}
 		if len(initialTableIDs) > 0 && !sameStringSet(tableIDs, initialTableIDs) {
-			return nil, cursorInvalid("semantic_query_mismatch")
+			return nil, cursorInvalidHTTP("semantic_query_mismatch")
 		}
 		echo, echoMap, err := decodeAcceptedRowsQueryEcho(payload.QueryEcho)
 		if err != nil {
-			return nil, cursorInvalid("malformed")
+			return nil, cursorInvalidHTTP("malformed")
 		}
 		filters = echo.Filters
 		sortSpecs = echo.Sort
 		queryEcho = echoMap
 		if !sameSortSpecs(position.EffectiveSort, effectiveSort(sortSpecs)) {
-			return nil, cursorInvalid("semantic_query_mismatch")
+			return nil, cursorInvalidHTTP("semantic_query_mismatch")
 		}
 		if payload.QueryHash != queryHash(queryEcho) {
-			return nil, cursorInvalid("semantic_query_mismatch")
+			return nil, cursorInvalidHTTP("semantic_query_mismatch")
 		}
 	} else {
 		tableIDs = append([]string(nil), initialTableIDs...)
@@ -406,7 +406,7 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, session
 	}
 	var nextToken *string
 	if hasMore && len(page) > 0 {
-		token, err := s.cursorProtector.Encode(CursorBinding{
+		token, err := s.cursorProtector.Encode(cursorBinding{
 			Route:       route,
 			ActorUserID: actorID,
 			SessionID:   sessionID,
@@ -435,30 +435,30 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, session
 	}, nil
 }
 
-func (s *Service) queryRejectedRows(ctx context.Context, actorID string, sessionID string, incidentID uuid.UUID, tableID string, request RejectedRowsQueryRequest) (map[string]any, *httpapi.APIError) {
+func (s *routeService) queryRejectedRows(ctx context.Context, actorID string, sessionID string, incidentID uuid.UUID, tableID string, request rejectedRowsQueryRequest) (map[string]any, *httpapi.APIError) {
 	var position *diagnosticCursorPosition
 	limit := request.Limit
 	var queryEcho map[string]any
 	if request.Continuation {
 		payload, reason := s.cursorProtector.Decode(request.CursorToken)
 		if reason != "" {
-			return nil, cursorInvalid(reason)
+			return nil, cursorInvalidHTTP(reason)
 		}
 		if payload.Route != "nf.rejected_rows.query" || payload.ActorUserID != actorID || payload.SessionID != sessionID || payload.IncidentID != incidentID.String() || payload.Scope["table_ids"] != tableID {
-			return nil, cursorInvalid(payloadMismatchReason(payload, "nf.rejected_rows.query", actorID, incidentID.String()))
+			return nil, cursorInvalidHTTP(payloadMismatchReason(payload, "nf.rejected_rows.query", actorID, incidentID.String()))
 		}
 		limit = payload.Limit
 		if payload.PositionKind != "diagnostic_keyset_v1" {
-			return nil, cursorInvalid("malformed")
+			return nil, cursorInvalidHTTP("malformed")
 		}
 		var decodedPosition diagnosticCursorPosition
 		if err := json.Unmarshal(payload.Position, &decodedPosition); err != nil || decodedPosition.SourceRowNumber < 1 || decodedPosition.ErrorCode == "" || decodedPosition.ReasonCode == "" || decodedPosition.DiagnosticID == "" {
-			return nil, cursorInvalid("malformed")
+			return nil, cursorInvalidHTTP("malformed")
 		}
 		position = &decodedPosition
 		echoRequest, echoMap, err := decodeRejectedRowsQueryEcho(payload.QueryEcho)
 		if err != nil {
-			return nil, cursorInvalid("malformed")
+			return nil, cursorInvalidHTTP("malformed")
 		}
 		request = echoRequest
 		request.Continuation = true
@@ -466,7 +466,7 @@ func (s *Service) queryRejectedRows(ctx context.Context, actorID string, session
 		request.Limit = limit
 		queryEcho = echoMap
 		if payload.QueryHash != queryHash(queryEcho) {
-			return nil, cursorInvalid("semantic_query_mismatch")
+			return nil, cursorInvalidHTTP("semantic_query_mismatch")
 		}
 	} else {
 		queryEcho = rejectedRowsQueryEcho(request)
@@ -485,7 +485,7 @@ func (s *Service) queryRejectedRows(ctx context.Context, actorID string, session
 	queryEchoRaw, _ := json.Marshal(queryEcho)
 	var nextToken *string
 	if hasMore && len(page) > 0 {
-		token, err := s.cursorProtector.Encode(CursorBinding{
+		token, err := s.cursorProtector.Encode(cursorBinding{
 			Route:       "nf.rejected_rows.query",
 			ActorUserID: actorID,
 			SessionID:   sessionID,
@@ -515,18 +515,18 @@ func (s *Service) queryRejectedRows(ctx context.Context, actorID string, session
 	}, nil
 }
 
-func (s *Service) resolveInitialTableScope(ctx context.Context, incidentID uuid.UUID, scope TableScope) ([]string, string, *httpapi.APIError) {
+func (s *routeService) resolveInitialTableScope(ctx context.Context, incidentID uuid.UUID, scope tableScope) ([]string, string, *httpapi.APIError) {
 	switch scope.Mode {
 	case "active_table":
 		if scope.ActiveTableID == "" {
-			return nil, "", invalidTableScope("table_scope", "empty_resolved_scope")
+			return nil, "", invalidTableScopeHTTP("table_scope", "empty_resolved_scope")
 		}
 		return []string{scope.ActiveTableID}, scope.Mode, nil
 	case "selected_tables":
 		tableIDs := append([]string(nil), scope.SelectedTableIDs...)
 		sort.Strings(tableIDs)
 		if len(tableIDs) == 0 {
-			return nil, "", invalidTableScope("table_scope", "empty_resolved_scope")
+			return nil, "", invalidTableScopeHTTP("table_scope", "empty_resolved_scope")
 		}
 		return tableIDs, scope.Mode, nil
 	case "all_active_tables":
@@ -540,21 +540,21 @@ func (s *Service) resolveInitialTableScope(ctx context.Context, incidentID uuid.
 		}
 		sort.Strings(tableIDs)
 		if len(tableIDs) == 0 {
-			return nil, "", invalidTableScope("table_scope", "empty_resolved_scope")
+			return nil, "", invalidTableScopeHTTP("table_scope", "empty_resolved_scope")
 		}
 		return tableIDs, scope.Mode, nil
 	default:
-		return nil, "", invalidTableScope("mode", "unknown_mode")
+		return nil, "", invalidTableScopeHTTP("mode", "unknown_mode")
 	}
 }
 
-func (s *Service) ensureActiveTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string) *httpapi.APIError {
+func (s *routeService) ensureActiveTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string) *httpapi.APIError {
 	for _, tableID := range tableIDs {
 		if _, err := s.store.GetActiveTable(ctx, incidentID, tableID); err != nil {
-			if errors.Is(err, ErrTableNotFound) {
+			if errors.Is(err, errTableNotFound) {
 				return networkFlowAPIError(http.StatusNotFound, "network_flow_table_not_found", "network_flow_table_id", "not_found")
 			}
-			if errors.Is(err, ErrTableNotActive) {
+			if errors.Is(err, errTableNotActive) {
 				return networkFlowAPIError(http.StatusConflict, "network_flow_table_not_active", "network_flow_table_id", "soft_deleted")
 			}
 			return httpapi.InternalAPIError(err)
@@ -563,15 +563,15 @@ func (s *Service) ensureActiveTables(ctx context.Context, incidentID uuid.UUID, 
 	return nil
 }
 
-func acceptedRowsQueryEcho(filters []Filter, sortSpecs []SortSpec, effective []SortSpec, tableIDs []string) map[string]any {
+func acceptedRowsQueryEcho(filters []queryFilter, sortSpecs []sortSpec, effective []sortSpec, tableIDs []string) map[string]any {
 	if filters == nil {
-		filters = []Filter{}
+		filters = []queryFilter{}
 	}
 	if sortSpecs == nil {
-		sortSpecs = []SortSpec{}
+		sortSpecs = []sortSpec{}
 	}
 	if effective == nil {
-		effective = []SortSpec{}
+		effective = []sortSpec{}
 	}
 	if tableIDs == nil {
 		tableIDs = []string{}
@@ -584,7 +584,7 @@ func acceptedRowsQueryEcho(filters []Filter, sortSpecs []SortSpec, effective []S
 	}
 }
 
-func rejectedRowsQueryEcho(request RejectedRowsQueryRequest) map[string]any {
+func rejectedRowsQueryEcho(request rejectedRowsQueryRequest) map[string]any {
 	errorCodes := request.ErrorCodes
 	if errorCodes == nil {
 		errorCodes = []string{}
@@ -620,10 +620,10 @@ func rejectedRowsQueryEcho(request RejectedRowsQueryRequest) map[string]any {
 }
 
 type acceptedRowsQueryEchoPayload struct {
-	Filters       []Filter   `json:"filters"`
-	Sort          []SortSpec `json:"sort"`
-	EffectiveSort []SortSpec `json:"effective_sort"`
-	TableIDs      []string   `json:"table_ids"`
+	Filters       []queryFilter `json:"filters"`
+	Sort          []sortSpec    `json:"sort"`
+	EffectiveSort []sortSpec    `json:"effective_sort"`
+	TableIDs      []string      `json:"table_ids"`
 }
 
 func decodeAcceptedRowsQueryEcho(raw json.RawMessage) (acceptedRowsQueryEchoPayload, map[string]any, error) {
@@ -634,23 +634,23 @@ func decodeAcceptedRowsQueryEcho(raw json.RawMessage) (acceptedRowsQueryEchoPayl
 	return payload, acceptedRowsQueryEcho(payload.Filters, payload.Sort, payload.EffectiveSort, payload.TableIDs), nil
 }
 
-func decodeRejectedRowsQueryEcho(raw json.RawMessage) (RejectedRowsQueryRequest, map[string]any, error) {
+func decodeRejectedRowsQueryEcho(raw json.RawMessage) (rejectedRowsQueryRequest, map[string]any, error) {
 	var payload struct {
 		ErrorCodes     []string        `json:"error_codes"`
 		FieldKeys      []string        `json:"field_keys"`
 		SourceRowRange json.RawMessage `json:"source_row_range"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
-		return RejectedRowsQueryRequest{}, nil, err
+		return rejectedRowsQueryRequest{}, nil, err
 	}
-	request := RejectedRowsQueryRequest{
+	request := rejectedRowsQueryRequest{
 		ErrorCodes: payload.ErrorCodes,
 		FieldKeys:  payload.FieldKeys,
 	}
 	if len(payload.SourceRowRange) > 0 && string(payload.SourceRowRange) != "null" {
-		gte, lte, apiErr := decodeIntegerRange(payload.SourceRowRange)
+		gte, lte, apiErr := decodeIntegerRangeHTTP(payload.SourceRowRange)
 		if apiErr != nil {
-			return RejectedRowsQueryRequest{}, nil, fmt.Errorf("decode source row range")
+			return rejectedRowsQueryRequest{}, nil, fmt.Errorf("decode source row range")
 		}
 		request.SourceRowGTE = gte
 		request.SourceRowLTE = lte
@@ -670,22 +670,22 @@ type tableSoftDeleteRequest struct {
 }
 
 func decodeRenameRequest(r *http.Request) (tableRenameRequest, *httpapi.APIError) {
-	raw, apiErr := decodeNetworkFlowObject(r.Body)
+	raw, apiErr := decodeNetworkFlowObjectHTTP(r.Body)
 	if apiErr != nil {
 		return tableRenameRequest{}, apiErr
 	}
-	if apiErr := ensureAllowedMembers(raw, "client_txn_id", "base_table_version", "display_name"); apiErr != nil {
+	if apiErr := ensureAllowedMembersHTTP(raw, "client_txn_id", "base_table_version", "display_name"); apiErr != nil {
 		return tableRenameRequest{}, apiErr
 	}
-	clientTxnID, apiErr := requiredJSONString(raw, "client_txn_id")
+	clientTxnID, apiErr := requiredJSONStringHTTP(raw, "client_txn_id")
 	if apiErr != nil {
 		return tableRenameRequest{}, apiErr
 	}
-	displayName, apiErr := requiredJSONString(raw, "display_name")
+	displayName, apiErr := requiredJSONStringHTTP(raw, "display_name")
 	if apiErr != nil {
 		return tableRenameRequest{}, apiErr
 	}
-	version, apiErr := decodePositiveInt(raw["base_table_version"], "base_table_version")
+	version, apiErr := decodePositiveIntHTTP(raw["base_table_version"], "base_table_version")
 	if apiErr != nil {
 		return tableRenameRequest{}, apiErr
 	}
@@ -697,25 +697,25 @@ func decodeRenameRequest(r *http.Request) (tableRenameRequest, *httpapi.APIError
 }
 
 func decodeSoftDeleteRequest(r *http.Request) (tableSoftDeleteRequest, *httpapi.APIError) {
-	raw, apiErr := decodeNetworkFlowObject(r.Body)
+	raw, apiErr := decodeNetworkFlowObjectHTTP(r.Body)
 	if apiErr != nil {
 		return tableSoftDeleteRequest{}, apiErr
 	}
-	if apiErr := ensureAllowedMembers(raw, "client_txn_id", "base_table_version"); apiErr != nil {
+	if apiErr := ensureAllowedMembersHTTP(raw, "client_txn_id", "base_table_version"); apiErr != nil {
 		return tableSoftDeleteRequest{}, apiErr
 	}
-	clientTxnID, apiErr := requiredJSONString(raw, "client_txn_id")
+	clientTxnID, apiErr := requiredJSONStringHTTP(raw, "client_txn_id")
 	if apiErr != nil {
 		return tableSoftDeleteRequest{}, apiErr
 	}
-	version, apiErr := decodePositiveInt(raw["base_table_version"], "base_table_version")
+	version, apiErr := decodePositiveIntHTTP(raw["base_table_version"], "base_table_version")
 	if apiErr != nil {
 		return tableSoftDeleteRequest{}, apiErr
 	}
 	return tableSoftDeleteRequest{ClientTxnID: clientTxnID, BaseTableVersion: int64(version)}, nil
 }
 
-func tableMutationPayload(table TableRecord) map[string]any {
+func tableMutationPayload(table tableRecord) map[string]any {
 	return map[string]any{
 		"schema_id": "cartulary.network_flow_table_mutation_result.v1",
 		"table":     tableResource(table),
@@ -732,7 +732,7 @@ func tableMutationIdempotencyKey(routeKey string, actorUserID uuid.UUID, inciden
 }
 
 func tableRenameRequestHash(tableID string, request tableRenameRequest) []byte {
-	name, err := NormalizeTableDisplayNameInput(request.DisplayName)
+	name, err := normalizeTableDisplayNameInput(request.DisplayName)
 	if err != nil {
 		return nil
 	}
@@ -758,15 +758,15 @@ func decodeStoredNetworkFlowResponse(data []byte) (map[string]any, error) {
 	return payload, nil
 }
 
-func (s *Service) authenticate(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
+func (s *routeService) authenticate(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
 	return httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+func (s *routeService) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
 	return s.requireIncidentRole(ctx, incidentID, userID, admission.RolesMember, "")
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+func (s *routeService) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleOpen})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
@@ -782,7 +782,7 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	}
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+func (s *routeService) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
@@ -809,18 +809,18 @@ func parseIncidentTablePathValues(w http.ResponseWriter, r *http.Request) (uuid.
 }
 
 func tableReadError(err error) *httpapi.APIError {
-	if errors.Is(err, ErrTableNotFound) {
+	if errors.Is(err, errTableNotFound) {
 		return networkFlowAPIError(http.StatusNotFound, "network_flow_table_not_found", "network_flow_table_id", "not_found")
 	}
-	if errors.Is(err, ErrTableNotActive) {
+	if errors.Is(err, errTableNotActive) {
 		return networkFlowAPIError(http.StatusConflict, "network_flow_table_not_active", "network_flow_table_id", "soft_deleted")
 	}
 	return httpapi.InternalAPIError(err)
 }
 
 func tableMutationError(err error) *httpapi.APIError {
-	var versionConflict *TableVersionConflictError
-	var displayName *InvalidDisplayNameError
+	var versionConflict *tableVersionConflictError
+	var displayName *invalidDisplayNameError
 	if errors.As(err, &versionConflict) {
 		apiErr := networkFlowAPIError(http.StatusConflict, "network_flow_table_version_conflict", "base_table_version", "stale_version")
 		apiErr.Details["network_flow_table_id"] = versionConflict.TableID
@@ -836,7 +836,7 @@ func tableMutationError(err error) *httpapi.APIError {
 		apiErr.Details["retry_action"] = "correct_request"
 		return apiErr
 	}
-	if errors.Is(err, ErrTableNameExhausted) {
+	if errors.Is(err, errTableNameExhausted) {
 		return networkFlowAPIError(http.StatusConflict, "network_flow_table_name_exhausted", "display_name", "suffix_space_exhausted")
 	}
 	return tableReadError(err)
@@ -892,7 +892,7 @@ func sameStringSet(left []string, right []string) bool {
 	return true
 }
 
-func payloadMismatchReason(payload CursorPayload, route string, actorID string, incidentID string) string {
+func payloadMismatchReason(payload cursorPayload, route string, actorID string, incidentID string) string {
 	switch {
 	case payload.ActorUserID != actorID:
 		return "actor_mismatch"

@@ -31,7 +31,7 @@ func graphViewMutationBytes(route, pathIdentity string, body map[string]any) []b
 	return input.Bytes()
 }
 
-func (s *Service) requireSavedGraphRole(ctx context.Context, incidentID, actorID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+func (s *routeService) requireSavedGraphRole(ctx context.Context, incidentID, actorID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
 	grant, err := s.incidentAccess.Check(ctx, incidentID, actorID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleOpen})
 	return grant, savedGraphAdmissionError(err, requiredRole)
 }
@@ -96,7 +96,7 @@ func validateGraphViewReceipt(key authn.RouteIdempotencyKey, status int, payload
 		return errGraphViewReceiptInvalid
 	}
 	declaration, err := graphViewDeclarationFromPublicResource(graph)
-	if err != nil || declaration.IncidentID != incidentID || declaration.DeclarationState != GraphViewDeclarationStateActive {
+	if err != nil || declaration.IncidentID != incidentID || declaration.DeclarationState != graphViewDeclarationStateActive {
 		return errGraphViewReceiptInvalid
 	}
 	if key.RouteKey == routeKeyGraphViewsCreate {
@@ -142,14 +142,14 @@ func validateGraphViewReceipt(key authn.RouteIdempotencyKey, status int, payload
 
 // This decoder validates the public projection, never reconstructs a current
 // declaration. Retained acknowledgements are historical admission evidence.
-func graphViewDeclarationFromPublicResource(value map[string]any) (GraphViewDeclaration, error) {
+func graphViewDeclarationFromPublicResource(value map[string]any) (graphViewDeclaration, error) {
 	keys := []string{"schema_id", "graph_view_id", "incident_id", "display_name", "state", "semantic_query", "semantic_query_sha256", "desired_source_snapshot_id", "selected_result_binding", "graph_view_version", "materialization_generation", "created_by", "created_at", "updated_at", "latest_job_id", "last_failure_code", "last_failed_at"}
 	if len(value) != len(keys) {
-		return GraphViewDeclaration{}, errGraphViewReceiptInvalid
+		return graphViewDeclaration{}, errGraphViewReceiptInvalid
 	}
 	for _, key := range keys {
 		if _, present := value[key]; !present {
-			return GraphViewDeclaration{}, errGraphViewReceiptInvalid
+			return graphViewDeclaration{}, errGraphViewReceiptInvalid
 		}
 	}
 	var resource struct {
@@ -172,9 +172,9 @@ func graphViewDeclarationFromPublicResource(value map[string]any) (GraphViewDecl
 		LastFailedAt              *time.Time        `json:"last_failed_at"`
 	}
 	if err := json.Unmarshal(canonicalJSON(value), &resource); err != nil || resource.SchemaID != "cartulary.network_flow.graph_view.v4" {
-		return GraphViewDeclaration{}, errGraphViewReceiptInvalid
+		return graphViewDeclaration{}, errGraphViewReceiptInvalid
 	}
-	declaration := GraphViewDeclaration{
+	declaration := graphViewDeclaration{
 		GraphViewID: resource.GraphViewID, IncidentID: resource.IncidentID,
 		DisplayName: resource.DisplayName, NormalizedDisplayName: strings.ToLower(resource.DisplayName), DeclarationState: resource.State,
 		SemanticQueryJSON: resource.SemanticQuery, SemanticQuerySHA256: resource.SemanticQuerySHA256,
@@ -185,16 +185,16 @@ func graphViewDeclarationFromPublicResource(value map[string]any) (GraphViewDecl
 	}
 	if selected := resource.SelectedResultBinding; selected != nil {
 		if len(selected) != 7 {
-			return GraphViewDeclaration{}, errGraphViewReceiptInvalid
+			return graphViewDeclaration{}, errGraphViewReceiptInvalid
 		}
-		declaration.SelectedResult = &GraphViewSelectedResultBinding{
+		declaration.SelectedResult = &graphViewSelectedResultBinding{
 			ProjectionResultID: selected["projection_result_id"], SourceSnapshotID: selected["source_snapshot_id"],
 			ProjectionSchemaID: selected["projection_schema_id"], ProjectionVersion: selected["projection_version"],
 			NormalizedConfigurationSHA256: selected["normalized_configuration_sha256"], NormalizedSourceSHA256: selected["normalized_source_sha256"], CanonicalOutputSHA256: selected["canonical_output_sha256"],
 		}
 	}
-	if !validGraphViewDeclaration(declaration) || GraphViewSemanticQuerySHA256(resource.SemanticQuery) != resource.SemanticQuerySHA256 {
-		return GraphViewDeclaration{}, errGraphViewReceiptInvalid
+	if !validGraphViewDeclaration(declaration) || graphViewSemanticQuerySHA256(resource.SemanticQuery) != resource.SemanticQuerySHA256 {
+		return graphViewDeclaration{}, errGraphViewReceiptInvalid
 	}
 	return declaration, nil
 }

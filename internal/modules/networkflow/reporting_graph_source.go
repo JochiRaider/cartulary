@@ -29,10 +29,10 @@ type ReportingGraphSource struct {
 }
 
 type reportingGraphDeclarationReader interface {
-	GetGraphViewDeclarationTx(context.Context, pgx.Tx, uuid.UUID, string, bool) (GraphViewDeclaration, error)
+	GetGraphViewDeclarationTx(context.Context, pgx.Tx, uuid.UUID, string, bool) (graphViewDeclaration, error)
 }
 
-func NewReportingGraphSource(db postgres.DB, declarations reportingGraphDeclarationReader) (*ReportingGraphSource, error) {
+func newReportingGraphSource(db postgres.DB, declarations reportingGraphDeclarationReader) (*ReportingGraphSource, error) {
 	if db == nil || declarations == nil {
 		return nil, errors.New("network flow Reporting graph source requires persistence")
 	}
@@ -43,7 +43,7 @@ func (m *Module) ReportingGraphSource() *ReportingGraphSource {
 	if m == nil || m.store == nil {
 		return nil
 	}
-	source, err := NewReportingGraphSource(m.store.pool, m.store)
+	source, err := newReportingGraphSource(m.store.pool, m.store)
 	if err != nil {
 		return nil
 	}
@@ -65,13 +65,13 @@ func (source *ReportingGraphSource) ValidateAndLeaseResultTx(ctx context.Context
 		return graphprojection.ResultLeaseV2{}, err
 	}
 	declaration, err := source.store.GetGraphViewDeclarationTx(ctx, tx, incidentID, binding.GraphViewID, true)
-	if errors.Is(err, ErrGraphViewDeclarationNotFound) {
+	if errors.Is(err, errGraphViewDeclarationNotFound) {
 		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2NotFound
 	}
 	if err != nil {
 		return graphprojection.ResultLeaseV2{}, err
 	}
-	if declaration.DeclarationState != GraphViewDeclarationStateActive || declaration.SelectedResult == nil {
+	if declaration.DeclarationState != graphViewDeclarationStateActive || declaration.SelectedResult == nil {
 		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2NotSelected
 	}
 	selected := graphViewResultBinding(declaration)
@@ -107,31 +107,22 @@ func (source *ReportingGraphSource) ReadAndRenewLeasedResult(ctx context.Context
 	if source == nil || source.db == nil || jobID == uuid.Nil || binding.SourceOwnerID != ProfileID {
 		return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 	}
-	var leaseID string
-	err := source.db.QueryRow(ctx, `
-SELECT lease_id
-  FROM graph_projection_result_leases
- WHERE projection_result_id = $1
-   AND lease_owner_id = $2
-   AND lease_owner_resource_id = $3
-   AND lease_purpose = $4
-   AND leased_until > $5
-`, binding.ProjectionResultID, reportingGraphLeaseOwnerID, jobID.String(), reportingGraphLeasePurpose, observedAt.UTC()).Scan(&leaseID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return graphsourcecontract.Result{}, graphprojection.ErrResultV2LeaseNotFound
-	}
+	reader, err := postgresresult.NewReader(source.db)
 	if err != nil {
-		return graphsourcecontract.Result{}, fmt.Errorf("read Reporting graph result lease: %w", err)
+		return graphsourcecontract.Result{}, err
+	}
+	leaseID, err := reader.LookupUnexpiredLease(ctx, postgresresult.ExactLeaseKey{
+		ProjectionResultID: binding.ProjectionResultID, LeaseOwnerID: reportingGraphLeaseOwnerID,
+		LeaseOwnerResourceID: jobID.String(), LeasePurpose: reportingGraphLeasePurpose,
+	}, observedAt)
+	if err != nil {
+		return graphsourcecontract.Result{}, err
 	}
 	writer, err := postgresresult.NewLeaseWriter(source.db)
 	if err != nil {
 		return graphsourcecontract.Result{}, err
 	}
 	if _, err := writer.RenewLease(ctx, leaseID, observedAt.UTC(), leasedUntil.UTC()); err != nil {
-		return graphsourcecontract.Result{}, err
-	}
-	reader, err := postgresresult.NewReader(source.db)
-	if err != nil {
 		return graphsourcecontract.Result{}, err
 	}
 	result, err := reader.ReadExactResult(ctx, binding)
@@ -291,16 +282,14 @@ func (source *ReportingGraphSource) ReleaseJobLeasesTx(ctx context.Context, tx p
 	if source == nil || tx == nil || jobID == uuid.Nil {
 		return nil
 	}
-	_, err := tx.Exec(ctx, `
-DELETE FROM graph_projection_result_leases lease
- USING graph_projection_results result
- WHERE lease.projection_result_id = result.projection_result_id
-   AND result.source_owner_id = $1
-   AND lease.lease_owner_id = $2
-   AND lease.lease_owner_resource_id = $3
-   AND lease.lease_purpose = $4
-`, ProfileID, reportingGraphLeaseOwnerID, jobID.String(), reportingGraphLeasePurpose)
-	return err
+	releaser, err := postgresresult.NewLeaseReleaser(tx)
+	if err != nil {
+		return err
+	}
+	return releaser.ReleaseScopedLeasesTx(ctx, postgresresult.LeaseReleaseScope{
+		SourceOwnerID: ProfileID, LeaseOwnerID: reportingGraphLeaseOwnerID,
+		LeaseOwnerResourceID: jobID.String(), LeasePurpose: reportingGraphLeasePurpose,
+	})
 }
 
 func (source *ReportingGraphSource) ReleaseJobLeases(ctx context.Context, jobID uuid.UUID) error {

@@ -11,6 +11,7 @@ import (
 )
 
 func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *testing.T) {
+	t.Run("database deadline", assertCleanupDatabaseDeadline)
 	t.Run("immediate continuation restart cadence and shutdown", func(t *testing.T) {
 		candidate := &graphprojection.ResultCleanupCandidateV2{
 			ProjectionResultID: "gpres_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

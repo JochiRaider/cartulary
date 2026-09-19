@@ -36,6 +36,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
@@ -1225,6 +1226,16 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	resource := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
 	result := resource["result"].(map[string]any)
 	projection := result["graph_projection_result"].(map[string]any)
+	assertRestoreSourceComposition(t, harness.Pool, graphViewID, projection)
+	query := createBody["semantic_query"].(map[string]any)
+	ephemeralResponse := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/graphs/query", map[string]any{
+		"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": query["aggregation"], "time_range": query["time_range"],
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	ephemeral := httptestx.RequireSuccessEnvelope(t, ephemeralResponse, http.StatusOK)["data"].(map[string]any)
+	if ephemeral["graph_query_digest"] != result["graph_query_digest"] || !reflect.DeepEqual(ephemeral["source_tables"], result["source_tables"]) {
+		t.Fatalf("temporal HTTP and worker source composition differs: %#v / %#v", ephemeral, result)
+	}
+
 	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v4" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || projection["projection_version"] != "network_flow_activity.time_bucket.v1" {
 		t.Fatalf("temporal saved result contract = %#v", resource)
 	}
@@ -1318,6 +1329,53 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	}
+	// Fail real transaction participants, rather than arming an unconsumed hook.
+	migrationDB, err := pgtest.OpenPurposeDatabase(harness.Database.DSN, postgres.PurposeMigration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = migrationDB.Close() })
+	for _, failureTable := range []string{"network_flow_graph_views", "collaboration_intent", "jobs", "route_idempotency", "deployment_admin_audit_events"} {
+		t.Run("command rollback at "+failureTable, func(t *testing.T) {
+			ctx := context.Background()
+			const snapshot = `SELECT jsonb_build_array(
+			 (SELECT count(*) FROM network_flow_graph_views),
+			 (SELECT count(*) FROM jobs WHERE job_kind = 'network_flow_activity.graph_view_materialize_v1'),
+			 (SELECT count(*) FROM route_idempotency WHERE route_key LIKE 'nf.graph_views.%'),
+			 (SELECT count(*) FROM deployment_admin_audit_events WHERE event_kind = 'network_flow_graph_view_created'))::text`
+			var before, after string
+			if err := harness.Pool.QueryRow(ctx, snapshot).Scan(&before); err != nil {
+				t.Fatal(err)
+			}
+			intentSelector := collaborationsupport.IntentSelector{IncidentID: incidentID.String(), EventFamily: "extension_resource_changed"}
+			intentsBefore := collaborationsupport.CountIntents(t, harness.Pool, intentSelector)
+			if failureTable == "collaboration_intent" {
+				collaborationsupport.FailIntentInserts(t, migrationDB)
+			} else {
+				if _, err := migrationDB.ExecContext(ctx, `CREATE OR REPLACE FUNCTION nf_command_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected saved graph participant failure'; END $$`); err != nil {
+					t.Fatal(err)
+				}
+				quoted := pgx.Identifier{failureTable}.Sanitize()
+				if _, err := migrationDB.ExecContext(ctx, `CREATE TRIGGER nf_command_failure BEFORE INSERT ON `+quoted+` FOR EACH ROW EXECUTE FUNCTION nf_command_failure()`); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() {
+					if _, err := migrationDB.ExecContext(ctx, `DROP TRIGGER nf_command_failure ON `+quoted); err != nil {
+						t.Error(err)
+					}
+				})
+			}
+
+			response := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+			httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
+			if err := harness.Pool.QueryRow(ctx, snapshot).Scan(&after); err != nil {
+				t.Fatal(err)
+			}
+			if before != after || collaborationsupport.CountIntents(t, harness.Pool, intentSelector) != intentsBefore {
+				t.Fatalf("partial command commit at %s: %s -> %s", failureTable, before, after)
+			}
+		})
+	}
 	createResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
 	graphView := created["graph_view"].(map[string]any)
@@ -1393,6 +1451,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if projection["projection_result_id"] == "" || projection["graph_view_id"] != graphViewID || projection["source_owner_id"] != ProfileID {
 		t.Fatalf("saved graph result binding drifted: %#v", projection)
 	}
+	assertRestoreSourceComposition(t, harness.Pool, graphViewID, projection)
 	vertices := projection["vertices"].([]any)
 	if len(vertices) == 0 {
 		t.Fatalf("saved graph result omitted vertices: %#v", projection)
@@ -1432,6 +1491,149 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	}
 	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminID, projection)
 	networkFlowJobID := seedRestoredNetworkFlowGraphJob(t, harness, incidentID, adminID, projection)
+	t.Run("NF restore changes only attempt fields and rolls back", func(t *testing.T) {
+		ctx := context.Background()
+		var before, after []byte
+		const snapshot = `SELECT (to_jsonb(jobs) - 'handler_attempt_id' - 'handler_lease_expires_at')::text FROM jobs WHERE job_id = $1`
+		if err := harness.Pool.QueryRow(ctx, snapshot, networkFlowJobID).Scan(&before); err != nil {
+			t.Fatal(err)
+		}
+		tx, err := harness.Pool.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		for range 2 {
+			count, err := ReconcileGraphRestoreJobsTx(ctx, tx)
+			if err != nil || count != 1 {
+				t.Fatalf("reconcile selected count: %d %v", count, err)
+			}
+		}
+		if err := tx.QueryRow(ctx, snapshot, networkFlowJobID).Scan(&after); err != nil || string(before) != string(after) {
+			t.Fatalf("non-attempt state changed: %s / %s / %v", before, after, err)
+		}
+		var attempt *uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&attempt); err != nil || attempt != nil {
+			t.Fatalf("attempt not cleared: %v %v", attempt, err)
+		}
+		if err := tx.Rollback(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := harness.Pool.QueryRow(ctx, `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&attempt); err != nil || attempt == nil {
+			t.Fatalf("rollback lost attempt: %v %v", attempt, err)
+		}
+	})
+
+	otherIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-nf-restore-other-incident", "incident_key": "IR-NF-RESTORE-OTHER", "title": "Other restored jobs",
+	})
+	otherIncidentID := uuid.MustParse(otherIncident["incident_id"].(string))
+	for _, count := range []int{0, 1, 256, 257, 512, 513} {
+		t.Run(fmt.Sprintf("restore complete selected set %d", count), func(t *testing.T) {
+			ctx := context.Background()
+			tx, err := harness.Pool.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+			if _, err := tx.Exec(ctx, `INSERT INTO jobs SELECT (jsonb_populate_record(NULL::jobs, to_jsonb(source) || jsonb_build_object('job_id', ('00000000-0000-0000-0001-' || lpad(n::text, 12, '0'))::uuid, 'status', (ARRAY['queued','running','cancel_requested'])[1 + n % 3], 'cancelable', false, 'incident_id', CASE WHEN n % 2 = 0 THEN $3::uuid ELSE source.incident_id END, 'handler_payload_json', source.handler_payload_json || jsonb_build_object('incident_id', CASE WHEN n % 2 = 0 THEN $3::uuid ELSE source.incident_id END)))).* FROM jobs source CROSS JOIN generate_series(1, $2::int) n WHERE source.job_id = $1 ORDER BY n DESC`, networkFlowJobID, count, otherIncidentID); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(ctx, `UPDATE jobs SET extension_owner_profile_id = 'restore_neighbor' WHERE job_id = $1`, networkFlowJobID); err != nil {
+				t.Fatal(err)
+			}
+			// Exclusion is independent in each scope dimension and terminal status.
+			if _, err := tx.Exec(ctx, `INSERT INTO jobs SELECT (jsonb_populate_record(NULL::jobs, to_jsonb(source) || jsonb_build_object(
+			 'job_id', ('00000000-0000-0000-0002-' || lpad(n::text, 12, '0'))::uuid,
+			 'extension_owner_profile_id', $2::text, 'status', (ARRAY['succeeded','failed','canceled'])[n],
+			 'cancelable', false, 'handler_attempt_id', NULL, 'handler_lease_expires_at', NULL,
+			 'progress_completed', 1, 'finished_at', now(), 'retained_until', now()+interval '1 day',
+			 'result_summary_json', CASE WHEN n = 2 THEN NULL ELSE '{}'::jsonb END,
+			 'error_summary_json', CASE WHEN n = 2 THEN '{}'::jsonb ELSE NULL END))).*
+			 FROM jobs source CROSS JOIN generate_series(1,3) n WHERE source.job_id = $1`, networkFlowJobID, ProfileID); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO jobs SELECT (jsonb_populate_record(NULL::jobs, to_jsonb(source) || jsonb_build_object('job_id', '00000000-0000-0000-0002-000000000004', 'extension_owner_profile_id', $2::text, 'job_kind', 'other.kind.v1'))).* FROM jobs source WHERE source.job_id = $1`, networkFlowJobID, ProfileID); err != nil {
+				t.Fatal(err)
+			}
+			var cursor *uuid.UUID
+			selected := 0
+			for {
+				page, err := jobs.ListRestoredNonterminalPageTx(ctx, tx, jobs.RestoredNonterminalScope{JobKind: GraphViewMaterializationJobKind, ExtensionOwnerProfileID: ProfileID}, cursor, 256)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(page) == 0 {
+					break
+				}
+				for _, job := range page {
+					selected++
+					if job.JobID.String() != fmt.Sprintf("00000000-0000-0000-0001-%012d", selected) {
+						t.Fatalf("restore page scope/order: %s at %d", job.JobID, selected)
+					}
+				}
+				last := page[len(page)-1].JobID
+				cursor = &last
+			}
+			if selected != count {
+				t.Fatalf("restored page count=%d want=%d", selected, count)
+			}
+
+			var before, after string
+			const snapshot = `SELECT COALESCE(jsonb_agg(to_jsonb(j) - 'handler_attempt_id' - 'handler_lease_expires_at' ORDER BY job_id), '[]')::text FROM jobs j`
+			if err := tx.QueryRow(ctx, snapshot).Scan(&before); err != nil {
+				t.Fatal(err)
+			}
+			if count == 513 {
+				for _, defect := range []string{
+					"handler_payload_json = '{}'::jsonb",
+					"handler_payload_json = handler_payload_json || '{\"unknown\":true}'::jsonb",
+					"handler_payload_json = handler_payload_json || '{\"schema_id\":\"invalid\"}'::jsonb",
+					"handler_payload_json = handler_payload_json || '{\"graph_view_id\":\"invalid\"}'::jsonb",
+					"handler_payload_json = handler_payload_json || '{\"materialization_generation\":0}'::jsonb",
+					"handler_payload_json = handler_payload_json || '{\"source_snapshot_id\":\"\"}'::jsonb",
+					"handler_payload_json = handler_payload_json || '{\"incident_id\":\"00000000-0000-0000-0000-000000000001\"}'::jsonb",
+					"handler_failure_count = 3",
+				} {
+					failedTx, err := tx.Begin(ctx)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, err := failedTx.Exec(ctx, `UPDATE jobs SET `+defect+` WHERE job_id = '00000000-0000-0000-0001-000000000513'`); err != nil {
+						t.Fatal(err)
+					}
+					if got, err := ReconcileGraphRestoreJobsTx(ctx, failedTx); err == nil || got != 0 {
+						t.Fatalf("later page failure returned success: %d %v", got, err)
+					}
+					var cleared bool
+					if err := failedTx.QueryRow(ctx, `SELECT handler_attempt_id IS NULL FROM jobs WHERE job_id = '00000000-0000-0000-0001-000000000001'`).Scan(&cleared); err != nil || !cleared {
+						t.Fatalf("fixture did not reach earlier-page writes: %v", err)
+					}
+					if err := failedTx.Rollback(ctx); err != nil {
+						t.Fatal(err)
+					}
+					if err := tx.QueryRow(ctx, `SELECT handler_attempt_id IS NULL FROM jobs WHERE job_id = '00000000-0000-0000-0001-000000000001'`).Scan(&cleared); err != nil || cleared {
+						t.Fatalf("later-page failure lost atomic rollback: %v", err)
+					}
+				}
+			}
+
+			for range 2 {
+				got, err := ReconcileGraphRestoreJobsTx(ctx, tx)
+				if err != nil || got != count {
+					t.Fatalf("selected count=%d want=%d err=%v", got, count, err)
+				}
+			}
+			if err := tx.QueryRow(ctx, snapshot).Scan(&after); err != nil || before != after {
+				t.Fatalf("non-attempt state changed: %v", err)
+			}
+			var live int
+			if err := tx.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE extension_owner_profile_id = $1 AND job_kind = $2 AND handler_attempt_id IS NOT NULL`, ProfileID, GraphViewMaterializationJobKind).Scan(&live); err != nil || live != 0 {
+				t.Fatalf("unreconciled jobs=%d err=%v", live, err)
+			}
+		})
+	}
+
 	recoveryDSN, err := harness.Database.DSNForPurpose(postgres.PurposeRecovery)
 	if err != nil {
 		t.Fatalf("resolve Recovery-purpose DSN: %v", err)
@@ -1462,7 +1664,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		!slices.Equal(bindingRef.Binding.GraphTableIDs, graphrestore.RestoreGraphTableIDs()) {
 		t.Fatalf("current Graph restore catalog/binding tuple drifted: catalog=%s binding=%#v", recoveryCatalog.DigestSHA256(), bindingRef.Binding)
 	}
-	restoreResult, err := restoreParticipant.Rebuild(context.Background(), graphrestore.RestoreRebuildRequest{
+	restoreRequest := graphrestore.RestoreRebuildRequest{
 		Context:             context.Background(),
 		RestoreOperationID:  uuid.MustParse("00000000-0000-0000-0000-000000009101"),
 		RestoredSourceState: restorecontract.RestoredGraphProjectionSourceState{},
@@ -1474,7 +1676,35 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 			GraphTableIDs: graphrestore.RestoreGraphTableIDs(),
 		},
 		SourceRegistry: registryRef, ImplementationBinding: bindingRef,
-	})
+	}
+	// Reporting runs after NF reconciliation in the real atomic restore writer.
+	var reportingPayload []byte
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT request_json FROM reporting_job_payloads WHERE job_id = $1`, reportingJobID).Scan(&reportingPayload); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json = '{"graph_projection_refs":[{}]}'::jsonb WHERE job_id = $1`, reportingJobID); err != nil {
+		t.Fatal(err)
+	}
+	const graphStateSnapshot = `SELECT jsonb_build_array((SELECT jsonb_agg(r ORDER BY projection_result_id) FROM graph_projection_results r), (SELECT jsonb_agg(l ORDER BY lease_id) FROM graph_projection_result_leases l))::text`
+	var graphBefore, graphAfter string
+	if err := harness.Pool.QueryRow(context.Background(), graphStateSnapshot).Scan(&graphBefore); err != nil {
+		t.Fatal(err)
+	}
+	failedRestore, restoreErr := restoreParticipant.Rebuild(context.Background(), restoreRequest)
+	if restoreErr == nil || failedRestore.ReadinessSatisfied() {
+		t.Fatalf("failed Reporting reconciliation published readiness: %#v %v", failedRestore, restoreErr)
+	}
+	if err := harness.Pool.QueryRow(context.Background(), graphStateSnapshot).Scan(&graphAfter); err != nil || graphBefore != graphAfter {
+		t.Fatalf("failed restore changed Graph state: %v", err)
+	}
+	var preservedAttempt *uuid.UUID
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&preservedAttempt); err != nil || preservedAttempt == nil {
+		t.Fatalf("whole restore failed to roll back NF reconciliation: %v %v", preservedAttempt, err)
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json = $2 WHERE job_id = $1`, reportingJobID, reportingPayload); err != nil {
+		t.Fatal(err)
+	}
+	restoreResult, err := restoreParticipant.Rebuild(context.Background(), restoreRequest)
 	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 1 ||
 		restoreResult.ReconciledNonterminalJobCount != 2 || restoreResult.ReconciledLeaseCount != 1 ||
 		!restoreContainsExactGraphBinding(restoreResult.RebuiltViews, graphViewID, projection["projection_result_id"].(string)) {
@@ -1702,7 +1932,7 @@ UPDATE jobs
    SET status = 'running', started_at = $2, updated_at = $2,
        handler_attempt_id = $3, handler_lease_expires_at = $4
  WHERE job_id = $1
-`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009104"), now.Add(time.Hour)); err != nil {
+`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009104"), time.Now().UTC().Add(time.Hour)); err != nil {
 		t.Fatalf("seed restored Reporting execution lease: %v", err)
 	}
 	return jobID
@@ -1750,7 +1980,7 @@ UPDATE jobs
    SET status = 'running', started_at = $2, updated_at = $2,
        handler_attempt_id = $3, handler_lease_expires_at = $4
  WHERE job_id = $1
-`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009105"), now.Add(time.Hour)); err != nil {
+`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009105"), time.Now().UTC().Add(time.Hour)); err != nil {
 		t.Fatalf("seed restored Network Flow execution lease: %v", err)
 	}
 	return jobID
@@ -1834,4 +2064,100 @@ func networkFlowRouteCountRows(t testing.TB, db *sql.DB, query string, args ...a
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+// Exercise the real NF source contribution and Graph engine, without a fake
+// enumerator. The full atomic Recovery writer is exercised by the lifecycle test.
+func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID string, expected map[string]any) {
+	t.Helper()
+	registration, err := NewGraphRestoreSourceRegistration(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := registration.Enumerate(context.Background(), nil, time.Now())
+	if err != nil || len(candidates) != 1 {
+		t.Fatalf("real restore candidates: %#v %v", candidates, err)
+	}
+	candidate := candidates[0]
+	rebuilt, err := graphprojection.ProjectV2(context.Background(), graphprojection.InvocationContextV2{GraphViewID: graphViewID, SourceOwnerID: ProfileID}, candidate.SemanticInput)
+	if err != nil || rebuilt.ResultBindingV2() != candidate.ExpectedBinding || rebuilt.ResultBindingV2().ProjectionResultID != expected["projection_result_id"] {
+		t.Fatalf("HTTP/worker/restore composition identity differs: %#v %v", rebuilt, err)
+	}
+
+	// Enumerate through one borrowed transaction: out-of-order selected declarations
+	// are deterministic; inactive and unselected declarations never enter restore.
+	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	registration, err = NewGraphRestoreSourceRegistration(restoreSourceTestDB{Tx: tx})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantedIDs := []string{graphViewID}
+	for _, n := range []int{4, 2, 3, 1} {
+		id := "nfgv_" + strings.Repeat(fmt.Sprint(n), 32)
+		projected, err := graphprojection.ProjectV2(context.Background(), graphprojection.InvocationContextV2{GraphViewID: id, SourceOwnerID: ProfileID}, candidate.SemanticInput)
+		if err != nil {
+			t.Fatal(err)
+		}
+		binding := projected.ResultBindingV2()
+		overrides := map[string]any{
+			"graph_view_id": id, "display_name": fmt.Sprintf("Restore clone %d", n), "normalized_display_name": fmt.Sprintf("restore clone %d", n),
+			"selected_projection_result_id": binding.ProjectionResultID, "selected_source_snapshot_id": binding.SourceSnapshotID, "selected_projection_schema_id": binding.ProjectionSchemaID, "selected_projection_version": binding.ProjectionVersion,
+			"selected_normalized_configuration_sha256": binding.NormalizedConfigurationSHA256, "selected_normalized_source_sha256": binding.NormalizedSourceSHA256, "selected_canonical_output_sha256": binding.CanonicalOutputSHA256,
+		}
+		if n == 4 {
+			overrides["declaration_state"], overrides["retired_at"] = "retired", time.Now().UTC()
+		}
+		if n == 3 {
+			for key := range overrides {
+				if strings.HasPrefix(key, "selected_") {
+					overrides[key] = nil
+				}
+			}
+		}
+		if n < 3 {
+			wantedIDs = append(wantedIDs, id)
+		}
+		encoded, err := json.Marshal(overrides)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(context.Background(), `INSERT INTO network_flow_graph_views SELECT (jsonb_populate_record(NULL::network_flow_graph_views, to_jsonb(v) || $2::jsonb)).* FROM network_flow_graph_views v WHERE graph_view_id = $1`, graphViewID, encoded); err != nil {
+			t.Fatal(err)
+		}
+	}
+	slices.Sort(wantedIDs)
+	ordered, err := registration.Enumerate(context.Background(), nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	actualIDs := make([]string, 0, len(ordered))
+	for _, item := range ordered {
+		actualIDs = append(actualIDs, item.GraphViewID)
+	}
+	if !slices.Equal(actualIDs, wantedIDs) {
+		t.Fatalf("restore scope/order: %v want %v", actualIDs, wantedIDs)
+	}
+	for _, column := range []string{"desired_source_snapshot_id", "selected_source_snapshot_id"} {
+		if _, err := tx.Exec(context.Background(), "UPDATE network_flow_graph_views SET "+column+" = 'mismatch' WHERE graph_view_id = $1", graphViewID); err != nil {
+			t.Fatal(err)
+		}
+		if partial, err := registration.Enumerate(context.Background(), nil, time.Now()); err == nil || partial != nil {
+			t.Fatalf("restore accepted snapshot mismatch: %#v %v", partial, err)
+		}
+		if _, err := tx.Exec(context.Background(), "UPDATE network_flow_graph_views SET "+column+" = $2 WHERE graph_view_id = $1", graphViewID, candidate.ExpectedBinding.SourceSnapshotID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+}
+
+// Any unexpected nested transaction is a fixture failure, not silently tolerated.
+type restoreSourceTestDB struct{ pgx.Tx }
+
+func (restoreSourceTestDB) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
+	panic("restore source opened a transaction")
 }

@@ -15,7 +15,7 @@ func TestGraphViewMaterializationDeadlineIsTerminalBeforePublication_Unit(t *tes
 	manager := &deadlineGraphViewJobManager{}
 	finalizer := &deadlineGraphViewFinalizer{}
 	module := &Module{
-		store: &Store{}, limits: EffectiveLimits{GraphMaterializationTimeoutSeconds: 0}, now: time.Now,
+		store: &store{}, limits: EffectiveLimits{GraphMaterializationTimeoutSeconds: 0}, now: time.Now,
 		graphProjection: newGraphProjectionAdapter(), jobManager: manager, jobFinalizer: finalizer,
 	}
 	started := time.Now()

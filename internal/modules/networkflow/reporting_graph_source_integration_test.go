@@ -83,6 +83,82 @@ func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integrat
 		t.Fatalf("exact ordered result drifted: %#v", loaded)
 	}
 
+	t.Run("stored identity expiry and committed renewal", func(t *testing.T) {
+		storedID := uuid.NewString()
+		if _, err := harness.DB.Exec(ctx, `UPDATE graph_projection_result_leases SET lease_id = $1 WHERE lease_id = $2`, storedID, lease.LeaseID); err != nil {
+			t.Fatal(err)
+		}
+		lease.LeaseID = storedID
+		if _, err := source.ReadAndRenewLeasedResult(ctx, jobID, result.Binding, now.Add(2*time.Minute), now.Add(3*time.Minute)); err != nil {
+			t.Fatalf("stored identity / shorter expiry: %v", err)
+		}
+		if _, err := source.ReadAndRenewLeasedResult(ctx, jobID, result.Binding, now.Add(3*time.Minute), now.Add(4*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
+			t.Fatalf("expiry equality: %v", err)
+		}
+		wrong := result.Binding
+		wrong.NormalizedSourceSHA256 = testSHA4
+		if _, err := source.ReadAndRenewLeasedResult(ctx, jobID, wrong, now.Add(2*time.Minute), now.Add(8*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
+			t.Fatalf("wrong exact binding: %v", err)
+		}
+		var expires time.Time
+		if err := harness.DB.QueryRow(ctx, `SELECT leased_until FROM graph_projection_result_leases WHERE lease_id = $1`, storedID).Scan(&expires); err != nil || !expires.Equal(now.Add(8*time.Minute)) {
+			t.Fatalf("successful renewal must survive failed read: %v %v", expires, err)
+		}
+		for _, wrongJob := range []uuid.UUID{uuid.Nil, uuid.New()} {
+			if content, err := source.ReadAndRenewLeasedResult(ctx, wrongJob, result.Binding, now.Add(2*time.Minute), now.Add(9*time.Minute)); err == nil || len(content.Projection.Vertices) != 0 {
+				t.Fatalf("wrong job disclosed content: %#v %v", content, err)
+			}
+		}
+	})
+	t.Run("release belongs to caller transaction", func(t *testing.T) {
+		tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		if err := source.ReleaseJobLeasesTx(ctx, tx, jobID); err != nil {
+			t.Fatal(err)
+		}
+		var count int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE lease_id = $1`, lease.LeaseID).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("transaction deletion: %d %v", count, err)
+		}
+		if err := tx.Rollback(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := harness.DB.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE lease_id = $1`, lease.LeaseID).Scan(&count); err != nil || count != 1 {
+			t.Fatalf("rollback restored lease: %d %v", count, err)
+		}
+	})
+
+	t.Run("complete scoped release includes expired leases", func(t *testing.T) {
+		tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		if _, err := tx.Exec(ctx, `INSERT INTO graph_projection_results SELECT (jsonb_populate_record(NULL::graph_projection_results, to_jsonb(r) || jsonb_build_object('projection_result_id', 'gpres_' || repeat(md5(n::text), 2), 'source_owner_id', CASE WHEN n = 1003 THEN 'neighbor' ELSE $2 END))).* FROM graph_projection_results r CROSS JOIN generate_series(1,1003) n WHERE projection_result_id = $1`, result.Binding.ProjectionResultID, ProfileID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO graph_projection_result_leases SELECT (jsonb_populate_record(NULL::graph_projection_result_leases, to_jsonb(l) || jsonb_build_object('lease_id', md5(n::text)::uuid, 'projection_result_id', 'gpres_' || repeat(md5(n::text), 2), 'renewed_at', l.created_at, 'leased_until', CASE WHEN n % 2 = 0 THEN $2::timestamptz ELSE $3::timestamptz END))).* FROM graph_projection_result_leases l CROSS JOIN generate_series(1,1003) n WHERE lease_id = $1`, lease.LeaseID, now.Add(time.Second), now.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		for _, dimensions := range []struct{ owner, resource, purpose string }{{"other_owner", jobID.String(), "render"}, {"snapshot_reporting", uuid.NewString(), "render"}, {"snapshot_reporting", jobID.String(), "other_purpose"}} {
+			if _, err := tx.Exec(ctx, `INSERT INTO graph_projection_result_leases SELECT (jsonb_populate_record(NULL::graph_projection_result_leases, to_jsonb(l) || jsonb_build_object('lease_id', $2::text, 'lease_owner_id', $3::text, 'lease_owner_resource_id', $4::text, 'lease_purpose', $5::text))).* FROM graph_projection_result_leases l WHERE lease_id = $1`, lease.LeaseID, uuid.NewString(), dimensions.owner, dimensions.resource, dimensions.purpose); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for range 2 {
+			if err := source.ReleaseJobLeasesTx(ctx, tx, jobID); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var left int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases`).Scan(&left); err != nil || left != 4 {
+			t.Fatalf("neighbor scope leases=%d want=4 err=%v", left, err)
+		}
+	})
+
 	stale := result.Binding
 	stale.SourceSnapshotID = "network-flow-source-stale"
 	tx, err = harness.DB.BeginTx(ctx, pgx.TxOptions{})

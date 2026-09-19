@@ -260,6 +260,12 @@
       "filename": "00043_saved_views_schema_discovery.sql",
       "sha256": "bd5988f4fe625ae913d1ab29b695786700313745fd5a49817fb019ed6a614b45",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 44,
+      "filename": "00044_jobs_restore_enumeration.sql",
+      "sha256": "c9d1367fef287c570b3637bd14590964748a44cae83d7af07019471ac06b30c1",
+      "historical_phase_shaped": false
     }
   ]
 }

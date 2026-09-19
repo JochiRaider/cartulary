@@ -25,7 +25,7 @@ type ResourceIntentAppender interface {
 	AppendResourceIntentTx(context.Context, pgx.Tx, ResourceIntent) error
 }
 
-func (s *Store) appendTableResourceIntentTx(ctx context.Context, tx pgx.Tx, table TableRecord, changeKind string, reasonCode string) error {
+func (s *store) appendTableResourceIntentTx(ctx context.Context, tx pgx.Tx, table tableRecord, changeKind string, reasonCode string) error {
 	if s == nil || s.resourceIntents == nil {
 		return fmt.Errorf("network flow resource intent appender is not configured")
 	}
@@ -59,12 +59,12 @@ func (s *Store) appendTableResourceIntentTx(ctx context.Context, tx pgx.Tx, tabl
 	})
 }
 
-func (s *Store) appendGraphViewResourceIntentTx(ctx context.Context, tx pgx.Tx, graph GraphViewDeclaration, reasonCode string) error {
+func (s *store) appendGraphViewResourceIntentTx(ctx context.Context, tx pgx.Tx, graph graphViewDeclaration, reasonCode string) error {
 	if s == nil || s.resourceIntents == nil {
 		return fmt.Errorf("network flow resource intent appender is not configured")
 	}
 	changeKind := "invalidate"
-	if graph.DeclarationState == GraphViewDeclarationStateRetired {
+	if graph.DeclarationState == graphViewDeclarationStateRetired {
 		changeKind = "remove"
 		reasonCode = "soft_deleted"
 	}

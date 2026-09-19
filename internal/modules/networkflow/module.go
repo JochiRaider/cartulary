@@ -46,14 +46,15 @@ type ModuleDependencies struct {
 // import integration receive narrow views of this root rather than assembling
 // sibling stores independently.
 type Module struct {
-	store           *Store
+	store           *store
 	importOwner     imports.ExtensionImportFacade
 	importSources   ImportSourcePort
 	transactions    *crossownertransaction.Coordinator
-	cursorProtector CursorProtector
-	safeDigester    SafeDigester
+	cursorProtector cursorProtector
+	safeDigester    safeDigester
 	limits          EffectiveLimits
 	now             func() time.Time
+	graphComposer   *graphSourceComposer
 	graphProjection graphProjectionPort
 	graphViewJobs   GraphViewJobTransactions
 	jobManager      GraphViewJobManager
@@ -70,7 +71,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		return nil, errors.New("network flow module requires Imports source capability")
 	}
 	limits := dependencies.EffectiveLimits
-	if err := ValidateEffectiveLimits(limits); err != nil {
+	if err := checkEffectiveLimits(limits); err != nil {
 		return nil, fmt.Errorf("network flow module effective limits: %w", err)
 	}
 	now := dependencies.Now
@@ -80,8 +81,8 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if dependencies.IncidentLocks == nil || dependencies.AuditAppender == nil || dependencies.Indicators == nil || dependencies.ResourceIntents == nil {
 		return nil, errors.New("network flow owner transaction participants are required")
 	}
-	var safeDigester SafeDigester
-	var cursorProtector CursorProtector
+	var safeDigester safeDigester
+	var cursorProtector cursorProtector
 	if dependencies.KeyRings != nil {
 		var err error
 		safeDigester, err = newSafeDigester(dependencies.KeyRings, now)
@@ -93,12 +94,12 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 			return nil, err
 		}
 	}
-	store := NewStore(
+	store := newStore(
 		dependencies.Postgres,
 		limits,
-		WithOwnerParticipants(dependencies.IncidentLocks, dependencies.AuditAppender, dependencies.Indicators),
-		WithSafeDigester(safeDigester),
-		WithResourceIntentAppender(dependencies.ResourceIntents),
+		withOwnerParticipants(dependencies.IncidentLocks, dependencies.AuditAppender, dependencies.Indicators),
+		withSafeDigester(safeDigester),
+		withResourceIntentAppender(dependencies.ResourceIntents),
 	)
 	module := &Module{
 		store: store, importSources: dependencies.ImportSources,
@@ -108,6 +109,11 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		jobRunner: dependencies.JobRunner, jobFinalizer: dependencies.JobFinalizer,
 		graphTelemetry: dependencies.GraphTelemetry,
 	}
+	composer, err := newGraphSourceComposer(store, limits, module.graphProjection, now, dependencies.GraphTelemetry)
+	if err != nil {
+		return nil, err
+	}
+	module.graphComposer = composer
 	return module, nil
 }
 
@@ -118,7 +124,7 @@ func (m *Module) RegisterGraphViewWorker() error {
 	if m == nil || m.jobRunner == nil || m.jobManager == nil || m.jobFinalizer == nil || m.graphProjection == nil {
 		return errors.New("network flow graph view worker dependencies unavailable")
 	}
-	return m.jobRunner.RegisterHandler(GraphViewWorkerKind, m.handleGraphViewMaterialization)
+	return m.jobRunner.RegisterHandler(graphViewWorkerKind, m.handleGraphViewMaterialization)
 }
 
 // InstallCrossOwnerCoordinator completes the application-owned composition
@@ -184,7 +190,7 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 	return capability, capability, nil
 }
 
-func registerNetworkFlowRoutes(mux *http.ServeMux, service *Service) error {
+func registerNetworkFlowRoutes(mux *http.ServeMux, service *routeService) error {
 	handlers := map[string]http.HandlerFunc{
 		"nf.graphs.contributors.query":      service.handleGraphContributorsQuery,
 		"nf.graphs.query":                   service.handleGraphQuery,

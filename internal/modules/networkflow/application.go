@@ -14,10 +14,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func (s *Service) commitTableRenameRoute(ctx context.Context, incidentID uuid.UUID, tableID string, actorUserID uuid.UUID, request tableRenameRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
+func (s *routeService) commitTableRenameRoute(ctx context.Context, incidentID uuid.UUID, tableID string, actorUserID uuid.UUID, request tableRenameRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
 	key := tableMutationIdempotencyKey(routeKeyTablesPatch, actorUserID, incidentID, tableID, request.ClientTxnID)
-	return s.commitTableMutation(ctx, key, incidentID, actorUserID, admission.RolesEditorAdmin, "editor|admin", requestHash, func(tx pgx.Tx) (TableRecord, error) {
-		return s.store.renameTableTx(ctx, tx, RenameTableParams{
+	return s.commitTableMutation(ctx, key, incidentID, actorUserID, admission.RolesEditorAdmin, "editor|admin", requestHash, func(tx pgx.Tx) (tableRecord, error) {
+		return s.store.renameTableTx(ctx, tx, renameTableParams{
 			IncidentID: incidentID, ActorUserID: actorUserID, TableID: tableID,
 			BaseTableVersion: request.BaseTableVersion, DisplayName: request.DisplayName,
 			ClientTxnID: request.ClientTxnID, RequestID: requestID, SafeDigester: s.safeDigester, Now: s.now(),
@@ -25,18 +25,18 @@ func (s *Service) commitTableRenameRoute(ctx context.Context, incidentID uuid.UU
 	})
 }
 
-func (s *Service) commitTableSoftDeleteRoute(ctx context.Context, incidentID uuid.UUID, tableID string, actorUserID uuid.UUID, request tableSoftDeleteRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
+func (s *routeService) commitTableSoftDeleteRoute(ctx context.Context, incidentID uuid.UUID, tableID string, actorUserID uuid.UUID, request tableSoftDeleteRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
 	key := tableMutationIdempotencyKey(routeKeyTablesDelete, actorUserID, incidentID, tableID, request.ClientTxnID)
-	return s.commitTableMutation(ctx, key, incidentID, actorUserID, admission.RolesReviewerAdmin, "reviewer|admin", requestHash, func(tx pgx.Tx) (TableRecord, error) {
-		table, err := s.store.softDeleteTableTx(ctx, tx, SoftDeleteTableParams{
+	return s.commitTableMutation(ctx, key, incidentID, actorUserID, admission.RolesReviewerAdmin, "reviewer|admin", requestHash, func(tx pgx.Tx) (tableRecord, error) {
+		table, err := s.store.softDeleteTableTx(ctx, tx, softDeleteTableParams{
 			IncidentID: incidentID, ActorUserID: actorUserID, TableID: tableID,
 			BaseTableVersion: request.BaseTableVersion, ClientTxnID: request.ClientTxnID, RequestID: requestID, Now: s.now(),
 		})
 		if err != nil {
-			return TableRecord{}, err
+			return tableRecord{}, err
 		}
 		if err := s.store.InvalidateGraphViewsForTableTx(ctx, tx, incidentID, tableID, table.UpdatedAt); err != nil {
-			return TableRecord{}, err
+			return tableRecord{}, err
 		}
 		return table, nil
 	})
@@ -44,7 +44,7 @@ func (s *Service) commitTableSoftDeleteRoute(ctx context.Context, incidentID uui
 
 // Incident serialization orders current admission, immutable receipt lookup and
 // fresh table mutation. Replay never consults the current table lifecycle/version.
-func (s *Service) commitTableMutation(ctx context.Context, key authn.RouteIdempotencyKey, incidentID, actorID uuid.UUID, roles admission.RoleSet, requiredRole string, requestHash []byte, mutate func(pgx.Tx) (TableRecord, error)) (map[string]any, int, *httpapi.APIError) {
+func (s *routeService) commitTableMutation(ctx context.Context, key authn.RouteIdempotencyKey, incidentID, actorID uuid.UUID, roles admission.RoleSet, requiredRole string, requestHash []byte, mutate func(pgx.Tx) (tableRecord, error)) (map[string]any, int, *httpapi.APIError) {
 	var payload map[string]any
 	status := http.StatusOK
 	err := withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {

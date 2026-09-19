@@ -39,9 +39,9 @@ func timestampReason(err error) string {
 	return "invalid_syntax"
 }
 
-func validateTimestampProfile(profile TimestampProfile, maxColumns int) error {
+func validateTimestampProfile(profile timestampProfile, maxColumns int) error {
 	conflict := func(reason string) error {
-		return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: reason}
+		return &mappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: reason}
 	}
 	if profile.SchemaID != timestampProfileSchemaID {
 		return conflict("variant_member_conflict")
@@ -103,7 +103,7 @@ func validateTimestampProfile(profile TimestampProfile, maxColumns int) error {
 
 // MarshalJSON emits the selected closed-union variant, including the required
 // null members for the RFC3339 variant and no members owned by another variant.
-func (profile TimestampProfile) MarshalJSON() ([]byte, error) {
+func (profile timestampProfile) MarshalJSON() ([]byte, error) {
 	object := map[string]any{
 		"schema_id": profile.SchemaID,
 		"mode":      profile.Mode,
@@ -123,20 +123,20 @@ func (profile TimestampProfile) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
-func sourceFieldOrdinal(mappings []FieldMapping, fieldKey string) int {
+func sourceFieldOrdinal(mappings []fieldMapping, fieldKey string) int {
 	for _, mapping := range mappings {
-		if mapping.MappingKind == MappingKindSourceColumn && mapping.FieldKey == fieldKey {
+		if mapping.MappingKind == mappingKindSourceColumn && mapping.FieldKey == fieldKey {
 			return mapping.SourceColumnOrdinal
 		}
 	}
 	return 0
 }
 
-func parseTimestamp(value string, profile TimestampProfile) (time.Time, error) {
+func parseTimestamp(value string, profile timestampProfile) (time.Time, error) {
 	return parseTimestampForRecord(value, profile, nil)
 }
 
-func parseTimestampForRecord(value string, profile TimestampProfile, record *CSVRecord) (time.Time, error) {
+func parseTimestampForRecord(value string, profile timestampProfile, record *csvRecord) (time.Time, error) {
 	switch profile.Mode {
 	case "rfc3339":
 		return parseExactRFC3339(value, profile)
@@ -168,7 +168,7 @@ func parseEpochTimestamp(value string, milliseconds bool) (time.Time, error) {
 	return time.Unix(int64(parsed), 0).UTC(), nil
 }
 
-func parseExactRFC3339(value string, profile TimestampProfile) (time.Time, error) {
+func parseExactRFC3339(value string, profile timestampProfile) (time.Time, error) {
 	matches := exactRFC3339Pattern.FindStringSubmatch(value)
 	if matches == nil {
 		return time.Time{}, timestampError("invalid_syntax")
@@ -272,7 +272,7 @@ func localTimeMatchCount(year, month, day, hour, minute, second, nanosecond int,
 	return matches
 }
 
-func parseNetFlowUptimeTimestamp(value string, profile TimestampProfile, record *CSVRecord) (time.Time, error) {
+func parseNetFlowUptimeTimestamp(value string, profile timestampProfile, record *csvRecord) (time.Time, error) {
 	if record == nil || profile.NetFlowExportTimeColumnOrdinal == nil || profile.NetFlowExportTimeMode == nil || profile.NetFlowExporterUptimeAtExportColumnOrdinal == nil {
 		return time.Time{}, timestampError("sys_uptime_invalid")
 	}
@@ -292,7 +292,7 @@ func parseNetFlowUptimeTimestamp(value string, profile TimestampProfile, record 
 	if eventUptime > exporterUptime {
 		return time.Time{}, timestampError("sys_uptime_wrap_ambiguous")
 	}
-	exportProfile := materializeTimestampProfile(TimestampProfile{SchemaID: timestampProfileSchemaID, Mode: *profile.NetFlowExportTimeMode})
+	exportProfile := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: *profile.NetFlowExportTimeMode})
 	if exportProfile.Mode == "rfc3339" {
 		exportProfile.Timezone = nil
 		exportProfile.TimezoneRulesetID = nil

@@ -3,6 +3,7 @@ package networkflow_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"reflect"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -58,11 +60,13 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 	for _, scenario := range []struct {
 		name, role                 string
 		beforePublication, allowed bool
+		restrictedLimits           bool
 	}{
-		{"viewer before computation", "viewer", false, false},
-		{"reviewer before publication", "reviewer", true, false},
-		{"editor publication", "editor", true, true},
-		{"admin publication", "admin", true, true},
+		{"viewer before computation", "viewer", false, false, false},
+		{"reviewer before publication", "reviewer", true, false, false},
+		{"editor publication", "editor", true, true, false},
+		{"admin publication", "admin", true, true, false},
+		{"configured worker limits", "admin", false, false, true},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			setRole := func(role string) {
@@ -110,7 +114,13 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 			} else {
 				setRole(scenario.role)
 			}
-			handler := NewGraphViewAuthorityTestHandler(store, authorityGraphManager{Manager: manager, payload: payload}, finalizer)
+			workerStore := store
+			if scenario.restrictedLimits {
+				limits := DefaultEffectiveLimits()
+				limits.MaxGraphVertices = 1
+				workerStore = newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender(), WithEffectiveLimits(limits))
+			}
+			handler := NewGraphViewAuthorityTestHandler(workerStore, authorityGraphManager{Manager: manager, payload: payload}, finalizer)
 			if err := handler(ctx, execution); err != nil {
 				t.Fatal(err)
 			}
@@ -124,11 +134,25 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 			if !reflect.DeepEqual(after.SelectedResult, initial.SelectedResult) {
 				t.Fatal("authority transition changed the last safe binding")
 			}
-			if !scenario.allowed && (after.LastFailureCode == nil || *after.LastFailureCode != "network_flow_graph_materialization_publication_conflict") {
+			expectedFailure := "network_flow_graph_materialization_publication_conflict"
+			if scenario.restrictedLimits {
+				expectedFailure = "network_flow_graph_materialization_source_invalid"
+				registration, err := NewGraphRestoreSourceRegistration(harness.Pool)
+				if err != nil {
+					t.Fatal(err)
+				}
+				candidates, err := registration.Enumerate(ctx, nil, time.Now())
+				if err != nil || len(candidates) != 1 || candidates[0].ExpectedBinding.ProjectionResultID != initial.SelectedResult.ProjectionResultID {
+					t.Fatalf("restore inherited deployment limits: %#v %v", candidates, err)
+				}
+			}
+			if !scenario.allowed && (after.LastFailureCode == nil || *after.LastFailureCode != expectedFailure) {
 				t.Fatalf("failure = %v", after.LastFailureCode)
 			}
 		})
 	}
+	assertSavedGraphNotificationAfterCommit(t, harness, incidentID, actorID, initial.SemanticQueryJSON)
+
 }
 
 type authorityGraphManager struct {
@@ -168,4 +192,78 @@ func (f *authorityGraphFinalizer) mutate(ctx context.Context, mutate GraphViewJo
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func assertSavedGraphNotificationAfterCommit(t *testing.T, harness *appsupport.ServerHarness, incidentID, actorID uuid.UUID, semantic json.RawMessage) {
+	t.Helper()
+	definitions := appsupport.RecognizedExtensionJobDefinitions(t)
+	catalog, err := jobs.NewCatalog(definitions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transactions := collaborationsupport.NewJobTransactionsForCatalog(catalog, collaborationsupport.TestWorkerRuntimeContracts(definitions))
+	db := &notificationTestDB{DB: harness.Pool, failCommit: true}
+	store := newTestNetworkFlowStore(t, db, harness.Revisions.Appender())
+	notified := 0
+	runner := notificationTestRunner{notify: func(id uuid.UUID) {
+		if !db.committed {
+			t.Fatal("worker notified before commit")
+		}
+		var visible int
+		if err := harness.Pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE job_id = $1`, id).Scan(&visible); err != nil || visible != 1 {
+			t.Fatalf("notification preceded durable visibility: %v", err)
+		}
+		notified++
+	}}
+	create := NewSavedGraphCreateCommandForTest(store, transactions, runner, incidentID, actorID, semantic)
+	if err := create(context.Background(), "notification-commit-fail", "Notification failure"); err == nil || notified != 0 {
+		t.Fatalf("failed commit notified: %d %v", notified, err)
+	}
+	var retained int
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT count(*) FROM network_flow_graph_views WHERE normalized_display_name = 'notification failure'`).Scan(&retained); err != nil || retained != 0 {
+		t.Fatalf("failed command commit persisted: %d %v", retained, err)
+	}
+	db.failCommit = false
+	for range 2 {
+		if err := create(context.Background(), "notification-commit-pass", "Notification success"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if notified != 1 {
+		t.Fatalf("fresh/replayed command notifications=%d", notified)
+	}
+}
+
+type notificationTestRunner struct{ notify func(uuid.UUID) }
+
+func (notificationTestRunner) RegisterHandler(string, jobs.HandlerFunc) error {
+	panic("command registered a worker")
+}
+func (r notificationTestRunner) Notify(id uuid.UUID) { r.notify(id) }
+
+type notificationTestDB struct {
+	postgres.DB
+	failCommit, committed bool
+}
+
+func (db *notificationTestDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	tx, err := db.DB.BeginTx(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return notificationTestTx{Tx: tx, db: db}, nil
+}
+
+type notificationTestTx struct {
+	pgx.Tx
+	db *notificationTestDB
+}
+
+func (tx notificationTestTx) Commit(ctx context.Context) error {
+	if tx.db.failCommit {
+		return errors.New("injected command commit failure")
+	}
+	err := tx.Tx.Commit(ctx)
+	tx.db.committed = err == nil
+	return err
 }

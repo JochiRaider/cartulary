@@ -7,10 +7,18 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit(t *testing.T) {
+	// An embedded nil reader panics if construction performs source I/O.
+	reader := &constructorOnlyGraphReader{}
+	if _, err := newGraphSourceComposer(reader, defaultEffectiveLimits(), newGraphProjectionAdapter(), time.Now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newGraphSourceComposer(nil, defaultEffectiveLimits(), newGraphProjectionAdapter(), time.Now, nil); err == nil {
+		t.Fatal("missing source accepted")
+	}
+
 	observer := panicGraphTelemetryObserver{}
 	observeGraphPhaseSafely(context.Background(), observer, GraphPhaseTelemetryObservation{Phase: "source_scan"})
 	observeGraphResultSafely(context.Background(), observer, GraphResultTelemetryObservation{Vertices: 1})
@@ -19,7 +27,7 @@ func TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit(t *testin
 	sweeper := &graphResultCleanupDispatcherTestSweeper{
 		calls: make(chan *graphprojection.ResultCleanupCandidateV2, 1),
 		responses: []graphResultCleanupDispatcherTestResponse{{result: graphResultCleanupSweepResult{
-			DeletedLeases: 2, DeletedResults: 1, HealthSnapshotValid: true,
+			DeletedLeases: 2, DeletedResults: 1, Examined: 3,
 		}}},
 	}
 	dispatcher, err := newGraphResultCleanupDispatcher(sweeper, time.Now, func() {})
@@ -27,16 +35,42 @@ func TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit(t *testin
 		t.Fatal(err)
 	}
 	dispatcher.telemetry = observer
-	result, err := dispatcher.runOnce(context.Background(), nil)
+	result, err := dispatcher.runOnce(context.Background(), &graphCleanupSchedule{})
 	if err != nil || result.DeletedLeases != 2 || result.DeletedResults != 1 {
 		t.Fatalf("telemetry panic changed cleanup product result = %#v err=%v", result, err)
 	}
+	t.Run("continuation is the successful dispatcher decision", func(t *testing.T) {
+		observer := &recordingGraphTelemetryObserver{}
+		candidate := &graphprojection.ResultCleanupCandidateV2{ProjectionResultID: "candidate", PublishedAt: time.Now()}
+		sweeper := &graphResultCleanupDispatcherTestSweeper{calls: make(chan *graphprojection.ResultCleanupCandidateV2, 4), responses: []graphResultCleanupDispatcherTestResponse{
+			{result: graphResultCleanupSweepResult{Examined: 8, HasMore: true, NextCursor: candidate}},
+			{result: graphResultCleanupSweepResult{DeletedLeases: 1, Exhausted: true, NextCursor: candidate}},
+			{result: graphResultCleanupSweepResult{Examined: 1, DeletedResults: 1}, err: errors.New("later failure")},
+			{result: graphResultCleanupSweepResult{Exhausted: true}},
+		}}
+		dispatcher, _ := newGraphResultCleanupDispatcher(sweeper, time.Now, func() {})
+		dispatcher.telemetry = observer
+		schedule := &graphCleanupSchedule{}
+		for i, continued := range []bool{true, true, false, false} {
+			_, err := dispatcher.runOnce(context.Background(), schedule)
+			if (err != nil) != (i == 2) || observer.cleanups[i].Continuation != continued {
+				t.Fatalf("decision %d: %#v %v", i, observer.cleanups[i], err)
+			}
+			if i == 1 && schedule.cursor != nil {
+				t.Fatal("lease drain did not select restart")
+			}
+		}
+		if observer.cleanups[2].Examined != 1 || observer.cleanups[2].DeletedResults != 1 {
+			t.Fatal("lost confirmed work on later failure")
+		}
+	})
+
 }
 
 func TestNetworkFlowGraphTelemetryOutcomeVocabulary_Unit(t *testing.T) {
 	tests := []struct {
 		name       string
-		apiErr     *httpapi.APIError
+		apiErr     *semanticFailure
 		wantResult string
 		wantClass  string
 	}{
@@ -48,7 +82,7 @@ func TestNetworkFlowGraphTelemetryOutcomeVocabulary_Unit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, class := graphTelemetryOutcomeForAPIError(test.apiErr)
+			result, class := graphTelemetryOutcomeForFailure(test.apiErr)
 			if result != test.wantResult || class != test.wantClass {
 				t.Fatalf("outcome = %q/%q want %q/%q", result, class, test.wantResult, test.wantClass)
 			}
@@ -67,7 +101,7 @@ func TestNetworkFlowGraphTelemetryOutcomeVocabulary_Unit(t *testing.T) {
 
 func TestNetworkFlowGraphTelemetrySemanticBoundaries_Unit(t *testing.T) {
 	observer := &recordingGraphTelemetryObserver{}
-	service := &Service{graphTelemetry: observer}
+	service := &graphSourceComposer{graphTelemetry: observer}
 	service.observeGraphPhase(context.Background(), graphTelemetryPhaseSourceValidation, "default_flow_edge_v1", time.Now(), nil)
 	service.observeGraphPhase(
 		context.Background(), graphTelemetryPhaseSourceScan, "default_flow_edge_v1", time.Now(),
@@ -116,7 +150,7 @@ func TestNetworkFlowGraphTelemetrySemanticBoundaries_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	dispatcher.telemetry = observer
-	if _, err := dispatcher.runOnce(context.Background(), nil); err == nil {
+	if _, err := dispatcher.runOnce(context.Background(), &graphCleanupSchedule{}); err == nil {
 		t.Fatal("cleanup failure was not returned to the dispatcher")
 	}
 	if len(observer.cleanups) != 1 || observer.cleanups[0].Operation != graphTelemetryOperationCleanup ||
@@ -156,3 +190,5 @@ func (observer *recordingGraphTelemetryObserver) ObserveGraphResult(_ context.Co
 func (observer *recordingGraphTelemetryObserver) ObserveGraphCleanup(_ context.Context, observation GraphCleanupTelemetryObservation) {
 	observer.cleanups = append(observer.cleanups, observation)
 }
+
+type constructorOnlyGraphReader struct{ graphSourceReader }

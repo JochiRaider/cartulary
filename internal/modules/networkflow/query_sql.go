@@ -18,9 +18,9 @@ type sqlValueExpression struct {
 	direction  string
 }
 
-func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableIDs []string, filters []Filter, sortSpecs []SortSpec, position *rowCursorPosition, limit int) ([]FlowRow, bool, error) {
+func (s *store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableIDs []string, filters []queryFilter, sortSpecs []sortSpec, position *rowCursorPosition, limit int) ([]flowRow, bool, error) {
 	if len(tableIDs) == 0 || limit < 1 {
-		return []FlowRow{}, false, nil
+		return []flowRow{}, false, nil
 	}
 	args := []any{incidentID, tableIDs}
 	where := []string{"incident_id = $1", "network_flow_table_id = ANY($2::text[])"}
@@ -59,7 +59,7 @@ func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableID
 		return nil, false, fmt.Errorf("query Network Flow row page: %w", err)
 	}
 	defer rows.Close()
-	result := make([]FlowRow, 0, limit+1)
+	result := make([]flowRow, 0, limit+1)
 	for rows.Next() {
 		row, err := scanFlowRow(rows)
 		if err != nil {
@@ -77,7 +77,7 @@ func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableID
 	return result, hasMore, nil
 }
 
-func appendRowKeysetSQL(effective []SortSpec, position rowCursorPosition, args *[]any) (string, error) {
+func appendRowKeysetSQL(effective []sortSpec, position rowCursorPosition, args *[]any) (string, error) {
 	if !sameSortSpecs(effective, position.EffectiveSort) || len(position.Values) != len(effective) {
 		return "", fmt.Errorf("network flow cursor sort tuple mismatch")
 	}
@@ -126,8 +126,8 @@ func appendRowKeysetSQL(effective []SortSpec, position rowCursorPosition, args *
 	return "(" + strings.Join(disjunction, " OR ") + ")", nil
 }
 
-func appendRowFilterSQL(filter Filter, args *[]any) (string, error) {
-	if filter.FieldKey == FieldEndpointIP {
+func appendRowFilterSQL(filter queryFilter, args *[]any) (string, error) {
+	if filter.FieldKey == fieldEndpointIP {
 		return appendEndpointFilterSQL(filter, args)
 	}
 	expression, ok := rowSQLExpression(filter.FieldKey)
@@ -187,7 +187,7 @@ func appendRowFilterSQL(filter Filter, args *[]any) (string, error) {
 	}
 }
 
-func appendEndpointFilterSQL(filter Filter, args *[]any) (string, error) {
+func appendEndpointFilterSQL(filter queryFilter, args *[]any) (string, error) {
 	if filter.Op == "in" {
 		values, ok := filter.Value.([]any)
 		if !ok || len(values) == 0 {
@@ -215,29 +215,29 @@ func appendEndpointFilterSQL(filter Filter, args *[]any) (string, error) {
 
 func rowSQLExpression(field string) (string, bool) {
 	switch field {
-	case FieldSrcIP:
+	case fieldSrcIP:
 		return "src_ip::inet", true
-	case FieldDstIP:
+	case fieldDstIP:
 		return "dst_ip::inet", true
-	case FieldSrcPort:
+	case fieldSrcPort:
 		return "src_port", true
-	case FieldDstPort:
+	case fieldDstPort:
 		return "dst_port", true
-	case FieldIPProtocol:
+	case fieldIPProtocol:
 		return "ip_protocol", true
-	case FieldFlowStartUTC:
+	case fieldFlowStartUTC:
 		return "flow_start_utc", true
-	case FieldFlowEndUTC:
+	case fieldFlowEndUTC:
 		return "flow_end_utc", true
-	case FieldBytesCount:
+	case fieldBytesCount:
 		return "bytes_count::numeric", true
-	case FieldPacketsCount:
+	case fieldPacketsCount:
 		return "packets_count::numeric", true
-	case FieldExporterID:
+	case fieldExporterID:
 		return `exporter_id COLLATE "C"`, true
-	case FieldInputInterface:
+	case fieldInputInterface:
 		return `input_interface COLLATE "C"`, true
-	case FieldOutputInterface:
+	case fieldOutputInterface:
 		return `output_interface COLLATE "C"`, true
 	case "source_row_number":
 		return "source_row_number", true
@@ -252,13 +252,13 @@ func rowSQLExpression(field string) (string, bool) {
 
 func rowSQLCast(field string) string {
 	switch field {
-	case FieldSrcIP, FieldDstIP:
+	case fieldSrcIP, fieldDstIP:
 		return "inet"
-	case FieldSrcPort, FieldDstPort, FieldIPProtocol:
+	case fieldSrcPort, fieldDstPort, fieldIPProtocol:
 		return "integer"
-	case FieldFlowStartUTC, FieldFlowEndUTC:
+	case fieldFlowStartUTC, fieldFlowEndUTC:
 		return "timestamptz"
-	case FieldBytesCount, FieldPacketsCount:
+	case fieldBytesCount, fieldPacketsCount:
 		return "numeric"
 	case "source_row_number":
 		return "bigint"
@@ -271,7 +271,7 @@ func rowSQLCursorValue(field string, value any) (any, string, error) {
 	if value == nil {
 		return nil, rowSQLCast(field), nil
 	}
-	if field == FieldFlowStartUTC || field == FieldFlowEndUTC {
+	if field == fieldFlowStartUTC || field == fieldFlowEndUTC {
 		text, ok := value.(string)
 		if !ok {
 			return nil, "", fmt.Errorf("invalid Network Flow timestamp cursor value")
@@ -294,7 +294,7 @@ func rowSQLArgument(field string, value any) any {
 
 func rowSQLFieldNullable(field string) bool {
 	switch field {
-	case FieldSrcPort, FieldDstPort, FieldExporterID, FieldInputInterface, FieldOutputInterface:
+	case fieldSrcPort, fieldDstPort, fieldExporterID, fieldInputInterface, fieldOutputInterface:
 		return true
 	default:
 		return false
@@ -309,7 +309,7 @@ func flowRowColumnList() string {
        tcp_flags, application_label, unmapped_raw, observation_source_ref, created_at, created_by_user_id`
 }
 
-func (s *Store) QueryRejectedDiagnosticsPage(ctx context.Context, incidentID uuid.UUID, tableID string, request RejectedRowsQueryRequest, position *diagnosticCursorPosition, limit int) ([]RejectedRowDiagnostic, bool, error) {
+func (s *store) QueryRejectedDiagnosticsPage(ctx context.Context, incidentID uuid.UUID, tableID string, request rejectedRowsQueryRequest, position *diagnosticCursorPosition, limit int) ([]rejectedRowDiagnostic, bool, error) {
 	args := []any{incidentID, tableID}
 	where := []string{"incident_id = $1", "network_flow_table_id = $2"}
 	if len(request.ErrorCodes) > 0 {
@@ -358,7 +358,7 @@ func (s *Store) QueryRejectedDiagnosticsPage(ctx context.Context, incidentID uui
 		return nil, false, fmt.Errorf("query Network Flow diagnostic page: %w", err)
 	}
 	defer rows.Close()
-	result := make([]RejectedRowDiagnostic, 0, limit+1)
+	result := make([]rejectedRowDiagnostic, 0, limit+1)
 	for rows.Next() {
 		diagnostic, err := scanRejectedRowDiagnostic(rows)
 		if err != nil {

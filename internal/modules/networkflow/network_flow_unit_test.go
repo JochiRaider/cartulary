@@ -113,7 +113,7 @@ func TestGraphProjectionFailureClassification(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			requireAPIError(t, graphProjectionFailedForProjectionError(test.err), "network_flow_graph_projection_failed", test.reason)
+			requireAPIError(t, graphProjectionFailedForProjectionErrorHTTP(test.err), "network_flow_graph_projection_failed", test.reason)
 		})
 	}
 }
@@ -122,7 +122,7 @@ func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
 	t.Helper()
 	incidentID := IncidentID()
 	input := networkFlowProjectionInput("nfsnap_"+strings.Repeat("b", 64), graphComposition{
-		SourceTables: []TableRecord{{IncidentID: incidentID}},
+		SourceTables: []tableRecord{{IncidentID: incidentID}},
 		Vertices:     map[string]*graphVertex{},
 		Edges:        map[string]*graphEdge{},
 	})
@@ -148,18 +148,18 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	digestIncidentID := IncidentID()
 	digestAggregation := graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}
 	digestTimeRange := graphTimeRange{Omitted: true}
-	if omittedDigest, emptyDigest := graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, nil, digestTimeRange, digestAggregation), graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, []Filter{}, digestTimeRange, digestAggregation); omittedDigest != emptyDigest {
+	if omittedDigest, emptyDigest := graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, nil, digestTimeRange, digestAggregation), graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, []queryFilter{}, digestTimeRange, digestAggregation); omittedDigest != emptyDigest {
 		t.Fatalf("omitted and empty graph filters produced different digests: %s != %s", omittedDigest, emptyDigest)
 	}
 	fixture := ReadFile(t, "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/source/cisco-sna-minimal.csv")
-	parsed, err := ParseCSVApply(bytes.NewReader(fixture), "", DefaultLimits())
+	parsed, err := parseCSVApply(bytes.NewReader(fixture), "", defaultLimits())
 	if err != nil {
 		t.Fatalf("parse canonical Network Flow fixture: %v", err)
 	}
-	mapping := approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV)
+	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	mapping.SourceColumns = parsed.SourceColumns
-	fingerprint := MappingFingerprint(mapping, parsed.SourceContentSHA256)
-	rows, diagnostics, _, err := ValidateRows(parsed, mapping, fingerprint, DefaultLimits())
+	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
+	rows, diagnostics, _, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
 	if err != nil || len(diagnostics) != 0 {
 		t.Fatalf("validate canonical Network Flow fixture: rows=%d diagnostics=%#v err=%v", len(rows), diagnostics, err)
 	}
@@ -170,14 +170,14 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 		rows[index].NetworkFlowTableID = tableID
 		rows[index].RowID = fmt.Sprintf("nfr_%064x", index+1)
 	}
-	table := TableRecord{
+	table := tableRecord{
 		IncidentID:         incidentID,
 		TableID:            tableID,
 		MappingFingerprint: fingerprint,
 	}
-	limits := DefaultLimits()
+	limits := defaultLimits()
 	composition := graphComposition{
-		SourceTables:     []TableRecord{table},
+		SourceTables:     []tableRecord{table},
 		TableRanks:       map[string]int{tableID: 0},
 		Vertices:         map[string]*graphVertex{},
 		Edges:            map[string]*graphEdge{},
@@ -191,7 +191,7 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 		},
 		IncludeExamples: true,
 	}
-	if apiErr := composeGraphObjectsForTest(incidentID, rows, map[string]TableRecord{tableID: table}, &composition); apiErr != nil {
+	if apiErr := composeGraphObjectsForTest(incidentID, rows, map[string]tableRecord{tableID: table}, &composition); apiErr != nil {
 		t.Fatalf("compose canonical Network Flow graph: %#v", apiErr)
 	}
 	adapter := newGraphProjectionAdapter()
@@ -241,15 +241,15 @@ func TestNetworkFlow_TrimASCIISpaceOnly_Unit(t *testing.T) {
 func AssertCiscoSNARequiredFields(t *testing.T) {
 	t.Helper()
 	want := []string{
-		FieldFlowStartUTC,
-		FieldFlowEndUTC,
-		FieldSrcIP,
-		FieldDstIP,
-		FieldSrcPort,
-		FieldDstPort,
-		FieldIPProtocol,
-		FieldBytesCount,
-		FieldPacketsCount,
+		fieldFlowStartUTC,
+		fieldFlowEndUTC,
+		fieldSrcIP,
+		fieldDstIP,
+		fieldSrcPort,
+		fieldDstPort,
+		fieldIPProtocol,
+		fieldBytesCount,
+		fieldPacketsCount,
 	}
 	if got := requiredCiscoFields(); !sameStrings(got, want) {
 		t.Fatalf("required Cisco SNA fields got %#v want %#v", got, want)
@@ -266,22 +266,22 @@ func AssertCiscoSNARequiredFields(t *testing.T) {
 
 func AssertCSVParserEdges(t *testing.T) {
 	t.Helper()
-	limits := DefaultLimits()
+	limits := defaultLimits()
 	for name, input := range map[string]string{
 		"empty":       "",
 		"header_only": "a,b\n",
 		"bad_quote":   "a,b\n\"unterminated,b\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := ParseCSVApply(strings.NewReader(input), "", limits); err == nil {
+			if _, err := parseCSVApply(strings.NewReader(input), "", limits); err == nil {
 				t.Fatalf("expected %s CSV to fail", name)
 			}
 		})
 	}
-	if _, err := ParseCSVApply(bytes.NewReader([]byte{'a', 0x01, '\n', 'b', '\n'}), "", limits); err == nil {
+	if _, err := parseCSVApply(bytes.NewReader([]byte{'a', 0x01, '\n', 'b', '\n'}), "", limits); err == nil {
 		t.Fatalf("expected forbidden header control to fail")
 	}
-	parsed, err := ParseCSVApply(strings.NewReader("a,b\n1,2\n3\n"), "", limits)
+	parsed, err := parseCSVApply(strings.NewReader("a,b\n1,2\n3\n"), "", limits)
 	if err != nil {
 		t.Fatalf("field-count fixture parse: %v", err)
 	}
@@ -293,33 +293,33 @@ func AssertCSVParserEdges(t *testing.T) {
 func AssertDigestAlgorithms(t *testing.T) {
 	t.Helper()
 	assertUnicode17TextCanonicalization(t)
-	rowDigest := SourceRowDigest(ParserProfileRFC4180HeaderedCSV, 2, []string{"192.0.2.10", "443"})
+	rowDigest := sourceRowDigest(parserProfileRFC4180HeaderedCSV, 2, []string{"192.0.2.10", "443"})
 	if !hex64(rowDigest) {
 		t.Fatalf("source row digest is not sha256 hex: %q", rowDigest)
 	}
 	mappingFingerprint := strings.Repeat("a", 64)
-	normalized := NormalizedRowDigest(mappingFingerprint, map[string]any{
-		FieldFlowStartUTC:         "2026-07-10T12:00:00Z",
-		FieldFlowEndUTC:           "2026-07-10T12:00:05Z",
-		FieldSrcIP:                "192.0.2.10",
-		FieldDstIP:                "192.0.2.20",
-		FieldSrcPort:              443,
-		FieldDstPort:              51515,
-		FieldIPProtocol:           6,
-		FieldBytesCount:           "1200",
-		FieldPacketsCount:         "12",
-		FieldObservationSourceRef: map[string]any{},
+	normalized := normalizedRowDigest(mappingFingerprint, map[string]any{
+		fieldFlowStartUTC:         "2026-07-10T12:00:00Z",
+		fieldFlowEndUTC:           "2026-07-10T12:00:05Z",
+		fieldSrcIP:                "192.0.2.10",
+		fieldDstIP:                "192.0.2.20",
+		fieldSrcPort:              443,
+		fieldDstPort:              51515,
+		fieldIPProtocol:           6,
+		fieldBytesCount:           "1200",
+		fieldPacketsCount:         "12",
+		fieldObservationSourceRef: map[string]any{},
 	}, map[string]any{})
 	if !hex64(normalized) {
 		t.Fatalf("normalized row digest is not sha256 hex: %q", normalized)
 	}
-	rowID := RowID(IncidentID(), "nft_network_flow", 2, rowDigest, normalized)
+	rowID := rowID(IncidentID(), "nft_network_flow", 2, rowDigest, normalized)
 	if !strings.HasPrefix(rowID, "nfr_") || len(rowID) != len("nfr_")+64 {
 		t.Fatalf("unexpected row ID: %q", rowID)
 	}
 	edgePort := int32(443)
-	edgeWithPort := FlowEdgeID(IncidentID(), "nfe_src", "nfe_dst", 6, &edgePort)
-	edgeWithoutPort := FlowEdgeID(IncidentID(), "nfe_src", "nfe_dst", 6, nil)
+	edgeWithPort := flowEdgeID(IncidentID(), "nfe_src", "nfe_dst", 6, &edgePort)
+	edgeWithoutPort := flowEdgeID(IncidentID(), "nfe_src", "nfe_dst", 6, nil)
 	if edgeWithPort == edgeWithoutPort || !strings.HasPrefix(edgeWithPort, "nff_") || !strings.HasPrefix(edgeWithoutPort, "nff_") {
 		t.Fatalf("edge ID port identity not distinct: with=%q without=%q", edgeWithPort, edgeWithoutPort)
 	}
@@ -327,7 +327,7 @@ func AssertDigestAlgorithms(t *testing.T) {
 
 func AssertTimestampRules(t *testing.T) {
 	t.Helper()
-	profile := TimestampProfile{Mode: "rfc3339", Precision: "seconds"}
+	profile := timestampProfile{Mode: "rfc3339", Precision: "seconds"}
 	for _, value := range []string{
 		"2026-03-08T02:30:00",
 		"2026-07-10t12:00:00z",
@@ -388,11 +388,11 @@ func AssertUint64DecimalGrammar(t *testing.T) {
 func AssertCIDRFamilyBehavior(t *testing.T) {
 	t.Helper()
 	row := flowRowFixture()
-	matched, apiErr := rowMatchesFilter(row, Filter{FieldKey: FieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
+	matched, apiErr := rowMatchesFilterHTTP(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
 	if apiErr != nil || !matched {
 		t.Fatalf("expected IPv4 CIDR to match src_ip: matched=%v err=%v", matched, apiErr)
 	}
-	matched, apiErr = rowMatchesFilter(row, Filter{FieldKey: FieldSrcIP, Op: "cidr_contains", Value: "2001:db8::/32"})
+	matched, apiErr = rowMatchesFilterHTTP(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "2001:db8::/32"})
 	if apiErr != nil {
 		t.Fatalf("IPv6 CIDR against IPv4 source should not error: %v", apiErr)
 	}
@@ -401,7 +401,7 @@ func AssertCIDRFamilyBehavior(t *testing.T) {
 	}
 	mapped := row
 	mapped.SrcIP = "::ffff:192.0.2.10"
-	matched, apiErr = rowMatchesFilter(mapped, Filter{FieldKey: FieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
+	matched, apiErr = rowMatchesFilterHTTP(mapped, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
 	if apiErr != nil {
 		t.Fatalf("IPv4 CIDR against mapped IPv6 source should not error: %v", apiErr)
 	}
@@ -412,7 +412,7 @@ func AssertCIDRFamilyBehavior(t *testing.T) {
 
 func AssertErrorDetailShape(t *testing.T) {
 	t.Helper()
-	err := invalidFilter("value", "duplicate_in_value")
+	err := invalidFilterHTTP("value", "duplicate_in_value")
 	if err.Status != 400 || err.Code != "network_flow_invalid_filter" {
 		t.Fatalf("unexpected API error envelope core fields: %#v", err)
 	}
@@ -431,28 +431,28 @@ func AssertSuccessResourceShape(t *testing.T) {
 		"network_flow_row_id",
 		"network_flow_table_id",
 		"source_row_number",
-		FieldFlowStartUTC,
-		FieldFlowEndUTC,
-		FieldSrcIP,
-		FieldDstIP,
-		FieldSrcPort,
-		FieldDstPort,
-		FieldIPProtocol,
-		FieldBytesCount,
-		FieldPacketsCount,
-		FieldExporterID,
-		FieldInputInterface,
-		FieldOutputInterface,
-		FieldTCPFlags,
-		FieldApplicationLabel,
+		fieldFlowStartUTC,
+		fieldFlowEndUTC,
+		fieldSrcIP,
+		fieldDstIP,
+		fieldSrcPort,
+		fieldDstPort,
+		fieldIPProtocol,
+		fieldBytesCount,
+		fieldPacketsCount,
+		fieldExporterID,
+		fieldInputInterface,
+		fieldOutputInterface,
+		fieldTCPFlags,
+		fieldApplicationLabel,
 		"unmapped_raw",
-		FieldObservationSourceRef,
+		fieldObservationSourceRef,
 	} {
 		if _, ok := resource[key]; !ok {
 			t.Fatalf("row resource missing key %q in %#v", key, resource)
 		}
 	}
-	if resource[FieldExporterID] != nil || resource[FieldTCPFlags] != nil || resource[FieldApplicationLabel] != nil {
+	if resource[fieldExporterID] != nil || resource[fieldTCPFlags] != nil || resource[fieldApplicationLabel] != nil {
 		t.Fatalf("unsupported optional Cisco SNA fields must serialize as null: %#v", resource)
 	}
 }
@@ -464,7 +464,7 @@ func AssertCSVPreviewBoundary(t *testing.T) {
 	for i := 0; i < 55; i++ {
 		fmt.Fprintf(&b, "%d,%d\n", i, i)
 	}
-	parsed, err := ParseCSVPreview(strings.NewReader(b.String()), "", DefaultLimits())
+	parsed, err := parseCSVPreview(strings.NewReader(b.String()), "", defaultLimits())
 	if err != nil {
 		t.Fatalf("preview parse: %v", err)
 	}
@@ -475,33 +475,33 @@ func AssertCSVPreviewBoundary(t *testing.T) {
 
 func AssertCiscoSNATargetBoundary(t *testing.T) {
 	t.Helper()
-	if sourceMappableField(FieldExporterID) || sourceMappableField(FieldTCPFlags) || sourceMappableField(FieldApplicationLabel) {
+	if sourceMappableField(fieldExporterID) || sourceMappableField(fieldTCPFlags) || sourceMappableField(fieldApplicationLabel) {
 		t.Fatalf("exporter, tcp_flags, and application label must not be Cisco SNA v1 source-mappable")
 	}
-	if !sourceMappableField(FieldInputInterface) || !sourceMappableField(FieldOutputInterface) {
+	if !sourceMappableField(fieldInputInterface) || !sourceMappableField(fieldOutputInterface) {
 		t.Fatalf("input/output interface fields must be the supported optional Cisco SNA targets")
 	}
 }
 
 func AssertTrimASCIISpaceOnly(t *testing.T) {
 	t.Helper()
-	record := CSVRecord{SourceRowNumber: 2, Fields: []string{"\t inside \t"}, FieldCountOK: true}
-	mapping := ApprovedMapping{
-		SourceColumns: []SourceColumnDescriptor{{SourceColumnOrdinal: 1, RawHeaderSHA256: strings.Repeat("a", 64)}},
-		FieldMappings: []FieldMapping{{
-			MappingKind:         MappingKindSourceColumn,
-			FieldKey:            FieldInputInterface,
+	record := csvRecord{SourceRowNumber: 2, Fields: []string{"\t inside \t"}, FieldCountOK: true}
+	mapping := approvedMapping{
+		SourceColumns: []sourceColumnDescriptor{{SourceColumnOrdinal: 1, RawHeaderSHA256: strings.Repeat("a", 64)}},
+		FieldMappings: []fieldMapping{{
+			MappingKind:         mappingKindSourceColumn,
+			FieldKey:            fieldInputInterface,
 			SourceColumnOrdinal: 1,
-			TransformID:         TransformTrimASCIISpace,
-			EmptyValuePolicy:    EmptyPolicyNull,
+			TransformID:         transformTrimASCIISpace,
+			EmptyValuePolicy:    emptyPolicyNull,
 		}},
 	}
-	value, diag := mappedValue(record, mapping, mapping.FieldMappings[0], FieldInputInterface)
+	value, diag := mappedValue(record, mapping, mapping.FieldMappings[0], fieldInputInterface)
 	if diag != nil || value != "\t inside \t" {
 		t.Fatalf("trim_ascii_space_v1 must not trim tab characters: value=%#v diag=%#v", value, diag)
 	}
 	record.Fields[0] = "  inside  "
-	value, diag = mappedValue(record, mapping, mapping.FieldMappings[0], FieldInputInterface)
+	value, diag = mappedValue(record, mapping, mapping.FieldMappings[0], fieldInputInterface)
 	if diag != nil || value != "inside" {
 		t.Fatalf("trim_ascii_space_v1 must trim only ASCII spaces: value=%#v diag=%#v", value, diag)
 	}
@@ -518,8 +518,8 @@ func AssertAllFixtureRuntimeBehavior(t *testing.T) {
 		manifest := manifest
 		t.Run(manifest.FixtureID, func(t *testing.T) {
 			root := filepath.Join(RepoRoot(t), "fixtures", "network-flow", manifest.FixtureID)
-			var parsed []*ParsedCSV
-			var mappings []ApprovedMapping
+			var parsed []*parsedCSV
+			var mappings []approvedMapping
 			executed := 0
 			for _, file := range manifest.SourceFiles {
 				path := filepath.Join(root, filepath.FromSlash(file.LogicalPath))
@@ -530,22 +530,22 @@ func AssertAllFixtureRuntimeBehavior(t *testing.T) {
 				switch {
 				case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".csv"):
 					executed++
-					value, parseErr := ParseCSVApply(bytes.NewReader(content), file.SHA256, DefaultLimits())
+					value, parseErr := parseCSVApply(bytes.NewReader(content), file.SHA256, defaultLimits())
 					if parseErr == nil {
 						parsed = append(parsed, &value)
 					}
-					_ = SanitizeSourceFilenameDisplay(file.LogicalPath)
+					_ = sanitizeSourceFilenameDisplay(file.LogicalPath)
 				case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".jsonl"):
 					for _, line := range bytes.Split(content, []byte{'\n'}) {
 						if len(bytes.TrimSpace(line)) == 0 {
 							continue
 						}
 						executed++
-						_, _ = decodeAcceptedRowQueryRequest(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, DefaultLimits())
+						_, _ = decodeAcceptedRowQueryRequestHTTP(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, defaultLimits())
 					}
 				case file.Role == "mapping" && strings.HasSuffix(file.LogicalPath, ".json"):
 					executed++
-					mapping, mappingErr := DecodeApprovedMapping(content)
+					mapping, mappingErr := decodeApprovedMapping(content)
 					if mappingErr == nil {
 						mappings = append(mappings, mapping)
 					}
@@ -557,8 +557,8 @@ func AssertAllFixtureRuntimeBehavior(t *testing.T) {
 						continue
 					}
 					executed++
-					fingerprint := MappingFingerprint(mapping, csv.SourceContentSHA256)
-					_, _, _, _ = ValidateRows(*csv, mapping, fingerprint, DefaultLimits())
+					fingerprint := mappingFingerprint(mapping, csv.SourceContentSHA256)
+					_, _, _, _ = validateRows(*csv, mapping, fingerprint, defaultLimits())
 				}
 			}
 			if executed == 0 {
@@ -720,10 +720,10 @@ func IncidentID() uuid.UUID {
 	return uuid.UUID{0x12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12}
 }
 
-func flowRowFixture() FlowRow {
+func flowRowFixture() flowRow {
 	srcPort := int32(443)
 	dstPort := int32(51515)
-	return FlowRow{
+	return flowRow{
 		RowID:                     "nfr_" + strings.Repeat("1", 64),
 		NetworkFlowTableID:        "nft_network_flow",
 		IncidentID:                IncidentID(),

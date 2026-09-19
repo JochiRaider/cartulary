@@ -37,7 +37,7 @@ type indicatorLinkWriteCapability interface {
 type transactionCapability struct {
 	participantID string
 	tx            pgx.Tx
-	store         *Store
+	store         *store
 	imports       ImportSourcePort
 }
 
@@ -58,9 +58,9 @@ func (c *transactionCapability) ValidateImportApply(ctx context.Context, request
 	)
 }
 
-func (c *transactionCapability) CreateImportedTable(ctx context.Context, params CreateTableParams) (TableRecord, error) {
+func (c *transactionCapability) CreateImportedTable(ctx context.Context, params createTableParams) (tableRecord, error) {
 	if c == nil || c.participantID != ImportApplyParticipantID || c.store == nil {
-		return TableRecord{}, crossownertransaction.ErrUnavailable
+		return tableRecord{}, crossownertransaction.ErrUnavailable
 	}
 	return c.store.CreateTableTx(ctx, c.tx, params)
 }
@@ -74,11 +74,11 @@ type indicatorLinkMutation struct {
 	RequestHash  []byte
 	RequestID    string
 	Now          time.Time
-	SafeDigester SafeDigester
+	SafeDigester safeDigester
 }
 
 type indicatorLinkCommitResult struct {
-	Binding   IndicatorBindingRecord
+	Binding   indicatorBindingRecord
 	Duplicate bool
 	Payload   map[string]any
 	Status    int
@@ -127,7 +127,7 @@ func validateIndicatorLinkSourcesTx(ctx context.Context, tx pgx.Tx, mutation ind
 		var status string
 		err := tx.QueryRow(ctx, `SELECT table_status FROM network_flow_tables WHERE incident_id = $1 AND network_flow_table_id = $2`, mutation.IncidentID, id).Scan(&status)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return &indicatorLinkPreconditionError{APIError: linkSourceTableError(tableReadError(ErrTableNotFound), id)}
+			return &indicatorLinkPreconditionError{APIError: linkSourceTableError(tableReadError(errTableNotFound), id)}
 		}
 		if err == nil && status != "active" {
 			return &indicatorLinkPreconditionError{APIError: &httpapi.APIError{Status: 409, Code: "network_flow_table_not_active", Details: map[string]any{"reason_code": "soft_deleted", "network_flow_table_id": id, "table_status": linkNullable(status), "allowed_states": []string{"active"}, "retry_action": "refresh_resource"}}}
@@ -175,7 +175,7 @@ func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation
 		})
 		target = result.Indicator
 	default:
-		err = ErrInvalidStorageArgument
+		err = errInvalidStorageArgument
 	}
 	if err != nil {
 		return indicatorLinkCommitResult{}, err
@@ -183,7 +183,7 @@ func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation
 	if err := validateIndicatorTargetLogical(target, mutation.Resolved.CandidateValue, mutation.TargetType); err != nil {
 		return indicatorLinkCommitResult{}, err
 	}
-	binding, duplicate, err := c.store.CreateOrReuseIndicatorBindingTx(ctx, c.tx, CreateIndicatorBindingParams{
+	binding, duplicate, err := c.store.CreateOrReuseIndicatorBindingTx(ctx, c.tx, createIndicatorBindingParams{
 		IncidentID: mutation.IncidentID, ActorUserID: mutation.Actor.ID, TargetIndicator: target,
 		SelectorKind: mutation.Resolved.SelectorKind, CandidateValue: mutation.Resolved.CandidateValue,
 		SourceRowRefs: mutation.Resolved.SourceRowRefs, SourceRowRefsTruncated: mutation.Resolved.SourceRowRefsTruncated,

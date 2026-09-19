@@ -2,14 +2,11 @@ package networkflow
 
 import (
 	"bytes"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 var graphBucketWidths = map[int64]struct{}{
@@ -42,7 +39,7 @@ func canonicalTimestampText(value string, parsed time.Time) bool {
 	return timestamp(parsed) == value
 }
 
-func graphTimeBuckets(timeRange graphTimeRange, width int64, limit int) ([]graphTimeBucket, *httpapi.APIError) {
+func graphTimeBuckets(timeRange graphTimeRange, width int64, limit int) ([]graphTimeBucket, *semanticFailure) {
 	if timeRange.StartUTC == nil || timeRange.EndUTC == nil || !timeRange.EndUTC.After(*timeRange.StartUTC) {
 		return nil, invalidTimeRange("time_range", "complete_range_required", timeRange.StartUTC, timeRange.EndUTC)
 	}
@@ -91,7 +88,7 @@ func ceilEpochBucket(value time.Time, width int64) time.Time {
 	return floor.Add(time.Duration(width) * time.Second)
 }
 
-func BucketEdgeID(
+func bucketEdgeID(
 	incidentID uuid.UUID,
 	bucketStart time.Time,
 	bucketEnd time.Time,
@@ -123,10 +120,10 @@ func BucketEdgeID(
 
 func composeTimeBucketGraphRow(
 	incidentID uuid.UUID,
-	row FlowRow,
-	tableByID map[string]TableRecord,
+	row flowRow,
+	tableByID map[string]tableRecord,
 	composition *graphComposition,
-) *httpapi.APIError {
+) *semanticFailure {
 	if composition == nil || len(composition.TimeBuckets) == 0 {
 		return invalidGraphAggregation("aggregation", "variant_member_conflict")
 	}
@@ -141,8 +138,8 @@ func composeTimeBucketGraphRow(
 			composition.ResultLimits.MaxContributingRows, composition.ResultLimits.MaxContributingRows+1,
 		)
 	}
-	srcID := EndpointID(incidentID, "ip", row.SrcIP)
-	dstID := EndpointID(incidentID, "ip", row.DstIP)
+	srcID := endpointID(incidentID, "ip", row.SrcIP)
+	dstID := endpointID(incidentID, "ip", row.DstIP)
 	srcVertex := ensureGraphVertex(composition.Vertices, srcID, row.SrcIP)
 	dstVertex := ensureGraphVertex(composition.Vertices, dstID, row.DstIP)
 	if len(composition.Vertices) > composition.ResultLimits.MaxVertices {
@@ -157,7 +154,7 @@ func composeTimeBucketGraphRow(
 	bucket.UniqueVertexIDs[srcID] = struct{}{}
 	bucket.UniqueVertexIDs[dstID] = struct{}{}
 
-	edgeID := BucketEdgeID(incidentID, bucket.StartUTC, bucket.EndUTC, srcID, dstID, row.IPProtocol, row.DstPort)
+	edgeID := bucketEdgeID(incidentID, bucket.StartUTC, bucket.EndUTC, srcID, dstID, row.IPProtocol, row.DstPort)
 	edge := composition.Edges[edgeID]
 	if edge == nil {
 		bucketStart := bucket.StartUTC
@@ -199,31 +196,24 @@ func timeBucketSummariesResource(buckets []graphTimeBucket) []any {
 	return out
 }
 
-func invalidGraphAggregation(field string, reason string) *httpapi.APIError {
-	return &httpapi.APIError{
-		Status: http.StatusBadRequest, Code: "network_flow_invalid_graph_aggregation", Message: "network_flow_invalid_graph_aggregation",
-		Details: map[string]any{"field": field, "reason_code": reason, "retry_action": "correct_request"},
-	}
+func invalidGraphAggregation(field, reason string) *semanticFailure {
+	return newSemanticFailure(failureInvalidGraphAggregation, field, reason)
 }
 
-func invalidTimeRange(field string, reason string, start *time.Time, end *time.Time) *httpapi.APIError {
-	return &httpapi.APIError{
-		Status: http.StatusBadRequest, Code: "network_flow_invalid_time_range", Message: "network_flow_invalid_time_range",
-		Details: map[string]any{
-			"field": field, "reason_code": reason, "start_utc": nullableTimestamp(start),
-			"end_utc": nullableTimestamp(end), "retry_action": "correct_request",
-		},
-	}
+func invalidTimeRange(field, reason string, start, end *time.Time) *semanticFailure {
+	f := newSemanticFailure(failureInvalidTimeRange, field, reason)
+	f.details.StartUTC = start
+	f.details.EndUTC = end
+	return f
 }
 
-func graphLimitExceededAt(reason string, limitKey string, limit int, actual int, phase string) *httpapi.APIError {
-	return &httpapi.APIError{
-		Status: http.StatusRequestEntityTooLarge, Code: "network_flow_graph_limit_exceeded", Message: "network_flow_graph_limit_exceeded",
-		Details: map[string]any{
-			"reason_code": reason, "limit_key": limitKey, "limit": limit, "actual": actual,
-			"phase": phase, "retry_action": "reduce_scope_or_limits",
-		},
-	}
+func graphLimitExceededAt(reason, limitKey string, limit, actual int, phase string) *semanticFailure {
+	f := newSemanticFailure(failureGraphLimitExceeded, "", reason)
+	f.details.LimitKey = limitKey
+	f.details.Limit = limit
+	f.details.Actual = actual
+	f.details.Phase = phase
+	return f
 }
 
 func graphQueryDigestForSemantic(incidentID uuid.UUID, tableIDs []string, semantic graphSemanticRequest) string {

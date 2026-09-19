@@ -314,7 +314,7 @@ Instrumentation ownership MUST follow this table:
 | Postgres access | Platform/Postgres instrumentation | Standard database client spans and duration metrics without SQL text, bind values, table names, projection names, or connection endpoints. | Workbook modules MUST NOT directly emit raw database query text. |
 | Object storage | Platform/object-store instrumentation | Cartulary object-store dependency spans and byte/duration metrics without bucket names, keys, hashes, filenames, upload IDs, copy sources, or handles. | Object-store implementation details MUST NOT leak into evidence telemetry. |
 | Evidence cleanup | Evidence-owned cleanup observer bound by application assembly | Sweep result/duration, overdue count, oldest eligible age, and bounded static logs. | Incident, record, blob, object-key, filename, hash, capability, and raw-error values MUST NOT enter telemetry. |
-| Network Flow graph materialization and cleanup | Network Flow-owned observer bound by application assembly | Phase duration, bounded volume, cleanup outcome/deletions/backlog, and bounded static logs. | Incident, table, declaration, result, selector, digest, label, row, property, SQL, and raw-error values MUST NOT enter telemetry. |
+| Network Flow graph materialization and cleanup | Network Flow-owned observer bound by application assembly | Phase duration, bounded volume, cleanup outcome/deletions/progress, and bounded static logs. | Incident, table, declaration, result, selector, digest, label, row, property, SQL, and raw-error values MUST NOT enter telemetry. |
 | Workbook query and mutation | Workbook/projection instrumentation | Query, create, patch, conflict, projection-maintenance, and refresh spans. | Projection table names and visible row positions MUST NOT become telemetry identity. |
 | Browser UI | Browser controller instrumentation | Local performance marks MAY exist. | Browser direct OTLP, vendor-native, or third-party telemetry export is forbidden. |
 | Telemetry bootstrap | Server-side telemetry boundary | SDK provider setup, processors, exporters, metric readers, samplers, shutdown, and self-diagnostics. | Ordinary instrumentation units MUST NOT configure SDK, exporter, processor, reader, sampler, propagator, or Collector behavior. |
@@ -1088,8 +1088,9 @@ When metrics are enabled, the implementation MUST emit only the metric instrumen
 | `cartulary.network_flow.cleanup.operations` | Counter | `{operation}` | Network Flow cleanup sweeps by closed outcome. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.network_flow.cleanup.sweep.duration` | Histogram | `s` | Network Flow cleanup sweep duration. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.network_flow.cleanup.deleted` | Counter | `{object}` | Expired leases and eligible projection results deleted by cleanup. | `cartulary.graph_object_kind`, `cartulary.result`. |
-| `cartulary.network_flow.cleanup.eligible` | ObservableGauge | `{result}` | Current eligible projection-result backlog. | No attributes. |
-| `cartulary.network_flow.cleanup.oldest_eligible_result.age` | ObservableGauge | `s` | Age from `published_at` of the oldest currently eligible projection result. | No attributes. |
+| `cartulary.network_flow.cleanup.examined` | Counter | `{result}` | Committed candidate examinations, including retained candidates. | No attributes. |
+| `cartulary.network_flow.cleanup.continuation` | ObservableGauge | `1` | Last successful dispatcher decision: paced continuation is 1, base cadence is 0. | No attributes. |
+| `cartulary.network_flow.cleanup.last_success.age` | ObservableGauge | `s` | Elapsed time since the last successful sweep, without database reads. | No attributes. |
 | `cartulary.postgres.operation.duration` | Histogram | `s` | Postgres dependency operation duration. | `db.system.name`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.objectstore.operation.duration` | Histogram | `s` | Object-store dependency operation duration. | `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.objectstore.transfer.bytes` | Histogram | `By` | Safe object-store transfer size. | `cartulary.operation`, `cartulary.result`; no object labels. |
@@ -1111,13 +1112,23 @@ A timeout uses `cartulary.result='timeout'` and
 `cartulary.error_class='timeout'` without changing the owner-defined timeout or
 indeterminate-commit outcome.
 
-Cleanup backlog and oldest age MUST be observed from the same source-owner-
-scoped eligibility predicate used by cleanup. Oldest eligible age is
-`observation_time - published_at` for the oldest eligible result and is absent
-when none is eligible. It MUST NOT be named, described, or interpreted as
-"time unreachable" because no authoritative unreachable transition is
-persisted. Deleted-object counts distinguish only the closed
+Cleanup records only confirmed committed examination and deletion counts,
+including progress before a later failure. An indeterminate commit is not
+counted. Continuation describes the actual successful dispatcher scheduling
+decision, including a required cursor restart, not backlog size. It retains its
+last successful value on failure and starts at zero. Freshness is absent before
+the first successful sweep and uses elapsed monotonic time since that success,
+continues aging through failures, and resets on the next success. Collection
+performs no database reads. Deleted-object counts distinguish only the closed
 `cartulary.graph_object_kind` values `lease` and `projection_result`.
+
+This is a `breaking_shape_change` under §4.5. Exact eligible-backlog and oldest-
+eligible-result gauges are removed, with no aliases, approximate replacements
+under old names, or dual emission. Deployments MUST replace old dashboards and
+alerts with operation/failure, examined/deleted, continuation and freshness
+signals in the same release. Rollback restores the previous application and
+telemetry configuration together. Acceptance proves old-shape absence, exact
+new-shape semantics, constant-space observation and failure containment.
 
 Network Flow telemetry MUST NOT emit identifiers, source-owner tokens,
 declaration or result references, digests, selectors, endpoint values, labels,
@@ -1482,7 +1493,7 @@ The corpus is closed by this fixture table. Every fixture ID is required; suppor
 | `OTEL-CORPUS-016` | Exporter | Export disabled, OTLP/HTTP URL construction, OTLP/gRPC target and channel security, header secret references, User-Agent grammar, retry, timeout, and shutdown match §12. |
 | `OTEL-CORPUS-017` | Product-boundary runtime invariance | HTTP request, workbook query, workbook mutation, WebSocket send, evidence access, and background-job transition outputs and committed state match the no-export baseline under exporter failure, timeout, queue overflow, and redaction rejection. |
 | `OTEL-CORPUS-018` | Redaction | Owner-listed forbidden literals from every family in §8.4 are absent from spans, metrics, logs, resource attributes, self-diagnostics, retained artifacts, and exporter attempts. |
-| `OTEL-CORPUS-019` | Jobs queue and Network Flow graphs | Queue count/wait, graph phase/volume, cleanup outcome/deletion/backlog/oldest-age, cancellation, timeout, no-export, telemetry-self-failure, closed cardinality, and privacy sentinels match the registries and leave product behavior unchanged. |
+| `OTEL-CORPUS-019` | Jobs queue and Network Flow graphs | Queue count/wait, graph phase/volume, cleanup outcome/deletion/progress/freshness, cancellation, timeout, no-export, telemetry-self-failure, closed cardinality, and privacy sentinels match the registries and leave product behavior unchanged. |
 
 ### 14.2 Canonical telemetry-shape normalization
 
@@ -1570,7 +1581,7 @@ owner-requirement prose and static conformance or acceptance status fields.
 - **OTEL-AC-025:** The conformance corpus emits no `otel.metric.overflow=true` datapoint except an explicit overflow-negative test, and that negative test records `cartulary.drop_reason='metric_overflow'` when non-recursive.
 - **OTEL-AC-026:** Metric temporality is cumulative for every current-profile instrument.
 - **OTEL-AC-026A:** Metric `Bind` or pre-bound attribute paths are absent from Cartulary instrumentation or are proven unable to bypass §8 and §10.4 validation.
-- **OTEL-AC-026B:** `OTEL-CORPUS-019` proves exact Jobs queued and queue-wait measurements plus Network Flow phase, volume, cleanup, backlog, and `published_at` age semantics; disabled export, observer failure, exporter failure, cancellation, and timeout leave product state and responses unchanged, and privacy sentinels never enter signals.
+- **OTEL-AC-026B:** `OTEL-CORPUS-019` proves exact Jobs queued and queue-wait measurements plus Network Flow phase, volume, cleanup progress, continuation, and last-success age semantics; disabled export, observer failure, exporter failure, cancellation, and timeout leave product state and responses unchanged, and privacy sentinels never enter signals.
 
 ### 15.6 Logs criteria
 

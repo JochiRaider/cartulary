@@ -583,8 +583,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.otel_signal_registry.v1",
-      "path": "tools/schemas/cartulary.otel_signal_registry.v1.schema.json",
+      "schema_id": "cartulary.otel_signal_registry.v2",
+      "path": "tools/schemas/cartulary.otel_signal_registry.v2.schema.json",
       "classification": "owner_input",
       "producer": "OpenTelemetry instrumentation owner",
       "validation": "json-shape-check"

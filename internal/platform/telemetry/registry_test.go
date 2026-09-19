@@ -78,8 +78,9 @@ func TestMetricRegistryClosed(t *testing.T) {
 		NetworkFlowCleanupOperationsMetricName,
 		NetworkFlowCleanupDurationMetricName,
 		NetworkFlowCleanupDeletedMetricName,
-		NetworkFlowCleanupEligibleMetricName,
-		NetworkFlowCleanupOldestAgeMetricName,
+		NetworkFlowCleanupExaminedMetricName,
+		NetworkFlowCleanupContinuationMetricName,
+		NetworkFlowCleanupLastSuccessAgeMetricName,
 		"cartulary.postgres.operation.duration",
 		"cartulary.objectstore.operation.duration",
 		"cartulary.objectstore.transfer.bytes",
@@ -146,7 +147,7 @@ func TestMetricRegistryClosed(t *testing.T) {
 			t.Fatalf("Evidence cleanup gauge row mismatch for %s: %#v", name, row)
 		}
 	}
-	for _, name := range []string{NetworkFlowCleanupEligibleMetricName, NetworkFlowCleanupOldestAgeMetricName} {
+	for _, name := range []string{NetworkFlowCleanupContinuationMetricName, NetworkFlowCleanupLastSuccessAgeMetricName} {
 		if row := seen[name]; row.InstrumentKind != "ObservableGauge" || len(row.AllowedAttributes) != 0 || len(row.OptionalAttributes) != 0 {
 			t.Fatalf("Network Flow cleanup gauge row mismatch for %s: %#v", name, row)
 		}

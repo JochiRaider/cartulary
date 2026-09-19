@@ -17,20 +17,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 )
 
-type NetworkFlowRowRef struct {
+type networkFlowRowRef struct {
 	NetworkFlowTableID string `json:"network_flow_table_id"`
 	NetworkFlowRowID   string `json:"network_flow_row_id"`
 	SourceRowNumber    int64  `json:"source_row_number"`
 	MappingFingerprint string `json:"mapping_fingerprint"`
 }
 
-type IndicatorBindingRecord struct {
+type indicatorBindingRecord struct {
 	BindingID                  string
 	IncidentID                 uuid.UUID
 	TargetIndicator            indicators.IndicatorReference
 	SelectorKind               string
 	CandidateValue             string
-	SourceRowRefs              []NetworkFlowRowRef
+	SourceRowRefs              []networkFlowRowRef
 	SourceRowRefsTruncated     bool
 	SourceRowRefsTotalCount    int64
 	CreatedObservationRefsJSON json.RawMessage
@@ -38,101 +38,101 @@ type IndicatorBindingRecord struct {
 	CreatedAt                  time.Time
 }
 
-type CreateIndicatorBindingParams struct {
+type createIndicatorBindingParams struct {
 	IncidentID              uuid.UUID
 	ActorUserID             uuid.UUID
 	TargetIndicator         indicators.IndicatorReference
 	SelectorKind            string
 	CandidateValue          string
-	SourceRowRefs           []NetworkFlowRowRef
+	SourceRowRefs           []networkFlowRowRef
 	SourceRowRefsTruncated  bool
 	SourceRowRefsTotalCount int64
 	ClientTxnID             string
 	RequestID               string
-	SafeDigester            SafeDigester
+	SafeDigester            safeDigester
 	Now                     time.Time
 }
 
-func (s *Store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, params CreateIndicatorBindingParams) (IndicatorBindingRecord, bool, error) {
+func (s *store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, params createIndicatorBindingParams) (indicatorBindingRecord, bool, error) {
 	now := normalizedNow(params.Now)
 	if params.IncidentID == uuid.Nil || params.ActorUserID == uuid.Nil || params.TargetIndicator.RecordID == uuid.Nil {
-		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		return indicatorBindingRecord{}, false, errInvalidStorageArgument
 	}
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
-		return IndicatorBindingRecord{}, false, err
+		return indicatorBindingRecord{}, false, err
 	}
 	if params.TargetIndicator.IncidentID != params.IncidentID {
-		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		return indicatorBindingRecord{}, false, errInvalidStorageArgument
 	}
 	if params.TargetIndicator.ValueKind != "atomic" || params.TargetIndicator.NormalizedValue == nil || *params.TargetIndicator.NormalizedValue != params.CandidateValue {
-		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		return indicatorBindingRecord{}, false, errInvalidStorageArgument
 	}
 	if kind, ok := indicators.CanonicalIPIndicatorType(params.CandidateValue); !ok || params.TargetIndicator.IndicatorType != kind {
-		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		return indicatorBindingRecord{}, false, errInvalidStorageArgument
 	}
 	if !validBindingSelectorKind(params.SelectorKind) || params.CandidateValue == "" {
-		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		return indicatorBindingRecord{}, false, errInvalidStorageArgument
 	}
 	if len(params.SourceRowRefs) == 0 || int64(len(params.SourceRowRefs)) > s.limits.MaxBindingSourceRowRefs || params.SourceRowRefsTotalCount < int64(len(params.SourceRowRefs)) || params.SourceRowRefsTotalCount <= 0 {
-		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		return indicatorBindingRecord{}, false, errInvalidStorageArgument
 	}
 	if params.SourceRowRefsTruncated != (params.SourceRowRefsTotalCount > int64(len(params.SourceRowRefs))) || (params.SelectorKind == "row_field_value" && (len(params.SourceRowRefs) != 1 || params.SourceRowRefsTruncated)) || (params.SelectorKind == "row_refs" && params.SourceRowRefsTruncated) {
-		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		return indicatorBindingRecord{}, false, errInvalidStorageArgument
 	}
 	seen := map[string]bool{}
 	for _, ref := range params.SourceRowRefs {
 		if !validLinkRowRef(ref) || seen[ref.NetworkFlowRowID] {
-			return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+			return indicatorBindingRecord{}, false, errInvalidStorageArgument
 		}
 		seen[ref.NetworkFlowRowID] = true
 	}
-	sourceRefs := append([]NetworkFlowRowRef(nil), params.SourceRowRefs...)
+	sourceRefs := append([]networkFlowRowRef(nil), params.SourceRowRefs...)
 	sourceRefRowIDs := bindingSourceRowIDs(sourceRefs)
 	sourceRefsJSON, err := json.Marshal(sourceRefs)
 	if err != nil {
-		return IndicatorBindingRecord{}, false, fmt.Errorf("marshal network flow binding source refs: %w", err)
+		return indicatorBindingRecord{}, false, fmt.Errorf("marshal network flow binding source refs: %w", err)
 	}
 	for attempt := 0; attempt < 8; attempt++ {
 		bindingID, err := newBindingID()
 		if err != nil {
-			return IndicatorBindingRecord{}, false, err
+			return indicatorBindingRecord{}, false, err
 		}
 		record, inserted, err := insertIndicatorBindingTx(ctx, tx, bindingID, params, sourceRefsJSON, sourceRefRowIDs, now)
 		if err != nil {
-			return IndicatorBindingRecord{}, false, err
+			return indicatorBindingRecord{}, false, err
 		}
 		if inserted {
 			if err := s.insertIndicatorBindingAuditTx(ctx, tx, params, record, "network_flow_indicator_binding_created"); err != nil {
-				return IndicatorBindingRecord{}, false, err
+				return indicatorBindingRecord{}, false, err
 			}
 			return record, false, nil
 		}
 		existing, found, err := getIndicatorBindingByIdentityTx(ctx, tx, params.IncidentID, params.TargetIndicator.RecordID, params.CandidateValue, sourceRefRowIDs)
 		if err != nil {
-			return IndicatorBindingRecord{}, false, err
+			return indicatorBindingRecord{}, false, err
 		}
 		if found {
 			if err := s.insertIndicatorBindingAuditTx(ctx, tx, params, existing, "network_flow_indicator_binding_reused"); err != nil {
-				return IndicatorBindingRecord{}, false, err
+				return indicatorBindingRecord{}, false, err
 			}
 			return existing, true, nil
 		}
 	}
-	return IndicatorBindingRecord{}, false, ErrIDGenerationFailed
+	return indicatorBindingRecord{}, false, errIDGenerationFailed
 }
 
-func (s *Store) GetActiveIndicator(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (indicators.IndicatorReference, error) {
+func (s *store) GetActiveIndicator(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (indicators.IndicatorReference, error) {
 	if s.indicators == nil {
 		return indicators.IndicatorReference{}, fmt.Errorf("network flow indicator participant unavailable")
 	}
 	record, err := s.indicators.GetActiveIndicatorParticipant(ctx, incidentID, indicatorID)
 	if errors.Is(err, indicators.ErrIndicatorNotFound) {
-		return indicators.IndicatorReference{}, ErrTableNotFound
+		return indicators.IndicatorReference{}, errTableNotFound
 	}
 	return record, err
 }
 
-func insertIndicatorBindingTx(ctx context.Context, tx pgx.Tx, bindingID string, params CreateIndicatorBindingParams, sourceRefsJSON []byte, sourceRefRowIDs []string, now time.Time) (IndicatorBindingRecord, bool, error) {
+func insertIndicatorBindingTx(ctx context.Context, tx pgx.Tx, bindingID string, params createIndicatorBindingParams, sourceRefsJSON []byte, sourceRefRowIDs []string, now time.Time) (indicatorBindingRecord, bool, error) {
 	row := tx.QueryRow(ctx, `
 INSERT INTO network_flow_indicator_bindings (
     network_flow_indicator_binding_id, incident_id, target_indicator_record_id,
@@ -150,15 +150,15 @@ RETURNING network_flow_indicator_binding_id, incident_id, target_indicator_recor
 `, bindingID, params.IncidentID, params.TargetIndicator.RecordID, params.TargetIndicator.IndicatorType, params.TargetIndicator.ValueKind, *params.TargetIndicator.NormalizedValue, params.SelectorKind, params.CandidateValue, string(sourceRefsJSON), sourceRefRowIDs, params.SourceRowRefsTruncated, params.SourceRowRefsTotalCount, params.ActorUserID, now)
 	record, err := scanIndicatorBinding(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorBindingRecord{}, false, nil
+		return indicatorBindingRecord{}, false, nil
 	}
 	if err != nil {
-		return IndicatorBindingRecord{}, false, fmt.Errorf("insert network flow indicator binding: %w", err)
+		return indicatorBindingRecord{}, false, fmt.Errorf("insert network flow indicator binding: %w", err)
 	}
 	return record, true, nil
 }
 
-func getIndicatorBindingByIdentityTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorID uuid.UUID, candidateValue string, sourceRefRowIDs []string) (IndicatorBindingRecord, bool, error) {
+func getIndicatorBindingByIdentityTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorID uuid.UUID, candidateValue string, sourceRefRowIDs []string) (indicatorBindingRecord, bool, error) {
 	row := tx.QueryRow(ctx, `
 SELECT network_flow_indicator_binding_id, incident_id, target_indicator_record_id,
        target_indicator_type, target_indicator_value_kind, target_indicator_normalized_value,
@@ -172,15 +172,15 @@ SELECT network_flow_indicator_binding_id, incident_id, target_indicator_record_i
 `, incidentID, indicatorID, candidateValue, sourceRefRowIDs)
 	record, err := scanIndicatorBinding(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorBindingRecord{}, false, nil
+		return indicatorBindingRecord{}, false, nil
 	}
 	if err != nil {
-		return IndicatorBindingRecord{}, false, fmt.Errorf("get network flow indicator binding by identity: %w", err)
+		return indicatorBindingRecord{}, false, fmt.Errorf("get network flow indicator binding by identity: %w", err)
 	}
 	return record, true, nil
 }
 
-func (s *Store) insertIndicatorBindingAuditTx(ctx context.Context, tx pgx.Tx, params CreateIndicatorBindingParams, record IndicatorBindingRecord, eventKind string) error {
+func (s *store) insertIndicatorBindingAuditTx(ctx context.Context, tx pgx.Tx, params createIndicatorBindingParams, record indicatorBindingRecord, eventKind string) error {
 	digester := params.SafeDigester
 	if digester == nil {
 		digester = s.safeDigester
@@ -213,8 +213,8 @@ func (s *Store) insertIndicatorBindingAuditTx(ctx context.Context, tx pgx.Tx, pa
 	})
 }
 
-func scanIndicatorBinding(row pgx.Row) (IndicatorBindingRecord, error) {
-	var record IndicatorBindingRecord
+func scanIndicatorBinding(row pgx.Row) (indicatorBindingRecord, error) {
+	var record indicatorBindingRecord
 	var indicatorID uuid.UUID
 	var indicatorNormalizedValue string
 	var sourceRefsJSON []byte
@@ -233,12 +233,12 @@ func scanIndicatorBinding(row pgx.Row) (IndicatorBindingRecord, error) {
 		&record.CreatedByUserID,
 		&record.CreatedAt,
 	); err != nil {
-		return IndicatorBindingRecord{}, err
+		return indicatorBindingRecord{}, err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(sourceRefsJSON))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&record.SourceRowRefs); err != nil {
-		return IndicatorBindingRecord{}, fmt.Errorf("decode network flow indicator binding source refs: %w", err)
+		return indicatorBindingRecord{}, fmt.Errorf("decode network flow indicator binding source refs: %w", err)
 	}
 	record.TargetIndicator.RecordID = indicatorID
 	record.TargetIndicator.IncidentID = record.IncidentID
@@ -248,7 +248,7 @@ func scanIndicatorBinding(row pgx.Row) (IndicatorBindingRecord, error) {
 	return record, nil
 }
 
-func bindingSourceRowIDs(refs []NetworkFlowRowRef) []string {
+func bindingSourceRowIDs(refs []networkFlowRowRef) []string {
 	out := make([]string, 0, len(refs))
 	for _, ref := range refs {
 		out = append(out, ref.NetworkFlowRowID)

@@ -1924,6 +1924,49 @@ SELECT COUNT(*)
 `, sessionID, unitID, applyJob["job_id"].(string), tableID); got != 1 {
 		t.Fatalf("Network Flow owner effects and durable outcome did not commit as one unit: %d", got)
 	}
+
+	replayResponse := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-network-flow-import-apply"})
+	replay := httptestx.RequireSuccessEnvelope(t, replayResponse, http.StatusAccepted)["data"].(map[string]any)
+	if replay["job_id"] != applyJob["job_id"] || dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_tables WHERE incident_id::text = $1`, incidentID) != 1 {
+		t.Fatalf("Imports replay duplicated Network Flow effects: %#v", replay)
+	}
+
+	// Fail the Imports participant after the NF owner has inserted its rows. A
+	// nontransactional sequence proves the trigger observed those uncommitted rows.
+	failedSession, failedUnit := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-nf-rollback-upload", csv, "rollback.csv")
+	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+failedSession+"/units/"+failedUnit+"/mapping", networkFlowMappingPayload("txn-nf-rollback-mapping")), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+failedSession+"/units/"+failedUnit+"/select", map[string]any{"client_txn_id": "txn-nf-rollback-select"}), http.StatusOK)
+	if _, err := harness.DB.ExecContext(context.Background(), `
+CREATE SEQUENCE nf_import_rollback_observed;
+GRANT USAGE, SELECT ON SEQUENCE nf_import_rollback_observed TO cartulary_runtime;
+CREATE FUNCTION fail_nf_import_outcome() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.outcome_status = 'applied' AND EXISTS (
+    SELECT 1 FROM network_flow_rows WHERE network_flow_table_id = NEW.resource_refs_json->0->>'id'
+  ) THEN
+    PERFORM nextval('nf_import_rollback_observed');
+    RAISE EXCEPTION 'injected Imports outcome failure';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER fail_nf_import_outcome BEFORE INSERT ON import_unit_apply_outcomes
+FOR EACH ROW EXECUTE FUNCTION fail_nf_import_outcome();`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = harness.DB.ExecContext(context.Background(), `DROP TRIGGER IF EXISTS fail_nf_import_outcome ON import_unit_apply_outcomes; DROP FUNCTION IF EXISTS fail_nf_import_outcome(); DROP SEQUENCE IF EXISTS nf_import_rollback_observed`)
+	})
+	failedApply := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+failedSession+"/apply", map[string]any{"client_txn_id": "txn-nf-rollback-apply"}), http.StatusAccepted)["data"].(map[string]any)
+	failedJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, failedApply["job_id"].(string))
+	var observed bool
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT is_called FROM nf_import_rollback_observed`).Scan(&observed); err != nil || !observed || failedJob["status"] != "failed" {
+		t.Fatalf("Imports failure did not exercise NF writes: observed=%v job=%#v err=%v", observed, failedJob, err)
+	}
+	if dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_tables WHERE incident_id::text = $1`, incidentID) != 1 || dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_rows`) != 2 || dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM import_unit_apply_outcomes WHERE import_session_id::text = $1 AND outcome_status = 'applied'`, failedSession) != 0 {
+		t.Fatal("failed Imports participant left partial Network Flow effects")
+	}
+
 }
 
 func TestNetworkFlowOwnerErrorsTranslateToSafeImportsFailures_Integration(t *testing.T) {

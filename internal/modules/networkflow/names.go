@@ -8,7 +8,7 @@ import (
 	norm "github.com/JochiRaider/cartulary/internal/gen/networkflowunicode"
 )
 
-func SanitizeSourceFilenameDisplay(filenameHint string) string {
+func sanitizeSourceFilenameDisplay(filenameHint string) string {
 	value := norm.NFC.String(filenameHint)
 	value = strings.ReplaceAll(value, "\\", "/")
 	segments := strings.Split(value, "/")
@@ -27,18 +27,18 @@ func SanitizeSourceFilenameDisplay(filenameHint string) string {
 	return firstRunes(candidate, 256)
 }
 
-func NormalizeTableDisplayNameInput(value string) (string, error) {
+func normalizeTableDisplayNameInput(value string) (string, error) {
 	normalized := norm.NFC.String(value)
 	if containsC0C1Control(normalized) {
-		return "", &InvalidDisplayNameError{ReasonCode: "forbidden_control", NormalizedLength: utf8.RuneCountInString(normalized)}
+		return "", &invalidDisplayNameError{ReasonCode: "forbidden_control", NormalizedLength: utf8.RuneCountInString(normalized)}
 	}
 	return trimUnicodeWhitespace(normalized), nil
 }
 
-func DeriveTableDisplayName(originalFilename string, existingActiveDisplayNames map[string]struct{}) (string, error) {
-	sourceDisplay := SanitizeSourceFilenameDisplay(originalFilename)
+func deriveTableDisplayName(originalFilename string, existingActiveDisplayNames map[string]struct{}) (string, error) {
+	sourceDisplay := sanitizeSourceFilenameDisplay(originalFilename)
 	stem := filenameStemAfterPathStripping(sourceDisplay)
-	candidate, err := NormalizeTableDisplayNameInput(stem)
+	candidate, err := normalizeTableDisplayNameInput(stem)
 	if err != nil {
 		return "", err
 	}
@@ -57,19 +57,19 @@ func DeriveTableDisplayName(originalFilename string, existingActiveDisplayNames 
 			return suffixed, nil
 		}
 	}
-	return "", ErrTableNameExhausted
+	return "", errTableNameExhausted
 }
 
 func normalizeExplicitDisplayName(value string) (string, error) {
-	normalized, err := NormalizeTableDisplayNameInput(value)
+	normalized, err := normalizeTableDisplayNameInput(value)
 	if err != nil {
 		return "", err
 	}
 	switch {
 	case normalized == "":
-		return "", &InvalidDisplayNameError{ReasonCode: "empty_display_name"}
+		return "", &invalidDisplayNameError{ReasonCode: "empty_display_name"}
 	case utf8.RuneCountInString(normalized) > 64:
-		return "", &InvalidDisplayNameError{ReasonCode: "display_name_too_long", NormalizedLength: utf8.RuneCountInString(normalized)}
+		return "", &invalidDisplayNameError{ReasonCode: "display_name_too_long", NormalizedLength: utf8.RuneCountInString(normalized)}
 	default:
 		return normalized, nil
 	}
@@ -77,16 +77,16 @@ func normalizeExplicitDisplayName(value string) (string, error) {
 
 // NormalizeGraphViewDisplayName is the saved declaration's byte-bounded name
 // contract. Table naming has independent scalar and uniqueness rules.
-func NormalizeGraphViewDisplayName(value string) (string, error) {
+func normalizeGraphViewDisplayName(value string) (string, error) {
 	if !utf8.ValidString(value) || containsC0C1Control(value) {
-		return "", &InvalidDisplayNameError{ReasonCode: "forbidden_control"}
+		return "", &invalidDisplayNameError{ReasonCode: "forbidden_control"}
 	}
 	normalized := trimUnicodeWhitespace(norm.NFC.String(value))
 	switch {
 	case normalized == "":
-		return "", &InvalidDisplayNameError{ReasonCode: "empty_display_name"}
+		return "", &invalidDisplayNameError{ReasonCode: "empty_display_name"}
 	case len(normalized) > 64:
-		return "", &InvalidDisplayNameError{ReasonCode: "display_name_too_long"}
+		return "", &invalidDisplayNameError{ReasonCode: "display_name_too_long"}
 	default:
 		return normalized, nil
 	}

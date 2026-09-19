@@ -18,41 +18,35 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type Store struct {
+type store struct {
 	pool            postgres.DB
 	limits          EffectiveLimits
 	incidentLocks   IncidentLockPort
 	auditAppender   AdministrativeAuditPort
 	indicators      IndicatorParticipationPort
-	safeDigester    SafeDigester
+	safeDigester    safeDigester
 	resourceIntents ResourceIntentAppender
 }
 
-type StoreOption func(*Store)
+type storeOption func(*store)
 
-func WithEffectiveLimits(limits EffectiveLimits) StoreOption {
-	return func(s *Store) {
-		s.limits = limits
-	}
-}
-
-func WithOwnerParticipants(incidentLocks IncidentLockPort, auditAppender AdministrativeAuditPort, indicatorParticipant IndicatorParticipationPort) StoreOption {
-	return func(s *Store) {
+func withOwnerParticipants(incidentLocks IncidentLockPort, auditAppender AdministrativeAuditPort, indicatorParticipant IndicatorParticipationPort) storeOption {
+	return func(s *store) {
 		s.incidentLocks = incidentLocks
 		s.auditAppender = auditAppender
 		s.indicators = indicatorParticipant
 	}
 }
 
-func WithSafeDigester(digester SafeDigester) StoreOption {
-	return func(s *Store) { s.safeDigester = digester }
+func withSafeDigester(digester safeDigester) storeOption {
+	return func(s *store) { s.safeDigester = digester }
 }
 
-func WithResourceIntentAppender(appender ResourceIntentAppender) StoreOption {
-	return func(s *Store) { s.resourceIntents = appender }
+func withResourceIntentAppender(appender ResourceIntentAppender) storeOption {
+	return func(s *store) { s.resourceIntents = appender }
 }
 
-type TableRecord struct {
+type tableRecord struct {
 	TableID                   string
 	IncidentID                uuid.UUID
 	DisplayName               string
@@ -76,7 +70,7 @@ type TableRecord struct {
 	DeletedAt                 *time.Time
 }
 
-type FlowRow struct {
+type flowRow struct {
 	RowID                     string
 	NetworkFlowTableID        string
 	IncidentID                uuid.UUID
@@ -104,7 +98,7 @@ type FlowRow struct {
 	CreatedByUserID           uuid.UUID
 }
 
-type RejectedRowDiagnostic struct {
+type rejectedRowDiagnostic struct {
 	DiagnosticID        string
 	SourceRowNumber     int64
 	SourceColumnOrdinal *int64
@@ -122,7 +116,7 @@ type RejectedRowDiagnostic struct {
 	ActualValue         *int64
 }
 
-type CreateTableParams struct {
+type createTableParams struct {
 	IncidentID                uuid.UUID
 	ActorUserID               uuid.UUID
 	ImportSessionID           uuid.UUID
@@ -137,13 +131,13 @@ type CreateTableParams struct {
 	SourceProfileID           string
 	ParserProfileID           string
 	DisplayNameOverride       *string
-	Rows                      []FlowRow
-	Diagnostics               []RejectedRowDiagnostic
+	Rows                      []flowRow
+	Diagnostics               []rejectedRowDiagnostic
 	DiagnosticsTruncated      bool
 	Now                       time.Time
 }
 
-type RenameTableParams struct {
+type renameTableParams struct {
 	IncidentID       uuid.UUID
 	ActorUserID      uuid.UUID
 	TableID          string
@@ -151,11 +145,11 @@ type RenameTableParams struct {
 	DisplayName      string
 	ClientTxnID      string
 	RequestID        string
-	SafeDigester     SafeDigester
+	SafeDigester     safeDigester
 	Now              time.Time
 }
 
-type SoftDeleteTableParams struct {
+type softDeleteTableParams struct {
 	IncidentID       uuid.UUID
 	ActorUserID      uuid.UUID
 	TableID          string
@@ -165,13 +159,13 @@ type SoftDeleteTableParams struct {
 	Now              time.Time
 }
 
-type RetainedCounts struct {
+type retainedCounts struct {
 	Active   int64
 	Retained int64
 }
 
-func NewStore(pool postgres.DB, limits EffectiveLimits, options ...StoreOption) *Store {
-	store := &Store{
+func newStore(pool postgres.DB, limits EffectiveLimits, options ...storeOption) *store {
+	store := &store{
 		pool:   pool,
 		limits: limits,
 	}
@@ -181,50 +175,50 @@ func NewStore(pool postgres.DB, limits EffectiveLimits, options ...StoreOption) 
 	return store
 }
 
-func (s *Store) CreateTable(ctx context.Context, params CreateTableParams) (TableRecord, error) {
-	var table TableRecord
+func (s *store) CreateTable(ctx context.Context, params createTableParams) (tableRecord, error) {
+	var table tableRecord
 	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.CreateTableTx(ctx, tx, params)
 		return err
 	})
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	return table, nil
 }
 
-func (s *Store) CreateTableTx(ctx context.Context, tx pgx.Tx, params CreateTableParams) (TableRecord, error) {
+func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTableParams) (tableRecord, error) {
 	if len(params.Rows) == 0 {
-		return TableRecord{}, ErrNoAcceptedRows
+		return tableRecord{}, errNoAcceptedRows
 	}
 	now := normalizedNow(params.Now)
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	counts, err := retainedCountsTx(ctx, tx, params.IncidentID)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if counts.Active >= s.limits.MaxActiveTablesPerIncident {
-		return TableRecord{}, &TableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_active_tables_per_incident", Limit: s.limits.MaxActiveTablesPerIncident, Current: counts.Active}
+		return tableRecord{}, &tableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_active_tables_per_incident", Limit: s.limits.MaxActiveTablesPerIncident, Current: counts.Active}
 	}
 	if counts.Retained >= s.limits.MaxRetainedTablesPerIncident {
-		return TableRecord{}, &TableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_retained_tables_per_incident", Limit: s.limits.MaxRetainedTablesPerIncident, Current: counts.Retained}
+		return tableRecord{}, &tableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_retained_tables_per_incident", Limit: s.limits.MaxRetainedTablesPerIncident, Current: counts.Retained}
 	}
 	existingNames, err := activeDisplayNamesTx(ctx, tx, params.IncidentID, "")
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	displayName, err := finalDisplayName(params, existingNames)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	parserProfileID := params.ParserProfileID
 	if parserProfileID == "" {
-		parserProfileID = ParserProfileRFC4180HeaderedCSV
+		parserProfileID = parserProfileRFC4180HeaderedCSV
 	}
-	sourceFilenameDisplay := SanitizeSourceFilenameDisplay(params.OriginalFilename)
+	sourceFilenameDisplay := sanitizeSourceFilenameDisplay(params.OriginalFilename)
 	tableID, table, err := s.insertTableWithGeneratedID(ctx, tx, insertTableParams{
 		IncidentID:                params.IncidentID,
 		DisplayName:               displayName,
@@ -244,13 +238,13 @@ func (s *Store) CreateTableTx(ctx context.Context, tx pgx.Tx, params CreateTable
 		CreatedAt:                 now,
 	})
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if err := insertRowsTx(ctx, tx, tableID, params, parserProfileID, now); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if err := insertDiagnosticsTx(ctx, tx, tableID, params, now); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if params.ClientTxnID != "" && params.ActorUserID != uuid.Nil {
 		if err := s.appendAuditEventTx(ctx, tx, networkFlowAuditEvent{
@@ -275,13 +269,13 @@ func (s *Store) CreateTableTx(ctx context.Context, tx pgx.Tx, params CreateTable
 				"network_flow.audit_resource_id": table.TableID,
 			},
 		}); err != nil {
-			return TableRecord{}, err
+			return tableRecord{}, err
 		}
 	}
 	return table, nil
 }
 
-func (s *Store) ListActiveTables(ctx context.Context, incidentID uuid.UUID) ([]TableRecord, error) {
+func (s *store) ListActiveTables(ctx context.Context, incidentID uuid.UUID) ([]tableRecord, error) {
 	rows, err := s.pool.Query(ctx, tableSelectColumns()+`
   FROM network_flow_tables
  WHERE incident_id = $1
@@ -295,70 +289,70 @@ func (s *Store) ListActiveTables(ctx context.Context, incidentID uuid.UUID) ([]T
 	return scanTables(rows)
 }
 
-func (s *Store) GetActiveTable(ctx context.Context, incidentID uuid.UUID, tableID string) (TableRecord, error) {
+func (s *store) GetActiveTable(ctx context.Context, incidentID uuid.UUID, tableID string) (tableRecord, error) {
 	table, err := getTable(ctx, s.pool, incidentID, tableID, false)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
-	if table.TableStatus != TableStatusActive {
-		return TableRecord{}, ErrTableNotActive
+	if table.TableStatus != tableStatusActive {
+		return tableRecord{}, errTableNotActive
 	}
 	return table, nil
 }
 
-func (s *Store) GetTable(ctx context.Context, incidentID uuid.UUID, tableID string) (TableRecord, error) {
+func (s *store) GetTable(ctx context.Context, incidentID uuid.UUID, tableID string) (tableRecord, error) {
 	return getTable(ctx, s.pool, incidentID, tableID, false)
 }
 
-func (s *Store) RetainedCounts(ctx context.Context, incidentID uuid.UUID) (RetainedCounts, error) {
+func (s *store) RetainedCounts(ctx context.Context, incidentID uuid.UUID) (retainedCounts, error) {
 	return retainedCountsTx(ctx, s.pool, incidentID)
 }
 
-func (s *Store) RenameTable(ctx context.Context, params RenameTableParams) (TableRecord, error) {
-	var table TableRecord
+func (s *store) RenameTable(ctx context.Context, params renameTableParams) (tableRecord, error) {
+	var table tableRecord
 	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.renameTableTx(ctx, tx, params)
 		return err
 	})
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	return table, nil
 }
 
-func (s *Store) renameTableTx(ctx context.Context, tx pgx.Tx, params RenameTableParams) (TableRecord, error) {
+func (s *store) renameTableTx(ctx context.Context, tx pgx.Tx, params renameTableParams) (tableRecord, error) {
 	now := normalizedNow(params.Now)
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	table, err := getTable(ctx, tx, params.IncidentID, params.TableID, true)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
-	if table.TableStatus != TableStatusActive {
-		return TableRecord{}, ErrTableNotActive
+	if table.TableStatus != tableStatusActive {
+		return tableRecord{}, errTableNotActive
 	}
 	if table.TableVersion != params.BaseTableVersion {
-		return TableRecord{}, &TableVersionConflictError{TableID: params.TableID, BaseTableVersion: params.BaseTableVersion, CurrentTableVersion: table.TableVersion}
+		return tableRecord{}, &tableVersionConflictError{TableID: params.TableID, BaseTableVersion: params.BaseTableVersion, CurrentTableVersion: table.TableVersion}
 	}
 	displayName, err := normalizeExplicitDisplayName(params.DisplayName)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if displayName == table.DisplayName {
 		return table, nil
 	}
 	existingNames, err := activeDisplayNamesTx(ctx, tx, params.IncidentID, params.TableID)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if _, exists := existingNames[displayName]; exists {
-		return TableRecord{}, &InvalidDisplayNameError{ReasonCode: "duplicate_display_name", NormalizedLength: len([]rune(displayName))}
+		return tableRecord{}, &invalidDisplayNameError{ReasonCode: "duplicate_display_name", NormalizedLength: len([]rune(displayName))}
 	}
 	updated, err := s.updateTableNameTx(ctx, tx, params.IncidentID, params.TableID, displayName, now)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if params.ClientTxnID != "" && params.ActorUserID != uuid.Nil {
 		digester := params.SafeDigester
@@ -366,18 +360,18 @@ func (s *Store) renameTableTx(ctx context.Context, tx pgx.Tx, params RenameTable
 			digester = s.safeDigester
 		}
 		if digester == nil {
-			return TableRecord{}, fmt.Errorf("network flow safe digester unavailable")
+			return tableRecord{}, fmt.Errorf("network flow safe digester unavailable")
 		}
 		oldDigest, keyID, err := digester.Digest("table_display_name", table.DisplayName)
 		if err != nil {
-			return TableRecord{}, err
+			return tableRecord{}, err
 		}
 		newDigest, newKeyID, err := digester.Digest("table_display_name", updated.DisplayName)
 		if err != nil {
-			return TableRecord{}, err
+			return tableRecord{}, err
 		}
 		if newKeyID != keyID {
-			return TableRecord{}, fmt.Errorf("network flow safe-digest epoch changed during table rename")
+			return tableRecord{}, fmt.Errorf("network flow safe-digest epoch changed during table rename")
 		}
 		if err := s.appendAuditEventTx(ctx, tx, networkFlowAuditEvent{
 			ActorUserID: &params.ActorUserID,
@@ -407,43 +401,43 @@ func (s *Store) renameTableTx(ctx context.Context, tx pgx.Tx, params RenameTable
 				"network_flow.audit_resource_id": updated.TableID,
 			},
 		}); err != nil {
-			return TableRecord{}, err
+			return tableRecord{}, err
 		}
 	}
 	return updated, nil
 }
 
-func (s *Store) SoftDeleteTable(ctx context.Context, params SoftDeleteTableParams) (TableRecord, error) {
-	var table TableRecord
+func (s *store) SoftDeleteTable(ctx context.Context, params softDeleteTableParams) (tableRecord, error) {
+	var table tableRecord
 	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.softDeleteTableTx(ctx, tx, params)
 		return err
 	})
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	return table, nil
 }
 
-func (s *Store) softDeleteTableTx(ctx context.Context, tx pgx.Tx, params SoftDeleteTableParams) (TableRecord, error) {
+func (s *store) softDeleteTableTx(ctx context.Context, tx pgx.Tx, params softDeleteTableParams) (tableRecord, error) {
 	now := normalizedNow(params.Now)
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	table, err := getTable(ctx, tx, params.IncidentID, params.TableID, true)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
-	if table.TableStatus != TableStatusActive {
-		return TableRecord{}, ErrTableNotActive
+	if table.TableStatus != tableStatusActive {
+		return tableRecord{}, errTableNotActive
 	}
 	if table.TableVersion != params.BaseTableVersion {
-		return TableRecord{}, &TableVersionConflictError{TableID: params.TableID, BaseTableVersion: params.BaseTableVersion, CurrentTableVersion: table.TableVersion}
+		return tableRecord{}, &tableVersionConflictError{TableID: params.TableID, BaseTableVersion: params.BaseTableVersion, CurrentTableVersion: table.TableVersion}
 	}
 	deleted, err := s.updateTableSoftDeletedTx(ctx, tx, params.IncidentID, params.TableID, now)
 	if err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	if params.ClientTxnID != "" && params.ActorUserID != uuid.Nil {
 		if err := s.appendAuditEventTx(ctx, tx, networkFlowAuditEvent{
@@ -472,13 +466,13 @@ func (s *Store) softDeleteTableTx(ctx context.Context, tx pgx.Tx, params SoftDel
 				"network_flow.audit_resource_id": deleted.TableID,
 			},
 		}); err != nil {
-			return TableRecord{}, err
+			return tableRecord{}, err
 		}
 	}
 	return deleted, nil
 }
 
-func (s *Store) ListRows(ctx context.Context, incidentID uuid.UUID, tableID string) ([]FlowRow, error) {
+func (s *store) ListRows(ctx context.Context, incidentID uuid.UUID, tableID string) ([]flowRow, error) {
 	if _, err := s.GetActiveTable(ctx, incidentID, tableID); err != nil {
 		return nil, err
 	}
@@ -493,7 +487,7 @@ SELECT `+flowRowColumnList()+`
 		return nil, fmt.Errorf("list network flow rows: %w", err)
 	}
 	defer rows.Close()
-	records := []FlowRow{}
+	records := []flowRow{}
 	for rows.Next() {
 		record, err := scanFlowRow(rows)
 		if err != nil {
@@ -510,7 +504,7 @@ SELECT `+flowRowColumnList()+`
 // IterateRowsForTables visits accepted rows in the canonical contributor
 // order without retaining the selected scope in memory. Table order is the
 // caller-supplied workspace order, followed by the default row keyset.
-func (s *Store) IterateRowsForTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string, visit func(FlowRow) error) error {
+func (s *store) IterateRowsForTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string, visit func(flowRow) error) error {
 	if len(tableIDs) == 0 {
 		return nil
 	}
@@ -559,7 +553,7 @@ type graphContributorPredicate struct {
 // IterateGraphContributorRows applies only the closed source-key selector in
 // SQL. Semantic filters and the owner time predicate remain shared Go policy
 // and are evaluated by the caller while the ordered database cursor is open.
-func (s *Store) IterateGraphContributorRows(ctx context.Context, incidentID uuid.UUID, tableIDs []string, predicate graphContributorPredicate, visit func(FlowRow) error) error {
+func (s *store) IterateGraphContributorRows(ctx context.Context, incidentID uuid.UUID, tableIDs []string, predicate graphContributorPredicate, visit func(flowRow) error) error {
 	if len(tableIDs) == 0 {
 		return nil
 	}
@@ -626,7 +620,7 @@ SELECT ` + flowRowColumnList() + `
 	return ctx.Err()
 }
 
-func (s *Store) ListRejectedRowDiagnostics(ctx context.Context, incidentID uuid.UUID, tableID string) ([]RejectedRowDiagnostic, error) {
+func (s *store) ListRejectedRowDiagnostics(ctx context.Context, incidentID uuid.UUID, tableID string) ([]rejectedRowDiagnostic, error) {
 	if _, err := s.GetActiveTable(ctx, incidentID, tableID); err != nil {
 		return nil, err
 	}
@@ -644,7 +638,7 @@ SELECT diagnostic_id, source_row_number, source_column_ordinal, raw_header_sha25
 		return nil, fmt.Errorf("list network flow rejected-row diagnostics: %w", err)
 	}
 	defer rows.Close()
-	diagnostics := []RejectedRowDiagnostic{}
+	diagnostics := []rejectedRowDiagnostic{}
 	for rows.Next() {
 		diagnostic, err := scanRejectedRowDiagnostic(rows)
 		if err != nil {
@@ -677,25 +671,25 @@ type insertTableParams struct {
 	CreatedAt                 time.Time
 }
 
-func (s *Store) insertTableWithGeneratedID(ctx context.Context, tx pgx.Tx, params insertTableParams) (string, TableRecord, error) {
+func (s *store) insertTableWithGeneratedID(ctx context.Context, tx pgx.Tx, params insertTableParams) (string, tableRecord, error) {
 	for attempt := 0; attempt < 8; attempt++ {
 		tableID, err := newTableID()
 		if err != nil {
-			return "", TableRecord{}, err
+			return "", tableRecord{}, err
 		}
 		table, err := insertTableTx(ctx, tx, tableID, params)
 		if isUniqueViolationOnConstraint(err, "network_flow_tables_pkey") {
 			continue
 		}
 		if err != nil {
-			return "", TableRecord{}, err
+			return "", tableRecord{}, err
 		}
 		return tableID, table, nil
 	}
-	return "", TableRecord{}, ErrIDGenerationFailed
+	return "", tableRecord{}, errIDGenerationFailed
 }
 
-func insertTableTx(ctx context.Context, tx pgx.Tx, tableID string, params insertTableParams) (TableRecord, error) {
+func insertTableTx(ctx context.Context, tx pgx.Tx, tableID string, params insertTableParams) (tableRecord, error) {
 	row := tx.QueryRow(ctx, `
 INSERT INTO network_flow_tables (
     network_flow_table_id, incident_id, display_name, table_version, table_status,
@@ -710,12 +704,12 @@ INSERT INTO network_flow_tables (
 RETURNING `+tableColumnList(), tableID, params.IncidentID, params.DisplayName, params.SourceImportSessionID, params.SourceImportUnitID, params.SourceContentSHA256, params.SourceFilenameDisplay, params.SourceFilenameDigest, params.SourceFilenameDigestKeyID, params.MappingFingerprint, params.SourceProfileID, params.ParserProfileID, params.RowCountAccepted, params.RowCountRejected, params.DiagnosticsTruncated, params.CreatedByUserID, params.CreatedAt)
 	table, err := scanTable(row)
 	if err != nil {
-		return TableRecord{}, fmt.Errorf("insert network flow table: %w", err)
+		return tableRecord{}, fmt.Errorf("insert network flow table: %w", err)
 	}
 	return table, nil
 }
 
-func (s *Store) updateTableNameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, displayName string, now time.Time) (TableRecord, error) {
+func (s *store) updateTableNameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, displayName string, now time.Time) (tableRecord, error) {
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_tables
    SET display_name = $3,
@@ -726,15 +720,15 @@ UPDATE network_flow_tables
 RETURNING `+tableColumnList(), incidentID, tableID, displayName, now)
 	table, err := scanTable(row)
 	if err != nil {
-		return TableRecord{}, fmt.Errorf("rename network flow table: %w", err)
+		return tableRecord{}, fmt.Errorf("rename network flow table: %w", err)
 	}
 	if err := s.appendTableResourceIntentTx(ctx, tx, table, "invalidate", "renamed"); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	return table, nil
 }
 
-func (s *Store) updateTableSoftDeletedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) (TableRecord, error) {
+func (s *store) updateTableSoftDeletedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) (tableRecord, error) {
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_tables
    SET table_status = 'soft_deleted',
@@ -746,16 +740,16 @@ UPDATE network_flow_tables
 RETURNING `+tableColumnList(), incidentID, tableID, now)
 	table, err := scanTable(row)
 	if err != nil {
-		return TableRecord{}, fmt.Errorf("soft delete network flow table: %w", err)
+		return tableRecord{}, fmt.Errorf("soft delete network flow table: %w", err)
 	}
 	if err := s.appendTableResourceIntentTx(ctx, tx, table, "remove", "soft_deleted"); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	return table, nil
 }
 
-func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params CreateTableParams, parserProfileID string, now time.Time) error {
-	ordered := append([]FlowRow(nil), params.Rows...)
+func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, parserProfileID string, now time.Time) error {
+	ordered := append([]flowRow(nil), params.Rows...)
 	sort.SliceStable(ordered, func(i, j int) bool {
 		if ordered[i].SourceRowNumber == ordered[j].SourceRowNumber {
 			return ordered[i].RowID < ordered[j].RowID
@@ -782,8 +776,8 @@ INSERT INTO network_flow_rows (
 	return nil
 }
 
-func insertDiagnosticsTx(ctx context.Context, tx pgx.Tx, tableID string, params CreateTableParams, now time.Time) error {
-	ordered := append([]RejectedRowDiagnostic(nil), params.Diagnostics...)
+func insertDiagnosticsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, now time.Time) error {
+	ordered := append([]rejectedRowDiagnostic(nil), params.Diagnostics...)
 	sort.SliceStable(ordered, func(i, j int) bool {
 		return compareDiagnostics(ordered[i], ordered[j]) < 0
 	})
@@ -808,7 +802,7 @@ INSERT INTO network_flow_rejected_row_diagnostics (
 	return nil
 }
 
-func materializeRow(tableID string, params CreateTableParams, parserProfileID string, source FlowRow, now time.Time) FlowRow {
+func materializeRow(tableID string, params createTableParams, parserProfileID string, source flowRow, now time.Time) flowRow {
 	row := source
 	row.NetworkFlowTableID = tableID
 	row.IncidentID = params.IncidentID
@@ -824,12 +818,12 @@ func materializeRow(tableID string, params CreateTableParams, parserProfileID st
 		row.ObservationSourceRef = observationSourceRef(params, parserProfileID, row)
 	}
 	if row.RowID == "" {
-		row.RowID = RowID(params.IncidentID, tableID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256)
+		row.RowID = rowID(params.IncidentID, tableID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256)
 	}
 	return row
 }
 
-func observationSourceRef(params CreateTableParams, parserProfileID string, row FlowRow) json.RawMessage {
+func observationSourceRef(params createTableParams, parserProfileID string, row flowRow) json.RawMessage {
 	payload := map[string]any{
 		"import_session_id":        params.ImportSessionID.String(),
 		"import_unit_id":           params.ImportUnitID.String(),
@@ -847,16 +841,16 @@ func observationSourceRef(params CreateTableParams, parserProfileID string, row 
 	return data
 }
 
-func finalDisplayName(params CreateTableParams, existingNames map[string]struct{}) (string, error) {
+func finalDisplayName(params createTableParams, existingNames map[string]struct{}) (string, error) {
 	if params.DisplayNameOverride == nil {
-		return DeriveTableDisplayName(params.OriginalFilename, existingNames)
+		return deriveTableDisplayName(params.OriginalFilename, existingNames)
 	}
 	displayName, err := normalizeExplicitDisplayName(*params.DisplayNameOverride)
 	if err != nil {
 		return "", err
 	}
 	if _, exists := existingNames[displayName]; exists {
-		return "", &InvalidDisplayNameError{ReasonCode: "duplicate_display_name", NormalizedLength: len([]rune(displayName))}
+		return "", &invalidDisplayNameError{ReasonCode: "duplicate_display_name", NormalizedLength: len([]rune(displayName))}
 	}
 	return displayName, nil
 }
@@ -869,7 +863,7 @@ type retainedCountQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func getTable(ctx context.Context, querier tableQuerier, incidentID uuid.UUID, tableID string, forUpdate bool) (TableRecord, error) {
+func getTable(ctx context.Context, querier tableQuerier, incidentID uuid.UUID, tableID string, forUpdate bool) (tableRecord, error) {
 	query := tableSelectColumns() + `
   FROM network_flow_tables
  WHERE incident_id = $1
@@ -879,15 +873,15 @@ func getTable(ctx context.Context, querier tableQuerier, incidentID uuid.UUID, t
 	}
 	table, err := scanTable(querier.QueryRow(ctx, query, incidentID, tableID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return TableRecord{}, ErrTableNotFound
+		return tableRecord{}, errTableNotFound
 	}
 	if err != nil {
-		return TableRecord{}, fmt.Errorf("get network flow table: %w", err)
+		return tableRecord{}, fmt.Errorf("get network flow table: %w", err)
 	}
 	return table, nil
 }
 
-func (s *Store) lockIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+func (s *store) lockIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
 	if s.incidentLocks == nil {
 		return fmt.Errorf("network flow incident lock participant unavailable")
 	}
@@ -896,7 +890,7 @@ func (s *Store) lockIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 		return err
 	}
 	if !found {
-		return ErrIncidentNotFound
+		return errIncidentNotFound
 	}
 	return nil
 }
@@ -928,8 +922,8 @@ SELECT display_name
 	return names, nil
 }
 
-func retainedCountsTx(ctx context.Context, querier retainedCountQuerier, incidentID uuid.UUID) (RetainedCounts, error) {
-	var counts RetainedCounts
+func retainedCountsTx(ctx context.Context, querier retainedCountQuerier, incidentID uuid.UUID) (retainedCounts, error) {
+	var counts retainedCounts
 	err := querier.QueryRow(ctx, `
 SELECT COUNT(*) FILTER (WHERE table_status = 'active') AS active_count,
        COUNT(*) FILTER (WHERE table_status IN ('active', 'soft_deleted')) AS retained_count
@@ -937,7 +931,7 @@ SELECT COUNT(*) FILTER (WHERE table_status = 'active') AS active_count,
  WHERE incident_id = $1
 `, incidentID).Scan(&counts.Active, &counts.Retained)
 	if err != nil {
-		return RetainedCounts{}, fmt.Errorf("count network flow retained tables: %w", err)
+		return retainedCounts{}, fmt.Errorf("count network flow retained tables: %w", err)
 	}
 	return counts, nil
 }
@@ -969,8 +963,8 @@ func tableColumnList() string {
        row_count_rejected, diagnostics_truncated, created_by_user_id, created_at, updated_at, deleted_at`
 }
 
-func scanTable(row pgx.Row) (TableRecord, error) {
-	var record TableRecord
+func scanTable(row pgx.Row) (tableRecord, error) {
+	var record tableRecord
 	var deletedAt pgtype.Timestamptz
 	if err := row.Scan(
 		&record.TableID,
@@ -995,7 +989,7 @@ func scanTable(row pgx.Row) (TableRecord, error) {
 		&record.UpdatedAt,
 		&deletedAt,
 	); err != nil {
-		return TableRecord{}, err
+		return tableRecord{}, err
 	}
 	record.CreatedAt = record.CreatedAt.UTC()
 	record.UpdatedAt = record.UpdatedAt.UTC()
@@ -1010,8 +1004,8 @@ type rowScanner interface {
 	Scan(...any) error
 }
 
-func scanFlowRow(row rowScanner) (FlowRow, error) {
-	var record FlowRow
+func scanFlowRow(row rowScanner) (flowRow, error) {
+	var record flowRow
 	var srcPort *int32
 	var dstPort *int32
 	var tcpFlags *int32
@@ -1042,7 +1036,7 @@ func scanFlowRow(row rowScanner) (FlowRow, error) {
 		&record.CreatedAt,
 		&record.CreatedByUserID,
 	); err != nil {
-		return FlowRow{}, err
+		return flowRow{}, err
 	}
 	record.SrcPort = srcPort
 	record.DstPort = dstPort
@@ -1053,8 +1047,8 @@ func scanFlowRow(row rowScanner) (FlowRow, error) {
 	return record, nil
 }
 
-func scanTables(rows pgx.Rows) ([]TableRecord, error) {
-	records := []TableRecord{}
+func scanTables(rows pgx.Rows) ([]tableRecord, error) {
+	records := []tableRecord{}
 	for rows.Next() {
 		record, err := scanTable(rows)
 		if err != nil {
@@ -1068,8 +1062,8 @@ func scanTables(rows pgx.Rows) ([]TableRecord, error) {
 	return records, nil
 }
 
-func scanRejectedRowDiagnostic(row rowScanner) (RejectedRowDiagnostic, error) {
-	var record RejectedRowDiagnostic
+func scanRejectedRowDiagnostic(row rowScanner) (rejectedRowDiagnostic, error) {
+	var record rejectedRowDiagnostic
 	if err := row.Scan(
 		&record.DiagnosticID,
 		&record.SourceRowNumber,
@@ -1087,7 +1081,7 @@ func scanRejectedRowDiagnostic(row rowScanner) (RejectedRowDiagnostic, error) {
 		&record.LimitValue,
 		&record.ActualValue,
 	); err != nil {
-		return RejectedRowDiagnostic{}, err
+		return rejectedRowDiagnostic{}, err
 	}
 	if len(record.MessageArgs) == 0 {
 		record.MessageArgs = json.RawMessage(`{}`)
@@ -1112,7 +1106,7 @@ type networkFlowAuditEvent struct {
 	AfterJSON   any
 }
 
-func (s *Store) appendAuditEventTx(ctx context.Context, tx pgx.Tx, event networkFlowAuditEvent) error {
+func (s *store) appendAuditEventTx(ctx context.Context, tx pgx.Tx, event networkFlowAuditEvent) error {
 	if s.auditAppender == nil {
 		return fmt.Errorf("network flow administrative audit participant unavailable")
 	}
@@ -1137,7 +1131,7 @@ func isUniqueViolationOnConstraint(err error, constraintName string) bool {
 	return pgErr.Code == "23505" && pgErr.ConstraintName == constraintName
 }
 
-func compareDiagnostics(a, b RejectedRowDiagnostic) int {
+func compareDiagnostics(a, b rejectedRowDiagnostic) int {
 	if a.SourceRowNumber != b.SourceRowNumber {
 		if a.SourceRowNumber < b.SourceRowNumber {
 			return -1

@@ -8,132 +8,131 @@ import (
 
 const (
 	ProfileID                   = "network_flow_activity"
-	WorkspaceKeyNetworkAnalysis = "network_analysis"
+	workspaceKeyNetworkAnalysis = "network_analysis"
 	RouteContributionID         = "network_flow_activity.route_family"
 	WorkspaceContributionID     = "network_flow_activity.network_analysis_workspace"
 
-	SourceProfileCiscoSNANetFlowCSV = "cisco_sna_netflow_csv_v1"
-	ParserProfileRFC4180HeaderedCSV = "rfc4180_headered_csv_v1"
+	sourceProfileCiscoSNANetFlowCSV = "cisco_sna_netflow_csv_v1"
+	parserProfileRFC4180HeaderedCSV = "rfc4180_headered_csv_v1"
 
-	TableStatusActive      = "active"
-	TableStatusSoftDeleted = "soft_deleted"
+	tableStatusActive      = "active"
+	tableStatusSoftDeleted = "soft_deleted"
 
-	DefaultMaxActiveTablesPerIncident         = 128
-	DefaultMaxRetainedTablesPerIncident       = 512
-	DefaultMaxSelectedTablesPerQuery          = 16
-	DefaultMaxColumnsPerCSV                   = 256
-	DefaultMaxHeaderScalarLength              = 256
-	DefaultMaxRawCellScalarLength             = 4096
-	DefaultMaxRowsPerCSV                      = 250000
-	DefaultMaxAcceptedRowsPerTable            = 250000
-	DefaultMaxRejectedRowDiagnostics          = 10000
-	DefaultMaxFiltersPerQuery                 = 16
-	DefaultMaxSortsPerQuery                   = 8
-	DefaultMaxQueryLimit                      = 500
-	DefaultMaxGraphVertices                   = 5000
-	DefaultMaxGraphEdges                      = 10000
-	DefaultMaxActiveGraphViewsPerIncident     = 32
-	DefaultMaxRetainedGraphViewsPerIncident   = 128
-	DefaultMaxNonterminalGraphJobsPerIncident = 4
-	DefaultMaxExampleRowRefsPerEdge           = 10
-	DefaultMaxBindingSourceRowRefs            = 16
-	DefaultMaxAggregateCounterDigits          = 39
-	DefaultMaxContributingRowsPerGraph        = 250000
-	DefaultMaxTimeBucketsPerGraph             = 256
-	DefaultGraphMaterializationTimeoutSeconds = 300
+	defaultMaxActiveTablesPerIncident         = 128
+	defaultMaxRetainedTablesPerIncident       = 512
+	defaultMaxSelectedTablesPerQuery          = 16
+	defaultMaxColumnsPerCSV                   = 256
+	defaultMaxHeaderScalarLength              = 256
+	defaultMaxRawCellScalarLength             = 4096
+	defaultMaxRowsPerCSV                      = 250000
+	defaultMaxAcceptedRowsPerTable            = 250000
+	defaultMaxRejectedRowDiagnostics          = 10000
+	defaultMaxFiltersPerQuery                 = 16
+	defaultMaxSortsPerQuery                   = 8
+	defaultMaxQueryLimit                      = 500
+	defaultMaxGraphVertices                   = 5000
+	defaultMaxGraphEdges                      = 10000
+	defaultMaxActiveGraphViewsPerIncident     = 32
+	defaultMaxRetainedGraphViewsPerIncident   = 128
+	defaultMaxNonterminalGraphJobsPerIncident = 4
+	defaultMaxExampleRowRefsPerEdge           = 10
+	defaultMaxBindingSourceRowRefs            = 16
+	defaultMaxAggregateCounterDigits          = 39
+	defaultMaxContributingRowsPerGraph        = 250000
+	defaultMaxTimeBucketsPerGraph             = 256
+	defaultGraphMaterializationTimeoutSeconds = 300
 )
 
 var (
-	ErrIncidentNotFound       = errors.New("networkflow: incident not found")
-	ErrNoAcceptedRows         = errors.New("networkflow: no accepted rows")
-	ErrTableNotFound          = errors.New("networkflow: table not found")
-	ErrTableNotActive         = errors.New("networkflow: table not active")
-	ErrTableVersionConflict   = errors.New("networkflow: table version conflict")
-	ErrInvalidDisplayName     = errors.New("networkflow: invalid display name")
-	ErrTableNameExhausted     = errors.New("networkflow: table name exhausted")
-	ErrTableLimitExceeded     = errors.New("networkflow: table limit exceeded")
-	ErrIDGenerationFailed     = errors.New("networkflow: id generation failed")
-	ErrInvalidStorageArgument = errors.New("networkflow: invalid storage argument")
-	ErrInvalidSource          = errors.New("networkflow: invalid source")
-	ErrInvalidMapping         = errors.New("networkflow: invalid mapping")
-	ErrSourceChanged          = errors.New("networkflow: source changed")
-	ErrInvalidQuery           = errors.New("networkflow: invalid query")
-	ErrInvalidCursor          = errors.New("networkflow: invalid cursor")
+	errIncidentNotFound       = errors.New("networkflow: incident not found")
+	errNoAcceptedRows         = errors.New("networkflow: no accepted rows")
+	errTableNotFound          = errors.New("networkflow: table not found")
+	errTableNotActive         = errors.New("networkflow: table not active")
+	errTableVersionConflict   = errors.New("networkflow: table version conflict")
+	errInvalidDisplayName     = errors.New("networkflow: invalid display name")
+	errTableNameExhausted     = errors.New("networkflow: table name exhausted")
+	errTableLimitExceeded     = errors.New("networkflow: table limit exceeded")
+	errIDGenerationFailed     = errors.New("networkflow: id generation failed")
+	errInvalidStorageArgument = errors.New("networkflow: invalid storage argument")
+	errInvalidSource          = errors.New("networkflow: invalid source")
+	errInvalidMapping         = errors.New("networkflow: invalid mapping")
+	errSourceChanged          = errors.New("networkflow: source changed")
+	errInvalidCursor          = errors.New("networkflow: invalid cursor")
 )
 
-type SourceValidationError struct {
+type sourceValidationError struct {
 	Code       string
 	ReasonCode string
 }
 
-func (e *SourceValidationError) Error() string {
+func (e *sourceValidationError) Error() string {
 	if e.Code == "" {
-		return ErrInvalidSource.Error()
+		return errInvalidSource.Error()
 	}
 	return e.Code
 }
 
-func (e *SourceValidationError) Unwrap() error {
-	return ErrInvalidSource
+func (e *sourceValidationError) Unwrap() error {
+	return errInvalidSource
 }
 
-type MappingValidationError struct {
+type mappingValidationError struct {
 	Code       string
 	ReasonCode string
 	FieldKey   string
 }
 
-func (e *MappingValidationError) Error() string {
+func (e *mappingValidationError) Error() string {
 	if e.Code == "" {
-		return ErrInvalidMapping.Error()
+		return errInvalidMapping.Error()
 	}
 	return e.Code
 }
 
-func (e *MappingValidationError) Unwrap() error {
-	return ErrInvalidMapping
+func (e *mappingValidationError) Unwrap() error {
+	return errInvalidMapping
 }
 
-type InvalidDisplayNameError struct {
+type invalidDisplayNameError struct {
 	NormalizedLength int
 	ReasonCode       string
 }
 
-func (e *InvalidDisplayNameError) Error() string {
-	return ErrInvalidDisplayName.Error()
+func (e *invalidDisplayNameError) Error() string {
+	return errInvalidDisplayName.Error()
 }
 
-func (e *InvalidDisplayNameError) Unwrap() error {
-	return ErrInvalidDisplayName
+func (e *invalidDisplayNameError) Unwrap() error {
+	return errInvalidDisplayName
 }
 
-type TableVersionConflictError struct {
+type tableVersionConflictError struct {
 	TableID             string
 	BaseTableVersion    int64
 	CurrentTableVersion int64
 }
 
-func (e *TableVersionConflictError) Error() string {
-	return ErrTableVersionConflict.Error()
+func (e *tableVersionConflictError) Error() string {
+	return errTableVersionConflict.Error()
 }
 
-func (e *TableVersionConflictError) Unwrap() error {
-	return ErrTableVersionConflict
+func (e *tableVersionConflictError) Unwrap() error {
+	return errTableVersionConflict
 }
 
-type TableLimitError struct {
+type tableLimitError struct {
 	IncidentID uuid.UUID
 	LimitName  string
 	Limit      int64
 	Current    int64
 }
 
-func (e *TableLimitError) Error() string {
-	return ErrTableLimitExceeded.Error()
+func (e *tableLimitError) Error() string {
+	return errTableLimitExceeded.Error()
 }
 
-func (e *TableLimitError) Unwrap() error {
-	return ErrTableLimitExceeded
+func (e *tableLimitError) Unwrap() error {
+	return errTableLimitExceeded
 }
 
 // EffectiveLimits is the fully resolved, immutable Network Flow resource
@@ -166,40 +165,30 @@ type EffectiveLimits struct {
 	GraphMaterializationTimeoutSeconds int64
 }
 
-func DefaultEffectiveLimits() EffectiveLimits {
+func defaultEffectiveLimits() EffectiveLimits {
 	return EffectiveLimits{
-		MaxActiveTablesPerIncident:         DefaultMaxActiveTablesPerIncident,
-		MaxRetainedTablesPerIncident:       DefaultMaxRetainedTablesPerIncident,
-		MaxSelectedTablesPerQuery:          DefaultMaxSelectedTablesPerQuery,
-		MaxColumnsPerCSV:                   DefaultMaxColumnsPerCSV,
-		MaxHeaderScalarLength:              DefaultMaxHeaderScalarLength,
-		MaxRawCellScalarLength:             DefaultMaxRawCellScalarLength,
-		MaxRowsPerCSV:                      DefaultMaxRowsPerCSV,
-		MaxAcceptedRowsPerTable:            DefaultMaxAcceptedRowsPerTable,
-		MaxRejectedRowDiagnostics:          DefaultMaxRejectedRowDiagnostics,
-		MaxFiltersPerQuery:                 DefaultMaxFiltersPerQuery,
-		MaxSortsPerQuery:                   DefaultMaxSortsPerQuery,
-		MaxQueryLimit:                      DefaultMaxQueryLimit,
-		MaxGraphVertices:                   DefaultMaxGraphVertices,
-		MaxGraphEdges:                      DefaultMaxGraphEdges,
-		MaxActiveGraphViewsPerIncident:     DefaultMaxActiveGraphViewsPerIncident,
-		MaxRetainedGraphViewsPerIncident:   DefaultMaxRetainedGraphViewsPerIncident,
-		MaxNonterminalGraphJobsPerIncident: DefaultMaxNonterminalGraphJobsPerIncident,
-		MaxExampleRowRefsPerEdge:           DefaultMaxExampleRowRefsPerEdge,
-		MaxBindingSourceRowRefs:            DefaultMaxBindingSourceRowRefs,
-		MaxAggregateCounterDigits:          DefaultMaxAggregateCounterDigits,
-		MaxContributingRowsPerGraph:        DefaultMaxContributingRowsPerGraph,
-		MaxTimeBucketsPerGraph:             DefaultMaxTimeBucketsPerGraph,
-		GraphMaterializationTimeoutSeconds: DefaultGraphMaterializationTimeoutSeconds,
+		MaxActiveTablesPerIncident:         defaultMaxActiveTablesPerIncident,
+		MaxRetainedTablesPerIncident:       defaultMaxRetainedTablesPerIncident,
+		MaxSelectedTablesPerQuery:          defaultMaxSelectedTablesPerQuery,
+		MaxColumnsPerCSV:                   defaultMaxColumnsPerCSV,
+		MaxHeaderScalarLength:              defaultMaxHeaderScalarLength,
+		MaxRawCellScalarLength:             defaultMaxRawCellScalarLength,
+		MaxRowsPerCSV:                      defaultMaxRowsPerCSV,
+		MaxAcceptedRowsPerTable:            defaultMaxAcceptedRowsPerTable,
+		MaxRejectedRowDiagnostics:          defaultMaxRejectedRowDiagnostics,
+		MaxFiltersPerQuery:                 defaultMaxFiltersPerQuery,
+		MaxSortsPerQuery:                   defaultMaxSortsPerQuery,
+		MaxQueryLimit:                      defaultMaxQueryLimit,
+		MaxGraphVertices:                   defaultMaxGraphVertices,
+		MaxGraphEdges:                      defaultMaxGraphEdges,
+		MaxActiveGraphViewsPerIncident:     defaultMaxActiveGraphViewsPerIncident,
+		MaxRetainedGraphViewsPerIncident:   defaultMaxRetainedGraphViewsPerIncident,
+		MaxNonterminalGraphJobsPerIncident: defaultMaxNonterminalGraphJobsPerIncident,
+		MaxExampleRowRefsPerEdge:           defaultMaxExampleRowRefsPerEdge,
+		MaxBindingSourceRowRefs:            defaultMaxBindingSourceRowRefs,
+		MaxAggregateCounterDigits:          defaultMaxAggregateCounterDigits,
+		MaxContributingRowsPerGraph:        defaultMaxContributingRowsPerGraph,
+		MaxTimeBucketsPerGraph:             defaultMaxTimeBucketsPerGraph,
+		GraphMaterializationTimeoutSeconds: defaultGraphMaterializationTimeoutSeconds,
 	}
-}
-
-// DefaultLimits is retained as the explicit constructor for callers that need
-// the adopted default policy. It performs no normalization of caller input.
-func DefaultLimits() EffectiveLimits {
-	return DefaultEffectiveLimits()
-}
-
-func LifecycleStates() []string {
-	return []string{TableStatusActive, TableStatusSoftDeleted}
 }

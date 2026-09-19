@@ -88,7 +88,7 @@ func TestNetworkFlowConfigurationContribution_Unit(t *testing.T) {
 			context.Background(),
 			nil,
 			uuid.MustParse("11111111-1111-1111-1111-111111111111"),
-			[]string{ExtensionFamilyTables},
+			[]string{extensionFamilyTables},
 		); err == nil {
 			t.Fatal("missing transaction query capability was admitted")
 		}
@@ -222,7 +222,7 @@ func TestNetworkFlowEffectiveResourceLimits_Unit(t *testing.T) {
 		}
 	})
 
-	if err := ValidateEffectiveLimits(EffectiveLimits{}); err == nil {
+	if err := checkEffectiveLimits(EffectiveLimits{}); err == nil {
 		t.Fatal("zero EffectiveLimits was silently defaulted")
 	}
 }

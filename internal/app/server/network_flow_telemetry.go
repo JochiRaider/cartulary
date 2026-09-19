@@ -24,17 +24,18 @@ type networkFlowTelemetryObserver struct {
 	cleanupDeleted metric.Int64Counter
 	logger         telemetry.LoggerHandle
 
-	mu                    sync.RWMutex
-	cleanupHealthObserved bool
-	eligibleBacklog       int64
-	oldestAgeObserved     bool
-	oldestEligibleAge     time.Duration
+	cleanupExamined     metric.Int64Counter
+	mu                  sync.RWMutex
+	now                 func() time.Time
+	lastCleanupSuccess  time.Time
+	cleanupContinuation int64
 }
 
 func newNetworkFlowTelemetryObserver(serviceVersion string) *networkFlowTelemetryObserver {
 	meter := telemetry.Meter(telemetry.ScopeNetworkFlow, serviceVersion)
 	observer := &networkFlowTelemetryObserver{
 		serviceVersion: serviceVersion,
+		now:            time.Now,
 		logger:         telemetry.Logger(telemetry.ScopeNetworkFlow, serviceVersion),
 	}
 	observer.phaseDuration, _ = meter.Float64Histogram(
@@ -67,28 +68,31 @@ func newNetworkFlowTelemetryObserver(serviceVersion string) *networkFlowTelemetr
 		metric.WithUnit("{object}"),
 		metric.WithDescription("Expired leases and eligible projection results deleted by Network Flow cleanup."),
 	)
+	observer.cleanupExamined, _ = meter.Int64Counter(
+		telemetry.NetworkFlowCleanupExaminedMetricName, metric.WithUnit("{result}"),
+		metric.WithDescription("Candidates whose examination transaction committed."),
+	)
 	_, _ = meter.Int64ObservableGauge(
-		telemetry.NetworkFlowCleanupEligibleMetricName,
-		metric.WithUnit("{result}"),
-		metric.WithDescription("Current eligible projection-result backlog."),
+		telemetry.NetworkFlowCleanupContinuationMetricName, metric.WithUnit("1"),
+		metric.WithDescription("Whether the last successful cleanup decision selected paced continuation."),
 		metric.WithInt64Callback(func(_ context.Context, metricObserver metric.Int64Observer) error {
 			observer.mu.RLock()
-			defer observer.mu.RUnlock()
-			if observer.cleanupHealthObserved {
-				metricObserver.Observe(observer.eligibleBacklog)
-			}
+			continuation := observer.cleanupContinuation
+			observer.mu.RUnlock()
+			metricObserver.Observe(continuation)
 			return nil
 		}),
 	)
 	_, _ = meter.Float64ObservableGauge(
-		telemetry.NetworkFlowCleanupOldestAgeMetricName,
-		metric.WithUnit("s"),
-		metric.WithDescription("Age from published_at of the oldest currently eligible projection result."),
+		telemetry.NetworkFlowCleanupLastSuccessAgeMetricName, metric.WithUnit("s"),
+		metric.WithDescription("Elapsed seconds since the last successful cleanup sweep."),
 		metric.WithFloat64Callback(func(_ context.Context, metricObserver metric.Float64Observer) error {
 			observer.mu.RLock()
-			defer observer.mu.RUnlock()
-			if observer.cleanupHealthObserved && observer.oldestAgeObserved {
-				metricObserver.Observe(observer.oldestEligibleAge.Seconds())
+			last := observer.lastCleanupSuccess
+			now := observer.now
+			observer.mu.RUnlock()
+			if !last.IsZero() {
+				metricObserver.Observe(max(now().Sub(last).Seconds(), 0))
 			}
 			return nil
 		}),
@@ -154,10 +158,19 @@ func (observer *networkFlowTelemetryObserver) ObserveGraphCleanup(
 	ctx context.Context,
 	observation networkflow.GraphCleanupTelemetryObservation,
 ) {
-	if observer == nil || observation.DeletedLeases < 0 || observation.DeletedResults < 0 {
+	if observer == nil || observation.DeletedLeases < 0 || observation.DeletedResults < 0 || observation.Examined < 0 {
 		return
 	}
 	result, errorClass := closedNetworkFlowTelemetryOutcome(observation.Result, observation.ErrorClass)
+	if result == "success" {
+		observer.mu.Lock()
+		observer.lastCleanupSuccess = observer.now()
+		observer.cleanupContinuation = 0
+		if observation.Continuation {
+			observer.cleanupContinuation = 1
+		}
+		observer.mu.Unlock()
+	}
 	attrs := telemetry.SafeAttributes(
 		attribute.String("cartulary.operation", "cleanup_sweep"),
 		attribute.String("cartulary.result", result),
@@ -174,7 +187,9 @@ func (observer *networkFlowTelemetryObserver) ObserveGraphCleanup(
 	}
 	observer.recordCleanupDeleted(ctx, "lease", observation.DeletedLeases, result)
 	observer.recordCleanupDeleted(ctx, "projection_result", observation.DeletedResults, result)
-	observer.updateCleanupHealth(observation)
+	if observer.cleanupExamined != nil {
+		observer.cleanupExamined.Add(ctx, int64(observation.Examined))
+	}
 	spanAttrs := telemetry.SafeAttributes(append(attrs,
 		attribute.String("cartulary.phase", "cleanup_sweep"),
 	)...)
@@ -207,23 +222,6 @@ func (observer *networkFlowTelemetryObserver) recordCleanupDeleted(ctx context.C
 		attribute.String("cartulary.graph_object_kind", kind),
 		attribute.String("cartulary.result", result),
 	)...))
-}
-
-func (observer *networkFlowTelemetryObserver) updateCleanupHealth(observation networkflow.GraphCleanupTelemetryObservation) {
-	if !observation.HealthSnapshotValid || observation.EligibleResultBacklog < 0 ||
-		(observation.EligibleResultBacklog == 0 && observation.OldestEligibleResultAge != nil) ||
-		(observation.OldestEligibleResultAge != nil && *observation.OldestEligibleResultAge < 0) {
-		return
-	}
-	observer.mu.Lock()
-	defer observer.mu.Unlock()
-	observer.cleanupHealthObserved = true
-	observer.eligibleBacklog = observation.EligibleResultBacklog
-	observer.oldestAgeObserved = observation.OldestEligibleResultAge != nil
-	observer.oldestEligibleAge = 0
-	if observation.OldestEligibleResultAge != nil {
-		observer.oldestEligibleAge = *observation.OldestEligibleResultAge
-	}
 }
 
 func (observer *networkFlowTelemetryObserver) recordSpan(

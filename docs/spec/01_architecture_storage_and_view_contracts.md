@@ -4398,6 +4398,32 @@ replacement; Core terminal-receipt behavior remains as declared by its route.
 - A fresh cancel request against `cancel_requested`, `succeeded`, `failed`, `canceled`, or any non-terminal resource whose current `cancelable = false` MUST fail with `409`, `error.code = job_cancel_rejected`, and `error.details.reason_code` equal to `already_cancel_requested`, `already_terminal`, or `not_cancelable` from §3.3.6.2. A missing, expired, or unauthorized job lookup or cancel request MUST fail with `404` and `error.code = job_not_found`.
 - Terminal job resources MUST be retained for at least 7 days. After a terminal transition, `retained_until` is required and MUST be greater than or equal to `finished_at + 7 days`. At `now >= retained_until`, `GET /api/v1/jobs/{job_id}` and every cancel request, including an otherwise exact idempotency replay, MUST return `404` with `error.code = job_not_found`. This logical expiry rule applies independently of physical compaction progress. Expiring a terminal job resource MUST NOT delete or mutate durable outputs such as committed incident changes, imports, reports, snapshots, bundles, blob metadata, extension commit proofs, or other cross-owner provenance produced by that job.
 
+##### 3.3.9.3 Internal restored-job read projection
+
+`ListRestoredNonterminalPageTx` is an internal Common Jobs capability, not a
+public job-list endpoint. It accepts a required context and borrowed `pgx.Tx`,
+a scope containing exact `JobKind` and `ExtensionOwnerProfileID`, an optional
+exclusive `afterJobID`, and a required limit in `[1,256]`. Missing context,
+transaction, scope, a supplied zero cursor, or an invalid limit returns the Jobs
+`ErrInvalidJobDefinition` family before IO. The first page omits the cursor.
+
+Selection is exactly the positive status set `queued`, `running`, and
+`cancel_requested`, with both scope predicates, across all restored incidents,
+ordered by database `job_id ASC`. Each row contains its job ID, nullable incident ID,
+and independently owned handler-payload JSON bytes. Jobs does not decode or
+reserialize the payload. Query, scan, iteration or cancellation failure returns
+an error and no successful partial page. Empty success has length zero.
+
+Each page is completely consumed and closed before caller writes. The caller
+continues with its last returned ID until an empty page; there is no total cap.
+The operation neither changes transaction isolation nor acquires another
+connection, mutates rows, commits, rolls back, or notifies workers. It runs only
+inside admitted quiescent restore. Existing per-row reconciliation retains its
+locks, resumability checks and exclusive mutation of `handler_attempt_id` and
+`handler_lease_expires_at`; status and ordering keys do not change between pages.
+Failure on any later page or participant rolls back the enclosing Graph
+transaction under REQ-01-625A. A partial restore never publishes readiness.
+
 #### 3.3.10 WebSocket collaboration stream
 
 **REQ-01-250**

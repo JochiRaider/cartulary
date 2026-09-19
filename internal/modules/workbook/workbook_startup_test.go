@@ -15,6 +15,7 @@ import (
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -300,14 +301,14 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 
 func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 	t.Helper()
-	rings, err := networkflow.ParseKeyRings([]byte(`{
+	rings, err := networkflow.ParseKeyRingsWithRegistry([]byte(`{
   "schema_id":"cartulary.network_flow_key_rings.v1",
   "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"saved_view_query-harness-cursor","state":"active","secret_ref":{"kind":"env","name":"saved_view_query-harness-cursor"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"saved_view_query-harness-safe","state":"active","secret_ref":{"kind":"env","name":"saved_view_query-harness-safe"}}]}
 }`), map[string]string{
 		"CARTULARY_SECRET_SAVED_VIEW_QUERY_HARNESS_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
 		"CARTULARY_SECRET_SAVED_VIEW_QUERY_HARNESS_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
-	}, time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC))
+	}, time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC), secretpurpose.NewRegistry())
 	if err != nil {
 		t.Fatalf("parse Workbook query Network Flow harness key rings: %v", err)
 	}

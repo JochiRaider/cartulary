@@ -1,20 +1,21 @@
 package telemetry
 
 const (
-	EvidenceCleanupOperationsMetricName     = "cartulary.evidence.cleanup.operations"
-	EvidenceCleanupSweepDurationMetricName  = "cartulary.evidence.cleanup.sweep.duration"
-	EvidenceCleanupOverdueMetricName        = "cartulary.evidence.cleanup.overdue"
-	EvidenceCleanupOldestAgeMetricName      = "cartulary.evidence.cleanup.oldest_eligible.age"
-	JobsQueuedMetricName                    = "cartulary.jobs.queued"
-	JobsQueueWaitDurationMetricName         = "cartulary.jobs.queue_wait.duration"
-	NetworkFlowGraphPhaseDurationMetricName = "cartulary.network_flow.graph.phase.duration"
-	NetworkFlowGraphRowsMetricName          = "cartulary.network_flow.graph.contributing_rows"
-	NetworkFlowGraphObjectsMetricName       = "cartulary.network_flow.graph.result.objects"
-	NetworkFlowCleanupOperationsMetricName  = "cartulary.network_flow.cleanup.operations"
-	NetworkFlowCleanupDurationMetricName    = "cartulary.network_flow.cleanup.sweep.duration"
-	NetworkFlowCleanupDeletedMetricName     = "cartulary.network_flow.cleanup.deleted"
-	NetworkFlowCleanupEligibleMetricName    = "cartulary.network_flow.cleanup.eligible"
-	NetworkFlowCleanupOldestAgeMetricName   = "cartulary.network_flow.cleanup.oldest_eligible_result.age"
+	EvidenceCleanupOperationsMetricName        = "cartulary.evidence.cleanup.operations"
+	EvidenceCleanupSweepDurationMetricName     = "cartulary.evidence.cleanup.sweep.duration"
+	EvidenceCleanupOverdueMetricName           = "cartulary.evidence.cleanup.overdue"
+	EvidenceCleanupOldestAgeMetricName         = "cartulary.evidence.cleanup.oldest_eligible.age"
+	JobsQueuedMetricName                       = "cartulary.jobs.queued"
+	JobsQueueWaitDurationMetricName            = "cartulary.jobs.queue_wait.duration"
+	NetworkFlowGraphPhaseDurationMetricName    = "cartulary.network_flow.graph.phase.duration"
+	NetworkFlowGraphRowsMetricName             = "cartulary.network_flow.graph.contributing_rows"
+	NetworkFlowGraphObjectsMetricName          = "cartulary.network_flow.graph.result.objects"
+	NetworkFlowCleanupOperationsMetricName     = "cartulary.network_flow.cleanup.operations"
+	NetworkFlowCleanupDurationMetricName       = "cartulary.network_flow.cleanup.sweep.duration"
+	NetworkFlowCleanupDeletedMetricName        = "cartulary.network_flow.cleanup.deleted"
+	NetworkFlowCleanupExaminedMetricName       = "cartulary.network_flow.cleanup.examined"
+	NetworkFlowCleanupContinuationMetricName   = "cartulary.network_flow.cleanup.continuation"
+	NetworkFlowCleanupLastSuccessAgeMetricName = "cartulary.network_flow.cleanup.last_success.age"
 )
 
 type SpanRegistryRow struct {
@@ -258,8 +259,9 @@ func MetricRegistry() []MetricRegistryRow {
 		{Name: NetworkFlowCleanupOperationsMetricName, InstrumentKind: "Counter", Unit: "{operation}", Description: "Network Flow cleanup sweep operations by closed result.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: NetworkFlowCleanupDurationMetricName, InstrumentKind: "Histogram", Unit: "s", Description: "Network Flow cleanup sweep duration.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: durationBuckets, AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: NetworkFlowCleanupDeletedMetricName, InstrumentKind: "Counter", Unit: "{object}", Description: "Expired leases and eligible projection results deleted by Network Flow cleanup.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: []string{"cartulary.graph_object_kind", "cartulary.result"}, OverflowBehavior: "drop_metric_overflow"},
-		{Name: NetworkFlowCleanupEligibleMetricName, InstrumentKind: "ObservableGauge", Unit: "{result}", Description: "Current eligible projection-result backlog.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
-		{Name: NetworkFlowCleanupOldestAgeMetricName, InstrumentKind: "ObservableGauge", Unit: "s", Description: "Age from published_at of the oldest currently eligible projection result.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
+		{Name: NetworkFlowCleanupExaminedMetricName, InstrumentKind: "Counter", Unit: "{result}", Description: "Candidates whose examination transaction committed.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
+		{Name: NetworkFlowCleanupContinuationMetricName, InstrumentKind: "ObservableGauge", Unit: "1", Description: "Last successful cleanup decision selected paced continuation.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
+		{Name: NetworkFlowCleanupLastSuccessAgeMetricName, InstrumentKind: "ObservableGauge", Unit: "s", Description: "Elapsed seconds since the last successful cleanup sweep.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.postgres.operation.duration", InstrumentKind: "Histogram", Unit: "s", Description: "Postgres dependency operation duration.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: durationBuckets, AllowedAttributes: []string{"db.system.name", "cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.objectstore.operation.duration", InstrumentKind: "Histogram", Unit: "s", Description: "Object-store dependency operation duration.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: durationBuckets, AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.objectstore.transfer.bytes", InstrumentKind: "Histogram", Unit: "By", Description: "Safe object-store transfer size.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: byteBuckets, AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OverflowBehavior: "drop_metric_overflow"},

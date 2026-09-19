@@ -14,7 +14,7 @@ func TestTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T) {
 
 func TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembers(t *testing.T) {
 	t.Parallel()
-	approved := MarshalApprovedMapping(approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV))
+	approved := marshalApprovedMapping(approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV))
 	for name, raw := range map[string]string{
 		"explicit null precision": strings.Replace(string(approved), `"precision":"microseconds"`, `"precision":null`, 1),
 		"missing rfc policy":      strings.Replace(string(approved), `,"local_time_gap_policy":"reject"`, ``, 1),
@@ -22,8 +22,8 @@ func TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembe
 		"duplicate member":        strings.Replace(string(approved), `"mode":"rfc3339"`, `"mode":"rfc3339","mode":"rfc3339"`, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := DecodeApprovedMapping([]byte(raw))
-			var mappingErr *MappingValidationError
+			_, err := decodeApprovedMapping([]byte(raw))
+			var mappingErr *mappingValidationError
 			if !errors.As(err, &mappingErr) || mappingErr.ReasonCode != "variant_member_conflict" {
 				t.Fatalf("closed timestamp profile got %T %[1]v", err)
 			}
@@ -33,7 +33,7 @@ func TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembe
 
 func assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T) {
 	t.Helper()
-	seconds := materializeTimestampProfile(TimestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "seconds"})
+	seconds := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "seconds"})
 	if got, err := parseTimestamp("2026-07-10T12:00:00+02:30", seconds); err != nil || !got.Equal(time.Date(2026, 7, 10, 9, 30, 0, 0, time.UTC)) {
 		t.Fatalf("offset timestamp = %v, %v", got, err)
 	}
@@ -46,7 +46,7 @@ func assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T)
 			t.Fatalf("invalid timestamp %q was accepted", value)
 		}
 	}
-	milliseconds := materializeTimestampProfile(TimestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "milliseconds"})
+	milliseconds := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "milliseconds"})
 	if _, err := parseTimestamp("2026-07-10T12:00:00.123Z", milliseconds); err != nil {
 		t.Fatalf("millisecond timestamp: %v", err)
 	}
@@ -57,7 +57,7 @@ func assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T)
 	zone := "America/New_York"
 	ruleset := timestampRulesetID
 	reject := "reject"
-	iana := TimestampProfile{
+	iana := timestampProfile{
 		SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "microseconds",
 		Timezone: &zone, TimezoneRulesetID: &ruleset,
 		AmbiguousLocalTimePolicy: &reject, LocalTimeGapPolicy: &reject,
@@ -86,12 +86,12 @@ func assertNetFlowSystemUptimeTimestampAndMappingOrdinals(t *testing.T) {
 	exportOrdinal := 3
 	exporterUptimeOrdinal := 4
 	exportMode := "rfc3339"
-	profile := materializeTimestampProfile(TimestampProfile{
+	profile := materializeTimestampProfile(timestampProfile{
 		SchemaID: timestampProfileSchemaID, Mode: "netflow_sys_uptime_milliseconds",
 		NetFlowExportTimeColumnOrdinal: &exportOrdinal, NetFlowExportTimeMode: &exportMode,
 		NetFlowExporterUptimeAtExportColumnOrdinal: &exporterUptimeOrdinal,
 	})
-	record := CSVRecord{Fields: []string{"900", "800", "2026-07-10T12:00:00Z", "1000"}}
+	record := csvRecord{Fields: []string{"900", "800", "2026-07-10T12:00:00Z", "1000"}}
 	got, err := parseTimestampForRecord(record.Fields[0], profile, &record)
 	if err != nil || !got.Equal(time.Date(2026, 7, 10, 11, 59, 59, 900_000_000, time.UTC)) {
 		t.Fatalf("uptime timestamp = %v, %v", got, err)
@@ -103,17 +103,17 @@ func assertNetFlowSystemUptimeTimestampAndMappingOrdinals(t *testing.T) {
 		t.Fatalf("uint32 reason = %q, %v", timestampReason(err), err)
 	}
 
-	mapping := approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV)
+	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	mapping.TimestampProfile = profile
 	for len(mapping.SourceColumns) < 4 {
 		ordinal := len(mapping.SourceColumns) + 1
-		mapping.SourceColumns = append(mapping.SourceColumns, SourceColumnDescriptor{SourceColumnOrdinal: ordinal})
+		mapping.SourceColumns = append(mapping.SourceColumns, sourceColumnDescriptor{SourceColumnOrdinal: ordinal})
 	}
 	// The first required field is flow_start_utc at ordinal 1. Reusing it as
 	// export time is rejected before row evaluation.
 	mapping.TimestampProfile.NetFlowExportTimeColumnOrdinal = intPtr(1)
 	err = validateApprovedMapping(mapping)
-	var mappingErr *MappingValidationError
+	var mappingErr *mappingValidationError
 	if !errors.As(err, &mappingErr) || mappingErr.ReasonCode != "timestamp_column_reused" {
 		t.Fatalf("ordinal reuse = %T %[1]v", err)
 	}

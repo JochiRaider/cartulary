@@ -29,8 +29,12 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSour
 	if db == nil {
 		return graphrestore.RestoreSourceRegistration{}, fmt.Errorf("network flow graph restore source requires PostgreSQL")
 	}
-	limits := DefaultEffectiveLimits()
-	store := NewStore(db, limits)
+	limits := defaultEffectiveLimits()
+	store := newStore(db, limits)
+	composer, err := newGraphSourceComposer(store, limits, newGraphProjectionAdapter(), func() time.Time { return time.Now().UTC() }, nil)
+	if err != nil {
+		return graphrestore.RestoreSourceRegistration{}, err
+	}
 	return graphrestore.RestoreSourceRegistration{
 		Entry: graphrestore.RestoreSourceRegistryEntry{
 			SourceRegistrationID:       graphRestoreSourceRegistrationID,
@@ -51,7 +55,7 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSour
 			if err != nil {
 				return nil, fmt.Errorf("enumerate Network Flow saved graphs for restore: %w", err)
 			}
-			declarations := make([]GraphViewDeclaration, 0)
+			declarations := make([]graphViewDeclaration, 0)
 			for rows.Next() {
 				declaration, scanErr := scanGraphViewDeclaration(rows)
 				if scanErr != nil {
@@ -66,7 +70,6 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSour
 			}
 			rows.Close()
 
-			composer := &Service{store: store, graphProjection: newGraphProjectionAdapter(), now: func() time.Time { return time.Now().UTC() }}
 			candidates := make([]graphrestore.RestoreCandidate, 0, len(declarations))
 			for _, declaration := range declarations {
 				if declaration.SelectedResult == nil {
@@ -112,46 +115,30 @@ func ReconcileGraphRestoreJobsTx(ctx context.Context, tx pgx.Tx) (int, error) {
 	if ctx == nil || tx == nil {
 		return 0, fmt.Errorf("network flow graph restore job reconciliation requires a transaction")
 	}
-	type restoredGraphJob struct {
-		jobID      uuid.UUID
-		incidentID uuid.UUID
-		payload    []byte
-	}
-	rows, err := tx.Query(ctx, `
-SELECT job_id, incident_id, handler_payload_json
-  FROM jobs
- WHERE status IN ('queued', 'running', 'cancel_requested')
-   AND job_kind = $1
-   AND extension_owner_profile_id = $2
- ORDER BY job_id
-`, GraphViewMaterializationJobKind, ProfileID)
-	if err != nil {
-		return 0, fmt.Errorf("enumerate restored Network Flow graph jobs: %w", err)
-	}
-	restoredJobs := make([]restoredGraphJob, 0)
-	for rows.Next() {
-		var restored restoredGraphJob
-		if err := rows.Scan(&restored.jobID, &restored.incidentID, &restored.payload); err != nil {
-			rows.Close()
-			return 0, fmt.Errorf("scan restored Network Flow graph job: %w", err)
-		}
-		restoredJobs = append(restoredJobs, restored)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return 0, fmt.Errorf("iterate restored Network Flow graph jobs: %w", err)
-	}
-	rows.Close()
-	for _, restored := range restoredJobs {
-		var payload graphViewMaterializationPayload
-		decoder := json.NewDecoder(bytes.NewReader(restored.payload))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&payload); err != nil || !payload.valid() || payload.IncidentID != restored.incidentID {
-			return 0, fmt.Errorf("restored Network Flow graph job %s has an invalid payload", restored.jobID)
-		}
-		if err := jobs.ReconcileRestoredNonterminalTx(ctx, tx, restored.jobID, GraphViewMaterializationJobKind); err != nil {
+	scope := jobs.RestoredNonterminalScope{JobKind: GraphViewMaterializationJobKind, ExtensionOwnerProfileID: ProfileID}
+	var cursor *uuid.UUID
+	count := 0
+	for {
+		page, err := jobs.ListRestoredNonterminalPageTx(ctx, tx, scope, cursor, 256)
+		if err != nil {
 			return 0, err
 		}
+		if len(page) == 0 {
+			return count, nil
+		}
+		for _, restored := range page {
+			var payload graphViewMaterializationPayload
+			decoder := json.NewDecoder(bytes.NewReader(restored.HandlerPayloadJSON))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&payload); err != nil || !payload.valid() || restored.IncidentID == nil || payload.IncidentID != *restored.IncidentID {
+				return 0, fmt.Errorf("restored Network Flow graph job %s has an invalid payload", restored.JobID)
+			}
+			if err := jobs.ReconcileRestoredNonterminalTx(ctx, tx, restored.JobID, GraphViewMaterializationJobKind); err != nil {
+				return 0, err
+			}
+			count++
+		}
+		last := page[len(page)-1].JobID
+		cursor = &last
 	}
-	return len(restoredJobs), nil
 }

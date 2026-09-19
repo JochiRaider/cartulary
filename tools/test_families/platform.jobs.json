@@ -443,6 +443,7 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
+          "TestRestoredNonterminalPageContract_Unit",
           "TestTypedExecutionContract_Unit"
         ]
       },

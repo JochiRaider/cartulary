@@ -28,7 +28,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
     {"safe_digest_key_id":"safe-v2","state":"active","secret_ref":{"kind":"env","name":"safe-active"}}
   ]}
 }`
-	rings, err := ParseKeyRings([]byte(manifest), map[string]string{
+	rings, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), map[string]string{
 		"CARTULARY_SECRET_CURSOR_ACTIVE": testCursorKeyText,
 		"CARTULARY_SECRET_CURSOR_OLD":    "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
 		"CARTULARY_SECRET_SAFE_ACTIVE":   testSafeKeyText,
@@ -42,7 +42,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 		t.Fatalf("create cursor codec: %v", err)
 	}
 	queryEcho := json.RawMessage(`{"filters":[],"sort":[]}`)
-	token, err := codec.Encode(CursorBinding{
+	token, err := codec.Encode(cursorBinding{
 		Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident",
 		Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "hash", QueryEcho: queryEcho, Limit: 25,
 	}, "row_keyset_v1", map[string]any{"network_flow_row_id": "nfr_a"})
@@ -56,7 +56,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	if reason != "" || payload.PositionKind != "row_keyset_v1" {
 		t.Fatalf("decode cursor: reason=%q payload=%#v", reason, payload)
 	}
-	if reason := payload.Validate(CursorBinding{
+	if reason := payload.Validate(cursorBinding{
 		Route: "nf.rows.query", ActorUserID: "different-actor", SessionID: "session", IncidentID: "incident",
 		Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "hash", QueryEcho: queryEcho, Limit: 25,
 	}); reason != "actor_mismatch" {
@@ -87,7 +87,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create prior cursor codec: %v", err)
 	}
-	oldToken, err := oldCodec.Encode(CursorBinding{
+	oldToken, err := oldCodec.Encode(cursorBinding{
 		Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident",
 		Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "hash", QueryEcho: queryEcho, Limit: 25,
 	}, "row_keyset_v1", map[string]any{"network_flow_row_id": "nfr_old"})
@@ -123,7 +123,7 @@ func TestNetworkFlowSafeDigestRingPurgesInactiveEpoch(t *testing.T) {
     {"safe_digest_key_id":"safe-v1","state":"inactive","secret_ref":{"kind":"env","name":"safe-old"},"deactivated_at":"2026-07-13T11:50:00Z","retain_until":"2026-07-13T12:10:00Z"}
   ]}
 }`
-	rings, err := ParseKeyRings([]byte(manifest), map[string]string{
+	rings, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), map[string]string{
 		"CARTULARY_SECRET_CURSOR_ACTIVE": testCursorKeyText,
 		"CARTULARY_SECRET_SAFE_ACTIVE":   testSafeKeyText,
 		"CARTULARY_SECRET_SAFE_OLD":      "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
@@ -157,7 +157,7 @@ func TestNetworkFlowKeyRingValidationRejectsPurposeReuseAndNull(t *testing.T) {
   "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"cursor","state":"active","secret_ref":{"kind":"env","name":"shared"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"safe","state":"active","secret_ref":{"kind":"env","name":"shared"}}]}
 }`
-		if _, err := ParseKeyRings([]byte(manifest), map[string]string{"CARTULARY_SECRET_SHARED": testCursorKeyText}, now); err == nil || !strings.Contains(err.Error(), "purpose_conflict") {
+		if _, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), map[string]string{"CARTULARY_SECRET_SHARED": testCursorKeyText}, now); err == nil || !strings.Contains(err.Error(), "purpose_conflict") {
 			t.Fatalf("expected purpose conflict, got %v", err)
 		}
 	})
@@ -172,13 +172,13 @@ func TestNetworkFlowKeyRingValidationRejectsPurposeReuseAndNull(t *testing.T) {
 			"CARTULARY_SECRET_CURSOR": testCursorKeyText,
 			"CARTULARY_SECRET_SAFE":   testSafeKeyText,
 		}
-		if _, err := ParseKeyRings([]byte(manifest), env, now); err == nil || !strings.Contains(err.Error(), "network_flow_cursor_key_invalid") {
+		if _, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), env, now); err == nil || !strings.Contains(err.Error(), "network_flow_cursor_key_invalid") {
 			t.Fatalf("expected authentication-purpose conflict, got %v", err)
 		}
 	})
 	t.Run("explicit null", func(t *testing.T) {
 		manifest := `{"schema_id":"cartulary.network_flow_key_rings.v1","cursor_key_ring":null,"safe_digest_key_ring":{}}`
-		if _, err := ParseKeyRings([]byte(manifest), nil, now); err == nil || !strings.Contains(err.Error(), "explicit null") {
+		if _, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), nil, now); err == nil || !strings.Contains(err.Error(), "explicit null") {
 			t.Fatalf("expected explicit-null rejection, got %v", err)
 		}
 	})

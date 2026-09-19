@@ -10,7 +10,7 @@ import (
 func TestTableLifecycleNameControlPrecedence_Unit(t *testing.T) {
 	for _, value := range []string{"\t", "\n", "\u0085", " \t "} {
 		_, err := normalizeExplicitDisplayName(value)
-		var invalid *InvalidDisplayNameError
+		var invalid *invalidDisplayNameError
 		if !errors.As(err, &invalid) || invalid.ReasonCode != "forbidden_control" {
 			t.Errorf("name %q: got %v, want forbidden_control", value, err)
 		}

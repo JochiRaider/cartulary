@@ -76,7 +76,7 @@ type graphCapacityEvidence struct {
 }
 
 func TestNetworkFlowGraphCapacityCertification_Integration(t *testing.T) {
-	defaultLimits := DefaultEffectiveLimits()
+	defaultLimits := defaultEffectiveLimits()
 	raisedLimits := defaultLimits
 	raisedLimits.MaxGraphVertices = 10_000
 	raisedLimits.MaxGraphEdges = 20_000
@@ -87,7 +87,7 @@ func TestNetworkFlowGraphCapacityCertification_Integration(t *testing.T) {
 	for name, limits := range map[string]EffectiveLimits{
 		"default": defaultLimits, "raised": raisedLimits, "semantic_maximum": maximumLimits,
 	} {
-		if err := ValidateEffectiveLimits(limits); err != nil {
+		if err := checkEffectiveLimits(limits); err != nil {
 			t.Fatalf("%s capacity profile is not an admitted EffectiveLimits value: %v", name, err)
 		}
 	}
@@ -183,7 +183,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	startedAt := time.Now()
 
 	incidentID := uuid.MustParse("00000000-0000-4000-8000-00000000c311")
-	table := TableRecord{
+	table := tableRecord{
 		IncidentID:         incidentID,
 		TableID:            "nft_" + strings.Repeat("c", 64),
 		MappingFingerprint: strings.Repeat("d", 64),
@@ -193,8 +193,8 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 		Aggregation:      graphAggregation{Mode: workload.Mode, BucketWidthSeconds: workload.BucketWidth},
 		Digest:           "capacity_" + workload.Name,
 		ResultLimits:     effectiveGraphResultLimits(workload.Limits),
-		SourceTables:     []TableRecord{table},
-		SourceTableRefs:  graphSourceTableRefs([]TableRecord{table}),
+		SourceTables:     []tableRecord{table},
+		SourceTableRefs:  graphSourceTableRefs([]tableRecord{table}),
 		TableRanks:       map[string]int{table.TableID: 0},
 		Vertices:         map[string]*graphVertex{},
 		Edges:            map[string]*graphEdge{},
@@ -203,7 +203,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	if workload.Buckets > 0 {
 		start := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
 		end := start.Add(time.Duration(int64(workload.Buckets)*workload.BucketWidth) * time.Second)
-		buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, workload.BucketWidth, int(workload.Limits.MaxTimeBucketsPerGraph))
+		buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, workload.BucketWidth, int(workload.Limits.MaxTimeBucketsPerGraph))
 		if apiErr != nil {
 			t.Fatalf("construct %s buckets: %#v", workload.Name, apiErr)
 		}
@@ -219,7 +219,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 			row.FlowStartUTC = bucket.StartUTC.Add(time.Second)
 			row.FlowEndUTC = row.FlowStartUTC.Add(time.Second)
 		}
-		if apiErr := composeGraphRow(incidentID, row, map[string]TableRecord{table.TableID: table}, &composition); apiErr != nil {
+		if apiErr := composeGraphRowHTTP(incidentID, row, map[string]tableRecord{table.TableID: table}, &composition); apiErr != nil {
 			t.Fatalf("execute %s row %d: %#v", workload.Name, index+1, apiErr)
 		}
 	}
@@ -230,7 +230,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 			workload.Rows, workload.Vertices, workload.Edges, workload.Buckets,
 		)
 	}
-	if apiErr := validateGraphLimits(composition); apiErr != nil {
+	if apiErr := validateGraphLimitsHTTP(composition); apiErr != nil {
 		t.Fatalf("validate %s result limits: %#v", workload.Name, apiErr)
 	}
 
@@ -267,18 +267,18 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	}
 }
 
-func graphCapacityPatterns(workload graphCapacityWorkload, table TableRecord) []FlowRow {
+func graphCapacityPatterns(workload graphCapacityWorkload, table tableRecord) []flowRow {
 	patternCount := workload.Edges
 	if patternCount < 1 {
 		patternCount = 1
 	}
-	patterns := make([]FlowRow, 0, patternCount)
+	patterns := make([]flowRow, 0, patternCount)
 	port := int32(443)
 	startedAt := time.Date(2026, 8, 16, 0, 0, 1, 0, time.UTC)
 	for index := 0; index < patternCount; index++ {
 		source := index % workload.Vertices
 		destination := (source + 1 + index/workload.Vertices) % workload.Vertices
-		patterns = append(patterns, FlowRow{
+		patterns = append(patterns, flowRow{
 			NetworkFlowTableID: table.TableID,
 			RowID:              "nfr_" + strings.Repeat("f", 64),
 			FlowStartUTC:       startedAt, FlowEndUTC: startedAt.Add(time.Second),

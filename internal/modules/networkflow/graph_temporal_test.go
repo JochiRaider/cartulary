@@ -27,7 +27,7 @@ func TestTimeBucketArithmeticFixturesAndLimit_Unit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &test.start, EndUTC: &test.end}, test.width, 1024)
+			buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &test.start, EndUTC: &test.end}, test.width, 1024)
 			if apiErr != nil {
 				t.Fatalf("bucket arithmetic failed: %#v", apiErr)
 			}
@@ -38,19 +38,19 @@ func TestTimeBucketArithmeticFixturesAndLimit_Unit(t *testing.T) {
 	}
 	start := time.Unix(0, 0).UTC()
 	end := time.Unix(121, 0).UTC()
-	if _, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 2); apiErr == nil ||
+	if _, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 2); apiErr == nil ||
 		apiErr.Code != "network_flow_graph_limit_exceeded" || apiErr.Details["reason_code"] != "time_bucket_limit_exceeded" ||
 		apiErr.Details["actual"] != 3 || apiErr.Details["phase"] != "graph_admission" {
 		t.Fatalf("time bucket limit+1 = %#v", apiErr)
 	}
 	maximumEnd := start.Add(1024 * time.Minute)
-	if buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &maximumEnd}, 60, 1024); apiErr != nil || len(buckets) != 1024 {
+	if buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &maximumEnd}, 60, 1024); apiErr != nil || len(buckets) != 1024 {
 		t.Fatalf("maximum admitted bucket count = %d err=%#v", len(buckets), apiErr)
 	}
 }
 
 func TestTimeBucketAdmissionAndCanonicalTimestampErrors_Unit(t *testing.T) {
-	limits := DefaultEffectiveLimits()
+	limits := defaultEffectiveLimits()
 	tests := []struct {
 		name       string
 		raw        string
@@ -64,7 +64,7 @@ func TestTimeBucketAdmissionAndCanonicalTimestampErrors_Unit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, apiErr := decodeGraphAggregationV2(json.RawMessage(test.raw))
+			_, apiErr := decodeGraphAggregationV2HTTP(json.RawMessage(test.raw))
 			if apiErr == nil || apiErr.Code != test.wantCode || apiErr.Details["reason_code"] != test.wantReason {
 				t.Fatalf("aggregation error = %#v", apiErr)
 			}
@@ -77,7 +77,7 @@ func TestTimeBucketAdmissionAndCanonicalTimestampErrors_Unit(t *testing.T) {
   "time_range":{"start_utc":null,"end_utc":"2026-08-16T12:00:00Z"},
   "aggregation":{"mode":"time_bucket_v1","bucket_width_seconds":60}
 }`)
-	if _, apiErr := decodeGraphSemanticRequest(semantic, limits); apiErr == nil || apiErr.Code != "network_flow_invalid_time_range" || apiErr.Details["reason_code"] != "complete_range_required" {
+	if _, apiErr := decodeGraphSemanticRequestHTTP(semantic, limits); apiErr == nil || apiErr.Code != "network_flow_invalid_time_range" || apiErr.Details["reason_code"] != "complete_range_required" {
 		t.Fatalf("incomplete temporal range = %#v", apiErr)
 	}
 	for _, raw := range []json.RawMessage{
@@ -85,7 +85,7 @@ func TestTimeBucketAdmissionAndCanonicalTimestampErrors_Unit(t *testing.T) {
 		json.RawMessage(`"2026-08-16T12:00:00.000000Z"`),
 		json.RawMessage(`"2026-08-16T12:00:00.0000001Z"`),
 	} {
-		if _, apiErr := decodeOptionalTimestamp(raw, "start_utc"); apiErr == nil {
+		if _, apiErr := decodeOptionalTimestampHTTP(raw, "start_utc"); apiErr == nil {
 			t.Fatalf("noncanonical timestamp admitted: %s", raw)
 		}
 	}
@@ -95,12 +95,12 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 	incidentID := IncidentID()
 	start := time.Unix(0, 0).UTC()
 	end := time.Unix(180, 0).UTC()
-	buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
+	buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
 	if apiErr != nil {
 		t.Fatal(apiErr)
 	}
 	port := int32(443)
-	rows := []FlowRow{
+	rows := []flowRow{
 		temporalTestRow(start, 1, "2", "1", &port),
 		temporalTestRow(start.Add(59*time.Second+999*time.Millisecond), 2, "3", "2", &port),
 		temporalTestRow(start.Add(60*time.Second), 3, "5", "3", &port),
@@ -116,16 +116,16 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		IncludeExamples: true,
 	}
 	for _, row := range rows {
-		matched, matchErr := rowMatchesGraphQuery(row, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation)
+		matched, matchErr := rowMatchesGraphQueryHTTP(row, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation)
 		if matchErr != nil || !matched {
 			t.Fatalf("included temporal row rejected: matched=%v err=%#v", matched, matchErr)
 		}
-		if apiErr := composeGraphRow(incidentID, row, nil, &composition); apiErr != nil {
+		if apiErr := composeGraphRowHTTP(incidentID, row, nil, &composition); apiErr != nil {
 			t.Fatalf("compose temporal row: %#v", apiErr)
 		}
 	}
 	excluded := temporalTestRow(end, 4, "100", "100", &port)
-	if matched, _ := rowMatchesGraphQuery(excluded, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation); matched {
+	if matched, _ := rowMatchesGraphQueryHTTP(excluded, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation); matched {
 		t.Fatal("half-open temporal end admitted a row")
 	}
 	if composition.ContributingRows != 3 || len(composition.Vertices) != 2 || len(composition.Edges) != 2 {
@@ -148,7 +148,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		t.Fatalf("temporal counters duplicated or lost: bytes=%d packets=%d", bytesTotal, packetsTotal)
 	}
 
-	limitedBuckets, _ := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
+	limitedBuckets, _ := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
 	limited := graphComposition{
 		SemanticSchemaID: schemaGraphSemanticQueryV2,
 		Aggregation:      graphAggregation{Mode: "time_bucket_v1", BucketWidthSeconds: 60},
@@ -156,7 +156,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 1, MaxAggregateCounterDigits: 1, MaxContributingRows: 2, MaxTimeBuckets: 3},
 	}
 	for index, row := range rows {
-		apiErr := composeGraphRow(incidentID, row, nil, &limited)
+		apiErr := composeGraphRowHTTP(incidentID, row, nil, &limited)
 		if index < 2 && apiErr != nil {
 			t.Fatalf("temporal limit setup row %d: %#v", index, apiErr)
 		}
@@ -164,7 +164,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 			t.Fatalf("temporal contributing-row limit+1 = %#v", apiErr)
 		}
 	}
-	edgeLimitedBuckets, _ := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
+	edgeLimitedBuckets, _ := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
 	edgeLimited := graphComposition{
 		SemanticSchemaID: schemaGraphSemanticQueryV2,
 		Aggregation:      graphAggregation{Mode: "time_bucket_v1", BucketWidthSeconds: 60},
@@ -172,7 +172,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 1, MaxAggregateCounterDigits: 39, MaxContributingRows: 3, MaxTimeBuckets: 3},
 	}
 	for index, row := range rows {
-		apiErr := composeGraphRow(incidentID, row, nil, &edgeLimited)
+		apiErr := composeGraphRowHTTP(incidentID, row, nil, &edgeLimited)
 		if index < 2 && apiErr != nil {
 			t.Fatalf("temporal edge-limit setup row %d: %#v", index, apiErr)
 		}
@@ -180,7 +180,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 			t.Fatalf("temporal global edge limit+1 = %#v", apiErr)
 		}
 	}
-	counterLimitedBuckets, _ := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
+	counterLimitedBuckets, _ := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 3)
 	counterLimited := graphComposition{
 		SemanticSchemaID: schemaGraphSemanticQueryV2,
 		Aggregation:      graphAggregation{Mode: "time_bucket_v1", BucketWidthSeconds: 60},
@@ -188,11 +188,11 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 3, MaxAggregateCounterDigits: 1, MaxContributingRows: 3, MaxTimeBuckets: 3},
 	}
 	counterRow := temporalTestRow(start, 1, "9", "1", &port)
-	if apiErr := composeGraphRow(incidentID, counterRow, nil, &counterLimited); apiErr != nil {
+	if apiErr := composeGraphRowHTTP(incidentID, counterRow, nil, &counterLimited); apiErr != nil {
 		t.Fatal(apiErr)
 	}
 	counterRow.SourceRowNumber = 2
-	if apiErr := composeGraphRow(incidentID, counterRow, nil, &counterLimited); apiErr == nil || apiErr.Code != "network_flow_counter_sum_limit_exceeded" || apiErr.Details["reason_code"] != "bytes_sum_digit_limit_exceeded" {
+	if apiErr := composeGraphRowHTTP(incidentID, counterRow, nil, &counterLimited); apiErr == nil || apiErr.Code != "network_flow_counter_sum_limit_exceeded" || apiErr.Details["reason_code"] != "bytes_sum_digit_limit_exceeded" {
 		t.Fatalf("temporal counter digit limit = %#v", apiErr)
 	}
 }
@@ -202,60 +202,60 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 	start := time.Unix(-60, 0).UTC()
 	end := time.Unix(0, 0).UTC()
 	port := int32(443)
-	srcID := EndpointID(incidentID, "ip", "192.0.2.10")
-	dstID := EndpointID(incidentID, "ip", "198.51.100.20")
-	edgeID := BucketEdgeID(incidentID, start, end, srcID, dstID, 6, &port)
+	srcID := endpointID(incidentID, "ip", "192.0.2.10")
+	dstID := endpointID(incidentID, "ip", "198.51.100.20")
+	edgeID := bucketEdgeID(incidentID, start, end, srcID, dstID, 6, &port)
 	if edgeID != "nfbe_edcebe53934ace485ecfa2477086c6fb76e08045042a4161354b38c77e1bbeb5" {
 		t.Fatalf("time-bucket edge identity fixture = %s", edgeID)
 	}
-	if edgeID == BucketEdgeID(incidentID, start, start.Add(5*time.Minute), srcID, dstID, 6, &port) {
+	if edgeID == bucketEdgeID(incidentID, start, start.Add(5*time.Minute), srcID, dstID, 6, &port) {
 		t.Fatal("bucket end did not separate widths")
 	}
 	zeroPort := int32(0)
-	if BucketEdgeID(incidentID, start, end, srcID, dstID, 6, nil) == BucketEdgeID(incidentID, start, end, srcID, dstID, 6, &zeroPort) {
+	if bucketEdgeID(incidentID, start, end, srcID, dstID, 6, nil) == bucketEdgeID(incidentID, start, end, srcID, dstID, 6, &zeroPort) {
 		t.Fatal("destination-port presence did not participate in bucket edge identity")
 	}
 
-	table := TableRecord{IncidentID: incidentID, TableID: "nft_" + strings.Repeat("a", 64), MappingFingerprint: strings.Repeat("1", 64)}
-	buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 1)
+	table := tableRecord{IncidentID: incidentID, TableID: "nft_" + strings.Repeat("a", 64), MappingFingerprint: strings.Repeat("1", 64)}
+	buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 1)
 	if apiErr != nil {
 		t.Fatal(apiErr)
 	}
 	composition := graphComposition{
 		SemanticSchemaID: schemaGraphSemanticQueryV2,
 		Aggregation:      graphAggregation{Mode: "time_bucket_v1", BucketWidthSeconds: 60, IncludeExampleRowRefs: true},
-		SourceTables:     []TableRecord{table}, SourceTableRefs: graphSourceTableRefs([]TableRecord{table}),
+		SourceTables:     []tableRecord{table}, SourceTableRefs: graphSourceTableRefs([]tableRecord{table}),
 		SelectedTableIDs: []string{table.TableID}, Vertices: map[string]*graphVertex{}, Edges: map[string]*graphEdge{},
 		TimeBuckets: buckets, IncludeExamples: true,
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 1, MaxExampleRowRefsPerEdge: 1, MaxAggregateCounterDigits: 39, MaxContributingRows: 1, MaxTimeBuckets: 1},
 	}
 	row := temporalTestRow(start, 1, "2", "1", &port)
 	row.NetworkFlowTableID = table.TableID
-	if apiErr := composeGraphRow(incidentID, row, map[string]TableRecord{table.TableID: table}, &composition); apiErr != nil {
+	if apiErr := composeGraphRowHTTP(incidentID, row, map[string]tableRecord{table.TableID: table}, &composition); apiErr != nil {
 		t.Fatal(apiErr)
 	}
 	composition.Digest = graphQueryDigestV2(incidentID, composition.SelectedTableIDs, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation)
 	composition.SemanticQuery = graphSemanticQueryResource(schemaGraphSemanticQueryV2, composition.SelectedTableIDs, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation, composition.ResultLimits)
 	snapshotID := graphSourceSnapshotDigest(incidentID, composition.SourceTables, composition.Digest)
-	service := &Service{graphProjection: newGraphProjectionAdapter(), now: time.Now}
-	projection, apiErr := service.projectNetworkFlowGraph(context.Background(), uuid.MustParse("22222222-2222-4222-8222-222222222222"), snapshotID, composition, time.Now())
+	service := &graphSourceComposer{graphProjection: newGraphProjectionAdapter(), now: time.Now}
+	projection, apiErr := service.projectNetworkFlowGraphHTTP(context.Background(), uuid.MustParse("22222222-2222-4222-8222-222222222222"), snapshotID, composition, time.Now())
 	if apiErr != nil {
 		t.Fatalf("project temporal graph: %#v", apiErr)
 	}
 	canceledContext, cancel := context.WithCancel(context.Background())
 	cancel()
-	if canceledProjection, canceledErr := service.projectNetworkFlowGraph(canceledContext, uuid.MustParse("22222222-2222-4222-8222-222222222222"), snapshotID, composition, time.Now()); canceledErr == nil || canceledProjection != nil || canceledErr.Code != "network_flow_graph_projection_failed" || canceledErr.Details["reason_code"] != "projection_cancelled" {
+	if canceledProjection, canceledErr := service.projectNetworkFlowGraphHTTP(canceledContext, uuid.MustParse("22222222-2222-4222-8222-222222222222"), snapshotID, composition, time.Now()); canceledErr == nil || canceledProjection != nil || canceledErr.Code != "network_flow_graph_projection_failed" || canceledErr.Details["reason_code"] != "projection_cancelled" {
 		t.Fatalf("temporal projection cancellation returned partial output=%#v error=%#v", canceledProjection, canceledErr)
 	}
 	composition.GraphProjection = projection
-	derivedBuckets, apiErr := deriveTimeBucketIndexFromExactResult(
+	derivedBuckets, apiErr := deriveTimeBucketIndexFromExactResultHTTP(
 		graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 1, projection,
 	)
 	if apiErr != nil || len(derivedBuckets) != 1 || derivedBuckets[0].ContributingRowCount != 1 || derivedBuckets[0].EdgeCount != 1 || len(derivedBuckets[0].UniqueVertexIDs) != 2 {
 		t.Fatalf("derive saved bucket index from exact result = %#v err=%#v", timeBucketSummariesResource(derivedBuckets), apiErr)
 	}
 	composition.TimeBuckets = derivedBuckets
-	if apiErr := bindGraphV2ResponseMetadata(&composition); apiErr != nil {
+	if apiErr := bindGraphV2ResponseMetadataHTTP(&composition); apiErr != nil {
 		t.Fatalf("bind temporal response: %#v", apiErr)
 	}
 	result := graphQueryResultResource(composition)
@@ -309,7 +309,7 @@ func FuzzTimeBucketArithmetic(f *testing.F) {
 		}
 		start := time.Unix(startSeconds, 0).UTC()
 		end := start.Add(time.Duration(durationSeconds) * time.Second)
-		buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, width, 1024)
+		buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, width, 1024)
 		if apiErr != nil {
 			if apiErr.Details["reason_code"] == "time_bucket_limit_exceeded" {
 				return
@@ -342,7 +342,7 @@ func assertTimeBucketCoverage(t testing.TB, startSeconds int64, durationSeconds 
 	t.Helper()
 	start := time.Unix(startSeconds, 0).UTC()
 	end := start.Add(time.Duration(durationSeconds) * time.Second)
-	buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, width, 1024)
+	buckets, apiErr := graphTimeBucketsHTTP(graphTimeRange{StartUTC: &start, EndUTC: &end}, width, 1024)
 	if apiErr != nil {
 		t.Fatalf("unexpected arithmetic failure: %#v", apiErr)
 	}
@@ -356,8 +356,8 @@ func assertTimeBucketCoverage(t testing.TB, startSeconds int64, durationSeconds 
 	}
 }
 
-func temporalTestRow(start time.Time, sourceRowNumber int64, bytesCount string, packetsCount string, port *int32) FlowRow {
-	return FlowRow{
+func temporalTestRow(start time.Time, sourceRowNumber int64, bytesCount string, packetsCount string, port *int32) flowRow {
+	return flowRow{
 		NetworkFlowTableID: "nft_" + strings.Repeat("a", 64), RowID: "nfr_" + strings.Repeat(strconvDigit(sourceRowNumber), 64),
 		SourceRowNumber: sourceRowNumber, FlowStartUTC: start.UTC(), FlowEndUTC: start.Add(time.Second).UTC(),
 		SrcIP: "192.0.2.10", DstIP: "198.51.100.20", DstPort: port, IPProtocol: 6,

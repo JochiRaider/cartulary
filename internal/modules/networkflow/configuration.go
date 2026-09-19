@@ -100,16 +100,16 @@ type ConfigurationFinding struct {
 	Message    string
 }
 
-type ConfigurationError struct {
+type configurationError struct {
 	Finding ConfigurationFinding
 }
 
-func (err *ConfigurationError) Error() string {
+func (err *configurationError) Error() string {
 	return fmt.Sprintf("%s: %s: %s", err.Finding.Path, err.Finding.ReasonCode, err.Finding.Message)
 }
 
 func ConfigurationFindingFromError(err error) (ConfigurationFinding, bool) {
-	var configurationError *ConfigurationError
+	var configurationError *configurationError
 	if !errors.As(err, &configurationError) {
 		return ConfigurationFinding{}, false
 	}
@@ -119,7 +119,7 @@ func ConfigurationFindingFromError(err error) (ConfigurationFinding, bool) {
 // NormalizeAndValidateConfiguration is pure owner policy. It performs no file,
 // secret, network, database, process, or other external access.
 func NormalizeAndValidateConfiguration(configuration Configuration) (Configuration, []ConfigurationFinding) {
-	configuration.effectiveLimits = DefaultEffectiveLimits()
+	configuration.effectiveLimits = defaultEffectiveLimits()
 	if !configuration.Claimed {
 		configuration.KeyRingManifestPath = ""
 		configuration.ResourceLimits = nil
@@ -154,7 +154,7 @@ func NormalizeAndValidateConfiguration(configuration Configuration) (Configurati
 	return configuration, findings
 }
 
-func ValidateEffectiveLimits(limits EffectiveLimits) error {
+func checkEffectiveLimits(limits EffectiveLimits) error {
 	findings := validateEffectiveLimits(limits)
 	if len(findings) == 0 {
 		return nil
@@ -163,7 +163,7 @@ func ValidateEffectiveLimits(limits EffectiveLimits) error {
 }
 
 func resolveResourceLimits(overrides *ResourceLimitOverrides) (EffectiveLimits, []ConfigurationFinding) {
-	effective := DefaultEffectiveLimits()
+	effective := defaultEffectiveLimits()
 	if overrides != nil {
 		applyLimitOverride(&effective.MaxActiveTablesPerIncident, overrides.MaxActiveTablesPerIncident)
 		applyLimitOverride(&effective.MaxRetainedTablesPerIncident, overrides.MaxRetainedTablesPerIncident)

@@ -5,17 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
-	"net/http"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -50,8 +45,8 @@ type graphResultLimits struct {
 }
 
 type graphQueryRequest struct {
-	TableScope  TableScope
-	Filters     []Filter
+	TableScope  tableScope
+	Filters     []queryFilter
 	TimeRange   graphTimeRange
 	Aggregation graphAggregation
 	Limits      graphResultLimits
@@ -83,7 +78,7 @@ type graphContributorQueryRequest struct {
 type graphSemanticRequest struct {
 	SchemaID         string
 	SelectedTableIDs []string
-	Filters          []Filter
+	Filters          []queryFilter
 	TimeRange        graphTimeRange
 	Aggregation      graphAggregation
 	ResultLimits     graphResultLimits
@@ -96,7 +91,7 @@ type graphComposition struct {
 	Digest           string
 	SemanticQuery    map[string]any
 	ResultLimits     graphResultLimits
-	SourceTables     []TableRecord
+	SourceTables     []tableRecord
 	SourceTableRefs  []any
 	TableRanks       map[string]int
 	Vertices         map[string]*graphVertex
@@ -127,7 +122,7 @@ type graphEdge struct {
 	IPProtocol          int32
 	DstPort             *int32
 	FlowRowCount        int
-	ExampleRows         []FlowRow
+	ExampleRows         []flowRow
 	BytesSum            big.Int
 	PacketsSum          big.Int
 	FirstFlowStartUTC   time.Time
@@ -138,179 +133,7 @@ type graphEdge struct {
 	BucketEndUTC        *time.Time
 }
 
-func (s *Service) handleGraphQuery(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := parseIncidentPathValue(w, r)
-	if !ok {
-		return
-	}
-	principal, apiErr := s.authenticate(r, false)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := decodeGraphQueryRequest(r, s.store.limits)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	composition, apiErr := s.composeGraph(r.Context(), incidentID, principal.User.ID, request)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if apiErr := s.recordGraphQueryAudit(r.Context(), incidentID, principal.User.ID, composition, httpapi.RequestIDFromContext(r.Context())); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, httpapi.InternalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, graphQueryResultResource(composition))
-}
-
-func (s *Service) handleGraphContributorsQuery(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := parseIncidentPathValue(w, r)
-	if !ok {
-		return
-	}
-	principal, apiErr := s.authenticate(r, false)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := decodeGraphContributorQueryRequest(r, s.store.limits)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	result, apiErr := s.queryGraphContributors(r.Context(), principal.User.ID.String(), principal.Session.ID.String(), incidentID, request)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, httpapi.InternalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
-}
-
-func decodeGraphQueryRequest(r *http.Request, limits EffectiveLimits) (graphQueryRequest, *httpapi.APIError) {
-	raw, apiErr := decodeNetworkFlowObject(r.Body)
-	if apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	schemaID, apiErr := requiredJSONString(raw, "schema_id")
-	if apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	if schemaID != schemaGraphQueryRequest {
-		return graphQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
-	}
-	if apiErr := ensureAllowedMembers(raw, "schema_id", "table_scope", "filters", "time_range", "aggregation", "limit_overrides"); apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	scope, apiErr := requiredTableScope(raw["table_scope"], limits)
-	if apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	filters, apiErr := decodeFilters(raw["filters"], limits)
-	if apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	timeRange, apiErr := decodeGraphTimeRangeV2(raw["time_range"])
-	if apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	aggregation, apiErr := decodeGraphAggregationV2(raw["aggregation"])
-	if apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	if apiErr := validateAggregationTimeRange(aggregation, timeRange); apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	resultLimits, apiErr := decodeGraphResultLimits(raw["limit_overrides"], limits)
-	if apiErr != nil {
-		return graphQueryRequest{}, apiErr
-	}
-	return graphQueryRequest{
-		TableScope:  scope,
-		Filters:     filters,
-		TimeRange:   timeRange,
-		Aggregation: aggregation,
-		Limits:      resultLimits,
-	}, nil
-}
-
-func decodeGraphContributorQueryRequest(r *http.Request, limits EffectiveLimits) (graphContributorQueryRequest, *httpapi.APIError) {
-	raw, apiErr := decodeNetworkFlowObject(r.Body)
-	if apiErr != nil {
-		return graphContributorQueryRequest{}, apiErr
-	}
-	schemaID, apiErr := requiredJSONString(raw, "schema_id")
-	if apiErr != nil {
-		return graphContributorQueryRequest{}, apiErr
-	}
-	if schemaID == schemaGraphContributorQueryContinuation {
-		if apiErr := ensureAllowedMembers(raw, "schema_id", "cursor_token"); apiErr != nil {
-			return graphContributorQueryRequest{}, apiErr
-		}
-		token, apiErr := requiredJSONString(raw, "cursor_token")
-		if apiErr != nil {
-			return graphContributorQueryRequest{}, apiErr
-		}
-		return graphContributorQueryRequest{Continuation: true, CursorToken: token}, nil
-	}
-	if schemaID != schemaGraphContributorQueryRequest {
-		return graphContributorQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
-	}
-	if apiErr := ensureAllowedMembers(raw, "schema_id", "graph_query", "graph_query_digest", "selector", "limit"); apiErr != nil {
-		return graphContributorQueryRequest{}, apiErr
-	}
-	semantic, apiErr := decodeGraphSemanticRequest(raw["graph_query"], limits)
-	if apiErr != nil {
-		return graphContributorQueryRequest{}, apiErr
-	}
-	digest, apiErr := requiredJSONString(raw, "graph_query_digest")
-	if apiErr != nil {
-		return graphContributorQueryRequest{}, apiErr
-	}
-	selector, apiErr := decodeGraphSelector(raw["selector"])
-	if apiErr != nil {
-		return graphContributorQueryRequest{}, apiErr
-	}
-	value, ok := raw["limit"]
-	if !ok {
-		return graphContributorQueryRequest{}, invalidNetworkFlowRequest("limit", "missing_member")
-	}
-	limit, apiErr := decodePositiveInt(value, "limit")
-	if apiErr != nil {
-		return graphContributorQueryRequest{}, invalidLimit("limit", "not_integer")
-	}
-	if limit < 1 {
-		return graphContributorQueryRequest{}, invalidLimit("limit", "below_minimum")
-	}
-	if int64(limit) > limits.MaxQueryLimit {
-		return graphContributorQueryRequest{}, invalidLimit("limit", "above_maximum")
-	}
-	return graphContributorQueryRequest{
-		GraphQuery:       semantic,
-		GraphQueryDigest: digest,
-		Selector:         selector,
-		Limit:            limit,
-	}, nil
-}
-
-func decodeGraphTimeRangeV2(raw json.RawMessage) (graphTimeRange, *httpapi.APIError) {
+func decodeGraphTimeRangeV2(raw json.RawMessage) (graphTimeRange, *semanticFailure) {
 	if len(raw) == 0 {
 		return graphTimeRange{Omitted: true}, nil
 	}
@@ -351,7 +174,7 @@ func decodeGraphTimeRangeV2(raw json.RawMessage) (graphTimeRange, *httpapi.APIEr
 // with two null bounds. Public query requests still reject an explicitly empty
 // range; persisted semantic queries must be able to represent an omitted range
 // without losing their canonical shape.
-func decodeSemanticTimeRangeV2(raw json.RawMessage) (graphTimeRange, *httpapi.APIError) {
+func decodeSemanticTimeRangeV2(raw json.RawMessage) (graphTimeRange, *semanticFailure) {
 	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
 		return graphTimeRange{}, invalidNetworkFlowRequest("graph_query.time_range", "missing_member")
 	}
@@ -382,7 +205,7 @@ func decodeSemanticTimeRangeV2(raw json.RawMessage) (graphTimeRange, *httpapi.AP
 	return graphTimeRange{StartUTC: start, EndUTC: end, Omitted: start == nil && end == nil}, nil
 }
 
-func decodeOptionalTimestamp(raw json.RawMessage, field string) (*time.Time, *httpapi.APIError) {
+func decodeOptionalTimestamp(raw json.RawMessage, field string) (*time.Time, *semanticFailure) {
 	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
 		return nil, nil
 	}
@@ -398,7 +221,7 @@ func decodeOptionalTimestamp(raw json.RawMessage, field string) (*time.Time, *ht
 	return &value, nil
 }
 
-func decodeGraphAggregationV2(raw json.RawMessage) (graphAggregation, *httpapi.APIError) {
+func decodeGraphAggregationV2(raw json.RawMessage) (graphAggregation, *semanticFailure) {
 	out := graphAggregation{IncludeExampleRowRefs: true}
 	if len(raw) == 0 {
 		return graphAggregation{}, invalidGraphAggregation("aggregation", "unknown_mode")
@@ -449,7 +272,7 @@ func decodeGraphAggregationV2(raw json.RawMessage) (graphAggregation, *httpapi.A
 	}
 }
 
-func validateAggregationTimeRange(aggregation graphAggregation, timeRange graphTimeRange) *httpapi.APIError {
+func validateAggregationTimeRange(aggregation graphAggregation, timeRange graphTimeRange) *semanticFailure {
 	if aggregation.Mode != "time_bucket_v1" {
 		return nil
 	}
@@ -459,7 +282,7 @@ func validateAggregationTimeRange(aggregation graphAggregation, timeRange graphT
 	return nil
 }
 
-func decodeGraphResultLimits(raw json.RawMessage, limits EffectiveLimits) (graphResultLimits, *httpapi.APIError) {
+func decodeGraphResultLimits(raw json.RawMessage, limits EffectiveLimits) (graphResultLimits, *semanticFailure) {
 	out := graphResultLimits{
 		MaxVertices:               int(limits.MaxGraphVertices),
 		MaxEdges:                  int(limits.MaxGraphEdges),
@@ -528,7 +351,7 @@ func decodeGraphResultLimits(raw json.RawMessage, limits EffectiveLimits) (graph
 	return out, nil
 }
 
-func decodeLowerableGraphLimit(raw json.RawMessage, key string, minimum int, maximum int) (int, *httpapi.APIError) {
+func decodeLowerableGraphLimit(raw json.RawMessage, key string, minimum int, maximum int) (int, *semanticFailure) {
 	parsed, apiErr := decodePositiveInt(raw, key)
 	if apiErr != nil {
 		return 0, invalidLimitOverride(key, "not_integer", key, 0, minimum, maximum)
@@ -542,7 +365,7 @@ func decodeLowerableGraphLimit(raw json.RawMessage, key string, minimum int, max
 	return parsed, nil
 }
 
-func decodeGraphSelector(raw json.RawMessage) (graphSelector, *httpapi.APIError) {
+func decodeGraphSelector(raw json.RawMessage) (graphSelector, *semanticFailure) {
 	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
 		return graphSelector{}, invalidNetworkFlowRequest("selector", "missing_member")
 	}
@@ -636,7 +459,7 @@ func decodeGraphSelector(raw json.RawMessage) (graphSelector, *httpapi.APIError)
 	}
 }
 
-func decodeRequiredGraphTimestamp(object map[string]json.RawMessage, field string) (time.Time, *httpapi.APIError) {
+func decodeRequiredGraphTimestamp(object map[string]json.RawMessage, field string) (time.Time, *semanticFailure) {
 	value, present := object[field]
 	if !present || bytes.Equal(value, []byte("null")) {
 		return time.Time{}, invalidNetworkFlowRequest("selector."+field, "missing_member")
@@ -648,7 +471,7 @@ func decodeRequiredGraphTimestamp(object map[string]json.RawMessage, field strin
 	return parsed.UTC(), nil
 }
 
-func requiredCanonicalGraphIP(object map[string]json.RawMessage, field string) (string, *httpapi.APIError) {
+func requiredCanonicalGraphIP(object map[string]json.RawMessage, field string) (string, *semanticFailure) {
 	value, apiErr := requiredJSONString(object, field)
 	if apiErr != nil {
 		return "", invalidNetworkFlowRequest("selector."+field, "missing_member")
@@ -660,7 +483,7 @@ func requiredCanonicalGraphIP(object map[string]json.RawMessage, field string) (
 	return canonical, nil
 }
 
-func decodeGraphSemanticRequest(raw json.RawMessage, limits EffectiveLimits) (graphSemanticRequest, *httpapi.APIError) {
+func decodeGraphSemanticRequest(raw json.RawMessage, limits EffectiveLimits) (graphSemanticRequest, *semanticFailure) {
 	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
 		return graphSemanticRequest{}, invalidNetworkFlowRequest("graph_query", "missing_member")
 	}
@@ -721,192 +544,9 @@ func effectiveGraphResultLimits(limits EffectiveLimits) graphResultLimits {
 	}
 }
 
-func (s *Service) composeGraph(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, request graphQueryRequest) (graphComposition, *httpapi.APIError) {
-	composition, apiErr := s.composeGraphSource(ctx, incidentID, request)
-	if apiErr != nil {
-		return graphComposition{}, apiErr
-	}
-	if err := ctx.Err(); err != nil {
-		return graphComposition{}, graphProjectionFailedForContext(err)
-	}
-	sourceSnapshotID := graphSourceSnapshotDigest(incidentID, composition.SourceTables, composition.Digest)
-	projectionStarted := time.Now()
-	projection, apiErr := s.projectNetworkFlowGraph(ctx, actorUserID, sourceSnapshotID, composition, s.now())
-	s.observeGraphPhase(ctx, graphTelemetryPhaseProjection, request.Aggregation.Mode, projectionStarted, apiErr)
-	if apiErr != nil {
-		return graphComposition{}, apiErr
-	}
-	composition.GraphProjection = projection
-	if apiErr := bindGraphV2ResponseMetadata(&composition); apiErr != nil {
-		return graphComposition{}, apiErr
-	}
-	s.observeGraphComposition(ctx, composition)
-	return composition, nil
-}
-
-func (s *Service) composeGraphSource(ctx context.Context, incidentID uuid.UUID, request graphQueryRequest) (graphComposition, *httpapi.APIError) {
-	validationStarted := time.Now()
-	tables, tableIDs, tableRanks, apiErr := s.resolveGraphTables(ctx, incidentID, request.TableScope)
-	s.observeGraphPhase(ctx, graphTelemetryPhaseSourceValidation, request.Aggregation.Mode, validationStarted, apiErr)
-	if apiErr != nil {
-		return graphComposition{}, apiErr
-	}
-	schemaID := schemaGraphSemanticQueryV2
-	digest := graphQueryDigestV2(incidentID, tableIDs, request.Filters, request.TimeRange, request.Aggregation)
-	composition := graphComposition{
-		SemanticSchemaID: schemaID,
-		Aggregation:      request.Aggregation,
-		Digest:           digest,
-		ResultLimits:     request.Limits,
-		SourceTables:     tables,
-		SourceTableRefs:  graphSourceTableRefs(tables),
-		TableRanks:       tableRanks,
-		Vertices:         map[string]*graphVertex{},
-		Edges:            map[string]*graphEdge{},
-		SelectedTableIDs: tableIDs,
-		IncludeExamples:  request.Aggregation.IncludeExampleRowRefs,
-	}
-	if request.Aggregation.Mode == "time_bucket_v1" {
-		buckets, bucketErr := graphTimeBuckets(request.TimeRange, request.Aggregation.BucketWidthSeconds, request.Limits.MaxTimeBuckets)
-		if bucketErr != nil {
-			s.observeGraphPhase(ctx, graphTelemetryPhaseSourceValidation, request.Aggregation.Mode, validationStarted, bucketErr)
-			return graphComposition{}, bucketErr
-		}
-		composition.TimeBuckets = buckets
-	}
-	tableByID := make(map[string]TableRecord, len(tables))
-	for _, table := range tables {
-		tableByID[table.TableID] = table
-	}
-	if err := ctx.Err(); err != nil {
-		return graphComposition{}, graphProjectionFailedForContext(err)
-	}
-	var compositionErr *httpapi.APIError
-	scanStarted := time.Now()
-	err := s.store.IterateRowsForTables(ctx, incidentID, tableIDs, func(row FlowRow) error {
-		matched, rowErr := rowMatchesGraphQuery(row, request.Filters, request.TimeRange, request.Aggregation)
-		if rowErr != nil {
-			compositionErr = rowErr
-			return errStopGraphIteration
-		}
-		if !matched {
-			return nil
-		}
-		if rowErr = composeGraphRow(incidentID, row, tableByID, &composition); rowErr != nil {
-			compositionErr = rowErr
-			return errStopGraphIteration
-		}
-		return nil
-	})
-	if compositionErr != nil {
-		s.observeGraphPhase(ctx, graphTelemetryPhaseSourceScan, request.Aggregation.Mode, scanStarted, compositionErr)
-		return graphComposition{}, compositionErr
-	}
-	if err != nil {
-		var scanErr *httpapi.APIError
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			scanErr = graphProjectionFailedForContext(err)
-		} else {
-			scanErr = httpapi.InternalAPIError(err)
-		}
-		s.observeGraphPhase(ctx, graphTelemetryPhaseSourceScan, request.Aggregation.Mode, scanStarted, scanErr)
-		return graphComposition{}, scanErr
-	}
-	if apiErr := validateGraphLimits(composition); apiErr != nil {
-		s.observeGraphPhase(ctx, graphTelemetryPhaseSourceScan, request.Aggregation.Mode, scanStarted, apiErr)
-		return graphComposition{}, apiErr
-	}
-	composition.SemanticQuery = graphSemanticQueryResource(schemaID, tableIDs, request.Filters, request.TimeRange, request.Aggregation, request.Limits)
-	s.observeGraphPhase(ctx, graphTelemetryPhaseSourceScan, request.Aggregation.Mode, scanStarted, nil)
-	return composition, nil
-}
-
-func (s *Service) composeGraphSourceFromSemantic(ctx context.Context, incidentID uuid.UUID, semantic graphSemanticRequest) (graphComposition, *httpapi.APIError) {
-	if semantic.ResultLimits.MaxContributingRows == 0 {
-		semantic.ResultLimits.MaxContributingRows = int(s.store.limits.MaxContributingRowsPerGraph)
-	}
-	if semantic.ResultLimits.MaxTimeBuckets == 0 {
-		semantic.ResultLimits.MaxTimeBuckets = int(s.store.limits.MaxTimeBucketsPerGraph)
-	}
-	request := graphQueryRequest{
-		TableScope:  TableScope{Mode: "selected_tables", SelectedTableIDs: semantic.SelectedTableIDs},
-		Filters:     semantic.Filters,
-		TimeRange:   semantic.TimeRange,
-		Aggregation: semantic.Aggregation,
-		Limits:      semantic.ResultLimits,
-	}
-	composition, apiErr := s.composeGraphSource(ctx, incidentID, request)
-	if apiErr != nil {
-		return graphComposition{}, apiErr
-	}
-	composition.SemanticSchemaID = semantic.SchemaID
-	composition.SemanticQuery = semantic.Raw
-	composition.Digest = graphQueryDigestForSemantic(incidentID, composition.SelectedTableIDs, semantic)
-	return composition, nil
-}
-
 var errStopGraphIteration = errors.New("stop Network Flow graph iteration")
 
-func (s *Service) resolveGraphTables(ctx context.Context, incidentID uuid.UUID, scope TableScope) ([]TableRecord, []string, map[string]int, *httpapi.APIError) {
-	activeTables, err := s.store.ListActiveTables(ctx, incidentID)
-	if err != nil {
-		return nil, nil, nil, httpapi.InternalAPIError(err)
-	}
-	byID := make(map[string]TableRecord, len(activeTables))
-	for _, table := range activeTables {
-		byID[table.TableID] = table
-	}
-	var selected []TableRecord
-	switch scope.Mode {
-	case "active_table":
-		table, ok := byID[scope.ActiveTableID]
-		if !ok {
-			if _, err := s.store.GetActiveTable(ctx, incidentID, scope.ActiveTableID); err != nil {
-				return nil, nil, nil, tableReadError(err)
-			}
-			return nil, nil, nil, networkFlowAPIError(http.StatusNotFound, "network_flow_table_not_found", "network_flow_table_id", "not_found")
-		}
-		selected = []TableRecord{table}
-	case "selected_tables":
-		if len(scope.SelectedTableIDs) == 0 {
-			return nil, nil, nil, invalidTableScope("table_scope", "empty_resolved_scope")
-		}
-		selectedSet := stringSet(scope.SelectedTableIDs)
-		for _, table := range activeTables {
-			if _, ok := selectedSet[table.TableID]; ok {
-				selected = append(selected, table)
-				delete(selectedSet, table.TableID)
-			}
-		}
-		if len(selectedSet) > 0 {
-			missing := make([]string, 0, len(selectedSet))
-			for tableID := range selectedSet {
-				missing = append(missing, tableID)
-			}
-			sort.Strings(missing)
-			if _, err := s.store.GetActiveTable(ctx, incidentID, missing[0]); err != nil {
-				return nil, nil, nil, tableReadError(err)
-			}
-			return nil, nil, nil, networkFlowAPIError(http.StatusNotFound, "network_flow_table_not_found", "network_flow_table_id", "not_found")
-		}
-	case "all_active_tables":
-		selected = activeTables
-	default:
-		return nil, nil, nil, invalidTableScope("mode", "unknown_mode")
-	}
-	if len(selected) == 0 {
-		return nil, nil, nil, invalidTableScope("table_scope", "empty_resolved_scope")
-	}
-	tableIDs := make([]string, 0, len(selected))
-	tableRanks := make(map[string]int, len(selected))
-	for index, table := range selected {
-		tableIDs = append(tableIDs, table.TableID)
-		tableRanks[table.TableID] = index
-	}
-	return selected, tableIDs, tableRanks, nil
-}
-
-func rowMatchesGraphQuery(row FlowRow, filters []Filter, timeRange graphTimeRange, aggregation graphAggregation) (bool, *httpapi.APIError) {
+func rowMatchesGraphQuery(row flowRow, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation) (bool, *semanticFailure) {
 	for _, filter := range filters {
 		matched, apiErr := rowMatchesFilter(row, filter)
 		if apiErr != nil || !matched {
@@ -929,20 +569,20 @@ func rowMatchesGraphQuery(row FlowRow, filters []Filter, timeRange graphTimeRang
 	return true, nil
 }
 
-func composeGraphRow(incidentID uuid.UUID, row FlowRow, tableByID map[string]TableRecord, composition *graphComposition) *httpapi.APIError {
+func composeGraphRow(incidentID uuid.UUID, row flowRow, tableByID map[string]tableRecord, composition *graphComposition) *semanticFailure {
 	if composition != nil && composition.Aggregation.Mode == "time_bucket_v1" {
 		return composeTimeBucketGraphRow(incidentID, row, tableByID, composition)
 	}
 	return composeDefaultGraphRow(incidentID, row, tableByID, composition)
 }
 
-func composeDefaultGraphRow(incidentID uuid.UUID, row FlowRow, tableByID map[string]TableRecord, composition *graphComposition) *httpapi.APIError {
+func composeDefaultGraphRow(incidentID uuid.UUID, row flowRow, tableByID map[string]tableRecord, composition *graphComposition) *semanticFailure {
 	composition.ContributingRows++
 	if composition.ResultLimits.MaxContributingRows > 0 && composition.ContributingRows > composition.ResultLimits.MaxContributingRows {
 		return graphLimitExceeded("contributing_row_limit_exceeded", "network_flow.max_contributing_rows_per_graph", composition.ResultLimits.MaxContributingRows, composition.ResultLimits.MaxContributingRows+1)
 	}
-	srcID := EndpointID(incidentID, "ip", row.SrcIP)
-	dstID := EndpointID(incidentID, "ip", row.DstIP)
+	srcID := endpointID(incidentID, "ip", row.SrcIP)
+	dstID := endpointID(incidentID, "ip", row.DstIP)
 	srcVertex := ensureGraphVertex(composition.Vertices, srcID, row.SrcIP)
 	dstVertex := ensureGraphVertex(composition.Vertices, dstID, row.DstIP)
 	if len(composition.Vertices) > composition.ResultLimits.MaxVertices {
@@ -952,7 +592,7 @@ func composeDefaultGraphRow(incidentID uuid.UUID, row FlowRow, tableByID map[str
 	if dstID != srcID {
 		addGraphVertexRow(dstVertex, row, tableByID[row.NetworkFlowTableID])
 	}
-	edgeID := FlowEdgeID(incidentID, srcID, dstID, row.IPProtocol, row.DstPort)
+	edgeID := flowEdgeID(incidentID, srcID, dstID, row.IPProtocol, row.DstPort)
 	edge := composition.Edges[edgeID]
 	if edge == nil {
 		edge = &graphEdge{
@@ -976,7 +616,7 @@ func composeDefaultGraphRow(incidentID uuid.UUID, row FlowRow, tableByID map[str
 	return addGraphEdgeAggregate(row, tableByID, composition, edge)
 }
 
-func addGraphEdgeAggregate(row FlowRow, tableByID map[string]TableRecord, composition *graphComposition, edge *graphEdge) *httpapi.APIError {
+func addGraphEdgeAggregate(row flowRow, tableByID map[string]tableRecord, composition *graphComposition, edge *graphEdge) *semanticFailure {
 	if row.FlowStartUTC.Before(edge.FirstFlowStartUTC) {
 		edge.FirstFlowStartUTC = row.FlowStartUTC.UTC()
 	}
@@ -985,11 +625,11 @@ func addGraphEdgeAggregate(row FlowRow, tableByID map[string]TableRecord, compos
 	}
 	bytesValue, ok := new(big.Int).SetString(row.BytesCount, 10)
 	if !ok {
-		return networkFlowAPIError(http.StatusBadRequest, "network_flow_invalid_request", FieldBytesCount, "invalid_counter")
+		return newSemanticFailure(failureInvalidRequest, fieldBytesCount, "invalid_counter")
 	}
 	packetsValue, ok := new(big.Int).SetString(row.PacketsCount, 10)
 	if !ok {
-		return networkFlowAPIError(http.StatusBadRequest, "network_flow_invalid_request", FieldPacketsCount, "invalid_counter")
+		return newSemanticFailure(failureInvalidRequest, fieldPacketsCount, "invalid_counter")
 	}
 	edge.BytesSum.Add(&edge.BytesSum, bytesValue)
 	edge.PacketsSum.Add(&edge.PacketsSum, packetsValue)
@@ -1024,7 +664,7 @@ func ensureGraphVertex(vertices map[string]*graphVertex, endpointID string, endp
 	return vertex
 }
 
-func addGraphVertexRow(vertex *graphVertex, row FlowRow, table TableRecord) {
+func addGraphVertexRow(vertex *graphVertex, row flowRow, table tableRecord) {
 	vertex.FlowRowCount++
 	vertex.ContributingTableID[row.NetworkFlowTableID] = struct{}{}
 	if table.MappingFingerprint != "" {
@@ -1032,7 +672,7 @@ func addGraphVertexRow(vertex *graphVertex, row FlowRow, table TableRecord) {
 	}
 }
 
-func validateGraphLimits(composition graphComposition) *httpapi.APIError {
+func validateGraphLimits(composition graphComposition) *semanticFailure {
 	if len(composition.Vertices) > composition.ResultLimits.MaxVertices {
 		return graphLimitExceeded("vertex_limit_exceeded", "network_flow.max_graph_vertices", composition.ResultLimits.MaxVertices, composition.ResultLimits.MaxVertices+1)
 	}
@@ -1053,45 +693,6 @@ func validateGraphLimits(composition graphComposition) *httpapi.APIError {
 		}
 	}
 	return nil
-}
-
-func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.UUID, sourceSnapshotID string, composition graphComposition, requestedAt time.Time) (map[string]any, *httpapi.APIError) {
-	if err := ctx.Err(); err != nil {
-		return nil, graphProjectionFailedForContext(err)
-	}
-	graphViewKeySnapshot := sourceSnapshotID
-	if len(graphViewKeySnapshot) > len("nfsnap_") && graphViewKeySnapshot[:len("nfsnap_")] == "nfsnap_" {
-		graphViewKeySnapshot = graphViewKeySnapshot[len("nfsnap_"):]
-	}
-	graphViewKey := "network_flow_activity:" + composition.SourceTables[0].IncidentID.String() + ":" + graphViewKeySnapshot
-	projector := s.graphProjection
-	if projector == nil {
-		projector = newGraphProjectionAdapter()
-	}
-	graphViewID, err := deriveNetworkFlowGraphViewID(graphViewKey)
-	if err != nil {
-		return nil, graphProjectionFailed("adapter_contract_rejected")
-	}
-	input := networkFlowProjectionInput(sourceSnapshotID, composition)
-	projectionResource, err := projector.ProjectEphemeral(ctx, graphViewID, canonicalJSON(input))
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			return nil, graphProjectionFailed("projection_cancelled")
-		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, graphProjectionFailed("projection_timeout")
-		}
-		var adapterErr *graphProjectionAdapterError
-		if errors.As(err, &adapterErr) {
-			return nil, graphProjectionFailed(adapterErr.reason)
-		}
-		return nil, graphProjectionFailed("projection_unavailable")
-	}
-	summary, ok := projectionResource["validation_summary"].(map[string]any)
-	if !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
-		return nil, graphProjectionFailed("adapter_contract_rejected")
-	}
-	return projectionResource, nil
 }
 
 func networkFlowProjectionInput(sourceSnapshotID string, composition graphComposition) map[string]any {
@@ -1364,184 +965,24 @@ func graphEdgeAnnotations(composition graphComposition) []any {
 	return out
 }
 
-func (s *Service) queryGraphContributors(ctx context.Context, actorID string, sessionID string, incidentID uuid.UUID, request graphContributorQueryRequest) (map[string]any, *httpapi.APIError) {
-	var position *contributorCursorPosition
-	limit := request.Limit
-	if request.Continuation {
-		payload, reason := s.cursorProtector.Decode(request.CursorToken)
-		if reason != "" {
-			return nil, cursorInvalid(reason)
-		}
-		if payload.Route != routeKeyGraphsContributorsQuery || payload.ActorUserID != actorID || payload.SessionID != sessionID || payload.IncidentID != incidentID.String() {
-			return nil, cursorInvalid(payloadMismatchReason(payload, routeKeyGraphsContributorsQuery, actorID, incidentID.String()))
-		}
-		limit = payload.Limit
-		if payload.PositionKind != "contributor_keyset_v1" {
-			return nil, cursorInvalid("malformed")
-		}
-		decodedPosition, err := decodeContributorCursorPosition(payload.Position)
-		if err != nil {
-			return nil, cursorInvalid("malformed")
-		}
-		if !sameSortSpecs(decodedPosition.Row.EffectiveSort, effectiveSort(nil)) {
-			return nil, cursorInvalid("semantic_query_mismatch")
-		}
-		position = &decodedPosition
-		var echo struct {
-			GraphQuery       graphSemanticRequest `json:"-"`
-			GraphQueryDigest string               `json:"graph_query_digest"`
-			Selector         graphSelector        `json:"selector"`
-		}
-		var rawEcho map[string]json.RawMessage
-		if err := json.Unmarshal(payload.QueryEcho, &rawEcho); err != nil {
-			return nil, cursorInvalid("malformed")
-		}
-		semantic, apiErr := decodeGraphSemanticRequest(rawEcho["graph_query"], s.store.limits)
-		if apiErr != nil {
-			return nil, cursorInvalid("malformed")
-		}
-		echo.GraphQuery = semantic
-		if err := json.Unmarshal(rawEcho["graph_query_digest"], &echo.GraphQueryDigest); err != nil {
-			return nil, cursorInvalid("malformed")
-		}
-		if err := json.Unmarshal(rawEcho["selector"], &echo.Selector); err != nil {
-			return nil, cursorInvalid("malformed")
-		}
-		request.GraphQuery = echo.GraphQuery
-		request.GraphQueryDigest = echo.GraphQueryDigest
-		request.Selector = echo.Selector
-		request.Limit = limit
-		if payload.QueryHash != queryHash(graphContributorQueryEcho(request)) {
-			return nil, cursorInvalid("semantic_query_mismatch")
-		}
-	}
-	rows, hasMore, tableRanks, apiErr := s.queryGraphContributorPage(ctx, incidentID, request.GraphQuery, request.GraphQueryDigest, request.Selector, position, limit)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-	contributors := make([]any, 0, len(rows))
-	for _, row := range rows {
-		contributors = append(contributors, map[string]any{
-			"row_ref": rowRefResource(row),
-			"row":     rowResource(row),
-		})
-	}
-	queryEcho := graphContributorQueryEcho(request)
-	queryEchoRaw, _ := json.Marshal(queryEcho)
-	var nextToken *string
-	if hasMore && len(rows) > 0 {
-		token, err := s.cursorProtector.Encode(CursorBinding{
-			Route:       routeKeyGraphsContributorsQuery,
-			ActorUserID: actorID,
-			SessionID:   sessionID,
-			IncidentID:  incidentID.String(),
-			Scope:       map[string]string{"graph_query_digest": request.GraphQueryDigest},
-			QueryHash:   queryHash(queryEcho),
-			QueryEcho:   queryEchoRaw,
-			Limit:       limit,
-		}, "contributor_keyset_v1", newContributorCursorPosition(rows[len(rows)-1], tableRanks))
-		if err != nil {
-			return nil, httpapi.InternalAPIError(err)
-		}
-		nextToken = &token
-	}
-	return map[string]any{
-		"schema_id":          schemaGraphContributorQueryResult,
-		"graph_query_digest": request.GraphQueryDigest,
-		"selector":           graphSelectorResource(request.Selector),
-		"contributors":       contributors,
-		"meta": map[string]any{
-			"paging": map[string]any{
-				"limit":             limit,
-				"returned_count":    len(contributors),
-				"next_cursor_token": nextToken,
-			},
-		},
-	}, nil
-}
-
-func (s *Service) queryGraphContributorPage(ctx context.Context, incidentID uuid.UUID, semantic graphSemanticRequest, expectedDigest string, selector graphSelector, position *contributorCursorPosition, limit int) ([]FlowRow, bool, map[string]int, *httpapi.APIError) {
-	_, tableIDs, tableRanks, apiErr := s.resolveGraphTables(ctx, incidentID, TableScope{Mode: "selected_tables", SelectedTableIDs: semantic.SelectedTableIDs})
-	if apiErr != nil {
-		return nil, false, nil, apiErr
-	}
-	digest := graphQueryDigestForSemantic(incidentID, tableIDs, semantic)
-	if digest != expectedDigest {
-		return nil, false, nil, graphQueryStale("digest_mismatch", expectedDigest)
-	}
-	if apiErr := validateGraphSelectorForSemantic(semantic, selector); apiErr != nil {
-		return nil, false, nil, apiErr
-	}
-	predicate, apiErr := canonicalGraphContributorPredicate(incidentID, selector)
-	if apiErr != nil {
-		return nil, false, nil, apiErr
-	}
-
-	rows := make([]FlowRow, 0, limit+1)
-	matchedAny := false
-	err := s.store.IterateGraphContributorRows(ctx, incidentID, tableIDs, predicate, func(row FlowRow) error {
-		matched, matchErr := rowMatchesGraphQuery(row, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
-		if matchErr != nil {
-			apiErr = matchErr
-			return errStopGraphIteration
-		}
-		if !matched {
-			return nil
-		}
-		matchedAny = true
-		if position != nil {
-			rank := tableRanks[row.NetworkFlowTableID]
-			if rank < position.WorkspaceTableOrder || rank == position.WorkspaceTableOrder && compareRowToPosition(row, position.Row) <= 0 {
-				return nil
-			}
-		}
-		rows = append(rows, row)
-		if len(rows) > limit {
-			return errStopGraphIteration
-		}
-		return nil
-	})
-	if apiErr != nil {
-		return nil, false, nil, apiErr
-	}
-	if err != nil && !errors.Is(err, errStopGraphIteration) {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, false, nil, graphProjectionFailedForContext(err)
-		}
-		return nil, false, nil, httpapi.InternalAPIError(err)
-	}
-	if !matchedAny {
-		reason := "edge_not_found"
-		if predicate.Kind == "vertex" {
-			reason = "vertex_not_found"
-		}
-		return nil, false, nil, graphQueryStale(reason, digest)
-	}
-	hasMore := len(rows) > limit
-	if hasMore {
-		rows = rows[:limit]
-	}
-	return rows, hasMore, tableRanks, nil
-}
-
-func canonicalGraphContributorPredicate(incidentID uuid.UUID, selector graphSelector) (graphContributorPredicate, *httpapi.APIError) {
+func canonicalGraphContributorPredicate(incidentID uuid.UUID, selector graphSelector) (graphContributorPredicate, *semanticFailure) {
 	if selector.SourceVertexID != "" {
-		expected := EndpointID(incidentID, "ip", selector.EndpointValue)
+		expected := endpointID(incidentID, "ip", selector.EndpointValue)
 		if selector.SourceVertexID != expected {
 			return graphContributorPredicate{}, invalidNetworkFlowRequest("selector.source_vertex_id", "id_key_mismatch")
 		}
 		return graphContributorPredicate{Kind: "vertex", EndpointValue: selector.EndpointValue}, nil
 	}
 	if selector.SourceEdgeID != "" {
-		srcID := EndpointID(incidentID, "ip", selector.SourceEndpointValue)
-		dstID := EndpointID(incidentID, "ip", selector.DestinationEndpointValue)
-		expected := FlowEdgeID(incidentID, srcID, dstID, selector.Protocol, selector.DestinationPort)
+		srcID := endpointID(incidentID, "ip", selector.SourceEndpointValue)
+		dstID := endpointID(incidentID, "ip", selector.DestinationEndpointValue)
+		expected := flowEdgeID(incidentID, srcID, dstID, selector.Protocol, selector.DestinationPort)
 		predicateKind := "default_edge"
 		if selector.Kind == "time_bucket_edge" {
 			if selector.BucketStartUTC == nil || selector.BucketEndUTC == nil {
 				return graphContributorPredicate{}, invalidNetworkFlowRequest("selector", "variant_member_conflict")
 			}
-			expected = BucketEdgeID(incidentID, *selector.BucketStartUTC, *selector.BucketEndUTC, srcID, dstID, selector.Protocol, selector.DestinationPort)
+			expected = bucketEdgeID(incidentID, *selector.BucketStartUTC, *selector.BucketEndUTC, srcID, dstID, selector.Protocol, selector.DestinationPort)
 			predicateKind = "time_bucket_edge"
 		}
 		if selector.SourceEdgeID != expected {
@@ -1560,7 +1001,7 @@ func canonicalGraphContributorPredicate(incidentID uuid.UUID, selector graphSele
 	return graphContributorPredicate{}, invalidNetworkFlowRequest("selector.kind", "unknown_selector_kind")
 }
 
-func validateGraphSelectorForSemantic(semantic graphSemanticRequest, selector graphSelector) *httpapi.APIError {
+func validateGraphSelectorForSemantic(semantic graphSemanticRequest, selector graphSelector) *semanticFailure {
 	if selector.Kind == "vertex" {
 		return nil
 	}
@@ -1592,51 +1033,10 @@ func graphContributorQueryEcho(request graphContributorQueryRequest) map[string]
 	}
 }
 
-func (s *Service) recordGraphQueryAudit(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, composition graphComposition, requestID string) *httpapi.APIError {
-	graphDigestSafe, keyID, err := s.safeDigester.Digest("graph_query_digest", composition.Digest)
-	if err != nil {
-		return httpapi.InternalAPIError(err)
-	}
-	truncatedCount := 0
-	for _, edge := range composition.Edges {
-		limit := composition.ResultLimits.MaxExampleRowRefsPerEdge
-		if !composition.SemanticQuery["aggregation"].(map[string]any)["include_example_row_refs"].(bool) {
-			limit = 0
-		}
-		if edge.FlowRowCount > limit {
-			truncatedCount += edge.FlowRowCount - limit
-		}
-	}
-	err = withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		return s.store.appendAuditEventTx(ctx, tx, networkFlowAuditEvent{
-			ActorUserID: &actorUserID,
-			IncidentID:  &incidentID,
-			EventKind:   "network_flow_graph_query_executed",
-			RequestID:   optionalStringPtr(requestID),
-			AfterJSON: map[string]any{
-				"incident_id":                    incidentID.String(),
-				"actor_user_id":                  actorUserID.String(),
-				"graph_query_digest_safe":        graphDigestSafe,
-				"graph_query_digest_safe_key_id": keyID,
-				"selected_table_count":           len(composition.SelectedTableIDs),
-				"result_vertex_count":            len(composition.Vertices),
-				"result_edge_count":              len(composition.Edges),
-				"truncated_example_ref_count":    truncatedCount,
-				"network_flow.audit_event_code":  "network_flow_graph_query_executed",
-				"network_flow.audit_resource_id": composition.Digest,
-			},
-		})
-	})
-	if err != nil {
-		return httpapi.InternalAPIError(fmt.Errorf("record network flow graph query audit: %w", err))
-	}
-	return nil
-}
-
-func graphSemanticQueryResource(schemaID string, tableIDs []string, filters []Filter, timeRange graphTimeRange, aggregation graphAggregation, limits graphResultLimits) map[string]any {
+func graphSemanticQueryResource(schemaID string, tableIDs []string, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation, limits graphResultLimits) map[string]any {
 	normalizedFilters := filters
 	if normalizedFilters == nil {
-		normalizedFilters = []Filter{}
+		normalizedFilters = []queryFilter{}
 	}
 	resource := map[string]any{
 		"schema_id":          schemaID,
@@ -1670,7 +1070,7 @@ func graphAggregationResource(aggregation graphAggregation) map[string]any {
 	return resource
 }
 
-func graphSourceTableRefs(tables []TableRecord) []any {
+func graphSourceTableRefs(tables []tableRecord) []any {
 	out := make([]any, 0, len(tables))
 	for _, table := range tables {
 		out = append(out, map[string]any{
@@ -1709,12 +1109,12 @@ func graphSelectorResource(selector graphSelector) map[string]any {
 	return map[string]any{"kind": selector.Kind}
 }
 
-func graphQueryDigestV2(incidentID uuid.UUID, tableIDs []string, filters []Filter, timeRange graphTimeRange, aggregation graphAggregation) string {
+func graphQueryDigestV2(incidentID uuid.UUID, tableIDs []string, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation) string {
 	sortedTableIDs := append([]string(nil), tableIDs...)
 	sort.Strings(sortedTableIDs)
 	normalizedFilters := filters
 	if normalizedFilters == nil {
-		normalizedFilters = []Filter{}
+		normalizedFilters = []queryFilter{}
 	}
 	var normalizedTimeRange any
 	if !(timeRange.Omitted || timeRange.StartUTC == nil && timeRange.EndUTC == nil) {
@@ -1735,8 +1135,8 @@ func graphQueryDigestV2(incidentID uuid.UUID, tableIDs []string, filters []Filte
 	return sha256Hex(transcript.Bytes())
 }
 
-func graphSourceSnapshotDigest(incidentID uuid.UUID, tables []TableRecord, graphDigest string) string {
-	sortedTables := append([]TableRecord(nil), tables...)
+func graphSourceSnapshotDigest(incidentID uuid.UUID, tables []tableRecord, graphDigest string) string {
+	sortedTables := append([]tableRecord(nil), tables...)
 	sort.SliceStable(sortedTables, func(i, j int) bool { return sortedTables[i].TableID < sortedTables[j].TableID })
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow.source_snapshot_digest.v1")
@@ -1768,7 +1168,7 @@ func sortedGraphEdgeIDs(edges map[string]*graphEdge) []string {
 	return out
 }
 
-func sortContributorRows(rows []FlowRow, tableRanks map[string]int) {
+func sortContributorRows(rows []flowRow, tableRanks map[string]int) {
 	effective := effectiveSort(nil)
 	sort.SliceStable(rows, func(i, j int) bool {
 		leftRank := tableRanks[rows[i].NetworkFlowTableID]
@@ -1790,7 +1190,7 @@ func sortContributorRows(rows []FlowRow, tableRanks map[string]int) {
 	})
 }
 
-func orderedIDsFromSet(tables []TableRecord, set map[string]struct{}) []string {
+func orderedIDsFromSet(tables []tableRecord, set map[string]struct{}) []string {
 	out := []string{}
 	for _, table := range tables {
 		if _, ok := set[table.TableID]; ok {
@@ -1800,7 +1200,7 @@ func orderedIDsFromSet(tables []TableRecord, set map[string]struct{}) []string {
 	return out
 }
 
-func orderedFingerprints(tables []TableRecord, set map[string]struct{}) []string {
+func orderedFingerprints(tables []tableRecord, set map[string]struct{}) []string {
 	seen := map[string]struct{}{}
 	out := []string{}
 	for _, table := range tables {
@@ -1853,57 +1253,48 @@ func cloneInt32(value *int32) *int32 {
 	return &out
 }
 
-func invalidLimitOverride(field string, reason string, limitKey string, limit int, minimum int, maximum int) *httpapi.APIError {
-	details := map[string]any{"reason_code": reason}
-	if field != "" {
-		details["field"] = field
-	}
-	if limitKey != "" {
-		details["limit_key"] = limitKey
-		details["limit"] = limit
-		details["minimum"] = minimum
-		details["maximum"] = maximum
-	}
-	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "network_flow_invalid_limit_override", Message: "network_flow_invalid_limit_override", Details: details}
+func invalidLimitOverride(field, reason, limitKey string, limit, minimum, maximum int) *semanticFailure {
+	f := newSemanticFailure(failureInvalidLimitOverride, field, reason)
+	f.details.LimitKey = limitKey
+	f.details.Limit = limit
+	f.details.Minimum = minimum
+	f.details.Maximum = maximum
+	return f
 }
 
-func graphLimitExceeded(reason string, limitKey string, limit int, actual int) *httpapi.APIError {
+func graphLimitExceeded(reason string, limitKey string, limit int, actual int) *semanticFailure {
 	return graphLimitExceededAt(reason, limitKey, limit, actual, "graph_composition")
 }
 
-func counterLimitExceeded(reason string, limitKey string, limit int, actual int) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusRequestEntityTooLarge, Code: "network_flow_counter_sum_limit_exceeded", Message: "network_flow_counter_sum_limit_exceeded", Details: map[string]any{
-		"reason_code":  reason,
-		"limit_key":    limitKey,
-		"limit":        limit,
-		"actual":       actual,
-		"phase":        "graph_composition",
-		"retry_action": "reduce_scope_or_limits",
-	}}
+func counterLimitExceeded(reason, limitKey string, limit, actual int) *semanticFailure {
+	f := newSemanticFailure(failureCounterSumLimitExceeded, "", reason)
+	f.details.LimitKey = limitKey
+	f.details.Limit = limit
+	f.details.Actual = actual
+	f.details.Phase = "graph_composition"
+	return f
 }
 
-func graphProjectionFailed(reason string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusBadGateway, Code: "network_flow_graph_projection_failed", Message: "network_flow_graph_projection_failed", Details: map[string]any{
-		"reason_code":                 reason,
-		"retry_action":                "do_not_retry",
-		"projection_contract_version": graphProjectionSchemaID,
-	}}
+func graphProjectionFailed(reason string) *semanticFailure {
+	return newSemanticFailure(failureGraphProjectionFailed, "", reason)
 }
 
-func graphProjectionFailedForContext(err error) *httpapi.APIError {
+func graphProjectionFailedForContext(err error) *semanticFailure {
 	if errors.Is(err, context.Canceled) {
-		return graphProjectionFailed("projection_cancelled")
+		failure := graphProjectionFailed("projection_cancelled")
+		failure.cause = err
+		return failure
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return graphProjectionFailed("projection_timeout")
+		failure := graphProjectionFailed("projection_timeout")
+		failure.cause = err
+		return failure
 	}
 	return graphProjectionFailed("projection_unavailable")
 }
 
-func graphQueryStale(reason string, digest string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "network_flow_graph_query_stale", Message: "network_flow_graph_query_stale", Details: map[string]any{
-		"reason_code":        reason,
-		"graph_query_digest": digest,
-		"retry_action":       "refresh_resource",
-	}}
+func graphQueryStale(reason, digest string) *semanticFailure {
+	f := newSemanticFailure(failureGraphQueryStale, "", reason)
+	f.details.Digest = digest
+	return f
 }

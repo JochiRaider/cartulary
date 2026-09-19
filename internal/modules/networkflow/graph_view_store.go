@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	GraphViewDeclarationStateActive  = "active"
-	GraphViewDeclarationStateRetired = "retired"
+	graphViewDeclarationStateActive  = "active"
+	graphViewDeclarationStateRetired = "retired"
 )
 
 var (
@@ -31,29 +31,29 @@ var (
 	graphProjectionResultIDPattern = regexp.MustCompile(`^gpres_[a-f0-9]{64}$`)
 	graphViewSHA256Pattern         = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
-	ErrGraphViewDeclarationNotFound  = errors.New("network flow graph view declaration not found")
-	ErrGraphViewDeclarationInvalid   = errors.New("network flow graph view declaration invalid")
-	ErrGraphViewDeclarationNotActive = errors.New("network flow graph view declaration not active")
-	ErrGraphViewVersionConflict      = errors.New("network flow graph view version conflict")
-	ErrGraphViewActiveLimit          = errors.New("network flow active graph view limit exceeded")
-	ErrGraphViewRetainedLimit        = errors.New("network flow retained graph view limit exceeded")
-	ErrGraphViewPublicationStale     = errors.New("network flow graph view publication stale")
+	errGraphViewDeclarationNotFound  = errors.New("network flow graph view declaration not found")
+	errGraphViewDeclarationInvalid   = errors.New("network flow graph view declaration invalid")
+	errGraphViewDeclarationNotActive = errors.New("network flow graph view declaration not active")
+	errGraphViewVersionConflict      = errors.New("network flow graph view version conflict")
+	errGraphViewActiveLimit          = errors.New("network flow active graph view limit exceeded")
+	errGraphViewRetainedLimit        = errors.New("network flow retained graph view limit exceeded")
+	errGraphViewPublicationStale     = errors.New("network flow graph view publication stale")
 )
 
-type GraphViewDeclarationCounts struct {
+type graphViewDeclarationCounts struct {
 	Active   int64
 	Retained int64
 }
 
-type GraphViewVersionConflictError struct {
+type graphViewVersionConflictError struct {
 	Current int64
 	Base    int64
 }
 
-func (err *GraphViewVersionConflictError) Error() string { return ErrGraphViewVersionConflict.Error() }
-func (err *GraphViewVersionConflictError) Unwrap() error { return ErrGraphViewVersionConflict }
+func (err *graphViewVersionConflictError) Error() string { return errGraphViewVersionConflict.Error() }
+func (err *graphViewVersionConflictError) Unwrap() error { return errGraphViewVersionConflict }
 
-type GraphViewSelectedResultBinding struct {
+type graphViewSelectedResultBinding struct {
 	ProjectionResultID            string
 	SourceSnapshotID              string
 	ProjectionSchemaID            string
@@ -63,7 +63,7 @@ type GraphViewSelectedResultBinding struct {
 	CanonicalOutputSHA256         string
 }
 
-type GraphViewDeclaration struct {
+type graphViewDeclaration struct {
 	GraphViewID               string
 	IncidentID                uuid.UUID
 	DisplayName               string
@@ -72,7 +72,7 @@ type GraphViewDeclaration struct {
 	SemanticQueryJSON         json.RawMessage
 	SemanticQuerySHA256       string
 	DesiredSourceSnapshotID   string
-	SelectedResult            *GraphViewSelectedResultBinding
+	SelectedResult            *graphViewSelectedResultBinding
 	GraphViewVersion          int64
 	MaterializationGeneration int64
 	CreatedByUserID           uuid.UUID
@@ -84,9 +84,9 @@ type GraphViewDeclaration struct {
 	LastFailedAt              *time.Time
 }
 
-func (s *Store) InsertGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, declaration GraphViewDeclaration) error {
+func (s *store) InsertGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, declaration graphViewDeclaration) error {
 	if s == nil || tx == nil || !validGraphViewDeclaration(declaration) {
-		return ErrGraphViewDeclarationInvalid
+		return errGraphViewDeclarationInvalid
 	}
 	selected := declaration.SelectedResult
 	var selectedProjectionResultID, selectedSourceSnapshotID, selectedProjectionSchemaID any
@@ -129,23 +129,23 @@ INSERT INTO network_flow_graph_views (
 	return s.appendGraphViewResourceIntentTx(ctx, tx, declaration, "created")
 }
 
-func (s *Store) GetGraphViewDeclaration(ctx context.Context, incidentID uuid.UUID, graphViewID string) (GraphViewDeclaration, error) {
+func (s *store) GetGraphViewDeclaration(ctx context.Context, incidentID uuid.UUID, graphViewID string) (graphViewDeclaration, error) {
 	if s == nil || s.pool == nil || incidentID == uuid.Nil || !graphViewIDPattern.MatchString(graphViewID) {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationInvalid
+		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
 	}
 	return readGraphViewDeclaration(ctx, s.pool, incidentID, graphViewID, false)
 }
 
-func (s *Store) GetGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, lock bool) (GraphViewDeclaration, error) {
+func (s *store) GetGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, lock bool) (graphViewDeclaration, error) {
 	if s == nil || tx == nil || incidentID == uuid.Nil || !graphViewIDPattern.MatchString(graphViewID) {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationInvalid
+		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
 	}
 	return readGraphViewDeclaration(ctx, tx, incidentID, graphViewID, lock)
 }
 
-func (s *Store) ListActiveGraphViewDeclarations(ctx context.Context, incidentID uuid.UUID) ([]GraphViewDeclaration, error) {
+func (s *store) ListActiveGraphViewDeclarations(ctx context.Context, incidentID uuid.UUID) ([]graphViewDeclaration, error) {
 	if s == nil || s.pool == nil || incidentID == uuid.Nil {
-		return nil, ErrGraphViewDeclarationInvalid
+		return nil, errGraphViewDeclarationInvalid
 	}
 	rows, err := s.pool.Query(ctx, graphViewDeclarationSelect+`
  WHERE incident_id = $1
@@ -156,7 +156,7 @@ func (s *Store) ListActiveGraphViewDeclarations(ctx context.Context, incidentID 
 		return nil, fmt.Errorf("list Network Flow graph view declarations: %w", err)
 	}
 	defer rows.Close()
-	declarations := make([]GraphViewDeclaration, 0)
+	declarations := make([]graphViewDeclaration, 0)
 	for rows.Next() {
 		declaration, err := scanGraphViewDeclaration(rows)
 		if err != nil {
@@ -170,11 +170,11 @@ func (s *Store) ListActiveGraphViewDeclarations(ctx context.Context, incidentID 
 	return declarations, nil
 }
 
-func (s *Store) CountGraphViewDeclarationsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, maximum int64) (GraphViewDeclarationCounts, error) {
+func (s *store) CountGraphViewDeclarationsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, maximum int64) (graphViewDeclarationCounts, error) {
 	if s == nil || tx == nil || incidentID == uuid.Nil || maximum < 1 {
-		return GraphViewDeclarationCounts{}, ErrGraphViewDeclarationInvalid
+		return graphViewDeclarationCounts{}, errGraphViewDeclarationInvalid
 	}
-	var counts GraphViewDeclarationCounts
+	var counts graphViewDeclarationCounts
 	err := tx.QueryRow(ctx, `
 SELECT COUNT(*) FILTER (WHERE declaration_state = 'active'), COUNT(*)
   FROM (
@@ -185,14 +185,14 @@ SELECT COUNT(*) FILTER (WHERE declaration_state = 'active'), COUNT(*)
        ) bounded_graph_views
 `, incidentID, maximum+1).Scan(&counts.Active, &counts.Retained)
 	if err != nil {
-		return GraphViewDeclarationCounts{}, fmt.Errorf("count Network Flow graph view declarations: %w", err)
+		return graphViewDeclarationCounts{}, fmt.Errorf("count Network Flow graph view declarations: %w", err)
 	}
 	return counts, nil
 }
 
-func (s *Store) SetGraphViewLatestJobTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, jobID uuid.UUID) (GraphViewDeclaration, error) {
+func (s *store) SetGraphViewLatestJobTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, jobID uuid.UUID) (graphViewDeclaration, error) {
 	if s == nil || tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil || !graphViewIDPattern.MatchString(graphViewID) {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationInvalid
+		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
 	}
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
@@ -203,24 +203,24 @@ UPDATE network_flow_graph_views
 RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, jobID)
 	declaration, err := scanGraphViewDeclaration(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationNotActive
+		return graphViewDeclaration{}, errGraphViewDeclarationNotActive
 	}
 	return declaration, err
 }
 
-func (s *Store) RenameGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, displayName, normalizedDisplayName string, now time.Time) (GraphViewDeclaration, error) {
+func (s *store) RenameGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, displayName, normalizedDisplayName string, now time.Time) (graphViewDeclaration, error) {
 	declaration, err := s.GetGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, true)
 	if err != nil {
-		return GraphViewDeclaration{}, err
+		return graphViewDeclaration{}, err
 	}
-	if declaration.DeclarationState != GraphViewDeclarationStateActive {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationNotActive
+	if declaration.DeclarationState != graphViewDeclarationStateActive {
+		return graphViewDeclaration{}, errGraphViewDeclarationNotActive
 	}
 	if declaration.GraphViewVersion != baseVersion {
-		return GraphViewDeclaration{}, &GraphViewVersionConflictError{Current: declaration.GraphViewVersion, Base: baseVersion}
+		return graphViewDeclaration{}, &graphViewVersionConflictError{Current: declaration.GraphViewVersion, Base: baseVersion}
 	}
-	if normalized, err := NormalizeGraphViewDisplayName(displayName); err != nil || normalized != displayName {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationInvalid
+	if normalized, err := normalizeGraphViewDisplayName(displayName); err != nil || normalized != displayName {
+		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
 	}
 	if declaration.DisplayName == displayName {
 		return declaration, nil
@@ -241,16 +241,16 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, displayName, n
 	return changed, err
 }
 
-func (s *Store) RefreshGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, desiredSourceSnapshotID string, now time.Time) (GraphViewDeclaration, error) {
+func (s *store) RefreshGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, desiredSourceSnapshotID string, now time.Time) (graphViewDeclaration, error) {
 	declaration, err := s.GetGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, true)
 	if err != nil {
-		return GraphViewDeclaration{}, err
+		return graphViewDeclaration{}, err
 	}
-	if declaration.DeclarationState != GraphViewDeclarationStateActive {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationNotActive
+	if declaration.DeclarationState != graphViewDeclarationStateActive {
+		return graphViewDeclaration{}, errGraphViewDeclarationNotActive
 	}
 	if declaration.GraphViewVersion != baseVersion {
-		return GraphViewDeclaration{}, &GraphViewVersionConflictError{Current: declaration.GraphViewVersion, Base: baseVersion}
+		return graphViewDeclaration{}, &graphViewVersionConflictError{Current: declaration.GraphViewVersion, Base: baseVersion}
 	}
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
@@ -271,16 +271,16 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, desiredSourceS
 	return changed, err
 }
 
-func (s *Store) RetireGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, now time.Time) (GraphViewDeclaration, error) {
+func (s *store) RetireGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, now time.Time) (graphViewDeclaration, error) {
 	declaration, err := s.GetGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, true)
 	if err != nil {
-		return GraphViewDeclaration{}, err
+		return graphViewDeclaration{}, err
 	}
-	if declaration.DeclarationState != GraphViewDeclarationStateActive {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationNotActive
+	if declaration.DeclarationState != graphViewDeclarationStateActive {
+		return graphViewDeclaration{}, errGraphViewDeclarationNotActive
 	}
 	if declaration.GraphViewVersion != baseVersion {
-		return GraphViewDeclaration{}, &GraphViewVersionConflictError{Current: declaration.GraphViewVersion, Base: baseVersion}
+		return graphViewDeclaration{}, &graphViewVersionConflictError{Current: declaration.GraphViewVersion, Base: baseVersion}
 	}
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
@@ -307,17 +307,17 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, now.UTC())
 	return changed, err
 }
 
-func (s *Store) PublishGraphViewResultTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, sourceSnapshotID string, jobID uuid.UUID, selected GraphViewSelectedResultBinding, now time.Time) (GraphViewDeclaration, error) {
+func (s *store) PublishGraphViewResultTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, sourceSnapshotID string, jobID uuid.UUID, selected graphViewSelectedResultBinding, now time.Time) (graphViewDeclaration, error) {
 	if s == nil || tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil || generation < 1 || !validSelectedGraphViewResult(selected) {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationInvalid
+		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
 	}
 	reader, err := postgresresult.NewReader(tx)
 	if err != nil {
-		return GraphViewDeclaration{}, err
+		return graphViewDeclaration{}, err
 	}
 	storedBinding, err := reader.LockResultEnvelope(ctx, selected.ProjectionResultID)
 	if err != nil {
-		return GraphViewDeclaration{}, err
+		return graphViewDeclaration{}, err
 	}
 	wantBinding := graphprojection.ResultBindingV2{
 		ProjectionResultID:            selected.ProjectionResultID,
@@ -331,7 +331,7 @@ func (s *Store) PublishGraphViewResultTx(ctx context.Context, tx pgx.Tx, inciden
 		CanonicalOutputSHA256:         selected.CanonicalOutputSHA256,
 	}
 	if storedBinding != wantBinding {
-		return GraphViewDeclaration{}, graphprojection.ErrResultV2BindingMismatch
+		return graphViewDeclaration{}, graphprojection.ErrResultV2BindingMismatch
 	}
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
@@ -356,7 +356,7 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, so
 		selected.NormalizedConfigurationSHA256, selected.NormalizedSourceSHA256, selected.CanonicalOutputSHA256, now.UTC())
 	declaration, err := scanGraphViewDeclaration(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return GraphViewDeclaration{}, ErrGraphViewPublicationStale
+		return graphViewDeclaration{}, errGraphViewPublicationStale
 	}
 	if err == nil {
 		err = s.appendGraphViewResourceIntentTx(ctx, tx, declaration, "materialized")
@@ -367,9 +367,9 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, so
 // LockGraphViewDeclarationsSelectingResultTx checks Network Flow's
 // authoritative selected bindings while locking every matching declaration.
 // The caller must already hold the immutable result-envelope lock.
-func (s *Store) LockGraphViewDeclarationsSelectingResultTx(ctx context.Context, tx pgx.Tx, projectionResultID string) (bool, error) {
+func (s *store) LockGraphViewDeclarationsSelectingResultTx(ctx context.Context, tx pgx.Tx, projectionResultID string) (bool, error) {
 	if s == nil || tx == nil || !graphProjectionResultIDPattern.MatchString(projectionResultID) {
-		return false, ErrGraphViewDeclarationInvalid
+		return false, errGraphViewDeclarationInvalid
 	}
 	rows, err := tx.Query(ctx, `
 SELECT graph_view_id
@@ -396,9 +396,9 @@ SELECT graph_view_id
 	return selected, nil
 }
 
-func (s *Store) RecordGraphViewMaterializationFailureTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, jobID uuid.UUID, failureCode string, now time.Time) error {
+func (s *store) RecordGraphViewMaterializationFailureTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, jobID uuid.UUID, failureCode string, now time.Time) error {
 	if s == nil || tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil || generation < 1 || !validGraphViewFailureCode(failureCode) {
-		return ErrGraphViewDeclarationInvalid
+		return errGraphViewDeclarationInvalid
 	}
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
@@ -421,9 +421,9 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, jo
 	return s.appendGraphViewResourceIntentTx(ctx, tx, graph, "materialization_failed")
 }
 
-func (s *Store) InvalidateGraphViewsForTableTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) error {
+func (s *store) InvalidateGraphViewsForTableTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) error {
 	if s == nil || tx == nil || incidentID == uuid.Nil || tableID == "" {
-		return ErrGraphViewDeclarationInvalid
+		return errGraphViewDeclarationInvalid
 	}
 	rows, err := tx.Query(ctx, `
 UPDATE network_flow_graph_views
@@ -447,7 +447,7 @@ RETURNING `+graphViewDeclarationColumns, incidentID, tableID, now.UTC())
 	if err != nil {
 		return fmt.Errorf("invalidate Network Flow graph views for source table: %w", err)
 	}
-	var changed []GraphViewDeclaration
+	var changed []graphViewDeclaration
 	for rows.Next() {
 		graph, scanErr := scanGraphViewDeclaration(rows)
 		if scanErr != nil {
@@ -468,7 +468,7 @@ RETURNING `+graphViewDeclarationColumns, incidentID, tableID, now.UTC())
 	return nil
 }
 
-func NewGraphViewID() (string, error) {
+func newGraphViewID() (string, error) {
 	var value [16]byte
 	if _, err := rand.Read(value[:]); err != nil {
 		return "", fmt.Errorf("generate Network Flow graph view id: %w", err)
@@ -476,12 +476,12 @@ func NewGraphViewID() (string, error) {
 	return "nfgv_" + hex.EncodeToString(value[:]), nil
 }
 
-func GraphViewSemanticQuerySHA256(value json.RawMessage) string {
+func graphViewSemanticQuerySHA256(value json.RawMessage) string {
 	digest := sha256.Sum256(value)
 	return hex.EncodeToString(digest[:])
 }
 
-func validSelectedGraphViewResult(selected GraphViewSelectedResultBinding) bool {
+func validSelectedGraphViewResult(selected graphViewSelectedResultBinding) bool {
 	return graphProjectionResultIDPattern.MatchString(selected.ProjectionResultID) && strings.TrimSpace(selected.SourceSnapshotID) != "" &&
 		selected.ProjectionSchemaID == "graph_projection.v2" && strings.TrimSpace(selected.ProjectionVersion) != "" &&
 		graphViewSHA256Pattern.MatchString(selected.NormalizedConfigurationSHA256) && graphViewSHA256Pattern.MatchString(selected.NormalizedSourceSHA256) &&
@@ -507,20 +507,20 @@ type graphViewRow interface {
 
 func readGraphViewDeclaration(ctx context.Context, db interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, incidentID uuid.UUID, graphViewID string, lock bool) (GraphViewDeclaration, error) {
+}, incidentID uuid.UUID, graphViewID string, lock bool) (graphViewDeclaration, error) {
 	query := graphViewDeclarationSelect + ` WHERE incident_id = $1 AND graph_view_id = $2`
 	if lock {
 		query += ` FOR UPDATE`
 	}
 	declaration, err := scanGraphViewDeclaration(db.QueryRow(ctx, query, incidentID, graphViewID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return GraphViewDeclaration{}, ErrGraphViewDeclarationNotFound
+		return graphViewDeclaration{}, errGraphViewDeclarationNotFound
 	}
 	return declaration, err
 }
 
-func scanGraphViewDeclaration(row graphViewRow) (GraphViewDeclaration, error) {
-	var declaration GraphViewDeclaration
+func scanGraphViewDeclaration(row graphViewRow) (graphViewDeclaration, error) {
+	var declaration graphViewDeclaration
 	var selectedProjectionResultID, selectedSourceSnapshotID, selectedProjectionSchemaID pgtype.Text
 	var selectedProjectionVersion, selectedConfigurationSHA256, selectedSourceSHA256, selectedOutputSHA256 pgtype.Text
 	var retiredAt, lastFailedAt pgtype.Timestamptz
@@ -538,12 +538,12 @@ func scanGraphViewDeclaration(row graphViewRow) (GraphViewDeclaration, error) {
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return GraphViewDeclaration{}, err
+			return graphViewDeclaration{}, err
 		}
-		return GraphViewDeclaration{}, fmt.Errorf("scan Network Flow graph view declaration: %w", err)
+		return graphViewDeclaration{}, fmt.Errorf("scan Network Flow graph view declaration: %w", err)
 	}
 	if selectedProjectionResultID.Valid {
-		declaration.SelectedResult = &GraphViewSelectedResultBinding{
+		declaration.SelectedResult = &graphViewSelectedResultBinding{
 			ProjectionResultID:            selectedProjectionResultID.String,
 			SourceSnapshotID:              selectedSourceSnapshotID.String,
 			ProjectionSchemaID:            selectedProjectionSchemaID.String,
@@ -572,8 +572,8 @@ func scanGraphViewDeclaration(row graphViewRow) (GraphViewDeclaration, error) {
 	return declaration, nil
 }
 
-func validGraphViewDeclaration(declaration GraphViewDeclaration) bool {
-	normalized, nameErr := NormalizeGraphViewDisplayName(declaration.DisplayName)
+func validGraphViewDeclaration(declaration graphViewDeclaration) bool {
+	normalized, nameErr := normalizeGraphViewDisplayName(declaration.DisplayName)
 	if nameErr != nil || normalized != declaration.DisplayName {
 		return false
 	}
@@ -589,10 +589,10 @@ func validGraphViewDeclaration(declaration GraphViewDeclaration) bool {
 		strings.TrimSpace(declaration.DesiredSourceSnapshotID) == "" {
 		return false
 	}
-	if declaration.DeclarationState != GraphViewDeclarationStateActive && declaration.DeclarationState != GraphViewDeclarationStateRetired {
+	if declaration.DeclarationState != graphViewDeclarationStateActive && declaration.DeclarationState != graphViewDeclarationStateRetired {
 		return false
 	}
-	if (declaration.DeclarationState == GraphViewDeclarationStateActive) != (declaration.RetiredAt == nil) {
+	if (declaration.DeclarationState == graphViewDeclarationStateActive) != (declaration.RetiredAt == nil) {
 		return false
 	}
 	if declaration.RetiredAt != nil && declaration.RetiredAt.Before(declaration.CreatedAt) {

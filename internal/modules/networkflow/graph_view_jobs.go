@@ -17,7 +17,7 @@ import (
 
 const (
 	GraphViewMaterializationJobKind = "network_flow_activity.graph_view_materialize_v1"
-	GraphViewWorkerKind             = "network_flow_activity.graph_view_worker_v1"
+	graphViewWorkerKind             = "network_flow_activity.graph_view_worker_v1"
 	graphViewProgressUnitID         = "network_flow_activity.graph_view_materialize.projection_result.v1"
 	graphViewResultResourceKind     = "network_flow_graph_view"
 )
@@ -121,7 +121,7 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	if graphViewMaterializationTimedOut(ctx) {
 		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
 	}
-	if err != nil || declaration.DeclarationState != GraphViewDeclarationStateActive ||
+	if err != nil || declaration.DeclarationState != graphViewDeclarationStateActive ||
 		declaration.MaterializationGeneration != payload.MaterializationGeneration ||
 		declaration.DesiredSourceSnapshotID != payload.SourceSnapshotID || declaration.LatestJobID == nil ||
 		*declaration.LatestJobID != execution.JobID() {
@@ -131,7 +131,7 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	if apiErr != nil {
 		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
-	composer := &Service{store: m.store, graphProjection: m.graphProjection, now: m.now, graphTelemetry: m.graphTelemetry}
+	composer := m.graphComposer
 	composition, apiErr := composer.composeGraphSourceFromSemantic(ctx, payload.IncidentID, semantic)
 	if graphViewMaterializationTimedOut(ctx) {
 		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
@@ -210,11 +210,11 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		FinalCommitID: completed.Binding.ProjectionResultID + ":" + execution.JobID().String(),
 		Mutate: func(finalizeCtx context.Context, tx pgx.Tx) error {
 			if err := admit(finalizeCtx, tx); err != nil {
-				return ErrGraphViewPublicationStale
+				return errGraphViewPublicationStale
 			}
 			currentSourceSnapshot, sourceErr := m.graphViewSourceSnapshotTx(finalizeCtx, tx, payload.IncidentID, semantic)
 			if sourceErr != nil || currentSourceSnapshot != payload.SourceSnapshotID {
-				return ErrGraphViewPublicationStale
+				return errGraphViewPublicationStale
 			}
 			publisher, publisherErr := postgresresult.NewPublisher(tx)
 			if publisherErr != nil {
@@ -235,7 +235,7 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	if errors.Is(err, jobs.ErrCancellationRequested) {
 		return m.cancelGraphViewMaterialization(context.WithoutCancel(ctx), execution)
 	}
-	if errors.Is(err, ErrGraphViewPublicationStale) {
+	if errors.Is(err, errGraphViewPublicationStale) {
 		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "publication_conflict", false)
 	}
 	return err
@@ -254,9 +254,9 @@ func graphViewSourceSnapshotTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 	return graphSourceSnapshotDigest(incidentID, tables, digest), nil
 }
 
-func graphViewSourceTablesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, selectedTableIDs []string) ([]TableRecord, error) {
+func graphViewSourceTablesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, selectedTableIDs []string) ([]tableRecord, error) {
 	if tx == nil || incidentID == uuid.Nil || len(selectedTableIDs) == 0 {
-		return nil, ErrGraphViewDeclarationInvalid
+		return nil, errGraphViewDeclarationInvalid
 	}
 	rows, err := tx.Query(ctx, tableSelectColumns()+`
   FROM network_flow_tables
@@ -270,7 +270,7 @@ func graphViewSourceTablesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUI
 	}
 	defer rows.Close()
 	selected := stringSet(selectedTableIDs)
-	tables := make([]TableRecord, 0, len(selectedTableIDs))
+	tables := make([]tableRecord, 0, len(selectedTableIDs))
 	for rows.Next() {
 		table, scanErr := scanTable(rows)
 		if scanErr != nil {
@@ -285,7 +285,7 @@ func graphViewSourceTablesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUI
 		return nil, err
 	}
 	if len(selected) != 0 || len(tables) != len(selectedTableIDs) {
-		return nil, ErrGraphViewPublicationStale
+		return nil, errGraphViewPublicationStale
 	}
 	return tables, nil
 }
@@ -334,8 +334,8 @@ func (m *Module) cancelGraphViewMaterialization(ctx context.Context, execution j
 	return err
 }
 
-func graphViewSelectedResultFromBinding(binding graphprojection.ResultBindingV2) GraphViewSelectedResultBinding {
-	return GraphViewSelectedResultBinding{
+func graphViewSelectedResultFromBinding(binding graphprojection.ResultBindingV2) graphViewSelectedResultBinding {
+	return graphViewSelectedResultBinding{
 		ProjectionResultID: binding.ProjectionResultID, SourceSnapshotID: binding.SourceSnapshotID,
 		ProjectionSchemaID: binding.ProjectionSchemaID, ProjectionVersion: binding.ProjectionVersion,
 		NormalizedConfigurationSHA256: binding.NormalizedConfigurationSHA256,
