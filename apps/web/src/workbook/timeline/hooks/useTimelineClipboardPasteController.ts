@@ -13,14 +13,7 @@ import {
   timelinePastePlanAdmission,
   timelinePasteTargetPlansMatch,
 } from "../models/timelineClipboardPastePlan";
-import type {
-  TimelinePasteTargetResolution,
-  TimelineScalarSaveOptions,
-} from "../models/timelineControllerPorts";
-import type {
-  RowValues,
-  TimelineScalarEditorSurface,
-} from "../models/timelineFieldRegistry";
+import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 
 export function useTimelineClipboardPasteController(input: {
@@ -29,12 +22,6 @@ export function useTimelineClipboardPasteController(input: {
   readonly grouped: boolean;
   readonly clipboardPaste: WorkbookClipboardPastePort;
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
-  readonly queueScalarSave: (
-    rowKey: string,
-    focusField: keyof RowValues,
-    options: TimelineScalarSaveOptions,
-    currentValue?: string,
-  ) => void;
   readonly resolveTimelinePasteTargetResolution: (
     rowKey: string,
     fieldKey: string,
@@ -42,22 +29,6 @@ export function useTimelineClipboardPasteController(input: {
   ) => TimelinePasteTargetResolution | null;
   readonly setError: (message: string | null) => void;
 }) {
-  const handlePaste = useCallback(
-    (
-      rowKey: string,
-      focusField: keyof RowValues,
-      surface: TimelineScalarEditorSurface,
-      value: string,
-    ) => {
-      input.queueScalarSave(
-        rowKey,
-        focusField,
-        { continueOnFreshDraft: false, preserveInputFocus: true, surface },
-        value,
-      );
-    },
-    [input.queueScalarSave],
-  );
   const handleGridPaste = useCallback(
     (intent: GridCellPasteIntent) => {
       if (intent.input.kind !== "table") return false;
@@ -133,5 +104,5 @@ export function useTimelineClipboardPasteController(input: {
       input.setError,
     ],
   );
-  return { commands: { handlePaste, handleGridPaste } };
+  return { commands: { handleGridPaste } };
 }

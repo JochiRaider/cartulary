@@ -105,7 +105,11 @@ function controller(
       () => () => calls.push("collection-navigate"),
     ),
     queueCollectionSave: vi.fn(() => calls.push("save-collection")),
-    queueScalarSave: vi.fn(() => calls.push("save-scalar")),
+    queueScalarSave: vi.fn<
+      Parameters<typeof useTimelineKeyboardController>[0]["queueScalarSave"]
+    >(() => {
+      calls.push("save-scalar");
+    }),
     recordTiming: vi.fn(() => calls.push("timing")),
     restoreTimelineFocusAnchor: vi.fn(() => calls.push("restore-focus")),
     setInspectorMessage: vi.fn((feedback) =>
@@ -143,6 +147,8 @@ describe("useTimelineKeyboardController", () => {
   it("owns scalar commit, navigation, range, draft, unavailable, and inspector focus order", () => {
     const input = document.createElement("input");
     input.value = "Edited summary";
+    document.body.append(input);
+    input.focus();
     const { calls, mocks, result } = controller();
     const enter = keyboardEvent({ currentTarget: input, key: "Enter" });
     act(() =>
@@ -155,6 +161,8 @@ describe("useTimelineKeyboardController", () => {
     );
     expect(enter.preventDefault).toHaveBeenCalledOnce();
     expect(enter.stopPropagation).toHaveBeenCalledOnce();
+    expect(calls).toEqual(["save-scalar"]);
+    act(() => mocks.queueScalarSave.mock.calls[0]?.[4]?.({ kind: "accepted" }));
     expect(calls).toEqual(["save-scalar", "navigate-Enter-false"]);
     expect(mocks.queueScalarSave).toHaveBeenCalledWith(
       "row-key",
@@ -165,6 +173,7 @@ describe("useTimelineKeyboardController", () => {
         surface: "grid",
       },
       "Edited summary",
+      expect.any(Function),
     );
 
     calls.length = 0;
@@ -219,6 +228,7 @@ describe("useTimelineKeyboardController", () => {
         surface: "grid",
       },
       "Edited summary",
+      expect.any(Function),
     );
 
     calls.length = 0;

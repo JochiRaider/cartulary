@@ -6,6 +6,14 @@ import type {
 } from "./timelineControllerPorts";
 
 export type TimelinePendingSavesRefs = {
+  readonly scalarCommits: Map<
+    string,
+    {
+      readonly revisions: string;
+      outcome?: GridEditCommitOutcome;
+      readonly listeners: Set<(outcome: GridEditCommitOutcome) => void>;
+    }
+  >;
   readonly collectionCommits: Map<
     string,
     {
@@ -35,6 +43,7 @@ export function timelinePendingSavesRefsFor(
     return existing;
   }
   const refs: TimelinePendingSavesRefs = {
+    scalarCommits: new Map(),
     collectionCommits: new Map(),
     pendingQueueRef: { current: pendingQueue },
     pendingReplayOrderRef: { current: 1 },

@@ -2439,8 +2439,10 @@ describe("grid-adapter", () => {
                     aria-label="Generation draft"
                     ref={context.focusTargetRef}
                     value={String(context.draftValue)}
-                    onChange={(event) =>
-                      context.setDraftValue(event.target.value)
+                    onInput={(event) =>
+                      context.setDraftValue(event.currentTarget.value, {
+                        advanceRevision: true,
+                      })
                     }
                   />
                 ),
@@ -2471,15 +2473,28 @@ describe("grid-adapter", () => {
     rendered.rerender(grid());
     expect(retainDraft).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(input, { key: "Enter" });
+    // Equal-text native replacements are new authoring and fence the older
+    // departure even though React does not need a different displayed value.
+    fireEvent.input(input, {
+      target: { value: "Seed" },
+      inputType: "insertFromPaste",
+    });
+    await act(async () => acknowledge({ kind: "accepted" }));
+    expect(screen.getByRole("textbox", { name: "Generation draft" })).toBe(
+      input,
+    );
+    expect(document.activeElement).toBe(input);
+    expect(commit).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(input, { key: "Enter" });
     const outside = screen.getByRole("button", {
       name: "Inspector destination",
     });
     act(() => outside.focus());
     await act(async () => acknowledge({ kind: "accepted" }));
     expect(document.activeElement).toBe(outside);
-    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledTimes(2);
     act(() => handle.current?.activateEdit(gridAnchor("record-1", "label")));
-    fireEvent.change(
+    fireEvent.input(
       await screen.findByRole("textbox", { name: "Generation draft" }),
       { target: { value: "  retained on closure  " } },
     );
@@ -2488,7 +2503,7 @@ describe("grid-adapter", () => {
       screen.queryByRole("textbox", { name: "Generation draft" }),
     ).toBeNull();
     expect(discardDraft).not.toHaveBeenCalled();
-    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledTimes(2);
     rendered.rerender(grid(false));
     expect(
       screen.queryByRole("textbox", { name: "Generation draft" }),

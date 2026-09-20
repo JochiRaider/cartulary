@@ -878,7 +878,7 @@ export async function changeInputValue(
 ) {
   const user = userEvent.setup();
   await user.click(input);
-  fireEvent.change(input, { target: { value } });
+  fireEvent.input(input, { target: { value } });
   await waitFor(
     () => {
       if (input.value !== value) {
@@ -931,7 +931,7 @@ export async function changeQueuedCellValue(
       ? renderedInput
       : input;
   fireEvent.focus(currentInput);
-  fireEvent.change(currentInput, { target: { value } });
+  fireEvent.input(currentInput, { target: { value } });
   await waitFor(
     () => {
       const currentInput =

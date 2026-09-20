@@ -16,6 +16,7 @@ export type {
 export {
   clipboardFailure,
   clipboardLimits,
+  clipboardTextWithinLimit,
   decodeDelimitedClipboard,
   decodeGridClipboard,
   encodeClipboardTable,

@@ -18,12 +18,12 @@ import {
   type RowValues,
   type TimelineScalarEditorSurface,
   timelineScalarBindingForValueKey,
+  timelineScalarBindings,
 } from "../models/timelineFieldRegistry";
 import type { TimelinePendingReplayAdmission } from "../models/timelineMutationDriverPlans";
 import {
   planTimelineCollectionMutation,
   planTimelineScalarMutation,
-  type TimelineMutationAdmission,
 } from "../models/timelineMutationQueueAdmission";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import {
@@ -58,6 +58,19 @@ function resolveScalarSaveSnapshot({
     ) ?? createDraftRowForKey(rowKey);
   if (row === null) return null;
   const focusKey = inputFocusKey(row.key, focusField, surface);
+  const retained = editorDraftRegistry.draftValueForFocusKey(focusKey);
+  // Also capture callers that submit a DOM value without an input notification.
+  if (
+    currentValue !== undefined &&
+    currentValue !== retained &&
+    (retained !== undefined || currentValue !== row.committedValues[focusField])
+  ) {
+    editorDraftRegistry.setDraft(
+      { rowKey: row.key, field: focusField, surface },
+      currentValue,
+      row,
+    );
+  }
   return {
     focusKey,
     row: editorDraftRegistry.authoringRow(
@@ -70,28 +83,6 @@ function resolveScalarSaveSnapshot({
       surface,
     ),
   };
-}
-
-function settleUnadmittedScalarMutation({
-  admission,
-  deleteDraft,
-  onSettled,
-}: {
-  readonly admission: Exclude<TimelineMutationAdmission, { kind: "admit" }>;
-  readonly deleteDraft: () => void;
-  readonly onSettled: ((outcome: GridEditCommitOutcome) => void) | undefined;
-}) {
-  switch (admission.kind) {
-    case "rejected":
-      onSettled?.(admission.outcome);
-      return;
-    case "accepted_no_change":
-      deleteDraft();
-      onSettled?.({ kind: "accepted" });
-      return;
-    case "accepted_duplicate":
-      onSettled?.({ kind: "accepted" });
-  }
 }
 
 export function useTimelineMutationCommands({
@@ -266,8 +257,34 @@ export function useTimelineMutationCommands({
       const { focusKey, row: snapshot } = resolved;
       const effectiveRowKey = snapshot.key;
       const binding = timelineScalarBindingForValueKey(focusField);
+      const capturedRevisions = editorDraftRegistry.captureRow(
+        effectiveRowKey,
+        options.surface,
+        snapshot.recordId === null
+          ? undefined
+          : new Set([
+              binding.fieldKey,
+              ...timelineScalarBindings
+                .filter(
+                  (binding) =>
+                    snapshot.values[binding.key] !==
+                    snapshot.committedValues[binding.key],
+                )
+                .map((binding) => binding.fieldKey),
+            ]),
+      );
+      const revisions = JSON.stringify([...capturedRevisions]);
+      const settlementKey = JSON.stringify([effectiveRowKey, options.surface]);
+      const prior = pendingSavesRefs.scalarCommits.get(settlementKey);
+      if (prior?.revisions === revisions) {
+        if (onSettled) {
+          if (prior.outcome) onSettled(prior.outcome);
+          else prior.listeners.add(onSettled);
+        }
+        return;
+      }
       const clientTxnId = nextClientTxnId();
-      let admission = planTimelineScalarMutation({
+      const admission = planTimelineScalarMutation({
         allowZeroFieldCreate: options.allowZeroFieldCreate === true,
         clientTxnId,
         focusField,
@@ -276,29 +293,35 @@ export function useTimelineMutationCommands({
           conflictQueueRef.current[
             `${snapshot.recordId}:${binding.fieldKey}`
           ] !== undefined,
-        pendingSignature:
-          pendingSavesRefs.pendingSignaturesRef.current.get(effectiveRowKey),
         row: snapshot,
       });
-      if (admission.kind === "accepted_duplicate" && onSettled !== undefined) {
-        admission = planTimelineScalarMutation({
-          allowZeroFieldCreate: options.allowZeroFieldCreate === true,
-          clientTxnId,
-          focusField,
-          hasConflict: false,
-          pendingSignature: undefined,
-          row: snapshot,
-        });
-      }
       if (admission.kind !== "admit") {
-        settleUnadmittedScalarMutation({
-          admission,
-          deleteDraft: () =>
-            editorDraftRegistry.deleteDraftForFocusKey(focusKey),
-          onSettled,
-        });
+        if (
+          admission.kind === "accepted_no_change" &&
+          capturedRevisions.get(focusKey) ===
+            editorDraftRegistry.revisionForFocusKey(focusKey)
+        ) {
+          editorDraftRegistry.deleteDraftForFocusKey(focusKey);
+        }
+        onSettled?.(
+          admission.kind === "rejected"
+            ? admission.outcome
+            : { kind: "accepted" },
+        );
         return;
       }
+      const commit: NonNullable<
+        ReturnType<typeof pendingSavesRefs.scalarCommits.get>
+      > = {
+        revisions,
+        listeners: new Set(onSettled ? [onSettled] : []),
+      };
+      pendingSavesRefs.scalarCommits.set(settlementKey, commit);
+      const settle = (outcome: GridEditCommitOutcome) => {
+        commit.outcome = outcome;
+        for (const listener of commit.listeners) listener(outcome);
+        commit.listeners.clear();
+      };
       const viewportContinuityToken = beginViewportContinuity(
         options.preserveInputFocus ||
           (snapshot.recordId === null &&
@@ -322,7 +345,12 @@ export function useTimelineMutationCommands({
         detectAutoResolution: false,
         focusField,
         focusKey,
-        mutationSignature: admission.mutationSignature,
+        // Operation identity survives equal-text gestures; retries still use
+        // the captured request and transaction owned by the existing driver.
+        mutationSignature: JSON.stringify([
+          admission.mutationSignature,
+          clientTxnId,
+        ]),
         payloadIntent: admission.payloadIntent,
         promoteToCommittedRowInspect: false,
         rowKey: effectiveRowKey,
@@ -333,7 +361,7 @@ export function useTimelineMutationCommands({
           rowKey: effectiveRowKey,
           ...admission.visibleEdit,
         },
-        onSettled,
+        onSettled: settle,
       });
     },
     [

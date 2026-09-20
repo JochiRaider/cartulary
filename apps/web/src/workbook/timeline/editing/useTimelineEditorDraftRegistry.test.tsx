@@ -191,6 +191,184 @@ describe("Timeline editor draft registry", () => {
     hook.unmount();
   });
 
+  it("joins scalar paste and departure by authoring revision while fencing identical newer edits", () => {
+    const row = committedRow();
+    const registry = createTimelineEditorDraftRegistry();
+    const runtime = new WorkbookMutationRuntime(
+      { incidentId: "incident", clientInstanceId: "test" },
+      { create: () => "id" },
+      { execute: vi.fn() },
+    );
+    const enqueue =
+      vi.fn<
+        Parameters<
+          typeof useTimelineMutationCommands
+        >[0]["enqueuePendingReplayUnit"]
+      >();
+    const rowsRef = { current: [row] };
+    let txn = 0;
+    const hook = renderHook(() =>
+      useTimelineMutationCommands({
+        captureActionBlocksRecord: () => false,
+        beginViewportContinuity: () => 1,
+        clearViewportContinuity: vi.fn(),
+        clientInstanceId: "test",
+        conflictQueueRef: { current: {} },
+        editorDraftRegistry: registry,
+        enqueuePendingReplayUnit: enqueue,
+        incidentId: "incident",
+        latestCommittedTimelineRow: () => row,
+        nextClientTxnId: () => String(++txn),
+        pendingSavesRefs: timelinePendingSavesRefsFor(
+          runtime,
+          runtime.pendingQueue(),
+        ),
+        rowsRef,
+        rowStoreCommands: {
+          replaceRows: (rows) => {
+            rowsRef.current = rows;
+          },
+          updateRows: (update) => {
+            rowsRef.current = update(rowsRef.current);
+          },
+        },
+      }),
+    );
+    const grid = {
+      rowKey: row.key,
+      field: "activitySynopsisText" as const,
+      surface: "grid" as const,
+    };
+    const inspector = { ...grid, surface: "inspector" as const };
+    const first = vi.fn(),
+      second = vi.fn(),
+      other = vi.fn();
+    registry.setDraft(grid, "raw Ω");
+    const captured = registry.captureRow(
+      row.key,
+      "grid",
+      new Set(["timeline.activity_synopsis_text"]),
+    );
+    hook.result.current.commands.queueScalarSave(
+      row.key,
+      "activitySynopsisText",
+      {
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
+        surface: "grid",
+      },
+      "raw Ω",
+      first,
+    );
+    // An unsubmitted collection draft is not part of this scalar operation.
+    registry.setDraft(
+      { ...grid, field: "hostRefs" },
+      "separate collection input",
+    );
+    hook.result.current.commands.queueScalarSave(
+      row.key,
+      "activitySynopsisText",
+      {
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
+        surface: "grid",
+      },
+      "raw Ω",
+      second,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+    registry.setDraft(inspector, "raw Ω");
+    hook.result.current.commands.queueScalarSave(
+      row.key,
+      "activitySynopsisText",
+      {
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
+        surface: "inspector",
+      },
+      "raw Ω",
+      other,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(enqueue.mock.calls[0]?.[0].mutationSignature).not.toBe(
+      enqueue.mock.calls[1]?.[0].mutationSignature,
+    );
+    registry.setDraft(grid, "raw Ω", row, true);
+    registry.clearSubmittedRow(
+      row.key,
+      { ...row.values, activitySynopsisText: "raw Ω" },
+      undefined,
+      captured,
+    );
+    enqueue.mock.calls[0]?.[1]?.({ kind: "accepted" });
+    expect(first).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
+    expect(second).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
+    expect(other).not.toHaveBeenCalled();
+    expect(registry.draftValue(grid)).toBe("raw Ω");
+    expect(registry.draftValue(inspector)).toBe("raw Ω");
+    hook.result.current.commands.queueScalarSave(
+      row.key,
+      "activitySynopsisText",
+      {
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
+        surface: "grid",
+      },
+      "raw Ω",
+      first,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(3);
+    expect(enqueue.mock.calls[0]?.[0].mutationSignature).not.toBe(
+      enqueue.mock.calls[2]?.[0].mutationSignature,
+    );
+    enqueue.mock.calls[2]?.[1]?.({
+      kind: "validation_error",
+      message: "Rejected",
+    });
+    hook.result.current.commands.queueScalarSave(
+      row.key,
+      "activitySynopsisText",
+      {
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
+        surface: "grid",
+      },
+      "raw Ω",
+      second,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(3);
+    expect(second).toHaveBeenLastCalledWith({
+      kind: "validation_error",
+      message: "Rejected",
+    });
+    expect(registry.draftValue(grid)).toBe("raw Ω");
+    registry.setDraft(
+      grid,
+      row.committedValues.activitySynopsisText,
+      row,
+      true,
+    );
+    hook.result.current.commands.queueScalarSave(
+      row.key,
+      "activitySynopsisText",
+      {
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
+        surface: "grid",
+      },
+      row.committedValues.activitySynopsisText,
+      second,
+    );
+    expect(enqueue).toHaveBeenCalledTimes(3);
+    expect(second).toHaveBeenLastCalledWith({ kind: "accepted" });
+    expect(registry.draftValue(grid)).toBeUndefined();
+    expect(registry.draftValue({ ...grid, field: "hostRefs" })).toBe(
+      "separate collection input",
+    );
+    hook.unmount();
+  });
+
   it("retains authoring baselines across remount and requires review only for relevant changes", () => {
     const store = new WorkbookLocalDraftStore();
     const original = createTimelineEditorDraftRegistry(store);

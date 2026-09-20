@@ -1272,6 +1272,33 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-timeline-scalar-clipboard",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.scalar_clipboard_characterization",
+            "module.timeline.browser.scalar_clipboard_composition",
+            "module.timeline.browser.scalar_clipboard_continuity",
+            "module.timeline.browser.scalar_clipboard_departure",
+            "module.timeline.browser.scalar_clipboard_promotion",
+            "module.timeline.browser.scalar_clipboard_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-scalar-clipboard.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-timeline-workbook",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2890,6 +2917,33 @@
           ],
           "specs": [
             "apps/web/e2e/timeline-related-evidence.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-timeline-scalar-clipboard",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.scalar_clipboard_characterization",
+            "module.timeline.browser.scalar_clipboard_composition",
+            "module.timeline.browser.scalar_clipboard_continuity",
+            "module.timeline.browser.scalar_clipboard_departure",
+            "module.timeline.browser.scalar_clipboard_promotion",
+            "module.timeline.browser.scalar_clipboard_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-scalar-clipboard.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

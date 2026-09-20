@@ -166,7 +166,6 @@ export function useTimelineWorkbookPresentation({
     handleBlur,
     handleCollectionKeyDown,
     handleKeyDown,
-    handlePaste,
     queueCollectionSave,
   } = interaction.commands.editor;
   const {
@@ -272,7 +271,6 @@ export function useTimelineWorkbookPresentation({
     handleCollectionKeyDown,
     handleEditModePresence,
     handleKeyDown,
-    handlePaste,
     handleSelectRow,
     queueCollectionSave,
     readOnly: interactionMode.kind === "read_only",

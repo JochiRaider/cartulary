@@ -156,10 +156,16 @@ function executeScalarSaveIntent({
       surface,
     },
     value,
+    (outcome) => {
+      if (
+        outcome.kind === "accepted" &&
+        intent.navigateAfterSave !== null &&
+        anchor !== null
+      ) {
+        navigate(anchor, intent.navigateAfterSave);
+      }
+    },
   );
-  if (intent.navigateAfterSave !== null && anchor !== null) {
-    navigate(anchor, intent.navigateAfterSave);
-  }
 }
 
 export function useTimelineKeyboardController({
@@ -341,12 +347,34 @@ export function useTimelineKeyboardController({
       });
       if (intent.preventDefault) event.preventDefault();
       if (intent.stopPropagation) event.stopPropagation();
+      const original = event.currentTarget;
+      const sequence = interactionSequence.current;
+      const revision = editorDraftRegistry.revisionForFocusKey(
+        inputFocusKey(rowKey, focusField, surface),
+      );
       executeScalarEditorIntent({
         anchor,
         closeInspector: closeInspectorFromEditor,
         focusField,
         intent,
-        navigate: navigateTimelineFocusAnchor,
+        navigate: (target, navigation) => {
+          const currentRevision = editorDraftRegistry.revisionForFocusKey(
+            inputFocusKey(
+              editorDraftRegistry.resolveRowKey(rowKey),
+              focusField,
+              surface,
+            ),
+          );
+          if (
+            sequence !== interactionSequence.current ||
+            (currentRevision !== 0 && currentRevision !== revision) ||
+            !original.isConnected ||
+            original.readOnly ||
+            document.activeElement !== original
+          )
+            return;
+          navigateTimelineFocusAnchor(target, navigation);
+        },
         priorGridAnchor,
         queueSave: queueScalarSave,
         recordTiming,
@@ -358,6 +386,7 @@ export function useTimelineKeyboardController({
     },
     [
       closeInspectorFromEditor,
+      editorDraftRegistry,
       currentTimelineAnchorFor,
       navigateTimelineFocusAnchor,
       navigateTimelineDraftFocus,

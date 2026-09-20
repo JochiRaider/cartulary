@@ -1357,6 +1357,21 @@ class WorkbookPendingQueueState {
     return unit !== undefined && this.dispatchedUnits.has(unit);
   }
 
+  /** The source owner verified that this unsent head needs no authoritative change. */
+  settleUnchanged(unitId: string): PendingReplayUnitState | null {
+    if (this.isReplayBlocked()) return null;
+    const unit = this.units.find((candidate) => candidate.status === "queued");
+    if (
+      !unit ||
+      unit.id !== unitId ||
+      this.dispatchedUnits.has(unit) ||
+      !this.dispatchGuard(unit)
+    )
+      return null;
+    this.units = this.units.filter((candidate) => candidate !== unit);
+    return cloneUnit(unit);
+  }
+
   /** Preparation is synchronous and runs exactly once, before capture. */
   markDispatched(
     unitId: string,
@@ -1763,6 +1778,7 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
     admit: (input: PendingReplayUnitInput) => state.admit(input),
     peekNextQueued: () => state.peekNextQueued(),
     wasDispatched: (unitId: string) => state.wasDispatched(unitId),
+    settleUnchanged: (unitId: string) => state.settleUnchanged(unitId),
     markDispatched: (
       unitId: string,
       prepareBase?: (unit: PendingReplayUnitState) => number | null,

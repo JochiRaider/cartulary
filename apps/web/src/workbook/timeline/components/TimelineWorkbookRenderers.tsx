@@ -16,7 +16,6 @@ import type {
   TimelineScalarBlurCommit,
   TimelineScalarGridCommit,
   TimelineScalarKeyCommit,
-  TimelineScalarPasteCommit,
   TimelineWorkbookRenderers,
 } from "./TimelineWorkbookRendererTypes";
 import { useTimelineCollectionRenderer } from "./useTimelineCollectionRenderer";
@@ -39,7 +38,6 @@ export function useTimelineWorkbookRenderers({
   handleCollectionKeyDown,
   handleEditModePresence,
   handleKeyDown,
-  handlePaste,
   handleSelectRow,
   queueCollectionSave,
   readOnly,
@@ -72,7 +70,6 @@ export function useTimelineWorkbookRenderers({
     editing: boolean,
   ) => void;
   readonly handleKeyDown: TimelineScalarKeyCommit;
-  readonly handlePaste: TimelineScalarPasteCommit;
   readonly handleSelectRow: (recordId: string) => void;
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
@@ -112,7 +109,6 @@ export function useTimelineWorkbookRenderers({
     handleBlur,
     handleEditModePresence,
     handleKeyDown,
-    handlePaste,
     handleSelectRow,
     readOnly,
     readCurrentRow,
@@ -138,6 +134,7 @@ export function useTimelineWorkbookRenderers({
     commitScalarGridEdit,
     editorDraftRegistry,
     gridShellWidth,
+    readCurrentRow,
     renderTimelineCollectionInput,
     renderTimelineGridEditor,
     renderTimelineScalarCell,

@@ -1,8 +1,11 @@
-import type { GridEditorFocusTarget } from "@cartulary/grid-adapter";
 import {
-  type ChangeEvent as ReactChangeEvent,
+  clipboardTextWithinLimit,
+  type GridEditorFocusTarget,
+} from "@cartulary/grid-adapter";
+import {
   type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
+  type FormEvent as ReactFormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
   useRef,
@@ -26,14 +29,12 @@ export function TimelineScalarEditor({
   multiline,
   onBlurCommit,
   onDraftChange,
-  onCaptureInput,
   onEditModeChange,
   onCloseGridEditor,
   onFocusAnchor,
   onFocusRecord,
   focusTargetRef,
   onKeyCommit,
-  onPasteCommit,
   registerInput,
   readOnly = false,
   presenceFieldKey,
@@ -63,8 +64,8 @@ export function TimelineScalarEditor({
     field: keyof RowValues,
     surface: TimelineScalarEditorSurface,
     value: string,
+    input?: { readonly composing: boolean; readonly pasteCompleted: boolean },
   ) => void;
-  readonly onCaptureInput?: ((value: string) => void) | undefined;
   readonly onEditModeChange: (
     recordId: string | null,
     fieldKey: string,
@@ -81,12 +82,6 @@ export function TimelineScalarEditor({
     field: keyof RowValues,
     surface: TimelineScalarEditorSurface,
   ) => void;
-  readonly onPasteCommit: (
-    rowKey: string,
-    field: keyof RowValues,
-    surface: TimelineScalarEditorSurface,
-    value: string,
-  ) => void;
   readonly registerInput: (
     rowKey: string,
     field: FocusFieldKey,
@@ -102,6 +97,7 @@ export function TimelineScalarEditor({
   const displayValue = draftValue ?? committedValue;
   const [editorValue, setEditorValue] = useState(displayValue);
   const hasActiveEditRef = useRef(false);
+  const [clipboardError, setClipboardError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hasActiveEditRef.current || draftValue === undefined) {
@@ -127,14 +123,8 @@ export function TimelineScalarEditor({
       onFocusRecord(rowRecordId);
     if (!readOnly) onEditModeChange(rowRecordId, presenceFieldKey, true);
   };
-  const handleChange = (value: string) => {
-    if (readOnly) return;
-    setEditorValue(value);
-    onDraftChange(rowKey, field, surface, value);
-    onCaptureInput?.(value);
-  };
   const markTypingAcknowledgement = (
-    event: ReactChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    event: ReactFormEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const inputEvent = event.nativeEvent;
     if (
@@ -154,13 +144,27 @@ export function TimelineScalarEditor({
       });
     }
   };
+  const handleInput = (
+    event: ReactFormEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    if (readOnly) return;
+    markTypingAcknowledgement(event);
+    const native = event.nativeEvent;
+    const value = event.currentTarget.value;
+    setEditorValue(value);
+    setClipboardError(null);
+    onDraftChange(rowKey, field, surface, value, {
+      composing: native instanceof InputEvent && native.isComposing,
+      pasteCompleted:
+        native instanceof InputEvent && native.inputType === "insertFromPaste",
+    });
+  };
   const handleBlur = (
     event: ReactFocusEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     if (readOnly) return;
     hasActiveEditRef.current = false;
     onEditModeChange(rowRecordId, presenceFieldKey, false);
-    onDraftChange(rowKey, field, surface, event.currentTarget.value);
     if (
       blockedByConflict ||
       onCloseGridEditor !== undefined ||
@@ -209,77 +213,66 @@ export function TimelineScalarEditor({
   const handlePaste = (
     event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    event.stopPropagation();
     if (readOnly) return;
-    const currentValue = event.currentTarget.value;
-    const start = event.currentTarget.selectionStart ?? currentValue.length;
-    const end = event.currentTarget.selectionEnd ?? start;
-    const pastedValue = event.clipboardData?.getData("text/plain") ?? "";
-    const nextValue = `${currentValue.slice(0, start)}${pastedValue}${currentValue.slice(end)}`;
-    event.preventDefault();
-    setEditorValue(nextValue);
-    onDraftChange(rowKey, field, surface, nextValue);
-    onPasteCommit(rowKey, field, surface, nextValue);
-    event.stopPropagation();
+    // Only admission is ours; the browser owns insertion and its editing history.
+    if (!clipboardTextWithinLimit(event.clipboardData.getData("text/plain"))) {
+      event.preventDefault();
+      setClipboardError("Clipboard text exceeds the 8 MiB limit.");
+    }
   };
-  const handleCopy = (
+  const isolateClipboard = (
     event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    event.clipboardData.setData("text/plain", editorValue);
-    event.preventDefault();
-    event.stopPropagation();
-    if (surface === "grid") onFocusAnchor(rowRecordId, presenceFieldKey);
-  };
+  ) => event.stopPropagation();
   const inputRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
     focusTargetRef?.(element);
     registerInput(rowKey, field, surface, element);
   };
 
-  if (multiline) {
-    return (
-      <textarea
-        aria-label={accessibleLabel}
-        data-testid={dataTestId}
-        data-timeline-file-source={surface === "grid" ? rowKey : undefined}
-        id={controlId}
-        ref={inputRef}
-        readOnly={readOnly}
-        rows={surface === "grid" ? 1 : 3}
-        style={surface === "grid" ? gridCellTextareaStyle : textareaStyle}
-        value={editorValue}
-        onBlur={handleBlur}
-        onChange={(event) => {
-          markTypingAcknowledgement(event);
-          handleChange(event.target.value);
-        }}
-        onFocus={handleFocus}
-        onKeyDown={handleKeyDown}
-        onCopy={handleCopy}
-        onPaste={handlePaste}
-      />
-    );
-  }
-
+  const controlProps = {
+    "aria-label": accessibleLabel,
+    "aria-describedby": clipboardError
+      ? `${controlId}-clipboard-error`
+      : undefined,
+    "data-testid": dataTestId,
+    "data-timeline-file-source": surface === "grid" ? rowKey : undefined,
+    id: controlId,
+    ref: inputRef,
+    readOnly,
+    value: editorValue,
+    onBlur: handleBlur,
+    onInput: handleInput,
+    onFocus: handleFocus,
+    onKeyDown: handleKeyDown,
+    onCopy: isolateClipboard,
+    onCut: isolateClipboard,
+    onPaste: handlePaste,
+  };
   return (
-    <input
-      aria-label={accessibleLabel}
-      data-testid={dataTestId}
-      data-timeline-file-source={surface === "grid" ? rowKey : undefined}
-      id={controlId}
-      ref={inputRef}
-      readOnly={readOnly}
-      style={surface === "grid" ? gridCellInputStyle : inputStyle}
-      type="text"
-      value={editorValue}
-      onBlur={handleBlur}
-      onChange={(event) => {
-        markTypingAcknowledgement(event);
-        handleChange(event.target.value);
-      }}
-      onFocus={handleFocus}
-      onKeyDown={handleKeyDown}
-      onCopy={handleCopy}
-      onPaste={handlePaste}
-    />
+    <>
+      {multiline ? (
+        <textarea
+          {...controlProps}
+          rows={surface === "grid" ? 1 : 3}
+          style={surface === "grid" ? gridCellTextareaStyle : textareaStyle}
+        />
+      ) : (
+        <input
+          {...controlProps}
+          type="text"
+          style={surface === "grid" ? gridCellInputStyle : inputStyle}
+        />
+      )}
+      {clipboardError && (
+        <span
+          id={`${controlId}-clipboard-error`}
+          role="alert"
+          data-grid-editor-toolbar={surface === "grid" ? "true" : undefined}
+        >
+          {clipboardError}
+        </span>
+      )}
+    </>
   );
 }
 

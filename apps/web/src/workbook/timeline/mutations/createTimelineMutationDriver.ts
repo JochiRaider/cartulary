@@ -969,6 +969,41 @@ export function createTimelineMutationDriver(
       return;
     }
     if (unit === null || meta === undefined) return;
+    // An own accepted predecessor may make a later, distinct scalar gesture
+    // unchanged. Only unsent scalar work with a verified current baseline can
+    // settle here; uncertain captured requests must always replay unchanged.
+    if (
+      !captured &&
+      currentRow &&
+      unit.identity.kind === "patch" &&
+      unit.identity.changes.length > 0 &&
+      unit.identity.changes.every((change) => {
+        const binding = timelineScalarBindingForField(change.field_key);
+        return (
+          binding !== null &&
+          "value" in change &&
+          change.value === currentRow.committedValues[binding.key] &&
+          meta.rowSnapshot.committedValues[binding.key] ===
+            currentRow.committedValues[binding.key]
+        );
+      }) &&
+      pending.model.settleUnchanged(unit.id)
+    ) {
+      clearSubmittedScalarEditorDraftValuesForRow(
+        unit.rowKey,
+        meta.rowSnapshot.values,
+        undefined,
+        meta.draftRevisions,
+      );
+      clearViewportContinuity(meta.viewportContinuityToken);
+      contextByUnitId.delete(unit.id);
+      mutationRuntime.releaseMutationUnit(unit.id);
+      clearPendingSignatureForUnit(unit);
+      settleCompletionCallbacks(unit.id, { kind: "accepted" });
+      publishPendingQueueState();
+      requestPendingReplay("unit_completed");
+      return;
+    }
     await dispatchTimelineUnit(
       pending,
       unit,
@@ -1025,7 +1060,9 @@ export function createTimelineMutationDriver(
       }
     },
     drain: replayPendingQueue,
-    detachPresentation: () => completionCallbacksRef.current.clear(),
+    // Source settlement survives presentation detachment; mounted callers
+    // independently fence obsolete focus/navigation. Retirement ends both.
+    retire: () => completionCallbacksRef.current.clear(),
     discardBlockedEdit,
     enqueuePendingReplayUnit,
     retryBlockedEdit,

@@ -117,7 +117,6 @@ describe("Timeline mutation models", () => {
         clientTxnId: "txn-1",
         focusField: "activitySynopsisText",
         hasConflict: false,
-        pendingSignature: undefined,
         row: changed,
       }),
     ).toMatchObject({
@@ -133,7 +132,6 @@ describe("Timeline mutation models", () => {
         clientTxnId: "txn-2",
         focusField: "activitySynopsisText",
         hasConflict: true,
-        pendingSignature: undefined,
         row: changed,
       }),
     ).toMatchObject({ kind: "rejected", outcome: { kind: "conflict" } });

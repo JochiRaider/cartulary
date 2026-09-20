@@ -388,7 +388,11 @@ export type GridEditorRenderContext<Row> = {
   readonly outcome: GridEditCommitOutcome | null;
   readonly pending: boolean;
   readonly row: Row;
-  readonly setDraftValue: (value: unknown) => void;
+  /** Native edits can advance authoring even when their resulting value is equal. */
+  readonly setDraftValue: (
+    value: unknown,
+    options?: { readonly advanceRevision?: boolean },
+  ) => void;
   /** Declares the mounted primary control; the adapter owns its focus and reveal. */
   readonly focusTargetRef: RefCallback<GridEditorFocusTarget>;
   readonly target: GridCellTarget;
@@ -397,7 +401,12 @@ export type GridEditorRenderContext<Row> = {
 export type GridEditorAdapter<Row> = {
   /** The source owner retains raw authoring; the adapter owns mounted editor mechanics. */
   readonly retainDraft?:
-    | ((row: Row, value: unknown, target: GridCellTarget) => void)
+    | ((
+        row: Row,
+        value: unknown,
+        target: GridCellTarget,
+        options?: { readonly advanceRevision?: boolean },
+      ) => void)
     | undefined;
   readonly discardDraft?: ((row: Row) => void) | undefined;
   /** Draft value used by Backspace/Delete entry when this field permits clear. */

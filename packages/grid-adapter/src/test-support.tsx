@@ -37,6 +37,7 @@ export type {
 export {
   clipboardFailure,
   clipboardLimits,
+  clipboardTextWithinLimit,
   decodeDelimitedClipboard,
   decodeGridClipboard,
   encodeClipboardTable,
@@ -1973,14 +1974,18 @@ function TestGridEditor<Row>({
   const closed = useRef(false);
   const revision = useRef(0);
   const latestDraft = useRef(draftValue);
-  const updateDraftValue = (value: unknown) => {
+  const updateDraftValue = (
+    value: unknown,
+    options?: { readonly advanceRevision?: boolean },
+  ) => {
     if (
+      options?.advanceRevision ||
       testGridEditorDraftKey(latestDraft.current) !==
-      testGridEditorDraftKey(value)
+        testGridEditorDraftKey(value)
     )
       revision.current += 1;
     latestDraft.current = value;
-    adapter.retainDraft?.(row, value, target);
+    adapter.retainDraft?.(row, value, target, options);
     setDraftValue(value);
   };
   const [outcome, setOutcome] = useState<GridEditCommitOutcome | null>(null);

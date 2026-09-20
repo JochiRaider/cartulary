@@ -236,7 +236,7 @@ describe("Timeline workbook autosave coverage", () => {
       "RAW Activity",
     )) as HTMLTextAreaElement;
     await changeInputValue(sourceText, "Pasted transcript");
-    fireEvent.paste(sourceText);
+    fireEvent.input(sourceText, { inputType: "insertFromPaste" });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -402,7 +402,7 @@ describe("Timeline workbook autosave coverage", () => {
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, "Pasted stale-proof summary");
-    fireEvent.paste(summaryInput);
+    fireEvent.input(summaryInput, { inputType: "insertFromPaste" });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);

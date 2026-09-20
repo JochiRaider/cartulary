@@ -68,6 +68,7 @@ export function TimelineBulkTagControl({
     entry && ["waiting", "preparing", "submitting"].includes(entry.phase);
   return (
     <form
+      data-grid-editor-external-action="true"
       aria-label="Timeline bulk record actions"
       aria-busy={pending || undefined}
       style={regionStyle}

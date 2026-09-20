@@ -66,6 +66,39 @@ it("preserves autosave FIFO and prevents coalescing across explicit batch bounda
   expect(recovery[0]?.status).toBe("queued");
 });
 
+it("retires verified unchanged work only at an authorized never-dispatched FIFO head", () => {
+  const queue = createQueue();
+  const first = expectAccepted(
+    queue.admit(patchUnit({ clientTxnId: "first", recordId: "a", order: 1 })),
+  );
+  const later = expectAccepted(
+    queue.admit(patchUnit({ clientTxnId: "later", recordId: "b", order: 2 })),
+  );
+  expect(queue.settleUnchanged(later.id)).toBeNull();
+  queue.setDispatchGuard(() => false);
+  expect(queue.settleUnchanged(first.id)).toBeNull();
+  queue.setDispatchGuard(() => true);
+  queue.pauseForAuthRecovery();
+  expect(queue.settleUnchanged(first.id)).toBeNull();
+  queue.resumeAfterAuthRecovery();
+  expect(queue.settleUnchanged(first.id)?.id).toBe(first.id);
+  expect(queue.snapshot().units.map((unit) => unit.id)).toEqual([later.id]);
+  queue.markDispatched(later.id);
+  expect(queue.settleUnchanged(later.id)).toBeNull();
+  queue.settleDispatched({
+    ok: false,
+    status: 503,
+    error: {
+      code: "unavailable",
+      message: "Uncertain",
+      retryable: true,
+      details: {},
+    },
+  });
+  expect(queue.wasDispatched(later.id)).toBe(true);
+  expect(queue.settleUnchanged(later.id)).toBeNull();
+});
+
 function expectAccepted(
   result: PendingQueueAdmissionResult,
 ): PendingReplayUnitState {

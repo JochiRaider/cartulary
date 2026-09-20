@@ -196,7 +196,6 @@ export function useTimelineInteractionComposition({
     editable: canEdit,
     grouped: queryState.groupBy !== null,
     pendingSavesRefs: foundation.pendingSavesRefs,
-    queueScalarSave: mutation.queueScalarSave,
     resolveTimelinePasteTargetResolution:
       grid.resolveTimelinePasteTargetResolution,
     setError: setPasteError,
@@ -296,7 +295,6 @@ export function useTimelineInteractionComposition({
         handleBlur,
         handleCollectionKeyDown: keyboard.onCollectionEditorKeyDown,
         handleKeyDown: keyboard.onScalarEditorKeyDown,
-        handlePaste: clipboard.handlePaste,
         queueCollectionSave: mutation.queueCollectionSave,
       },
       grid: {

@@ -82,7 +82,7 @@ describe("Timeline workbook", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     summaryInput.focus();
-    fireEvent.change(summaryInput, { target: { value: "Alpha tab" } });
+    fireEvent.input(summaryInput, { target: { value: "Alpha tab" } });
     fireEvent.keyDown(summaryInput, { key: "Tab" });
 
     await waitFor(() => {

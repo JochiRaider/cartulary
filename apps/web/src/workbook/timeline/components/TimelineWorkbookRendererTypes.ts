@@ -31,13 +31,6 @@ export type TimelineScalarKeyCommit = (
   surface: TimelineScalarEditorSurface,
 ) => void;
 
-export type TimelineScalarPasteCommit = (
-  rowKey: string,
-  field: keyof RowValues,
-  surface: TimelineScalarEditorSurface,
-  value: string,
-) => void;
-
 export type TimelineScalarGridCommit = (
   rowKey: string,
   field: keyof RowValues,
@@ -84,7 +77,12 @@ export type RenderTimelineGridEditor = (
     | ((element: GridEditorFocusTarget | null) => void)
     | undefined,
   controlledDraftValue?: string | undefined,
-  onControlledDraftChange?: ((value: string) => void) | undefined,
+  onControlledDraftChange?:
+    | ((
+        value: string,
+        options?: { readonly advanceRevision?: boolean },
+      ) => void)
+    | undefined,
 ) => ReactNode;
 
 export type RenderTimelineScalarCell = (

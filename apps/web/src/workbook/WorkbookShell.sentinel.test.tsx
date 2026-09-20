@@ -765,7 +765,11 @@ describe("keyboard and grid anchor coverage", () => {
       },
     });
     fireEvent(draftTime, pasteEvent);
-    expect(pasteEvent.defaultPrevented).toBe(true);
+    expect(pasteEvent.defaultPrevented).toBe(false);
+    fireEvent.input(draftTime, {
+      target: { value: "2026-06-14,test1,host2" },
+      inputType: "insertFromPaste",
+    });
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
@@ -782,7 +786,7 @@ describe("keyboard and grid anchor coverage", () => {
       timelineRow({
         recordId: "20000000-0000-4000-8000-000000000001",
         rowVersion: 1,
-        occurredAt: clipboardText,
+        summary: clipboardText,
         captureState: "rough",
       }),
     ];
@@ -806,7 +810,7 @@ describe("keyboard and grid anchor coverage", () => {
     await screen.findByTestId(saveStateTestId());
 
     const draftTime = screen.getByTestId(
-      draftCellTestId("timeline.activity_utc_text"),
+      draftCellTestId("timeline.activity_synopsis_text"),
     );
     const pasteEvent = createEvent.paste(draftTime, {
       clipboardData: {
@@ -815,7 +819,11 @@ describe("keyboard and grid anchor coverage", () => {
       },
     });
     fireEvent(draftTime, pasteEvent);
-    expect(pasteEvent.defaultPrevented).toBe(true);
+    expect(pasteEvent.defaultPrevented).toBe(false);
+    fireEvent.input(draftTime, {
+      target: { value: clipboardText },
+      inputType: "insertFromPaste",
+    });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -826,7 +834,7 @@ describe("keyboard and grid anchor coverage", () => {
       ),
     ).toBe(false);
     expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
-      "timeline.activity_utc_text": clipboardText,
+      "timeline.activity_synopsis_text": clipboardText,
     });
   });
 

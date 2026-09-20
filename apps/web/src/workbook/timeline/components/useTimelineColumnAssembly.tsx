@@ -34,6 +34,7 @@ export function useTimelineColumnAssembly({
   commitScalarGridEdit,
   editorDraftRegistry,
   gridShellWidth,
+  readCurrentRow,
   renderTimelineCollectionInput,
   renderTimelineGridEditor,
   renderTimelineScalarCell,
@@ -44,6 +45,7 @@ export function useTimelineColumnAssembly({
   readonly commitScalarGridEdit: TimelineScalarGridCommit;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly gridShellWidth: number;
+  readonly readCurrentRow?: ((row: WorkbookRow) => WorkbookRow) | undefined;
   readonly renderTimelineCollectionInput: RenderTimelineCollectionInput;
   readonly renderTimelineGridEditor: RenderTimelineGridEditor;
   readonly renderTimelineScalarCell: RenderTimelineScalarCell;
@@ -202,11 +204,12 @@ export function useTimelineColumnAssembly({
                       rowKey: row.key,
                       surface: "grid",
                     }),
-                  retainDraft: (row, value) =>
+                  retainDraft: (row, value, _target, options) =>
                     editorDraftRegistry.setDraft(
                       { field: binding.key, rowKey: row.key, surface: "grid" },
                       String(value ?? ""),
-                      row,
+                      readCurrentRow?.(row) ?? row,
+                      options?.advanceRevision,
                     ),
                   renderEditor: (context) =>
                     renderTimelineGridEditor(
@@ -218,7 +221,7 @@ export function useTimelineColumnAssembly({
                       },
                       context.focusTargetRef,
                       String(context.draftValue ?? ""),
-                      (value) => context.setDraftValue(value),
+                      (value, options) => context.setDraftValue(value, options),
                     ),
                 }
               : undefined,
@@ -231,6 +234,7 @@ export function useTimelineColumnAssembly({
     [
       commitScalarGridEdit,
       editorDraftRegistry,
+      readCurrentRow,
       renderTimelineCollectionInput,
       renderTimelineGridEditor,
       renderTimelineScalarCell,

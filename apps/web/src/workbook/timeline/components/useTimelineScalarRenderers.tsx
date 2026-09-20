@@ -27,7 +27,6 @@ import type {
   RegisterTimelineInput,
   TimelineScalarBlurCommit,
   TimelineScalarKeyCommit,
-  TimelineScalarPasteCommit,
 } from "./TimelineWorkbookRendererTypes";
 import {
   labelStyle,
@@ -42,7 +41,6 @@ export function useTimelineScalarRenderers({
   handleBlur,
   handleEditModePresence,
   handleKeyDown,
-  handlePaste,
   handleSelectRow,
   readOnly,
   readCurrentRow,
@@ -64,7 +62,6 @@ export function useTimelineScalarRenderers({
     editing: boolean,
   ) => void;
   readonly handleKeyDown: TimelineScalarKeyCommit;
-  readonly handlePaste: TimelineScalarPasteCommit;
   readonly handleSelectRow: (recordId: string) => void;
   readonly readOnly: boolean;
   readonly readCurrentRow?: ((row: WorkbookRow) => WorkbookRow) | undefined;
@@ -76,19 +73,6 @@ export function useTimelineScalarRenderers({
     fieldKey: string,
   ) => void;
 }) {
-  const setScalarEditorDraftValue = useCallback(
-    (
-      rowKey: string,
-      field: keyof RowValues,
-      surface: TimelineScalarEditorSurface,
-      value: string,
-      row: WorkbookRow,
-    ) => {
-      editorDraftRegistry.setDraft({ field, rowKey, surface }, value, row);
-    },
-    [editorDraftRegistry],
-  );
-
   const timelineScalarControlId = useCallback(
     (
       row: WorkbookRow,
@@ -114,7 +98,12 @@ export function useTimelineScalarRenderers({
         | ((element: GridEditorFocusTarget | null) => void)
         | undefined,
       controlledDraftValue?: string | undefined,
-      onControlledDraftChange?: ((value: string) => void) | undefined,
+      onControlledDraftChange?:
+        | ((
+            value: string,
+            options?: { readonly advanceRevision?: boolean },
+          ) => void)
+        | undefined,
     ) => {
       const label = timelineBindingLabel(binding.fieldKey);
       const dataTestId = timelineScalarEditorTestId({
@@ -151,36 +140,40 @@ export function useTimelineScalarRenderers({
             focusTargetRef={focusTargetRef}
             multiline={binding.multiline}
             onBlurCommit={handleBlur}
-            onCaptureInput={
-              row.recordId === null && !readOnly
-                ? (value) => {
-                    if (value.trim() === "") return;
-                    if (editorDraftRegistry.beginCapture(row.key)) {
-                      performance.mark(
-                        "cartulary.workbook.blank_row_commit_accepted",
-                        { detail: { field: binding.fieldKey, surface } },
-                      );
-                    }
-                    handleBlur(row.key, binding.key, surface, value);
-                  }
-                : undefined
-            }
             onCloseGridEditor={closeGridEditor}
-            onDraftChange={(rowKey, field, editorSurface, value) => {
-              setScalarEditorDraftValue(
-                rowKey,
-                field,
-                editorSurface,
-                value,
-                row,
-              );
-              onControlledDraftChange?.(value);
+            onDraftChange={(rowKey, field, editorSurface, value, input) => {
+              // Managed controls retain through the Adapter exactly once. Native
+              // edits advance authoring even when a replacement has equal text.
+              if (onControlledDraftChange) {
+                onControlledDraftChange(value, {
+                  advanceRevision: input !== undefined,
+                });
+              } else {
+                editorDraftRegistry.setDraft(
+                  { rowKey, field, surface: editorSurface },
+                  value,
+                  readCurrentRow?.(row) ?? row,
+                  input !== undefined,
+                );
+              }
+              if (input === undefined || input.composing || readOnly) return;
+              const capturing = row.recordId === null && value.trim() !== "";
+              if (capturing && editorDraftRegistry.beginCapture(row.key)) {
+                performance.mark(
+                  "cartulary.workbook.blank_row_commit_accepted",
+                  {
+                    detail: { field: binding.fieldKey, surface },
+                  },
+                );
+              }
+              if (capturing || input.pasteCompleted) {
+                handleBlur(rowKey, field, editorSurface, value);
+              }
             }}
             onEditModeChange={handleEditModePresence}
             onFocusAnchor={updateTimelineSurfaceFocusAnchor}
             onFocusRecord={handleSelectRow}
             onKeyCommit={handleKeyDown}
-            onPasteCommit={handlePaste}
             presenceFieldKey={binding.fieldKey}
             readOnly={readOnly}
             registerInput={registerInput}
@@ -238,13 +231,11 @@ export function useTimelineScalarRenderers({
       handleBlur,
       handleEditModePresence,
       handleKeyDown,
-      handlePaste,
       handleSelectRow,
       readOnly,
       readCurrentRow,
       registerInput,
       setActiveConflictKey,
-      setScalarEditorDraftValue,
       timelineBindingLabel,
       updateTimelineSurfaceFocusAnchor,
     ],
@@ -261,7 +252,12 @@ export function useTimelineScalarRenderers({
         | ((element: GridEditorFocusTarget | null) => void)
         | undefined,
       controlledDraftValue?: string | undefined,
-      onControlledDraftChange?: ((value: string) => void) | undefined,
+      onControlledDraftChange?:
+        | ((
+            value: string,
+            options?: { readonly advanceRevision?: boolean },
+          ) => void)
+        | undefined,
     ) =>
       renderTimelineScalarControl(
         row,

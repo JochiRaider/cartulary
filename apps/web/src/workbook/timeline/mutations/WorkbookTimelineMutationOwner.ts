@@ -403,7 +403,6 @@ export class WorkbookTimelineMutationOwner {
       if (this.attachment !== attachment) return;
       this.rows.current = read().rowsRef.current;
       this.attachment = null;
-      this.driver.detachPresentation();
     };
   }
   readonly enqueuePendingReplayUnit: ReturnType<
@@ -421,11 +420,15 @@ export class WorkbookTimelineMutationOwner {
     for (const read of this.reads) read.abort();
     this.reads.clear();
     this.receipts.clear();
+    timelinePendingSavesRefsFor(
+      this.runtime,
+      this.runtime.pendingQueue(),
+    ).scalarCommits.clear();
     this.batchSources.clear();
     this.promotions.clear();
     this.fileListeners.clear();
     this.rows.current = [];
-    this.driver.detachPresentation();
+    this.driver.retire();
     this.unregister();
   }
 }

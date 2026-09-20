@@ -23,7 +23,6 @@ export type TimelineMutationAdmission =
         readonly value: unknown;
       };
     }
-  | { readonly kind: "accepted_duplicate" }
   | { readonly kind: "accepted_no_change" }
   | {
       readonly kind: "rejected";
@@ -35,14 +34,12 @@ export function planTimelineScalarMutation({
   clientTxnId,
   focusField,
   hasConflict,
-  pendingSignature,
   row,
 }: {
   readonly allowZeroFieldCreate: boolean;
   readonly clientTxnId: string;
   readonly focusField: keyof RowValues;
   readonly hasConflict: boolean;
-  readonly pendingSignature: string | undefined;
   readonly row: WorkbookRow;
 }): TimelineMutationAdmission {
   if (hasConflict) {
@@ -60,9 +57,6 @@ export function planTimelineScalarMutation({
       : buildScalarPatchIntent(row, clientTxnId);
   if (payloadIntent === null) return { kind: "accepted_no_change" };
   const mutationSignature = buildStableMutationSignature(payloadIntent);
-  if (mutationSignature === pendingSignature) {
-    return { kind: "accepted_duplicate" };
-  }
   const binding = timelineScalarBindingForValueKey(focusField);
   return {
     kind: "admit",

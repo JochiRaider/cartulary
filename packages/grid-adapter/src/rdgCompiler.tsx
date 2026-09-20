@@ -627,13 +627,14 @@ function SemanticGridEditor<Row>({
   const latestDraftRef = useRef(draftValue);
   const draftRevisionRef = useRef(0);
   const updateDraftValue = useCallback(
-    (value: unknown) => {
+    (value: unknown, options?: { readonly advanceRevision?: boolean }) => {
       if (
+        options?.advanceRevision ||
         gridEditorDraftKey(latestDraftRef.current) !== gridEditorDraftKey(value)
       )
         draftRevisionRef.current += 1;
       latestDraftRef.current = value;
-      adapter.retainDraft?.(row, value, target);
+      adapter.retainDraft?.(row, value, target, options);
       const element = focusTargetRef.current;
       retainEditorDraft(
         target,

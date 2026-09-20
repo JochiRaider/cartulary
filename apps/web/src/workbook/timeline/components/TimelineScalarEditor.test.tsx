@@ -7,7 +7,6 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
   const onBlurCommit = vi.fn();
   const onDraftChange = vi.fn();
   const onEditModeChange = vi.fn();
-  const onPasteCommit = vi.fn();
   const registerInput = vi.fn();
   const dataTestId = timelineScalarEditorTestId({
     fieldKey: "timeline.activity_synopsis_text",
@@ -25,7 +24,6 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
     onFocusAnchor: vi.fn(),
     onFocusRecord: vi.fn(),
     onKeyCommit: vi.fn(),
-    onPasteCommit,
     presenceFieldKey: "timeline.activity_synopsis_text",
     registerInput,
     rowKey: "record-1",
@@ -36,13 +34,14 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
   const input = screen.getByTestId(dataTestId) as HTMLInputElement;
 
   fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: "Draft" } });
+  fireEvent.input(input, { target: { value: "Draft" } });
   fireEvent.blur(input);
   expect(onDraftChange).toHaveBeenCalledWith(
     "record-1",
     "activitySynopsisText",
     "grid",
     "Draft",
+    { composing: false, pasteCompleted: false },
   );
   expect(onBlurCommit).toHaveBeenCalledWith(
     "record-1",
@@ -66,12 +65,12 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
   document.body.append(findInput);
   onBlurCommit.mockClear();
   fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: "Unfinished exact draft" } });
+  fireEvent.input(input, { target: { value: "Unfinished exact draft" } });
   fireEvent.blur(input, { relatedTarget: findInput });
   expect(onBlurCommit).not.toHaveBeenCalled();
   expect(input.value).toBe("Unfinished exact draft");
   findInput.remove();
-  fireEvent.change(input, { target: { value: "Draft" } });
+  fireEvent.input(input, { target: { value: "Draft" } });
   fireEvent.focus(input);
   input.setSelectionRange(0, input.value.length);
   const pasteEvent = new Event("paste", {
@@ -82,20 +81,42 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
     value: { getData: () => "Native paste" },
   });
   fireEvent(input, pasteEvent);
-  expect(pasteEvent.defaultPrevented).toBe(true);
-  expect(input.value).toBe("Native paste");
-  expect(onPasteCommit).toHaveBeenCalledWith(
+  expect(pasteEvent.defaultPrevented).toBe(false);
+  expect(input.value).toBe("Draft");
+  // This only verifies the notification boundary. Real insertion, caret and
+  // browser history are asserted by the production clipboard regression.
+  fireEvent.input(input, {
+    target: { value: "Native paste" },
+    inputType: "insertFromPaste",
+  });
+  expect(onDraftChange).toHaveBeenLastCalledWith(
     "record-1",
     "activitySynopsisText",
     "grid",
     "Native paste",
+    { composing: false, pasteCompleted: true },
   );
+  const copy = new Event("copy", { bubbles: true, cancelable: true });
+  fireEvent(input, copy);
+  expect(copy.defaultPrevented).toBe(false);
+  const cut = new Event("cut", { bubbles: true, cancelable: true });
+  fireEvent(input, cut);
+  expect(cut.defaultPrevented).toBe(false);
+  const oversized = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(oversized, "clipboardData", {
+    value: { getData: () => "x".repeat(8 * 1024 * 1024 + 1) },
+  });
+  fireEvent(input, oversized);
+  expect(oversized.defaultPrevented).toBe(true);
+  expect(screen.getByRole("alert").textContent).toContain("8 MiB");
   fireEvent.blur(input);
 
   rerender(
     <TimelineScalarEditor {...props} draftValue="Controlled" readOnly />,
   );
   expect(input.value).toBe("Controlled");
-  fireEvent.change(input, { target: { value: "Ignored" } });
-  expect(input.value).toBe("Controlled");
+  onDraftChange.mockClear();
+  fireEvent.input(input, { target: { value: "Ignored" } });
+  expect(onDraftChange).not.toHaveBeenCalled();
+  expect(input.readOnly).toBe(true);
 });

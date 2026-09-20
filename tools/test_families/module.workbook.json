@@ -6192,7 +6192,8 @@
           "preserves autosave FIFO and prevents coalescing across explicit batch boundaries",
           "preserves same-runtime retryable failures and does not survive a new page instance",
           "rejects invalid recovery transitions without changing queue state",
-          "rekeys only a client transaction blocker and preserves FIFO intent"
+          "rekeys only a client transaction blocker and preserves FIFO intent",
+          "retires verified unchanged work only at an authorized never-dispatched FIFO head"
         ]
       },
       "evidence_class": "unit",
