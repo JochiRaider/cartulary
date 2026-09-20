@@ -12,7 +12,7 @@ import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { WorkbookQueryBrowser } from "../query/WorkbookQueryBrowser";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";
-import { useTimelineFind } from "./hooks/useTimelineFind";
+import { useTimelineFindSource } from "./hooks/useTimelineFindSource";
 import { createDraftRow, rowFromApi } from "./models/timelineRowModel";
 
 afterEach(() => {
@@ -56,7 +56,7 @@ async function fixture() {
   browser.accept(response.value);
   const listeners = new Set<() => void>();
   let authority = true;
-  const input: Parameters<typeof useTimelineFind>[0] = {
+  const input: Parameters<typeof useTimelineFindSource>[0] = {
     runtime: {
       incident: {
         id: "incident",
@@ -123,7 +123,7 @@ async function fixture() {
     }),
     requestFocus: vi.fn(async () => "focused"),
   } as unknown as GridHandle;
-  const hook = renderHook((props) => useTimelineFind(props), {
+  const hook = renderHook((props) => useTimelineFindSource(props), {
     initialProps: input,
   });
   act(() => hook.result.current.bindGrid(grid));

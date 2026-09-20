@@ -19,6 +19,8 @@ export type WorkbookFindSource = {
   readonly unavailableReason: string | null;
   readonly stale: boolean;
   readonly readText: (anchor: GridCellAnchor) => readonly string[];
+  readonly isCurrent?: () => boolean;
+  readonly isNavigationCurrent?: () => boolean;
 };
 
 export type WorkbookFindSnapshot = {
@@ -186,8 +188,7 @@ export class WorkbookFindController {
         status: "unavailable",
         matches: [],
         current: null,
-        message:
-          source?.unavailableReason ?? "Loaded Timeline rows are unavailable.",
+        message: source?.unavailableReason ?? "Loaded rows are unavailable.",
       });
       return;
     }
@@ -208,7 +209,8 @@ export class WorkbookFindController {
     let index = 0;
     this.publish({ status: "computing", stale: source.stale, message: "" });
     const work = () => {
-      if (generation !== this.scanGeneration) return;
+      if (generation !== this.scanGeneration || source.isCurrent?.() === false)
+        return;
       const count = model.rowIdentities.length * model.fieldKeys.length;
       // Yield between bounded groups of cells; never truncate source strings or results.
       const end = Math.min(count, index + 32);
@@ -221,7 +223,8 @@ export class WorkbookFindController {
         if (findCellMatches(source.readText(anchor), normalized, matchCase))
           matches.push(anchor);
       }
-      if (generation !== this.scanGeneration) return;
+      if (generation !== this.scanGeneration || source.isCurrent?.() === false)
+        return;
       if (index < count) {
         this.scheduled = setTimeout(work, 0);
         return;
@@ -303,6 +306,7 @@ export class WorkbookFindController {
       !abort.signal.aborted &&
       this.destination === abort &&
       this.source?.navigationKey === navigationKey &&
+      this.source.isNavigationCurrent?.() !== false &&
       this.snapshot.term === term &&
       this.snapshot.matchCase === matchCase &&
       findCellMatches(

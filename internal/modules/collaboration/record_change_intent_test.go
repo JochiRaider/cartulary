@@ -1,6 +1,7 @@
 package collaboration
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -67,6 +68,28 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 	}
 	if cells["note.body"].(map[string]any)["value"] != "Body" {
 		t.Fatalf("missing note.body patch: %#v", decodedPatch)
+	}
+	for _, kind := range []string{"remove", "invalidate"} {
+		for _, keys := range [][]string{nil, {}} {
+			empty := input
+			empty.PublicFieldKeys = keys
+			empty.AffectedViews = []AffectedViewChange{{ViewSchemaID: "cartulary.view.notes.v1", RecordID: recordID, RowVersion: 3, ChangeKind: kind}}
+			payload, err := appender.validatedRecordChangePayload(empty)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wire, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded map[string]json.RawMessage
+			if err := json.Unmarshal(wire, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if string(decoded["changed_field_keys"]) != "[]" {
+				t.Fatalf("%s with no cell delta must publish an empty array, got %s", kind, decoded["changed_field_keys"])
+			}
+		}
 	}
 
 	multiInput := RecordChangeIntentInput{

@@ -65,10 +65,10 @@ budget with cursor recovery and retains the single latest-created-row pin.
 
 ## Local Find binding
 
-`useTimelineFind.ts` binds the neutral Workbook Find owner to accepted query
+`useTimelineFindSource.ts` binds the neutral Workbook Find owner to accepted query
 membership, Adapter presentation, Timeline committed text and existing editor
-settlement. It subscribes to authority and recovery lifetime and borrows editor
-focus through the retained draft registry. The root composer supplies narrow
+settlement. Shared `find/useWorkbookFind` owns authority and recovery lifetime. The source
+adapter borrows editor focus through the retained draft registry. The root composer supplies narrow
 capabilities; stateless presentation receives controls and semantic match state.
 The hook cannot fetch pages or author record payloads.
 

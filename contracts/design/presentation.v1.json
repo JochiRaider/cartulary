@@ -17,7 +17,7 @@
   "workbook_find": {
     "scope_label": "Find in loaded rows",
     "zero_matches_message": "No matches in loaded rows.",
-    "scope_help": "Searches committed values and displayed collection summaries in loaded rows. Other incident rows were not searched.",
+    "scope_help": "Searches committed values and displayed collection items in loaded rows. Other incident rows were not searched.",
     "live": "polite",
     "successful_navigation": "collapse"
   },

@@ -130,6 +130,7 @@ export {
   gridScrollportClassName,
   gridScrollportSelector,
   gridSortHeaderTestId,
+  workbookGridEditorTestId,
 } from "./gridSelectors";
 export {
   networkAnalysisColumnActionTestId,

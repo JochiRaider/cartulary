@@ -8,6 +8,13 @@ import { viewFirstTestId, viewScopedTestId } from "./viewSchemaSelectors";
 
 export const gridRowVersionAttribute = "data-grid-row-version";
 
+export function workbookGridEditorTestId(
+  recordId: string,
+  fieldKey: string,
+): string {
+  return `grid-editor-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
+}
+
 /** Scoped to a mounted semantic data row; independent of record-ID encoding. */
 export function gridFieldCellSelector(fieldKey: string): string {
   return `[data-grid-field-key="${requireFieldKey(fieldKey)}"]`;

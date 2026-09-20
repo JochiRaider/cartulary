@@ -1,6 +1,6 @@
 import type { AuthorizationRecoveryResult } from "../../shared/authorizationRecovery";
 
-const authorizationRecoveryDelayMs = 1_000;
+export const authorizationRecoveryDelayMs = 1_000;
 
 export type WorkbookAuthorizationRecoveryAdmission = {
   readonly generation: number;

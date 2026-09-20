@@ -527,6 +527,25 @@ export function useEntityWorkbookInspectorComposition({
     />
   ) : undefined;
   return {
+    captureFindFocus: (target: EventTarget | null) => {
+      const owner = [edit, aliasEdit, aliasRemove].find(
+        (draft) => draft.controlRef.current === target,
+      );
+      if (!owner || !(target instanceof HTMLElement)) return null;
+      const captured = owner.capture();
+      return {
+        restore: () => {
+          if (
+            !owner.isCurrent(captured) ||
+            !target.isConnected ||
+            owner.controlRef.current !== target
+          )
+            return false;
+          target.focus();
+          return document.activeElement === target;
+        },
+      };
+    },
     close,
     isOpen,
     node,

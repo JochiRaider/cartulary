@@ -1786,7 +1786,7 @@ function useSemanticDataGrid<Row>(
     onSelectedCellChange: ({ column, row }) => {
       if (interaction.controller.active) return;
       const anchor =
-        row === undefined
+        row === undefined || column === undefined
           ? null
           : semanticAnchor(row, column.key, columns, surface);
       // Vendor notifications publish focus only. Explicit semantic commands own selection.

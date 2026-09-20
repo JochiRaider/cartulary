@@ -278,27 +278,36 @@ export function genericContractColumnWidth(field: ViewFieldContract): number {
   return field.defaultHidden ? 160 : 220;
 }
 
+/** Renderer text and independently readable fragments share fallback precedence. */
+export function genericCellPresentation(value: unknown): {
+  readonly text: string;
+  readonly fragments: readonly string[];
+} {
+  if (value === null || value === undefined || value === "")
+    return { text: "None", fragments: [] };
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    const text =
+      typeof value === "boolean" ? (value ? "Yes" : "No") : String(value);
+    return { text, fragments: [text] };
+  }
+  if (isRecord(value) && Array.isArray(value.items)) {
+    const items = value.items.flatMap((item) => {
+      const presentation = collectionItemPresentation(item);
+      return presentation ? [presentation] : [];
+    });
+    return {
+      text: items.length ? items.map((item) => item.text).join(", ") : "None",
+      fragments: items.filter((item) => item.readable).map((item) => item.text),
+    };
+  }
+  return { text: JSON.stringify(value), fragments: [] };
+}
 export function genericCellLabel(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return "None";
-  }
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-  if (isRecord(value)) {
-    const items = value.items;
-    if (Array.isArray(items)) {
-      const labels = collectionItemLabels(items);
-      if (labels.length > 0) {
-        return labels.join(", ");
-      }
-      return "None";
-    }
-  }
-  return JSON.stringify(value);
+  return genericCellPresentation(value).text;
 }
 
 export function genericCellLabelForField(
@@ -319,29 +328,26 @@ export function genericCellLabelForField(
   return genericCellLabel(value);
 }
 
-export function collectionItemLabels(items: readonly unknown[]): string[] {
-  return items.flatMap((item) => {
-    if (!isRecord(item)) {
-      return [];
-    }
-    const raw = item;
-    const candidates = [
-      raw.display_text,
-      raw.alias_text,
-      raw.tag_name,
-      raw.raw_text,
-      raw.linked_record_id,
-      raw.record_id,
-      raw.item_ref,
-    ];
-    const label = candidates.find(
-      (value): value is string =>
-        typeof value === "string" && value.trim() !== "",
-    );
-    return label === undefined ? [] : [label];
-  });
+function collectionItemPresentation(
+  item: unknown,
+): { text: string; readable: boolean } | null {
+  if (!isRecord(item)) return null;
+  const keys = [
+    "display_text",
+    "alias_text",
+    "tag_name",
+    "raw_text",
+    "linked_record_id",
+    "record_id",
+    "item_ref",
+  ];
+  const key = keys.find(
+    (key) => typeof item[key] === "string" && item[key].trim() !== "",
+  );
+  return key
+    ? { text: String(item[key]), readable: keys.indexOf(key) < 4 }
+    : null;
 }
-
 export function genericCreateMinimumMessage(contract: ViewContract): string {
   if (contract.viewSchemaId === evidenceViewSchemaId) {
     return "Evidence needs at least one user-entered evidence value or a finalized attachment.";

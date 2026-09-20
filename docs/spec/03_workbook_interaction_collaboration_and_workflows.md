@@ -2613,7 +2613,7 @@ Application shortcut consumption MUST use the exhaustive matrix below. `Grid nav
 
 | Shortcut | Preconditions | Required result | Unavailable-target result |
 | --- | --- | --- | --- |
-| `Ctrl+F` or `Cmd+F` | Timeline grid navigation owns focus, or Timeline Find owns the event. | Open or refocus `Find in loaded rows` under §13.5. | Outside this context, preserve browser/editor/control ownership without consuming the event. |
+| `Ctrl+F` or `Cmd+F` | Timeline, Hosts or Identities grid navigation owns focus, or that surface’s Find owns the event. | Open or refocus `Find in loaded rows` under §13.5. | Outside this context, preserve browser/editor/control ownership without consuming the event. |
 | `Ctrl+K` or `Cmd+K` | Grid navigation owns focus; the selected committed cell exposes an owner-declared link or resolve capability. | Open that cell's same-surface link or resolve control. | No application action; visible text MUST NOT be used to infer capability. |
 | `Space` | Grid navigation owns focus; the selected committed row exposes an Evidence inspector group. | Open the inspector explicitly at Evidence. When exactly one previewable evidence item exists, open it; otherwise focus the Evidence list or its empty state. | No inspector action; browser scrolling is prevented only when the grid consumes the command. |
 | `Alt+H` | Grid navigation owns focus; the selected committed row exposes a History inspector group. | Open the inspector explicitly at History. | No application action for group rows, draft rows, no-row state, or unavailable History. |
@@ -2801,9 +2801,9 @@ participation and outer Tab exit. Find focus borrowing and explicit replacement
 navigation preserve §13.5's selection consequences. Other consumers require
 explicit adoption of this keyboard capability.
 
-### 13.5 Timeline Find in loaded rows
+### 13.5 Workbook Find in loaded rows
 
-Timeline MUST expose a local `Find in loaded rows` interaction. It searches only
+Timeline, Hosts and Identities MUST expose a local `Find in loaded rows` interaction. It searches only
 authorized committed cell presentation in the current accepted loaded query
 window, including eligible rows and columns outside the mounted viewport. It
 MUST exclude hidden fields, collapsed records, structural/group rows, recordless
@@ -2815,8 +2815,13 @@ eligible without acquiring mutation rights.
 Source owners MUST provide readable value fragments using the same committed
 presentation semantics as the renderer, before visual clipping. Scalar,
 timestamp, number, boolean and Evidence-summary formatting MUST agree with that
-presentation. Collection search includes only the displayed summary item label,
-not overflow-only labels or overflow counts. Internal identifiers, arbitrary JSON,
+presentation. Timeline collection search includes only the displayed summary item
+label, not overflow-only labels or overflow counts. Hosts and Identities search
+each actually displayed readable collection item as an independent fragment,
+including alias chips and readable reusable-identifier labels. Entity display
+names and primary values follow their renderer’s committed fallback precedence;
+an internal record-identity fallback is not searchable. Declared readable entity
+identifier fields remain eligible; technical row identity/version fields do not. Internal identifiers, arbitrary JSON,
 hidden metadata, action/DOM labels and empty/unavailable placeholders MUST NOT
 be searched. Fragments match independently; concatenation MUST NOT invent a
 match across separate displayed values.
@@ -2847,16 +2852,22 @@ navigation uses the eligible active cell, otherwise its directional boundary.
 Query replacement, page append/eviction, sorting, grouping/collapse, visible
 field changes, saved-view replacement, accepted value updates and deletion MUST
 recompute against current accepted presentation, never a requested-but-unaccepted
-query. Current term and surviving match remain within the active Timeline.
+query. Current term and surviving match remain within the active view schema, including
+same-schema saved-view replacement.
 
-Opening or refocusing Find MAY borrow focus from unfinished Timeline authoring
+Opening or refocusing Find MAY borrow focus from unfinished authoring
 without submitting, discarding or copying the draft. This narrow exception uses
 REQ-03-298's retained owner; it creates no second draft store. Explicit movement
 to a match MUST pass the existing deduplicated editor-departure acceptance gate
 under REQ-03-099/218/300. Pending acceptance retains the original accessible
 editor; rejection preserves its exact draft. Find owns no mutation payload,
 retry, transaction identity or write settlement. Recordless authoring remains
-retained, and Find navigation MUST NOT create a record.
+retained, and Find navigation MUST NOT create a record. Ordinary Entity inspector
+scalar and alias drafts remain explicitly submitted under §2.3A: borrowing focus
+and navigating matches MUST NOT submit them or retarget their inspector subject.
+Only an active Grid Adapter editor uses its existing departure acceptance gate
+on Hosts and Identities. Timeline retains its source-owned collection and
+inspector departure settlement.
 
 Successful navigation reveals and focuses the semantic cell in navigation mode,
 without opening its editor, and collapses the Find panel while retaining the
@@ -2878,11 +2889,12 @@ movement only to a still-current matching destination. Obsolete completion MUST
 NOT change results or focus. Matching MUST retain virtualization, use bounded
 cooperative work and retain no permanent index or duplicate query-row store.
 
-Leaving Timeline retires Find. Authority suspension/loss MUST immediately retire
+Leaving the active view schema retires Find. Authority suspension/loss MUST immediately retire
 its protected term, results and pending work under REQ-03-299/100, independently
 of retained authoring. Ordinary query failure preserves searches over permitted
 authorized stale rows with accurate feedback. Find MUST NOT persist search
-history or log terms or searched contents. Other surfaces require their own
+history or log terms or searched contents. Surfaces other than Timeline, Hosts
+and Identities require their own
 adopted capability; shared mechanics alone do not enable Find there.
 
 Acceptance requires exact scoped counts/order, stable offscreen targets,

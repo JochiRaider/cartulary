@@ -1441,6 +1441,402 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.entity_find_authority_host",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_authority_host"
+        ],
+        "titles": [
+          "Entity Find retires protected host search during session suspension and reauthentication for read-only viewers"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_authority_identity",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_authority_identity"
+        ],
+        "titles": [
+          "Entity Find retires protected identity search during session suspension and reauthentication for read-only viewers"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_characterization",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_characterization"
+        ],
+        "titles": [
+          "Entity committed presentation characterization preserves labels aliases drafts and independent accepted sheets"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_editing",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_editing"
+        ],
+        "titles": [
+          "Entity Find borrows exact grid work and gates rejected accepted and superseded destinations on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_geometry",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_geometry"
+        ],
+        "titles": [
+          "Entity Find supports density viewport zoom text spacing announcements and recovery menu focus on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_inspector",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_inspector"
+        ],
+        "titles": [
+          "Entity Find preserves independent inspector scalar alias and recordless authoring without submission on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_literal",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_literal"
+        ],
+        "titles": [
+          "Entity Find literal renderer fragments counts order and native keyboard ownership work on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_refresh",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_refresh"
+        ],
+        "titles": [
+          "Entity Find accepted edits retain newer work through failed refresh and recover with reads without write replay on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_scope",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_scope"
+        ],
+        "titles": [
+          "Entity Find follows grouping hidden fields saved views live deletion and surface retirement on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_virtualized",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_virtualized"
+        ],
+        "titles": [
+          "Entity Find reveals offscreen rows and columns with semantic focus and bounded mounted records on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.entity_find_window",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-find.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_entity_find_window"
+        ],
+        "titles": [
+          "Entity Find searches accepted bounded windows through continuation eviction and failed replacement on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.find_accessible_geometry",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",

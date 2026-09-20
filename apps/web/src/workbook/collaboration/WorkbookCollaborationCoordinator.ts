@@ -15,6 +15,7 @@ import type {
 } from "../lifecycle/workbookInvalidation";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import {
+  authorizationRecoveryDelayMs,
   beginWorkbookAuthorizationRecovery,
   completeWorkbookAuthorizationRecovery,
   initialWorkbookAuthorizationRecoveryMachine,
@@ -703,13 +704,14 @@ class WorkbookCollaborationCoordinatorRuntime {
       return;
     }
     if (plan.kind !== "authorized") return;
-    this.options.onAuthorizationRecovered(plan.result);
     if (!plan.canResumeMutations) {
       this.applyInvalidationPlan({
         kind: "incident_role_changed",
         role: plan.result.role,
       });
     }
+    // Retire old write admission before publishing the newly confirmed read role.
+    this.options.onAuthorizationRecovered(plan.result);
     this.pendingAuthorizationRefresh = plan;
     void this.settleAuthorizedRecovery(plan);
   }
@@ -723,6 +725,8 @@ class WorkbookCollaborationCoordinatorRuntime {
       sheetRefKey(port.identity.sheetRef) !== sheetRefKey(this.activeSheetRef)
     )
       return;
+    this.authorizationRecoveryTask?.cancel();
+    this.authorizationRecoveryTask = null;
     const attempt = ++this.authorizationRefreshAttempt;
     const current = () =>
       !this.disposed &&
@@ -733,6 +737,24 @@ class WorkbookCollaborationCoordinatorRuntime {
       await port.refresh({ reason: "authorization_recovered" });
     } catch (error) {
       if (!current()) return;
+      if (
+        error instanceof WorkbookSurfaceRefreshError &&
+        error.recovery.kind === "cancelled"
+      ) {
+        // Authority may be confirmed before its source owners reattach. Keep
+        // that confirmation pending: repeating role invalidation would suspend
+        // the freshly attached read owner on every retry. A new active port
+        // retries immediately; an unchanged port still owes an accepted read.
+        this.authorizationRecoveryTask = this.options.scheduler.schedule(
+          authorizationRecoveryDelayMs,
+          () => {
+            this.authorizationRecoveryTask = null;
+            if (this.pendingAuthorizationRefresh === plan)
+              void this.settleAuthorizedRecovery(plan);
+          },
+        );
+        return;
+      }
       this.pendingAuthorizationRefresh = null;
       this.authorizationRecoveryMachine = {
         ...this.authorizationRecoveryMachine,
@@ -740,10 +762,7 @@ class WorkbookCollaborationCoordinatorRuntime {
       };
       this.handleAuthorizationRecoveryResult(
         plan.admission,
-        // Confirmed authority can precede React attachment or a replacement
-        // query. A cancelled read still owes confirmation before replay.
-        error instanceof WorkbookSurfaceRefreshError &&
-          error.recovery.kind !== "cancelled"
+        error instanceof WorkbookSurfaceRefreshError
           ? error.recovery
           : { kind: "unavailable", failure: "transient" },
       );

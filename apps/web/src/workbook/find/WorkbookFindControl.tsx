@@ -1,6 +1,6 @@
 import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import { Search } from "lucide-react";
-import { type RefObject, useLayoutEffect } from "react";
+import { type RefObject, useId, useLayoutEffect } from "react";
 import { menuStyle } from "../components/workbookGridControlStyles";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
@@ -31,6 +31,7 @@ export function WorkbookFindControl({
   chromeMode: WorkbookChromeMode;
 }) {
   const { snapshot, inputRef } = binding;
+  const id = useId();
   useLayoutEffect(() => {
     if (snapshot.open) inputRef.current?.focus();
   }, [snapshot.open, inputRef]);
@@ -51,7 +52,7 @@ export function WorkbookFindControl({
       <button
         aria-label={presentation.scopeLabel}
         aria-expanded={snapshot.open}
-        aria-controls="timeline-find-panel"
+        aria-controls={`${id}-panel`}
         type="button"
         title={presentation.scopeLabel}
         disabled={!binding.available}
@@ -65,7 +66,7 @@ export function WorkbookFindControl({
       </button>
       {snapshot.open ? (
         <section
-          id="timeline-find-panel"
+          id={`${id}-panel`}
           aria-label={presentation.scopeLabel}
           style={{
             position: "absolute",
@@ -98,14 +99,14 @@ export function WorkbookFindControl({
             }
           }}
         >
-          <label htmlFor="timeline-find-input">Find in loaded rows</label>
+          <label htmlFor={`${id}-input`}>Find in loaded rows</label>
           <textarea
             rows={1}
             ref={inputRef}
-            id="timeline-find-input"
+            id={`${id}-input`}
             autoComplete="off"
             spellCheck={false}
-            aria-describedby="timeline-find-help timeline-find-status"
+            aria-describedby={`${id}-help ${id}-status`}
             value={snapshot.term}
             onChange={(event) => binding.changeTerm(event.currentTarget.value)}
             style={{
@@ -159,10 +160,10 @@ export function WorkbookFindControl({
               Close
             </button>
           </div>
-          <p id="timeline-find-status" style={{ margin: 0 }}>
+          <p id={`${id}-status`} style={{ margin: 0 }}>
             {status}
           </p>
-          <p id="timeline-find-help" style={{ margin: 0, fontSize: "0.85em" }}>
+          <p id={`${id}-help`} style={{ margin: 0, fontSize: "0.85em" }}>
             {presentation.scopeHelp}
             {snapshot.stale
               ? " Showing retained rows; refresh has not completed."

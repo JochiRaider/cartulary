@@ -334,7 +334,8 @@ func (appender *recordChangedAppender) validatedRecordChangePayload(input Record
 		input.IncidentID == uuid.Nil || input.ActorUserID == uuid.Nil || input.RowVersion < 1 || len(input.AffectedViews) == 0 {
 		return nil, errors.New("record_change_intent_v1 identity is incomplete")
 	}
-	changedKeys := append([]string(nil), input.PublicFieldKeys...)
+	// The wire contract requires an array even for delete/restore with no cell delta.
+	changedKeys := append([]string{}, input.PublicFieldKeys...)
 	slices.Sort(changedKeys)
 	changedKeys = slices.Compact(changedKeys)
 	for _, key := range changedKeys {

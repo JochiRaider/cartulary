@@ -273,6 +273,38 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-entity-find",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.entity_find_authority_host",
+            "module.workbook.browser.entity_find_authority_identity",
+            "module.workbook.browser.entity_find_characterization",
+            "module.workbook.browser.entity_find_editing",
+            "module.workbook.browser.entity_find_geometry",
+            "module.workbook.browser.entity_find_inspector",
+            "module.workbook.browser.entity_find_literal",
+            "module.workbook.browser.entity_find_refresh",
+            "module.workbook.browser.entity_find_scope",
+            "module.workbook.browser.entity_find_virtualized",
+            "module.workbook.browser.entity_find_window"
+          ],
+          "specs": [
+            "apps/web/e2e/entity-find.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-evidence-integration",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1809,6 +1841,38 @@
           ],
           "specs": [
             "apps/web/e2e/enterprise-auth.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-entity-find",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.entity_find_authority_host",
+            "module.workbook.browser.entity_find_authority_identity",
+            "module.workbook.browser.entity_find_characterization",
+            "module.workbook.browser.entity_find_editing",
+            "module.workbook.browser.entity_find_geometry",
+            "module.workbook.browser.entity_find_inspector",
+            "module.workbook.browser.entity_find_literal",
+            "module.workbook.browser.entity_find_refresh",
+            "module.workbook.browser.entity_find_scope",
+            "module.workbook.browser.entity_find_virtualized",
+            "module.workbook.browser.entity_find_window"
+          ],
+          "specs": [
+            "apps/web/e2e/entity-find.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

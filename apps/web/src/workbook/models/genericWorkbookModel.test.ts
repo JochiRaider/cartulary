@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import { buildGenericCreateRequest } from "../features/generic/genericCreateRequestBuilder";
 import {
   buildGenericPatchChange,
-  collectionItemLabels,
   extractEmailFromPartyText,
   genericCellLabel,
   genericCellLabelForField,
@@ -394,12 +393,14 @@ describe("genericWorkbookModel", () => {
       ),
     ).toBe("Managed object");
     expect(
-      collectionItemLabels([
-        { raw_text: "raw" },
-        { linked_record_id: "record-1" },
-        { item_ref: "item-1" },
-      ]),
-    ).toEqual(["raw", "record-1", "item-1"]);
+      genericCellLabel({
+        items: [
+          { raw_text: "raw" },
+          { linked_record_id: "record-1" },
+          { item_ref: "item-1" },
+        ],
+      }),
+    ).toBe("raw, record-1, item-1");
     expect(genericCreateMinimumMessage(evidence)).toBe(
       "Evidence needs at least one user-entered evidence value or a finalized attachment.",
     );

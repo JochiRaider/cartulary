@@ -1,5 +1,6 @@
 import {
   type GridActionsColumn,
+  type GridCellAnchor,
   type GridColumn,
   type GridDataRow,
   type GridDraftRow,
@@ -48,6 +49,11 @@ import { useEntityWorkbookInspectorComposition } from "../features/entities/useE
 import { OrdinaryCreateControl } from "../features/ordinary/OrdinaryCreateControl";
 import { OrdinaryCreateNotice } from "../features/ordinary/OrdinaryCreateNotice";
 import { useOrdinaryCreateDraft } from "../features/ordinary/useOrdinaryCreateDraft";
+import {
+  useWorkbookFind,
+  type WorkbookFindFocusLoan,
+} from "../find/useWorkbookFind";
+import { WorkbookFindControl } from "../find/WorkbookFindControl";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import { useRetainedInspectorRow } from "../inspector/useRetainedInspectorRow";
 import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatchRecovery";
@@ -67,6 +73,10 @@ import {
   applyWorkbookLayoutToColumns,
   workbookFrozenDataColumnPrefix,
 } from "../layout/workbookColumnLayout";
+import {
+  entityCellPresentation,
+  entityFindText,
+} from "../models/entityCellPresentation";
 import {
   type EntityRow,
   entityContractColumnWidth,
@@ -100,7 +110,10 @@ import type {
   RecordRouteCommandPort,
   TimelineRelatedRecordPort,
 } from "../mutations/workbookMutationCommandPorts";
-import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
+import {
+  useWorkbookQueryPresentation,
+  useWorkbookQueryRestart,
+} from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
@@ -127,6 +140,7 @@ const identitiesContract = requireViewContract(identitiesViewSchemaId);
 
 export type EntityWorkbookSurfaceProps = {
   readonly sheetRef: SheetRef;
+  readonly incidentId: string;
   readonly clipboardPaste: WorkbookClipboardPastePort;
   continuityResetKey: string;
   entityType: EntityRow["entityType"];
@@ -159,22 +173,8 @@ function entityCellContent(
   row: EntityRow,
   fieldKey: string,
 ): ReactNode {
-  const displayField =
-    entityType === "host" ? "host.display_name" : "identity.display_name";
-  const primaryField = entityType === "host" ? "host.hostname" : "identity.upn";
-  const stateField =
-    entityType === "host" ? "host.host_state" : "identity.identity_state";
-  const aliasesField =
-    entityType === "host" ? "host.aliases" : "identity.aliases";
-  if (fieldKey === displayField) {
-    return row.label;
-  }
-  if (fieldKey === primaryField) {
-    return row.secondaryText || "None";
-  }
-  if (fieldKey === stateField) {
-    return row.state;
-  }
+  const presentation = entityCellPresentation(row, fieldKey);
+  const aliasesField = `${entityType}.aliases`;
   if (fieldKey === aliasesField) {
     return row.aliasTexts.length > 0 ? (
       <div style={entityAliasListStyle}>
@@ -188,14 +188,12 @@ function entityCellContent(
       "No aliases"
     );
   }
-  if (fieldKey === "row_version") {
-    return String(row.rowVersion);
-  }
-  return genericCellLabel(row.rawRow.cells[fieldKey]?.value);
+  return presentation.text;
 }
 
 export function EntityWorkbookSurface({
   sheetRef,
+  incidentId,
   clipboardPaste: clipboardPastePort,
   continuityResetKey,
   entityType,
@@ -412,6 +410,54 @@ export function EntityWorkbookSurface({
     setMutationError,
     setSelectedRecordId,
     viewQuery,
+  });
+  const browsing = useWorkbookQueryPresentation();
+  const readFindText = useCallback(
+    (anchor: GridCellAnchor) => {
+      if (anchor.rowIdentity.kind !== "core_record") return [];
+      const id = anchor.rowIdentity.recordId;
+      const row = rows.find((row) => row.recordId === id);
+      return row ? entityFindText(row, anchor.fieldKey, contract) : [];
+    },
+    [rows, contract],
+  );
+  const find = useWorkbookFind({
+    lifetimeKey: `${incidentId}:${surface}`,
+    configurationKey: JSON.stringify([
+      continuityResetKey,
+      sheetRef,
+      queryState,
+      layoutState,
+    ]),
+    browser: browsing?.find(surface),
+    authorization: collaborationProjection,
+    readable: !!currentIncidentRole && loadState.kind !== "permission_denied",
+    stale: loadState.kind === "stale_error",
+    readText: readFindText,
+    captureFocus: (target): WorkbookFindFocusLoan | null => {
+      const element = target ?? document.activeElement;
+      const inspectorLoan = entityInspector.captureFindFocus(element);
+      if (inspectorLoan) return inspectorLoan;
+      if (
+        !(element instanceof HTMLElement) ||
+        !gridHandleRef.current?.getScrollElement()?.contains(element) ||
+        !(
+          element instanceof HTMLInputElement ||
+          element instanceof HTMLTextAreaElement ||
+          element instanceof HTMLSelectElement
+        )
+      )
+        return null;
+      const handle = gridHandleRef.current;
+      return {
+        restore: () => {
+          if (gridHandleRef.current !== handle || !element.isConnected)
+            return false;
+          element.focus();
+          return document.activeElement === element;
+        },
+      };
+    },
   });
   const focusEntityDraft = useCallback(() => {
     const firstWritableField = createFields[0];
@@ -685,6 +731,13 @@ export function EntityWorkbookSurface({
     visibleColumns: entityColumns,
     viewSchemaId: surface,
   });
+  const registerFindGrid = useCallback(
+    (handle: GridHandle | null) => {
+      registerGridHandle(handle);
+      find.bindGrid(handle);
+    },
+    [registerGridHandle, find.bindGrid],
+  );
   const entityActionsColumn: GridActionsColumn<EntityRow> = {
     headerTestId: gridActionsHeaderTestId(surface),
     label: "",
@@ -779,7 +832,7 @@ export function EntityWorkbookSurface({
                 layoutState,
               )}
               rowGutter={workbookPresenceRowGutter}
-              ref={registerGridHandle}
+              ref={registerFindGrid}
               activeRowIdentity={
                 selectedRecordId === null
                   ? null
@@ -789,6 +842,9 @@ export function EntityWorkbookSurface({
               actionsColumn={entityActionsColumn}
               columns={entityColumns}
               dataState={dataState}
+              getCellState={({ anchor }) => ({
+                findMatch: find.cellMatch(anchor),
+              })}
               density={density}
               draftRow={entityDraftRow}
               grouping={grouping}
@@ -798,7 +854,7 @@ export function EntityWorkbookSurface({
                   anchor?.rowIdentity.kind === "core_record"
                     ? anchor.rowIdentity.recordId
                     : null;
-                setSelectedRecordId(recordId);
+                if (!find.isApplyingFocus()) setSelectedRecordId(recordId);
                 if (recordId === null || anchor === null) {
                   entityFocus.port.clear();
                 } else {
@@ -839,6 +895,12 @@ export function EntityWorkbookSurface({
         <WorkbookViewBar
           addRowDisabled={!canCreateRows}
           chromeMode={chromeMode}
+          findControls={
+            <WorkbookFindControl
+              binding={find.control}
+              chromeMode={chromeMode}
+            />
+          }
           workingSet={viewBarWorkingSet}
           onAddRow={focusEntityDraft}
           onInspectorToggle={() => {

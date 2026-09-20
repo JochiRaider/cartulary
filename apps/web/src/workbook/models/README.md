@@ -26,6 +26,8 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 | [assessmentWorkbookModel.ts](assessmentWorkbookModel.ts) | Assessment workbook draft, payload, confidence-band, and support-row helpers. |
 | [entityClipboardPastePlan.test.ts](entityClipboardPastePlan.test.ts) | Tests Entity scalar routing, exact-origin all-create requests, and fail-closed target/authority handling. |
 | [entityClipboardPastePlan.ts](entityClipboardPastePlan.ts) | Pure Entity scalar-versus-batch paste planning with current-record, writable-field, grouping, create-capability, and exact-surface admission. |
+| [entityCellPresentation.ts](entityCellPresentation.ts) | Shared committed renderer labels and independent readable Find fragments for Hosts and Identities. |
+| [entityCellPresentation.test.ts](entityCellPresentation.test.ts) | Exact fallbacks, collection fragment boundaries and metadata/placeholder exclusions for both schemas. |
 | [entityIdentifierClasses.ts](entityIdentifierClasses.ts) | Entity identifier field classification used by merge review. |
 | [entityMergePlan.test.ts](entityMergePlan.test.ts) | Tests owner-aligned identifier normalization, promotion ordering, duplicates, and alias policy. |
 | [entityMergePlan.ts](entityMergePlan.ts) | Pure Entity merge identifier outcomes and review explanation. |

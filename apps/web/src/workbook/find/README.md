@@ -11,14 +11,22 @@ projection. Typing changes results only. Explicit movement uses the injected
 semantic navigation command and collapses the panel on acceptance; Close clears
 state. The live status remains mounted to announce the result after collapse.
 
-Timeline supplies the first source in `timeline/hooks/useTimelineFind.ts` and
+`useWorkbookFind` owns the shared authority, accepted/presented intersection,
+keyboard, cancellation, focus borrowing and panel lifecycle. Timeline supplies
+its source adapter in `timeline/hooks/useTimelineFindSource.ts` and
 `timeline/models/timelineFindText.ts`. The source intersects accepted query rows
 with Adapter presentation membership. Collaboration supplies current read
 authority independently of mutation replay admission. Collection summary and
 scalar formatting remain Timeline-owned. Borrowed inspector/collection editors settle through
 existing source save callbacks; Adapter scalar sessions use `navigateToCell`.
 
-Another authorized grid can supply the same readable-text, membership and
+Hosts and Identities use their existing query browsers and committed
+`models/entityCellPresentation.ts` decisions shared with rendering. Their
+independent Inspector drafts retain explicit submission. Find-driven focus does
+not retarget that Inspector. Technical fallback text and separate collection
+fragments never create searchable metadata or cross-item matches.
+
+Another adopted grid can supply the same readable-text, membership and
 navigation capabilities without another Find owner. Exhaustive server search
 requires its own adopted boundary; do not scan additional pages here.
 

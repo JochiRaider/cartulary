@@ -813,7 +813,7 @@ Same-field conflicts, record history, and rollback are review and recovery conce
 
 Grouping, filtering, sorting, and search operate over workbook query and projection contracts. Domain language MUST refer to stable `field_key` and `view_schema_id` identities when behavior or compatibility matters. Visible headers, labels, chip text, and localized labels MUST NOT define query semantics.
 
-`Find in loaded rows` names the local Timeline cell-navigation interaction owned
+`Find in loaded rows` names the local Timeline, Hosts and Identities cell-navigation interaction owned
 by Core 03 §13.5. It is distinct from Core 01's server query predicates: it searches
 eligible committed presentation in the accepted loaded window and changes neither
 query membership nor saved configuration. This is owner navigation, not a new

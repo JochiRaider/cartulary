@@ -468,7 +468,9 @@ test("Timeline Find follows column group saved-view and live membership while re
   });
   // Refresh discovery through ordinary surface activation; Find retires on departure.
   await switchOrdinarySheet(page, hostsViewSchemaId);
-  await expect(entry(page)).toHaveCount(0);
+  await expect(entry(page)).toBeVisible();
+  await entry(page).click();
+  await expect(input(page)).toHaveValue("");
   await switchOrdinarySheet(page, timelineViewSchemaId);
   await find(page, "needle", 4);
   await selectSavedView(page, timelineViewSchemaId, saved.saved_view_id);

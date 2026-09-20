@@ -1165,7 +1165,11 @@ describe("WorkbookCollaborationCoordinator", () => {
         }),
       },
     );
-    const refresh = vi.fn(async () => undefined);
+    const refresh = vi
+      .fn(async () => undefined)
+      .mockRejectedValueOnce(
+        new WorkbookSurfaceRefreshError({ kind: "cancelled" }),
+      );
     fixture.projection.registerActiveSurface({
       identity: {
         sheetRef: {
@@ -1189,6 +1193,14 @@ describe("WorkbookCollaborationCoordinator", () => {
     await fixture.timing.advanceBy(1_000);
     await Promise.resolve();
 
+    // A confirmed viewer role can precede attachment of the read owner.
+    // Retry the read without invalidating that newly attached role again.
+    expect(fixture.projection.getReadAuthorization()).toBe(false);
+    expect(fixture.session.reconnect).not.toHaveBeenCalled();
+    await fixture.timing.advanceBy(1_000);
+    await Promise.resolve();
+    expect(fixture.onAuthorizationRecovered).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalledTimes(2);
     expect(fixture.onAuthorizationRecovered).toHaveBeenCalledWith({
       kind: "authorized",
       role: "viewer",

@@ -1069,6 +1069,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.entity_find_text",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityCellPresentation.test.ts",
+        "titles": [
+          "Entity Find presentation preserves renderer fallback precedence and eligible literal fields on both schemas",
+          "Entity Find presentation uses independently displayed collection fragments and excludes fallback metadata and arbitrary JSON"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.entity_merge_admission",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1484,6 +1509,32 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.find_binding",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/find/useWorkbookFind.test.tsx",
+        "titles": [
+          "Workbook Find binding fences pending destinations synchronously at owner notifications without cancelling settlement",
+          "Workbook Find binding intersects accepted and presented membership without reads and keeps focus loans independent",
+          "Workbook Find binding retires on schema or authority loss but retains intent on same-schema configuration replacement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
       "service_dependencies": []
     },
     {

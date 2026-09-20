@@ -3,6 +3,7 @@ import type {
   GridEditCommitOutcome,
   GridEditorAdapter,
 } from "@cartulary/grid-adapter";
+import { workbookGridEditorTestId } from "@cartulary/ui-contracts";
 import {
   getReferenceFieldContract,
   type ViewFieldContract,
@@ -121,7 +122,10 @@ export function workbookGridEditorAdapter<Row>({
               compact
               invalid={context.outcome?.kind === "validation_error"}
               focusTargetRef={context.focusTargetRef}
-              testId={`grid-editor-${readRow(context.row).record_id}-${field.fieldKey}`}
+              testId={workbookGridEditorTestId(
+                readRow(context.row).record_id,
+                field.fieldKey,
+              )}
               onChange={(value) => context.setDraftValue(value)}
               onAccept={(items) => {
                 const value = items[0]?.identity.id;
@@ -138,11 +142,12 @@ export function workbookGridEditorAdapter<Row>({
               field={field}
               focusTargetRef={context.focusTargetRef}
               surface="grid"
-              testId={`grid-editor-${
+              testId={workbookGridEditorTestId(
                 context.target.rowIdentity.kind === "core_record"
                   ? context.target.rowIdentity.recordId
-                  : "unsupported"
-              }-${field.fieldKey}`}
+                  : "unsupported",
+                field.fieldKey,
+              )}
               value={draftValue}
               onChange={(value) => context.setDraftValue(value)}
             />
