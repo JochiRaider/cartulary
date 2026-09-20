@@ -13,10 +13,14 @@ const context = {
 
 describe("Timeline bulk-tag plan", () => {
   it("builds one ordered versioned command from the selected records", () => {
-    const first = committedRow("record-1", 3);
+    const first = {
+      ...committedRow("record-1", 3),
+      pendingSignature: "pending",
+    };
     const second = committedRow("record-2", 4);
     const plan = planTimelineBulkTag({
       context,
+      queryMembers: null,
       rows: [first, second],
       selectedRecordIds: new Set(["record-1", "record-2"]),
       tagName: "  triaged  ",
@@ -35,6 +39,7 @@ describe("Timeline bulk-tag plan", () => {
     const row = committedRow("record-1", 3);
     const base = {
       context,
+      queryMembers: null,
       rows: [row],
       selectedRecordIds: new Set(["record-1"]),
       tagName: "tag",
@@ -51,6 +56,9 @@ describe("Timeline bulk-tag plan", () => {
         context: { ...context, capabilityAvailable: false },
       }),
     ).toEqual({ kind: "reject", reason: "capability_unavailable" });
+    expect(
+      planTimelineBulkTag({ ...base, queryMembers: new Set<string>() }),
+    ).toEqual({ kind: "reject", reason: "invalid_target" });
     expect(planTimelineBulkTag({ ...base, rows: [] })).toEqual({
       kind: "reject",
       reason: "partial_selection",
@@ -58,7 +66,7 @@ describe("Timeline bulk-tag plan", () => {
     expect(
       planTimelineBulkTag({
         ...base,
-        rows: [{ ...row, pendingSignature: "pending" }],
+        rows: [{ ...row, rowVersion: null }],
       }),
     ).toEqual({ kind: "reject", reason: "invalid_target" });
   });

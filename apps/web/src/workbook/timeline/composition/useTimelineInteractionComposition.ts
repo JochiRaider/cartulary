@@ -34,6 +34,7 @@ type TimelineInteractionCompositionInput = {
   readonly foundation: {
     readonly editorDraftRegistry: TimelineEditorDraftRegistry;
     readonly bulkTagPort: BulkInput["port"];
+    readonly bulkTagReadiness: BulkInput["readiness"];
     readonly clipboardPastePort: ClipboardInput["clipboardPaste"];
     readonly pendingSavesRefs: ClipboardInput["pendingSavesRefs"];
     readonly recordTiming: KeyboardInput["recordTiming"];
@@ -119,6 +120,7 @@ export function useTimelineInteractionComposition({
       capabilityAvailable: timelineBulkTagCapabilityAvailable,
     },
     port: foundation.bulkTagPort,
+    readiness: foundation.bulkTagReadiness,
     precedingSaves: () => foundation.pendingSavesRefs.saveQueueRef.current,
     rows: foundation.rows,
     rowsRef: foundation.rowsRef,
@@ -288,7 +290,6 @@ export function useTimelineInteractionComposition({
   );
   return {
     commands: {
-      bulk: bulk.commands,
       editor: {
         activateConflictCell: mutation.activateConflict,
         commitScalarGridEdit: mutation.commitScalarGridEdit,
@@ -307,7 +308,7 @@ export function useTimelineInteractionComposition({
         handleWorkAreaKeyDown: keyboard.onWorkAreaKeyDown,
       },
     },
-    ports: {},
+    ports: { bulkTag: bulk.controls },
     snapshot: {
       bulk: bulk.snapshot,
       editor: {},

@@ -154,6 +154,7 @@ export function useTimelineWorkbookComposition({
     foundation: {
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
       bulkTagPort: foundation.ports.bulkTag,
+      bulkTagReadiness: foundation.ports.bulkTagReadiness,
       clipboardPastePort: foundation.ports.clipboardPaste,
       pendingSavesRefs: foundation.refs.pendingSaves,
       recordTiming: foundation.commands.recordTiming,
@@ -371,6 +372,7 @@ export function useTimelineWorkbookComposition({
       snapshot: inspector.snapshot,
     },
     interaction: {
+      ports: interaction.ports,
       commands: interaction.commands,
       snapshot: interaction.snapshot,
     },

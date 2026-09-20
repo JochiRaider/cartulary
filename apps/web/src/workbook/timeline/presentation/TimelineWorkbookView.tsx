@@ -1,5 +1,9 @@
 import { WorkbookObservedStatusStrip } from "../../components/WorkbookStatusStrip";
-import { WorkbookSurfaceLayout } from "../../layout/WorkbookSurfaceLayout";
+import {
+  WorkbookSurfaceLayout,
+  workbookSurfaceFeedbackStyle,
+} from "../../layout/WorkbookSurfaceLayout";
+import { TimelineBulkTagControl } from "../components/TimelineBulkTagControl";
 import { TimelineWorkbookGrid } from "../components/TimelineWorkbookGrid";
 import { TimelineWorkbookNotices } from "../components/TimelineWorkbookNotices";
 import { TimelineWorkbookInspectorRegion } from "./TimelineWorkbookInspectorRegion";
@@ -23,7 +27,12 @@ export function TimelineWorkbookView({
       primaryGrid={<TimelineWorkbookGrid {...model.grid} />}
       statusStrip={<WorkbookObservedStatusStrip {...model.status} />}
       viewBar={<TimelineWorkbookViewBarRegion model={model.viewBar} />}
-      workAreaFeedback={<TimelineWorkbookNotices {...model.notices} />}
+      workAreaFeedback={
+        <div style={workbookSurfaceFeedbackStyle}>
+          <TimelineBulkTagControl binding={model.bulkTag} />
+          <TimelineWorkbookNotices {...model.notices} />
+        </div>
+      }
       workAreaOverlays={
         <TimelineWorkbookOverlayRegion model={model.overlays} />
       }

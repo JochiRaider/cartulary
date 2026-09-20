@@ -177,16 +177,7 @@ export function useTimelineWorkbookPresentation({
     handleClearCells,
     handleWorkAreaKeyDown: handleTimelineWorkAreaKeyDown,
   } = interaction.commands.grid;
-  const {
-    canAssign: canBulkTag,
-    canSubmit: canSubmitBulkTag,
-    gridSelection: timelineBulkSelection,
-    message: bulkTagMessage,
-    selectedRecordIds: selectedTimelineRecordIds,
-    tagName: bulkTagName,
-  } = interaction.snapshot.bulk;
-  const { assignTag: assignTagToSelectedRows, changeTagName: setBulkTagName } =
-    interaction.commands.bulk;
+  const timelineBulkSelection = interaction.snapshot.bulk.gridSelection;
   const {
     canManageMentions,
     inspectorMessage,
@@ -671,6 +662,7 @@ export function useTimelineWorkbookPresentation({
       showPresence: showStatusPresence,
       workbookFocusAnchor,
     },
+    bulkTag: interaction.ports.bulkTag,
     viewBar: {
       find: find.control,
       onClearContents: (event: MouseEvent<HTMLButtonElement>) =>
@@ -681,18 +673,6 @@ export function useTimelineWorkbookPresentation({
         ),
       addRowDisabled: interactionMode.kind === "read_only",
       chromeMode,
-      bulk:
-        selectedTimelineRecordIds.size === 0
-          ? null
-          : {
-              canAssign: canBulkTag,
-              canSubmit: canSubmitBulkTag,
-              message: bulkTagMessage,
-              onAssign: assignTagToSelectedRows,
-              onTagNameChange: setBulkTagName,
-              selectedCount: selectedTimelineRecordIds.size,
-              tagName: bulkTagName,
-            },
       workingSet: renderInlineQueryControls
         ? {
             savedView: viewBarWorkingSet?.savedView ?? null,

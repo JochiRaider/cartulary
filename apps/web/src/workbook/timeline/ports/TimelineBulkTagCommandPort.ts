@@ -1,5 +1,13 @@
-import type { WorkbookBatchAdmission } from "../../runtime/workbookBatchOperation";
+import type {
+  WorkbookBatchAdmission,
+  WorkbookBatchSnapshot,
+} from "../../runtime/workbookBatchOperation";
+export type TimelineBulkTagAdmission =
+  | { readonly kind: "admitted"; readonly operationId: string }
+  | { readonly kind: "rejected"; readonly message: string };
 export interface TimelineBulkTagCommandPort {
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly getSnapshot: () => WorkbookBatchSnapshot;
   assignTag(
     input: {
       readonly tagName: string;
@@ -9,5 +17,5 @@ export interface TimelineBulkTagCommandPort {
       }[];
     },
     admission: WorkbookBatchAdmission,
-  ): string | null;
+  ): TimelineBulkTagAdmission;
 }

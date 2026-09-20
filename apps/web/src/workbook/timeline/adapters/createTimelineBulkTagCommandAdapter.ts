@@ -2,13 +2,22 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookBatchOperationOwner } from "../../runtime/WorkbookBatchOperationOwner";
 import type { TimelineBulkTagCommandPort } from "../ports/TimelineBulkTagCommandPort";
 export function createTimelineBulkTagCommandAdapter(
-  owner: Pick<WorkbookBatchOperationOwner, "admit">,
+  owner: Pick<
+    WorkbookBatchOperationOwner,
+    "admit" | "subscribe" | "getSnapshot"
+  >,
 ): TimelineBulkTagCommandPort {
   return {
+    subscribe: owner.subscribe,
+    getSnapshot: owner.getSnapshot,
     assignTag(input, admission) {
       const [first, ...rest] = input.targets;
-      if (!first || !input.tagName.trim()) return null;
-      return owner.admit(
+      if (!first || !input.tagName.trim())
+        return {
+          kind: "rejected",
+          message: "Select records and enter a tag. Nothing was sent.",
+        };
+      const operationId = owner.admit(
         {
           operation: "applyWorkbookBulkMutation",
           request: {
@@ -27,6 +36,14 @@ export function createTimelineBulkTagCommandAdapter(
         },
         admission,
       );
+      return operationId === null
+        ? {
+            kind: "rejected",
+            message:
+              owner.getSnapshot().admissionError ??
+              "Tag assignment could not be admitted. Nothing was sent.",
+          }
+        : { kind: "admitted", operationId };
     },
   };
 }

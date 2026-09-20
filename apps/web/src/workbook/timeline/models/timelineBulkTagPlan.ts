@@ -29,6 +29,7 @@ export type TimelineBulkTagPlan =
 export function planTimelineBulkTag(options: {
   readonly context: TimelineBulkTagContext;
   readonly rows: readonly WorkbookRow[];
+  readonly queryMembers: ReadonlySet<string> | null;
   readonly selectedRecordIds: ReadonlySet<string>;
   readonly tagName: string;
 }): TimelineBulkTagPlan {
@@ -50,7 +51,11 @@ export function planTimelineBulkTag(options: {
   if (selectedRows.length !== options.selectedRecordIds.size) {
     return { kind: "reject", reason: "partial_selection" };
   }
-  if (selectedRows.some((row) => !dispatchableTagTarget(row))) {
+  if (
+    selectedRows.some(
+      (row) => !timelineBulkTagMember(row, options.queryMembers),
+    )
+  ) {
     return { kind: "reject", reason: "invalid_target" };
   }
   return {
@@ -63,13 +68,16 @@ export function planTimelineBulkTag(options: {
   };
 }
 
-function dispatchableTagTarget(row: WorkbookRow): boolean {
+export function timelineBulkTagMember(
+  row: WorkbookRow,
+  queryMembers: ReadonlySet<string> | null,
+): boolean {
   return (
     row.viewSchemaId === timelineViewSchemaId &&
     row.recordId !== null &&
     row.rowVersion !== null &&
     Number.isSafeInteger(row.rowVersion) &&
     row.rowVersion > 0 &&
-    row.pendingSignature === null
+    (queryMembers === null || queryMembers.has(row.recordId))
   );
 }

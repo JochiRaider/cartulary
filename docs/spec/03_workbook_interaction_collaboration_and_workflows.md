@@ -374,6 +374,16 @@ Verified by: AC-480
 
 **REQ-03-297**
 Bulk record selection MUST be opt-in per view schema and MUST exist only when an adopted multi-record command consumes it. In the current profile, Timeline MAY expose selection for `multi_row_tag_assignment_v1`; other surfaces MUST omit bulk selection until an owner adopts a command. Active cell, inspector subject, and bulk selection are distinct state. Selection MUST use committed `record_id` values, exclude group and draft rows, carry current `base_row_version` targets at dispatch, and prune records removed from the accepted query result or authorization scope. Select-all means selectable committed records in the current loaded query window only. Appending a response page MUST NOT expand existing selection. An out-of-query creation pin MUST NOT become a bulk target merely because it is displayed. Eviction MUST prune record selection and MUST clear a cell range whose original members no longer form a valid contiguous range. These presentation transitions MUST NOT alter already captured mutation targets.
+
+Transient local autosave MUST NOT remove an otherwise authorized committed query
+member from record selection or hide its checkbox. Selection membership and
+mutation readiness are distinct. Explicit tag submission MUST revalidate the
+complete intended set; temporary ineligibility MUST NOT silently reduce it.
+An admitted assignment MAY wait for its captured prerequisite saves through the
+existing batch coordinator, with only owner-permitted undispatched version
+advancement. Failed or unsubmitted blocking edits preserve selection and raw tag
+authoring with a local explanation. Becoming ready MUST NOT submit an unsubmitted
+tag draft. Later selection changes MUST NOT rewrite an admitted operation.
 Profiles: base
 Verified by: AC-481
 

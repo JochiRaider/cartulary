@@ -13,6 +13,7 @@ semantic models and commands. Surface layout regions live in
 
 | File | Responsibility |
 | --- | --- |
+| [TimelineBulkTagControl.tsx](TimelineBulkTagControl.tsx) | Owns mounted raw tag authoring and local feedback; observes captured batch outcomes without changing selection or grid focus. |
 | [TimelineCollectionCell.tsx](TimelineCollectionCell.tsx) | Focused relationship/tag summary, overflow, and collection-draft cell presentation over discriminated models. |
 | [TimelineDraftRowActions.tsx](TimelineDraftRowActions.tsx) | Timeline draft-row create and evidence-attachment actions. |
 | [TimelineEvidencePanel.tsx](TimelineEvidencePanel.tsx) | Timeline inspector evidence panel and evidence actions UI. |
@@ -25,7 +26,7 @@ semantic models and commands. Surface layout regions live in
 | [TimelineWorkbookGrid.tsx](TimelineWorkbookGrid.tsx) | Timeline grid renderer, grouped row table wrapper, hidden contract metadata cells, and grid test-ID placement. |
 | [TimelineWorkbookInspector.tsx](TimelineWorkbookInspector.tsx) | Timeline inspector shell, panel tabs, disabled-state presentation, selected-row state, and inspector messages. |
 | [TimelineWorkbookInspectorSections.tsx](TimelineWorkbookInspectorSections.tsx) | Timeline inspector section factories for field editors, relationships, evidence attach, related-row creation, and row history. |
-| [TimelineWorkbookNotices.tsx](TimelineWorkbookNotices.tsx) | Timeline notice overlay for auto-resolution notices, pending queue messages, and queued-edit counts. |
+| [TimelineWorkbookNotices.tsx](TimelineWorkbookNotices.tsx) | Retained auto-resolution disclosure list and local actions in the bounded above-grid feedback region. |
 | [TimelineWorkbookRenderers.tsx](TimelineWorkbookRenderers.tsx) | Stable private facade composing scalar, collection, and column renderer owners. |
 | [TimelineWorkbookRendererTypes.ts](TimelineWorkbookRendererTypes.ts) | Private renderer command and output types shared by the Timeline renderer workstreams. |
 | [TimelineWorkbookStyles.ts](TimelineWorkbookStyles.ts) | Timeline-specific style constants shared by Timeline workbook components. |

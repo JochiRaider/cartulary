@@ -2,6 +2,7 @@ import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   authTestId,
   autoResolutionNoticeFamilySelector,
+  dataTestIdSelector,
   gridScrollportSelector,
   gridShellTestId,
   incidentLandingTestId,
@@ -188,10 +189,10 @@ async function characterize(
   const capture = async (name: string) => {
     await settle();
     const geometry = await page.evaluate(
-      ({ noticeSelector, gridId, scrollSelector, inspectorId }) => {
+      ({ noticeSelector, gridSelector, scrollSelector, inspectorSelector }) => {
         const rect = (element: Element | null) =>
           element?.getBoundingClientRect().toJSON() ?? null;
-        const grid = document.querySelector(`[data-testid='${gridId}']`);
+        const grid = document.querySelector(gridSelector);
         const scroll = document.querySelector<HTMLElement>(scrollSelector);
         const active = document.activeElement;
         return {
@@ -207,9 +208,7 @@ async function characterize(
               rect: rect(element),
               text: element.textContent,
             })),
-          inspector: rect(
-            document.querySelector(`[data-testid="${inspectorId}"]`),
-          ),
+          inspector: rect(document.querySelector(inspectorSelector)),
           focused:
             active?.getAttribute("data-testid") ??
             active?.getAttribute("aria-label") ??
@@ -234,9 +233,11 @@ async function characterize(
       },
       {
         noticeSelector: autoResolutionNoticeFamilySelector(),
-        gridId: gridShellTestId(timelineViewSchemaId),
+        gridSelector: dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
         scrollSelector: gridScrollportSelector(),
-        inspectorId: workbookShellSlotTestId("inspector"),
+        inspectorSelector: dataTestIdSelector(
+          workbookShellSlotTestId("inspector"),
+        ),
       },
     );
     observations.push({ name, writes: writes.length, ...geometry });
@@ -261,6 +262,15 @@ async function characterize(
   const close = page.getByTestId(
     workbookInspectorCloseButtonTestId(timelineViewSchemaId),
   );
+  const bulkCheckbox = page.getByRole("checkbox", {
+    name: `Select record ${row.record_id}`,
+    exact: true,
+  });
+  await bulkCheckbox.check();
+  const bulkTag = page.getByRole("textbox", {
+    name: "Tag for selected Timeline records",
+  });
+  await bulkTag.fill("Retained tag beside auto-resolution " + longAlias);
   for (const profile of [
     {
       name: "base-closed",
@@ -339,6 +349,12 @@ async function characterize(
       await page
         .getByRole("separator", { name: "Resize inspector" })
         .press(profile.resize);
+    await expect(bulkCheckbox).toBeChecked();
+    await expect(bulkTag).toHaveValue(
+      "Retained tag beside auto-resolution " + longAlias,
+    );
+    await bulkTag.scrollIntoViewIfNeeded();
+    await bulkTag.click({ trial: true });
     const disclosureRegion = page.getByRole("complementary", {
       name: "Auto-resolution disclosures",
     });
@@ -372,6 +388,10 @@ async function characterize(
     });
     await capture(profile.name);
   }
+  await page
+    .getByRole("button", { name: "Clear tag draft", exact: true })
+    .click();
+  await bulkCheckbox.uncheck();
   await page.evaluate(() => {
     document.documentElement.style.zoom = "1";
   });

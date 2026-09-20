@@ -1168,6 +1168,21 @@ Design contract. Sort controls MUST expose the complete ordered sort list and pr
 
 Design contract. Bulk record selection MUST appear only on a surface with an adopted bulk command. Its checkbox column MUST be visually distinct from inspector-row context and active-cell focus, identify select-all as current-page selection, omit controls for group and draft rows, and announce the selected committed-record count after changes.
 
+Design contract. Timeline tag authoring uses a compact contextual region above
+the grid, outside the query-control rail. It MUST preserve the short select,
+enter tag, assign workflow without a confirmation dialog or floating overlay.
+The region appears for selection, retained tag authoring or local feedback and
+MUST NOT reserve a permanent toolbar row. Raw text and the mounted input's native
+focus/caret survive passive row, readiness and selection updates. With zero
+selected records, retained authoring remains visible, assignment is unavailable,
+and explicit draft dismissal remains available. Local feedback MUST distinguish
+rejected admission, waiting/applying operations and acknowledged outcomes without
+clearing newer authoring or moving focus. Query controls, Find, Clear, Inspector
+and Add row remain reachable at supported effective viewport sizes. Flexible
+input and feedback shrink or wrap within
+the existing work-area feedback region, preserving grid-row geometry and grid
+scroll ownership. These lifetimes add no reload or cross-tab persistence.
+
 Core restatement. Saved views are incident-bound workbook configurations over exactly one `view_schema_id`; a `system` saved view is not the same object as a contract-backed system view. Owner: `03_workbook_interaction_collaboration_and_workflows.md` §2.3, REQ-03-012 through REQ-03-026.
 
 Design contract. Saved-view dirty state MUST be selected by this deterministic algorithm:

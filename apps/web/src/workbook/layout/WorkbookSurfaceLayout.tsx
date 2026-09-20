@@ -313,6 +313,17 @@ export const workbookSurfaceGridShellStyle = {
   background: "var(--ct-colors-surface-1)",
 } satisfies CSSProperties;
 
+/** Bounds contextual actions and notices without taking over grid scrolling. */
+export const workbookSurfaceFeedbackStyle = {
+  display: "flex",
+  flexDirection: "column",
+  minHeight: 0,
+  minWidth: 0,
+  maxBlockSize: "25cqh",
+  overflowY: "auto",
+  overflowX: "hidden",
+} satisfies CSSProperties;
+
 export const workbookSurfaceInspectorPanelStyle = {
   boxSizing: "border-box" as const,
   inlineSize: "100%",

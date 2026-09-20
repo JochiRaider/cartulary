@@ -31,7 +31,6 @@ type WorkbookViewBarProps = {
   readonly onAddRow?: (() => void) | undefined;
   readonly onInspectorToggle?: (() => void) | undefined;
   readonly findControls?: ReactNode | undefined;
-  readonly supplementalControls?: ReactNode | undefined;
   readonly surface: string;
   readonly workingSet?: WorkbookViewBarWorkingSetBinding | undefined;
 };
@@ -44,7 +43,6 @@ export function WorkbookViewBar({
   inspectorButtonRef,
   onAddRow,
   onInspectorToggle,
-  supplementalControls,
   findControls,
   surface,
   workingSet,
@@ -75,9 +73,6 @@ export function WorkbookViewBar({
               chromeMode={chromeMode}
             />
           </div>
-        ) : null}
-        {supplementalControls !== undefined && supplementalControls !== null ? (
-          <div style={supplementalAllocationStyle}>{supplementalControls}</div>
         ) : null}
       </div>
       <div style={rightRailStyle}>
@@ -193,14 +188,6 @@ const queryAllocationStyle = {
   flex: "1 1 0",
   inlineSize: "100%",
   maxInlineSize: "100%",
-  minInlineSize: 0,
-  overflow: "visible",
-} satisfies CSSProperties;
-
-const supplementalAllocationStyle = {
-  display: "flex",
-  alignItems: "center",
-  flex: "0 1 auto",
   minInlineSize: 0,
   overflow: "visible",
 } satisfies CSSProperties;

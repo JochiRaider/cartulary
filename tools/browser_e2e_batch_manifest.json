@@ -1063,6 +1063,34 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-timeline-bulk-tag",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.bulk_tag_characterization",
+            "module.timeline.browser.bulk_tag_delivery_entry",
+            "module.timeline.browser.bulk_tag_layouts",
+            "module.timeline.browser.bulk_tag_membership",
+            "module.timeline.browser.bulk_tag_prerequisites",
+            "module.timeline.browser.bulk_tag_rejection",
+            "module.timeline.browser.bulk_tag_replay"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-bulk-tag.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-timeline-collection-input",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2653,6 +2681,34 @@
           ],
           "specs": [
             "apps/web/e2e/timeline-autosave-feedback.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-timeline-bulk-tag",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.bulk_tag_characterization",
+            "module.timeline.browser.bulk_tag_delivery_entry",
+            "module.timeline.browser.bulk_tag_layouts",
+            "module.timeline.browser.bulk_tag_membership",
+            "module.timeline.browser.bulk_tag_prerequisites",
+            "module.timeline.browser.bulk_tag_rejection",
+            "module.timeline.browser.bulk_tag_replay"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-bulk-tag.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

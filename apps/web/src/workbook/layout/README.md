@@ -22,7 +22,7 @@ repeated viewport subtraction in surface components.
 | [workbookResponsiveLayout.ts](workbookResponsiveLayout.ts) | Responsive layout classification and surface-band helpers. |
 | [workbookShellStyles.ts](workbookShellStyles.ts) | Shared shell chrome, work-area, viewport-overlay, and responsive style slots. |
 | [Shared work-area overlay](../../shared/WorkbookWorkAreaOverlay.tsx) | Workbook and Network Analysis recovery host, bounds and internal scrolling. |
-| [WorkbookSurfaceLayout.tsx](WorkbookSurfaceLayout.tsx) | Shared work-area, independently scrolling grid/inspector slots, overlay geometry, resize behavior, and focus restoration. |
+| [WorkbookSurfaceLayout.tsx](WorkbookSurfaceLayout.tsx) | Shared work-area, bounded contextual feedback, independently scrolling grid/inspector slots, overlay geometry, resize behavior, and focus restoration. |
 
 ## Tests
 

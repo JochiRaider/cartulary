@@ -13,6 +13,7 @@
     "docs/handoffs/ui-ux/workbook-ordinary-row-create-recovery-refactor-handoff.md",
     "docs/handoffs/ui-ux/workbook-inspector-edit-recovery-refactor-handoff.md",
     "docs/handoffs/ui-ux/workbook-batch-history-review-refactor-handoff.md",
+    "docs/handoffs/ui-ux/workbook-timeline-bulk-tag-interaction-cleanup-handoff.md",
     "docs/research/**/*.md",
     "docs/user_guides/**/*.md",
     "apps/web/public/assets/fonts/*.md",

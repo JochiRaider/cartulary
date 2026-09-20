@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineBulkTagCommandAdapter } from "../adapters/createTimelineBulkTagCommandAdapter";
 import { createTimelineMentionCandidateReader } from "../adapters/createTimelineMentionCandidateReader";
-
 import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRecordActionAdapter";
+import { createTimelineBulkTagReadiness } from "../bulk/createTimelineBulkTagReadiness";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
@@ -66,6 +66,16 @@ export function useTimelineSurfaceFoundation({
   const editorDraftRegistry = useTimelineEditorDraftRegistry(
     mutationRuntime.localDraftsForSurface(timelineViewSchemaId),
   );
+  const bulkTagReadiness = useMemo(
+    () =>
+      createTimelineBulkTagReadiness({
+        runtime: mutationRuntime,
+        drafts: editorDraftRegistry,
+        pending: pendingSaves,
+        rows: rows.rowsRef,
+      }),
+    [mutationRuntime, editorDraftRegistry, pendingSaves, rows.rowsRef],
+  );
   const committedRows = useTimelineCommittedRows({
     rowsRef: rows.rowsRef,
     mutationRuntime,
@@ -108,6 +118,7 @@ export function useTimelineSurfaceFoundation({
     ports: {
       committedRows: committedRows.commands,
       bulkTag: bulkTagPort,
+      bulkTagReadiness,
       clipboardPaste,
       evidenceAttachment: evidenceAttachmentPort,
       mentionOwner,

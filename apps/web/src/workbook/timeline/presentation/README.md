@@ -17,7 +17,7 @@ synchronization; the view and regions render statelessly.
 | [TimelineWorkbookInspectorRegion.tsx](TimelineWorkbookInspectorRegion.tsx) | Stateless Timeline inspector and Indicator supplement region. |
 | [TimelineWorkbookOverlayRegion.tsx](TimelineWorkbookOverlayRegion.tsx) | Stateless notices and row-context-menu overlay region. |
 | [TimelineWorkbookView.tsx](TimelineWorkbookView.tsx) | Stateless Timeline surface layout and region assembly. |
-| [TimelineWorkbookViewBarRegion.tsx](TimelineWorkbookViewBarRegion.tsx) | Stateless query, saved-view, add-row, inspector-toggle, and bulk-action controls. |
+| [TimelineWorkbookViewBarRegion.tsx](TimelineWorkbookViewBarRegion.tsx) | Stateless query, saved-view, Find/Clear, add-row and inspector-toggle controls; tag authoring lives in the work-area feedback leaf. |
 | [useTimelineInspectorPresentation.tsx](useTimelineInspectorPresentation.tsx) | Derives Timeline inspector sections, action bindings, and feedback presentation. |
 | [useTimelineWorkbookPresentation.tsx](useTimelineWorkbookPresentation.tsx) | Derives renderer, column, grid-row, load-state, inspector, status, view-bar, notice, and context-menu models. |
 

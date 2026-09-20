@@ -824,19 +824,19 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
-      "sha256": "7920251723fa0208c34df99a16a1a34b41699929d6c17cdab2cf3edde51c07be"
+      "sha256": "fb6a31d3a99610a4797653d2e6bc7442fd8bc7ef3238138a102b35c4c7bd3c69"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png",
-      "sha256": "a26c86fac5787bb2f0c30a817ff3f76ef80e6faceba404e3acb32c61c0a0e119"
+      "sha256": "9646ffbf07f9fec9ac6f665b871e86e7947ddbf5c3e9de7e66439370970e071d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
-      "sha256": "e215f10d083f9303f123a2321b820021d75aa8ebb4c5101bcfadd7c8992d5d79"
+      "sha256": "f15af3f3e164e720af31894b43ed1ad25a7d9db7283b6c4bcef87d72a00f55f1"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
-      "sha256": "bdd9d6749adbf7efae26f55015785f3966e8f17aad15a18752aa665383a13a27"
+      "sha256": "6f0f6c5dea3ab6c5ef8e093d52aa90d180a92cd2e2165b663c28bad5d4315ffd"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-linux.png",

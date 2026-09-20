@@ -253,14 +253,18 @@ it("owns entity mention creation and resolution transport behind semantic outcom
 
 it("admits the exact Timeline bulk-tag plan to retained ownership", () => {
   const admit = vi.fn(() => "batch-tag");
-  const port = createTimelineBulkTagCommandAdapter({ admit });
+  const port = createTimelineBulkTagCommandAdapter({
+    admit,
+    subscribe: () => () => {},
+    getSnapshot: () => ({ authority: null, entries: [], admissionError: null }),
+  });
   const admission = { delivery: {} };
   expect(
     port.assignTag(
       { tagName: "triaged", targets: [{ baseRowVersion: 4, recordId }] },
       admission,
     ),
-  ).toBe("batch-tag");
+  ).toEqual({ kind: "admitted", operationId: "batch-tag" });
   expect(admit).toHaveBeenCalledWith(
     {
       operation: "applyWorkbookBulkMutation",

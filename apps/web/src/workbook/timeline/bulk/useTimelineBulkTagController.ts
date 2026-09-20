@@ -1,31 +1,33 @@
-import type {
-  GridCoreRecordBulkSelection,
-  GridDataRow,
-} from "@cartulary/grid-adapter";
+import type { GridCoreRecordBulkSelection } from "@cartulary/grid-adapter";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useWorkbookQueryPresentation } from "../../query/WorkbookQueryBrowsingContext";
 import {
   planTimelineBulkTag,
   type TimelineBulkTagContext,
-  type TimelineBulkTagPlan,
+  timelineBulkTagMember,
 } from "../models/timelineBulkTagPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
-import type { TimelineBulkTagCommandPort } from "../ports/TimelineBulkTagCommandPort";
+import type {
+  TimelineBulkTagAdmission,
+  TimelineBulkTagCommandPort,
+} from "../ports/TimelineBulkTagCommandPort";
 
-type TimelineBulkTagMessage = {
-  readonly kind: "error" | "success";
-  readonly message: string;
+export type TimelineBulkTagReadiness = {
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly blockingReason: (recordIds: ReadonlySet<string>) => string | null;
 };
 
 type TimelineBulkTagControllerInput = {
   readonly context: TimelineBulkTagContext;
   readonly port: TimelineBulkTagCommandPort;
+  readonly readiness: TimelineBulkTagReadiness;
   readonly precedingSaves: () => Promise<void>;
   readonly rows: readonly WorkbookRow[];
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
 };
 
+/** Selection is presentation identity. The batch owner captures execution identity. */
 export function useTimelineBulkTagController(
   input: TimelineBulkTagControllerInput,
 ) {
@@ -42,128 +44,98 @@ export function useTimelineBulkTagController(
   const [selectedRecordIds, setSelectedRecordIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
-  const [tagName, setTagName] = useState("");
-  const [message, setMessage] = useState<TimelineBulkTagMessage | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const inputRef = useRef(input);
-  const selectedRecordIdsRef = useRef(selectedRecordIds);
-  const tagNameRef = useRef(tagName);
-  const submissionInFlightRef = useRef(false);
-  inputRef.current = input;
-  selectedRecordIdsRef.current = selectedRecordIds;
-  tagNameRef.current = tagName;
-
-  useEffect(() => {
-    const selectableIds = new Set(
-      input.context.authorized && input.context.capabilityAvailable
-        ? input.rows.flatMap((row) =>
-            row.recordId !== null &&
-            row.rowVersion !== null &&
-            row.pendingSignature === null &&
-            (queryMembers === null || queryMembers.has(row.recordId))
-              ? [row.recordId]
-              : [],
-          )
-        : [],
-    );
-    setSelectedRecordIds((current) => {
-      const next = new Set(
-        [...current].filter((recordId) => selectableIds.has(recordId)),
-      );
-      selectedRecordIdsRef.current = next;
-      return next.size === current.size ? current : next;
-    });
-  }, [
-    input.context.authorized,
-    input.context.capabilityAvailable,
-    input.rows,
-    queryMembers,
-  ]);
-
-  const changeSelectedRecordIds = useCallback(
-    (recordIds: ReadonlySet<string>) => {
-      const next = new Set(recordIds);
-      selectedRecordIdsRef.current = next;
-      setSelectedRecordIds(next);
-      setMessage(null);
-    },
-    [],
-  );
-  const changeTagName = useCallback((value: string) => {
-    tagNameRef.current = value;
-    setTagName(value);
-    setMessage(null);
-  }, []);
-
+  const current = useRef({ input, browsing });
+  const selected = useRef(selectedRecordIds);
+  current.current = { input, browsing };
   const canAssign =
     input.context.authorized && input.context.capabilityAvailable;
+
+  useEffect(() => {
+    const members = new Set(
+      canAssign
+        ? input.rows
+            .filter((row) => timelineBulkTagMember(row, queryMembers))
+            .map((row) => row.recordId)
+        : [],
+    );
+    setSelectedRecordIds((previous) => {
+      const next = new Set([...previous].filter((id) => members.has(id)));
+      selected.current = next.size === previous.size ? previous : next;
+      return selected.current;
+    });
+  }, [canAssign, input.rows, queryMembers]);
+
+  const changeSelectedRecordIds = useCallback((ids: ReadonlySet<string>) => {
+    selected.current = new Set(ids);
+    setSelectedRecordIds(selected.current);
+  }, []);
   const gridSelection = useMemo<GridCoreRecordBulkSelection<WorkbookRow>>(
     () => ({
-      isRecordSelectable: (row: GridDataRow<WorkbookRow>) =>
-        canAssign &&
-        row.data.pendingSignature === null &&
-        (queryMembers === null ||
-          (row.data.recordId !== null && queryMembers.has(row.data.recordId))),
+      isRecordSelectable: (row) =>
+        canAssign && timelineBulkTagMember(row.data, queryMembers),
       onSelectedRecordIdsChange: changeSelectedRecordIds,
       selectedRecordIds,
     }),
     [canAssign, changeSelectedRecordIds, selectedRecordIds, queryMembers],
   );
-
-  const assignTag = useCallback(async () => {
-    if (submissionInFlightRef.current) return;
-    const current = inputRef.current;
-    const plan = planTimelineBulkTag({
-      context: current.context,
-      rows: current.rowsRef.current,
-      selectedRecordIds: selectedRecordIdsRef.current,
-      tagName: tagNameRef.current,
-    });
-    if (plan.kind === "reject") {
-      publishBulkTagRejection(plan.reason, setMessage);
-      return;
-    }
-    submissionInFlightRef.current = true;
-    setSubmitting(true);
-    setMessage(null);
-    current.port.assignTag(
-      { tagName: plan.normalizedTagName, targets: plan.targets },
-      { delivery: {}, ready: current.precedingSaves() },
-    );
-    queueMicrotask(() => {
-      submissionInFlightRef.current = false;
-      setSubmitting(false);
-    });
+  const getBlockingReason = useCallback(() => {
+    const { input } = current.current;
+    if (!input.context.authorized || !input.context.capabilityAvailable)
+      return "Tag assignment is no longer available.";
+    if (selected.current.size === 0)
+      return "Select records to assign this tag.";
+    return input.readiness.blockingReason(selected.current);
   }, []);
-
+  const assignTag = useCallback(
+    (tagName: string, delivery: object): TimelineBulkTagAdmission => {
+      const { input, browsing } = current.current;
+      const members =
+        browsing === null
+          ? null
+          : new Set(
+              (
+                browsing.find(timelineViewSchemaId)?.getSnapshot().accepted
+                  ?.rows ?? []
+              ).map((row) => row.record_id),
+            );
+      const plan = planTimelineBulkTag({
+        context: input.context,
+        rows: input.rowsRef.current,
+        queryMembers: members,
+        selectedRecordIds: selected.current,
+        tagName,
+      });
+      if (plan.kind === "reject")
+        return {
+          kind: "rejected",
+          message:
+            plan.reason === "empty_tag"
+              ? "Enter a tag to assign."
+              : plan.reason === "empty_selection"
+                ? "Select records to assign this tag."
+                : plan.reason === "partial_selection" ||
+                    plan.reason === "invalid_target"
+                  ? "Selection changed before assignment. Review the selected records and try again."
+                  : "Tag assignment is no longer available.",
+        };
+      const reason = getBlockingReason();
+      if (reason) return { kind: "rejected", message: reason };
+      return input.port.assignTag(
+        { tagName: plan.normalizedTagName, targets: plan.targets },
+        { delivery, ready: input.precedingSaves() },
+      );
+    },
+    [getBlockingReason],
+  );
   return {
-    commands: { assignTag, changeSelectedRecordIds, changeTagName },
-    snapshot: {
+    snapshot: { gridSelection },
+    controls: {
+      assignTag,
       canAssign,
-      canSubmit:
-        canAssign &&
-        !submitting &&
-        selectedRecordIds.size > 0 &&
-        tagName.trim() !== "",
-      gridSelection,
-      message,
       selectedRecordIds,
-      submitting,
-      tagName,
+      getBlockingReason,
+      subscribeReadiness: input.readiness.subscribe,
+      operations: input.port,
     },
   };
-}
-
-function publishBulkTagRejection(
-  reason: Extract<TimelineBulkTagPlan, { kind: "reject" }>["reason"],
-  setMessage: (message: TimelineBulkTagMessage | null) => void,
-): void {
-  if (reason === "empty_tag" || reason === "empty_selection") return;
-  setMessage({
-    kind: "error",
-    message:
-      reason === "partial_selection" || reason === "invalid_target"
-        ? "Selection changed before the command could be submitted. Review the selected rows and try again."
-        : "Tag assignment is no longer available.",
-  });
 }

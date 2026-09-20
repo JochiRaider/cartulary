@@ -813,8 +813,17 @@ test("Timeline Find preserves blank authoring and excludes creation pins through
       response.request().method() === "POST",
   );
   await draft.fill("Pinned creation needle");
-  expect((await accepted).ok()).toBe(true);
+  const creation = await accepted;
+  expect(creation.ok()).toBe(true);
+  const pinnedId = (await creation.json()).data.row.record_id as string;
   await find(page, "Pinned creation needle", 0);
+  // A visible creation pin is not an accepted query member or bulk target.
+  await expect(
+    page.getByRole("checkbox", {
+      name: `Select record ${pinnedId}`,
+      exact: true,
+    }),
+  ).toHaveCount(0);
   expect(
     requests.filter((request) => request.endsWith(createPath)),
   ).toHaveLength(1);
@@ -823,6 +832,12 @@ test("Timeline Find preserves blank authoring and excludes creation pins through
   await expect(input(page)).toHaveValue("Pinned creation needle");
   await expect(status(page)).toContainText("1 matching cell");
   await navigate(page);
+  await expect(
+    page.getByRole("checkbox", {
+      name: `Select record ${pinnedId}`,
+      exact: true,
+    }),
+  ).not.toBeChecked();
   expect(
     requests.filter((request) => request.endsWith(createPath)),
   ).toHaveLength(1);
