@@ -28,6 +28,7 @@ export type WorkbookManagedPatchMutationDriver = {
 };
 
 export type WorkbookTimelineRowMutationDriver = {
+  readonly captureBatchSources?: (attempt: WorkbookBatchAttempt) => void;
   readonly kind: "timeline_row";
   readonly acceptBatchPredecessor?: (
     receipt: WorkbookBatchReceipt,
@@ -114,6 +115,10 @@ class WorkbookMutationDriverRegistryState {
     this.#owners.delete(unitId);
   }
 
+  captureBatchSources(attempt: WorkbookBatchAttempt): void {
+    this.#timelineRowDriver?.captureBatchSources?.(attempt);
+  }
+
   acceptBatchPredecessor(
     receipt: WorkbookBatchReceipt,
     attempt: WorkbookBatchAttempt,
@@ -154,6 +159,8 @@ export function createWorkbookMutationDriverRegistry() {
     claim: (unitId: string, envelope: WorkbookMutationOwnerEnvelope) =>
       state.claim(unitId, envelope),
     release: (unitId: string) => state.release(unitId),
+    captureBatchSources: (attempt: WorkbookBatchAttempt) =>
+      state.captureBatchSources(attempt),
     acceptBatchPredecessor: (
       receipt: WorkbookBatchReceipt,
       attempt: WorkbookBatchAttempt,

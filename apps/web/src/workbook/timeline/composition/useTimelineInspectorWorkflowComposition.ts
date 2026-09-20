@@ -39,6 +39,12 @@ type TimelineInspectorWorkflowCompositionInput = {
   readonly mentionCandidates: MentionInput["candidatePort"];
   readonly earlierSaves: MentionInput["earlierSaves"];
   readonly foundation: {
+    readonly currentCommittedRow: NonNullable<
+      MentionInput["currentCommittedRow"]
+    >;
+    readonly acceptDisclosureSource: NonNullable<
+      MentionInput["acceptDisclosureSource"]
+    >;
     readonly evidenceAttachmentPort: EvidenceInput["owner"];
     readonly loadAccessLost: boolean;
 
@@ -180,6 +186,8 @@ export function useTimelineInspectorWorkflowComposition({
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   });
   const mentions = useTimelineMentionActions({
+    currentCommittedRow: foundation.currentCommittedRow,
+    acceptDisclosureSource: foundation.acceptDisclosureSource,
     owner: mentionOwner,
     candidatePort: mentionCandidates,
     earlierSaves,

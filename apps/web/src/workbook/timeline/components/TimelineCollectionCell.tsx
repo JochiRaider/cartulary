@@ -1,3 +1,4 @@
+import { bindGridEditorControlReveal } from "@cartulary/grid-adapter";
 import {
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
@@ -122,6 +123,11 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
     isInspector ||
     row.recordId === null ||
     (!props.readOnly && registry.isCollectionInputActive(focusKey));
+  useLayoutEffect(() => {
+    if (isInspector || !isInputActive || !inputRef.current) return;
+    const reveal = bindGridEditorControlReveal(inputRef.current);
+    return () => reveal?.dispose();
+  }, [isInspector, isInputActive]);
   const { focusTargetRef, registerInput } = props;
   const register = useCallback(
     (element: HTMLInputElement | null) => {

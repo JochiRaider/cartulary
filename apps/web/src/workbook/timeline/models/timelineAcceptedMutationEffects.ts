@@ -1,7 +1,5 @@
 import type { TimelineAcceptedProjection } from "./timelineAcceptedProjection";
 import type { WorkbookRow } from "./timelineRowModel";
-import type { AutoResolutionNotice } from "./workbookMentionChips";
-import { buildAutoResolutionNotices } from "./workbookMentionChips";
 
 export type TimelineAcceptedContinuity =
   | {
@@ -18,24 +16,20 @@ export type TimelineAcceptedContinuity =
     };
 
 export type TimelineAcceptedMutationEffects = {
-  readonly autoResolutionNotices: readonly AutoResolutionNotice[];
   readonly continuity: TimelineAcceptedContinuity;
   readonly createdRecordId: string | null;
-  readonly pruneAutoResolutionNotices: boolean;
   readonly selectionUpdate: { readonly recordId: string | null } | null;
 };
 
 export function planTimelineAcceptedMutationEffects({
   committed,
   continueOnFreshDraft,
-  detectAutoResolution,
   projection,
   promoteToCommittedRowInspect,
   selectedRowId,
 }: {
   readonly committed: WorkbookRow;
   readonly continueOnFreshDraft: boolean;
-  readonly detectAutoResolution: boolean;
   readonly projection: TimelineAcceptedProjection;
   readonly promoteToCommittedRowInspect: boolean;
   readonly selectedRowId: string | null;
@@ -65,12 +59,8 @@ export function planTimelineAcceptedMutationEffects({
                 : null,
         };
   return {
-    autoResolutionNotices: detectAutoResolution
-      ? buildAutoResolutionNotices(projection.previousRow, committed)
-      : [],
     continuity,
     createdRecordId: projection.createdFromDraft ? recordId : null,
-    pruneAutoResolutionNotices: recordId !== null,
     selectionUpdate,
   };
 }

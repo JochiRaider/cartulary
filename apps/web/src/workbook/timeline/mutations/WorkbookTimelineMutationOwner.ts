@@ -5,6 +5,7 @@ import type { SecureTransactionIdPort } from "../../mutations/secureTransactionI
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
+import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { buildAttachedEvidenceCreateRequest } from "../adapters/timelineEvidenceRequestBuilders";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { inputFocusKey } from "../models/timelineFieldRegistry";
@@ -41,6 +42,7 @@ export class WorkbookTimelineMutationOwner {
   private recovery: (() => void) | null = null;
   private readonly reads = new Set<AbortController>();
   private readonly rows = { current: [] as WorkbookRow[] };
+  private readonly batchSources = new Map<string, readonly WorkbookRow[]>();
   private readonly receipts = new Map<
     string,
     Parameters<TimelineMutationDriverPorts["applyAcceptedRowMutation"]>[1]
@@ -181,6 +183,18 @@ export class WorkbookTimelineMutationOwner {
         if (!presentation())
           runtime.retainSurfaceRefreshDebt(timelineViewSchemaId);
         const row = rowFromApi(accepted.row);
+        const mentions = this.retired ? null : timelineMentionOwnerFor(runtime);
+        if (
+          options?.detectAutoResolution !== false &&
+          options?.operationId &&
+          options.previousRow
+        )
+          mentions?.acceptAutoResolutions([options.previousRow], [row], {
+            kind: "entry",
+            operationId: options.operationId,
+            changeSetId: accepted.changeSetId,
+          });
+        else mentions?.observeSource(row);
         this.rows.current = this.rows.current
           .filter((item) => item.key !== key && item.recordId !== row.recordId)
           .concat(row);
@@ -334,7 +348,35 @@ export class WorkbookTimelineMutationOwner {
     const registration = runtime.registerDriver({
       kind: "timeline_row",
       drain: this.driver.drain,
-      acceptBatchPredecessor: this.driver.acceptBatchPredecessor,
+      captureBatchSources: (attempt) => {
+        this.batchSources.set(
+          attempt.id,
+          structuredClone(
+            (presentation()?.rowsRef.current ?? this.rows.current).filter(
+              (row) =>
+                row.recordId && attempt.plan.recordIds.includes(row.recordId),
+            ),
+          ),
+        );
+      },
+      acceptBatchPredecessor: (receipt, attempt) => {
+        if (receipt.viewSchemaId === timelineViewSchemaId) {
+          const before = this.batchSources.get(attempt.id) ?? [];
+          timelineMentionOwnerFor(runtime).acceptAutoResolutions(
+            before,
+            receipt.rows.map((row) =>
+              rowFromApi(normalizeTimelineFullRow(row, "accepted batch")),
+            ),
+            {
+              kind: "batch",
+              operationId: attempt.id,
+              changeSetId: receipt.changeSetId,
+            },
+          );
+        }
+        this.batchSources.delete(attempt.id);
+        this.driver.acceptBatchPredecessor(receipt, attempt);
+      },
     });
     if (!registration.accepted)
       throw new Error("Timeline mutation owner is already registered.");
@@ -379,6 +421,7 @@ export class WorkbookTimelineMutationOwner {
     for (const read of this.reads) read.abort();
     this.reads.clear();
     this.receipts.clear();
+    this.batchSources.clear();
     this.promotions.clear();
     this.fileListeners.clear();
     this.rows.current = [];

@@ -64,6 +64,7 @@ export type InspectorMention = DismissedMention & {
 };
 
 export type AutoResolutionNotice = {
+  displayText?: string;
   entityMentionId: string | null;
   mentionRowVersion: number | null;
   itemRef: string;
@@ -516,13 +517,13 @@ export function buildAutoResolutionNotices(
   beforeRow: MentionCollectionRowLike | undefined,
   afterRow: MentionCollectionRowLike,
 ): AutoResolutionNotice[] {
-  if (!beforeRow || afterRow.recordId === null) {
+  if (afterRow.recordId === null || (!beforeRow && afterRow.rowVersion !== 1)) {
     return [];
   }
   const beforeRefs = new Set(
     [
-      ...beforeRow.collectionValues.hostRefs,
-      ...beforeRow.collectionValues.identityRefs,
+      ...(beforeRow?.collectionValues.hostRefs ?? []),
+      ...(beforeRow?.collectionValues.identityRefs ?? []),
     ].map((item) => item.itemRef),
   );
   const newItems = [
@@ -552,5 +553,6 @@ export function buildAutoResolutionNotices(
       rawText: item.rawText,
       resolvedRecordId: item.resolvedRecordId ?? "",
       matchedAliasText: item.matchedAliasText,
+      displayText: item.displayText,
     }));
 }

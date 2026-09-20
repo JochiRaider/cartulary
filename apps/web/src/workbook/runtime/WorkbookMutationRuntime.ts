@@ -743,6 +743,7 @@ export class WorkbookMutationRuntime {
           this.conflicts
             .entries()
             .some((entry) => entry.batchOperationId === id),
+        captured: (attempt) => this.drivers.captureBatchSources(attempt),
         accepted: (receipt, attempt) => {
           this.rememberClientTransaction(attempt.id);
           this.drivers.acceptBatchPredecessor(receipt, attempt);

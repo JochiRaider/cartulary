@@ -2,145 +2,205 @@ import {
   autoResolutionNoticeTestId,
   autoResolutionReviewButtonTestId,
   autoResolutionUndoButtonTestId,
+  workbookGridRowHeightPx,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
-import type { AutoResolutionNotice } from "../models/workbookMentionChips";
+import {
+  type CSSProperties,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import type {
+  AutoResolutionDisclosure,
+  WorkbookTimelineMentionOperationOwner,
+} from "../actions/WorkbookTimelineMentionOperationOwner";
 import { actionButtonStyle } from "./TimelineWorkbookStyles";
 
+/** This leaf observes retained disclosure, independently of grid composition. */
 export function TimelineWorkbookNotices({
-  autoResolutionNotices,
-  canManageMentions,
+  owner,
+  density,
   entityIndex,
-  inspectorOpen = false,
   onReviewAutoResolution,
   onUndoAutoResolution,
 }: {
-  readonly canManageMentions: boolean;
-  readonly autoResolutionNotices: readonly AutoResolutionNotice[];
-  readonly entityIndex: Record<string, { label: string }>;
-  readonly inspectorOpen?: boolean | undefined;
+  readonly owner: WorkbookTimelineMentionOperationOwner;
+  readonly entityIndex: Readonly<Record<string, { label: string }>>;
+  readonly density: Parameters<typeof workbookGridRowHeightPx>[0];
   readonly onReviewAutoResolution: (
-    rowRecordId: string,
-    itemRef: string,
-  ) => void;
-  readonly onUndoAutoResolution: (notice: AutoResolutionNotice) => void;
+    notice: AutoResolutionDisclosure,
+  ) => void | Promise<void>;
+  readonly onUndoAutoResolution: (notice: AutoResolutionDisclosure) => void;
 }) {
-  if (autoResolutionNotices.length === 0) return null;
-
+  const notices = useSyncExternalStore(
+    owner.subscribe,
+    owner.getDisclosureSnapshot,
+  );
+  const actions = useSyncExternalStore(
+    owner.subscribe,
+    owner.getActionSnapshot,
+  );
+  const [reviewFailure, setReviewFailure] = useState<{
+    identity: string;
+    message: string;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (notices.length > 0) owner.updateDisclosureLabels(entityIndex);
+  }, [owner, entityIndex, notices]);
+  if (notices.length === 0) return null;
+  const batches = new Set<string>();
   return (
     <aside
-      aria-label="Workbook notices"
+      aria-label="Auto-resolution disclosures"
       style={{
-        ...noticeStackStyle,
-        ...(inspectorOpen ? noticeStackWithInspectorStyle : null),
+        ...regionStyle,
+        maxBlockSize: `min(calc(${3 * workbookGridRowHeightPx(density)}px + 2 * var(--ct-spacing-sm)), 25cqh)`,
       }}
     >
-      {autoResolutionNotices.map((notice) => (
-        <div
-          key={notice.itemRef}
-          data-testid={autoResolutionNoticeTestId(notice.itemRef)}
-          style={noticeCardStyle}
-        >
-          <p style={noticeTitleStyle}>Auto-resolved mention</p>
-          <p style={bodyStyle}>
-            Raw token <strong>{notice.rawText}</strong> matched{" "}
-            <strong>
-              {entityIndex[notice.resolvedRecordId]?.label ?? notice.rawText}
-            </strong>
-            {notice.matchedAliasText ? (
-              <>
-                {" "}
-                via alias <strong>{notice.matchedAliasText}</strong>
-              </>
-            ) : null}
-            .
-          </p>
-          <div style={inlineButtonRowStyle}>
-            {canManageMentions ? (
-              <button
-                data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  onUndoAutoResolution(notice);
-                }}
-              >
-                Undo
-              </button>
-            ) : null}
-            <button
-              data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => {
-                onReviewAutoResolution(notice.rowRecordId, notice.itemRef);
-              }}
+      <ul style={listStyle}>
+        {notices.map((notice) => {
+          const entry = [...actions.entries]
+            .reverse()
+            .find(
+              (entry) =>
+                entry.attempt.review.subject.mentionId ===
+                notice.entityMentionId,
+            );
+          const batchKey = JSON.stringify(notice.operation);
+          const showBatch =
+            notice.operation.kind === "batch" && !batches.has(batchKey);
+          batches.add(batchKey);
+          return (
+            <li
+              key={notice.identity}
+              data-testid={autoResolutionNoticeTestId(notice.itemRef)}
+              style={itemStyle}
             >
-              Review
-            </button>
-          </div>
-        </div>
-      ))}
+              <div style={detailsStyle}>
+                {showBatch ? (
+                  <strong>
+                    {notice.acceptedCount} mentions auto-resolved in this change
+                    set.{" "}
+                  </strong>
+                ) : null}
+                <span>
+                  Auto-resolved: raw token <strong>{notice.rawText}</strong>{" "}
+                  matched{" "}
+                  <strong>
+                    {entityIndex[notice.resolvedRecordId]?.label ||
+                      (notice.displayText !== notice.rawText
+                        ? notice.displayText
+                        : null) ||
+                      notice.resolvedRecordId}
+                  </strong>
+                  {notice.matchedAliasText ? (
+                    <>
+                      {" "}
+                      via alias <strong>{notice.matchedAliasText}</strong>
+                    </>
+                  ) : (
+                    " (no alias supplied)"
+                  )}
+                  .
+                </span>
+                {entry?.failure ? (
+                  <span role="status"> {entry.failure.message}</span>
+                ) : null}
+                {entry && ["preparing", "submitting"].includes(entry.phase) ? (
+                  <span role="status"> Undo pending.</span>
+                ) : null}
+                {reviewFailure?.identity === notice.identity ? (
+                  <span role="status"> {reviewFailure.message}</span>
+                ) : null}
+              </div>
+              <div style={actionsStyle}>
+                {owner.canSubmit("revert_to_unresolved") ? (
+                  <button
+                    data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
+                    disabled={!owner.canUndoDisclosure(notice)}
+                    style={buttonStyle}
+                    type="button"
+                    onClick={() => onUndoAutoResolution(notice)}
+                  >
+                    Undo
+                  </button>
+                ) : (
+                  <span>Read only</span>
+                )}
+                <button
+                  data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
+                  style={buttonStyle}
+                  type="button"
+                  onClick={() => {
+                    setReviewFailure(null);
+                    void Promise.resolve()
+                      .then(() => onReviewAutoResolution(notice))
+                      .catch(() =>
+                        setReviewFailure({
+                          identity: notice.identity,
+                          message:
+                            "Source unavailable. Review again when it can be read.",
+                        }),
+                      );
+                  }}
+                >
+                  Review
+                </button>
+                {entry?.phase === "uncertain" ? (
+                  <button
+                    type="button"
+                    disabled={!owner.canSubmit("revert_to_unresolved")}
+                    style={buttonStyle}
+                    onClick={() => void owner.replay(entry.key)}
+                  >
+                    Retry Undo
+                  </button>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </aside>
   );
 }
-
-const bodyStyle = {
-  margin: 0,
-  lineHeight: 1.5,
-  color: "var(--ct-colors-ink-muted)",
+const regionStyle = {
+  minHeight: 0,
   minWidth: 0,
-  overflowWrap: "anywhere" as const,
-} satisfies CSSProperties;
-
-const secondaryActionButtonStyle = {
-  ...actionButtonStyle,
-  background: "var(--ct-colors-surface-3)",
-  pointerEvents: "auto",
-} satisfies CSSProperties;
-
-const inlineButtonRowStyle = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap",
-} satisfies CSSProperties;
-
-const noticeStackStyle = {
-  position: "absolute",
-  zIndex: 6,
-  insetBlockStart:
-    "calc(var(--ct-layout-viewBarHeight) + var(--ct-spacing-sm))",
-  insetInlineEnd: "var(--ct-spacing-sm)",
-  display: "grid",
-  gap: "0.5rem",
-  inlineSize: "min(34rem, calc(100% - var(--ct-spacing-xl)))",
-  minWidth: 0,
-  maxBlockSize: "min(14rem, 32vh)",
   overflowY: "auto",
-  pointerEvents: "none",
-} satisfies CSSProperties;
-
-const noticeStackWithInspectorStyle = {
-  insetInlineEnd:
-    "calc(var(--ct-layout-inspectorDefaultWidth) + var(--ct-spacing-sm))",
-  inlineSize: "min(28rem, 50vw)",
-} satisfies CSSProperties;
-
-const noticeCardStyle = {
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
+  overflowAnchor: "none",
+  boxSizing: "border-box",
   background: "var(--ct-colors-surface-2)",
-  padding: "0.85rem 1rem",
-  display: "grid",
-  gap: "0.5rem",
-  minWidth: 0,
-  alignSelf: "start",
-  boxShadow: "var(--ct-elevation-popover)",
-  pointerEvents: "none",
+  borderBlockEnd: "var(--ct-border-hairline)",
+  padding: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;
-
-const noticeTitleStyle = {
+const listStyle = {
+  listStyle: "none",
   margin: 0,
-  fontSize: "0.95rem",
-  fontWeight: 600,
+  padding: 0,
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+const itemStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "start",
+  gap: "var(--ct-spacing-sm)",
+  minWidth: 0,
+} satisfies CSSProperties;
+const detailsStyle = {
+  flex: "1 1 0",
+  minWidth: 0,
+  overflowWrap: "anywhere",
+  lineHeight: "inherit",
+} satisfies CSSProperties;
+const actionsStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+const buttonStyle = {
+  ...actionButtonStyle,
+  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
 } satisfies CSSProperties;

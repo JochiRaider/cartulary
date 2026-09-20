@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import {
@@ -42,14 +41,9 @@ import {
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import {
-  type AutoResolutionNotice,
-  buildAutoResolutionNotices,
-} from "../models/workbookMentionChips";
 
 type TimelineMutationApplyOptions = {
   readonly continueOnFreshDraft?: boolean;
-  readonly detectAutoResolution?: boolean;
   readonly promoteToCommittedRowInspect?: boolean;
   readonly viewportContinuityToken?: number;
 };
@@ -60,38 +54,6 @@ function recordWorkbookTiming(
 ) {
   if (typeof performance === "undefined") return;
   performance.mark(`cartulary.workbook.${name}`, { detail: details });
-}
-
-function rowStillHasAutoResolvedNotice(
-  row: WorkbookRow,
-  notice: AutoResolutionNotice,
-) {
-  if (row.recordId !== notice.rowRecordId) return false;
-  const item = [
-    ...row.collectionValues.hostRefs,
-    ...row.collectionValues.identityRefs,
-  ].find((candidate) => candidate.itemRef === notice.itemRef);
-  return (
-    item?.itemKind === "resolved_ref" &&
-    item.autoResolved &&
-    item.entityMentionId === notice.entityMentionId &&
-    item.mentionRowVersion === notice.mentionRowVersion &&
-    item.resolvedRecordId === notice.resolvedRecordId
-  );
-}
-
-function appendAutoResolutionNotices(
-  setAutoResolutionNotices: Dispatch<SetStateAction<AutoResolutionNotice[]>>,
-  notices: readonly AutoResolutionNotice[],
-) {
-  if (notices.length < 1) return;
-  setAutoResolutionNotices((current) => {
-    const knownRefs = new Set(current.map((notice) => notice.itemRef));
-    return [
-      ...current,
-      ...notices.filter((notice) => !knownRefs.has(notice.itemRef)),
-    ];
-  });
 }
 
 function completeAcceptedContinuity({
@@ -146,7 +108,6 @@ export function useTimelineRowMutationCoordinator({
   pendingSavesRefs,
   rowsRef,
   selectedRowId,
-  setAutoResolutionNotices,
   rowStoreCommands,
   setSelectedRowId,
 }: {
@@ -167,9 +128,6 @@ export function useTimelineRowMutationCoordinator({
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
   readonly selectedRowId: string | null;
-  readonly setAutoResolutionNotices: Dispatch<
-    SetStateAction<AutoResolutionNotice[]>
-  >;
   readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly setSelectedRowId: (recordId: string | null) => void;
 }) {
@@ -239,23 +197,6 @@ export function useTimelineRowMutationCoordinator({
     markRowsLoaded,
   } = committedRows;
 
-  const pruneAutoResolutionNoticesForRows = useCallback(
-    (committed: readonly WorkbookRow[]) => {
-      if (committed.length < 1) return;
-      setAutoResolutionNotices((current) =>
-        current.filter((notice) => {
-          const row = committed.find(
-            (candidate) => candidate.recordId === notice.rowRecordId,
-          );
-          return (
-            row === undefined || rowStillHasAutoResolvedNotice(row, notice)
-          );
-        }),
-      );
-    },
-    [setAutoResolutionNotices],
-  );
-
   const applyAcceptedRowMutation = useCallback(
     (
       rowKey: string,
@@ -295,19 +236,11 @@ export function useTimelineRowMutationCoordinator({
       const effects = planTimelineAcceptedMutationEffects({
         committed,
         continueOnFreshDraft: options.continueOnFreshDraft === true,
-        detectAutoResolution: options.detectAutoResolution !== false,
         projection,
         promoteToCommittedRowInspect:
           options.promoteToCommittedRowInspect === true,
         selectedRowId: selectedRowIdRef.current,
       });
-      if (effects.pruneAutoResolutionNotices) {
-        pruneAutoResolutionNoticesForRows([committed]);
-      }
-      appendAutoResolutionNotices(
-        setAutoResolutionNotices,
-        effects.autoResolutionNotices,
-      );
       if (effects.selectionUpdate !== null) {
         setSelectedRowId(effects.selectionUpdate.recordId);
       }
@@ -358,9 +291,7 @@ export function useTimelineRowMutationCoordinator({
       editorPort,
       editorDraftRegistry,
       nextDraftIndex,
-      pruneAutoResolutionNoticesForRows,
       rowsRef,
-      setAutoResolutionNotices,
       updateRows,
       setSelectedRowId,
     ],
@@ -374,7 +305,6 @@ export function useTimelineRowMutationCoordinator({
       if (!mountedRef.current || committed.length === 0) return;
       // One receipt is one presentation commit. Per-row flushes can exhaust
       // React's nested update limit for a virtualized selected rectangle.
-      const notices: AutoResolutionNotice[] = [];
       commitTimelineProjection(() => {
         updateRows((current) => {
           let projected = current;
@@ -385,26 +315,14 @@ export function useTimelineRowMutationCoordinator({
               nextDraftIndex,
               rowKey: row.key,
             });
-            notices.push(
-              ...buildAutoResolutionNotices(projection.previousRow, row),
-            );
             projected = projection.rows;
           }
           rowsRef.current = projected;
           return projected;
         });
       }, true);
-      pruneAutoResolutionNoticesForRows(committed);
-      appendAutoResolutionNotices(setAutoResolutionNotices, notices);
     },
-    [
-      acceptCommittedTimelineRow,
-      nextDraftIndex,
-      pruneAutoResolutionNoticesForRows,
-      rowsRef,
-      setAutoResolutionNotices,
-      updateRows,
-    ],
+    [acceptCommittedTimelineRow, nextDraftIndex, rowsRef, updateRows],
   );
 
   const socketTransactions = useMemo(
@@ -552,7 +470,6 @@ export function useTimelineRowMutationCoordinator({
       latestCommittedRowVersion,
       latestCommittedTimelineRow,
       markRowsLoaded,
-      pruneAutoResolutionNoticesForRows,
       publishSaveStatePresentation,
       reconcileDiscardedPendingUnit,
       registerSameFieldConflict,

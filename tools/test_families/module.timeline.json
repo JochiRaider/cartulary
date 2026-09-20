@@ -73,6 +73,50 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.auto_resolution_feedback_characterization",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-auto-resolution-feedback.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_auto_resolution_feedback_arrival",
+          "scenario_timeline_auto_resolution_feedback_authority",
+          "scenario_timeline_auto_resolution_feedback_comfortable",
+          "scenario_timeline_auto_resolution_feedback_compact",
+          "scenario_timeline_auto_resolution_feedback_default"
+        ],
+        "titles": [
+          "Timeline auto-resolution feedback production characterization comfortable",
+          "Timeline auto-resolution feedback production characterization compact",
+          "Timeline auto-resolution feedback production characterization default",
+          "Timeline disclosure arrival preserves scalar collection and native composition editing",
+          "Timeline disclosures follow read-only session recovery account replacement and access loss"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.autosave_feedback_characterization",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",

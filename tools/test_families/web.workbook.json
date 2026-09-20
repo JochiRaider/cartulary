@@ -4249,6 +4249,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_disclosure_retained_receipt",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts",
+        "titles": [
+          "retains matching batch disclosure from captured sources across query races and presentation detachment"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_fill_planning_and_semantic_dispatch_c446e90622",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -4468,6 +4495,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineMentionActions.test.tsx",
         "titles": [
+          "Timeline disclosure actions read only their unavailable source and preserve accepted correction through failed refresh",
           "Timeline mention actions binds auto-resolution undo to the same current mention version and target",
           "Timeline mention actions retains accepted outcomes on unmount and invalidates a detached create review",
           "Timeline mention actions waits for creation and mention projections before restoring focus",
@@ -4557,6 +4585,11 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/actions/WorkbookTimelineMentionOperationOwner.test.ts",
         "titles": [
+          "Auto-resolution batch counts belong to captured change sets and replay cannot duplicate or resurrect disclosure",
+          "Auto-resolution correction retains failed and uncertain disclosure but accepted failed refresh never resends",
+          "Auto-resolution disclosures retain source identity and canonical facts through version changes and missing pages",
+          "Auto-resolution narrow snapshots ignore version-only publication and preserve meaningful action changes",
+          "Auto-resolution suspension conceals disclosure and same-account recovery preserves it while replacement retires it",
           "Mention accepted receipts survive detached presentation and refresh recovery never repeats mutations",
           "Mention creation accepted after navigation retains the entity until renewed link review",
           "Mention creation followed by uncertain linking recovers only the original resolution request",

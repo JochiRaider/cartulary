@@ -64,30 +64,7 @@ export function useTimelineCommittedRows({
           };
         history?.acceptVersion(row.recordId, row.rowVersion);
         capture?.acceptVersion(row.recordId, row.rowVersion);
-        mentions?.acceptVersion(row.recordId, row.rowVersion);
-        for (const item of [
-          ...row.collectionValues.hostRefs,
-          ...row.collectionValues.identityRefs,
-        ]) {
-          if (!item.entityMentionId || !item.mentionRowVersion) continue;
-          mentions?.observeMention({
-            incidentId: mentions.incidentId,
-            sourceRecordId: row.recordId,
-            sourceRowVersion: row.rowVersion,
-            mentionId: item.entityMentionId,
-            itemRef: item.itemRef,
-            sourceFieldKey:
-              item.entityType === "host"
-                ? "timeline.host_refs"
-                : "timeline.identity_refs",
-            entityType: item.entityType,
-            rawText: item.rawText,
-            mentionRowVersion: item.mentionRowVersion,
-            state: item.itemKind === "resolved_ref" ? "resolved" : "unresolved",
-            resolvedRecordId: item.resolvedRecordId,
-            resolutionMethod: item.resolutionMethod,
-          });
-        }
+        mentions?.observeSource(row);
       }
       const result = ledgerRef.current.accept(row, rowsRef.current);
       if (result.accepted) changed();
@@ -98,12 +75,13 @@ export function useTimelineCommittedRows({
 
   const acceptCommittedTimelineRows = useCallback(
     (committedRows: readonly WorkbookRow[]) => {
+      for (const row of committedRows) mentions?.observeSource(row);
       ledgerRef.current.replaceQueryRows(
         committedRows,
         materializeRow ? rowsRef.current.map(materializeRow) : rowsRef.current,
       );
     },
-    [rowsRef, materializeRow],
+    [rowsRef, materializeRow, mentions],
   );
 
   const isStaleTimelineRowVersion = useCallback(

@@ -155,7 +155,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     expect((workArea as HTMLElement).style.overflow).toBe("hidden");
     expect(primaryGridSlot.style.inlineSize).toBe("100%");
     expect(primaryGridSlot.style.blockSize).toBe("100%");
-    const workbookShell = workArea?.parentElement;
+    const workbookShell = screen.getByRole("region", {
+      name: "Timeline row interaction layer frame",
+    });
     expect(workbookShell).toBeInstanceOf(HTMLElement);
     expect((workbookShell as HTMLElement).style.gridTemplateRows).toBe(
       "var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",

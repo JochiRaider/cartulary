@@ -230,6 +230,9 @@ describe("support workbook helpers", () => {
     expect(buildAutoResolutionNotices(beforeRow, afterRow)).toEqual([
       {
         itemRef: "mention-host-auto",
+        entityMentionId: "host-mention-public",
+        mentionRowVersion: 22,
+        displayText: "VPN Gateway",
         rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.host_refs",
         entityType: "host",

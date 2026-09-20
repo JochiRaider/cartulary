@@ -104,9 +104,11 @@ export function useTimelineInspectorSelection({
     [dismissedForSelectedRow, selectedRow, observedMentions],
   );
   const selectedMention =
-    inspectorMentions.find((item) => item.itemRef === selectedMentionRef) ??
-    inspectorMentions[0] ??
-    null;
+    (selectedMentionRef === null
+      ? inspectorMentions[0]
+      : inspectorMentions.find(
+          (item) => item.itemRef === selectedMentionRef,
+        )) ?? null;
   const canManageMentions =
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||

@@ -3,6 +3,7 @@ import {
   mentionCreationReceipt,
   mentionReceipt,
   mentionReview,
+  mentionWorkbookRow,
 } from "../../../testing/timelineMentionTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../../adapters/createWorkbookPendingMutationAdapter";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -443,4 +444,226 @@ it("Mention runtime retention accounts explicit work without consuming autosave 
   expect(owner.latestVersion(review.subject.sourceRecordId)).toBe(40);
   runtime.invalidate({ kind: "runtime_disposed" });
   expect(owner.getSnapshot().entries).toEqual([]);
+});
+
+function autoDisclosureFixture() {
+  const base = mentionReview();
+  const review = mentionReview({
+    subject: {
+      ...base.subject,
+      state: "resolved",
+      resolutionMethod: "auto_match",
+      resolvedRecordId: "70000000-0000-4000-8000-000000000001",
+    },
+    intent: { action: "revert_to_unresolved" },
+  });
+  const f = fixture(review);
+  const source = mentionWorkbookRow(review);
+  const row = {
+    ...source,
+    collectionValues: {
+      ...source.collectionValues,
+      hostRefs: source.collectionValues.hostRefs.map((item) => ({
+        ...item,
+        displayText: "Canonical target",
+        matchedAliasText: "VPN alias",
+      })),
+    },
+  };
+  const before = {
+    ...row,
+    rowVersion: (row.rowVersion ?? 1) - 1,
+    collectionValues: {
+      ...row.collectionValues,
+      hostRefs: [],
+      identityRefs: [],
+    },
+  };
+  const operation = {
+    kind: "entry" as const,
+    operationId: "first-entry",
+    changeSetId: "first-change",
+  };
+  f.owner.acceptAutoResolutions([before], [row], operation);
+  return { ...f, row, before, operation };
+}
+it("Auto-resolution disclosures retain source identity and canonical facts through version changes and missing pages", () => {
+  const f = autoDisclosureFixture();
+  const initial = f.owner.getDisclosureSnapshot()[0];
+  expect(initial).toMatchObject({
+    displayText: "Canonical target",
+    matchedAliasText: "VPN alias",
+  });
+  f.owner.acceptVersion("unrelated", 5);
+  expect(f.owner.getDisclosureSnapshot()[0]).toBe(initial);
+  const newer = {
+    ...f.row,
+    rowVersion: 10,
+    collectionValues: {
+      ...f.row.collectionValues,
+      hostRefs: f.row.collectionValues.hostRefs.map((item) => ({
+        ...item,
+        mentionRowVersion: 3,
+        resolvedRecordId: "new-target",
+        displayText: "New canonical",
+      })),
+    },
+  };
+  f.owner.observeSource(newer);
+  expect(f.owner.getDisclosureSnapshot()[0]).toMatchObject({
+    identity: initial?.identity,
+    mentionRowVersion: 3,
+    resolvedRecordId: "new-target",
+    displayText: "New canonical",
+  });
+  f.owner.observeSource(f.before);
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  f.owner.observeSource({
+    ...newer,
+    rowVersion: 11,
+    collectionValues: { ...newer.collectionValues, hostRefs: [] },
+  });
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(0);
+  f.owner.acceptAutoResolutions([f.before], [f.row], {
+    ...f.operation,
+    operationId: "late-receipt",
+  });
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(0);
+});
+it("Auto-resolution batch counts belong to captured change sets and replay cannot duplicate or resurrect disclosure", () => {
+  const f = autoDisclosureFixture();
+  const second = {
+    ...f.row,
+    recordId: "second-source",
+    key: "second-source",
+    collectionValues: {
+      ...f.row.collectionValues,
+      hostRefs: f.row.collectionValues.hostRefs.map((item) => ({
+        ...item,
+        entityMentionId: "second-mention",
+        itemRef: "second-ref",
+      })),
+    },
+  };
+  const third = {
+    ...second,
+    recordId: "third-source",
+    key: "third-source",
+    collectionValues: {
+      ...second.collectionValues,
+      hostRefs: second.collectionValues.hostRefs.map((item) => ({
+        ...item,
+        entityMentionId: "third-mention",
+        itemRef: "third-ref",
+      })),
+    },
+  };
+  const empty = [second, third].map((row) => ({
+    ...row,
+    collectionValues: { ...row.collectionValues, hostRefs: [] },
+  }));
+  const batch = {
+    kind: "batch" as const,
+    operationId: "paste-one",
+    changeSetId: "batch-change",
+  };
+  // A query can arrive before the retained operation receipt.
+  f.owner.observeSource(second);
+  f.owner.observeSource(third);
+  f.owner.acceptAutoResolutions(empty, [second, third], batch);
+  expect(
+    f.owner.getDisclosureSnapshot().map((item) => item.acceptedCount),
+  ).toEqual([1, 2, 2]);
+  expect(
+    new Set(f.owner.getDisclosureSnapshot().map((item) => item.identity)).size,
+  ).toBe(3);
+  f.owner.observeSource({
+    ...second,
+    rowVersion: 20,
+    collectionValues: { ...second.collectionValues, hostRefs: [] },
+  });
+  f.owner.acceptAutoResolutions(empty, [second, third], batch);
+  expect(
+    f.owner.getDisclosureSnapshot().map((item) => item.acceptedCount),
+  ).toEqual([1, 2]);
+  // Ordinary scalar paste contains no newly admitted mentions.
+  f.owner.acceptAutoResolutions([third], [{ ...third, rowVersion: 21 }], {
+    ...batch,
+    operationId: "scalar-paste",
+    changeSetId: "scalar-change",
+  });
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(2);
+  // Created batch rows have no previous source but an authoritative initial version.
+  const created = {
+    ...second,
+    recordId: "created-source",
+    key: "created-source",
+    rowVersion: 1,
+    collectionValues: {
+      ...second.collectionValues,
+      hostRefs: second.collectionValues.hostRefs.map((item) => ({
+        ...item,
+        entityMentionId: "created-mention",
+        itemRef: "created-ref",
+      })),
+    },
+  };
+  f.owner.acceptAutoResolutions([], [created], {
+    ...batch,
+    operationId: "created-batch",
+    changeSetId: "created-change",
+  });
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(3);
+  expect(f.owner.getDisclosureSnapshot().at(-1)).toMatchObject({
+    rowRecordId: "created-source",
+    acceptedCount: 1,
+  });
+});
+it("Auto-resolution correction retains failed and uncertain disclosure but accepted failed refresh never resends", async () => {
+  const f = autoDisclosureFixture();
+  f.send.mockResolvedValueOnce({ kind: "uncertain" });
+  f.reconcile.mockRejectedValueOnce(new Error("Source refresh failed"));
+  expect(f.owner.submit(f.review, f.binding)).toBe(true);
+  await flush();
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  const key = f.owner.getSnapshot().entries[0]?.key ?? -1;
+  await f.owner.replay(key);
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(0);
+  expect(f.owner.getSnapshot().entries[0]?.refresh).toBe("required");
+  expect(f.send.mock.calls[0]?.[0]).toBe(f.send.mock.calls[1]?.[0]);
+  await f.owner.refresh(key);
+  await f.owner.replay(key);
+  expect(f.send).toHaveBeenCalledTimes(2);
+  f.owner.acceptAutoResolutions([f.before], [f.row], f.operation);
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(0);
+});
+it("Auto-resolution suspension conceals disclosure and same-account recovery preserves it while replacement retires it", () => {
+  const f = autoDisclosureFixture();
+  f.owner.setAuthority({ ...f.review.authority, role: "viewer" });
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  expect(f.owner.canSubmit("revert_to_unresolved")).toBe(false);
+  f.owner.suspend();
+  expect(f.owner.getDisclosureSnapshot()).toEqual([]);
+  f.owner.setAuthority(f.review.authority);
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  f.owner.setAuthority({
+    ...f.review.authority,
+    actorId: "replacement-account",
+  });
+  expect(f.owner.getDisclosureSnapshot()).toEqual([]);
+});
+it("Auto-resolution narrow snapshots ignore version-only publication and preserve meaningful action changes", () => {
+  const f = autoDisclosureFixture();
+  const mentions = f.owner.getMentionsSnapshot(),
+    actions = f.owner.getActionSnapshot(),
+    disclosures = f.owner.getDisclosureSnapshot();
+  const notified = vi.fn();
+  f.owner.subscribe(notified);
+  f.owner.acceptVersion("unrelated-source", 99);
+  expect(notified).toHaveBeenCalledOnce();
+  expect(f.owner.getMentionsSnapshot()).toBe(mentions);
+  expect(f.owner.getActionSnapshot()).toBe(actions);
+  expect(f.owner.getDisclosureSnapshot()).toBe(disclosures);
+  f.owner.submit(f.review, f.binding);
+  expect(f.owner.getActionSnapshot()).not.toBe(actions);
 });

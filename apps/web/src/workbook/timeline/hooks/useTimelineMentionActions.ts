@@ -35,6 +35,8 @@ import {
 } from "../models/workbookMentionChips";
 
 type Input = {
+  readonly currentCommittedRow?: (recordId: string) => WorkbookRow | null;
+  readonly acceptDisclosureSource?: (row: WorkbookRow) => void;
   readonly owner: WorkbookTimelineMentionOperationOwner;
   readonly candidatePort: TimelineMentionCandidatePort;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
@@ -56,7 +58,10 @@ type Input = {
 };
 export function useTimelineMentionActions(input: Input) {
   const { owner } = input;
-  const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const snapshot = useSyncExternalStore(
+    owner.subscribe,
+    owner.getActionSnapshot,
+  );
   const current = useRef(input);
   current.current = input;
   useLayoutEffect(
@@ -83,6 +88,7 @@ export function useTimelineMentionActions(input: Input) {
   const completionFocus = useRef<{
     key: number;
     creation: boolean;
+    notice: boolean;
     presentationKey: string;
     presentationActive: boolean;
     selectedMentionId: string | null;
@@ -91,7 +97,7 @@ export function useTimelineMentionActions(input: Input) {
     sourceRecordId: string;
   } | null>(null);
   const rememberCompletionFocus = useCallback(
-    (creation = false) => {
+    (creation = false, notice = false) => {
       const retained = owner.getSnapshot();
       const entry = creation
         ? retained.creations.at(-1)
@@ -100,6 +106,7 @@ export function useTimelineMentionActions(input: Input) {
       completionFocus.current = {
         key: entry.key,
         creation,
+        notice,
         presentationKey: current.current.presentationKey,
         presentationActive: current.current.presentationActive,
         selectedMentionId:
@@ -131,7 +138,8 @@ export function useTimelineMentionActions(input: Input) {
       return;
     const key = creation ? creation.linkKey : focus.key;
     const entry = snapshot.entries.find((entry) => entry.key === key);
-    if (entry?.refresh !== "complete") return;
+    if (entry?.refresh !== "complete" && !(focus.notice && entry?.receipt))
+      return;
     completionFocus.current = null;
     if (
       document.activeElement === focus.invoker ||
@@ -148,9 +156,11 @@ export function useTimelineMentionActions(input: Input) {
   const subject = input.selectedMention
     ? timelineMentionSubject(
         input.selectedMention,
-        input.rowsRef.current.find(
-          (row) => row.recordId === input.selectedMention?.rowRecordId,
-        ) ?? null,
+        input.currentCommittedRow?.(input.selectedMention.rowRecordId) ??
+          input.rowsRef.current.find(
+            (row) => row.recordId === input.selectedMention?.rowRecordId,
+          ) ??
+          null,
         owner.incidentId,
       )
     : null;
@@ -214,8 +224,14 @@ export function useTimelineMentionActions(input: Input) {
             expected.sourceRecordId,
             { signal, refreshIfMissing: false },
           );
-          if (!idle?.row || signal.aborted || !isCurrent()) return null;
-          return currentSubject(idle.row, expected.mentionId, owner);
+          if (!idle || signal.aborted || !isCurrent()) return null;
+          const row =
+            idle.row ??
+            (notice
+              ? await owner.readSource(expected.sourceRecordId, signal)
+              : null);
+          if (!row || signal.aborted || !isCurrent()) return null;
+          return currentSubject(row, expected.mentionId, owner);
         },
       };
     },
@@ -295,21 +311,27 @@ export function useTimelineMentionActions(input: Input) {
   }
   const handleUndoAutoResolutionNotice = useCallback(
     (notice: AutoResolutionNotice) => {
-      const row = current.current.rowsRef.current.find(
-        (row) => row.recordId === notice.rowRecordId,
-      );
-      const subject = row
-        ? currentSubject(row, notice.entityMentionId, owner)
-        : null;
-      const authority = owner.getSnapshot().authority;
-      const matches = () => {
-        const row = current.current.rowsRef.current.find(
+      const row =
+        current.current.currentCommittedRow?.(notice.rowRecordId) ??
+        current.current.rowsRef.current.find(
           (row) => row.recordId === notice.rowRecordId,
         );
+      const subject = row
+        ? currentSubject(row, notice.entityMentionId, owner)
+        : owner.latestMention(notice.entityMentionId ?? "");
+      const authority = owner.getSnapshot().authority;
+      const matches = () => {
+        const row =
+          current.current.currentCommittedRow?.(notice.rowRecordId) ??
+          current.current.rowsRef.current.find(
+            (row) => row.recordId === notice.rowRecordId,
+          );
         const latest = row
           ? currentSubject(row, notice.entityMentionId, owner)
-          : null;
+          : owner.latestMention(notice.entityMentionId ?? "");
         return (
+          latest?.sourceRecordId === notice.rowRecordId &&
+          latest.sourceFieldKey === notice.fieldKey &&
           latest?.state === "resolved" &&
           latest.resolutionMethod === "auto_match" &&
           latest.mentionRowVersion === notice.mentionRowVersion &&
@@ -324,11 +346,43 @@ export function useTimelineMentionActions(input: Input) {
           binding(subject, matches, true),
         )
       )
-        rememberCompletionFocus();
+        rememberCompletionFocus(false, true);
     },
     [owner, binding, rememberCompletionFocus],
   );
+  const prepareDisclosureReview = useCallback(
+    async (notice: AutoResolutionNotice) => {
+      const generation = owner.getSnapshot().generation;
+      const origin = current.current.presentationKey;
+      const row =
+        current.current.currentCommittedRow?.(notice.rowRecordId) ??
+        current.current.rowsRef.current.find(
+          (row) => row.recordId === notice.rowRecordId,
+        ) ??
+        (await owner.readSource(
+          notice.rowRecordId,
+          new AbortController().signal,
+        ));
+      if (
+        !alive.current ||
+        generation !== owner.getSnapshot().generation ||
+        origin !== current.current.presentationKey
+      )
+        throw new Error("Review detached");
+      const subject = currentSubject(row, notice.entityMentionId, owner);
+      if (
+        !subject ||
+        subject.itemRef !== notice.itemRef ||
+        subject.sourceFieldKey !== notice.fieldKey
+      )
+        throw new Error("Mention no longer available");
+      current.current.acceptDisclosureSource?.(row);
+      return row;
+    },
+    [owner],
+  );
   return {
+    prepareDisclosureReview,
     owner,
     snapshot,
     subject,

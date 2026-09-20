@@ -1,10 +1,19 @@
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { afterEach, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
+import {
+  mentionReview,
+  mentionWorkbookRow,
+} from "../../../testing/timelineMentionTestSupport";
 import { timelineRow } from "../../../testing/timelineWorkbookTestSupport";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import type {
+  WorkbookBatchTransport,
+  WorkbookBatchTransportOutcome,
+} from "../../runtime/workbookBatchOperation";
 import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
+import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { buildCreatePayload } from "../models/timelineMutationIntents";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import { createDraftRow, rowFromApi } from "../models/timelineRowModel";
@@ -190,4 +199,96 @@ it("waits for the original ordinary create instead of admitting a second screens
     expect(f.owner.fileDrafts.resolve(f.row.key).kind).toBe("promoted"),
   );
   expect(f.execute).toHaveBeenCalledTimes(1);
+});
+
+it("retains matching batch disclosure from captured sources across query races and presentation detachment", async () => {
+  const f = fixture();
+  const base = mentionReview();
+  const review = {
+    ...base,
+    subject: {
+      ...base.subject,
+      incidentId: "incident",
+      sourceRecordId: recordId,
+      state: "resolved" as const,
+      resolutionMethod: "auto_match",
+      resolvedRecordId: "70000000-0000-4000-8000-000000000001",
+    },
+  };
+  const after = mentionWorkbookRow(review);
+  const before = {
+    ...after,
+    rowVersion: 1,
+    collectionValues: {
+      ...after.collectionValues,
+      hostRefs: [],
+      identityRefs: [],
+    },
+  };
+  f.ports.rowStoreCommands.replaceRows([before]);
+  const mentions = timelineMentionOwnerFor(f.runtime);
+  mentions.setAuthority({ ...review.authority, incidentId: "incident" });
+  f.runtime.batches.setAuthority({
+    ...review.authority,
+    incidentId: "incident",
+    closed: false,
+  });
+  const response = deferred<WorkbookBatchTransportOutcome>();
+  const send = vi
+    .fn<WorkbookBatchTransport["send"]>()
+    .mockReturnValue(response.promise);
+  f.runtime.batches.configure({
+    capture: (plan, authority, id) => ({
+      plan,
+      authority,
+      id,
+      apiBase: undefined,
+      path: "/captured-fixture",
+      body: JSON.stringify({ ...plan.request, client_txn_id: id }),
+    }),
+    send,
+  });
+  const id = f.runtime.batches.admit(
+    {
+      operation: "pasteWorkbookClipboard",
+      recordIds: [recordId],
+      request: {
+        view_schema_id: timelineViewSchemaId,
+        columns: ["timeline.host_refs"],
+        start_field_key: "timeline.host_refs",
+        clipboard_text: review.subject.rawText,
+        targets: [{ kind: "record", record_id: recordId, base_row_version: 1 }],
+      },
+    },
+    { delivery: {} },
+  );
+  expect(id).not.toBeNull();
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  // The source query sees acceptance before the HTTP receipt; then Timeline leaves.
+  f.ports.rowStoreCommands.replaceRows([after]);
+  mentions.observeSource(after);
+  f.detach();
+  if (!after.rawRow) throw new Error("Complete accepted fixture required");
+  response.resolve({
+    kind: "acknowledged",
+    receipt: {
+      viewSchemaId: timelineViewSchemaId,
+      changeSetId: "matching-batch-change",
+      rows: [after.rawRow],
+      conflicts: [],
+    },
+  });
+  await vi.waitFor(() =>
+    expect(mentions.getDisclosureSnapshot()).toHaveLength(1),
+  );
+  expect(mentions.getDisclosureSnapshot()[0]).toMatchObject({
+    entityMentionId: review.subject.mentionId,
+    acceptedCount: 1,
+    operation: {
+      kind: "batch",
+      operationId: id,
+      changeSetId: "matching-batch-change",
+    },
+  });
+  expect(send).toHaveBeenCalledTimes(1);
 });

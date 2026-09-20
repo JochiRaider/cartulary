@@ -147,7 +147,6 @@ export function useTimelineWorkbookPresentation({
     }),
     [],
   );
-  const { autoResolutionNotices } = foundation.snapshot.mentions;
   const editorDraftRegistry = foundation.refs.editorDraftRegistry;
   const currentRows = foundation.refs.rows;
   const readCurrentRow = useCallback(
@@ -650,17 +649,18 @@ export function useTimelineWorkbookPresentation({
                 captureActions.start(rowKey, "supersede");
               },
             },
-      notices: {
-        canManageMentions:
-          canManageMentions &&
-          !incidentClosed &&
-          interactionMode.kind !== "read_only",
-        autoResolutionNotices,
-        entityIndex,
-        inspectorOpen: isInspectorOpen,
-        onReviewAutoResolution: handleSelectMention,
-        onUndoAutoResolution: handleUndoAutoResolutionNotice,
+    },
+    notices: {
+      owner: workflow.commands.mentions.owner,
+      entityIndex,
+      density,
+      onReviewAutoResolution: async (
+        notice: import("../actions/WorkbookTimelineMentionOperationOwner").AutoResolutionDisclosure,
+      ) => {
+        await workflow.commands.mentions.prepareDisclosureReview(notice);
+        handleSelectMention(notice.rowRecordId, notice.itemRef);
       },
+      onUndoAutoResolution: handleUndoAutoResolutionNotice,
     },
     status: {
       presence,

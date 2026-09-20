@@ -87,9 +87,6 @@ type TimelineRowsLoaderInput = {
   readonly markRowsLoaded: () => void;
   readonly nextDraftIndex: () => number;
   readonly onAuthorityUncertain?: (() => void) | undefined;
-  readonly pruneAutoResolutionNoticesForRows: (
-    rows: readonly WorkbookRow[],
-  ) => void;
   readonly publishSaveStatePresentation: () => void;
   readonly queryState: WorkbookQueryState;
   readonly rowStoreCommands: TimelineRowStoreCommands;
@@ -183,7 +180,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
     markRowsLoaded,
     nextDraftIndex,
     onAuthorityUncertain,
-    pruneAutoResolutionNoticesForRows,
     publishSaveStatePresentation,
     queryState,
     rowStoreCommands: { replaceRows },
@@ -413,7 +409,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       commitTimelineProjection(() => {
         replaceRows(hydratedRows);
         options.afterProjectionCommit?.();
-        pruneAutoResolutionNoticesForRows(committedRows);
         publishSaveStatePresentation();
         markRowsLoaded();
       }, options.viewportContinuityToken !== undefined);
@@ -445,7 +440,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       editorDraftRegistry,
       markRowsLoaded,
       nextDraftIndex,
-      pruneAutoResolutionNoticesForRows,
       publishSaveStatePresentation,
       replaceRows,
       rowsRef,

@@ -41,7 +41,12 @@ import { timelineMentionOwnerFor } from "../timeline/actions/timelineMentionOwne
 import { createTimelineCandidateReader } from "../timeline/adapters/createTimelineCandidateReader";
 import { createTimelineMentionEntityCreationAdapter } from "../timeline/adapters/createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "../timeline/adapters/createTimelineMentionResolutionAdapter";
+import { createTimelineMentionSourceReader } from "../timeline/adapters/createTimelineMentionSourceReader";
 import { createTimelineRecordActionAdapter } from "../timeline/adapters/createTimelineRecordActionAdapter";
+import {
+  normalizeTimelineFullRow,
+  rowFromApi,
+} from "../timeline/models/timelineRowModel";
 import { timelineMutationOwnerFor } from "../timeline/mutations/WorkbookTimelineMutationOwner";
 import { useWorkbookShellRuntime } from "./useWorkbookShellRuntime";
 
@@ -149,10 +154,22 @@ export function useWorkbookShellInfrastructure({
         void recheckMentionAuthority();
       },
     );
+    const readMentionSource = createTimelineMentionSourceReader({
+      apiBase,
+      incidentId,
+    });
+    timelineMentions.configureSourceReader(async (recordId, signal) =>
+      rowFromApi(
+        normalizeTimelineFullRow(
+          await readMentionSource(recordId, signal),
+          "mention disclosure source",
+        ),
+      ),
+    );
     timelineMentions.configureCreation(
       createTimelineMentionEntityCreationAdapter({ apiBase }),
     );
-  }, [timelineMentions, apiBase, recheckMentionAuthority]);
+  }, [timelineMentions, apiBase, incidentId, recheckMentionAuthority]);
   const timelineCapture = useMemo(
     () => timelineCaptureOwnerFor(mutationRuntime),
     [mutationRuntime],

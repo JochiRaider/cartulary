@@ -2,6 +2,11 @@ import { observeAsyncOperation } from "../../../services/asyncObservation";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import { workbookFailureLifecycle } from "../../ports/WorkbookPortResult";
 import type { WorkbookTimelineActionRuntimePort } from "../../ports/WorkbookTimelineActionRuntimePort";
+import type { WorkbookRow } from "../models/timelineRowModel";
+import {
+  type AutoResolutionNotice,
+  buildAutoResolutionNotices,
+} from "../models/workbookMentionChips";
 import type {
   TimelineMentionEntityCreationPort,
   TimelineMentionResolutionPort,
@@ -29,6 +34,23 @@ export type MentionReconciliationScope = Readonly<{
   signal: AbortSignal;
   isCurrent: () => boolean;
 }>;
+export type AutoResolutionOperation = Readonly<{
+  kind: "entry" | "batch";
+  operationId: string;
+  changeSetId: string | null;
+}>;
+export type AutoResolutionDisclosure = AutoResolutionNotice &
+  Readonly<{
+    identity: string;
+    sourceRowVersion: number;
+    operation: AutoResolutionOperation;
+    acceptedCount: number;
+  }>;
+const sameItems = <T>(previous: readonly T[], next: readonly T[]) =>
+  previous.length === next.length &&
+  previous.every((item, i) => item === next[i])
+    ? previous
+    : next;
 type Snapshot = Readonly<{
   authority: MentionAuthority | null;
   generation: number;
@@ -49,12 +71,25 @@ export class WorkbookTimelineMentionOperationOwner
   private readonly creations = new Map<number, MentionCreationOperation>();
   private creationPort: TimelineMentionEntityCreationPort | null = null;
   private readonly versions = new Map<string, number>();
+  private readonly disclosures = new Map<string, AutoResolutionDisclosure>();
+  private readonly disclosedOperations = new Set<string>();
+  private disclosureSnapshot: readonly AutoResolutionDisclosure[] = [];
+  private actionSnapshot: Omit<Snapshot, "mentions"> = {
+    authority: null,
+    generation: 0,
+    entries: [],
+    creations: [],
+  };
+  private readonly removedMentions = new Map<string, number>();
   private readonly mentions = new Map<string, MentionSubject>();
   private readonly listeners = new Set<() => void>();
   private readonly preparations = new Map<number, { cancel: () => void }>();
   private readonly sending = new Set<number>();
   private readonly transports = new Map<number, number>();
   private readonly remembered = new Set<string>();
+  private sourceReader:
+    | ((recordId: string, signal: AbortSignal) => Promise<WorkbookRow>)
+    | null = null;
   private port: TimelineMentionResolutionPort | null = null;
   private creationReconcile:
     | ((scope: MentionReconciliationScope) => Promise<void>)
@@ -88,6 +123,215 @@ export class WorkbookTimelineMentionOperationOwner
     private readonly observe: typeof observeAsyncOperation = observeAsyncOperation,
   ) {}
   getSnapshot = () => this.snapshot;
+  getMentionsSnapshot = () => this.snapshot.mentions;
+  getActionSnapshot = () => this.actionSnapshot;
+  getDisclosureSnapshot = () => this.disclosureSnapshot;
+
+  canUndoDisclosure(notice: AutoResolutionNotice) {
+    const subject = this.latestMention(notice.entityMentionId ?? "");
+    return (
+      this.canSubmit("revert_to_unresolved") &&
+      !!subject &&
+      !this.blocksMention(subject.mentionId) &&
+      subject.sourceRecordId === notice.rowRecordId &&
+      subject.sourceFieldKey === notice.fieldKey &&
+      subject.itemRef === notice.itemRef &&
+      subject.mentionRowVersion === notice.mentionRowVersion &&
+      subject.resolvedRecordId === notice.resolvedRecordId &&
+      subject.state === "resolved" &&
+      subject.resolutionMethod === "auto_match"
+    );
+  }
+
+  updateDisclosureLabels(index: Readonly<Record<string, { label: string }>>) {
+    let changed = false;
+    for (const [key, notice] of this.disclosures) {
+      const label = index[notice.resolvedRecordId]?.label;
+      if (label && label !== notice.displayText) {
+        this.disclosures.set(
+          key,
+          freezeMention({ ...notice, displayText: label }),
+        );
+        changed = true;
+      }
+    }
+    if (changed) this.publish();
+  }
+
+  /** Accepted operation identity, not the lifetime of a mounted sheet, admits disclosure. */
+  acceptAutoResolutions(
+    before: readonly WorkbookRow[],
+    after: readonly WorkbookRow[],
+    operation: AutoResolutionOperation,
+  ) {
+    const operationKey = JSON.stringify([
+      operation.kind,
+      operation.operationId,
+      operation.changeSetId,
+    ]);
+    if (!this.disclosedOperations.has(operationKey)) {
+      this.disclosedOperations.add(operationKey);
+      const notices = after.flatMap((row) =>
+        buildAutoResolutionNotices(
+          before.find(
+            (previous) =>
+              previous.recordId === row.recordId || previous.key === row.key,
+          ) ?? (operation.kind === "entry" ? before[0] : undefined),
+          row,
+        ),
+      );
+      for (const notice of notices) {
+        if (!notice.entityMentionId || !notice.mentionRowVersion) continue;
+        const row = after.find((row) => row.recordId === notice.rowRecordId);
+        if (!row?.rowVersion) continue;
+        const identity = JSON.stringify([
+          this.incidentId,
+          notice.rowRecordId,
+          notice.fieldKey,
+          notice.entityMentionId,
+        ]);
+        if (
+          (this.removedMentions.get(notice.entityMentionId) ?? 0) >=
+          row.rowVersion
+        )
+          continue;
+        const known = this.mentions.get(notice.entityMentionId);
+        if (
+          known &&
+          known.mentionRowVersion >= notice.mentionRowVersion &&
+          (known.state !== "resolved" ||
+            known.resolutionMethod !== "auto_match")
+        )
+          continue;
+        if (!this.disclosures.has(identity))
+          this.disclosures.set(
+            identity,
+            freezeMention({
+              ...notice,
+              identity,
+              ...(known &&
+              known.mentionRowVersion >= notice.mentionRowVersion &&
+              known.resolvedRecordId
+                ? {
+                    rawText: known.rawText,
+                    itemRef: known.itemRef,
+                    resolvedRecordId: known.resolvedRecordId,
+                    mentionRowVersion: known.mentionRowVersion,
+                    displayText: known.displayText ?? notice.displayText,
+                    matchedAliasText:
+                      known.matchedAliasText !== undefined
+                        ? known.matchedAliasText
+                        : notice.matchedAliasText,
+                  }
+                : {}),
+              sourceRowVersion: Math.max(
+                row.rowVersion,
+                known?.sourceRowVersion ?? 0,
+              ),
+              operation,
+              acceptedCount: notices.length,
+            }),
+          );
+      }
+    }
+    for (const row of after) this.observeSource(row);
+    this.publish();
+  }
+
+  /** Only complete, current source rows can establish removal; query absence cannot. */
+  observeSource(row: WorkbookRow) {
+    if (
+      !row.recordId ||
+      !row.rowVersion ||
+      row.rowVersion < (this.latestVersion(row.recordId) ?? 0)
+    )
+      return;
+    const items = [
+      ...row.collectionValues.hostRefs.map((item) => ({
+        item,
+        field: "timeline.host_refs" as const,
+      })),
+      ...row.collectionValues.identityRefs.map((item) => ({
+        item,
+        field: "timeline.identity_refs" as const,
+      })),
+    ];
+    for (const [id, subject] of this.mentions) {
+      if (
+        subject.sourceRecordId === row.recordId &&
+        subject.sourceRowVersion <= row.rowVersion &&
+        !items.some(({ item }) => item.entityMentionId === id) &&
+        subject.state !== "dismissed"
+      ) {
+        this.removedMentions.set(id, row.rowVersion);
+        this.mentions.delete(id);
+      }
+    }
+    for (const { item, field } of items) {
+      if (!item.entityMentionId || !item.mentionRowVersion) continue;
+      this.observeMention({
+        incidentId: this.incidentId,
+        sourceRecordId: row.recordId,
+        sourceRowVersion: row.rowVersion,
+        sourceFieldKey: field,
+        mentionId: item.entityMentionId,
+        itemRef: item.itemRef,
+        entityType: item.entityType,
+        rawText: item.rawText,
+        mentionRowVersion: item.mentionRowVersion,
+        state: item.itemKind === "resolved_ref" ? "resolved" : "unresolved",
+        resolvedRecordId: item.resolvedRecordId,
+        resolutionMethod: item.resolutionMethod,
+        displayText: item.displayText,
+        matchedAliasText: item.matchedAliasText,
+      });
+    }
+    for (const [key, notice] of this.disclosures) {
+      if (
+        notice.rowRecordId !== row.recordId ||
+        row.rowVersion < notice.sourceRowVersion
+      )
+        continue;
+      const match = items.find(
+        ({ item, field }) =>
+          field === notice.fieldKey &&
+          item.entityMentionId === notice.entityMentionId,
+      );
+      if (!match) {
+        this.disclosures.delete(key);
+        continue;
+      }
+      const { item } = match;
+      if ((item.mentionRowVersion ?? 0) < (notice.mentionRowVersion ?? 0))
+        continue;
+      if (
+        item.itemKind !== "resolved_ref" ||
+        !item.autoResolved ||
+        !item.resolvedRecordId
+      ) {
+        this.disclosures.delete(key);
+        continue;
+      }
+      const next = {
+        ...notice,
+        sourceRowVersion: row.rowVersion,
+        itemRef: item.itemRef,
+        mentionRowVersion: item.mentionRowVersion,
+        resolvedRecordId: item.resolvedRecordId,
+        rawText: item.rawText,
+        displayText:
+          item.resolvedRecordId === notice.resolvedRecordId
+            ? notice.displayText || item.displayText
+            : item.displayText,
+        matchedAliasText: item.matchedAliasText,
+      };
+      if (JSON.stringify(next) !== JSON.stringify(notice))
+        this.disclosures.set(key, freezeMention(next));
+    }
+    this.acceptVersion(row.recordId, row.rowVersion);
+    this.publish();
+  }
+
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {
@@ -100,6 +344,24 @@ export class WorkbookTimelineMentionOperationOwner
   ) {
     this.port = port;
     this.recheckAuthority = recheckAuthority;
+  }
+  configureSourceReader(reader: NonNullable<typeof this.sourceReader>) {
+    this.sourceReader = reader;
+  }
+  async readSource(recordId: string, signal: AbortSignal) {
+    const generation = this.generation;
+    if (!this.authority || !this.sourceReader)
+      throw new Error("Source unavailable");
+    const row = await this.sourceReader(recordId, signal);
+    if (
+      signal.aborted ||
+      generation !== this.generation ||
+      row.recordId !== recordId ||
+      (row.rowVersion ?? 0) < (this.latestVersion(recordId) ?? 0)
+    )
+      throw new Error("Source changed or unavailable");
+    this.observeSource(row);
+    return row;
   }
   configureCreation(port: TimelineMentionEntityCreationPort) {
     this.creationPort = port;
@@ -164,6 +426,9 @@ export class WorkbookTimelineMentionOperationOwner
     this.transports.clear();
     this.versions.clear();
     this.mentions.clear();
+    this.removedMentions.clear();
+    this.disclosures.clear();
+    this.disclosedOperations.clear();
     this.authority = null;
     this.actorId = null;
     this.reconcile = null;
@@ -192,13 +457,37 @@ export class WorkbookTimelineMentionOperationOwner
   }
   latestVersion = (recordId: string) => this.versions.get(recordId) ?? null;
   observeMention(subject: MentionSubject) {
-    if (subject.incidentId !== this.incidentId) return;
+    if (
+      subject.incidentId !== this.incidentId ||
+      subject.sourceRowVersion <
+        (this.removedMentions.get(subject.mentionId) ?? 0)
+    )
+      return;
+    this.removedMentions.delete(subject.mentionId);
     this.acceptVersion(subject.sourceRecordId, subject.sourceRowVersion);
     const previous = this.mentions.get(subject.mentionId);
-    if (!previous || subject.mentionRowVersion > previous.mentionRowVersion) {
+    for (const [key, notice] of this.disclosures) {
+      if (
+        notice.entityMentionId === subject.mentionId &&
+        notice.rowRecordId === subject.sourceRecordId &&
+        notice.fieldKey === subject.sourceFieldKey &&
+        subject.mentionRowVersion >= (notice.mentionRowVersion ?? 0) &&
+        (subject.state !== "resolved" ||
+          subject.resolutionMethod !== "auto_match")
+      )
+        this.disclosures.delete(key);
+    }
+    const next = { ...previous, ...subject };
+    if (
+      !previous ||
+      subject.mentionRowVersion > previous.mentionRowVersion ||
+      (subject.mentionRowVersion === previous.mentionRowVersion &&
+        (next.displayText !== previous.displayText ||
+          next.matchedAliasText !== previous.matchedAliasText))
+    ) {
       this.mentions.set(
         subject.mentionId,
-        freezeMention(structuredClone(subject)),
+        freezeMention(structuredClone(next)),
       );
       this.publish();
     }
@@ -797,10 +1086,36 @@ export class WorkbookTimelineMentionOperationOwner
     this.snapshot = freezeMention({
       authority: this.authority,
       generation: this.generation,
-      entries: this.authority ? [...this.entries.values()] : [],
-      mentions: this.authority ? [...this.mentions.values()] : [],
-      creations: this.authority ? [...this.creations.values()] : [],
+      entries: sameItems(
+        this.snapshot.entries,
+        this.authority ? [...this.entries.values()] : [],
+      ),
+      mentions: sameItems(
+        this.snapshot.mentions,
+        this.authority ? [...this.mentions.values()] : [],
+      ),
+      creations: sameItems(
+        this.snapshot.creations,
+        this.authority ? [...this.creations.values()] : [],
+      ),
     });
+    const { authority, generation, entries, creations } = this.snapshot;
+    if (
+      authority !== this.actionSnapshot.authority ||
+      generation !== this.actionSnapshot.generation ||
+      entries !== this.actionSnapshot.entries ||
+      creations !== this.actionSnapshot.creations
+    )
+      this.actionSnapshot = freezeMention({
+        authority,
+        generation,
+        entries,
+        creations,
+      });
+    this.disclosureSnapshot = sameItems(
+      this.disclosureSnapshot,
+      this.authority ? [...this.disclosures.values()] : [],
+    );
     for (const listener of this.listeners) listener();
   }
 }

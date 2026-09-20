@@ -1,12 +1,6 @@
 import type { GridCellStateInput } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-} from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { type SheetRef, sheetRefKey } from "../../../shared/sheetRef";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
@@ -37,7 +31,6 @@ import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordEvidence,
 } from "../models/timelineViewportContinuityModel";
-import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 import { useTimelineRowMutationCoordinator } from "../mutations/useTimelineRowMutationCoordinator";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -58,9 +51,6 @@ type TimelineMutationCompositionInput = {
     ) => void;
     readonly rowStoreCommands: TimelineRowStoreCommands;
     readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-    readonly setAutoResolutionNotices: Dispatch<
-      SetStateAction<AutoResolutionNotice[]>
-    >;
     readonly setInitialLoadGenerationKey: (generationKey: number) => void;
     readonly setIsInitialLoading: (loading: boolean) => void;
     readonly setIsRefreshing: (refreshing: boolean) => void;
@@ -148,7 +138,6 @@ export function useTimelineMutationComposition({
     pendingSavesRefs: foundation.pendingSavesRefs,
     rowsRef: foundation.rowsRef,
     selectedRowId: inspector.selectedRowId,
-    setAutoResolutionNotices: foundation.setAutoResolutionNotices,
     rowStoreCommands: foundation.rowStoreCommands,
     setSelectedRowId: inspector.selectRow,
   });
@@ -221,8 +210,6 @@ export function useTimelineMutationComposition({
     loadIdentity: timelineLoadIdentity,
     nextDraftIndex: foundation.nextDraftIndex,
     onAuthorityUncertain,
-    pruneAutoResolutionNoticesForRows:
-      rowMutations.commands.pruneAutoResolutionNoticesForRows,
     publishSaveStatePresentation:
       rowMutations.commands.publishSaveStatePresentation,
     queryState: query.queryState,

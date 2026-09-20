@@ -1445,7 +1445,7 @@ Design contract. Chip states MUST use the closed visual vocabulary below.
 | --- | --- | --- | --- | --- |
 | `unresolved` | Dashed or dotted. | Leading `?` or visible `Unresolved`. | `Unresolved <entity type> mention: <raw text>`. | Must differ from ordinary text and resolved chips. |
 | `resolved` | Solid. | No unresolved marker. | `Resolved <entity type>: <display name>`. | Shows canonical target while retaining inspection path to raw mention. |
-| `auto_resolved` | Solid plus auto marker. | Visible `auto`. | `Auto-resolved <entity type>: <display name>; matched <alias text>`. | Remains inspectably marked after transient disclosure fades. |
+| `auto_resolved` | Solid plus auto marker. | Visible `auto`. | `Auto-resolved <entity type>: <display name>; matched <alias text>`. | Remains inspectably marked while the underlying state is auto-resolved. |
 | `dismissed` | Low-emphasis chip or token. | Visible `dismissed`. | `Dismissed mention: <raw text>`. | Display only where inspectable; excluded from active relationship values. |
 
 Design contract. Color alone MUST NOT distinguish chip states.
@@ -1471,7 +1471,7 @@ cancellation and settlement; ordinary cell selection does not imply scalar edit.
 
 Design contract. If a value is auto-resolved, the user MUST be able to tell it was auto-resolved, inspect the match reason when `alias_text` is present in `chip_state_input_v1`, and correct it through the same surface or inspector.
 
-Design contract. Transient auto-resolution disclosure MAY fade after the user has seen the affected row at least once. Omission behavior: omission of fade is conformant. The chip state MUST remain marked as `auto_resolved` until the underlying resolution state changes.
+Design contract. Auto-resolution disclosure remains in a compact same-sheet layout region until successful correction/reversion or authoritative evidence establishes that the same source-bound mention no longer requires it (Core 03 §12.5). Review does not dismiss disclosure; seeing a row does not authorize fading. The chip state MUST remain marked as `auto_resolved` until the underlying resolution state changes.
 
 ## 10. Collaboration, save state, presence, and conflict design
 

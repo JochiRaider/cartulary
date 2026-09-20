@@ -24,6 +24,7 @@ export function WorkbookSurfaceLayout({
   restoreInspectorFocus,
   onRequestPreviewClose,
   primaryGrid,
+  workAreaFeedback,
   statusStrip,
   testId,
   viewBar,
@@ -42,6 +43,7 @@ export function WorkbookSurfaceLayout({
     | (() => boolean | Promise<boolean>)
     | undefined;
   readonly primaryGrid: ReactNode;
+  readonly workAreaFeedback?: ReactNode;
   readonly statusStrip: ReactNode;
   readonly testId?: string | undefined;
   readonly viewBar: ReactNode;
@@ -221,63 +223,72 @@ export function WorkbookSurfaceLayout({
       >
         {viewBar}
       </WorkbookShellSlotRegion>
-      <section
-        aria-label={workAreaAriaLabel}
-        style={workAreaStyle}
-        tabIndex={-1}
-        onContextMenu={onWorkAreaContextMenu}
-        onKeyDownCapture={onWorkAreaKeyDown}
+      <div
+        style={{
+          ...workbookSurfaceWorkAreaStyle,
+          gridTemplateRows: "auto minmax(0, 1fr)",
+          containerType: "size",
+        }}
       >
-        <WorkbookShellSlotRegion
-          inert={backgroundIsInert}
-          slot="primary-grid"
-          style={workbookSurfacePrimaryGridSlotStyle}
-          viewSchemaId={viewSchemaId}
+        {workAreaFeedback}
+        <section
+          aria-label={workAreaAriaLabel}
+          style={workAreaStyle}
+          tabIndex={-1}
+          onContextMenu={onWorkAreaContextMenu}
+          onKeyDownCapture={onWorkAreaKeyDown}
         >
-          <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
-          <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
-        </WorkbookShellSlotRegion>
-        <div
-          aria-hidden={
-            (backgroundIsInert && onRequestPreviewClose === undefined) ||
-            undefined
-          }
-          inert={
-            (backgroundIsInert && onRequestPreviewClose === undefined) ||
-            undefined
-          }
-          style={workbookSurfaceOverlayLayerStyle}
-        >
-          {workAreaOverlays}
-        </div>
-        <WorkbookWorkAreaOverlayHost />
-        {inspector === undefined ? null : (
           <WorkbookShellSlotRegion
-            slot="inspector"
-            style={inspectorSlotStyle}
+            inert={backgroundIsInert}
+            slot="primary-grid"
+            style={workbookSurfacePrimaryGridSlotStyle}
             viewSchemaId={viewSchemaId}
           >
-            {inspectorIsAdjacent ? (
-              <hr
-                aria-label="Resize inspector"
-                aria-orientation="vertical"
-                aria-valuemax={layoutMetrics.inspectorEffectiveMaxWidthCssPx}
-                aria-valuemin={layoutMetrics.inspectorMinWidthCssPx}
-                aria-valuenow={effectiveInspectorWidth}
-                aria-valuetext={`${effectiveInspectorWidth} pixels`}
-                style={workbookSurfaceInspectorSeparatorStyle}
-                tabIndex={0}
-                onKeyDown={resizeInspectorFromKeyboard}
-                onPointerCancel={finishPointerResize}
-                onPointerDown={beginPointerResize}
-                onPointerMove={continuePointerResize}
-                onPointerUp={finishPointerResize}
-              />
-            ) : null}
-            {inspector}
+            <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
+            <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
           </WorkbookShellSlotRegion>
-        )}
-      </section>
+          <div
+            aria-hidden={
+              (backgroundIsInert && onRequestPreviewClose === undefined) ||
+              undefined
+            }
+            inert={
+              (backgroundIsInert && onRequestPreviewClose === undefined) ||
+              undefined
+            }
+            style={workbookSurfaceOverlayLayerStyle}
+          >
+            {workAreaOverlays}
+          </div>
+          <WorkbookWorkAreaOverlayHost />
+          {inspector === undefined ? null : (
+            <WorkbookShellSlotRegion
+              slot="inspector"
+              style={inspectorSlotStyle}
+              viewSchemaId={viewSchemaId}
+            >
+              {inspectorIsAdjacent ? (
+                <hr
+                  aria-label="Resize inspector"
+                  aria-orientation="vertical"
+                  aria-valuemax={layoutMetrics.inspectorEffectiveMaxWidthCssPx}
+                  aria-valuemin={layoutMetrics.inspectorMinWidthCssPx}
+                  aria-valuenow={effectiveInspectorWidth}
+                  aria-valuetext={`${effectiveInspectorWidth} pixels`}
+                  style={workbookSurfaceInspectorSeparatorStyle}
+                  tabIndex={0}
+                  onKeyDown={resizeInspectorFromKeyboard}
+                  onPointerCancel={finishPointerResize}
+                  onPointerDown={beginPointerResize}
+                  onPointerMove={continuePointerResize}
+                  onPointerUp={finishPointerResize}
+                />
+              ) : null}
+              {inspector}
+            </WorkbookShellSlotRegion>
+          )}
+        </section>
+      </div>
       <WorkbookShellSlotRegion
         slot="status-strip"
         style={workbookSurfaceStatusStripStyle}

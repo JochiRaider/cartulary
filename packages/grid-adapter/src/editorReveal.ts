@@ -180,3 +180,11 @@ export function bindGridEditorReveal(
     },
   };
 }
+
+/** Native collection controls share the scalar editor's geometry and reveal controller. */
+export function bindGridEditorControlReveal(control: HTMLElement) {
+  const root = control.closest<HTMLElement>('[role="grid"], [role="treegrid"]');
+  return root
+    ? bindGridEditorReveal(root, control, () => control.isConnected)
+    : null;
+}

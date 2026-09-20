@@ -25,6 +25,7 @@ type Coordination = {
   readonly available: (plan: WorkbookBatchPlan) => boolean;
   readonly reserve: (plan: WorkbookBatchPlan) => (() => void) | null;
   readonly conflicts: (id: string) => boolean;
+  readonly captured?: (attempt: WorkbookBatchAttempt) => void;
   readonly accepted: (
     receipt: WorkbookBatchReceipt,
     attempt: WorkbookBatchAttempt,
@@ -372,6 +373,7 @@ export class WorkbookBatchOperationOwner {
             retained.entry.id,
           ),
         );
+        this.coordination.captured?.(attempt);
       } catch {
         retained.release?.();
         retained.release = null;

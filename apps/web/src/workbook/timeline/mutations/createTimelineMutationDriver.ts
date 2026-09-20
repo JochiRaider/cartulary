@@ -115,6 +115,8 @@ export type TimelineMutationDriverPorts = {
     options?: {
       continueOnFreshDraft?: boolean;
       detectAutoResolution?: boolean;
+      previousRow?: WorkbookRow;
+      operationId?: string;
       promoteToCommittedRowInspect?: boolean;
       viewportContinuityToken?: number;
     },
@@ -725,6 +727,8 @@ export function createTimelineMutationDriver(
         continueOnFreshDraft:
           meta.continueOnFreshDraft && meta.rowSnapshot.recordId === null,
         detectAutoResolution: meta.detectAutoResolution,
+        previousRow: meta.rowSnapshot,
+        operationId: unit.clientTxnId,
         promoteToCommittedRowInspect: meta.promoteToCommittedRowInspect,
         ...(meta.viewportContinuityToken === undefined
           ? {}

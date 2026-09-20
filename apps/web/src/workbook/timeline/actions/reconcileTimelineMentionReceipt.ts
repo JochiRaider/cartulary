@@ -1,4 +1,8 @@
 import type { TimelineMentionSourceReader } from "../adapters/createTimelineMentionSourceReader";
+import {
+  normalizeTimelineFullRow,
+  rowFromApi,
+} from "../models/timelineRowModel";
 import { readCollectionItems } from "../models/workbookMentionChips";
 import type { MentionReceipt } from "./timelineMentionOperationModel";
 import type {
@@ -45,22 +49,9 @@ export async function reconcileTimelineMentionReceipt(
         item.resolutionMethod !== receipt.entity_mention.resolution_method)
   )
     throw new Error("Mention result projection is incomplete.");
-  owner.acceptVersion(row.record_id, row.row_version);
-  if (item?.entityMentionId && item.mentionRowVersion)
-    owner.observeMention({
-      incidentId: owner.incidentId,
-      sourceRecordId: row.record_id,
-      sourceRowVersion: row.row_version,
-      sourceFieldKey: field,
-      mentionId: item.entityMentionId,
-      itemRef: item.itemRef,
-      entityType: item.entityType,
-      rawText: item.rawText,
-      mentionRowVersion: item.mentionRowVersion,
-      state: item.itemKind === "resolved_ref" ? "resolved" : "unresolved",
-      resolvedRecordId: item.resolvedRecordId,
-      resolutionMethod: item.resolutionMethod,
-    });
+  owner.observeSource(
+    rowFromApi(normalizeTimelineFullRow(row, "mention reconciliation")),
+  );
   await owner.refreshPresentation(row.record_id, row.row_version);
   if (!scope.isCurrent()) throw new Error("Mention reconciliation detached.");
 }

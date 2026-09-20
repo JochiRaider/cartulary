@@ -20,7 +20,10 @@ export function TimelineMentionRecovery({
 }: {
   readonly owner: WorkbookTimelineMentionOperationOwner;
 }) {
-  const current = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const current = useSyncExternalStore(
+    owner.subscribe,
+    owner.getActionSnapshot,
+  );
   const items: WorkbookRecoveryItem[] = [];
   if (current.authority) {
     for (const entry of current.creations) {

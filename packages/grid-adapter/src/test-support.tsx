@@ -1,6 +1,8 @@
 // biome-ignore-all lint/a11y/noNoninteractiveElementToInteractiveRole: The deterministic test grid preserves the public semantic role surface.
 // biome-ignore-all lint/a11y/noRedundantRoles: Explicit roles keep workbook tests independent of native accessibility-role inference.
 // biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer provides semantic selector compatibility, not production interaction mechanics.
+export { bindGridEditorControlReveal } from "./editorReveal";
+
 import {
   gridScrollportClassName,
   workbookGridRowHeightPx,

@@ -18,7 +18,6 @@ import {
   rowFromApi,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 import { useTimelineRowMutationCoordinator } from "./useTimelineRowMutationCoordinator";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -95,7 +94,6 @@ function renderCoordinator(
       const [selectedRowId, setSelectedRowId] = useState<string | null>(
         recordId,
       );
-      const [, setAutoResolutionNotices] = useState<AutoResolutionNotice[]>([]);
       const pending = timelinePendingSavesRefsFor(
         runtime,
         runtime.pendingQueue(),
@@ -127,7 +125,6 @@ function renderCoordinator(
         pendingSavesRefs: pending,
         rowsRef,
         selectedRowId,
-        setAutoResolutionNotices,
         rowStoreCommands: { replaceRows, updateRows },
         setSelectedRowId,
       });

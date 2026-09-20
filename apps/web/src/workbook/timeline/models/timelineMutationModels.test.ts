@@ -176,7 +176,6 @@ describe("Timeline mutation models", () => {
       planTimelineAcceptedMutationEffects({
         committed,
         continueOnFreshDraft: true,
-        detectAutoResolution: true,
         projection,
         promoteToCommittedRowInspect: false,
         selectedRowId: null,

@@ -69,7 +69,11 @@ it("Mention reconciliation accepts cleared dismissal and keeps newer remote corr
     f.receipt,
     f.scope,
   );
-  expect(f.owner.latestMention(newer.mentionId)).toEqual(newer);
+  expect(f.owner.latestMention(newer.mentionId)).toEqual({
+    ...newer,
+    displayText: newer.rawText,
+    matchedAliasText: null,
+  });
   await expect(
     reconcileTimelineMentionReceipt(
       f.owner,
@@ -78,7 +82,11 @@ it("Mention reconciliation accepts cleared dismissal and keeps newer remote corr
       f.scope,
     ),
   ).rejects.toThrow("newer source");
-  expect(f.owner.latestMention(newer.mentionId)).toEqual(newer);
+  expect(f.owner.latestMention(newer.mentionId)).toEqual({
+    ...newer,
+    displayText: newer.rawText,
+    matchedAliasText: null,
+  });
 });
 it("Mention reconciliation rejects stale sources malformed same-version projections and detached reads", async () => {
   for (const mismatch of [

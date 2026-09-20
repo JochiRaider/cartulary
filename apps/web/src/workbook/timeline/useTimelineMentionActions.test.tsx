@@ -207,3 +207,58 @@ describe("Timeline mention actions", () => {
     expect(f.input.restoreActionFocus).not.toHaveBeenCalled();
   });
 });
+
+it("Timeline disclosure actions read only their unavailable source and preserve accepted correction through failed refresh", async () => {
+  const base = mentionReview();
+  const f = setup(
+    mentionReview({
+      subject: {
+        ...base.subject,
+        state: "resolved",
+        resolutionMethod: "auto_match",
+        resolvedRecordId: "70000000-0000-4000-8000-000000000001",
+      },
+      intent: { action: "revert_to_unresolved" },
+    }),
+  );
+  const row = f.rowsRef.current[0];
+  if (!row) throw new Error("Source fixture required");
+  act(() =>
+    f.owner.acceptAutoResolutions(
+      [{ ...row, collectionValues: { ...row.collectionValues, hostRefs: [] } }],
+      [row],
+      { kind: "entry", operationId: "match", changeSetId: "match-change" },
+    ),
+  );
+  const notice = f.owner.getDisclosureSnapshot()[0];
+  if (!notice) throw new Error("Disclosure required");
+  f.rowsRef.current = [];
+  const read = vi.fn(async (_recordId: string, _signal: AbortSignal) => row);
+  f.owner.configureSourceReader(read);
+  await act(async () => {
+    expect(await f.result.current.prepareDisclosureReview(notice)).toBe(row);
+  });
+  expect(read.mock.calls[0]?.[0]).toBe(notice.rowRecordId);
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  f.owner.configureSourceReader(async () => {
+    throw new Error("Source unavailable");
+  });
+  act(() => f.result.current.handleUndoAutoResolutionNotice(notice));
+  await flush();
+  expect(f.send).not.toHaveBeenCalled();
+  expect(f.owner.getSnapshot().entries.at(-1)?.phase).toBe(
+    "preparation_failed",
+  );
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  f.owner.configureSourceReader(read);
+  f.owner.registerReconciliation(async () => {
+    throw new Error("Refresh unavailable");
+  });
+  act(() => f.result.current.handleUndoAutoResolutionNotice(notice));
+  await flush();
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(0);
+  expect(f.owner.getSnapshot().entries.at(-1)?.refresh).toBe("required");
+  expect(f.input.restoreActionFocus).toHaveBeenCalledTimes(1);
+  expect(f.send).toHaveBeenCalledTimes(1);
+  f.unmount();
+});

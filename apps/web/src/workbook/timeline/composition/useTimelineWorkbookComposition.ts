@@ -51,8 +51,6 @@ export function useTimelineWorkbookComposition({
       recordWorkbookTiming: foundation.commands.recordTiming,
       rowStoreCommands: foundation.commands.rows,
       rowsRef: foundation.refs.rows,
-      setAutoResolutionNotices:
-        foundation.commands.mentions.setAutoResolutionNotices,
       setInitialLoadGenerationKey:
         foundation.commands.lifecycle.setInitialLoadGenerationKey,
       setIsInitialLoading: foundation.commands.lifecycle.setIsInitialLoading,
@@ -98,6 +96,10 @@ export function useTimelineWorkbookComposition({
     earlierSaves: foundation.refs.pendingSaves.saveQueueRef,
     activeSheetRef: mutation.ports.activeSheetRef,
     foundation: {
+      currentCommittedRow:
+        foundation.ports.committedRows.currentCommittedTimelineRow,
+      acceptDisclosureSource:
+        foundation.ports.committedRows.acceptCommittedTimelineRow,
       evidenceAttachmentPort: foundation.ports.evidenceAttachment,
       loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
       selectedTargetId: foundation.snapshot.mentions.selectedResolveTargetId,

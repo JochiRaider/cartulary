@@ -1,9 +1,6 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import type { WorkbookTimelineMentionOperationOwner } from "../actions/WorkbookTimelineMentionOperationOwner";
-import type {
-  AutoResolutionNotice,
-  DismissedMention,
-} from "../models/workbookMentionChips";
+import type { DismissedMention } from "../models/workbookMentionChips";
 
 export function useTimelineMentions(
   owner: WorkbookTimelineMentionOperationOwner,
@@ -12,13 +9,13 @@ export function useTimelineMentions(
     null,
   );
   const [selectedResolveTargetId, setSelectedResolveTargetId] = useState("");
-  const [autoResolutionNotices, setAutoResolutionNotices] = useState<
-    AutoResolutionNotice[]
-  >([]);
-  const retained = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const retained = useSyncExternalStore(
+    owner.subscribe,
+    owner.getMentionsSnapshot,
+  );
   const dismissedMentionsByRow = useMemo(() => {
     const result: Record<string, DismissedMention[]> = {};
-    for (const subject of retained.mentions) {
+    for (const subject of retained) {
       if (subject.state !== "dismissed") continue;
       result[subject.sourceRecordId] ??= [];
       result[subject.sourceRecordId]?.push({
@@ -35,17 +32,15 @@ export function useTimelineMentions(
       });
     }
     return result;
-  }, [retained.mentions]);
+  }, [retained]);
   return {
     commands: {
-      setAutoResolutionNotices,
       setSelectedMentionRef,
       setSelectedResolveTargetId,
     },
     snapshot: {
-      autoResolutionNotices,
       dismissedMentionsByRow,
-      observedMentions: retained.mentions,
+      observedMentions: retained,
       selectedMentionRef,
       selectedResolveTargetId,
     },

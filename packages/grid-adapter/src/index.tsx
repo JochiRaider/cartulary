@@ -1,5 +1,6 @@
 export { gridRowIdentitiesEqual } from "./core";
 export { adjacentTabStop } from "./domInteraction";
+export { bindGridEditorControlReveal } from "./editorReveal";
 
 import type { ForwardedRef } from "react";
 import { forwardRef } from "react";

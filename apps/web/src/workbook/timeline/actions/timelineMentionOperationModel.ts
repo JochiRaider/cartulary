@@ -19,6 +19,8 @@ export type MentionAuthority = Readonly<{
   createTypes: readonly ("host" | "identity")[];
 }>;
 export type MentionSubject = Readonly<{
+  displayText?: string;
+  matchedAliasText?: string | null;
   incidentId: string;
   mentionId: string;
   itemRef: string;
