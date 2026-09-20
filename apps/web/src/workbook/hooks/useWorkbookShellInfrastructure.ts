@@ -31,7 +31,6 @@ import { createRecordPatchTransport } from "../adapters/workbookRecordPatchTrans
 import { createWorkbookMutationCommandPorts } from "../mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
-import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { WorkbookMutationRuntimeRegistry } from "../runtime/WorkbookMutationRuntimeRegistry";
 import type { SavedViewBinding } from "../savedviews/savedViewOperationModel";
@@ -259,7 +258,6 @@ export function useWorkbookShellInfrastructure({
         ),
     );
   }, [apiBase, incidentId, mutationRuntime, recheckMentionAuthority]);
-  const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const surfaceSelectionVersionRef = useRef(0);
   const incidentPort = useMemo(
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
@@ -477,7 +475,6 @@ export function useWorkbookShellInfrastructure({
     mutationRuntime,
     timelineCapture,
     timelineMentions,
-    mutationSnapshot,
     viewQuery,
     workbookRuntime,
   };

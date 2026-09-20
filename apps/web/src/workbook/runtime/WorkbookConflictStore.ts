@@ -27,13 +27,16 @@ export type WorkbookConflictRegistration = {
 class WorkbookConflictState {
   readonly #entries = new Map<string, WorkbookConflictEntry>();
   readonly #refreshByKey = new Map<string, WorkbookConflictRefresh>();
+  #snapshot: readonly WorkbookConflictEntry[] | null = null;
 
   get size(): number {
     return this.#entries.size;
   }
 
   entries(): readonly WorkbookConflictEntry[] {
-    return Array.from(this.#entries.values());
+    if (this.#snapshot === null)
+      this.#snapshot = Object.freeze(Array.from(this.#entries.values()));
+    return this.#snapshot;
   }
 
   get(key: string): WorkbookConflictEntry | undefined {
@@ -41,6 +44,7 @@ class WorkbookConflictState {
   }
 
   register(registration: WorkbookConflictRegistration): WorkbookConflictEntry {
+    this.#snapshot = null;
     const entry = workbookConflictEntry(registration);
     const current = this.#entries.get(entry.key);
     this.#entries.set(
@@ -62,6 +66,8 @@ class WorkbookConflictState {
   }
 
   replace(entry: WorkbookConflictEntry): void {
+    if (this.#entries.get(entry.key) === entry) return;
+    this.#snapshot = null;
     this.#entries.set(entry.key, entry);
   }
 
@@ -76,12 +82,17 @@ class WorkbookConflictState {
   updateDraft(key: string, mergedDraft: string): boolean {
     const conflict = this.#entries.get(key);
     if (conflict === undefined) return false;
+    // An existing draft update is still an owner event; only its observation
+    // may remain unchanged. The runtime must continue publishing/waking work.
+    if (conflict.mergedDraft === mergedDraft) return true;
+    this.#snapshot = null;
     this.#entries.set(key, { ...conflict, mergedDraft });
     return true;
   }
 
   clear(key: string): WorkbookConflictEntry | undefined {
     const conflict = this.#entries.get(key);
+    if (conflict !== undefined) this.#snapshot = null;
     this.#entries.delete(key);
     this.#refreshByKey.delete(key);
     return conflict;

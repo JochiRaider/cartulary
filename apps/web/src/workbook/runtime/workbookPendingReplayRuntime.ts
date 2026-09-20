@@ -1,8 +1,4 @@
 import {
-  type WorkbookEditRecoveryPresentation,
-  workbookEditRecoveryPresentation,
-} from "../utils/workbookEditRecoveryPresentation";
-import {
   createWorkbookPendingQueueModel,
   type PendingReplayScope,
   type PendingReplayUnitState,
@@ -15,22 +11,6 @@ export type WorkbookPendingQueueRuntime = {
   refreshInFlightCount: number;
   refreshReplayBlockAllCount: number;
   resetRefreshInFlight: boolean;
-};
-
-export type WorkbookPendingQueueSnapshot = {
-  queuedCount: number;
-  inFlightCount: number;
-  haltedMessage: string | null;
-  blockedEdit: WorkbookBlockedEditRecovery | null;
-  authPaused: boolean;
-  overflowMessage: string | null;
-  resetRefreshInFlight: boolean;
-};
-
-export type WorkbookBlockedEditRecovery = {
-  unitId: string;
-  kind: WorkbookEditRecoveryPresentation["kind"];
-  message: string;
 };
 
 export type WorkbookPendingRefreshBlockScope =
@@ -47,33 +27,6 @@ export function createWorkbookPendingQueueRuntime(
     refreshInFlightCount: 0,
     refreshReplayBlockAllCount: 0,
     resetRefreshInFlight: false,
-  };
-}
-
-export function workbookPendingQueueSnapshot(
-  pending: WorkbookPendingQueueRuntime,
-): WorkbookPendingQueueSnapshot {
-  const snapshot = pending.model.snapshot();
-  return {
-    queuedCount: snapshot.queuedCount,
-    inFlightCount: snapshot.inFlightCount,
-    haltedMessage: snapshot.halted?.message ?? null,
-    blockedEdit:
-      snapshot.halted === null
-        ? null
-        : (() => {
-            const presentation = workbookEditRecoveryPresentation({
-              errorCode: snapshot.halted.error_code,
-            });
-            return {
-              unitId: snapshot.halted.unit_id,
-              kind: presentation.kind,
-              message: presentation.message,
-            };
-          })(),
-    authPaused: snapshot.authPaused,
-    overflowMessage: snapshot.overflow?.message ?? null,
-    resetRefreshInFlight: pending.resetRefreshInFlight,
   };
 }
 

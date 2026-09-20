@@ -87,6 +87,7 @@ function fixture() {
     recordWorkbookTiming: vi.fn(),
     requestAuthorizationRecovery: vi.fn(),
     setRefreshError: vi.fn(),
+    setMutationError: vi.fn(),
     rowStoreCommands: {
       replaceRows: (rows) => {
         rowsRef.current = rows;

@@ -12,20 +12,21 @@ export function WorkbookSurfaceRefreshNotice({
 }: {
   readonly runtime: WorkbookMutationRuntime;
 }) {
-  useSyncExternalStore(runtime.subscribe, runtime.getSnapshot);
+  const debts = useSyncExternalStore(
+    runtime.subscribe,
+    runtime.getRefreshRecoverySnapshot,
+  );
   const [reading, setReading] = useState(false);
-  const items: readonly WorkbookRecoveryItem[] = runtime
-    .surfaceRefreshDebts()
-    .map((id, order) => ({
-      id,
-      label: "Refresh saved view",
-      summary: "Saved changes; view refresh required",
-      origin: getViewContract(id)?.title ?? "Workbook",
-      sheetRef: { kind: "view_schema", id },
-      attention: "attention",
-      order,
-      refreshOnlyView: id,
-    }));
+  const items: readonly WorkbookRecoveryItem[] = debts.map((id, order) => ({
+    id,
+    label: "Refresh saved view",
+    summary: "Saved changes; view refresh required",
+    origin: getViewContract(id)?.title ?? "Workbook",
+    sheetRef: { kind: "view_schema", id },
+    attention: "attention",
+    order,
+    refreshOnlyView: id,
+  }));
   const selected = useWorkbookRecoverySource("surface-refresh", items);
   return (
     <WorkbookRecoveryDetail source="surface-refresh" item={selected}>

@@ -58,8 +58,7 @@ import {
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
   networkAnalysisTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   relationshipChipTestId,
   relationshipItemsTestId,
   relationshipOverflowButtonTestId,
@@ -1701,8 +1700,9 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       patchController.disconnect();
       await summaryEditor.press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
         "1",
       );
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
@@ -1718,7 +1718,10 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
         .poll(() => successfulPatchCalls(patchController.calls).length)
         .toBe(1);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
+        "0",
+      );
     } finally {
       patchController.connect();
       await patchController.dispose();
@@ -2980,7 +2983,10 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         .getByTestId(workbookConflictControlTestId("keep-saved"))
         .click();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
+        "0",
+      );
       await assertStatusStripVisualFixture(
         page,
         "collaboration-recovered-saved-strip",
@@ -4193,7 +4199,10 @@ test.describe("workbook visual evidence", () => {
     }
 
     await expect(saveState).toHaveText("Saved");
-    await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "0",
+    );
     await assertStatusStripVisualRegression(
       page,
       "collaboration-grid-recovered-saved-strip",

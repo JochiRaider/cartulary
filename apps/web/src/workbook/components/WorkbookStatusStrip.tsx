@@ -3,7 +3,8 @@ import {
   saveStateTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useId } from "react";
+import { type ComponentProps, type CSSProperties, useId } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import {
   emptyPresenceScope,
   type PresenceScope,
@@ -11,6 +12,10 @@ import {
 import { WorkbookContinuityAnchorStatus } from "../continuity/useWorkbookGridContinuity";
 import type { WorkbookContinuityAnchor } from "../continuity/workbookContinuityPort";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
+import {
+  useWorkbookMutationRuntime,
+  type WorkbookMutationStatusSource,
+} from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookStatusPresentation } from "../runtime/workbookMutationStatusProjector";
 import { displayInitials } from "../utils/workbookPresence";
 import type { WorkbookStatusAction } from "../utils/workbookStatusSecondary";
@@ -30,6 +35,18 @@ export type WorkbookConflictActivation = (
   invoker: HTMLButtonElement,
   action: WorkbookStatusAction,
 ) => void;
+
+export function WorkbookObservedStatusStrip({
+  source,
+  sheetRef,
+  ...props
+}: Omit<ComponentProps<typeof WorkbookStatusStrip>, "status"> & {
+  readonly source: WorkbookMutationStatusSource;
+  readonly sheetRef: SheetRef;
+}) {
+  const status = useWorkbookMutationRuntime(source, sheetRef);
+  return <WorkbookStatusStrip {...props} status={status} />;
+}
 
 /** Visible status is a projection. Save announcements belong to the shell host. */
 export function WorkbookStatusStrip({

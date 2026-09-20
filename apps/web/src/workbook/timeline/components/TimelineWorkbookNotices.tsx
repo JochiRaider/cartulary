@@ -2,37 +2,10 @@ import {
   autoResolutionNoticeTestId,
   autoResolutionReviewButtonTestId,
   autoResolutionUndoButtonTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
-import type { WorkbookPendingQueueSnapshot } from "../../runtime/workbookPendingReplayRuntime";
 import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 import { actionButtonStyle } from "./TimelineWorkbookStyles";
-
-export function timelinePendingQueueMessage(
-  pendingQueueSnapshot: WorkbookPendingQueueSnapshot,
-): string | null {
-  if (
-    pendingQueueSnapshot.blockedEdit !== null ||
-    pendingQueueSnapshot.overflowMessage !== null
-  ) {
-    return null;
-  }
-  if (
-    pendingQueueSnapshot.authPaused &&
-    pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount > 0
-  ) {
-    return "Authentication is required before queued edits can replay.";
-  }
-  if (
-    pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount >
-    0
-  ) {
-    return "Queued edits are waiting to replay.";
-  }
-  return null;
-}
 
 export function TimelineWorkbookNotices({
   autoResolutionNotices,
@@ -41,7 +14,6 @@ export function TimelineWorkbookNotices({
   inspectorOpen = false,
   onReviewAutoResolution,
   onUndoAutoResolution,
-  pendingQueueSnapshot,
 }: {
   readonly canManageMentions: boolean;
   readonly autoResolutionNotices: readonly AutoResolutionNotice[];
@@ -52,15 +24,8 @@ export function TimelineWorkbookNotices({
     itemRef: string,
   ) => void;
   readonly onUndoAutoResolution: (notice: AutoResolutionNotice) => void;
-  readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
 }) {
-  const pendingQueueMessage = timelinePendingQueueMessage(pendingQueueSnapshot);
-  const pendingQueueCount =
-    pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount;
-
-  if (autoResolutionNotices.length === 0 && pendingQueueMessage === null) {
-    return null;
-  }
+  if (autoResolutionNotices.length === 0) return null;
 
   return (
     <aside
@@ -116,19 +81,6 @@ export function TimelineWorkbookNotices({
           </div>
         </div>
       ))}
-
-      {pendingQueueMessage !== null ? (
-        <div
-          data-testid={pendingQueueNoticeTestId()}
-          style={pendingQueueNoticeCardStyle}
-        >
-          <strong style={pendingQueueTitleStyle}>Queued edits</strong>
-          <span style={noticeMessageStyle}>{pendingQueueMessage}</span>
-          <span data-testid={pendingQueueCountTestId()} style={queueCountStyle}>
-            Pending {pendingQueueCount}
-          </span>
-        </div>
-      ) : null}
     </aside>
   );
 }
@@ -139,20 +91,6 @@ const bodyStyle = {
   color: "var(--ct-colors-ink-muted)",
   minWidth: 0,
   overflowWrap: "anywhere" as const,
-} satisfies CSSProperties;
-
-const noticeMessageStyle = {
-  ...bodyStyle,
-  flex: "1 1 auto",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-} satisfies CSSProperties;
-
-const queueCountStyle = {
-  ...bodyStyle,
-  flex: "0 0 auto",
-  whiteSpace: "nowrap" as const,
 } satisfies CSSProperties;
 
 const secondaryActionButtonStyle = {
@@ -199,27 +137,6 @@ const noticeCardStyle = {
   alignSelf: "start",
   boxShadow: "var(--ct-elevation-popover)",
   pointerEvents: "none",
-} satisfies CSSProperties;
-
-const pendingQueueNoticeCardStyle = {
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  padding: "0.45rem 0.75rem",
-  display: "flex",
-  alignItems: "center",
-  gap: "0.75rem",
-  minWidth: 0,
-  overflow: "hidden",
-  boxShadow: "var(--ct-elevation-popover)",
-  pointerEvents: "none",
-} satisfies CSSProperties;
-
-const pendingQueueTitleStyle = {
-  color: "var(--ct-colors-ink)",
-  fontSize: "0.85rem",
-  fontWeight: 650,
-  whiteSpace: "nowrap",
 } satisfies CSSProperties;
 
 const noticeTitleStyle = {

@@ -3,7 +3,6 @@ import {
   gridRowTestId,
   gridRowVersionAttribute,
   gridShellTestId,
-  pendingQueueNoticeTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
@@ -943,7 +942,7 @@ describe("workbook collaboration coverage", () => {
     await waitForPendingQueueState({
       expectedPendingUnits: 1,
       expectedSaveState: "Syncing",
-      noticeIncludes: "Authentication is required",
+      secondaryIncludes: "Authentication is required",
     });
 
     expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(1);
@@ -1123,7 +1122,7 @@ describe("workbook collaboration coverage", () => {
     expect(document.body.textContent).not.toMatch(
       /raw-transaction-id|raw-unit-id|\/api\/v1\/private|secret-token|unsafe:true|handler\.go/u,
     );
-    expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
     expect(
       document.querySelector('[data-grid-data-state="stale_error"]'),
     ).toBeNull();
@@ -1237,7 +1236,7 @@ describe("workbook collaboration coverage", () => {
         .getAllByRole("heading", { level: 2 })
         .find((heading) => heading.tabIndex === -1),
     );
-    expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
     expect(
       document.querySelector('[data-grid-data-state="stale_error"]'),
     ).toBeNull();

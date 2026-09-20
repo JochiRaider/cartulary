@@ -48,12 +48,22 @@ it("preserves autosave FIFO and prevents coalescing across explicit batch bounda
   );
   expect(later.id).not.toBe(first.id);
   expect(queue.snapshot().units).toHaveLength(2);
+  const status = queue.statusFacts();
+  const recovery = queue.pendingUnitFacts();
+  expect(queue.statusFacts()).toBe(status);
+  expect(queue.pendingUnitFacts()).toBe(recovery);
   queue.setDispatchGuard(() => false);
+  expect(queue.statusFacts()).toBe(status);
   expect(queue.peekNextQueued()).toBeNull();
   expect(queue.markDispatched(first.id)).toBeNull();
   queue.setDispatchGuard((unit) => unit.id === first.id);
   expect(queue.peekNextQueued()?.unit.id).toBe(first.id);
   expect(queue.markDispatched(later.id)).toBeNull();
+  queue.markDispatched(first.id);
+  expect(queue.statusFacts()).not.toBe(status);
+  expect(queue.pendingUnitFacts()).not.toBe(recovery);
+  expect(status.queuedCount).toBe(2);
+  expect(recovery[0]?.status).toBe("queued");
 });
 
 function expectAccepted(
@@ -1086,6 +1096,33 @@ describe("pending queue unit model", () => {
     ).toEqual(["txn-invalid", "txn-behind-invalid"]);
     expect(validationQueue.dispatchNext()).toBeNull();
     expect(validationQueue.snapshot().primarySaveStateInput).toBe("Conflict");
+    const blocked = validationQueue.statusFacts();
+    const blockedUnits = validationQueue.pendingUnitFacts();
+    validationQueue.discardHaltedUnit("unit-txn-invalid");
+    expectAccepted(
+      validationQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-replacement",
+          recordId: "record-replacement",
+          order: 3,
+        }),
+      ),
+    );
+    validationQueue.dispatchNext();
+    validationQueue.settleDispatched({
+      ok: false,
+      status: 400,
+      error: { code: "invalid_mutation_payload", message: "Second rejection" },
+    });
+    expect(validationQueue.snapshot().primarySaveStateInput).toBe("Conflict");
+    expect(validationQueue.statusFacts()).not.toBe(blocked);
+    expect(validationQueue.statusFacts().queuedCount).toBe(blocked.queuedCount);
+    expect(validationQueue.pendingUnitFacts()).not.toBe(blockedUnits);
+    expect(blockedUnits[0]?.id).toBe("unit-txn-invalid");
+    expect(validationQueue.statusFacts().halted?.unit_id).toBe(
+      "unit-txn-behind-invalid",
+    );
+    expect(blocked.halted?.unit_id).toBe("unit-txn-invalid");
 
     const unknownTerminalQueue = createQueue();
     expectAccepted(

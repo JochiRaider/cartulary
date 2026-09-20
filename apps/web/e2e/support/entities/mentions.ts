@@ -2,9 +2,10 @@ import type { CollectionActionsV1, ViewRow } from "@cartulary/protocol-ts/http";
 import {
   gridRowTestId,
   gridRowVersionAttribute,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   relationshipChipTestId,
   relationshipItemsTestId,
+  saveStateTestId,
   timelineCollectionInputTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -70,9 +71,9 @@ export async function addRelationshipTokenViaUI(
         inputValue: await input.inputValue().catch((error: unknown) => {
           return `<<failed to read input value: ${String(error)}>>`;
         }),
-        pendingQueueNoticeCount: await page
-          .getByTestId(pendingQueueNoticeTestId())
-          .count(),
+        pendingReplayCount: await page
+          .getByTestId(saveStateTestId())
+          .getAttribute(pendingReplayCountAttribute),
         renderedRowVersion: await page
           .getByTestId(gridRowTestId(timelineViewSchemaId, recordId))
           .getAttribute(gridRowVersionAttribute)
@@ -93,7 +94,7 @@ export async function addRelationshipTokenViaUI(
     )
     .toEqual({
       inputValue: "",
-      pendingQueueNoticeCount: 0,
+      pendingReplayCount: "0",
       renderedRowVersion: String(envelope.data.row.row_version),
     });
   return envelope;

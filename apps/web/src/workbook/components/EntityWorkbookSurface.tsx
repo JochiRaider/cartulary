@@ -103,7 +103,6 @@ import type {
 import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
-import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
@@ -116,7 +115,7 @@ import {
 } from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
-  WorkbookStatusStrip,
+  WorkbookObservedStatusStrip,
 } from "./WorkbookStatusStrip";
 import {
   WorkbookViewBar,
@@ -245,7 +244,6 @@ export function EntityWorkbookSurface({
     useState<WorkbookInspectorErrorPresentation | null>(null);
   const [entityActionFeedback, setEntityActionFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
-  const sharedMutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
@@ -827,9 +825,10 @@ export function EntityWorkbookSurface({
         </div>
       }
       statusStrip={
-        <WorkbookStatusStrip
+        <WorkbookObservedStatusStrip
           presence={collaboration.presence.header}
-          status={sharedMutation}
+          source={mutationRuntime.statusSource}
+          sheetRef={sheetRef}
           chromeMode={chromeMode}
           onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}

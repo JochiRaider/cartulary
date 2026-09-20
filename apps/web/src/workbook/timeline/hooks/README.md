@@ -38,7 +38,6 @@ Hooks execute owner-local effects over semantic capabilities and pure
 | [useTimelineMutationCommands.ts](useTimelineMutationCommands.ts) | Applies pure scalar/collection admission plans, publishes optimistic rows, and queues exact Timeline owner envelopes. |
 | [useTimelineMutationDriver.ts](useTimelineMutationDriver.ts) | Registers the exact Timeline row driver and applies owner-local admission, revalidation, settlement, conflict, discard, and accepted-result plans. |
 | [useTimelineMutationRuntimeBindings.ts](useTimelineMutationRuntimeBindings.ts) | Lifecycle-registers concrete Timeline refresh, conflict-application, focus-restoration, and blocked-edit-discard commands with the workbook mutation runtime. |
-| [useTimelinePendingSaves.ts](useTimelinePendingSaves.ts) | Coordinates Timeline pending-save queue runtime and replay admission. |
 | [useTimelineSaveStatePresentation.ts](useTimelineSaveStatePresentation.ts) | Coordinates Timeline save-state labels, pending queue snapshot publication, refresh blocking, runtime drain requests, and beforeunload warning state. |
 | [useTimelineSourceWriteCoordination.ts](useTimelineSourceWriteCoordination.ts) | Coordinates Timeline source-owner actions with pending record writes and committed versions. |
 

@@ -12,7 +12,7 @@ import {
   gridRowTestId,
   gridRowVersionAttribute,
   gridSortHeaderTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   rowCellTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
@@ -270,7 +270,10 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(
     validationEnvelope.data.row.cells["timeline.activity_utc_text"]?.value,
   ).toBe("not-a-timestamp");
-  await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+  await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+    pendingReplayCountAttribute,
+    "0",
+  );
 
   await page
     .getByTestId(

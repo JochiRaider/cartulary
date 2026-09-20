@@ -17,8 +17,7 @@ import {
   gridRowTestId,
   gridRowVersionAttribute,
   gridShellTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   rowCellTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
@@ -300,7 +299,8 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
         "integration.collaboration queued B local",
         { outcome: "queued" },
       );
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
         "2",
       );
       queueTransportController.connect();
@@ -1487,7 +1487,7 @@ test("replays queued unsent writes after re-authentication without silent reload
         "collaboration-conflict FIFO A local",
         { outcome: "queued" },
       );
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
       await returnToTimelineWithRetainedWork(page);
       await editTimelineSummary(
         page,
@@ -1503,7 +1503,8 @@ test("replays queued unsent writes after re-authentication without silent reload
         { outcome: "queued" },
       );
 
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
         "3",
       );
       expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
@@ -1717,7 +1718,8 @@ test("replays queued unsent writes after re-authentication without silent reload
         "collaboration-conflict halt C local",
         { outcome: "queued" },
       );
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
         "3",
       );
 
@@ -1752,7 +1754,8 @@ test("replays queued unsent writes after re-authentication without silent reload
         await expect(
           page.getByTestId(workbookConflictLocalValueTestId()),
         ).toHaveValue("collaboration-conflict halt A local");
-        await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+        await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+          pendingReplayCountAttribute,
           "2",
         );
         await expectServerSummaries(page, incidentId, {
@@ -1814,7 +1817,8 @@ test("replays queued unsent writes after re-authentication without silent reload
           }),
         ),
       ).toHaveValue("collaboration-conflict reload local");
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
         "1",
       );
 
@@ -1836,7 +1840,10 @@ test("replays queued unsent writes after re-authentication without silent reload
         ),
       ).toHaveText("collaboration-conflict reload base");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
+        "0",
+      );
       expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
       await expectServerSummaries(page, incidentId, {
         [recordId]: "collaboration-conflict reload base",

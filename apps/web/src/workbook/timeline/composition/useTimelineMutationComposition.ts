@@ -15,7 +15,6 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
-import type { WorkbookPendingQueueSnapshot } from "../../runtime/workbookPendingReplayRuntime";
 import { useTimelineCollaborationBindings } from "../collaboration/useTimelineCollaborationBindings";
 import { useTimelinePresenceController } from "../collaboration/useTimelinePresenceController";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
@@ -52,7 +51,6 @@ type TimelineMutationCompositionInput = {
     readonly editorDraftRegistry: TimelineEditorDraftRegistry;
     readonly nextDraftIndex: () => number;
     readonly loadAccessLost: boolean;
-    readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
     readonly pendingSavesRefs: TimelinePendingSavesRefs;
     readonly recordWorkbookTiming: (
       name: string,
@@ -68,10 +66,8 @@ type TimelineMutationCompositionInput = {
     readonly setIsRefreshing: (refreshing: boolean) => void;
     readonly setLoadAccessLost: (lost: boolean) => void;
     readonly setLoadError: (message: string | null) => void;
-    readonly setPendingQueueSnapshot: (
-      snapshot: WorkbookPendingQueueSnapshot,
-    ) => void;
     readonly setRefreshError: (message: string | null) => void;
+    readonly setMutationError: (message: string | null) => void;
   };
   readonly grid: {
     readonly advanceViewportContinuity: (
@@ -149,36 +145,34 @@ export function useTimelineMutationComposition({
     editorPort: grid.editorPort,
     mutationRuntime,
     nextDraftIndex: foundation.nextDraftIndex,
-    pendingQueueSnapshot: foundation.pendingQueueSnapshot,
     pendingSavesRefs: foundation.pendingSavesRefs,
     rowsRef: foundation.rowsRef,
     selectedRowId: inspector.selectedRowId,
     setAutoResolutionNotices: foundation.setAutoResolutionNotices,
-    setPendingQueueSnapshot: foundation.setPendingQueueSnapshot,
     rowStoreCommands: foundation.rowStoreCommands,
     setSelectedRowId: inspector.selectRow,
   });
-  const { activeConflict, commonMutationSnapshot } = rowMutations.snapshot;
+  const { activeConflict, commonConflicts } = rowMutations.snapshot;
   const conflictQueue = useMemo(
     () =>
       Object.fromEntries(
-        commonMutationSnapshot.conflicts
+        commonConflicts
           .filter((entry) => entry.origin.viewSchemaId === timelineViewSchemaId)
           .map((entry) => [entry.key, entry]),
       ),
-    [commonMutationSnapshot.conflicts],
+    [commonConflicts],
   );
   const conflictCellKeys = useMemo(
     () =>
       new Set(
-        commonMutationSnapshot.conflicts
+        commonConflicts
           .filter((entry) => entry.origin.viewSchemaId === timelineViewSchemaId)
           .map(
             (entry) =>
               `${entry.conflict.record_id}\u0000${entry.conflict.field_key}`,
           ),
       ),
-    [commonMutationSnapshot.conflicts],
+    [commonConflicts],
   );
   const getCellState = useCallback(
     ({
@@ -195,7 +189,7 @@ export function useTimelineMutationComposition({
   useEffect(() => {
     if (
       grid.viewportContinuityRequest === null ||
-      !commonMutationSnapshot.conflicts.some(
+      !commonConflicts.some(
         (entry) => entry.origin.viewSchemaId === timelineViewSchemaId,
       )
     ) {
@@ -203,7 +197,7 @@ export function useTimelineMutationComposition({
     }
     grid.clearViewportContinuity(grid.viewportContinuityRequest.token);
   }, [
-    commonMutationSnapshot.conflicts,
+    commonConflicts,
     grid.clearViewportContinuity,
     grid.viewportContinuityRequest,
   ]);
@@ -316,7 +310,6 @@ export function useTimelineMutationComposition({
       query.queryState.filters.length > 0 ||
       query.queryState.sort.length > 0 ||
       query.queryState.groupBy !== null,
-    publishPendingQueueState: rowMutations.commands.publishPendingQueueState,
     reconcileDiscardedPendingUnit:
       rowMutations.commands.reconcileDiscardedPendingUnit,
     recordWorkbookTiming: foundation.recordWorkbookTiming,
@@ -324,6 +317,7 @@ export function useTimelineMutationComposition({
     requestAuthorizationRecovery:
       collaboration.commands.requestAuthorizationRecovery,
     setRefreshError: foundation.setRefreshError,
+    setMutationError: foundation.setMutationError,
     rowStoreCommands: foundation.rowStoreCommands,
   });
   useTimelineMutationRuntimeBindings({
@@ -394,7 +388,7 @@ export function useTimelineMutationComposition({
       collaboration: collaboration.snapshot,
       conflict: {
         activeConflict,
-        commonMutationSnapshot,
+        commonConflicts,
         conflictQueue,
         getCellState,
       },

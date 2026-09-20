@@ -11,7 +11,7 @@ import {
   gridRowTestId,
   gridRowVersionAttribute,
   gridShellTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   rowCellTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
@@ -540,8 +540,9 @@ test(
         const completedPatch = await heldPatch.waitForCompletion;
         expect(completedPatch.status).toBe(200);
         await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-        await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(
-          0,
+        await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+          pendingReplayCountAttribute,
+          "0",
         );
         await expect(
           page.getByTestId(
@@ -1118,7 +1119,10 @@ test(
           ?.value,
       ).toBe("disabled");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
+        "0",
+      );
       await expect(
         page.getByTestId(
           rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
@@ -1201,7 +1205,7 @@ test(
       await expect(recoveryPanel).not.toContainText(
         "future_private_public_error",
       );
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
       await expect(alphaSummaryEditor).toHaveValue(
         "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
       );
@@ -1339,7 +1343,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       expect(await recoveryPanel.getByRole("button").allTextContents()).toEqual(
         ["Retry with a new request ID", "Discard blocked edit"],
       );
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
       await expect(recoveryPanel).not.toContainText(blockedClientTxnId);
 
       const serverAdvanceResponse = await patchTimelinePublic(

@@ -824,7 +824,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
-      "sha256": "c1ba90f5ee7b874000a81f7edeaba814aa545de05b8eda007c25663ddc6b1425"
+      "sha256": "7920251723fa0208c34df99a16a1a34b41699929d6c17cdab2cf3edde51c07be"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png",

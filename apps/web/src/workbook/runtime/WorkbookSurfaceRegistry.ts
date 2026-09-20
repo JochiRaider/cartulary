@@ -30,6 +30,7 @@ export class WorkbookSurfaceRegistry {
   readonly #debtGenerations = new Map<string, number>();
   readonly #refreshing = new Map<string, Promise<void>>();
   readonly #onDebtChanged: (viewSchemaId: string) => void;
+  #debtSnapshot: readonly string[] = Object.freeze([]);
 
   constructor(onDebtChanged: (viewSchemaId: string) => void) {
     this.#onDebtChanged = onDebtChanged;
@@ -70,7 +71,15 @@ export class WorkbookSurfaceRegistry {
   }
 
   refreshDebts(): readonly string[] {
-    return [...new Set([...this.#dirtySurfaces, ...this.#refreshing.keys()])];
+    const next = [
+      ...new Set([...this.#dirtySurfaces, ...this.#refreshing.keys()]),
+    ];
+    if (
+      next.length !== this.#debtSnapshot.length ||
+      next.some((id, index) => id !== this.#debtSnapshot[index])
+    )
+      this.#debtSnapshot = Object.freeze(next);
+    return this.#debtSnapshot;
   }
 
   requiresRefresh(viewSchemaId: string): boolean {

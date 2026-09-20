@@ -166,6 +166,7 @@ export type TimelineMutationDriverPorts = {
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
   readonly requestAuthorizationRecovery: () => void;
   readonly setRefreshError: (message: string | null) => void;
+  readonly setMutationError: (message: string | null) => void;
   readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly readCurrentRow?: (
     unit: PendingReplayUnitState,
@@ -193,6 +194,7 @@ export function createTimelineMutationDriver(
     rowsRef,
     requestAuthorizationRecovery,
     setRefreshError,
+    setMutationError,
     rowStoreCommands,
   } = ports;
   const clearViewportContinuity = (token: number | undefined) => {
@@ -410,7 +412,7 @@ export function createTimelineMutationDriver(
     try {
       replacementClientTxnId = mutationCommands.createConflictRecoveryId();
     } catch (error) {
-      setRefreshError(
+      setMutationError(
         error instanceof Error
           ? error.message
           : "A secure request identifier could not be created.",
@@ -426,7 +428,7 @@ export function createTimelineMutationDriver(
       publishPendingQueueState();
       return false;
     }
-    setRefreshError(null);
+    setMutationError(null);
     publishPendingQueueState();
     requestPendingReplay("client_transaction_conflict_retried");
     return true;
@@ -461,7 +463,7 @@ export function createTimelineMutationDriver(
       kind: "rejected_mutation",
       message: "The blocked edit was discarded.",
     });
-    setRefreshError(null);
+    setMutationError(null);
     publishPendingQueueState();
     requestPendingReplay("blocked_edit_discarded");
     return true;
@@ -473,7 +475,7 @@ export function createTimelineMutationDriver(
   ) => {
     const dispatch = pending.model.markDispatched(unit.id);
     if (dispatch !== null) {
-      const settlement = pending.model.settleDispatched({
+      pending.model.settleDispatched({
         ok: false,
         status: 0,
         error: {
@@ -481,9 +483,6 @@ export function createTimelineMutationDriver(
           message: "Queued edit metadata is missing.",
         },
       });
-      if (settlement.outcome === "halted") {
-        setRefreshError(settlement.halt.message);
-      }
     }
     publishPendingQueueState();
     settleCompletionCallbacks(unit.id, {
@@ -600,7 +599,7 @@ export function createTimelineMutationDriver(
       ),
     );
     if (!registered) {
-      setRefreshError(failureMessage);
+      setMutationError(failureMessage);
       publishPendingQueueState();
       return;
     }
@@ -625,9 +624,6 @@ export function createTimelineMutationDriver(
     });
     const plan = planTimelineRejectedSettlement(settlement, failure);
     if (plan.kind === "request_authorization") {
-      setRefreshError(
-        "Authentication required before queued edits can replay.",
-      );
       publishPendingQueueState();
       settleCompletionCallbacks(unit.id, { kind: "accepted" });
       requestAuthorizationRecovery();
@@ -650,11 +646,10 @@ export function createTimelineMutationDriver(
       schedulePendingReplayRetry();
       return;
     }
-    setRefreshError(
-      plan.kind === "halt" || plan.kind === "invalid_settlement"
-        ? plan.message
-        : failure.message,
-    );
+    if (plan.kind !== "halt")
+      setMutationError(
+        plan.kind === "invalid_settlement" ? plan.message : failure.message,
+      );
     settleCompletionCallbacks(unit.id, gridOutcomeForFailure(failure));
     publishPendingQueueState();
   };

@@ -39,7 +39,6 @@ import {
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useWorkbookQueryRestart } from "../../query/WorkbookQueryBrowsingContext";
 import { DraftRowCreateButton } from "../components/TimelineDraftRowActions";
-import { timelinePendingQueueMessage } from "../components/TimelineWorkbookNotices";
 import { useTimelineWorkbookRenderers } from "../components/TimelineWorkbookRenderers";
 import {
   timelineGridShellStyle,
@@ -117,6 +116,7 @@ export function useTimelineWorkbookPresentation({
       loadAccessLost,
       loadError,
       refreshError,
+      operationError,
     },
   } = foundation.snapshot;
   const {
@@ -148,7 +148,6 @@ export function useTimelineWorkbookPresentation({
     [],
   );
   const { autoResolutionNotices } = foundation.snapshot.mentions;
-  const pendingQueueSnapshot = foundation.snapshot.pendingQueue;
   const editorDraftRegistry = foundation.refs.editorDraftRegistry;
   const currentRows = foundation.refs.rows;
   const readCurrentRow = useCallback(
@@ -221,8 +220,7 @@ export function useTimelineWorkbookPresentation({
   } = workflow.commands.workflow;
   const closeInspector = workflow.commands.closeInspector;
 
-  const { commonMutationSnapshot, conflictQueue, getCellState } =
-    mutation.snapshot.conflict;
+  const { conflictQueue, getCellState } = mutation.snapshot.conflict;
   const findCellMatch = find.cellMatch;
   const getFindCellState = useCallback(
     (input: { recordId: string; fieldKey: string }) => ({
@@ -422,15 +420,6 @@ export function useTimelineWorkbookPresentation({
     },
   });
 
-  const pendingQueueDisplayMessage =
-    timelinePendingQueueMessage(pendingQueueSnapshot);
-  const visibleRefreshError =
-    pendingQueueSnapshot.blockedEdit === null &&
-    pendingQueueSnapshot.overflowMessage === null &&
-    refreshError !== null &&
-    refreshError !== pendingQueueDisplayMessage
-      ? refreshError
-      : null;
   const timelineLoadState: WorkbookQueryLoadState = isInitialLoading
     ? { generationKey: initialLoadGenerationKey, kind: "initial_loading" }
     : loadError !== null
@@ -439,8 +428,8 @@ export function useTimelineWorkbookPresentation({
         : { kind: "unavailable", message: loadError }
       : isRefreshing
         ? { kind: "refreshing" }
-        : visibleRefreshError !== null
-          ? { kind: "stale_error", message: visibleRefreshError }
+        : refreshError !== null
+          ? { kind: "stale_error", message: refreshError }
           : { kind: "ready" };
   const handleClearFilters = useCallback(() => {
     setQueryState((current) =>
@@ -516,6 +505,16 @@ export function useTimelineWorkbookPresentation({
 
   return {
     grid: {
+      operationFeedback:
+        !loadAccessLost && currentIncidentRole && operationError ? (
+          <div
+            role="alert"
+            aria-label="Timeline operation feedback"
+            style={{ padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)" }}
+          >
+            {operationError.message}
+          </div>
+        ) : null,
       parkedDrafts:
         !loadAccessLost && currentIncidentRole ? (
           <TimelineParkedGridDrafts
@@ -661,13 +660,13 @@ export function useTimelineWorkbookPresentation({
         inspectorOpen: isInspectorOpen,
         onReviewAutoResolution: handleSelectMention,
         onUndoAutoResolution: handleUndoAutoResolutionNotice,
-        pendingQueueSnapshot,
       },
     },
     status: {
       presence,
       onActivateConflict,
-      status: commonMutationSnapshot,
+      source: mutation.statusSource,
+      sheetRef: mutation.sheetRef,
       chromeMode,
       showPresence: showStatusPresence,
       workbookFocusAnchor,

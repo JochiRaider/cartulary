@@ -205,8 +205,6 @@ export {
   draftTimelineCollectionInputTestId,
   mentionItemTestId,
   pasteConflictItemTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
   pendingReplayCountAttribute,
   relationshipChipTestId,
   relationshipItemsTestId,

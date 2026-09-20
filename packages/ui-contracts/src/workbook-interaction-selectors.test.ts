@@ -46,8 +46,6 @@ import {
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
   pasteConflictItemTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
   referencePackAdminPanelTestId,
   referencePackCancelButtonTestId,
   referencePackErrorTestId,
@@ -330,8 +328,6 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     expect(referencePackRowTestId("pack/key", "v 1")).toBe(
       "reference-pack-row-pack%2Fkey-v%201",
     );
-    expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
-    expect(pendingQueueCountTestId()).toBe("pending-queue-count");
     expect(workbookFocusAnchorTestId()).toBe("workbook-focus-anchor");
     expect(workbookPresenceSummaryTestId()).toBe("presence-header");
     expect(savedViewFamilySelector()).toBe('[data-testid^="saved-view-"]');

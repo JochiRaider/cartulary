@@ -8,9 +8,9 @@ import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRec
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
-import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import { useTimelineRows } from "../hooks/useTimelineRows";
 import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime";
+import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 
 type TimelineSurfaceFoundationInput = {
@@ -59,9 +59,10 @@ export function useTimelineSurfaceFoundation({
   const [initialLoadGenerationKey, setInitialLoadGenerationKey] = useState(0);
   const rows = useTimelineRows();
   const mentions = useTimelineMentions(mentionOwner);
-  const pendingSaves = useTimelinePendingSaves({
+  const pendingSaves = timelinePendingSavesRefsFor(
     mutationRuntime,
-  });
+    mutationRuntime.pendingQueue(),
+  );
   const editorDraftRegistry = useTimelineEditorDraftRegistry(
     mutationRuntime.localDraftsForSurface(timelineViewSchemaId),
   );
@@ -93,9 +94,10 @@ export function useTimelineSurfaceFoundation({
         setLoadAccessLost,
         setLoadError: runtime.lifecycle.setLoadError,
         setRefreshError: runtime.lifecycle.setRefreshError,
+        setOperationError: runtime.lifecycle.setOperationError,
+        setMutationError: runtime.lifecycle.setMutationError,
       },
       mentions: mentions.commands,
-      pendingSaves: pendingSaves.commands,
       query: runtime.query,
       recordTiming,
       rows: {
@@ -114,7 +116,7 @@ export function useTimelineSurfaceFoundation({
     },
     refs: {
       editorDraftRegistry,
-      pendingSaves: pendingSaves.refs,
+      pendingSaves,
       rows: rows.rowsRef,
     },
     snapshot: {
@@ -125,9 +127,9 @@ export function useTimelineSurfaceFoundation({
         loadAccessLost,
         loadError: runtime.lifecycle.loadError,
         refreshError: runtime.lifecycle.refreshError,
+        operationError: runtime.lifecycle.operationError,
       },
       mentions: mentions.snapshot,
-      pendingQueue: pendingSaves.snapshot.pendingQueueSnapshot,
       query: {
         filterDraft: runtime.query.filterDraft,
         queryState: runtime.query.queryState,

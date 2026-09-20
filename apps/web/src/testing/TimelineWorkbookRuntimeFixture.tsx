@@ -37,9 +37,7 @@ import {
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
-import { useWorkbookMutationRuntime } from "../workbook/runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
-import { projectWorkbookStatusForSurface } from "../workbook/runtime/workbookMutationStatusProjector";
 import { reconcileTimelineCaptureReceipt } from "../workbook/timeline/actions/reconcileTimelineCaptureReceipt";
 import { reconcileTimelineMentionReceipt } from "../workbook/timeline/actions/reconcileTimelineMentionReceipt";
 import { TimelineCaptureRecovery } from "../workbook/timeline/actions/TimelineCaptureRecovery";
@@ -316,7 +314,6 @@ export function TimelineWorkbookRuntimeFixture({
     () => () => mutationRuntime.history.retire(),
     [mutationRuntime],
   );
-  const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const activeSurfaceRef = useRef<HTMLElement | null>(null);
   const navigation = useMemo(() => {
     void mutationRuntime;
@@ -327,7 +324,6 @@ export function TimelineWorkbookRuntimeFixture({
   const recoveryFocus = useWorkbookRecoveryFocus({
     activeSurfaceRef,
     runtime: mutationRuntime,
-    snapshot: projectWorkbookStatusForSurface(mutationSnapshot, sheetRef),
     onSessionRecovery: async () => undefined,
     navigation,
     invokerRef,
@@ -377,10 +373,7 @@ export function TimelineWorkbookRuntimeFixture({
           apiBase={apiBase}
           focus={recoveryFocus}
           mutationRuntime={mutationRuntime}
-          mutationSnapshot={projectWorkbookStatusForSurface(
-            mutationSnapshot,
-            sheetRef,
-          )}
+          sheetRef={sheetRef}
           onActivateOrigin={() => undefined}
           activeContent={
             <TimelineWorkbook

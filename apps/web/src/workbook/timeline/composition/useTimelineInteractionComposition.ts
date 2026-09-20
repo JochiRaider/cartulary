@@ -8,6 +8,7 @@ import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinui
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookOperationFeedback } from "../../runtime/workbookLifecycleModel";
 import { useTimelineBulkTagController } from "../bulk/useTimelineBulkTagController";
 import { useTimelineClearController } from "../bulk/useTimelineClearController";
 import { useTimelineFillController } from "../bulk/useTimelineFillController";
@@ -38,7 +39,9 @@ type TimelineInteractionCompositionInput = {
     readonly recordTiming: KeyboardInput["recordTiming"];
     readonly rows: readonly WorkbookRow[];
     readonly rowsRef: BulkInput["rowsRef"];
-    readonly setRefreshError: (message: string | null) => void;
+    readonly setOperationError: (
+      feedback: WorkbookOperationFeedback | null,
+    ) => void;
     readonly setSelectedMentionRef: KeyboardInput["setSelectedMentionRef"];
   };
   readonly grid: {
@@ -164,6 +167,27 @@ export function useTimelineInteractionComposition({
     timelineRowForEventTarget: workflow.timelineRowForEventTarget,
     workbookFocusAnchorRef: grid.workbookFocusAnchorRef,
   });
+  const setPasteError = useCallback(
+    (message: string | null) =>
+      foundation.setOperationError(
+        message === null ? null : { family: "paste", message },
+      ),
+    [foundation.setOperationError],
+  );
+  const setFillError = useCallback(
+    (message: string | null) =>
+      foundation.setOperationError(
+        message === null ? null : { family: "fill", message },
+      ),
+    [foundation.setOperationError],
+  );
+  const setClearError = useCallback(
+    (message: string | null) =>
+      foundation.setOperationError(
+        message === null ? null : { family: "clear", message },
+      ),
+    [foundation.setOperationError],
+  );
   const clipboard = useTimelineClipboardPasteController({
     canCreateRows: canEdit,
     clipboardPaste: foundation.clipboardPastePort,
@@ -173,7 +197,7 @@ export function useTimelineInteractionComposition({
     queueScalarSave: mutation.queueScalarSave,
     resolveTimelinePasteTargetResolution:
       grid.resolveTimelinePasteTargetResolution,
-    setError: foundation.setRefreshError,
+    setError: setPasteError,
   }).commands;
   const handleTimelineGridPaste = useCallback(
     (intent: Parameters<typeof clipboard.handleGridPaste>[0]) => {
@@ -188,26 +212,22 @@ export function useTimelineInteractionComposition({
           )
           .then((outcome) => {
             if (outcome.kind !== "accepted") {
-              foundation.setRefreshError(outcome.message ?? "Save failed.");
+              setPasteError(outcome.message ?? "Save failed.");
             }
             return outcome.kind === "accepted";
           });
       }
       return clipboard.handleGridPaste(intent);
     },
-    [
-      clipboard.handleGridPaste,
-      foundation.setRefreshError,
-      mutation.commitScalarGridEdit,
-    ],
+    [clipboard.handleGridPaste, setPasteError, mutation.commitScalarGridEdit],
   );
   const clipboardPaste = useMemo(
     () => ({
       decode: decodeTimelineClipboardInput,
-      onError: foundation.setRefreshError,
+      onError: setPasteError,
       onPaste: handleTimelineGridPaste,
     }),
-    [handleTimelineGridPaste, foundation.setRefreshError],
+    [handleTimelineGridPaste, setPasteError],
   );
   const fill = useTimelineFillController({
     contract: timelineContract,
@@ -220,7 +240,7 @@ export function useTimelineInteractionComposition({
     interactionMode,
     port: mutation.mutationCommands.fill,
     rowsRef: foundation.rowsRef,
-    setError: foundation.setRefreshError,
+    setError: setFillError,
   }).commands;
   const clear = useTimelineClearController({
     authorized: canEdit && !loadAccessLost,
@@ -250,7 +270,7 @@ export function useTimelineInteractionComposition({
     port: mutation.mutationCommands.clear,
     precedingSaves: () => foundation.pendingSavesRefs.saveQueueRef.current,
     rowsRef: foundation.rowsRef,
-    setError: foundation.setRefreshError,
+    setError: setClearError,
   });
   const handleCreateBlankDraftRow = useCallback(
     (row: WorkbookRow) => {

@@ -88,7 +88,7 @@ import {
   workbookConflictEntry,
 } from "./workbookConflictModel";
 import {
-  projectWorkbookMutationStatus,
+  createWorkbookMutationStatusObservation,
   type WorkbookMutationSnapshot,
   type WorkbookRefreshStatusFact,
 } from "./workbookMutationStatusProjector";
@@ -127,6 +127,8 @@ export type WorkbookEditRecoveryActionResult =
         | "origin_refused"
         | "secure_id_unavailable";
     };
+
+const emptyRefreshDebts: readonly string[] = Object.freeze([]);
 
 /**
  * Shell-lifetime authority for Workbook mutation recovery and save state.
@@ -180,7 +182,9 @@ export class WorkbookMutationRuntime {
   }
 
   surfaceRefreshDebts(): readonly string[] {
-    return this.gridDrafts.canRead() ? this.surfaces.refreshDebts() : [];
+    return this.gridDrafts.canRead()
+      ? this.surfaces.refreshDebts()
+      : emptyRefreshDebts;
   }
 
   surfaceRefreshRequired(viewSchemaId: string): boolean {
@@ -313,6 +317,8 @@ export class WorkbookMutationRuntime {
     WorkbookRefreshStatusFact
   >();
   private explicitInFlightCount = 0;
+  private readonly observeStatus = createWorkbookMutationStatusObservation();
+  private refreshStatusFacts: readonly WorkbookRefreshStatusFact[] = [];
   private entityLifetimeRetired = false;
   private readonly entityWrites = new Map<symbol, EntityRecordWriteTarget>();
   private snapshot: WorkbookMutationSnapshot;
@@ -1239,9 +1245,11 @@ export class WorkbookMutationRuntime {
   }
 
   getSnapshot = (): WorkbookMutationSnapshot => this.snapshot;
+  getPendingRecoverySnapshot = () =>
+    this.pendingRuntime.model.pendingUnitFacts();
 
   private calculateSnapshot(): WorkbookMutationSnapshot {
-    return projectWorkbookMutationStatus({
+    return this.observeStatus({
       conflicts: this.conflicts.entries(),
       explicitInFlightCount:
         this.explicitInFlightCount +
@@ -1264,14 +1272,24 @@ export class WorkbookMutationRuntime {
         this.partyLinks.unsettledMutationCount +
         (this.timelineActions?.unsettledMutationCount ?? 0) +
         (this.timelineMentionOperations?.unsettledMutationCount ?? 0),
-      queue: this.pendingRuntime.model.snapshot(),
-      refreshes: Array.from(this.refreshStatusBySheet.values()),
+      queue: this.pendingRuntime.model.statusFacts(),
+      refreshes: this.refreshStatusFacts,
       refreshDebts: this.surfaceRefreshDebts(),
+      authorityEpoch: this.authorizationEpoch,
     });
   }
 
   subscribe = (listener: () => void): (() => void) =>
     this.lifecycle.subscribe(listener);
+
+  getRefreshRecoverySnapshot = (): readonly string[] =>
+    this.surfaceRefreshDebts();
+
+  /** Read-only capability passed into presentation, without mutation commands. */
+  readonly statusSource = {
+    subscribe: this.subscribe,
+    getSnapshot: this.getSnapshot,
+  };
 
   registerDriver(
     driver: WorkbookMutationDriver,
@@ -1410,6 +1428,9 @@ export class WorkbookMutationRuntime {
       sheetRef,
       count: (previous?.count ?? 0) + 1,
     });
+    this.refreshStatusFacts = Object.freeze(
+      Array.from(this.refreshStatusBySheet.values()),
+    );
     this.emit();
     let finished = false;
     return () => {
@@ -1418,6 +1439,9 @@ export class WorkbookMutationRuntime {
       const count = (this.refreshStatusBySheet.get(key)?.count ?? 1) - 1;
       if (count === 0) this.refreshStatusBySheet.delete(key);
       else this.refreshStatusBySheet.set(key, { sheetRef, count });
+      this.refreshStatusFacts = Object.freeze(
+        Array.from(this.refreshStatusBySheet.values()),
+      );
       this.emit();
     };
   }
@@ -1827,6 +1851,7 @@ export class WorkbookMutationRuntime {
       for (const conflict of this.conflicts.entries())
         this.conflicts.clear(conflict.key);
       this.refreshStatusBySheet.clear();
+      this.refreshStatusFacts = [];
       this.explicitInFlightCount = 0;
       this.emit();
       this.lifecycle.dispose();

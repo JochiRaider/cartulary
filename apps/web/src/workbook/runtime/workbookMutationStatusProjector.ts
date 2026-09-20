@@ -6,7 +6,7 @@ import {
 import { workbookEditRecoveryPresentation } from "../utils/workbookEditRecoveryPresentation";
 import {
   deriveWorkbookSaveState,
-  type PendingQueueSnapshot,
+  type PendingQueueStatusFacts,
 } from "../utils/workbookPendingQueue";
 import {
   selectWorkbookStatusSecondary,
@@ -51,10 +51,32 @@ export type WorkbookRefreshStatusFact = {
 type WorkbookMutationStatusInput = {
   readonly conflicts: readonly WorkbookConflictEntry[];
   readonly explicitInFlightCount: number;
-  readonly queue: PendingQueueSnapshot;
+  readonly queue: PendingQueueStatusFacts;
   readonly refreshes?: readonly WorkbookRefreshStatusFact[];
   readonly refreshDebts?: readonly string[];
+  readonly authorityEpoch?: number;
 };
+
+/** Memoizes only the owner's explicit status inputs, never execution events. */
+export function createWorkbookMutationStatusObservation() {
+  let previous: WorkbookMutationStatusInput | null = null;
+  let snapshot: WorkbookMutationSnapshot;
+  return (input: WorkbookMutationStatusInput): WorkbookMutationSnapshot => {
+    if (
+      previous &&
+      previous.conflicts === input.conflicts &&
+      previous.explicitInFlightCount === input.explicitInFlightCount &&
+      previous.queue === input.queue &&
+      previous.refreshes === input.refreshes &&
+      previous.refreshDebts === input.refreshDebts &&
+      previous.authorityEpoch === input.authorityEpoch
+    )
+      return snapshot;
+    previous = input;
+    snapshot = projectWorkbookMutationStatus(input);
+    return snapshot;
+  };
+}
 
 export function projectWorkbookMutationStatus({
   conflicts,

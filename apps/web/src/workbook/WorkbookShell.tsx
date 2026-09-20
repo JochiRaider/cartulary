@@ -47,7 +47,7 @@ import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncement
 import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
-import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
+import { WorkbookObservedStatusStrip } from "./components/WorkbookStatusStrip";
 import { WorkbookSurfaceRefreshNotice } from "./components/WorkbookSurfaceRefreshNotice";
 import { AssessmentAppendRecovery } from "./features/assessments/AssessmentAppendRecovery";
 import { ContextualCreateContext } from "./features/coordination/ContextualCreateContext";
@@ -134,7 +134,6 @@ import {
 import type { PreferenceWorkbookBinding } from "./preferences/workbookPreferenceModel";
 import { WorkbookQueryBrowsingProvider } from "./query/WorkbookQueryBrowsingContext";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
-import { projectWorkbookStatusForSurface } from "./runtime/workbookMutationStatusProjector";
 import type { SavedViewBinding } from "./savedviews/savedViewOperationModel";
 import type { WorkbookSavedViewController } from "./savedviews/WorkbookSavedViewController";
 import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
@@ -789,14 +788,9 @@ function WorkbookShellContent({
     void recoverySheetKey;
     recoveryNavigation.close();
   }, [recoveryNavigation, recoverySheetKey]);
-  const activeStatus = projectWorkbookStatusForSurface(
-    infrastructure.mutationSnapshot,
-    snapshot.startupSheetRef,
-  );
   const recoveryFocus = useWorkbookRecoveryFocus({
     activeSurfaceRef: activeSurfaceFocusRef,
     runtime: infrastructure.mutationRuntime,
-    snapshot: activeStatus,
     onSessionRecovery: authorization.loadSessionRole,
     navigation: recoveryNavigation,
     invokerRef: recoveryInvokerRef,
@@ -912,8 +906,9 @@ function WorkbookShellContent({
         importController: networkFlowImportController,
         currentUserId: authorization.currentUserId,
         workbookStatus: (
-          <WorkbookStatusStrip
-            status={activeStatus}
+          <WorkbookObservedStatusStrip
+            source={infrastructure.mutationRuntime.statusSource}
+            sheetRef={snapshot.startupSheetRef}
             chromeMode={workbookLayout.shell.chromeMode}
             showPresence={false}
             onActivateConflict={recoveryFocus.activate}
@@ -1191,7 +1186,7 @@ function WorkbookShellContent({
                                       mutationRuntime={
                                         infrastructure.mutationRuntime
                                       }
-                                      mutationSnapshot={activeStatus}
+                                      sheetRef={snapshot.startupSheetRef}
                                       onActivateOrigin={
                                         selectBaseWorkbookSurface
                                       }

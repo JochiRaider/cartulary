@@ -17,6 +17,29 @@ export function WorkbookSaveAnnouncements({
   } | null>(null);
   const announcement = delivered?.runtime === runtime ? delivered.event : null;
   useEffect(() => {
+    let warningActive = false;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const updateWarning = () => {
+      const state = runtime.getSnapshot();
+      const required =
+        state.queuedCount + state.inFlightCount > 0 ||
+        state.unresolvedConflictCount > 0;
+      if (required === warningActive) return;
+      warningActive = required;
+      if (required) window.addEventListener("beforeunload", warnBeforeUnload);
+      else window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+    const unsubscribe = runtime.subscribe(updateWarning);
+    updateWarning();
+    return () => {
+      unsubscribe();
+      window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+  }, [runtime]);
+  useEffect(() => {
     const announce = () => {
       const event = runtime.takeSaveAnnouncement();
       if (event !== null) setDelivered({ runtime, event });

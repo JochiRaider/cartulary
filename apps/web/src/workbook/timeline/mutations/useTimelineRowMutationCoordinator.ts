@@ -8,9 +8,8 @@ import {
 import { workbookConflictRecoveryKey } from "../../../shared/workbookRecoveryNavigation";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
-import { useWorkbookMutationRuntime } from "../../runtime/useWorkbookMutationRuntime";
+import { useWorkbookMutationConflicts } from "../../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
-import type { WorkbookPendingQueueSnapshot } from "../../runtime/workbookPendingReplayRuntime";
 import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { createTimelineSocketTransactionAdapter } from "../adapters/createTimelineSocketTransactionAdapter";
 import { commitTimelineProjection } from "../adapters/timelineProjectionCommitAdapter";
@@ -144,12 +143,10 @@ export function useTimelineRowMutationCoordinator({
   editorPort,
   mutationRuntime,
   nextDraftIndex,
-  pendingQueueSnapshot,
   pendingSavesRefs,
   rowsRef,
   selectedRowId,
   setAutoResolutionNotices,
-  setPendingQueueSnapshot,
   rowStoreCommands,
   setSelectedRowId,
 }: {
@@ -167,16 +164,12 @@ export function useTimelineRowMutationCoordinator({
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly sheetRef: SheetRef;
   readonly nextDraftIndex: () => number;
-  readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
   readonly selectedRowId: string | null;
   readonly setAutoResolutionNotices: Dispatch<
     SetStateAction<AutoResolutionNotice[]>
   >;
-  readonly setPendingQueueSnapshot: (
-    snapshot: WorkbookPendingQueueSnapshot,
-  ) => void;
   readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly setSelectedRowId: (recordId: string | null) => void;
 }) {
@@ -196,16 +189,16 @@ export function useTimelineRowMutationCoordinator({
     };
   }, []);
   const conflicts = useTimelineConflicts({ conflictQueueRef });
-  const commonMutationSnapshot = useWorkbookMutationRuntime(
-    mutationRuntime,
-    sheetRef,
+  const commonConflicts = useWorkbookMutationConflicts(
+    mutationRuntime.statusSource,
+    timelineViewSchemaId,
   );
   const { activeConflictKey, conflictQueue } = conflicts.snapshot;
   const { setActiveConflictKey, setConflictQueueState } = conflicts.commands;
 
   useEffect(() => {
     const commonKeys = new Set(
-      commonMutationSnapshot.conflicts
+      commonConflicts
         .filter((entry) => entry.origin.viewSchemaId === timelineViewSchemaId)
         .map((entry) => entry.key),
     );
@@ -219,29 +212,15 @@ export function useTimelineRowMutationCoordinator({
     setActiveConflictKey((current) =>
       current !== null && commonKeys.has(current) ? current : null,
     );
-  }, [
-    commonMutationSnapshot.conflicts,
-    setActiveConflictKey,
-    setConflictQueueState,
-  ]);
+  }, [commonConflicts, setActiveConflictKey, setConflictQueueState]);
 
   const saveState = useTimelineSaveStatePresentation({
-    conflictQueue,
     sheetRef,
     mutationRuntime,
-    pendingQueueSnapshot,
     pendingSavesRefs,
-    setPendingQueueSnapshot,
   });
-  const {
-    beginRefreshInFlight,
-    beginSave,
-    publishPendingQueueState,
-    publishSaveStatePresentation,
-  } = saveState.commands;
-  useEffect(() => {
-    publishPendingQueueState();
-  }, [publishPendingQueueState]);
+  const { beginRefreshInFlight, beginSave, publishSaveStatePresentation } =
+    saveState.commands;
 
   const {
     acceptCommittedTimelineRow,
@@ -574,7 +553,6 @@ export function useTimelineRowMutationCoordinator({
       latestCommittedTimelineRow,
       markRowsLoaded,
       pruneAutoResolutionNoticesForRows,
-      publishPendingQueueState,
       publishSaveStatePresentation,
       reconcileDiscardedPendingUnit,
       registerSameFieldConflict,
@@ -599,7 +577,7 @@ export function useTimelineRowMutationCoordinator({
     snapshot: {
       activeConflict,
       activeConflictKey,
-      commonMutationSnapshot,
+      commonConflicts,
       conflictQueue,
     },
   };

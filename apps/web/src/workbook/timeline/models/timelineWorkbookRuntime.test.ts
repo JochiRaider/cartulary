@@ -27,6 +27,7 @@ describe("Timeline workbook runtime", () => {
       isRefreshing: false,
       loadError: null,
       refreshError: null,
+      operationError: null,
     });
     expect(
       actions
@@ -37,6 +38,32 @@ describe("Timeline workbook runtime", () => {
       isRefreshing: true,
       loadError: "load failed",
       refreshError: "refresh failed",
+      operationError: null,
     });
+  });
+
+  it("keeps identical operation and query messages independent", () => {
+    const failedRead = reduceWorkbookLifecycle(initialWorkbookLifecycleState, {
+      type: "refresh_error",
+      value: "Request failed",
+    });
+    const failedPaste = reduceWorkbookLifecycle(failedRead, {
+      type: "operation_error",
+      value: { family: "paste", message: "Request failed" },
+    });
+    const recoveredRead = reduceWorkbookLifecycle(failedPaste, {
+      type: "refresh_error",
+      value: null,
+    });
+    expect(recoveredRead.operationError).toEqual({
+      family: "paste",
+      message: "Request failed",
+    });
+    const recoveredPaste = reduceWorkbookLifecycle(failedPaste, {
+      type: "operation_error",
+      value: null,
+    });
+    expect(recoveredPaste.refreshError).toBe("Request failed");
+    expect(recoveredPaste.operationError).toBeNull();
   });
 });

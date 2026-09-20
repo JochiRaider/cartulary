@@ -64,8 +64,7 @@ import {
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
   networkAnalysisTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   publicErrorCodeTestId,
   publicErrorSummaryTestIds,
   relationshipChipTestId,
@@ -2804,16 +2803,17 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       );
       await pendingSummary.press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-      const pendingNotice = page.getByTestId(pendingQueueNoticeTestId());
-      await expect(pendingNotice).toBeVisible();
-      await expect(pendingNotice).not.toHaveAttribute("role");
+      const saveStatus = page.getByTestId(saveStateTestId());
+      await expect(saveStatus).toBeVisible();
+      await expect(saveStatus).not.toHaveAttribute("role");
       await expect(
-        pendingNotice.locator('[aria-live], [role="status"]'),
+        saveStatus.locator('[aria-live], [role="status"]'),
       ).toHaveCount(0);
       await expect(
         page.getByRole("status", { name: "Workbook save updates" }),
       ).toHaveText("Syncing changes");
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
         "1",
       );
 
@@ -2822,7 +2822,10 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         .poll(() => successfulPatchCalls(patchController.calls).length)
         .toBe(1);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+        pendingReplayCountAttribute,
+        "0",
+      );
     } finally {
       patchController.connect();
       await patchController.dispose();
@@ -2862,7 +2865,10 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
     await validationCell.fill("not-a-timestamp");
     await validationCell.press("Enter");
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "0",
+    );
     await expect(
       page.getByTestId(
         rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
@@ -2932,7 +2938,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         "A queued edit could not be replayed safely. Retry it with a new request ID, or discard the blocked edit to continue.",
       );
       await expect(recoveryPanel).not.toContainText("client_txn_conflict");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
 
       for (const viewport of [
         { width: 1440, height: 900 },

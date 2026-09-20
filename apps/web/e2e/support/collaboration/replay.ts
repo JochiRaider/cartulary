@@ -7,8 +7,6 @@ import {
   gridRowTestId,
   gridRowVersionAttribute,
   gridShellTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
   pendingReplayCountAttribute,
   rowCellTestId,
   rowPresenceMarkerTestId,
@@ -215,6 +213,7 @@ export async function editTimelineSummary(
     readonly outcome: "accepted" | "queued" | "rejected";
     readonly expectedQueueCount?: number;
     readonly iteration?: number;
+    readonly commit?: "Enter" | "Tab";
   },
 ) {
   const outcome = options.outcome;
@@ -241,7 +240,7 @@ export async function editTimelineSummary(
     const response =
       outcome === "accepted" ? waitForTimelinePatch(page, recordId) : null;
     await input.fill(value);
-    await input.press("Enter");
+    await input.press(options.commit ?? "Enter");
     if (outcome === "accepted" && response !== null) {
       const envelope = await readWorkbookMutation(
         await response,
@@ -650,7 +649,8 @@ export async function exerciseRevokedPendingReplay({
     );
     await heldPatch.waitForHit;
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-    await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
       String(queuedReplayItems.length),
     );
 
@@ -704,7 +704,10 @@ export async function exerciseRevokedPendingReplay({
     );
 
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "0",
+    );
     await expectServerSummaries(
       page,
       incidentId,

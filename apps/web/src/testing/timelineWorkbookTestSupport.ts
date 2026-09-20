@@ -2,11 +2,11 @@ import {
   dataTestIdSelector,
   gridSavedRowsSelector,
   gridShellTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   rowCellTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
+  workbookShellSlotTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type {
@@ -964,20 +964,22 @@ export async function changeQueuedCellValue(
 function pendingQueueDiagnostic(options: {
   expectedPendingUnits?: number;
   expectedSaveState?: "Conflict" | "Saved" | "Syncing";
-  noticeIncludes?: string;
+  secondaryIncludes?: string;
 }) {
   const saveState =
     screen.queryByTestId(saveStateTestId())?.textContent ?? "(missing)";
   const notice =
-    screen.queryByTestId(pendingQueueNoticeTestId())?.textContent ??
-    "(missing)";
+    screen.queryByTestId(workbookShellSlotTestId("status-strip"))
+      ?.textContent ?? "(missing)";
   const count =
-    screen.queryByTestId(pendingQueueCountTestId())?.textContent ?? "(missing)";
+    screen
+      .queryByTestId(saveStateTestId())
+      ?.getAttribute(pendingReplayCountAttribute) ?? "(missing)";
   return [
     "Expected pending queue state.",
     `expected_save_state=${options.expectedSaveState ?? "(any)"}`,
     `expected_pending_units=${options.expectedPendingUnits ?? "(any)"}`,
-    `expected_notice=${JSON.stringify(options.noticeIncludes ?? "(any)")}`,
+    `expected_notice=${JSON.stringify(options.secondaryIncludes ?? "(any)")}`,
     `actual_save_state=${JSON.stringify(saveState)}`,
     `actual_count=${JSON.stringify(count)}`,
     `actual_notice=${JSON.stringify(notice)}`,
@@ -987,7 +989,7 @@ function pendingQueueDiagnostic(options: {
 export async function waitForPendingQueueState(options: {
   expectedPendingUnits?: number;
   expectedSaveState?: "Conflict" | "Saved" | "Syncing";
-  noticeIncludes?: string;
+  secondaryIncludes?: string;
 }) {
   await waitFor(
     () => {
@@ -996,15 +998,18 @@ export async function waitForPendingQueueState(options: {
           options.expectedSaveState,
         );
       }
-      if (options.noticeIncludes !== undefined) {
+      if (options.secondaryIncludes !== undefined) {
         expect(
-          screen.getByTestId(pendingQueueNoticeTestId()).textContent,
-        ).toContain(options.noticeIncludes);
+          screen.getByTestId(workbookShellSlotTestId("status-strip"))
+            .textContent,
+        ).toContain(options.secondaryIncludes);
       }
       if (options.expectedPendingUnits !== undefined) {
         expect(
-          screen.getByTestId(pendingQueueCountTestId()).textContent,
-        ).toContain(String(options.expectedPendingUnits));
+          screen
+            .getByTestId(saveStateTestId())
+            .getAttribute(pendingReplayCountAttribute),
+        ).toBe(String(options.expectedPendingUnits));
       }
     },
     {

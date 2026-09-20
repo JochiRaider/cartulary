@@ -190,14 +190,6 @@ export function workbookPresenceSummaryTestId(): string {
   return "presence-header";
 }
 
-export function pendingQueueNoticeTestId(): string {
-  return "pending-queue-notice";
-}
-
-export function pendingQueueCountTestId(): string {
-  return "pending-queue-count";
-}
-
 export function timelineScalarEditorTestId(options: {
   readonly fieldKey: string;
   readonly recordId: string | null;

@@ -50,6 +50,7 @@ export const TimelineWorkbookGrid = forwardRef<
   GridHandle,
   {
     readonly fileRecovery?: ReactNode;
+    readonly operationFeedback?: ReactNode;
     readonly parkedDrafts?: ReactNode;
     readonly onFilesSelected?: (files: File[], editorRowKey?: string) => void;
     readonly activeRecordId: string | null;
@@ -92,6 +93,7 @@ export const TimelineWorkbookGrid = forwardRef<
 >(function TimelineWorkbookGrid(
   {
     fileRecovery,
+    operationFeedback,
     parkedDrafts,
     onFilesSelected,
     activeRecordId,
@@ -193,6 +195,7 @@ export const TimelineWorkbookGrid = forwardRef<
     >
       {parkedDrafts}
       {fileRecovery}
+      {operationFeedback}
       <GridViewport
         blockSizing="fill"
         ref={shellRef}

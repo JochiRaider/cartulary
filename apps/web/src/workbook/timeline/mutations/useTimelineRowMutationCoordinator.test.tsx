@@ -9,9 +9,9 @@ import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
-import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import { reconcileCommittedRowsWithLocalDrafts } from "../hooks/useTimelineRowsLoader";
 import { inputFocusKey } from "../models/timelineFieldRegistry";
+import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import {
   createDraftRow,
   normalizeTimelineFullRow,
@@ -96,9 +96,10 @@ function renderCoordinator(
         recordId,
       );
       const [, setAutoResolutionNotices] = useState<AutoResolutionNotice[]>([]);
-      const pending = useTimelinePendingSaves({
-        mutationRuntime: runtime,
-      });
+      const pending = timelinePendingSavesRefsFor(
+        runtime,
+        runtime.pendingQueue(),
+      );
       const editorDraftRegistry = useTimelineEditorDraftRegistry(
         runtime.localDraftsForSurface(timelineViewSchemaId),
       );
@@ -123,12 +124,10 @@ function renderCoordinator(
           nextDraftIndexRef.current += 1;
           return next;
         },
-        pendingQueueSnapshot: pending.snapshot.pendingQueueSnapshot,
-        pendingSavesRefs: pending.refs,
+        pendingSavesRefs: pending,
         rowsRef,
         selectedRowId,
         setAutoResolutionNotices,
-        setPendingQueueSnapshot: pending.commands.setPendingQueueSnapshot,
         rowStoreCommands: { replaceRows, updateRows },
         setSelectedRowId,
       });
@@ -139,7 +138,7 @@ function renderCoordinator(
         latestCommittedTimelineRow:
           coordinator.commands.latestCommittedTimelineRow,
         loadRows,
-        pendingSavesRefs: pending.refs,
+        pendingSavesRefs: pending,
       });
       return { coordinator, rows, waitForCommittedRecordIdle };
     },

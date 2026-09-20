@@ -4,12 +4,12 @@ import { emptyPresenceScope } from "./collaboration/workbookPresencePresentation
 import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncements";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
 import { useGenericSurfaceMutationController } from "./hooks/useGenericSurfaceMutationController";
+import { useWorkbookMutationConflicts } from "./runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
 import {
   projectWorkbookMutationStatus,
   projectWorkbookStatusForSurface,
 } from "./runtime/workbookMutationStatusProjector";
-import { workbookPendingQueueSnapshot } from "./runtime/workbookPendingReplayRuntime";
 import { useTimelineSaveStatePresentation } from "./timeline/hooks/useTimelineSaveStatePresentation";
 import { timelinePendingSavesRefsFor } from "./timeline/models/timelinePendingSaves";
 import { selectWorkbookStatusSecondary } from "./utils/workbookStatusSecondary";
@@ -25,6 +25,130 @@ function runtimeFixture() {
 }
 
 describe("Workbook save status", () => {
+  it("updates refresh recovery targets without changing the primary label", () => {
+    const runtime = runtimeFixture();
+    const first = { kind: "saved_view" as const, id: "first" };
+    const second = { kind: "saved_view" as const, id: "second" };
+    const finishSave = runtime.beginExplicitMutation();
+    const finishFirst = runtime.beginRefreshStatus(first);
+    const before = runtime.getSnapshot();
+    runtime.notifyPendingChanged();
+    expect(runtime.getSnapshot()).toBe(before);
+    const finishSecond = runtime.beginRefreshStatus(second);
+    finishFirst();
+    const after = runtime.getSnapshot();
+    expect(after).not.toBe(before);
+    expect(after.primaryLabel).toBe(before.primaryLabel);
+    expect(projectWorkbookStatusForSurface(after, first).secondary?.kind).toBe(
+      "queued_or_in_flight",
+    );
+    expect(projectWorkbookStatusForSurface(after, second).secondary?.kind).toBe(
+      "refresh_paused",
+    );
+    expect(projectWorkbookStatusForSurface(before, first).secondary?.kind).toBe(
+      "refresh_paused",
+    );
+    finishSecond();
+    finishSave();
+  });
+
+  it("retains status identity without suppressing execution publications or same-label counts", () => {
+    const runtime = runtimeFixture();
+    const published = vi.fn();
+    const unsubscribe = runtime.subscribe(published);
+    const initial = runtime.getSnapshot();
+    runtime.notifyPendingChanged();
+    expect(runtime.getSnapshot()).toBe(initial);
+    expect(published).toHaveBeenCalledOnce();
+    const first = runtime.beginExplicitMutation();
+    const one = runtime.getSnapshot();
+    const second = runtime.beginExplicitMutation();
+    const two = runtime.getSnapshot();
+    expect(two).not.toBe(one);
+    expect(two.primaryLabel).toBe(one.primaryLabel);
+    expect(two.explicitInFlightCount).toBe(2);
+    runtime.notifyPendingChanged();
+    expect(runtime.getSnapshot()).toBe(two);
+    second();
+    expect(runtime.getSnapshot().explicitInFlightCount).toBe(1);
+    expect(two.explicitInFlightCount).toBe(2);
+    first();
+    expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
+    const beforeAuthority = runtime.getSnapshot();
+    runtime.applyAuthorizationRecoveryState("resumed");
+    expect(runtime.getSnapshot()).not.toBe(beforeAuthority);
+    expect(published.mock.calls.length).toBeGreaterThan(5);
+    unsubscribe();
+  });
+
+  it("observes replacement conflicts and exact recovery scope while isolating unrelated grid conflicts", () => {
+    const runtime = runtimeFixture();
+    const { result } = renderHook(() =>
+      useWorkbookMutationConflicts(runtime.statusSource, "timeline"),
+    );
+    const initial = result.current;
+    const register = (schema: string, view: string, token: string) =>
+      runtime.registerConflict({
+        conflict: {
+          record_id: schema,
+          field_key: "summary",
+          base_row_version: 1,
+          current_row_version: 2,
+          client_value: "draft",
+          server_value: "saved",
+          conflict_token: token,
+          conflict_resolution_class: "text_compare_merge",
+        },
+        viewSchemaId: schema,
+        sheetRef: { kind: "saved_view", id: view },
+        rowLabel: "Row",
+        surfaceLabel: "Timeline",
+      });
+    act(() => {
+      register("notes", "notes-view", "other");
+    });
+    expect(result.current).toBe(initial);
+    act(() => {
+      register("timeline", "view-a", "first");
+    });
+    const previous = result.current;
+    const before = runtime.getSnapshot();
+    act(() => {
+      register("timeline", "view-b", "replacement");
+    });
+    expect(result.current).not.toBe(previous);
+    expect(previous[0]?.conflict.conflict_token).toBe("first");
+    expect(result.current[0]?.conflict.conflict_token).toBe("replacement");
+    const existing = result.current[0];
+    if (!existing) throw new Error("Expected the replacement conflict");
+    const published = vi.fn();
+    const unsubscribe = runtime.subscribe(published);
+    const unchanged = runtime.getSnapshot();
+    act(() => runtime.updateConflictDraft(existing.key, existing.mergedDraft));
+    expect(runtime.getSnapshot()).toBe(unchanged);
+    expect(published).toHaveBeenCalledOnce();
+    unsubscribe();
+    expect(runtime.getSnapshot().primaryLabel).toBe(before.primaryLabel);
+    expect(
+      projectWorkbookStatusForSurface(runtime.getSnapshot(), {
+        kind: "saved_view",
+        id: "view-a",
+      }).affectedConflictCount,
+    ).toBe(0);
+    expect(
+      projectWorkbookStatusForSurface(runtime.getSnapshot(), {
+        kind: "saved_view",
+        id: "view-b",
+      }).affectedConflictCount,
+    ).toBe(1);
+    const replaced = result.current;
+    act(() => {
+      const finish = runtime.beginExplicitMutation();
+      finish();
+    });
+    expect(result.current).toBe(replaced);
+  });
+
   it("keeps a global FIFO blocker explanation on another surface", () => {
     const runtime = runtimeFixture();
     const queue = runtime.pendingQueue().model.snapshot();
@@ -81,15 +205,11 @@ describe("Workbook save status", () => {
     const runtime = runtimeFixture();
     const pending = runtime.pendingQueue();
     const refs = timelinePendingSavesRefsFor(runtime, pending);
-    const conflictQueueRef = { current: {} };
     const { result, unmount } = renderHook(() =>
       useTimelineSaveStatePresentation({
-        conflictQueue: conflictQueueRef.current,
         sheetRef: { kind: "saved_view", id: "timeline-one" },
         mutationRuntime: runtime,
-        pendingQueueSnapshot: workbookPendingQueueSnapshot(pending),
         pendingSavesRefs: refs,
-        setPendingQueueSnapshot: vi.fn(),
       }),
     );
     let finish = () => {};
@@ -215,6 +335,14 @@ describe("Workbook save status", () => {
         })),
       },
     );
+    const authority = {
+      actorId: "actor",
+      sessionIdentity: "session",
+      incidentId: "incident-1",
+      role: "editor" as const,
+      closed: false,
+    };
+    runtime.explicitPatches.setAuthority(authority);
     runtime.registerSurface("schema-1", refresh);
     runtime.enqueuePatch({
       baseRowVersion: 1,
@@ -228,16 +356,25 @@ describe("Workbook save status", () => {
       sheetRef: { kind: "saved_view", id: "saved-one" },
     });
     await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    const debt = runtime.getRefreshRecoverySnapshot();
+    expect(debt).toEqual(["schema-1"]);
     // Acknowledgement settles the write; reading the view is a separate fact.
     runtime.notifyPendingChanged();
+    expect(runtime.getRefreshRecoverySnapshot()).toBe(debt);
+    runtime.explicitPatches.setAuthority(null);
+    expect(runtime.getRefreshRecoverySnapshot()).toEqual([]);
+    runtime.explicitPatches.setAuthority(authority);
+    expect(runtime.getRefreshRecoverySnapshot()).toBe(debt);
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
     expect(
       runtime.getSnapshot().queuedCount + runtime.getSnapshot().inFlightCount,
     ).toBe(0);
     finishRefresh();
     await vi.waitFor(() =>
-      expect(runtime.getSnapshot().primaryLabel).toBe("Saved"),
+      expect(runtime.getRefreshRecoverySnapshot()).toEqual([]),
     );
+    expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
+    expect(debt).toEqual(["schema-1"]);
   });
   it("keeps local validation feedback independent from primary mutation status", async () => {
     const runtime = runtimeFixture();

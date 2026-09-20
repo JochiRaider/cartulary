@@ -1,21 +1,32 @@
+export type WorkbookOperationFeedback = {
+  readonly family: "paste" | "fill" | "clear" | "mutation";
+  readonly message: string;
+};
+
 export type WorkbookLifecycleState = {
   readonly isInitialLoading: boolean;
   readonly isRefreshing: boolean;
   readonly loadError: string | null;
   readonly refreshError: string | null;
+  readonly operationError: WorkbookOperationFeedback | null;
 };
 
 export type WorkbookLifecycleAction =
   | { readonly type: "initial_loading"; readonly value: boolean }
   | { readonly type: "refreshing"; readonly value: boolean }
   | { readonly type: "load_error"; readonly value: string | null }
-  | { readonly type: "refresh_error"; readonly value: string | null };
+  | { readonly type: "refresh_error"; readonly value: string | null }
+  | {
+      readonly type: "operation_error";
+      readonly value: WorkbookOperationFeedback | null;
+    };
 
 export const initialWorkbookLifecycleState: WorkbookLifecycleState = {
   isInitialLoading: true,
   isRefreshing: false,
   loadError: null,
   refreshError: null,
+  operationError: null,
 };
 
 export function reduceWorkbookLifecycle(
@@ -31,5 +42,7 @@ export function reduceWorkbookLifecycle(
       return { ...state, loadError: action.value };
     case "refresh_error":
       return { ...state, refreshError: action.value };
+    case "operation_error":
+      return { ...state, operationError: action.value };
   }
 }

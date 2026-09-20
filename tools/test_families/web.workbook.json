@@ -40,6 +40,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineWorkbookRuntime.test.ts",
         "titles": [
+          "Timeline workbook runtime keeps identical operation and query messages independent",
           "Timeline workbook runtime reduces load and refresh transitions without owning shell save state"
         ]
       },
@@ -5577,7 +5578,10 @@
           "Workbook save status keeps acknowledged writes saved while their required refresh remains recoverable",
           "Workbook save status keeps both overlapping generic operations pending",
           "Workbook save status keeps local validation feedback independent from primary mutation status",
-          "Workbook save status leaves visible save labels outside independent live regions"
+          "Workbook save status leaves visible save labels outside independent live regions",
+          "Workbook save status observes replacement conflicts and exact recovery scope while isolating unrelated grid conflicts",
+          "Workbook save status retains status identity without suppressing execution publications or same-label counts",
+          "Workbook save status updates refresh recovery targets without changing the primary label"
         ]
       },
       "evidence_class": "unit",

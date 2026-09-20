@@ -234,6 +234,18 @@ export type PendingQueueSnapshot = {
   saveStatePresentation: WorkbookSaveStatePresentation;
 };
 
+/** Presentation facts exclude executable units and their captured payloads. */
+export type PendingQueueStatusFacts = Readonly<
+  Pick<
+    PendingQueueSnapshot,
+    "queuedCount" | "inFlightCount" | "halted" | "authPaused" | "overflow"
+  >
+> & { readonly sameFieldConflicts: readonly PendingReplaySameFieldConflict[] };
+
+export type PendingUnitFact = Readonly<
+  Pick<PendingReplayUnitState, "id" | "status" | "enqueueOrder">
+>;
+
 export type PendingQueueAdmissionResult =
   | {
       accepted: true;
@@ -1104,7 +1116,12 @@ class WorkbookPendingQueueState {
   private incidentClosurePaused = false;
   private retired = false;
   private overflow: PendingReplayOverflow | null = null;
-  private readonly sameFieldConflicts: PendingReplaySameFieldConflict[] = [];
+  private sameFieldConflicts: readonly PendingReplaySameFieldConflict[] = [];
+  private statusObservation: {
+    readonly source: PendingQueueStatusFacts;
+    readonly snapshot: PendingQueueStatusFacts;
+  } | null = null;
+  private pendingUnitObservation: readonly PendingUnitFact[] = [];
 
   constructor(scope: PendingReplayScope) {
     this.scope = { ...scope };
@@ -1155,6 +1172,61 @@ class WorkbookPendingQueueState {
         ),
       },
     };
+  }
+
+  statusFacts(): PendingQueueStatusFacts {
+    const source: PendingQueueStatusFacts = {
+      queuedCount: this.units.filter((unit) => unit.status === "queued").length,
+      inFlightCount: this.units.filter((unit) => unit.status === "in_flight")
+        .length,
+      halted: this.halted,
+      authPaused: this.authPaused,
+      overflow: this.overflow,
+      sameFieldConflicts: this.sameFieldConflicts,
+    };
+    const observation = this.statusObservation;
+    const previous = observation?.source;
+    if (
+      previous &&
+      previous.queuedCount === source.queuedCount &&
+      previous.inFlightCount === source.inFlightCount &&
+      previous.halted === source.halted &&
+      previous.authPaused === source.authPaused &&
+      previous.overflow === source.overflow &&
+      previous.sameFieldConflicts === source.sameFieldConflicts
+    )
+      return observation.snapshot;
+    const snapshot: PendingQueueStatusFacts = Object.freeze({
+      ...source,
+      halted: source.halted === null ? null : cloneHalt(source.halted),
+      overflow:
+        source.overflow === null ? null : cloneOverflow(source.overflow),
+      sameFieldConflicts: Object.freeze(
+        source.sameFieldConflicts.map(cloneConflict),
+      ),
+    });
+    this.statusObservation = { source, snapshot };
+    return snapshot;
+  }
+
+  pendingUnitFacts(): readonly PendingUnitFact[] {
+    if (
+      this.units.length !== this.pendingUnitObservation.length ||
+      this.units.some((unit, index) => {
+        const previous = this.pendingUnitObservation[index];
+        return (
+          previous?.id !== unit.id ||
+          previous.status !== unit.status ||
+          previous.enqueueOrder !== unit.enqueueOrder
+        );
+      })
+    )
+      this.pendingUnitObservation = Object.freeze(
+        this.units.map(({ id, status, enqueueOrder }) =>
+          Object.freeze({ id, status, enqueueOrder }),
+        ),
+      );
+    return this.pendingUnitObservation;
   }
 
   private isReplayBlocked(): boolean {
@@ -1425,7 +1497,7 @@ class WorkbookPendingQueueState {
       );
       if (conflict !== null) {
         this.units = this.units.filter((candidate) => candidate !== unit);
-        this.sameFieldConflicts.push(conflict);
+        this.sameFieldConflicts = [...this.sameFieldConflicts, conflict];
         return {
           outcome: "same_field_conflict",
           unit: cloneUnit(unit),
@@ -1660,7 +1732,7 @@ class WorkbookPendingQueueState {
     this.units = [];
     this.halted = null;
     this.overflow = null;
-    this.sameFieldConflicts.length = 0;
+    this.sameFieldConflicts = [];
     return this.snapshot();
   }
 
@@ -1669,7 +1741,9 @@ class WorkbookPendingQueueState {
       (conflict) => conflict.key === key,
     );
     if (conflictIndex >= 0) {
-      this.sameFieldConflicts.splice(conflictIndex, 1);
+      this.sameFieldConflicts = this.sameFieldConflicts.filter(
+        (_, index) => index !== conflictIndex,
+      );
     }
     return this.snapshot();
   }
@@ -1684,6 +1758,8 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
       state.setDispatchGuard(guard),
     retire: () => state.retire(),
     snapshot: () => state.snapshot(),
+    statusFacts: () => state.statusFacts(),
+    pendingUnitFacts: () => state.pendingUnitFacts(),
     admit: (input: PendingReplayUnitInput) => state.admit(input),
     peekNextQueued: () => state.peekNextQueued(),
     wasDispatched: (unitId: string) => state.wasDispatched(unitId),

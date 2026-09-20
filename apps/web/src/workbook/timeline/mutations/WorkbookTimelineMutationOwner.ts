@@ -20,6 +20,11 @@ import {
   type TimelineMutationDriverPorts,
 } from "./createTimelineMutationDriver";
 
+export type TimelinePresentationPorts = Omit<
+  TimelineMutationDriverPorts,
+  "publishPendingQueueState"
+>;
+
 type ReadSource = (
   recordId: string,
   signal: AbortSignal,
@@ -28,7 +33,7 @@ type ReadSource = (
 /** Retains Timeline dispatch and settlement. Attachments lend presentation effects only. */
 export class WorkbookTimelineMutationOwner {
   private attachment: {
-    readonly read: () => TimelineMutationDriverPorts;
+    readonly read: () => TimelinePresentationPorts;
     readonly identity: object;
   } | null = null;
   private dispatchAttachment: object | null | undefined;
@@ -70,7 +75,6 @@ export class WorkbookTimelineMutationOwner {
         : (this.attachment?.read() ?? null);
     const publish = () => {
       runtime.notifyPendingChanged();
-      presentation()?.publishPendingQueueState();
     };
     const retainedRows = this.rows;
     this.driver = createTimelineMutationDriver({
@@ -245,6 +249,7 @@ export class WorkbookTimelineMutationOwner {
         else presentation()?.requestAuthorizationRecovery();
       },
       setRefreshError: (message) => presentation()?.setRefreshError(message),
+      setMutationError: (message) => presentation()?.setMutationError(message),
       rowStoreCommands: {
         replaceRows: (rows) => {
           this.rows.current = rows;
@@ -345,7 +350,7 @@ export class WorkbookTimelineMutationOwner {
       if (this.recovery === recover) this.recovery = null;
     };
   }
-  attach(read: () => TimelineMutationDriverPorts) {
+  attach(read: () => TimelinePresentationPorts) {
     if (this.retired) throw new Error("Timeline mutation owner is retired.");
     if (this.attachment)
       throw new Error("Timeline mutation presentation is already attached.");

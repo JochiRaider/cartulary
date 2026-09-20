@@ -9,7 +9,6 @@ import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import { projectWorkbookStatusForSurface } from "../runtime/workbookMutationStatusProjector";
 import { WorkbookActiveSurfaceFrame } from "./WorkbookActiveSurfaceFrame";
 
 afterEach(cleanup);
@@ -44,9 +43,7 @@ it("keeps the original editor accessible while conflict recovery opens and close
     <WorkbookRecoveryFixture navigation={navigation}>
       <WorkbookActiveSurfaceFrame
         {...props}
-        mutationSnapshot={projectWorkbookStatusForSurface(
-          runtime.getSnapshot(),
-        )}
+        sheetRef={{ kind: "view_schema", id: timelineViewSchemaId }}
       />
     </WorkbookRecoveryFixture>
   );

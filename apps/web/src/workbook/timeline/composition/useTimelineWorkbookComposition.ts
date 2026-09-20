@@ -47,7 +47,6 @@ export function useTimelineWorkbookComposition({
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
       loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
       nextDraftIndex: foundation.commands.rows.allocateDraftIndex,
-      pendingQueueSnapshot: foundation.snapshot.pendingQueue,
       pendingSavesRefs: foundation.refs.pendingSaves,
       recordWorkbookTiming: foundation.commands.recordTiming,
       rowStoreCommands: foundation.commands.rows,
@@ -60,9 +59,8 @@ export function useTimelineWorkbookComposition({
       setIsRefreshing: foundation.commands.lifecycle.setIsRefreshing,
       setLoadAccessLost: foundation.commands.lifecycle.setLoadAccessLost,
       setLoadError: foundation.commands.lifecycle.setLoadError,
-      setPendingQueueSnapshot:
-        foundation.commands.pendingSaves.setPendingQueueSnapshot,
       setRefreshError: foundation.commands.lifecycle.setRefreshError,
+      setMutationError: foundation.commands.lifecycle.setMutationError,
     },
     grid: {
       advanceViewportContinuity:
@@ -159,7 +157,7 @@ export function useTimelineWorkbookComposition({
       recordTiming: foundation.commands.recordTiming,
       rows: foundation.snapshot.rows,
       rowsRef: foundation.refs.rows,
-      setRefreshError: foundation.commands.lifecycle.setRefreshError,
+      setOperationError: foundation.commands.lifecycle.setOperationError,
       setSelectedMentionRef: foundation.commands.mentions.setSelectedMentionRef,
     },
     grid: {
@@ -336,7 +334,6 @@ export function useTimelineWorkbookComposition({
         initialLoadGenerationKey: foundation.snapshot.initialLoadGenerationKey,
         lifecycle: foundation.snapshot.lifecycle,
         mentions: foundation.snapshot.mentions,
-        pendingQueue: foundation.snapshot.pendingQueue,
         query: foundation.snapshot.query,
         rows: foundation.snapshot.rows,
       },
@@ -376,6 +373,8 @@ export function useTimelineWorkbookComposition({
       snapshot: interaction.snapshot,
     },
     mutation: {
+      statusSource: runtime.mutationRuntime.statusSource,
+      sheetRef: runtime.incident.sheetRef,
       commands: {
         beginMutation: mutation.commands.save.beginSave,
         presence: {
@@ -393,8 +392,6 @@ export function useTimelineWorkbookComposition({
           presence: mutation.snapshot.collaboration.presence,
         },
         conflict: {
-          commonMutationSnapshot:
-            mutation.snapshot.conflict.commonMutationSnapshot,
           conflictQueue: mutation.snapshot.conflict.conflictQueue,
           getCellState: mutation.snapshot.conflict.getCellState,
         },

@@ -1,6 +1,6 @@
 import {
   gridShellTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   saveStateTestId,
   timelineMutationSubstrateReadyTestId,
   workbookShellSlotTestId,
@@ -163,9 +163,6 @@ describe("WorkbookShell save-state status strip", () => {
           "Authentication is required before queued edits can replay.",
         ),
       ).toBeTruthy();
-      expect(
-        screen.getByTestId(pendingQueueNoticeTestId()).textContent,
-      ).toContain("Authentication is required before queued edits can replay.");
     });
     const statusDetail = within(statusStrip).getByText(
       "Authentication is required before queued edits can replay.",
@@ -174,14 +171,14 @@ describe("WorkbookShell save-state status strip", () => {
     expect(statusDetail.style.overflow).toBe("hidden");
     expect(statusDetail.style.textOverflow).toBe("ellipsis");
     expect(statusDetail.style.whiteSpace).toBe("nowrap");
-    const pendingNotice = screen.getByTestId(pendingQueueNoticeTestId());
-    expect(pendingNotice.style.display).toBe("flex");
-    expect(pendingNotice.style.alignItems).toBe("center");
-    expect(pendingNotice.style.overflow).toBe("hidden");
-    expect(pendingNotice.parentElement?.style.position).toBe("absolute");
-    expect(pendingNotice.parentElement?.style.maxBlockSize).toBe(
-      "min(14rem, 32vh)",
-    );
+    expect(
+      screen.queryByRole("complementary", { name: "Workbook notices" }),
+    ).toBeNull();
+    expect(
+      within(statusStrip)
+        .getByTestId(saveStateTestId())
+        .getAttribute(pendingReplayCountAttribute),
+    ).toBe("1");
     pendingPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
@@ -194,9 +191,6 @@ describe("WorkbookShell save-state status strip", () => {
         }),
       }),
     );
-    expect(pendingNotice.parentElement?.style.overflowY).toBe("auto");
-    expect(pendingNotice.parentElement?.style.pointerEvents).toBe("none");
-    expect(pendingNotice.style.pointerEvents).toBe("none");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

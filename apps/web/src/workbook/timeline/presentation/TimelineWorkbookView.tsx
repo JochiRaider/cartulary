@@ -1,4 +1,4 @@
-import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
+import { WorkbookObservedStatusStrip } from "../../components/WorkbookStatusStrip";
 import { WorkbookSurfaceLayout } from "../../layout/WorkbookSurfaceLayout";
 import { TimelineWorkbookGrid } from "../components/TimelineWorkbookGrid";
 import { TimelineWorkbookInspectorRegion } from "./TimelineWorkbookInspectorRegion";
@@ -20,7 +20,7 @@ export function TimelineWorkbookView({
         )
       }
       primaryGrid={<TimelineWorkbookGrid {...model.grid} />}
-      statusStrip={<WorkbookStatusStrip {...model.status} />}
+      statusStrip={<WorkbookObservedStatusStrip {...model.status} />}
       viewBar={<TimelineWorkbookViewBarRegion model={model.viewBar} />}
       workAreaOverlays={
         <TimelineWorkbookOverlayRegion model={model.overlays} />

@@ -17,6 +17,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   initialWorkbookLifecycleState,
   reduceWorkbookLifecycle,
+  type WorkbookOperationFeedback,
 } from "../../runtime/workbookLifecycleModel";
 
 const timelineRuntimeContract = requireViewContract(timelineViewSchemaId);
@@ -67,6 +68,18 @@ export function useTimelineWorkbookRuntime({
       dispatchLifecycle({ type: "refresh_error", value }),
     [],
   );
+  const setOperationError = useCallback(
+    (value: WorkbookOperationFeedback | null) =>
+      dispatchLifecycle({ type: "operation_error", value }),
+    [],
+  );
+  const setMutationError = useCallback(
+    (message: string | null) =>
+      setOperationError(
+        message === null ? null : { family: "mutation", message },
+      ),
+    [setOperationError],
+  );
   const applyQueryFilter = useCallback(
     (draft: FilterDraft = filterDraft) => {
       applyTimelineFilterDraftToQuery(setQueryState, setFilterDraft, draft);
@@ -99,6 +112,8 @@ export function useTimelineWorkbookRuntime({
       setIsRefreshing,
       setLoadError,
       setRefreshError,
+      setOperationError,
+      setMutationError,
     },
     query: {
       applyQueryFilter,

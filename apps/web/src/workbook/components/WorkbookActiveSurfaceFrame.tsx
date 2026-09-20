@@ -6,6 +6,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import {
   useWorkbookRecoveryActivation,
   useWorkbookRecoveryNavigation,
@@ -18,10 +19,8 @@ import {
 } from "../../shared/workbookRecoveryNavigation";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import { shellActiveSurfaceStyle } from "../layout/workbookShellStyles";
-import type {
-  WorkbookMutationRuntime,
-  WorkbookStatusPresentation,
-} from "../runtime/WorkbookMutationRuntime";
+import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
+import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { WorkbookEditRecoveryPanel } from "./WorkbookEditRecoveryPanel";
 import { WorkbookQueueOverflowNotice } from "./WorkbookQueueOverflowNotice";
 import { WorkbookSameFieldConflictResolver } from "./WorkbookSameFieldConflictResolver";
@@ -32,7 +31,7 @@ export function WorkbookActiveSurfaceFrame({
   apiBase,
   focus,
   mutationRuntime,
-  mutationSnapshot,
+  sheetRef,
   onActivateOrigin,
 }: {
   readonly activeContent: ReactNode;
@@ -46,9 +45,17 @@ export function WorkbookActiveSurfaceFrame({
     readonly sameFieldSummaryRef: RefObject<HTMLDivElement | null>;
   };
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly mutationSnapshot: WorkbookStatusPresentation;
+  readonly sheetRef: SheetRef;
   readonly onActivateOrigin: (viewSchemaId: string) => void;
 }) {
+  const mutationSnapshot = useWorkbookMutationRuntime(
+    mutationRuntime,
+    sheetRef,
+  );
+  const pendingUnits = useSyncExternalStore(
+    mutationRuntime.subscribe,
+    mutationRuntime.getPendingRecoverySnapshot,
+  );
   const navigation = useWorkbookRecoveryNavigation();
   const activateRecovery = useWorkbookRecoveryActivation();
   // Presentation continuation only: no request, draft, receipt or replay state.
@@ -60,10 +67,7 @@ export function WorkbookActiveSurfaceFrame({
   const retryUnit =
     retry.current === null
       ? undefined
-      : mutationRuntime
-          .pendingQueue()
-          .model.snapshot()
-          .units.find((unit) => unit.id === retry.current?.unitId);
+      : pendingUnits.find((unit) => unit.id === retry.current?.unitId);
   const items: WorkbookRecoveryItem[] = mutationSnapshot.authPaused
     ? []
     : mutationSnapshot.conflicts

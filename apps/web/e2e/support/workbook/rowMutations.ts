@@ -11,8 +11,7 @@ import {
   gridRowVersionAttribute,
   gridScrollportSelector,
   gridShellTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
+  pendingReplayCountAttribute,
   rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
@@ -21,6 +20,7 @@ import {
   workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -153,7 +153,7 @@ async function waitForPendingQueueAuthPause(
   context: string,
 ): Promise<Response> {
   const notice = page
-    .getByTestId(pendingQueueNoticeTestId())
+    .getByTestId(workbookShellSlotTestId("status-strip"))
     .filter({ hasText: "Authentication is required before queued edits" });
   return notice
     .waitFor({ state: "visible", timeout: 60_000 })
@@ -174,7 +174,7 @@ async function waitForPendingQueueAuthPause(
 }
 
 async function pendingQueueDiagnosticSnapshot(page: Page) {
-  const notice = page.getByTestId(pendingQueueNoticeTestId());
+  const notice = page.getByTestId(workbookShellSlotTestId("status-strip"));
   const noticeCount = await notice.count().catch(() => -1);
   const noticeText =
     noticeCount > 0
@@ -189,8 +189,8 @@ async function pendingQueueDiagnosticSnapshot(page: Page) {
   const pendingUnits =
     noticeCount > 0
       ? await page
-          .getByTestId(pendingQueueCountTestId())
-          .textContent()
+          .getByTestId(saveStateTestId())
+          .getAttribute(pendingReplayCountAttribute)
           .then((value) => value ?? "")
           .catch((error: unknown) => {
             return `<<failed to read pending queue count: ${String(error)}>>`;

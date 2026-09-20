@@ -66,7 +66,6 @@ import type {
 import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 
-import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import {
   WorkbookCellPresenceMarker,
@@ -76,7 +75,7 @@ import {
 } from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
-  WorkbookStatusStrip,
+  WorkbookObservedStatusStrip,
 } from "./WorkbookStatusStrip";
 import {
   WorkbookViewBar,
@@ -154,7 +153,6 @@ export function AssessmentWorkbookSurface({
     null,
   );
   const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
-  const mutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
@@ -473,9 +471,10 @@ export function AssessmentWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <WorkbookStatusStrip
+        <WorkbookObservedStatusStrip
           presence={collaboration.presence.header}
-          status={mutation}
+          source={mutationRuntime.statusSource}
+          sheetRef={sheetRef}
           chromeMode={chromeMode}
           onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}

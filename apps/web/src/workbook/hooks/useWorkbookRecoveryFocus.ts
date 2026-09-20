@@ -4,23 +4,18 @@ import {
   workbookConflictRecoveryKey,
   workbookRecoveryKey,
 } from "../../shared/workbookRecoveryNavigation";
-import type {
-  WorkbookMutationRuntime,
-  WorkbookStatusPresentation,
-} from "../runtime/WorkbookMutationRuntime";
+import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { WorkbookStatusAction } from "../utils/workbookStatusSecondary";
 
 /** Semantic routing and explicit focus requests; feature execution stays with its owner. */
 export function useWorkbookRecoveryFocus({
   runtime,
-  snapshot,
   onSessionRecovery,
   navigation,
   invokerRef,
 }: {
   readonly activeSurfaceRef: RefObject<HTMLElement | null>;
   readonly runtime: WorkbookMutationRuntime;
-  readonly snapshot: WorkbookStatusPresentation;
   readonly onSessionRecovery: () => Promise<void>;
   readonly navigation: WorkbookRecoveryNavigation;
   readonly invokerRef: RefObject<HTMLElement | null>;
@@ -92,6 +87,5 @@ export function useWorkbookRecoveryFocus({
     sameFieldSummaryRef,
     focusSameFieldSummary: () =>
       sameFieldSummaryRef.current?.focus({ preventScroll: true }),
-    statusAction: snapshot.action,
   };
 }
