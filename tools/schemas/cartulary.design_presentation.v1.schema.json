@@ -26,12 +26,14 @@
     "inspector": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["data_states", "access_states", "content_states", "header_title_lines", "unavailable_causes", "announcements"],
+      "required": ["data_states", "access_states", "content_states", "header_title_lines", "narrative_preview_lines", "action_outcomes", "unavailable_causes", "announcements"],
       "properties": {
         "data_states": { "const": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"] },
         "access_states": { "const": ["readable", "concealed"] },
         "content_states": { "const": ["empty", "populated"] },
         "header_title_lines": { "const": 2 },
+        "narrative_preview_lines": { "const": 6 },
+        "action_outcomes": { "type": "object", "additionalProperties": false, "required": ["open_authoring", "review", "navigate"], "properties": { "open_authoring": { "type": "string", "minLength": 1 }, "review": { "type": "string", "minLength": 1 }, "navigate": { "type": "string", "minLength": 1 } } },
         "unavailable_causes": { "const": ["not_requested", "load_failed", "owner_blocked"] },
         "announcements": { "const": { "initial_loading": "polite", "refreshing": "polite", "background_stale": "polite", "rejected_action": "assertive", "not_requested": "none", "already_reported": "none" } }
       }

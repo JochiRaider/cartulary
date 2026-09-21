@@ -5,8 +5,13 @@ import type {
   InspectorPanelId,
   ViewContract,
 } from "@cartulary/view-contracts";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import {
+  workbookFormFieldsStyle as creationSectionStyle,
+  workbookFormMessageStyle as feedbackStyle,
+  workbookFormHeadingStyle,
+} from "../../components/workbookFormStyles";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
@@ -108,6 +113,11 @@ export function AssessmentWorkbookInspector({
       <>
         {panelId === "workflow" ? (
           <div style={creationSectionStyle}>
+            <h4 style={workbookFormHeadingStyle}>
+              {draftMode === "follow_on"
+                ? "Append follow-on assessment"
+                : "Append assessment"}
+            </h4>
             {workflowContent}
             <WorkbookInspectorFeedbackView
               feedback={feedback}
@@ -134,88 +144,79 @@ export function AssessmentWorkbookInspector({
   });
 
   return (
-    <WorkbookInspectorShell
-      accessibleLabel="Compromise Assessments inspector"
+    <WorkbookInspectorDeclaredPanelList
+      creationAttachment={{
+        id: `assessment-${draftMode}`,
+        viewSchemaId: config.viewSchemaId,
+      }}
       config={config}
-      eyebrow="Create"
-      heading={
-        draftMode === "follow_on"
-          ? "Append follow-on assessment"
-          : "Append assessment"
-      }
-      mode="creation"
-      noRowHeading="Append assessment"
+      currentIncidentRole={currentIncidentRole}
+      disabledTokens={disabledTokens}
       subject={subject}
-      testId={assessmentCreatePanelTestId()}
-      onClose={onClose}
+      modelsByPanel={{
+        details:
+          subject === null
+            ? undefined
+            : inspectorPanel(
+                savedInspectorRegion("saved-fields", {
+                  kind: "populated",
+                  content: detailsContent,
+                }),
+              ),
+        history:
+          subject === null
+            ? undefined
+            : inspectorPanel(
+                ownedInspectorRegion("record-history", (present) => (
+                  <WorkbookInspectorRecordHistory
+                    present={present}
+                    beginMutation={history.beginMutation}
+                    actions={history.actions}
+                    canMutate={history.canMutate}
+                    commands={history.commands}
+                    ownerEffects={history.effects}
+                    subject={subject}
+                  />
+                )),
+              ),
+        relationships:
+          subject === null
+            ? undefined
+            : panelContent(
+                "relationships",
+                savedInspectorRegion("assessment-relationships", {
+                  kind: "populated",
+                  content: relationshipsContent,
+                }),
+              ),
+        workflow: panelContent(
+          "workflow",
+          savedInspectorRegion("assessment-authoring", {
+            kind: "empty",
+            message: "Append an assessment.",
+          }),
+        ),
+      }}
+      onContextualAction={dispatchContextualAction}
     >
-      <WorkbookInspectorDeclaredPanelList
-        creationAttachment={{
-          id: `assessment-${draftMode}`,
-          viewSchemaId: config.viewSchemaId,
-        }}
-        config={config}
-        currentIncidentRole={currentIncidentRole}
-        disabledTokens={disabledTokens}
-        subject={subject}
-        modelsByPanel={{
-          details:
-            subject === null
-              ? undefined
-              : inspectorPanel(
-                  savedInspectorRegion("saved-fields", {
-                    kind: "populated",
-                    content: detailsContent,
-                  }),
-                ),
-          history:
-            subject === null
-              ? undefined
-              : inspectorPanel(
-                  ownedInspectorRegion("record-history", (present) => (
-                    <WorkbookInspectorRecordHistory
-                      present={present}
-                      beginMutation={history.beginMutation}
-                      actions={history.actions}
-                      canMutate={history.canMutate}
-                      commands={history.commands}
-                      ownerEffects={history.effects}
-                      subject={subject}
-                    />
-                  )),
-                ),
-          relationships:
-            subject === null
-              ? undefined
-              : panelContent(
-                  "relationships",
-                  savedInspectorRegion("assessment-relationships", {
-                    kind: "populated",
-                    content: relationshipsContent,
-                  }),
-                ),
-          workflow: panelContent(
-            "workflow",
-            savedInspectorRegion("assessment-authoring", {
-              kind: "empty",
-              message: "Append an assessment.",
-            }),
-          ),
-        }}
-        onContextualAction={dispatchContextualAction}
-      />
-    </WorkbookInspectorShell>
+      {(sections) => (
+        <WorkbookInspectorShell
+          accessibleLabel="Compromise Assessments inspector"
+          config={config}
+          eyebrow="Create"
+          heading={
+            draftMode === "follow_on"
+              ? "Append follow-on assessment"
+              : "Append assessment"
+          }
+          mode={subject ? "record" : "creation"}
+          noRowHeading="Append assessment"
+          subject={subject}
+          testId={assessmentCreatePanelTestId()}
+          onClose={onClose}
+          sections={sections}
+        ></WorkbookInspectorShell>
+      )}
+    </WorkbookInspectorDeclaredPanelList>
   );
 }
-
-const creationSectionStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  marginBottom: "1rem",
-};
-
-const feedbackStyle = {
-  color: "var(--ct-colors-ink-muted)",
-  lineHeight: 1.5,
-  margin: 0,
-} satisfies CSSProperties;

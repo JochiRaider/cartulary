@@ -22,6 +22,7 @@ linking receipts separately. Shared message severity belongs to
 | [EvidenceAttachmentContext.ts](EvidenceAttachmentContext.ts) | Supplies both incident-retained file owners to grid and inspector presentations. |
 | [EvidenceFileRecovery.tsx](EvidenceFileRecovery.tsx) | Compact local stage feedback and explicit review, resume, fresh upload, discard and refresh controls. |
 | [EvidenceAccessActions.tsx](EvidenceAccessActions.tsx) | Evidence preview/download actions with access feedback and shared control styles. |
+| [EvidenceAttachmentEntry.tsx](EvidenceAttachmentEntry.tsx) | Shared file picker and named drop/paste region; all paths delegate to the current source owner. |
 | [RelatedEvidencePartyControl.tsx](RelatedEvidencePartyControl.tsx) | Party selection and linking controls for Timeline-related Evidence authoring. |
 | [TimelineRelatedEvidenceContext.ts](TimelineRelatedEvidenceContext.ts) | React context exposing Timeline-related Evidence operation ownership. |
 | [TimelineRelatedEvidenceForm.tsx](TimelineRelatedEvidenceForm.tsx) | Timeline-related Evidence metadata authoring and reviewed create/link controls. |

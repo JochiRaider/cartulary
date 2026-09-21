@@ -13,6 +13,10 @@ import { WorkbookWorkAreaOverlayHost } from "../../shared/WorkbookWorkAreaOverla
 import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
 import { WorkbookQueryBrowsingControls } from "../query/WorkbookQueryBrowsingControls";
 import { statusStripStyle } from "../utils/workbookStyles";
+import {
+  WorkbookInspectorNavigationContext,
+  type WorkbookInspectorNavigationSelection,
+} from "./workbookInspectorNavigation";
 import type { WorkbookChromeMode } from "./workbookResponsiveLayout";
 
 const inspectorKeyboardStepCssPx = 16;
@@ -55,6 +59,8 @@ export function WorkbookSurfaceLayout({
   readonly onWorkAreaKeyDown?: KeyboardEventHandler<HTMLElement> | undefined;
 }) {
   const inspectorOpen = inspector !== undefined;
+  const inspectorNavigation =
+    useRef<WorkbookInspectorNavigationSelection | null>(null);
   const coordinatedClose = useWorkbookSecondaryPanel(inspectorOpen, () =>
     onRequestInspectorClose?.(),
   );
@@ -199,104 +205,108 @@ export function WorkbookSurfaceLayout({
   } satisfies CSSProperties;
 
   return (
-    <section
-      aria-label={`${workAreaAriaLabel} frame`}
-      data-inspector-layout={
-        inspectorOpen
-          ? inspectorIsAdjacent
-            ? "adjacent"
-            : chromeMode === "narrow_desktop"
-              ? "right_overlay"
-              : "full_overlay"
-          : "closed"
-      }
-      data-testid={testId}
-      data-workbook-responsive-band={chromeMode}
-      style={workbookSurfaceFrameStyle}
-      onKeyDown={closeInspectorFromEscape}
-    >
-      {workAreaAnnouncements}
-      <WorkbookShellSlotRegion
-        slot="view-bar"
-        style={workbookSurfaceViewBarStyle}
-        viewSchemaId={viewSchemaId}
+    <WorkbookInspectorNavigationContext value={inspectorNavigation}>
+      <section
+        aria-label={`${workAreaAriaLabel} frame`}
+        data-inspector-layout={
+          inspectorOpen
+            ? inspectorIsAdjacent
+              ? "adjacent"
+              : chromeMode === "narrow_desktop"
+                ? "right_overlay"
+                : "full_overlay"
+            : "closed"
+        }
+        data-testid={testId}
+        data-workbook-responsive-band={chromeMode}
+        style={workbookSurfaceFrameStyle}
+        onKeyDown={closeInspectorFromEscape}
       >
-        {viewBar}
-      </WorkbookShellSlotRegion>
-      <div
-        style={{
-          ...workbookSurfaceWorkAreaStyle,
-          gridTemplateRows: "auto minmax(0, 1fr)",
-          containerType: "size",
-        }}
-      >
-        {workAreaFeedback}
-        <section
-          aria-label={workAreaAriaLabel}
-          style={workAreaStyle}
-          tabIndex={-1}
-          onContextMenu={onWorkAreaContextMenu}
-          onKeyDownCapture={onWorkAreaKeyDown}
+        {workAreaAnnouncements}
+        <WorkbookShellSlotRegion
+          slot="view-bar"
+          style={workbookSurfaceViewBarStyle}
+          viewSchemaId={viewSchemaId}
         >
-          <WorkbookShellSlotRegion
-            inert={backgroundIsInert}
-            slot="primary-grid"
-            style={workbookSurfacePrimaryGridSlotStyle}
-            viewSchemaId={viewSchemaId}
+          {viewBar}
+        </WorkbookShellSlotRegion>
+        <div
+          style={{
+            ...workbookSurfaceWorkAreaStyle,
+            gridTemplateRows: "auto minmax(0, 1fr)",
+            containerType: "size",
+          }}
+        >
+          {workAreaFeedback}
+          <section
+            aria-label={workAreaAriaLabel}
+            style={workAreaStyle}
+            tabIndex={-1}
+            onContextMenu={onWorkAreaContextMenu}
+            onKeyDownCapture={onWorkAreaKeyDown}
           >
-            <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
-            <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
-          </WorkbookShellSlotRegion>
-          <div
-            aria-hidden={
-              (backgroundIsInert && onRequestPreviewClose === undefined) ||
-              undefined
-            }
-            inert={
-              (backgroundIsInert && onRequestPreviewClose === undefined) ||
-              undefined
-            }
-            style={workbookSurfaceOverlayLayerStyle}
-          >
-            {workAreaOverlays}
-          </div>
-          <WorkbookWorkAreaOverlayHost />
-          {inspector === undefined ? null : (
             <WorkbookShellSlotRegion
-              slot="inspector"
-              style={inspectorSlotStyle}
+              inert={backgroundIsInert}
+              slot="primary-grid"
+              style={workbookSurfacePrimaryGridSlotStyle}
               viewSchemaId={viewSchemaId}
             >
-              {inspectorIsAdjacent ? (
-                <hr
-                  aria-label="Resize inspector"
-                  aria-orientation="vertical"
-                  aria-valuemax={layoutMetrics.inspectorEffectiveMaxWidthCssPx}
-                  aria-valuemin={layoutMetrics.inspectorMinWidthCssPx}
-                  aria-valuenow={effectiveInspectorWidth}
-                  aria-valuetext={`${effectiveInspectorWidth} pixels`}
-                  style={workbookSurfaceInspectorSeparatorStyle}
-                  tabIndex={0}
-                  onKeyDown={resizeInspectorFromKeyboard}
-                  onPointerCancel={finishPointerResize}
-                  onPointerDown={beginPointerResize}
-                  onPointerMove={continuePointerResize}
-                  onPointerUp={finishPointerResize}
-                />
-              ) : null}
-              {inspector}
+              <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
+              <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
             </WorkbookShellSlotRegion>
-          )}
-        </section>
-      </div>
-      <WorkbookShellSlotRegion
-        slot="status-strip"
-        style={workbookSurfaceStatusStripStyle}
-        viewSchemaId={viewSchemaId}
-      >
-        {statusStrip}
-      </WorkbookShellSlotRegion>
-    </section>
+            <div
+              aria-hidden={
+                (backgroundIsInert && onRequestPreviewClose === undefined) ||
+                undefined
+              }
+              inert={
+                (backgroundIsInert && onRequestPreviewClose === undefined) ||
+                undefined
+              }
+              style={workbookSurfaceOverlayLayerStyle}
+            >
+              {workAreaOverlays}
+            </div>
+            <WorkbookWorkAreaOverlayHost />
+            {inspector === undefined ? null : (
+              <WorkbookShellSlotRegion
+                slot="inspector"
+                style={inspectorSlotStyle}
+                viewSchemaId={viewSchemaId}
+              >
+                {inspectorIsAdjacent ? (
+                  <hr
+                    aria-label="Resize inspector"
+                    aria-orientation="vertical"
+                    aria-valuemax={
+                      layoutMetrics.inspectorEffectiveMaxWidthCssPx
+                    }
+                    aria-valuemin={layoutMetrics.inspectorMinWidthCssPx}
+                    aria-valuenow={effectiveInspectorWidth}
+                    aria-valuetext={`${effectiveInspectorWidth} pixels`}
+                    style={workbookSurfaceInspectorSeparatorStyle}
+                    tabIndex={0}
+                    onKeyDown={resizeInspectorFromKeyboard}
+                    onPointerCancel={finishPointerResize}
+                    onPointerDown={beginPointerResize}
+                    onPointerMove={continuePointerResize}
+                    onPointerUp={finishPointerResize}
+                  />
+                ) : null}
+                {inspector}
+              </WorkbookShellSlotRegion>
+            )}
+          </section>
+        </div>
+        <WorkbookShellSlotRegion
+          slot="status-strip"
+          style={workbookSurfaceStatusStripStyle}
+          viewSchemaId={viewSchemaId}
+        >
+          {statusStrip}
+        </WorkbookShellSlotRegion>
+      </section>
+    </WorkbookInspectorNavigationContext>
   );
 }
 

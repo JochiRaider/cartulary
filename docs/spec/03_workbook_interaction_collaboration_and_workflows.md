@@ -1786,6 +1786,14 @@ In the base profile, the history panel for a selected row MUST show:
 - timestamp,
 - operation,
 - diff summary expanded to field, link, mention, tag, evidence-entry, and capture-state-transition units.
+
+The panel MUST render the typed semantic units supplied under Core 01
+REQ-01-052A, including admitted record/merge, entity-identifier and Indicator
+events. It MUST NOT reconstruct deltas from display strings or current projected
+rows. Attribution remains visible when no friendly actor name is available;
+the attributed identifier is then labelled explicitly. Event disclosure and
+corrective-action placement follow design §12.7 without changing the legal
+action selectors below.
 Profiles: base
 Verified by: AC-007, AC-215, AC-231
 

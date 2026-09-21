@@ -42,6 +42,7 @@ export type WorkbookRow = WorkbookVersionedRecord & {
   };
   readonly collectionDrafts: CollectionDrafts;
   readonly pendingSignature: string | null;
+  /** Canonical accepted cells; display strings and pending work never rewrite them. */
   readonly rawRow: TimelineApiRow | null;
 };
 

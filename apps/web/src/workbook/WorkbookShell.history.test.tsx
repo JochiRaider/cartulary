@@ -44,6 +44,7 @@ import {
   waitForVisibleGridRowRecordIds,
   workbookAsyncTimeoutMs,
 } from "../testing/timelineWorkbookTestSupport";
+import { historyDiffFixture } from "./history/workbookHistoryTestFixtures";
 import {
   buildRecordRollbackTargetFromHistoryAction,
   type RecordHistoryItem,
@@ -66,10 +67,7 @@ function historyItem(
     committed_at: "2026-05-11T12:00:00Z",
     history_item_ref: "hitem_server_selector",
     operation: "field_update",
-    diff_summary: {
-      summary: "field_update timeline_record",
-      units: [{ history_unit_kind: "mutation" }],
-    },
+    diff_summary: historyDiffFixture("field_update timeline_record"),
     change_set_id: changeSetId,
     reversible: true,
     available_rollback_actions: ["history_entry", "change_set"],
@@ -91,6 +89,7 @@ function historyEnvelope(options: {
         record_id: options.recordId ?? "20000000-0000-4000-8000-000000000001",
         row_version: options.rowVersion ?? 4,
         deleted: options.deleted ?? false,
+        representation_generation: "cartulary.history.1",
         items: options.items ?? [historyItem()],
       },
       meta: {
@@ -207,7 +206,7 @@ describe("workbook history support coverage", () => {
       actorUserId,
     );
     expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
-      "2026-05-11T12:00:00.000Z",
+      "2026-05-11T12:00:00Z",
     );
     expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
       "field_update timeline_record",

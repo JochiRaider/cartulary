@@ -1473,6 +1473,7 @@ describe("WorkbookShell surface selection", () => {
           incident_id: incidentId,
           row_version: 1,
           deleted: false,
+          representation_generation: "cartulary.history.1",
           items: [],
           paging: { limit: 100, has_more: false, next_cursor: null },
         },

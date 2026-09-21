@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -17,6 +18,8 @@ type targetAdmission struct {
 	historyValidator HistoryValidator
 	rowProvider      rollbackcontract.RowSourceProvider
 	nonRowProvider   rollbackcontract.NonRowTargetProvider
+	historyProjector historycontract.Projector
+	snapshotSchemaID string
 }
 
 func compileTargetSemanticsCatalog(requirements []targetSemanticsRequirement, contributions []ProviderContribution) (*TargetSemanticsCatalog, error) {
@@ -36,19 +39,23 @@ func compileTargetSemanticsCatalog(requirements []targetSemanticsRequirement, co
 	for _, contribution := range contributions {
 		for _, record := range contribution.Records {
 			admissions["record"] = append(admissions["record"], targetAdmission{
-				sourceOwnerID: "record_source_owner",
-				dispatchClass: rollbackcontract.DispatchRow,
-				recordType:    record.RecordType,
-				history:       NewDirectRecordHistoryFacet(HistorySingleEntry),
-				rowProvider:   record.RowRollbackProvider,
+				sourceOwnerID:    "record_source_owner",
+				dispatchClass:    rollbackcontract.DispatchRow,
+				recordType:       record.RecordType,
+				historyProjector: record.HistoryProjector,
+				snapshotSchemaID: record.SnapshotSchemaID,
+				history:          NewDirectRecordHistoryFacet(HistorySingleEntry),
+				rowProvider:      record.RowRollbackProvider,
 			})
 			for _, targetKind := range record.HistoryTargetKinds {
 				admissions[targetKind] = append(admissions[targetKind], targetAdmission{
-					sourceOwnerID: string(contribution.SourceOwnerModule),
-					dispatchClass: rollbackcontract.DispatchRow,
-					recordType:    record.RecordType,
-					history:       NewDirectRecordHistoryFacet(HistorySingleEntry),
-					rowProvider:   record.RowRollbackProvider,
+					sourceOwnerID:    string(contribution.SourceOwnerModule),
+					dispatchClass:    rollbackcontract.DispatchRow,
+					recordType:       record.RecordType,
+					historyProjector: record.HistoryProjector,
+					snapshotSchemaID: record.SnapshotSchemaID,
+					history:          NewDirectRecordHistoryFacet(HistorySingleEntry),
+					rowProvider:      record.RowRollbackProvider,
 				})
 			}
 		}
@@ -58,6 +65,7 @@ func compileTargetSemanticsCatalog(requirements []targetSemanticsRequirement, co
 				dispatchClass:    rollbackcontract.DispatchNonRow,
 				history:          target.HistoryFacet,
 				historyValidator: target.HistoryValidator,
+				historyProjector: target.HistoryProjector,
 				nonRowProvider:   target.RollbackProvider,
 			})
 		}
@@ -126,11 +134,15 @@ func compileTargetSemantics(requirement targetSemanticsRequirement, values []tar
 	compiled := compiledTargetSemantics{
 		dispatchClass: requirement.DispatchClass,
 		rowProviders:  map[string]rollbackcontract.RowSourceProvider{},
+		rowHistory:    map[string]rowHistoryProjection{},
 	}
 	if requirement.DispatchClass == rollbackcontract.DispatchNonRow && len(values) > 1 {
 		return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q", ErrDuplicateTargetSemantics, requirement.TargetKind)
 	}
 	for _, admission := range values {
+		if admission.historyProjector == nil {
+			return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q history projector", ErrMissingProviderContribution, requirement.TargetKind)
+		}
 		if admission.sourceOwnerID != requirement.SourceOwnerID || admission.dispatchClass != requirement.DispatchClass || admission.history.isZero() {
 			return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q contribution", ErrInvalidTargetSemantics, requirement.TargetKind)
 		}
@@ -152,6 +164,10 @@ func compileTargetSemantics(requirement targetSemanticsRequirement, values []tar
 				return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q record type %q", ErrDuplicateTargetSemantics, requirement.TargetKind, admission.recordType)
 			}
 			compiled.rowProviders[admission.recordType] = admission.rowProvider
+			if admission.snapshotSchemaID == "" {
+				return compiledTargetSemantics{}, ErrInvalidRecordSnapshot
+			}
+			compiled.rowHistory[admission.recordType] = rowHistoryProjection{schemaID: admission.snapshotSchemaID, project: admission.historyProjector}
 		case rollbackcontract.DispatchNonRow:
 			if nilNonRowTargetProvider(admission.nonRowProvider) {
 				return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q non-row provider", ErrInvalidTargetSemantics, requirement.TargetKind)
@@ -161,6 +177,7 @@ func compileTargetSemantics(requirement targetSemanticsRequirement, values []tar
 			}
 			compiled.historyValidator = admission.historyValidator
 			compiled.nonRowProvider = admission.nonRowProvider
+			compiled.historyProjector = admission.historyProjector
 		}
 	}
 	admitted := make([]string, 0, len(compiled.rowProviders))

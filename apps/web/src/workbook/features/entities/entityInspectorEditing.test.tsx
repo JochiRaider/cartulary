@@ -166,11 +166,31 @@ it("opens with saved values and submits only explicitly while Escape retains unf
   expect(f.patch).not.toHaveBeenCalled();
   fireEvent.keyDown(input, { key: "Escape" });
   expect(screen.queryByTestId(genericEditValueTestId(schema))).toBeNull();
-  attachField("host.location");
+  expect(
+    screen.getByText("Unfinished work retained for Location."),
+  ).not.toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Review draft for Location" }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
   const resumed = screen.getByTestId(genericEditValueTestId(schema));
   expect((resumed as HTMLInputElement).value).toBe("Unfinished");
-  fireEvent.keyDown(resumed, { key: "Enter", ctrlKey: true });
+  const update = screen.getByTestId(genericEditSubmitTestId(schema));
+  const close = screen.getByRole("button", { name: "Close editor" });
+  expect(update.parentElement).toBe(close.parentElement);
+  fireEvent.click(close);
+  expect(f.patch).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("button", { name: "Discard draft for Location" }),
+  ).not.toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Review draft for Location" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
+  fireEvent.keyDown(screen.getByTestId(genericEditValueTestId(schema)), {
+    key: "Enter",
+    ctrlKey: true,
+  });
   await waitFor(() => expect(f.patch).toHaveBeenCalledOnce());
 });
 function chooseField() {

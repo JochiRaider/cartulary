@@ -40,6 +40,7 @@ import {
 import {
   fetchFullRecordHistory,
   fetchRecordHistoryCount,
+  openHistoryEventDetails,
 } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
@@ -584,7 +585,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
     ]);
     const linkUnits = transition
       .flatMap((item) => item.diff_summary.units)
-      .filter((unit) => unit.target_kind === "record_link");
+      .filter((unit) => unit.kind === "link");
     expect(linkUnits).toHaveLength(scenario.replacement ? 1 : 0);
     const row = (
       await queryViewRows(page, incidentId, timelineViewSchemaId)
@@ -641,6 +642,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
         action: "change_set" as const,
         historyItemRef: rollbackItem.history_item_ref,
       };
+      await openHistoryEventDetails(page, rollbackItem.history_item_ref);
       await page.getByTestId(rowHistoryActionTestId(anchor)).click();
       const rollbackResponse = page.waitForResponse(
         (response) =>

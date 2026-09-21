@@ -6,6 +6,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import {
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
 import { IndicatorCanonicalAuthoring } from "./IndicatorCanonicalAuthoring";
@@ -23,7 +27,6 @@ import type {
   ObservationIntent,
   ObservationOwnerPort,
 } from "./observationOperation";
-import { observationStack, observationText } from "./observationStyles";
 
 type Props = {
   observation: IndicatorObservation;

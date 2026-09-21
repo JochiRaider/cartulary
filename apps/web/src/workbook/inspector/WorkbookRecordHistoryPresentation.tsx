@@ -10,7 +10,8 @@ import {
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { workbookTypography } from "../components/workbookFormStyles";
 import { useHistoryActionPermission } from "../history/WorkbookHistoryContext";
 import { historyOperationLabel } from "../history/workbookHistoryOperation";
 import type { InspectorRecordHistoryAction } from "./inspectorCapabilityResolver";
@@ -38,10 +39,12 @@ import type {
 } from "./workbookRecordHistoryModel";
 
 type HistoryFocusBindings = {
+  readonly cancelEventReview: (historyItemRef: string) => void;
   readonly capture: (
     identity: string,
     kind: "delete" | "restore" | "rollback",
     element: HTMLButtonElement,
+    historyItemRef?: string,
   ) => void;
   readonly register: (
     identity: string,
@@ -83,21 +86,6 @@ export function WorkbookRecordHistoryLoadedPresentation({
 }) {
   return (
     <>
-      <WorkbookRecordHistoryDestructiveActions
-        actions={actions}
-        busy={busy}
-        canMutate={canMutate}
-        data={data}
-        focus={focus}
-        subject={subject}
-        onPreviewDeleteRestore={onPreviewDeleteRestore}
-      />
-      <WorkbookRecordHistoryConfirmation
-        destructiveSubject={destructiveSubject}
-        pendingAction={pendingAction}
-        onCancel={onCancelPendingAction}
-        onConfirm={onConfirmPendingAction}
-      />
       <WorkbookRecordHistoryEvents
         requestedChangeSetId={requestedChangeSetId}
         actions={actions}
@@ -107,12 +95,35 @@ export function WorkbookRecordHistoryLoadedPresentation({
         focus={focus}
         subject={subject}
         onPreviewRollback={onPreviewRollback}
+        pendingAction={pendingAction}
+        destructiveSubject={destructiveSubject}
+        onCancelPendingAction={onCancelPendingAction}
+        onConfirmPendingAction={onConfirmPendingAction}
       />
+      <WorkbookRecordHistoryDestructiveActions
+        actions={actions}
+        busy={busy}
+        canMutate={canMutate}
+        data={data}
+        focus={focus}
+        subject={subject}
+        onPreviewDeleteRestore={onPreviewDeleteRestore}
+      >
+        <WorkbookRecordHistoryConfirmation
+          destructiveSubject={destructiveSubject}
+          pendingAction={
+            pendingAction?.kind === "destructive" ? pendingAction : null
+          }
+          onCancel={onCancelPendingAction}
+          onConfirm={onConfirmPendingAction}
+        />
+      </WorkbookRecordHistoryDestructiveActions>
     </>
   );
 }
 
 function WorkbookRecordHistoryDestructiveActions({
+  children,
   actions,
   busy,
   canMutate,
@@ -121,6 +132,7 @@ function WorkbookRecordHistoryDestructiveActions({
   subject,
   onPreviewDeleteRestore,
 }: {
+  readonly children: ReactNode;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
   readonly busy: boolean;
   readonly canMutate: boolean;
@@ -135,28 +147,32 @@ function WorkbookRecordHistoryDestructiveActions({
   if (operation === null) return null;
   const identity = historyActionIdentity(subject, operation);
   return (
-    <div style={actionsStyle}>
-      <WorkbookInspectorActionButton
-        data-testid={
-          operation === "delete"
-            ? rowHistoryDeleteButtonTestId()
-            : rowHistoryRestoreButtonTestId()
-        }
-        disabled={
-          !canMutate ||
-          busy ||
-          !(operation === "delete" ? mayDelete : mayRestore)
-        }
-        ref={(element) => focus.register(identity, element)}
-        tone={operation === "delete" ? "destructive" : "ordinary"}
-        onClick={(event) => {
-          focus.capture(identity, operation, event.currentTarget);
-          onPreviewDeleteRestore(operation);
-        }}
-      >
-        {operation === "delete" ? "Soft-delete row" : "Restore deleted row"}
-      </WorkbookInspectorActionButton>
-    </div>
+    <section aria-label="Record actions" style={recordActionsStyle}>
+      <h3 style={recordActionsTitleStyle}>Record actions</h3>
+      <div style={actionsStyle}>
+        <WorkbookInspectorActionButton
+          data-testid={
+            operation === "delete"
+              ? rowHistoryDeleteButtonTestId()
+              : rowHistoryRestoreButtonTestId()
+          }
+          disabled={
+            !canMutate ||
+            busy ||
+            !(operation === "delete" ? mayDelete : mayRestore)
+          }
+          ref={(element) => focus.register(identity, element)}
+          tone={operation === "delete" ? "destructive" : "ordinary"}
+          onClick={(event) => {
+            focus.capture(identity, operation, event.currentTarget);
+            onPreviewDeleteRestore(operation);
+          }}
+        >
+          {operation === "delete" ? "Soft-delete row" : "Restore deleted row"}
+        </WorkbookInspectorActionButton>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -231,6 +247,10 @@ function WorkbookRecordHistoryConfirmation({
 }
 
 function WorkbookRecordHistoryEvents({
+  pendingAction,
+  destructiveSubject,
+  onCancelPendingAction,
+  onConfirmPendingAction,
   requestedChangeSetId,
   actions,
   busy,
@@ -240,6 +260,10 @@ function WorkbookRecordHistoryEvents({
   subject,
   onPreviewRollback,
 }: {
+  readonly pendingAction: WorkbookRecordHistoryPendingAction | null;
+  readonly destructiveSubject: string;
+  readonly onCancelPendingAction: () => void;
+  readonly onConfirmPendingAction: () => void;
   readonly requestedChangeSetId?: string | undefined;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
   readonly busy: boolean;
@@ -256,19 +280,35 @@ function WorkbookRecordHistoryEvents({
     <WorkbookHistoryList>
       {data.items.map((item) => {
         const event = workbookHistoryEventPresentation(item);
+        const pending =
+          pendingAction?.kind === "rollback" &&
+          pendingAction.historyItemRef === item.history_item_ref
+            ? pendingAction
+            : null;
         return (
           <WorkbookHistoryEvent
             highlighted={item.change_set_id === requestedChangeSetId}
+            onClose={() => {
+              focus.cancelEventReview(item.history_item_ref);
+            }}
             actions={
               actions.has("rollback") ? (
-                <WorkbookRecordHistoryRollbackActions
-                  busy={busy}
-                  canMutate={canMutate}
-                  focus={focus}
-                  item={item}
-                  subject={subject}
-                  onPreviewRollback={onPreviewRollback}
-                />
+                <>
+                  <WorkbookRecordHistoryRollbackActions
+                    busy={busy}
+                    canMutate={canMutate}
+                    focus={focus}
+                    item={item}
+                    subject={subject}
+                    onPreviewRollback={onPreviewRollback}
+                  />
+                  <WorkbookRecordHistoryConfirmation
+                    destructiveSubject={destructiveSubject}
+                    pendingAction={pending}
+                    onCancel={onCancelPendingAction}
+                    onConfirm={onConfirmPendingAction}
+                  />
+                </>
               ) : null
             }
             event={event}
@@ -303,10 +343,12 @@ function WorkbookRecordHistoryRollbackActions({
 }) {
   const permitted = useHistoryActionPermission("rollback");
   if (item.available_rollback_actions.length === 0) {
-    return <p style={emptyStateStyle}>No rollback action</p>;
+    return (
+      <p style={emptyStateStyle}>No reversal is available for this event.</p>
+    );
   }
   return (
-    <div style={actionsStyle}>
+    <div style={rollbackActionsStyle}>
       {item.available_rollback_actions.map((action) => {
         const identity = historyRollbackActionIdentity(
           subject,
@@ -314,22 +356,29 @@ function WorkbookRecordHistoryRollbackActions({
           action,
         );
         return (
-          <WorkbookInspectorActionButton
-            data-testid={rowHistoryActionTestId({
-              action,
-              historyItemRef: item.history_item_ref,
-            })}
-            disabled={!canMutate || busy || !permitted}
-            key={action}
-            ref={(element) => focus.register(identity, element)}
-            tone={action === "row_restore" ? "ordinary" : "secondary"}
-            onClick={(event) => {
-              focus.capture(identity, "rollback", event.currentTarget);
-              onPreviewRollback(item, action);
-            }}
-          >
-            {workbookHistoryRollbackLabel(action)}
-          </WorkbookInspectorActionButton>
+          <div key={action} style={rollbackChoiceStyle}>
+            <WorkbookInspectorActionButton
+              data-testid={rowHistoryActionTestId({
+                action,
+                historyItemRef: item.history_item_ref,
+              })}
+              disabled={!canMutate || busy || !permitted}
+              ref={(element) => focus.register(identity, element)}
+              tone={action === "row_restore" ? "ordinary" : "secondary"}
+              onClick={(event) => {
+                focus.capture(
+                  identity,
+                  "rollback",
+                  event.currentTarget,
+                  item.history_item_ref,
+                );
+                onPreviewRollback(item, action);
+              }}
+            >
+              {workbookHistoryRollbackLabel(action)}
+            </WorkbookInspectorActionButton>
+            <p style={scopeStyle}>{rollbackScope[action]}</p>
+          </div>
         );
       })}
     </div>
@@ -358,5 +407,38 @@ const actionsStyle = {
 
 const emptyStateStyle = {
   color: "var(--ct-colors-ink-tertiary)",
+  margin: 0,
+} satisfies CSSProperties;
+
+const recordActionsStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
+  borderBlockStart: "var(--ct-border-hairline)",
+  paddingBlockStart: "var(--ct-spacing-sm)",
+} satisfies CSSProperties;
+const recordActionsTitleStyle = {
+  ...workbookTypography("section-heading"),
+  margin: 0,
+} satisfies CSSProperties;
+
+const rollbackScope = {
+  history_entry: "Reverses only this entry's supported change.",
+  change_set:
+    "Reverses all supported changes in this change set. Other records may be affected.",
+  row_restore:
+    "Restores this record's saved fields; independent relationships and Evidence remain unchanged.",
+} satisfies Record<RecordHistoryRollbackAction, string>;
+const rollbackActionsStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
+} satisfies CSSProperties;
+const rollbackChoiceStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+  justifyItems: "start",
+} satisfies CSSProperties;
+const scopeStyle = {
+  ...workbookTypography("compact-metadata"),
+  color: "var(--ct-colors-ink-muted)",
   margin: 0,
 } satisfies CSSProperties;

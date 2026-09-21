@@ -3357,6 +3357,7 @@
           "Timeline mutation models admits exact scalar and collection intents and deduplicates keyboard blur",
           "Timeline mutation models discriminates relationship and tag presentation without union downcasts",
           "Timeline mutation models maintains committed row versions as a monotonic reference-preserving ledger",
+          "Timeline mutation models preserves canonical null empty and absent cells independently of display strings and queued work",
           "Timeline mutation models projects accepted draft replacement and its deterministic continuation",
           "Timeline mutation models reconciles discarded units from committed state and reapplies later FIFO work",
           "Timeline mutation models releases evicted query observations while retaining drafts, the inspector source, and mutation version floors"

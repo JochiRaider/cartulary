@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { workbookTypography } from "../../components/workbookFormStyles";
 import { useWorkbookInspectorNotice } from "../useWorkbookInspectorNotice";
 import type {
   WorkbookInspectorErrorPresentation,
@@ -220,11 +221,11 @@ export function WorkbookInspectorConfirmation({
 }
 
 const compactMetadataStyle = {
+  ...workbookTypography("compact-metadata"),
   display: "flex",
   flexWrap: "wrap" as const,
   gap: "var(--ct-spacing-xs)",
   color: "var(--ct-colors-ink-muted)",
-  fontSize: "var(--ct-typography-compact-metadata-fontSize)",
 } satisfies CSSProperties;
 const messageStyle = { margin: 0 } satisfies CSSProperties;
 const publicErrorStyle = {
@@ -233,8 +234,8 @@ const publicErrorStyle = {
   color: "var(--ct-colors-semantic-conflict)",
 } satisfies CSSProperties;
 const technicalDetailsStyle = {
+  ...workbookTypography("metadata"),
   color: "var(--ct-colors-ink-muted)",
-  fontSize: "var(--ct-typography-compact-metadata-fontSize)",
 } satisfies CSSProperties;
 const technicalListStyle = {
   display: "grid",
@@ -245,8 +246,8 @@ const technicalTermStyle = {
   color: "var(--ct-colors-ink-muted)",
 } satisfies CSSProperties;
 const technicalValueStyle = {
+  ...workbookTypography("mono"),
   margin: 0,
-  fontFamily: "var(--ct-typography-mono-fontFamily)",
   overflowWrap: "anywhere" as const,
 } satisfies CSSProperties;
 const confirmationStyle = {

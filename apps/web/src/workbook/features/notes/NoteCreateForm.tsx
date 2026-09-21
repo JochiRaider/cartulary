@@ -3,6 +3,15 @@ import {
   genericCreateSubmitTestId,
 } from "@cartulary/ui-contracts";
 import { useId, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import {
+  workbookFormInputStyle as fieldStyle,
+  workbookFormActionsStyle,
+  workbookFormFieldStackStyle,
+  workbookFormFieldsStyle,
+  workbookFormGroupStyle,
+  workbookFormHeadingStyle,
+  workbookFormMessageStyle,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { NoteSourceControl } from "./NoteSourceControl";
 import { noteCreateView } from "./noteCreateModel";
@@ -63,20 +72,17 @@ export function NoteCreateForm({
           focused.current = false;
       }}
       aria-label="Create Note"
-      style={{ display: "grid", gap: "0.75rem", minWidth: 0 }}
+      style={workbookFormFieldsStyle}
     >
+      <p style={workbookFormMessageStyle}>
+        Closing keeps unfinished work in this session. Only the explicit create
+        action saves it.
+      </p>
       <fieldset
         disabled={owner.busy || !owner.canSubmit()}
-        style={{
-          border: 0,
-          padding: 0,
-          margin: 0,
-          display: "grid",
-          gap: "0.75rem",
-          minWidth: 0,
-        }}
+        style={workbookFormGroupStyle}
       >
-        <legend>Create Note</legend>
+        <legend style={workbookFormHeadingStyle}>Create Note</legend>
         {(
           [
             ["note.title", "Title"],
@@ -87,7 +93,7 @@ export function NoteCreateForm({
           <label
             key={field}
             htmlFor={`${id}-input-${field}`}
-            style={{ display: "grid", gap: "0.25rem", minWidth: 0 }}
+            style={workbookFormFieldStackStyle}
           >
             {label}
             {field === "note.title" ? (
@@ -152,7 +158,7 @@ export function NoteCreateForm({
           Review source and access
         </Button>
       ) : null}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+      <div style={workbookFormActionsStyle}>
         <Button
           tone="primary"
           type="button"
@@ -187,14 +193,3 @@ export function NoteCreateForm({
     </section>
   );
 }
-const fieldStyle = {
-  width: "100%",
-  minWidth: 0,
-  boxSizing: "border-box",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  border: "var(--ct-component-text-input-border)",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  padding: "0.5rem",
-} as const;

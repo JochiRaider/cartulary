@@ -13,6 +13,12 @@ import {
   type IndicatorLifecycleInterval,
   indicatorLifecycleConstraints,
 } from "../../adapters/indicatorLifecycleProtocol";
+import {
+  workbookFormFieldStackStyle as lifecycleField,
+  workbookFormInputStyle as lifecycleInput,
+  workbookFormFieldsStyle as lifecycleStack,
+  workbookFormPreservedTextStyle as lifecycleText,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   inspectorReadData,
@@ -33,12 +39,6 @@ import {
 } from "./indicatorLifecycleModel";
 import type { IndicatorLifecycleOwnerPort } from "./indicatorLifecycleOperation";
 import { IndicatorLifecyclePaging } from "./indicatorLifecyclePaging";
-import {
-  lifecycleField,
-  lifecycleInput,
-  lifecycleStack,
-  lifecycleText,
-} from "./indicatorLifecycleStyles";
 
 export function IndicatorLifecycleWorkflow({
   action,
@@ -323,6 +323,7 @@ function LifecycleContent({
             Refresh and review Indicator
           </WorkbookInspectorActionButton>
           <WorkbookInspectorActionButton
+            tone="primary"
             type="submit"
             disabled={busy || stale || reviewing || !owner.canSubmit()}
           >

@@ -13,6 +13,14 @@ owners and publishes a narrow presentation projection:
 Generic workbook behavior stays in the [parent workbook](../README.md).
 Root tests characterize composition boundaries and cross-directory interactions.
 
+`WorkbookRow.rawRow` contains canonical accepted cells. Nullable and absent cells
+must remain distinct from empty text. `values`, `committedValues` and retained
+drafts are display/authoring projections; they never reconstruct the canonical
+row. Committed-version tracking strips local presentation state without rewriting
+accepted cells. Discard recovery reapplies remaining FIFO work only to its local
+authoring projection, preserving the canonical baseline for Details, History and
+the next explicit edit.
+
 ## Subdirectories
 
 | Directory | Responsibility |

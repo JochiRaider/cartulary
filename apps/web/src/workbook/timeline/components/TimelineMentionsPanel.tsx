@@ -8,6 +8,7 @@ import {
   WorkbookRelationshipChip,
   WorkbookRelationshipChipDetails,
 } from "../../components/WorkbookRelationshipChip";
+import { workbookTypography } from "../../components/workbookFormStyles";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { relationshipChipAccessibleName } from "../../models/workbookRelationshipChip";
@@ -62,13 +63,16 @@ export function TimelineMentionsPanel({
       style={inspectorSectionStyle}
       aria-label={`Selected ${getRelationshipLabel(selectedMention.fieldKey)} item`}
     >
-      <WorkbookRelationshipChipDetails
-        presentation={timelineRelationshipChipPresentation({
-          entityIndex,
-          item: selectedMention,
-          selected: true,
-        })}
-      />
+      <details>
+        <summary>Mention details</summary>
+        <WorkbookRelationshipChipDetails
+          presentation={timelineRelationshipChipPresentation({
+            entityIndex,
+            item: selectedMention,
+            selected: true,
+          })}
+        />
+      </details>
       <TimelineMentionActionControls
         key={`${selectedMention.rowRecordId}:${selectedMention.fieldKey}:${selectedMention.itemRef}`}
         actions={actions}
@@ -122,11 +126,21 @@ export function TimelineMentionsPanel({
             event.stopPropagation();
         }}
       >
-        <WorkbookRelationshipChip
-          expanded
-          decorative
-          presentation={presentation}
-        />
+        {presentation.rawText !== presentation.label ? (
+          <span style={mentionRawStyle}>{presentation.rawText}</span>
+        ) : null}
+        <span style={mentionSummaryStyle}>
+          <WorkbookRelationshipChip decorative presentation={presentation} />
+          <span style={workbookTypography("metadata")}>
+            {presentation.state === "auto_resolved"
+              ? "Automatically resolved"
+              : presentation.state === "resolved"
+                ? "Resolved"
+                : presentation.state === "dismissed"
+                  ? "Dismissed"
+                  : "Unresolved"}
+          </span>
+        </span>
       </button>
     );
   };
@@ -198,24 +212,41 @@ export function TimelineMentionsPanel({
 
 const mentionGroupColumnStyle = {
   display: "grid",
-  gap: "0.5rem",
+  gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
 
 const groupLabelStyle = {
+  ...workbookTypography("section-heading"),
   margin: 0,
-  fontSize: "0.8rem",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
   color: "var(--ct-colors-ink-subtle)",
 } satisfies CSSProperties;
 
 const mentionListButtonStyle = {
+  ...workbookTypography("ui"),
+  display: "grid",
+  gap: "var(--ct-spacing-xxs)",
   border: "none",
   background: "transparent",
   color: "var(--ct-colors-ink)",
-  padding: 0,
+  padding: "var(--ct-spacing-xs)",
   textAlign: "left",
   cursor: "pointer",
+} satisfies CSSProperties;
+
+const mentionRawStyle = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
+  overflow: "hidden",
+  overflowWrap: "anywhere",
+  whiteSpace: "pre-wrap",
+} satisfies CSSProperties;
+const mentionSummaryStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-xs)",
+  alignItems: "baseline",
+  minWidth: 0,
 } satisfies CSSProperties;
 
 const mentionListButtonSelectedStyle = {

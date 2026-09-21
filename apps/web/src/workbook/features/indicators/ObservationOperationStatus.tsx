@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
+import { workbookFormFieldsStyle as observationStack } from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type {
   ObservationOperation,
   ObservationOwnerPort,
 } from "./observationOperation";
-import { observationStack } from "./observationStyles";
 export function ObservationOperationStatus({
   owner,
   entry,

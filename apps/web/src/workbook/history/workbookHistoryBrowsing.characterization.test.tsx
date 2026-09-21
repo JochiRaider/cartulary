@@ -9,6 +9,7 @@ import {
   workbookRecordHistoryRequestId,
 } from "../inspector/workbookRecordHistoryModel";
 import { WorkbookRecordHistoryOwner } from "./WorkbookRecordHistoryOwner";
+import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const incidentId = "10000000-0000-4000-8000-000000000001";
 const recordId = "20000000-0000-4000-8000-000000000001";
@@ -29,13 +30,14 @@ const item = {
   change_set_id: "30000000-0000-4000-8000-000000000001",
   reversible: true,
   available_rollback_actions: ["history_entry" as const],
-  diff_summary: { summary: "A retained change", units: [] },
+  diff_summary: historyDiffFixture("A retained change"),
 };
 const data = {
   incident_id: incidentId,
   record_id: recordId,
   row_version: 4,
   deleted: false,
+  representation_generation: "cartulary.history.1",
   items: [item],
 };
 const terminal = { limit: 100, has_more: false, next_cursor: null } as const;
@@ -64,6 +66,7 @@ function setup() {
         ? { ...data, paging: terminal }
         : {
             ...data,
+            representation_generation: "cartulary.history.1",
             items: [],
             paging: {
               limit: 100,

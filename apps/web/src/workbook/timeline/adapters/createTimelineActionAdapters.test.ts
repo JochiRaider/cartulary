@@ -15,6 +15,7 @@ import { createEvidenceFileTransport } from "../../adapters/createEvidenceFileTr
 import { createTimelineFileLinkTransport } from "../../adapters/createTimelineFileLinkTransport";
 import { createWorkbookRecordHistoryAdapter } from "../../adapters/createWorkbookRecordHistoryAdapter";
 import type { HistoryAttempt } from "../../history/workbookHistoryOperation";
+import { historyDiffFixture } from "../../history/workbookHistoryTestFixtures";
 import {
   evidenceViewSchemaId,
   timelineViewSchemaId,
@@ -45,13 +46,14 @@ it("derives history routes and rejects target-inconsistent history responses", a
         data: {
           deleted: false,
           incident_id: incidentId,
+          representation_generation: "cartulary.history.1",
           items: [
             {
               actor_user_id: "50000000-0000-4000-8000-000000000001",
               available_rollback_actions: ["history_entry", "change_set"],
               change_set_id: changeSetId,
               committed_at: "2026-07-31T12:00:00Z",
-              diff_summary: { summary: "Updated Timeline row", units: [] },
+              diff_summary: historyDiffFixture("Updated Timeline row"),
               history_entry_ref: "href-timeline-1",
               history_item_ref: "hitem-timeline-1",
               operation: "field_update",

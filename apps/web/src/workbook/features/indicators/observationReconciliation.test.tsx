@@ -53,6 +53,7 @@ it("Observation reconciliation reads source previous and new Indicator identitie
         receipt.affected_records.find((row) => row.record_id === id)
           ?.row_version ?? 0,
       deleted: false,
+      representation_generation: "cartulary.history.1",
       items: [],
       paging: { has_more: false, next_cursor: null, limit: 100 },
     },
@@ -111,6 +112,7 @@ it("Observation reconciliation reads source previous and new Indicator identitie
         incident_id: observationAuthority.incidentId,
         row_version: 50,
         deleted: false,
+        representation_generation: "cartulary.history.1",
         items: [],
         paging: { has_more: false, next_cursor: null, limit: 100 },
       },

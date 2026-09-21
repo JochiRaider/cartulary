@@ -675,6 +675,8 @@ type EntityDetailsProps = {
 };
 
 function EntityDetails(props: EntityDetailsProps) {
+  const editor = useEntityEditSlots(props);
+  const aliases = useRef<HTMLDetailsElement>(null);
   return (
     <>
       {props.selectedEntity ? (
@@ -688,10 +690,22 @@ function EntityDetails(props: EntityDetailsProps) {
           disabledReason={props.disabledReason}
           canSubmit={!props.mutationPending && props.edit.canSubmit}
           onSubmit={() => void props.submitEdit()}
-          editor={<EntityEditCell {...props} />}
+          editor={editor}
+          retainedWork={props.edit.retainedWork}
+          onReviewDraft={(identity) => props.setEditFieldKey(identity.fieldKey)}
+          collectionDestinations={{
+            [`${props.selectedEntity.entityType}.aliases`]: () => {
+              if (!aliases.current) return;
+              aliases.current.open = true;
+              aliases.current
+                .querySelector("summary")
+                ?.focus({ preventScroll: true });
+              aliases.current.scrollIntoView?.({ block: "nearest" });
+            },
+          }}
         />
       ) : null}
-      <details>
+      <details ref={aliases}>
         <summary>Manage aliases</summary>
         <EntityAliases {...props} />
       </details>
@@ -705,57 +719,69 @@ function EntityDetails(props: EntityDetailsProps) {
   );
 }
 
-function EntityEditCell(props: EntityDetailsProps) {
+function useEntityEditSlots(props: EntityDetailsProps) {
   const feedbackId = useId();
-  if (!props.selectedEdit.field || !props.selectedEntity) return null;
-  return (
-    <section style={inspectorSectionStyle}>
-      <div style={inspectorControlStackStyle}>
-        {props.selectedEdit.field ? (
-          <WorkbookInspectorEditControl
-            invalid={props.editFeedback.message !== null}
-            describedBy={props.editFeedback.message ? feedbackId : undefined}
-            edit={{ ...props.edit, update: props.setEditValue }}
-            ariaLabel={props.selectedEdit.field.label}
-            collectionMode="add"
-            field={props.selectedEdit.field}
-            testId={genericEditValueTestId(props.contract.viewSchemaId)}
-          />
-        ) : null}
+  if (!props.selectedEdit.field || !props.selectedEntity)
+    return {
+      content: null,
+      actions: null,
+      feedback: null,
+      retainedDraft: null,
+    };
+  return {
+    content: (
+      <WorkbookInspectorEditControl
+        invalid={props.editFeedback.message !== null}
+        describedBy={props.editFeedback.message ? feedbackId : undefined}
+        edit={{ ...props.edit, update: props.setEditValue }}
+        ariaLabel={props.selectedEdit.field.label}
+        collectionMode="add"
+        field={props.selectedEdit.field}
+        testId={genericEditValueTestId(props.contract.viewSchemaId)}
+      />
+    ),
+    actions: (
+      <WorkbookInspectorActionButton
+        data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
+        disabled={props.mutationPending || !props.edit.canSubmit}
+        tone="primary"
+        type="button"
+        onClick={() => void props.submitEdit()}
+      >
+        Update
+      </WorkbookInspectorActionButton>
+    ),
+    feedback: (
+      <>
         {props.editFeedback.message ? (
           <p id={feedbackId} role="alert">
             {props.editFeedback.message}
           </p>
         ) : null}
-        <button
-          data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
-          disabled={props.mutationPending || !props.edit.canSubmit}
-          style={actionButtonStyle}
-          type="button"
-          onClick={() => void props.submitEdit()}
-        >
-          Update
-        </button>
-      </div>
+        {props.editFeedback.actionError ? (
+          <WorkbookInspectorPublicError
+            error={props.editFeedback.actionError}
+          />
+        ) : null}
+        {props.mutationError ? (
+          <WorkbookInspectorPublicError error={props.mutationError} />
+        ) : null}
+        <WorkbookExplicitPatchRecovery
+          owner={props.patches}
+          viewSchemaId={props.contract.viewSchemaId}
+          recordId={props.selectedEntity.recordId}
+          fieldKey={props.selectedEdit.field.fieldKey}
+        />
+      </>
+    ),
+    retainedDraft: (
       <WorkbookInspectorDraftFeedback
         edit={props.edit}
         contract={props.contract}
         row={props.selectedEntity?.rawRow ?? null}
       />
-      {props.editFeedback.actionError ? (
-        <WorkbookInspectorPublicError error={props.editFeedback.actionError} />
-      ) : null}
-      {props.mutationError ? (
-        <WorkbookInspectorPublicError error={props.mutationError} />
-      ) : null}
-      <WorkbookExplicitPatchRecovery
-        owner={props.patches}
-        viewSchemaId={props.contract.viewSchemaId}
-        recordId={props.selectedEntity.recordId}
-        fieldKey={props.selectedEdit.field.fieldKey}
-      />
-    </section>
-  );
+    ),
+  };
 }
 
 function EntityAliases(props: EntityDetailsProps) {
@@ -1270,7 +1296,6 @@ const inspectorSectionStyle = {
   gap: "0.75rem",
   marginBottom: "1rem",
 };
-const inspectorControlStackStyle = { display: "grid", gap: "0.65rem" };
 const sectionTitleStyle = { margin: 0, fontSize: "1rem" };
 const sectionHeadingRowStyle = {
   display: "flex",

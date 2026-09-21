@@ -56,7 +56,7 @@ func historyItemForTarget(t testing.TB, items []map[string]any, targetKind strin
 		units := summary["units"].([]any)
 		for _, rawUnit := range units {
 			unit := rawUnit.(map[string]any)
-			if unit["target_kind"] == targetKind && unit["target_id"] == targetID {
+			if semanticLinkHistoryUnitMatches(unit, targetKind, targetID) {
 				return item
 			}
 		}
@@ -242,4 +242,23 @@ func requireCanonicalTimestampScalar(t testing.TB, value map[string]any, key str
 	if err != nil || parsed.UTC().Format(time.RFC3339Nano) != text || !strings.HasSuffix(text, "Z") {
 		t.Fatalf("%s got noncanonical UTC RFC3339Nano timestamp %q: %v", key, text, err)
 	}
+}
+
+func semanticLinkHistoryUnitMatches(unit map[string]any, targetKind, targetID string) bool {
+	field := map[string]string{"record_link": "link.record_link_id", "record_tag": "tag.record_tag_id"}[targetKind]
+	changes, _ := unit["changes"].([]any)
+	for _, raw := range changes {
+		change, _ := raw.(map[string]any)
+		if change["field_key"] != field {
+			continue
+		}
+		for _, side := range []string{"before", "after"} {
+			value, _ := change[side].(map[string]any)
+			id, _ := value["value"].(string)
+			if value["state"] == "present" && id != "" && (id == targetID || strings.HasSuffix(targetID, ":"+id)) {
+				return true
+			}
+		}
+	}
+	return false
 }

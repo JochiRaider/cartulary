@@ -144,8 +144,13 @@ ON CONFLICT (change_set_id) DO NOTHING
 func seedHistoryMutation(t testing.TB, db *sql.DB, seed historySeed) {
 	t.Helper()
 	seedChangeSet(t, db, seed)
-	beforePayload := map[string]any{"record_id": seed.RecordID.String(), "operation": "before-" + seed.Operation}
-	afterPayload := map[string]any{"record_id": seed.RecordID.String(), "operation": "after-" + seed.Operation}
+	beforePayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": "before-" + seed.Operation})
+	afterPayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": "after-" + seed.Operation})
+	if seed.TargetKind == "entity_alias" {
+		beforePayload = nil
+		afterPayload = map[string]any{"entity_alias_id": seed.RecordID.String(), "record_id": seed.RecordID.String(), "entity_type": "host", "raw_text": "retained-alias", "normalized_text": "retained-alias", "classification": "suggestion_only", "deleted_at": nil}
+	}
+
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO change_set_mutations (
     change_set_id,
@@ -181,6 +186,27 @@ func jsonOrNil(t testing.TB, value any) any {
 
 func canonicalRowSnapshot(recordID uuid.UUID, incidentID uuid.UUID, recordType string, schemaID string, version int64, source map[string]any) map[string]any {
 	clonedSource := make(map[string]any, len(source)+3)
+	// These fixtures author complete canonical row facts, including nullable fields.
+	// They are not a reader for previously persisted or schema-less history.
+	fixtureFields := map[string]string{
+		"host":           "display_name hostname aad_device_id fqdn entity_origin host_state merged_into_record_id location os_platform business_owner criticality containment_status",
+		"party":          "display_name party_kind organization_name role_title primary_email timezone_name external_ref notes",
+		"timeline_event": "date_entered_text analyst_text mitre_stage_text device_object_text ip_address_text activity_utc_text activity_local_text raw_activity_text activity_synopsis_text data_source_text activity_time_pair_state capture_state reviewed_at reviewed_by_user_id superseded_at superseded_by_user_id activity_utc_generated activity_local_generated",
+		"evidence":       "title lifecycle_state requested_at received_at storage_ref blob_hash collector_party_text collector_party_id source_party_text source_party_id upload_state",
+	}
+	for _, key := range strings.Fields(fixtureFields[recordType]) {
+		clonedSource[key] = nil
+	}
+	if recordType == "host" {
+		clonedSource["host_state"] = "active"
+		clonedSource["entity_origin"] = "entity_sheet"
+	}
+	if recordType == "timeline_event" {
+		clonedSource["activity_utc_generated"] = false
+		clonedSource["activity_local_generated"] = false
+		clonedSource["activity_time_pair_state"] = "disabled"
+	}
+
 	for key, value := range source {
 		clonedSource[key] = value
 	}

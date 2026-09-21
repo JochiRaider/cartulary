@@ -82,6 +82,58 @@ test("Inspector edits bind the selected record and retain dirty fields through s
     page.locator('[data-inspector-edit-field="host.fqdn"]'),
   ).toHaveCount(0);
   await input.fill("  unfinished location  ");
+  await page.getByRole("button", { name: "Close editor", exact: true }).click();
+  await expect(input).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Review draft for Location", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Resume draft", exact: true }).click();
+  await expect(input).toHaveValue("  unfinished location  ");
+  const inspector = page.getByTestId(entityInspectorTestId("host"));
+  let historyReads = 0;
+  page.on("request", (request) => {
+    if (request.url().includes(`/records/${f.first.record_id}/history`))
+      historyReads++;
+  });
+  for (const width of [1440, 760]) {
+    await page.setViewportSize({ width, height: 900 });
+    await inspector
+      .getByRole("button", { name: "Sections", exact: true })
+      .click();
+    await inspector
+      .getByRole("button", { name: "History", exact: true })
+      .click();
+    await expect(
+      inspector.getByRole("button", { name: "Open history", exact: true }),
+    ).toBeFocused();
+    await expect(
+      inspector.getByText("Current section: History", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByRole("button", { name: "Close inspector" }),
+    ).toBeInViewport();
+    await expect(input).toHaveValue("  unfinished location  ");
+    await inspector
+      .getByRole("button", { name: "Sections", exact: true })
+      .click();
+    await inspector
+      .getByRole("button", { name: "Details", exact: true })
+      .focus();
+    await page.keyboard.press("Escape");
+    await expect(
+      inspector.getByRole("button", { name: "Sections", exact: true }),
+    ).toBeFocused();
+    await expect(inspector).toBeVisible();
+    await inspector
+      .getByRole("button", { name: "Sections", exact: true })
+      .click();
+    await inspector
+      .getByRole("button", { name: "Details", exact: true })
+      .click();
+    await expect(input).toHaveValue("  unfinished location  ");
+  }
+  expect(historyReads).toBe(0);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await patchRecord(page, f.first.record_id, {
     view_schema_id: f.view,
     base_row_version: 1,
@@ -137,6 +189,34 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   expect(
     rows.find((row) => row.record_id === f.second.record_id)?.row_version,
   ).toBe(1);
+  const body = Array.from(
+    { length: 20 },
+    (_, index) => `Narrative line ${index + 1}: preserve this accepted note.`,
+  ).join("\n");
+  const note = await createViewRow(page, f.incident, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("reading-note"),
+    "note.title": "Long saved note",
+    "note.body": body,
+  });
+  await switchOrdinarySheet(page, notesViewSchemaId);
+  await openGenericInspectorForRecord(page, notesViewSchemaId, note.record_id);
+  const fullValue = page.getByRole("button", {
+    name: "Show full value for Body",
+    exact: true,
+  });
+  await expect(fullValue).toBeVisible();
+  const saved = page.locator('[data-inspector-saved-field="note.body"]');
+  await expect(saved).toHaveAttribute("data-inspector-value-kind", "narrative");
+  const preview = saved.locator("dd").first().locator("div").first();
+  await expect(preview).toHaveText(body);
+  const before = (await preview.boundingBox())?.height ?? 0;
+  await fullValue.click();
+  await expect(
+    page.getByRole("button", { name: "Show less for Body", exact: true }),
+  ).toBeVisible();
+  expect((await preview.boundingBox())?.height ?? 0).toBeGreaterThan(
+    before * 2,
+  );
 });
 
 test("Inspector uncertain recovery replays exact requests without consuming newer authoring", async ({

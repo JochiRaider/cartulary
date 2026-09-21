@@ -264,7 +264,11 @@ export function EntityWorkbookSurface({
     recordId: selectedRecordId,
     row: selectedObservation,
     rowVersion: (row) => row.rowVersion,
-    scope: `${inspectorResetKey}:${currentUserId}`,
+    scope: JSON.stringify([
+      incidentId,
+      currentUserId,
+      mutationRuntime.authorizationEpoch,
+    ]),
     readable: !!currentIncidentRole && loadState.kind !== "permission_denied",
   });
   const canMerge =

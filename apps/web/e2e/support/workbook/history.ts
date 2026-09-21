@@ -2,7 +2,8 @@ import type {
   GetRecordHistoryResponse,
   RecordHistoryData,
 } from "@cartulary/protocol-ts/http";
-import type { Page } from "@playwright/test";
+import { rowHistoryItemTestId } from "@cartulary/ui-contracts";
+import type { Locator, Page } from "@playwright/test";
 
 import { apiBase } from "../runtime/configuration";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
@@ -61,6 +62,10 @@ export async function fetchFullRecordHistory(
       throw new Error("History cursor did not advance");
     cursors.add(cursorToken);
     envelope = await fetchRecordHistoryPage(page, recordId, { cursorToken });
+    if (
+      envelope.data.representation_generation !== data.representation_generation
+    )
+      throw new Error("History generation changed during fixture read");
     for (const item of envelope.data.items)
       items.set(item.history_item_ref, item);
     if (envelope.data.row_version >= data.row_version) data = envelope.data;
@@ -70,4 +75,16 @@ export async function fetchFullRecordHistory(
 
 export async function fetchRecordHistoryCount(page: Page, recordId: string) {
   return (await fetchFullRecordHistory(page, recordId)).items.length;
+}
+
+/** Open the source event before inspecting detail or choosing a reversal. */
+export async function openHistoryEventDetails(
+  root: Page | Locator,
+  historyItemRef: string,
+) {
+  const disclosure = root
+    .getByTestId(rowHistoryItemTestId({ historyItemRef }))
+    .locator(":scope > details");
+  if ((await disclosure.getAttribute("open")) === null)
+    await disclosure.locator(":scope > summary").click();
 }

@@ -27,23 +27,6 @@ function pendingChanges(unit: PendingReplayUnitState) {
     : [];
 }
 
-function restoreCommittedScalarCells(row: WorkbookRow): WorkbookRow {
-  if (row.rawRow === null) return row;
-  const committedScalarCells = Object.fromEntries(
-    timelineScalarBindings.map((binding) => [
-      binding.fieldKey,
-      { value: row.committedValues[binding.key] },
-    ]),
-  );
-  return {
-    ...row,
-    rawRow: {
-      ...row.rawRow,
-      cells: { ...row.rawRow.cells, ...committedScalarCells },
-    },
-  };
-}
-
 function applyRemainingUnit(
   row: WorkbookRow,
   unit: PendingReplayUnitState,
@@ -58,16 +41,6 @@ function applyRemainingUnit(
     next = {
       ...next,
       values: { ...next.values, [binding.key]: value },
-      rawRow:
-        next.rawRow === null
-          ? null
-          : {
-              ...next.rawRow,
-              cells: {
-                ...next.rawRow.cells,
-                [binding.fieldKey]: { value: change.value },
-              },
-            },
     };
   }
   if (
@@ -158,12 +131,12 @@ export function reconcileDiscardedTimelineUnit({
       rows: null,
     };
   }
-  let reconciled = restoreCommittedScalarCells({
+  let reconciled: WorkbookRow = {
     ...baseRow,
     key: discardedUnit.rowKey,
     values: { ...baseRow.committedValues },
     pendingSignature: remainingForRow.at(-1)?.mutationSignature ?? null,
-  });
+  };
   for (const unit of remainingForRow) {
     reconciled = applyRemainingUnit(
       reconciled,

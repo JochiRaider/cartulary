@@ -2,37 +2,33 @@ import {
   type EvidenceAccessContext,
   evidenceAccessMessageTestId,
   evidenceAccessStateTestId,
-  evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, type ReactNode, useRef } from "react";
+import type { CSSProperties } from "react";
+import {
+  workbookFormButtonStyle,
+  workbookGridActionButtonStyle,
+  workbookTypography,
+} from "../../components/workbookFormStyles";
 import type {
   EvidenceAccessPresentation,
   EvidenceOperationKind,
 } from "../../evidence/evidenceAccessPresentation";
 
+/** Access eligibility is supplied independently for each command by the owner. */
 export function EvidenceAccessActions({
   access,
-  recovery,
-  attachDisabledReason,
-  attaching,
   canRead,
   context,
-  onAttach,
   onInspect,
   onIssue,
   recordId,
   title,
-  regionPresentation = false,
 }: {
-  readonly recovery?: ReactNode;
   readonly access: EvidenceAccessPresentation;
-  readonly attachDisabledReason: string | null;
-  readonly attaching: boolean;
   readonly canRead: boolean;
   readonly context: EvidenceAccessContext;
-  readonly onAttach: (files: readonly File[]) => void;
   readonly onInspect: () => void;
   readonly onIssue: (
     kind: Exclude<EvidenceOperationKind, "attach">,
@@ -40,30 +36,19 @@ export function EvidenceAccessActions({
   ) => void;
   readonly recordId: string;
   readonly title: string;
-  readonly regionPresentation?: boolean;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const compact = context === "row";
   const messageId = evidenceAccessMessageTestId(recordId, context);
-  const controlStyle = compact ? compactButtonStyle : evidenceButtonStyle;
+  const controlStyle = compact
+    ? workbookGridActionButtonStyle
+    : evidenceButtonStyle;
   return (
     <div
       data-testid={evidenceAccessStateTestId(recordId, context)}
       data-evidence-state-key={access.stateKey}
       style={compact ? rowStyle : inspectorStyle}
     >
-      {recovery}
-      {compact || regionPresentation ? null : (
-        <p style={evidenceMessageStyle}>{title}</p>
-      )}
-      {compact || regionPresentation ? null : (
-        <dl style={metadataStyle}>
-          <dt>Lifecycle</dt>
-          <dd style={valueStyle}>{access.lifecycleLabel}</dd>
-          <dt>File</dt>
-          <dd style={valueStyle}>{access.uploadLabel}</dd>
-        </dl>
-      )}
+      {compact ? null : <p style={accessHeadingStyle}>File access</p>}
       <div style={compact ? rowStyle : buttonRowStyle}>
         <button
           type="button"
@@ -101,31 +86,6 @@ export function EvidenceAccessActions({
         >
           Download
         </button>
-        <button
-          type="button"
-          disabled={!canRead || attachDisabledReason !== null || attaching}
-          aria-label={`Attach file to ${title}`}
-          aria-busy={attaching || undefined}
-          title={attachDisabledReason ?? undefined}
-          style={controlStyle}
-          onClick={() => fileInput.current?.click()}
-        >
-          Attach
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          hidden
-          aria-label={`Attach file to ${title}`}
-          data-testid={evidenceAttachFileInputTestId(recordId, context)}
-          disabled={!canRead || attachDisabledReason !== null || attaching}
-          accept="image/*,.txt,.pdf,text/plain,application/pdf"
-          onChange={(event) => {
-            const files = Array.from(event.currentTarget.files ?? []);
-            event.currentTarget.value = "";
-            if (files.length) onAttach(files);
-          }}
-        />
       </div>
       {compact ? (
         <button
@@ -138,45 +98,17 @@ export function EvidenceAccessActions({
         >
           {access.label}
         </button>
-      ) : (
-        <>
-          {regionPresentation ? null : (
-            <p
-              id={messageId}
-              data-testid={messageId}
-              style={evidenceMessageStyle}
-            >
-              {access.message}
-            </p>
-          )}
-          {attachDisabledReason === null ? null : (
-            <p style={evidenceMessageStyle}>{attachDisabledReason}</p>
-          )}
-        </>
-      )}
+      ) : null}
     </div>
   );
 }
 
 export const evidenceButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
-  font: "inherit",
+  ...workbookFormButtonStyle,
   cursor: "pointer",
 } satisfies CSSProperties;
-const compactButtonStyle = {
-  ...evidenceButtonStyle,
-  padding: "0 var(--ct-spacing-xs)",
-  minBlockSize: 0,
-  maxBlockSize: "100%",
-  lineHeight: "inherit",
-  whiteSpace: "nowrap",
-} satisfies CSSProperties;
 const stateButtonStyle = {
-  ...compactButtonStyle,
+  ...workbookGridActionButtonStyle,
   background: "transparent",
   borderColor: "transparent",
   color: "var(--ct-colors-ink-muted)",
@@ -191,7 +123,7 @@ const rowStyle = {
 } satisfies CSSProperties;
 const inspectorStyle = {
   display: "grid",
-  gap: "var(--ct-spacing-sm)",
+  gap: "var(--ct-spacing-xs)",
   minInlineSize: 0,
 } satisfies CSSProperties;
 const buttonRowStyle = {
@@ -199,22 +131,16 @@ const buttonRowStyle = {
   flexWrap: "wrap",
   gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
-const metadataStyle = {
-  display: "grid",
-  gridTemplateColumns: "auto minmax(0, 1fr)",
-  gap: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
+const accessHeadingStyle = {
+  ...workbookTypography("section-heading"),
   margin: 0,
-} satisfies CSSProperties;
-const valueStyle = {
-  margin: 0,
-  overflowWrap: "anywhere",
 } satisfies CSSProperties;
 export const evidenceMessageStyle = {
+  ...workbookTypography("metadata"),
   margin: 0,
   color: "var(--ct-colors-ink-muted)",
   overflowWrap: "anywhere",
 } satisfies CSSProperties;
-
 const unavailableControlStyle = {
   color: "var(--ct-colors-ink-muted)",
   cursor: "default",

@@ -2536,6 +2536,16 @@ application, and source persistence. Revisions MUST consume those semantics
 through immutable application-composed provider catalogs and MUST NOT add a
 central source-type switch, relation-name registry, or projection-derived
 fallback.
+
+Every admitted source contribution MUST provide pure semantic History projection
+for its record or non-row target family. The projector consumes validated
+retained before/after facts and returns the closed public units defined by
+Core 01 REQ-01-052A. It MUST NOT query current source/projection state, mutate
+history, or infer schema-less historical shapes. Application composition MUST
+reject missing, duplicate or invalid projectors before serving History.
+Source-owned public field/relation vocabulary and explicit value selection MUST
+exclude private storage and access material. Revisions coordinates projection
+without taking ownership of that source vocabulary.
 Profiles: base
 Verified by: AC-215, AC-217, AC-231, AC-412, AC-529
 

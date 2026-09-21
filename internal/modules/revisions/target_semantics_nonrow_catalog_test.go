@@ -38,6 +38,7 @@ func TestTargetSemanticsCatalogRejectsInvalidNonRowProviders(t *testing.T) {
 			targets = append(targets, NonRowProviderContribution{
 				SourceOwnerModule: SourceOwnerLinks,
 				TargetKind:        targetKind,
+				HistoryProjector:  catalogTestHistoryProjector,
 				HistoryFacet:      NewFieldAssociationHistoryFacet([]string{"record_id"}, HistorySingleEntry),
 				RollbackProvider:  stubNonRowProvider{},
 			})

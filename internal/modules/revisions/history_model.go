@@ -3,6 +3,7 @@ package revisions
 import (
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"github.com/google/uuid"
 )
 
@@ -22,7 +23,7 @@ type RecordHistoryItem struct {
 	CommittedAt              time.Time
 	HistoryItemRef           string
 	Operation                string
-	DiffSummary              map[string]any
+	DiffSummary              historycontract.Summary
 	ChangeSetID              uuid.UUID
 	Reversible               bool
 	AvailableRollbackActions []string
@@ -35,6 +36,7 @@ type RecordHistoryItem struct {
 	syntheticRank  int
 	targetKey      string
 	hasTargetEntry bool
+	rowProjected   bool
 }
 
 func (item RecordHistoryItem) Resource() map[string]any {

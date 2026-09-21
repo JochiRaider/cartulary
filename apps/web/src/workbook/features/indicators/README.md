@@ -50,7 +50,6 @@ Transport lives in [workbook adapters](../../adapters/README.md); shared
 | [ObservationPagingFeedback.tsx](ObservationPagingFeedback.tsx) | Observation collection loading, continuation, empty-state, and retry feedback. |
 | [observationPresentation.test.tsx](observationPresentation.test.tsx) | Tests stale source-read fencing, protected-state concealment, retained uncertainty, and subject focus. |
 | [observationReconciliation.test.tsx](observationReconciliation.test.tsx) | Tests source/Indicator reconciliation across pages and rejection of regressing HTTP projections. |
-| [observationStyles.ts](observationStyles.ts) | Shared Observation form, source-text, and feedback styles. |
 | [ObservationTargetPicker.tsx](ObservationTargetPicker.tsx) | Paged Indicator target selection for Observation transitions. |
 | [reconcileObservationReceipt.ts](reconcileObservationReceipt.ts) | Reconciles Observation receipts with source, previous target, and new target materialization. |
 | [useObservationTargetNames.ts](useObservationTargetNames.ts) | Loads display names for Observation targets without changing their stable identities. |
@@ -72,7 +71,6 @@ Transport lives in [workbook adapters](../../adapters/README.md); shared
 | [indicatorLifecyclePaging.ts](indicatorLifecyclePaging.ts) | Paged Indicator lifecycle and support read state with navigation and recovery. |
 | [indicatorLifecycleReconciliation.test.tsx](indicatorLifecycleReconciliation.test.tsx) | Tests affected-identity refresh and monotonic reconciliation against HTTP, socket, and History evidence. |
 | [indicatorLifecycleRuntime.test.ts](indicatorLifecycleRuntime.test.ts) | Tests same-record write coordination, renewed version review, and recovery across shell detachment. |
-| [indicatorLifecycleStyles.ts](indicatorLifecycleStyles.ts) | Shared Indicator lifecycle form and feedback styles. |
 | [IndicatorLifecycleSupportPicker.tsx](IndicatorLifecycleSupportPicker.tsx) | Paged lifecycle support selection with explicit continuation and read feedback. |
 | [IndicatorLifecycleWorkflow.test.tsx](IndicatorLifecycleWorkflow.test.tsx) | Tests interval details, field-local UTC errors, paged support selection, and retained drafts. |
 | [IndicatorLifecycleWorkflow.tsx](IndicatorLifecycleWorkflow.tsx) | Indicator lifecycle interval details, authoring, support selection, and reviewed actions. |
@@ -88,3 +86,7 @@ Transport lives in [workbook adapters](../../adapters/README.md); shared
 | [indicatorOrdinaryCreate.ts](indicatorOrdinaryCreate.ts) | Ordinary canonical-identity preparation using Indicator-owned constraints. |
 
 IndicatorSupportReference is the Indicator lifecycle support selection value. Its specialized picker retains genericReferenceOptionsFromRows only as a row-label projection; no aggregate ordinary lookup inventory remains.
+
+Indicator forms and recovery regions consume shared Workbook form roles from
+`../../components/workbookFormStyles.ts`. Canonical creation, observation capture
+and lifecycle review retain independent owners and submission boundaries.

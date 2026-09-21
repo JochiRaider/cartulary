@@ -92,6 +92,7 @@ export function useGenericWorkbookInspectorComposition({
   density,
   incidentClosed,
   inspectorResetKey,
+  readScope,
   interactionMode,
   mutation,
   mutationCommands,
@@ -117,6 +118,7 @@ export function useGenericWorkbookInspectorComposition({
   readonly draftInspectorFields: readonly ViewFieldContract[];
   readonly incidentClosed: boolean;
   readonly inspectorResetKey: string;
+  readonly readScope: string;
   readonly interactionMode: GridInteractionMode;
   readonly mutation: GenericSurfaceMutationController;
   readonly mutationCommands: WorkbookMutationCommandPorts;
@@ -208,7 +210,7 @@ export function useGenericWorkbookInspectorComposition({
       null,
     ),
     rowVersion: (row) => row.row_version,
-    scope: `${inspectorResetKey}:${currentUserId}`,
+    scope: readScope,
     readable: !!currentIncidentRole,
   });
   useLayoutEffect(() => {

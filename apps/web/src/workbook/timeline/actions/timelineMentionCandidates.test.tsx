@@ -94,6 +94,26 @@ it("Mention loaded-target filtering preserves selected identity and exposes keyb
   expect(select.value).toBe("first");
   expect(screen.queryByRole("option", { name: "Second" })).toBeNull();
   expect(screen.getByText("No loaded targets match this filter.")).toBeTruthy();
+  fireEvent.keyDown(select, { key: "Escape" });
+  const disclosure = screen.getByText("Correction and resolution");
+  expect(document.activeElement).toBe(disclosure);
+  expect((disclosure.parentElement as HTMLDetailsElement).open).toBe(false);
+  expect(select.isConnected).toBe(true);
+  expect(select.value).toBe("first");
+  fireEvent.click(disclosure);
+  await waitFor(() =>
+    expect((disclosure.parentElement as HTMLDetailsElement).open).toBe(true),
+  );
+  expect(screen.getByRole("combobox", { name: "Resolve to existing" })).toBe(
+    select,
+  );
+  expect(
+    (
+      screen.getByRole("textbox", {
+        name: "Filter loaded targets",
+      }) as HTMLInputElement
+    ).value,
+  ).toBe("no match");
   expect(
     (screen.getByRole("button", { name: "Dismiss" }) as HTMLButtonElement)
       .disabled,

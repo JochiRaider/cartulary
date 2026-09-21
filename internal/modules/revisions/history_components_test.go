@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,8 +30,15 @@ func TestHistoryComponentsMaterializeDecorateAndOrder_Unit(t *testing.T) {
 	olderChangeSet := uuid.New()
 	newerChangeSet := uuid.New()
 	base := time.Date(2026, 8, 3, 12, 0, 0, 0, time.FixedZone("fixture", -4*60*60))
-	materializer := historyRowMaterializer{}
-	older := materializer.Mutation(record, mutationHistoryRow{
+	materializer := historyRowMaterializer{catalog: validTargetSemanticsCatalog(t, validProviderContributions())}
+	snapshot := func(name string) []byte {
+		value, err := json.Marshal(map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": map[string]any{"record_id": record.RecordID.String(), "record_type": "host"}, "source": map[string]any{"name": name}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	older, err := materializer.Mutation(record, mutationHistoryRow{
 		ChangeSetID:   olderChangeSet,
 		ActorUserID:   actorID,
 		CommittedAt:   base,
@@ -39,10 +47,13 @@ func TestHistoryComponentsMaterializeDecorateAndOrder_Unit(t *testing.T) {
 		TargetKind:    "host",
 		TargetID:      record.RecordID.String(),
 		OperationKind: "field_update",
-		BeforeValue:   []byte(`{"name":"before"}`),
-		AfterValue:    []byte(`{"name":"after"}`),
+		BeforeValue:   snapshot("before"),
+		AfterValue:    snapshot("after"),
 	})
-	newer := materializer.Mutation(record, mutationHistoryRow{
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer, err := materializer.Mutation(record, mutationHistoryRow{
 		ChangeSetID:   newerChangeSet,
 		ActorUserID:   actorID,
 		CommittedAt:   base.Add(time.Minute),
@@ -51,17 +62,24 @@ func TestHistoryComponentsMaterializeDecorateAndOrder_Unit(t *testing.T) {
 		TargetKind:    "host",
 		TargetID:      record.RecordID.String(),
 		OperationKind: "field_update",
+		BeforeValue:   snapshot("after"), AfterValue: snapshot("latest"),
 	})
 
+	if err != nil {
+		t.Fatal(err)
+	}
 	revisionOnlyChangeSet := uuid.New()
-	revisionItems := materializer.Revisions(record, []revisionHistoryRow{
-		{ChangeSetID: olderChangeSet, ActorUserID: actorID, CommittedAt: base, RevisionNo: 2},
-		{ChangeSetID: revisionOnlyChangeSet, ActorUserID: actorID, CommittedAt: base.Add(-time.Minute), RevisionNo: 1},
+	revisionItems, err := materializer.Revisions(record, []revisionHistoryRow{
+		{ChangeSetID: olderChangeSet, ActorUserID: actorID, CommittedAt: base, RevisionNo: 2, BeforeValue: snapshot("before"), AfterValue: snapshot("after")},
+		{ChangeSetID: revisionOnlyChangeSet, ActorUserID: actorID, CommittedAt: base.Add(-time.Minute), RevisionNo: 1, AfterValue: snapshot("initial")},
 	}, []RecordHistoryItem{older, newer})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(revisionItems) != 1 || revisionItems[0].ChangeSetID != revisionOnlyChangeSet {
 		t.Fatalf("revision-only materialization = %#v", revisionItems)
 	}
-	if got := older.DiffSummary["summary"]; got != "field_update host" {
+	if got := older.DiffSummary.Summary; got != "field update" {
 		t.Fatalf("mutation summary = %#v", got)
 	}
 
@@ -316,4 +334,47 @@ func (f *historyAttributionResolverFake) ResolveImportedSourceActorsTx(_ context
 	f.sourceTable = sourceTable
 	f.sourceColumn = sourceColumn
 	return f.sourceActors, nil
+}
+
+func TestSemanticHistoryRejectsMalformedCanonicalFactsAndPreservesValues(t *testing.T) {
+	record := RecordHistoryRecord{RecordID: uuid.New(), RecordType: "host"}
+	catalog := validTargetSemanticsCatalog(t, validProviderContributions())
+	for _, raw := range []string{`{"name":"schema-less"}`, `{"snapshot_schema_id":"cartulary.revisions.snapshot.host.v0","record":{},"source":{}}`, `[]`, `{} {}`} {
+		if _, err := catalog.projectHistory(record, "host", record.RecordID.String(), "patch", nil, []byte(raw)); err == nil {
+			t.Fatalf("accepted unsupported retained facts: %s", raw)
+		}
+	}
+	fields := append(historycontract.Fields("test", "boolean", "flag"), historycontract.Fields("test", "number", "count")...)
+	fields = append(fields, historycontract.Fields("test", "text", "text nullable")...)
+	units, err := historycontract.Row(historycontract.Facts{RecordID: record.RecordID.String(), After: map[string]any{"record": map[string]any{}, "source": map[string]any{"flag": false, "count": 0, "text": "", "nullable": nil}}}, fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := map[string]historycontract.Value{}
+	for _, unit := range units {
+		for _, change := range unit.Changes {
+			if change.Before.State != "absent" {
+				t.Fatal("creation before must be absent")
+			}
+			values[change.FieldKey] = change.After
+		}
+	}
+	if values["test.flag"].Value != false || values["test.count"].Value != 0 || values["test.text"].Value != "" || values["test.nullable"].State != "null" {
+		t.Fatalf("value states lost: %#v", values)
+	}
+	summary, err := historycontract.Summarize(units)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"value":false`) || !strings.Contains(string(encoded), `"value":0`) || !strings.Contains(string(encoded), `"value":""`) {
+		t.Fatalf("present values omitted: %s", encoded)
+	}
+	units[0].Changes[0].After = historycontract.Value{State: "present", Value: map[string]any{"secret": "hidden"}}
+	if _, err := historycontract.Summarize(units); err == nil {
+		t.Fatal("arbitrary object admitted")
+	}
 }

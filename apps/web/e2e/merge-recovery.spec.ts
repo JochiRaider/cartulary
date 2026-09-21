@@ -36,7 +36,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { fetchFullRecordHistory } from "./support/workbook/history";
+import {
+  fetchFullRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -338,6 +341,7 @@ async function exerciseRecovery(
     action: "change_set" as const,
     historyItemRef: rollbackItem.history_item_ref,
   };
+  await openHistoryEventDetails(recovery, rollbackItem.history_item_ref);
   await recovery.getByTestId(rowHistoryActionTestId(anchor)).click();
   const rollbackResponse = page.waitForResponse(
     (response) =>

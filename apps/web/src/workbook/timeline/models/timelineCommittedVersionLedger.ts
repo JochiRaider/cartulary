@@ -12,30 +12,9 @@ function committedTimelineProjection(row: WorkbookRow): WorkbookRow {
   const scalarValuesAreCommitted = timelineScalarBindings.every(
     (binding) => row.values[binding.key] === row.committedValues[binding.key],
   );
-  let committedRawRow = row.rawRow;
-  if (row.rawRow !== null) {
-    let committedCells = row.rawRow.cells;
-    for (const binding of timelineScalarBindings) {
-      const cell = committedCells[binding.fieldKey];
-      const committedValue = row.committedValues[binding.key];
-      if (!Object.is(cell?.value, committedValue)) {
-        if (committedCells === row.rawRow.cells) {
-          committedCells = { ...row.rawRow.cells };
-        }
-        committedCells[binding.fieldKey] = {
-          ...cell,
-          value: committedValue,
-        };
-      }
-    }
-    if (committedCells !== row.rawRow.cells) {
-      committedRawRow = { ...row.rawRow, cells: committedCells };
-    }
-  }
   if (
     row.pendingSignature === null &&
     scalarValuesAreCommitted &&
-    committedRawRow === row.rawRow &&
     row.collectionDrafts.hostRefs === "" &&
     row.collectionDrafts.identityRefs === "" &&
     row.collectionDrafts.tags === ""
@@ -46,7 +25,6 @@ function committedTimelineProjection(row: WorkbookRow): WorkbookRow {
     ...row,
     collectionDrafts: { hostRefs: "", identityRefs: "", tags: "" },
     pendingSignature: null,
-    rawRow: committedRawRow,
     values: { ...row.committedValues },
   };
 }

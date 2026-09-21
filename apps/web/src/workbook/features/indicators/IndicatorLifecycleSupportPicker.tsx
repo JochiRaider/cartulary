@@ -1,6 +1,12 @@
 import { indicatorLifecycleTestId } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  workbookFormFieldStackStyle as lifecycleField,
+  workbookFormInputStyle as lifecycleInput,
+  workbookFormFieldsStyle as lifecycleStack,
+  workbookFormPreservedTextStyle as lifecycleText,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { genericReferenceOptionsFromRows } from "../../models/genericWorkbookModel";
 import {
@@ -14,12 +20,6 @@ import {
 import type { IndicatorSupportReference } from "./indicatorLifecycleModel";
 import type { IndicatorLifecycleOwnerPort } from "./indicatorLifecycleOperation";
 import { IndicatorLifecyclePaging } from "./indicatorLifecyclePaging";
-import {
-  lifecycleField,
-  lifecycleInput,
-  lifecycleStack,
-  lifecycleText,
-} from "./indicatorLifecycleStyles";
 
 export function IndicatorLifecycleSupportPicker({
   owner,

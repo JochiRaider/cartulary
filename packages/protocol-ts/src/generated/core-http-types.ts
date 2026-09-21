@@ -194,6 +194,21 @@ export type NoteAssociationAction =
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryValue".
+ */
+export type RecordHistoryValue =
+  | {
+      state: "absent";
+    }
+  | {
+      state: "null";
+    }
+  | {
+      state: "present";
+      value: string | number | boolean | string[];
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "RecordPatchChange".
  */
 export type RecordPatchChange = {
@@ -2228,6 +2243,7 @@ export interface RecordHistoryData {
   incident_id: string;
   items: RecordHistoryItem[];
   record_id: string;
+  representation_generation: string;
   row_version: number;
 }
 /**
@@ -2245,16 +2261,52 @@ export interface RecordHistoryItem {
   operation: string;
   reversible: boolean;
   revision_no?: number;
+  source_actor_id?: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "RecordHistoryDiffSummary".
  */
 export interface RecordHistoryDiffSummary {
+  schema_id: "cartulary.history_diff.v1";
   summary: string;
-  units: {
-    [k: string]: unknown;
-  }[];
+  /**
+   * @minItems 1
+   */
+  units: [RecordHistoryUnit, ...RecordHistoryUnit[]];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryUnit".
+ */
+export interface RecordHistoryUnit {
+  changes: RecordHistoryChange[];
+  kind:
+    | "field"
+    | "link"
+    | "mention"
+    | "tag"
+    | "evidence_association"
+    | "capture_state"
+    | "record"
+    | "entity_identifier"
+    | "indicator_observation"
+    | "indicator_interval";
+  operation: "create" | "update" | "delete" | "restore" | "merge" | "add" | "remove";
+  /**
+   * @minItems 1
+   */
+  record_ids: [string, ...string[]];
+  unit_ref: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryChange".
+ */
+export interface RecordHistoryChange {
+  after: RecordHistoryValue;
+  before: RecordHistoryValue;
+  field_key: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

@@ -12,6 +12,7 @@ func NewRevisionContribution() revisions.ProviderContribution {
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:   revisions.SourceOwnerParties,
 			RecordType:          "party",
+			HistoryProjector:    projectRecordHistory,
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.party.v1",
 			DeleteRestoreSource: deleterestore.NewSource(),
 			RowRollbackProvider: partyrollback.NewProvider(),

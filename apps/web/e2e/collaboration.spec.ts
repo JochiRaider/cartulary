@@ -100,7 +100,18 @@ const gridAnchorCommandScenarios: readonly GridAnchorCommandScenario[] = [
     name: "blur",
   },
   {
-    commit: async ({ input }) => input.dispatchEvent("paste"),
+    commit: async ({ input, page }) => {
+      await page
+        .context()
+        .grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.evaluate(
+        (value) => navigator.clipboard.writeText(value),
+        await input.inputValue(),
+      );
+      await input.selectText();
+      await input.press("Control+V");
+      await input.press("Enter");
+    },
     name: "single-cell-paste",
   },
 ];

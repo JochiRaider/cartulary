@@ -3,11 +3,12 @@ import {
   gridRowVersionAttribute,
   rowCellTestId,
   rowInspectButtonTestId,
-  rowInspectorFieldTestId,
   saveStateTestId,
   timelineCaptureActionTestId,
+  timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowSupersedeButtonTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +19,7 @@ import {
   cleanupTimelineWorkbookTestGlobals,
   extractTimelineRecordActionBody,
   extractTimelineRecordPatchBody,
+  findWorkbookCell,
   flushWorkbookAsync,
   installTimelineWorkbookTestGlobals,
   successEnvelope,
@@ -222,8 +224,11 @@ describe("Timeline workbook action sequencing", () => {
   }
   async function editDetails() {
     await inspect();
-    const input = (await screen.findByTestId(
-      rowInspectorFieldTestId(recordId, "timeline.raw_activity_text"),
+    const input = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      recordId,
+      "timeline.raw_activity_text",
     )) as HTMLTextAreaElement;
     await changeInputValue(input, "Material edit after review");
     fireEvent.blur(input);
@@ -399,10 +404,10 @@ describe("Timeline workbook action sequencing", () => {
       await screen.findByTestId(rowInspectButtonTestId(replacementId)),
     );
     expect(
-      await screen.findByTestId(
-        rowInspectorFieldTestId(replacementId, "timeline.raw_activity_text"),
-      ),
-    ).toBeTruthy();
+      screen
+        .getByTestId(timelineInspectorTestId())
+        .getAttribute("data-record-id"),
+    ).toBe(replacementId);
     pending.resolve();
     await version(3);
     await flushWorkbookAsync();
@@ -410,14 +415,18 @@ describe("Timeline workbook action sequencing", () => {
       0,
     );
     expect(
+      screen
+        .getByTestId(timelineInspectorTestId())
+        .getAttribute("data-record-id"),
+    ).toBe(replacementId);
+    expect(
       screen.queryByTestId(
-        rowInspectorFieldTestId(recordId, "timeline.raw_activity_text"),
+        timelineScalarEditorTestId({
+          recordId,
+          fieldKey: "timeline.raw_activity_text",
+          surface: "inspector",
+        }),
       ),
     ).toBeNull();
-    expect(
-      await screen.findByTestId(
-        rowInspectorFieldTestId(replacementId, "timeline.raw_activity_text"),
-      ),
-    ).toBeTruthy();
   });
 });

@@ -85,6 +85,18 @@ export class WorkbookInspectorDraftStore {
       ? (this.drafts.get(inspectorEditKey(identity)) ?? null)
       : null;
   }
+  readRecord(
+    viewSchemaId: string,
+    recordId: string,
+  ): readonly InspectorEditDraft[] {
+    return this.canRead()
+      ? [...this.drafts.values()].filter(
+          (draft) =>
+            draft.identity.viewSchemaId === viewSchemaId &&
+            draft.identity.recordId === recordId,
+        )
+      : [];
+  }
   update(
     identity: InspectorEditIdentity,
     row: WorkbookQueryRow,

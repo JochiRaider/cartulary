@@ -27,6 +27,7 @@ export function useTimelineInspectorStateComposition({
   dismissedMentionsByRow,
   observedMentions,
   inspectorResetKey,
+  readScope,
   rows,
   selectedMentionRef,
   workbookFocusAnchorRef,
@@ -37,6 +38,7 @@ export function useTimelineInspectorStateComposition({
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
   readonly observedMentions: readonly MentionSubject[];
   readonly inspectorResetKey: string;
+  readonly readScope: string;
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
   readonly workbookFocusAnchorRef: {
@@ -48,7 +50,7 @@ export function useTimelineInspectorStateComposition({
   );
   const selection = useTimelineInspectorSelection({
     ...(committedRecords ? { committedRecords } : {}),
-    inspectorResetKey,
+    readScope,
     currentIncidentRole,
     dismissedMentionsByRow,
     observedMentions,

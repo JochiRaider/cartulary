@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HistoryAttempt } from "../history/workbookHistoryOperation";
+import { historyDiffFixture } from "../history/workbookHistoryTestFixtures";
 import { createWorkbookRecordHistoryAdapter } from "./createWorkbookRecordHistoryAdapter";
 
 const recordId = "20000000-0000-4000-8000-000000000001";
@@ -50,6 +51,126 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("History captured transport", () => {
+  it("admits complete semantic history and rejects malformed mandatory detail locally", async () => {
+    const data = {
+      record_id: recordId,
+      incident_id: incidentId,
+      row_version: 4,
+      deleted: false,
+      representation_generation: "cartulary.history.1",
+      items: [
+        {
+          actor_user_id: actorId,
+          source_actor_id: "imported-author",
+          committed_at: "2026-09-21T00:00:00Z",
+          history_item_ref: "hitem_semantic",
+          operation: "patch",
+          change_set_id: changeSetId,
+          reversible: false,
+          available_rollback_actions: [],
+          diff_summary: historyDiffFixture("Updated text"),
+        },
+      ],
+    };
+    const readResponse = (value: unknown) =>
+      new Response(
+        JSON.stringify({
+          data: value,
+          meta: {
+            request_id: "read",
+            paging: { limit: 100, has_more: false, next_cursor: null },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    const fetch = vi.fn().mockImplementation(async () => readResponse(data));
+    vi.stubGlobal("fetch", fetch);
+    const port = createWorkbookRecordHistoryAdapter({
+      apiBase: undefined,
+      incidentId,
+    });
+    expect(
+      await port.load(recordId, new AbortController().signal),
+    ).toMatchObject({
+      kind: "accepted",
+      value: { items: [{ source_actor_id: "imported-author" }] },
+    });
+    const malformed = [
+      { ...data, representation_generation: undefined },
+      {
+        ...data,
+        items: [
+          {
+            ...data.items[0],
+            diff_summary: {
+              ...data.items[0]?.diff_summary,
+              schema_id: "cartulary.history_diff.v0",
+            },
+          },
+        ],
+      },
+      {
+        ...data,
+        items: [
+          {
+            ...data.items[0],
+            diff_summary: {
+              schema_id: "cartulary.history_diff.v1",
+              summary: "Incomplete",
+              units: [],
+            },
+          },
+        ],
+      },
+      {
+        ...data,
+        items: [
+          {
+            ...data.items[0],
+            diff_summary: {
+              ...data.items[0]?.diff_summary,
+              units: [{ target_kind: "record", target_id: recordId }],
+            },
+          },
+        ],
+      },
+      {
+        ...data,
+        items: [
+          {
+            ...data.items[0],
+            diff_summary: {
+              ...data.items[0]?.diff_summary,
+              units: [
+                {
+                  ...data.items[0]?.diff_summary.units[0],
+                  changes: [
+                    {
+                      field_key: "evidence.title",
+                      before: { state: "null" },
+                      after: {
+                        state: "present",
+                        value: { upload_token: "secret" },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ];
+    for (const value of malformed) {
+      fetch.mockImplementationOnce(async () => readResponse(value));
+      expect(
+        await port.load(recordId, new AbortController().signal),
+      ).toMatchObject({
+        kind: "rejected",
+        failure: { kind: "invalid_contract" },
+      });
+    }
+  });
   it("sends the retained body exactly with current CSRF and preserves the full receipt", async () => {
     const fetch = vi.fn().mockResolvedValue(response(receipt));
     vi.stubGlobal("fetch", fetch);

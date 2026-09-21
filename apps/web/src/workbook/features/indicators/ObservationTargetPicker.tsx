@@ -5,6 +5,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import {
+  workbookFormFieldStackStyle as observationField,
+  workbookFormInputStyle as observationInput,
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { ObservationCollection } from "./ObservationCollection";
 import { ObservationPagingFeedback } from "./ObservationPagingFeedback";
@@ -14,12 +20,6 @@ import {
   observationTypes,
 } from "./observationModel";
 import type { ObservationReadPort } from "./observationOperation";
-import {
-  observationField,
-  observationInput,
-  observationStack,
-  observationText,
-} from "./observationStyles";
 
 export function ObservationTargetPicker({
   reader,

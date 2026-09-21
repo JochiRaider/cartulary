@@ -111,6 +111,8 @@ export function renderDesignPresentationTypeScript(document) {
       accessStates: document.projection.inspector.access_states,
       contentStates: document.projection.inspector.content_states,
       headerTitleLines: document.projection.inspector.header_title_lines,
+      narrativePreviewLines: document.projection.inspector.narrative_preview_lines,
+      actionOutcomes: document.projection.inspector.action_outcomes,
       unavailableCauses: document.projection.inspector.unavailable_causes,
       announcements: document.projection.inspector.announcements,
     },

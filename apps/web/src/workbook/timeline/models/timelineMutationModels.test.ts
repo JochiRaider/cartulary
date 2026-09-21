@@ -219,6 +219,7 @@ describe("Timeline mutation models", () => {
       pendingSignature: "signature-remaining",
       values: { activitySynopsisText: "retained" },
     });
+    expect(plan.rows?.[0]?.rawRow).toBe(row.rawRow);
     expect(plan.cancelEdit).toEqual({
       fieldKey: "timeline.activity_synopsis_text",
       recordId: "timeline-1",
@@ -240,6 +241,51 @@ describe("Timeline mutation models", () => {
       ledger.accept(savedRow("timeline-1", 3), [accepted.row]),
     ).toMatchObject({ accepted: false, row: accepted.row, stale: true });
     expect(ledger.knownVersion("timeline-1")).toBe(4);
+  });
+
+  it("preserves canonical null empty and absent cells independently of display strings and queued work", () => {
+    const ledger = createTimelineCommittedVersionLedger();
+    const row = savedRow();
+    if (!row.rawRow) throw new Error("Missing canonical row");
+    const canonical = {
+      ...row.rawRow,
+      cells: {
+        "timeline.raw_activity_text": { value: null },
+        "timeline.activity_synopsis_text": { value: "" },
+      },
+    };
+    const withDraft = {
+      ...row,
+      rawRow: canonical,
+      values: { ...row.values, rawActivityText: "Unsubmitted" },
+      pendingSignature: "pending",
+    };
+    ledger.accept(withDraft, [withDraft]);
+    const saved = ledger.current(row.recordId ?? "", []);
+    expect(saved?.rawRow).toBe(canonical);
+    expect(saved?.values.rawActivityText).toBe("");
+    expect(
+      saved?.rawRow?.cells["timeline.raw_activity_text"]?.value,
+    ).toBeNull();
+    expect(saved?.rawRow?.cells["timeline.activity_synopsis_text"]?.value).toBe(
+      "",
+    );
+    expect(saved?.rawRow?.cells).not.toHaveProperty(
+      "timeline.data_source_text",
+    );
+    const discarded = pendingPatch("discarded", 1, "Discarded");
+    const reconciled = reconcileDiscardedTimelineUnit({
+      committedRow: saved,
+      contextByUnitId: new Map(),
+      currentRows: [withDraft],
+      discardedUnit: discarded,
+      nextDraftIndex: () => 2,
+      remainingUnits: [pendingPatch("later", 2, "Later draft")],
+    });
+    expect(reconciled.rows?.[0]?.rawRow).toBe(canonical);
+    expect(reconciled.rows?.[0]?.values.activitySynopsisText).toBe(
+      "Later draft",
+    );
   });
 
   it("discriminates relationship and tag presentation without union downcasts", () => {

@@ -312,15 +312,17 @@ export function workbookRecordHistoryReducer(
     state.subject.viewSchemaId === event.subject.viewSchemaId
   ) {
     if (event.subject.rowVersion <= state.subject.rowVersion) return state;
+    const loaded = workbookRecordHistoryLoadedData(state);
+    if (!loaded)
+      return state.phase === "ready"
+        ? { ...state, subject: event.subject, pendingAction: undefined }
+        : { ...state, subject: event.subject };
     return workbookRecordHistoryReducer(
       { ...state, subject: event.subject },
       {
         type: "review_accepted",
         data: {
-          ...(workbookRecordHistoryLoadedData(state) ?? {
-            incident_id: state.browsing.scope.incidentId,
-            items: [],
-          }),
+          ...loaded,
           record_id: event.subject.recordId,
           row_version: event.subject.rowVersion,
           deleted: event.subject.kind === "deleted",

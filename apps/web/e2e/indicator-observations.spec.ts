@@ -16,7 +16,10 @@ import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { fetchFullRecordHistory } from "./support/workbook/history";
+import {
+  fetchFullRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   createObservationFixture,
   listSourceObservations,
@@ -279,6 +282,7 @@ test("Indicator observations replay source capture and every transition after co
     action: "change_set" as const,
     historyItemRef: rollback.history_item_ref,
   };
+  await openHistoryEventDetails(page, rollback.history_item_ref);
   await page.getByTestId(rowHistoryActionTestId(anchor)).click();
   await page.getByTestId(rowHistoryRollbackConfirmButtonTestId(anchor)).click();
   await expect
@@ -362,13 +366,16 @@ test("Indicator observation browsing retains failed pages and independent target
     .click();
   await target.selectOption(newTarget.record_id);
   expect(failedBodies[1]).toBe(failedBodies[0]);
+  await page
+    .locator('[data-inspector-edit-field="timeline.raw_activity_text"]')
+    .click();
   const raw = page.getByRole("textbox", { name: "RAW Activity", exact: true });
   const edited = `${observationRawText}Reviewed`;
   await raw.fill(edited);
   await expect(
     editor.getByRole("button", { name: "Use selected text", exact: true }),
   ).toBeDisabled();
-  await raw.press("Tab");
+  await raw.press("Control+Enter");
   await expect(
     editor.getByRole("textbox", { name: "Saved source text", exact: true }),
   ).toHaveValue(edited.replaceAll("\r\n", "\n").replaceAll("\r", "\n"));

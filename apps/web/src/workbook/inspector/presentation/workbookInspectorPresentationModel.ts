@@ -16,6 +16,7 @@ export type WorkbookInspectorTechnicalField = {
 };
 
 export type WorkbookInspectorActionBinding = {
+  readonly outcome: "open_authoring" | "review" | "navigate";
   readonly capability: InspectorContextualCapability;
   readonly featureGroup: InspectorFeatureGroup;
   readonly semanticKey: string;
@@ -23,11 +24,22 @@ export type WorkbookInspectorActionBinding = {
 };
 
 export type WorkbookHistoryEventPresentation = {
-  readonly actorLabel?: string | undefined;
+  readonly actorLabel: string;
   readonly committedAt: string;
   readonly key: string;
   readonly operation: string;
   readonly summary: string;
+  readonly units: readonly {
+    readonly key: string;
+    readonly title: string;
+    readonly recordIds: readonly string[];
+    readonly changes: readonly {
+      readonly fieldKey: string;
+      readonly label: string;
+      readonly before: string;
+      readonly after: string;
+    }[];
+  }[];
   readonly technicalFields: readonly WorkbookInspectorTechnicalField[];
 };
 
@@ -36,6 +48,12 @@ export function bindWorkbookInspectorAction(
   capability: InspectorContextualCapability,
 ): WorkbookInspectorActionBinding {
   return {
+    outcome:
+      capability.kind === "create_related" ||
+      capability.kind === "note_create" ||
+      (capability.kind === "indicator" && capability.featureGroup.mutates)
+        ? "open_authoring"
+        : "review",
     capability,
     featureGroup: capability.featureGroup,
     semanticKey: capability.semanticKey,

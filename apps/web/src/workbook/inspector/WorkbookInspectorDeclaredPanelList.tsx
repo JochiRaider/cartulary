@@ -3,7 +3,9 @@ import type {
   InspectorDisabledCondition,
   InspectorPanelId,
 } from "@cartulary/view-contracts";
+import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
+import { workbookInspectorSectionFocusDestination } from "../layout/workbookInspectorNavigation";
 import {
   type InspectorContextualCapability,
   inspectorContextualCapabilities,
@@ -12,7 +14,7 @@ import {
   WorkbookInspectorPanelContent,
   type WorkbookInspectorPanelModel,
 } from "./presentation/WorkbookInspectorPanelContent";
-import { WorkbookInspectorPanelSection } from "./presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorSection } from "./presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorDisabledReason } from "./presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorContextualActions } from "./WorkbookInspectorContextualActions";
 import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
@@ -27,6 +29,7 @@ export function WorkbookInspectorDeclaredPanelList({
   onContextualAction,
   subject,
   creationAttachment,
+  children,
 }: {
   readonly config: InspectorConfig;
   readonly modelsByPanel: Partial<
@@ -47,58 +50,66 @@ export function WorkbookInspectorDeclaredPanelList({
   readonly creationAttachment?:
     | { readonly id: string; readonly viewSchemaId: string }
     | undefined;
+  readonly children: (
+    sections: readonly WorkbookInspectorSection[],
+  ) => ReactNode;
 }) {
-  return config.panels.map((panel) => {
-    const model = modelsByPanel[panel.panelId];
-    if (subject?.kind === "deleted" && panel.panelId !== "history") {
-      return null;
-    }
-    if (
-      subject === null &&
-      (panel.panelId === "history" || model === undefined)
-    ) {
-      return null;
-    }
-    if (!model)
-      throw new Error(
-        `Missing inspector panel contribution: ${config.viewSchemaId}/${panel.panelId}`,
-      );
-    if (
-      subject === null &&
-      (!creationAttachment?.id ||
-        creationAttachment.viewSchemaId !== config.viewSchemaId)
-    )
-      throw new Error(
-        `Missing inspector creation attachment: ${config.viewSchemaId}/${panel.panelId}`,
-      );
-    if (model.access === "concealed" || currentIncidentRole === null)
-      return null;
-    const capabilities =
-      subject?.kind === "live"
-        ? inspectorContextualCapabilities({
-            config,
-            panelId: panel.panelId,
-          })
-        : [];
-    return (
-      <WorkbookInspectorPanelSection
-        elementRef={(element) => panelRef?.(panel.panelId, element)}
-        key={panel.panelId}
-        panel={panel}
-        viewSchemaId={config.viewSchemaId}
-      >
-        {subject?.kind !== "live" || capabilities.length === 0 ? null : (
-          <WorkbookInspectorContextualActions
-            capabilities={capabilities}
-            config={config}
-            currentIncidentRole={currentIncidentRole}
-            disabledTokens={disabledTokens}
-            additionalDisabledReasons={additionalDisabledReasons}
-            onAction={onContextualAction}
-          />
-        )}
-        <WorkbookInspectorPanelContent model={model} />
-      </WorkbookInspectorPanelSection>
-    );
-  });
+  const sections = config.panels.flatMap(
+    (panel): WorkbookInspectorSection[] => {
+      const model = modelsByPanel[panel.panelId];
+      if (subject?.kind === "deleted" && panel.panelId !== "history") {
+        return [];
+      }
+      if (
+        subject === null &&
+        (panel.panelId === "history" || model === undefined)
+      ) {
+        return [];
+      }
+      if (!model)
+        throw new Error(
+          `Missing inspector panel contribution: ${config.viewSchemaId}/${panel.panelId}`,
+        );
+      if (
+        subject === null &&
+        (!creationAttachment?.id ||
+          creationAttachment.viewSchemaId !== config.viewSchemaId)
+      )
+        throw new Error(
+          `Missing inspector creation attachment: ${config.viewSchemaId}/${panel.panelId}`,
+        );
+      if (model.access === "concealed" || currentIncidentRole === null)
+        return [];
+      const capabilities =
+        subject?.kind === "live"
+          ? inspectorContextualCapabilities({
+              config,
+              panelId: panel.panelId,
+            })
+          : [];
+      return [
+        {
+          panel,
+          focusDestination: workbookInspectorSectionFocusDestination,
+          elementRef: (element) => panelRef?.(panel.panelId, element),
+          content: (
+            <>
+              {subject?.kind !== "live" || capabilities.length === 0 ? null : (
+                <WorkbookInspectorContextualActions
+                  capabilities={capabilities}
+                  config={config}
+                  currentIncidentRole={currentIncidentRole}
+                  disabledTokens={disabledTokens}
+                  additionalDisabledReasons={additionalDisabledReasons}
+                  onAction={onContextualAction}
+                />
+              )}
+              <WorkbookInspectorPanelContent model={model} />
+            </>
+          ),
+        },
+      ];
+    },
+  );
+  return children(sections);
 }

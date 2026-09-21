@@ -3,13 +3,9 @@ import {
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import {
-  type RefCallback,
-  useContext,
-  useId,
-  useSyncExternalStore,
-} from "react";
+import { type RefCallback, useContext, useSyncExternalStore } from "react";
 import { TimelineFileContext } from "../../features/evidence/EvidenceAttachmentContext";
+import { EvidenceAttachmentEntry } from "../../features/evidence/EvidenceAttachmentEntry";
 import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
 import type { TimelineFileSnapshot } from "../../features/evidence/WorkbookTimelineFileOwner";
 
@@ -18,12 +14,7 @@ const emptyFiles: readonly TimelineFileSnapshot[] = [];
 const noFiles = () => emptyFiles;
 
 import type { WorkbookRow } from "../models/timelineRowModel";
-import {
-  bodyStyle,
-  inputStyle,
-  inspectorSectionStyle,
-  labelStyle,
-} from "./TimelineWorkbookStyles";
+import { bodyStyle, inspectorSectionStyle } from "./TimelineWorkbookStyles";
 
 type TimelineEvidenceCountDisplay = {
   readonly displayCount: string;
@@ -47,7 +38,6 @@ export function TimelineEvidencePanel({
   onFilesSelected,
 }: TimelineEvidencePanelProps) {
   const owner = useContext(TimelineFileContext);
-  const reasonId = useId();
   const files = useSyncExternalStore(
     owner?.subscribe ?? noFileSubscription,
     owner?.getSnapshot ?? noFiles,
@@ -72,66 +62,50 @@ export function TimelineEvidencePanel({
       data-evidence-count-state={countDisplay.stateKey}
       style={inspectorSectionStyle}
       aria-label="Timeline evidence attachment"
-      onDragOver={(event) => {
-        event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        attach(event.dataTransfer.files);
-      }}
-      onPaste={(event) => {
-        if (event.clipboardData.files.length > 0) {
-          event.preventDefault();
-          event.stopPropagation();
-          attach(event.clipboardData.files);
-        }
-      }}
     >
-      {owner
-        ? files
-            .filter((entry) => entry.recordId === recordId)
-            .map((entry) => (
-              <EvidenceFileRecovery
-                {...entry}
-                key={entry.key}
-                presentation="inspector"
-                source={entry.sourceLabel}
-                onConfirmReview={() => owner.confirmReview(entry.key)}
-                onReview={() => void owner.review(entry.key)}
-                onResume={() => void owner.resume(entry.key)}
-                onFreshSlot={() => owner.freshSlot(entry.key)}
-                onNewId={() => owner.newRequestId(entry.key)}
-                onDiscard={() => owner.discard(entry.key)}
-                onRefresh={() => void owner.refresh(entry.key)}
-              />
-            ))
-        : null}
-      <div data-testid={timelineEvidenceAttachSectionTestId(recordId)}>
+      <section aria-label="Evidence information">
         <p style={bodyStyle}>
-          Attached evidence count: {countDisplay.displayCount}
+          Attached evidence count:{" "}
+          {countDisplay.stateKey === "inconsistent"
+            ? "Unavailable"
+            : countDisplay.displayCount}
         </p>
-        <label style={labelStyle}>
-          Attach file
-          <input
-            data-testid={timelineEvidenceFileInputTestId(recordId)}
-            style={inputStyle}
-            type="file"
-            disabled={disabledReason !== null}
-            aria-describedby={disabledReason ? reasonId : undefined}
-            accept="image/*,.txt,.pdf,text/plain,application/pdf"
-            onChange={(event) => {
-              attach(event.currentTarget.files ?? []);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
-        {disabledReason ? (
-          <p id={reasonId} style={bodyStyle}>
-            {disabledReason}
-          </p>
-        ) : null}
-      </div>
+        <p style={bodyStyle}>
+          Linked Evidence records. File access is checked separately on each
+          Evidence record.
+        </p>
+      </section>
+      <EvidenceAttachmentEntry
+        title="this Timeline record"
+        regionTestId={timelineEvidenceAttachSectionTestId(recordId)}
+        testId={timelineEvidenceFileInputTestId(recordId)}
+        disabledReason={disabledReason}
+        busy={false}
+        onAttach={(selected) => attach(Array.from(selected))}
+      />
+      {files.some((entry) => entry.recordId === recordId) ? (
+        <section aria-label="Attachment progress and recovery">
+          {owner
+            ? files
+                .filter((entry) => entry.recordId === recordId)
+                .map((entry) => (
+                  <EvidenceFileRecovery
+                    {...entry}
+                    key={entry.key}
+                    presentation="inspector"
+                    source={entry.sourceLabel}
+                    onConfirmReview={() => owner.confirmReview(entry.key)}
+                    onReview={() => void owner.review(entry.key)}
+                    onResume={() => void owner.resume(entry.key)}
+                    onFreshSlot={() => owner.freshSlot(entry.key)}
+                    onNewId={() => owner.newRequestId(entry.key)}
+                    onDiscard={() => owner.discard(entry.key)}
+                    onRefresh={() => void owner.refresh(entry.key)}
+                  />
+                ))
+            : null}
+        </section>
+      ) : null}
     </section>
   );
 }

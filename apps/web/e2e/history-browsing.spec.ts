@@ -32,6 +32,7 @@ import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import {
   fetchFullRecordHistory,
   fetchRecordHistoryPage,
+  openHistoryEventDetails,
 } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
@@ -210,7 +211,10 @@ async function browse(page: Page, surface: Surface) {
   await older.focus();
   const anchor = await older.boundingBox();
   await older.press("Enter");
-  await expect(panel.getByRole("alert")).toBeVisible();
+  await expect(panel).toContainText("History could not be read");
+  await expect(
+    panel.getByRole("status").filter({ hasText: "History could not be read" }),
+  ).toHaveCount(1);
   await expect(firstItem).toBeVisible();
   await expect(older).toBeFocused();
   const retry = panel.getByTestId(rowHistoryReadControlTestId("retry"));
@@ -266,7 +270,7 @@ async function browse(page: Page, surface: Surface) {
   await panel
     .getByRole("button", { name: "Refresh history", exact: true })
     .click();
-  await expect(panel.getByRole("alert")).toBeVisible();
+  await expect(panel).toContainText("History could not be read");
   const last = required(complete.items.at(-1));
   await expect(
     panel.getByTestId(
@@ -274,7 +278,7 @@ async function browse(page: Page, surface: Surface) {
     ),
   ).toBeAttached();
   await panel.getByTestId(rowHistoryReadControlTestId("retry")).click();
-  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await expect(panel).not.toContainText("History could not be read");
   await expect(
     panel.getByTestId(
       rowHistoryItemTestId({ historyItemRef: last.history_item_ref }),
@@ -289,7 +293,7 @@ async function browse(page: Page, surface: Surface) {
   await panel
     .getByRole("button", { name: "Start fresh history", exact: true })
     .click();
-  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await expect(panel).not.toContainText("History could not be read");
   await older.click();
   await expect(panel).toContainText("No older entries.");
   const target = required(
@@ -301,6 +305,7 @@ async function browse(page: Page, surface: Surface) {
     ),
   );
   expect(target).toBeDefined();
+  await openHistoryEventDetails(panel, target.history_item_ref);
   await panel
     .getByTestId(
       rowHistoryActionTestId({

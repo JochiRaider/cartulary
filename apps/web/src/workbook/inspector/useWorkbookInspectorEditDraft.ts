@@ -90,6 +90,16 @@ export function useWorkbookInspectorEditDraft(input: {
     eligible && row ? store.staleFields(identity, row, dependencies) : [];
   return {
     identity,
+    retainedWork:
+      row && input.active
+        ? store
+            .readRecord(input.viewSchemaId, row.record_id)
+            .map((retained) => ({
+              identity: retained.identity,
+              canResume: store.canAuthor(),
+              discard: () => store.discard(retained.identity),
+            }))
+        : [],
     attachment,
     draft,
     value,

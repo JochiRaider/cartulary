@@ -4,6 +4,14 @@ import {
 } from "@cartulary/ui-contracts";
 import { useId, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { WorkbookAuthoringReferenceControl } from "../../components/WorkbookAuthoringReferenceControl";
+import {
+  workbookFormInputStyle as fieldStyle,
+  workbookFormFieldsStyle as groupStyle,
+  workbookFormActionsStyle,
+  workbookFormGroupStyle,
+  workbookFormHeadingStyle,
+  workbookFormMessageStyle,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   coordinationIds,
@@ -69,11 +77,14 @@ export function CoordinationCreateForm({
       aria-label={`Create ${draft.target.title}`}
       style={groupStyle}
     >
-      <fieldset
-        disabled={disabled}
-        style={{ ...groupStyle, border: 0, padding: 0, margin: 0 }}
-      >
-        <legend>Create {draft.target.title}</legend>
+      <p style={workbookFormMessageStyle}>
+        Closing keeps unfinished work in this session. Only the explicit create
+        action saves it.
+      </p>
+      <fieldset disabled={disabled} style={workbookFormGroupStyle}>
+        <legend style={workbookFormHeadingStyle}>
+          Create {draft.target.title}
+        </legend>
         <p style={{ margin: 0 }}>
           {draft.source
             ? "Source context will be saved as a related artifact link."
@@ -328,13 +339,7 @@ export function CoordinationCreateForm({
           Review source and access
         </Button>
       ) : null}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "var(--ct-spacing-sm)",
-        }}
-      >
+      <div style={workbookFormActionsStyle}>
         <Button
           tone="primary"
           type="button"
@@ -375,19 +380,3 @@ export function CoordinationCreateForm({
     </section>
   );
 }
-const groupStyle = {
-  display: "grid",
-  gap: "var(--ct-spacing-sm)",
-  minWidth: 0,
-} as const;
-const fieldStyle = {
-  boxSizing: "border-box",
-  width: "100%",
-  minWidth: 0,
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  border: "var(--ct-component-text-input-border)",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  padding: "var(--ct-spacing-sm)",
-} as const;

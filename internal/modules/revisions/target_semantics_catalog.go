@@ -3,6 +3,7 @@ package revisions
 import (
 	"errors"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -20,6 +21,13 @@ type compiledTargetSemantics struct {
 	historyValidator    HistoryValidator
 	rowProviders        map[string]rollbackcontract.RowSourceProvider
 	nonRowProvider      rollbackcontract.NonRowTargetProvider
+	rowHistory          map[string]rowHistoryProjection
+	historyProjector    historycontract.Projector
+}
+
+type rowHistoryProjection struct {
+	schemaID string
+	project  historycontract.Projector
 }
 
 type TargetSemanticsCatalog struct {

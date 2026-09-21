@@ -151,6 +151,22 @@ export function acceptHistoryPage(
   )
     return rejectHistoryRead(state, request, invalidPage);
   const previous = request.kind === "continuation" ? state.accepted : null;
+  // A deployment can preserve logical identities while changing their public
+  // representation. Retire this disposable read chain before comparing items;
+  // authoring, captured requests and receipts belong to separate owners.
+  if (
+    previous &&
+    previous.data.representation_generation !== page.representation_generation
+  ) {
+    return rejectHistoryRead(
+      { ...state, accepted: null, chainValid: false, cursors: [] },
+      request,
+      {
+        kind: "invalid_contract",
+        message: "History was updated. Start fresh history to continue.",
+      },
+    );
+  }
   if (previous && previous.data.paging.limit !== page.paging.limit)
     return rejectHistoryRead(state, request, invalidPage);
   const cursor = page.paging.next_cursor;

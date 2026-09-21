@@ -15,6 +15,7 @@ import type { WorkbookBatchTransport } from "../runtime/workbookBatchOperation";
 import { WorkbookHistoryContext } from "./WorkbookHistoryContext";
 import type { WorkbookRecordHistoryPort } from "./workbookHistoryOperation";
 import type { HistoryPage, RecordHistoryItem } from "./workbookHistoryPage";
+import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const view = "cartulary.view.timeline.v2";
 const authority = {
@@ -30,7 +31,7 @@ const event = (ref: string, change = "batch-change"): RecordHistoryItem => ({
   history_item_ref: ref,
   history_entry_ref: `opaque-${ref}`,
   operation: "patch",
-  diff_summary: { summary: `Change ${ref}`, units: [] },
+  diff_summary: historyDiffFixture(`Change ${ref}`),
   change_set_id: change,
   reversible: true,
   available_rollback_actions: ["history_entry", "change_set"],
@@ -44,6 +45,7 @@ const page = (
   record_id: "record",
   row_version: version,
   deleted: false,
+  representation_generation: "cartulary.history.1",
   items,
   paging:
     next === null

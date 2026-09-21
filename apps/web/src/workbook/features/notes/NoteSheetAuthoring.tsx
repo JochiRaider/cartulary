@@ -1,4 +1,5 @@
 import { useContext, useSyncExternalStore } from "react";
+import { workbookFormFieldsStyle } from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { NoteCreateContext, noteSheetAttachment } from "./NoteCreateContext";
 import { NoteSourceControl } from "./NoteSourceControl";
@@ -15,7 +16,7 @@ export function NoteSheetAuthoring() {
   const { owner } = context;
   const reader = owner.getReader();
   return (
-    <div style={{ display: "grid", gap: "0.5rem" }}>
+    <div style={workbookFormFieldsStyle}>
       {reader ? (
         <NoteSourceControl
           targetKey={`note:${state.draft?.id ?? "new"}`}

@@ -111,6 +111,7 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
         dismissedMentionsByRow: {},
         observedMentions: [],
         inspectorResetKey,
+        readScope: "incident-account-read-scope",
         rows: [committedRow],
         selectedMentionRef: null,
         workbookFocusAnchorRef,
@@ -141,9 +142,17 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
   });
   expect(capture).toHaveBeenLastCalledWith(workbookFocusAnchorRef.current);
 
-  rerender({ inspectorResetKey: "inspector-1", currentIncidentRole: "" });
-  expect(result.current.snapshot.selection.selectedRow).toBeNull();
   rerender({ inspectorResetKey: "inspector-2", currentIncidentRole: "editor" });
+  expect(result.current.snapshot.selection.selectedRowId).toBeNull();
+  act(() => {
+    result.current.commands.selectRow("record-1");
+    result.current.commands.setOpen(true);
+  });
+  expect(result.current.snapshot.selection.selectedRow).toBe(committedRow);
+
+  rerender({ inspectorResetKey: "inspector-2", currentIncidentRole: "" });
+  expect(result.current.snapshot.selection.selectedRow).toBeNull();
+  rerender({ inspectorResetKey: "inspector-3", currentIncidentRole: "editor" });
   expect(result.current.snapshot.selection.selectedRowId).toBeNull();
 });
 
@@ -160,6 +169,7 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
   const data: RecordHistoryData = {
     deleted: false,
     incident_id: "incident-1",
+    representation_generation: "cartulary.history.1",
     items: [],
     record_id: subject.recordId,
     row_version: subject.rowVersion,
@@ -309,6 +319,7 @@ it("Timeline history rejects queued version changes without replacing the confir
   const data: RecordHistoryData = {
     deleted: false,
     incident_id: "incident-queued",
+    representation_generation: "cartulary.history.1",
     items: [],
     record_id: subject.recordId,
     row_version: 4,

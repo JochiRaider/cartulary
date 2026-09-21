@@ -1977,6 +1977,7 @@
           "History action lookup refetches valid provenance and starts a fresh chain only after absence",
           "History action lookup rejects session replacement and changed current versions",
           "History action lookup requires explicit restart for non-progressing cursors",
+          "History action lookup restarts a deployment transition without accepting a mixed generation action proof",
           "History action lookup retains one exact admission across batches and cancels before dispatch",
           "History action lookup retries the failed request while retaining successful progress"
         ]
@@ -2046,6 +2047,7 @@
           "History browsing state keeps failed-refresh entries but retires continuation until a replacement chain succeeds",
           "History browsing state rejects duplicate identities changed content malformed paging and stalled cursors",
           "History browsing state requires explicit fresh-chain recovery for invalid cursors",
+          "History browsing state restarts across representation generations before comparing committed items",
           "History browsing state retains accepted pages on failure and retries the same page exactly once",
           "History browsing state retains historical items without regressing current record metadata",
           "History browsing state uses server continuation for short and empty pages and preserves server order"
@@ -2074,6 +2076,7 @@
       "selector": {
         "file": "apps/web/src/workbook/adapters/createWorkbookRecordHistoryAdapter.test.ts",
         "titles": [
+          "History captured transport admits complete semantic history and rejects malformed mandatory detail locally",
           "History captured transport distinguishes authoritative rejection from uncertainty",
           "History captured transport keeps malformed success transport loss and server failure uncertain",
           "History captured transport retains the complete receipt and exact selector for change_set",
@@ -2106,6 +2109,7 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/WorkbookInspectorRecordHistory.test.tsx",
         "titles": [
+          "WorkbookInspectorRecordHistory cancels an event review while its read is pending without dispatching a write",
           "WorkbookInspectorRecordHistory finishes captured owner effects without committing a stale mutation result",
           "WorkbookInspectorRecordHistory loads advertised history and rolls back only through its stable selector",
           "WorkbookInspectorRecordHistory rejects a server acceptance for the wrong record before owner effects",
@@ -3139,6 +3143,58 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_history_semantic_detail",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
+        "titles": [
+          "Workbook Inspector presentation renders every semantic History family with complete values and nested disclosure focus"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.inspector_ordered_actions",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
+        "titles": [
+          "Workbook Inspector presentation orders admitted action rows once with explicit outcomes across all configurations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_ordinary_recovery",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3253,6 +3309,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_saved_reading",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
+        "titles": [
+          "Workbook Inspector presentation preserves declared saved field order and value distinctions across all configurations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_timeline_explicit_details",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3266,6 +3348,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/components/TimelineInspectorDetails.test.tsx",
         "titles": [
+          "Timeline Details copies saved text exactly without including disclosure controls",
           "Timeline Details keeps a rejected recovery beside its field with one new announcement",
           "Timeline Details keeps newer authoring after acknowledgement and retries refresh without writes",
           "Timeline Details reads saved values and retains authoring until explicit submission"
@@ -5652,8 +5735,8 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/workbookHistoryPresentationModel.test.ts",
         "titles": [
-          "workbook history presentation model keeps actor identifiers technical and orders fields consistently",
-          "workbook history presentation model shares rollback labels and pending field order"
+          "workbook history presentation model shares rollback labels and pending field order",
+          "workbook history presentation model shows source attribution and keeps technical references ordered"
         ]
       },
       "evidence_class": "unit",

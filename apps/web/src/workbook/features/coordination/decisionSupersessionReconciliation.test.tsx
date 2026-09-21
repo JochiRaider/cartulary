@@ -51,6 +51,7 @@ it("Decision reconciliation reads both pages and histories while missing or stal
       record_id: id,
       row_version: id === decisionTargetId ? 5 : 7,
       deleted: false,
+      representation_generation: "cartulary.history.1",
       items: [],
       paging: { has_more: false, next_cursor: null, limit: 100 },
     },

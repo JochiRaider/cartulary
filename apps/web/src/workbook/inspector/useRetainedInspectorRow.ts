@@ -12,12 +12,16 @@ export function useRetainedInspectorRow<Row>(input: {
     null,
   );
   const authority = useRef(input.scope);
+  const previousRow = useRef(input.row);
   const retiredRow = useRef<Row | null>(null);
   if (authority.current !== input.scope) {
     authority.current = input.scope;
-    retiredRow.current = input.row;
+    // Retire the old observation, not a fresh authorized row arriving in the
+    // same render as the new access scope. Presentation resets are separate.
+    retiredRow.current = previousRow.current;
     retained.current = null;
   }
+  previousRow.current = input.row;
   if (!input.readable || !input.recordId) {
     if (!input.readable) retiredRow.current = input.row;
     retained.current = null;

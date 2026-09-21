@@ -1904,6 +1904,72 @@
       "classification": "additive",
       "owner_id": "module.workbook",
       "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "f6fbe980e943c1103c29486938b0e2afec22c41115bb9d2677895c4f36753422",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryChange."
+    },
+    {
+      "fingerprint": "8f5ca6da7d26cbb6bec3a1bc6b6fc5cd687fa49a8ebd3ac1a7bf9fac42c5e15f",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryData/properties/representation_generation."
+    },
+    {
+      "fingerprint": "16528e5cafc59c3edc1a8d28f2e7f8e829f583b4d054289318abc7bc822ed05d",
+      "classification": "breaking",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryData/required."
+    },
+    {
+      "fingerprint": "8cfd255949c4b21ff6769b1f67062068239a39a3610131de18b5684485f6d5d4",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryDiffSummary/properties/schema_id."
+    },
+    {
+      "fingerprint": "910011122682eb69c0f76d268b23f9f24b588f196972ed8785ec8623b93e220a",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryDiffSummary/properties/units/items/$ref."
+    },
+    {
+      "fingerprint": "3c97c6680bbf610eb41487790997aa62163d25a60c235ef23ebbe1d3477fa2df",
+      "classification": "breaking",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryDiffSummary/properties/units/items/type."
+    },
+    {
+      "fingerprint": "fec8d7ff6aae04b7199535da595fa4e1234c963f31222b8d628d8eabe4f51c08",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryDiffSummary/properties/units/minItems."
+    },
+    {
+      "fingerprint": "33e620667e5f7e513e6c82e71c00a6602ad7fa4d44e7390038f4524e80291e14",
+      "classification": "breaking",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryDiffSummary/required."
+    },
+    {
+      "fingerprint": "c8093ca4ce673fe1ad22692f57366be3706614fdf934ce41091f87e6bb2aa333",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryItem/properties/source_actor_id."
+    },
+    {
+      "fingerprint": "23b7939f27e13137b809e9fa21987dd075e3d9caf3d80fbcb8d43fc169fdd6b0",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryUnit."
+    },
+    {
+      "fingerprint": "49a7ae8714c500a84ec51dfe561a39dbcd172e0fc90bdb75853dbcd136d7e2ff",
+      "classification": "additive",
+      "owner_id": "module.revisions",
+      "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryValue."
     }
   ]
 }

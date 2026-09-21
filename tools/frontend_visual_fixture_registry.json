@@ -207,12 +207,15 @@
       "design_contract_id": "D-VFIX-002",
       "status": "current",
       "playwright_scenario_title": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-details-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-details-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-attached-edit-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-retained-draft-linux.png"
       ],
       "seed_id": "visual.seed.base_inspector",
       "scroll_normalization": {
@@ -228,7 +231,7 @@
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "No grid editor is active while inspector sections and history states are captured."
+        "description": "Saved first-viewport Details, an attached ordinary editor, and its original-field retained-draft cue are captured without submitting; subsequent captures inspect relationships and History."
       },
       "inspector_state": {
         "kind": "open_adjacent",
@@ -271,6 +274,30 @@
           "surface_kind": "workbook_shell"
         },
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-details-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-attached-edit-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-retained-draft-linux.png": {
           "viewport_css_px": "1280x720",
           "device_scale_factor": 1,
           "browser_zoom_percent": 100,
@@ -920,7 +947,7 @@
       "seed_id": "visual.seed.evidence_affordance",
       "scroll_normalization": {
         "kind": "fixture_specific",
-        "description": "Evidence grid normalizes to its live right edge; its inspector scrolls to the Evidence section. Timeline uses the selected row anchor with its Evidence section open."
+        "description": "Evidence grid normalizes to its live right edge; after fonts and dynamic masks settle, its inspector anchors the Evidence section to the scrolling body's start. Timeline uses the selected row anchor with its Evidence section open."
       },
       "capture_scope": {
         "kind": "selector",

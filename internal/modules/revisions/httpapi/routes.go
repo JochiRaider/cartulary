@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"mime"
 	"net/http"
 	"strings"
@@ -150,11 +151,12 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		nextToken = &token
 	}
 	_ = platformhttpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{
-		"incident_id": record.IncidentID.String(),
-		"record_id":   record.RecordID.String(),
-		"row_version": record.RowVersion,
-		"deleted":     record.Deleted,
-		"items":       rows,
+		"incident_id":               record.IncidentID.String(),
+		"record_id":                 record.RecordID.String(),
+		"row_version":               record.RowVersion,
+		"deleted":                   record.Deleted,
+		"items":                     rows,
+		"representation_generation": historycontract.RepresentationGeneration,
 	}, platformhttpapi.PagingMeta{
 		Limit:      binding.Limit,
 		HasMore:    nextToken != nil,

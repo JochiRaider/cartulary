@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkbookHistoryContext } from "../history/WorkbookHistoryContext";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { HistoryReceipt } from "../history/workbookHistoryOperation";
+import { historyDiffFixture } from "../history/workbookHistoryTestFixtures";
 
 type RecordLifecycleAccepted = {
   readonly recordId: string;
@@ -60,6 +61,58 @@ const historyItemRef = "history-item-1";
 const recordId = "20000000-0000-4000-8000-000000000001";
 
 describe("WorkbookInspectorRecordHistory", () => {
+  it("cancels an event review while its read is pending without dispatching a write", async () => {
+    const pending = deferred<WorkbookOperationOutcome<RecordHistoryData>>();
+    const loadHistory = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: "accepted", value: historyData() })
+      .mockImplementationOnce(() => pending.promise)
+      .mockResolvedValue({ kind: "accepted", value: historyData() });
+    const commands: RecordRouteCommandPort = {
+      execute: vi.fn(),
+      loadHistory,
+      rollback: vi.fn(),
+    };
+    render(
+      <HistoryTestSubject
+        beginMutation={() => vi.fn()}
+        actions={new Set(["rollback"])}
+        canMutate
+        commands={commands}
+        ownerEffects={{
+          refresh: vi.fn(),
+          deleteAccepted: vi.fn(),
+          restoreAccepted: vi.fn(),
+          rollbackAccepted: vi.fn(),
+        }}
+        subject={historySubject(recordId, 5)}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open history" }));
+    const action = await screen.findByTestId(
+      rowHistoryActionTestId({ action: "history_entry", historyItemRef }),
+    );
+    const disclosure = action.closest("details");
+    if (!disclosure) throw new Error("Missing event disclosure");
+    disclosure.open = true;
+    action.focus();
+    fireEvent.click(action);
+    await waitFor(() => expect(loadHistory).toHaveBeenCalledTimes(2));
+    disclosure.open = false;
+    fireEvent(disclosure, new Event("toggle"));
+    pending.resolve({ kind: "accepted", value: historyData() });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        disclosure.querySelector(":scope > summary"),
+      ),
+    );
+    expect(screen.queryByRole("alertdialog", { hidden: true })).toBeNull();
+    expect(commands.rollback).not.toHaveBeenCalled();
+    disclosure.open = true;
+    fireEvent.click(action);
+    await screen.findByRole("alertdialog");
+    expect(commands.rollback).not.toHaveBeenCalled();
+  });
   it("loads advertised history and rolls back only through its stable selector", async () => {
     const commands: RecordRouteCommandPort = {
       execute: vi.fn(),
@@ -68,13 +121,14 @@ describe("WorkbookInspectorRecordHistory", () => {
         value: {
           deleted: false,
           incident_id: "10000000-0000-4000-8000-000000000001",
+          representation_generation: "cartulary.history.1",
           items: [
             {
               actor_user_id: "40000000-0000-4000-8000-000000000001",
               available_rollback_actions: ["history_entry" as const],
               change_set_id: "30000000-0000-4000-8000-000000000001",
               committed_at: "2026-08-30T20:00:00Z",
-              diff_summary: { summary: "Changed title", units: [] },
+              diff_summary: historyDiffFixture("Changed title"),
               history_entry_ref: "server-history-selector",
               history_item_ref: historyItemRef,
               operation: "patch",
@@ -111,10 +165,14 @@ describe("WorkbookInspectorRecordHistory", () => {
     const historyItem = await screen.findByTestId(
       rowHistoryItemTestId({ historyItemRef }),
     );
-    expect(historyItem.textContent).not.toContain(
-      "Changed by 40000000-0000-4000-8000-000000000001",
+    expect(historyItem.textContent).toContain(
+      "Changed by Identifier 40000000-0000-4000-8000-000000000001",
     );
     expect(historyItem.textContent).toContain("Actor ID");
+    expect(historyItem.textContent).toContain("2026-08-30 20:00:00 UTC +00:00");
+    const disclosure = historyItem.querySelector("details");
+    expect(disclosure?.open).toBe(false);
+    if (disclosure) disclosure.open = true;
     fireEvent.click(
       screen.getByTestId(
         rowHistoryActionTestId({
@@ -133,6 +191,13 @@ describe("WorkbookInspectorRecordHistory", () => {
         )
       ).textContent,
     ).toContain(recordId);
+    expect(historyItem.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(
+      screen
+        .getByRole("region", { name: "Record actions" })
+        .compareDocumentPosition(historyItem) &
+        Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
     fireEvent.click(
       await screen.findByTestId(
         rowHistoryRollbackConfirmButtonTestId({
@@ -340,6 +405,9 @@ describe("WorkbookInspectorRecordHistory", () => {
       historyItemRef,
     });
     const action = await screen.findByTestId(actionTestId);
+    const eventDisclosure = action.closest("details");
+    if (!eventDisclosure) throw new Error("Missing History event disclosure");
+    eventDisclosure.open = true;
 
     fireEvent.click(action);
     fireEvent.click(
@@ -404,7 +472,11 @@ describe("WorkbookInspectorRecordHistory", () => {
       action: "history_entry",
       historyItemRef,
     });
-    fireEvent.click(await screen.findByTestId(actionTestId));
+    const action = await screen.findByTestId(actionTestId);
+    const eventDisclosure = action.closest("details");
+    if (!eventDisclosure) throw new Error("Missing History event disclosure");
+    eventDisclosure.open = true;
+    fireEvent.click(action);
     fireEvent.click(
       await screen.findByTestId(
         rowHistoryRollbackConfirmButtonTestId({
@@ -553,13 +625,14 @@ function historyData({
   return {
     deleted,
     incident_id: "10000000-0000-4000-8000-000000000001",
+    representation_generation: "cartulary.history.1",
     items: [
       {
         actor_user_id: "40000000-0000-4000-8000-000000000001",
         available_rollback_actions: ["history_entry" as const],
         change_set_id: "30000000-0000-4000-8000-000000000001",
         committed_at: "2026-08-30T20:00:00Z",
-        diff_summary: { summary: "Changed title", units: [] },
+        diff_summary: historyDiffFixture("Changed title"),
         history_entry_ref: "server-history-selector",
         history_item_ref: historyItemRef,
         operation: "patch",

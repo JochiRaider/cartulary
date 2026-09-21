@@ -2,6 +2,11 @@ import { indicatorCreateTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useId, useRef, useState } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
+import {
+  workbookFormFieldStackStyle as observationField,
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
 import {
@@ -11,11 +16,6 @@ import {
   indicatorCreateErrors,
   indicatorCreateTypes,
 } from "./indicatorCreateModel";
-import {
-  observationField,
-  observationStack,
-  observationText,
-} from "./observationStyles";
 
 const labels: Readonly<Record<string, string>> = {
   "indicator.indicator_type": "Indicator type",
@@ -149,7 +149,11 @@ export function IndicatorCanonicalAuthoring({
             {errors.contract ?? "Review the indicated canonical fields."}
           </p>
         ) : null}
-        <WorkbookInspectorActionButton type="submit" disabled={disabled}>
+        <WorkbookInspectorActionButton
+          tone="primary"
+          type="submit"
+          disabled={disabled}
+        >
           Create canonical Indicator
         </WorkbookInspectorActionButton>
       </fieldset>

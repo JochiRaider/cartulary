@@ -150,6 +150,15 @@ test(exactScenarioTitle, async ({ page }) => {
   const manualResolvedChip = page
     .getByTestId(relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey))
     .getByTestId(relationshipChipTestId(String(manualMention.item_ref)));
+  if (
+    !(await page
+      .getByTestId(timelineInspectorTestId())
+      .locator("details")
+      .filter({ has: page.getByText("Mention details", { exact: true }) })
+      .evaluate((element) => (element as HTMLDetailsElement).open))
+  ) {
+    await page.getByText("Mention details", { exact: true }).click();
+  }
   await expect(page.getByText("Manual", { exact: true })).toBeVisible();
   await expect(manualResolvedChip).not.toContainText("Auto");
   await page
@@ -313,6 +322,15 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(correctionEnvelope.data.entity_mention.resolution_status).toBe(
     "resolved",
   );
+  if (
+    !(await page
+      .getByTestId(timelineInspectorTestId())
+      .locator("details")
+      .filter({ has: page.getByText("Mention details", { exact: true }) })
+      .evaluate((element) => (element as HTMLDetailsElement).open))
+  ) {
+    await page.getByText("Mention details", { exact: true }).click();
+  }
   await expect(page.getByText("Manual", { exact: true })).toBeVisible();
   await expect(autoCorrectionChip).not.toContainText("Auto");
   await expect(page.getByTestId(timelineInspectorTestId())).toContainText(

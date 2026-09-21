@@ -6,6 +6,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import {
+  workbookFormInputStyle as inputStyle,
+  workbookFormFieldsStyle as sectionStyle,
+  workbookFormHeadingStyle,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
@@ -184,7 +189,7 @@ export function DecisionSupersessionEditor({
       data-testid={decisionSupersessionTestId("editor")}
       style={sectionStyle}
     >
-      <strong>Supersede Decision</strong>
+      <h4 style={workbookFormHeadingStyle}>Supersede Decision</h4>
       <p>
         Target: {target.label} ({target.recordId}) — {target.status}
       </p>
@@ -356,20 +361,3 @@ export function DecisionSupersessionEditor({
     </section>
   );
 }
-const sectionStyle = {
-  display: "grid",
-  gap: "var(--ct-spacing-sm)",
-  overflowWrap: "anywhere" as const,
-};
-const inputStyle = {
-  display: "block",
-  boxSizing: "border-box" as const,
-  inlineSize: "100%",
-  minInlineSize: 0,
-  color: "var(--ct-colors-ink)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  border: "var(--ct-component-text-input-border)",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  padding: "var(--ct-spacing-xs)",
-  font: "inherit",
-};

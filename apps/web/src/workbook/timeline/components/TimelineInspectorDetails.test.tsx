@@ -126,6 +126,33 @@ it("Timeline Details keeps a rejected recovery beside its field with one new ann
   ).not.toBeNull();
 });
 
+it("Timeline Details copies saved text exactly without including disclosure controls", () => {
+  const f = fixture();
+  const value = "  Saved Ω\t\nsecond line\n";
+  render(f.surface(raw(1, value)));
+  const saved = document.querySelector(
+    `[data-inspector-saved-field="${field}"] dd > div[id]`,
+  );
+  if (!saved?.firstChild) throw new Error("Missing saved value");
+  const selection = document.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(saved);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  const setData = vi.fn();
+  fireEvent.copy(saved, { clipboardData: { setData } });
+  expect(setData).toHaveBeenLastCalledWith("text/plain", value);
+  range.setStart(saved.firstChild, 2);
+  range.setEnd(saved.firstChild, 9);
+  fireEvent.copy(saved, { clipboardData: { setData } });
+  expect(setData).toHaveBeenLastCalledWith("text/plain", "Saved Ω");
+  range.collapse();
+  fireEvent.copy(saved, { clipboardData: { setData } });
+  expect(setData).toHaveBeenCalledTimes(2);
+  selection?.removeAllRanges();
+  expect(f.send).not.toHaveBeenCalled();
+});
+
 it("Timeline Details reads saved values and retains authoring until explicit submission", async () => {
   const f = fixture();
   const view = render(f.surface());

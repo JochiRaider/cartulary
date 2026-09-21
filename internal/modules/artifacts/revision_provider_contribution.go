@@ -22,6 +22,7 @@ func NewRevisionContribution() (revisions.ProviderContribution, error) {
 			SourceOwnerModule:   revisions.SourceOwnerArtifacts,
 			RecordType:          "artifact",
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.artifact.v1",
+			HistoryProjector:    artifactHistoryProjector(catalog),
 			DeleteRestoreSource: deleterestore.NewSource(catalog),
 			RowRollbackProvider: rollback.NewProvider(),
 			RecordViewRoutes:    routes,

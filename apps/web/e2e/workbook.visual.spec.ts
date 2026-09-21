@@ -248,7 +248,10 @@ import {
   retainCoordinationUncertainResult,
 } from "./support/workbook/coordinationCreate";
 import { openDecisionReviewFixture } from "./support/workbook/decisionSupersession";
-import { fetchRecordHistory } from "./support/workbook/history";
+import {
+  fetchRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   createLifecycleFixture,
   openLifecycleEditor,
@@ -1924,10 +1927,8 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       .selectOption(manualTarget.record_id);
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
     await expect(
-      page
-        .getByTestId(timelineInspectorTestId())
-        .getByText("Manual", { exact: true }),
-    ).toBeVisible();
+      page.getByTestId(mentionItemTestId(String(manualMention.item_ref))),
+    ).toContainText("Resolved");
 
     const autoEnvelope = await addRelationshipTokenViaUI(
       page,
@@ -3593,6 +3594,38 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
+    const inspector = page.getByTestId(timelineInspectorTestId());
+    await inspector
+      .getByRole("button", { name: "Sections", exact: true })
+      .click();
+    await inspector
+      .getByRole("button", { name: "Details", exact: true })
+      .click();
+    await blurActiveElement(page);
+    await assertViewportVisualRegression(page, "workbook-inspector-details");
+
+    const field = page.locator(
+      '[data-inspector-saved-field="timeline.activity_synopsis_text"]',
+    );
+    await field.locator("[data-inspector-edit-field]").click();
+    const editor = field.getByRole("textbox");
+    await editor.fill("Unfinished analyst summary");
+    await field.scrollIntoViewIfNeeded();
+    await assertViewportVisualRegression(
+      page,
+      "workbook-inspector-attached-edit",
+    );
+    await inspector
+      .getByRole("button", { name: "Close editor", exact: true })
+      .click();
+    await expect(field).toContainText("Unfinished work retained");
+    await field.scrollIntoViewIfNeeded();
+    await blurActiveElement(page);
+    await assertViewportVisualRegression(
+      page,
+      "workbook-inspector-retained-draft",
+    );
+
     await blurActiveElement(page);
     await page
       .getByTestId(timelineInspectorSectionTestId("relationships"))
@@ -3692,6 +3725,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       rowHistoryOpenButtonTestId(target.record_id),
     );
     await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+    await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await expect(
       page.getByTestId(
         feP9VisualHistoryActionTestId(rollbackItem, "history_entry"),
@@ -3703,6 +3737,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     );
     await assertViewportVisualRegression(page, "workbook-inspector-history");
 
+    await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await page
       .getByTestId(feP9VisualHistoryActionTestId(rollbackItem, "history_entry"))
       .click();
@@ -3749,6 +3784,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
       )
       .click();
+    await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await page
       .getByTestId(feP9VisualHistoryActionTestId(rollbackItem, "history_entry"))
       .click();
@@ -4974,6 +5010,7 @@ async function assertVisualRegression(
   options: {
     maxDiffPixels?: number;
     renderSurface?: string;
+    anchor?: VisualAnchor;
     prepareState?: () => Promise<void>;
     verifyFraming?: () => Promise<void>;
   } = {},
@@ -4989,7 +5026,7 @@ async function assertVisualRegression(
     maskVisualDynamicText(page),
   );
   await visualCaptureStep(name, "settle layout geometry", () =>
-    settleVisualGeometry(page),
+    settleVisualGeometry(page, options.anchor),
   );
   await options.verifyFraming?.();
   await attachVisualRenderDiagnostics(page, name, options.renderSurface);
@@ -5010,6 +5047,7 @@ async function assertVisualRegression(
       : { maxDiffPixels: options.maxDiffPixels }),
   });
   await options.verifyFraming?.();
+  await verifyVisualGeometry(page, options.anchor);
 }
 
 async function assertViewportVisualRegression(
@@ -5942,6 +5980,13 @@ async function assertEvidenceAccessVisualRegression(
     });
     await assertVisualRegression(page, name, evidenceFixture, {
       renderSurface: evidenceViewSchemaId,
+      anchor: {
+        locator: page.getByTestId(
+          workbookInspectorPanelTestId(evidenceViewSchemaId, "evidence"),
+        ),
+        align: "start",
+        scrollportSelector: `aside[data-view-schema-id="${evidenceViewSchemaId}"] [data-inspector-scroll-body]`,
+      },
       verifyFraming: async () => {
         await expect
           .poll(() => readWorkbookGridScroll(page, evidenceViewSchemaId))
@@ -7016,19 +7061,26 @@ async function maskVisualDynamicText(page: Page) {
       /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,
       "2025-01-01T00:00:00Z",
     ];
+    const historyTimeReplacement: [RegExp, string] = [
+      /\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC \+00:00\b/g,
+      "2025-01-01 00:00:00 UTC +00:00",
+    ];
     const replacements: Array<[RegExp, string]> = [
       [
         /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
         "00000000-0000-0000-0000-000000000000",
       ],
       timestampReplacement,
+      historyTimeReplacement,
       [/hitem\.[^\s<>"']+/g, "hitem.VISUAL-FIXTURE"],
       [/gpres_[0-9a-f]+…[0-9a-f]+/gi, "gpres_VISUAL…RESULT"],
       [/\bIR-[A-Z0-9-]+\b/g, "IR-VISUAL-FIXTURE"],
       [/Playwright Worker Admin \d+/g, "Playwright Worker Admin"],
     ];
     const formControlReplacements = replacements.filter(
-      (replacement) => replacement !== timestampReplacement,
+      (replacement) =>
+        replacement !== timestampReplacement &&
+        replacement !== historyTimeReplacement,
     );
     const walker = document.createTreeWalker(
       document.body,
@@ -7203,6 +7255,9 @@ if (
       .locator("summary")
       .click();
     await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+    // Returning from Rows starts a fresh exploration read. Let it finish before
+    // detaching exploration so Save current graph has a deterministic source.
+    await expect(page.getByTestId(/^network-flow-edge-/).first()).toBeVisible();
     await page
       .getByTestId(networkAnalysisTestId("graph-surface-saved"))
       .click();

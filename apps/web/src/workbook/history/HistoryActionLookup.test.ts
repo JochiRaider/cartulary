@@ -9,6 +9,7 @@ import type {
   HistoryPageProvenance,
   HistoryPageRequest,
 } from "./workbookHistoryPage";
+import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const scope = {
   actorId: "actor",
@@ -33,7 +34,7 @@ const item = {
   reversible: true,
   available_rollback_actions: ["history_entry" as const],
   history_entry_ref: "opaque",
-  diff_summary: { summary: "Edit", units: [] },
+  diff_summary: historyDiffFixture("Edit"),
 };
 const pending = {
   kind: "rollback" as const,
@@ -49,6 +50,7 @@ function page(next: string | null, selected = false): HistoryPage {
     incident_id: "incident",
     row_version: 8,
     deleted: false,
+    representation_generation: "cartulary.history.1",
     items: selected ? [item] : [],
     paging:
       next === null
@@ -88,6 +90,18 @@ function setup(
 }
 
 describe("History action lookup", () => {
+  it("restarts a deployment transition without accepting a mixed generation action proof", async () => {
+    const t = setup([
+      page("a"),
+      { ...page(null, true), representation_generation: "cartulary.history.2" },
+      { ...page(null, true), representation_generation: "cartulary.history.2" },
+    ]);
+    expect((await t.lookup.run()).phase).toBe("restart_required");
+    expect(t.lookup.snapshot.page).toBeNull();
+    t.lookup.restart();
+    expect((await t.lookup.run()).phase).toBe("matched");
+    expect(t.read.mock.calls.at(-1)?.[0]).toEqual({});
+  });
   it("publishes bounded navigation without retaining an extra result page payload", async () => {
     const onPage = vi.fn();
     const lookup = new HistoryPageLookup({
@@ -234,6 +248,7 @@ describe("History action lookup", () => {
             [
               {
                 ...good,
+                representation_generation: "cartulary.history.1",
                 items: [
                   {
                     ...selected,
@@ -252,6 +267,7 @@ describe("History action lookup", () => {
     const changed = setup([
       {
         ...page(null, true),
+        representation_generation: "cartulary.history.1",
         items: [{ ...item, history_entry_ref: "changed" }],
       },
     ]);

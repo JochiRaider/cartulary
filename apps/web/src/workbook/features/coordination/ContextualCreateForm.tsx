@@ -9,6 +9,14 @@ import {
   useSyncExternalStore,
 } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
+import {
+  workbookFormActionsStyle,
+  workbookFormFieldStackStyle,
+  workbookFormFieldsStyle,
+  workbookFormGroupStyle,
+  workbookFormHeadingStyle,
+  workbookFormMessageStyle,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { ContextualReferenceControl } from "./ContextualReferenceControl";
 import { contextualReferenceKind } from "./contextualCreateModel";
@@ -55,30 +63,24 @@ export function ContextualCreateForm({
     <section
       ref={form}
       aria-label={draft.feature.label}
-      style={{
-        display: "grid",
-        gap: "var(--ct-spacing-sm)",
-        minWidth: 0,
-        overflowWrap: "anywhere",
-      }}
+      style={workbookFormFieldsStyle}
     >
       <p>
         Create in {draft.target.title}. Source:{" "}
         {draft.labels[draft.source.recordId] ?? draft.source.recordId} (
         {draft.presentation.surfaceLabel}).
       </p>
+      <p style={workbookFormMessageStyle}>
+        Closing keeps unfinished work in this session. Only the explicit create
+        action saves it.
+      </p>
       <fieldset
         disabled={disabled || !owner.canSubmit()}
-        style={{
-          border: 0,
-          padding: 0,
-          margin: 0,
-          minWidth: 0,
-          display: "grid",
-          gap: "var(--ct-spacing-sm)",
-        }}
+        style={workbookFormGroupStyle}
       >
-        <legend>Related {draft.target.title}</legend>
+        <legend style={workbookFormHeadingStyle}>
+          Related {draft.target.title}
+        </legend>
         {draft.target.fields
           .filter((field) => field.createWritable)
           .map((field) => {
@@ -98,10 +100,7 @@ export function ContextualCreateForm({
                     }
                   />
                 ) : (
-                  <label
-                    htmlFor={id}
-                    style={{ display: "grid", gap: "0.25rem" }}
-                  >
+                  <label htmlFor={id} style={workbookFormFieldStackStyle}>
                     {field.label}
                     <GenericMutationControl
                       id={id}
@@ -156,7 +155,7 @@ export function ContextualCreateForm({
         </p>
       ) : null}
       {snapshot.message ? <p role="status">{snapshot.message}</p> : null}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+      <div style={workbookFormActionsStyle}>
         {snapshot.needsReview ? (
           <WorkbookInspectorActionButton
             tone="secondary"

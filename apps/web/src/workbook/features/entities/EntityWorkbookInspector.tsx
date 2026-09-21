@@ -128,73 +128,76 @@ export function EntityWorkbookInspector({
     );
 
   return (
-    <WorkbookInspectorShell
-      accessibleLabel={`${surfaceTitle} inspector`}
+    <WorkbookInspectorDeclaredPanelList
       config={config}
-      noRowHeading={`${surfaceTitle} inspector`}
+      currentIncidentRole={currentIncidentRole}
+      disabledTokens={disabledTokens}
       subject={subject}
-      testId={testId}
-      onClose={onClose}
+      modelsByPanel={{
+        evidence:
+          subject === null
+            ? undefined
+            : inspectorPanel(
+                savedInspectorRegion("evidence-metadata", {
+                  kind: "populated",
+                  content: evidenceContent,
+                }),
+              ),
+        details:
+          subject === null
+            ? undefined
+            : panelContent(
+                "details",
+                savedInspectorRegion("saved-fields", {
+                  kind: "populated",
+                  content: detailsContent,
+                }),
+              ),
+        history:
+          subject === null
+            ? undefined
+            : inspectorPanel(
+                ownedInspectorRegion("record-history", (present) => (
+                  <WorkbookInspectorRecordHistory
+                    present={present}
+                    beginMutation={history.beginMutation}
+                    actions={history.actions}
+                    canMutate={history.canMutate}
+                    commands={history.commands}
+                    ownerEffects={history.effects}
+                    subject={subject}
+                  />
+                )),
+              ),
+        relationships:
+          subject === null
+            ? undefined
+            : panelContent("relationships", ...relationshipsContent),
+        workflow:
+          subject === null
+            ? undefined
+            : panelContent(
+                "workflow",
+                savedInspectorRegion("workflow", {
+                  kind: "empty",
+                  message: "Choose an available action for this record.",
+                }),
+              ),
+      }}
+      onContextualAction={dispatchContextualAction}
     >
-      <WorkbookInspectorDeclaredPanelList
-        config={config}
-        currentIncidentRole={currentIncidentRole}
-        disabledTokens={disabledTokens}
-        subject={subject}
-        modelsByPanel={{
-          evidence:
-            subject === null
-              ? undefined
-              : inspectorPanel(
-                  savedInspectorRegion("evidence-metadata", {
-                    kind: "populated",
-                    content: evidenceContent,
-                  }),
-                ),
-          details:
-            subject === null
-              ? undefined
-              : panelContent(
-                  "details",
-                  savedInspectorRegion("saved-fields", {
-                    kind: "populated",
-                    content: detailsContent,
-                  }),
-                ),
-          history:
-            subject === null
-              ? undefined
-              : inspectorPanel(
-                  ownedInspectorRegion("record-history", (present) => (
-                    <WorkbookInspectorRecordHistory
-                      present={present}
-                      beginMutation={history.beginMutation}
-                      actions={history.actions}
-                      canMutate={history.canMutate}
-                      commands={history.commands}
-                      ownerEffects={history.effects}
-                      subject={subject}
-                    />
-                  )),
-                ),
-          relationships:
-            subject === null
-              ? undefined
-              : panelContent("relationships", ...relationshipsContent),
-          workflow:
-            subject === null
-              ? undefined
-              : panelContent(
-                  "workflow",
-                  savedInspectorRegion("workflow", {
-                    kind: "empty",
-                    message: "Choose an available action for this record.",
-                  }),
-                ),
-        }}
-        onContextualAction={dispatchContextualAction}
-      />
-    </WorkbookInspectorShell>
+      {(sections) => (
+        <WorkbookInspectorShell
+          accessibleLabel={`${surfaceTitle} inspector`}
+          config={config}
+          noRowHeading={`${surfaceTitle} inspector`}
+          subject={subject}
+          testId={testId}
+          onClose={onClose}
+          sections={sections}
+        ></WorkbookInspectorShell>
+      )}
+    </WorkbookInspectorDeclaredPanelList>
   );
 }
 

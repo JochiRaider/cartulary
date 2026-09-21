@@ -6,7 +6,7 @@ import {
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
 } from "@cartulary/ui-contracts";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookRecordCandidatePicker } from "../../components/WorkbookRecordCandidatePicker";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
@@ -32,6 +32,8 @@ export function TimelineMentionActionControls({
 }) {
   const { owner, subject, candidates, snapshot, createReview } = actions;
   const [filter, setFilter] = useState("");
+  const [correcting, setCorrecting] = useState(true);
+  const correction = useRef<HTMLDetailsElement>(null);
   if (!subject)
     return (
       <p role="status">
@@ -64,120 +66,160 @@ export function TimelineMentionActionControls({
           Mention actions require current editor access and an open incident.
         </p>
       ) : null}
-      {subject.state !== "dismissed" ? (
-        <>
-          <label style={labelStyle}>
-            Filter loaded targets
-            <input
-              style={inputStyle}
-              value={filter}
-              onChange={(event) => setFilter(event.currentTarget.value)}
+      <details
+        ref={correction}
+        open={correcting}
+        onToggle={(event) => setCorrecting(event.currentTarget.open)}
+        onKeyDown={(event) => {
+          if (
+            event.key === "Escape" &&
+            correcting &&
+            !event.defaultPrevented &&
+            !event.nativeEvent.isComposing
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            setCorrecting(false);
+            correction.current
+              ?.querySelector("summary")
+              ?.focus({ preventScroll: true });
+          }
+        }}
+      >
+        <summary>Correction and resolution</summary>
+        <div
+          style={{
+            display: "grid",
+            gap: "var(--ct-spacing-sm)",
+            paddingBlockStart: "var(--ct-spacing-xs)",
+          }}
+        >
+          {subject.state !== "dismissed" ? (
+            <>
+              <label style={labelStyle}>
+                Filter loaded targets
+                <input
+                  style={inputStyle}
+                  value={filter}
+                  onChange={(event) => setFilter(event.currentTarget.value)}
+                />
+              </label>
+              <WorkbookRecordCandidatePicker
+                selection="single"
+                label={
+                  subject.state === "resolved"
+                    ? "Correct target"
+                    : "Resolve to existing"
+                }
+                testId={mentionResolveTargetSelectTestId()}
+                disabled={!allowed("resolve_item")}
+                candidates={options}
+                selectedRecordIds={
+                  actions.selectedTargetId ? [actions.selectedTargetId] : []
+                }
+                onSelectedRecordIdsChange={(ids) =>
+                  actions.changeTarget(ids[0] ?? "")
+                }
+              />
+              <p role="status" style={{ margin: 0 }}>
+                {candidates.phase === "loading" || candidates.phase === "idle"
+                  ? "Loading targets…"
+                  : candidates.phase === "failed"
+                    ? candidates.error
+                    : candidates.candidates.length === 0
+                      ? candidates.hasMore
+                        ? "No targets on the loaded pages. More targets are available."
+                        : "No eligible targets found in this search."
+                      : matches.length === 0
+                        ? "No loaded targets match this filter."
+                        : `${candidates.candidates.length} targets loaded.${candidates.hasMore ? " More targets are available." : " All current pages loaded."}`}
+              </p>
+              <div style={actionsStyle}>
+                {candidates.phase === "failed" ? (
+                  <WorkbookInspectorActionButton
+                    tone="secondary"
+                    onClick={() => void candidates.retry()}
+                  >
+                    Retry target read
+                  </WorkbookInspectorActionButton>
+                ) : null}
+                {candidates.hasMore ? (
+                  <WorkbookInspectorActionButton
+                    tone="secondary"
+                    disabled={candidates.phase === "loading"}
+                    onClick={() => void candidates.loadMore()}
+                  >
+                    Load more targets
+                  </WorkbookInspectorActionButton>
+                ) : null}
+                <WorkbookInspectorActionButton
+                  tone="secondary"
+                  data-testid={mentionResolveExistingButtonTestId()}
+                  disabled={!allowed("resolve_item") || !selected}
+                  onClick={() =>
+                    actions.act({
+                      action: "resolve_item",
+                      resolvedRecordId: actions.selectedTargetId,
+                    })
+                  }
+                >
+                  {subject.state === "resolved"
+                    ? "Correct target"
+                    : "Resolve to existing"}
+                </WorkbookInspectorActionButton>
+                <WorkbookInspectorActionButton
+                  tone="secondary"
+                  data-testid={mentionDismissButtonTestId()}
+                  disabled={!allowed("dismiss_item")}
+                  onClick={() => actions.act({ action: "dismiss_item" })}
+                >
+                  Dismiss
+                </WorkbookInspectorActionButton>
+              </div>
+            </>
+          ) : (
+            <p>
+              Dismissed mentions stay out of active relationships. Restore
+              clears resolution and does not relink a previous target.
+            </p>
+          )}
+          {mentionTransitionAllowed(subject.state, "revert_to_unresolved") ? (
+            <WorkbookInspectorActionButton
+              tone="secondary"
+              data-testid={mentionRestoreUnresolvedButtonTestId()}
+              disabled={!allowed("revert_to_unresolved")}
+              onClick={() => actions.act({ action: "revert_to_unresolved" })}
+            >
+              {subject.state === "dismissed"
+                ? "Restore to unresolved"
+                : "Revert to unresolved"}
+            </WorkbookInspectorActionButton>
+          ) : null}
+          {subject.state === "unresolved" &&
+          !creation?.receipt &&
+          !createReview ? (
+            <WorkbookInspectorActionButton
+              tone="secondary"
+              data-testid={mentionCreateEntityButtonTestId(subject.entityType)}
+              disabled={!owner.canCreate(subject.entityType) || blocked}
+              onClick={actions.startCreate}
+            >
+              Create {subject.entityType}
+            </WorkbookInspectorActionButton>
+          ) : null}
+          {createReview && !creation?.receipt ? (
+            <MentionCreateEditor
+              actions={actions}
+              disabled={blocked || !owner.canCreate(subject.entityType)}
             />
-          </label>
-          <WorkbookRecordCandidatePicker
-            selection="single"
-            label={
-              subject.state === "resolved"
-                ? "Correct target"
-                : "Resolve to existing"
-            }
-            testId={mentionResolveTargetSelectTestId()}
-            disabled={!allowed("resolve_item")}
-            candidates={options}
-            selectedRecordIds={
-              actions.selectedTargetId ? [actions.selectedTargetId] : []
-            }
-            onSelectedRecordIdsChange={(ids) =>
-              actions.changeTarget(ids[0] ?? "")
-            }
-          />
-          <p role="status" style={{ margin: 0 }}>
-            {candidates.phase === "loading" || candidates.phase === "idle"
-              ? "Loading targets…"
-              : candidates.phase === "failed"
-                ? candidates.error
-                : candidates.candidates.length === 0
-                  ? "No eligible targets found."
-                  : matches.length === 0
-                    ? "No loaded targets match this filter."
-                    : `${candidates.candidates.length} targets loaded.${candidates.hasMore ? " More targets are available." : " All current pages loaded."}`}
-          </p>
-          <div style={actionsStyle}>
-            {candidates.phase === "failed" ? (
-              <WorkbookInspectorActionButton
-                tone="secondary"
-                onClick={() => void candidates.retry()}
-              >
-                Retry target read
-              </WorkbookInspectorActionButton>
-            ) : null}
-            {candidates.hasMore ? (
-              <WorkbookInspectorActionButton
-                tone="secondary"
-                disabled={candidates.phase === "loading"}
-                onClick={() => void candidates.loadMore()}
-              >
-                Load more targets
-              </WorkbookInspectorActionButton>
-            ) : null}
-            <WorkbookInspectorActionButton
-              tone="secondary"
-              data-testid={mentionResolveExistingButtonTestId()}
-              disabled={!allowed("resolve_item") || !selected}
-              onClick={() =>
-                actions.act({
-                  action: "resolve_item",
-                  resolvedRecordId: actions.selectedTargetId,
-                })
-              }
-            >
-              {subject.state === "resolved"
-                ? "Correct target"
-                : "Resolve to existing"}
-            </WorkbookInspectorActionButton>
-            <WorkbookInspectorActionButton
-              tone="secondary"
-              data-testid={mentionDismissButtonTestId()}
-              disabled={!allowed("dismiss_item")}
-              onClick={() => actions.act({ action: "dismiss_item" })}
-            >
-              Dismiss
-            </WorkbookInspectorActionButton>
-          </div>
-        </>
-      ) : (
-        <p>
-          Dismissed mentions stay out of active relationships. Restore clears
-          resolution and does not relink a previous target.
+          ) : null}
+        </div>
+      </details>
+      {!correcting && createReview && !creation?.receipt ? (
+        <p role="status">
+          Unfinished entity creation is retained. Open Correction and resolution
+          to continue.
         </p>
-      )}
-      {mentionTransitionAllowed(subject.state, "revert_to_unresolved") ? (
-        <WorkbookInspectorActionButton
-          tone="secondary"
-          data-testid={mentionRestoreUnresolvedButtonTestId()}
-          disabled={!allowed("revert_to_unresolved")}
-          onClick={() => actions.act({ action: "revert_to_unresolved" })}
-        >
-          {subject.state === "dismissed"
-            ? "Restore to unresolved"
-            : "Revert to unresolved"}
-        </WorkbookInspectorActionButton>
-      ) : null}
-      {subject.state === "unresolved" && !creation?.receipt && !createReview ? (
-        <WorkbookInspectorActionButton
-          tone="secondary"
-          data-testid={mentionCreateEntityButtonTestId(subject.entityType)}
-          disabled={!owner.canCreate(subject.entityType) || blocked}
-          onClick={actions.startCreate}
-        >
-          Create {subject.entityType}
-        </WorkbookInspectorActionButton>
-      ) : null}
-      {createReview && !creation?.receipt ? (
-        <MentionCreateEditor
-          actions={actions}
-          disabled={blocked || !owner.canCreate(subject.entityType)}
-        />
       ) : null}
       {creation?.receipt ? (
         <section

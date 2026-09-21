@@ -60,7 +60,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { fetchRecordHistory } from "./support/workbook/history";
+import {
+  fetchRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -167,6 +170,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
     rowHistoryOpenButtonTestId(row.record_id),
   );
   await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+  await openHistoryEventDetails(page, rollbackItem.history_item_ref);
   await page
     .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
     .click();
@@ -180,6 +184,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
     page.getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor)),
   ).toHaveCount(0);
 
+  await openHistoryEventDetails(page, rollbackItem.history_item_ref);
   await page
     .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
     .click();
@@ -210,10 +215,11 @@ test("Verify history and rollback preview/action use public route contracts, pre
     .getByTestId(rowHistoryRollbackConfirmButtonTestId(rollbackAnchor))
     .click();
   await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
-    "Review current history and confirm the action again.",
+    "Review current history",
   );
   expect(rollbackRequests).toEqual([]);
   const reviewedHistory = await fetchRecordHistory(page, row.record_id);
+  await openHistoryEventDetails(page, rollbackItem.history_item_ref);
   await page
     .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
     .click();
@@ -266,6 +272,8 @@ test("Verify history and rollback preview/action use public route contracts, pre
   await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
     "row_version_conflict",
   );
+  await openHistoryEventDetails(page, rollbackItem.history_item_ref);
+  await openHistoryEventDetails(page, rollbackItem.history_item_ref);
   await expect(
     page.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
   ).toBeVisible();
@@ -369,9 +377,11 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     target.record_id,
     rowHistoryOpenButtonTestId(target.record_id),
   );
+  await openHistoryEventDetails(page, rollbackItem.history_item_ref);
   await expect(
     page.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
   ).toBeVisible();
+  await openHistoryEventDetails(page, rollbackItem.history_item_ref);
   await page
     .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
     .click();
@@ -472,6 +482,10 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
       memberPage,
       target.record_id,
       rowHistoryOpenButtonTestId(target.record_id),
+    );
+    await openHistoryEventDetails(
+      memberPage,
+      retainedRollbackItem.history_item_ref,
     );
     await expect(
       memberPage.getByTestId(
@@ -639,6 +653,11 @@ test("Verify default-closed inspector state, no-row state, surface switch config
       ),
     ),
   ).toHaveAttribute("data-view-schema-id", timelineViewSchemaId);
+  const selectedQuery = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/views/${timelineViewSchemaId}/query`),
+  );
   await page
     .getByTestId(
       savedViewOptionTestId(
@@ -647,6 +666,14 @@ test("Verify default-closed inspector state, no-row state, surface switch config
       ),
     )
     .click();
+  await selectedQuery;
+  await expect(sameSurfaceSelector).toHaveAttribute(
+    "data-selected-saved-view-id",
+    timelineSavedView.saved_view_id,
+  );
+  await expect(page.locator('[data-grid-data-state="refreshing"]')).toHaveCount(
+    0,
+  );
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await openTimelineInspector(page, timelineSeed.record_id);
   await expect(

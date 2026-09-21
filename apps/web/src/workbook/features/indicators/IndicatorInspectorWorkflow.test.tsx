@@ -37,12 +37,8 @@ describe("IndicatorInspectorWorkflow", () => {
         />
       </ObservationContext.Provider>,
     );
-    expect(screen.getByRole("status").textContent).toContain(
-      "Loading observations",
-    );
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "Try observations again.",
-    );
+    expect(screen.getByRole("status").textContent).toContain("Loading…");
+    expect(await screen.findByText("Try observations again.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Retry observations" }));
     expect(await screen.findByText("No observations.")).toBeTruthy();
     expect(t.reader.observations).toHaveBeenCalledTimes(2);

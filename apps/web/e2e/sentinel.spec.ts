@@ -2460,6 +2460,9 @@ test("Task Request and Decision workbook workflows stay native", async ({
     page.getByTestId(rowCellTestId(urgentTask.record_id, "task.priority")),
   ).toHaveText("urgent");
 
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(taskRequestsViewSchemaId))
+    .click();
   const priorityAscResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
@@ -2518,6 +2521,9 @@ test("Task Request and Decision workbook workflows stay native", async ({
   await activateSemanticGridCell(
     page.getByTestId(rowCellTestId(task.record_id, "task.title")),
   );
+  await page
+    .getByTestId(workbookInspectorToggleTestId(taskRequestsViewSchemaId))
+    .click();
   await page
     .getByTestId(coordinationWorkflowTestId("task-status"))
     .selectOption("blocked");

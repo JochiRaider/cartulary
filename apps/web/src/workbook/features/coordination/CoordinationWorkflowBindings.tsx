@@ -10,8 +10,11 @@ import { getReferenceFieldContract } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { WorkbookReferenceControl } from "../../components/WorkbookReferenceControl";
 import {
+  workbookFormGroupStyle as groupStyle,
   workbookFormInputStyle as inputStyle,
   workbookFormFieldStackStyle as labelStyle,
+  workbookFormMessageStyle as textStyle,
+  workbookFormHeadingStyle,
 } from "../../components/workbookFormStyles";
 import { admitCanonicalInspectorFeature } from "../../inspector/canonicalInspectorAdmission";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
@@ -102,7 +105,7 @@ function TaskLifecycleEditor(
       style={groupStyle}
       aria-label="Task status transition"
     >
-      <legend>Task status</legend>
+      <legend style={workbookFormHeadingStyle}>Task status</legend>
       <p style={textStyle}>Saved status: {from}</p>
       {props.disabledReason ? (
         <p style={textStyle}>{props.disabledReason}</p>
@@ -232,7 +235,7 @@ function TaskLifecycleEditor(
           editor.errors.length > 0 ||
           editor.staleFields.length > 0
         }
-        tone="secondary"
+        tone="primary"
         type="button"
         onClick={() => void editor.submit()}
       >
@@ -244,12 +247,3 @@ function TaskLifecycleEditor(
     </fieldset>
   );
 }
-const groupStyle = {
-  display: "grid",
-  gap: "var(--ct-spacing-sm)",
-  minWidth: 0,
-  margin: 0,
-  padding: 0,
-  border: 0,
-};
-const textStyle = { margin: 0, color: "var(--ct-colors-ink-muted)" };

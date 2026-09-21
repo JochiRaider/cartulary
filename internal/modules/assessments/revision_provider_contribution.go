@@ -12,6 +12,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:   revisions.SourceOwnerAssessments,
 			RecordType:          "assessment",
+			HistoryProjector:    projectRecordHistory,
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.assessment.v1",
 			HistoryTargetKinds:  []string{"assessment"},
 			DeleteRestoreSource: deleterestore.NewSource(),

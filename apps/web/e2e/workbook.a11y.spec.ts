@@ -271,7 +271,10 @@ import {
   expectDecisionControlReachable,
   openDecisionReviewFixture,
 } from "./support/workbook/decisionSupersession";
-import { fetchRecordHistory } from "./support/workbook/history";
+import {
+  fetchRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   createCanonicalObservationFixture,
   openCanonicalProposal,
@@ -1874,7 +1877,9 @@ async function expectEvidenceControlsPainted(page: Page, recordId: string) {
     .boundingBox();
   expect(scrollportBox?.width).toBeLessThanOrEqual((shellBox?.width ?? 0) + 1);
   const state = page.getByTestId(evidenceAccessStateTestId(recordId));
-  const result = await state.evaluate((element) =>
+  // Access and attachment are siblings within the same horizontally scrolling cell.
+  await state.locator("..").scrollIntoViewIfNeeded();
+  const result = await state.locator("..").evaluate((element) =>
     Array.from(element.querySelectorAll("button")).map((button) => {
       const box = button.getBoundingClientRect();
       const hit = document.elementFromPoint(
@@ -1885,6 +1890,7 @@ async function expectEvidenceControlsPainted(page: Page, recordId: string) {
         box.width > 0 &&
         box.height > 0 &&
         (hit === button || button.contains(hit));
+      const clipping: string[] = [];
       for (
         let parent = button.parentElement;
         parent;
@@ -1895,15 +1901,23 @@ async function expectEvidenceControlsPainted(page: Page, recordId: string) {
         if (
           ["hidden", "clip", "auto", "scroll"].includes(style.overflowY) &&
           (box.top < clip.top - 1 || box.bottom > clip.bottom + 1)
-        )
+        ) {
           unclipped = false;
+          clipping.push(
+            `block ${parent.tagName}: ${box.top}..${box.bottom} outside ${clip.top}..${clip.bottom}`,
+          );
+        }
         if (
           ["hidden", "clip", "auto", "scroll"].includes(style.overflowX) &&
           (box.left < clip.left - 1 || box.right > clip.right + 1)
-        )
+        ) {
           unclipped = false;
+          clipping.push(
+            `inline ${parent.tagName}: ${box.left}..${box.right} outside ${clip.left}..${clip.right}`,
+          );
+        }
       }
-      return { label: button.textContent, unclipped };
+      return { label: button.textContent, unclipped, clipping };
     }),
   );
   expect(result).toHaveLength(4);
@@ -2142,11 +2156,8 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
     await expect(inspector).toBeVisible();
     await expect(inspector).toHaveAttribute("aria-label", "Timeline inspector");
     await expect(
-      page.getByTestId(
-        rowInspectorFieldTestId(
-          timelineRow.record_id,
-          "timeline.raw_activity_text",
-        ),
+      inspector.locator(
+        '[data-inspector-saved-field="timeline.raw_activity_text"]',
       ),
     ).toBeVisible();
 
@@ -2851,11 +2862,17 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
     await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${timelineViewSchemaId}:${editRow.record_id}:timeline.activity_synopsis_text`,
     );
+    const editRaw = page.locator(
+      '[data-inspector-edit-field="timeline.raw_activity_text"]',
+    );
+    await editRaw.click();
     const inspectorDetails = page.getByTestId(
       rowInspectorFieldTestId(editRow.record_id, "timeline.raw_activity_text"),
     );
     await expectVisibleFocus(inspectorDetails);
     await page.keyboard.press("Escape");
+    await expect(editRaw).toBeFocused();
+    await editRaw.press("Escape");
     await expect(originSummaryCell).toBeFocused();
 
     const validationCell = await activateTimelineGridEditor(
@@ -3186,11 +3203,7 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       "aria-label",
       /^Resolved host: a11y.entity-linking Manual Target$/u,
     );
-    await expect(
-      page
-        .getByTestId(timelineInspectorTestId())
-        .getByText("Manual", { exact: true }),
-    ).toBeVisible();
+    await expect(manualChip).toContainText("Resolved");
     await expectVisibleFocus(manualChip);
     await expectVisibleFocus(page.getByTestId(mentionDismissButtonTestId()));
     await expectVisibleFocus(
@@ -3621,7 +3634,7 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
       const availableState = page.getByTestId(
         evidenceAccessStateTestId(availablePreview.record_id),
       );
-      const attach = availableState.getByRole("button", {
+      const attach = availableState.locator("..").getByRole("button", {
         name: /Attach file/u,
       });
       await attach.focus();
@@ -4651,8 +4664,11 @@ test.describe("browser.inspector-history accessibility readiness", () => {
           ),
         );
         await expect(disabledAction).toBeDisabled();
-        const descriptionId =
-          await disabledAction.getAttribute("aria-describedby");
+        const descriptionId = (
+          await disabledAction.getAttribute("aria-describedby")
+        )
+          ?.split(" ")
+          .at(-1);
         expect(descriptionId).not.toBeNull();
         await expect(viewerPage.locator(`[id="${descriptionId}"]`)).toHaveText(
           "Requires the editor incident role.",
@@ -4812,6 +4828,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     await expectVisibleFocus(openHistory);
     await openHistory.press("Enter");
     await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+    await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     const rollbackAction = page.getByTestId(
       A11yHistoryActionTestId(rollbackItem, "history_entry"),
     );

@@ -22,7 +22,10 @@ import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInsp
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
-import type { CollectionFieldKey } from "../models/timelineFieldRegistry";
+import {
+  type CollectionFieldKey,
+  timelineCollectionBindings,
+} from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { TimelineMentionActions } from "./TimelineMentionActionControls";
@@ -77,7 +80,10 @@ export function TimelineWorkbookInspector({
     row: WorkbookRow,
     elementRef?: RefCallback<HTMLElement>,
   ) => ReactNode;
-  readonly renderInspectorFieldEditors: (row: WorkbookRow) => ReactNode;
+  readonly renderInspectorFieldEditors: (
+    row: WorkbookRow,
+    collectionDestinations: Readonly<Record<string, (() => void) | undefined>>,
+  ) => ReactNode;
   readonly renderPanelSupplement: (panelId: InspectorPanelId) => ReactNode;
   readonly renderRelationshipEditor: (
     row: WorkbookRow,
@@ -189,100 +195,128 @@ export function TimelineWorkbookInspector({
     );
 
   return (
-    <WorkbookInspectorShell
-      accessibleLabel="Timeline inspector"
+    <WorkbookInspectorDeclaredPanelList
       config={inspectorConfig}
-      elementRef={elementRegistry.registerRoot}
-      noRowHeading="Timeline inspector"
-      subject={subject}
-      testId={timelineInspectorTestId()}
-      onClose={onClose}
-    >
-      <WorkbookInspectorDeclaredPanelList
-        config={inspectorConfig}
-        currentIncidentRole={currentIncidentRole}
-        disabledTokens={disabledTokens}
-        additionalDisabledReasons={additionalDisabledReasons}
-        panelRef={(panelId, element) => {
-          if (panelId !== "evidence" && panelId !== "history") {
-            elementRegistry.registerPanel(panelId, element);
-          }
-        }}
-        subject={subject}
-        modelsByPanel={{
-          details:
-            liveRow === null
-              ? undefined
-              : withSupplement(
-                  "details",
-                  savedInspectorRegion("saved-fields", {
-                    kind: "populated",
-                    content: renderInspectorFieldEditors(liveRow),
-                  }),
-                ),
-          evidence:
-            liveRow === null
-              ? undefined
-              : withSupplement(
-                  "evidence",
-                  savedInspectorRegion("evidence-metadata", {
-                    kind: "populated",
-                    content: renderEvidenceAttachSection(liveRow, (element) =>
-                      elementRegistry.registerPanel("evidence", element),
-                    ),
-                  }),
-                ),
-          history:
-            subject === null
-              ? undefined
-              : withSupplement(
-                  "history",
-                  renderRowHistorySection((element) =>
-                    elementRegistry.registerPanel("history", element),
-                  ),
-                ),
-          relationships:
-            liveRow === null
-              ? undefined
-              : withSupplement(
-                  "relationships",
-                  savedInspectorRegion("mentions", {
-                    kind: "populated",
-                    content: relationships,
-                  }),
-                ),
-          workflow:
-            liveRow === null
-              ? undefined
-              : {
-                  ...withSupplement(
-                    "workflow",
-                    savedInspectorRegion("workflow", {
-                      kind: "empty",
-                      message: "Choose an available workflow action.",
-                    }),
-                  ),
-                  authoring: (
-                    <>
-                      {renderWorkflowSection()}
-                      {renderPanelSupplement("workflow")}
-                      {localFeedback("workflow")}
-                    </>
-                  ),
-                },
-        }}
-        onContextualAction={onFeatureAction}
-      />
-      <WorkbookInspectorFeedbackView
-        feedback={
-          visibleFeedback?.destination &&
-          visibleFeedback.destination.kind !== "inspector"
-            ? null
-            : visibleFeedback
+      currentIncidentRole={currentIncidentRole}
+      disabledTokens={disabledTokens}
+      additionalDisabledReasons={additionalDisabledReasons}
+      panelRef={(panelId, element) => {
+        if (panelId !== "evidence" && panelId !== "history") {
+          elementRegistry.registerPanel(panelId, element);
         }
-        neutralStyle={bodyStyle}
-        testId={timelineInspectorMessageTestId()}
-      />
-    </WorkbookInspectorShell>
+      }}
+      subject={subject}
+      modelsByPanel={{
+        details:
+          liveRow === null
+            ? undefined
+            : withSupplement(
+                "details",
+                savedInspectorRegion("saved-fields", {
+                  kind: "populated",
+                  content: renderInspectorFieldEditors(
+                    liveRow,
+                    Object.fromEntries([
+                      ...timelineCollectionBindings.map(
+                        (binding) =>
+                          [
+                            binding.fieldKey,
+                            () => {
+                              if (subject)
+                                elementRegistry.focusPanel(
+                                  subject,
+                                  "relationships",
+                                );
+                            },
+                          ] as const,
+                      ),
+                      [
+                        "timeline.attached_evidence_ids",
+                        () => {
+                          if (subject)
+                            elementRegistry.focusPanel(subject, "evidence");
+                        },
+                      ],
+                    ]),
+                  ),
+                }),
+              ),
+        evidence:
+          liveRow === null
+            ? undefined
+            : withSupplement(
+                "evidence",
+                savedInspectorRegion("evidence-metadata", {
+                  kind: "populated",
+                  content: renderEvidenceAttachSection(liveRow, (element) =>
+                    elementRegistry.registerPanel("evidence", element),
+                  ),
+                }),
+              ),
+        history:
+          subject === null
+            ? undefined
+            : withSupplement(
+                "history",
+                renderRowHistorySection((element) =>
+                  elementRegistry.registerPanel("history", element),
+                ),
+              ),
+        relationships:
+          liveRow === null
+            ? undefined
+            : withSupplement(
+                "relationships",
+                savedInspectorRegion("mentions", {
+                  kind: "populated",
+                  content: relationships,
+                }),
+              ),
+        workflow:
+          liveRow === null
+            ? undefined
+            : {
+                ...withSupplement(
+                  "workflow",
+                  savedInspectorRegion("workflow", {
+                    kind: "empty",
+                    message: "Choose an available workflow action.",
+                  }),
+                ),
+                authoring: (
+                  <>
+                    {renderWorkflowSection()}
+                    {renderPanelSupplement("workflow")}
+                    {localFeedback("workflow")}
+                  </>
+                ),
+              },
+      }}
+      onContextualAction={onFeatureAction}
+    >
+      {(sections) => (
+        <WorkbookInspectorShell
+          accessibleLabel="Timeline inspector"
+          config={inspectorConfig}
+          elementRef={elementRegistry.registerRoot}
+          noRowHeading="Timeline inspector"
+          subject={subject}
+          testId={timelineInspectorTestId()}
+          onClose={onClose}
+          sections={sections}
+        >
+          <WorkbookInspectorFeedbackView
+            feedback={
+              visibleFeedback?.destination &&
+              visibleFeedback.destination.kind !== "inspector"
+                ? null
+                : visibleFeedback
+            }
+            neutralStyle={bodyStyle}
+            testId={timelineInspectorMessageTestId()}
+          />
+        </WorkbookInspectorShell>
+      )}
+    </WorkbookInspectorDeclaredPanelList>
   );
 }

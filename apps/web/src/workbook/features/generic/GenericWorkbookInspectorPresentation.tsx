@@ -20,6 +20,8 @@ import type { WorkbookIncidentRole } from "../../../shared/workbookShellContract
 import {
   workbookFormFieldStackStyle,
   workbookFormFieldsStyle,
+  workbookFormGroupStyle,
+  workbookFormHeadingStyle,
   workbookFormInputStyle,
   workbookFormMessageStyle,
 } from "../../components/workbookFormStyles";
@@ -112,24 +114,39 @@ type GenericWorkflowProps = {
 function GenericWorkflow(props: GenericWorkflowProps) {
   return (
     <>
-      {props.ownerBindings.includes("linked_note_create") ? (
-        <NoteSheetAuthoring />
-      ) : null}
-      <GenericDraftFields {...props} />
       {props.canCreateRows ? (
-        <Button
-          data-testid={genericCreateSubmitTestId(props.contract.viewSchemaId)}
-          disabled={
-            props.draftDisabled ||
-            props.mutation.ordinaryCreate.busy(props.contract.viewSchemaId)
-          }
-          tone="secondary"
-          type="button"
-          onClick={() => void props.submitCreate()}
-        >
-          Commit draft row
-        </Button>
-      ) : null}
+        <fieldset style={workbookFormGroupStyle}>
+          <legend style={workbookFormHeadingStyle}>
+            New {props.contract.title} draft
+          </legend>
+          <p style={workbookFormMessageStyle}>
+            Create a new record. Source links are saved only when explicitly
+            supplied in this draft.
+          </p>
+          {props.ownerBindings.includes("linked_note_create") ? (
+            <NoteSheetAuthoring />
+          ) : null}
+          <GenericDraftFields {...props} />
+          {props.canCreateRows ? (
+            <Button
+              data-testid={genericCreateSubmitTestId(
+                props.contract.viewSchemaId,
+              )}
+              disabled={
+                props.draftDisabled ||
+                props.mutation.ordinaryCreate.busy(props.contract.viewSchemaId)
+              }
+              tone="primary"
+              type="button"
+              onClick={() => void props.submitCreate()}
+            >
+              Create {props.contract.title}
+            </Button>
+          ) : null}
+        </fieldset>
+      ) : (
+        <GenericDraftFields {...props} />
+      )}
       {props.subjectRow ? (
         <CoordinationWorkflowBindings
           contract={props.contract}
@@ -223,8 +240,15 @@ function GenericDetails(props: GenericDetailsProps) {
       disabledReason={props.disabledReason}
       canSubmit={!props.mutationPending && props.edit.canSubmit}
       onSubmit={() => void props.submitEdit()}
-      editor={
-        field ? (
+      retainedWork={props.edit.retainedWork}
+      onReviewDraft={(identity) => {
+        props.setCollectionMode(
+          identity.action === "remove" ? "remove" : "add",
+        );
+        props.setEditFieldKey(identity.fieldKey);
+      }}
+      editor={{
+        content: field ? (
           <fieldset
             style={{ ...editRowStyle, border: 0, padding: 0, minWidth: 0 }}
           >
@@ -262,25 +286,26 @@ function GenericDetails(props: GenericDetailsProps) {
             ) : (
               <span role="status">Select an available field.</span>
             )}
+          </fieldset>
+        ) : null,
+        actions: field ? (
+          <Button
+            data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
+            disabled={props.mutationPending || !props.edit.canSubmit}
+            tone="primary"
+            type="button"
+            onClick={() => void props.submitEdit()}
+          >
+            Update
+          </Button>
+        ) : null,
+        feedback: (
+          <>
             {props.fieldFeedback ? (
               <p id={feedbackId} role="alert" style={workbookFormMessageStyle}>
                 {props.fieldFeedback}
               </p>
             ) : null}
-            <WorkbookInspectorDraftFeedback
-              edit={props.edit}
-              contract={props.contract}
-              row={props.selectedEdit.row}
-            />
-            <Button
-              data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
-              disabled={props.mutationPending || !props.edit.canSubmit}
-              tone="primary"
-              type="button"
-              onClick={() => void props.submitEdit()}
-            >
-              Update
-            </Button>
             {props.actionError ? (
               <WorkbookInspectorPublicError error={props.actionError} />
             ) : null}
@@ -288,11 +313,18 @@ function GenericDetails(props: GenericDetailsProps) {
               owner={props.patches}
               viewSchemaId={props.contract.viewSchemaId}
               recordId={props.selectedEdit.row.record_id}
-              fieldKey={field.fieldKey}
+              fieldKey={field?.fieldKey ?? ""}
             />
-          </fieldset>
-        ) : null
-      }
+          </>
+        ),
+        retainedDraft: (
+          <WorkbookInspectorDraftFeedback
+            edit={props.edit}
+            contract={props.contract}
+            row={props.selectedEdit.row}
+          />
+        ),
+      }}
     />
   );
 }

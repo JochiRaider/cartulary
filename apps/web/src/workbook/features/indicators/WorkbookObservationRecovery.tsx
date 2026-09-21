@@ -5,12 +5,15 @@ import {
   WorkbookRecoveryDetail,
 } from "../../../shared/WorkbookRecoveryBoundary";
 import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
+import {
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { ObservationOperationStatus } from "./ObservationOperationStatus";
 import {
   type ObservationOwnerPort,
   observationIntentSource,
 } from "./observationOperation";
-import { observationStack, observationText } from "./observationStyles";
 export function WorkbookObservationRecovery({
   owner,
 }: {

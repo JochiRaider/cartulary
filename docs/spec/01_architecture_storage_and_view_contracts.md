@@ -1405,10 +1405,11 @@ Examples:
 | Member | Presence rule | Notes |
 | --- | --- | --- |
 | `actor_user_id` | Required on every item | Attributed actor of the committed change |
+| `source_actor_id` | Present only for imported attribution supplied by the portability owner | Original source actor identifier; does not confer account access or membership |
 | `committed_at` | Required on every item | Newest-first committed ordering anchor |
 | `history_item_ref` | Required on every item | Stable opaque display-item anchor for the retained-history lifetime of the record in the current deployment |
 | `operation` | Required on every item | Displayable history operation label only; not a selector or rollback target |
-| `diff_summary` | Required on every item | Row-centric summary only |
+| `diff_summary` | Required on every item | Closed versioned row-centric semantic detail under REQ-01-052A |
 | `change_set_id` | Required on every item | Stable change-set anchor |
 | `reversible` | Required on every item | Current reversibility state, not historical omission |
 | `available_rollback_actions[]` | Required on every item | Ordered only as `history_entry`, `change_set`, `row_restore`; empty when `reversible=false` |
@@ -1430,6 +1431,7 @@ The success-envelope `data` for this route MUST include at minimum:
 - `record_id`,
 - `row_version`,
 - `deleted`,
+- `representation_generation` (a nonempty opaque presentation-generation identifier),
 - `items[]`.
 Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
@@ -1457,6 +1459,51 @@ Each `items[]` entry MUST include at minimum:
 - `available_rollback_actions[]`.
 Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
+
+**REQ-01-052A**
+`diff_summary` MUST be a closed object with `schema_id` equal to
+`cartulary.history_diff.v1`, display-only `summary`, and ordered `units`.
+Units MUST be closed semantic objects with stable opaque `unit_ref`, `kind`,
+`operation`, authorized `record_ids`, and ordered `changes`. The exact `kind`
+vocabulary is `field`, `link`, `mention`, `tag`, `evidence_association`,
+`capture_state`, `record`, `entity_identifier`, `indicator_observation`, and
+`indicator_interval`. Unit operation is `create`, `update`, `delete`, `restore`,
+`merge`, `add`, or `remove`; source owners map their retained operation to its
+semantic operation without client inference.
+
+Each change MUST contain exactly a public semantic `field_key`, `before`, and
+`after`. Each value state is exactly `{state: 'absent'}`, `{state: 'null'}`, or
+`{state: 'present', value: ...}`. A present value is a public string, number,
+boolean, or ordered array of public strings. Structured source facts MUST be
+projected into explicit public semantic changes, never arbitrary JSON objects.
+Absence means the fact did not exist in that side of the retained change; it
+MUST NOT substitute for unknown, concealed or unavailable data. This profile
+defines no successful missing-detail fallback. Any future partial-disclosure
+state requires an explicit authorization-owner amendment.
+
+Source owners MUST derive complete units from validated authoritative retained
+facts, including separately revisioned collections. They MUST supply stable
+semantic ordering and identifiers independent of visible labels, map iteration,
+or current projections. Revisions MUST preserve logical item and rollback
+identities while composing those contributions. Raw snapshots, storage mutation
+IDs, object bytes, credentials, upload tokens and access handles MUST NOT appear
+in the public semantic detail. Failure to project required supported history
+MUST fail the read safely rather than publish an incomplete success.
+
+The server and bundled browser adopt this representation together at the pending
+2.0.0 OpenAPI compatibility boundary. The `/api/v1` namespace and mutation/replay
+contracts remain unchanged; no legacy response adapter is defined. Clients MUST
+reject unsupported or malformed mandatory detail locally and MUST NOT merge
+browsing data from different `data.representation_generation` values, including
+empty pages. This identifier changes when the semantic projection changes;
+clients compare it before comparing immutable item content. A continuation from
+a different generation requires a fresh first-page read. Restarting disposable
+reads MUST NOT retire unrelated authoring, captured mutation requests or receipts.
+Imported attribution retains `source_actor_id` under REQ-01-444 without creating
+account-directory access. Canonical retained-snapshot admission and the absence
+of a schema-less compatibility reader remain governed by Core 02 REQ-02-265.
+Profiles: base, incident_portability
+Verified by: AC-007, AC-215, AC-231, AC-529
 
 **REQ-01-053**
 The client MUST treat `history_item_ref` as opaque display-item identity. For the retained-history lifetime of that record in the current deployment, the same logical history item MUST keep the same `history_item_ref` across repeated reads. `operation` is display text and MUST NOT be used as selector identity, rollback target identity, or a substitute for `history_item_ref`.

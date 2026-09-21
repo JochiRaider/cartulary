@@ -34,7 +34,12 @@ const rollbackActionOrder = [
 export function normalizeRecordHistoryData(
   data: RecordHistoryData,
 ): RecordHistoryData | null {
-  if (data.record_id.trim() === "" || !isPositiveInteger(data.row_version)) {
+  if (
+    data.record_id.trim() === "" ||
+    !isPositiveInteger(data.row_version) ||
+    typeof data.representation_generation !== "string" ||
+    data.representation_generation.trim() === ""
+  ) {
     return null;
   }
   const seen = new Set<string>();
@@ -48,6 +53,26 @@ export function normalizeRecordHistoryData(
       return null;
     }
     seen.add(item.history_item_ref);
+    if (
+      item.diff_summary.schema_id !== "cartulary.history_diff.v1" ||
+      item.diff_summary.units.length === 0
+    )
+      return null;
+    const units = new Set<string>();
+    for (const unit of item.diff_summary.units) {
+      if (
+        !unit.unit_ref ||
+        units.has(unit.unit_ref) ||
+        unit.record_ids.length === 0
+      )
+        return null;
+      units.add(unit.unit_ref);
+      const fields = new Set<string>();
+      for (const change of unit.changes) {
+        if (!change.field_key || fields.has(change.field_key)) return null;
+        fields.add(change.field_key);
+      }
+    }
     let previous = -1;
     for (const action of item.available_rollback_actions) {
       const index = rollbackActionOrder.indexOf(action);
@@ -133,6 +158,7 @@ export function historyItemContentEqual(
   // committed content and any previously issued entry selector are immutable.
   return (
     a.actor_user_id === b.actor_user_id &&
+    a.source_actor_id === b.source_actor_id &&
     a.committed_at === b.committed_at &&
     a.history_item_ref === b.history_item_ref &&
     a.operation === b.operation &&

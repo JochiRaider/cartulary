@@ -30,6 +30,8 @@ func TestTargetSemanticsCatalogRejectsDuplicateAndMissingRowProviders(t *testing
 		return RecordProviderContribution{
 			SourceOwnerModule:   SourceOwnerEntities,
 			RecordType:          recordType,
+			SnapshotSchemaID:    "cartulary.revisions.snapshot." + recordType + ".v1",
+			HistoryProjector:    catalogTestHistoryProjector,
 			RowRollbackProvider: provider,
 		}
 	}

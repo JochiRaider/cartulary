@@ -13,6 +13,7 @@ import {
   historyActionPermitted,
   type WorkbookRecordHistoryPort,
 } from "./workbookHistoryOperation";
+import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const authority: HistoryAuthority = {
   actorId: "actor",
@@ -38,7 +39,7 @@ const item = {
   revision_no: 2,
   reversible: true,
   operation: "patch",
-  diff_summary: { summary: "Changed fields", units: [] },
+  diff_summary: historyDiffFixture("Changed fields"),
   available_rollback_actions: [
     "history_entry",
     "change_set",
@@ -58,6 +59,7 @@ function setup(
     incident_id: "incident",
     row_version: 4,
     deleted: pending.kind === "destructive" && pending.operation === "restore",
+    representation_generation: "cartulary.history.1",
     items: [item],
   };
   const ids = { create: vi.fn(() => `txn-${ids.create.mock.calls.length}`) };

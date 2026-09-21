@@ -1,9 +1,9 @@
+import { workbookFormFieldsStyle as lifecycleStack } from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type {
   IndicatorLifecycleOwnerPort,
   LifecycleOperation,
 } from "./indicatorLifecycleOperation";
-import { lifecycleStack } from "./indicatorLifecycleStyles";
 export function IndicatorLifecycleOperationStatus({
   owner,
   entry,

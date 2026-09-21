@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -850,7 +851,7 @@ func historyEntryRefForTarget(t testing.TB, harness *appsupport.ServerHarness, l
 		units, _ := diff["units"].([]any)
 		for _, rawUnit := range units {
 			unit, _ := rawUnit.(map[string]any)
-			if unit["target_kind"] == targetKind && unit["target_id"] == targetID {
+			if semanticHistoryUnitMatchesTarget(unit, targetKind, targetID) {
 				ref := stringField(t, item, "history_entry_ref")
 				if ref == "" {
 					t.Fatalf("history item for %s:%s did not expose history_entry_ref: %#v", targetKind, targetID, item)
@@ -874,7 +875,7 @@ func historyItemForChangeSetTarget(t testing.TB, harness *appsupport.ServerHarne
 		units, _ := diff["units"].([]any)
 		for _, rawUnit := range units {
 			unit, _ := rawUnit.(map[string]any)
-			if unit["target_kind"] == targetKind && unit["target_id"] == targetID {
+			if semanticHistoryUnitMatchesTarget(unit, targetKind, targetID) {
 				return item
 			}
 		}
@@ -891,12 +892,8 @@ func seedRollbackHostPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, recor
 func seedRollbackHostPatchWithSource(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, createdAt time.Time, beforeName string, afterName string, source string) {
 	t.Helper()
 	hostname := stringScalar(t, db, `SELECT COALESCE(hostname, '') FROM hosts WHERE record_id = $1`, recordID)
-	beforeRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 1}
-	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
-	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": hostname, "host_state": "canonical", "row_version": 1}
-	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": hostname, "host_state": "canonical", "row_version": 2}
-	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
-	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
+	beforeValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": beforeName, "hostname": hostname, "host_state": "canonical"})
+	afterValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": afterName, "hostname": hostname, "host_state": "canonical"})
 	advanceRecordFixtureWithAudit(t, db, recordID, 2, &createdAt, &actorID)
 	if _, err := db.ExecContext(context.Background(), `
 	UPDATE hosts
@@ -944,24 +941,36 @@ func seedRollbackHostAndTagChangeSet(t testing.TB, db *sql.DB, incidentID uuid.U
 	createdAt := time.Date(2026, 5, 10, 17, 8, 0, 0, time.UTC)
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: recordID, ChangeSetID: changeSetID, CreatedAt: createdAt, Source: "workbook.records.patch"})
 	seedRollbackHostPatchEntry(t, db, incidentID, actorID, changeSetID, recordID, 1, createdAt, "unsupported before", "unsupported after")
+	tagID := uuid.New()
+	// A retained tag reversal is valid History, but is not itself reversible.
+	// This exercises whole-change-set atomicity without malformed source facts.
+	beforeTag := map[string]any{
+		"record_tag_id": tagID.String(), "incident_id": incidentID.String(), "record_id": recordID.String(),
+		"tag_name": "history_revision", "normalized_tag_name": "history_revision",
+		"created_by_user_id": actorID.String(), "created_at": createdAt.Format(time.RFC3339Nano),
+		"updated_at": createdAt.Format(time.RFC3339Nano), "deleted_at": nil, "deleted_by_user_id": nil,
+	}
+	afterTag := make(map[string]any, len(beforeTag))
+	for key, value := range beforeTag {
+		afterTag[key] = value
+	}
+	afterTag["updated_at"] = createdAt.Add(time.Minute).Format(time.RFC3339Nano)
+	afterTag["deleted_at"] = afterTag["updated_at"]
+	afterTag["deleted_by_user_id"] = actorID.String()
 	mustExec(t, db, `
 INSERT INTO change_set_mutations (
     change_set_id, sequence_no, target_kind, target_id, operation_kind,
     before_value, after_value, history_record_ids, history_entry_record_ids
 )
-VALUES ($1, 2, 'record_tag', $2, 'create', NULL, $3, ARRAY[$4::uuid], ARRAY[$4::uuid])
-`, changeSetID, uuid.New().String(), jsonOrNil(t, map[string]any{"tag_name": "history_revision", "record_id": recordID.String()}), recordID)
+VALUES ($1, 2, 'record_tag', $2, 'rollback', $3, $4, ARRAY[$5::uuid], ARRAY[$5::uuid])
+`, changeSetID, "record_tag:"+recordID.String()+":"+tagID.String(), jsonOrNil(t, beforeTag), jsonOrNil(t, afterTag), recordID)
 }
 
 func seedRollbackHostPatchEntry(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, recordID uuid.UUID, sequenceNo int, createdAt time.Time, beforeName string, afterName string) {
 	t.Helper()
 	hostname := stringScalar(t, db, `SELECT COALESCE(hostname, '') FROM hosts WHERE record_id = $1`, recordID)
-	beforeRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 1}
-	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
-	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": hostname, "host_state": "canonical", "row_version": 1}
-	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": hostname, "host_state": "canonical", "row_version": 2}
-	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
-	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
+	beforeValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": beforeName, "hostname": hostname, "host_state": "canonical"})
+	afterValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": afterName, "hostname": hostname, "host_state": "canonical"})
 	advanceRecordFixtureWithAudit(t, db, recordID, 2, &createdAt, &actorID)
 	mustExec(t, db, `
 UPDATE hosts
@@ -1497,4 +1506,37 @@ SELECT evidence_count, has_evidence
 		t.Fatalf("load timeline evidence projection: %v", err)
 	}
 	return count, hasEvidence
+}
+
+// Test lookup uses public semantic references; storage target metadata is no
+// longer part of the History protocol. Action requests still use opaque refs.
+func semanticHistoryUnitMatchesTarget(unit map[string]any, targetKind, targetID string) bool {
+	identityFields := map[string]string{"record_link": "link.record_link_id", "record_tag": "tag.record_tag_id", "entity_mention": "mention.entity_mention_id", "indicator_observation": "indicator_observation.indicator_observation_id", "indicator_state_interval": "indicator_interval.indicator_state_interval_id"}
+	if field, ok := identityFields[targetKind]; ok {
+		changes, _ := unit["changes"].([]any)
+		for _, raw := range changes {
+			change, _ := raw.(map[string]any)
+			if change["field_key"] != field {
+				continue
+			}
+			for _, side := range []string{"before", "after"} {
+				value, _ := change[side].(map[string]any)
+				id, _ := value["value"].(string)
+				if value["state"] == "present" && id != "" && (id == targetID || strings.HasSuffix(targetID, ":"+id)) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	if unit["kind"] != "field" && unit["kind"] != "record" && unit["kind"] != "capture_state" {
+		return false
+	}
+	ids, _ := unit["record_ids"].([]any)
+	for _, id := range ids {
+		if id == targetID {
+			return true
+		}
+	}
+	return false
 }

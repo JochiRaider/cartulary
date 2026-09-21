@@ -2,6 +2,7 @@ import type { GridDensity } from "@cartulary/grid-adapter";
 import {
   type EvidenceAccessContext,
   evidenceAccessMessageTestId,
+  evidenceAttachFileInputTestId,
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
   workbookGridDensityMetrics,
@@ -43,6 +44,7 @@ import {
 } from "./EvidenceAccessActions";
 
 import { EvidenceAttachmentContext } from "./EvidenceAttachmentContext";
+import { EvidenceAttachmentEntry } from "./EvidenceAttachmentEntry";
 import { EvidenceFileRecovery } from "./EvidenceFileRecovery";
 import type { EvidenceAttachmentSnapshot } from "./WorkbookEvidenceAttachmentOwner";
 
@@ -424,35 +426,41 @@ export function useEvidenceWorkbookBindings(input: {
   const renderActions = (
     row: WorkbookQueryRow,
     context: EvidenceAccessContext,
-    regionPresentation = false,
   ) =>
     active ? (
       <EvidenceAccessActions
-        regionPresentation={regionPresentation}
-        recovery={
-          context === "inspector"
-            ? retained
-                .filter((entry) => entry.recordId === row.record_id)
-                .map((entry) => renderFileRecovery(entry, "inspector"))
-            : null
-        }
         access={buildEvidenceAccessPresentation(
           rowLifecycle(row),
           operations[row.record_id]?.state ?? null,
-        )}
-        attachDisabledReason={input.attachDisabledReason}
-        attaching={retained.some(
-          (entry) => entry.recordId === row.record_id && entry.busy,
         )}
         canRead={input.canRead && !authorityUncertain}
         context={context}
         recordId={row.record_id}
         title={titleFor(row)}
-        onAttach={(files) => attachFiles(row, files)}
         onInspect={() => input.onInspect(row.record_id)}
         onIssue={(kind, invoker) => void issueHandle(row, kind, invoker)}
       />
     ) : null;
+  const renderAttachment = (
+    row: WorkbookQueryRow,
+    context: EvidenceAccessContext,
+  ) => (
+    <EvidenceAttachmentEntry
+      compact={context === "row"}
+      title={titleFor(row)}
+      testId={evidenceAttachFileInputTestId(row.record_id, context)}
+      disabledReason={
+        !input.canRead || authorityUncertain
+          ? "Evidence access is unavailable."
+          : (input.attachDisabledReason ??
+            (owner ? null : "File attachment is unavailable."))
+      }
+      busy={retained.some(
+        (entry) => entry.recordId === row.record_id && entry.busy,
+      )}
+      onAttach={(files) => attachFiles(row, files)}
+    />
+  );
   const metrics = workbookGridDensityMetrics(input.density);
   const visiblePreview =
     active &&
@@ -562,7 +570,7 @@ export function useEvidenceWorkbookBindings(input: {
         kind: "populated",
         content: (
           <>
-            <p style={evidenceMessageStyle}>{titleFor(row)}</p>
+            <p style={evidenceMessageStyle}>Evidence information</p>
             <dl>
               <dt>Lifecycle</dt>
               <dd>{access.lifecycleLabel}</dd>
@@ -613,9 +621,20 @@ export function useEvidenceWorkbookBindings(input: {
                           : "owner_blocked",
                     message: access.message,
                   },
-          commands: renderActions(row, "inspector", true),
+          commands: renderActions(row, "inspector"),
         },
       },
+      savedInspectorRegion("evidence-attachment", {
+        kind: "populated",
+        content: (
+          <section aria-label="Evidence attachment and recovery">
+            {renderAttachment(row, "inspector")}
+            {retained
+              .filter((entry) => entry.recordId === row.record_id)
+              .map((entry) => renderFileRecovery(entry, "inspector"))}
+          </section>
+        ),
+      }),
     ];
   };
   return {
@@ -625,7 +644,20 @@ export function useEvidenceWorkbookBindings(input: {
         )
       : 76,
     hasRecordActions: active,
-    renderRowActions: (row: WorkbookQueryRow) => renderActions(row, "row"),
+    renderRowActions: (row: WorkbookQueryRow) =>
+      active ? (
+        <div
+          style={{
+            display: "flex",
+            gap: "var(--ct-spacing-xs)",
+            alignItems: "center",
+            blockSize: "100%",
+          }}
+        >
+          {renderActions(row, "row")}
+          {renderAttachment(row, "row")}
+        </div>
+      ) : null,
     inspectorRegions,
     overlay,
     announcements,

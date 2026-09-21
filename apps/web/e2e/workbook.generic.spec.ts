@@ -91,7 +91,9 @@ test("creates and edits required workbook mutation surfaces through typed generi
       if (schema !== "hosts" && schema !== "identities") {
         await page.getByTestId(workbookInspectorToggleTestId(view)).click();
         await expect(
-          page.getByRole("button", { name: "Commit draft row", exact: true }),
+          page
+            .locator("[data-inspector-state]")
+            .getByTestId(genericCreateSubmitTestId(view)),
         ).toBeVisible();
       }
     });

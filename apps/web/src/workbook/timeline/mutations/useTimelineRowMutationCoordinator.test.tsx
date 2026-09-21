@@ -433,18 +433,6 @@ describe("useTimelineRowMutationCoordinator", () => {
     const pending = {
       ...initial,
       pendingSignature: "pending-signature",
-      rawRow:
-        initial.rawRow === null
-          ? null
-          : {
-              ...initial.rawRow,
-              cells: {
-                ...initial.rawRow.cells,
-                "timeline.activity_synopsis_text": {
-                  value: "optimistic value",
-                },
-              },
-            },
       values: { ...initial.values, activitySynopsisText: "optimistic value" },
     };
     const { result, unmount } = renderCoordinator(runtime, [pending]);

@@ -90,7 +90,7 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 		entry := raw.(map[string]any)
 		if entry["change_set_id"] == removed["change_set_id"] {
 			for _, unit := range entry["diff_summary"].(map[string]any)["units"].([]any) {
-				if unit.(map[string]any)["target_kind"] == "record_link" {
+				if unit.(map[string]any)["kind"] == "link" {
 					historyRef, _ = entry["history_entry_ref"].(string)
 				}
 			}

@@ -601,9 +601,23 @@ describe("Assessment workbook surface", () => {
       ),
     );
 
-    expect(screen.getByText("Append follow-on assessment")).toBeTruthy();
     expect(
-      screen.getByText(/00000000-0000-4000-8000-000000000103/u),
+      screen.getByRole("heading", {
+        name: "Append follow-on assessment",
+        level: 4,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .some(
+          (heading) => heading.textContent === "Append follow-on assessment",
+        ),
+    ).toBe(false);
+    expect(
+      screen.getByText(
+        /Supporting records:.*00000000-0000-4000-8000-000000000103/u,
+      ),
     ).toBeTruthy();
     expect(
       screen.getByRole("button", {

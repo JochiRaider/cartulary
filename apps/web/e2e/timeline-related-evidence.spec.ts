@@ -234,8 +234,11 @@ test("Timeline Evidence creation survives a real collection conflict and links o
   const targetAfter = await fetchFullRecordHistory(page, target.record_id);
   expect(targetAfter.items).toHaveLength(targetBefore.items.length + 1);
   expect(
-    targetAfter.items.filter(
-      (item) => item.diff_summary.summary === "create record_link",
+    targetAfter.items.filter((item) =>
+      item.diff_summary.units.some(
+        (unit) =>
+          unit.kind === "evidence_association" && unit.operation === "add",
+      ),
     ),
   ).toHaveLength(1);
   expect(targetAfter.items.slice(1)).toEqual(targetBefore.items);

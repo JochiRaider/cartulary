@@ -2,8 +2,14 @@ import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useContext, useSyncExternalStore } from "react";
+import { useContext, useSyncExternalStore } from "react";
 import { GenericMutationControl } from "../components/GenericMutationControl";
+import {
+  workbookFormActionsStyle as actionsStyle,
+  workbookFormFieldStackStyle as labelStyle,
+  workbookFormMessageStyle as messageStyle,
+  workbookFormFieldsStyle as workflowStyle,
+} from "../components/workbookFormStyles";
 import { ContextualCreateContext } from "../features/coordination/ContextualCreateContext";
 import { ContextualCreateForm } from "../features/coordination/ContextualCreateForm";
 import { CoordinationCreateContext } from "../features/coordination/CoordinationCreateContext";
@@ -134,22 +140,3 @@ function RetainedContextualForm({
     />
   );
 }
-
-const workflowStyle = {
-  display: "grid",
-  gap: "var(--ct-spacing-sm)",
-  paddingBlock: "var(--ct-spacing-sm)",
-} satisfies CSSProperties;
-
-const labelStyle = {
-  display: "grid",
-  gap: "var(--ct-spacing-xs)",
-} satisfies CSSProperties;
-
-const messageStyle = { margin: 0 } satisfies CSSProperties;
-
-const actionsStyle = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-sm)",
-} satisfies CSSProperties;

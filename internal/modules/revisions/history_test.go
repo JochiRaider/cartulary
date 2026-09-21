@@ -129,7 +129,7 @@ func TestHistoryEntryRefStability_Unit(t *testing.T) {
 	seedHistoryMutation(t, harness.DB, historySeed{
 		IncidentID: incidentID, ActorID: actorID, RecordID: recordID, ChangeSetID: unsupportedChangeSet,
 		CreatedAt: base.Add(time.Minute), Source: "workbook.records.patch", SequenceNo: 1,
-		TargetKind: "record_link", Operation: "link_update",
+		TargetKind: "entity_alias", Operation: "create",
 	})
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE change_set_mutations
@@ -264,7 +264,7 @@ func collectHistoryPages(t testing.TB, baseURL string, login appsupport.LoginRes
 	}
 }
 
-func assertHistoryItem(t testing.TB, raw any, changeSetID uuid.UUID, operation string, sequenceNo int, actions []string) {
+func assertHistoryItem(t testing.TB, raw any, changeSetID uuid.UUID, operation string, _ int, actions []string) {
 	t.Helper()
 	item := raw.(map[string]any)
 	if item["change_set_id"] != changeSetID.String() || item["operation"] != operation {
@@ -281,8 +281,11 @@ func assertHistoryItem(t testing.TB, raw any, changeSetID uuid.UUID, operation s
 		t.Fatalf("history item missing diff summary: %#v", item)
 	}
 	unit := diff["units"].([]any)[0].(map[string]any)
-	if unit["sequence_no"] != float64(sequenceNo) {
-		t.Fatalf("unexpected same-change-set order marker: got %#v want %d", unit["sequence_no"], sequenceNo)
+	if diff["schema_id"] != "cartulary.history_diff.v1" || unit["unit_ref"] == "" || unit["kind"] != "field" {
+		t.Fatalf("missing semantic history: %#v", diff)
+	}
+	if _, exposed := unit["sequence_no"]; exposed {
+		t.Fatal("storage sequence exposed")
 	}
 	assertActions(t, item, actions)
 }

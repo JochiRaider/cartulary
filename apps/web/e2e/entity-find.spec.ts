@@ -190,6 +190,7 @@ test("Entity committed presentation characterization preserves labels aliases dr
     await page.getByTestId(workbookInspectorToggleTestId(f.view)).click();
     const inspector = page.getByTestId(entityInspectorTestId(f.type));
     await expect(inspector).toBeVisible();
+    await inspector.getByText("Manage aliases", { exact: true }).click();
     await inspector
       .getByRole("textbox", { name: "Alias text" })
       .fill("  unsubmitted alias  ");

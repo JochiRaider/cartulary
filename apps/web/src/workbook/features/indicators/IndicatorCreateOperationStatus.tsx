@@ -1,11 +1,14 @@
 import { indicatorCreateTestId } from "@cartulary/ui-contracts";
 import { useLayoutEffect, useRef } from "react";
+import {
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type {
   IndicatorCreateOperation,
   IndicatorCreateOwnerPort,
 } from "./indicatorCreateOperation";
-import { observationStack, observationText } from "./observationStyles";
 
 export function IndicatorCreateOperationStatus({
   owner,

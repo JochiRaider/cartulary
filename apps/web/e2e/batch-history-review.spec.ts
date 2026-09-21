@@ -26,7 +26,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { fetchFullRecordHistory } from "./support/workbook/history";
+import {
+  fetchFullRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -277,6 +280,7 @@ async function reviewBatch(
     matching.getByText("Requested change", { exact: true }),
   ).toBeFocused();
   expect(historyReads).toHaveLength(family === "clear" ? 2 : 1);
+  await openHistoryEventDetails(review, original.history_item_ref);
   const reverse = matching.getByTestId(
     rowHistoryActionTestId({
       action: "change_set",

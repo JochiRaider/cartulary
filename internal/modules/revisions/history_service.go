@@ -28,7 +28,7 @@ func newHistoryStore(transactions TransactionRunner, envelopes RecordEnvelopePor
 		transactions:    transactions,
 		envelopes:       envelopes,
 		repository:      historyQueryRepository{},
-		materializer:    historyRowMaterializer{},
+		materializer:    historyRowMaterializer{catalog: commands.targetSemantics},
 		attribution:     importedHistoryAttributionDecorator{resolver: attribution},
 		pages:           historyPageAssembler{},
 		rollbackActions: newHistoryRollbackActionEvaluator(commands),
@@ -75,7 +75,10 @@ func (s *historyStore) ListRecordHistory(ctx context.Context, record RecordHisto
 	}
 	items := make([]RecordHistoryItem, 0, len(mutationRows))
 	for _, row := range mutationRows {
-		item := s.materializer.Mutation(record, row)
+		item, err := s.materializer.Mutation(record, row)
+		if err != nil {
+			return nil, fmt.Errorf("project record history mutation: %w", err)
+		}
 		if item.hasTargetEntry && item.HistoryEntryRef == nil {
 			generated, err := s.repository.EnsureHistoryEntryRefTx(ctx, tx, record.RecordID, item.ChangeSetID, item.sequenceNo)
 			if err != nil {
@@ -90,7 +93,11 @@ func (s *historyStore) ListRecordHistory(ctx context.Context, record RecordHisto
 	if err != nil {
 		return nil, err
 	}
-	items = append(items, s.materializer.Revisions(record, revisionRows, items)...)
+	revisions, err := s.materializer.Revisions(record, revisionRows, items)
+	if err != nil {
+		return nil, fmt.Errorf("project record history revision: %w", err)
+	}
+	items = append(items, revisions...)
 	if err := s.attribution.DecorateTx(ctx, tx, record.IncidentID, items); err != nil {
 		return nil, err
 	}

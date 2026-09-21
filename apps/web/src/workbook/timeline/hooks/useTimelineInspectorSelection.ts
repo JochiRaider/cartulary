@@ -49,7 +49,7 @@ type TimelineRowContextMenuState = {
 
 export function useTimelineInspectorSelection({
   committedRecords,
-  inspectorResetKey = "timeline",
+  readScope,
   currentIncidentRole,
   dismissedMentionsByRow,
   observedMentions,
@@ -57,7 +57,7 @@ export function useTimelineInspectorSelection({
   selectedMentionRef,
 }: {
   readonly committedRecords?: TimelineCommittedInspectorRecords;
-  readonly inspectorResetKey?: string;
+  readonly readScope: string;
   readonly currentIncidentRole: string | null | undefined;
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
   readonly observedMentions: readonly MentionSubject[];
@@ -84,7 +84,7 @@ export function useTimelineInspectorSelection({
     rowVersion: (row) => row.rowVersion ?? 0,
     // Role changes invalidate action authority independently. An accepted
     // incident reader still owns the same source projection.
-    scope: inspectorResetKey,
+    scope: readScope,
     readable: !!currentIncidentRole,
   });
   const draftRow = useMemo(

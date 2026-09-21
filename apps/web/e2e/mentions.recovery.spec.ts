@@ -128,6 +128,24 @@ async function runRecovery(
   await expect(
     page.getByRole("textbox", { name: "Hostname value", exact: true }),
   ).toHaveValue("");
+  const correction = page.getByText("Correction and resolution", {
+    exact: true,
+  });
+  await correction.click();
+  await expect(
+    page.getByText(
+      "Unfinished entity creation is retained. Open Correction and resolution to continue.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Display Name value", exact: true }),
+  ).not.toBeVisible();
+  expect(creates).toHaveLength(0);
+  await correction.click();
+  await expect(
+    page.getByRole("textbox", { name: "Display Name value", exact: true }),
+  ).toHaveValue(rawText);
   const submit = page.getByRole("button", {
     name: "Create host and resolve",
     exact: true,
@@ -146,6 +164,11 @@ async function runRecovery(
     await expect(
       page.getByRole("region", { name: "Mention operation status" }),
     ).toContainText("The outcome is uncertain.");
+    await correction.click();
+    await expect(
+      page.getByRole("button", { name: "Replay mention action", exact: true }),
+    ).toBeVisible();
+    expect(resolves).toHaveLength(1);
     await page.getByTestId(workbookSurfacesMenuTriggerTestId()).click();
     await page
       .getByTestId(workbookSurfacesMenuOptionTestId(hostsViewSchemaId))

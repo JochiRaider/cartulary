@@ -68,6 +68,9 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 			"incident_bundle_contribution.go": true,
 			"subtype_presence.go":             true,
 		},
+		indicatorsRepoImportPrefix + "internal/modules/revisions/historycontract": {
+			"history_projection.go": true,
+		},
 		indicatorsRepoImportPrefix + "internal/modules/revisions": {
 			"child_coordination.go":             true,
 			"create_service.go":                 true,

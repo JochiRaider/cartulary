@@ -59,6 +59,9 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 		entitiesRepoImportPrefix + "internal/modules/records/subtypepresence": {
 			"incident_bundle_subtype_presence.go": true,
 		},
+		entitiesRepoImportPrefix + "internal/modules/revisions/historycontract": {
+			"history_projection.go": true,
+		},
 		entitiesRepoImportPrefix + "internal/modules/revisions": {
 			"revision_provider_contribution.go": true,
 		},

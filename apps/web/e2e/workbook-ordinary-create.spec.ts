@@ -159,10 +159,9 @@ test("Ordinary grid and inspector share retained authoring and admit same-frame 
     )
       bodies.push(request.postData() ?? "");
   });
-  const inspectorCommit = page.getByRole("button", {
-    name: "Commit draft row",
-    exact: true,
-  });
+  const inspectorCommit = page
+    .locator("[data-inspector-state]")
+    .getByTestId(genericCreateSubmitTestId(view));
   const gridCommitId = genericCreateSubmitTestId(view);
   await scrollGridTargetIntoView({
     page,

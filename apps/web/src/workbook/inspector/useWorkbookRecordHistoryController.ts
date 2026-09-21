@@ -564,6 +564,16 @@ export function useWorkbookRecordHistoryController({
         rejectReview(active, "The record changed. Review this action again.");
         return;
       }
+      const acceptedGeneration =
+        snapshotRef.current.browsing?.accepted?.data.representation_generation;
+      if (
+        acceptedGeneration !== undefined &&
+        acceptedGeneration !== checked.page.representation_generation
+      ) {
+        dispatchHistory({ type: "cancel" });
+        await load(active, undefined, "refresh");
+        return;
+      }
       if (
         !snapshotRef.current.browsing?.accepted &&
         !checked.provenance?.request.cursorToken &&
@@ -599,7 +609,7 @@ export function useWorkbookRecordHistoryController({
       )
         dispatchHistory({ type: "preview", pendingAction: pending });
     },
-    [owner, dispatchHistory, canMutate, rejectReview],
+    [owner, dispatchHistory, canMutate, rejectReview, load],
   );
   const preview = useCallback(
     async (
@@ -708,6 +718,8 @@ export function useWorkbookRecordHistoryController({
     previewAbort.current?.abort();
     previewReview.current?.lookup.cancel();
     previewReview.current = null;
+    previewPending.current = null;
+    dispatchHistory({ type: "lookup_changed", lookup: undefined });
     dispatchHistory({ type: "cancel" });
   }, [dispatchHistory]);
   const confirm = useCallback(async () => {

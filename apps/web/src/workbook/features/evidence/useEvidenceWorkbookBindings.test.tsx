@@ -286,6 +286,10 @@ describe("Evidence workbook bindings", () => {
     clickPreview();
     expect(props.mutationCommands.issueHandle).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("private_payload")).toBeNull();
+    expect(screen.getByText("Evidence information")).not.toBeNull();
+    expect(
+      screen.getByRole("region", { name: "Evidence attachment and recovery" }),
+    ).not.toBeNull();
     expect(
       screen
         .getByTestId(evidenceAccessMessageTestId(row.record_id))
@@ -335,6 +339,12 @@ describe("Evidence workbook bindings", () => {
         { target: { files } },
       );
     expect(begin).toHaveBeenCalledTimes(2);
+    const attachment = screen.getByRole("region", {
+      name: "File attachment for Investigation screenshot",
+    });
+    fireEvent.drop(attachment, { dataTransfer: { files } });
+    fireEvent.paste(attachment, { clipboardData: { files } });
+    expect(begin).toHaveBeenCalledTimes(4);
     expect(begin).toHaveBeenLastCalledWith(row, files);
     expect(props.mutation.beginMutation).not.toHaveBeenCalled();
     expect(screen.getByText("Choose one file at a time.")).toBeTruthy();

@@ -22,6 +22,7 @@ it("Canonical refresh reads unfiltered pages and fences historical receipts agai
       incident_id: observationAuthority.incidentId,
       row_version: 9,
       deleted: false,
+      representation_generation: "cartulary.history.1",
       items: [],
       paging: { has_more: false, next_cursor: null, limit: 100 },
     },

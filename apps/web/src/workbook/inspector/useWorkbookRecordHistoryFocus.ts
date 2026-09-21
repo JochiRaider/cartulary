@@ -10,6 +10,7 @@ import {
 type HistoryFocusKind = "delete" | "restore" | "rollback";
 
 type HistoryFocusRequest = {
+  readonly historyItemRef?: string;
   readonly actionIdentity: string;
   readonly kind: HistoryFocusKind;
   readonly stage: "preview" | "submitted";
@@ -111,10 +112,12 @@ export function useWorkbookRecordHistoryFocus({
       actionIdentity: string,
       kind: HistoryFocusKind,
       element: HTMLButtonElement,
+      historyItemRef?: string,
     ) => {
       if (currentSubjectIdentity === null) return;
       actionElementsRef.current.set(actionIdentity, element);
       focusRequestRef.current = {
+        ...(historyItemRef ? { historyItemRef } : {}),
         actionIdentity,
         kind,
         stage: "preview",
@@ -151,6 +154,14 @@ export function useWorkbookRecordHistoryFocus({
   }, [onConfirmPendingAction]);
 
   return {
+    cancelEventReview: (historyItemRef: string) => {
+      const request = focusRequestRef.current;
+      if (
+        request?.stage === "preview" &&
+        request.historyItemRef === historyItemRef
+      )
+        cancelPendingAction();
+    },
     cancelPendingAction,
     captureFocusRequest,
     confirmPendingAction,
@@ -288,6 +299,12 @@ function historyFocusElementIsAvailable(
   }
   if (element instanceof HTMLButtonElement && element.disabled) return false;
   for (let current: HTMLElement | null = element; current !== null; ) {
+    if (
+      current instanceof HTMLDetailsElement &&
+      !current.open &&
+      !current.querySelector(":scope > summary")?.contains(element)
+    )
+      return false;
     const style = globalThis.getComputedStyle(current);
     if (
       current.hidden ||

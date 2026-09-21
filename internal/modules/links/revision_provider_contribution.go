@@ -27,6 +27,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule: revisions.SourceOwnerLinks,
 				TargetKind:        "record_link",
+				HistoryProjector:  projectLinkHistory,
 				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"src_record_id", "dst_record_id"}, revisions.HistorySingleEntry),
 				HistoryValidator:  validator,
 				RollbackProvider:  provider,
@@ -34,6 +35,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule: revisions.SourceOwnerLinks,
 				TargetKind:        "record_tag",
+				HistoryProjector:  projectTagHistory,
 				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"record_id"}, revisions.HistorySingleEntry),
 				HistoryValidator:  validator,
 				RollbackProvider:  provider,

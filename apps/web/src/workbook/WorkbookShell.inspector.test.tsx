@@ -59,6 +59,7 @@ import { ContextualCreateContext } from "./features/coordination/ContextualCreat
 import { WorkbookContextualTaskDecisionCreateOwner } from "./features/coordination/WorkbookContextualTaskDecisionCreateOwner";
 import { TimelineRelatedEvidenceContext } from "./features/evidence/TimelineRelatedEvidenceContext";
 import { WorkbookTimelineRelatedEvidenceOwner } from "./features/evidence/WorkbookTimelineRelatedEvidenceOwner";
+import { historyDiffFixture } from "./history/workbookHistoryTestFixtures";
 import type { RecordHistoryItem } from "./inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
@@ -74,10 +75,7 @@ const historyItem: RecordHistoryItem = {
   committed_at: "2026-05-11T12:00:00Z",
   history_item_ref: "hitem_workbook_interaction_stable",
   operation: "field_update",
-  diff_summary: {
-    summary: "field_update timeline_record",
-    units: [{ history_unit_kind: "mutation" }],
-  },
+  diff_summary: historyDiffFixture("field_update timeline_record"),
   change_set_id: "30000000-0000-4000-8000-000000000001",
   reversible: true,
   available_rollback_actions: ["history_entry"],
@@ -96,6 +94,7 @@ function historyEnvelope(options: {
         record_id: options.recordId ?? "20000000-0000-4000-8000-000000000001",
         row_version: options.rowVersion ?? 4,
         deleted: false,
+        representation_generation: "cartulary.history.1",
         items: options.items ?? [historyItem],
       },
       meta: {

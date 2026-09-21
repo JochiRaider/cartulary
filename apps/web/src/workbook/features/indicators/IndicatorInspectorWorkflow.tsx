@@ -9,6 +9,11 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
+  workbookFormFieldStackStyle as observationField,
+  workbookFormInputStyle as observationInput,
+  workbookFormFieldsStyle as observationStack,
+} from "../../components/workbookFormStyles";
+import {
   inspectorReadData,
   WorkbookInspectorRegionContent,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
@@ -32,11 +37,6 @@ import {
   type ObservationSubject,
   observationIntentSource,
 } from "./observationOperation";
-import {
-  observationField,
-  observationInput,
-  observationStack,
-} from "./observationStyles";
 import { useObservationTargetNames } from "./useObservationTargetNames";
 
 type Props = {

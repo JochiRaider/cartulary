@@ -7,18 +7,24 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	"github.com/google/uuid"
 )
 
-type historyRowMaterializer struct{}
+type historyRowMaterializer struct{ catalog *TargetSemanticsCatalog }
 
-func (historyRowMaterializer) Mutation(record RecordHistoryRecord, row mutationHistoryRow) RecordHistoryItem {
+func (materializer historyRowMaterializer) Mutation(record RecordHistoryRecord, row mutationHistoryRow) (RecordHistoryItem, error) {
+	summary, err := materializer.catalog.projectHistory(record, row.TargetKind, row.TargetID, row.OperationKind, row.BeforeValue, row.AfterValue)
+	if err != nil {
+		return RecordHistoryItem{}, err
+	}
 	return RecordHistoryItem{
 		ActorUserID:              row.ActorUserID,
 		CommittedAt:              row.CommittedAt,
 		HistoryItemRef:           historyItemRefForMutation(record.RecordID, row.ChangeSetID, row.SequenceNo),
 		Operation:                historyOperation(row.Source, row.OperationKind),
-		DiffSummary:              mutationDiffSummary(row.TargetKind, row.TargetID, row.OperationKind, row.SequenceNo, row.BeforeValue, row.AfterValue),
+		DiffSummary:              summary,
 		ChangeSetID:              row.ChangeSetID,
 		AvailableRollbackActions: nil,
 		HistoryEntryRef:          row.HistoryEntryRef,
@@ -29,26 +35,51 @@ func (historyRowMaterializer) Mutation(record RecordHistoryRecord, row mutationH
 		syntheticRank:            0,
 		targetKey:                row.TargetKind + ":" + row.TargetID,
 		hasTargetEntry:           row.HistoryEntryAddressable,
-	}
+		rowProjected:             materializer.catalog.byTargetKind[row.TargetKind].dispatchClass == rollbackcontract.DispatchRow,
+	}, nil
 }
 
-func (historyRowMaterializer) Revisions(record RecordHistoryRecord, rows []revisionHistoryRow, mutationItems []RecordHistoryItem) []RecordHistoryItem {
-	changeSetsWithMutation := make(map[uuid.UUID]bool, len(mutationItems))
-	for _, item := range mutationItems {
-		changeSetsWithMutation[item.ChangeSetID] = true
+func (materializer historyRowMaterializer) Revisions(record RecordHistoryRecord, rows []revisionHistoryRow, mutationItems []RecordHistoryItem) ([]RecordHistoryItem, error) {
+	changeSetsWithMutation := make(map[uuid.UUID]int, len(mutationItems))
+	changeSetsWithRow := make(map[uuid.UUID]bool, len(mutationItems))
+	for i, item := range mutationItems {
+		if _, exists := changeSetsWithMutation[item.ChangeSetID]; !exists {
+			changeSetsWithMutation[item.ChangeSetID] = i
+		}
+		if item.rowProjected {
+			changeSetsWithRow[item.ChangeSetID] = true
+		}
 	}
 	items := make([]RecordHistoryItem, 0, len(rows))
 	for _, row := range rows {
-		if changeSetsWithMutation[row.ChangeSetID] {
+		revisionNo := row.RevisionNo
+		summary, err := materializer.catalog.projectHistory(record, "record", record.RecordID.String(), "row_revision", row.BeforeValue, row.AfterValue)
+		if err != nil {
+			return nil, err
+		}
+		if index, exists := changeSetsWithMutation[row.ChangeSetID]; exists {
+			if !changeSetsWithRow[row.ChangeSetID] {
+				units := append([]historycontract.Unit{}, mutationItems[index].DiffSummary.Units...)
+				for _, unit := range summary.Units {
+					if unit.Kind == "record" && unit.Operation == "update" && len(unit.Changes) == 0 {
+						continue
+					}
+					units = append(units, unit)
+				}
+				combined, err := historycontract.Summarize(units)
+				if err != nil {
+					return nil, err
+				}
+				mutationItems[index].DiffSummary = combined
+			}
 			continue
 		}
-		revisionNo := row.RevisionNo
 		items = append(items, RecordHistoryItem{
 			ActorUserID:              row.ActorUserID,
 			CommittedAt:              row.CommittedAt,
 			HistoryItemRef:           historyItemRefForRevision(record.RecordID, row.ChangeSetID, row.RevisionNo),
 			Operation:                historyOperation(row.Source, "row_revision"),
-			DiffSummary:              revisionDiffSummary(record.RecordID, row.RevisionNo, row.BeforeValue, row.AfterValue),
+			DiffSummary:              summary,
 			ChangeSetID:              row.ChangeSetID,
 			AvailableRollbackActions: nil,
 			RevisionNo:               &revisionNo,
@@ -58,7 +89,7 @@ func (historyRowMaterializer) Revisions(record RecordHistoryRecord, rows []revis
 			syntheticRank:            1,
 		})
 	}
-	return items
+	return items, nil
 }
 
 // historyPageAssembler owns the canonical newest-first order and resource
@@ -108,32 +139,4 @@ func historyOperation(source string, operationKind string) string {
 		return source
 	}
 	return "unknown"
-}
-
-func mutationDiffSummary(targetKind string, targetID string, operationKind string, sequenceNo int, beforeValue []byte, afterValue []byte) map[string]any {
-	return map[string]any{
-		"summary": fmt.Sprintf("%s %s", historyOperation("", operationKind), targetKind),
-		"units": []map[string]any{{
-			"target_kind":       targetKind,
-			"target_id":         targetID,
-			"operation":         historyOperation("", operationKind),
-			"sequence_no":       sequenceNo,
-			"has_before_value":  len(beforeValue) > 0,
-			"has_after_value":   len(afterValue) > 0,
-			"history_unit_kind": "mutation",
-		}},
-	}
-}
-
-func revisionDiffSummary(recordID uuid.UUID, revisionNo int64, beforeValue []byte, afterValue []byte) map[string]any {
-	return map[string]any{
-		"summary": fmt.Sprintf("row revision %d", revisionNo),
-		"units": []map[string]any{{
-			"record_id":         recordID.String(),
-			"revision_no":       revisionNo,
-			"has_before_value":  len(beforeValue) > 0,
-			"has_after_value":   len(afterValue) > 0,
-			"history_unit_kind": "row_revision",
-		}},
-	}
 }

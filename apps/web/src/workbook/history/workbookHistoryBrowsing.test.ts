@@ -11,6 +11,7 @@ import {
   rejectHistoryRead,
 } from "./workbookHistoryBrowsing";
 import type { HistoryPage, RecordHistoryItem } from "./workbookHistoryPage";
+import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const scope = {
   epoch: 1,
@@ -28,7 +29,7 @@ const item = (ref: string): RecordHistoryItem => ({
   operation: "patch",
   reversible: true,
   available_rollback_actions: ["history_entry"],
-  diff_summary: { summary: ref, units: [] },
+  diff_summary: historyDiffFixture(ref),
 });
 const page = (
   refs: string[],
@@ -39,6 +40,7 @@ const page = (
   record_id: "record",
   row_version: rowVersion,
   deleted: false,
+  representation_generation: "cartulary.history.1",
   items: refs.map(item),
   paging:
     next === null
@@ -56,6 +58,37 @@ function loaded(refs = ["a"], cursor: string | null = "next") {
   );
 }
 describe("History browsing state", () => {
+  it("restarts across representation generations before comparing committed items", () => {
+    for (const refs of [["a"], []]) {
+      const state = beginHistoryRead(loaded(), "continuation");
+      const changed = acceptHistoryPage(
+        state,
+        required(state.pending),
+        {
+          ...page(refs, null),
+          representation_generation: "cartulary.history.2",
+        },
+        current,
+      );
+      expect(changed.accepted).toBeNull();
+      expect(changed.failure?.restart).toBe(true);
+      const fresh = beginHistoryRead(changed, "refresh");
+      expect(fresh.pending?.request).toEqual({});
+      const accepted = acceptHistoryPage(
+        fresh,
+        required(fresh.pending),
+        {
+          ...page(["a"], null),
+          representation_generation: "cartulary.history.2",
+        },
+        current,
+      );
+      expect(accepted.accepted?.data.representation_generation).toBe(
+        "cartulary.history.2",
+      );
+      expect(accepted.accepted?.data.items).toHaveLength(1);
+    }
+  });
   it("bounds review payloads provenance and continuation while preserving ordinary browsing", () => {
     let review = initialHistoryBrowsing(scope, "record", "view", 3);
     let ordinary = initial();
@@ -139,6 +172,7 @@ describe("History browsing state", () => {
     let state = beginHistoryRead(loaded(["a", "b"]), "continuation");
     const next: HistoryPage = {
       ...page(["b", "c"], null, 5),
+      representation_generation: "cartulary.history.1",
       items: [
         { ...item("b"), reversible: false, available_rollback_actions: [] },
         item("c"),
@@ -169,6 +203,7 @@ describe("History browsing state", () => {
       page(["a"], null),
       {
         ...page(["a", "b"], null),
+        representation_generation: "cartulary.history.1",
         items: [{ ...item("a"), operation: "rewritten" }, item("b")],
       },
       {

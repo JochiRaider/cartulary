@@ -1,3 +1,4 @@
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import type { InspectorDisabledCondition } from "@cartulary/view-contracts";
 import {
   type ComponentPropsWithRef,
@@ -6,6 +7,10 @@ import {
   useId,
 } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import {
+  workbookFormButtonStyle,
+  workbookTypography,
+} from "../../components/workbookFormStyles";
 import type { WorkbookInspectorActionBinding } from "./workbookInspectorPresentationModel";
 import {
   type WorkbookInspectorDisabledReason,
@@ -45,6 +50,7 @@ export function WorkbookInspectorContextualAction({
   readonly onInvoke: () => void;
 }) {
   const reasonId = useId();
+  const outcomeId = useId();
   const reason =
     workbookInspectorDisabledReason({
       currentIncidentRole,
@@ -58,7 +64,10 @@ export function WorkbookInspectorContextualAction({
       <WorkbookInspectorActionButton
         {...workbookInspectorActionSemanticProps(
           binding,
-          reason === null ? undefined : (descriptionId ?? reasonId),
+          [
+            outcomeId,
+            ...(reason === null ? [] : [descriptionId ?? reasonId]),
+          ].join(" "),
         )}
         disabled={reason !== null}
         tone="secondary"
@@ -66,6 +75,9 @@ export function WorkbookInspectorContextualAction({
       >
         {binding.featureGroup.label}
       </WorkbookInspectorActionButton>
+      <p id={outcomeId} style={outcomeStyle}>
+        {cartularyDesignPresentation.inspector.actionOutcomes[binding.outcome]}
+      </p>
       {reason === null || descriptionId ? null : (
         <WorkbookInspectorDisabledReasonMessage id={reasonId}>
           {workbookInspectorDisabledReasonText(reason)}
@@ -127,50 +139,52 @@ export function WorkbookInspectorDisabledReasonMessage({
 }
 
 const actionGroupStyle = {
-  display: "flex",
-  flexWrap: "wrap" as const,
-  gap: "var(--ct-spacing-xs)",
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
   margin: 0,
   padding: 0,
   border: 0,
 } satisfies CSSProperties;
 const contextualActionStyle = {
   display: "grid",
-  gap: "var(--ct-spacing-xxs)",
+  gap: "var(--ct-spacing-xs)",
+  justifyItems: "start",
+  paddingBlock: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+const outcomeStyle = {
+  ...workbookTypography("compact-metadata"),
+  color: "var(--ct-colors-ink-muted)",
+  margin: 0,
 } satisfies CSSProperties;
 const baseButtonStyle = {
-  maxInlineSize: "100%",
-  overflowWrap: "anywhere",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  color: "inherit",
-  font: "inherit",
-  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
+  ...workbookFormButtonStyle,
 } satisfies CSSProperties;
 const buttonStyleByTone = {
   ordinary: {
     ...baseButtonStyle,
-    background: "var(--ct-colors-surface-1)",
   },
   secondary: {
     ...baseButtonStyle,
-    background: "var(--ct-colors-surface-1)",
   },
   primary: {
     ...baseButtonStyle,
-    background: "var(--ct-colors-accent)",
-    color: "var(--ct-colors-on-accent)",
+    background: "var(--ct-component-button-primary-backgroundColor)",
+    color: "var(--ct-component-button-primary-textColor)",
+    padding: "var(--ct-component-button-primary-padding)",
+    borderRadius: "var(--ct-component-button-primary-rounded)",
   },
   destructive: {
     ...baseButtonStyle,
     borderColor: "var(--ct-colors-semantic-destructive)",
     background: "var(--ct-component-button-danger-backgroundColor)",
     color: "var(--ct-component-button-danger-textColor)",
+    padding: "var(--ct-component-button-danger-padding)",
+    borderRadius: "var(--ct-component-button-danger-rounded)",
   },
 } as const satisfies Record<string, CSSProperties>;
 const disabledReasonStyle = {
+  ...workbookTypography("metadata"),
   flexBasis: "100%",
   margin: 0,
   color: "var(--ct-colors-ink-muted)",
-  fontSize: "var(--ct-typography-metadata-fontSize)",
 } satisfies CSSProperties;

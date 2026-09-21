@@ -42,9 +42,13 @@ export type TimelineInspectorDetailsOwner = {
 export function TimelineInspectorDetails({
   row,
   owner,
+  collectionDestinations,
 }: {
   readonly row: WorkbookRow;
   readonly owner: TimelineInspectorDetailsOwner;
+  readonly collectionDestinations?:
+    | Readonly<Record<string, (() => void) | undefined>>
+    | undefined;
 }) {
   const [fieldKey, setFieldKey] = useState("");
   const snapshot = useSyncExternalStore(
@@ -155,40 +159,42 @@ export function TimelineInspectorDetails({
       disabledReason={
         owner.drafts.canAuthor() ? null : "Current access permits reading only."
       }
-      editor={
-        field ? (
+      retainedWork={edit.retainedWork}
+      onReviewDraft={(identity) => setFieldKey(identity.fieldKey)}
+      collectionDestinations={collectionDestinations}
+      editor={{
+        content: field ? (
+          <WorkbookInspectorEditControl
+            edit={edit}
+            field={field}
+            collectionMode="add"
+            ariaLabel={field.label}
+            invalid={feedback.message !== null}
+            describedBy={feedback.message ? feedbackId : undefined}
+            testId={timelineScalarEditorTestId({
+              fieldKey,
+              recordId: saved.record_id,
+              surface: "inspector",
+            })}
+          />
+        ) : null,
+        actions: field ? (
+          <Button
+            tone="primary"
+            data-testid={genericEditSubmitTestId(timelineViewSchemaId)}
+            disabled={!canSubmit}
+            onClick={() => void submit()}
+          >
+            Update
+          </Button>
+        ) : null,
+        feedback: (
           <>
-            <WorkbookInspectorEditControl
-              edit={edit}
-              field={field}
-              collectionMode="add"
-              ariaLabel={field.label}
-              invalid={feedback.message !== null}
-              describedBy={feedback.message ? feedbackId : undefined}
-              testId={timelineScalarEditorTestId({
-                fieldKey,
-                recordId: saved.record_id,
-                surface: "inspector",
-              })}
-            />
             {feedback.message ? (
               <p role="alert" id={feedbackId}>
                 {feedback.message}
               </p>
             ) : null}
-            <WorkbookInspectorDraftFeedback
-              edit={edit}
-              contract={contract}
-              row={saved}
-            />
-            <Button
-              tone="primary"
-              data-testid={genericEditSubmitTestId(timelineViewSchemaId)}
-              disabled={!canSubmit}
-              onClick={() => void submit()}
-            >
-              Update
-            </Button>
             {feedback.actionError ? (
               <WorkbookInspectorPublicError error={feedback.actionError} />
             ) : null}
@@ -199,8 +205,15 @@ export function TimelineInspectorDetails({
               fieldKey={fieldKey}
             />
           </>
-        ) : null
-      }
+        ),
+        retainedDraft: (
+          <WorkbookInspectorDraftFeedback
+            edit={edit}
+            contract={contract}
+            row={saved}
+          />
+        ),
+      }}
     />
   );
 }

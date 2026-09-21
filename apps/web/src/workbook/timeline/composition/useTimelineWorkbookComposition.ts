@@ -36,6 +36,11 @@ export function useTimelineWorkbookComposition({
     dismissedMentionsByRow: foundation.snapshot.mentions.dismissedMentionsByRow,
     observedMentions: foundation.snapshot.mentions.observedMentions,
     inspectorResetKey: runtime.incident.inspectorResetKey,
+    readScope: JSON.stringify([
+      runtime.incident.id,
+      runtime.incident.currentUserId,
+      runtime.mutationRuntime.authorizationEpoch,
+    ]),
     rows: foundation.snapshot.rows,
     selectedMentionRef: foundation.snapshot.mentions.selectedMentionRef,
     workbookFocusAnchorRef: grid.refs.workbookFocusAnchor,

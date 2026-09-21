@@ -2,14 +2,22 @@ import { readdirSync, readFileSync } from "node:fs";
 import {
   type InspectorDisabledCondition,
   type InspectorFeatureGroup,
+  listViewContracts,
   requireViewContract,
 } from "@cartulary/view-contracts";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  WorkbookInspectorNavigationContext,
+  type WorkbookInspectorNavigationSelection,
+  workbookInspectorSectionFocusDestination,
+} from "../../layout/workbookInspectorNavigation";
 import { inspectorContextualCapabilities } from "../inspectorCapabilityResolver";
 import { WorkbookInspectorContextualActions } from "../WorkbookInspectorContextualActions";
 import { WorkbookInspectorDeclaredPanelList } from "../WorkbookInspectorDeclaredPanelList";
+import { WorkbookInspectorDetails } from "../WorkbookInspectorDetails";
+import { workbookHistoryEventPresentation } from "../workbookHistoryPresentationModel";
 import {
   workbookInspectorErrorPresentation,
   workbookInspectorMessageFeedback,
@@ -20,6 +28,11 @@ import {
   updateWorkbookInspectorSubject,
   workbookInspectorSubjectsEqual,
 } from "../workbookInspectorSubject";
+import type { RecordHistoryItem } from "../workbookRecordHistoryModel";
+import {
+  WorkbookHistoryEvent,
+  WorkbookHistoryList,
+} from "./WorkbookHistoryPresentation";
 import { WorkbookInspectorContextualAction } from "./WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
@@ -52,6 +65,197 @@ if (relationshipsPanel === undefined) {
 }
 
 describe("Workbook Inspector presentation", () => {
+  it("orders admitted action rows once with explicit outcomes across all configurations", () => {
+    let admitted = 0;
+    for (const contract of listViewContracts()) {
+      for (const panel of contract.inspectorConfig.panels) {
+        const capabilities = inspectorContextualCapabilities({
+          config: contract.inspectorConfig,
+          panelId: panel.panelId,
+        });
+        if (!capabilities.length) continue;
+        const action = vi.fn();
+        const { container, unmount } = render(
+          <WorkbookInspectorContextualActions
+            config={contract.inspectorConfig}
+            capabilities={[...capabilities].reverse().concat(capabilities)}
+            currentIncidentRole="admin"
+            disabledTokens={new Set()}
+            onAction={action}
+          />,
+        );
+        const buttons = [...container.querySelectorAll("button")];
+        expect(buttons.map((button) => button.textContent)).toEqual(
+          capabilities.map((capability) => capability.featureGroup.label),
+        );
+        expect(container.querySelectorAll("li")).toHaveLength(
+          capabilities.length,
+        );
+        for (const [index, button] of buttons.entries()) {
+          const description = button.getAttribute("aria-describedby");
+          expect(description).not.toBeNull();
+          expect(
+            document.getElementById(description ?? "")?.textContent,
+          ).toMatch(/^Opens (authoring|review|the related workbook view)/);
+          fireEvent.click(button);
+          expect(action).toHaveBeenNthCalledWith(
+            index + 1,
+            capabilities[index],
+          );
+        }
+        expect(action).toHaveBeenCalledTimes(capabilities.length);
+        admitted += capabilities.length;
+        unmount();
+      }
+    }
+    expect(listViewContracts()).toHaveLength(17);
+    expect(admitted).toBe(48);
+  });
+  it("renders every semantic History family with complete values and nested disclosure focus", () => {
+    const kinds: RecordHistoryItem["diff_summary"]["units"][number]["kind"][] =
+      [
+        "field",
+        "link",
+        "mention",
+        "tag",
+        "evidence_association",
+        "capture_state",
+        "record",
+        "entity_identifier",
+        "indicator_observation",
+        "indicator_interval",
+      ];
+    const values = [
+      false,
+      0,
+      "",
+      "Long narrative\nwith a second line",
+      ["record-a", "record-b"],
+    ] as const;
+    const [firstUnit, ...otherUnits] = kinds.map(
+      (kind, index): RecordHistoryItem["diff_summary"]["units"][number] => ({
+        unit_ref: `unit-${kind}`,
+        kind,
+        operation: "update",
+        record_ids: ["source-record"],
+        changes: [
+          {
+            field_key: `${kind}.detail`,
+            before: { state: index % 2 ? "null" : "absent" },
+            after: {
+              state: "present",
+              value: values[index % values.length] ?? false,
+            },
+          },
+        ],
+      }),
+    );
+    if (!firstUnit) throw new Error("Missing semantic fixture");
+    const event = workbookHistoryEventPresentation({
+      actor_user_id: "local-actor",
+      source_actor_id: "imported-actor",
+      committed_at: "2026-09-21T00:12:34.123456Z",
+      history_item_ref: "item",
+      operation: "patch",
+      change_set_id: "change",
+      reversible: false,
+      available_rollback_actions: [],
+      diff_summary: {
+        schema_id: "cartulary.history_diff.v1",
+        summary: "Untrusted display summary",
+        units: [firstUnit, ...otherUnits],
+      },
+    });
+    const closed = vi.fn();
+    const { container } = render(
+      <WorkbookHistoryList>
+        <WorkbookHistoryEvent
+          event={event}
+          onClose={closed}
+          actions={<button type="button">Review reversal</button>}
+        />
+      </WorkbookHistoryList>,
+    );
+    expect(container.textContent).toContain(
+      "Changed by Identifier imported-actor",
+    );
+    expect(container.textContent).toContain("2026-09-21 00:12:34 UTC +00:00");
+    const disclosure = container.querySelector("li > details");
+    if (!(disclosure instanceof HTMLDetailsElement))
+      throw new Error("Missing event disclosure");
+    expect(disclosure.open).toBe(false);
+    disclosure.open = true;
+    for (const kind of kinds)
+      expect(container.textContent).toContain(`${kind}.detail`);
+    for (const value of [
+      "Not present",
+      "No value (null)",
+      "False",
+      "0",
+      "Empty text",
+      "Long narrative",
+      "record-a",
+      "record-b",
+      "2026-09-21T00:12:34.123456Z",
+    ])
+      expect(container.textContent).toContain(value);
+    expect(container.querySelectorAll("section")).toHaveLength(kinds.length);
+    const review = screen.getByRole("button", { name: "Review reversal" });
+    review.focus();
+    fireEvent.keyDown(review, { key: "Escape" });
+    expect(disclosure.open).toBe(false);
+    expect(document.activeElement).toBe(
+      disclosure.querySelector(":scope > summary"),
+    );
+  });
+  it("preserves declared saved field order and value distinctions across all configurations", () => {
+    const contracts = listViewContracts();
+    expect(contracts).toHaveLength(17);
+    for (const contract of contracts) {
+      const cells = Object.fromEntries(
+        contract.fields.map((field, index) => [
+          field.fieldKey,
+          { value: [null, false, 0, "", "Readable value"][index % 5] },
+        ]),
+      );
+      const last = contract.fields.at(-1);
+      if (last) delete cells[last.fieldKey];
+      const view = render(
+        <WorkbookInspectorDetails
+          contract={contract}
+          row={{ record_id: "saved", row_version: 1, cells }}
+          editableFields={[]}
+          activeField=""
+          onEdit={vi.fn()}
+          onDetach={vi.fn()}
+          onSubmit={vi.fn()}
+          onReviewDraft={vi.fn()}
+          retainedWork={[]}
+          canSubmit={false}
+          editor={{
+            content: null,
+            actions: null,
+            feedback: null,
+            retainedDraft: null,
+          }}
+        />,
+      );
+      const rows = [
+        ...view.container.querySelectorAll("[data-inspector-saved-field]"),
+      ];
+      expect(
+        rows.map((row) => row.getAttribute("data-inspector-saved-field")),
+      ).toEqual(contract.fields.map((field) => field.fieldKey));
+      rows.forEach((row, index) => {
+        expect(row.querySelector("dd")?.textContent).toBe(
+          index === rows.length - 1
+            ? "Not loaded"
+            : ["Not set", "No", "0", "Empty text", "Readable value"][index % 5],
+        );
+      });
+      view.unmount();
+    }
+  });
   it("shares one permission explanation across affected actions", () => {
     const capabilities = inspectorContextualCapabilities({
       config: hosts.inspectorConfig,
@@ -70,10 +274,12 @@ describe("Workbook Inspector presentation", () => {
     expect(actions.length).toBeGreaterThan(1);
     expect(actions.every((action) => action.disabled)).toBe(true);
     const descriptions = new Set(
-      actions.map((action) => action.getAttribute("aria-describedby")),
+      actions.map((action) =>
+        action.getAttribute("aria-describedby")?.split(" ").at(-1),
+      ),
     );
     expect(descriptions.size).toBe(1);
-    expect(descriptions.has(null)).toBe(false);
+    expect(descriptions.has(undefined)).toBe(false);
     expect(
       screen.getAllByText("Requires the editor incident role."),
     ).toHaveLength(1);
@@ -134,33 +340,86 @@ describe("Workbook Inspector presentation", () => {
     );
     expect(actions[0]?.disabled).toBe(true);
     expect(actions[1]?.disabled).toBe(false);
-    expect(actions[1]?.hasAttribute("aria-describedby")).toBe(false);
+    expect(
+      actions[1]?.getAttribute("aria-describedby")?.split(" "),
+    ).toHaveLength(1);
   });
-  it("keeps record context and Close outside the scrolling section body", () => {
+  it("keeps record context and Close outside the scrolling section body", async () => {
+    const user = userEvent.setup();
     const label = "A long record label that remains available in full";
-    render(
-      <WorkbookInspectorShell
-        accessibleLabel="Hosts inspector"
-        config={hosts.inspectorConfig}
-        noRowHeading="Hosts inspector"
-        subject={buildWorkbookInspectorSubject({
-          config: hosts.inspectorConfig,
-          kind: "live",
-          label,
-          recordId: "host-a",
-          rowVersion: 3,
-          surfaceLabel: "Hosts",
-        })}
-        onClose={vi.fn()}
-      >
-        <button type="button">Last section action</button>
-      </WorkbookInspectorShell>,
+    const close = vi.fn();
+    const openHistory = vi.fn();
+    const retention = {
+      current: null as WorkbookInspectorNavigationSelection | null,
+    };
+    const details = hosts.inspectorConfig.panels.find(
+      (panel) => panel.panelId === "details",
     );
+    const history = hosts.inspectorConfig.panels.find(
+      (panel) => panel.panelId === "history",
+    );
+    if (!details || !history) throw new Error("Missing declared sections");
+    const view = (recordId = "host-a", concealHistory = false, show = true) => (
+      <WorkbookInspectorNavigationContext value={retention}>
+        {show ? (
+          <WorkbookInspectorShell
+            accessibleLabel="Hosts inspector"
+            config={hosts.inspectorConfig}
+            noRowHeading="Hosts inspector"
+            subject={buildWorkbookInspectorSubject({
+              config: hosts.inspectorConfig,
+              kind: "live",
+              label,
+              recordId,
+              rowVersion: 3,
+              surfaceLabel: "Hosts",
+            })}
+            onClose={close}
+            sections={[
+              {
+                panel: details,
+                focusDestination: workbookInspectorSectionFocusDestination,
+                content: (
+                  <input
+                    aria-label="Unfinished field"
+                    defaultValue="Retained value"
+                  />
+                ),
+              },
+              ...(concealHistory
+                ? []
+                : [
+                    {
+                      panel: history,
+                      focusDestination:
+                        workbookInspectorSectionFocusDestination,
+                      content: (
+                        <button
+                          data-inspector-section-entry
+                          type="button"
+                          onClick={openHistory}
+                        >
+                          Open history
+                        </button>
+                      ),
+                    },
+                  ]),
+            ]}
+          >
+            <button type="button">Last section action</button>
+          </WorkbookInspectorShell>
+        ) : null}
+      </WorkbookInspectorNavigationContext>
+    );
+    const { rerender } = render(view());
     const shell = screen.getByRole("complementary");
     const body = shell.querySelector("[data-inspector-scroll-body]");
     expect(body).not.toBeNull();
     expect(
       body?.contains(screen.getByRole("button", { name: "Close inspector" })),
+    ).toBe(false);
+    expect(
+      body?.contains(screen.getByRole("button", { name: "Sections" })),
     ).toBe(false);
     expect(body?.contains(screen.getByRole("heading", { name: label }))).toBe(
       false,
@@ -171,6 +430,57 @@ describe("Workbook Inspector presentation", () => {
       ),
     ).toBe(true);
     expect(body?.querySelector("details")?.textContent).toContain(label);
+    const field = screen.getByRole("textbox", { name: "Unfinished field" });
+    await user.type(field, " plus draft");
+    await user.click(screen.getByRole("button", { name: "Sections" }));
+    await user.click(screen.getByRole("button", { name: "History" }));
+    expect(screen.getByRole("button", { name: "Open history" })).toBe(
+      document.activeElement,
+    );
+    expect(openHistory).not.toHaveBeenCalled();
+    expect(field).toBe(
+      screen.getByRole("textbox", { name: "Unfinished field" }),
+    );
+    expect((field as HTMLInputElement).value).toBe("Retained value plus draft");
+    expect(screen.getByText("Current section: History")).not.toBeNull();
+    if (body) fireEvent.scroll(body);
+    expect(openHistory).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Open history" })).toBe(
+      document.activeElement,
+    );
+    await user.click(screen.getByRole("button", { name: "Sections" }));
+    await user.tab();
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("navigation", { name: "Inspector sections" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Sections" })).toBe(
+      document.activeElement,
+    );
+    expect(close).not.toHaveBeenCalled();
+    rerender(view("host-a", false, false));
+    rerender(view());
+    expect(screen.getByText("Current section: History")).not.toBeNull();
+    const reopenedField = screen.getByRole("textbox", {
+      name: "Unfinished field",
+    });
+    rerender(view("host-b"));
+    expect(screen.getByRole("textbox", { name: "Unfinished field" })).toBe(
+      reopenedField,
+    );
+    expect(screen.getByText("Current section: Details")).not.toBeNull();
+    // An explicit destination wins without going through the navigation control.
+    fireEvent.focus(screen.getByRole("button", { name: "Open history" }));
+    expect(screen.getByText("Current section: History")).not.toBeNull();
+    screen.getByRole("button", { name: "Open history" }).focus();
+    rerender(view("host-b", true));
+    expect(screen.queryByRole("button", { name: "Open history" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Close inspector" })).toBe(
+      document.activeElement,
+    );
+    await user.click(screen.getByRole("button", { name: "Sections" }));
+    expect(screen.queryByRole("button", { name: "History" })).toBeNull();
+    expect(screen.getByText("Current section: Details")).not.toBeNull();
   });
   it("validates one live or deleted subject boundary and rejects invalid identity", () => {
     const live = buildWorkbookInspectorSubject({
@@ -300,7 +610,24 @@ describe("Workbook Inspector presentation", () => {
           ),
         }}
         subject={live}
-      />,
+      >
+        {(sections) => (
+          <WorkbookInspectorShell
+            config={props.config}
+            accessibleLabel="Inspector"
+            noRowHeading="Inspector"
+            heading="Create a different record"
+            eyebrow="Create"
+            mode="creation"
+            subject={live}
+            onClose={vi.fn()}
+            sections={sections}
+          />
+        )}
+      </WorkbookInspectorDeclaredPanelList>,
+    );
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(
+      "Host alpha",
     );
     expect(
       screen
@@ -320,7 +647,18 @@ describe("Workbook Inspector presentation", () => {
           ),
         }}
         subject={deleted}
-      />,
+      >
+        {(sections) => (
+          <WorkbookInspectorShell
+            config={props.config}
+            accessibleLabel="Inspector"
+            noRowHeading="Inspector"
+            subject={deleted}
+            onClose={vi.fn()}
+            sections={sections}
+          />
+        )}
+      </WorkbookInspectorDeclaredPanelList>,
     );
     expect(
       screen
@@ -344,7 +682,18 @@ describe("Workbook Inspector presentation", () => {
           ),
         }}
         subject={null}
-      />,
+      >
+        {(sections) => (
+          <WorkbookInspectorShell
+            config={props.config}
+            accessibleLabel="Inspector"
+            noRowHeading="Inspector"
+            subject={null}
+            onClose={vi.fn()}
+            sections={sections}
+          />
+        )}
+      </WorkbookInspectorDeclaredPanelList>,
     );
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
     expect(screen.getByText("Standalone creation")).not.toBeNull();
@@ -442,8 +791,9 @@ describe("Workbook Inspector presentation", () => {
     }) as HTMLButtonElement;
     expect(review.disabled).toBe(true);
     expect(
-      document.getElementById(review.getAttribute("aria-describedby") ?? "")
-        ?.textContent,
+      document.getElementById(
+        review.getAttribute("aria-describedby")?.split(" ").at(-1) ?? "",
+      )?.textContent,
     ).toBe("Requires the reviewer incident role.");
     await user.click(review);
     screen.getByRole("button", { name: "Before review" }).focus();
@@ -456,7 +806,9 @@ describe("Workbook Inspector presentation", () => {
     for (const role of ["reviewer", "admin"] as const) {
       rerender(action(role));
       expect(review.disabled).toBe(false);
-      expect(review.hasAttribute("aria-describedby")).toBe(false);
+      expect(review.getAttribute("aria-describedby")?.split(" ")).toHaveLength(
+        1,
+      );
       await user.click(review);
     }
     expect(onInvoke).toHaveBeenCalledTimes(2);

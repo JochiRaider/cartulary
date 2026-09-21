@@ -42,6 +42,7 @@ export class HistoryPageLookup {
   private identities = new Map<string, RecordHistoryItem>();
   private identityPages: string[][] = [];
   private effectiveLimit: number | null = null;
+  private representationGeneration: string | null = null;
   private generation = 0;
   private observation: { cancel: () => void } | null = null;
   private value: HistoryLookupState = {
@@ -116,6 +117,7 @@ export class HistoryPageLookup {
     this.identities.clear();
     this.identityPages = [];
     this.effectiveLimit = null;
+    this.representationGeneration = null;
     this.value = {
       phase: "idle",
       pagesChecked: 0,
@@ -166,6 +168,23 @@ export class HistoryPageLookup {
           return;
         }
         const page = outcome.value;
+        if (
+          this.representationGeneration !== null &&
+          this.representationGeneration !== page.representation_generation
+        ) {
+          this.identities.clear();
+          this.value = {
+            ...this.value,
+            page: null,
+            phase: "restart_required",
+            failure: {
+              kind: "invalid_contract",
+              message: "History was updated. Start checking again.",
+            },
+          };
+          return;
+        }
+        this.representationGeneration = page.representation_generation;
         this.value = {
           ...this.value,
           page: this.options.retainResultPage === false ? null : page,

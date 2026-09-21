@@ -12,6 +12,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:   revisions.SourceOwnerTimeline,
 			RecordType:          "timeline_event",
+			HistoryProjector:    projectRecordHistory,
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.timeline_event.v1",
 			HistoryTargetKinds:  []string{"timeline_record"},
 			DeleteRestoreSource: deleterestore.NewSource(),

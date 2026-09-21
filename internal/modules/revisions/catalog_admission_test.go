@@ -74,6 +74,7 @@ func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing
 	catalog, err := compileRecordSnapshotCaptureCatalog([]ProviderContribution{{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
+			HistoryProjector:  catalogTestHistoryProjector,
 			SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 			RecordType:        "catalog_admission",
 			SnapshotSchemaID:  "cartulary.revisions.snapshot.catalog_admission.v1",
@@ -146,6 +147,7 @@ func TestCatalogAdmissionSnapshotCaptureRejectsInvalidShapeAndMissingRegistratio
 	invalid, err := compileRecordSnapshotCaptureCatalog([]ProviderContribution{{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
+			HistoryProjector:    catalogTestHistoryProjector,
 			SourceOwnerModule:   SourceOwnerModule("catalog_admission_owner"),
 			RecordType:          "catalog_admission",
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.catalog_admission.v1",
@@ -278,6 +280,7 @@ func catalogAdmissionSnapshotContribution(value map[string]any) ProviderContribu
 	return ProviderContribution{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
+			HistoryProjector:  catalogTestHistoryProjector,
 			SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 			RecordType:        "catalog_admission",
 			SnapshotSchemaID:  "cartulary.revisions.snapshot.catalog_admission.v1",
@@ -305,11 +308,14 @@ func catalogAdmissionTargetContributions(provider rollbackcontract.NonRowTargetP
 	return []ProviderContribution{{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
+			HistoryProjector:    catalogTestHistoryProjector,
 			SourceOwnerModule:   SourceOwnerModule("catalog_admission_owner"),
 			RecordType:          "catalog_admission",
+			SnapshotSchemaID:    "cartulary.revisions.snapshot.catalog_admission.v1",
 			RowRollbackProvider: catalogAdmissionRowProvider{},
 		}},
 		NonRowTargets: []NonRowProviderContribution{{
+			HistoryProjector:  catalogTestHistoryProjector,
 			SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 			TargetKind:        "child",
 			HistoryFacet:      NewFieldAssociationHistoryFacet([]string{"record_id"}, HistorySingleEntry),

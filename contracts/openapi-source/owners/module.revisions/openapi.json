@@ -485,11 +485,19 @@
           "units": {
             "type": "array",
             "items": {
-              "type": "object"
-            }
+              "$ref": "#/components/schemas/RecordHistoryUnit"
+            },
+            "minItems": 1
+          },
+          "schema_id": {
+            "enum": [
+              "cartulary.history_diff.v1"
+            ],
+            "type": "string"
           }
         },
         "required": [
+          "schema_id",
           "summary",
           "units"
         ]
@@ -538,6 +546,10 @@
           },
           "revision_no": {
             "type": "integer"
+          },
+          "source_actor_id": {
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -574,6 +586,10 @@
             "items": {
               "$ref": "#/components/schemas/RecordHistoryItem"
             }
+          },
+          "representation_generation": {
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -581,7 +597,8 @@
           "record_id",
           "row_version",
           "deleted",
-          "items"
+          "items",
+          "representation_generation"
         ]
       },
       "RecordHistoryEnvelope": {
@@ -737,6 +754,155 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "RecordHistoryChange": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/RecordHistoryValue"
+          },
+          "before": {
+            "$ref": "#/components/schemas/RecordHistoryValue"
+          },
+          "field_key": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_key",
+          "before",
+          "after"
+        ],
+        "type": "object"
+      },
+      "RecordHistoryUnit": {
+        "additionalProperties": false,
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/RecordHistoryChange"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "field",
+              "link",
+              "mention",
+              "tag",
+              "evidence_association",
+              "capture_state",
+              "record",
+              "entity_identifier",
+              "indicator_observation",
+              "indicator_interval"
+            ],
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "create",
+              "update",
+              "delete",
+              "restore",
+              "merge",
+              "add",
+              "remove"
+            ],
+            "type": "string"
+          },
+          "record_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "unit_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit_ref",
+          "kind",
+          "operation",
+          "record_ids",
+          "changes"
+        ],
+        "type": "object"
+      },
+      "RecordHistoryValue": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "enum": [
+                  "absent"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "state"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "enum": [
+                  "null"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "state"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "enum": [
+                  "present"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "state",
+              "value"
+            ],
+            "type": "object"
+          }
         ]
       }
     }

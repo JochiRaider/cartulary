@@ -1,9 +1,7 @@
 import {
   gridRowTestId,
   gridRowVersionAttribute,
-  rowInspectButtonTestId,
   saveStateTestId,
-  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -102,20 +100,6 @@ describe("Timeline workbook autosave coverage", () => {
       "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
-  }
-
-  async function openTimelineInspectorFromContext(recordId: string) {
-    const summaryCell = await screen.findByTestId(
-      timelineScalarEditorTestId({
-        fieldKey: "timeline.activity_synopsis_text",
-        recordId,
-        surface: "grid",
-      }),
-    );
-    fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId(recordId)),
-    );
   }
 
   async function expectSavedRowVersion(rowVersion: number) {
@@ -229,11 +213,11 @@ describe("Timeline workbook autosave coverage", () => {
     mockInitialTimelineRow();
     mockSourceTextPatchResponse("Pasted transcript");
     await renderSingleTimelineRow();
-    await openTimelineInspectorFromContext(
+    const sourceText = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
       "20000000-0000-4000-8000-000000000001",
-    );
-    const sourceText = (await screen.findByLabelText(
-      "RAW Activity",
+      "timeline.raw_activity_text",
     )) as HTMLTextAreaElement;
     await changeInputValue(sourceText, "Pasted transcript");
     fireEvent.input(sourceText, { inputType: "insertFromPaste" });

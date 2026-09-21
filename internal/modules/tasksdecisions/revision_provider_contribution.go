@@ -22,6 +22,7 @@ func NewRevisionContribution() (revisions.ProviderContribution, error) {
 			SourceOwnerModule: revisions.SourceOwnerTasksDecisions,
 			RecordType:        surface.RecordType,
 			SnapshotSchemaID:  surface.RevisionSnapshotSchemaID,
+			HistoryProjector:  taskDecisionHistoryProjector(catalog, surface.ViewSchemaID),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "tasksdecisions." + surface.SourceTable,
 				ViewSchemaIDs:  []string{surface.ViewSchemaID},

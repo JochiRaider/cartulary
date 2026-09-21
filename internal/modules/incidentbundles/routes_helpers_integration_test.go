@@ -505,6 +505,13 @@ func seedPortableRollbackHostPatch(t testing.TB, db *sql.DB, incidentID uuid.UUI
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
 	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "portable-host", "host_state": "canonical", "row_version": 1}
 	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "portable-host", "host_state": "canonical", "row_version": 2}
+	// Retained v1 snapshots contain the source's nullable columns explicitly.
+	for _, source := range []map[string]any{beforeSource, afterSource} {
+		for _, member := range []string{"aad_device_id", "fqdn", "merged_into_record_id", "location", "os_platform", "business_owner", "criticality", "containment_status"} {
+			source[member] = nil
+		}
+		source["entity_origin"] = "entity_sheet"
+	}
 	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
 	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
 	envelopeTx, err := db.BeginTx(ctx, nil)

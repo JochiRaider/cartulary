@@ -7,10 +7,18 @@ import type {
 import { useCallback, useMemo, useState } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import {
+  workbookFormMessageStyle as bodyStyle,
+  workbookFormInputStyle as inputStyle,
+  workbookFormFieldStackStyle as labelStyle,
+  workbookFormActionsStyle,
+} from "../../components/workbookFormStyles";
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
+import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
+import { WorkbookInspectorReadOnlyDetails } from "../../inspector/WorkbookInspectorDetails";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import {
   buildWorkbookInspectorSubject,
@@ -222,20 +230,10 @@ export function useAssessmentWorkbookInspectorComposition({
       }}
       detailsContent={
         selectedAssessment ? (
-          <dl>
-            {contract.fields
-              .filter((field) => !field.defaultHidden)
-              .map((field) => (
-                <div key={field.fieldKey}>
-                  <dt>{field.label}</dt>
-                  <dd>
-                    {genericCellLabel(
-                      selectedAssessment.cells[field.fieldKey]?.value,
-                    )}
-                  </dd>
-                </div>
-              ))}
-          </dl>
+          <WorkbookInspectorReadOnlyDetails
+            contract={contract}
+            row={selectedAssessment}
+          />
         ) : null
       }
       relationshipsContent={
@@ -260,35 +258,35 @@ export function useAssessmentWorkbookInspectorComposition({
       onClose={close}
       workflowContent={
         !creation.snapshot.hasDraft ? (
-          <button
-            style={secondaryActionButtonStyle}
+          <Button
+            tone="secondary"
             type="button"
             disabled={!canCreate}
             onClick={creation.commands.openStandalone}
           >
             Start another assessment
-          </button>
+          </Button>
         ) : !creation.snapshot.attached ? (
           <>
             <p>
               Your unfinished assessment is retained. Review it before
               appending.
             </p>
-            <button
-              style={secondaryActionButtonStyle}
+            <Button
+              tone="secondary"
               type="button"
               onClick={creation.commands.resume}
             >
               Resume assessment draft
-            </button>
-            <button
-              style={secondaryActionButtonStyle}
+            </Button>
+            <Button
+              tone="secondary"
               type="button"
               disabled={isSubmitting || !canCreate}
               onClick={creation.commands.discard}
             >
               Discard assessment draft
-            </button>
+            </Button>
           </>
         ) : (
           <>
@@ -296,14 +294,6 @@ export function useAssessmentWorkbookInspectorComposition({
               Closing retains this draft. After dispatch, closing does not
               cancel the append.
             </p>
-            <button
-              style={secondaryActionButtonStyle}
-              type="button"
-              disabled={isSubmitting}
-              onClick={creation.commands.discard}
-            >
-              Discard assessment draft
-            </button>
             <label style={labelStyle}>
               Subject type
               <select
@@ -449,15 +439,28 @@ export function useAssessmentWorkbookInspectorComposition({
               revision={creation.snapshot.candidateRevision}
               update={creation.commands.updateDraft}
             />
-            <button
-              data-testid={assessmentCreateControlTestId("submit")}
-              disabled={!canCreate || isSubmitting}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => void creation.commands.submit(canCreate)}
-            >
-              Create assessment
-            </button>
+            <div style={workbookFormActionsStyle}>
+              <Button
+                tone="primary"
+                data-testid={assessmentCreateControlTestId("submit")}
+                disabled={!canCreate || isSubmitting}
+                type="button"
+                onClick={() => void creation.commands.submit(canCreate)}
+              >
+                Create assessment
+              </Button>
+              <Button tone="secondary" onClick={creation.commands.cancel}>
+                Close draft
+              </Button>
+              <Button
+                tone="secondary"
+                type="button"
+                disabled={isSubmitting}
+                onClick={creation.commands.discard}
+              >
+                Discard assessment draft
+              </Button>
+            </div>
           </>
         )
       }
@@ -475,41 +478,5 @@ export function useAssessmentWorkbookInspectorComposition({
   };
 }
 
-const bodyStyle = {
-  margin: 0,
-  lineHeight: 1.5,
-  color: "var(--ct-colors-ink-muted)",
-};
-const inputStyle = {
-  boxSizing: "border-box" as const,
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-};
 const textareaStyle = { ...inputStyle, resize: "vertical" as const };
-const actionButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.55rem 0.9rem",
-  font: "inherit",
-  cursor: "pointer",
-};
-const secondaryActionButtonStyle = {
-  ...actionButtonStyle,
-  background: "var(--ct-colors-surface-3)",
-};
-const labelStyle = {
-  display: "grid",
-  gap: "0.4rem",
-  fontSize: "0.95rem",
-  color: "var(--ct-colors-ink-muted)",
-};
 const selectStyle = { ...inputStyle, appearance: "auto" as const };

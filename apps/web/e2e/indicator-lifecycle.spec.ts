@@ -14,7 +14,10 @@ import {
 import { expect, test } from "./fixtures";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
-import { fetchFullRecordHistory } from "./support/workbook/history";
+import {
+  fetchFullRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   appendLifecycleInterval,
   createLifecycleFixture,
@@ -153,6 +156,7 @@ test("Indicator intervals recover a response lost after commit with the original
     action: "change_set" as const,
     historyItemRef: historyItem.history_item_ref,
   };
+  await openHistoryEventDetails(page, historyItem.history_item_ref);
   await page.getByTestId(rowHistoryActionTestId(anchor)).click();
   await page.getByTestId(rowHistoryRollbackConfirmButtonTestId(anchor)).click();
   await expect

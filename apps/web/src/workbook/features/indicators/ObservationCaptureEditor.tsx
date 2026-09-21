@@ -1,5 +1,11 @@
 import { indicatorObservationTestId } from "@cartulary/ui-contracts";
 import { useEffect, useId, useRef, useState } from "react";
+import {
+  workbookFormFieldStackStyle as observationField,
+  workbookFormInputStyle as observationInput,
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { ObservationDraftStore } from "./ObservationDraftStore";
 import { ObservationTargetPicker } from "./ObservationTargetPicker";
@@ -15,12 +21,6 @@ import type {
   ObservationIntent,
   ObservationReadPort,
 } from "./observationOperation";
-import {
-  observationField,
-  observationInput,
-  observationStack,
-  observationText,
-} from "./observationStyles";
 
 export function ObservationCaptureEditor({
   source,
@@ -180,6 +180,7 @@ export function ObservationCaptureEditor({
         onChange={(target) => drafts.update(draft.key, { target })}
       />
       <WorkbookInspectorActionButton
+        tone="primary"
         type="submit"
         disabled={disabled || !selection || !ready}
       >

@@ -70,7 +70,29 @@ it("retains one inspector source across window eviction without treating absence
     current: row,
     recordId: "original",
     scope: "account-two",
+    readable: true,
+  });
+  expect(hook.result.current).toBeNull();
+  const fresh = { ...row, version: 5 };
+  hook.rerender({
+    current: fresh,
+    recordId: "original",
+    scope: "account-three",
+    readable: true,
+  });
+  expect(hook.result.current).toBe(fresh);
+  hook.rerender({
+    current: fresh,
+    recordId: "original",
+    scope: "account-three",
     readable: false,
+  });
+  expect(hook.result.current).toBeNull();
+  hook.rerender({
+    current: fresh,
+    recordId: "original",
+    scope: "account-three",
+    readable: true,
   });
   expect(hook.result.current).toBeNull();
   hook.unmount();

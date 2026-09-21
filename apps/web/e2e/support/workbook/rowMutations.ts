@@ -4,7 +4,6 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
-  genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridRowTestId,
@@ -74,11 +73,15 @@ export async function commitInspectorScalarEdit(
   fieldKey: string,
   value: string,
 ) {
+  await page.locator(`[data-inspector-edit-field="${fieldKey}"]`).click();
   const input = page.getByTestId(rowInspectorFieldTestId(recordId, fieldKey));
   await expect(input).toBeVisible();
   const responsePromise = waitForTimelinePatch(page, recordId);
   await input.fill(value);
-  await input.press("Tab");
+  await page
+    .locator(`[data-inspector-saved-field="${fieldKey}"]`)
+    .getByRole("button", { name: "Update", exact: true })
+    .click();
   const response = await responsePromise;
   const envelope = await readWorkbookMutation(response, "patchRecord");
   await expect(
@@ -360,9 +363,7 @@ export async function editGenericCell(
   value: string | string[],
 ) {
   await openGenericInspectorForRecord(page, viewSchemaId, recordId);
-  await page
-    .getByTestId(genericEditFieldSelectTestId(viewSchemaId))
-    .selectOption(fieldKey);
+  await page.locator(`[data-inspector-edit-field="${fieldKey}"]`).click();
   const input = page.getByTestId(genericEditValueTestId(viewSchemaId));
   const tagName = await input.evaluate((element) => element.tagName);
   if (tagName === "SELECT") {

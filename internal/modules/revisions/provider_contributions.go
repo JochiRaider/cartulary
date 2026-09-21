@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -50,6 +51,7 @@ type RecordProviderContribution struct {
 	SourceOwnerModule SourceOwnerModule
 	RecordType        string
 	SnapshotSchemaID  string
+	HistoryProjector  historycontract.Projector
 	// HistoryTargetKinds are source-owner-declared change-set mutation target
 	// kinds that resolve to this record provider. An empty set admits the
 	// record type itself. The generic "record" target remains a Revisions
@@ -65,6 +67,7 @@ type NonRowProviderContribution struct {
 	TargetKind        string
 	HistoryFacet      HistoryFacet
 	HistoryValidator  HistoryValidator
+	HistoryProjector  historycontract.Projector
 	RollbackProvider  rollbackcontract.NonRowTargetProvider
 }
 

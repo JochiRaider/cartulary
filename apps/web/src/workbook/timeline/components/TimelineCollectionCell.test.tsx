@@ -374,6 +374,10 @@ describe("Timeline collection inspection", () => {
       return <TimelineMentionsPanel {...props} actions={actions} />;
     }
     const { rerender } = render(<Panel />);
+    const details = screen.getByText("Mention details");
+    expect((details.parentElement as HTMLDetailsElement).open).toBe(false);
+    fireEvent.click(details);
+    expect((details.parentElement as HTMLDetailsElement).open).toBe(true);
     expect(
       screen.getByRole("button", {
         name: "Auto-resolved host: Canonical host; matched alias Ω 東京",

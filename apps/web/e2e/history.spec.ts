@@ -10,6 +10,7 @@ import {
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
   rowHistoryDestructiveConfirmButtonTestId,
+  rowHistoryItemTestId,
   rowHistoryOpenButtonTestId,
   rowHistoryPanelTestId,
   rowHistoryReadControlTestId,
@@ -39,7 +40,10 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
-import { fetchFullRecordHistory } from "./support/workbook/history";
+import {
+  fetchFullRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -111,12 +115,27 @@ test("opens row history from the workbook surface with legal rollback actions", 
     visibleItem.operation,
   );
   await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
-    visibleItem.diff_summary.summary,
+    "UTC +00:00",
   );
+  await openHistoryEventDetails(page, visibleItem.history_item_ref);
   await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
-    new Date(visibleItem.committed_at).toISOString(),
+    visibleItem.committed_at,
   );
 
+  const event = page.getByTestId(
+    rowHistoryItemTestId({ historyItemRef: visibleItem.history_item_ref }),
+  );
+  for (const unit of visibleItem.diff_summary.units) {
+    for (const change of unit.changes)
+      await expect(event).toContainText(change.field_key);
+    for (const recordId of unit.record_ids)
+      await expect(event).toContainText(recordId);
+  }
+  const disclosure = event.locator(":scope > details");
+  await disclosure.locator(":scope > summary").press("Escape");
+  await expect(disclosure).not.toHaveAttribute("open");
+  await expect(disclosure.locator(":scope > summary")).toBeFocused();
+  await openHistoryEventDetails(page, visibleItem.history_item_ref);
   for (const action of visibleItem.available_rollback_actions) {
     await expect(
       page.getByTestId(historyActionTestId(visibleItem, action)),
@@ -257,7 +276,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
     (item) =>
       item.available_rollback_actions.includes("history_entry") &&
       item.diff_summary.units.some(
-        (unit) => unit.target_kind === "record_link",
+        (unit) => unit.kind === "evidence_association",
       ),
   );
   expect(rollbackIndex).toBeGreaterThanOrEqual(100);
@@ -275,6 +294,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
       rowHistoryOpenButtonTestId(row.record_id),
     );
     await page.getByTestId(rowHistoryReadControlTestId("load-older")).click();
+    await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await expect(
       page.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
     ).toBeVisible();
@@ -474,6 +494,7 @@ test("whole-row restore appends a new attributed revision", async ({
     row.record_id,
     rowHistoryOpenButtonTestId(row.record_id),
   );
+  await openHistoryEventDetails(page, restoreItem.history_item_ref);
   await expect(
     page.getByTestId(historyActionTestId(restoreItem, "row_restore")),
   ).toBeVisible();
@@ -632,6 +653,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
     rowHistoryOpenButtonTestId(timeline.record_id),
   );
   await page.getByTestId(rowHistoryReadControlTestId("load-older")).click();
+  await openHistoryEventDetails(page, mergeItem.history_item_ref);
   await expect(
     page.getByTestId(historyActionTestId(mergeItem, "change_set")),
   ).toBeVisible();

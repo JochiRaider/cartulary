@@ -1130,7 +1130,10 @@ test("reviews the original source after a rejected file link while preserving un
   await openTimelineSurface(page, incident);
   await openTimelineInspector(page, source.record_id);
   await page
-    .getByRole("region", { name: "Timeline evidence attachment", exact: true })
+    .getByRole("region", {
+      name: "File attachment for this Timeline record",
+      exact: true,
+    })
     .evaluate((element, bytes) => {
       const data = new DataTransfer();
       data.items.add(

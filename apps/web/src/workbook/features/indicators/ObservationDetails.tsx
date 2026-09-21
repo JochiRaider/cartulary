@@ -1,4 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import {
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
 import { IndicatorCreateFromObservation } from "./IndicatorCreateFromObservation";
@@ -13,7 +17,6 @@ import type {
   ObservationIntent,
   ObservationReadPort,
 } from "./observationOperation";
-import { observationStack, observationText } from "./observationStyles";
 
 export function ObservationDetails({
   item,

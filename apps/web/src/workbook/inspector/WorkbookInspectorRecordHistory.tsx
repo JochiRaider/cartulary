@@ -263,6 +263,7 @@ export function WorkbookRecordHistoryPanel({
                 data={data}
                 destructiveSubject={destructiveSubject}
                 focus={{
+                  cancelEventReview: focus.cancelEventReview,
                   capture: focus.captureFocusRequest,
                   register: focus.registerActionElement,
                 }}
@@ -372,6 +373,7 @@ export function WorkbookRecordHistoryPanel({
             />
             {state.phase === "idle" && !browsingControls ? (
               <WorkbookInspectorActionButton
+                data-inspector-section-entry
                 data-testid={openTestId}
                 onClick={onOpenHistory}
               >
@@ -387,6 +389,9 @@ export function WorkbookRecordHistoryPanel({
                 }}
               >
                 <WorkbookInspectorActionButton
+                  data-inspector-section-entry={
+                    state.phase === "idle" ? true : undefined
+                  }
                   data-testid={
                     state.phase === "idle"
                       ? openTestId
@@ -432,6 +437,10 @@ export function WorkbookRecordHistoryPanel({
                   >
                     Load older entries
                   </WorkbookInspectorActionButton>
+                ) : null}
+                {browsing?.accepted &&
+                !browsing.accepted.data.paging.has_more ? (
+                  <span>No older entries.</span>
                 ) : null}
                 {browsing?.failure ? (
                   <WorkbookInspectorActionButton
@@ -494,6 +503,7 @@ export function WorkbookRecordHistoryPanel({
                     data={data}
                     destructiveSubject={destructiveSubject}
                     focus={{
+                      cancelEventReview: focus.cancelEventReview,
                       capture: focus.captureFocusRequest,
                       register: focus.registerActionElement,
                     }}

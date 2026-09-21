@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { historyDiffFixture } from "../history/workbookHistoryTestFixtures";
 import {
   buildRecordRollbackTargetFromHistoryAction,
   initialWorkbookRecordHistoryState,
@@ -25,6 +26,7 @@ const liveSubject = {
 const data: RecordHistoryData = {
   deleted: false,
   incident_id: "incident-a",
+  representation_generation: "cartulary.history.1",
   items: [],
   record_id: liveSubject.recordId,
   row_version: liveSubject.rowVersion,
@@ -514,7 +516,7 @@ describe("workbookRecordHistoryModel", () => {
       ],
       change_set_id: "change-a",
       committed_at: "2026-09-01T00:00:00Z",
-      diff_summary: { summary: "Changed", units: [] },
+      diff_summary: historyDiffFixture("Changed"),
       history_entry_ref: "entry-a",
       history_item_ref: "item-a",
       operation: "patch",

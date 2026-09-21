@@ -1218,6 +1218,10 @@ test("Timeline grid keyboard navigation, edit cancellation, and Esc restore sema
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
+  const editRaw = page.locator(
+    '[data-inspector-edit-field="timeline.raw_activity_text"]',
+  );
+  await editRaw.click();
   const inspectorDetails = page.getByTestId(
     rowInspectorFieldTestId(alpha.record_id, "timeline.raw_activity_text"),
   );
@@ -1229,10 +1233,12 @@ test("Timeline grid keyboard navigation, edit cancellation, and Esc restore sema
     "browser.coordination-review.row-02 inspector dirty draft",
   );
   await inspectorDetails.press("Escape");
-  await expect(inspectorDetails).toHaveValue(
-    "browser.coordination-review.row-02 Alpha details",
-  );
-  await inspectorDetails.press("Escape");
+  await expect(inspectorDetails).toHaveCount(0);
+  await expect(
+    page.locator('[data-inspector-saved-field="timeline.raw_activity_text"]'),
+  ).toContainText("Unfinished work retained");
+  await expect(editRaw).toBeFocused();
+  await editRaw.press("Escape");
   await expect(alphaSummaryCell).toBeFocused();
   await alphaSummaryCell.press("Escape");
   await expect(inspectorDetails).toHaveCount(0);

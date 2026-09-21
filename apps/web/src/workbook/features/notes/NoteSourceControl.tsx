@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { WorkbookAuthoringReferencePicker } from "../../components/WorkbookAuthoringReferencePicker";
+import { workbookFormFieldsStyle } from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   type NoteCreateReader,
@@ -35,7 +36,7 @@ export function NoteSourceControl({
     trigger.current?.focus({ preventScroll: true });
   };
   return (
-    <div style={{ display: "grid", gap: "0.5rem", minWidth: 0 }}>
+    <div style={workbookFormFieldsStyle}>
       <span style={{ overflowWrap: "anywhere" }}>
         Source:{" "}
         {source ? source.label || source.recordId : "None (unlinked Note)"}

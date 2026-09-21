@@ -54,67 +54,77 @@ export function EvidenceFileRecovery({
         margin: 0,
         minInlineSize: 0,
         overflowWrap: "anywhere",
-        display: "flex",
-        flexWrap: "wrap",
-        alignItems: "center",
+        display: "grid",
         gap: "var(--ct-spacing-xs)",
         padding: "var(--ct-spacing-xs)",
       }}
     >
-      <span>
-        {filename} · {source}
-      </span>
+      <legend>{filename}</legend>
+      <span>Attachment to {source}</span>
       {/* Retained state can appear in two places; runtime owns live save acknowledgement. */}
       <span role="status" aria-live="off" style={evidenceMessageStyle}>
         {message}
       </span>
-      {needsReview && canResume ? (
-        <button type="button" style={evidenceButtonStyle} onClick={onReview}>
-          Review original source
-        </button>
-      ) : null}
-      {reviewText && canResume ? (
-        <span>
-          {reviewText}{" "}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "var(--ct-spacing-xs)",
+          alignItems: "center",
+        }}
+      >
+        {needsReview && canResume ? (
+          <button type="button" style={evidenceButtonStyle} onClick={onReview}>
+            Review original source
+          </button>
+        ) : null}
+        {reviewText && canResume ? (
+          <span>
+            {reviewText}{" "}
+            <button
+              type="button"
+              style={evidenceButtonStyle}
+              onClick={onConfirmReview}
+            >
+              Use reviewed source
+            </button>
+          </span>
+        ) : null}
+        {canResume ? (
+          <button type="button" style={evidenceButtonStyle} onClick={onResume}>
+            Resume
+          </button>
+        ) : null}
+        {canFreshSlot ? (
           <button
             type="button"
             style={evidenceButtonStyle}
-            onClick={onConfirmReview}
+            onClick={onFreshSlot}
           >
-            Use reviewed source
+            Start fresh upload
           </button>
-        </span>
-      ) : null}
-      {canResume ? (
-        <button type="button" style={evidenceButtonStyle} onClick={onResume}>
-          Resume
-        </button>
-      ) : null}
-      {canFreshSlot ? (
-        <button type="button" style={evidenceButtonStyle} onClick={onFreshSlot}>
-          Start fresh upload
-        </button>
-      ) : null}
-      {canNewId ? (
-        <button type="button" style={evidenceButtonStyle} onClick={onNewId}>
-          Use new request
-        </button>
-      ) : null}
-      {refreshRequired ? (
-        <button
-          type="button"
-          disabled={busy}
-          style={evidenceButtonStyle}
-          onClick={onRefresh}
-        >
-          Refresh
-        </button>
-      ) : null}
-      {canDiscard ? (
-        <button type="button" style={evidenceButtonStyle} onClick={onDiscard}>
-          Discard retained file work
-        </button>
-      ) : null}
+        ) : null}
+        {canNewId ? (
+          <button type="button" style={evidenceButtonStyle} onClick={onNewId}>
+            Use new request
+          </button>
+        ) : null}
+        {refreshRequired ? (
+          <button
+            type="button"
+            disabled={busy}
+            style={evidenceButtonStyle}
+            onClick={onRefresh}
+          >
+            Refresh
+          </button>
+        ) : null}
+        {canDiscard ? (
+          <button type="button" style={evidenceButtonStyle} onClick={onDiscard}>
+            Discard retained file work
+          </button>
+        ) : null}
+      </div>
     </fieldset>
   );
 }

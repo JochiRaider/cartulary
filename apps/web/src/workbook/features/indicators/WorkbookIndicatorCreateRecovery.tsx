@@ -5,9 +5,12 @@ import {
   WorkbookRecoveryDetail,
 } from "../../../shared/WorkbookRecoveryBoundary";
 import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
+import {
+  workbookFormFieldsStyle as observationStack,
+  workbookFormPreservedTextStyle as observationText,
+} from "../../components/workbookFormStyles";
 import { IndicatorCreateOperationStatus } from "./IndicatorCreateOperationStatus";
 import type { IndicatorCreateOwnerPort } from "./indicatorCreateOperation";
-import { observationStack, observationText } from "./observationStyles";
 
 export function WorkbookIndicatorCreateRecovery({
   owner,

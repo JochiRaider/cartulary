@@ -189,87 +189,96 @@ export function GenericWorkbookInspector({
   });
 
   return (
-    <WorkbookInspectorShell
-      accessibleLabel={`${surfaceTitle} inspector`}
+    <WorkbookInspectorDeclaredPanelList
+      creationAttachment={
+        creationAttachment
+          ? { id: creationAttachment, viewSchemaId: config.viewSchemaId }
+          : undefined
+      }
       config={config}
-      noRowHeading={`${surfaceTitle} inspector`}
+      currentIncidentRole={currentIncidentRole}
+      disabledTokens={disabledTokens}
+      additionalDisabledReasons={
+        decisionSupersession?.disabledReason
+          ? new Map([
+              ["decision.supersede", decisionSupersession.disabledReason],
+            ])
+          : undefined
+      }
       subject={subject}
-      onClose={onClose}
+      modelsByPanel={{
+        details:
+          subject === null
+            ? undefined
+            : panelContent(
+                "details",
+                savedInspectorRegion("saved-fields", {
+                  kind: "populated",
+                  content: (
+                    <>
+                      {detailsContent}
+                      {mutationError ? (
+                        <WorkbookInspectorPublicError error={mutationError} />
+                      ) : null}
+                    </>
+                  ),
+                }),
+              ),
+        evidence:
+          subject === null
+            ? undefined
+            : panelContent("evidence", ...evidenceContent),
+        history:
+          subject === null
+            ? undefined
+            : panelContent(
+                "history",
+                ownedInspectorRegion("record-history", (present) => (
+                  <WorkbookInspectorRecordHistory
+                    present={present}
+                    beginMutation={history.beginMutation}
+                    actions={history.actions}
+                    canMutate={history.canMutate}
+                    commands={history.commands}
+                    ownerEffects={history.effects}
+                    subject={subject}
+                  />
+                )),
+              ),
+        relationships:
+          subject === null
+            ? undefined
+            : panelContent("relationships", ...relationshipsContent),
+        workflow:
+          subject || creationAttachment
+            ? panelContent(
+                "workflow",
+                savedInspectorRegion("workflow", {
+                  kind: "empty",
+                  message: "Choose an available action for this record.",
+                }),
+              )
+            : undefined,
+      }}
+      onContextualAction={dispatchContextualAction}
     >
-      <WorkbookInspectorDeclaredPanelList
-        creationAttachment={
-          creationAttachment
-            ? { id: creationAttachment, viewSchemaId: config.viewSchemaId }
-            : undefined
-        }
-        config={config}
-        currentIncidentRole={currentIncidentRole}
-        disabledTokens={disabledTokens}
-        additionalDisabledReasons={
-          decisionSupersession?.disabledReason
-            ? new Map([
-                ["decision.supersede", decisionSupersession.disabledReason],
-              ])
-            : undefined
-        }
-        subject={subject}
-        modelsByPanel={{
-          details:
-            subject === null
-              ? undefined
-              : panelContent(
-                  "details",
-                  savedInspectorRegion("saved-fields", {
-                    kind: "populated",
-                    content: (
-                      <>
-                        {detailsContent}
-                        {mutationError ? (
-                          <WorkbookInspectorPublicError error={mutationError} />
-                        ) : null}
-                      </>
-                    ),
-                  }),
-                ),
-          evidence:
-            subject === null
-              ? undefined
-              : panelContent("evidence", ...evidenceContent),
-          history:
-            subject === null
-              ? undefined
-              : panelContent(
-                  "history",
-                  ownedInspectorRegion("record-history", (present) => (
-                    <WorkbookInspectorRecordHistory
-                      present={present}
-                      beginMutation={history.beginMutation}
-                      actions={history.actions}
-                      canMutate={history.canMutate}
-                      commands={history.commands}
-                      ownerEffects={history.effects}
-                      subject={subject}
-                    />
-                  )),
-                ),
-          relationships:
-            subject === null
-              ? undefined
-              : panelContent("relationships", ...relationshipsContent),
-          workflow:
-            subject || creationAttachment
-              ? panelContent(
-                  "workflow",
-                  savedInspectorRegion("workflow", {
-                    kind: "empty",
-                    message: "Choose an available action for this record.",
-                  }),
-                )
-              : undefined,
-        }}
-        onContextualAction={dispatchContextualAction}
-      />
-    </WorkbookInspectorShell>
+      {(sections) => (
+        <WorkbookInspectorShell
+          accessibleLabel={`${surfaceTitle} inspector`}
+          config={config}
+          eyebrow={creationAttachment ? "Create" : "Inspector"}
+          mode={subject === null && creationAttachment ? "creation" : "record"}
+          noRowHeading={
+            creationAttachment
+              ? `Create ${surfaceTitle}`
+              : `${surfaceTitle} inspector`
+          }
+          subject={subject}
+          onClose={onClose}
+          sections={sections}
+        ></WorkbookInspectorShell>
+      )}
+    </WorkbookInspectorDeclaredPanelList>
   );
 }
 

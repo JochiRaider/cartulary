@@ -27,6 +27,7 @@ import type {
   HistoryReceipt,
   WorkbookRecordHistoryPort,
 } from "./workbookHistoryOperation";
+import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const operations = [
   "delete",
@@ -46,7 +47,7 @@ const item = {
   revision_no: 2,
   reversible: true,
   operation: "patch",
-  diff_summary: { summary: "Changed fields", units: [] },
+  diff_summary: historyDiffFixture("Changed fields"),
   available_rollback_actions: [
     "history_entry",
     "change_set",
@@ -94,6 +95,7 @@ function setup(
     incident_id: "incident",
     row_version: 4,
     deleted: operation === "restore",
+    representation_generation: "cartulary.history.1",
     items: [item],
   };
   const receipts = new Map<string, HistoryReceipt>();
@@ -278,6 +280,7 @@ describe("History recovery surfaces", () => {
             incident_id: "incident",
             row_version: 5,
             deleted: false,
+            representation_generation: "cartulary.history.1",
             items: [],
             paging: {
               limit: 100,

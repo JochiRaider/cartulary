@@ -4,6 +4,15 @@ import {
 } from "@cartulary/ui-contracts";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
+import {
+  workbookFormActionsStyle,
+  workbookFormFieldStackStyle,
+  workbookFormFieldsStyle,
+  workbookFormGroupStyle,
+  workbookFormHeadingStyle,
+  workbookFormInputStyle,
+  workbookFormMessageStyle,
+} from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { RelatedEvidencePartyControl } from "./RelatedEvidencePartyControl";
 import { metadataEvidenceStates } from "./timelineRelatedEvidenceModel";
@@ -48,12 +57,7 @@ export function TimelineRelatedEvidenceForm({
     <section
       ref={form}
       aria-label={draft.feature.label}
-      style={{
-        display: "grid",
-        gap: "var(--ct-spacing-sm)",
-        minWidth: 0,
-        overflowWrap: "anywhere",
-      }}
+      style={workbookFormFieldsStyle}
     >
       <p>
         Create Evidence metadata, then link the new record to the original
@@ -64,18 +68,15 @@ export function TimelineRelatedEvidenceForm({
         <p>{draft.presentation.label}</p>
         <p>{draft.source.recordId}</p>
       </details>
+      <p style={workbookFormMessageStyle}>
+        Closing keeps unfinished work in this session. Only the explicit create
+        action saves it.
+      </p>
       <fieldset
         disabled={owner.busy || !owner.canSubmit()}
-        style={{
-          border: 0,
-          padding: 0,
-          margin: 0,
-          minWidth: 0,
-          display: "grid",
-          gap: "var(--ct-spacing-sm)",
-        }}
+        style={workbookFormGroupStyle}
       >
-        <legend>Evidence metadata</legend>
+        <legend style={workbookFormHeadingStyle}>Evidence metadata</legend>
         {draft.target.fields
           .filter((field) => field.createWritable)
           .map((field) => {
@@ -100,10 +101,7 @@ export function TimelineRelatedEvidenceForm({
                     }
                   />
                 ) : (
-                  <label
-                    htmlFor={id}
-                    style={{ display: "grid", gap: "var(--ct-spacing-xs)" }}
-                  >
+                  <label htmlFor={id} style={workbookFormFieldStackStyle}>
                     {field.label}
                     {field.fieldKey === "evidence.lifecycle_state" ? (
                       <select
@@ -118,18 +116,7 @@ export function TimelineRelatedEvidenceForm({
                             event.currentTarget.value,
                           )
                         }
-                        style={{
-                          width: "100%",
-                          minWidth: 0,
-                          padding: "0.65rem 0.75rem",
-                          font: "inherit",
-                          border: "var(--ct-component-text-input-border)",
-                          borderRadius:
-                            "var(--ct-component-text-input-rounded)",
-                          background:
-                            "var(--ct-component-text-input-backgroundColor)",
-                          color: "var(--ct-component-text-input-textColor)",
-                        }}
+                        style={workbookFormInputStyle}
                       >
                         <option value="">Use server default (Requested)</option>
                         {metadataEvidenceStates.map((state) => (
@@ -176,13 +163,7 @@ export function TimelineRelatedEvidenceForm({
           before creating.
         </p>
       ) : null}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "var(--ct-spacing-sm)",
-        }}
-      >
+      <div style={workbookFormActionsStyle}>
         {state.needsReview ? (
           <Button
             type="button"

@@ -819,12 +819,18 @@ test("Timeline scalar paste retains multiline scrolling composition and readable
     await expect(readableCell).toBeVisible();
     await readableCell.click();
     const saved = page
-      .locator(`[data-inspector-saved-field="${raw}"] dd`)
+      .locator(`[data-inspector-saved-field="${raw}"] dd > div[id]`)
       .first();
     if (!(await saved.count()))
       await page
         .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
         .click();
+    await page
+      .getByRole("button", {
+        name: "Show full value for RAW Activity",
+        exact: true,
+      })
+      .click();
     await expect(saved).toHaveText(completed.value);
     await saved.evaluate((node) => {
       const range = document.createRange();

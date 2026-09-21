@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -180,6 +181,7 @@ func validProviderContributions() []ProviderContribution {
 			SourceOwnerModule:   owner,
 			RecordType:          recordType,
 			SnapshotSchemaID:    "cartulary.revisions.snapshot." + recordType + ".v1",
+			HistoryProjector:    catalogTestHistoryProjector,
 			HistoryTargetKinds:  append([]string(nil), historyTargetKinds...),
 			DeleteRestoreSource: testDeleteRestoreSource{},
 			RowRollbackProvider: catalogRowProvider{},
@@ -203,6 +205,7 @@ func validProviderContributions() []ProviderContribution {
 			SourceOwnerModule: owner,
 			TargetKind:        targetKind,
 			HistoryFacet:      NewFieldAssociationHistoryFacet(fields[targetKind], addressability),
+			HistoryProjector:  catalogTestHistoryProjector,
 			RollbackProvider:  stubNonRowProvider{},
 		}
 	}
@@ -348,4 +351,8 @@ func TestIncidentBundleSourcePortFailsClosed(t *testing.T) {
 			t.Fatalf("missing %s error = %v", name, err)
 		}
 	}
+}
+
+func catalogTestHistoryProjector(facts historycontract.Facts) ([]historycontract.Unit, error) {
+	return historycontract.Row(facts, historycontract.Fields("host", "text", "name"))
 }

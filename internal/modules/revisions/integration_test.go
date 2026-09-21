@@ -304,22 +304,22 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	seedHistoryChangeSet(t, harness.DB, historySeed{
 		IncidentID: incidentID, ActorID: actorID, RecordID: recordA, ChangeSetID: firstChangeSet,
 		CreatedAt: base, Source: "workbook.records.patch", SequenceNo: 1,
-		TargetKind: "host", Operation: "oldest", RowVersion: 2,
+		TargetKind: "host", Operation: "field_update", RowVersion: 2,
 	})
 	seedHistoryChangeSet(t, harness.DB, historySeed{
 		IncidentID: incidentID, ActorID: actorID, RecordID: recordA, ChangeSetID: secondChangeSet,
 		CreatedAt: base.Add(time.Minute), Source: "workbook.records.patch", SequenceNo: 1,
-		TargetKind: "record", Operation: "middle", RowVersion: 3,
+		TargetKind: "host", Operation: "field_update", RowVersion: 3,
 	})
 	seedHistoryChangeSet(t, harness.DB, historySeed{
 		IncidentID: incidentID, ActorID: actorID, RecordID: recordA, ChangeSetID: thirdChangeSet,
 		CreatedAt: base.Add(2 * time.Minute), Source: "workbook.records.patch", SequenceNo: 1,
-		TargetKind: "identity", Operation: "newest", RowVersion: 4,
+		TargetKind: "host", Operation: "field_update", RowVersion: 4,
 	})
 	seedHistoryChangeSet(t, harness.DB, historySeed{
 		IncidentID: incidentB, ActorID: actorID, RecordID: recordB, ChangeSetID: mustUUID(t, "77777777-0000-4000-8000-000000000304"),
 		CreatedAt: base.Add(3 * time.Minute), Source: "workbook.records.patch", SequenceNo: 1,
-		TargetKind: "host", Operation: "other-record", RowVersion: 2,
+		TargetKind: "host", Operation: "field_update", RowVersion: 2,
 	})
 
 	firstPage := getHistory(t, harness.Server.HTTP.URL, login, recordA, "?limit=1")
@@ -338,7 +338,7 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	seedHistoryChangeSet(t, harness.DB, historySeed{
 		IncidentID: incidentID, ActorID: actorID, RecordID: recordA, ChangeSetID: mustUUID(t, "77777777-0000-4000-8000-000000000305"),
 		CreatedAt: base.Add(4 * time.Minute), Source: "workbook.records.patch", SequenceNo: 1,
-		TargetKind: "host", Operation: "inserted-newest", RowVersion: 5,
+		TargetKind: "host", Operation: "field_update", RowVersion: 5,
 	})
 	secondPage := getHistory(t, harness.Server.HTTP.URL, login, recordA, "?cursor_token="+cursor)
 	secondItems := historyItems(secondPage)

@@ -1924,6 +1924,33 @@ Design contract. Menu items that open nested UI MUST state that result in access
 
 ### 12.7 Inspector sections
 
+Design contract. The bounded record header, Close control and a labelled
+`Sections` disclosure MUST remain visible above the single inspector scroll body.
+Navigation and section rendering MUST consume the same admitted ordered section
+descriptors. Readable unrequested and failed sections remain destinations;
+concealed, undeclared and subject-inapplicable sections do not. With no admitted
+destinations, the disclosure is absent. Missing required contributions remain
+coverage errors. Navigation MUST NOT infer admission by inspecting children.
+
+Design contract. An explicit admitted opener destination takes precedence.
+Reopening the same subject retains its active section; a new subject without an
+explicit destination starts at the first admitted section. If a destination is
+removed, the first remaining section becomes current. Passive scrolling selects
+the last heading at or above the usable body top, or the first visible heading;
+at the end of the body it selects the final section. Passive observation MUST
+NOT move focus or initiate a read.
+
+Design contract. Sections contains ordinary navigation buttons, not tabs.
+Enter/Space chooses a destination, closes the disclosure, scrolls only the body,
+and focuses its heading or existing owner entry control. An unrequested History
+destination focuses `Open history` without invoking it. Escape dismisses the
+topmost disclosure before editor or inspector handling and returns focus to its
+trigger. Pointer dismissal preserves the user's destination focus. Choosing a
+section MUST NOT unmount contributions, detach ordinary authoring, submit, or
+discard work. Retargeting clears old-subject presentation; concealment removes
+contents, counts, labels and focus destinations together. When concealment
+removes the focused destination, focus returns to a safe surviving control.
+
 Design contract. Inspector sections MUST render in active `inspector_config_v1.panels[]` order. When all current-profile panels are declared, that order is Details, Relationships, Evidence, History, Workflow.
 
 Design contract. Empty sections MUST show a concise empty state and, when the current user has an available create or link action under owner behavior, an action entry point. If no action is available, the empty state MUST say why no action is available.
@@ -1967,6 +1994,25 @@ labelled `Unsaved change`. Core 03 §2.3A owns its explicit submission and retai
 authoring lifetime. Collection summaries delegate management to existing owners;
 they do not convert action payloads to scalar patches.
 
+Design contract. Short scalar saved values MUST use aligned label/value/action
+rows; narrative values use full-width rows. Classification uses existing semantic
+field contracts, never display labels. Unknown presentation uses a readable
+stacked row. Layout MUST NOT omit or reorder declared readable fields. Narrative
+values exceeding six rendered lines expose `Show full value` and `Show less`;
+the six-line limit is projected through the authored presentation contract.
+Editing controls, errors and required recovery content MUST NOT be truncated.
+Collection navigation exposes only an admitted existing management destination.
+
+Design contract. An ordinary `Unsaved change` region MUST keep the accepted value
+visible and group `Update` with `Close editor`. Close states that unfinished work
+is retained. Value-level Clear and `Discard draft` remain distinct. Detached
+unfinished work MUST have an original-field cue and owner-admitted Resume/Discard
+actions derived from the canonical authoring owner. Only Update or the Core-owned
+Ctrl/Cmd+Enter submission submits; Close, Escape, blur, Tab and navigation do not
+submit or discard. A global Saved indicator MUST NOT imply a local draft was sent.
+Shared presentation receives explicit control, action and feedback contributions;
+it MUST NOT own another draft store or operation lifetime.
+
 Design contract. Relationship groups colocate their heading, active values,
 add/manage entry, attached authoring or selected-item details, outcome/recovery,
 and observed dismissed items in that order. Group and item identity comes from
@@ -1976,6 +2022,36 @@ not make a resolved mention unresolved. Session-observed dismissals retain the
 qualified label `Dismissed in this session` and the History path. Raw capture
 uses `Add host mention` or `Add identity mention`; canonical linking and link
 removal use their declared operation's language and never imply entity deletion.
+
+Design contract. Relationship item summaries MUST show raw mention, semantic
+resolution state and the authorized target when known. One selected correction
+region remains beside its source collection. Target filters, read status, paging
+and retry belong inside the chooser. Collapsing controls MUST preserve visible
+pending, uncertain and retained-work cues and their owner-required recovery entry.
+
+Design contract. Evidence sections MUST distinguish accepted authorized
+information, independently admitted preview/download actions, and attachment work.
+A count MUST NOT be expanded into an invented item catalog. `Attach file`, a
+named file drop/paste region and its keyboard alternative use the same owner
+admission. Upload, Evidence creation, source linking and display refresh outcomes
+remain separately described under their source owners.
+
+Design contract. History MUST show visible attribution, a concise semantic
+description, operation and absolute UTC date/time with numeric offset. An
+authorized name is used when supplied; otherwise the attributed identifier is
+shown as an identifier. Event disclosure exposes complete Core-owned semantic
+units, exact committed timestamp and technical references. Reversal controls
+belong with the event; row deletion/restoration belongs after the reading region
+in `Record actions`. Whole-change-set review MUST state that other records can be
+affected. Display text MUST NOT determine action identity or eligibility.
+
+Design contract. Workflow actions MUST appear once in declared order with their
+authored label and explicit outcome: open authoring, review, or navigate. One
+primary affirmative action belongs to each active local decision. A saved subject
+remains the record header while an attached append/create/transition title stays
+local. No-subject creation identifies its creation mode and admitted source
+context. Specialized workflows retain their own submission and recovery owners;
+there is no panel-global Save.
 
 Design contract. Notices render at their captured field, item, region, panel or
 inspector destination. Acknowledged writes followed by failed display refresh
@@ -2391,3 +2467,8 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-079` | §10.7 | Monotonic fake-timer test | Actionless confirmation dismisses after `5,000ms` of visible unpaused time; pointer, focus, and hidden-document pauses preserve the exact remainder; actionable and critical states persist. | Elapsed time resets on resume or any persistent state auto-dismisses. |
 | `D-AC-080` | §10.8 | Exhaustive typed error-presentation test | Every current family maps to one locus, retention rule, action set, focus effect, and live behavior; unknown errors use typed context and never human message text. | A family is missing, duplicated, message-classified, or exposes an undeclared action or internal detail. |
 | `D-AC-081` | §2.1 and §3.1.1 | Wording and projection audit | Normative design prose has no open-choice wording; the machine projection equals the accepted timing, priority, and error rows. | Open delegation remains or projection values differ from this owner. |
+| `D-AC-082` | §7.3 and §12.7 | Inspector navigation and geometry | Admitted sections are reachable through persistent Sections; passive scrolling never focuses or fetches; concealment and retargeting remove stale destinations; one body scrolls. | Duplicate admission, hidden controls, accidental reads, focus theft or outer-page overflow. |
+| `D-AC-083` | §12.5 and §12.7 | Saved-value and authoring transitions | All readable fields retain order and value distinctions; narrative expansion is accessible; Update and Close editor are distinct; detached drafts remain discoverable. | Lost content or authoring, implicit submission/discard, or misleading saved status. |
+| `D-AC-084` | §11 and §12.7 | Relationship and Evidence state matrix | Summaries retain source identity, selected controls are local, and accepted information, access and attachment/recovery remain distinct. | Partial reads imply absence, collapsed work disappears, or counts imply access. |
+| `D-AC-085` | §12.4 and §12.7 | History and Workflow action review | Attribution, UTC time and complete semantic units are readable; actions retain canonical identity/order and explicit local scope; saved subject and creation mode differ. | Text-derived eligibility, incomplete History, duplicate dispatch or ambiguous operation scope. |
+| `D-AC-086` | §6.2, §12.1–12.7 and §15 | Shared role and visual review | Complete typography/component roles reach migrated forms; first-viewport Details, attached editing and retained-work captures use the production renderer. | Competing styles, unsupported token literals, inaccessible state or missing first-viewport evidence. |

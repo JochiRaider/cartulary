@@ -73,11 +73,17 @@ export function useTimelineWorkbookInspectorSections({
   ) => void;
 }) {
   const renderInspectorFieldEditors = useCallback(
-    (row: WorkbookRow) => (
+    (
+      row: WorkbookRow,
+      collectionDestinations: Readonly<
+        Record<string, (() => void) | undefined>
+      >,
+    ) => (
       <TimelineInspectorDetails
         key={row.recordId ?? row.key}
         row={row}
         owner={detailsOwner}
+        collectionDestinations={collectionDestinations}
       />
     ),
     [detailsOwner],

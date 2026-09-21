@@ -108,6 +108,9 @@ it("binds every retained field and action to its original subject through refres
           initialProps: initial,
         });
         act(() => hook.result.current.update(" unfinished "));
+        expect(
+          hook.result.current.retainedWork.map((work) => work.identity),
+        ).toEqual([hook.result.current.identity]);
         hook.rerender({
           ...initial,
           row: { ...structuredClone(row), row_version: 2 },
@@ -116,6 +119,7 @@ it("binds every retained field and action to its original subject through refres
         expect(hook.result.current.canSubmit).toBe(true);
         hook.rerender({ ...initial, row: { ...row, record_id: "other" } });
         expect(hook.result.current.value).toBe("");
+        expect(hook.result.current.retainedWork).toEqual([]);
         hook.rerender({ ...initial, row: null });
         expect(hook.result.current.draft).toBeNull();
         expect(hook.result.current.canSubmit).toBe(false);
@@ -126,6 +130,7 @@ it("binds every retained field and action to its original subject through refres
         expect(hook.result.current.canSubmit).toBe(true);
         const captured = hook.result.current.capture();
         hook.rerender({ ...initial, active: false });
+        expect(hook.result.current.retainedWork).toEqual([]);
         expect(hook.result.current.isCurrent(captured)).toBe(false);
         expect(hook.result.current.value).toBe("");
         hook.rerender({ ...initial });
@@ -143,7 +148,10 @@ it("binds every retained field and action to its original subject through refres
           act(() => store.setAuthority(authority));
           expect(hook.result.current.canSubmit).toBe(false);
           act(() => hook.result.current.update("unauthorized"));
-          if (!authority) expect(hook.result.current.value).toBe("");
+          if (!authority) {
+            expect(hook.result.current.value).toBe("");
+            expect(hook.result.current.retainedWork).toEqual([]);
+          }
         }
         act(() =>
           store.setAuthority({ ...taskAuthority, sessionIdentity: "renewed" }),

@@ -3,15 +3,10 @@ import type {
   GetRecordHistoryResponse,
 } from "@cartulary/protocol-ts/http";
 
-export type RecordHistoryItem = Readonly<
-  Omit<GeneratedHistoryItem, "available_rollback_actions" | "diff_summary">
-> & {
-  readonly available_rollback_actions: readonly GeneratedHistoryItem["available_rollback_actions"][number][];
-  readonly diff_summary: {
-    readonly summary: string;
-    readonly units: readonly Record<string, unknown>[];
-  };
-};
+type ReadonlyHistory<T> = T extends object
+  ? { readonly [Key in keyof T]: ReadonlyHistory<T[Key]> }
+  : T;
+export type RecordHistoryItem = ReadonlyHistory<GeneratedHistoryItem>;
 export type RecordHistoryData = Readonly<
   Omit<GetRecordHistoryResponse["data"], "items">
 > & {

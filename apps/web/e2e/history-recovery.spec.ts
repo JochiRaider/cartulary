@@ -228,6 +228,20 @@ async function recoverDelete(
     contentType: "image/png",
   });
   await recovery.getByRole("button", { name: "Replay exact action" }).click();
+  await expect(recovery).toContainText(/Action completed[.;]/);
+  // A receipt survives an independently failing projection refresh. Retrying
+  // that read must complete reconciliation without replaying the accepted write.
+  const refresh = recovery.getByRole("button", {
+    name: "Refresh completed action",
+    exact: true,
+  });
+  if (await refresh.isVisible()) {
+    // Background reconciliation may finish between observation and activation.
+    // Only an already completed receipt permits the control to disappear.
+    await refresh.click({ timeout: 1_000 }).catch(async () => {
+      await expect(recovery).toContainText("Action completed.");
+    });
+  }
   await expect(recovery).toContainText("Action completed.");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   expect(bodies).toHaveLength(2);
