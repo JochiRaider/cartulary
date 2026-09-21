@@ -2,7 +2,6 @@ import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
-  genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
 } from "@cartulary/ui-contracts";
@@ -27,18 +26,22 @@ import {
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import {
+  savedInspectorRegion,
+  type WorkbookInspectorRegion,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { WorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
+import { WorkbookExplicitPatchRecovery } from "../../inspector/WorkbookExplicitPatchRecovery";
+import { WorkbookInspectorDetails } from "../../inspector/WorkbookInspectorDetails";
 import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
 import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
 import type { WorkbookInspectorErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
 import type { GenericCollectionMode } from "../../models/genericWorkbookModel";
-import {
-  genericCellLabel,
-  genericCollectionSupportsRemove,
-} from "../../models/genericWorkbookModel";
+import { genericCollectionSupportsRemove } from "../../models/genericWorkbookModel";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import type { WorkbookExplicitPatchOwner } from "../../runtime/WorkbookExplicitPatchOwner";
 import { CoordinationWorkflowBindings } from "../coordination/CoordinationWorkflowBindings";
 import { NoteSheetAuthoring } from "../notes/NoteSheetAuthoring";
 import { OrdinaryCreateControl } from "../ordinary/OrdinaryCreateControl";
@@ -73,7 +76,14 @@ export function GenericWorkbookInspectorPresentation({
     <GenericWorkbookInspector
       {...inspector}
       detailsContent={<GenericDetails {...details} />}
-      relationshipsContent={<GenericRelationships {...relationships} />}
+      relationshipsContent={
+        relationships.noteAssociations ?? [
+          savedInspectorRegion("references", {
+            kind: "populated",
+            content: <GenericRelationships {...relationships} />,
+          }),
+        ]
+      }
       workflowContent={<GenericWorkflow {...workflow} />}
     />
   );
@@ -176,6 +186,8 @@ function GenericDraftFields(props: GenericWorkflowProps) {
 }
 
 type GenericDetailsProps = {
+  readonly patches: WorkbookExplicitPatchOwner;
+  readonly disabledReason: string | null;
   readonly fieldFeedback: string | null;
   readonly actionError: WorkbookInspectorErrorPresentation | null;
   readonly edit: WorkbookInspectorEditDraft;
@@ -198,112 +210,107 @@ type GenericDetailsProps = {
 
 function GenericDetails(props: GenericDetailsProps) {
   const feedbackId = useId();
-  if (props.selectedEdit.row === null || props.editableFields.length === 0)
-    return props.selectedEdit.row ? (
-      <dl>
-        {props.contract.fields.map((field) => (
-          <div key={field.fieldKey}>
-            <dt>{field.label}</dt>
-            <dd>
-              {genericCellLabel(
-                props.selectedEdit.row?.cells[field.fieldKey]?.value,
-              )}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    ) : null;
+  if (props.selectedEdit.row === null) return null;
   const field = props.selectedEdit.field;
   return (
-    <fieldset style={{ ...editRowStyle, border: 0, padding: 0, minWidth: 0 }}>
-      <select
-        aria-label="Edit field"
-        data-testid={genericEditFieldSelectTestId(props.contract.viewSchemaId)}
-        style={selectStyle}
-        value={props.editFieldKey}
-        onChange={(event) => props.setEditFieldKey(event.target.value)}
-      >
-        <option value="">Field</option>
-        {props.editableFields.map((candidate) => (
-          <option key={candidate.fieldKey} value={candidate.fieldKey}>
-            {candidate.label}
-          </option>
-        ))}
-      </select>
-      {field?.writeKind === "action_payload" &&
-      genericCollectionSupportsRemove(field.fieldKey) ? (
-        <select
-          aria-label="Collection edit action"
-          data-testid={genericEditActionSelectTestId(
-            props.contract.viewSchemaId,
-          )}
-          style={selectStyle}
-          value={props.collectionMode}
-          onChange={(event) => {
-            props.setCollectionMode(
-              event.target.value === "remove" ? "remove" : "add",
-            );
-          }}
-        >
-          <option value="add">Add</option>
-          <option value="remove">Remove</option>
-        </select>
-      ) : null}
-      {field ? (
-        <WorkbookInspectorEditControl
-          invalid={props.fieldFeedback !== null}
-          describedBy={props.fieldFeedback ? feedbackId : undefined}
-          edit={props.edit}
-          ariaLabel={field.label}
-          id={`generic-edit-${props.selectedRecordId}-${field.fieldKey}`}
-          collectionItems={props.collectionItems}
-          collectionMode={props.collectionMode}
-          field={field}
-          testId={genericEditValueTestId(props.contract.viewSchemaId)}
-        />
-      ) : (
-        <span role="status">Select an available field.</span>
-      )}
-      {props.fieldFeedback ? (
-        <p id={feedbackId} role="alert" style={workbookFormMessageStyle}>
-          {props.fieldFeedback}
-        </p>
-      ) : null}
-      <WorkbookInspectorDraftFeedback
-        edit={props.edit}
-        contract={props.contract}
-        row={props.selectedEdit.row}
-      />
-      <Button
-        data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
-        disabled={props.mutationPending || !props.edit.canSubmit}
-        tone="primary"
-        type="button"
-        onClick={() => void props.submitEdit()}
-      >
-        Update
-      </Button>
-      {props.actionError ? (
-        <WorkbookInspectorPublicError error={props.actionError} />
-      ) : null}
-    </fieldset>
+    <WorkbookInspectorDetails
+      contract={props.contract}
+      row={props.selectedEdit.row}
+      editableFields={props.editableFields}
+      activeField={props.editFieldKey}
+      onEdit={props.setEditFieldKey}
+      onDetach={() => props.setEditFieldKey("")}
+      disabledReason={props.disabledReason}
+      canSubmit={!props.mutationPending && props.edit.canSubmit}
+      onSubmit={() => void props.submitEdit()}
+      editor={
+        field ? (
+          <fieldset
+            style={{ ...editRowStyle, border: 0, padding: 0, minWidth: 0 }}
+          >
+            {field?.writeKind === "action_payload" &&
+            genericCollectionSupportsRemove(field.fieldKey) ? (
+              <select
+                aria-label="Collection edit action"
+                data-testid={genericEditActionSelectTestId(
+                  props.contract.viewSchemaId,
+                )}
+                style={selectStyle}
+                value={props.collectionMode}
+                onChange={(event) => {
+                  props.setCollectionMode(
+                    event.target.value === "remove" ? "remove" : "add",
+                  );
+                }}
+              >
+                <option value="add">Add</option>
+                <option value="remove">Remove</option>
+              </select>
+            ) : null}
+            {field ? (
+              <WorkbookInspectorEditControl
+                invalid={props.fieldFeedback !== null}
+                describedBy={props.fieldFeedback ? feedbackId : undefined}
+                edit={props.edit}
+                ariaLabel={field.label}
+                id={`generic-edit-${props.selectedRecordId}-${field.fieldKey}`}
+                collectionItems={props.collectionItems}
+                collectionMode={props.collectionMode}
+                field={field}
+                testId={genericEditValueTestId(props.contract.viewSchemaId)}
+              />
+            ) : (
+              <span role="status">Select an available field.</span>
+            )}
+            {props.fieldFeedback ? (
+              <p id={feedbackId} role="alert" style={workbookFormMessageStyle}>
+                {props.fieldFeedback}
+              </p>
+            ) : null}
+            <WorkbookInspectorDraftFeedback
+              edit={props.edit}
+              contract={props.contract}
+              row={props.selectedEdit.row}
+            />
+            <Button
+              data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
+              disabled={props.mutationPending || !props.edit.canSubmit}
+              tone="primary"
+              type="button"
+              onClick={() => void props.submitEdit()}
+            >
+              Update
+            </Button>
+            {props.actionError ? (
+              <WorkbookInspectorPublicError error={props.actionError} />
+            ) : null}
+            <WorkbookExplicitPatchRecovery
+              owner={props.patches}
+              viewSchemaId={props.contract.viewSchemaId}
+              recordId={props.selectedEdit.row.record_id}
+              fieldKey={field.fieldKey}
+            />
+          </fieldset>
+        ) : null
+      }
+    />
   );
 }
 
 type GenericRelationshipsProps = {
-  readonly noteAssociations?: ReactNode;
+  readonly noteAssociations?:
+    | readonly [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
+    | undefined;
   readonly referenceSummary: ReactNode;
   readonly party: ReturnType<typeof useGenericPartyLinkWorkflow>;
 };
 
 function GenericRelationships(props: GenericRelationshipsProps) {
   return (
-    props.noteAssociations ?? (
-      <>
-        {props.referenceSummary}
-        <PartyLinkPanel workflow={props.party} />
-      </>
-    )
+    <>
+      {props.referenceSummary}
+      <PartyLinkPanel workflow={props.party} />
+    </>
   );
 }
 

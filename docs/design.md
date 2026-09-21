@@ -1292,7 +1292,7 @@ not complete a focus request; obsolete requests cannot restore focus.
 | Grid navigation mode | `Tab` to grid or one primary click on a committed cell | §8.6 key-command table | One primary click or printable key enters edit when writable; Timeline also uses `F2`; non-Timeline surfaces also use `Enter` | Not applicable | Timeline multi-cell range: collapse to active cell | §8.5 | Active cell | Grid container |
 | Grid edit mode | From active writable cell | §8.6 key-command table | Editor-specific | `Enter`, blur by explicit commit, or declared commit shortcut | `Esc` discards uncommitted editor value | Exit edit mode | Edited cell | Grid container |
 | Relationship chip | `Tab` or arrow within cell | Arrow keys within chip list | `Enter` opens inspect/action menu | Action commits through owner route | `Esc` closes menu | Close menu | Invoking chip | Owning cell |
-| Inspector tab/section | `Tab` to inspector | Arrow keys for tabs; headings tabbable only when interactive | `Enter` or `Space` opens control | Control-specific | `Esc` closes overlay inspector only | Close overlay inspector in responsive bands | Invoking row/control | Active grid container |
+| Inspector tab/section | `Tab` to inspector | Native control navigation; headings focusable for semantic navigation | `Enter` or `Space` opens control | Ordinary Details: Update or Ctrl/Cmd+Enter; specialized controls follow their owner | `Esc` detaches an attached ordinary editor and retains its draft | A subsequent `Esc` closes the inspector in every supported band | Field Edit action after detachment; invoking row/control after closing | Active grid container |
 | Evidence preview | Evidence action control | Preview-internal controls | `Enter` or `Space` on controls | Download or action-specific | `Esc` closes preview | Close preview | Invoking evidence affordance | Inspector Evidence section |
 | Menu or popover | Invoking button | Arrow keys, Home/End | `Enter` or `Space` selects item | Selection commits unless item opens nested UI | `Esc` closes | Close menu/popover | Invoking control | Region container |
 | Toast with focusable action | `Tab` to toast action | `Tab` within actions | `Enter` or `Space` activates | Action-specific | `Esc` dismisses only when safe dismiss is declared | Dismiss toast | Prior focus target | Status strip |
@@ -1330,8 +1330,9 @@ Design contract. When multiple dismissible layers are open, `Esc` MUST resolve e
 | 5 | Tentative Timeline range gesture | Cancel only that gesture and restore the previous still-valid selection; do not discard an editor draft. |
 | 6 | Grid cell editor open | Discard uncommitted editor value and return to grid navigation mode, retaining a still-valid completed range. |
 | 7 | Timeline grid navigation owns focus and a completed multi-cell range exists | Collapse the range to the active cell and consume this action. |
-| 8 | Inspector open as overlay | Close inspector and return focus to invoking row or control. |
-| 9 | No dismissible layer | No-op. |
+| 8 | Ordinary Details editor owns focus | Detach that editor without submitting or discarding; return focus to its field Edit action. |
+| 9 | Inspector owns focus or the existing application close shortcut is admitted | Close inspector and return focus to invoking row or control in every supported band. |
+| 10 | No dismissible layer | No-op. |
 
 Design contract. Focus restoration MUST use this fallback ladder when the invoking element no longer exists:
 
@@ -1939,6 +1940,50 @@ missing required implementation is a coverage failure, not an empty result.
 These closed state values are projected through authored design contracts and
 generated facades; executable consumers MUST NOT read this document.
 
+Design contract. A readable panel consists of a shallow ordered sequence of
+owner-supplied regions with stable semantic identities. A region uses the same
+data/access vocabulary; independent reads and recovery targets remain separate.
+Panel concealment suppresses every region, notice, control, count and focus
+destination. Independently concealed regions expose none of their protected
+material. Required contributions must not be inferred from React children.
+Creation-only contributions use their admitted creation context, not an invented
+saved-record subject. Panel membership and order remain configuration-owned.
+
+| Region state | Presentation and admission |
+| --- | --- |
+| `initial_loading` | An initial read is in flight; show local progress without old-subject data or an empty claim. |
+| `ready` | Show explicit empty or populated accepted content. Empty copy describes the actual loaded scope, including incomplete pages. |
+| `refreshing` | Retain authorized accepted content and eligible editor attachment; indicate refresh without disabling unrelated actions. |
+| `stale_failure` | Retain authorized content, qualify it as the last loaded observation, and offer only owner-provided read recovery. A previously empty observation does not prove current absence. |
+| `unavailable` | No accepted content. Cause `not_requested` is neutral and may offer Open/Load; `load_failed` reports the failed read; `owner_blocked` uses safe owner-provided availability guidance. No cause fabricates empty data or a recovery route. |
+
+Design contract. Ordinary Details shows readable saved fields in declared order,
+including read-only fields, before editing. Zero, false, empty text, explicit
+null, missing information and concealed information remain distinguishable.
+Long values wrap or expose an explicit full-value disclosure; tooltips are not
+their sole access path. Existing safe text and rich-content rendering applies.
+Field-specific Edit controls attach one ordinary editor beside the saved value,
+labelled `Unsaved change`. Core 03 §2.3A owns its explicit submission and retained
+authoring lifetime. Collection summaries delegate management to existing owners;
+they do not convert action payloads to scalar patches.
+
+Design contract. Relationship groups colocate their heading, active values,
+add/manage entry, attached authoring or selected-item details, outcome/recovery,
+and observed dismissed items in that order. Group and item identity comes from
+the source record, field and stable item reference. Raw mentions, resolved
+targets and canonical links retain distinct meaning. Failed target lookup does
+not make a resolved mention unresolved. Session-observed dismissals retain the
+qualified label `Dismissed in this session` and the History path. Raw capture
+uses `Add host mention` or `Add identity mention`; canonical linking and link
+removal use their declared operation's language and never imply entity deletion.
+
+Design contract. Notices render at their captured field, item, region, panel or
+inspector destination. Acknowledged writes followed by failed display refresh
+say that saving succeeded and offer read recovery only. Unresolved critical
+feedback remains visible until its owner resolves, supersedes or retires it.
+Inspector notice announcements follow §14.2; the grid's error-state announcement
+mapping does not override these inspector-specific rows.
+
 ### 12.8 Empty states, messages, and dialogs
 
 Design contract. Empty grids MUST distinguish successful empty query, no permission, unavailable surface, and loading state.
@@ -2065,6 +2110,11 @@ Design contract. Live-region behavior MUST use this matrix.
 | Client transaction recovery opens | Polite. | Queued edit blocked and recovery actions available; no raw identifier or server detail. |
 | Evidence preview blocked | Polite. | Evidence title or row context plus blocker. |
 | Evidence upload failed | Assertive. | Evidence or upload context plus failure state. |
+| Inspector initial load or refresh starts | Polite, once per admitted read transition. | Region and progress; intentionally unrequested resources do not announce loading. |
+| Inspector background read becomes stale | Polite, once per admitted outcome. | Region, retained-observation qualification and available read recovery. |
+| Inspector validation or explicit recovery fails | Assertive when immediate action is required, once per attempt/outcome. | Safe local failure and owner-permitted correction or recovery. |
+| Inspector ordinary write succeeds | Existing save-status or recovery announcement owns the outcome; local copy does not repeat it. | Saved state; distinguish outstanding display refresh. |
+| Inspector outcome rerenders or remounts | No additional outcome announcement. | A newly attempted recovery is a distinct outcome even if message text is unchanged. |
 | Presence update only | No live announcement. | None. |
 | Auto-resolution batch complete | Polite. | Count auto-resolved and count unresolved. |
 | Toast warning or error | Follows toast severity. | Message text plus action name if present. |

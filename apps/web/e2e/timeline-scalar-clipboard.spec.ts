@@ -69,10 +69,12 @@ async function activate(
     cellKey: fieldKey,
   });
   await page.getByTestId(rowCellTestId(recordId, fieldKey)).click();
-  if (surface === "inspector")
+  if (surface === "inspector") {
     await page
       .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
       .click();
+    await page.locator(`[data-inspector-edit-field="${fieldKey}"]`).click();
+  }
   const input = page.getByTestId(
     timelineScalarEditorTestId({ recordId, fieldKey, surface }),
   );
@@ -290,7 +292,7 @@ test("Timeline scalar clipboard production characterization", async ({
           value: "alpha B🙂 gamma",
           start: 9,
           end: 9,
-          requests: initialRequests + 1,
+          requests: initialRequests + (surface === "grid" ? 1 : 0),
         });
         await page.keyboard.type("Z");
         await record("continued typing", {
@@ -309,14 +311,14 @@ test("Timeline scalar clipboard production characterization", async ({
           value: originalText,
           start: 6,
           end: 10,
-          requests: initialRequests + 1,
+          requests: initialRequests + (surface === "grid" ? 1 : 0),
         });
         await page.keyboard.press("Control+Shift+z");
         await record("redo paste", { value: "alpha B🙂 gamma" });
         await page.keyboard.press("Control+Shift+z");
         await record("redo typing", {
           value: "alpha B🙂Z gamma",
-          requests: initialRequests + 1,
+          requests: initialRequests + (surface === "grid" ? 1 : 0),
         });
         await selection(input, 0, 5, "backward");
         await page.keyboard.press("Control+x");
@@ -338,21 +340,29 @@ test("Timeline scalar clipboard production characterization", async ({
         await selection(input, (await input.inputValue()).length);
         await paste(page, " END");
         await record("end paste", { value: `${prefix} B🙂Z gamma END` });
-        await input.press("Enter");
+        await input.press(surface === "grid" ? "Enter" : "Control+Enter");
         await expect(page.getByTestId(saveStateTestId())).not.toHaveText(
           "Syncing",
         );
         await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-        expect(requests).toHaveLength(initialRequests + 3);
+        await expect
+          .poll(() => requests.length)
+          .toBe(initialRequests + (surface === "grid" ? 3 : 1));
         expect(
           requests.slice(initialRequests).map((request) => request.body),
         ).toEqual([
-          expect.objectContaining({
-            changes: [{ field_key: fieldKey, value: "alpha B🙂 gamma" }],
-          }),
-          expect.objectContaining({
-            changes: [{ field_key: fieldKey, value: `${prefix} B🙂Z gamma` }],
-          }),
+          ...(surface === "grid"
+            ? [
+                expect.objectContaining({
+                  changes: [{ field_key: fieldKey, value: "alpha B🙂 gamma" }],
+                }),
+                expect.objectContaining({
+                  changes: [
+                    { field_key: fieldKey, value: `${prefix} B🙂Z gamma` },
+                  ],
+                }),
+              ]
+            : []),
           expect.objectContaining({
             changes: [
               { field_key: fieldKey, value: `${prefix} B🙂Z gamma END` },
@@ -394,8 +404,29 @@ test("Timeline scalar native paste joins rapid departure and retains rejected dr
         if (departure === "blur")
           await input.evaluate((element: HTMLElement) => element.blur());
         else await page.keyboard.press(departure);
+        let expected = "alpha pasted Ω gamma";
+        if (surface === "inspector") {
+          expect(patches.calls).toHaveLength(0);
+          await expectServerTimelineCells(page, incidentId, recordId, {
+            [synopsis]: originalText,
+          });
+          if (departure === "Escape") {
+            await expect(input).toHaveCount(0);
+            await page
+              .locator(`[data-inspector-edit-field="${synopsis}"]`)
+              .click();
+            await page
+              .getByRole("button", { name: "Resume draft", exact: true })
+              .click();
+          }
+          expected = await input.inputValue();
+          await input.press("Control+Enter");
+        }
         await held.waitForHit;
-        if (departure === "Enter" || departure === "Tab") {
+        if (
+          surface === "grid" &&
+          (departure === "Enter" || departure === "Tab")
+        ) {
           await expect(input).toBeFocused();
           await expect(input).toHaveValue("alpha pasted Ω gamma");
         }
@@ -403,7 +434,7 @@ test("Timeline scalar native paste joins rapid departure and retains rejected dr
         await held.waitForCompletion;
         await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
         await expectServerTimelineCells(page, incidentId, recordId, {
-          [synopsis]: "alpha pasted Ω gamma",
+          [synopsis]: expected,
         });
         expect(patches.calls).toHaveLength(1);
         if (surface === "grid" && departure !== "blur")
@@ -428,11 +459,21 @@ test("Timeline scalar native paste joins rapid departure and retains rejected dr
       patches.failNextPatch(422, "invalid_request", { recordId });
       await selection(input, 0, originalText.length);
       await paste(page, "  exact rejected Ω\t\n  ");
-      await page.keyboard.press("Tab");
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      await input.press(surface === "grid" ? "Tab" : "Control+Enter");
+      if (surface === "grid")
+        await expect(page.getByTestId(saveStateTestId())).toHaveText(
+          "Conflict",
+        );
+      else
+        await expect(
+          page
+            .locator("[data-inspector-editor-field]")
+            .getByRole("alert")
+            .first(),
+        ).toBeVisible();
       await expect(input).toHaveValue("  exact rejected Ω\t\n  ");
       await input.focus();
-      await page.keyboard.press("Enter");
+      await page.keyboard.press(surface === "grid" ? "Enter" : "Tab");
       expect(patches.calls).toHaveLength(1);
       await expect(input).toHaveValue("  exact rejected Ω\t\n  ");
       observations.push({
@@ -464,8 +505,9 @@ test("Timeline scalar older receipts preserve newer equal edits and independent 
     try {
       await selection(input, 0, originalText.length);
       await paste(page, "same paste Ω");
+      if (surface === "inspector") await input.press("Control+Enter");
       await held.waitForHit;
-      await input.press("Enter");
+      if (surface === "grid") await input.press("Enter");
       // A later equal-text replacement fences this pending departure.
       await selection(input, 0, "same paste Ω".length);
       await paste(page, "same paste Ω");
@@ -487,8 +529,12 @@ test("Timeline scalar older receipts preserve newer equal edits and independent 
             "cartulary.workbook.pending_unit_admitted",
           ).length,
       );
-      expect(admissions).toBe(2);
-      await input.press("Enter");
+      if (surface === "grid") expect(admissions).toBe(2);
+      else {
+        expect(patches.calls).toHaveLength(1);
+        await page.getByRole("button", { name: /Keep draft/ }).click();
+      }
+      await input.press(surface === "grid" ? "Enter" : "Control+Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expectServerTimelineCells(page, incidentId, recordId, {
         [synopsis]: "same paste Ω newer",
@@ -521,6 +567,7 @@ test("Timeline scalar older receipts preserve newer equal edits and independent 
       exact: true,
     });
     await expect(find).toBeFocused();
+    await page.locator(`[data-inspector-edit-field="${synopsis}"]`).click();
     const inspector = page.getByTestId(
       timelineScalarEditorTestId({
         recordId,
@@ -540,6 +587,8 @@ test("Timeline scalar older receipts preserve newer equal edits and independent 
     expect(patches.calls).toHaveLength(1);
     await selection(inspector, (await inspector.inputValue()).length);
     await paste(page, " pasted");
+    await page.getByRole("button", { name: /Keep draft/ }).click();
+    await inspector.press("Control+Enter");
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectServerTimelineCells(page, incidentId, recordId, {
       [synopsis]: "independent Inspector Ω pasted",
@@ -715,6 +764,7 @@ test("Timeline scalar paste retains multiline scrolling composition and readable
   try {
     await selection(input, 0, originalText.length);
     await paste(page, "line Ω\n".repeat(40));
+    await input.press("Control+Enter");
     await held.waitForHit;
     await selection(input, 15);
     await cdp.send("Input.imeSetComposition", {
@@ -737,7 +787,8 @@ test("Timeline scalar paste retains multiline scrolling composition and readable
     await cdp.send("Input.insertText", { text: "確定" });
     await page.keyboard.type(" continued");
     const completed = await state(input);
-    await input.press("Enter");
+    await page.getByRole("button", { name: /Keep draft/ }).click();
+    await input.press("Control+Enter");
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectServerTimelineCells(page, incidentId, recordId, {
       [raw]: completed.value,
@@ -767,28 +818,36 @@ test("Timeline scalar paste retains multiline scrolling composition and readable
       .first();
     await expect(readableCell).toBeVisible();
     await readableCell.click();
-    if (!(await input.count()))
+    const saved = page
+      .locator(`[data-inspector-saved-field="${raw}"] dd`)
+      .first();
+    if (!(await saved.count()))
       await page
         .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
         .click();
-    await expect(input).toHaveAttribute("readonly", "");
-    await input.focus();
-    await selection(input, 0, 4, "backward");
+    await expect(saved).toHaveText(completed.value);
+    await saved.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
     await page.keyboard.press("Control+c");
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      "line",
+      completed.value,
     );
     const count = patches.calls.length;
     await page.keyboard.press("Control+x");
     await paste(page, "cannot insert");
-    await expect(input).toHaveValue(completed.value);
+    await expect(saved).toHaveText(completed.value);
     expect(patches.calls).toHaveLength(count);
     await info.attach("scalar-composition-readonly", {
       body: JSON.stringify(
         {
           composing,
           completed,
-          readonly: await state(input),
+          readonly: await saved.innerText(),
           calls: patches.calls,
         },
         null,

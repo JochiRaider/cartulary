@@ -1,5 +1,9 @@
 import { observeAsyncOperation } from "../../services/asyncObservation";
 import {
+  type WorkbookInspectorNotice,
+  WorkbookInspectorNoticeLedger,
+} from "../inspector/workbookInspectorErrorModel";
+import {
   buildRecordRollbackTargetFromHistoryAction,
   type RecordHistoryData,
 } from "../inspector/workbookRecordHistoryModel";
@@ -40,6 +44,37 @@ const empty: readonly HistoryOperation[] = [];
 
 /** History actions have their own lifetime and never become autosave replay units. */
 export class WorkbookRecordHistoryOwner {
+  readonly inspectorNotices = new WorkbookInspectorNoticeLedger();
+  private readonly noticeAttempts = new WeakMap<object, string>();
+  private nextNoticeAttempt = 0;
+  readNotice(
+    recordId: string,
+    viewSchemaId: string,
+    request: object,
+    transition: string,
+    message: string,
+  ): WorkbookInspectorNotice {
+    let attemptId = this.noticeAttempts.get(request);
+    if (!attemptId) {
+      attemptId = String(++this.nextNoticeAttempt);
+      this.noticeAttempts.set(request, attemptId);
+    }
+    return {
+      context: {
+        authority: `${this.incidentId}:${this.actorId}:${this.epoch}`,
+        subject: { kind: "record", viewSchemaId, recordId },
+      },
+      destination: {
+        kind: "region",
+        panel: "history",
+        regionId: "record-history",
+      },
+      attemptId,
+      transitionId: transition,
+      feedback: { kind: "message", message, announcement: "none" },
+      announcement: "polite",
+    };
+  }
   private authority: HistoryAuthority | null = null;
   private actorId: string | null = null;
   private entries = new Map<string, HistoryOperation>();

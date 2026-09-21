@@ -4,6 +4,8 @@ import type { WorkbookPortResult } from "../../ports/WorkbookPortResult";
 import type { ObservationPage } from "./observationOperation";
 
 export type ObservationCollectionState<T> = Readonly<{
+  request: number;
+  hasAccepted: boolean;
   items: readonly T[];
   phase: "initial_loading" | "ready" | "loading_more" | "refreshing" | "failed";
   hasMore: boolean;
@@ -14,6 +16,8 @@ export type ObservationCollectionState<T> = Readonly<{
 /** Read ownership is separate from both drafts and mutation retention. */
 export class ObservationCollection<T> {
   private state: ObservationCollectionState<T> = {
+    request: 0,
+    hasAccepted: false,
     items: [],
     phase: "initial_loading",
     hasMore: false,
@@ -80,9 +84,10 @@ export class ObservationCollection<T> {
     this.controller = controller;
     this.failed = { cursor, refresh };
     this.publish({
+      request: generation,
       phase: cursor
         ? "loading_more"
-        : this.state.items.length
+        : this.state.hasAccepted
           ? "refreshing"
           : "initial_loading",
       failure: null,
@@ -159,6 +164,7 @@ export class ObservationCollection<T> {
       this.extent = cursor ? this.extent + 1 : pages;
       this.visited = visited;
       this.publish({
+        hasAccepted: true,
         items,
         phase: "ready",
         hasMore: next !== null,

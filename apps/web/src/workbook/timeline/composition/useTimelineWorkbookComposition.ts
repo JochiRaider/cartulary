@@ -325,6 +325,13 @@ export function useTimelineWorkbookComposition({
     observationSource,
     captureActions,
     fileOwner: runtime.mutationRuntime.timelineFiles,
+    inspectorDetails: {
+      patches: runtime.mutationRuntime.explicitPatches,
+      drafts: runtime.mutationRuntime.inspectorDrafts,
+      sheetRef: runtime.incident.sheetRef,
+      presentation: runtime.incident.continuityResetKey,
+      accepted: mutation.commands.save.applyAcceptedRowMutation,
+    },
     foundation: {
       commands: {
         query: foundation.commands.query,

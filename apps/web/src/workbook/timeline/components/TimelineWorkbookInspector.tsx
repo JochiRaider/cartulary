@@ -11,13 +11,18 @@ import type { ReactNode, RefCallback } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
-import { inspectorPanel } from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import {
+  inspectorPanel,
+  savedInspectorRegion,
+  type WorkbookInspectorRegion,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
+import type { CollectionFieldKey } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { TimelineMentionActions } from "./TimelineMentionActionControls";
@@ -42,7 +47,7 @@ export function TimelineWorkbookInspector({
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
   renderPanelSupplement,
-  renderRelationshipEditors,
+  renderRelationshipEditor,
   renderWorkflowSection,
   renderRowHistorySection,
   rowHistoryRecordId,
@@ -74,16 +79,20 @@ export function TimelineWorkbookInspector({
   ) => ReactNode;
   readonly renderInspectorFieldEditors: (row: WorkbookRow) => ReactNode;
   readonly renderPanelSupplement: (panelId: InspectorPanelId) => ReactNode;
-  readonly renderRelationshipEditors: (row: WorkbookRow) => ReactNode;
+  readonly renderRelationshipEditor: (
+    row: WorkbookRow,
+    fieldKey: CollectionFieldKey,
+  ) => ReactNode;
   readonly renderWorkflowSection: () => ReactNode;
   readonly renderRowHistorySection: (
     elementRef?: RefCallback<HTMLElement>,
-  ) => ReactNode;
+  ) => WorkbookInspectorRegion;
   readonly rowHistoryRecordId: string | null;
   readonly rowHistoryRowVersion: number | null;
   readonly selectedMention: InspectorMention | null;
   readonly selectedRow: WorkbookRow | null;
 }) {
+  if (currentIncidentRole === null) return null;
   const disabledTokens = new Set<InspectorDisabledCondition>();
   if (!selectedRow?.recordId && !currentHistoryDeleted) {
     disabledTokens.add("no_row_selected");
@@ -119,23 +128,59 @@ export function TimelineWorkbookInspector({
         })
       : null;
 
-  const withSupplement = (panelId: InspectorPanelId, content: ReactNode) =>
-    inspectorPanel(
+  const visibleFeedback =
+    inspectorMessage?.sourceRecordId &&
+    inspectorMessage.sourceRecordId !== subject?.recordId
+      ? null
+      : inspectorMessage;
+  const localFeedback = (panelId: InspectorPanelId) =>
+    visibleFeedback?.destination &&
+    "panel" in visibleFeedback.destination &&
+    visibleFeedback.destination.panel === panelId &&
+    visibleFeedback.destination.kind !== "relationship_item" ? (
+      <WorkbookInspectorFeedbackView
+        feedback={visibleFeedback}
+        neutralStyle={bodyStyle}
+        testId={timelineInspectorMessageTestId()}
+      />
+    ) : null;
+  const withSupplement = (
+    panelId: InspectorPanelId,
+    region: WorkbookInspectorRegion,
+  ) => ({
+    ...inspectorPanel(region),
+    authoring: (
       <>
-        {content}
         {subject?.kind === "live" ? renderPanelSupplement(panelId) : null}
-      </>,
-    );
+        {localFeedback(panelId)}
+      </>
+    ),
+  });
   const liveRow = subject?.kind === "live" ? selectedRow : null;
   const relationships =
     liveRow === null ? null : (
       <TimelineMentionsPanel
+        feedback={
+          visibleFeedback?.destination?.kind === "relationship_item"
+            ? visibleFeedback
+            : null
+        }
         sourceRecordId={liveRow.recordId}
         entityIndex={entityIndex}
         actions={mentionActions}
         getRelationshipLabel={getRelationshipLabel}
         inspectorMentions={inspectorMentions}
-        relationshipEditors={renderRelationshipEditors(liveRow)}
+        relationshipEditors={{
+          "timeline.host_refs": renderRelationshipEditor(
+            liveRow,
+            "timeline.host_refs",
+          ),
+          "timeline.identity_refs": renderRelationshipEditor(
+            liveRow,
+            "timeline.identity_refs",
+          ),
+          "timeline.tags": renderRelationshipEditor(liveRow, "timeline.tags"),
+        }}
         registerMention={elementRegistry.registerMention}
         registerCollectionItem={elementRegistry.registerCollectionItem}
         onSelectMention={onSelectMention}
@@ -168,15 +213,24 @@ export function TimelineWorkbookInspector({
           details:
             liveRow === null
               ? undefined
-              : withSupplement("details", renderInspectorFieldEditors(liveRow)),
+              : withSupplement(
+                  "details",
+                  savedInspectorRegion("saved-fields", {
+                    kind: "populated",
+                    content: renderInspectorFieldEditors(liveRow),
+                  }),
+                ),
           evidence:
             liveRow === null
               ? undefined
               : withSupplement(
                   "evidence",
-                  renderEvidenceAttachSection(liveRow, (element) =>
-                    elementRegistry.registerPanel("evidence", element),
-                  ),
+                  savedInspectorRegion("evidence-metadata", {
+                    kind: "populated",
+                    content: renderEvidenceAttachSection(liveRow, (element) =>
+                      elementRegistry.registerPanel("evidence", element),
+                    ),
+                  }),
                 ),
           history:
             subject === null
@@ -190,16 +244,42 @@ export function TimelineWorkbookInspector({
           relationships:
             liveRow === null
               ? undefined
-              : withSupplement("relationships", relationships),
+              : withSupplement(
+                  "relationships",
+                  savedInspectorRegion("mentions", {
+                    kind: "populated",
+                    content: relationships,
+                  }),
+                ),
           workflow:
             liveRow === null
               ? undefined
-              : withSupplement("workflow", renderWorkflowSection()),
+              : {
+                  ...withSupplement(
+                    "workflow",
+                    savedInspectorRegion("workflow", {
+                      kind: "empty",
+                      message: "Choose an available workflow action.",
+                    }),
+                  ),
+                  authoring: (
+                    <>
+                      {renderWorkflowSection()}
+                      {renderPanelSupplement("workflow")}
+                      {localFeedback("workflow")}
+                    </>
+                  ),
+                },
         }}
         onContextualAction={onFeatureAction}
       />
       <WorkbookInspectorFeedbackView
-        feedback={inspectorMessage}
+        feedback={
+          visibleFeedback?.destination &&
+          visibleFeedback.destination.kind !== "inspector"
+            ? null
+            : visibleFeedback
+        }
         neutralStyle={bodyStyle}
         testId={timelineInspectorMessageTestId()}
       />

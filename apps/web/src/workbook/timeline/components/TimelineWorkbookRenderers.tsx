@@ -98,25 +98,22 @@ export function useTimelineWorkbookRenderers({
     [timelineContract],
   );
 
-  const {
-    renderTimelineGridEditor,
-    renderTimelineInspectorEditor,
-    renderTimelineScalarCell,
-  } = useTimelineScalarRenderers({
-    conflictQueue,
-    editingPresenceForCell,
-    editorDraftRegistry,
-    handleBlur,
-    handleEditModePresence,
-    handleKeyDown,
-    handleSelectRow,
-    readOnly,
-    readCurrentRow,
-    registerInput,
-    setActiveConflictKey: activateConflictCell,
-    timelineBindingLabel,
-    updateTimelineSurfaceFocusAnchor,
-  });
+  const { renderTimelineGridEditor, renderTimelineScalarCell } =
+    useTimelineScalarRenderers({
+      conflictQueue,
+      editingPresenceForCell,
+      editorDraftRegistry,
+      handleBlur,
+      handleEditModePresence,
+      handleKeyDown,
+      handleSelectRow,
+      readOnly,
+      readCurrentRow,
+      registerInput,
+      setActiveConflictKey: activateConflictCell,
+      timelineBindingLabel,
+      updateTimelineSurfaceFocusAnchor,
+    });
   const renderTimelineCollectionInput = useTimelineCollectionRenderer({
     editorDraftRegistry,
     elementRegistry,
@@ -146,7 +143,6 @@ export function useTimelineWorkbookRenderers({
   return {
     renderTimelineCollectionInput,
     renderTimelineGridEditor,
-    renderTimelineInspectorEditor,
     timelineBindingLabel,
     timelineColumns,
   };

@@ -1,6 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { savedInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import { GenericWorkbookInspector } from "../generic/GenericWorkbookInspector";
 
@@ -31,8 +32,18 @@ function fixture(
       }}
       surfaceTitle="Indicators"
       detailsContent={null}
-      evidenceContent={null}
-      relationshipsContent={null}
+      evidenceContent={[
+        savedInspectorRegion("evidence", {
+          kind: "empty",
+          message: "No evidence.",
+        }),
+      ]}
+      relationshipsContent={[
+        savedInspectorRegion("relationships", {
+          kind: "empty",
+          message: "No relationships.",
+        }),
+      ]}
       workflowContent={null}
       onClose={vi.fn()}
       mutationError={null}

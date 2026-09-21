@@ -150,6 +150,15 @@ export class WorkbookTimelineFileOwner {
     };
   };
   getSnapshot = () => this.snapshot;
+  attachmentDisabledReason() {
+    return !this.authority
+      ? "Current incident access is unavailable."
+      : this.authority.closed
+        ? "This incident is closed. Attachments are read-only."
+        : this.authority.role === "viewer"
+          ? "An editor role is required to attach files."
+          : null;
+  }
   private canWrite() {
     return (
       !!this.authority &&

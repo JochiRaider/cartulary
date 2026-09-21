@@ -1,5 +1,4 @@
 import {
-  genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   workbookInspectorCloseButtonTestId,
@@ -194,8 +193,8 @@ test("Inspector field rejection retains raw text and caret and cannot invalidate
     row.record_id,
   );
   await page
-    .getByTestId(genericEditFieldSelectTestId(evidenceViewSchemaId))
-    .selectOption("evidence.title");
+    .locator(`[data-inspector-edit-field="${"evidence.title"}"]`)
+    .click();
   const input = page.getByTestId(genericEditValueTestId(evidenceViewSchemaId));
   let release: () => void = () => {};
   let reached = false;
@@ -287,9 +286,7 @@ test("Inspector collection and reference rejections retain authored values and s
   ] as const) {
     await page.goto(`/?incident_id=${incident}&view_schema_id=${schema}`);
     await openGenericInspectorForRecord(page, schema, record);
-    await page
-      .getByTestId(genericEditFieldSelectTestId(schema))
-      .selectOption(field);
+    await page.locator(`[data-inspector-edit-field="${field}"]`).click();
     const input = page.getByTestId(genericEditValueTestId(schema));
     const details = page.getByTestId(
       workbookInspectorPanelTestId(schema, "details"),

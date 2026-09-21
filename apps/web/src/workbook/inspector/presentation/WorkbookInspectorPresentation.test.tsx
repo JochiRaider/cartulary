@@ -26,7 +26,10 @@ import {
   WorkbookInspectorFeedbackView,
   WorkbookInspectorPublicError,
 } from "./WorkbookInspectorFeedback";
-import { inspectorPanel } from "./WorkbookInspectorPanelContent";
+import {
+  inspectorPanel,
+  savedInspectorRegion,
+} from "./WorkbookInspectorPanelContent";
 import {
   WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
@@ -265,11 +268,36 @@ describe("Workbook Inspector presentation", () => {
       <WorkbookInspectorDeclaredPanelList
         {...props}
         modelsByPanel={{
-          details: inspectorPanel(<p>Details content</p>),
-          evidence: inspectorPanel(<p>Evidence content</p>),
-          history: inspectorPanel(<p>History content</p>),
-          relationships: inspectorPanel(<p>Relationships content</p>),
-          workflow: inspectorPanel(<p>Workflow content</p>),
+          details: inspectorPanel(
+            savedInspectorRegion("saved", {
+              kind: "populated",
+              content: <p>Details content</p>,
+            }),
+          ),
+          evidence: inspectorPanel(
+            savedInspectorRegion("saved", {
+              kind: "populated",
+              content: <p>Evidence content</p>,
+            }),
+          ),
+          history: inspectorPanel(
+            savedInspectorRegion("saved", {
+              kind: "populated",
+              content: <p>History content</p>,
+            }),
+          ),
+          relationships: inspectorPanel(
+            savedInspectorRegion("saved", {
+              kind: "populated",
+              content: <p>Relationships content</p>,
+            }),
+          ),
+          workflow: inspectorPanel(
+            savedInspectorRegion("saved", {
+              kind: "populated",
+              content: <p>Workflow content</p>,
+            }),
+          ),
         }}
         subject={live}
       />,
@@ -283,7 +311,14 @@ describe("Workbook Inspector presentation", () => {
     rerender(
       <WorkbookInspectorDeclaredPanelList
         {...props}
-        modelsByPanel={{ history: inspectorPanel(<p>History content</p>) }}
+        modelsByPanel={{
+          history: inspectorPanel(
+            savedInspectorRegion("saved", {
+              kind: "populated",
+              content: <p>History content</p>,
+            }),
+          ),
+        }}
         subject={deleted}
       />,
     );
@@ -296,7 +331,18 @@ describe("Workbook Inspector presentation", () => {
     rerender(
       <WorkbookInspectorDeclaredPanelList
         {...props}
-        modelsByPanel={{ workflow: inspectorPanel(<p>Standalone creation</p>) }}
+        creationAttachment={{
+          id: "assessment-create",
+          viewSchemaId: props.config.viewSchemaId,
+        }}
+        modelsByPanel={{
+          workflow: inspectorPanel(
+            savedInspectorRegion("saved", {
+              kind: "populated",
+              content: <p>Standalone creation</p>,
+            }),
+          ),
+        }}
         subject={null}
       />,
     );

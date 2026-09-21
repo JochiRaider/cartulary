@@ -5,7 +5,6 @@ import {
   entityMergePreconditionDetailsTestId,
   entityReusableIdentifierItemTestId,
   entityReusableIdentifiersSectionTestId,
-  genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   timelinePreviewRowTestId,
@@ -38,10 +37,17 @@ import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryC
 import { useEntityTimelinePreview } from "../../hooks/useEntityTimelinePreview";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { prepareWorkbookInspectorChange } from "../../inspector/prepareWorkbookInspectorChange";
+import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
   WorkbookInspectorPublicError,
 } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import {
+  ownedInspectorRegion,
+  type PresentInspectorRegion,
+  type WorkbookInspectorPanelContentModel,
+  type WorkbookInspectorPanelData,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import {
@@ -49,6 +55,8 @@ import {
   type WorkbookInspectorEditDraft,
 } from "../../inspector/useWorkbookInspectorEditDraft";
 import { useWorkbookInspectorFieldFeedback } from "../../inspector/useWorkbookInspectorFieldFeedback";
+import { WorkbookExplicitPatchRecovery } from "../../inspector/WorkbookExplicitPatchRecovery";
+import { WorkbookInspectorDetails } from "../../inspector/WorkbookInspectorDetails";
 import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
 import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
 import type {
@@ -137,12 +145,7 @@ export function useEntityWorkbookInspectorComposition({
   );
   const [deletedHistorySubject, setDeletedHistorySubject] =
     useState<WorkbookInspectorSubject | null>(null);
-  const [editFieldKey, setEditFieldKey] = useState(
-    () =>
-      contract.fields.find(
-        (field) => field.patchWritable && field.writeKind === "direct_value",
-      )?.fieldKey ?? "",
-  );
+  const [editFieldKey, setEditFieldKey] = useState("");
   const aliasInputRef = useRef<HTMLInputElement | null>(null);
   const subject: WorkbookInspectorSubject | null =
     selectedEntity === null
@@ -161,7 +164,13 @@ export function useEntityWorkbookInspectorComposition({
     loadTimelinePreview,
     timelinePreviewRows,
     timelinePreviewState,
-  } = useEntityTimelinePreview({ entityType, viewQuery, onAuthorityUncertain });
+    timelinePreviewNotice,
+  } = useEntityTimelinePreview({
+    entityType,
+    viewQuery,
+    onAuthorityUncertain,
+    authorityIdentity: inspectorResetKey,
+  });
   const beginMutation = useCallback(
     () => mutationRuntime.beginExplicitMutation(),
     [mutationRuntime],
@@ -183,8 +192,9 @@ export function useEntityWorkbookInspectorComposition({
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
       resetOwnerState: ({ cause, scope }) => {
+        if (cause !== "record_updated") setEditFieldKey("");
         merge.commands.clearPlan();
-        clearTimelinePreview();
+        if (cause !== "record_updated") clearTimelinePreview();
         setEntityActionFeedback(null);
         setMutationError(null);
         if (cause === "close" || scope === "surface") {
@@ -218,7 +228,7 @@ export function useEntityWorkbookInspectorComposition({
     field: selectedEdit.field,
     viewSchemaId: contract.viewSchemaId,
     presentation: inspectorResetKey,
-    active: isOpen && interactionMode.kind === "editable",
+    active: isOpen,
   });
   const aliasEdit = useWorkbookInspectorEditDraft({
     store: mutationRuntime.inspectorDrafts,
@@ -426,6 +436,13 @@ export function useEntityWorkbookInspectorComposition({
   const node = isOpen ? (
     <EntityInspectorPresentation
       details={{
+        patches: mutationRuntime.explicitPatches,
+        disabledReason:
+          interactionMode.kind !== "editable"
+            ? interactionMode.label
+            : !mutationRuntime.inspectorDrafts.canAuthor()
+              ? "Current access permits reading only."
+              : null,
         aliasDraft,
         aliasInputRef,
         contract,
@@ -529,6 +546,10 @@ export function useEntityWorkbookInspectorComposition({
       }}
       isOpen={isOpen}
       relationships={{
+        timelinePreviewNotice,
+        refreshTimelinePreview: (recordId) => {
+          void loadTimelinePreview(recordId);
+        },
         canMerge: canMerge && mutationRuntime.entityMerge.canSubmit(),
         entityIndex,
         entityType,
@@ -616,12 +637,18 @@ function EntityInspectorPresentation({
           )}
         </p>
       }
-      relationshipsContent={<EntityRelationships {...relationships} />}
+      relationshipsContent={[
+        ownedInspectorRegion("timeline-preview", (present) => (
+          <EntityRelationships {...relationships} present={present} />
+        )),
+      ]}
     />
   );
 }
 
 type EntityDetailsProps = {
+  readonly patches: WorkbookMutationRuntime["explicitPatches"];
+  readonly disabledReason: string | null;
   readonly editFeedback: ReturnType<typeof useWorkbookInspectorFieldFeedback>;
   readonly aliasFeedback: ReturnType<typeof useWorkbookInspectorFieldFeedback>;
   readonly aliasRemoveFeedback: ReturnType<
@@ -650,8 +677,24 @@ type EntityDetailsProps = {
 function EntityDetails(props: EntityDetailsProps) {
   return (
     <>
-      <EntityEditCell {...props} />
-      <EntityAliases {...props} />
+      {props.selectedEntity ? (
+        <WorkbookInspectorDetails
+          contract={props.contract}
+          row={props.selectedEntity.rawRow}
+          editableFields={props.editableFields}
+          activeField={props.editFieldKey}
+          onEdit={props.setEditFieldKey}
+          onDetach={() => props.setEditFieldKey("")}
+          disabledReason={props.disabledReason}
+          canSubmit={!props.mutationPending && props.edit.canSubmit}
+          onSubmit={() => void props.submitEdit()}
+          editor={<EntityEditCell {...props} />}
+        />
+      ) : null}
+      <details>
+        <summary>Manage aliases</summary>
+        <EntityAliases {...props} />
+      </details>
       {props.selectedEntity ? (
         <EntityIdentifiers
           entity={props.selectedEntity}
@@ -664,27 +707,10 @@ function EntityDetails(props: EntityDetailsProps) {
 
 function EntityEditCell(props: EntityDetailsProps) {
   const feedbackId = useId();
-  if (props.editableFields.length === 0 || props.rows.length === 0) return null;
+  if (!props.selectedEdit.field || !props.selectedEntity) return null;
   return (
     <section style={inspectorSectionStyle}>
-      <h3 style={sectionTitleStyle}>Edit cell</h3>
       <div style={inspectorControlStackStyle}>
-        <select
-          aria-label="Edit field"
-          data-testid={genericEditFieldSelectTestId(
-            props.contract.viewSchemaId,
-          )}
-          style={selectStyle}
-          value={props.editFieldKey}
-          onChange={(event) => props.setEditFieldKey(event.target.value)}
-        >
-          <option value="">Field</option>
-          {props.editableFields.map((field) => (
-            <option key={field.fieldKey} value={field.fieldKey}>
-              {field.label}
-            </option>
-          ))}
-        </select>
         {props.selectedEdit.field ? (
           <WorkbookInspectorEditControl
             invalid={props.editFeedback.message !== null}
@@ -722,6 +748,12 @@ function EntityEditCell(props: EntityDetailsProps) {
       {props.mutationError ? (
         <WorkbookInspectorPublicError error={props.mutationError} />
       ) : null}
+      <WorkbookExplicitPatchRecovery
+        owner={props.patches}
+        viewSchemaId={props.contract.viewSchemaId}
+        recordId={props.selectedEntity.recordId}
+        fieldKey={props.selectedEdit.field.fieldKey}
+      />
     </section>
   );
 }
@@ -812,6 +844,10 @@ function EntityAliases(props: EntityDetailsProps) {
 }
 
 type EntityRelationshipsProps = {
+  readonly timelinePreviewNotice: ReturnType<
+    typeof useEntityTimelinePreview
+  >["timelinePreviewNotice"];
+  readonly refreshTimelinePreview: (recordId: string) => void;
   readonly timelinePreviewState: ReturnType<
     typeof useEntityTimelinePreview
   >["timelinePreviewState"];
@@ -829,83 +865,128 @@ type EntityRelationshipsProps = {
   >["timelinePreviewRows"];
 };
 
-function EntityRelationships(props: EntityRelationshipsProps) {
-  if (props.selectedEntity === null) return null;
-  return (
-    <>
-      <EntityMergePresentation
-        canMerge={props.canMerge}
-        merge={props.merge}
-        rows={props.rows}
-        selectedEntity={props.selectedEntity}
-        setEntityActionFeedback={props.setEntityActionFeedback}
-      />
-      {props.timelinePreviewState.recordId !== props.selectedEntity.recordId ||
-      props.timelinePreviewState.state === "initial_loading" ? (
-        <p role="status">Loading Timeline preview…</p>
-      ) : null}
-      {props.timelinePreviewState.state === "refreshing" ? (
-        <p role="status">Refreshing Timeline preview…</p>
-      ) : null}
-      {props.timelinePreviewState.message ? (
-        <p role="alert">{props.timelinePreviewState.message}</p>
-      ) : null}
-      {props.timelinePreviewState.state === "ready" &&
-      props.timelinePreviewRows.length === 0 ? (
-        <p>
-          No matching records in the loaded Timeline window. This preview does
-          not establish that there are no relationships elsewhere.
-        </p>
-      ) : null}
-      {props.timelinePreviewRows.length > 0 ? (
-        <section style={inspectorSectionStyle}>
-          <h3 style={sectionTitleStyle}>Dependent Timeline</h3>
-          <div style={timelinePreviewStackStyle}>
-            {props.timelinePreviewRows.map((row) => (
-              <article
-                key={row.recordId ?? row.key}
-                data-testid={
-                  row.recordId === null
-                    ? undefined
-                    : timelinePreviewRowTestId(row.recordId)
-                }
-                style={timelinePreviewCardStyle}
-              >
-                <p style={noticeTitleStyle}>
-                  {row.values.activitySynopsisText || "Untitled row"}
-                </p>
-                <div style={relationshipItemsWrapStyle}>
-                  {row.collectionValues[
-                    props.entityType === "host" ? "hostRefs" : "identityRefs"
-                  ].map((item) => (
-                    <details key={item.itemRef}>
-                      <summary>
-                        <WorkbookRelationshipChip
-                          expanded
-                          presentation={timelineRelationshipChipPresentation({
-                            entityIndex: props.entityIndex,
-                            item,
-                            sourceRecordId: row.recordId,
-                          })}
-                        />
-                      </summary>
-                      <WorkbookRelationshipChipDetails
-                        presentation={timelineRelationshipChipPresentation({
-                          entityIndex: props.entityIndex,
-                          item,
-                          sourceRecordId: row.recordId,
-                        })}
-                      />
-                    </details>
+function EntityRelationships(
+  props: EntityRelationshipsProps & {
+    readonly present: PresentInspectorRegion;
+  },
+) {
+  const selected = props.selectedEntity;
+  if (selected === null) return null;
+  const current = props.timelinePreviewState.recordId === selected.recordId;
+  const content: WorkbookInspectorPanelContentModel =
+    props.timelinePreviewRows.length && current
+      ? {
+          kind: "populated",
+          content:
+            props.timelinePreviewRows.length > 0 ? (
+              <section style={inspectorSectionStyle}>
+                <h3 style={sectionTitleStyle}>Dependent Timeline</h3>
+                <div style={timelinePreviewStackStyle}>
+                  {props.timelinePreviewRows.map((row) => (
+                    <article
+                      key={row.recordId ?? row.key}
+                      data-testid={
+                        row.recordId === null
+                          ? undefined
+                          : timelinePreviewRowTestId(row.recordId)
+                      }
+                      style={timelinePreviewCardStyle}
+                    >
+                      <p style={noticeTitleStyle}>
+                        {row.values.activitySynopsisText || "Untitled row"}
+                      </p>
+                      <div style={relationshipItemsWrapStyle}>
+                        {row.collectionValues[
+                          props.entityType === "host"
+                            ? "hostRefs"
+                            : "identityRefs"
+                        ].map((item) => (
+                          <details key={item.itemRef}>
+                            <summary>
+                              <WorkbookRelationshipChip
+                                expanded
+                                presentation={timelineRelationshipChipPresentation(
+                                  {
+                                    entityIndex: props.entityIndex,
+                                    item,
+                                    sourceRecordId: row.recordId,
+                                  },
+                                )}
+                              />
+                            </summary>
+                            <WorkbookRelationshipChipDetails
+                              presentation={timelineRelationshipChipPresentation(
+                                {
+                                  entityIndex: props.entityIndex,
+                                  item,
+                                  sourceRecordId: row.recordId,
+                                },
+                              )}
+                            />
+                          </details>
+                        ))}
+                      </div>
+                    </article>
                   ))}
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </>
-  );
+              </section>
+            ) : null,
+        }
+      : {
+          kind: "empty",
+          message:
+            "No matching records in the loaded Timeline window. This preview does not establish that there are no relationships elsewhere.",
+        };
+  const state = props.timelinePreviewState;
+  const data: WorkbookInspectorPanelData = !current
+    ? {
+        state: "unavailable",
+        cause: "not_requested",
+        message: "Timeline preview has not been loaded.",
+      }
+    : state.state === "initial_loading"
+      ? { state: "initial_loading" }
+      : state.state === "unavailable"
+        ? {
+            state: "unavailable",
+            cause: "load_failed",
+            message: state.message ?? "Could not load the Timeline preview.",
+          }
+        : state.state === "stale_failure"
+          ? {
+              state: "stale_failure",
+              content,
+              message:
+                state.message ?? "Could not refresh the Timeline preview.",
+            }
+          : { state: state.state, content };
+  return props.present({
+    access: "readable",
+    data,
+    ...(current && props.timelinePreviewNotice
+      ? { notice: props.timelinePreviewNotice }
+      : {}),
+    commands: (
+      <>
+        <WorkbookInspectorActionButton
+          tone="secondary"
+          disabled={
+            state.state === "initial_loading" || state.state === "refreshing"
+          }
+          onClick={() => props.refreshTimelinePreview(selected.recordId)}
+        >
+          Refresh Timeline preview
+        </WorkbookInspectorActionButton>
+        <EntityMergePresentation
+          canMerge={props.canMerge}
+          merge={props.merge}
+          rows={props.rows}
+          selectedEntity={selected}
+          setEntityActionFeedback={props.setEntityActionFeedback}
+        />
+      </>
+    ),
+  });
 }
 
 function EntityIdentifiers({

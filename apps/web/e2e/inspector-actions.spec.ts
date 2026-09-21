@@ -338,16 +338,14 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     )
     .focus();
   await openTimelineInspector(page, target.record_id);
-  for (const section of [
-    "operational-text",
-    "relationships",
-    "evidence",
-    "history",
-  ] as const) {
+  for (const section of ["relationships", "evidence", "history"] as const) {
     await expect(
       page.getByTestId(timelineInspectorSectionTestId(section)),
     ).toBeVisible();
   }
+  await page
+    .locator('[data-inspector-edit-field="timeline.raw_activity_text"]')
+    .click();
   await expect(
     page.getByTestId(
       timelineScalarEditorTestId({

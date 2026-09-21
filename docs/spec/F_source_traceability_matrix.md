@@ -2043,6 +2043,16 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 
 ## F.6 Profile and companion claim Definition-of-Done navigation
 
+Inspector remediation navigation: Core 03 §2.3A governs independent reads,
+explicit ordinary Details submission, retained authoring and semantic outcome
+targeting; Core 01 retains declared panel and capability identities; Core 02
+retains relationship and Assessment semantics. Design §§12.7 and 14.2 own
+presentation and announcements. AC-456 in Core 04 includes production
+composition, authority retirement and recovery request-count validation.
+The controlling implementation evidence is maintained in
+[the inspector remediation handoff](../handoffs/ui-ux/workbook-inspector-state-interaction-handoff.md).
+This navigation is review material, never an executable test input.
+
 | Profile or companion claim | Prerequisite claim | Required REQs | Required ACs |
 | --- | --- | --- | --- |
 | base | — | REQ-00-001..REQ-00-003, REQ-00-005..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-046, REQ-00-049..REQ-00-057, REQ-00-062..REQ-00-063, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-548, REQ-01-554..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-608, REQ-01-611..REQ-01-617, REQ-01-621..REQ-01-626, REQ-01-662, REQ-01-668..REQ-01-669, REQ-01-671..REQ-01-672, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-255, REQ-02-257..REQ-02-258, REQ-02-266, REQ-02-271, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-292, REQ-03-308, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108, REQ-04-113..REQ-04-114, REQ-04-123..REQ-04-126, REQ-04-160..REQ-04-161 | AC-001..AC-026, AC-037..AC-055, AC-068..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-238..AC-261, AC-277..AC-287, AC-294..AC-304, AC-311..AC-322, AC-329..AC-331, AC-334..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-432, AC-437..AC-441, AC-444..AC-462, AC-469..AC-473, AC-478..AC-479, AC-545..AC-549, AC-551, AC-561..AC-562, AC-564..AC-565, AC-567 |

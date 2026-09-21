@@ -14,6 +14,7 @@ type GenericMutationControlRef = RefCallback<
 
 type GenericMutationControlFeedback = {
   readonly disabled?: boolean | undefined;
+  readonly readOnly?: boolean | undefined;
   readonly ariaLabel?: string | undefined;
   readonly describedBy?: string | undefined;
   readonly invalid?: boolean | undefined;
@@ -30,6 +31,7 @@ type GenericMutationControlElementProps = GenericMutationControlFeedback & {
 
 export function GenericMutationControl({
   disabled,
+  readOnly,
   ariaLabel,
   describedBy,
   invalid,
@@ -85,6 +87,7 @@ export function GenericMutationControl({
   }
   const props = {
     disabled,
+    readOnly,
     ariaLabel,
     describedBy,
     invalid,
@@ -242,6 +245,7 @@ function GenericBooleanControl({
 
 function GenericTextInputControl({
   disabled,
+  readOnly,
   ariaLabel,
   describedBy,
   invalid,
@@ -259,7 +263,8 @@ function GenericTextInputControl({
 }) {
   return (
     <input
-      disabled={disabled}
+      disabled={disabled && !readOnly}
+      readOnly={readOnly}
       aria-label={ariaLabel ?? descriptor.ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid}
@@ -280,6 +285,7 @@ function GenericTextInputControl({
 
 function GenericTextareaControl({
   disabled,
+  readOnly,
   ariaLabel,
   describedBy,
   invalid,
@@ -297,7 +303,8 @@ function GenericTextareaControl({
 }) {
   return (
     <textarea
-      disabled={disabled}
+      disabled={disabled && !readOnly}
+      readOnly={readOnly}
       aria-label={ariaLabel ?? descriptor.ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid}

@@ -525,11 +525,10 @@ test("Entity Find preserves independent inspector scalar alias and recordless au
     await editor(page, f.first, field).press("Escape");
     await page.getByTestId(workbookInspectorToggleTestId(f.view)).click();
     const inspector = page.getByTestId(entityInspectorTestId(f.type));
-    await inspector
-      .getByRole("combobox", { name: "Edit field", exact: true })
-      .selectOption(field);
+    await inspector.locator(`[data-inspector-edit-field="${field}"]`).click();
     const scalar = page.getByTestId(genericEditValueTestId(f.view));
     await scalar.fill("  Inspector scalar raw  ");
+    await inspector.getByText("Manage aliases", { exact: true }).click();
     const alias = inspector.getByRole("textbox", {
       name: "Alias text",
       exact: true,

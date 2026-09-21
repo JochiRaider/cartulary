@@ -1,6 +1,7 @@
 import type { GridDensity } from "@cartulary/grid-adapter";
 import {
   type EvidenceAccessContext,
+  evidenceAccessMessageTestId,
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
   workbookGridDensityMetrics,
@@ -21,6 +22,10 @@ import {
   evidenceOperationFeedback,
 } from "../../evidence/evidenceAccessPresentation";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
+import {
+  savedInspectorRegion,
+  type WorkbookInspectorRegion,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { workbookSurfaceOverlayPanelStyle } from "../../layout/WorkbookSurfaceLayout";
 import { buildEvidenceLifecycleViewModel } from "../../models/evidenceLifecycleViewModel";
 import type {
@@ -419,9 +424,11 @@ export function useEvidenceWorkbookBindings(input: {
   const renderActions = (
     row: WorkbookQueryRow,
     context: EvidenceAccessContext,
+    regionPresentation = false,
   ) =>
     active ? (
       <EvidenceAccessActions
+        regionPresentation={regionPresentation}
         recovery={
           context === "inspector"
             ? retained
@@ -530,6 +537,87 @@ export function useEvidenceWorkbookBindings(input: {
       ) : null}
     </>
   );
+  const inspectorRegions = (
+    row: WorkbookQueryRow,
+  ): [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]] | null => {
+    if (!active) return null;
+    if (!input.canRead || authorityUncertain)
+      return [
+        {
+          id: "evidence-access",
+          kind: "snapshot",
+          model: { access: "concealed" },
+        },
+      ];
+    const operation =
+      operations[row.record_id]?.rowVersion === row.row_version
+        ? operations[row.record_id]?.state
+        : null;
+    const access = buildEvidenceAccessPresentation(
+      rowLifecycle(row),
+      operation ?? null,
+    );
+    return [
+      savedInspectorRegion("evidence-metadata", {
+        kind: "populated",
+        content: (
+          <>
+            <p style={evidenceMessageStyle}>{titleFor(row)}</p>
+            <dl>
+              <dt>Lifecycle</dt>
+              <dd>{access.lifecycleLabel}</dd>
+              <dt>File</dt>
+              <dd>{access.uploadLabel}</dd>
+            </dl>
+          </>
+        ),
+      }),
+      {
+        id: "evidence-access",
+        kind: "snapshot",
+        model: {
+          access: "readable",
+          messageId: evidenceAccessMessageTestId(row.record_id, "inspector"),
+          announcement: "owner",
+          data:
+            operation?.kind === "pending"
+              ? { state: "initial_loading" }
+              : operation?.kind === "accepted"
+                ? {
+                    state: "ready",
+                    content: {
+                      kind: "populated",
+                      content: (
+                        <p
+                          id={evidenceAccessMessageTestId(
+                            row.record_id,
+                            "inspector",
+                          )}
+                          data-testid={evidenceAccessMessageTestId(
+                            row.record_id,
+                            "inspector",
+                          )}
+                        >
+                          {access.message}
+                        </p>
+                      ),
+                    },
+                  }
+                : {
+                    state: "unavailable",
+                    cause:
+                      operation?.kind === "rejected"
+                        ? "load_failed"
+                        : access.canPreview || access.canDownload
+                          ? "not_requested"
+                          : "owner_blocked",
+                    message: access.message,
+                  },
+          commands: renderActions(row, "inspector", true),
+        },
+      },
+    ];
+  };
   return {
     actionsWidth: active
       ? Math.ceil(
@@ -538,7 +626,7 @@ export function useEvidenceWorkbookBindings(input: {
       : 76,
     hasRecordActions: active,
     renderRowActions: (row: WorkbookQueryRow) => renderActions(row, "row"),
-    renderInspector: (row: WorkbookQueryRow) => renderActions(row, "inspector"),
+    inspectorRegions,
     overlay,
     announcements,
     closePreview: visiblePreview ? closePreview : undefined,

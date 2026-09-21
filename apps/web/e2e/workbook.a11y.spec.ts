@@ -120,6 +120,7 @@ import {
   workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorFeatureActionTestId,
+  workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookPreferenceTestId,
   workbookPresenceSummaryTestId,
@@ -4565,6 +4566,9 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       );
       await expectVisibleSemanticGridCellFocus(summaryCell);
       await openTimelineInspector(page, row.record_id);
+      await page
+        .locator('[data-inspector-edit-field="timeline.raw_activity_text"]')
+        .click();
       const detailsEditor = page.getByTestId(
         timelineScalarEditorTestId({
           fieldKey: "timeline.raw_activity_text",
@@ -4578,9 +4582,11 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       );
 
       await detailsEditor.press("Escape");
-      const semanticSummaryCell = semanticGridCell(summaryCell);
-      await expect(semanticSummaryCell).toBeFocused();
-      await semanticSummaryCell.press("Escape");
+      const editAction = page.locator(
+        '[data-inspector-edit-field="timeline.raw_activity_text"]',
+      );
+      await expect(editAction).toBeFocused();
+      await editAction.press("Escape");
       await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
       await expectVisibleSemanticGridCellFocus(summaryCell);
       await page.keyboard.press("Shift+F10");
@@ -4611,11 +4617,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       await expectAndRecordContrast(page, [
         workbookInspectorToggleTestId(timelineViewSchemaId),
         rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
-        timelineScalarEditorTestId({
-          fieldKey: "timeline.raw_activity_text",
-          recordId: row.record_id,
-          surface: "inspector",
-        }),
+        workbookInspectorPanelTestId(timelineViewSchemaId, "details"),
         rowHistoryOpenButtonTestId(row.record_id),
         rowHistoryDeleteButtonTestId(),
         rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
@@ -4762,16 +4764,14 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     await expectVisibleSemanticGridCellFocus(summaryCell);
     await openTimelineInspector(page, row.record_id);
 
-    for (const section of [
-      "operational-text",
-      "relationships",
-      "evidence",
-      "history",
-    ] as const) {
+    for (const section of ["relationships", "evidence", "history"] as const) {
       await expect(
         page.getByTestId(timelineInspectorSectionTestId(section)),
       ).toBeVisible();
     }
+    await page
+      .locator('[data-inspector-edit-field="timeline.raw_activity_text"]')
+      .click();
     const detailsEditor = page.getByTestId(
       timelineScalarEditorTestId({
         fieldKey: "timeline.raw_activity_text",
@@ -4798,9 +4798,11 @@ test.describe("browser.inspector-history accessibility readiness", () => {
 
     await expectVisibleFocus(detailsEditor);
     await detailsEditor.press("Escape");
-    const semanticSummaryCell = semanticGridCell(summaryCell);
-    await expect(semanticSummaryCell).toBeFocused();
-    await semanticSummaryCell.press("Escape");
+    const editAction = page.locator(
+      '[data-inspector-edit-field="timeline.raw_activity_text"]',
+    );
+    await expect(editAction).toBeFocused();
+    await editAction.press("Escape");
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await expectVisibleSemanticGridCellFocus(summaryCell);
     await page.keyboard.press("Shift+F10");
@@ -5375,6 +5377,11 @@ test.describe("browser.design-readiness accessibility readiness", () => {
       `${timelineViewSchemaId}:${timelineRow.record_id}:timeline.activity_synopsis_text`,
     );
     const semanticSummaryCell = semanticGridCell(inspectorSummaryCell);
+    const editRawActivity = page
+      .getByTestId(timelineInspectorTestId())
+      .getByRole("button", { name: "Edit RAW Activity", exact: true });
+    await expectVisibleFocus(editRawActivity);
+    await editRawActivity.click();
     const inspectorDetails = page.getByTestId(
       rowInspectorFieldTestId(
         timelineRow.record_id,
@@ -5383,8 +5390,8 @@ test.describe("browser.design-readiness accessibility readiness", () => {
     );
     await expectVisibleFocus(inspectorDetails);
     await page.keyboard.press("Escape");
-    await expect(semanticSummaryCell).toBeFocused();
-    await semanticSummaryCell.press("Escape");
+    await expect(editRawActivity).toBeFocused();
+    await editRawActivity.press("Escape");
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await expect(semanticSummaryCell).toBeFocused();
 

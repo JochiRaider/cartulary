@@ -206,14 +206,17 @@ export function LifecyclePagingFeedback<T>({
   pages,
   state,
   label,
+  controlsOnly = false,
 }: {
   pages: IndicatorLifecyclePaging<T>;
   state: ReturnType<IndicatorLifecyclePaging<T>["getSnapshot"]>;
   label: string;
+  controlsOnly?: boolean;
 }) {
   return (
     <>
-      {["initial_loading", "loading_more", "refreshing"].includes(
+      {!controlsOnly &&
+      ["initial_loading", "loading_more", "refreshing"].includes(
         state.phase,
       ) ? (
         <p role="status">
@@ -227,12 +230,14 @@ export function LifecyclePagingFeedback<T>({
       ) : null}
       {state.failure ? (
         <div>
-          <p role="alert">
-            {state.failure.message}
-            {state.items.length
-              ? " Previously loaded results remain visible and may be incomplete or stale."
-              : ""}
-          </p>
+          {controlsOnly ? null : (
+            <p role="status">
+              {state.failure.message}
+              {state.items.length
+                ? " Previously loaded results remain visible and may be incomplete or stale."
+                : ""}
+            </p>
+          )}
           <WorkbookInspectorActionButton onClick={() => void pages.retry()}>
             {state.restartRequired ? `Restart ${label}` : `Retry ${label}`}
           </WorkbookInspectorActionButton>

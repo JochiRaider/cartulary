@@ -1133,12 +1133,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
       rowSummariesById.get(selectedRow.record_id) ?? "Selected timeline row",
     );
-    for (const section of [
-      "operational-text",
-      "relationships",
-      "evidence",
-      "history",
-    ] as const) {
+    for (const section of ["relationships", "evidence", "history"] as const) {
       await expect(
         page.getByTestId(timelineInspectorSectionTestId(section)),
       ).toBeVisible();
@@ -3576,25 +3571,14 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     await maskIncidentIdentity(page, incidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await openTimelineInspector(page, target.record_id);
-    for (const section of [
-      "operational-text",
-      "relationships",
-      "evidence",
-      "history",
-    ] as const) {
+    for (const section of ["relationships", "evidence", "history"] as const) {
       await expect(
         page.getByTestId(timelineInspectorSectionTestId(section)),
       ).toBeVisible();
     }
     await expect(
-      page.getByTestId(
-        timelineScalarEditorTestId({
-          fieldKey: "timeline.raw_activity_text",
-          recordId: target.record_id,
-          surface: "inspector",
-        }),
-      ),
-    ).toHaveValue("browser.inspector-history visual inspector details");
+      page.locator('[data-inspector-saved-field="timeline.raw_activity_text"]'),
+    ).toContainText("browser.inspector-history visual inspector details");
     await expect(
       page
         .getByTestId(

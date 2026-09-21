@@ -22,9 +22,14 @@ import type { InspectorRecordHistoryAction } from "./inspectorCapabilityResolver
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
 import {
   WorkbookInspectorFeedbackView,
-  WorkbookInspectorPublicError,
   WorkbookInspectorTechnicalDetails,
 } from "./presentation/WorkbookInspectorFeedback";
+import {
+  type PresentInspectorRegion,
+  type WorkbookInspectorPanelContentModel,
+  type WorkbookInspectorPanelData,
+  WorkbookInspectorRegionContent,
+} from "./presentation/WorkbookInspectorPanelContent";
 import { useWorkbookRecordHistoryController } from "./useWorkbookRecordHistoryController";
 import { useWorkbookRecordHistoryFocus } from "./useWorkbookRecordHistoryFocus";
 import { WorkbookRecordHistoryLoadedPresentation } from "./WorkbookRecordHistoryPresentation";
@@ -47,6 +52,7 @@ export function WorkbookInspectorRecordHistory({
   commands,
   ownerEffects,
   subject,
+  present,
 }: {
   readonly beginMutation: () => () => void;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
@@ -54,6 +60,7 @@ export function WorkbookInspectorRecordHistory({
   readonly commands: RecordRouteCommandPort;
   readonly ownerEffects: WorkbookRecordHistoryOwnerEffects;
   readonly subject: WorkbookInspectorSubject | null;
+  readonly present?: PresentInspectorRegion;
 }) {
   const controller = useWorkbookRecordHistoryController({
     beginMutation,
@@ -64,6 +71,7 @@ export function WorkbookInspectorRecordHistory({
   });
   return (
     <WorkbookRecordHistoryPanel
+      present={present}
       actions={actions}
       canMutate={canMutate}
       idleRecordId={subject?.recordId}
@@ -87,6 +95,7 @@ export type HistoryBrowsingControls = {
 };
 
 export function WorkbookRecordHistoryPanel({
+  present = (model) => <WorkbookInspectorRegionContent model={model} />,
   requestedChangeSetId,
   locatingChange = false,
   actions,
@@ -104,6 +113,7 @@ export function WorkbookRecordHistoryPanel({
   onPreviewDeleteRestore,
   onPreviewRollback,
 }: {
+  readonly present?: PresentInspectorRegion | undefined;
   readonly requestedChangeSetId?: string | undefined;
   readonly locatingChange?: boolean | undefined;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
@@ -214,16 +224,7 @@ export function WorkbookRecordHistoryPanel({
   const presentedRecordId = state.subject?.recordId ?? idleRecordId ?? null;
   if (presentedRecordId === null) return null;
   if (runtime?.history.readable === false)
-    return (
-      <WorkbookInspectorPublicError
-        error={{
-          primaryMessage:
-            "History access is unavailable. Refresh your session to review your current access.",
-          technicalFields: [],
-        }}
-        testId={rowHistoryMessageTestId()}
-      />
-    );
+    return present({ access: "concealed" });
   const busy =
     retainedPending ||
     state.phase === "loading" ||
@@ -239,6 +240,95 @@ export function WorkbookRecordHistoryPanel({
     readBlocked ||
     state.phase === "loading" ||
     browsing?.pending?.kind === "refresh";
+  const acceptedContent: WorkbookInspectorPanelContentModel = data?.items.length
+    ? {
+        kind: "populated",
+        content:
+          data === null || state.subject === null ? null : (
+            <>
+              <WorkbookInspectorTechnicalDetails
+                fields={[
+                  {
+                    label: "Current row version",
+                    value: String(data.row_version),
+                  },
+                  { label: "Deleted", value: data.deleted ? "yes" : "no" },
+                ]}
+              />
+              <WorkbookRecordHistoryLoadedPresentation
+                requestedChangeSetId={requestedChangeSetId}
+                actions={actions}
+                busy={busy}
+                canMutate={canMutate}
+                data={data}
+                destructiveSubject={destructiveSubject}
+                focus={{
+                  capture: focus.captureFocusRequest,
+                  register: focus.registerActionElement,
+                }}
+                pendingAction={pendingAction}
+                subject={state.subject}
+                onCancelPendingAction={focus.cancelPendingAction}
+                onConfirmPendingAction={focus.confirmPendingAction}
+                onPreviewDeleteRestore={onPreviewDeleteRestore}
+                onPreviewRollback={onPreviewRollback}
+              />
+            </>
+          ),
+      }
+    : {
+        kind: "empty",
+        message: browsing?.accepted?.data.paging.has_more
+          ? "No history entries in the loaded page. Older entries are available."
+          : "No retained history.",
+      };
+  const regionData: WorkbookInspectorPanelData = data
+    ? browsing?.failure || error
+      ? {
+          state: "stale_failure",
+          content: acceptedContent,
+          message:
+            error?.primaryMessage ??
+            "Could not refresh history. Previously loaded history remains visible.",
+        }
+      : {
+          state: browsing?.pending ? "refreshing" : "ready",
+          content: acceptedContent,
+        }
+    : state.phase === "loading" || browsing?.pending
+      ? {
+          state: "initial_loading",
+          message: delayedLoading
+            ? "Still loading this surface"
+            : "Loading history...",
+        }
+      : {
+          state: "unavailable",
+          cause: error || browsing?.failure ? "load_failed" : "not_requested",
+          message:
+            error?.primaryMessage ??
+            (browsing?.failure
+              ? "Could not load history."
+              : "History has not been loaded."),
+        };
+  const noticeRequest = browsing?.pending ?? browsing?.failure?.request;
+  const readNotice =
+    runtime?.history && noticeRequest
+      ? {
+          consume: runtime.history.inspectorNotices.consume,
+          value: runtime.history.readNotice(
+            presentedRecordId,
+            noticeRequest.viewSchemaId,
+            noticeRequest,
+            regionData.state,
+            "message" in regionData
+              ? (regionData.message ?? "Loading history…")
+              : regionData.state === "initial_loading"
+                ? "Loading history…"
+                : "Refreshing history…",
+          ),
+        }
+      : undefined;
   return (
     <section
       data-testid={rowHistoryPanelTestId()}
@@ -246,184 +336,180 @@ export function WorkbookRecordHistoryPanel({
       style={panelStyle}
       tabIndex={-1}
     >
-      {refreshControl === undefined || browsingControls !== undefined ? null : (
-        <WorkbookInspectorActionButton
-          data-testid={refreshControl.testId}
-          tone="secondary"
-          onClick={refreshControl.onRefresh}
-        >
-          {refreshControl.label}
-        </WorkbookInspectorActionButton>
-      )}
-      <WorkbookInspectorTechnicalDetails
-        fields={[
-          { label: "Record ID", value: presentedRecordId },
-          ...(requestedChangeSetId
-            ? [
-                {
-                  label: "Requested change set ID",
-                  value: requestedChangeSetId,
-                },
-              ]
-            : []),
-        ]}
-      />
-      {state.phase === "idle" && !browsingControls ? (
-        <WorkbookInspectorActionButton
-          data-testid={openTestId}
-          onClick={onOpenHistory}
-        >
-          {refreshLabel}
-        </WorkbookInspectorActionButton>
-      ) : null}
-      {browsingControls ? (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "var(--ct-spacing-sm)",
-          }}
-        >
-          <WorkbookInspectorActionButton
-            data-testid={
-              state.phase === "idle"
-                ? openTestId
-                : (refreshControl?.testId ??
-                  rowHistoryReadControlTestId("refresh"))
-            }
-            ref={refreshButton}
-            tone="secondary"
-            aria-disabled={refreshBlocked}
-            onClick={(event) => {
-              if (refreshBlocked) return;
-              if (state.phase !== "idle")
-                refreshFocus.current = event.currentTarget;
-              browsingControls.open();
-            }}
-          >
-            {state.phase === "idle" ? refreshLabel : "Refresh history"}
-          </WorkbookInspectorActionButton>
-          {browsing?.accepted &&
-          (browsing.accepted.data.paging.has_more ||
-            browsing.accepted.pages.length > 1) ? (
-            <WorkbookInspectorActionButton
-              data-testid={rowHistoryReadControlTestId("load-older")}
-              ref={olderButton}
-              aria-disabled={
-                reading ||
-                readBlocked ||
-                !browsing.chainValid ||
-                Boolean(browsing.failure) ||
-                !browsing.accepted.data.paging.has_more
-              }
-              aria-busy={browsing.pending?.kind === "continuation"}
-              onClick={() => {
-                if (
-                  !reading &&
-                  !readBlocked &&
-                  browsing.chainValid &&
-                  !browsing.failure &&
-                  browsing.accepted?.data.paging.has_more
-                )
-                  browsingControls.loadOlder();
-              }}
-            >
-              Load older entries
-            </WorkbookInspectorActionButton>
-          ) : null}
-          {browsing?.failure ? (
-            <WorkbookInspectorActionButton
-              data-testid={rowHistoryReadControlTestId(
-                browsing.failure.restart ? "start-fresh" : "retry",
-              )}
-              disabled={reading || readBlocked}
-              onClick={(event) => {
-                retryFocus.current = event.currentTarget;
-                if (browsing.failure?.restart) browsingControls.open();
-                else browsingControls.retryRead();
-              }}
-            >
-              {browsing.failure.restart
-                ? "Start fresh history"
-                : browsing.failure.request.kind === "continuation"
-                  ? "Retry older entries"
-                  : browsing.failure.request.kind === "refresh"
-                    ? "Retry refresh"
-                    : "Retry history"}
-            </WorkbookInspectorActionButton>
-          ) : null}
-        </div>
-      ) : null}
-      {browsing?.accepted ? (
-        <p role="status" style={metadataStyle}>
-          {browsing.pending
-            ? browsing.pending.kind === "continuation"
-              ? "Loading older entries…"
-              : "Refreshing history…"
-            : browsing.failure
-              ? "Previously loaded history remains visible."
-              : browsing.chainValid && !browsing.accepted.data.paging.has_more
-                ? browsing.accepted.data.items.length === 0
-                  ? "No retained history."
-                  : "No older entries."
-                : "Older entries are available."}
-        </p>
-      ) : null}
-      <HistoryLookupFeedback
-        state={state.lookup}
-        onContinue={browsingControls?.continuePreview ?? onOpenHistory}
-        onRestart={browsingControls?.restartPreview ?? onOpenHistory}
-        onCancel={focus.cancelPendingAction}
-      />
-      {state.phase === "loading" ? (
-        <p
-          role="status"
-          data-testid={rowHistoryLoadingTestId()}
-          style={metadataStyle}
-        >
-          {delayedLoading ? "Still loading this surface" : "Loading history..."}
-        </p>
-      ) : null}
-      {error === null ? null : (
-        <WorkbookInspectorPublicError
-          error={error}
-          testId={rowHistoryMessageTestId()}
-        />
-      )}
-      <WorkbookInspectorFeedbackView
-        feedback={feedback}
-        neutralStyle={metadataStyle}
-        testId={rowHistoryMessageTestId()}
-      />
-      <WorkbookHistoryLocalStatus recordId={presentedRecordId} />
-      {data === null || state.subject === null ? null : (
-        <>
-          <WorkbookInspectorTechnicalDetails
-            fields={[
-              { label: "Current row version", value: String(data.row_version) },
-              { label: "Deleted", value: data.deleted ? "yes" : "no" },
-            ]}
-          />
-          <WorkbookRecordHistoryLoadedPresentation
-            requestedChangeSetId={requestedChangeSetId}
-            actions={actions}
-            busy={busy}
-            canMutate={canMutate}
-            data={data}
-            destructiveSubject={destructiveSubject}
-            focus={{
-              capture: focus.captureFocusRequest,
-              register: focus.registerActionElement,
-            }}
-            pendingAction={pendingAction}
-            subject={state.subject}
-            onCancelPendingAction={focus.cancelPendingAction}
-            onConfirmPendingAction={focus.confirmPendingAction}
-            onPreviewDeleteRestore={onPreviewDeleteRestore}
-            onPreviewRollback={onPreviewRollback}
-          />
-        </>
-      )}
+      {present({
+        access: "readable",
+        data: regionData,
+        commandsPlacement: "before_content",
+        messageId:
+          regionData.state === "initial_loading"
+            ? rowHistoryLoadingTestId()
+            : rowHistoryMessageTestId(),
+        ...(readNotice ? { notice: readNotice } : {}),
+        commands: (
+          <>
+            {refreshControl === undefined ||
+            browsingControls !== undefined ? null : (
+              <WorkbookInspectorActionButton
+                data-testid={refreshControl.testId}
+                tone="secondary"
+                onClick={refreshControl.onRefresh}
+              >
+                {refreshControl.label}
+              </WorkbookInspectorActionButton>
+            )}
+            <WorkbookInspectorTechnicalDetails
+              fields={[
+                { label: "Record ID", value: presentedRecordId },
+                ...(requestedChangeSetId
+                  ? [
+                      {
+                        label: "Requested change set ID",
+                        value: requestedChangeSetId,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+            {state.phase === "idle" && !browsingControls ? (
+              <WorkbookInspectorActionButton
+                data-testid={openTestId}
+                onClick={onOpenHistory}
+              >
+                {refreshLabel}
+              </WorkbookInspectorActionButton>
+            ) : null}
+            {browsingControls ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "var(--ct-spacing-sm)",
+                }}
+              >
+                <WorkbookInspectorActionButton
+                  data-testid={
+                    state.phase === "idle"
+                      ? openTestId
+                      : (refreshControl?.testId ??
+                        rowHistoryReadControlTestId("refresh"))
+                  }
+                  ref={refreshButton}
+                  tone="secondary"
+                  aria-disabled={refreshBlocked}
+                  onClick={(event) => {
+                    if (refreshBlocked) return;
+                    if (state.phase !== "idle")
+                      refreshFocus.current = event.currentTarget;
+                    browsingControls.open();
+                  }}
+                >
+                  {state.phase === "idle" ? refreshLabel : "Refresh history"}
+                </WorkbookInspectorActionButton>
+                {browsing?.accepted &&
+                (browsing.accepted.data.paging.has_more ||
+                  browsing.accepted.pages.length > 1) ? (
+                  <WorkbookInspectorActionButton
+                    data-testid={rowHistoryReadControlTestId("load-older")}
+                    ref={olderButton}
+                    aria-disabled={
+                      reading ||
+                      readBlocked ||
+                      !browsing.chainValid ||
+                      Boolean(browsing.failure) ||
+                      !browsing.accepted.data.paging.has_more
+                    }
+                    aria-busy={browsing.pending?.kind === "continuation"}
+                    onClick={() => {
+                      if (
+                        !reading &&
+                        !readBlocked &&
+                        browsing.chainValid &&
+                        !browsing.failure &&
+                        browsing.accepted?.data.paging.has_more
+                      )
+                        browsingControls.loadOlder();
+                    }}
+                  >
+                    Load older entries
+                  </WorkbookInspectorActionButton>
+                ) : null}
+                {browsing?.failure ? (
+                  <WorkbookInspectorActionButton
+                    data-testid={rowHistoryReadControlTestId(
+                      browsing.failure.restart ? "start-fresh" : "retry",
+                    )}
+                    disabled={reading || readBlocked}
+                    onClick={(event) => {
+                      retryFocus.current = event.currentTarget;
+                      if (browsing.failure?.restart) browsingControls.open();
+                      else browsingControls.retryRead();
+                    }}
+                  >
+                    {browsing.failure.restart
+                      ? "Start fresh history"
+                      : browsing.failure.request.kind === "continuation"
+                        ? "Retry older entries"
+                        : browsing.failure.request.kind === "refresh"
+                          ? "Retry refresh"
+                          : "Retry history"}
+                  </WorkbookInspectorActionButton>
+                ) : null}
+              </div>
+            ) : null}
+            <HistoryLookupFeedback
+              state={state.lookup}
+              onContinue={browsingControls?.continuePreview ?? onOpenHistory}
+              onRestart={browsingControls?.restartPreview ?? onOpenHistory}
+              onCancel={focus.cancelPendingAction}
+            />
+            {error ? (
+              <WorkbookInspectorTechnicalDetails
+                fields={error.technicalFields}
+              />
+            ) : null}
+            <WorkbookInspectorFeedbackView
+              feedback={feedback}
+              neutralStyle={metadataStyle}
+              testId={rowHistoryMessageTestId()}
+            />
+            <WorkbookHistoryLocalStatus recordId={presentedRecordId} />
+
+            {data?.items.length === 0 ? (
+              data === null || state.subject === null ? null : (
+                <>
+                  <WorkbookInspectorTechnicalDetails
+                    fields={[
+                      {
+                        label: "Current row version",
+                        value: String(data.row_version),
+                      },
+                      { label: "Deleted", value: data.deleted ? "yes" : "no" },
+                    ]}
+                  />
+                  <WorkbookRecordHistoryLoadedPresentation
+                    requestedChangeSetId={requestedChangeSetId}
+                    actions={actions}
+                    busy={busy}
+                    canMutate={canMutate}
+                    data={data}
+                    destructiveSubject={destructiveSubject}
+                    focus={{
+                      capture: focus.captureFocusRequest,
+                      register: focus.registerActionElement,
+                    }}
+                    pendingAction={pendingAction}
+                    subject={state.subject}
+                    onCancelPendingAction={focus.cancelPendingAction}
+                    onConfirmPendingAction={focus.confirmPendingAction}
+                    onPreviewDeleteRestore={onPreviewDeleteRestore}
+                    onPreviewRollback={onPreviewRollback}
+                  />
+                </>
+              )
+            ) : null}
+          </>
+        ),
+      })}
     </section>
   );
 }

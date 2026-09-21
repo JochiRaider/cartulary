@@ -14,10 +14,7 @@ import type {
   TimelineQueueCollectionSave,
   TimelineQueueScalarSave,
 } from "../models/timelineControllerPorts";
-import {
-  timelineCollectionBindings,
-  timelineScalarBindings,
-} from "../models/timelineFieldRegistry";
+import { timelineCollectionBindings } from "../models/timelineFieldRegistry";
 import { timelineFindText } from "../models/timelineFindText";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
@@ -59,6 +56,19 @@ export function useTimelineFindSource(input: {
   } | null>(null);
   const captureFocus = useCallback(
     (target?: EventTarget | null): WorkbookFindFocusLoan | null => {
+      if (
+        target instanceof HTMLElement &&
+        target.closest("[data-inspector-editor-field]")
+      ) {
+        return {
+          restore: () => {
+            if (!target.isConnected) return false;
+            target.focus({ preventScroll: true });
+            return document.activeElement === target;
+          },
+          settle: async () => "accepted",
+        };
+      }
       const editor = latest.current.registry.activeInput(target);
       if (!editor) return null;
       return {
@@ -83,10 +93,7 @@ export function useTimelineFindSource(input: {
             const collection = timelineCollectionBindings.find(
               (binding) => binding.draftKey === editor.field,
             );
-            const scalar = timelineScalarBindings.find(
-              (binding) => binding.key === editor.field,
-            );
-            if (collection || (scalar && editor.surface === "inspector")) {
+            if (collection) {
               const element = current.registry.inputElementForFocusKey(
                 editor.focusKey,
               );
@@ -111,18 +118,7 @@ export function useTimelineFindSource(input: {
                         editor.surface,
                         resolve,
                       );
-                    } else if (scalar)
-                      current.queueScalarSave(
-                        editor.rowKey,
-                        scalar.key,
-                        {
-                          continueOnFreshDraft: false,
-                          preserveInputFocus: false,
-                          surface: editor.surface,
-                        },
-                        current.registry.draftValue(editor) ?? element?.value,
-                        resolve,
-                      );
+                    }
                   },
                 ).finally(() => {
                   if (sourceSettlement.current?.promise === promise)

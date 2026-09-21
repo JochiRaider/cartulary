@@ -3,7 +3,12 @@ import {
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import { type RefCallback, useContext, useSyncExternalStore } from "react";
+import {
+  type RefCallback,
+  useContext,
+  useId,
+  useSyncExternalStore,
+} from "react";
 import { TimelineFileContext } from "../../features/evidence/EvidenceAttachmentContext";
 import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
 import type { TimelineFileSnapshot } from "../../features/evidence/WorkbookTimelineFileOwner";
@@ -42,11 +47,19 @@ export function TimelineEvidencePanel({
   onFilesSelected,
 }: TimelineEvidencePanelProps) {
   const owner = useContext(TimelineFileContext);
+  const reasonId = useId();
   const files = useSyncExternalStore(
     owner?.subscribe ?? noFileSubscription,
     owner?.getSnapshot ?? noFiles,
   );
   const recordId = row.recordId;
+  const disabledReason =
+    owner?.attachmentDisabledReason() ??
+    (owner ? null : "File attachment is unavailable.");
+  const attach = (files: FileList | File[]) => {
+    if (!owner || owner.attachmentDisabledReason() !== null) return;
+    onFilesSelected(row, files);
+  };
   if (recordId === null) {
     return null;
   }
@@ -65,13 +78,13 @@ export function TimelineEvidencePanel({
       onDrop={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onFilesSelected(row, event.dataTransfer.files);
+        attach(event.dataTransfer.files);
       }}
       onPaste={(event) => {
         if (event.clipboardData.files.length > 0) {
           event.preventDefault();
           event.stopPropagation();
-          onFilesSelected(row, event.clipboardData.files);
+          attach(event.clipboardData.files);
         }
       }}
     >
@@ -104,13 +117,20 @@ export function TimelineEvidencePanel({
             data-testid={timelineEvidenceFileInputTestId(recordId)}
             style={inputStyle}
             type="file"
+            disabled={disabledReason !== null}
+            aria-describedby={disabledReason ? reasonId : undefined}
             accept="image/*,.txt,.pdf,text/plain,application/pdf"
             onChange={(event) => {
-              onFilesSelected(row, event.currentTarget.files ?? []);
+              attach(event.currentTarget.files ?? []);
               event.currentTarget.value = "";
             }}
           />
         </label>
+        {disabledReason ? (
+          <p id={reasonId} style={bodyStyle}>
+            {disabledReason}
+          </p>
+        ) : null}
       </div>
     </section>
   );

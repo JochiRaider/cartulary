@@ -23,7 +23,7 @@ export function useTimelineInspectorPresentation<
   const {
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
-    renderRelationshipEditors,
+    renderRelationshipEditor,
     renderRowHistorySection,
     renderWorkflowSection,
   } = useTimelineWorkbookInspectorSections(sections);
@@ -34,7 +34,7 @@ export function useTimelineInspectorPresentation<
     ...model,
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
-    renderRelationshipEditors,
+    renderRelationshipEditor,
     renderRowHistorySection,
     renderWorkflowSection,
     rowHistoryRecordId: currentHistoryDeleted ? currentHistoryRecordId : null,

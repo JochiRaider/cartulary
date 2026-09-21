@@ -132,6 +132,7 @@ export function useTimelineInteractionComposition({
       surface: Parameters<KeyboardInput["queueScalarSave"]>[2]["surface"],
       currentValue: string,
     ) => {
+      if (surface === "inspector") return;
       mutation.queueScalarSave(
         rowKey,
         focusField,

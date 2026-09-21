@@ -1,5 +1,4 @@
 import type {
-  GridEditCommitOutcome,
   GridHandle,
   GridPresentationSnapshot,
 } from "@cartulary/grid-adapter";
@@ -189,50 +188,26 @@ describe("Timeline Find integration", () => {
     expect(result.current.control.available).toBe(true);
     expect(result.current.control.snapshot.term).toBe("");
   });
-  it("borrows inspector authoring and joins its pending departure while Close cancels only the destination", async () => {
+  it("borrows ordinary inspector authoring without submitting it during Find navigation", async () => {
     vi.useFakeTimers();
     const f = await fixture();
-    const identity = {
-      rowKey: "one",
-      field: "activitySynopsisText" as const,
-      surface: "inspector" as const,
-    };
     const editor = document.createElement("textarea");
+    editor.dataset.inspectorEditorField = "timeline.activity_synopsis_text";
     document.body.append(editor);
     editor.value = "exact unfinished draft";
-    f.input.registry.registerInput(identity, editor);
-    f.input.registry.setDraft(identity, editor.value, f.rows[0]);
     editor.focus();
-    let settle: ((outcome: GridEditCommitOutcome) => void) | undefined;
-    vi.mocked(f.input.queueScalarSave).mockImplementation(
-      (_row, _field, _options, _value, callback) => {
-        settle = callback;
-      },
-    );
     await f.open();
-    expect(f.input.queueScalarSave).not.toHaveBeenCalled();
-    let first: Promise<unknown> | undefined;
-    act(() => {
-      first = f.result.current.control.navigate(1);
+    await act(async () => {
+      await f.result.current.control.navigate(1);
     });
-    expect(f.input.queueScalarSave).toHaveBeenCalledTimes(1);
-    expect(f.navigateToCell).not.toHaveBeenCalled();
+    expect(f.input.queueScalarSave).not.toHaveBeenCalled();
+    expect(f.input.queueCollectionSave).not.toHaveBeenCalled();
+    expect(f.navigateToCell).toHaveBeenCalledOnce();
+    expect(editor.value).toBe("exact unfinished draft");
     await act(async () => {
       await f.result.current.control.close();
-      await first;
     });
-    expect(f.input.registry.draftValue(identity)).toBe(editor.value);
-    await f.open();
-    let second: Promise<unknown> | undefined;
-    act(() => {
-      second = f.result.current.control.navigate(1);
-    });
-    expect(f.input.queueScalarSave).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      settle?.({ kind: "accepted" });
-      await second;
-    });
-    expect(f.navigateToCell).toHaveBeenCalledTimes(1);
+    expect(f.input.queueScalarSave).not.toHaveBeenCalled();
     editor.remove();
   });
   it("retains rejected collection drafts and never departs recordless authoring through creation", async () => {

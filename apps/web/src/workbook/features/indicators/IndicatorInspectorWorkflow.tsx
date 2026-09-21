@@ -8,6 +8,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import {
+  inspectorReadData,
+  WorkbookInspectorRegionContent,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
 import type { IndicatorInspectorAction } from "./indicatorInspectorHandlers";
 import { ObservationCaptureEditor } from "./ObservationCaptureEditor";
@@ -255,30 +259,68 @@ function ObservationWorkflow({
           entry={entry}
         />
       ))}
-      {state.phase === "ready" && state.items.length === 0 ? (
-        <p>No observations.</p>
-      ) : null}
-      {state.items.map((item) => (
-        <ObservationDetails
-          key={item.observation_id}
-          item={item}
-          targetLabel={
-            item.resolved_indicator_record_id
-              ? targets.labels.get(item.resolved_indicator_record_id)
-              : undefined
-          }
-          reader={owner}
-          generation={generation}
-          draft={owner.drafts.ensure(`resolve:${item.observation_id}`)}
-          drafts={owner.drafts}
-          manage={manage}
-          disabled={
-            !owner.canSubmit() ||
-            owner.busy({ action: "dismiss", observation: item })
-          }
-          onSubmit={submit}
+      <div data-inspector-region="indicator-observations">
+        <WorkbookInspectorRegionContent
+          model={{
+            access: "readable",
+            data: inspectorReadData({
+              requested: state.request > 0,
+              pending: [
+                "initial_loading",
+                "loading_more",
+                "refreshing",
+              ].includes(state.phase),
+              accepted: state.hasAccepted
+                ? state.items.length
+                  ? {
+                      kind: "populated",
+                      content: state.items.map((item) => (
+                        <ObservationDetails
+                          key={item.observation_id}
+                          item={item}
+                          targetLabel={
+                            item.resolved_indicator_record_id
+                              ? targets.labels.get(
+                                  item.resolved_indicator_record_id,
+                                )
+                              : undefined
+                          }
+                          reader={owner}
+                          generation={generation}
+                          draft={owner.drafts.ensure(
+                            `resolve:${item.observation_id}`,
+                          )}
+                          drafts={owner.drafts}
+                          manage={manage}
+                          disabled={
+                            !owner.canSubmit() ||
+                            owner.busy({ action: "dismiss", observation: item })
+                          }
+                          onSubmit={submit}
+                        />
+                      )),
+                    }
+                  : {
+                      kind: "empty",
+                      message: state.hasMore
+                        ? "No observations in the loaded pages; more pages are available."
+                        : "No observations.",
+                    }
+                : null,
+              failure: state.failure?.message ?? null,
+              notLoadedMessage: "Observations have not been loaded.",
+            }),
+            commands: (
+              <ObservationPagingFeedback
+                controlsOnly
+                pages={collection}
+                state={state}
+                label="observations"
+              />
+            ),
+          }}
         />
-      ))}
+      </div>
       {targets.state.failure ? (
         <ObservationPagingFeedback
           pages={targets.pages}
@@ -286,11 +328,6 @@ function ObservationWorkflow({
           label="resolution details"
         />
       ) : null}
-      <ObservationPagingFeedback
-        pages={collection}
-        state={state}
-        label="observations"
-      />
     </section>
   );
 }

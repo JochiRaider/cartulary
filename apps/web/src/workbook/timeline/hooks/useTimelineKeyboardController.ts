@@ -575,12 +575,14 @@ export function useTimelineKeyboardController({
       setSelectedRowId(recordId);
       setIsInspectorOpen(true);
       if (intent.itemRef === null) {
-        setInspectorMessage(
-          workbookInspectorMessageFeedback(
+        setInspectorMessage({
+          ...workbookInspectorMessageFeedback(
             "No unresolved mention is available for quick link.",
             "none",
           ),
-        );
+          sourceRecordId: recordId,
+          destination: { kind: "panel", panel: "relationships" },
+        });
       } else {
         setSelectedMentionRef(intent.itemRef);
         setInspectorMessage(null);

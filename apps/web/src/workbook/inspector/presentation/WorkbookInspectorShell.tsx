@@ -63,6 +63,17 @@ export function WorkbookInspectorShell({
       data-view-schema-id={config.viewSchemaId}
       ref={elementRef}
       style={shellStyle}
+      onKeyDown={(event) => {
+        if (
+          event.key === "Escape" &&
+          !event.defaultPrevented &&
+          !event.nativeEvent.isComposing
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
+      }}
     >
       <header style={headerStyle}>
         <div style={titleRowStyle}>

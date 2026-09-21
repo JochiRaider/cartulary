@@ -16,9 +16,9 @@ describe("Timeline keyboard intent mapping", () => {
         surface: "inspector",
       }),
     ).toEqual({
-      kind: "restore_prior_grid_focus",
-      preventDefault: true,
-      stopPropagation: true,
+      kind: "none",
+      preventDefault: false,
+      stopPropagation: false,
     });
     expect(
       mapTimelineScalarEditorIntent({

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { WorkbookSurfaceRefreshError } from "../../collaboration/workbookSurfacePort";
 import {
+  targetWorkbookInspectorFeedback,
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
@@ -239,7 +240,21 @@ export function useTimelineMentionActions(input: Input) {
   );
   const feedback = (message: string) =>
     input.setInspectorMessage(
-      workbookInspectorMessageFeedback(message, "none"),
+      input.selectedMention
+        ? targetWorkbookInspectorFeedback(
+            workbookInspectorMessageFeedback(message, "none"),
+            input.selectedMention.rowRecordId,
+            {
+              kind: "relationship_item",
+              panel: "relationships",
+              fieldKey: input.selectedMention.fieldKey,
+              itemRef: input.selectedMention.itemRef,
+            },
+          )
+        : {
+            ...workbookInspectorMessageFeedback(message, "none"),
+            destination: { kind: "panel", panel: "relationships" },
+          },
     );
   function act(intent: MentionAction) {
     if (!subject || !snapshot.authority) {

@@ -4,6 +4,19 @@ This appendix is **non-normative**.
 
 It preserves explanatory context from the exploratory source artifact so future editors can see why the normative core was shaped the way it was.
 
+## Inspector state and interaction rationale
+
+Core 03 §2.3A and Design §12.7 distinguish saved observations, retained authoring,
+read availability, and command admission. A panel is a presentation boundary,
+not a transaction or cache boundary: independent Note association reads and
+Evidence access failures must not erase readable siblings. Ordinary Details
+uses explicit submission so reading, navigation, and field switching cannot
+accidentally write. Timeline grid autosave and relationship token interactions
+retain their independently owned behavior. Required blocked actions remain
+discoverable under Core 01; concealment follows read authority, not editability.
+These choices retire Timeline inspector scalar blur-save without adding a
+compatibility mode, public route, or durable draft guarantee.
+
 ## 1. Executive summary
 
 I recommend a **modular monolith**: a browser-based workbook UI backed by **Postgres as the source of truth** and **S3-compatible object storage** for binary evidence, packaged for three-container deployment in the smallest useful form. The core design thesis is that the spreadsheet metaphor should survive **at the view layer**, not at the storage layer: analysts work in sheet-like grids, while the system stores normalized records, typed relationships, revisions, versioned reference packs, and evidence metadata underneath. Built-in sheets should remain intentionally few, with additional tabs expressed as saved or system views over the same projections rather than new storage silos. The key mechanism is **capture first, structure later**: a timeline row can be created with partial facts and unresolved host/account strings, and those rough tokens are preserved as first-class records until another analyst resolves them into canonical hosts and identities. That preserves the low-friction spreadsheet feel without collapsing into an uncontrolled spreadsheet. The system justifies replacing Excel by adding capabilities spreadsheets handle badly: **explicit links across events/entities/evidence, reliable search/correlation, attributed edits, revision history, rollback, binary evidence attachment, and self-contained report/export snapshots**. Reports and presentation artifacts should be generated from immutable incident snapshots using the same canonical derivation layer as operator-facing views, so UI and export do not drift. If the product cannot get within one interaction of Excel for creating and editing rows, it will fail regardless of how good the schema is.

@@ -29,7 +29,6 @@ import type {
   TimelineScalarKeyCommit,
 } from "./TimelineWorkbookRendererTypes";
 import {
-  labelStyle,
   secondaryActionButtonStyle,
   timelineGridBodyStyle,
 } from "./TimelineWorkbookStyles";
@@ -327,28 +326,8 @@ export function useTimelineScalarRenderers({
     ],
   );
 
-  const renderTimelineInspectorEditor = useCallback(
-    (row: WorkbookRow, binding: TimelineScalarBinding) => {
-      const controlId = timelineScalarControlId(row, binding, "inspector");
-      return (
-        <div key={binding.fieldKey} style={labelStyle}>
-          <label htmlFor={controlId}>
-            {timelineBindingLabel(binding.fieldKey)}
-          </label>
-          {renderTimelineScalarControl(row, binding, "inspector", controlId)}
-        </div>
-      );
-    },
-    [
-      renderTimelineScalarControl,
-      timelineBindingLabel,
-      timelineScalarControlId,
-    ],
-  );
-
   return {
     renderTimelineGridEditor,
-    renderTimelineInspectorEditor,
     renderTimelineScalarCell,
   };
 }

@@ -4,7 +4,7 @@ import {
   WorkbookRecoveryDetail,
 } from "../../../shared/WorkbookRecoveryBoundary";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
-import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import { WorkbookInspectorNoticeView } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import { workbookInspectorErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
 import {
   type NoteAssociationEntry,
@@ -69,23 +69,35 @@ export function NoteAssociationResult({
   readonly owner: WorkbookNoteAssociationOwner;
   readonly entry: NoteAssociationEntry;
 }) {
-  return (
-    <section aria-label="Note association result">
-      {entry.failure ? (
-        <WorkbookInspectorPublicError
-          error={workbookInspectorErrorPresentation(entry.failure)}
-        />
-      ) : (
-        <p role="status">
-          {entry.receipt
+  const notice = owner.inspectorNotice(
+    entry.attempt.review.row.record_id,
+    entry.attempt.review.kind,
+    entry.attempt.clientTxnId,
+    owner.outcomeTransition(entry.attempt.clientTxnId),
+    entry.failure
+      ? {
+          kind: "error",
+          error: workbookInspectorErrorPresentation(entry.failure),
+        }
+      : {
+          kind: "message",
+          announcement: "none",
+          message: entry.receipt
             ? entry.refresh === "complete"
               ? "Associations saved."
               : "Associations saved. Reads need refresh."
             : entry.phase === "uncertain"
               ? "The outcome is unconfirmed. Recover the original submission before changing these associations."
-              : "Saving associations…"}
-        </p>
-      )}
+              : "Saving associations…",
+        },
+    entry.receipt ? "none" : entry.failure ? "assertive" : "polite",
+  );
+  return (
+    <section aria-label="Note association result">
+      <WorkbookInspectorNoticeView
+        notice={notice}
+        consume={owner.inspectorNotices.consume}
+      />
       {entry.phase === "uncertain" ? (
         <Button
           tone="primary"

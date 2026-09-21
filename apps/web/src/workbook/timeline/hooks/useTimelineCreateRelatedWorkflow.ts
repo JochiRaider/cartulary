@@ -97,9 +97,13 @@ export function useTimelineCreateRelatedWorkflow(
       if (evidence.begin(feature)) {
         const message = evidence.notice();
         if (message)
-          current.current.setInspectorMessage(
-            workbookInspectorMessageFeedback(message, "none"),
-          );
+          current.current.setInspectorMessage({
+            ...workbookInspectorMessageFeedback(message, "none"),
+            destination: { kind: "panel", panel: feature.panelId },
+            ...(current.current.selectedSubject
+              ? { sourceRecordId: current.current.selectedSubject.recordId }
+              : {}),
+          });
       }
     },
     [

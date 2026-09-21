@@ -24,6 +24,7 @@ export function EvidenceAccessActions({
   onIssue,
   recordId,
   title,
+  regionPresentation = false,
 }: {
   readonly recovery?: ReactNode;
   readonly access: EvidenceAccessPresentation;
@@ -39,6 +40,7 @@ export function EvidenceAccessActions({
   ) => void;
   readonly recordId: string;
   readonly title: string;
+  readonly regionPresentation?: boolean;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const compact = context === "row";
@@ -51,8 +53,10 @@ export function EvidenceAccessActions({
       style={compact ? rowStyle : inspectorStyle}
     >
       {recovery}
-      {compact ? null : <p style={evidenceMessageStyle}>{title}</p>}
-      {compact ? null : (
+      {compact || regionPresentation ? null : (
+        <p style={evidenceMessageStyle}>{title}</p>
+      )}
+      {compact || regionPresentation ? null : (
         <dl style={metadataStyle}>
           <dt>Lifecycle</dt>
           <dd style={valueStyle}>{access.lifecycleLabel}</dd>
@@ -136,13 +140,15 @@ export function EvidenceAccessActions({
         </button>
       ) : (
         <>
-          <p
-            id={messageId}
-            data-testid={messageId}
-            style={evidenceMessageStyle}
-          >
-            {access.message}
-          </p>
+          {regionPresentation ? null : (
+            <p
+              id={messageId}
+              data-testid={messageId}
+              style={evidenceMessageStyle}
+            >
+              {access.message}
+            </p>
+          )}
           {attachDisabledReason === null ? null : (
             <p style={evidenceMessageStyle}>{attachDisabledReason}</p>
           )}

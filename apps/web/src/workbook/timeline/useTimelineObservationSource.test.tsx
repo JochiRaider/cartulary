@@ -34,6 +34,19 @@ it("Observation source preparation preserves raw committed strings and rejects s
       incidentId: observationSource.incidentId,
     }),
   );
+  runtime.inspectorDrafts.setAuthority({
+    incidentId: observationSource.incidentId,
+    actorId: "actor",
+    sessionIdentity: "session",
+    role: "editor",
+    closed: false,
+  });
+  const inspectorIdentity = {
+    viewSchemaId: observationSource.viewSchemaId,
+    recordId: raw.record_id,
+    fieldKey: observationSource.fieldKey,
+    action: "value",
+  };
   const waitForIdle = vi.fn(
     async (): Promise<TimelineCommittedRecordIdleResult> => ({
       row,
@@ -67,9 +80,11 @@ it("Observation source preparation preserves raw committed strings and rejects s
     ),
   ).toBe(true);
   act(() =>
-    drafts.setDraft(
-      { rowKey: row.key, field: "rawActivityText", surface: "inspector" },
+    runtime.inspectorDrafts.update(
+      inspectorIdentity,
+      raw,
       "unsaved text",
+      "test-attachment",
     ),
   );
   expect(renderedReady).toBe(false);
@@ -84,7 +99,7 @@ it("Observation source preparation preserves raw committed strings and rejects s
   expect(raw.cells[observationSource.fieldKey]?.value).toBe(
     observationSource.text,
   );
-  act(() => drafts.clearAll());
+  act(() => runtime.inspectorDrafts.discard(inspectorIdentity));
   expect(renderedReady).toBe(true);
   act(() =>
     drafts.setDraft(

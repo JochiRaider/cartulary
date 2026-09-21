@@ -4,6 +4,8 @@ import type { WorkbookPortResult } from "../../ports/WorkbookPortResult";
 import type { LifecyclePage } from "./indicatorLifecycleOperation";
 
 export type LifecyclePagingState<T> = Readonly<{
+  request: number;
+  hasAccepted: boolean;
   items: readonly T[];
   phase: "initial_loading" | "ready" | "loading_more" | "refreshing" | "failed";
   nextCursor: string | null;
@@ -42,6 +44,8 @@ function sameCollectionValue(left: unknown, right: unknown): boolean {
 /** Feature-local collection mechanics; a refresh atomically rebuilds the loaded extent. */
 export class IndicatorLifecyclePaging<T> {
   private state: LifecyclePagingState<T> = {
+    request: 0,
+    hasAccepted: false,
     items: [],
     phase: "initial_loading",
     nextCursor: null,
@@ -105,9 +109,10 @@ export class IndicatorLifecyclePaging<T> {
     this.failedCursor = cursor;
     this.failedRefresh = refresh;
     this.publish({
+      request: generation,
       phase: cursor
         ? "loading_more"
-        : this.state.items.length
+        : this.state.hasAccepted
           ? "refreshing"
           : "initial_loading",
       failure: null,
@@ -175,6 +180,7 @@ export class IndicatorLifecyclePaging<T> {
       this.cursors.clear();
       for (const token of visited) this.cursors.add(token);
       this.publish({
+        hasAccepted: true,
         items,
         phase: "ready",
         nextCursor: next,

@@ -10,7 +10,12 @@ import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateR
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
-import { inspectorPanel } from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import {
+  inspectorPanel,
+  ownedInspectorRegion,
+  savedInspectorRegion,
+  type WorkbookInspectorRegion,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
@@ -61,11 +66,15 @@ export function EntityWorkbookInspector({
     readonly submit: () => Promise<void>;
     readonly updateDraft: (fieldKey: string, value: string) => void;
   };
-  readonly relationshipsContent: ReactNode;
+  readonly relationshipsContent: readonly [
+    WorkbookInspectorRegion,
+    ...WorkbookInspectorRegion[],
+  ];
   readonly subject: WorkbookInspectorSubject | null;
   readonly surfaceTitle: string;
   readonly testId?: string | undefined;
 }) {
+  if (currentIncidentRole === null) return null;
   const dispatchContextualAction = (
     capability: InspectorContextualCapability,
   ) => {
@@ -76,13 +85,24 @@ export function EntityWorkbookInspector({
       related.begin(capability.featureGroup);
     }
   };
-  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) =>
-    inspectorPanel(
+  const panelContent = (
+    panelId: InspectorPanelId,
+    ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
+  ) => ({
+    ...inspectorPanel(...regions),
+    authoring: (
       <>
-        {content}
-        {panelId === "workflow" ? (
-          <p>Choose an available action for this record.</p>
+        {panelId === "relationships" ? (
+          <>
+            {relationshipFeedback}
+            <WorkbookInspectorFeedbackView
+              feedback={actionFeedback}
+              neutralStyle={feedbackStyle}
+              testId={feedbackTestId}
+            />
+          </>
         ) : null}
+
         {subject?.kind === "live" &&
         related.state?.featureGroup.panelId === panelId ? (
           <InspectorCreateRelatedWorkflow
@@ -92,8 +112,9 @@ export function EntityWorkbookInspector({
             onUpdateDraft={related.updateDraft}
           />
         ) : null}
-      </>,
-    );
+      </>
+    ),
+  });
   const relationshipFeedback =
     mergeFeedback === null ? null : (
       <div style={feedbackBlockStyle}>
@@ -122,40 +143,54 @@ export function EntityWorkbookInspector({
         subject={subject}
         modelsByPanel={{
           evidence:
-            subject === null ? undefined : inspectorPanel(evidenceContent),
+            subject === null
+              ? undefined
+              : inspectorPanel(
+                  savedInspectorRegion("evidence-metadata", {
+                    kind: "populated",
+                    content: evidenceContent,
+                  }),
+                ),
           details:
             subject === null
               ? undefined
-              : panelContent("details", detailsContent),
+              : panelContent(
+                  "details",
+                  savedInspectorRegion("saved-fields", {
+                    kind: "populated",
+                    content: detailsContent,
+                  }),
+                ),
           history:
             subject === null
               ? undefined
               : inspectorPanel(
-                  <WorkbookInspectorRecordHistory
-                    beginMutation={history.beginMutation}
-                    actions={history.actions}
-                    canMutate={history.canMutate}
-                    commands={history.commands}
-                    ownerEffects={history.effects}
-                    subject={subject}
-                  />,
+                  ownedInspectorRegion("record-history", (present) => (
+                    <WorkbookInspectorRecordHistory
+                      present={present}
+                      beginMutation={history.beginMutation}
+                      actions={history.actions}
+                      canMutate={history.canMutate}
+                      commands={history.commands}
+                      ownerEffects={history.effects}
+                      subject={subject}
+                    />
+                  )),
                 ),
           relationships:
             subject === null
               ? undefined
+              : panelContent("relationships", ...relationshipsContent),
+          workflow:
+            subject === null
+              ? undefined
               : panelContent(
-                  "relationships",
-                  <>
-                    {relationshipsContent}
-                    {relationshipFeedback}
-                    <WorkbookInspectorFeedbackView
-                      feedback={actionFeedback}
-                      neutralStyle={feedbackStyle}
-                      testId={feedbackTestId}
-                    />
-                  </>,
+                  "workflow",
+                  savedInspectorRegion("workflow", {
+                    kind: "empty",
+                    message: "Choose an available action for this record.",
+                  }),
                 ),
-          workflow: subject === null ? undefined : panelContent("workflow"),
         }}
         onContextualAction={dispatchContextualAction}
       />

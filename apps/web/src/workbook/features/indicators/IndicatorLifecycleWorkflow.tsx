@@ -14,6 +14,10 @@ import {
   indicatorLifecycleConstraints,
 } from "../../adapters/indicatorLifecycleProtocol";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
+import {
+  inspectorReadData,
+  WorkbookInspectorRegionContent,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import { IndicatorLifecycleContext } from "./IndicatorLifecycleContext";
 import { IndicatorLifecycleOperationStatus } from "./IndicatorLifecycleOperationStatus";
@@ -347,20 +351,49 @@ function LifecycleContent({
             entry={entry}
           />
         ))}
-      {collection.items.map((interval) => (
-        <LifecycleIntervalDetails
-          key={interval.interval_id}
-          interval={interval}
+      <div data-inspector-region="indicator-lifecycle">
+        <WorkbookInspectorRegionContent
+          model={{
+            access: "readable",
+            data: inspectorReadData({
+              requested: collection.request > 0,
+              pending: [
+                "initial_loading",
+                "loading_more",
+                "refreshing",
+              ].includes(collection.phase),
+              accepted: collection.hasAccepted
+                ? collection.items.length
+                  ? {
+                      kind: "populated",
+                      content: collection.items.map((interval) => (
+                        <LifecycleIntervalDetails
+                          key={interval.interval_id}
+                          interval={interval}
+                        />
+                      )),
+                    }
+                  : {
+                      kind: "empty",
+                      message: collection.hasMore
+                        ? "No lifecycle intervals in the loaded pages; more pages are available."
+                        : "No lifecycle intervals.",
+                    }
+                : null,
+              failure: collection.failure?.message ?? null,
+              notLoadedMessage: "Lifecycle intervals have not been loaded.",
+            }),
+            commands: (
+              <LifecyclePagingFeedback
+                controlsOnly
+                pages={pages}
+                state={collection}
+                label="lifecycle intervals"
+              />
+            ),
+          }}
         />
-      ))}
-      {collection.phase === "ready" && collection.items.length === 0 ? (
-        <p>No lifecycle intervals.</p>
-      ) : null}
-      <LifecyclePagingFeedback
-        pages={pages}
-        state={collection}
-        label="lifecycle intervals"
-      />
+      </div>
     </section>
   );
 }

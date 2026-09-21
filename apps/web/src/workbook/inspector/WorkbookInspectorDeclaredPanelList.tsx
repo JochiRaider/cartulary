@@ -26,6 +26,7 @@ export function WorkbookInspectorDeclaredPanelList({
   panelRef,
   onContextualAction,
   subject,
+  creationAttachment,
 }: {
   readonly config: InspectorConfig;
   readonly modelsByPanel: Partial<
@@ -43,6 +44,9 @@ export function WorkbookInspectorDeclaredPanelList({
     capability: InspectorContextualCapability,
   ) => void;
   readonly subject: WorkbookInspectorSubject | null;
+  readonly creationAttachment?:
+    | { readonly id: string; readonly viewSchemaId: string }
+    | undefined;
 }) {
   return config.panels.map((panel) => {
     const model = modelsByPanel[panel.panelId];
@@ -58,6 +62,14 @@ export function WorkbookInspectorDeclaredPanelList({
     if (!model)
       throw new Error(
         `Missing inspector panel contribution: ${config.viewSchemaId}/${panel.panelId}`,
+      );
+    if (
+      subject === null &&
+      (!creationAttachment?.id ||
+        creationAttachment.viewSchemaId !== config.viewSchemaId)
+    )
+      throw new Error(
+        `Missing inspector creation attachment: ${config.viewSchemaId}/${panel.panelId}`,
       );
     if (model.access === "concealed" || currentIncidentRole === null)
       return null;

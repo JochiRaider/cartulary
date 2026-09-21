@@ -7,14 +7,17 @@ export function ObservationPagingFeedback<T>({
   pages,
   state,
   label,
+  controlsOnly = false,
 }: {
   pages: ObservationCollection<T>;
   state: ReturnType<ObservationCollection<T>["getSnapshot"]>;
   label: string;
+  controlsOnly?: boolean;
 }) {
   return (
     <>
-      {["initial_loading", "loading_more", "refreshing"].includes(
+      {!controlsOnly &&
+      ["initial_loading", "loading_more", "refreshing"].includes(
         state.phase,
       ) ? (
         <p role="status">
@@ -28,10 +31,15 @@ export function ObservationPagingFeedback<T>({
       ) : null}
       {state.failure ? (
         <div>
-          <WorkbookInspectorPublicError
-            error={workbookInspectorErrorPresentation(state.failure)}
-          />
-          {state.items.length ? (
+          {controlsOnly ? null : (
+            <div role="status">
+              <WorkbookInspectorPublicError
+                announce={false}
+                error={workbookInspectorErrorPresentation(state.failure)}
+              />
+            </div>
+          )}
+          {!controlsOnly && state.items.length ? (
             <p>
               Previously loaded results remain visible and may be incomplete or
               stale.

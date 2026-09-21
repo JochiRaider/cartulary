@@ -5,7 +5,6 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   authTestId,
-  genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridScrollportSelector,
@@ -977,8 +976,8 @@ test("Committed grid dependent inspector writes wait for the accepted row versio
     await expect.poll(() => committed).toBe(true);
     await page.getByTestId(workbookInspectorToggleTestId(f.view)).click();
     await page
-      .getByTestId(genericEditFieldSelectTestId(f.view))
-      .selectOption("host.location");
+      .locator(`[data-inspector-edit-field="${"host.location"}"]`)
+      .click();
     const inspector = page.getByTestId(genericEditValueTestId(f.view));
     await inspector.fill("Inspector second");
     await page.getByTestId(genericEditSubmitTestId(f.view)).click();

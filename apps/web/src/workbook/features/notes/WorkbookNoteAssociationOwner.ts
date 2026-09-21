@@ -5,6 +5,11 @@ import {
 } from "../../../services/asyncObservation";
 import { readWorkbookAuthoringRecord } from "../../adapters/readWorkbookAuthoringRecord";
 import { normalizeRecordMutationRow } from "../../adapters/workbookRecordPatchTransport";
+import {
+  type WorkbookInspectorFeedback,
+  type WorkbookInspectorNotice,
+  WorkbookInspectorNoticeLedger,
+} from "../../inspector/workbookInspectorErrorModel";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookAuthoringAuthorityReader } from "../../ports/WorkbookAuthoringReadPort";
@@ -38,6 +43,7 @@ type Snapshot = Readonly<{
 /** Incident-scoped association attempts, independent of Note creation drafts and
  * inspector attachment. Complete receipts survive every read/presentation failure. */
 export class WorkbookNoteAssociationOwner {
+  readonly inspectorNotices = new WorkbookInspectorNoticeLedger();
   private authority: WorkbookMutationAuthority | null = null;
   private actorId: string | null = null;
   private lifetime = 0;
@@ -48,6 +54,7 @@ export class WorkbookNoteAssociationOwner {
   private reader: NoteAssociationReader | null = null;
   private transport: NoteAssociationTransport | null = null;
   private readonly entries = new Map<string, NoteAssociationEntry>();
+  private readonly outcomeRevisions = new Map<string, number>();
   private readonly dispatches = new Map<string, number>();
   private readonly preparing = new Set<string>();
   private readonly refreshing = new Set<string>();
@@ -86,6 +93,58 @@ export class WorkbookNoteAssociationOwner {
     };
   };
   getSnapshot = () => this.snapshot;
+  outcomeTransition(id: string) {
+    return String(this.outcomeRevisions.get(id) ?? 0);
+  }
+  inspectorNotice(
+    noteId: string,
+    kind: NoteAssociationKind,
+    attemptId: string,
+    transitionId: string,
+    feedback: WorkbookInspectorFeedback,
+    announcement: WorkbookInspectorNotice["announcement"],
+  ): WorkbookInspectorNotice {
+    return {
+      context: {
+        authority: `${this.incidentId}:${this.actorId}:${this.lifetime}:${this.generation}`,
+        subject: {
+          kind: "record",
+          viewSchemaId: noteAssociationView,
+          recordId: noteId,
+        },
+      },
+      destination: {
+        kind: "region",
+        panel: kind === "evidence" ? "evidence" : "relationships",
+        regionId: `note-${kind}`,
+      },
+      attemptId,
+      transitionId,
+      feedback,
+      announcement,
+    };
+  }
+  readNotice(
+    noteId: string,
+    kind: NoteAssociationKind,
+  ): WorkbookInspectorNotice | null {
+    const key = noteAssociationListKey(noteId, kind),
+      list = this.lists.get(key);
+    if (!list || list.state === "ready") return null;
+    const message =
+      list.message ??
+      (list.state === "initial_loading"
+        ? "Loading Note associations…"
+        : "Refreshing Note associations…");
+    return this.inspectorNotice(
+      noteId,
+      kind,
+      `read:${this.reads.get(key)}`,
+      list.state,
+      { kind: "message", message, announcement: "none" },
+      "polite",
+    );
+  }
   getReader() {
     return this.reader;
   }
@@ -137,12 +196,14 @@ export class WorkbookNoteAssociationOwner {
     if (this.authority) this.setAuthority({ ...this.authority, closed: true });
   }
   retire() {
+    this.inspectorNotices.clear();
     this.lifetime++;
     this.generation++;
     this.candidateRevision++;
     this.authority = null;
     this.actorId = null;
     this.entries.clear();
+    this.outcomeRevisions.clear();
     this.dispatches.clear();
     this.preparing.clear();
     this.refreshing.clear();
@@ -433,6 +494,7 @@ export class WorkbookNoteAssociationOwner {
     const entry = this.entries.get(id);
     if (!entry) return;
     this.entries.set(id, freezeWorkbookValue({ ...entry, ...patch }));
+    this.outcomeRevisions.set(id, (this.outcomeRevisions.get(id) ?? 0) + 1);
     this.publish();
   }
   private acceptEffects(id: string) {

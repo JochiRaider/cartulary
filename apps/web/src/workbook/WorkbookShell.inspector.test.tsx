@@ -577,6 +577,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
       "Workbook inspector selected row",
     );
+    fireEvent.click(screen.getByRole("button", { name: "Edit RAW Activity" }));
     expect(
       (
         screen.getByTestId(
@@ -588,12 +589,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         ) as HTMLTextAreaElement
       ).value,
     ).toBe("Selected row details");
-    for (const section of [
-      "operational-text",
-      "relationships",
-      "evidence",
-      "history",
-    ] as const) {
+    for (const section of ["relationships", "evidence", "history"] as const) {
       expect(
         screen.getByTestId(timelineInspectorSectionTestId(section)),
       ).toBeTruthy();

@@ -12,6 +12,11 @@ import {
   type RecordPatchTransport,
 } from "../adapters/workbookRecordPatchTransport";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
+import {
+  type WorkbookInspectorFeedback,
+  type WorkbookInspectorNotice,
+  WorkbookInspectorNoticeLedger,
+} from "../inspector/workbookInspectorErrorModel";
 import { workbookSavedFieldEqual } from "../models/workbookSavedValues";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
@@ -82,6 +87,74 @@ type Snapshot = Readonly<{
 
 /** Retained explicit PATCH lifetime, separate from the grid autosave FIFO. */
 export class WorkbookExplicitPatchOwner {
+  private readonly inspectorAttachments = new Map<
+    string,
+    { view: string; record: string; field: string }
+  >();
+  attachInspectorResult(
+    id: string,
+    view: string,
+    record: string,
+    field: string,
+  ) {
+    this.inspectorAttachments.set(id, { view, record, field });
+    this.emit();
+    return () => {
+      if (this.inspectorAttachments.delete(id)) this.emit();
+    };
+  }
+  resultIsAttached(entry: ExplicitPatchOperation) {
+    return [...this.inspectorAttachments.values()].some(
+      (attachment) =>
+        attachment.view === entry.intent.viewSchemaId &&
+        attachment.record === entry.intent.baseline.record_id &&
+        entry.intent.changes.some(
+          (change) => change.field_key === attachment.field,
+        ),
+    );
+  }
+  readonly inspectorNotices = new WorkbookInspectorNoticeLedger();
+  private readonly noticeRevisions = new Map<string, number>();
+  private readonly recoveryAttempts = new Set<string>();
+  hasRecoveryAttempt(id: string) {
+    return this.recoveryAttempts.has(id);
+  }
+  inspectorNotice(
+    entry: ExplicitPatchOperation,
+    feedback: WorkbookInspectorFeedback,
+  ): WorkbookInspectorNotice {
+    const change = entry.intent.changes[0];
+    return {
+      context: {
+        authority: `${this.incidentId}:${entry.authority.actorId}`,
+        subject: {
+          kind: "record",
+          viewSchemaId: entry.intent.viewSchemaId,
+          recordId: entry.intent.baseline.record_id,
+        },
+      },
+      destination:
+        change && entry.intent.changes.length === 1
+          ? {
+              kind: "field",
+              panel: "details",
+              fieldKey: change.field_key,
+              action: entry.intent.purpose,
+              revision: entry.intent.authoringRevision ?? 0,
+            }
+          : { kind: "panel", panel: "details" },
+      attemptId: entry.id,
+      transitionId: String(this.noticeRevisions.get(entry.id) ?? 0),
+      feedback,
+      // Captured field feedback announces initial rejection. A later recovery
+      // has no attached submit callback and owns its new rejection transition.
+      announcement: entry.failure
+        ? this.hasRecoveryAttempt(entry.id)
+          ? "assertive"
+          : "none"
+        : "polite",
+    };
+  }
   private authority: ExplicitPatchAuthority | null = null;
   private actorId: string | null = null;
   private retired = false;
@@ -179,6 +252,10 @@ export class WorkbookExplicitPatchOwner {
     this.setAuthority(null);
   }
   retire() {
+    this.inspectorNotices.clear();
+    this.noticeRevisions.clear();
+    this.recoveryAttempts.clear();
+    this.inspectorAttachments.clear();
     this.retired = true;
     this.authority = null;
     this.generation++;
@@ -337,6 +414,7 @@ export class WorkbookExplicitPatchOwner {
   private update(id: string, update: Partial<ExplicitPatchOperation>) {
     const current = this.entries.get(id);
     if (current && !this.retired) {
+      this.noticeRevisions.set(id, (this.noticeRevisions.get(id) ?? 0) + 1);
       this.entries.set(id, { ...current, ...update });
       this.emit();
     }
@@ -607,6 +685,7 @@ export class WorkbookExplicitPatchOwner {
       this.running.has(id)
     )
       return;
+    this.recoveryAttempts.add(id);
     this.running.add(id);
     try {
       const generation = this.generation,
@@ -692,6 +771,8 @@ export class WorkbookExplicitPatchOwner {
       this.entries.delete(id);
       this.attempts.delete(id);
       this.contributions.delete(id);
+      this.noticeRevisions.delete(id);
+      this.recoveryAttempts.delete(id);
       this.emit();
     }
   }

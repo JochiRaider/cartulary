@@ -3043,6 +3043,7 @@
           "binds ordinary Entity editing exclusively to the inspected record",
           "does not restore old Entity selection after a detached completion",
           "invalidates Entity field errors when the canonical subject changes",
+          "opens with saved values and submits only explicitly while Escape retains unfinished text",
           "preserves unfinished Entity text through same-record query replacement",
           "retains Entity field authoring for explicit return to its original field"
         ]
@@ -3070,6 +3071,7 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPanelContent.test.tsx",
         "titles": [
+          "Inspector panel states announces each owner transition once across remounts and never carries feedback across subjects",
           "Inspector panel states distinguishes loading and empty data from retained failure and concealment"
         ]
       },
@@ -3251,6 +3253,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_timeline_explicit_details",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/components/TimelineInspectorDetails.test.tsx",
+        "titles": [
+          "Timeline Details keeps a rejected recovery beside its field with one new announcement",
+          "Timeline Details keeps newer authoring after acknowledgement and retries refresh without writes",
+          "Timeline Details reads saved values and retains authoring until explicit submission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_window_retention",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3350,6 +3380,7 @@
         "file": "apps/web/src/workbook/features/notes/noteAssociations.test.tsx",
         "titles": [
           "Note association lifetime accepts a public no-op receipt and rejects contradictory mutation versions",
+          "Note association lifetime composes independent production reads and retries only the failed region",
           "Note association lifetime conceals late acceptance while suspended and retires account-replaced attempts",
           "Note association lifetime navigates incoming related Notes without exposing a removal action",
           "Note association lifetime preserves readable data on refresh failure and conceals it on incident revocation",
@@ -4454,7 +4485,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineFind.test.tsx",
         "titles": [
-          "Timeline Find integration borrows inspector authoring and joins its pending departure while Close cancels only the destination",
+          "Timeline Find integration borrows ordinary inspector authoring without submitting it during Find navigation",
           "Timeline Find integration intersects accepted membership with presented order without querying or searching creation pins and local drafts",
           "Timeline Find integration retains rejected collection drafts and never departs recordless authoring through creation"
         ]

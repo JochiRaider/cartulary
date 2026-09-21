@@ -2,7 +2,6 @@ import {
   entityInspectorTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
-  genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridShellTestId,
@@ -546,10 +545,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         .closest("[role=gridcell]") ?? document.body,
       { button: 0 },
     );
-    fireEvent.change(
-      screen.getByTestId(genericEditFieldSelectTestId(hostsViewSchemaId)),
-      { target: { value: "host.display_name" } },
-    );
+    fireEvent.click(requireInspectorEdit("host.display_name"));
     fireEvent.change(
       screen.getByTestId(genericEditValueTestId(hostsViewSchemaId)),
       { target: { value: "Gateway Host Edited" } },
@@ -655,10 +651,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         .closest("[role=gridcell]") ?? document.body,
       { button: 0 },
     );
-    fireEvent.change(
-      screen.getByTestId(genericEditFieldSelectTestId(identitiesViewSchemaId)),
-      { target: { value: "identity.display_name" } },
-    );
+    fireEvent.click(requireInspectorEdit("identity.display_name"));
     fireEvent.change(
       screen.getByTestId(genericEditValueTestId(identitiesViewSchemaId)),
       { target: { value: "Alex Analyst Edited" } },
@@ -790,10 +783,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         .closest("[role=gridcell]") ?? document.body,
       { button: 0 },
     );
-    fireEvent.change(
-      screen.getByTestId(genericEditFieldSelectTestId(notesViewSchemaId)),
-      { target: { value: "note.body" } },
-    );
+    fireEvent.click(requireInspectorEdit("note.body"));
     fireEvent.change(
       screen.getByTestId(genericEditValueTestId(notesViewSchemaId)),
       { target: { value: "Edited note body" } },
@@ -844,3 +834,11 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
   });
 });
+
+function requireInspectorEdit(field: string) {
+  const button = document.querySelector<HTMLButtonElement>(
+    `[data-inspector-edit-field="${field}"]`,
+  );
+  if (!button) throw new Error(`Missing Edit action for ${field}`);
+  return button;
+}

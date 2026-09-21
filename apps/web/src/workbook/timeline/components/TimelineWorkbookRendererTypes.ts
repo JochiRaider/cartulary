@@ -93,10 +93,6 @@ export type RenderTimelineScalarCell = (
 export type TimelineWorkbookRenderers = {
   readonly renderTimelineCollectionInput: RenderTimelineCollectionInput;
   readonly renderTimelineGridEditor: RenderTimelineGridEditor;
-  readonly renderTimelineInspectorEditor: (
-    row: WorkbookRow,
-    binding: TimelineScalarBinding,
-  ) => ReactNode;
   readonly timelineBindingLabel: (fieldKey: string) => string;
   readonly timelineColumns: readonly GridColumn<WorkbookRow>[];
 };

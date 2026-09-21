@@ -4,6 +4,27 @@ This appendix is **non-normative**.
 
 It preserves the workflow sequence diagrams, UI mockups, and explanatory interaction notes from the exploratory source artifact.
 
+## Inspector remediation examples
+
+These examples illustrate Core 03 §2.3A and Design §§12.7 and 14.2; they do not
+define additional behavior.
+
+- A Note's Sources region remains readable while Related notes fails. Retry
+  beside Related notes repeats only that read. If its last loaded page was
+  empty, the stale explanation qualifies that earlier observation.
+- History initially says it has not been loaded and offers Open history.
+  Inspecting a record alone does not query its full history.
+- Details shows a saved Summary and an Edit Summary action. Editing adds an
+  Unsaved change control without changing the saved overview. Switching to
+  another field retains the first draft. Update or Ctrl/Cmd+Enter submits the
+  attached field; blur and closing do not.
+- An accepted Update whose subsequent refresh fails retains its receipt.
+  Refresh recovery reads the source; it does not submit the write again.
+- Timeline Hosts, Identities, and Tags each place their existing controls with
+  their values. A failed target lookup does not change a resolved link into a
+  raw unresolved mention. Dismissed in this session remains an observation
+  scope, with History available for the record's history.
+
 ## Incident-details metadata illustrations
 
 These examples are illustrative only. Core 01 owns the incident resource, create defaults, PATCH validation, omission semantics, concurrency behavior, and audit behavior. Core 02 owns the closed `incident.status` and `incident.tlp` token families.

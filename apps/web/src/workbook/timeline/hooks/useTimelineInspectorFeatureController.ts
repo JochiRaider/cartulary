@@ -102,10 +102,16 @@ export function useTimelineInspectorFeatureController({
           setIndicatorHandler(handler);
           setInspectorMessage(
             handler === null
-              ? workbookInspectorMessageFeedback(
-                  "Inspector action is unavailable.",
-                  "none",
-                )
+              ? {
+                  ...workbookInspectorMessageFeedback(
+                    "Inspector action is unavailable.",
+                    "none",
+                  ),
+                  destination: {
+                    kind: "panel",
+                    panel: capability.featureGroup.panelId,
+                  },
+                }
               : null,
           );
           return;

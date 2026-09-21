@@ -25,6 +25,7 @@ semantic models and commands. Surface layout regions live in
 | [TimelineWorkbook.tsx](TimelineWorkbook.tsx) | Public Timeline facade that retains the collaboration boundary and delegates grouped composition, presentation derivation, and stateless rendering. |
 | [TimelineWorkbookGrid.tsx](TimelineWorkbookGrid.tsx) | Timeline grid renderer, grouped row table wrapper, hidden contract metadata cells, and grid test-ID placement. |
 | [TimelineWorkbookInspector.tsx](TimelineWorkbookInspector.tsx) | Timeline inspector shell, panel tabs, disabled-state presentation, selected-row state, and inspector messages. |
+| [TimelineInspectorDetails.tsx](TimelineInspectorDetails.tsx) | Saved Timeline values and one explicit ordinary editor, using retained inspector drafts and PATCH contributions with source normalization and accepted-row effects. |
 | [TimelineWorkbookInspectorSections.tsx](TimelineWorkbookInspectorSections.tsx) | Timeline inspector section factories for field editors, relationships, evidence attach, related-row creation, and row history. |
 | [TimelineWorkbookNotices.tsx](TimelineWorkbookNotices.tsx) | Retained auto-resolution disclosure list and local actions in the bounded above-grid feedback region. |
 | [TimelineWorkbookRenderers.tsx](TimelineWorkbookRenderers.tsx) | Stable private facade composing scalar, collection, and column renderer owners. |
@@ -32,13 +33,14 @@ semantic models and commands. Surface layout regions live in
 | [TimelineWorkbookStyles.ts](TimelineWorkbookStyles.ts) | Timeline-specific style constants shared by Timeline workbook components. |
 | [useTimelineCollectionRenderer.tsx](useTimelineCollectionRenderer.tsx) | Narrow renderer factory that binds Timeline collection commands to the focused collection-cell component. |
 | [useTimelineColumnAssembly.tsx](useTimelineColumnAssembly.tsx) | Timeline contract column ordering, widths, editors, clipboard values, and evidence/read-only cell assembly. |
-| [useTimelineScalarRenderers.tsx](useTimelineScalarRenderers.tsx) | Timeline scalar grid/inspector controls, read cells, presence, and conflict markers. |
+| [useTimelineScalarRenderers.tsx](useTimelineScalarRenderers.tsx) | Timeline scalar grid controls, read cells, presence, and conflict markers. |
 
 ## Tests
 
 | File | Responsibility |
 | --- | --- |
 | [TimelineCollectionCell.test.tsx](TimelineCollectionCell.test.tsx) | Tests hidden collection-item inspection without editing or committing pending text. |
+| [TimelineInspectorDetails.test.tsx](TimelineInspectorDetails.test.tsx) | Tests production explicit submission, retained drafts, saved/unsaved separation and acknowledged read-only recovery. |
 | [TimelineEvidencePanel.test.tsx](TimelineEvidencePanel.test.tsx) | Tests for Timeline evidence panel behavior. |
 | [TimelineScalarEditor.test.tsx](TimelineScalarEditor.test.tsx) | Characterizes controlled scalar drafts, read-only behavior, presence publication, and commit lifecycle. |
 

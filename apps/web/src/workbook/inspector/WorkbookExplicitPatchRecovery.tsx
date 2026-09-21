@@ -1,23 +1,48 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useSyncExternalStore } from "react";
+import { useId, useLayoutEffect, useSyncExternalStore } from "react";
 import { genericInspectorRowLabel } from "../models/genericWorkbookModel";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
-import { WorkbookInspectorPublicError } from "./presentation/WorkbookInspectorFeedback";
+import { WorkbookInspectorNoticeView } from "./presentation/WorkbookInspectorFeedback";
 import { workbookInspectorErrorPresentation } from "./workbookInspectorErrorModel";
 
 /** Surface-local recovery remains reachable after the originating inspector closes. */
 export function WorkbookExplicitPatchRecovery({
   owner,
   viewSchemaId,
+  recordId,
+  fieldKey,
 }: {
   owner: WorkbookExplicitPatchOwner;
   viewSchemaId: string;
+  recordId?: string;
+  fieldKey?: string;
 }) {
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const attachment = useId();
+  useLayoutEffect(
+    () =>
+      recordId && fieldKey
+        ? owner.attachInspectorResult(
+            attachment,
+            viewSchemaId,
+            recordId,
+            fieldKey,
+          )
+        : undefined,
+    [owner, attachment, viewSchemaId, recordId, fieldKey],
+  );
   const entries = snapshot.entries.filter(
     (entry) =>
       entry.intent.viewSchemaId === viewSchemaId &&
+      (recordId !== undefined || !owner.resultIsAttached(entry)) &&
+      (recordId === undefined ||
+        owner.hasRecoveryAttempt(entry.id) ||
+        (entry.phase !== "rejected" && entry.phase !== "preparation_failed")) &&
+      (recordId === undefined ||
+        entry.intent.baseline.record_id === recordId) &&
+      (fieldKey === undefined ||
+        entry.intent.changes.some((change) => change.field_key === fieldKey)) &&
       entry.intent.owner !== "party_link" &&
       entry.intent.purpose !== "task-lifecycle",
   );
@@ -36,7 +61,7 @@ export function WorkbookExplicitPatchRecovery({
     >
       {entries.map((entry) => (
         <div key={entry.id}>
-          <p role={entry.failure ? undefined : "status"} style={{ margin: 0 }}>
+          <p style={{ margin: 0 }}>
             {genericInspectorRowLabel(contract, entry.intent.baseline)} —{" "}
             {entry.intent.changes
               .map(
@@ -57,17 +82,28 @@ export function WorkbookExplicitPatchRecovery({
                       ? "Review the saved-field conflict. Your draft is retained."
                       : "The change was not accepted. Your draft is retained."}
           </p>
-          {entry.failure ? (
-            <WorkbookInspectorPublicError
-              announce={false}
-              error={workbookInspectorErrorPresentation(entry.failure)}
-            />
-          ) : null}
-          {entry.receipt && entry.reconciliation !== "complete" ? (
-            <p role="status">
-              The change was saved. The view still needs a refresh.
-            </p>
-          ) : null}
+          <WorkbookInspectorNoticeView
+            consume={owner.inspectorNotices.consume}
+            notice={owner.inspectorNotice(
+              entry,
+              entry.failure
+                ? {
+                    kind: "error",
+                    error: workbookInspectorErrorPresentation(entry.failure),
+                  }
+                : {
+                    kind: "message",
+                    announcement: "none",
+                    message: entry.receipt
+                      ? entry.reconciliation === "complete"
+                        ? "Change saved."
+                        : "The change was saved. The view still needs a refresh."
+                      : entry.phase === "uncertain"
+                        ? "Outcome unconfirmed. Recover the original request."
+                        : "Saving inspector changes…",
+                  },
+            )}
+          />
           {entry.phase === "uncertain" ? (
             <Button
               type="button"

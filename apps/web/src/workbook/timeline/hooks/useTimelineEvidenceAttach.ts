@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { WorkbookTimelineFileOwner } from "../../features/evidence/WorkbookTimelineFileOwner";
 import {
+  targetWorkbookInspectorFeedback,
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
@@ -44,7 +45,17 @@ export function useTimelineEvidenceAttach(input: {
         files,
       );
       setInspectorMessage(
-        message ? workbookInspectorMessageFeedback(message, "none") : null,
+        message && row.recordId
+          ? targetWorkbookInspectorFeedback(
+              workbookInspectorMessageFeedback(message, "none"),
+              row.recordId,
+              {
+                kind: "region",
+                panel: "evidence",
+                regionId: "evidence-metadata",
+              },
+            )
+          : null,
       );
     },
     [],

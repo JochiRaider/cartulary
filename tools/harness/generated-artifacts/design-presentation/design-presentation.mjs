@@ -111,6 +111,8 @@ export function renderDesignPresentationTypeScript(document) {
       accessStates: document.projection.inspector.access_states,
       contentStates: document.projection.inspector.content_states,
       headerTitleLines: document.projection.inspector.header_title_lines,
+      unavailableCauses: document.projection.inspector.unavailable_causes,
+      announcements: document.projection.inspector.announcements,
     },
     gridCellRangeSelection: {
       stationaryTolerancePx: document.projection.grid_cell_range_selection.stationary_tolerance_px,

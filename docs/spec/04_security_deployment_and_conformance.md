@@ -2204,6 +2204,17 @@ it MUST create none of those effects even though it uses `POST`.
   - Verifies: REQ-01-615..REQ-01-617
 - **AC-456**: Timeline, Hosts, Identities, Evidence, and Notes support create, inline edit, paste, and correction with the inspector closed.
   - Verifies: REQ-03-291..REQ-03-292
+
+  Inspector production-composition evidence additionally distinguishes unloaded,
+  loading, successful empty, failed initial read, retained refresh and stale
+  observations. Independent region failure preserves authorized siblings;
+  concealment withdraws protected content, notices and focus destinations.
+  Ordinary Details opens saved-value-first and dispatches only through Update
+  or Ctrl/Cmd+Enter. Blur, Tab, navigation and field switching retain authoring
+  without dispatch. Late prior-subject results cannot change current data,
+  validation or focus. Accepted receipts survive detachment; repeated recovery
+  after acknowledgement performs reads only. Exact uncertain replay retains its
+  captured identity and bytes under the existing route's admission rules.
 - **AC-457**: Row change, row-version change, incident close, authorization loss, delete, merge, hard refresh, and active surface switch invalidate pending inspector forms, confirmations, previews, merge plans, supersede forms, and rollback previews.
   - Verifies: REQ-03-291..REQ-03-292
 - **AC-458**: At least one end-to-end path creates or links from Timeline to Task Request, Decision, Evidence, Communications Log, Handoff, Status Review, and Lesson without leaving the workbook shell.

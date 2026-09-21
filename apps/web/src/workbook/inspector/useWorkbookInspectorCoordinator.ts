@@ -25,6 +25,7 @@ type WorkbookInspectorOwnerActionPorts = {
 type WorkbookInspectorResetCause =
   | "close"
   | "retarget"
+  | "record_updated"
   | "action_completed"
   | "surface_changed"
   | "authorization_lost"
@@ -46,6 +47,7 @@ function workbookInspectorResetScope(
   switch (cause) {
     case "close":
     case "retarget":
+    case "record_updated":
     case "action_completed":
       return "row_local";
     case "surface_changed":
@@ -117,7 +119,15 @@ export function useWorkbookInspectorCoordinator({
     if (workbookInspectorSubjectsEqual(observed.subject, subject)) {
       return;
     }
-    resetOwnerState("retarget");
+    resetOwnerState(
+      observed.subject &&
+        subject &&
+        observed.subject.kind === subject.kind &&
+        observed.subject.viewSchemaId === subject.viewSchemaId &&
+        observed.subject.recordId === subject.recordId
+        ? "record_updated"
+        : "retarget",
+    );
     dispatch({
       lifecycleKey: effectiveLifecycleKey,
       type: "retarget",

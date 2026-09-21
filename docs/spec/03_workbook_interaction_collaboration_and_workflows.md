@@ -243,6 +243,35 @@ revision. An obsolete response MUST NOT invalidate another field or newer draft;
 changing the corresponding authoring revision retires its validation feedback.
 Design §12.5 owns placement and accessible presentation.
 
+Inspector contributions MUST distinguish accepted saved content, read progress,
+read access, action eligibility, unfinished authoring, and operation outcomes.
+Independently read regions MUST retain their own observation scope and recovery
+target: one region's failure MUST NOT hide a still-authorized sibling or imply
+that an unobserved collection is empty. Initial reads, intentionally unrequested
+resources, failed reads, and successful empty observations are distinct. Read
+results MUST be admitted against their captured subject, request, and authority;
+retargeting MUST clear or replace the previous subject before new-subject content
+is painted. Design §12.7 owns the presentation vocabulary and composition.
+
+Ordinary Details MUST open with saved values and explicit field-level editing.
+Only `Update` or `Ctrl/Cmd+Enter` submits its attached ordinary editor. Blur,
+Tab, field switching, closing, and navigation MUST NOT submit it. Enter retains
+native control behavior; IME composition and nested picker commands precede
+submission. Escape first detaches the ordinary editor while retaining unfinished
+authoring; a subsequent Escape follows the inspector-close contract. Explicit
+Discard retires the draft. At most one ordinary Details editor is attached at a
+time. These rules apply to Timeline inspector scalar editing as well as other
+ordinary inspectors; they do not change grid autosave, collection-token departure,
+or specialized Assessment, alias, relationship, and creation workflow contracts.
+
+An outcome's semantic presentation destination MUST be captured when its read or
+mutation attempt begins, not inferred from selection when it completes. Field
+feedback remains revision-bound; region and action feedback stays local to its
+origin. Recording a complete correlated receipt is independent of displaying it:
+a changed presentation or the acknowledged row-version advance MUST NOT reject
+an otherwise valid receipt. Existing exact-replay and acknowledged read-recovery
+rules continue to apply. Presentation adds no retry permission or persistence.
+
 Notes association attempts under Core 01 REQ-01-675 MUST use a narrowly scoped
 operation owner independent of Note-creation drafts. Captured transaction identity,
 request bytes, accepted receipts and uncertain recovery outlive inspector

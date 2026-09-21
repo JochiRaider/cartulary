@@ -6,7 +6,9 @@
     "data_states": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"],
     "access_states": ["readable", "concealed"],
     "content_states": ["empty", "populated"],
-    "header_title_lines": 2
+    "header_title_lines": 2,
+    "unavailable_causes": ["not_requested", "load_failed", "owner_blocked"],
+    "announcements": { "initial_loading": "polite", "refreshing": "polite", "background_stale": "polite", "rejected_action": "assertive", "not_requested": "none", "already_reported": "none" }
   },
   "grid_cell_range_selection": {
     "stationary_tolerance_px": 4,

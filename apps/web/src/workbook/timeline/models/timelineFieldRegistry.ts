@@ -192,21 +192,8 @@ export function timelineScalarBindingForValueKey(
   return binding;
 }
 
-function requireScalarBinding(fieldKey: TimelineEditableFieldKey) {
-  const binding = scalarBindingByField.get(fieldKey);
-  if (binding === undefined) {
-    throw new Error(`Missing Timeline scalar binding for ${fieldKey}.`);
-  }
-  return binding;
-}
-
 export const timelineVisibleBindings: readonly TimelineFieldBinding[] =
   timelineContract.fields.map((field) => timelineFieldBinding(field.fieldKey));
-
-export const timelineInspectorBindings: readonly TimelineScalarBinding[] = [
-  requireScalarBinding("timeline.raw_activity_text"),
-  requireScalarBinding("timeline.activity_synopsis_text"),
-];
 
 export function inputFocusKey(
   rowKey: string,

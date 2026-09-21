@@ -75,7 +75,7 @@ export function TimelineWorkbookInspectorRegion({
           />
         ) : null
       }
-      renderRelationshipEditors={model.renderRelationshipEditors}
+      renderRelationshipEditor={model.renderRelationshipEditor}
       renderRowHistorySection={model.renderRowHistorySection}
       renderWorkflowSection={() => model.renderWorkflowSection()}
       rowHistoryRecordId={model.rowHistoryRecordId}

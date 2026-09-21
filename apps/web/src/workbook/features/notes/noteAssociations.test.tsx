@@ -10,6 +10,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { createNoteAssociationTransport } from "../../adapters/createNoteAssociationTransport";
+import {
+  inspectorPanel,
+  ownedInspectorRegion,
+  WorkbookInspectorPanelContent,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import { NoteAssociationPanel } from "./NoteAssociationPanel";
@@ -129,6 +134,60 @@ function fixture() {
 }
 
 describe("Note association lifetime", () => {
+  it("composes independent production reads and retries only the failed region", async () => {
+    const f = fixture();
+    f.transport.list.mockImplementation(async (_id, kind) =>
+      kind === "source"
+        ? {
+            kind: "rejected",
+            failure: { kind: "retryable", message: "Sources cannot load." },
+          }
+        : {
+            kind: "accepted",
+            page: {
+              note_record_id: noteId,
+              row_version: 2,
+              kind,
+              items: [],
+              next_cursor_token: null,
+            },
+          },
+    );
+    render(
+      <WorkbookInspectorPanelContent
+        model={inspectorPanel(
+          ...((["source", "related_note"] as const).map((kind) =>
+            ownedInspectorRegion(`note-${kind}`, (present) => (
+              <NoteAssociationPanel
+                owner={f.owner}
+                row={f.row}
+                kind={kind}
+                sheetRef={f.input.sheetRef}
+                label="Current Note"
+                onNavigateNote={async () => {}}
+                present={present}
+              />
+            )),
+          ) as [
+            ReturnType<typeof ownedInspectorRegion>,
+            ReturnType<typeof ownedInspectorRegion>,
+          ]),
+        )}
+      />,
+    );
+    await screen.findByText("No related notes associated with this Note.");
+    await waitFor(() => expect(f.transport.list).toHaveBeenCalledTimes(2));
+    expect(
+      f.owner.getSnapshot().lists[noteAssociationListKey(noteId, "source")]
+        ?.state,
+    ).toBe("unavailable");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh sources" }));
+    await waitFor(() => expect(f.transport.list).toHaveBeenCalledTimes(3));
+    expect(
+      f.transport.list.mock.calls.filter((call) => call[1] === "related_note"),
+    ).toHaveLength(1);
+    expect(f.transport.send).not.toHaveBeenCalled();
+  });
   it("replays captured bytes and retains accepted receipts through read-only refresh recovery", async () => {
     const f = fixture();
     await f.owner.submit(f.input);

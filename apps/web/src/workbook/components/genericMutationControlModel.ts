@@ -78,7 +78,12 @@ export function resolveGenericMutationControl({
       kind: "number",
     };
   }
-  if (field.writeKind === "action_payload" || isMultilineGenericField(field)) {
+  if (
+    field.writeKind === "action_payload" ||
+    isMultilineGenericField(field) ||
+    (surface === "form" &&
+      field.stringContractId === "timeline_visible_text_v1")
+  ) {
     return {
       ...context,
       kind: "multiline_text",

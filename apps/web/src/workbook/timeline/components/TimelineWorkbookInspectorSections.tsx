@@ -1,7 +1,7 @@
-import { timelineInspectorSectionTestId } from "@cartulary/ui-contracts";
-import { type ReactNode, type RefCallback, useCallback } from "react";
+import { type RefCallback, useCallback } from "react";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
+import { ownedInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { HistoryBrowsingControls } from "../../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type {
@@ -10,9 +10,8 @@ import type {
 } from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import {
-  type TimelineScalarBinding,
+  type CollectionFieldKey,
   timelineCollectionBindings,
-  timelineInspectorBindings,
 } from "../models/timelineFieldRegistry";
 import {
   readTimelineCellValue,
@@ -20,13 +19,11 @@ import {
 } from "../models/timelineRowModel";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 import { TimelineHistoryPanel } from "./TimelineHistoryPanel";
-import type { RenderTimelineCollectionInput } from "./TimelineWorkbookRendererTypes";
 import {
-  bodyStyle,
-  inspectorActionStackStyle,
-  inspectorSectionStyle,
-  sectionTitleStyle,
-} from "./TimelineWorkbookStyles";
+  TimelineInspectorDetails,
+  type TimelineInspectorDetailsOwner,
+} from "./TimelineInspectorDetails";
+import type { RenderTimelineCollectionInput } from "./TimelineWorkbookRendererTypes";
 
 export function useTimelineWorkbookInspectorSections({
   cancelCreateRelatedWorkflow,
@@ -41,7 +38,7 @@ export function useTimelineWorkbookInspectorSections({
   previewRowHistoryRollback,
   historyBrowsingControls,
   renderTimelineCollectionInput,
-  renderTimelineInspectorEditor,
+  detailsOwner,
   rowHistory,
   submitCreateRelatedWorkflow,
   updateCreateRelatedWorkflowDraft,
@@ -65,10 +62,7 @@ export function useTimelineWorkbookInspectorSections({
     action: "change_set" | "history_entry" | "row_restore",
   ) => void;
   readonly renderTimelineCollectionInput: RenderTimelineCollectionInput;
-  readonly renderTimelineInspectorEditor: (
-    row: WorkbookRow,
-    binding: TimelineScalarBinding,
-  ) => ReactNode;
+  readonly detailsOwner: TimelineInspectorDetailsOwner;
   readonly historyBrowsingControls: HistoryBrowsingControls;
   readonly rowHistory: WorkbookRecordHistoryState;
   readonly submitCreateRelatedWorkflow: () => Promise<void>;
@@ -80,29 +74,31 @@ export function useTimelineWorkbookInspectorSections({
 }) {
   const renderInspectorFieldEditors = useCallback(
     (row: WorkbookRow) => (
-      <section
-        data-testid={timelineInspectorSectionTestId("operational-text")}
-        style={inspectorSectionStyle}
-      >
-        <h3 style={sectionTitleStyle}>Operational Text</h3>
-        <div style={inspectorActionStackStyle}>
-          {timelineInspectorBindings.map((binding) =>
-            renderTimelineInspectorEditor(row, binding),
-          )}
-        </div>
-      </section>
+      <TimelineInspectorDetails
+        key={row.recordId ?? row.key}
+        row={row}
+        owner={detailsOwner}
+      />
     ),
-    [renderTimelineInspectorEditor],
+    [detailsOwner],
   );
 
-  const renderRelationshipEditors = useCallback(
-    (row: WorkbookRow) => (
-      <div style={inspectorActionStackStyle}>
-        {timelineCollectionBindings.map((binding) =>
-          renderTimelineCollectionInput(row, binding, undefined, "inspector"),
-        )}
-      </div>
-    ),
+  const renderRelationshipEditor = useCallback(
+    (row: WorkbookRow, fieldKey: CollectionFieldKey) => {
+      const binding = timelineCollectionBindings.find(
+        (candidate) => candidate.fieldKey === fieldKey,
+      );
+      if (!binding)
+        throw new Error(
+          `Missing Timeline collection contribution: ${fieldKey}`,
+        );
+      return renderTimelineCollectionInput(
+        row,
+        binding,
+        undefined,
+        "inspector",
+      );
+    },
     [renderTimelineCollectionInput],
   );
 
@@ -132,11 +128,7 @@ export function useTimelineWorkbookInspectorSections({
 
   const renderWorkflowSection = useCallback(() => {
     if (createRelatedWorkflow === null) {
-      return (
-        <p style={bodyStyle}>
-          Select a workflow action to create a related row.
-        </p>
-      );
+      return null;
     }
     return (
       <InspectorCreateRelatedWorkflow
@@ -162,24 +154,26 @@ export function useTimelineWorkbookInspectorSections({
   ]);
 
   const renderRowHistorySection = useCallback(
-    (elementRef?: RefCallback<HTMLElement>) => (
-      <TimelineHistoryPanel
-        canMutate={canMutateHistory}
-        elementRef={elementRef}
-        history={rowHistory}
-        browsingControls={historyBrowsingControls}
-        selectedActiveRowRecordId={
-          inspectorHistorySubject?.kind === "live"
-            ? inspectorHistorySubject.recordId
-            : null
-        }
-        onCancelPendingAction={cancelRowHistoryPendingAction}
-        onConfirmPendingAction={confirmRowHistoryPendingAction}
-        onOpenHistory={openRowHistory}
-        onPreviewDeleteRestore={previewRowHistoryDeleteRestore}
-        onPreviewRollback={previewRowHistoryRollback}
-      />
-    ),
+    (elementRef?: RefCallback<HTMLElement>) =>
+      ownedInspectorRegion("record-history", (present) => (
+        <TimelineHistoryPanel
+          present={present}
+          canMutate={canMutateHistory}
+          elementRef={elementRef}
+          history={rowHistory}
+          browsingControls={historyBrowsingControls}
+          selectedActiveRowRecordId={
+            inspectorHistorySubject?.kind === "live"
+              ? inspectorHistorySubject.recordId
+              : null
+          }
+          onCancelPendingAction={cancelRowHistoryPendingAction}
+          onConfirmPendingAction={confirmRowHistoryPendingAction}
+          onOpenHistory={openRowHistory}
+          onPreviewDeleteRestore={previewRowHistoryDeleteRestore}
+          onPreviewRollback={previewRowHistoryRollback}
+        />
+      )),
     [
       cancelRowHistoryPendingAction,
       canMutateHistory,
@@ -196,7 +190,7 @@ export function useTimelineWorkbookInspectorSections({
   return {
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
-    renderRelationshipEditors,
+    renderRelationshipEditor,
     renderRowHistorySection,
     renderWorkflowSection,
   };

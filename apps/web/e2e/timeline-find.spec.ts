@@ -687,6 +687,7 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     await gate.dispose();
   }
   await openTimelineInspector(page, f.first);
+  await page.locator(`[data-inspector-edit-field="${synopsis}"]`).click();
   const inspectorInput = page.getByTestId(
     timelineScalarEditorTestId({
       recordId: f.first,
@@ -704,15 +705,12 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     expect(inspectorGate.hitCount()).toBe(0);
     await expect(inspectorInput).toHaveValue("Exact inspector draft");
     await input(page).press("Enter");
-    await inspectorGate.waitForHit;
-    await expect(status(page)).toContainText("Waiting for the edit to save");
-    inspectorGate.release();
     await expect(input(page)).toHaveCount(0);
     await expect(cell(page, f.last)).toBeFocused();
     await expect(cell(page, f.last)).toBeInViewport({ ratio: 1 });
     await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
     await expect(inspectorInput).toHaveValue("Exact inspector draft");
-    expect(inspectorGate.hitCount()).toBe(1);
+    expect(inspectorGate.hitCount()).toBe(0);
   } finally {
     await inspectorGate.dispose();
   }

@@ -6,6 +6,7 @@ import {
 import { requireViewContract } from "@cartulary/view-contracts";
 import type { RefCallback } from "react";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
+import type { PresentInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import {
   type HistoryBrowsingControls,
   WorkbookRecordHistoryPanel,
@@ -23,6 +24,7 @@ const timelineHistoryActions = inspectorRecordHistoryActions(
 );
 
 export function TimelineHistoryPanel({
+  present,
   canMutate,
   elementRef,
   history,
@@ -34,6 +36,7 @@ export function TimelineHistoryPanel({
   onPreviewDeleteRestore,
   onPreviewRollback,
 }: {
+  readonly present?: PresentInspectorRegion | undefined;
   readonly canMutate: boolean;
   readonly elementRef?: RefCallback<HTMLElement> | undefined;
   readonly history: WorkbookRecordHistoryState;
@@ -56,6 +59,7 @@ export function TimelineHistoryPanel({
       tabIndex={-1}
     >
       <WorkbookRecordHistoryPanel
+        present={present}
         actions={timelineHistoryActions}
         canMutate={canMutate}
         destructiveSubject="this timeline row"

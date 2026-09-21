@@ -9,10 +9,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
-import {
-  timelineCollectionBindings,
-  timelineScalarBindings,
-} from "../models/timelineFieldRegistry";
+import { timelineCollectionBindings } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
 export function useTimelineObservationSource(options: {
@@ -29,9 +26,15 @@ export function useTimelineObservationSource(options: {
   const rowKey = options.available ? options.selectedRow?.key : undefined,
     drafts = options.drafts;
   const subscribe = useCallback(
-    (listener: () => void) =>
-      rowKey ? drafts.subscribeRow(rowKey, listener) : () => {},
-    [drafts, rowKey],
+    (listener: () => void) => {
+      const grid = rowKey ? drafts.subscribeRow(rowKey, listener) : () => {};
+      const inspector = options.runtime.inspectorDrafts.subscribe(listener);
+      return () => {
+        grid();
+        inspector();
+      };
+    },
+    [drafts, rowKey, options.runtime.inspectorDrafts],
   );
   const current = useRef(options);
   current.current = options;
@@ -75,16 +78,7 @@ export function useTimelineObservationSource(options: {
           value !==
           row.committedValues[key as keyof typeof row.committedValues],
       ) &&
-      !timelineScalarBindings.some((binding) => {
-        const draft = current.current.drafts.draftValue({
-          rowKey: row.key,
-          field: binding.key,
-          surface: "inspector",
-        });
-        return (
-          draft !== undefined && draft !== row.committedValues[binding.key]
-        );
-      }) &&
+      !current.current.runtime.inspectorDrafts.hasRecords([row.recordId]) &&
       !timelineCollectionBindings.some(
         (binding) =>
           (

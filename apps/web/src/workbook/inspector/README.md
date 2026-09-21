@@ -100,3 +100,19 @@ The draft and mutation owners retain recovery independently of this presentation
 Ordinary retained failure notices remain readable without another live-region
 announcement. The attached field or originating action announces the rejection;
 uncertain-operation and saved-refresh recovery retain their own status semantics.
+
+## Saved values and region delivery
+
+`WorkbookInspectorDetails.tsx` presents accepted fields in contract order and one
+explicit editor attachment. Update and Ctrl/Cmd+Enter submit. Blur retains the
+attached editor; field switching, closing and Escape detach without submitting. Draft and PATCH owners retain
+work and receipts independently. `useWorkbookInspectorNotice.ts` asks the retained
+operation owner's notice ledger to admit one announcement for an attempt and
+transition. A remounted view does not own or reset that ledger.
+
+Panel contributions contain nonempty ordered region descriptors. Synchronous
+accepted values use snapshot regions; subscribed owners deliver a typed region
+model through a render callback. This delivery slot preserves component identity
+and existing lazy reads without an aggregate ready wrapper or another cache.
+Each readable region distinguishes data from commands and authoring. Concealed
+variants contain no renderable payload. Unrequested History remains neutral.

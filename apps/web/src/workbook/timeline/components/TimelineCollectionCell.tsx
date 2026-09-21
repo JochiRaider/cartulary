@@ -211,7 +211,9 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
       aria-label={`${label} collection ${isInspector ? "editor" : "cell"}`}
       style={isInspector ? inspectorCollectionStyle : collectionCellStyle}
     >
-      {isInspector ? <legend>{label}</legend> : null}
+      {isInspector && binding.collectionKind === "tag" ? (
+        <legend>{label}</legend>
+      ) : null}
       {showSummary ? (
         <div
           data-testid={

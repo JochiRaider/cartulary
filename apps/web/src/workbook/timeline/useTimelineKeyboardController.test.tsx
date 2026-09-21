@@ -269,11 +269,11 @@ describe("useTimelineKeyboardController", () => {
         "inspector",
       ),
     );
-    expect(escapeEvent.preventDefault).toHaveBeenCalledOnce();
-    expect(escapeEvent.stopPropagation).toHaveBeenCalledOnce();
+    expect(escapeEvent.preventDefault).not.toHaveBeenCalled();
+    expect(escapeEvent.stopPropagation).not.toHaveBeenCalled();
     expect(
       inspectorController.mocks.restoreTimelineFocusAnchor,
-    ).toHaveBeenCalledWith(focusAnchor);
+    ).not.toHaveBeenCalled();
   });
 
   it("owns collection settlement and cancellation without unreachable editor shortcuts", () => {

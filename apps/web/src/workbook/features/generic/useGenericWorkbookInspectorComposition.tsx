@@ -23,6 +23,11 @@ import type { GenericSurfaceMutationController } from "../../hooks/useGenericSur
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { prepareWorkbookInspectorChange } from "../../inspector/prepareWorkbookInspectorChange";
 import {
+  ownedInspectorRegion,
+  savedInspectorRegion,
+  type WorkbookInspectorRegion,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import {
   ownerInspectorDisabledReason,
   type WorkbookInspectorDisabledReason,
 } from "../../inspector/presentation/workbookInspectorPresentationModel";
@@ -161,9 +166,7 @@ export function useGenericWorkbookInspectorComposition({
     useState<WorkbookInspectorSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
-  const [editFieldKey, setEditFieldKey] = useState(
-    () => editableFields[0]?.fieldKey ?? "",
-  );
+  const [editFieldKey, setEditFieldKey] = useState("");
   const note = useContext(NoteCreateContext);
   const [navigatedNote, setNavigatedNote] = useState<{
     scope: string;
@@ -241,8 +244,10 @@ export function useGenericWorkbookInspectorComposition({
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
       resetOwnerState: ({ cause, scope }) => {
-        if (cause !== "retarget") resetEvidence.current();
+        if (cause !== "retarget" && cause !== "record_updated")
+          resetEvidence.current();
         mutation.clearMutationError();
+        if (cause !== "record_updated") setEditFieldKey("");
         setRelatedFeedback(null);
         if (cause === "close" || scope === "surface") {
           setDeletedHistorySubject(null);
@@ -302,7 +307,7 @@ export function useGenericWorkbookInspectorComposition({
         ? editCollectionMode
         : "value",
     presentation: inspectorResetKey,
-    active: isOpen && interactionMode.kind === "editable",
+    active: isOpen,
     dependencies:
       contract.viewSchemaId === taskViewId &&
       taskGuardFields.some((field) => field === editFieldKey)
@@ -494,45 +499,44 @@ export function useGenericWorkbookInspectorComposition({
         });
     }
   };
+  const association = (kind: "source" | "related_note" | "evidence") =>
+    ownedInspectorRegion(`note-${kind}`, (present) =>
+      subjectRow ? (
+        <NoteAssociationPanel
+          key={`${subjectRow.record_id}:${kind}`}
+          owner={mutation.noteAssociations}
+          row={subjectRow}
+          kind={kind}
+          sheetRef={sheetRef}
+          label={subject?.label ?? "Note"}
+          onNavigateNote={navigateNote}
+          present={(model) =>
+            present(
+              model.access === "concealed"
+                ? model
+                : {
+                    ...model,
+                    authoring:
+                      kind === "related_note" &&
+                      navigationError?.scope === navigationIdentity ? (
+                        <p role="alert">{navigationError.message}</p>
+                      ) : null,
+                  },
+            )
+          }
+        />
+      ) : (
+        present({ access: "concealed" })
+      ),
+    );
   const noteAssociations =
     contract.viewSchemaId === noteAssociationView && subjectRow
       ? {
-          relationships: (
-            <>
-              <NoteAssociationPanel
-                key={`${subjectRow.record_id}:source`}
-                owner={mutation.noteAssociations}
-                row={subjectRow}
-                kind="source"
-                sheetRef={sheetRef}
-                label={subject?.label ?? "Note"}
-                onNavigateNote={navigateNote}
-              />
-              <NoteAssociationPanel
-                key={`${subjectRow.record_id}:related_note`}
-                owner={mutation.noteAssociations}
-                row={subjectRow}
-                kind="related_note"
-                sheetRef={sheetRef}
-                label={subject?.label ?? "Note"}
-                onNavigateNote={navigateNote}
-              />
-              {navigationError?.scope === navigationIdentity ? (
-                <p role="alert">{navigationError.message}</p>
-              ) : null}
-            </>
-          ),
-          evidence: (
-            <NoteAssociationPanel
-              key={`${subjectRow.record_id}:evidence`}
-              owner={mutation.noteAssociations}
-              row={subjectRow}
-              kind="evidence"
-              sheetRef={sheetRef}
-              label={subject?.label ?? "Note"}
-              onNavigateNote={navigateNote}
-            />
-          ),
+          relationships: [
+            association("source"),
+            association("related_note"),
+          ] as [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]],
+          evidence: [association("evidence")] as [WorkbookInspectorRegion],
         }
       : null;
   function decisionDisabledReason(): WorkbookInspectorDisabledReason | null {
@@ -569,6 +573,9 @@ export function useGenericWorkbookInspectorComposition({
     <GenericWorkbookInspectorPresentation
       isOpen={isOpen}
       inspector={{
+        creationAttachment: canCreateRows
+          ? `${inspectorResetKey}:create`
+          : undefined,
         config: inspectorConfig,
         currentIncidentRole,
         disabledTokens,
@@ -603,23 +610,28 @@ export function useGenericWorkbookInspectorComposition({
                   ) : null,
               }
             : undefined,
-        evidenceContent:
-          noteAssociations?.evidence ??
-          (subjectRow === null
-            ? null
-            : (ownerRecordActions.renderInspector(subjectRow) ?? (
-                <GenericInspectorReferenceSummary
-                  contract={contract}
-                  row={subjectRow}
-                  evidenceOnly
-                  canEdit={
-                    interactionMode.kind === "editable" &&
-                    !!currentIncidentRole &&
-                    currentIncidentRole !== "viewer"
-                  }
-                  onEdit={chooseReferenceField}
-                />
-              ))),
+        evidenceContent: noteAssociations?.evidence ??
+          (subjectRow
+            ? ownerRecordActions.inspectorRegions(subjectRow)
+            : null) ?? [
+            savedInspectorRegion("evidence-metadata", {
+              kind: "populated",
+              content:
+                subjectRow === null ? null : (
+                  <GenericInspectorReferenceSummary
+                    contract={contract}
+                    row={subjectRow}
+                    evidenceOnly
+                    canEdit={
+                      interactionMode.kind === "editable" &&
+                      !!currentIncidentRole &&
+                      currentIncidentRole !== "viewer"
+                    }
+                    onEdit={chooseReferenceField}
+                  />
+                ),
+            }),
+          ],
         history: {
           beginMutation: mutation.beginMutationReport,
           actions: recordHistoryActions,
@@ -699,6 +711,13 @@ export function useGenericWorkbookInspectorComposition({
         subjectPresent: subject !== null,
       }}
       details={{
+        patches: mutation.explicitPatches,
+        disabledReason:
+          interactionMode.kind !== "editable"
+            ? interactionMode.label
+            : !mutation.inspectorDrafts.canAuthor()
+              ? "Current access permits reading only."
+              : null,
         edit,
         collectionItems: selectedEditCollectionItems,
         fieldFeedback: editFeedback.message,

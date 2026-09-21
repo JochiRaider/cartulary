@@ -48,6 +48,7 @@ export function WorkbookInspectorEditControl({
         <GenericMutationControl
           {...props}
           disabled={!edit.canEdit}
+          readOnly={!edit.canEdit && !edit.needsResume}
           value={edit.value ?? ""}
           focusTargetRef={(element) => {
             edit.controlRef.current = element;

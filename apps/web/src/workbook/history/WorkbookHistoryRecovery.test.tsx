@@ -2,6 +2,7 @@ import {
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
   rowHistoryDestructiveConfirmButtonTestId,
+  rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -355,9 +356,8 @@ describe("History recovery surfaces", () => {
     );
     act(() => t.runtime.invalidate({ kind: "session_unavailable" }));
     expect(screen.queryByRole("button", { name: "Recovery (1)" })).toBeNull();
-    expect(screen.getByRole("alert").textContent).toContain(
-      "History access is unavailable",
-    );
+    expect(screen.queryByText("History access is unavailable")).toBeNull();
+    expect(screen.queryByTestId(rowHistoryPanelTestId())).toBeNull();
     expect(screen.queryByText("Changed fields")).toBeNull();
     expect(screen.queryByText("Current row version")).toBeNull();
     expect(screen.queryByText("Record ID")).toBeNull();

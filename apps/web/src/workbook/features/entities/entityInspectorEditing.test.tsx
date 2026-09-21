@@ -1,5 +1,4 @@
 import {
-  genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
@@ -147,13 +146,38 @@ function fixture() {
   return { Surface, patch, runtime, select, refresh };
 }
 afterEach(cleanup);
+function attachField(field: string) {
+  const action = document.querySelector<HTMLButtonElement>(
+    `[data-inspector-edit-field="${field}"]`,
+  );
+  if (!action) throw new Error(`Missing Edit action for ${field}`);
+  fireEvent.click(action);
+}
+it("opens with saved values and submits only explicitly while Escape retains unfinished text", async () => {
+  const f = fixture();
+  render(<f.Surface />);
+  fireEvent.click(screen.getByRole("button", { name: "Inspect selected" }));
+  expect(screen.queryByTestId(genericEditValueTestId(schema))).toBeNull();
+  attachField("host.location");
+  const input = screen.getByTestId(genericEditValueTestId(schema));
+  fireEvent.change(input, { target: { value: "Unfinished" } });
+  fireEvent.blur(input);
+  fireEvent.keyDown(input, { key: "Tab" });
+  expect(f.patch).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: "Escape" });
+  expect(screen.queryByTestId(genericEditValueTestId(schema))).toBeNull();
+  attachField("host.location");
+  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
+  const resumed = screen.getByTestId(genericEditValueTestId(schema));
+  expect((resumed as HTMLInputElement).value).toBe("Unfinished");
+  fireEvent.keyDown(resumed, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(f.patch).toHaveBeenCalledOnce());
+});
 function chooseField() {
   fireEvent.click(screen.getByRole("button", { name: "Inspect selected" }));
   const legacy = screen.queryByTestId(genericEditRecordSelectTestId(schema));
   if (legacy) fireEvent.change(legacy, { target: { value: firstId } });
-  fireEvent.change(screen.getByTestId(genericEditFieldSelectTestId(schema)), {
-    target: { value: "host.location" },
-  });
+  attachField("host.location");
 }
 it("binds ordinary Entity editing exclusively to the inspected record", async () => {
   const f = fixture();
@@ -192,12 +216,8 @@ it("retains Entity field authoring for explicit return to its original field", a
   fireEvent.change(screen.getByTestId(genericEditValueTestId(schema)), {
     target: { value: "Unfinished location" },
   });
-  fireEvent.change(screen.getByTestId(genericEditFieldSelectTestId(schema)), {
-    target: { value: "host.display_name" },
-  });
-  fireEvent.change(screen.getByTestId(genericEditFieldSelectTestId(schema)), {
-    target: { value: "host.location" },
-  });
+  attachField("host.display_name");
+  attachField("host.location");
   fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
   expect(
     (screen.getByTestId(genericEditValueTestId(schema)) as HTMLInputElement)

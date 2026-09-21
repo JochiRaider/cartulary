@@ -16,9 +16,10 @@ import {
 } from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
-  WorkbookInspectorPanelContent,
+  type PresentInspectorRegion,
   type WorkbookInspectorPanelContentModel,
-  type WorkbookInspectorPanelModel,
+  WorkbookInspectorRegionContent,
+  type WorkbookInspectorRegionModel,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { NoteAssociationResult } from "./NoteAssociationRecovery";
@@ -42,6 +43,7 @@ export function NoteAssociationPanel({
   sheetRef,
   label,
   onNavigateNote,
+  present = (model) => <WorkbookInspectorRegionContent model={model} />,
 }: {
   readonly owner: WorkbookNoteAssociationOwner;
   readonly row: WorkbookQueryRow;
@@ -49,6 +51,7 @@ export function NoteAssociationPanel({
   readonly sheetRef: SheetRef;
   readonly label: string;
   readonly onNavigateNote: (recordId: string) => Promise<void>;
+  readonly present?: PresentInspectorRegion;
 }) {
   const feature = requireViewContract(
     noteAssociationView,
@@ -144,7 +147,7 @@ export function NoteAssociationPanel({
               tone="secondary"
               aria-label={`Remove ${item.display_label}`}
               style={{ marginInlineStart: "var(--ct-spacing-xs)" }}
-              disabled={reason !== null || list?.state !== "ready"}
+              disabled={reason !== null || !page}
               aria-describedby={reason ? reasonId : undefined}
               onClick={() =>
                 void owner.submit({
@@ -191,14 +194,29 @@ export function NoteAssociationPanel({
           ? `No ${kindLabels[kind].toLowerCase()} in the loaded page. Load more to continue.`
           : `No ${kindLabels[kind].toLowerCase()} associated with this Note.`,
       };
-  const model: WorkbookInspectorPanelModel = {
+  const readNotice = owner.readNotice(row.record_id, kind);
+  const model: WorkbookInspectorRegionModel = {
     access: "readable",
-    data:
-      !list || list.state === "initial_loading"
+    ...(readNotice
+      ? {
+          notice: {
+            value: readNotice,
+            consume: owner.inspectorNotices.consume,
+          },
+        }
+      : {}),
+    data: !list
+      ? {
+          state: "unavailable",
+          cause: "not_requested",
+          message: "Associations have not been loaded.",
+        }
+      : list.state === "initial_loading"
         ? { state: "initial_loading" }
         : list.state === "unavailable"
           ? {
               state: "unavailable",
+              cause: "load_failed",
               message: list.message ?? "Could not load associations.",
             }
           : list.state === "stale_failure"
@@ -221,96 +239,105 @@ export function NoteAssociationPanel({
       style={workbookFormFieldsStyle}
     >
       <h4 style={workbookFormMessageStyle}>{kindLabels[kind]}</h4>
-      <WorkbookInspectorPanelContent model={model} />
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "var(--ct-spacing-xs)",
-        }}
-      >
-        <Button
-          tone="secondary"
-          disabled={
-            list?.state === "initial_loading" || list?.state === "refreshing"
-          }
-          onClick={() => void owner.read(row.record_id, kind)}
-        >
-          Refresh {kindLabels[kind].toLowerCase()}
-        </Button>
-        {page?.next_cursor_token ? (
-          <Button
-            tone="secondary"
-            disabled={list?.state !== "ready"}
-            onClick={() => void owner.read(row.record_id, kind, true)}
-          >
-            Load more {kindLabels[kind].toLowerCase()}
-          </Button>
-        ) : null}
-        <Button
-          tone="primary"
-          data-testid={workbookInspectorFeatureActionTestId(
-            noteAssociationView,
-            feature.featureGroupKey,
-          )}
-          data-feature-group-key={feature.featureGroupKey}
-          data-route-kind={feature.routeBinding.kind}
-          data-route-owner={feature.routeBinding.owner}
-          ref={trigger}
-          aria-describedby={reason ? reasonId : undefined}
-          disabled={reason !== null || !reader || list?.state !== "ready"}
-          onClick={() => setPicker(true)}
-        >
-          {feature.label}
-        </Button>
-      </div>
-      {reason ? (
-        <p id={reasonId} style={workbookFormMessageStyle}>
-          {reason}
-        </p>
-      ) : null}
-      {picker && pickerReader && reason === null ? (
-        <WorkbookAuthoringReferencePicker
-          label={kindLabels[kind]}
-          regionLabel={`Link Note ${kindLabels[kind].toLowerCase()}`}
-          targetKey={`${key}:${state.generation}`}
-          testId={`note-association-${kind}-picker`}
-          views={
-            kind === "source"
-              ? noteSourceViews
-              : kind === "evidence"
-                ? ["cartulary.view.evidence.v1"]
-                : [noteAssociationView]
-          }
-          multiple
-          maximum={64}
-          selected={[]}
-          reader={pickerReader}
-          revision={state.candidateRevision}
-          disabled={false}
-          applyLabel="Link selected records"
-          onCancel={close}
-          onApply={(selected) => {
-            if (!selected.length) return;
-            close();
-            void owner.submit({
-              row: {
-                ...row,
-                row_version: page?.row_version ?? row.row_version,
-              },
-              kind,
-              sheetRef,
-              label,
-              actions: selected.map((item) => ({
-                op: "add",
-                counterpart_record_id: item.recordId,
-              })),
-            });
-          }}
-        />
-      ) : null}
-      {state.errors[key] ? <p role="alert">{state.errors[key]}</p> : null}
-      {latest ? <NoteAssociationResult owner={owner} entry={latest} /> : null}
+      {present({
+        ...model,
+        commands: (
+          <>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "var(--ct-spacing-xs)",
+              }}
+            >
+              <Button
+                tone="secondary"
+                disabled={
+                  list?.state === "initial_loading" ||
+                  list?.state === "refreshing"
+                }
+                onClick={() => void owner.read(row.record_id, kind)}
+              >
+                Refresh {kindLabels[kind].toLowerCase()}
+              </Button>
+              {page?.next_cursor_token ? (
+                <Button
+                  tone="secondary"
+                  disabled={list?.state !== "ready"}
+                  onClick={() => void owner.read(row.record_id, kind, true)}
+                >
+                  Load more {kindLabels[kind].toLowerCase()}
+                </Button>
+              ) : null}
+              <Button
+                tone="primary"
+                data-testid={workbookInspectorFeatureActionTestId(
+                  noteAssociationView,
+                  feature.featureGroupKey,
+                )}
+                data-feature-group-key={feature.featureGroupKey}
+                data-route-kind={feature.routeBinding.kind}
+                data-route-owner={feature.routeBinding.owner}
+                ref={trigger}
+                aria-describedby={reason ? reasonId : undefined}
+                disabled={reason !== null || !reader || !page}
+                onClick={() => setPicker(true)}
+              >
+                {feature.label}
+              </Button>
+            </div>
+            {reason ? (
+              <p id={reasonId} style={workbookFormMessageStyle}>
+                {reason}
+              </p>
+            ) : null}
+            {picker && pickerReader && reason === null ? (
+              <WorkbookAuthoringReferencePicker
+                label={kindLabels[kind]}
+                regionLabel={`Link Note ${kindLabels[kind].toLowerCase()}`}
+                targetKey={`${key}:${state.generation}`}
+                testId={`note-association-${kind}-picker`}
+                views={
+                  kind === "source"
+                    ? noteSourceViews
+                    : kind === "evidence"
+                      ? ["cartulary.view.evidence.v1"]
+                      : [noteAssociationView]
+                }
+                multiple
+                maximum={64}
+                selected={[]}
+                reader={pickerReader}
+                revision={state.candidateRevision}
+                disabled={false}
+                applyLabel="Link selected records"
+                onCancel={close}
+                onApply={(selected) => {
+                  if (!selected.length) return;
+                  close();
+                  void owner.submit({
+                    row: {
+                      ...row,
+                      row_version: page?.row_version ?? row.row_version,
+                    },
+                    kind,
+                    sheetRef,
+                    label,
+                    actions: selected.map((item) => ({
+                      op: "add",
+                      counterpart_record_id: item.recordId,
+                    })),
+                  });
+                }}
+              />
+            ) : null}
+            {state.errors[key] ? <p role="alert">{state.errors[key]}</p> : null}
+            {latest ? (
+              <NoteAssociationResult owner={owner} entry={latest} />
+            ) : null}
+          </>
+        ),
+      })}
     </section>
   );
 }

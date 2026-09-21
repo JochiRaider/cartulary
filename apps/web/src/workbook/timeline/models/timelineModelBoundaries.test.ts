@@ -3,7 +3,6 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   inputFocusKey,
   timelineFieldBinding,
-  timelineInspectorBindings,
   timelineRelationshipLabel,
   timelineScalarBindings,
   timelineVisibleBindings,
@@ -131,10 +130,6 @@ describe("workbookTimelineModel", () => {
       "timeline.raw_activity_text",
       "timeline.activity_synopsis_text",
       "timeline.data_source_text",
-    ]);
-    expect(timelineInspectorBindings.map((binding) => binding.key)).toEqual([
-      "rawActivityText",
-      "activitySynopsisText",
     ]);
     expect(timelineVisibleBindings.length).toBeGreaterThan(0);
     expect(timelineColumnWidth("timeline.ip_address_text")).toBe(160);

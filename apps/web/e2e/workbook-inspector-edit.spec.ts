@@ -1,7 +1,6 @@
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   entityInspectorTestId,
-  genericEditFieldSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridShellTestId,
@@ -67,9 +66,7 @@ async function fixture(page: Page, view: string = hostsViewSchemaId) {
   return { incident, view, field, first, second };
 }
 async function editField(page: Page, view: string, field: string) {
-  await page
-    .getByTestId(genericEditFieldSelectTestId(view))
-    .selectOption(field);
+  await page.locator(`[data-inspector-edit-field="${field}"]`).click();
   return page.getByTestId(genericEditValueTestId(view));
 }
 
@@ -81,14 +78,9 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   await expect(page.getByRole("combobox", { name: "Edit record" })).toHaveCount(
     0,
   );
-  const options = page
-    .getByTestId(genericEditFieldSelectTestId(f.view))
-    .locator("option");
-  expect(
-    await options.evaluateAll((items) =>
-      items.map((item) => (item as HTMLOptionElement).value),
-    ),
-  ).not.toContain("host.fqdn");
+  await expect(
+    page.locator('[data-inspector-edit-field="host.fqdn"]'),
+  ).toHaveCount(0);
   await input.fill("  unfinished location  ");
   await patchRecord(page, f.first.record_id, {
     view_schema_id: f.view,
@@ -108,8 +100,10 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   ).toBeDisabled();
   await page.getByRole("button", { name: "Resume draft", exact: true }).click();
   await openGenericInspectorForRecord(page, f.view, f.second.record_id);
+  await editField(page, f.view, "host.location");
   await expect(input).toHaveValue("");
   await openGenericInspectorForRecord(page, f.view, f.first.record_id);
+  await editField(page, f.view, "host.location");
   await page.getByRole("button", { name: "Resume draft", exact: true }).click();
   await patchRecord(page, f.first.record_id, {
     view_schema_id: f.view,
@@ -273,6 +267,7 @@ test("a11y.inspector retained editing and recovery remain named keyboard reachab
   await input.fill("Keyboard retained location");
   await page.getByTestId(workbookInspectorCloseButtonTestId(f.view)).click();
   await page.getByTestId(workbookInspectorToggleTestId(f.view)).click();
+  await editField(page, f.view, "host.location");
   const resume = page.getByRole("button", {
     name: "Resume draft",
     exact: true,

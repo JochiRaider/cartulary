@@ -11,7 +11,12 @@ import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateR
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
-import { inspectorPanel } from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import {
+  inspectorPanel,
+  ownedInspectorRegion,
+  savedInspectorRegion,
+  type WorkbookInspectorRegion,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
@@ -70,6 +75,7 @@ export function AssessmentWorkbookInspector({
   readonly subject: WorkbookInspectorSubject | null;
   readonly workflowContent: ReactNode;
 }) {
+  if (currentIncidentRole === null) return null;
   const dispatchContextualAction = (
     capability: InspectorContextualCapability,
   ): void => {
@@ -93,12 +99,26 @@ export function AssessmentWorkbookInspector({
     }
     if (followOn.open()) followOn.opened();
   };
-  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) =>
-    inspectorPanel(
+  const panelContent = (
+    panelId: InspectorPanelId,
+    ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
+  ) => ({
+    ...inspectorPanel(...regions),
+    authoring: (
       <>
-        {content}
         {panelId === "workflow" ? (
-          <p>Choose an available action for this record.</p>
+          <div style={creationSectionStyle}>
+            {workflowContent}
+            <WorkbookInspectorFeedbackView
+              feedback={feedback}
+              neutralStyle={feedbackStyle}
+              testId={feedbackTestId}
+            />
+            <WorkbookInspectorFeedbackView
+              feedback={relatedFeedback}
+              neutralStyle={feedbackStyle}
+            />
+          </div>
         ) : null}
         {subject?.kind === "live" &&
         related.state?.featureGroup.panelId === panelId ? (
@@ -109,8 +129,9 @@ export function AssessmentWorkbookInspector({
             onUpdateDraft={related.updateDraft}
           />
         ) : null}
-      </>,
-    );
+      </>
+    ),
+  });
 
   return (
     <WorkbookInspectorShell
@@ -129,44 +150,56 @@ export function AssessmentWorkbookInspector({
       onClose={onClose}
     >
       <WorkbookInspectorDeclaredPanelList
+        creationAttachment={{
+          id: `assessment-${draftMode}`,
+          viewSchemaId: config.viewSchemaId,
+        }}
         config={config}
         currentIncidentRole={currentIncidentRole}
         disabledTokens={disabledTokens}
         subject={subject}
         modelsByPanel={{
           details:
-            subject === null ? undefined : inspectorPanel(detailsContent),
+            subject === null
+              ? undefined
+              : inspectorPanel(
+                  savedInspectorRegion("saved-fields", {
+                    kind: "populated",
+                    content: detailsContent,
+                  }),
+                ),
           history:
             subject === null
               ? undefined
               : inspectorPanel(
-                  <WorkbookInspectorRecordHistory
-                    beginMutation={history.beginMutation}
-                    actions={history.actions}
-                    canMutate={history.canMutate}
-                    commands={history.commands}
-                    ownerEffects={history.effects}
-                    subject={subject}
-                  />,
+                  ownedInspectorRegion("record-history", (present) => (
+                    <WorkbookInspectorRecordHistory
+                      present={present}
+                      beginMutation={history.beginMutation}
+                      actions={history.actions}
+                      canMutate={history.canMutate}
+                      commands={history.commands}
+                      ownerEffects={history.effects}
+                      subject={subject}
+                    />
+                  )),
                 ),
           relationships:
             subject === null
               ? undefined
-              : panelContent("relationships", relationshipsContent),
+              : panelContent(
+                  "relationships",
+                  savedInspectorRegion("assessment-relationships", {
+                    kind: "populated",
+                    content: relationshipsContent,
+                  }),
+                ),
           workflow: panelContent(
             "workflow",
-            <div style={creationSectionStyle}>
-              {workflowContent}
-              <WorkbookInspectorFeedbackView
-                feedback={feedback}
-                neutralStyle={feedbackStyle}
-                testId={feedbackTestId}
-              />
-              <WorkbookInspectorFeedbackView
-                feedback={relatedFeedback}
-                neutralStyle={feedbackStyle}
-              />
-            </div>,
+            savedInspectorRegion("assessment-authoring", {
+              kind: "empty",
+              message: "Append an assessment.",
+            }),
           ),
         }}
         onContextualAction={dispatchContextualAction}

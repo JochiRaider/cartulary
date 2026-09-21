@@ -5,9 +5,11 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { useWorkbookInspectorNotice } from "../useWorkbookInspectorNotice";
 import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
+  WorkbookInspectorNotice,
 } from "../workbookInspectorErrorModel";
 import { WorkbookInspectorActionButton } from "./WorkbookInspectorActions";
 import type { WorkbookInspectorTechnicalField } from "./workbookInspectorPresentationModel";
@@ -67,26 +69,84 @@ export function WorkbookInspectorFeedbackView({
   feedback,
   neutralStyle,
   testId,
+  announce = true,
 }: {
   readonly feedback: WorkbookInspectorFeedback | null;
   readonly neutralStyle?: CSSProperties | undefined;
   readonly testId?: string | undefined;
+  readonly announce?: boolean;
 }) {
   if (feedback === null) return null;
   if (feedback.kind === "error") {
     return (
-      <WorkbookInspectorPublicError error={feedback.error} testId={testId} />
+      <WorkbookInspectorPublicError
+        error={feedback.error}
+        testId={testId}
+        announce={announce}
+      />
     );
   }
   return (
     <p
-      aria-live={feedback.announcement === "polite" ? "polite" : undefined}
+      aria-live={
+        announce && feedback.announcement === "polite" ? "polite" : undefined
+      }
       data-testid={testId}
-      role={feedback.announcement === "polite" ? "status" : undefined}
+      role={
+        announce && feedback.announcement === "polite" ? "status" : undefined
+      }
       style={neutralStyle}
     >
       {feedback.message}
     </p>
+  );
+}
+
+export function WorkbookInspectorNoticeView({
+  notice,
+  consume,
+  visible = true,
+}: {
+  readonly notice: WorkbookInspectorNotice;
+  readonly consume: (notice: WorkbookInspectorNotice) => boolean;
+  readonly visible?: boolean;
+}) {
+  const emission = useWorkbookInspectorNotice(notice, consume);
+  const message =
+    emission?.feedback.kind === "error"
+      ? emission.feedback.error.primaryMessage
+      : emission?.feedback.message;
+  return (
+    <>
+      {visible ? (
+        <WorkbookInspectorFeedbackView
+          feedback={notice.feedback}
+          announce={false}
+        />
+      ) : null}
+      <span
+        style={{
+          position: "absolute",
+          inlineSize: 1,
+          blockSize: 1,
+          overflow: "hidden",
+          clipPath: "inset(50%)",
+        }}
+        role={emission?.announcement === "assertive" ? "alert" : "status"}
+        aria-live={
+          emission?.announcement === "assertive" ? "assertive" : "polite"
+        }
+        aria-atomic="true"
+      >
+        <span
+          key={
+            emission ? `${emission.attemptId}:${emission.transitionId}` : "idle"
+          }
+        >
+          {message}
+        </span>
+      </span>
+    </>
   );
 }
 

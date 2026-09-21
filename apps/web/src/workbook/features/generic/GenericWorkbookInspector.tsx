@@ -13,7 +13,12 @@ import {
   WorkbookInspectorFeedbackView,
   WorkbookInspectorPublicError,
 } from "../../inspector/presentation/WorkbookInspectorFeedback";
-import { inspectorPanel } from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import {
+  inspectorPanel,
+  ownedInspectorRegion,
+  savedInspectorRegion,
+  type WorkbookInspectorRegion,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
@@ -49,12 +54,16 @@ export function GenericWorkbookInspector({
   surfaceTitle,
   workflowContent,
   decisionSupersession,
+  creationAttachment,
 }: {
   readonly config: ViewContract["inspectorConfig"];
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly detailsContent: ReactNode;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
-  readonly evidenceContent: ReactNode;
+  readonly evidenceContent: readonly [
+    WorkbookInspectorRegion,
+    ...WorkbookInspectorRegion[],
+  ];
   readonly history: {
     readonly beginMutation: () => () => void;
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
@@ -79,10 +88,14 @@ export function GenericWorkbookInspector({
     readonly updateDraft: (fieldKey: string, value: string) => void;
   };
   readonly relatedFeedback: WorkbookInspectorFeedback | null;
-  readonly relationshipsContent: ReactNode;
+  readonly relationshipsContent: readonly [
+    WorkbookInspectorRegion,
+    ...WorkbookInspectorRegion[],
+  ];
   readonly subject: WorkbookInspectorSubject | null;
   readonly surfaceTitle: string;
   readonly workflowContent: ReactNode;
+  readonly creationAttachment?: string | undefined;
   readonly decisionSupersession?:
     | {
         readonly start: () => void;
@@ -91,6 +104,7 @@ export function GenericWorkbookInspector({
       }
     | undefined;
 }) {
+  if (currentIncidentRole === null) return null;
   function dispatchContextualAction(
     capability: InspectorContextualCapability,
   ): void {
@@ -127,13 +141,23 @@ export function GenericWorkbookInspector({
         canonical.panelId === indicator?.handler?.panelId
       );
     });
-  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) =>
-    inspectorPanel(
+  const panelContent = (
+    panelId: InspectorPanelId,
+    ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
+  ) => ({
+    ...inspectorPanel(...regions),
+    authoring: (
       <>
-        {content}
         {panelId === "workflow" ? (
-          <p>Choose an available action for this record.</p>
+          <>
+            {workflowContent}
+            <WorkbookInspectorFeedbackView
+              feedback={relatedFeedback}
+              neutralStyle={feedbackStyle}
+            />
+          </>
         ) : null}
+        {panelId === "history" ? decisionSupersession?.content : null}
         {indicatorHandlerAdmitted &&
         subject?.kind === "live" &&
         indicator?.handler?.panelId === panelId ? (
@@ -160,8 +184,9 @@ export function GenericWorkbookInspector({
             onUpdateDraft={related.updateDraft}
           />
         ) : null}
-      </>,
-    );
+      </>
+    ),
+  });
 
   return (
     <WorkbookInspectorShell
@@ -172,6 +197,11 @@ export function GenericWorkbookInspector({
       onClose={onClose}
     >
       <WorkbookInspectorDeclaredPanelList
+        creationAttachment={
+          creationAttachment
+            ? { id: creationAttachment, viewSchemaId: config.viewSchemaId }
+            : undefined
+        }
         config={config}
         currentIncidentRole={currentIncidentRole}
         disabledTokens={disabledTokens}
@@ -189,25 +219,30 @@ export function GenericWorkbookInspector({
               ? undefined
               : panelContent(
                   "details",
-                  <>
-                    {detailsContent}
-                    {mutationError ? (
-                      <WorkbookInspectorPublicError error={mutationError} />
-                    ) : null}
-                  </>,
+                  savedInspectorRegion("saved-fields", {
+                    kind: "populated",
+                    content: (
+                      <>
+                        {detailsContent}
+                        {mutationError ? (
+                          <WorkbookInspectorPublicError error={mutationError} />
+                        ) : null}
+                      </>
+                    ),
+                  }),
                 ),
           evidence:
             subject === null
               ? undefined
-              : panelContent("evidence", evidenceContent),
+              : panelContent("evidence", ...evidenceContent),
           history:
             subject === null
               ? undefined
               : panelContent(
                   "history",
-                  <>
-                    {decisionSupersession?.content}
+                  ownedInspectorRegion("record-history", (present) => (
                     <WorkbookInspectorRecordHistory
+                      present={present}
                       beginMutation={history.beginMutation}
                       actions={history.actions}
                       canMutate={history.canMutate}
@@ -215,22 +250,22 @@ export function GenericWorkbookInspector({
                       ownerEffects={history.effects}
                       subject={subject}
                     />
-                  </>,
+                  )),
                 ),
           relationships:
             subject === null
               ? undefined
-              : panelContent("relationships", relationshipsContent),
-          workflow: panelContent(
-            "workflow",
-            <>
-              {workflowContent}
-              <WorkbookInspectorFeedbackView
-                feedback={relatedFeedback}
-                neutralStyle={feedbackStyle}
-              />
-            </>,
-          ),
+              : panelContent("relationships", ...relationshipsContent),
+          workflow:
+            subject || creationAttachment
+              ? panelContent(
+                  "workflow",
+                  savedInspectorRegion("workflow", {
+                    kind: "empty",
+                    message: "Choose an available action for this record.",
+                  }),
+                )
+              : undefined,
         }}
         onContextualAction={dispatchContextualAction}
       />

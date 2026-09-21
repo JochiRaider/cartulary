@@ -83,7 +83,6 @@ export function mapTimelineScalarEditorIntent({
   focusField,
   hasCommittedAnchor,
   inspectorCanClose,
-  priorTimelineGridAnchor,
   surface,
 }: {
   readonly event: TimelineKeyboardEvent;
@@ -93,17 +92,7 @@ export function mapTimelineScalarEditorIntent({
   readonly priorTimelineGridAnchor: boolean;
   readonly surface: TimelineScalarEditorSurface;
 }): TimelineEditorKeyboardIntent {
-  if (
-    surface === "inspector" &&
-    event.key === "Escape" &&
-    priorTimelineGridAnchor
-  ) {
-    return {
-      kind: "restore_prior_grid_focus",
-      preventDefault: true,
-      stopPropagation: true,
-    };
-  }
+  if (surface === "inspector") return noTimelineEditorIntent;
   const applicationShortcut = decideWorkbookApplicationShortcut(event, {
     capabilities: {
       closeInspector: hasCommittedAnchor && inspectorCanClose,

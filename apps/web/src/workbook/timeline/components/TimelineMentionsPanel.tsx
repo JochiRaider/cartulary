@@ -8,8 +8,11 @@ import {
   WorkbookRelationshipChip,
   WorkbookRelationshipChipDetails,
 } from "../../components/WorkbookRelationshipChip";
+import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { relationshipChipAccessibleName } from "../../models/workbookRelationshipChip";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
+import type { CollectionFieldKey } from "../models/timelineFieldRegistry";
 import {
   type InspectorMention,
   timelineRelationshipChipPresentation,
@@ -18,10 +21,7 @@ import {
   TimelineMentionActionControls,
   type TimelineMentionActions,
 } from "./TimelineMentionActionControls";
-import {
-  inspectorSectionStyle,
-  sectionTitleStyle,
-} from "./TimelineWorkbookStyles";
+import { inspectorSectionStyle } from "./TimelineWorkbookStyles";
 
 type TimelineMentionsPanelProps = {
   readonly sourceRecordId: string | null;
@@ -31,7 +31,10 @@ type TimelineMentionsPanelProps = {
     fieldKey: InspectorMention["fieldKey"],
   ) => string;
   readonly inspectorMentions: readonly InspectorMention[];
-  readonly relationshipEditors?: ReactNode;
+  readonly relationshipEditors?: Readonly<
+    Record<CollectionFieldKey, ReactNode>
+  >;
+  readonly feedback?: WorkbookInspectorFeedback | null;
   readonly registerMention: (
     sourceRecordId: string,
     itemRef: string,
@@ -41,35 +44,7 @@ type TimelineMentionsPanelProps = {
   readonly selectedMention: InspectorMention | null;
   readonly actions: TimelineMentionActions;
 };
-export function TimelineMentionsPanel(props: TimelineMentionsPanelProps) {
-  const { selectedMention, entityIndex, getRelationshipLabel, actions } = props;
-  return (
-    <>
-      <MentionGroups {...props} />
-      {selectedMention ? (
-        <section style={inspectorSectionStyle}>
-          <h3 style={sectionTitleStyle}>Selected mention</h3>
-          <p style={selectedMentionTextStyle}>
-            {getRelationshipLabel(selectedMention.fieldKey)}
-          </p>
-          <WorkbookRelationshipChipDetails
-            presentation={timelineRelationshipChipPresentation({
-              entityIndex,
-              item: selectedMention,
-              selected: true,
-            })}
-          />
-          <TimelineMentionActionControls
-            key={selectedMention.entityMentionId ?? selectedMention.itemRef}
-            actions={actions}
-          />
-        </section>
-      ) : null}
-    </>
-  );
-}
-
-function MentionGroups({
+export function TimelineMentionsPanel({
   sourceRecordId,
   entityIndex,
   inspectorMentions,
@@ -78,16 +53,28 @@ function MentionGroups({
   registerCollectionItem,
   onSelectMention,
   selectedMention,
-}: {
-  readonly sourceRecordId: string | null;
-  readonly entityIndex: Record<string, { label: string }>;
-  readonly inspectorMentions: readonly InspectorMention[];
-  readonly relationshipEditors?: ReactNode;
-  readonly registerMention: TimelineMentionsPanelProps["registerMention"];
-  readonly registerCollectionItem: TimelineInspectorElementRegistry["registerCollectionItem"];
-  readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
-  readonly selectedMention: InspectorMention | null;
-}) {
+  actions,
+  getRelationshipLabel,
+  feedback,
+}: TimelineMentionsPanelProps) {
+  const selectedDetails = selectedMention ? (
+    <section
+      style={inspectorSectionStyle}
+      aria-label={`Selected ${getRelationshipLabel(selectedMention.fieldKey)} item`}
+    >
+      <WorkbookRelationshipChipDetails
+        presentation={timelineRelationshipChipPresentation({
+          entityIndex,
+          item: selectedMention,
+          selected: true,
+        })}
+      />
+      <TimelineMentionActionControls
+        key={`${selectedMention.rowRecordId}:${selectedMention.fieldKey}:${selectedMention.itemRef}`}
+        actions={actions}
+      />
+    </section>
+  ) : null;
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const renderMention = (
     item: InspectorMention,
@@ -148,7 +135,6 @@ function MentionGroups({
       data-testid={timelineInspectorSectionTestId("relationships")}
       style={inspectorSectionStyle}
     >
-      {relationshipEditors}
       {(["timeline.host_refs", "timeline.identity_refs"] as const).map(
         (fieldKey) => {
           const items = inspectorMentions.filter(
@@ -184,6 +170,16 @@ function MentionGroups({
                   active.map((item) => renderMention(item, active))
                 )}
               </div>
+              {relationshipEditors?.[fieldKey]}
+              {selectedMention?.rowRecordId === sourceRecordId &&
+              selectedMention.fieldKey === fieldKey
+                ? selectedDetails
+                : null}
+              {feedback?.destination?.kind === "relationship_item" &&
+              feedback.destination.fieldKey === fieldKey &&
+              feedback.sourceRecordId === sourceRecordId ? (
+                <WorkbookInspectorFeedbackView feedback={feedback} />
+              ) : null}
               {dismissed.length > 0 ? (
                 <div style={mentionGroupColumnStyle}>
                   <p style={groupLabelStyle}>Dismissed in this session</p>
@@ -195,6 +191,7 @@ function MentionGroups({
           );
         },
       )}
+      {relationshipEditors?.["timeline.tags"]}
     </div>
   );
 }
@@ -225,9 +222,4 @@ const mentionListButtonSelectedStyle = {
   boxShadow: "0 0 0 2px var(--ct-colors-accent)",
   outline: "2px solid transparent",
   outlineOffset: "2px",
-} satisfies CSSProperties;
-
-const selectedMentionTextStyle = {
-  margin: 0,
-  overflowWrap: "anywhere",
 } satisfies CSSProperties;

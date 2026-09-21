@@ -15,6 +15,10 @@ import {
 } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  inspectorPanel,
+  WorkbookInspectorPanelContent,
+} from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { EvidenceHandleOutcome } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { EvidenceAttachmentContext } from "./EvidenceAttachmentContext";
@@ -70,12 +74,15 @@ function defaults() {
 }
 function Harness(props: Parameters<typeof useEvidenceWorkbookBindings>[0]) {
   const bindings = useEvidenceWorkbookBindings(props);
+  const regions = bindings.inspectorRegions(props.rows[0] ?? row);
   return (
     <>
       {props.rows.map((record) => (
         <div key={record.record_id}>{bindings.renderRowActions(record)}</div>
       ))}
-      {bindings.renderInspector(props.rows[0] ?? row)}
+      {regions ? (
+        <WorkbookInspectorPanelContent model={inspectorPanel(...regions)} />
+      ) : null}
       {bindings.overlay}
       {bindings.announcements}
     </>

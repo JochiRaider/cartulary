@@ -5301,6 +5301,11 @@ Verified by: AC-454, AC-455, AC-519, AC-532
 
 The registry below is the exhaustive current-profile feature-group source. It is not an inheritance mechanism. For each emitted `inspector_config_v1`, the implementation must materialize complete `feature_group_v1` objects for that surface. Tables in this section use row-set shorthand only to avoid repetition in the specification text; emitted discovery payloads must contain full objects with no inherited or implied fields.
 
+Core 03 §2.3A governs independent read-region presentation, ordinary Details
+submission and semantic outcome targeting within these declared panels. Private
+presentation regions do not add discovery members, capabilities or routes and do
+not change this registry's membership, ordering or disabled-feature rules.
+
 | Feature-key family | `panel_id` | `route_binding.kind` | `route_binding.owner` | `minimum_incident_role` | `mutates` | `requires_confirmation` | Default success behavior | Default failure behavior |
 | --- | --- | --- | --- | --- | ---: | ---: | --- | --- |
 | `details.read` | `details` | `panel_read` | `current_row_projection` | `null` | `false` | `false` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |

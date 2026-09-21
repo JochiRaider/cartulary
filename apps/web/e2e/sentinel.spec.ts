@@ -17,7 +17,6 @@ import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
-  genericEditFieldSelectTestId,
   genericEditValueTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
@@ -1065,9 +1064,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await expectGenericGridScroll(page, commLogViewSchemaId, commScroll);
   };
   const addAndRemoveCommPartyRef = async (fieldKey: string) => {
-    await page
-      .getByTestId(genericEditFieldSelectTestId(commLogViewSchemaId))
-      .selectOption(fieldKey);
+    await page.locator(`[data-inspector-edit-field="${fieldKey}"]`).click();
     await page
       .getByTestId(genericEditActionSelectTestId(commLogViewSchemaId))
       .selectOption("add");
@@ -2294,8 +2291,8 @@ test("Task Request and Decision workbook workflows stay native", async ({
     supersedingDecision.record_id as string,
   );
   await page
-    .getByTestId(genericEditFieldSelectTestId(decisionsViewSchemaId))
-    .selectOption("decision.affected_record_ids");
+    .locator(`[data-inspector-edit-field="${"decision.affected_record_ids"}"]`)
+    .click();
   await waitForGenericOption(
     page,
     genericEditValueTestId(decisionsViewSchemaId),
@@ -2589,8 +2586,8 @@ test("Task Request and Decision workbook workflows stay native", async ({
     task.record_id,
   );
   await page
-    .getByTestId(genericEditFieldSelectTestId(taskRequestsViewSchemaId))
-    .selectOption("task.decision_record_id");
+    .locator(`[data-inspector-edit-field="${"task.decision_record_id"}"]`)
+    .click();
   await page
     .getByRole("button", { name: "Clear Decision", exact: true })
     .click();
@@ -3778,9 +3775,7 @@ async function editExtendedSurfaceCell(
   value: string | string[],
 ) {
   await openGenericInspectorForRecord(page, viewSchemaId, recordId);
-  await page
-    .getByTestId(genericEditFieldSelectTestId(viewSchemaId))
-    .selectOption(fieldKey);
+  await page.locator(`[data-inspector-edit-field="${fieldKey}"]`).click();
   const input = page.getByTestId(genericEditValueTestId(viewSchemaId));
   const tagName = await input.evaluate((element) => element.tagName);
   const inputType = await input.getAttribute("type");

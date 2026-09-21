@@ -1,6 +1,10 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requireWorkbookSurfaceAcceptance } from "../collaboration/workbookSurfacePort";
+import {
+  type WorkbookInspectorNotice,
+  WorkbookInspectorNoticeLedger,
+} from "../inspector/workbookInspectorErrorModel";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
@@ -22,12 +26,15 @@ export function useEntityTimelinePreview({
   entityType,
   viewQuery,
   onAuthorityUncertain,
+  authorityIdentity,
 }: {
   readonly entityType: "host" | "identity";
+  readonly authorityIdentity: string;
   readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
   const [preview, setPreview] = useState<{
+    request: number;
     recordId: string | null;
     rows: WorkbookRow[];
     hasData: boolean;
@@ -39,12 +46,14 @@ export function useEntityTimelinePreview({
       | "unavailable";
     message: string | null;
   }>({
+    request: 0,
     recordId: null,
     rows: [],
     hasData: false,
-    state: "initial_loading",
+    state: "unavailable",
     message: null,
   });
+  const notices = useRef(new WorkbookInspectorNoticeLedger());
   const queryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
     sequence: 0,
@@ -53,10 +62,11 @@ export function useEntityTimelinePreview({
   const clearTimelinePreview = useCallback(() => {
     abortLatestQuery(queryRuntimeRef);
     setPreview({
+      request: 0,
       recordId: null,
       rows: [],
       hasData: false,
-      state: "initial_loading",
+      state: "unavailable",
       message: null,
     });
   }, []);
@@ -69,8 +79,14 @@ export function useEntityTimelinePreview({
       const request = beginLatestQuery(queryRuntimeRef);
       setPreview((current) =>
         current.recordId === recordId && current.hasData
-          ? { ...current, state: "refreshing", message: null }
+          ? {
+              ...current,
+              request: queryRuntimeRef.current.sequence,
+              state: "refreshing",
+              message: null,
+            }
           : {
+              request: queryRuntimeRef.current.sequence,
               recordId,
               rows: [],
               hasData: false,
@@ -133,6 +149,7 @@ export function useEntityTimelinePreview({
       }
       if (request.isCurrent()) {
         setPreview({
+          request: queryRuntimeRef.current.sequence,
           recordId,
           rows: previewRows,
           hasData: true,
@@ -152,6 +169,42 @@ export function useEntityTimelinePreview({
   );
 
   return {
+    timelinePreviewNotice:
+      preview.recordId && preview.state !== "ready"
+        ? {
+            value: {
+              context: {
+                authority: authorityIdentity,
+                subject: {
+                  kind: "record",
+                  viewSchemaId:
+                    entityType === "host"
+                      ? "cartulary.view.hosts.v1"
+                      : "cartulary.view.identities.v1",
+                  recordId: preview.recordId,
+                },
+              },
+              destination: {
+                kind: "region",
+                panel: "relationships",
+                regionId: "timeline-preview",
+              },
+              attemptId: String(preview.request),
+              transitionId: preview.state,
+              feedback: {
+                kind: "message",
+                announcement: "none",
+                message:
+                  preview.message ??
+                  (preview.state === "initial_loading"
+                    ? "Loading Timeline preview…"
+                    : "Refreshing Timeline preview…"),
+              },
+              announcement: "polite",
+            } satisfies WorkbookInspectorNotice,
+            consume: notices.current.consume,
+          }
+        : undefined,
     clearTimelinePreview,
     loadTimelinePreview,
     timelinePreviewRows: preview.rows,
