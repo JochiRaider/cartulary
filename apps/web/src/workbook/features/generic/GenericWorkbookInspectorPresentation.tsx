@@ -11,14 +11,31 @@ import type {
   ViewContract,
   ViewFieldContract,
 } from "@cartulary/view-contracts";
-import type { Dispatch, SetStateAction } from "react";
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useId,
+} from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import {
+  workbookFormFieldStackStyle,
+  workbookFormFieldsStyle,
+  workbookFormInputStyle,
+  workbookFormMessageStyle,
+} from "../../components/workbookFormStyles";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
+import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
+import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import type { WorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
 import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
+import type { WorkbookInspectorErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
 import type { GenericCollectionMode } from "../../models/genericWorkbookModel";
-import { genericCollectionSupportsRemove } from "../../models/genericWorkbookModel";
+import {
+  genericCellLabel,
+  genericCollectionSupportsRemove,
+} from "../../models/genericWorkbookModel";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
@@ -90,18 +107,18 @@ function GenericWorkflow(props: GenericWorkflowProps) {
       ) : null}
       <GenericDraftFields {...props} />
       {props.canCreateRows ? (
-        <button
+        <Button
           data-testid={genericCreateSubmitTestId(props.contract.viewSchemaId)}
           disabled={
             props.draftDisabled ||
             props.mutation.ordinaryCreate.busy(props.contract.viewSchemaId)
           }
-          style={secondaryActionButtonStyle}
+          tone="secondary"
           type="button"
           onClick={() => void props.submitCreate()}
         >
           Commit draft row
-        </button>
+        </Button>
       ) : null}
       {props.subjectRow ? (
         <CoordinationWorkflowBindings
@@ -159,6 +176,8 @@ function GenericDraftFields(props: GenericWorkflowProps) {
 }
 
 type GenericDetailsProps = {
+  readonly fieldFeedback: string | null;
+  readonly actionError: WorkbookInspectorErrorPresentation | null;
   readonly edit: WorkbookInspectorEditDraft;
   readonly collectionItems: readonly {
     readonly displayText: string;
@@ -178,8 +197,22 @@ type GenericDetailsProps = {
 };
 
 function GenericDetails(props: GenericDetailsProps) {
+  const feedbackId = useId();
   if (props.selectedEdit.row === null || props.editableFields.length === 0)
-    return null;
+    return props.selectedEdit.row ? (
+      <dl>
+        {props.contract.fields.map((field) => (
+          <div key={field.fieldKey}>
+            <dt>{field.label}</dt>
+            <dd>
+              {genericCellLabel(
+                props.selectedEdit.row?.cells[field.fieldKey]?.value,
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    ) : null;
   const field = props.selectedEdit.field;
   return (
     <fieldset style={{ ...editRowStyle, border: 0, padding: 0, minWidth: 0 }}>
@@ -218,6 +251,8 @@ function GenericDetails(props: GenericDetailsProps) {
       ) : null}
       {field ? (
         <WorkbookInspectorEditControl
+          invalid={props.fieldFeedback !== null}
+          describedBy={props.fieldFeedback ? feedbackId : undefined}
           edit={props.edit}
           ariaLabel={field.label}
           id={`generic-edit-${props.selectedRecordId}-${field.fieldKey}`}
@@ -229,73 +264,58 @@ function GenericDetails(props: GenericDetailsProps) {
       ) : (
         <span role="status">Select an available field.</span>
       )}
+      {props.fieldFeedback ? (
+        <p id={feedbackId} role="alert" style={workbookFormMessageStyle}>
+          {props.fieldFeedback}
+        </p>
+      ) : null}
       <WorkbookInspectorDraftFeedback
         edit={props.edit}
         contract={props.contract}
         row={props.selectedEdit.row}
       />
-      <button
+      <Button
         data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
         disabled={props.mutationPending || !props.edit.canSubmit}
-        style={actionButtonStyle}
+        tone="primary"
         type="button"
         onClick={() => void props.submitEdit()}
       >
         Update
-      </button>
+      </Button>
+      {props.actionError ? (
+        <WorkbookInspectorPublicError error={props.actionError} />
+      ) : null}
     </fieldset>
   );
 }
 
 type GenericRelationshipsProps = {
+  readonly noteAssociations?: ReactNode;
+  readonly referenceSummary: ReactNode;
   readonly party: ReturnType<typeof useGenericPartyLinkWorkflow>;
 };
 
 function GenericRelationships(props: GenericRelationshipsProps) {
-  return <PartyLinkPanel workflow={props.party} />;
+  return (
+    props.noteAssociations ?? (
+      <>
+        {props.referenceSummary}
+        <PartyLinkPanel workflow={props.party} />
+      </>
+    )
+  );
 }
 
 const editRowStyle = {
-  display: "grid",
+  ...workbookFormFieldsStyle,
   gridTemplateColumns: "minmax(0, 1fr)",
-  gap: "0.6rem",
   alignItems: "stretch",
 };
 const draftInspectorFieldsStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
-  gap: "0.75rem",
+  ...workbookFormFieldsStyle,
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(12rem, 100%), 1fr))",
   alignItems: "end",
 };
-const inputStyle = {
-  boxSizing: "border-box" as const,
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-};
-const actionButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.55rem 0.9rem",
-  font: "inherit",
-  cursor: "pointer",
-};
-const secondaryActionButtonStyle = {
-  ...actionButtonStyle,
-  background: "var(--ct-colors-surface-3)",
-};
-const labelStyle = {
-  display: "grid",
-  gap: "0.4rem",
-  fontSize: "0.95rem",
-  color: "var(--ct-colors-ink-muted)",
-};
-const selectStyle = { ...inputStyle, appearance: "auto" as const };
+const labelStyle = workbookFormFieldStackStyle;
+const selectStyle = { ...workbookFormInputStyle, appearance: "auto" as const };

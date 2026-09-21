@@ -7,7 +7,11 @@ import {
 } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { WorkbookInspectorActionBinding } from "./workbookInspectorPresentationModel";
-import { workbookInspectorDisabledReason } from "./workbookInspectorPresentationModel";
+import {
+  type WorkbookInspectorDisabledReason,
+  workbookInspectorDisabledReason,
+  workbookInspectorDisabledReasonText,
+} from "./workbookInspectorPresentationModel";
 
 export function WorkbookInspectorActionGroup({
   children,
@@ -28,12 +32,16 @@ export function WorkbookInspectorContextualAction({
   currentIncidentRole,
   disabledTokens,
   additionalDisabledReason,
+  descriptionId,
   onInvoke,
 }: {
   readonly binding: WorkbookInspectorActionBinding;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
-  readonly additionalDisabledReason?: string | undefined;
+  readonly additionalDisabledReason?:
+    | WorkbookInspectorDisabledReason
+    | undefined;
+  readonly descriptionId?: string | undefined;
   readonly onInvoke: () => void;
 }) {
   const reasonId = useId();
@@ -50,7 +58,7 @@ export function WorkbookInspectorContextualAction({
       <WorkbookInspectorActionButton
         {...workbookInspectorActionSemanticProps(
           binding,
-          reason === null ? undefined : reasonId,
+          reason === null ? undefined : (descriptionId ?? reasonId),
         )}
         disabled={reason !== null}
         tone="secondary"
@@ -58,10 +66,10 @@ export function WorkbookInspectorContextualAction({
       >
         {binding.featureGroup.label}
       </WorkbookInspectorActionButton>
-      {reason === null ? null : (
-        <WorkbookInspectorDisabledReason id={reasonId}>
-          {reason}
-        </WorkbookInspectorDisabledReason>
+      {reason === null || descriptionId ? null : (
+        <WorkbookInspectorDisabledReasonMessage id={reasonId}>
+          {workbookInspectorDisabledReasonText(reason)}
+        </WorkbookInspectorDisabledReasonMessage>
       )}
     </div>
   );
@@ -104,7 +112,7 @@ function workbookInspectorActionSemanticProps(
   } as const;
 }
 
-function WorkbookInspectorDisabledReason({
+export function WorkbookInspectorDisabledReasonMessage({
   children,
   id,
 }: {
@@ -131,6 +139,8 @@ const contextualActionStyle = {
   gap: "var(--ct-spacing-xxs)",
 } satisfies CSSProperties;
 const baseButtonStyle = {
+  maxInlineSize: "100%",
+  overflowWrap: "anywhere",
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
   color: "inherit",
@@ -159,6 +169,7 @@ const buttonStyleByTone = {
   },
 } as const satisfies Record<string, CSSProperties>;
 const disabledReasonStyle = {
+  flexBasis: "100%",
   margin: 0,
   color: "var(--ct-colors-ink-muted)",
   fontSize: "var(--ct-typography-metadata-fontSize)",

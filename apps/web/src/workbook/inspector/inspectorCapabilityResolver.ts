@@ -126,6 +126,7 @@ function contextualCapability(
 
 const recordHistoryActionsByOwner = {
   current_row_projection: null,
+  note_associations_route: null,
   entity_mention_resolve_route: null,
   evidence_attach_blob_route: null,
   evidence_download_handle_route: null,

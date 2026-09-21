@@ -17,14 +17,20 @@ import {
 } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import { readWorkbookAuthoringRecord } from "../../adapters/readWorkbookAuthoringRecord";
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { prepareWorkbookInspectorChange } from "../../inspector/prepareWorkbookInspectorChange";
+import {
+  ownerInspectorDisabledReason,
+  type WorkbookInspectorDisabledReason,
+} from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useRetainedInspectorRow } from "../../inspector/useRetainedInspectorRow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { useWorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
+import { useWorkbookInspectorFieldFeedback } from "../../inspector/useWorkbookInspectorFieldFeedback";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import {
   buildWorkbookInspectorSubject,
@@ -44,6 +50,7 @@ import { DecisionSupersessionContext } from "../coordination/DecisionSupersessio
 import { DecisionSupersessionEditor } from "../coordination/DecisionSupersessionEditor";
 import {
   decisionIneligibility,
+  decisionIneligibilityCause,
   decisionViewId,
   reviewedDecision,
 } from "../coordination/decisionSupersessionModel";
@@ -55,11 +62,14 @@ import { useEvidenceWorkbookBindings } from "../evidence/useEvidenceWorkbookBind
 import { IndicatorLifecycleContext } from "../indicators/IndicatorLifecycleContext";
 import type { IndicatorInspectorHandler } from "../indicators/indicatorInspectorHandlers";
 import { indicatorLifecycleViewId } from "../indicators/indicatorLifecycleModel";
+import { NoteAssociationPanel } from "../notes/NoteAssociationPanel";
 import {
   NoteCreateContext,
   noteSheetAttachment,
 } from "../notes/NoteCreateContext";
+import { noteAssociationView } from "../notes/noteAssociationOperation";
 import { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
+import { GenericInspectorReferenceSummary } from "./GenericInspectorReferenceSummary";
 import { GenericWorkbookInspectorPresentation } from "./GenericWorkbookInspectorPresentation";
 
 const noDecisionSnapshot = () => null;
@@ -155,6 +165,23 @@ export function useGenericWorkbookInspectorComposition({
     () => editableFields[0]?.fieldKey ?? "",
   );
   const note = useContext(NoteCreateContext);
+  const [navigatedNote, setNavigatedNote] = useState<{
+    scope: string;
+    row: WorkbookQueryRow;
+  } | null>(null);
+  const [navigationError, setNavigationError] = useState<{
+    scope: string;
+    message: string;
+  } | null>(null);
+  const noteScope = JSON.stringify([
+    inspectorResetKey,
+    currentUserId,
+    currentIncidentRole,
+  ]);
+  const associationSnapshot = useSyncExternalStore(
+    mutation.noteAssociations.subscribe,
+    mutation.noteAssociations.getSnapshot,
+  );
   const [indicatorInspectorHandler, setIndicatorInspectorHandler] =
     useState<IndicatorInspectorHandler | null>(null);
   const [editCollectionMode, setEditCollectionMode] =
@@ -164,6 +191,11 @@ export function useGenericWorkbookInspectorComposition({
     row: [
       rows.find((row) => row.record_id === selectedRecordId),
       mutation.explicitPatches.latestRow(selectedRecordId),
+      mutation.noteAssociations.latestRow(selectedRecordId),
+      navigatedNote?.scope === noteScope &&
+      navigatedNote.row.record_id === selectedRecordId
+        ? navigatedNote.row
+        : null,
       mutation.ordinaryCreate.latestRow(selectedRecordId),
       lifecycleOwner?.latestRow(selectedRecordId),
       decisionOwner?.latestRow(selectedRecordId),
@@ -277,6 +309,18 @@ export function useGenericWorkbookInspectorComposition({
         ? taskGuardFields
         : [],
   });
+  const editFeedback = useWorkbookInspectorFieldFeedback(edit);
+  const [requestedEditFocus, requestEditFocus] = useState(0);
+  useLayoutEffect(() => {
+    if (requestedEditFocus > 0 && isOpen) {
+      edit.controlRef.current?.focus({ preventScroll: true });
+      edit.controlRef.current?.scrollIntoView?.({ block: "nearest" });
+    }
+  }, [requestedEditFocus, isOpen, edit.controlRef]);
+  const chooseReferenceField = (fieldKey: string) => {
+    setEditFieldKey(fieldKey);
+    requestEditFocus((value) => value + 1);
+  };
   const staleEditFields = edit.staleFields;
   const selectedEditCollectionItems =
     selectedEdit.row !== null && selectedEdit.field !== null
@@ -333,12 +377,16 @@ export function useGenericWorkbookInspectorComposition({
       selectedEdit.row === null ||
       selectedEdit.field === null
     ) {
-      mutation.setValidationError("invalid_mutation_payload");
+      editFeedback.rejectLocal(
+        "Select an editable field before submitting.",
+        false,
+      );
       return;
     }
     if (staleEditFields.length) {
-      mutation.setValidationError(
+      editFeedback.rejectLocal(
         "Review changed saved fields before submitting this retained draft.",
+        false,
       );
       return;
     }
@@ -349,15 +397,18 @@ export function useGenericWorkbookInspectorComposition({
       contract.viewSchemaId,
     );
     if (prepared.error) {
-      mutation.setValidationError(prepared.error);
+      editFeedback.rejectLocal(prepared.error);
       return;
     }
     if (!prepared.change) return;
     const change = prepared.change;
     const captured = edit.capture();
+    const onFailure = editFeedback.capture();
+    editFeedback.clear();
     const finish = mutation.beginMutation();
     try {
       const payload = await mutation.submitPatchMutation({
+        onFailure,
         baseline: edit.baseline ?? selectedEdit.row,
         ...(captured.draft
           ? { authoringRevision: captured.draft.revision }
@@ -398,6 +449,121 @@ export function useGenericWorkbookInspectorComposition({
     visible: isOpen,
   });
 
+  const navigationIdentity = JSON.stringify([
+    noteScope,
+    invalidationKey,
+    isOpen,
+    selectedRecordId,
+  ]);
+  const latestNavigationIdentity = useRef(navigationIdentity);
+  latestNavigationIdentity.current = navigationIdentity;
+  useEffect(
+    () => () => {
+      latestNavigationIdentity.current = "detached";
+    },
+    [],
+  );
+  const navigateNote = async (recordId: string) => {
+    const captured = latestNavigationIdentity.current,
+      reader = mutation.noteAssociations.getReader();
+    if (!reader || !associationSnapshot.authority) return;
+    setNavigationError(null);
+    try {
+      const row = await readWorkbookAuthoringRecord(
+        reader,
+        noteAssociationView,
+        recordId,
+        new AbortController().signal,
+      );
+      if (
+        captured !== latestNavigationIdentity.current ||
+        !mutation.noteAssociations.getSnapshot().authority
+      )
+        return;
+      if (!row) throw new Error("That Note is no longer available.");
+      setNavigatedNote({ scope: noteScope, row });
+      onSelectRecord(recordId);
+    } catch (error) {
+      if (captured === latestNavigationIdentity.current)
+        setNavigationError({
+          scope: captured,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not open that Note.",
+        });
+    }
+  };
+  const noteAssociations =
+    contract.viewSchemaId === noteAssociationView && subjectRow
+      ? {
+          relationships: (
+            <>
+              <NoteAssociationPanel
+                key={`${subjectRow.record_id}:source`}
+                owner={mutation.noteAssociations}
+                row={subjectRow}
+                kind="source"
+                sheetRef={sheetRef}
+                label={subject?.label ?? "Note"}
+                onNavigateNote={navigateNote}
+              />
+              <NoteAssociationPanel
+                key={`${subjectRow.record_id}:related_note`}
+                owner={mutation.noteAssociations}
+                row={subjectRow}
+                kind="related_note"
+                sheetRef={sheetRef}
+                label={subject?.label ?? "Note"}
+                onNavigateNote={navigateNote}
+              />
+              {navigationError?.scope === navigationIdentity ? (
+                <p role="alert">{navigationError.message}</p>
+              ) : null}
+            </>
+          ),
+          evidence: (
+            <NoteAssociationPanel
+              key={`${subjectRow.record_id}:evidence`}
+              owner={mutation.noteAssociations}
+              row={subjectRow}
+              kind="evidence"
+              sheetRef={sheetRef}
+              label={subject?.label ?? "Note"}
+              onNavigateNote={navigateNote}
+            />
+          ),
+        }
+      : null;
+  function decisionDisabledReason(): WorkbookInspectorDisabledReason | null {
+    if (subject?.kind !== "live" || !subjectRow)
+      return { kind: "condition", condition: "no_row_selected" };
+    if (!decisionOwner)
+      return ownerInspectorDisabledReason(
+        "decision_supersession",
+        "unavailable",
+        "Decision supersession is unavailable.",
+      );
+    const record = reviewedDecision(
+      decisionOwner.latestRow(subjectRow.record_id) ?? subjectRow,
+      decisionSnapshot?.authority?.incidentId ?? "",
+    );
+    const cause = decisionIneligibilityCause(record, "target");
+    if (cause)
+      return ownerInspectorDisabledReason(
+        "decision_supersession",
+        cause,
+        decisionIneligibility(record, "target") ??
+          "Decision supersession is unavailable.",
+      );
+    return decisionOwner.blocksRecord(subjectRow.record_id)
+      ? ownerInspectorDisabledReason(
+          "decision_supersession",
+          "pending_operation",
+          "This Decision has a pending supersession. Open Recovery to recover it.",
+        )
+      : null;
+  }
   const close = () => inspector.commands.close({ restoreFocus: true });
   const node = isOpen ? (
     <GenericWorkbookInspectorPresentation
@@ -416,22 +582,7 @@ export function useGenericWorkbookInspectorComposition({
                       : null;
                   setDecisionOpenKey(invalidationKey);
                 },
-                disabledReason:
-                  subject?.kind !== "live" || subjectRow === null
-                    ? "Select a saved Decision."
-                    : decisionOwner === null
-                      ? "Decision supersession is unavailable."
-                      : (decisionIneligibility(
-                          reviewedDecision(
-                            decisionOwner.latestRow(subjectRow.record_id) ??
-                              subjectRow,
-                            decisionSnapshot?.authority?.incidentId ?? "",
-                          ),
-                          "target",
-                        ) ??
-                        (decisionOwner.blocksRecord(subjectRow.record_id)
-                          ? "This Decision has a pending supersession. Open Recovery to recover it."
-                          : null)),
+                disabledReason: decisionDisabledReason(),
                 content:
                   decisionOpenKey === invalidationKey &&
                   decisionOwner &&
@@ -453,9 +604,22 @@ export function useGenericWorkbookInspectorComposition({
               }
             : undefined,
         evidenceContent:
-          subjectRow === null
+          noteAssociations?.evidence ??
+          (subjectRow === null
             ? null
-            : ownerRecordActions.renderInspector(subjectRow),
+            : (ownerRecordActions.renderInspector(subjectRow) ?? (
+                <GenericInspectorReferenceSummary
+                  contract={contract}
+                  row={subjectRow}
+                  evidenceOnly
+                  canEdit={
+                    interactionMode.kind === "editable" &&
+                    !!currentIncidentRole &&
+                    currentIncidentRole !== "viewer"
+                  }
+                  onEdit={chooseReferenceField}
+                />
+              ))),
         history: {
           beginMutation: mutation.beginMutationReport,
           actions: recordHistoryActions,
@@ -537,6 +701,8 @@ export function useGenericWorkbookInspectorComposition({
       details={{
         edit,
         collectionItems: selectedEditCollectionItems,
+        fieldFeedback: editFeedback.message,
+        actionError: editFeedback.actionError,
         collectionMode: editCollectionMode,
         contract,
         editableFields,
@@ -558,7 +724,22 @@ export function useGenericWorkbookInspectorComposition({
         },
         submitEdit,
       }}
-      relationships={{ party }}
+      relationships={{
+        party,
+        noteAssociations: noteAssociations?.relationships,
+        referenceSummary: subjectRow ? (
+          <GenericInspectorReferenceSummary
+            contract={contract}
+            row={subjectRow}
+            canEdit={
+              interactionMode.kind === "editable" &&
+              !!currentIncidentRole &&
+              currentIncidentRole !== "viewer"
+            }
+            onEdit={chooseReferenceField}
+          />
+        ) : null,
+      }}
     />
   ) : undefined;
   return {

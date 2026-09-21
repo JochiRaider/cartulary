@@ -3,19 +3,23 @@ import type {
   InspectorDisabledCondition,
   InspectorPanelId,
 } from "@cartulary/view-contracts";
-import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import {
   type InspectorContextualCapability,
   inspectorContextualCapabilities,
 } from "./inspectorCapabilityResolver";
+import {
+  WorkbookInspectorPanelContent,
+  type WorkbookInspectorPanelModel,
+} from "./presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorPanelSection } from "./presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorDisabledReason } from "./presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorContextualActions } from "./WorkbookInspectorContextualActions";
 import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
 
 export function WorkbookInspectorDeclaredPanelList({
   config,
-  contentByPanel,
+  modelsByPanel,
   currentIncidentRole,
   disabledTokens,
   additionalDisabledReasons,
@@ -24,10 +28,14 @@ export function WorkbookInspectorDeclaredPanelList({
   subject,
 }: {
   readonly config: InspectorConfig;
-  readonly contentByPanel: Partial<Record<InspectorPanelId, ReactNode>>;
+  readonly modelsByPanel: Partial<
+    Record<InspectorPanelId, WorkbookInspectorPanelModel | undefined>
+  >;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
-  readonly additionalDisabledReasons?: ReadonlyMap<string, string> | undefined;
+  readonly additionalDisabledReasons?:
+    | ReadonlyMap<string, WorkbookInspectorDisabledReason>
+    | undefined;
   readonly panelRef?:
     | ((panelId: InspectorPanelId, element: HTMLElement | null) => void)
     | undefined;
@@ -37,16 +45,22 @@ export function WorkbookInspectorDeclaredPanelList({
   readonly subject: WorkbookInspectorSubject | null;
 }) {
   return config.panels.map((panel) => {
-    const content = contentByPanel[panel.panelId];
+    const model = modelsByPanel[panel.panelId];
     if (subject?.kind === "deleted" && panel.panelId !== "history") {
       return null;
     }
     if (
       subject === null &&
-      (panel.panelId === "history" || content === null || content === undefined)
+      (panel.panelId === "history" || model === undefined)
     ) {
       return null;
     }
+    if (!model)
+      throw new Error(
+        `Missing inspector panel contribution: ${config.viewSchemaId}/${panel.panelId}`,
+      );
+    if (model.access === "concealed" || currentIncidentRole === null)
+      return null;
     const capabilities =
       subject?.kind === "live"
         ? inspectorContextualCapabilities({
@@ -71,7 +85,7 @@ export function WorkbookInspectorDeclaredPanelList({
             onAction={onContextualAction}
           />
         )}
-        {content}
+        <WorkbookInspectorPanelContent model={model} />
       </WorkbookInspectorPanelSection>
     );
   });

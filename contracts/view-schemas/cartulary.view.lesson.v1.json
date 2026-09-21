@@ -346,7 +346,7 @@
       {
         "feature_group_key": "create_related.task_request",
         "panel_id": "workflow",
-        "label": "Create Related Task Request",
+        "label": "Create task request",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,

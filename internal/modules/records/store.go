@@ -190,6 +190,12 @@ func (s *Store) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUI
 	return loadEnvelopeRow(ctx, tx.QueryRow(ctx, envelopeSelectSQL(lock), recordID))
 }
 
+// LoadEnvelopeForShareTx keeps a collection read aligned with its record version
+// while allowing concurrent readers. Records remains the envelope SQL owner.
+func (s *Store) LoadEnvelopeForShareTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (Envelope, error) {
+	return loadEnvelopeRow(ctx, tx.QueryRow(ctx, envelopeSelectSQL(false)+" FOR SHARE", recordID))
+}
+
 func (s *Store) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID, lock bool) (map[uuid.UUID]Envelope, error) {
 	if len(recordIDs) == 0 {
 		return map[uuid.UUID]Envelope{}, nil

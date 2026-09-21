@@ -6,6 +6,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import {
+  ownerInspectorDisabledReason,
+  type WorkbookInspectorDisabledReason,
+  workbookInspectorDisabledReasonText,
+} from "../../inspector/presentation/workbookInspectorPresentationModel";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
@@ -16,6 +21,7 @@ import {
   type TimelineCaptureAction,
   type TimelineCaptureReview,
   timelineCaptureIneligibility,
+  timelineCaptureIneligibilityCause,
   timelineCaptureSubject,
 } from "./timelineCaptureActionModel";
 import { timelineCaptureOwnerFor } from "./timelineCaptureOwnerFor";
@@ -103,20 +109,45 @@ export function useTimelineCaptureActions(options: {
     )
       setEditing(null);
   }, [options.isOpen, options.concealed, options.deleted, snapshot.authority]);
-  function reason(row: WorkbookRow | null, action: TimelineCaptureAction) {
+  function inspectorReason(
+    row: WorkbookRow | null,
+    action: TimelineCaptureAction,
+  ): WorkbookInspectorDisabledReason | null {
+    const unavailable = owner.unavailableCause();
+    if (unavailable)
+      return ownerInspectorDisabledReason(
+        "timeline_capture",
+        unavailable,
+        owner.unavailableReason() ?? "Timeline action unavailable.",
+      );
+    if (current.current.concealed)
+      return ownerInspectorDisabledReason(
+        "timeline_capture",
+        "concealed",
+        "This Timeline record is unavailable.",
+      );
     const subject = row?.rawRow
       ? timelineCaptureSubject(row.rawRow, owner.incidentId)
       : null;
-    return (
-      owner.unavailableReason() ??
-      (current.current.concealed
-        ? "This Timeline record is unavailable."
-        : null) ??
-      timelineCaptureIneligibility(subject, action) ??
-      (row?.recordId && owner.blocksRecord(row.recordId)
-        ? "An earlier Timeline action needs to finish or be recovered."
-        : null)
-    );
+    const ineligible = timelineCaptureIneligibilityCause(subject, action);
+    if (ineligible)
+      return ownerInspectorDisabledReason(
+        "timeline_capture",
+        ineligible,
+        timelineCaptureIneligibility(subject, action) ??
+          "Timeline action unavailable.",
+      );
+    return row?.recordId && owner.blocksRecord(row.recordId)
+      ? ownerInspectorDisabledReason(
+          "timeline_capture",
+          "pending_operation",
+          "An earlier Timeline action needs to finish or be recovered.",
+        )
+      : null;
+  }
+  function reason(row: WorkbookRow | null, action: TimelineCaptureAction) {
+    const cause = inspectorReason(row, action);
+    return cause ? workbookInspectorDisabledReasonText(cause) : null;
   }
   function binding(
     review: TimelineCaptureReview,
@@ -257,14 +288,17 @@ export function useTimelineCaptureActions(options: {
         binding(pending.review, () => true, pending.earlier),
       );
   });
-  const additionalDisabledReasons = new Map<string, string>();
+  const additionalDisabledReasons = new Map<
+    string,
+    WorkbookInspectorDisabledReason
+  >();
   for (const [action, key] of [
     ["mark-reviewed", "timeline.mark_reviewed"],
     ["supersede", "timeline.supersede"],
   ] as const) {
     const disabled = options.deleted
-      ? "This Timeline row is deleted."
-      : reason(options.selectedRow, action);
+      ? { kind: "condition" as const, condition: "record_deleted" as const }
+      : inspectorReason(options.selectedRow, action);
     if (disabled) additionalDisabledReasons.set(key, disabled);
   }
   return {

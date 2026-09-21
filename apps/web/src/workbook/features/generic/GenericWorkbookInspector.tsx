@@ -13,7 +13,9 @@ import {
   WorkbookInspectorFeedbackView,
   WorkbookInspectorPublicError,
 } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import { inspectorPanel } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
 import type {
@@ -85,7 +87,7 @@ export function GenericWorkbookInspector({
     | {
         readonly start: () => void;
         readonly content: ReactNode;
-        readonly disabledReason: string | null;
+        readonly disabledReason: WorkbookInspectorDisabledReason | null;
       }
     | undefined;
 }) {
@@ -125,37 +127,41 @@ export function GenericWorkbookInspector({
         canonical.panelId === indicator?.handler?.panelId
       );
     });
-  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) => (
-    <>
-      {content}
-      {indicatorHandlerAdmitted &&
-      subject?.kind === "live" &&
-      indicator?.handler?.panelId === panelId ? (
-        indicator.handler.action === "indicator.lifecycle.read" ||
-        indicator.handler.action === "indicator.lifecycle.manage" ? (
-          <IndicatorLifecycleWorkflow
-            action={indicator.handler.action}
-            subject={subject}
+  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) =>
+    inspectorPanel(
+      <>
+        {content}
+        {panelId === "workflow" ? (
+          <p>Choose an available action for this record.</p>
+        ) : null}
+        {indicatorHandlerAdmitted &&
+        subject?.kind === "live" &&
+        indicator?.handler?.panelId === panelId ? (
+          indicator.handler.action === "indicator.lifecycle.read" ||
+          indicator.handler.action === "indicator.lifecycle.manage" ? (
+            <IndicatorLifecycleWorkflow
+              action={indicator.handler.action}
+              subject={subject}
+            />
+          ) : (
+            <IndicatorInspectorWorkflow
+              action={indicator.handler.action}
+              indicatorRecordId={indicator.recordId}
+              onMutationCommitted={indicator.onMutationCommitted}
+            />
+          )
+        ) : null}
+        {subject?.kind === "live" &&
+        related.state?.featureGroup.panelId === panelId ? (
+          <InspectorCreateRelatedWorkflow
+            state={related.state}
+            onCancel={related.cancel}
+            onSubmit={() => void related.submit()}
+            onUpdateDraft={related.updateDraft}
           />
-        ) : (
-          <IndicatorInspectorWorkflow
-            action={indicator.handler.action}
-            indicatorRecordId={indicator.recordId}
-            onMutationCommitted={indicator.onMutationCommitted}
-          />
-        )
-      ) : null}
-      {subject?.kind === "live" &&
-      related.state?.featureGroup.panelId === panelId ? (
-        <InspectorCreateRelatedWorkflow
-          state={related.state}
-          onCancel={related.cancel}
-          onSubmit={() => void related.submit()}
-          onUpdateDraft={related.updateDraft}
-        />
-      ) : null}
-    </>
-  );
+        ) : null}
+      </>,
+    );
 
   return (
     <WorkbookInspectorShell
@@ -177,11 +183,19 @@ export function GenericWorkbookInspector({
             : undefined
         }
         subject={subject}
-        contentByPanel={{
+        modelsByPanel={{
           details:
             subject === null
               ? undefined
-              : panelContent("details", detailsContent),
+              : panelContent(
+                  "details",
+                  <>
+                    {detailsContent}
+                    {mutationError ? (
+                      <WorkbookInspectorPublicError error={mutationError} />
+                    ) : null}
+                  </>,
+                ),
           evidence:
             subject === null
               ? undefined
@@ -207,18 +221,19 @@ export function GenericWorkbookInspector({
             subject === null
               ? undefined
               : panelContent("relationships", relationshipsContent),
-          workflow: panelContent("workflow", workflowContent),
+          workflow: panelContent(
+            "workflow",
+            <>
+              {workflowContent}
+              <WorkbookInspectorFeedbackView
+                feedback={relatedFeedback}
+                neutralStyle={feedbackStyle}
+              />
+            </>,
+          ),
         }}
         onContextualAction={dispatchContextualAction}
       />
-      <WorkbookInspectorFeedbackView
-        feedback={relatedFeedback}
-        neutralStyle={feedbackStyle}
-      />
-
-      {mutationError === null ? null : (
-        <WorkbookInspectorPublicError error={mutationError} />
-      )}
     </WorkbookInspectorShell>
   );
 }

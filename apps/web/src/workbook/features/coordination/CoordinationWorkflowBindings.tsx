@@ -9,8 +9,16 @@ import type {
 import { getReferenceFieldContract } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { WorkbookReferenceControl } from "../../components/WorkbookReferenceControl";
+import {
+  workbookFormInputStyle as inputStyle,
+  workbookFormFieldStackStyle as labelStyle,
+} from "../../components/workbookFormStyles";
 import { admitCanonicalInspectorFeature } from "../../inspector/canonicalInspectorAdmission";
-import { workbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
+import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
+import {
+  workbookInspectorDisabledReason,
+  workbookInspectorDisabledReasonText,
+} from "../../inspector/presentation/workbookInspectorPresentationModel";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
   type TaskLifecycleDraftStore,
@@ -44,15 +52,16 @@ export function CoordinationWorkflowBindings(props: {
     feature.requiresConfirmation
   )
     return null;
-  const disabledReason =
-    workbookInspectorDisabledReason({
-      currentIncidentRole: props.currentIncidentRole,
-      featureGroup: feature,
-      stateTokens: props.disabledTokens,
-    }) ??
-    (props.disabled
+  const reason = workbookInspectorDisabledReason({
+    currentIncidentRole: props.currentIncidentRole,
+    featureGroup: feature,
+    stateTokens: props.disabledTokens,
+  });
+  const disabledReason = reason
+    ? workbookInspectorDisabledReasonText(reason)
+    : props.disabled
       ? "Wait for the current workbook operation to finish."
-      : null);
+      : null;
   return (
     <TaskLifecycleEditor
       {...props}
@@ -70,26 +79,17 @@ function TaskLifecycleEditor(
   const editor = useCoordinationWorkflowController(props);
   const status = editor.value("task.status");
   const from = taskValue(props.row, "task.status");
-  const previous = props.mutation.explicitPatches
-    ?.getSnapshot()
-    .entries.filter(
-      (entry) => entry.intent.baseline.record_id === props.row.record_id,
-    )
-    .at(-1);
-  const errors = [
-    ...editor.errors,
-    ...(previous?.failure?.kind === "validation" &&
-    JSON.stringify(previous.intent.changes) === JSON.stringify(editor.changes)
-      ? (previous.failure.fields ?? [])
-      : []),
-  ];
+  const errors = editor.errors;
   const ownerReference = getReferenceFieldContract(
     props.contract.viewSchemaId,
     "task.owner_user_id",
   );
   if (!ownerReference) return null;
   const fieldError = (field: string) => (
-    <span id={`task-error-${field}`}>
+    <span
+      id={`task-error-${field}`}
+      role={errors.some((error) => error.field === field) ? "alert" : undefined}
+    >
       {errors
         .filter((error) => error.field === field)
         .map((error) => error.message)
@@ -111,6 +111,9 @@ function TaskLifecycleEditor(
         Status
         <select
           id={`task-lifecycle-${props.row.record_id}-task.status`}
+          aria-invalid={
+            errors.some((error) => error.field === "task.status") || undefined
+          }
           aria-label="Task lifecycle status"
           aria-describedby="task-transition-guidance task-error-task.status"
           data-testid={coordinationWorkflowTestId("task-status")}
@@ -145,6 +148,7 @@ function TaskLifecycleEditor(
           disabled={props.disabled}
           id={`task-lifecycle-${props.row.record_id}-task.owner_user_id`}
           testId="task-lifecycle-owner"
+          invalid={errors.some((error) => error.field === "task.owner_user_id")}
           describedBy="task-error-task.owner_user_id"
           onChange={(value) => editor.update("task.owner_user_id", value)}
           onAccept={(items) => {
@@ -159,6 +163,10 @@ function TaskLifecycleEditor(
           Blocked reason
           <input
             id={`task-lifecycle-${props.row.record_id}-task.blocked_reason`}
+            aria-invalid={
+              errors.some((error) => error.field === "task.blocked_reason") ||
+              undefined
+            }
             aria-label="Blocked reason"
             aria-describedby="task-error-task.blocked_reason"
             data-testid={coordinationWorkflowTestId("task-blocked-reason")}
@@ -176,6 +184,10 @@ function TaskLifecycleEditor(
           Completion time (optional when entering done)
           <input
             id={`task-lifecycle-${props.row.record_id}-task.completed_at`}
+            aria-invalid={
+              errors.some((error) => error.field === "task.completed_at") ||
+              undefined
+            }
             aria-label="Task completion time"
             aria-describedby="task-completion-guidance task-error-task.completed_at"
             style={inputStyle}
@@ -202,15 +214,15 @@ function TaskLifecycleEditor(
         <div key={field} role="status">
           Saved {props.contract.fieldMap[field]?.label ?? field} changed to{" "}
           {taskValue(props.row, field) || "empty"}. Your draft is retained.
-          <button type="button" onClick={() => editor.review(field, false)}>
+          <Button type="button" onClick={() => editor.review(field, false)}>
             Use saved {props.contract.fieldMap[field]?.label}
-          </button>
-          <button type="button" onClick={() => editor.review(field, true)}>
+          </Button>
+          <Button type="button" onClick={() => editor.review(field, true)}>
             Keep draft {props.contract.fieldMap[field]?.label}
-          </button>
+          </Button>
         </div>
       ))}
-      <button
+      <Button
         data-testid={workbookInspectorFeatureActionTestId(
           props.contract.viewSchemaId,
           "task.status.transition",
@@ -220,12 +232,15 @@ function TaskLifecycleEditor(
           editor.errors.length > 0 ||
           editor.staleFields.length > 0
         }
-        style={buttonStyle}
+        tone="secondary"
         type="button"
         onClick={() => void editor.submit()}
       >
         Apply task status
-      </button>
+      </Button>
+      {editor.actionFailure ? (
+        <p role="alert">{editor.actionFailure.message}</p>
+      ) : null}
     </fieldset>
   );
 }
@@ -237,24 +252,4 @@ const groupStyle = {
   padding: 0,
   border: 0,
 };
-const labelStyle = { display: "grid", gap: "var(--ct-spacing-xs)" };
 const textStyle = { margin: 0, color: "var(--ct-colors-ink-muted)" };
-const inputStyle = {
-  boxSizing: "border-box" as const,
-  minWidth: 0,
-  width: "100%",
-  padding: "var(--ct-spacing-xs)",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  color: "var(--ct-component-text-input-textColor)",
-  font: "inherit",
-};
-const buttonStyle = {
-  padding: "var(--ct-spacing-xs)",
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-colors-surface-3)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  font: "inherit",
-};

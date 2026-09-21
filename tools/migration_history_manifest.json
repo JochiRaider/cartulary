@@ -266,6 +266,12 @@
       "filename": "00044_jobs_restore_enumeration.sql",
       "sha256": "c9d1367fef287c570b3637bd14590964748a44cae83d7af07019471ac06b30c1",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 45,
+      "filename": "00045_note_association_lookup.sql",
+      "sha256": "463f5bdd5672e32a8eae16227ba00a0c2a852df66e6632d89ffd701d7cddcb74",
+      "historical_phase_shaped": false
     }
   ]
 }

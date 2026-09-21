@@ -84,6 +84,7 @@ import {
   useNetworkFlowSavedGraphOwner,
   useNetworkFlowTableOwner,
 } from "./features/NetworkFlowOperations";
+import { NoteAssociationRecovery } from "./features/notes/NoteAssociationRecovery";
 import { NoteCreateContext } from "./features/notes/NoteCreateContext";
 import { NoteCreateRecovery } from "./features/notes/NoteCreateRecovery";
 import { PartyLinkRecovery } from "./features/parties/PartyLinkRecovery";
@@ -294,6 +295,9 @@ function WorkbookShellContent({
     );
     infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.noteCreate.setAuthority(mergeAuthority);
+    infrastructure.mutationRuntime.noteAssociations.setAuthority(
+      mergeAuthority,
+    );
     infrastructure.mutationRuntime.batches.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.ordinaryCreate.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.coordinationCreate.setAuthority(
@@ -335,6 +339,7 @@ function WorkbookShellContent({
       infrastructure.mutationRuntime.indicatorCreate.suspend();
       infrastructure.mutationRuntime.assessmentAuthoring.suspend();
       infrastructure.mutationRuntime.noteCreate.suspend();
+      infrastructure.mutationRuntime.noteAssociations.suspend();
       infrastructure.mutationRuntime.batches.suspend();
       infrastructure.mutationRuntime.ordinaryCreate.suspend();
       infrastructure.mutationRuntime.coordinationCreate.suspend();
@@ -1041,6 +1046,12 @@ function WorkbookShellContent({
                                     owner={
                                       infrastructure.mutationRuntime
                                         .timelineRelatedEvidence
+                                    }
+                                  />
+                                  <NoteAssociationRecovery
+                                    owner={
+                                      infrastructure.mutationRuntime
+                                        .noteAssociations
                                     }
                                   />
                                   <NoteCreateRecovery

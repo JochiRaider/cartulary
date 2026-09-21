@@ -41,7 +41,10 @@ export function TaskPatchRecovery({
             !rows.some((visible) => visible.record_id === row.record_id);
           return (
             <div key={entry.id} style={entryStyle}>
-              <p role="status" style={{ margin: 0 }}>
+              <p
+                role={entry.failure ? undefined : "status"}
+                style={{ margin: 0 }}
+              >
                 {row
                   ? `Saved ${taskValue(row, "task.title") || "Task"}: ${taskValue(row, "task.status")}.`
                   : entry.phase === "coordinating"

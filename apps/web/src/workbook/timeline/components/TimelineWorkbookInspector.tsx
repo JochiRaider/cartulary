@@ -11,7 +11,9 @@ import type { ReactNode, RefCallback } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import { inspectorPanel } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
@@ -48,7 +50,9 @@ export function TimelineWorkbookInspector({
   selectedMention,
   selectedRow,
 }: {
-  readonly additionalDisabledReasons?: ReadonlyMap<string, string> | undefined;
+  readonly additionalDisabledReasons?:
+    | ReadonlyMap<string, WorkbookInspectorDisabledReason>
+    | undefined;
   readonly currentHistoryDeleted: boolean;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentClosed: boolean;
@@ -115,12 +119,13 @@ export function TimelineWorkbookInspector({
         })
       : null;
 
-  const withSupplement = (panelId: InspectorPanelId, content: ReactNode) => (
-    <>
-      {content}
-      {subject?.kind === "live" ? renderPanelSupplement(panelId) : null}
-    </>
-  );
+  const withSupplement = (panelId: InspectorPanelId, content: ReactNode) =>
+    inspectorPanel(
+      <>
+        {content}
+        {subject?.kind === "live" ? renderPanelSupplement(panelId) : null}
+      </>,
+    );
   const liveRow = subject?.kind === "live" ? selectedRow : null;
   const relationships =
     liveRow === null ? null : (
@@ -159,7 +164,7 @@ export function TimelineWorkbookInspector({
           }
         }}
         subject={subject}
-        contentByPanel={{
+        modelsByPanel={{
           details:
             liveRow === null
               ? undefined

@@ -22,6 +22,7 @@ const (
 	OperationPatch            OperationID = "workbook.records.patch"
 	OperationConflictResolve  OperationID = "workbook.records.conflicts.resolve"
 	OperationLinkedNoteCreate OperationID = "workbook.records.linked_notes.create"
+	OperationNoteAssociations OperationID = "workbook.records.note_associations.mutate"
 )
 
 type IdempotencyKey struct {
@@ -34,9 +35,10 @@ type IdempotencyKey struct {
 type StoredMutationKind string
 
 const (
-	StoredMutationCreate     StoredMutationKind = "create"
-	StoredMutationPatch      StoredMutationKind = "patch"
-	StoredMutationLinkedNote StoredMutationKind = "linked_note"
+	StoredMutationCreate           StoredMutationKind = "create"
+	StoredMutationPatch            StoredMutationKind = "patch"
+	StoredMutationLinkedNote       StoredMutationKind = "linked_note"
+	StoredMutationNoteAssociations StoredMutationKind = "note_associations"
 )
 
 type StoredMutationPayload struct {
@@ -71,9 +73,13 @@ func NewStoredLinkedNoteResult(result StoredMutationPayload) StoredMutationResul
 
 func (r StoredMutationResult) Kind() StoredMutationKind { return r.kind }
 
+func NewStoredNoteAssociationResult(result StoredMutationPayload) StoredMutationResult {
+	return StoredMutationResult{kind: StoredMutationNoteAssociations, workbook: cloneStoredMutationPayload(result)}
+}
+
 func (r StoredMutationResult) Payload() (StoredMutationPayload, bool) {
 	switch r.kind {
-	case StoredMutationCreate, StoredMutationPatch, StoredMutationLinkedNote:
+	case StoredMutationCreate, StoredMutationPatch, StoredMutationLinkedNote, StoredMutationNoteAssociations:
 		return cloneStoredMutationPayload(r.workbook), validStoredMutationPayload(r.kind, r.workbook)
 	default:
 		return StoredMutationPayload{}, false
@@ -82,6 +88,7 @@ func (r StoredMutationResult) Payload() (StoredMutationPayload, bool) {
 
 type IdempotencyCapability interface {
 	Get(context.Context, IdempotencyKey, []byte) (StoredMutationResult, bool, error)
+	GetTx(context.Context, pgx.Tx, IdempotencyKey, []byte) (StoredMutationResult, bool, error)
 	PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, StoredMutationResult) error
 }
 
@@ -100,6 +107,10 @@ func (f *MutationFacade) replayStoredMutation(
 	expectation storedMutationExpectation,
 ) (StoredMutationPayload, bool, error) {
 	existing, found, err := f.idempotency.Get(ctx, key, requestHash)
+	return validateStoredMutation(existing, found, err, operation, expectation)
+}
+
+func validateStoredMutation(existing StoredMutationResult, found bool, err error, operation string, expectation storedMutationExpectation) (StoredMutationPayload, bool, error) {
 	if err != nil {
 		return StoredMutationPayload{}, false, fmt.Errorf("query artifact %s idempotency: %w", operation, err)
 	}
@@ -120,10 +131,18 @@ func (f *MutationFacade) replayStoredMutation(
 
 func validStoredMutationPayload(kind StoredMutationKind, stored StoredMutationPayload) bool {
 	if stored.ViewSchemaID == "" || stored.IncidentID == uuid.Nil || stored.RecordID == uuid.Nil ||
-		stored.RowVersion < 1 || stored.ChangeSetID == nil || *stored.ChangeSetID == uuid.Nil || stored.Row == nil {
+		stored.RowVersion < 1 || stored.Row == nil {
+		return false
+	}
+	if stored.ChangeSetID == nil && kind != StoredMutationNoteAssociations {
+		return false
+	}
+	if stored.ChangeSetID != nil && *stored.ChangeSetID == uuid.Nil {
 		return false
 	}
 	switch kind {
+	case StoredMutationNoteAssociations:
+		return stored.ContextualLink == nil && stored.ViewSchemaID == NotesViewSchemaID
 	case StoredMutationCreate:
 		return stored.ContextualLink == nil || (isCoordinationView(stored.ViewSchemaID) && stored.ContextualLink.SourceRecordID != uuid.Nil && stored.ContextualLink.LinkType == "references_artifact")
 	case StoredMutationPatch:

@@ -10,6 +10,7 @@ import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateR
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import { inspectorPanel } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
@@ -23,6 +24,7 @@ export function EntityWorkbookInspector({
   config,
   currentIncidentRole,
   detailsContent,
+  evidenceContent,
   disabledTokens,
   feedbackTestId,
   history,
@@ -39,6 +41,7 @@ export function EntityWorkbookInspector({
   readonly config: ViewContract["inspectorConfig"];
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly detailsContent: ReactNode;
+  readonly evidenceContent: ReactNode;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
   readonly feedbackTestId: string;
   readonly history: {
@@ -73,20 +76,24 @@ export function EntityWorkbookInspector({
       related.begin(capability.featureGroup);
     }
   };
-  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) => (
-    <>
-      {content}
-      {subject?.kind === "live" &&
-      related.state?.featureGroup.panelId === panelId ? (
-        <InspectorCreateRelatedWorkflow
-          state={related.state}
-          onCancel={related.cancel}
-          onSubmit={() => void related.submit()}
-          onUpdateDraft={related.updateDraft}
-        />
-      ) : null}
-    </>
-  );
+  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) =>
+    inspectorPanel(
+      <>
+        {content}
+        {panelId === "workflow" ? (
+          <p>Choose an available action for this record.</p>
+        ) : null}
+        {subject?.kind === "live" &&
+        related.state?.featureGroup.panelId === panelId ? (
+          <InspectorCreateRelatedWorkflow
+            state={related.state}
+            onCancel={related.cancel}
+            onSubmit={() => void related.submit()}
+            onUpdateDraft={related.updateDraft}
+          />
+        ) : null}
+      </>,
+    );
   const relationshipFeedback =
     mergeFeedback === null ? null : (
       <div style={feedbackBlockStyle}>
@@ -113,22 +120,26 @@ export function EntityWorkbookInspector({
         currentIncidentRole={currentIncidentRole}
         disabledTokens={disabledTokens}
         subject={subject}
-        contentByPanel={{
+        modelsByPanel={{
+          evidence:
+            subject === null ? undefined : inspectorPanel(evidenceContent),
           details:
             subject === null
               ? undefined
               : panelContent("details", detailsContent),
           history:
-            subject === null ? undefined : (
-              <WorkbookInspectorRecordHistory
-                beginMutation={history.beginMutation}
-                actions={history.actions}
-                canMutate={history.canMutate}
-                commands={history.commands}
-                ownerEffects={history.effects}
-                subject={subject}
-              />
-            ),
+            subject === null
+              ? undefined
+              : inspectorPanel(
+                  <WorkbookInspectorRecordHistory
+                    beginMutation={history.beginMutation}
+                    actions={history.actions}
+                    canMutate={history.canMutate}
+                    commands={history.commands}
+                    ownerEffects={history.effects}
+                    subject={subject}
+                  />,
+                ),
           relationships:
             subject === null
               ? undefined

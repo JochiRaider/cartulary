@@ -43,16 +43,18 @@ export function WorkbookInspectorTechnicalDetails({
 
 export function WorkbookInspectorPublicError({
   error,
+  announce = true,
   testId,
 }: {
+  readonly announce?: boolean;
   readonly error: WorkbookInspectorErrorPresentation;
   readonly testId?: string | undefined;
 }) {
   return (
     <div
-      aria-live="assertive"
+      aria-live={announce ? "assertive" : undefined}
       data-testid={testId}
-      role="alert"
+      role={announce ? "alert" : undefined}
       style={publicErrorStyle}
     >
       <p style={messageStyle}>{error.primaryMessage}</p>

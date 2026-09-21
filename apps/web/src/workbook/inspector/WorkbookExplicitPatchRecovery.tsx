@@ -36,7 +36,7 @@ export function WorkbookExplicitPatchRecovery({
     >
       {entries.map((entry) => (
         <div key={entry.id}>
-          <p role="status" style={{ margin: 0 }}>
+          <p role={entry.failure ? undefined : "status"} style={{ margin: 0 }}>
             {genericInspectorRowLabel(contract, entry.intent.baseline)} —{" "}
             {entry.intent.changes
               .map(
@@ -59,6 +59,7 @@ export function WorkbookExplicitPatchRecovery({
           </p>
           {entry.failure ? (
             <WorkbookInspectorPublicError
+              announce={false}
               error={workbookInspectorErrorPresentation(entry.failure)}
             />
           ) : null}

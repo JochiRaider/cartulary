@@ -4,10 +4,11 @@ import {
   type InspectorFeatureGroup,
   requireViewContract,
 } from "@cartulary/view-contracts";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { inspectorContextualCapabilities } from "../inspectorCapabilityResolver";
+import { WorkbookInspectorContextualActions } from "../WorkbookInspectorContextualActions";
 import { WorkbookInspectorDeclaredPanelList } from "../WorkbookInspectorDeclaredPanelList";
 import {
   workbookInspectorErrorPresentation,
@@ -25,14 +26,19 @@ import {
   WorkbookInspectorFeedbackView,
   WorkbookInspectorPublicError,
 } from "./WorkbookInspectorFeedback";
+import { inspectorPanel } from "./WorkbookInspectorPanelContent";
 import {
   WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
 } from "./WorkbookInspectorShell";
 import {
   bindWorkbookInspectorAction,
+  ownerInspectorDisabledReason,
   workbookInspectorDisabledReason,
+  workbookInspectorDisabledReasonText,
 } from "./workbookInspectorPresentationModel";
+
+afterEach(cleanup);
 
 const hosts = requireViewContract("cartulary.view.hosts.v1");
 const relationshipsPanel = hosts.inspectorConfig.panels.find(
@@ -43,6 +49,126 @@ if (relationshipsPanel === undefined) {
 }
 
 describe("Workbook Inspector presentation", () => {
+  it("shares one permission explanation across affected actions", () => {
+    const capabilities = inspectorContextualCapabilities({
+      config: hosts.inspectorConfig,
+      panelId: "workflow",
+    });
+    render(
+      <WorkbookInspectorContextualActions
+        capabilities={capabilities}
+        config={hosts.inspectorConfig}
+        currentIncidentRole="viewer"
+        disabledTokens={new Set()}
+        onAction={vi.fn()}
+      />,
+    );
+    const actions = screen.getAllByRole("button") as HTMLButtonElement[];
+    expect(actions.length).toBeGreaterThan(1);
+    expect(actions.every((action) => action.disabled)).toBe(true);
+    const descriptions = new Set(
+      actions.map((action) => action.getAttribute("aria-describedby")),
+    );
+    expect(descriptions.size).toBe(1);
+    expect(descriptions.has(null)).toBe(false);
+    expect(
+      screen.getAllByText("Requires the editor incident role."),
+    ).toHaveLength(1);
+  });
+  it("keeps different causes distinct without changing action order or enabled actions", () => {
+    const capabilities = inspectorContextualCapabilities({
+      config: hosts.inspectorConfig,
+      panelId: "workflow",
+    });
+    const [first, second] = capabilities;
+    if (!first || !second) throw new Error("Missing workflow actions");
+    const reasons = new Map([
+      [
+        first.featureGroup.featureGroupKey,
+        ownerInspectorDisabledReason(
+          "test",
+          "first_cause",
+          "Wait for recovery.",
+        ),
+      ],
+      [
+        second.featureGroup.featureGroupKey,
+        ownerInspectorDisabledReason(
+          "test",
+          "second_cause",
+          "Wait for recovery.",
+        ),
+      ],
+    ]);
+    const { rerender } = render(
+      <WorkbookInspectorContextualActions
+        config={hosts.inspectorConfig}
+        capabilities={capabilities}
+        currentIncidentRole="editor"
+        disabledTokens={new Set()}
+        additionalDisabledReasons={reasons}
+        onAction={vi.fn()}
+      />,
+    );
+    const actions = screen.getAllByRole("button") as HTMLButtonElement[];
+    expect(actions.map((action) => action.textContent)).toEqual(
+      capabilities.map((capability) => capability.featureGroup.label),
+    );
+    expect(actions[0]?.getAttribute("aria-describedby")).not.toBe(
+      actions[1]?.getAttribute("aria-describedby"),
+    );
+    expect(screen.getAllByText("Wait for recovery.")).toHaveLength(2);
+    reasons.delete(second.featureGroup.featureGroupKey);
+    rerender(
+      <WorkbookInspectorContextualActions
+        config={hosts.inspectorConfig}
+        capabilities={capabilities}
+        currentIncidentRole="editor"
+        disabledTokens={new Set()}
+        additionalDisabledReasons={reasons}
+        onAction={vi.fn()}
+      />,
+    );
+    expect(actions[0]?.disabled).toBe(true);
+    expect(actions[1]?.disabled).toBe(false);
+    expect(actions[1]?.hasAttribute("aria-describedby")).toBe(false);
+  });
+  it("keeps record context and Close outside the scrolling section body", () => {
+    const label = "A long record label that remains available in full";
+    render(
+      <WorkbookInspectorShell
+        accessibleLabel="Hosts inspector"
+        config={hosts.inspectorConfig}
+        noRowHeading="Hosts inspector"
+        subject={buildWorkbookInspectorSubject({
+          config: hosts.inspectorConfig,
+          kind: "live",
+          label,
+          recordId: "host-a",
+          rowVersion: 3,
+          surfaceLabel: "Hosts",
+        })}
+        onClose={vi.fn()}
+      >
+        <button type="button">Last section action</button>
+      </WorkbookInspectorShell>,
+    );
+    const shell = screen.getByRole("complementary");
+    const body = shell.querySelector("[data-inspector-scroll-body]");
+    expect(body).not.toBeNull();
+    expect(
+      body?.contains(screen.getByRole("button", { name: "Close inspector" })),
+    ).toBe(false);
+    expect(body?.contains(screen.getByRole("heading", { name: label }))).toBe(
+      false,
+    );
+    expect(
+      body?.contains(
+        screen.getByRole("button", { name: "Last section action" }),
+      ),
+    ).toBe(true);
+    expect(body?.querySelector("details")?.textContent).toContain(label);
+  });
   it("validates one live or deleted subject boundary and rejects invalid identity", () => {
     const live = buildWorkbookInspectorSubject({
       config: hosts.inspectorConfig,
@@ -138,12 +264,12 @@ describe("Workbook Inspector presentation", () => {
     const { rerender } = render(
       <WorkbookInspectorDeclaredPanelList
         {...props}
-        contentByPanel={{
-          details: <p>Details content</p>,
-          evidence: <p>Evidence content</p>,
-          history: <p>History content</p>,
-          relationships: <p>Relationships content</p>,
-          workflow: <p>Workflow content</p>,
+        modelsByPanel={{
+          details: inspectorPanel(<p>Details content</p>),
+          evidence: inspectorPanel(<p>Evidence content</p>),
+          history: inspectorPanel(<p>History content</p>),
+          relationships: inspectorPanel(<p>Relationships content</p>),
+          workflow: inspectorPanel(<p>Workflow content</p>),
         }}
         subject={live}
       />,
@@ -157,7 +283,7 @@ describe("Workbook Inspector presentation", () => {
     rerender(
       <WorkbookInspectorDeclaredPanelList
         {...props}
-        contentByPanel={{ history: <p>History content</p> }}
+        modelsByPanel={{ history: inspectorPanel(<p>History content</p>) }}
         subject={deleted}
       />,
     );
@@ -170,7 +296,7 @@ describe("Workbook Inspector presentation", () => {
     rerender(
       <WorkbookInspectorDeclaredPanelList
         {...props}
-        contentByPanel={{ workflow: <p>Standalone creation</p> }}
+        modelsByPanel={{ workflow: inspectorPanel(<p>Standalone creation</p>) }}
         subject={null}
       />,
     );
@@ -302,14 +428,14 @@ describe("Workbook Inspector presentation", () => {
         featureGroup: merge,
         stateTokens: new Set(["row_version_changed"]),
       }),
-    ).toBe("Requires the reviewer incident role.");
+    ).toEqual({ kind: "minimum_role", role: "reviewer" });
     expect(
       workbookInspectorDisabledReason({
         currentIncidentRole: "reviewer",
         featureGroup: merge,
         stateTokens: new Set(["row_version_changed"]),
       }),
-    ).toBe("This row changed; refresh it before retrying.");
+    ).toEqual({ kind: "condition", condition: "row_version_changed" });
   });
 
   it.each([
@@ -348,13 +474,14 @@ describe("Workbook Inspector presentation", () => {
       disabledWhen: [token],
       minimumIncidentRole: null,
     } satisfies InspectorFeatureGroup;
-    expect(
-      workbookInspectorDisabledReason({
-        currentIncidentRole: "admin",
-        featureGroup,
-        stateTokens: new Set([token]),
-      }),
-    ).toBe(expected);
+    const reason = workbookInspectorDisabledReason({
+      currentIncidentRole: "admin",
+      featureGroup,
+      stateTokens: new Set([token]),
+    });
+    expect(reason).not.toBeNull();
+    if (reason)
+      expect(workbookInspectorDisabledReasonText(reason)).toBe(expected);
   });
 
   it("keeps a safe public code available in technical details", () => {

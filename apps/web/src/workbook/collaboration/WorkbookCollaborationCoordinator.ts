@@ -291,6 +291,10 @@ class WorkbookCollaborationCoordinatorRuntime {
         this.authorizationRecoveryMachine.authorizationConfirmed
       ) {
         this.options.mutationRuntime.noteCreate.observeSocket(event.message);
+        this.options.mutationRuntime.noteAssociations.observe(
+          event.message.payload.record_id,
+          event.message.payload.row_version,
+        );
         this.options.mutationRuntime.coordinationCreate.observeSocket(
           event.message,
         );

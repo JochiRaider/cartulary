@@ -879,6 +879,14 @@ browser storage.
 
 Design contract. Inspector height is the work-area height defined in §7.1, not the rendered grid-body height. Long inspector content MUST scroll inside the inspector panel without changing the inspector slot boundaries, grid height, or status-strip position.
 
+Design contract. A compact header containing record identity and `Close inspector`
+MUST remain visible above one scrolling content body. The visible title is limited
+to two lines; its accessible name retains the complete label. An expandable
+record-context block at the beginning of the body exposes the complete visible
+label without enlarging the header. Technical metadata belongs in the body. The
+resize separator remains attached to the outer slot. Focus reveal and section
+navigation MUST target the body scrollport and preserve §12.5 containment.
+
 Design contract. If the inspector opens as an overlay in a narrower viewport band, the grid behind the overlay MUST be inert to pointer and keyboard until the overlay closes.
 
 Design contract. Inspector action groups MUST render from declared `feature_group_key` values and stable owner metadata. Visible labels, icons, route helper names, component names, CSS selectors, storage names, and grid-vendor coordinates MUST NOT determine available inspector behavior.
@@ -1865,11 +1873,28 @@ Design contract. Destructive action controls MUST include destructive verb text.
 
 Design contract. Loading buttons MUST preserve their accessible name and add pending state. Disabled buttons MUST NOT submit actions.
 
+Design contract. Inspector action labels are concise authored feature metadata;
+feature identities and declared order remain unchanged. Within one action group,
+each identical typed disabled reason and parameter tuple MUST appear once, with
+every affected control referencing it through `aria-describedby`. Different
+reason identities MUST remain distinct even when wording matches. Existing
+reason precedence and required disabled-action discoverability remain intact.
+Shared inspector controls use the existing button, field-stack, message and
+spacing token contracts; feature-specific workflow behavior stays with its owner.
+
 ### 12.5 Inputs and editors
 
 Design contract. Grid editors MUST preserve visible cell context and row identity while editing. Editor chrome MUST NOT cover the entire grid unless the viewport band already uses overlay mode for inspector or preview.
 
 Design contract. Invalid editor state MUST show field-local message and accessible invalid state. It MUST NOT rely on red border alone.
+
+Design contract. Inspector validation MUST retain the canonical schema, record,
+field/action and captured authoring revision defined by Core 03 ordinary authoring
+lifetime. Only a matching mounted revision may expose its field failure through
+`aria-invalid` and `aria-describedby`. Editing that revision clears obsolete
+validation; submission revalidates. Unassociated failures appear beside their
+originating section action. Late results MUST NOT invalidate newer or unrelated
+authoring, change raw values, move the caret, or announce a failure twice.
 
 Design contract. Editor activation, rejection focus recovery, and keyboard focus
 within correction controls MUST reveal the actual mounted focused control. A
@@ -1901,6 +1926,18 @@ Design contract. Menu items that open nested UI MUST state that result in access
 Design contract. Inspector sections MUST render in active `inspector_config_v1.panels[]` order. When all current-profile panels are declared, that order is Details, Relationships, Evidence, History, Workflow.
 
 Design contract. Empty sections MUST show a concise empty state and, when the current user has an available create or link action under owner behavior, an action entry point. If no action is available, the empty state MUST say why no action is available.
+
+Design contract. Feature owners MUST supply explicit panel presentation models.
+Data state is `initial_loading`, `ready` (explicitly empty or populated),
+`refreshing` (retained content), `stale_failure` (retained content), or
+`unavailable` (no content). Access is independently `readable` with current action
+permissions or `concealed`; concealment suppresses protected content and feedback.
+Read-only access never implies empty data. Models carry semantic panel identity,
+typed notices and admitted commands. Shared presentation MUST NOT inspect React
+children to infer capability or own request, draft or mutation lifetimes. A
+missing required implementation is a coverage failure, not an empty result.
+These closed state values are projected through authored design contracts and
+generated facades; executable consumers MUST NOT read this document.
 
 ### 12.8 Empty states, messages, and dialogs
 

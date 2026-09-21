@@ -27,6 +27,30 @@ const (
 // boundary. Owner-local and caller-free entries are absent; new root exports
 // always require an explicit owner decision.
 var artifactRootExportClassifications = map[string]exportDisposition{
+	// Notes association composition, admission and receipts are owner-local public ports.
+	"AdmitNoteAssociations":                exportRetain,
+	"NewNoteAssociations":                  exportRetain,
+	"NewStoredNoteAssociationResult":       exportRetain,
+	"NoteAssociationAccess":                exportRetain,
+	"NoteAssociationAdmission":             exportRetain,
+	"NoteAssociationAdmission.ClientTxnID": exportRetain,
+	"NoteAssociationCommand":               exportRetain,
+	"NoteAssociationEvidence":              exportRetain,
+	"NoteAssociationItem":                  exportRetain,
+	"NoteAssociationKind":                  exportRetain,
+	"NoteAssociationLinks":                 exportRetain,
+	"NoteAssociationPage":                  exportRetain,
+	"NoteAssociationRead":                  exportRetain,
+	"NoteAssociationRelatedNote":           exportRetain,
+	"NoteAssociationRows":                  exportRetain,
+	"NoteAssociationSource":                exportRetain,
+	"NoteAssociations":                     exportRetain,
+	"NoteAssociations.Apply":               exportRetain,
+	"NoteAssociations.List":                exportRetain,
+	"OperationNoteAssociations":            exportRetain,
+	"ParseNoteAssociationKind":             exportRetain,
+	"StoredMutationNoteAssociations":       exportRetain,
+
 	"AdmissionError":                       exportRetain,
 	"AdmissionError.CollectionField":       exportRetain,
 	"AdmissionError.Error":                 exportRetain,

@@ -2,7 +2,7 @@
 
 package openapioperations
 
-const CanonicalSHA256 = "272324bc9d627eb3804469e017920d9432ac6cf4fc2536e26542c96dc99a64f2"
+const CanonicalSHA256 = "10295d772c7be41042188df56c9034fe160aae16f960ac9791fe2bf277531663"
 const DocumentVersion = "2.0.0"
 
 type Operation struct {
@@ -101,6 +101,8 @@ var catalog = []Operation{
 	{OwnerID: "module.jobapi", Method: "POST", PathTemplate: "/api/v1/jobs/{job_id}/cancel", Pattern: "POST /api/v1/jobs/{job_id}/cancel", OperationID: "cancelJob", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.evidence", Method: "POST", PathTemplate: "/api/v1/object-blobs", Pattern: "POST /api/v1/object-blobs", OperationID: "createObjectBlobSlot", Availability: "base", StateChanging: true, SuccessStatuses: []int{200, 201}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.evidence", Method: "PUT", PathTemplate: "/api/v1/object-uploads/{upload_token}", Pattern: "PUT /api/v1/object-uploads/{upload_token}", OperationID: "uploadObjectBlobContent", Availability: "base", StateChanging: true, SuccessStatuses: []int{204}, Security: [][]string{}},
+	{OwnerID: "module.workbook", Method: "GET", PathTemplate: "/api/v1/records/{note_record_id}/note-associations", Pattern: "GET /api/v1/records/{note_record_id}/note-associations", OperationID: "listNoteAssociations", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
+	{OwnerID: "module.workbook", Method: "POST", PathTemplate: "/api/v1/records/{note_record_id}/note-associations", Pattern: "POST /api/v1/records/{note_record_id}/note-associations", OperationID: "mutateNoteAssociations", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.revisions", Method: "DELETE", PathTemplate: "/api/v1/records/{record_id}", Pattern: "DELETE /api/v1/records/{record_id}", OperationID: "deleteRecord", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.workbook", Method: "PATCH", PathTemplate: "/api/v1/records/{record_id}", Pattern: "PATCH /api/v1/records/{record_id}", OperationID: "patchRecord", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.workbook", Method: "POST", PathTemplate: "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", Pattern: "POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", OperationID: "resolveRecordSameFieldConflict", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},

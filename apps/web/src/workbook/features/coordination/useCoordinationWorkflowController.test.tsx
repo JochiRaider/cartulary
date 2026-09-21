@@ -204,3 +204,44 @@ it("admits one selected Task editor with role gates and no confirmation", async 
       .matches(":disabled"),
   ).toBe(true);
 });
+
+it("binds Task server feedback to the captured draft and originating workflow", async () => {
+  const { result, mutation } = setup();
+  act(() => result.current.update("task.status", "in_progress"));
+  mutation.submitPatchMutation.mockImplementationOnce(
+    async (...args: unknown[]) => {
+      const request = args[0] as {
+        onFailure: (failure: {
+          kind: "validation";
+          message: string;
+          fields: { field: string; message: string }[];
+        }) => void;
+      };
+      request.onFailure({
+        kind: "validation",
+        message: "Rejected",
+        fields: [{ field: "task.status", message: "Status rejected" }],
+      });
+      return null as never;
+    },
+  );
+  await act(async () => result.current.submit());
+  expect(result.current.errors).toContainEqual({
+    field: "task.status",
+    message: "Status rejected",
+  });
+  expect(result.current.actionFailure).toBeNull();
+  act(() => result.current.update("task.status", "in_progress"));
+  expect(result.current.errors).toEqual([]);
+  mutation.submitPatchMutation.mockImplementationOnce(
+    async (...args: unknown[]) => {
+      const request = args[0] as {
+        onFailure: (failure: { kind: "validation"; message: string }) => void;
+      };
+      request.onFailure({ kind: "validation", message: "Operation rejected" });
+      return null as never;
+    },
+  );
+  await act(async () => result.current.submit());
+  expect(result.current.actionFailure?.message).toBe("Operation rejected");
+});

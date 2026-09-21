@@ -238,6 +238,18 @@ conflict classes, specialized workflow policy, and REQ-03-299/100 security
 lifetimes continue to apply. Retained work grants no authorization and adds no
 browser persistence, cross-account archive, or reload guarantee.
 
+Field feedback shares this canonical edit identity and captured authoring
+revision. An obsolete response MUST NOT invalidate another field or newer draft;
+changing the corresponding authoring revision retires its validation feedback.
+Design §12.5 owns placement and accessible presentation.
+
+Notes association attempts under Core 01 REQ-01-675 MUST use a narrowly scoped
+operation owner independent of Note-creation drafts. Captured transaction identity,
+request bytes, accepted receipts and uncertain recovery outlive inspector
+attachment under the existing account/incident security lifetimes. An acknowledged
+write followed by failed refresh permits read-only refresh recovery, never another
+write. Closing or retargeting the inspector cannot erase an accepted outcome.
+
 **REQ-03-015**
 `owner_user_id` MUST be present for `private` and `shared` saved views. It MAY be null only for `system` saved views.
 Profiles: base

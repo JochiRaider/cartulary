@@ -141,7 +141,7 @@ describe("WorkbookShell save-state status strip", () => {
     );
 
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "Auth queued" } });
+    fireEvent.input(input, { target: { value: "Auth queued" } });
     fireEvent.blur(input);
     await waitFor(() => {
       expect(

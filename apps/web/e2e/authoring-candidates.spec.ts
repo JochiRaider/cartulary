@@ -134,7 +134,7 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     )
     .click();
   const task = page.getByRole("region", {
-    name: "Create Related Task Request",
+    name: "Create task request",
     exact: true,
   });
   await task

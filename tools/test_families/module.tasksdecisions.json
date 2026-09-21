@@ -246,6 +246,7 @@
         "file": "apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.test.tsx",
         "titles": [
           "admits one selected Task editor with role gates and no confirmation",
+          "binds Task server feedback to the captured draft and originating workflow",
           "initializes Task lifecycle from its saved state",
           "makes late coordination outcomes inert after lifecycle invalidation",
           "preserves Task lifecycle coordination independently of Decision supersession",

@@ -49,22 +49,37 @@ export function timelineCaptureSubject(
   });
 }
 
+const timelineCaptureIneligibilityMessages = {
+  no_saved_record: "Select a visible saved Timeline row.",
+  already_superseded:
+    "This row is superseded. Use History rollback to correct it.",
+  already_reviewed: "This version is already reviewed.",
+  invalid_state: "The Timeline state is unavailable. Refresh before acting.",
+} as const;
+export type TimelineCaptureIneligibilityCause =
+  keyof typeof timelineCaptureIneligibilityMessages;
 export function timelineCaptureIneligibility(
   target: TimelineCaptureSubject | null,
   action: TimelineCaptureAction,
 ): string | null {
+  const cause = timelineCaptureIneligibilityCause(target, action);
+  return cause ? timelineCaptureIneligibilityMessages[cause] : null;
+}
+export function timelineCaptureIneligibilityCause(
+  target: TimelineCaptureSubject | null,
+  action: TimelineCaptureAction,
+): TimelineCaptureIneligibilityCause | null {
   if (
     !target?.recordId ||
     !Number.isSafeInteger(target.rowVersion) ||
     target.rowVersion < 1
   )
-    return "Select a visible saved Timeline row.";
-  if (target.captureState === "superseded")
-    return "This row is superseded. Use History rollback to correct it.";
+    return "no_saved_record";
+  if (target.captureState === "superseded") return "already_superseded";
   if (action === "mark-reviewed" && target.captureState === "reviewed")
-    return "This version is already reviewed.";
+    return "already_reviewed";
   if (!["rough", "enriched", "reviewed"].includes(target.captureState))
-    return "The Timeline state is unavailable. Refresh before acting.";
+    return "invalid_state";
   return null;
 }
 

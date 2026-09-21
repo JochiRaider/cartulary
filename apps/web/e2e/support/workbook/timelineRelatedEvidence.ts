@@ -52,7 +52,7 @@ export async function openTimelineEvidenceFixture(
     )
     .click();
   const form = page.getByRole("region", {
-    name: "Create Related Evidence",
+    name: "Create evidence",
     exact: true,
   });
   await expect(form).toBeVisible();

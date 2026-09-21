@@ -82,3 +82,21 @@ ordinary explicit attempt recovery reachable on its surface after inspector clos
 `useRetainedInspectorRow.ts` retains one authorized source independently of query
 window membership. An absent query member does not establish deletion. Authority
 changes retire the old source; newer committed evidence can update it off-window.
+
+## Explicit presentation and feedback
+
+Every live declared panel requires a feature-owned presentation model. Data state
+and access are independent: read-only content remains readable, while concealed
+panels expose neither content nor feedback. Shared rendering does not inspect
+React children to guess emptiness or dispatch requests. A missing contribution
+fails coverage instead of becoming an empty panel.
+
+`useWorkbookInspectorFieldFeedback.ts` captures canonical field/action identity,
+authoring revision and attachment with each attempt. Only matching authoring
+receives field feedback; unassociated failures stay beside the originating action.
+Changing raw text, null intent or reference selection retires obsolete feedback.
+The draft and mutation owners retain recovery independently of this presentation.
+
+Ordinary retained failure notices remain readable without another live-region
+announcement. The attached field or originating action announces the rejection;
+uncertain-operation and saved-refresh recovery retain their own status semantics.

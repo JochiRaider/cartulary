@@ -178,8 +178,8 @@ func validateViewInspectorRegistry(registry viewInspectorRegistry, label string)
 		if !ok || !containsString(keys, feature.FeatureGroupKey) {
 			return fmt.Errorf("%s is absent from view_feature_keys", featureLabel)
 		}
-		if feature.ActionKey != feature.FeatureGroupKey {
-			return fmt.Errorf("%s.action_key must equal feature_group_key", featureLabel)
+		if !isInspectorFeatureKey(feature.ActionKey) {
+			return fmt.Errorf("%s.action_key must be a semantic action identity", featureLabel)
 		}
 		if _, ok := excluded[feature.FeatureGroupKey]; !ok {
 			return fmt.Errorf("%s must be excluded from record patch", featureLabel)

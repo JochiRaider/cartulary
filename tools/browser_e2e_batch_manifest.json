@@ -917,6 +917,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-note-associations",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.inspector_collection_feedback",
+            "module.workbook.browser.inspector_local_feedback",
+            "module.workbook.browser.inspector_persistent_header",
+            "module.workbook.browser.note_associations"
+          ],
+          "specs": [
+            "apps/web/e2e/note-associations.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-parties-recovery",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2562,6 +2587,31 @@
           ],
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-note-associations",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.inspector_collection_feedback",
+            "module.workbook.browser.inspector_local_feedback",
+            "module.workbook.browser.inspector_persistent_header",
+            "module.workbook.browser.note_associations"
+          ],
+          "specs": [
+            "apps/web/e2e/note-associations.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

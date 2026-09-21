@@ -21,6 +21,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -47,15 +48,12 @@ import {
   useWorkbookInspectorEditDraft,
   type WorkbookInspectorEditDraft,
 } from "../../inspector/useWorkbookInspectorEditDraft";
+import { useWorkbookInspectorFieldFeedback } from "../../inspector/useWorkbookInspectorFieldFeedback";
 import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
 import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
 import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
-} from "../../inspector/workbookInspectorErrorModel";
-import {
-  workbookInspectorErrorPresentation,
-  workbookInspectorLocalErrorPresentation,
 } from "../../inspector/workbookInspectorErrorModel";
 import {
   buildWorkbookInspectorSubject,
@@ -158,8 +156,12 @@ export function useEntityWorkbookInspectorComposition({
           stateLabel: selectedEntity.state,
           surfaceLabel: contract.title,
         });
-  const { clearTimelinePreview, loadTimelinePreview, timelinePreviewRows } =
-    useEntityTimelinePreview({ entityType, viewQuery, onAuthorityUncertain });
+  const {
+    clearTimelinePreview,
+    loadTimelinePreview,
+    timelinePreviewRows,
+    timelinePreviewState,
+  } = useEntityTimelinePreview({ entityType, viewQuery, onAuthorityUncertain });
   const beginMutation = useCallback(
     () => mutationRuntime.beginExplicitMutation(),
     [mutationRuntime],
@@ -252,6 +254,9 @@ export function useEntityWorkbookInspectorComposition({
         if (mutationRuntime.explicitPatches.latestRow(row.recordId))
           mutationRuntime.explicitPatches.observeQuery(row.rawRow);
   }, [rows, mutationRuntime]);
+  const editFeedback = useWorkbookInspectorFieldFeedback(edit);
+  const aliasFeedback = useWorkbookInspectorFieldFeedback(aliasEdit);
+  const aliasRemoveFeedback = useWorkbookInspectorFieldFeedback(aliasRemove);
   const aliasDraft = aliasEdit.value ?? "";
   const setEditValue = edit.update;
   const setAliasDraft = aliasEdit.update;
@@ -298,8 +303,9 @@ export function useEntityWorkbookInspectorComposition({
       selectedEdit.row === null ||
       selectedEdit.field === null
     ) {
-      setMutationError(
-        workbookInspectorLocalErrorPresentation("invalid_mutation_payload"),
+      editFeedback.rejectLocal(
+        "Select an editable field before submitting.",
+        false,
       );
       return;
     }
@@ -310,12 +316,14 @@ export function useEntityWorkbookInspectorComposition({
       contract.viewSchemaId,
     );
     if (prepared.error) {
-      setMutationError(workbookInspectorLocalErrorPresentation(prepared.error));
+      editFeedback.rejectLocal(prepared.error);
       return;
     }
     if (!prepared.change) return;
     const change = prepared.change;
     const captured = edit.capture();
+    const onFailure = editFeedback.capture();
+    editFeedback.clear();
     setMutationError(null);
     const result = await mutationRuntime.explicitPatches.submit(
       {
@@ -343,14 +351,15 @@ export function useEntityWorkbookInspectorComposition({
         },
       ],
     );
-    if (result?.failure && edit.isCurrent(captured))
-      setMutationError(workbookInspectorErrorPresentation(result.failure));
+    if (result?.failure && edit.isCurrent(captured)) onFailure(result.failure);
   }
 
   async function submitAliasActions(actions: AliasAction[]) {
     const first = actions[0];
     if (!first || !selectedEntity) return;
     const editing = first.op === "add_alias" ? aliasEdit : aliasRemove;
+    const feedback =
+      first.op === "add_alias" ? aliasFeedback : aliasRemoveFeedback;
     if (!editing.canSubmit) return;
     const field = contract.fieldMap[`${entityType}.aliases`];
     if (!field?.patchWritable) return;
@@ -361,11 +370,13 @@ export function useEntityWorkbookInspectorComposition({
       contract.viewSchemaId,
     );
     if (prepared.error) {
-      setMutationError(workbookInspectorLocalErrorPresentation(prepared.error));
+      feedback.rejectLocal(prepared.error);
       return;
     }
     if (!prepared.change) return;
     const captured = editing.capture();
+    const onFailure = feedback.capture();
+    feedback.clear();
     const focusedControl = document.activeElement;
     const complete = () => {
       editing.complete(captured);
@@ -407,7 +418,7 @@ export function useEntityWorkbookInspectorComposition({
       ],
     );
     if (result?.failure && editing.isCurrent(captured))
-      setMutationError(workbookInspectorErrorPresentation(result.failure));
+      onFailure(result.failure);
   }
 
   const close = () => inspector.commands.close({ restoreFocus: true });
@@ -422,6 +433,9 @@ export function useEntityWorkbookInspectorComposition({
         editFieldKey,
         edit,
         aliasEdit,
+        editFeedback,
+        aliasFeedback,
+        aliasRemoveFeedback,
         aliasRemove,
         mutationError,
         mutationPending,
@@ -522,7 +536,11 @@ export function useEntityWorkbookInspectorComposition({
         rows,
         selectedEntity,
         setEntityActionFeedback,
-        timelinePreviewRows,
+        timelinePreviewRows:
+          timelinePreviewState.recordId === selectedEntity?.recordId
+            ? timelinePreviewRows
+            : [],
+        timelinePreviewState,
       }}
     />
   ) : undefined;
@@ -577,7 +595,7 @@ function EntityInspectorPresentation({
   readonly details: EntityDetailsProps;
   readonly inspector: Omit<
     EntityInspectorProps,
-    "detailsContent" | "relationshipsContent"
+    "detailsContent" | "relationshipsContent" | "evidenceContent"
   >;
   readonly isOpen: boolean;
   readonly relationships: EntityRelationshipsProps;
@@ -587,12 +605,28 @@ function EntityInspectorPresentation({
     <EntityWorkbookInspector
       {...inspector}
       detailsContent={<EntityDetails {...details} />}
+      evidenceContent={
+        <p>
+          Evidence linked to this{" "}
+          {details.selectedEntity?.entityType ?? "record"}:{" "}
+          {String(
+            details.selectedEntity?.rawRow.cells[
+              `${details.selectedEntity.entityType}.evidence_count`
+            ]?.value ?? "Unavailable",
+          )}
+        </p>
+      }
       relationshipsContent={<EntityRelationships {...relationships} />}
     />
   );
 }
 
 type EntityDetailsProps = {
+  readonly editFeedback: ReturnType<typeof useWorkbookInspectorFieldFeedback>;
+  readonly aliasFeedback: ReturnType<typeof useWorkbookInspectorFieldFeedback>;
+  readonly aliasRemoveFeedback: ReturnType<
+    typeof useWorkbookInspectorFieldFeedback
+  >;
   readonly aliasDraft: string;
   readonly aliasInputRef: RefObject<HTMLInputElement | null>;
   readonly contract: ViewContract;
@@ -629,6 +663,7 @@ function EntityDetails(props: EntityDetailsProps) {
 }
 
 function EntityEditCell(props: EntityDetailsProps) {
+  const feedbackId = useId();
   if (props.editableFields.length === 0 || props.rows.length === 0) return null;
   return (
     <section style={inspectorSectionStyle}>
@@ -652,12 +687,19 @@ function EntityEditCell(props: EntityDetailsProps) {
         </select>
         {props.selectedEdit.field ? (
           <WorkbookInspectorEditControl
+            invalid={props.editFeedback.message !== null}
+            describedBy={props.editFeedback.message ? feedbackId : undefined}
             edit={{ ...props.edit, update: props.setEditValue }}
             ariaLabel={props.selectedEdit.field.label}
             collectionMode="add"
             field={props.selectedEdit.field}
             testId={genericEditValueTestId(props.contract.viewSchemaId)}
           />
+        ) : null}
+        {props.editFeedback.message ? (
+          <p id={feedbackId} role="alert">
+            {props.editFeedback.message}
+          </p>
         ) : null}
         <button
           data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
@@ -674,6 +716,9 @@ function EntityEditCell(props: EntityDetailsProps) {
         contract={props.contract}
         row={props.selectedEntity?.rawRow ?? null}
       />
+      {props.editFeedback.actionError ? (
+        <WorkbookInspectorPublicError error={props.editFeedback.actionError} />
+      ) : null}
       {props.mutationError ? (
         <WorkbookInspectorPublicError error={props.mutationError} />
       ) : null}
@@ -682,6 +727,7 @@ function EntityEditCell(props: EntityDetailsProps) {
 }
 
 function EntityAliases(props: EntityDetailsProps) {
+  const feedbackId = useId();
   if (props.selectedEntity === null) return null;
   return (
     <section style={inspectorSectionStyle}>
@@ -718,6 +764,10 @@ function EntityAliases(props: EntityDetailsProps) {
             props.aliasEdit.controlRef.current = element;
           }}
           disabled={!props.aliasEdit.canEdit}
+          aria-invalid={props.aliasFeedback.message ? true : undefined}
+          aria-describedby={
+            props.aliasFeedback.message ? feedbackId : undefined
+          }
           aria-label="Alias text"
           maxLength={256}
           style={inputStyle}
@@ -741,11 +791,30 @@ function EntityAliases(props: EntityDetailsProps) {
           Add alias
         </button>
       </div>
+      {props.aliasFeedback.message ? (
+        <p id={feedbackId} role="alert">
+          {props.aliasFeedback.message}
+        </p>
+      ) : null}
+      {props.aliasFeedback.actionError ? (
+        <WorkbookInspectorPublicError error={props.aliasFeedback.actionError} />
+      ) : null}
+      {props.aliasRemoveFeedback.message ? (
+        <p role="alert">{props.aliasRemoveFeedback.message}</p>
+      ) : null}
+      {props.aliasRemoveFeedback.actionError ? (
+        <WorkbookInspectorPublicError
+          error={props.aliasRemoveFeedback.actionError}
+        />
+      ) : null}
     </section>
   );
 }
 
 type EntityRelationshipsProps = {
+  readonly timelinePreviewState: ReturnType<
+    typeof useEntityTimelinePreview
+  >["timelinePreviewState"];
   readonly canMerge: boolean;
   readonly entityIndex: Record<string, EntityRow>;
   readonly entityType: EntityRow["entityType"];
@@ -771,6 +840,23 @@ function EntityRelationships(props: EntityRelationshipsProps) {
         selectedEntity={props.selectedEntity}
         setEntityActionFeedback={props.setEntityActionFeedback}
       />
+      {props.timelinePreviewState.recordId !== props.selectedEntity.recordId ||
+      props.timelinePreviewState.state === "initial_loading" ? (
+        <p role="status">Loading Timeline preview…</p>
+      ) : null}
+      {props.timelinePreviewState.state === "refreshing" ? (
+        <p role="status">Refreshing Timeline preview…</p>
+      ) : null}
+      {props.timelinePreviewState.message ? (
+        <p role="alert">{props.timelinePreviewState.message}</p>
+      ) : null}
+      {props.timelinePreviewState.state === "ready" &&
+      props.timelinePreviewRows.length === 0 ? (
+        <p>
+          No matching records in the loaded Timeline window. This preview does
+          not establish that there are no relationships elsewhere.
+        </p>
+      ) : null}
       {props.timelinePreviewRows.length > 0 ? (
         <section style={inspectorSectionStyle}>
           <h3 style={sectionTitleStyle}>Dependent Timeline</h3>

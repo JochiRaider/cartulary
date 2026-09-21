@@ -9,8 +9,11 @@ import type {
   CreateRecordLinkedNoteResponse,
   CreateViewRowRequest,
   CreateViewRowResponse,
+  ListNoteAssociationsResponse,
   MergeEntityRecordRequest,
   MergeEntityRecordResponse,
+  MutateNoteAssociationsRequest,
+  MutateNoteAssociationsResponse,
   PasteWorkbookClipboardRequest,
   PatchRecordRequest,
   QueryWorkbookViewRequest,
@@ -53,3 +56,9 @@ export type WorkbookProtocolConflictResolutionReceipt =
 
 export type WorkbookProtocolBulkRequest = ApplyWorkbookBulkMutationRequest;
 export type WorkbookProtocolPasteRequest = PasteWorkbookClipboardRequest;
+
+export type WorkbookProtocolNoteAssociationsRequest =
+  MutateNoteAssociationsRequest;
+export type WorkbookProtocolNoteAssociationsReceipt =
+  MutateNoteAssociationsResponse;
+export type WorkbookProtocolNoteAssociationsPage = ListNoteAssociationsResponse;

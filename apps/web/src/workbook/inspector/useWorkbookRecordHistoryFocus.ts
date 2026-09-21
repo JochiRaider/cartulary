@@ -44,6 +44,7 @@ export function useWorkbookRecordHistoryFocus({
       const action = actionElementsRef.current.get(actionIdentity);
       if (historyFocusElementIsAvailable(action)) {
         action.focus({ preventScroll: true });
+        action.scrollIntoView?.({ block: "nearest", inline: "nearest" });
         return;
       }
       focusHistoryPanel(panelRef.current);
@@ -275,6 +276,7 @@ function registerHistoryActionElement(
 function focusHistoryPanel(panel: HTMLElement | null): void {
   if (historyFocusElementIsAvailable(panel)) {
     panel.focus({ preventScroll: true });
+    panel.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }
 }
 

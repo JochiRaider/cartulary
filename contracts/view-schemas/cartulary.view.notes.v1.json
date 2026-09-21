@@ -134,8 +134,9 @@
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read",
-          "owner": "current_row_projection"
+          "kind": "note_associations",
+          "owner": "note_associations_route",
+          "action_key": "relationships.read"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -152,8 +153,9 @@
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read",
-          "owner": "current_row_projection"
+          "kind": "note_associations",
+          "owner": "note_associations_route",
+          "action_key": "evidence"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -254,14 +256,14 @@
       {
         "feature_group_key": "artifact.source_links.manage",
         "panel_id": "relationships",
-        "label": "Artifact Source Links Manage",
+        "label": "Manage sources",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "record_patch",
-          "owner": "record_patch_route",
-          "action_key": "artifact.source_links.manage"
+          "kind": "note_associations",
+          "owner": "note_associations_route",
+          "action_key": "source"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -276,14 +278,14 @@
       {
         "feature_group_key": "artifact.evidence_refs.manage",
         "panel_id": "evidence",
-        "label": "Artifact Evidence Refs Manage",
+        "label": "Manage evidence",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "record_patch",
-          "owner": "record_patch_route",
-          "action_key": "artifact.evidence_refs.manage"
+          "kind": "note_associations",
+          "owner": "note_associations_route",
+          "action_key": "evidence"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -319,15 +321,15 @@
       },
       {
         "feature_group_key": "artifact.related_notes.manage",
-        "panel_id": "workflow",
-        "label": "Artifact Related Notes Manage",
+        "panel_id": "relationships",
+        "label": "Manage related notes",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "record_patch",
-          "owner": "record_patch_route",
-          "action_key": "artifact.related_notes.manage"
+          "kind": "note_associations",
+          "owner": "note_associations_route",
+          "action_key": "related_note"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -371,7 +373,7 @@
       {
         "feature_group_key": "create_related.task_request",
         "panel_id": "workflow",
-        "label": "Create Related Task Request",
+        "label": "Create task request",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -400,7 +402,7 @@
       {
         "feature_group_key": "create_related.decision",
         "panel_id": "workflow",
-        "label": "Create Related Decision",
+        "label": "Create decision",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,

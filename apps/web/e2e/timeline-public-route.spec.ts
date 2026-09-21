@@ -757,6 +757,17 @@ test(
           "timeline.activity_synopsis_text",
           "end-to-end.mutation-lifecycle.row-01 scalar, comma only",
         );
+        // Pasting into an active text editor remains local authoring until the
+        // user commits; a synthetic paste event has no browser default action.
+        await page
+          .getByTestId(
+            timelineScalarEditorTestId({
+              fieldKey: "timeline.activity_synopsis_text",
+              recordId: pasteSeed.record_id,
+              surface: "grid",
+            }),
+          )
+          .press("Tab");
         const scalarPatch = await scalarPatchResponse;
         expect(scalarPatch.ok()).toBeTruthy();
         expect(readPostBody(scalarPatch.request())).toMatchObject({

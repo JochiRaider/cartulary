@@ -1529,6 +1529,8 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 | `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings read | Singleton read; no body members | Read route | Returns the incident's `timeline_time_conversion_profile` resource, materialized with disabled defaults when absent | Ordinary authorization failures |
 | `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings mutation | Required `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label` | Ordinary optimistic concurrency through `base_profile_version`; no route idempotency key | Returns the committed `timeline_time_conversion_profile` resource | `invalid_mutation_payload`, `row_version_conflict` |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations` | View-scoped explicit bulk mutation batch | Required `view_schema_id`, `client_txn_id`, `kind`, and stable `targets[]`; record targets MUST identify active same-incident records for the addressed view; command-specific fields are owned by Core 03 §13.3 | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `200 OK` with batch result containing `view_schema_id`, optional `change_set_id`, `rows[]`, and ordered `conflicts[]` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict` |
+| `GET /api/v1/records/{note_record_id}/note-associations` | Notes association collection | Required `kind`; common pagination; REQ-01-675 | Read route; actor/incident/Note/kind-bound cursor | Current Note version and directional safe association items | `invalid_pagination_request`, `invalid_mutation_payload`, ordinary authorization and record-not-found failures |
+| `POST /api/v1/records/{note_record_id}/note-associations` | Notes association mutation | Required `kind`, `base_row_version`, `client_txn_id`, 1–64 ordered actions; REQ-01-675 | Keyed by route, actor, Note and transaction identity; exact receipt replay precedes version checks | `200 OK` retained Note row and optional change set, including no-op receipts | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, ordinary authorization failures |
 | `PATCH /api/v1/records/{record_id}` | Record-scoped partial field mutation | Required `view_schema_id`, `base_row_version`, `client_txn_id`, and non-empty `changes[]` | Keyed by `(actor_user_id, record_id, client_txn_id)`; exact replay wins before fresh optimistic-concurrency evaluation | `200 OK` with original committed row refresh on success or exact replay | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `same_field_conflict` |
 | `POST /api/v1/records/{record_id}/mark-reviewed` | Timeline capture-state action | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with updated lifecycle state summary | `client_txn_conflict`, `row_version_conflict`, `illegal_transition`, `record_deleted_use_restore` |
 | `POST /api/v1/records/{record_id}/supersede` | Timeline capture-state action or Decision supersession action, selected by authoritative `records.record_type` | Required `base_row_version`, `client_txn_id`, non-empty `reason`; Timeline target optional `replacement_record_id`; Decision target required `replacement_record_id` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with either the Timeline lifecycle summary or the Decision supersession summary for the selected target type | `client_txn_conflict`, `row_version_conflict`, `illegal_transition`, `record_deleted_use_restore` |
@@ -5046,6 +5048,7 @@ The closed `route_binding.kind` vocabulary is:
 | `surface_pivot` | Navigate within the same workbook shell to another `sheet_ref` with a seeded query over stable `field_key` filters. |
 | `indicator_observations` | Read or mutate source-bound Indicator observations through the dedicated observation child-resource route family. |
 | `indicator_lifecycle` | Read or append canonical Indicator lifecycle intervals through the dedicated lifecycle child-resource route family. |
+| `note_associations` | Read or manage Notes associations through REQ-01-675. |
 
 The closed `route_binding.owner` vocabulary is:
 
@@ -5055,6 +5058,7 @@ The closed `route_binding.owner` vocabulary is:
 | `view_query_route` | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`. |
 | `view_row_create_route` | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. |
 | `record_linked_note_create_route` | `POST /api/v1/records/{record_id}/linked-notes`; atomically create one Notes artifact and its source association. |
+| `note_associations_route` | `GET` and `POST /api/v1/records/{note_record_id}/note-associations`; REQ-01-675. |
 | `record_patch_route` | `PATCH /api/v1/records/{record_id}`. |
 | `record_mark_reviewed_route` | `POST /api/v1/records/{record_id}/mark-reviewed`. |
 | `record_supersede_route` | `POST /api/v1/records/{record_id}/supersede`. |
@@ -6065,6 +6069,77 @@ Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-
 
 **REQ-01-330**
 `note.tags` MUST use the same `collection_value_v1` item shape and `collection_actions_v1` action vocabulary as `timeline.tags`, except the active `field_key` is `note.tags`.
+Profiles: base
+Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-231
+
+#### 7.4.5A Notes associations
+
+**REQ-01-675**
+Artifacts owns Notes association semantics and orchestration; Links owns canonical
+relationship storage and revision contributions. Workbook composes the public
+resource `GET|POST /api/v1/records/{note_record_id}/note-associations` without
+owning Note business logic. This resource supplements, and does not extend, the
+exhaustive writable field registry in REQ-01-329. `note.tags` remains ordinary
+PATCH. Existing atomic linked-note creation and source-record query pivots remain.
+
+| `kind` | Canonical null-field relationship | Eligible counterpart |
+| --- | --- | --- |
+| `source` | Source → Note, `references_artifact` | Timeline, Host, Identity, Evidence |
+| `evidence` | Note → Evidence, `attached_evidence` | Evidence |
+| `related_note` | Note → Note, `references_artifact` | Another Note |
+
+All bindings MUST use `field_key=null`; existing contextual links, link IDs,
+provenance, historical revisions and receipts MUST remain valid without backfill
+or rewriting. Core 02 relationship and revision rules continue to apply.
+
+GET requires `kind` and accepts only the common `limit` and `cursor_token`
+pagination members in addition. Apply §3.3.7 (default 100, maximum 500), renew
+authorization on each page, and order by creation time descending then stable
+link identity descending. Bind opaque server cursors to actor, incident, Note,
+kind, ordering and effective limit. Return the current Note identity/version and
+items containing opaque `item_ref`, counterpart record identity, canonical
+`view_schema_id`, safe display label and direction. Related-note reads distinguish
+outgoing references from incoming `Referenced by` entries. Incoming entries
+navigate to the referring Note; mutation from the current Note manages outgoing
+references only. Lists load asynchronously; inspector metadata does not wait for
+complete lists or retrieve evidence bytes.
+
+POST accepts `kind`, `base_row_version`, `client_txn_id`, and an ordered `actions`
+array of 1–64 entries. Each action is exactly either `add` with
+`counterpart_record_id` or `remove` with a returned opaque `item_ref`. The server
+derives endpoints, link type and storage binding. Reject client routing metadata,
+self-links, wrong-kind, foreign-incident or deleted counterparts, and invalid
+removal references using existing public error families and registered reason
+codes. Target validation MUST preserve Core 04 concealment. Current editor
+authority and an open incident are required for a fresh mutation. An exact retained
+receipt may be replayed after closure under current editor authority; replay is
+not a fresh write. Recheck mutable authority and state
+inside the transaction and lock affected records in deterministic order.
+
+Apply all actions atomically. Duplicate existing adds are successful no-ops and
+preserve existing provenance. Invalid removals reject the entire request. Use
+ordinary optimistic concurrency for the Note. Return a retained mutation receipt
+with the current Note row and change-set identity when changes occurred. Persist
+no-op receipts too. Exact replay returns the original receipt before fresh version
+evaluation and creates no additional effects. Source owners update affected
+projections/versions and Collaboration effects; Links contributes revision facts.
+History rollback, export/import and projection rebuild preserve canonical identity
+and counts. Add bounded incoming/outgoing lookup indexes without rewriting data.
+
+For Notes, source and related-note management belong in Relationships; evidence
+management belongs in Evidence.
+
+For Notes, `artifact.source_links.manage`, `artifact.evidence_refs.manage`, and
+`artifact.related_notes.manage` override the `*.manage` defaults in §7.4.1A with
+kind `note_associations`, owner `note_associations_route`, and action keys `source`,
+`evidence`, and `related_note`, respectively. These panel placements override the
+defaults; preserve editor minimum role,
+mutation/confirmation and success/failure policies. Notes `relationships.read`
+and `evidence.read` use this owner with read-only policy. Other current-profile
+bindings remain unchanged. Unsupported bindings follow existing client omission
+behavior; no compatibility PATCH adapter is defined for these formerly
+unimplemented capabilities.
+
 Profiles: base
 Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-231
 

@@ -4025,9 +4025,9 @@ async function expectWorkbookIndependentScroll(
         inspectorSlotSelector,
       );
       const inspectorPanel =
-        inspectorSlot?.firstElementChild instanceof HTMLElement
-          ? inspectorSlot.firstElementChild
-          : null;
+        inspectorSlot?.querySelector<HTMLElement>(
+          "[data-inspector-scroll-body]",
+        ) ?? null;
       if (
         gridShell === null ||
         inspectorSlot === null ||

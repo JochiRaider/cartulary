@@ -217,9 +217,13 @@ export function createTimelineMutationDriver(
   const settleCompletionCallbacks = (
     unitId: string,
     outcome: GridEditCommitOutcome,
+    retainForRecovery = false,
   ) => {
     const callbacks = completionCallbacksRef.current.get(unitId) ?? [];
-    completionCallbacksRef.current.delete(unitId);
+    // A halted request still belongs to its operation owner. Keep its command
+    // settlement observers until Retry or Discard resolves that same unit, so
+    // an attached editor cannot keep returning an obsolete rejection forever.
+    if (!retainForRecovery) completionCallbacksRef.current.delete(unitId);
     for (const callback of callbacks)
       callback.run(
         outcome.kind === "accepted" && callback.superseded
@@ -279,6 +283,7 @@ export function createTimelineMutationDriver(
   const enqueuePendingReplayUnit = (
     unit: TimelinePendingReplayAdmission,
     onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
+    onAdmissionRefused?: (() => void) | undefined,
   ) => {
     const pending = pendingSavesRefs.pendingQueueRef.current;
     const {
@@ -333,6 +338,7 @@ export function createTimelineMutationDriver(
       return;
     }
     if (admission.status === "refused") {
+      onAdmissionRefused?.();
       onSettled?.({
         kind: "rejected_mutation",
         message: "The pending edit queue rejected this mutation.",
@@ -652,7 +658,11 @@ export function createTimelineMutationDriver(
       setMutationError(
         plan.kind === "invalid_settlement" ? plan.message : failure.message,
       );
-    settleCompletionCallbacks(unit.id, gridOutcomeForFailure(failure));
+    settleCompletionCallbacks(
+      unit.id,
+      gridOutcomeForFailure(failure),
+      plan.kind === "halt",
+    );
     publishPendingQueueState();
   };
 

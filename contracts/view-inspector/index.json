@@ -20,7 +20,8 @@
       "evidence_access",
       "surface_pivot",
       "indicator_observations",
-      "indicator_lifecycle"
+      "indicator_lifecycle",
+      "note_associations"
     ],
     "route_owners": [
       "current_row_projection",
@@ -40,7 +41,8 @@
       "indicator_lifecycle_route",
       "evidence_attach_blob_route",
       "evidence_preview_handle_route",
-      "evidence_download_handle_route"
+      "evidence_download_handle_route",
+      "note_associations_route"
     ],
     "incident_roles": [
       "viewer",
@@ -526,6 +528,100 @@
       ],
       "success_result_behavior": "preserve_selected_row",
       "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+    },
+    {
+      "feature_group_key": "relationships.read",
+      "panel_id": "relationships",
+      "minimum_incident_role": null,
+      "mutates": false,
+      "requires_confirmation": false,
+      "seed_bindings": [],
+      "disabled_when": [
+        "no_row_selected"
+      ],
+      "success_result_behavior": "preserve_selected_row",
+      "failure_result_behavior": "show_same_shell_error_preserve_selection",
+      "view_schema_id": "cartulary.view.notes.v1",
+      "route_binding_kind": "note_associations",
+      "route_binding_owner": "note_associations_route",
+      "action_key": "relationships.read"
+    },
+    {
+      "feature_group_key": "evidence.read",
+      "panel_id": "evidence",
+      "minimum_incident_role": null,
+      "mutates": false,
+      "requires_confirmation": false,
+      "seed_bindings": [],
+      "disabled_when": [
+        "no_row_selected"
+      ],
+      "success_result_behavior": "preserve_selected_row",
+      "failure_result_behavior": "show_same_shell_error_preserve_selection",
+      "view_schema_id": "cartulary.view.notes.v1",
+      "route_binding_kind": "note_associations",
+      "route_binding_owner": "note_associations_route",
+      "action_key": "evidence"
+    },
+    {
+      "feature_group_key": "artifact.source_links.manage",
+      "panel_id": "relationships",
+      "minimum_incident_role": "editor",
+      "mutates": true,
+      "requires_confirmation": false,
+      "seed_bindings": [],
+      "disabled_when": [
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed"
+      ],
+      "success_result_behavior": "preserve_selected_row",
+      "failure_result_behavior": "show_same_shell_error_invalidate_pending_action",
+      "view_schema_id": "cartulary.view.notes.v1",
+      "route_binding_kind": "note_associations",
+      "route_binding_owner": "note_associations_route",
+      "action_key": "source"
+    },
+    {
+      "feature_group_key": "artifact.evidence_refs.manage",
+      "panel_id": "evidence",
+      "minimum_incident_role": "editor",
+      "mutates": true,
+      "requires_confirmation": false,
+      "seed_bindings": [],
+      "disabled_when": [
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed"
+      ],
+      "success_result_behavior": "preserve_selected_row",
+      "failure_result_behavior": "show_same_shell_error_invalidate_pending_action",
+      "view_schema_id": "cartulary.view.notes.v1",
+      "route_binding_kind": "note_associations",
+      "route_binding_owner": "note_associations_route",
+      "action_key": "evidence"
+    },
+    {
+      "feature_group_key": "artifact.related_notes.manage",
+      "panel_id": "relationships",
+      "minimum_incident_role": "editor",
+      "mutates": true,
+      "requires_confirmation": false,
+      "seed_bindings": [],
+      "disabled_when": [
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed"
+      ],
+      "success_result_behavior": "preserve_selected_row",
+      "failure_result_behavior": "show_same_shell_error_invalidate_pending_action",
+      "view_schema_id": "cartulary.view.notes.v1",
+      "route_binding_kind": "note_associations",
+      "route_binding_owner": "note_associations_route",
+      "action_key": "related_note"
     }
   ],
   "resolution_policy": {
@@ -535,7 +631,12 @@
       "indicator.observations.pivot",
       "indicator.lifecycle.read",
       "indicator.lifecycle.manage",
-      "create_related.note"
+      "create_related.note",
+      "relationships.read",
+      "evidence.read",
+      "artifact.source_links.manage",
+      "artifact.evidence_refs.manage",
+      "artifact.related_notes.manage"
     ]
   }
 }

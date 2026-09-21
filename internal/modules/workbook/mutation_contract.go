@@ -25,6 +25,7 @@ const (
 	MutationFailureClientTxnConflict         MutationFailureKind = "client_txn_conflict"
 	MutationFailureIncidentClosed            MutationFailureKind = "incident_closed"
 	MutationFailureTargetNotFound            MutationFailureKind = "target_not_found"
+	MutationFailureAuthorizationDenied       MutationFailureKind = "authorization_denied"
 	MutationFailureRecordDeleted             MutationFailureKind = "record_deleted"
 	MutationFailureRowVersionConflict        MutationFailureKind = "row_version_conflict"
 	MutationFailureSameFieldConflict         MutationFailureKind = "same_field_conflict"
@@ -216,6 +217,10 @@ func IncidentClosedFailure() *MutationFailure {
 
 func TargetNotFoundFailure() *MutationFailure {
 	return &MutationFailure{kind: MutationFailureTargetNotFound}
+}
+
+func AuthorizationDeniedFailure() *MutationFailure {
+	return &MutationFailure{kind: MutationFailureAuthorizationDenied}
 }
 
 func RecordDeletedFailure() *MutationFailure {
@@ -432,6 +437,8 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 		return incidentClosedError()
 	case MutationFailureTargetNotFound:
 		return incidentNotFoundError()
+	case MutationFailureAuthorizationDenied:
+		return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": "editor|reviewer|admin"}}
 	case MutationFailureRecordDeleted:
 		return &httpapi.APIError{
 			Status: http.StatusConflict, Code: "record_deleted_use_restore",

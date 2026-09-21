@@ -1,4 +1,5 @@
 import {
+  cartularyDesignPresentation,
   workbookInspectorCloseButtonTestId,
   workbookInspectorPanelTestId,
 } from "@cartulary/ui-contracts";
@@ -91,14 +92,22 @@ export function WorkbookInspectorShell({
           <RecordContext subject={subject} />
         )}
       </header>
-      {children}
-      {subject === null ? null : (
-        <section aria-label="Record technical metadata" style={metadataStyle}>
-          <WorkbookInspectorTechnicalDetails
-            fields={subjectTechnicalFields(subject)}
-          />
-        </section>
-      )}
+      <div data-inspector-scroll-body style={bodyStyle}>
+        {subject ? (
+          <details>
+            <summary>Record context</summary>
+            <p style={fullLabelStyle}>{subject.label}</p>
+          </details>
+        ) : null}
+        {children}
+        {subject === null ? null : (
+          <section aria-label="Record technical metadata" style={metadataStyle}>
+            <WorkbookInspectorTechnicalDetails
+              fields={subjectTechnicalFields(subject)}
+            />
+          </section>
+        )}
+      </div>
     </aside>
   );
 }
@@ -154,10 +163,28 @@ function subjectTechnicalFields(
 const shellStyle = {
   ...workbookSurfaceInspectorPanelStyle,
   display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  overflow: "hidden",
+  padding: 0,
+} satisfies CSSProperties;
+const bodyStyle = {
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "auto",
+  overflowAnchor: "none",
+  display: "grid",
   alignContent: "start",
   gap: "var(--ct-spacing-sm)",
+  padding: "var(--ct-spacing-panel-padding)",
+  scrollPaddingBlock: "var(--ct-spacing-sm)",
+} satisfies CSSProperties;
+const fullLabelStyle = {
+  marginBlockEnd: 0,
+  overflowWrap: "anywhere",
 } satisfies CSSProperties;
 const headerStyle = {
+  padding: "var(--ct-spacing-panel-padding)",
+  borderBlockEnd: "var(--ct-border-hairline)",
   display: "grid",
   gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
@@ -176,10 +203,15 @@ const eyebrowStyle = {
   textTransform: "uppercase" as const,
 } satisfies CSSProperties;
 const titleStyle = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: cartularyDesignPresentation.inspector.headerTitleLines,
+  overflow: "hidden",
   margin: 0,
   overflowWrap: "anywhere" as const,
 } satisfies CSSProperties;
 const closeButtonStyle = {
+  flexShrink: 0,
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
   background: "transparent",

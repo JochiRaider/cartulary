@@ -157,6 +157,7 @@ The following decisions resolve overloaded or easily-confused language for curre
 | Issue | Canonical interpretation | Forbidden interpretation | Primary owner |
 | --- | --- | --- | --- |
 | `artifact` versus Notes | `artifact` is the structured text object family. Notes is one workbook surface backed by `artifact_type='note'`. | Treating `artifact` as a synonym for the Notes tab or as binary evidence. | Core 02 §2, §10.4.4A; Core 01 §7.4 |
+| Note association | A Note's source, attached evidence, or directional reference to another Note. | A new writable Note field or a second relationship store. | Core 01 REQ-01-675; Core 02 §12 |
 | `party` versus user | `party` is an incident-scoped coordination identity. A user is a deployment-local login and attribution identity. | Treating `party_id`, `user_id`, email text, auth subject, or incident membership as interchangeable. | Core 02 §19; Core 04 §2 |
 | `identity` versus party | `identity` is a host/account/persona investigation entity. `party` is a coordination stakeholder identity. | Using identities to model requesters, audiences, attendees, or collectors when the domain needs party references. | Core 02 §2, §19 |
 | `system view` versus `required system view` | `system view` is the non-built-in workbook-surface kind `surface_kind='system_view'`. `required system view` is a `surface_status` subset. | Treating every `surface_kind='system_view'` row as Base Profile required. | Core 01 §7.4; Core 03 §2.2 |

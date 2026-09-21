@@ -29,15 +29,18 @@ type artifactIdempotency struct {
 	records *records.Store
 }
 
-func (a artifactIdempotency) Get(
-	ctx context.Context,
-	key artifacts.IdempotencyKey,
-	requestHash []byte,
-) (artifacts.StoredMutationResult, bool, error) {
-	record, err := a.store.GetRouteIdempotency(ctx, authn.RouteIdempotencyKey{
-		RouteKey: string(key.OperationID), ActorUserID: key.ActorUserID,
-		ScopeKey: key.ScopeKey, ClientTxnID: key.ClientTxnID,
-	})
+func (a artifactIdempotency) Get(ctx context.Context, key artifacts.IdempotencyKey, requestHash []byte) (artifacts.StoredMutationResult, bool, error) {
+	record, err := a.store.GetRouteIdempotency(ctx, artifactRouteKey(key))
+	return decodeArtifactIdempotency(key, requestHash, record, err, func(id uuid.UUID) (records.Envelope, error) { return a.records.LoadEnvelope(ctx, id) })
+}
+func (a artifactIdempotency) GetTx(ctx context.Context, tx pgx.Tx, key artifacts.IdempotencyKey, requestHash []byte) (artifacts.StoredMutationResult, bool, error) {
+	record, err := authn.GetRouteIdempotencyTx(ctx, tx, artifactRouteKey(key))
+	return decodeArtifactIdempotency(key, requestHash, record, err, func(id uuid.UUID) (records.Envelope, error) { return a.records.LoadEnvelopeTx(ctx, tx, id, false) })
+}
+func artifactRouteKey(key artifacts.IdempotencyKey) authn.RouteIdempotencyKey {
+	return authn.RouteIdempotencyKey{RouteKey: string(key.OperationID), ActorUserID: key.ActorUserID, ScopeKey: key.ScopeKey, ClientTxnID: key.ClientTxnID}
+}
+func decodeArtifactIdempotency(key artifacts.IdempotencyKey, requestHash []byte, record authn.RouteIdempotencyRecord, err error, loadEnvelope func(uuid.UUID) (records.Envelope, error)) (artifacts.StoredMutationResult, bool, error) {
 	if errors.Is(err, authn.ErrNotFound) {
 		return artifacts.StoredMutationResult{}, false, nil
 	}
@@ -58,7 +61,7 @@ func (a artifactIdempotency) Get(
 	if err != nil {
 		return artifacts.StoredMutationResult{}, false, fmt.Errorf("decode Artifacts stored record identity: %w", err)
 	}
-	envelope, err := a.records.LoadEnvelope(ctx, recordID)
+	envelope, err := loadEnvelope(recordID)
 	if err != nil {
 		return artifacts.StoredMutationResult{}, false, fmt.Errorf("load Artifacts stored record envelope: %w", err)
 	}
@@ -110,6 +113,8 @@ func artifactStoredKindForOperation(operationID artifacts.OperationID) (artifact
 		return artifacts.StoredMutationPatch, true
 	case artifacts.OperationLinkedNoteCreate:
 		return artifacts.StoredMutationLinkedNote, true
+	case artifacts.OperationNoteAssociations:
+		return artifacts.StoredMutationNoteAssociations, true
 	default:
 		return "", false
 	}
@@ -139,9 +144,15 @@ func decodeArtifactStoredResult(
 	if err != nil {
 		return artifacts.StoredMutationResult{}, err
 	}
-	changeSetID, err := artifactPayloadUUID(payload, "change_set_id")
-	if err != nil {
-		return artifacts.StoredMutationResult{}, err
+	var changeSetID *uuid.UUID
+	if _, present := payload["change_set_id"]; present {
+		id, err := artifactPayloadUUID(payload, "change_set_id")
+		if err != nil {
+			return artifacts.StoredMutationResult{}, err
+		}
+		changeSetID = &id
+	} else if kind != artifacts.StoredMutationNoteAssociations {
+		return artifacts.StoredMutationResult{}, artifacts.ErrStoredMutationKindMismatch
 	}
 	rowVersion, err := artifactPayloadPositiveInt64(row, "row_version")
 	if err != nil {
@@ -149,7 +160,7 @@ func decodeArtifactStoredResult(
 	}
 	stored := artifacts.StoredMutationPayload{
 		ViewSchemaID: viewSchemaID, IncidentID: incidentID, RecordID: recordID,
-		RowVersion: rowVersion, ChangeSetID: &changeSetID, Row: row,
+		RowVersion: rowVersion, ChangeSetID: changeSetID, Row: row,
 	}
 	if _, linked := payload["source_record_id"]; linked {
 		sourceRecordID, err := artifactPayloadUUID(payload, "source_record_id")
@@ -170,6 +181,8 @@ func decodeArtifactStoredResult(
 		result = artifacts.NewStoredPatchResult(stored)
 	case artifacts.StoredMutationLinkedNote:
 		result = artifacts.NewStoredLinkedNoteResult(stored)
+	case artifacts.StoredMutationNoteAssociations:
+		result = artifacts.NewStoredNoteAssociationResult(stored)
 	default:
 		return artifacts.StoredMutationResult{}, artifacts.ErrStoredMutationKindMismatch
 	}
@@ -191,14 +204,15 @@ func artifactStoredRecordID(data []byte) (uuid.UUID, error) {
 
 func encodeArtifactStoredResult(result artifacts.StoredMutationResult) (map[string]any, error) {
 	stored, ok := result.Payload()
-	if !ok || stored.IncidentID == uuid.Nil || stored.RecordID == uuid.Nil || stored.RowVersion < 1 ||
-		stored.ChangeSetID == nil || *stored.ChangeSetID == uuid.Nil || stored.Row == nil {
+	if !ok || stored.IncidentID == uuid.Nil || stored.RecordID == uuid.Nil || stored.RowVersion < 1 || stored.Row == nil {
 		return nil, artifacts.ErrStoredMutationKindMismatch
 	}
 	payload := map[string]any{
 		"view_schema_id": stored.ViewSchemaID,
-		"change_set_id":  stored.ChangeSetID.String(),
 		"row":            stored.Row,
+	}
+	if stored.ChangeSetID != nil {
+		payload["change_set_id"] = stored.ChangeSetID.String()
 	}
 	if result.Kind() == artifacts.StoredMutationLinkedNote || (result.Kind() == artifacts.StoredMutationCreate && stored.ContextualLink != nil) {
 		if stored.ContextualLink == nil || stored.ContextualLink.SourceRecordID == uuid.Nil ||
@@ -216,6 +230,11 @@ func encodeArtifactStoredResult(result artifacts.StoredMutationResult) (map[stri
 func artifactStoredPayloadKeysMatch(kind artifacts.StoredMutationKind, payload map[string]any) bool {
 	expected := map[string]struct{}{
 		"view_schema_id": {}, "change_set_id": {}, "row": {},
+	}
+	if kind == artifacts.StoredMutationNoteAssociations {
+		if _, present := payload["change_set_id"]; !present {
+			delete(expected, "change_set_id")
+		}
 	}
 	_, hasSource := payload["source_record_id"]
 	if kind == artifacts.StoredMutationLinkedNote || (kind == artifacts.StoredMutationCreate && hasSource) {

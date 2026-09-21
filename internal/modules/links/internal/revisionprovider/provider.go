@@ -355,6 +355,18 @@ func recordLinkChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, target rollbac
 			return nil, err
 		}
 		keys := []string{}
+		if recordType == "artifact" {
+			var isNote bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM artifacts WHERE record_id=$1 AND artifact_type='note')`, recordID).Scan(&isNote); err != nil {
+				return nil, err
+			}
+			if isNote && (recordID == parsed.SrcRecordID || parsed.LinkType == "references_artifact") {
+				keys = append(keys, "note.linked_record_count")
+			}
+		}
+		if recordType == "evidence" {
+			keys = append(keys, "evidence.linked_record_count")
+		}
 		switch {
 		case parsed.LinkType == "attached_evidence" && recordID == parsed.SrcRecordID:
 			switch recordType {
@@ -365,8 +377,6 @@ func recordLinkChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, target rollbac
 			case "identity":
 				keys = append(keys, "identity.evidence_count")
 			}
-		case parsed.LinkType == "attached_evidence" && recordID == parsed.DstRecordID && recordType == "evidence":
-			keys = append(keys, "evidence.linked_record_count")
 		case parsed.LinkType == "supersedes" && recordID == parsed.SrcRecordID && recordType == "decision":
 			keys = append(keys, "decision.supersedes_record_id")
 		case parsed.LinkType == "supersedes" && recordID == parsed.DstRecordID && recordType == "decision":

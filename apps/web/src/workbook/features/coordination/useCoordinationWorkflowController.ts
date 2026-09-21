@@ -1,5 +1,6 @@
-import { useRef, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
+import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
   type TaskLifecycleDraftStore,
@@ -31,9 +32,36 @@ export function useCoordinationWorkflowController({
 }) {
   useSyncExternalStore(drafts.subscribe, drafts.getSnapshot);
   const submitting = useRef(false);
+  const [feedback, setFeedback] = useState<{
+    recordId: string;
+    captured: ReturnType<TaskLifecycleDraftStore["capture"]>;
+    failure: WorkbookOperationFailure;
+  } | null>(null);
+  const current = useRef({
+    recordId: row.record_id,
+    captured: drafts.capture(row.record_id),
+    disabled,
+  });
+  current.current = {
+    recordId: row.record_id,
+    captured: drafts.capture(row.record_id),
+    disabled,
+  };
   const draft = drafts.read(row);
   const changes = taskLifecycleChanges(draft, row);
-  const errors = taskPatchErrors(row, changes);
+  const visibleFailure =
+    feedback?.recordId === row.record_id &&
+    feedback.captured === current.current.captured &&
+    !disabled
+      ? feedback.failure
+      : null;
+  const fieldFailures =
+    visibleFailure?.kind === "validation"
+      ? (visibleFailure.fields ?? []).filter((item) =>
+          changes.some((change) => change.field_key === item.field),
+        )
+      : [];
+  const errors = [...taskPatchErrors(row, changes), ...fieldFailures];
   const staleFields = taskDraftStaleFields(draft, row);
   const value = (field: string) => draft.values[field] ?? taskValue(row, field);
   const submit = async () => {
@@ -46,6 +74,7 @@ export function useCoordinationWorkflowController({
       return;
     submitting.current = true;
     const captured = drafts.capture(row.record_id);
+    setFeedback(null);
     const finish = mutation.beginMutation();
     try {
       const accepted = await mutation.submitPatchMutation({
@@ -55,6 +84,13 @@ export function useCoordinationWorkflowController({
         recordId: row.record_id,
         viewSchemaId: taskViewId,
         baseline: row,
+        onFailure: (failure) => {
+          if (
+            current.current.recordId === row.record_id &&
+            current.current.captured === captured
+          )
+            setFeedback({ recordId: row.record_id, captured, failure });
+        },
       });
       if (accepted) drafts.acknowledge(row.record_id, captured);
     } finally {
@@ -66,6 +102,7 @@ export function useCoordinationWorkflowController({
     value,
     changes,
     errors,
+    actionFailure: fieldFailures.length ? null : visibleFailure,
     staleFields,
     submit,
     update: (field: string, next: string) => drafts.update(row, field, next),

@@ -46,6 +46,65 @@ export function bindWorkbookInspectorAction(
   };
 }
 
+export type WorkbookInspectorDisabledReason =
+  | {
+      readonly kind: "condition";
+      readonly condition: InspectorDisabledCondition;
+    }
+  | {
+      readonly kind: "minimum_role";
+      readonly role: Exclude<WorkbookIncidentRole, "">;
+    }
+  | {
+      readonly kind: "owner";
+      readonly owner: string;
+      readonly code: string;
+      readonly parameters: Readonly<Record<string, string | number | boolean>>;
+      readonly message: string;
+    };
+
+// Each source owns its closed cause vocabulary. Shared presentation groups only
+// identity and parameters, never message text or feature implementation details.
+export function ownerInspectorDisabledReason<Code extends string>(
+  owner: string,
+  code: Code,
+  message: string,
+  parameters: Readonly<Record<string, string | number | boolean>> = {},
+): WorkbookInspectorDisabledReason {
+  return { kind: "owner", owner, code, parameters, message };
+}
+export function workbookInspectorDisabledReasonKey(
+  reason: WorkbookInspectorDisabledReason,
+): string {
+  switch (reason.kind) {
+    case "condition":
+      return JSON.stringify([reason.kind, reason.condition]);
+    case "minimum_role":
+      return JSON.stringify([reason.kind, reason.role]);
+    case "owner":
+      return JSON.stringify([
+        reason.kind,
+        reason.owner,
+        reason.code,
+        Object.entries(reason.parameters).sort(([a], [b]) =>
+          a.localeCompare(b),
+        ),
+      ]);
+  }
+}
+export function workbookInspectorDisabledReasonText(
+  reason: WorkbookInspectorDisabledReason,
+): string {
+  switch (reason.kind) {
+    case "condition":
+      return disabledReasonByToken[reason.condition];
+    case "minimum_role":
+      return `Requires the ${reason.role} incident role.`;
+    case "owner":
+      return reason.message;
+  }
+}
+
 export function workbookInspectorDisabledReason({
   currentIncidentRole,
   featureGroup,
@@ -54,7 +113,7 @@ export function workbookInspectorDisabledReason({
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly featureGroup: InspectorFeatureGroup;
   readonly stateTokens: ReadonlySet<InspectorDisabledCondition>;
-}): string | null {
+}): WorkbookInspectorDisabledReason | null {
   const activeTokens = new Set(stateTokens);
   const minimumRole = featureGroup.minimumIncidentRole;
   const currentRole = currentIncidentRole || null;
@@ -73,9 +132,9 @@ export function workbookInspectorDisabledReason({
     featureGroup.minimumIncidentRole !== null &&
     currentIncidentRole !== null
   ) {
-    return `Requires the ${featureGroup.minimumIncidentRole} incident role.`;
+    return { kind: "minimum_role", role: featureGroup.minimumIncidentRole };
   }
-  return disabledReasonByToken[token];
+  return { kind: "condition", condition: token };
 }
 
 const roleRank: Readonly<Record<Exclude<WorkbookIncidentRole, "">, number>> = {

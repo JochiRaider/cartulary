@@ -31,6 +31,7 @@ type RecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (records.Envelope, error)
+	LoadEnvelopeForShareTx(context.Context, pgx.Tx, uuid.UUID) (records.Envelope, error)
 }
 
 type LinkCapability interface {

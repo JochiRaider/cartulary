@@ -142,6 +142,10 @@ export function createTimelineInspectorElementRegistry(
         return false;
       }
       registration.element.focus({ preventScroll: true });
+      registration.element.scrollIntoView?.({
+        block: "nearest",
+        inline: "nearest",
+      });
       return document.activeElement === registration.element;
     },
     focusPanel(
@@ -152,6 +156,7 @@ export function createTimelineInspectorElementRegistry(
       const element = panels.get(panelId);
       if (!isUsableInspectorElement(element)) return false;
       element.focus({ preventScroll: true });
+      element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
       return document.activeElement === element;
     },
     registerMention(

@@ -22,6 +22,7 @@ type GenericPatchMutationRequest = {
   readonly baseline: WorkbookQueryRow;
   readonly contributions?: readonly ExplicitPatchContribution[];
   readonly isCurrent?: () => boolean;
+  readonly onFailure?: (failure: WorkbookOperationFailure) => void;
   readonly authoringRevision?: number;
   readonly presentationIdentity?: string;
   readonly baseRowVersion: number;
@@ -31,6 +32,7 @@ type GenericPatchMutationRequest = {
   readonly viewSchemaId: string;
 };
 export type GenericSurfaceMutationController = {
+  readonly noteAssociations: WorkbookMutationRuntime["noteAssociations"];
   readonly ordinaryCreate: WorkbookMutationRuntime["ordinaryCreate"];
   readonly partyLinks: WorkbookMutationRuntime["partyLinks"];
   readonly explicitPatches: WorkbookMutationRuntime["explicitPatches"];
@@ -145,12 +147,19 @@ export function useGenericSurfaceMutationController({
       )
         return result?.receipt ?? null;
       if (!result) {
-        setValidationError(
-          "This record cannot be submitted while an operation needs recovery or authorization is unavailable. Your draft is retained.",
-        );
+        const failure = {
+          kind: "validation" as const,
+          message:
+            "This record cannot be submitted while an operation needs recovery or authorization is unavailable. Your draft is retained.",
+        };
+        if (request.onFailure) request.onFailure(failure);
+        else setValidationError(failure.message);
         return null;
       }
-      if (result.failure) rejectMutationFailure(result.failure);
+      if (result.failure) {
+        if (request.onFailure) request.onFailure(result.failure);
+        else rejectMutationFailure(result.failure);
+      }
       return result.receipt;
     },
     [
@@ -162,6 +171,7 @@ export function useGenericSurfaceMutationController({
     ],
   );
   return {
+    noteAssociations: mutationRuntime.noteAssociations,
     ordinaryCreate: mutationRuntime.ordinaryCreate,
     explicitPatches: mutationRuntime.explicitPatches,
     inspectorDrafts: mutationRuntime.inspectorDrafts,

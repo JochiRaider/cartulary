@@ -156,6 +156,39 @@
       ]
     },
     {
+      "row_id": "module.artifacts.linked_notes.note_association_resource",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.linked_notes",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.linked_note_atomicity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestNoteAssociationResource"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.artifacts.rollback_provider.artifact_rollback_maps_all_scalar_artifact_varia_4126aafbba",
       "owner_id": "module.artifacts",
       "family_id": "module.artifacts.rollback_provider",
@@ -328,6 +361,32 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.artifacts.source_mutations.note_association_admission",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.source_mutations",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.source_mutations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestNoteAssociationAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.artifacts.surface.iteration3_exported_surface_reachability",

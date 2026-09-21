@@ -220,6 +220,24 @@ export function useAssessmentWorkbookInspectorComposition({
           refresh: () => onRefreshAssessmentRows({ requireAcceptance: true }),
         },
       }}
+      detailsContent={
+        selectedAssessment ? (
+          <dl>
+            {contract.fields
+              .filter((field) => !field.defaultHidden)
+              .map((field) => (
+                <div key={field.fieldKey}>
+                  <dt>{field.label}</dt>
+                  <dd>
+                    {genericCellLabel(
+                      selectedAssessment.cells[field.fieldKey]?.value,
+                    )}
+                  </dd>
+                </div>
+              ))}
+          </dl>
+        ) : null
+      }
       relationshipsContent={
         selectedAssessment === null ? null : (
           <p style={bodyStyle}>

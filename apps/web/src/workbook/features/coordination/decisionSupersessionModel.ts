@@ -57,11 +57,31 @@ export function reviewedDecision(
   });
 }
 
+const decisionIneligibilityMessages = {
+  invalid_state:
+    "The loaded Decision state is inconsistent or incomplete. Refresh before reviewing.",
+  foreign_incident: "Choose a Decision in this incident.",
+  self_reference: "This is the target Decision.",
+  already_superseded: "This Decision already has a replacement.",
+  invalid_target_status:
+    "Only proposed, approved, or executed Decisions can be superseded.",
+  invalid_replacement_status: "The replacement must be approved or executed.",
+} as const;
+export type DecisionIneligibilityCause =
+  keyof typeof decisionIneligibilityMessages;
 export function decisionIneligibility(
   record: ReviewedDecision,
   purpose: "target" | "replacement",
   target?: ReviewedDecision,
 ): string | null {
+  const cause = decisionIneligibilityCause(record, purpose, target);
+  return cause ? decisionIneligibilityMessages[cause] : null;
+}
+export function decisionIneligibilityCause(
+  record: ReviewedDecision,
+  purpose: "target" | "replacement",
+  target?: ReviewedDecision,
+): DecisionIneligibilityCause | null {
   if (
     record.malformed ||
     !Number.isSafeInteger(record.baseRowVersion) ||
@@ -79,17 +99,16 @@ export function decisionIneligibility(
     (record.supersedesRecordId !== null &&
       !["approved", "executed"].includes(record.status))
   )
-    return "The loaded Decision state is inconsistent or incomplete. Refresh before reviewing.";
+    return "invalid_state";
   if (target && record.incidentId !== target.incidentId)
-    return "Choose a Decision in this incident.";
-  if (target?.recordId === record.recordId)
-    return "This is the target Decision.";
+    return "foreign_incident";
+  if (target?.recordId === record.recordId) return "self_reference";
   if (purpose === "target") {
-    if (record.isSuperseded) return "This Decision already has a replacement.";
+    if (record.isSuperseded) return "already_superseded";
     if (!["proposed", "approved", "executed"].includes(record.status))
-      return "Only proposed, approved, or executed Decisions can be superseded.";
+      return "invalid_target_status";
   } else if (!["approved", "executed"].includes(record.status))
-    return "The replacement must be approved or executed.";
+    return "invalid_replacement_status";
   return null;
 }
 

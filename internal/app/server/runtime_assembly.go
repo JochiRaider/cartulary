@@ -1293,6 +1293,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose workbook artifacts mutation contribution: %w", err)
 	}
+	noteAssociationProvider, err := workbookassembly.NewNoteAssociationProvider(postgresHandle, artifactMutation, projectionRuntime.SourceTextRows())
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Note associations: %w", err)
+	}
 	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
 		workbookassembly.ContributionDependencies{
 			Postgres:              postgresHandle,
@@ -1333,6 +1338,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		{
 			id: "workbook",
 			registrar: workbook.RegisterRoutes(workbook.RouteDependencies{
+				NoteAssociations:    noteAssociationProvider,
 				Catalog:             workbookContributionCatalog,
 				RecordTargets:       workbookassembly.NewRecordTargetResolver(postgresHandle),
 				ConflictTokens:      workbookassembly.NewConflictTokenDecoder(workbookConflictTokens),

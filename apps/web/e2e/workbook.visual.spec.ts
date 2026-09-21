@@ -34,6 +34,7 @@ import {
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
+  genericCreateFieldTestId,
   genericCreateSubmitTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
@@ -5034,6 +5035,7 @@ async function assertViewportVisualRegression(
     renderSurface?: string;
     anchor?: VisualAnchor;
     ready?: () => Promise<void>;
+    mask?: Locator[];
   } = {},
 ) {
   const started = Date.now();
@@ -5072,6 +5074,7 @@ async function assertViewportVisualRegression(
       animations: "disabled",
       caret: "hide",
       fullPage: false,
+      ...(options.mask ? { mask: options.mask } : {}),
     });
     await verifyVisualGeometry(page, options.anchor);
   });
@@ -8700,7 +8703,7 @@ test("Capture Decision supersession review and accepted recovery at desktop and 
   const reviewAnchor: VisualAnchor = {
     locator: review,
     align: "start",
-    scrollportSelector: `aside[data-view-schema-id="${decisionsViewSchemaId}"]`,
+    scrollportSelector: `aside[data-view-schema-id="${decisionsViewSchemaId}"] [data-inspector-scroll-body]`,
   };
   await assertViewportVisualRegression(page, "decision-supersession-review", {
     anchor: reviewAnchor,
@@ -8722,7 +8725,13 @@ test("Capture Decision supersession review and accepted recovery at desktop and 
       { exact: true },
     ),
   ).toBeVisible();
-  await assertViewportVisualRegression(page, "decision-supersession-accepted");
+  await assertViewportVisualRegression(page, "decision-supersession-accepted", {
+    // The actor's generated ID can repaint in this controlled draft input after
+    // DOM text normalization. Mask that identity, not the recovery outcome.
+    mask: [
+      page.getByTestId(genericCreateFieldTestId("decision.owner_user_id")),
+    ],
+  });
 });
 
 test("Capture Timeline supersession authoring review and accepted replacement", async ({
@@ -8739,7 +8748,7 @@ test("Capture Timeline supersession authoring review and accepted replacement", 
   const anchor: VisualAnchor = {
     locator: editor,
     align: "start",
-    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
   };
   await assertViewportVisualRegression(page, "timeline-supersession-review", {
     anchor,
@@ -8806,7 +8815,7 @@ test("Capture Indicator lifecycle UTC authoring at desktop and narrow widths", a
   const anchor: VisualAnchor = {
     locator: editor,
     align: "start",
-    scrollportSelector: `aside[data-view-schema-id="${indicatorsViewSchemaId}"]`,
+    scrollportSelector: `aside[data-view-schema-id="${indicatorsViewSchemaId}"] [data-inspector-scroll-body]`,
   };
   await assertViewportVisualRegression(page, "indicator-lifecycle-authoring", {
     anchor,
@@ -8833,7 +8842,7 @@ test("Capture Indicator observation source selection at desktop and narrow width
   const anchor: VisualAnchor = {
     locator: editor,
     align: "start",
-    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
   };
   await assertViewportVisualRegression(
     page,
@@ -8876,16 +8885,13 @@ test("Capture contextual Task and Decision authoring references and retained rec
       navigateVisualApplication(page, url),
     );
     const form = page.getByRole("region", {
-      name:
-        target === "decision"
-          ? "Create Related Decision"
-          : "Create Related Task Request",
+      name: target === "decision" ? "Create decision" : "Create task request",
       exact: true,
     });
     const anchor: VisualAnchor = {
       locator: form,
       align: "start",
-      scrollportSelector: `aside[data-view-schema-id="${evidenceViewSchemaId}"]`,
+      scrollportSelector: `aside[data-view-schema-id="${evidenceViewSchemaId}"] [data-inspector-scroll-body]`,
     };
     await capture(page, `contextual-${target}-authoring`, { anchor });
     await page.setViewportSize({ width: 768, height: 640 });
@@ -8969,10 +8975,13 @@ test("Capture Timeline Evidence metadata Party selection and retained partial su
   const { form } = await openTimelineEvidenceFixture(page, (url) =>
     navigateVisualApplication(page, url),
   );
+  // This capture frames the beginning of the form; give that frame an explicit
+  // visible focus target instead of retaining focus in a later seeded field.
+  await form.getByTestId(genericCreateFieldTestId("evidence.title")).focus();
   const anchor: VisualAnchor = {
     locator: form,
     align: "start",
-    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
   };
   await capture(page, "timeline-related-evidence-authoring", { anchor });
   await page.setViewportSize({ width: 768, height: 640 });
@@ -9029,7 +9038,7 @@ test("Capture linked Note authoring source selection and retained atomic recover
   const anchor: VisualAnchor = {
     locator: f.form,
     align: "start",
-    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
   };
   await capture("linked-note-authoring", { anchor });
   await page.setViewportSize({ width: 768, height: 640 });
@@ -9195,10 +9204,11 @@ test("Capture contextual coordination target authoring source selection and reta
       (url) => navigateVisualApplication(page, url),
     );
     await fillCoordinationMinimum(f);
+    await f.form.locator("input, textarea, select, button").first().focus();
     const anchor: VisualAnchor = {
       locator: f.form,
       align: "start",
-      scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+      scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
     };
     await capture(`coordination-${variant}-authoring`, { anchor });
     if (variant === "lesson") {

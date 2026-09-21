@@ -24126,6 +24126,44 @@
       "approval": null
     },
     {
+      "object_id": "index.public.record-links-active-null-field-incoming-page-idx",
+      "object_kind": "index",
+      "qualified_name": "public.record_links_active_null_field_incoming_page_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "links",
+      "migration_version": 45,
+      "migration_file": "00045_note_association_lookup.sql",
+      "dependency_object_ids": [
+        "table.public.record-links"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.record-links-active-null-field-outgoing-page-idx",
+      "object_kind": "index",
+      "qualified_name": "public.record_links_active_null_field_outgoing_page_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "links",
+      "migration_version": 45,
+      "migration_file": "00045_note_association_lookup.sql",
+      "dependency_object_ids": [
+        "table.public.record-links"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.record-links-active-party-ref-dst-lookup-idx",
       "object_kind": "index",
       "qualified_name": "public.record_links_active_party_ref_dst_lookup_idx",

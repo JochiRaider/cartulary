@@ -39,3 +39,25 @@ four adopted source surfaces. Retained source metadata includes its reviewed row
 version, never the full row. Surface changes and query edits preserve the staged
 source; explicit Apply or Clear changes the parent source. Unlinked creation and
 source replacement review remain Note-owner decisions.
+
+## Existing Note associations
+
+`WorkbookNoteAssociationOwner.ts` retains association attempts separately from
+creation drafts. Source and related-note contributions appear in Relationships;
+evidence appears in Evidence. `NoteAssociationPanel.tsx` uses asynchronously paged
+reads, explicit empty/loading/stale/access states, canonical action bindings and
+existing reference discovery. Incoming related Notes navigate to the referring
+record; only outgoing references can be removed from the inspected Note.
+
+Transport captures immutable POST bytes and original transaction identity.
+`NoteAssociationRecovery.tsx` remains reachable after inspector closure. Accepted
+receipts survive failed reads, and Retry refresh never writes. Current editor
+access permits exact replay after incident closure; fresh writes still require an
+open incident. Suspension conceals state; account replacement or incident
+retirement clears the prior owner's protected state.
+
+The public association contract is owned by Artifacts and composed through
+Workbook; Links retains canonical identities, provenance and revisions. Notes
+fields are not extended with invented PATCH keys. `noteAssociations.test.tsx`
+and the owner-routed browser scenarios cover replay, refresh, directional
+navigation, authoring and authority lifetimes.

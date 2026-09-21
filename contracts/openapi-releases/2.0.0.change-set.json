@@ -880,16 +880,16 @@
       "rationale": "Allow Evidence's generic row-create request to carry its optional opaque initial object-blob identifier."
     },
     {
-      "fingerprint": "a0aef769311cf393fb809fb3e9a5435ea0905c710398e8f80e4e6f3c721ba961",
+      "fingerprint": "639d2cb2421c0afa6451f4b8948190e52afbcd99571ad4a7b6e1f40f7720d2be",
       "classification": "additive",
       "owner_id": "platform.viewschema",
-      "rationale": "Allow Inspector features to bind explicitly to Indicator observation and lifecycle route families."
+      "rationale": "Allow Inspector features to bind explicitly to Indicator observation and lifecycle route families. Add the Notes association resource binding adopted in Core 01 REQ-01-675."
     },
     {
-      "fingerprint": "eb59268d506c03ffd80c207e3fac3d1dec97bf7cac256c180467379bc6ef4bb9",
+      "fingerprint": "1cf1a55104f1057e7302ec491ff203db7ebf02d8b3fd41fa48beed0e69ba5335",
       "classification": "additive",
       "owner_id": "platform.viewschema",
-      "rationale": "Publish Indicator-owned observation and lifecycle route owners and the existing atomic linked-Note route owner for explicit Inspector bindings."
+      "rationale": "Publish Indicator-owned observation and lifecycle route owners and the existing atomic linked-Note route owner for explicit Inspector bindings. Add the Notes association resource binding adopted in Core 01 REQ-01-675."
     },
     {
       "fingerprint": "d44dee6709d121363790f918083015c45deb18830fdf727aa4df0bac0373483f",
@@ -1850,6 +1850,60 @@
       "classification": "additive",
       "owner_id": "module.savedviews",
       "rationale": "Adopt the Core 01 coordinated layout upgrade exception on existing Saved Views and Workbook startup routes: current responses require layout.v2 with nullable semantic freeze identity; inputs additionally retain strict layout.v1 compatibility. The closed response grammar change is breaking and requires coordinated server/client rollout. Immutable released baselines remain unchanged."
+    },
+    {
+      "fingerprint": "cb70edc4902e786e2ee100f3e824fa8d2df8cca15ae3bb6d1f8064888b83e457",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "4f917662f2275d4faef0dacd1a281a3cd81f7519709dacc2e3347736d056c0bd",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "7dab4b0d43c6b78faa9c0e65ef2965020ac785d4ab526b51e65ded8f6e181dee",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "03ee4cbd8fdf0b22360c56f1254fa6d209b47610e971b04728e53cf0147080ab",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "4f727ed7da248b900b8891b002d228890d855b5ef70698e1acc28ca586a27a08",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "9477432d81f7770cde08271667afdee829113db63d9e056747b096c4bb60a1e7",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "b4a7c14df25f803a29dd602676c1beb5f271d51047f1cfb9fdce836cdd7c2243",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "4cf360732f85097ea5f6860b9f1d124bc3dd6c0f54538e84b79a3fef4a75b946",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+    },
+    {
+      "fingerprint": "3d7ed50f17421b7abe77c7fbdecfd1b1bc524de9ea43ea88ff91818bec5e0c72",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
     }
   ]
 }

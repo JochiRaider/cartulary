@@ -14,21 +14,23 @@ import (
 )
 
 type service struct {
-	contributions  *WorkbookContributionCatalog
-	recordTargets  RecordTargetResolver
-	conflictTokens ConflictTokenDecoder
-	incidentAccess *admission.Checker
-	startupStore   *workbookstartup.Store
-	authStore      *authn.Store
-	cursorCodec    *pagination.Codec
-	keys           authn.MasterKeys
-	now            func() time.Time
-	serviceVersion string
+	noteAssociations NoteAssociationProvider
+	contributions    *WorkbookContributionCatalog
+	recordTargets    RecordTargetResolver
+	conflictTokens   ConflictTokenDecoder
+	incidentAccess   *admission.Checker
+	startupStore     *workbookstartup.Store
+	authStore        *authn.Store
+	cursorCodec      *pagination.Codec
+	keys             authn.MasterKeys
+	now              func() time.Time
+	serviceVersion   string
 }
 
 type StartupStoreFactory func(httpapi.DependencySet) (*workbookstartup.Store, error)
 
 type RouteDependencies struct {
+	NoteAssociations    NoteAssociationProvider
 	Catalog             *WorkbookContributionCatalog
 	RecordTargets       RecordTargetResolver
 	ConflictTokens      ConflictTokenDecoder
@@ -47,6 +49,9 @@ func RegisterRoutes(routeDependencies RouteDependencies) httpapi.RouteRegistrar 
 		if startupStore == nil {
 			return errors.New("workbook startup store factory returned nil")
 		}
+		if isNilContributionProvider(routeDependencies.NoteAssociations) {
+			return errors.New("workbook route composition requires Note associations")
+		}
 		service, err := newService(
 			deps,
 			routeDependencies,
@@ -56,6 +61,8 @@ func RegisterRoutes(routeDependencies RouteDependencies) httpapi.RouteRegistrar 
 			return err
 		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.workbook", map[string]http.HandlerFunc{
+			"listNoteAssociations":                  service.handleNoteAssociations,
+			"mutateNoteAssociations":                service.handleNoteAssociations,
 			"applyWorkbookBulkMutation":             service.handleBulkMutations,
 			"createRecordLinkedNote":                service.handleLinkedNoteCreate,
 			"createViewRow":                         service.handleCreate,
@@ -104,15 +111,16 @@ func newService(
 		return nil, errors.New("workbook route composition requires a startup store")
 	}
 	return &service{
-		contributions:  routeDependencies.Catalog,
-		recordTargets:  routeDependencies.RecordTargets,
-		conflictTokens: routeDependencies.ConflictTokens,
-		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
-		startupStore:   startupStore,
-		authStore:      authn.NewStore(deps.PostgresHandle()),
-		cursorCodec:    cursorCodec,
-		keys:           keys,
-		now:            now,
-		serviceVersion: deps.Telemetry.ServiceVersion,
+		noteAssociations: routeDependencies.NoteAssociations,
+		contributions:    routeDependencies.Catalog,
+		recordTargets:    routeDependencies.RecordTargets,
+		conflictTokens:   routeDependencies.ConflictTokens,
+		incidentAccess:   admission.NewChecker(deps.PostgresHandle()),
+		startupStore:     startupStore,
+		authStore:        authn.NewStore(deps.PostgresHandle()),
+		cursorCodec:      cursorCodec,
+		keys:             keys,
+		now:              now,
+		serviceVersion:   deps.Telemetry.ServiceVersion,
 	}, nil
 }

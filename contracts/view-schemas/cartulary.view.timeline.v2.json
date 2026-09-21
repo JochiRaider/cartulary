@@ -487,7 +487,7 @@
       {
         "feature_group_key": "timeline.mark_reviewed",
         "panel_id": "history",
-        "label": "Timeline Mark Reviewed",
+        "label": "Mark reviewed",
         "minimum_incident_role": "reviewer",
         "mutates": true,
         "requires_confirmation": false,
@@ -509,7 +509,7 @@
       {
         "feature_group_key": "timeline.supersede",
         "panel_id": "history",
-        "label": "Timeline Supersede",
+        "label": "Supersede",
         "minimum_incident_role": "reviewer",
         "mutates": true,
         "requires_confirmation": true,
@@ -531,7 +531,7 @@
       {
         "feature_group_key": "create_related.note",
         "panel_id": "workflow",
-        "label": "Create Related Note",
+        "label": "Add linked note",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -554,7 +554,7 @@
       {
         "feature_group_key": "create_related.task_request",
         "panel_id": "workflow",
-        "label": "Create Related Task Request",
+        "label": "Create task request",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -583,7 +583,7 @@
       {
         "feature_group_key": "create_related.decision",
         "panel_id": "workflow",
-        "label": "Create Related Decision",
+        "label": "Create decision",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -612,7 +612,7 @@
       {
         "feature_group_key": "create_related.evidence",
         "panel_id": "workflow",
-        "label": "Create Related Evidence",
+        "label": "Create evidence",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -634,7 +634,7 @@
       {
         "feature_group_key": "create_related.comm_log",
         "panel_id": "workflow",
-        "label": "Create Related Comm Log",
+        "label": "Create Communications Log",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -665,7 +665,7 @@
       {
         "feature_group_key": "create_related.handoff",
         "panel_id": "workflow",
-        "label": "Create Related Handoff",
+        "label": "Create handoff",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -696,7 +696,7 @@
       {
         "feature_group_key": "create_related.status_review",
         "panel_id": "workflow",
-        "label": "Create Related Status Review",
+        "label": "Create status review",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -727,7 +727,7 @@
       {
         "feature_group_key": "create_related.lesson",
         "panel_id": "workflow",
-        "label": "Create Related Lesson",
+        "label": "Create lesson",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,

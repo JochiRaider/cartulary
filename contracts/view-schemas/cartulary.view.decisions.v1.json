@@ -319,7 +319,7 @@
       {
         "feature_group_key": "decision.supersede",
         "panel_id": "history",
-        "label": "Decision Supersede",
+        "label": "Supersede",
         "minimum_incident_role": "reviewer",
         "mutates": true,
         "requires_confirmation": true,
@@ -341,7 +341,7 @@
       {
         "feature_group_key": "create_related.task_request",
         "panel_id": "workflow",
-        "label": "Create Related Task Request",
+        "label": "Create task request",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -370,7 +370,7 @@
       {
         "feature_group_key": "create_related.comm_log",
         "panel_id": "workflow",
-        "label": "Create Related Comm Log",
+        "label": "Create Communications Log",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -401,7 +401,7 @@
       {
         "feature_group_key": "create_related.status_review",
         "panel_id": "workflow",
-        "label": "Create Related Status Review",
+        "label": "Create status review",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,

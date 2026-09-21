@@ -958,6 +958,215 @@
           }
         ]
       }
+    },
+    "/api/v1/records/{note_record_id}/note-associations": {
+      "parameters": [
+        {
+          "name": "note_record_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "records",
+          "workbook"
+        ],
+        "operationId": "listNoteAssociations",
+        "summary": "Read a page of canonical Note associations.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/NoteAssociationKind"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized association page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteAssociationsEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid association request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient authority.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Note is not visible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, lifecycle, or transaction conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "records",
+          "workbook"
+        ],
+        "operationId": "mutateNoteAssociations",
+        "summary": "Atomically add or remove canonical Note associations.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteAssociationsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retained receipt, including unchanged or replayed requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteAssociationMutationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid association request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient authority.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Note is not visible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, lifecycle, or transaction conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3148,6 +3357,210 @@
           "server_value",
           "server_updated_by",
           "server_updated_at"
+        ]
+      },
+      "NoteAssociationKind": {
+        "type": "string",
+        "enum": [
+          "source",
+          "evidence",
+          "related_note"
+        ]
+      },
+      "NoteAssociationAction": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "add"
+              },
+              "counterpart_record_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "op",
+              "counterpart_record_id"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "remove"
+              },
+              "item_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "op",
+              "item_ref"
+            ]
+          }
+        ]
+      },
+      "NoteAssociationsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/NoteAssociationKind"
+          },
+          "base_row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/NoteAssociationAction"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "base_row_version",
+          "client_txn_id",
+          "actions"
+        ]
+      },
+      "NoteAssociationItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "item_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "counterpart_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_schema_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display_label": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outgoing",
+              "incoming"
+            ]
+          }
+        },
+        "required": [
+          "item_ref",
+          "counterpart_record_id",
+          "view_schema_id",
+          "display_label",
+          "direction"
+        ]
+      },
+      "NoteAssociationsData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "note_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NoteAssociationKind"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteAssociationItem"
+            }
+          },
+          "next_cursor_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "note_record_id",
+          "row_version",
+          "kind",
+          "items",
+          "next_cursor_token"
+        ]
+      },
+      "NoteAssociationsEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NoteAssociationsData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "NoteAssociationMutationData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "const": "cartulary.view.notes.v1"
+          },
+          "row": {
+            "$ref": "#/components/schemas/ViewRow"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "row"
+        ]
+      },
+      "NoteAssociationMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NoteAssociationMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       }
     }

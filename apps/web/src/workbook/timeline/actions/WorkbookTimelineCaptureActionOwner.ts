@@ -137,13 +137,27 @@ export class WorkbookTimelineCaptureActionOwner
     this.reconcile = null;
     this.publish();
   }
-  unavailableReason() {
+  unavailableCause():
+    | "session_missing"
+    | "role_required"
+    | "incident_closed"
+    | null {
     if (!this.authority?.actorId || !this.authority.sessionIdentity)
-      return "Sign in to review Timeline rows.";
+      return "session_missing";
     if (!["reviewer", "admin"].includes(this.authority.role ?? ""))
-      return "Reviewer or admin access is required.";
-    if (this.authority.closed) return "This incident is closed.";
+      return "role_required";
+    if (this.authority.closed) return "incident_closed";
     return null;
+  }
+  unavailableReason() {
+    const cause = this.unavailableCause();
+    return cause
+      ? {
+          session_missing: "Sign in to review Timeline rows.",
+          role_required: "Reviewer or admin access is required.",
+          incident_closed: "This incident is closed.",
+        }[cause]
+      : null;
   }
   canSubmit() {
     return this.unavailableReason() === null;

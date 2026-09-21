@@ -176,6 +176,24 @@ export type LinkedNoteMutationData = ViewMutationDataFields & {
 };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationKind".
+ */
+export type NoteAssociationKind = "source" | "evidence" | "related_note";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationAction".
+ */
+export type NoteAssociationAction =
+  | {
+      counterpart_record_id: string;
+      op: "add";
+    }
+  | {
+      item_ref: string;
+      op: "remove";
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "RecordPatchChange".
  */
 export type RecordPatchChange = {
@@ -1993,6 +2011,67 @@ export interface MentionActionRequest {
   client_txn_id: string;
   reason?: string | null;
   resolved_record_id?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationMutationEnvelope".
+ */
+export interface NoteAssociationMutationEnvelope {
+  data: NoteAssociationMutationData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationMutationData".
+ */
+export interface NoteAssociationMutationData {
+  change_set_id?: string;
+  row: ViewRow;
+  view_schema_id: "cartulary.view.notes.v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationsEnvelope".
+ */
+export interface NoteAssociationsEnvelope {
+  data: NoteAssociationsData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationsData".
+ */
+export interface NoteAssociationsData {
+  items: NoteAssociationItem[];
+  kind: NoteAssociationKind;
+  next_cursor_token: string | null;
+  note_record_id: string;
+  row_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationItem".
+ */
+export interface NoteAssociationItem {
+  counterpart_record_id: string;
+  direction: "outgoing" | "incoming";
+  display_label: string;
+  item_ref: string;
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteAssociationsRequest".
+ */
+export interface NoteAssociationsRequest {
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  actions: [NoteAssociationAction, ...NoteAssociationAction[]];
+  base_row_version: number;
+  client_txn_id: string;
+  kind: NoteAssociationKind;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -5067,7 +5146,8 @@ export interface InspectorRouteBindingV1 {
     | "indicator_observations"
     | "indicator_lifecycle"
     | "evidence_access"
-    | "surface_pivot";
+    | "surface_pivot"
+    | "note_associations";
   owner:
     | "current_row_projection"
     | "view_query_route"
@@ -5086,7 +5166,8 @@ export interface InspectorRouteBindingV1 {
     | "indicator_lifecycle_route"
     | "evidence_attach_blob_route"
     | "evidence_preview_handle_route"
-    | "evidence_download_handle_route";
+    | "evidence_download_handle_route"
+    | "note_associations_route";
   target_view_schema_id?: string;
 }
 /**

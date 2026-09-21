@@ -113,6 +113,7 @@ export function useTimelineMutationCommands({
   readonly enqueuePendingReplayUnit: (
     unit: TimelinePendingReplayAdmission,
     onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
+    onAdmissionRefused?: (() => void) | undefined,
   ) => void;
 
   readonly incidentId: string;
@@ -139,6 +140,7 @@ export function useTimelineMutationCommands({
       viewportContinuityToken,
       visibleEdit,
       onSettled,
+      onAdmissionRefused,
     }: {
       readonly clientTxnId: string;
       readonly continueOnFreshDraft: boolean;
@@ -156,6 +158,7 @@ export function useTimelineMutationCommands({
       readonly onSettled?:
         | ((outcome: GridEditCommitOutcome) => void)
         | undefined;
+      readonly onAdmissionRefused: () => void;
     }) => {
       if (
         rowSnapshot.recordId &&
@@ -163,6 +166,7 @@ export function useTimelineMutationCommands({
       ) {
         if (viewportContinuityToken !== undefined)
           clearViewportContinuity(viewportContinuityToken);
+        onAdmissionRefused();
         onSettled?.({
           kind: "conflict",
           message:
@@ -216,6 +220,7 @@ export function useTimelineMutationCommands({
           viewportContinuityToken,
         },
         onSettled,
+        onAdmissionRefused,
       );
       pendingSavesRefs.pendingReplayOrderRef.current += 1;
     },
@@ -362,6 +367,12 @@ export function useTimelineMutationCommands({
           ...admission.visibleEdit,
         },
         onSettled: settle,
+        onAdmissionRefused: () => {
+          // No operation was admitted: a later explicit gesture can retry this
+          // authoring revision after the admission restriction is resolved.
+          if (pendingSavesRefs.scalarCommits.get(settlementKey) === commit)
+            pendingSavesRefs.scalarCommits.delete(settlementKey);
+        },
       });
     },
     [
@@ -510,6 +521,10 @@ export function useTimelineMutationCommands({
           surface === "inspector" && snapshot.recordId === null,
         rowKey: effectiveSnapshot.key,
         onSettled: settle,
+        onAdmissionRefused: () => {
+          if (pendingSavesRefs.collectionCommits.get(focusKey) === commit)
+            pendingSavesRefs.collectionCommits.delete(focusKey);
+        },
         surface,
         rowSnapshot: effectiveSnapshot,
         viewportContinuityToken,

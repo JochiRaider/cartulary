@@ -6,6 +6,7 @@ import {
   type GenericMutationControlSurface,
   resolveGenericMutationControl,
 } from "./genericMutationControlModel";
+import { workbookFormInputStyle as inputStyle } from "./workbookFormStyles";
 
 type GenericMutationControlRef = RefCallback<
   HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement
@@ -322,19 +323,6 @@ function textareaControlStyle(surface: GenericMutationControlSurface) {
 function selectControlStyle(surface: GenericMutationControlSurface) {
   return surface === "grid" ? gridSelectStyle : selectStyle;
 }
-
-const inputStyle = {
-  boxSizing: "border-box",
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-} satisfies CSSProperties;
 
 const textareaStyle = {
   ...inputStyle,

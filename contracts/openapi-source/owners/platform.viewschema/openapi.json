@@ -261,7 +261,8 @@
               "indicator_observations",
               "indicator_lifecycle",
               "evidence_access",
-              "surface_pivot"
+              "surface_pivot",
+              "note_associations"
             ]
           },
           "owner": {
@@ -284,7 +285,8 @@
               "indicator_lifecycle_route",
               "evidence_attach_blob_route",
               "evidence_preview_handle_route",
-              "evidence_download_handle_route"
+              "evidence_download_handle_route",
+              "note_associations_route"
             ]
           },
           "target_view_schema_id": {

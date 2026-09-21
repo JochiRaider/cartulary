@@ -188,6 +188,29 @@ describe("Timeline editor draft registry", () => {
       message: "Rejected",
     });
     expect(registry.draftValue(grid)).toBe("raw Ω");
+    registry.setDraft(grid, "refused tokens");
+    const retryCollection = () =>
+      hook.result.current.commands.queueCollectionSave(
+        row.key,
+        "timeline.host_refs",
+        "hostRefs",
+        "refused tokens",
+        "grid",
+        first,
+      );
+    retryCollection();
+    expect(enqueue).toHaveBeenCalledTimes(4);
+    enqueue.mock.calls[3]?.[2]?.();
+    enqueue.mock.calls[3]?.[1]?.({
+      kind: "rejected_mutation",
+      message: "Queue capacity",
+    });
+    expect(registry.draftValue(grid)).toBe("refused tokens");
+    retryCollection();
+    expect(enqueue).toHaveBeenCalledTimes(5);
+    expect(enqueue.mock.calls[4]?.[0].clientTxnId).not.toBe(
+      enqueue.mock.calls[3]?.[0].clientTxnId,
+    );
     hook.unmount();
   });
 
@@ -365,6 +388,32 @@ describe("Timeline editor draft registry", () => {
     expect(registry.draftValue(grid)).toBeUndefined();
     expect(registry.draftValue({ ...grid, field: "hostRefs" })).toBe(
       "separate collection input",
+    );
+    registry.setDraft(grid, "refused scalar", row, true);
+    const retryScalar = () =>
+      hook.result.current.commands.queueScalarSave(
+        row.key,
+        "activitySynopsisText",
+        {
+          continueOnFreshDraft: false,
+          preserveInputFocus: false,
+          surface: "grid",
+        },
+        "refused scalar",
+        first,
+      );
+    retryScalar();
+    expect(enqueue).toHaveBeenCalledTimes(4);
+    enqueue.mock.calls[3]?.[2]?.();
+    enqueue.mock.calls[3]?.[1]?.({
+      kind: "rejected_mutation",
+      message: "Queue capacity",
+    });
+    expect(registry.draftValue(grid)).toBe("refused scalar");
+    retryScalar();
+    expect(enqueue).toHaveBeenCalledTimes(5);
+    expect(enqueue.mock.calls[4]?.[0].clientTxnId).not.toBe(
+      enqueue.mock.calls[3]?.[0].clientTxnId,
     );
     hook.unmount();
   });

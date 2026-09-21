@@ -27,9 +27,24 @@ export function useEntityTimelinePreview({
   readonly onAuthorityUncertain?: (() => void) | undefined;
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
-  const [timelinePreviewRows, setTimelinePreviewRows] = useState<WorkbookRow[]>(
-    [],
-  );
+  const [preview, setPreview] = useState<{
+    recordId: string | null;
+    rows: WorkbookRow[];
+    hasData: boolean;
+    state:
+      | "initial_loading"
+      | "ready"
+      | "refreshing"
+      | "stale_failure"
+      | "unavailable";
+    message: string | null;
+  }>({
+    recordId: null,
+    rows: [],
+    hasData: false,
+    state: "initial_loading",
+    message: null,
+  });
   const queryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
     sequence: 0,
@@ -37,7 +52,13 @@ export function useEntityTimelinePreview({
 
   const clearTimelinePreview = useCallback(() => {
     abortLatestQuery(queryRuntimeRef);
-    setTimelinePreviewRows([]);
+    setPreview({
+      recordId: null,
+      rows: [],
+      hasData: false,
+      state: "initial_loading",
+      message: null,
+    });
   }, []);
 
   const loadTimelinePreview = useCallback(
@@ -46,7 +67,17 @@ export function useEntityTimelinePreview({
       options?: { readonly requireAcceptance?: boolean },
     ) => {
       const request = beginLatestQuery(queryRuntimeRef);
-      setTimelinePreviewRows([]);
+      setPreview((current) =>
+        current.recordId === recordId && current.hasData
+          ? { ...current, state: "refreshing", message: null }
+          : {
+              recordId,
+              rows: [],
+              hasData: false,
+              state: "initial_loading",
+              message: null,
+            },
+      );
       const result = await viewQuery.query({
         contract: timelineContract,
         queryState: emptyWorkbookQueryState(),
@@ -59,7 +90,11 @@ export function useEntityTimelinePreview({
         return;
       }
       if (result.kind === "rejected") {
-        setTimelinePreviewRows([]);
+        setPreview((current) => ({
+          ...current,
+          state: current.hasData ? "stale_failure" : "unavailable",
+          message: "Could not refresh the Timeline preview.",
+        }));
         if (
           workbookFailureLifecycle(result.failure).kind ===
           "authority_unavailable"
@@ -87,13 +122,23 @@ export function useEntityTimelinePreview({
             ),
           );
       } catch {
-        setTimelinePreviewRows([]);
+        setPreview((current) => ({
+          ...current,
+          state: current.hasData ? "stale_failure" : "unavailable",
+          message: "Could not refresh the Timeline preview.",
+        }));
         if (options?.requireAcceptance)
           throw new Error("Timeline preview could not be verified");
         return;
       }
       if (request.isCurrent()) {
-        setTimelinePreviewRows(previewRows);
+        setPreview({
+          recordId,
+          rows: previewRows,
+          hasData: true,
+          state: "ready",
+          message: null,
+        });
       }
     },
     [entityType, viewQuery, onAuthorityUncertain],
@@ -109,6 +154,7 @@ export function useEntityTimelinePreview({
   return {
     clearTimelinePreview,
     loadTimelinePreview,
-    timelinePreviewRows,
+    timelinePreviewRows: preview.rows,
+    timelinePreviewState: preview,
   };
 }

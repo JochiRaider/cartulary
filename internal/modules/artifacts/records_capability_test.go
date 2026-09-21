@@ -30,6 +30,10 @@ func (*artifactRecordsCapabilitySpy) AdvanceVersionTx(context.Context, pgx.Tx, u
 	return 0, errors.New("unexpected AdvanceVersionTx")
 }
 
+func (*artifactRecordsCapabilitySpy) LoadEnvelopeForShareTx(context.Context, pgx.Tx, uuid.UUID) (records.Envelope, error) {
+	return records.Envelope{}, errors.New("unexpected LoadEnvelopeForShareTx")
+}
+
 func (spy *artifactRecordsCapabilitySpy) LoadEnvelopeTx(
 	_ context.Context,
 	tx pgx.Tx,

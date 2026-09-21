@@ -47,7 +47,7 @@ export function TimelineRelatedEvidenceForm({
   return (
     <section
       ref={form}
-      aria-label="Create Related Evidence"
+      aria-label={draft.feature.label}
       style={{
         display: "grid",
         gap: "var(--ct-spacing-sm)",

@@ -106,6 +106,12 @@ function assertExactRows(filePath, field, actual, expected) {
 
 export function renderDesignPresentationTypeScript(document) {
   const source = {
+    inspector: {
+      dataStates: document.projection.inspector.data_states,
+      accessStates: document.projection.inspector.access_states,
+      contentStates: document.projection.inspector.content_states,
+      headerTitleLines: document.projection.inspector.header_title_lines,
+    },
     gridCellRangeSelection: {
       stationaryTolerancePx: document.projection.grid_cell_range_selection.stationary_tolerance_px,
       edgeBandPx: document.projection.grid_cell_range_selection.edge_band_px,

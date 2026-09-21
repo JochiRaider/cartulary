@@ -401,7 +401,7 @@
       {
         "feature_group_key": "create_related.comm_log",
         "panel_id": "workflow",
-        "label": "Create Related Comm Log",
+        "label": "Create Communications Log",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -432,7 +432,7 @@
       {
         "feature_group_key": "create_related.status_review",
         "panel_id": "workflow",
-        "label": "Create Related Status Review",
+        "label": "Create status review",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
@@ -463,7 +463,7 @@
       {
         "feature_group_key": "create_related.lesson",
         "panel_id": "workflow",
-        "label": "Create Related Lesson",
+        "label": "Create lesson",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,

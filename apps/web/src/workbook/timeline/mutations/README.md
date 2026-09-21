@@ -30,3 +30,9 @@ altering exact dispatched attempts or conflicted fields. The editor draft regist
 retains newer authoring, including an editor still open at acknowledgement.
 `useTimelineRowMutationCoordinator.applyAcceptedBatchRows` publishes a complete
 batch receipt in one projection commit and preserves existing mention notices.
+
+Queue admission refusal is distinct from a submitted operation's settlement.
+The driver reports refusal to the command owner so its scalar/collection
+deduplication entry can retire while the exact authoring revision remains.
+A later explicit commit can retry that unsubmitted work; submitted failures and
+uncertain requests keep their existing recovery and transaction identities.
