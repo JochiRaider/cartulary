@@ -8,10 +8,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1062,14 +1064,24 @@ func postRollback(t testing.TB, server *httptestx.Server, login flowtest.LoginRe
 }
 
 func getRecordHistoryItems(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string) []any {
+	return getRecordHistoryPages(t, server, login, recordID, 100)
+}
+func getRecordHistoryPages(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string, limit int) []any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history", nil, httptestx.WithCookies(login.SessionCookie))
-	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-	items, ok := data["items"].([]any)
-	if !ok {
-		t.Fatalf("history items missing: %#v", data)
+	query := fmt.Sprintf("?limit=%d", limit)
+	var result []any
+	for page := 0; page < 100; page++ {
+		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
+		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+		result = append(result, body["data"].(map[string]any)["items"].([]any)...)
+		paging := body["meta"].(map[string]any)["paging"].(map[string]any)
+		if paging["has_more"] == false {
+			return result
+		}
+		query = fmt.Sprintf("?limit=%d&cursor_token=%s", limit, url.QueryEscape(paging["next_cursor"].(string)))
 	}
-	return items
+	t.Fatal("History continuation did not terminate")
+	return nil
 }
 
 func requireHistoryItemForChangeSet(t testing.TB, items []any, changeSetID string) map[string]any {

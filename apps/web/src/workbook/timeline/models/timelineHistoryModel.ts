@@ -1,13 +1,11 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import {
-  buildWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "../../inspector/workbookInspectorSubject";
+import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import {
   type WorkbookRecordHistoryState,
   workbookRecordHistoryLoadedData,
 } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { WorkbookRow } from "./timelineRowModel";
 
 const timelineInspectorConfig =
@@ -21,7 +19,7 @@ export function selectTimelineInspectorHistorySubject({
   readonly draftRow: WorkbookRow | null;
   readonly rowHistory: WorkbookRecordHistoryState;
   readonly selectedRow: WorkbookRow | null;
-}): WorkbookInspectorSubject | null {
+}): WorkbookRecordSubject | null {
   const rowHistoryData = workbookRecordHistoryLoadedData(rowHistory);
   const matchedRowHistoryData =
     rowHistoryData !== null &&

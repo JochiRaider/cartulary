@@ -44,11 +44,9 @@ import {
   waitForVisibleGridRowRecordIds,
   workbookAsyncTimeoutMs,
 } from "../testing/timelineWorkbookTestSupport";
-import { historyDiffFixture } from "./history/workbookHistoryTestFixtures";
-import {
-  buildRecordRollbackTargetFromHistoryAction,
-  type RecordHistoryItem,
-} from "./inspector/workbookRecordHistoryModel";
+import { historyDiffFixture } from "../testing/workbookHistoryTestSupport";
+import type { RecordHistoryItem } from "./adapters/workbookHistoryResponse";
+import { buildRecordRollbackTargetFromHistoryAction } from "./history/workbookHistoryItem";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 
 vi.mock(

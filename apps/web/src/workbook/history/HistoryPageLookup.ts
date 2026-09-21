@@ -1,4 +1,5 @@
 import { observeAsyncOperation } from "../../services/asyncObservation";
+import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
@@ -9,7 +10,6 @@ import {
   type HistoryPageProvenance,
   type HistoryPageRequest,
   type HistoryReadScope,
-  type RecordHistoryItem,
   sameHistoryReadScope,
   validHistoryPaging,
 } from "./workbookHistoryPage";

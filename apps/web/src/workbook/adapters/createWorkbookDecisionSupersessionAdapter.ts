@@ -14,6 +14,7 @@ import type {
   DecisionSupersessionReceipt,
   DecisionSupersessionTransportPort,
 } from "../features/coordination/decisionSupersessionOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { createDecisionCandidateReader } from "./createDecisionCandidateReader";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 
@@ -23,6 +24,7 @@ const path = (apiBase: string | undefined, id: string) =>
 export function createWorkbookDecisionSupersessionAdapter(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
+  readonly readScope?: WorkbookReadScopeSource;
 }): DecisionSupersessionTransportPort {
   return {
     ...createDecisionCandidateReader(options),

@@ -8,6 +8,8 @@ import type {
   WorkbookPendingMutationAccepted,
   WorkbookPendingMutationPort,
 } from "../ports/WorkbookPendingMutationPort";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import type { PendingReplayUnitState } from "../utils/workbookPendingQueue";
 import { invalidWorkbookAdapterResult } from "./workbookAdapterResult";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
@@ -22,6 +24,7 @@ const invalidMessage = "The Workbook mutation response was invalid.";
 type PendingMutationAdapterOptions = {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
+  readonly readScope?: WorkbookReadScopeSource;
   readonly recordTiming?:
     | ((name: string, details?: Readonly<Record<string, unknown>>) => void)
     | undefined;
@@ -233,6 +236,7 @@ export function createWorkbookPendingMutationAdapter(
       attempts.clear();
     },
     async execute({ committedRowVersion, unit }) {
+      const scope = options.readScope?.() ?? null;
       if (retired) return invalidMutationResult();
       if (unit.incidentId !== options.incidentId) {
         return invalidMutationResult();
@@ -277,7 +281,15 @@ export function createWorkbookPendingMutationAdapter(
             result.failure.kind !== "authorization_lost")
         )
           attempts.delete(unit.clientTxnId);
-        return result;
+        return result.kind === "accepted"
+          ? {
+              ...result,
+              value: {
+                ...result.value,
+                row: acceptWorkbookRowObservation(result.value.row, scope),
+              },
+            }
+          : result;
       } catch {
         return {
           kind: "rejected",

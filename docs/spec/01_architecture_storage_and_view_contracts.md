@@ -1527,6 +1527,14 @@ Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
 
 **REQ-01-056**
 The route MUST accept `limit` and `cursor_token` under §3.3.7 whenever more than one page is possible. Pagination MUST preserve the item-ordering rules in this subsection and the cursor MUST remain bound to `record_id`.
+
+A page boundary MUST fall between complete logical history items. It MUST NOT
+split a semantic unit, duplicate a revision already represented by a mutation
+item, or change an item's identity or semantic detail because a related item
+falls on another page. Selecting a page MUST NOT require materializing the
+unrelated retained history's snapshots or public semantic detail. Complete
+retained facts needed to project a selected item or determine its legal reversal
+actions remain required; pagination MUST NOT replace them with partial detail.
 Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-215, AC-231
 

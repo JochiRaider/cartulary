@@ -299,23 +299,28 @@ export function TimelineWorkbookInspector({
           accessibleLabel="Timeline inspector"
           config={inspectorConfig}
           elementRef={elementRegistry.registerRoot}
-          noRowHeading="Timeline inspector"
-          subject={subject}
           testId={timelineInspectorTestId()}
           onClose={onClose}
-          sections={sections}
-        >
-          <WorkbookInspectorFeedbackView
-            feedback={
-              visibleFeedback?.destination &&
-              visibleFeedback.destination.kind !== "inspector"
-                ? null
-                : visibleFeedback
-            }
-            neutralStyle={bodyStyle}
-            testId={timelineInspectorMessageTestId()}
-          />
-        </WorkbookInspectorShell>
+          {...(subject
+            ? {
+                mode: "saved",
+                subject,
+                sections,
+                feedback: (
+                  <WorkbookInspectorFeedbackView
+                    feedback={
+                      visibleFeedback?.destination &&
+                      visibleFeedback.destination.kind !== "inspector"
+                        ? null
+                        : visibleFeedback
+                    }
+                    neutralStyle={bodyStyle}
+                    testId={timelineInspectorMessageTestId()}
+                  />
+                ),
+              }
+            : { mode: "empty", heading: "Timeline inspector" })}
+        />
       )}
     </WorkbookInspectorDeclaredPanelList>
   );

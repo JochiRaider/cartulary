@@ -941,6 +941,7 @@ export class WorkbookCoordinationCreateOwner {
       return;
     this.refreshes.add(id);
     this.replace(id, { refresh: "refreshing" });
+    let followUp = false;
     try {
       await this.currentAuthority(
         entry.attempt.review.authority.actorId,
@@ -990,8 +991,9 @@ export class WorkbookCoordinationCreateOwner {
       const current = this.entries.get(id);
       const complete =
         current?.observations.length === entry.observations.length;
+      followUp = !complete;
       this.replace(id, {
-        refresh: complete ? "complete" : "required",
+        refresh: complete ? "complete" : "refreshing",
         message: complete
           ? "Coordination created. Views refreshed."
           : "Refreshing additional affected views…",
@@ -1006,12 +1008,7 @@ export class WorkbookCoordinationCreateOwner {
     } finally {
       if (lifetime === this.lifetime) {
         this.refreshes.delete(id);
-        const current = this.entries.get(id);
-        if (
-          current?.refresh === "required" &&
-          current.observations.length !== entry.observations.length
-        )
-          void this.retryRefresh(id);
+        if (followUp) void this.retryRefresh(id);
       }
     }
   }
@@ -1044,8 +1041,14 @@ export class WorkbookCoordinationCreateOwner {
       return;
     this.replace(payload.client_txn_id, {
       observations: [...entry.observations, structuredClone(message)],
-      ...(entry.receipt ? { refresh: "required" as const } : {}),
+      ...(entry.receipt && entry.refresh === "complete"
+        ? { refresh: "required" as const }
+        : {}),
     });
-    if (entry.receipt) void this.retryRefresh(payload.client_txn_id);
+    // A failed refresh is deliberate recovery work. Late socket evidence adds
+    // debt but must not disable a recovery control the user is now operating.
+    // An in-flight refresh drains new evidence before offering recovery again.
+    if (entry.receipt && entry.refresh === "complete")
+      void this.retryRefresh(payload.client_txn_id);
   }
 }

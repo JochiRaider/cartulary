@@ -24,7 +24,7 @@ import {
   inspectorReadData,
   WorkbookInspectorRegionContent,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import { IndicatorLifecycleContext } from "./IndicatorLifecycleContext";
 import { IndicatorLifecycleOperationStatus } from "./IndicatorLifecycleOperationStatus";
 import {
@@ -45,7 +45,7 @@ export function IndicatorLifecycleWorkflow({
   subject,
 }: {
   action: "indicator.lifecycle.read" | "indicator.lifecycle.manage";
-  subject: WorkbookInspectorSubject;
+  subject: WorkbookRecordSubject;
 }) {
   const owner = useContext(IndicatorLifecycleContext);
   if (!owner)
@@ -71,7 +71,7 @@ function LifecycleContent({
 }: {
   owner: IndicatorLifecycleOwnerPort;
   action: "indicator.lifecycle.read" | "indicator.lifecycle.manage";
-  subject: WorkbookInspectorSubject;
+  subject: WorkbookRecordSubject;
 }) {
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
   const identity = `${snapshot.authority?.actorId}:${snapshot.authority?.incidentId}:${subject.recordId}`;

@@ -8,12 +8,14 @@ import { createAssessmentAppendTransport } from "../adapters/createAssessmentApp
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import type { WorkbookBatchOperationOwner } from "../runtime/WorkbookBatchOperationOwner";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type { WorkbookMutationCommandPorts } from "./workbookMutationCommandPorts";
 
 type CommandContext = {
+  readonly readScope?: WorkbookReadScopeSource;
   readonly batches: Pick<WorkbookBatchOperationOwner, "admit">;
   readonly apiBase: string | undefined;
   readonly incidentId: string;
@@ -138,7 +140,10 @@ export function createWorkbookMutationCommandPorts(
         operations,
       }),
     },
-    assessment: createAssessmentAppendTransport(context.apiBase),
+    assessment: createAssessmentAppendTransport(
+      context.apiBase,
+      context.readScope,
+    ),
     evidence: {
       async issueHandle(input) {
         const operationID =

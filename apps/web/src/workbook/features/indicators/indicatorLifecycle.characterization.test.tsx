@@ -2,7 +2,6 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { savedInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
-import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import { GenericWorkbookInspector } from "../generic/GenericWorkbookInspector";
 
 vi.mock("../../inspector/WorkbookInspectorRecordHistory", () => ({
@@ -49,10 +48,8 @@ function fixture(
       mutationError={null}
       relatedFeedback={null}
       history={{
-        beginMutation: () => vi.fn(),
         actions: new Set(),
         canMutate: true,
-        commands: {} as RecordRouteCommandPort,
         effects: {
           deleteAccepted: () => {},
           restoreAccepted: () => {},

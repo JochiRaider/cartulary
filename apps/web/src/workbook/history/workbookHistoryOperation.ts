@@ -1,15 +1,15 @@
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
-import type { WorkbookInspectorSubject } from "../inspector/workbookInspectorSubject";
-import type {
-  RecordHistoryData,
-  RecordHistoryRollbackTarget,
-  WorkbookRecordHistoryPendingAction,
-} from "../inspector/workbookRecordHistoryModel";
 import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../mutations/workbookOperationOutcome";
-import type { HistoryLookupState } from "./HistoryActionLookup";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
+import type { HistoryLookupState } from "./HistoryPageLookup";
+
+import type {
+  RecordHistoryRollbackTarget,
+  WorkbookRecordHistoryPendingAction,
+} from "./workbookHistoryItem";
 import type {
   HistoryPage,
   HistoryPageProvenance,
@@ -24,7 +24,7 @@ export type HistoryAuthority = {
   readonly closed: boolean;
 };
 export type HistoryIntent = {
-  readonly subject: WorkbookInspectorSubject;
+  readonly subject: WorkbookRecordSubject;
   readonly pending: WorkbookRecordHistoryPendingAction;
   readonly provenance?: HistoryPageProvenance;
 };
@@ -54,7 +54,7 @@ export type HistoryReceipt = {
       readonly affectedRecordIds: readonly string[];
     }
 );
-export type HistoryTransportOutcome =
+type HistoryTransportOutcome =
   | { readonly kind: "acknowledged"; readonly receipt: HistoryReceipt }
   | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure }
   | { readonly kind: "uncertain" };
@@ -79,7 +79,7 @@ export type HistoryBinding = {
   readonly reconcile: (
     receipt: HistoryReceipt,
     current: () => boolean,
-    history: RecordHistoryData,
+    history: HistoryPage,
   ) => Promise<void>;
 };
 export type HistoryOperation = {
@@ -96,7 +96,7 @@ export type HistoryOperation = {
   readonly failure: WorkbookOperationFailure | null;
   readonly reconciliation: "pending" | "refreshing" | "required" | "complete";
   readonly reviewFailure: boolean;
-  readonly currentHistory: RecordHistoryData | null;
+  readonly currentHistory: HistoryPage | null;
   readonly checking?: HistoryLookupState;
   readonly reviewState?: HistoryLookupState | undefined;
 };
@@ -112,7 +112,6 @@ export function historyActionPermitted(
     (operation === "delete" && authority.role === "editor")
   );
 }
-export { historyTargetEqual } from "./workbookHistoryItem";
 export function historyOperationLabel(
   attempt: Pick<HistoryIntent, "pending">,
 ): string {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historyDiffFixture } from "../history/workbookHistoryTestFixtures";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
 import {
   workbookHistoryEventPresentation,
   workbookHistoryPendingTechnicalFields,

@@ -4,6 +4,8 @@ import {
   type NoteAssociationTransport,
   noteAssociationView,
 } from "../features/notes/noteAssociationOperation";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 import type {
@@ -15,6 +17,7 @@ import { normalizeRecordMutationRow } from "./workbookRecordPatchTransport";
 
 export function createNoteAssociationTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): NoteAssociationTransport {
   return {
     capture(review, clientTxnId) {
@@ -39,6 +42,7 @@ export function createNoteAssociationTransport(
       });
     },
     async send(attempt, signal) {
+      const scope = readScope?.() ?? null;
       let status: number | null = null,
         responseId: string | null = null;
       try {
@@ -101,7 +105,15 @@ export function createNoteAssociationTransport(
           return { kind: "uncertain" };
         return {
           kind: "accepted",
-          receipt: freezeWorkbookValue(structuredClone(receipt)),
+          receipt: freezeWorkbookValue(
+            structuredClone({
+              ...receipt,
+              data: {
+                ...receipt.data,
+                row: acceptWorkbookRowObservation(row, scope),
+              },
+            }),
+          ),
         };
       } catch {
         return { kind: "uncertain" };

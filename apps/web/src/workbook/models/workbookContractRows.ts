@@ -12,12 +12,15 @@ import {
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
 import type { ReactNode } from "react";
+import type { WorkbookRowObservation } from "../query/WorkbookQueryRow";
+import { preserveWorkbookRowObservation } from "../query/workbookRowObservation";
 
 export type WorkbookViewApiCell = {
   value: unknown;
 };
 
 export type WorkbookViewApiRow = {
+  readonly observation?: WorkbookRowObservation;
   record_id: string;
   row_version: number;
   cells: Record<string, WorkbookViewApiCell>;
@@ -56,8 +59,11 @@ export function normalizeWorkbookViewRows(
   source: string,
 ): WorkbookViewApiRow[] {
   return rows.map((row, index) =>
-    materializeWorkbookViewRow(
-      normalizeViewRowV1(contract, row, `${source} rows[${index}]`),
+    preserveWorkbookRowObservation(
+      row,
+      materializeWorkbookViewRow(
+        normalizeViewRowV1(contract, row, `${source} rows[${index}]`),
+      ),
     ),
   );
 }

@@ -106,10 +106,7 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import type {
-  RecordRouteCommandPort,
-  TimelineRelatedRecordPort,
-} from "../mutations/workbookMutationCommandPorts";
+import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
 import {
   useWorkbookQueryPresentation,
   useWorkbookQueryRestart,
@@ -161,7 +158,6 @@ export type EntityWorkbookSurfaceProps = {
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   onActivateConflict?: WorkbookConflictActivation | undefined;
-  recordMutationCommands: RecordRouteCommandPort;
   relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
@@ -212,7 +208,6 @@ export function EntityWorkbookSurface({
   loadState,
   mutationRuntime,
   onActivateConflict,
-  recordMutationCommands,
   relatedMutationCommands,
   collaborationProjection,
   onClearFilters,
@@ -247,28 +242,28 @@ export function EntityWorkbookSurface({
   );
 
   const selectedVisible = rows.find((row) => row.recordId === selectedRecordId);
-  const selectedCommitted =
-    selectedRecordId === null
-      ? null
-      : (mutationRuntime.explicitPatches.latestRow(selectedRecordId) ??
-        mutationRuntime.ordinaryCreate.latestRow(selectedRecordId));
-  const selectedObservation = useMemo(
-    () =>
-      selectedCommitted &&
-      selectedCommitted.row_version > (selectedVisible?.rowVersion ?? 0)
-        ? entityRowFromApi(selectedCommitted, entityType)
-        : (selectedVisible ?? null),
-    [selectedCommitted, selectedVisible, entityType],
+  const selectedPatch = selectedRecordId
+    ? mutationRuntime.explicitPatches.latestRow(selectedRecordId)
+    : null;
+  const selectedCreate = selectedRecordId
+    ? mutationRuntime.ordinaryCreate.latestRow(selectedRecordId)
+    : null;
+  const selectedObservations = useMemo(
+    () => [
+      selectedVisible,
+      selectedPatch ? entityRowFromApi(selectedPatch, entityType) : null,
+      selectedCreate ? entityRowFromApi(selectedCreate, entityType) : null,
+    ],
+    [selectedVisible, selectedPatch, selectedCreate, entityType],
   );
   const selectedEntity = useRetainedInspectorRow({
     recordId: selectedRecordId,
-    row: selectedObservation,
-    rowVersion: (row) => row.rowVersion,
-    scope: JSON.stringify([
-      incidentId,
-      currentUserId,
-      mutationRuntime.authorizationEpoch,
-    ]),
+    rows: selectedObservations,
+    sourceRow: (row) => row.rawRow,
+    scope:
+      mutationRuntime.recordReadScope?.actorId === currentUserId
+        ? mutationRuntime.recordReadScope
+        : null,
     readable: !!currentIncidentRole && loadState.kind !== "permission_denied",
   });
   const canMerge =
@@ -406,7 +401,6 @@ export function EntityWorkbookSurface({
       inspectorContinuityTokenRef.current = null;
       if (token !== null) continuityPortRef.current?.restore(token);
     },
-    recordMutationCommands,
     relatedMutationCommands,
     rows,
     selectedEntity,

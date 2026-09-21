@@ -1,5 +1,6 @@
 import { useCallback, useReducer, useRef } from "react";
 import { useWorkbookHistoryRuntime } from "../../history/WorkbookHistoryContext";
+import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { timelineCaptureOwnerFor } from "../actions/timelineCaptureOwnerFor";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
@@ -95,13 +96,9 @@ export function useTimelineCommittedRows({
       history?.acceptVersion(recordId, rowVersion);
       capture?.acceptVersion(recordId, rowVersion);
       mentions?.acceptVersion(recordId, rowVersion);
-      return ledgerRef.current.acceptVersion(
-        recordId,
-        rowVersion,
-        rowsRef.current,
-      );
+      return ledgerRef.current.acceptVersion(recordId, rowVersion);
     },
-    [rowsRef, history, capture, mentions],
+    [history, capture, mentions],
   );
 
   const acceptTimelineActionResult = useCallback(
@@ -115,12 +112,18 @@ export function useTimelineCommittedRows({
         result.recordId,
         rowsRef.current,
       );
-      if (existing === null) {
-        ledgerRef.current.acceptVersion(
+      if (
+        existing === null ||
+        !existing.rawRow ||
+        !result.observation ||
+        existing.rowVersion !== result.baseRowVersion ||
+        !workbookRowIsAdmissible(
+          existing.rawRow,
           result.recordId,
-          result.rowVersion,
-          rowsRef.current,
-        );
+          result.observation.scope,
+        )
+      ) {
+        ledgerRef.current.acceptVersion(result.recordId, result.rowVersion);
         return;
       }
       ledgerRef.current.accept(
@@ -134,6 +137,7 @@ export function useTimelineCommittedRows({
               : {
                   ...existing.rawRow,
                   row_version: result.rowVersion,
+                  observation: result.observation,
                   cells: {
                     ...existing.rawRow.cells,
                     "timeline.replacement_record_id": {

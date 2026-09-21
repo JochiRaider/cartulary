@@ -23,11 +23,34 @@ credentials, upload tokens, and access handles must never be serialized.
 
 ## Deployment and rollback
 
+History requests use a typed limit and ordering position at the application
+boundary. HTTP validates the protected cursor after record/incident admission and
+before invoking History. The repository selects at most `limit + 1` logical event
+descriptors; the extra descriptor determines continuation and is never projected.
+Only selected mutation/revision snapshots are loaded. Complete association metadata
+determines whether the first mutation in a change set also contains supplemental
+row detail, including when a row mutation lies outside the page. Revision-only
+events remain addressable. Ambiguous selected mutation/revision associations fail
+the read instead of emitting duplicate logical identities.
+
+Current reversal eligibility can require all mutations of a selected change set
+and their source dependencies. This cost is distinct from projecting unrelated
+retained history. The bounded paging regression records database row counts,
+projector calls, allocation observations and query plans as history grows. Existing
+indexes remain sufficient unless measured plans justify an additive index.
+
 This change belongs to the pending OpenAPI 2.0.0 release boundary. The historical
 1.0.0 baseline is immutable. Deploy the server and its bundled browser from the
 same release; retain that coherent previous bundle for rollback. `/api/v1`,
 mutation bodies, idempotency, History item identities, and opaque reversal
 selectors retain their existing contracts. There is no legacy response adapter.
+
+`history.position.v1` versions the ordering position inside the unchanged
+`pagination.cursor.v1` protected envelope. Old History anchor cursors restart via
+`invalid_pagination_request`; there is no legacy decoder. Rolling back the coherent
+application bundle also restarts newer disposable cursors without clearing local
+drafts, captured requests or receipts. Paging changes alone do not alter semantic
+representation generation, retained content or selectors.
 
 `data.representation_generation` identifies the semantic projection, including
 empty pages. Change its value whenever a released projection changes committed

@@ -6,8 +6,6 @@ import {
   type WorkbookRecordHistoryPendingAction,
 } from "./workbookHistoryItem";
 
-export type { HistoryLookupState } from "./HistoryPageLookup";
-
 const unavailable: WorkbookOperationFailure = {
   kind: "stale_target",
   message: "This action is no longer available in current history.",

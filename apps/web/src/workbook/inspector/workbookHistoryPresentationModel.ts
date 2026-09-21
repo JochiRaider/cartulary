@@ -1,11 +1,10 @@
+import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
+import type { RecordHistoryRollbackAction } from "../history/workbookHistoryItem";
+
 import type {
   WorkbookHistoryEventPresentation,
   WorkbookInspectorTechnicalField,
 } from "./presentation/workbookInspectorPresentationModel";
-import type {
-  RecordHistoryItem,
-  RecordHistoryRollbackAction,
-} from "./workbookRecordHistoryModel";
 
 export function workbookHistoryEventPresentation(
   item: RecordHistoryItem,

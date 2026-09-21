@@ -13,6 +13,7 @@ import type {
   IndicatorLifecycleTransportPort,
   LifecycleAttempt,
 } from "../features/indicators/indicatorLifecycleOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { createIndicatorLifecycleReader } from "./createIndicatorLifecycleReader";
 import type { IndicatorLifecycleReceipt } from "./indicatorLifecycleProtocol";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
@@ -26,6 +27,7 @@ const route = (base: string | undefined, recordId: string) =>
 export function createIndicatorLifecycleAdapter(options: {
   apiBase: string | undefined;
   incidentId: string;
+  readScope?: WorkbookReadScopeSource;
 }): IndicatorLifecycleTransportPort {
   return {
     ...createIndicatorLifecycleReader(options),

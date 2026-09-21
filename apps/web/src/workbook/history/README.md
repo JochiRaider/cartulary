@@ -9,6 +9,15 @@ This layer retains History operation state beyond inspector attachment.
 [adapters](../adapters/README.md) own protocol validation. An accepted operation
 receipt and successful projection refresh are separate observations.
 
+The browsing model is the sole accepted-page representation. Reconciliation and
+operation review retain complete `HistoryPage` values, including continuation
+metadata; inspector attachment never maintains a second loaded-data phase.
+Timeline shares one presentation state instance with its subject composition and
+keeps its FIFO coordination port. Missing coordination fails action preparation
+locally rather than issuing an uncoordinated command. Shared record identity and
+display context live in `ports/WorkbookRecordSubject.ts`, independently of
+inspector attachment and operation lifetime.
+
 ## Files
 
 | File | Responsibility |
@@ -27,6 +36,8 @@ receipt and successful projection refresh are separate observations.
 | [workbookHistoryPage.ts](workbookHistoryPage.ts) | History page requests, provenance, scope equality, and paging validation. |
 | [WorkbookHistoryRecovery.tsx](WorkbookHistoryRecovery.tsx) | Retained History operation replay, lookup, and reconciliation recovery presentation. |
 | [WorkbookRecordHistoryOwner.ts](WorkbookRecordHistoryOwner.ts) | Record History operation admission, captured attempts, acknowledgement, and recovery ownership. |
+
+Shared semantic fixtures live in [application test support](../../testing/workbookHistoryTestSupport.ts). Production imports are forbidden by the authored import-boundary policy. Consumers import History item and response types directly from their adapter declaration owner; lookup state belongs to `HistoryPageLookup`. No forwarding exports are maintained.
 
 ## Tests
 

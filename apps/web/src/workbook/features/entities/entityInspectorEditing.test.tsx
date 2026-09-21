@@ -17,11 +17,9 @@ import { afterEach, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../../testing/taskWorkbookTestSupport";
 import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
 import type { RecordPatchTransport } from "../../adapters/workbookRecordPatchTransport";
+import { WorkbookHistoryContext } from "../../history/WorkbookHistoryContext";
 import { entityRowFromApi } from "../../models/entityWorkbookModel";
-import type {
-  RecordRouteCommandPort,
-  TimelineRelatedRecordPort,
-} from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useEntityWorkbookInspectorComposition } from "./useEntityWorkbookInspectorComposition";
 
@@ -125,7 +123,6 @@ function fixture() {
       onClearSurfaceSelection: vi.fn(),
       onRefreshEntities: refresh,
       onRestoreFocus: vi.fn(),
-      recordMutationCommands: {} as RecordRouteCommandPort,
       relatedMutationCommands: {} as TimelineRelatedRecordPort,
       rows,
       selectedEntity: rows.find((item) => item.recordId === selected) ?? null,
@@ -135,12 +132,12 @@ function fixture() {
       viewQuery: query,
     });
     return (
-      <>
+      <WorkbookHistoryContext value={runtime}>
         <button type="button" onClick={inspector.open}>
           Inspect selected
         </button>
         {inspector.node}
-      </>
+      </WorkbookHistoryContext>
     );
   }
   return { Surface, patch, runtime, select, refresh };

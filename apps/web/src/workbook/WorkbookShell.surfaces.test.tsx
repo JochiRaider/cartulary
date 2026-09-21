@@ -1662,6 +1662,9 @@ describe("WorkbookShell surface selection", () => {
     expect(screen.queryByText("Review-only Indicator")).toBeNull();
     expect(screen.getByRole("button", { name: "Recovery (0)" })).toBeTruthy();
     act(() => {
+      // Restore the shared read authority as the production shell does after
+      // same-account reauthentication, as well as each retained operation.
+      runtime.explicitPatches.setAuthority(authority);
       runtime.noteCreate.setAuthority(authority);
       lifecycle.setAuthority(authority);
       runtime.batches.setAuthority(authority);

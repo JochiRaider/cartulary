@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import { useWorkbookRecordHistoryController } from "../../inspector/useWorkbookRecordHistoryController";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type {
   WorkbookRecordHistoryEvent,
   WorkbookRecordHistoryState,
 } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
 
 type TimelineHistoryLoadRowsOptions = {
@@ -31,7 +31,7 @@ export function useTimelineHistoryActions({
     recordId: string,
     rowVersion: number,
   ) => void;
-  readonly activeHistorySubject: WorkbookInspectorSubject | null;
+  readonly activeHistorySubject: WorkbookRecordSubject | null;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly loadRows: (options: TimelineHistoryLoadRowsOptions) => Promise<void>;
   readonly dispatchRowHistory: (

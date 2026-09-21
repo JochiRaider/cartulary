@@ -80,33 +80,14 @@ export function createTimelineCommittedVersionLedger() {
     rows.set(recordId, committed);
     return { row: committed, accepted: true, stale: false };
   };
-  const acceptVersion = (
-    recordId: string,
-    rowVersion: number,
-    visibleRows: readonly WorkbookRow[],
-  ) => {
+  // Version-only evidence fences later work; it does not establish saved fields
+  // for that version. Only an accepted query or correlated row receipt does.
+  const acceptVersion = (recordId: string, rowVersion: number) => {
     retainedWork.add(recordId);
-    if (isStale(recordId, rowVersion)) {
-      return { accepted: false, stale: true };
-    }
-    const existing = current(recordId, visibleRows);
-    if (existing === null) {
-      if (knownVersion(recordId) !== rowVersion) epoch += 1;
-      versions.set(recordId, rowVersion);
-      return { accepted: true, stale: false };
-    }
-    const accepted = accept(
-      {
-        ...existing,
-        rowVersion,
-        rawRow:
-          existing.rawRow === null
-            ? null
-            : { ...existing.rawRow, row_version: rowVersion },
-      },
-      visibleRows,
-    );
-    return { accepted: accepted.accepted, stale: accepted.stale };
+    if (isStale(recordId, rowVersion)) return { accepted: false, stale: true };
+    if (knownVersion(recordId) !== rowVersion) epoch += 1;
+    versions.set(recordId, rowVersion);
+    return { accepted: true, stale: false };
   };
   const latest = (
     recordId: string,

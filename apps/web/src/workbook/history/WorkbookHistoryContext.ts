@@ -58,7 +58,10 @@ export function useHistoryRecordPending(recordId: string | null) {
         (entry.transportPending ||
           entry.phase === "preparing" ||
           entry.phase === "submitting" ||
-          entry.phase === "uncertain"),
+          entry.phase === "uncertain" ||
+          (entry.phase === "acknowledged" &&
+            (entry.reconciliation === "pending" ||
+              entry.reconciliation === "refreshing"))),
     ) === true
   );
 }

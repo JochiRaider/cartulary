@@ -19,21 +19,20 @@ import {
 } from "@testing-library/react";
 import { type ComponentProps, useMemo } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
+import type { RecordHistoryData } from "../adapters/workbookHistoryResponse";
 import { WorkbookHistoryContext } from "../history/WorkbookHistoryContext";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { HistoryReceipt } from "../history/workbookHistoryOperation";
-import { historyDiffFixture } from "../history/workbookHistoryTestFixtures";
 
 type RecordLifecycleAccepted = {
   readonly recordId: string;
   readonly rowVersion: number;
 };
 
+import type { RecordHistoryRollbackTarget } from "../history/workbookHistoryItem";
+
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
-import type {
-  RecordHistoryData,
-  RecordHistoryRollbackTarget,
-} from "./workbookRecordHistoryModel";
 
 interface RecordRouteCommandPort {
   execute(input: {
@@ -75,7 +74,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["rollback"])}
         canMutate
         commands={commands}
@@ -147,7 +145,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     const rollbackAccepted = vi.fn(async () => undefined);
     render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -249,7 +246,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     const restoreAccepted = vi.fn();
     render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -314,7 +310,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     const newerRollbackAccepted = vi.fn(async () => undefined);
     const { rerender } = render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -347,7 +342,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     await waitFor(() => expect(commands.rollback).toHaveBeenCalledOnce());
     rerender(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -386,7 +380,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -454,7 +447,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -517,7 +509,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     const { rerender } = render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -542,7 +533,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     await screen.findByRole("alertdialog");
     rerender(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate={false}
         commands={commands}
@@ -581,7 +571,6 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     render(
       <HistoryTestSubject
-        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -760,7 +749,7 @@ function HistoryTestSubject(
   }, [props.commands]);
   return (
     <WorkbookHistoryContext.Provider value={runtime}>
-      <WorkbookInspectorRecordHistory {...props} commands={runtime.port} />
+      <WorkbookInspectorRecordHistory {...props} />
     </WorkbookHistoryContext.Provider>
   );
 }

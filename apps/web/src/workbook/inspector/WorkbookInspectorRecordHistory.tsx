@@ -11,13 +11,16 @@ import {
   useRef,
   useState,
 } from "react";
+import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import { HistoryLookupFeedback } from "../history/HistoryLookupFeedback";
 import {
   useHistoryRecordPending,
   useWorkbookHistoryRuntime,
 } from "../history/WorkbookHistoryContext";
 import { WorkbookHistoryLocalStatus } from "../history/WorkbookHistoryLocalStatus";
-import type { RecordRouteCommandPort } from "../mutations/workbookMutationCommandPorts";
+import type { RecordHistoryRollbackAction } from "../history/workbookHistoryItem";
+
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import type { InspectorRecordHistoryAction } from "./inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
 import {
@@ -32,11 +35,9 @@ import {
 } from "./presentation/WorkbookInspectorPanelContent";
 import { useWorkbookRecordHistoryController } from "./useWorkbookRecordHistoryController";
 import { useWorkbookRecordHistoryFocus } from "./useWorkbookRecordHistoryFocus";
+import { useWorkbookRecordHistoryState } from "./useWorkbookRecordHistoryState";
 import { WorkbookRecordHistoryLoadedPresentation } from "./WorkbookRecordHistoryPresentation";
-import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
 import {
-  type RecordHistoryItem,
-  type RecordHistoryRollbackAction,
   type WorkbookRecordHistoryState,
   workbookRecordHistoryFeedback,
   workbookRecordHistoryLoadError,
@@ -46,26 +47,22 @@ import {
 import type { WorkbookRecordHistoryOwnerEffects } from "./workbookRecordHistoryOwnerEffects";
 
 export function WorkbookInspectorRecordHistory({
-  beginMutation,
   actions,
   canMutate,
-  commands,
   ownerEffects,
   subject,
   present,
 }: {
-  readonly beginMutation: () => () => void;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
   readonly canMutate: boolean;
-  readonly commands: RecordRouteCommandPort;
   readonly ownerEffects: WorkbookRecordHistoryOwnerEffects;
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
   readonly present?: PresentInspectorRegion;
 }) {
+  const presentation = useWorkbookRecordHistoryState(subject);
   const controller = useWorkbookRecordHistoryController({
-    beginMutation,
+    presentation,
     canMutate,
-    commands,
     ownerEffects,
     subject,
   });
@@ -149,6 +146,7 @@ export function WorkbookRecordHistoryPanel({
   const feedback = workbookRecordHistoryFeedback(state);
   const pendingAction = workbookRecordHistoryPendingAction(state);
   const focus = useWorkbookRecordHistoryFocus({
+    pending: retainedPending || Boolean(state.browsing?.pending),
     canMutate,
     state,
     onCancelPendingAction,
@@ -160,7 +158,7 @@ export function WorkbookRecordHistoryPanel({
   const retryFocus = useRef<HTMLButtonElement | null>(null);
   const [delayedLoading, setDelayedLoading] = useState(false);
   const loadGeneration =
-    state.phase === "loading" ? state.requestId.value : null;
+    state.phase === "loading" ? state.browsing?.pending?.generation : null;
   useEffect(() => {
     setDelayedLoading(false);
     if (loadGeneration === null) return;

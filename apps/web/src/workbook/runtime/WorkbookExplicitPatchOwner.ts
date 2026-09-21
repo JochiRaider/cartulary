@@ -24,7 +24,10 @@ import type { WorkbookOperationFailure } from "../mutations/workbookOperationOut
 import type { WorkbookPendingMutationAccepted } from "../ports/WorkbookPendingMutationPort";
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
-import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type {
+  WorkbookQueryRow,
+  WorkbookReadScopeSource,
+} from "../query/WorkbookQueryRow";
 import { applyWorkbookQueryRowPatch } from "../query/workbookQueryRowPatch";
 import type { WorkbookConflictRegistration } from "./WorkbookConflictStore";
 import type { WorkbookConflictResolutionKind } from "./workbookConflictModel";
@@ -201,6 +204,7 @@ export class WorkbookExplicitPatchOwner {
       settle?(id: string): void;
       registerConflict(input: WorkbookConflictRegistration): void;
       accepted(row: WorkbookQueryRow): void;
+      readonly readScope?: WorkbookReadScopeSource;
     },
     private readonly timeoutMs = 30_000,
   ) {}
@@ -315,7 +319,13 @@ export class WorkbookExplicitPatchOwner {
             patch.rowVersion !== payload.row_version
           )
             continue;
-          this.acceptRow(applyWorkbookQueryRowPatch(previous, patch));
+          this.acceptRow(
+            applyWorkbookQueryRowPatch(
+              previous,
+              patch,
+              this.boundaries.readScope?.() ?? null,
+            ),
+          );
           break;
         } catch {
           /* Incomplete projection requires an authoritative read. */

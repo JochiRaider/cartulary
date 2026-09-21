@@ -1,4 +1,5 @@
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import { waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import {
@@ -108,7 +109,9 @@ function fixture() {
   };
   owner.configureReader(async () => acceptedRow);
   const detach = owner.attach(() => ports);
-  const type = () => {
+  const type = (
+    onSettled?: Parameters<typeof owner.enqueuePendingReplayUnit>[1],
+  ) => {
     const authored = {
       ...row,
       values: {
@@ -120,31 +123,34 @@ function fixture() {
     const clientTxnId = ids.create("ordinary"),
       payloadIntent = buildCreatePayload(authored, clientTxnId);
     if (!payloadIntent) throw new Error("Expected qualifying draft input");
-    owner.enqueuePendingReplayUnit({
-      id: `pending-${clientTxnId}`,
-      kind: "create",
-      source: "autosave",
-      incidentId: "incident",
-      clientInstanceId: "client",
-      viewSchemaId: timelineViewSchemaId,
-      rowKey: row.key,
-      recordId: null,
-      clientTxnId,
-      payloadIntent,
-      coalesceKey: `draft:${row.key}`,
-      enqueueOrder: pending.pendingReplayOrderRef.current++,
-      operationClass: "hot_path",
-      status: "queued",
-      mutationSignature: buildStableMutationSignature(payloadIntent),
-      focusField: "activitySynopsisText",
-      focusKey: "draft",
-      surface: "grid",
-      rowSnapshot: authored,
-      continueOnFreshDraft: true,
-      detectAutoResolution: false,
-      promoteToCommittedRowInspect: false,
-      viewportContinuityToken: undefined,
-    });
+    owner.enqueuePendingReplayUnit(
+      {
+        id: `pending-${clientTxnId}`,
+        kind: "create",
+        source: "autosave",
+        incidentId: "incident",
+        clientInstanceId: "client",
+        viewSchemaId: timelineViewSchemaId,
+        rowKey: row.key,
+        recordId: null,
+        clientTxnId,
+        payloadIntent,
+        coalesceKey: `draft:${row.key}`,
+        enqueueOrder: pending.pendingReplayOrderRef.current++,
+        operationClass: "hot_path",
+        status: "queued",
+        mutationSignature: buildStableMutationSignature(payloadIntent),
+        focusField: "activitySynopsisText",
+        focusKey: "draft",
+        surface: "grid",
+        rowSnapshot: authored,
+        continueOnFreshDraft: true,
+        detectAutoResolution: false,
+        promoteToCommittedRowInspect: false,
+        viewportContinuityToken: undefined,
+      },
+      onSettled,
+    );
   };
   return {
     runtime,
@@ -291,4 +297,57 @@ it("retains matching batch disclosure from captured sources across query races a
     },
   });
   expect(send).toHaveBeenCalledTimes(1);
+});
+
+it("settles a halted Timeline editor only when Retry or Discard resolves its logical operation", async () => {
+  for (const action of ["retry", "discard"] as const) {
+    const f = fixture();
+    const settled = vi.fn();
+    f.type(settled);
+    await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+    f.acknowledgement.resolve({
+      kind: "rejected",
+      failure: {
+        kind: "client_txn_conflict",
+        message: "Request identity needs recovery",
+      },
+    });
+    await waitFor(() =>
+      expect(f.runtime.getSnapshot().blockedEdit).not.toBeNull(),
+    );
+    expect(settled).not.toHaveBeenCalled();
+    const id = f.runtime.getSnapshot().blockedEdit?.unitId;
+    if (!id) throw new Error("Missing halted operation");
+    if (action === "retry") f.owner.retryBlockedEdit(id);
+    else f.owner.discardBlockedEdit(id);
+    await waitFor(() => expect(settled).toHaveBeenCalledOnce());
+    expect(settled.mock.calls[0]?.[0].kind).toBe(
+      action === "retry" ? "accepted" : "rejected_mutation",
+    );
+    expect(f.execute).toHaveBeenCalledTimes(action === "retry" ? 2 : 1);
+    f.detach();
+  }
+});
+
+it("settles terminal validation immediately while preserving retryable transaction recovery", async () => {
+  const f = fixture();
+  const settled = vi.fn();
+  f.type(settled);
+  await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+  f.acknowledgement.resolve({
+    kind: "rejected",
+    failure: {
+      kind: "validation",
+      publicCode: "invalid_request",
+      message: "Correct the original edit",
+    },
+  });
+  await waitFor(() => expect(settled).toHaveBeenCalledOnce());
+  expect(settled.mock.calls[0]?.[0].kind).toBe("validation_error");
+  const id = f.runtime.getSnapshot().blockedEdit?.unitId;
+  if (!id) throw new Error("Missing rejected queue unit");
+  f.owner.discardBlockedEdit(id);
+  expect(settled).toHaveBeenCalledOnce();
+  expect(f.execute).toHaveBeenCalledOnce();
+  f.detach();
 });

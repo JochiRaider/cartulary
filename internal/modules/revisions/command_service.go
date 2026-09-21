@@ -74,15 +74,14 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 }
 
 func (s *CommandService) GetHistory(ctx context.Context, query HistoryQuery) (HistoryResult, error) {
+	if err := query.validate(); err != nil {
+		return HistoryResult{}, err
+	}
 	record, err := s.history.GetHistoryRecord(ctx, query.RecordID)
 	if err != nil {
 		return HistoryResult{}, err
 	}
-	resources, err := s.history.ListRecordHistory(ctx, record)
-	if err != nil {
-		return HistoryResult{}, err
-	}
-	return HistoryResult{Record: record, Resources: resources}, nil
+	return s.history.ListRecordHistory(ctx, record, query)
 }
 
 func (s *CommandService) RollbackRecord(ctx context.Context, command RollbackCommand) (RollbackResult, error) {

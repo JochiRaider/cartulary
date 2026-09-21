@@ -3386,6 +3386,7 @@
       "selector": {
         "file": "apps/web/src/workbook/adapters/createWorkbookViewQueryAdapter.test.ts",
         "titles": [
+          "binds accepted query rows to captured authority and rejects late old-session responses",
           "derives and validates Workbook query transport behind the shared semantic port",
           "fails closed on malformed or cross-context query success and contains aborts",
           "preserves route query cursors and projected pagination reasons without trusting unknown reasons"
@@ -3417,6 +3418,7 @@
         "titles": [
           "useTimelineRowMutationCoordinator admits conflict server state without collapsing its local draft",
           "useTimelineRowMutationCoordinator invalidates an in-flight query generation when an action advances the row",
+          "useTimelineRowMutationCoordinator keeps old-scope partial receipts from promoting current saved fields",
           "useTimelineRowMutationCoordinator pins only the latest locally created row within its query presentation scope",
           "useTimelineRowMutationCoordinator prevents stale action and mutation results from regressing a live high-water row",
           "useTimelineRowMutationCoordinator reconciles same-version query grouping after a lifecycle receipt while retaining local drafts",

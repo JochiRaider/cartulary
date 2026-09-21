@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
+import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import {
   workbookRecordHistoryLoadedData,
   workbookRecordHistoryOperationId,
@@ -10,8 +12,7 @@ import {
   initialHistoryBrowsing,
   rejectHistoryRead,
 } from "./workbookHistoryBrowsing";
-import type { HistoryPage, RecordHistoryItem } from "./workbookHistoryPage";
-import { historyDiffFixture } from "./workbookHistoryTestFixtures";
+import type { HistoryPage } from "./workbookHistoryPage";
 
 const scope = {
   epoch: 1,
@@ -317,8 +318,6 @@ describe("History browsing state", () => {
       {
         phase: "submitting",
         browsing,
-        data: required(browsing.accepted).data,
-        operationId,
         subject: {
           kind: "live",
           recordId: "record",
@@ -327,7 +326,8 @@ describe("History browsing state", () => {
           label: "Row",
           surfaceLabel: "Generic",
         },
-        operation: {
+        submission: {
+          operationId,
           pendingAction: {
             kind: "destructive",
             operation: "delete",

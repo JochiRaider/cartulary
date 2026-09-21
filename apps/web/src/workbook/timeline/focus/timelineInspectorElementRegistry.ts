@@ -1,15 +1,15 @@
 import type { InspectorPanelId } from "@cartulary/view-contracts";
 import { useRef } from "react";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import { workbookInspectorSubjectsEqual } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 
 type TimelineInspectorElement = HTMLElement;
 
 type TimelineInspectorElementScope = {
   readonly invalidationGeneration: number;
   readonly lifecycleKey: string;
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
 };
 
 type TimelineInspectorFocusIdentity = {

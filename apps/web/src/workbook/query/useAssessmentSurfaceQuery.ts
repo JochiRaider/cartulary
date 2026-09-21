@@ -198,7 +198,11 @@ export function useAssessmentSurfaceQuery({
       if (existing.row_version >= patch.rowVersion) return { kind: "stale" };
       const next = current.map((row) =>
         row.record_id === patch.recordId
-          ? applyWorkbookQueryRowPatch(row, patch)
+          ? applyWorkbookQueryRowPatch(
+              row,
+              patch,
+              viewQuery.readScope?.() ?? null,
+            )
           : row,
       );
       rowsRef.current = next;
@@ -218,7 +222,7 @@ export function useAssessmentSurfaceQuery({
         ? { kind: "refresh_required" }
         : { kind: "applied" };
     },
-    [browser, committedRecords],
+    [browser, committedRecords, viewQuery.readScope],
   );
 
   const invalidate = useCallback(

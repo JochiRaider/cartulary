@@ -1,11 +1,14 @@
 import type { normalizeViewRowPatchV1 } from "@cartulary/view-contracts";
-import type { WorkbookQueryRow } from "./WorkbookQueryRow";
+import { acceptWorkbookRowObservation } from "./acceptWorkbookRowObservation";
+import type { WorkbookQueryRow, WorkbookReadScope } from "./WorkbookQueryRow";
+import { workbookRowIsAdmissible } from "./workbookRowObservation";
 
 export function applyWorkbookQueryRowPatch(
   row: WorkbookQueryRow,
   patch: ReturnType<typeof normalizeViewRowPatchV1>,
+  scope: WorkbookReadScope | null = null,
 ): WorkbookQueryRow {
-  return {
+  const next = {
     ...row,
     row_version: patch.rowVersion,
     cells: { ...row.cells, ...patch.cells },
@@ -18,4 +21,7 @@ export function applyWorkbookQueryRowPatch(
           },
         }),
   };
+  return workbookRowIsAdmissible(row, row.record_id, scope)
+    ? acceptWorkbookRowObservation(next, scope)
+    : next;
 }

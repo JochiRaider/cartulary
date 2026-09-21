@@ -36,3 +36,12 @@ The driver reports refusal to the command owner so its scalar/collection
 deduplication entry can retire while the exact authoring revision remains.
 A later explicit commit can retry that unsubmitted work; submitted failures and
 uncertain requests keep their existing recovery and transaction identities.
+
+A `client_txn_conflict` halt does not settle its logical editor command. Queue recovery owns
+attention while the original command remains pending; Retry or Discard settles
+it once. Sending a rejection followed by acceptance to a Promise loses the later
+result and can leave an acknowledged editor blocking the next gesture.
+
+Other terminal rejections settle immediately, including validation errors, so
+Find and range navigation can return to the original edit. Discarding their
+retained queue unit does not settle the same command twice.

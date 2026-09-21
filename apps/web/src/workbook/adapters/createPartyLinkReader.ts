@@ -12,11 +12,15 @@ import {
   emptyWorkbookQueryState,
 } from "../models/workbookQuery";
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
+import { sameWorkbookReadScope } from "../query/workbookRowObservation";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 export function createPartyLinkReader(options: {
   apiBase: string | undefined;
   incidentId: string;
+  readScope?: WorkbookReadScopeSource;
   recheckAuthority?: (() => void) | undefined;
 }): PartyLinkReadPort {
   const operations = createWorkbookOperationExecutor(options);
@@ -25,6 +29,7 @@ export function createPartyLinkReader(options: {
     cursor: string | null,
     signal: AbortSignal,
   ): Promise<PartyPage> {
+    const scope = options.readScope?.() ?? null;
     const contract = requireViewContract(viewSchemaId);
     const result = await operations.execute({
       operationID: "queryWorkbookView",
@@ -39,7 +44,11 @@ export function createPartyLinkReader(options: {
       },
       signal,
     });
-    if (signal.aborted) throw new Error("Read interrupted.");
+    if (
+      signal.aborted ||
+      (options.readScope && !sameWorkbookReadScope(scope, options.readScope()))
+    )
+      throw new Error("Read interrupted.");
     if (result.kind === "rejected") {
       if (
         workbookFailureLifecycle(result.failure).kind ===
@@ -64,7 +73,7 @@ export function createPartyLinkReader(options: {
         contract,
         data.rows,
         "Party workflow records",
-      ),
+      ).map((row) => acceptWorkbookRowObservation(row, scope)),
       hasMore: meta.paging.has_more,
       nextCursor: meta.paging.next_cursor,
     };

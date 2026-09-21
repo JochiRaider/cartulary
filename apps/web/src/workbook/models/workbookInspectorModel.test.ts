@@ -1,9 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
-import {
-  buildWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "../inspector/workbookInspectorSubject";
+import { buildWorkbookInspectorSubject } from "../inspector/workbookInspectorSubject";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import {
   initialWorkbookInspectorState,
   workbookInspectorReducer,
@@ -16,8 +14,8 @@ const timeline = requireViewContract("cartulary.view.timeline.v2");
 const timelineSubject = (
   recordId = "row-1",
   rowVersion = 1,
-  kind: WorkbookInspectorSubject["kind"] = "live",
-): WorkbookInspectorSubject => {
+  kind: WorkbookRecordSubject["kind"] = "live",
+): WorkbookRecordSubject => {
   const subject = buildWorkbookInspectorSubject({
     config: timeline.inspectorConfig,
     kind,

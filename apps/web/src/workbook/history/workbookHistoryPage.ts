@@ -3,11 +3,6 @@ import type {
   RecordHistoryData,
 } from "../adapters/workbookHistoryResponse";
 
-export type {
-  HistoryPaging,
-  RecordHistoryData,
-  RecordHistoryItem,
-} from "../adapters/workbookHistoryResponse";
 export type HistoryPage = RecordHistoryData & {
   readonly paging: HistoryPaging;
 };

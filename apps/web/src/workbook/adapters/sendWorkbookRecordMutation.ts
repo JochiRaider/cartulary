@@ -4,6 +4,8 @@ import {
 } from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation } from "../../services/browserApi";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScope } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
@@ -34,6 +36,7 @@ export async function sendWorkbookRecordMutation(
     readonly baseRowVersion?: number;
   },
   signal: AbortSignal,
+  scope: WorkbookReadScope | null = null,
 ): Promise<Outcome> {
   let status: number | null = null,
     requestId: string | null = null;
@@ -94,7 +97,15 @@ export async function sendWorkbookRecordMutation(
     return {
       kind: "accepted",
       status,
-      receipt: freezeWorkbookValue(structuredClone(receipt)),
+      receipt: freezeWorkbookValue(
+        structuredClone({
+          ...receipt,
+          data: {
+            ...receipt.data,
+            row: acceptWorkbookRowObservation(receipt.data.row, scope),
+          },
+        }),
+      ),
     };
   } catch {
     return { kind: "uncertain" };

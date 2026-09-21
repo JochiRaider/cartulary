@@ -5,7 +5,12 @@ import { createWorkbookOperationExecutor } from "../../adapters/workbookOperatio
 import { normalizeWorkbookViewRows } from "../../models/workbookContractRows";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
+import type {
+  WorkbookQueryRow,
+  WorkbookReadScopeSource,
+} from "../../query/WorkbookQueryRow";
+import { sameWorkbookReadScope } from "../../query/workbookRowObservation";
 export type TimelineMentionSourceReader = (
   recordId: string,
   signal: AbortSignal,
@@ -14,11 +19,13 @@ export type TimelineMentionSourceReader = (
 export function createTimelineMentionSourceReader(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
+  readonly readScope?: WorkbookReadScopeSource;
 }): TimelineMentionSourceReader {
   const operations = createWorkbookOperationExecutor(options),
     contract = requireViewContract(timelineViewSchemaId);
   return (recordId, signal) =>
     boundedRead(async (observedSignal) => {
+      const scope = options.readScope?.() ?? null;
       let cursor: string | null = null;
       const cursors = new Set<string>();
       do {
@@ -35,7 +42,12 @@ export function createTimelineMentionSourceReader(options: {
             },
             signal: observedSignal,
           });
-        if (observedSignal.aborted || result.kind !== "accepted")
+        if (
+          observedSignal.aborted ||
+          result.kind !== "accepted" ||
+          (options.readScope &&
+            !sameWorkbookReadScope(scope, options.readScope()))
+        )
           throw new Error("Mention source refresh failed.");
         const data: QueryWorkbookViewResponse["data"] = result.value.data;
         const meta: QueryWorkbookViewResponse["meta"] = result.value.meta;
@@ -51,7 +63,7 @@ export function createTimelineMentionSourceReader(options: {
           data.rows,
           "Mention source",
         ).find((row) => row.record_id === recordId);
-        if (row) return row;
+        if (row) return acceptWorkbookRowObservation(row, scope);
         if (!meta.paging.has_more) break;
         cursor = meta.paging.next_cursor;
         if (!cursor || cursors.has(cursor))

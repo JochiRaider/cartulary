@@ -4,6 +4,7 @@ import {
   timelineRow,
 } from "../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { workbookRowIsAdmissible } from "../query/workbookRowObservation";
 import {
   createWorkbookPendingQueueModel,
   type PendingReplayKind,
@@ -264,4 +265,60 @@ it("rejects cross-incident and undispatchable units before transport", async () 
     kind: "rejected",
   });
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it("retains a late write receipt with its dispatch scope without granting current read authority", async () => {
+  let scope = {
+    actorId: "actor",
+    incidentId,
+    sessionIdentity: "old-session",
+    epoch: 0,
+  };
+  const dispatchedScope = { ...scope };
+  let finish: ((value: Response) => void) | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    ),
+  );
+  const port = createWorkbookPendingMutationAdapter({
+    apiBase: undefined,
+    incidentId,
+    readScope: () => scope,
+  });
+  const pending = port.execute({
+    committedRowVersion: null,
+    unit: pendingUnit("create"),
+  });
+  await vi.waitFor(() => expect(finish).toBeDefined());
+  scope = { ...scope, sessionIdentity: "new-session", epoch: 2 };
+  if (!finish) throw new Error("Write did not dispatch");
+  finish(
+    successEnvelope({
+      change_set_id: changeSetId,
+      row: timelineRow({
+        captureState: "rough",
+        recordId,
+        rowVersion: 1,
+        summary: "Acknowledged",
+      }),
+      view_schema_id: timelineViewSchemaId,
+    }),
+  );
+  const result = await pending;
+  expect(result).toMatchObject({
+    kind: "accepted",
+    value: {
+      changeSetId,
+      row: { observation: { recordId, rowVersion: 1, scope: dispatchedScope } },
+    },
+  });
+  if (result.kind !== "accepted") throw new Error("Receipt lost");
+  expect(workbookRowIsAdmissible(result.value.row, recordId, scope)).toBe(
+    false,
+  );
 });

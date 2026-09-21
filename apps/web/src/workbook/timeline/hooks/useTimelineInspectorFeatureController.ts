@@ -9,12 +9,10 @@ import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
-import {
-  type WorkbookInspectorSubject,
-  workbookInspectorSubjectsEqual,
-} from "../../inspector/workbookInspectorSubject";
+import { workbookInspectorSubjectsEqual } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 
 export type TimelineInspectorFeatureLifecycle = {
   readonly authorizationKey: string;
@@ -22,7 +20,7 @@ export type TimelineInspectorFeatureLifecycle = {
   readonly invalidationCause: WorkbookInspectorState["invalidationCause"];
   readonly isOpen: boolean;
   readonly lifecycleKey: string;
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
   readonly surfaceKey: string;
 };
 

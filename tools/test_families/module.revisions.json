@@ -846,6 +846,33 @@
       ]
     },
     {
+      "row_id": "module.revisions.integration.history_logical_page_boundaries",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestHistoryLogicalPageBoundaries_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.revisions.integration.history_pagination_remains_bound_to_record_id_re_a92fcdb263",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.integration",
@@ -858,6 +885,33 @@
         "package": "./internal/modules/revisions",
         "tests": [
           "TestHistoryPaginationRecordBinding_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.integration.history_source_family_paging",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestHistorySourceFamilyPaging_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1368,6 +1422,32 @@
       "minimum_tier": "standard",
       "service_dependencies": [
         "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.store.history_bounded_projection",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.history_component_decomposition"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestHistoryBoundedProjectionAndCoalescing_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
         "postgres"
       ]
     },

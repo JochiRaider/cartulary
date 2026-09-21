@@ -48,6 +48,7 @@ import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutati
 import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookTimelineActionRuntimePort } from "../ports/WorkbookTimelineActionRuntimePort";
 import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
+import type { WorkbookReadScope } from "../query/WorkbookQueryRow";
 import type {
   PendingReplayRecoveryRefusal,
   PendingReplayScope,
@@ -143,6 +144,20 @@ const emptyRefreshDebts: readonly string[] = Object.freeze([]);
 export class WorkbookMutationRuntime {
   private timelineMutationOwner: { retire(): void } | null = null;
   private currentAuthorizationEpoch = 0;
+  // Resuming mutation coordination does not revoke already accepted reads.
+  private readAuthorityEpoch = 0;
+  get recordReadScope(): WorkbookReadScope | null {
+    const authority = this.explicitPatches.getSnapshot().authority;
+    return authority?.role
+      ? {
+          actorId: authority.actorId,
+          sessionIdentity: authority.sessionIdentity,
+          incidentId: authority.incidentId,
+          epoch: this.readAuthorityEpoch,
+        }
+      : null;
+  }
+
   get authorizationEpoch(): number {
     return this.currentAuthorizationEpoch;
   }
@@ -598,6 +613,7 @@ export class WorkbookMutationRuntime {
       scope.incidentId,
       transactionIds,
       {
+        readScope: () => this.recordReadScope,
         coordinate: (recordId, signal, viewSchemaId, reservationId) =>
           this.coordinateSourceWrites(recordId, signal, viewSchemaId, {
             explicitPatchId: reservationId,
@@ -1810,9 +1826,13 @@ export class WorkbookMutationRuntime {
     });
   }
 
-  applyAuthorizationRecoveryState(state: "paused" | "resumed"): void {
+  applyAuthorizationRecoveryState(
+    state: "paused" | "resumed",
+    readAuthorityRevoked = true,
+  ): void {
     this.currentAuthorizationEpoch++;
     if (state === "paused") {
+      if (readAuthorityRevoked) this.readAuthorityEpoch++;
       this.history.suspend();
       this.entityMerge.suspend();
       this.decisionSupersession.suspend();
@@ -1984,7 +2004,10 @@ export class WorkbookMutationRuntime {
     this.timelineMentionOperations?.suspend();
     this.explicitPatches.suspend();
     this.partyLinks.suspend();
-    this.applyAuthorizationRecoveryState("paused");
+    this.applyAuthorizationRecoveryState(
+      "paused",
+      reason.kind !== "incident_role_changed" || !reason.role,
+    );
   }
 
   resolveSocketClientTxn(clientTxnId: string | null | undefined): boolean {

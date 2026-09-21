@@ -1,4 +1,5 @@
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
+import type { WorkbookRowObservation } from "../../query/WorkbookQueryRow";
 import type {
   TimelineCaptureReview,
   TimelineCaptureSubject,
@@ -6,6 +7,8 @@ import type {
 import type { TimelineCaptureReceipt } from "../adapters/timelineCaptureProtocol";
 
 export type TimelineRecordActionAccepted = {
+  readonly observation?: WorkbookRowObservation;
+  readonly baseRowVersion: number;
   readonly captureState: string;
   readonly changeSetId: string;
   readonly incidentId: string;

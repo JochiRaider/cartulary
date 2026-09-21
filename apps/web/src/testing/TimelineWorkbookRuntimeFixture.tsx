@@ -37,6 +37,7 @@ import {
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
+import type { WorkbookReadScope } from "../workbook/query/WorkbookQueryRow";
 import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
 import { reconcileTimelineCaptureReceipt } from "../workbook/timeline/actions/reconcileTimelineCaptureReceipt";
 import { reconcileTimelineMentionReceipt } from "../workbook/timeline/actions/reconcileTimelineMentionReceipt";
@@ -111,7 +112,7 @@ export type TimelineWorkbookRuntimeFixtureProps = {
 export function TimelineWorkbookRuntimeFixture({
   incidentId = "10000000-0000-4000-8000-000000000001",
   apiBase,
-  currentUserId = null,
+  currentUserId = "fixture-actor",
   sheetRef = {
     kind: "view_schema",
     id: timelineViewSchemaId,
@@ -164,6 +165,8 @@ export function TimelineWorkbookRuntimeFixture({
     const pendingMutationPort = createWorkbookPendingMutationAdapter({
       apiBase,
       incidentId,
+      readScope: (): WorkbookReadScope | null =>
+        mutationRuntime.recordReadScope,
     });
     const mutationRuntime = new WorkbookMutationRuntime(
       { clientInstanceId: "timeline-runtime-fixture", incidentId },
@@ -171,7 +174,11 @@ export function TimelineWorkbookRuntimeFixture({
       pendingMutationPort,
     );
     mutationRuntime.batches.configure(
-      createWorkbookBatchTransport({ apiBase, incidentId }),
+      createWorkbookBatchTransport({
+        apiBase,
+        incidentId,
+        readScope: () => mutationRuntime.recordReadScope,
+      }),
     );
     return {
       clipboardPaste: createWorkbookClipboardPasteAdapter(
@@ -179,6 +186,7 @@ export function TimelineWorkbookRuntimeFixture({
       ),
       mutationRuntime,
       mutationCommands: createWorkbookMutationCommandPorts({
+        readScope: () => mutationRuntime.recordReadScope,
         apiBase,
         incidentId,
         transactionIds,
@@ -233,13 +241,18 @@ export function TimelineWorkbookRuntimeFixture({
     return timelineMentions.registerReconciliation(async (receipt, scope) => {
       await reconcileTimelineMentionReceipt(
         timelineMentions,
-        createTimelineMentionSourceReader({ apiBase, incidentId }),
+        createTimelineMentionSourceReader({
+          apiBase,
+          incidentId,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
         receipt,
         scope,
       );
     });
   }, [
     timelineMentions,
+    mutationRuntime,
     apiBase,
     incidentId,
     currentUserId,
@@ -260,7 +273,10 @@ export function TimelineWorkbookRuntimeFixture({
   );
   useLayoutEffect(() => {
     timelineCapture.configure(
-      createTimelineRecordActionAdapter({ apiBase }),
+      createTimelineRecordActionAdapter({
+        apiBase,
+        readScope: () => mutationRuntime.recordReadScope,
+      }),
       createTimelineCandidateReader({ apiBase, incidentId }),
       onIncidentAccessLost,
     );
@@ -329,8 +345,13 @@ export function TimelineWorkbookRuntimeFixture({
     invokerRef,
   });
   const viewQuery = useMemo(
-    () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
+    () =>
+      createWorkbookViewQueryAdapter({
+        apiBase,
+        incidentId,
+        readScope: () => mutationRuntime.recordReadScope,
+      }),
+    [apiBase, incidentId, mutationRuntime],
   );
   const incidentPort = useMemo(
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),

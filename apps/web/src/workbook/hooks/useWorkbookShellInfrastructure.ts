@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
 import { createContextualCreateTransport } from "../adapters/createContextualCreateTransport";
@@ -61,6 +61,12 @@ function recordPendingMutationTiming(
 }
 
 type WorkbookShellInfrastructureOptions = {
+  readonly acceptedAuthority: Readonly<{
+    userId: string | null;
+    role: string | null;
+    revision: number;
+  }>;
+  readonly sessionIdentity: string | null;
   readonly savedViewOwner: WorkbookSavedViewController;
   readonly bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
   readonly authorizationRecovered: SavedViewBinding["authorizationRecovered"];
@@ -77,6 +83,8 @@ type WorkbookShellInfrastructureOptions = {
 
 /** Constructs incident-scoped adapters and exactly one registry-owned runtime. */
 export function useWorkbookShellInfrastructure({
+  acceptedAuthority,
+  sessionIdentity,
   savedViewOwner,
   bindWorkbookSavedViews,
   authorizationRecovered,
@@ -90,6 +98,7 @@ export function useWorkbookShellInfrastructure({
   recheckMentionAuthority,
   partyAuthorization,
 }: WorkbookShellInfrastructureOptions) {
+  const observationRuntime = useRef<WorkbookMutationRuntime | null>(null);
   const transactionIds = useMemo(createBrowserSecureTransactionIdPort, []);
   const pendingMutationPort = useMemo(
     () =>
@@ -97,6 +106,7 @@ export function useWorkbookShellInfrastructure({
         apiBase,
         incidentId,
         recordTiming: recordPendingMutationTiming,
+        readScope: () => observationRuntime.current?.recordReadScope ?? null,
       }),
     [apiBase, incidentId],
   );
@@ -119,10 +129,15 @@ export function useWorkbookShellInfrastructure({
       transactionIds,
     ],
   );
+  observationRuntime.current = mutationRuntime;
   useMemo(
     () =>
       mutationRuntime.indicatorLifecycle.configure(
-        createIndicatorLifecycleAdapter({ apiBase, incidentId }),
+        createIndicatorLifecycleAdapter({
+          apiBase,
+          incidentId,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
         onAuthorityUncertain,
       ),
     [mutationRuntime, apiBase, incidentId, onAuthorityUncertain],
@@ -130,7 +145,11 @@ export function useWorkbookShellInfrastructure({
   useMemo(
     () =>
       mutationRuntime.indicatorObservations.configure(
-        createObservationReader({ apiBase, incidentId }),
+        createObservationReader({
+          apiBase,
+          incidentId,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
         createObservationTransport({ apiBase, incidentId }),
         onAuthorityUncertain,
       ),
@@ -139,8 +158,16 @@ export function useWorkbookShellInfrastructure({
   useMemo(
     () =>
       mutationRuntime.indicatorCreate.configure(
-        createObservationReader({ apiBase, incidentId }),
-        createIndicatorCreateTransport({ apiBase, incidentId }),
+        createObservationReader({
+          apiBase,
+          incidentId,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
+        createIndicatorCreateTransport({
+          apiBase,
+          incidentId,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
         onAuthorityUncertain,
       ),
     [mutationRuntime, apiBase, incidentId, onAuthorityUncertain],
@@ -157,6 +184,7 @@ export function useWorkbookShellInfrastructure({
       },
     );
     const readMentionSource = createTimelineMentionSourceReader({
+      readScope: () => mutationRuntime.recordReadScope,
       apiBase,
       incidentId,
     });
@@ -169,9 +197,18 @@ export function useWorkbookShellInfrastructure({
       ),
     );
     timelineMentions.configureCreation(
-      createTimelineMentionEntityCreationAdapter({ apiBase }),
+      createTimelineMentionEntityCreationAdapter({
+        apiBase,
+        readScope: () => mutationRuntime.recordReadScope,
+      }),
     );
-  }, [timelineMentions, apiBase, incidentId, recheckMentionAuthority]);
+  }, [
+    timelineMentions,
+    apiBase,
+    incidentId,
+    recheckMentionAuthority,
+    mutationRuntime,
+  ]);
   const timelineCapture = useMemo(
     () => timelineCaptureOwnerFor(mutationRuntime),
     [mutationRuntime],
@@ -179,16 +216,29 @@ export function useWorkbookShellInfrastructure({
   useMemo(
     () =>
       timelineCapture.configure(
-        createTimelineRecordActionAdapter({ apiBase }),
+        createTimelineRecordActionAdapter({
+          apiBase,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
         createTimelineCandidateReader({ apiBase, incidentId }),
         onAuthorityUncertain,
       ),
-    [timelineCapture, apiBase, incidentId, onAuthorityUncertain],
+    [
+      timelineCapture,
+      apiBase,
+      incidentId,
+      onAuthorityUncertain,
+      mutationRuntime,
+    ],
   );
   useMemo(
     () =>
       mutationRuntime.decisionSupersession.configure(
-        createWorkbookDecisionSupersessionAdapter({ apiBase, incidentId }),
+        createWorkbookDecisionSupersessionAdapter({
+          apiBase,
+          incidentId,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
         onAuthorityUncertain,
       ),
     [apiBase, incidentId, mutationRuntime, onAuthorityUncertain],
@@ -198,11 +248,13 @@ export function useWorkbookShellInfrastructure({
       mutationRuntime.explicitPatches.configure(
         createRecordPatchTransport(
           createWorkbookOperationExecutor({ apiBase }),
+          () => mutationRuntime.recordReadScope,
         ),
         onAuthorityUncertain,
         (view, recordId, signal) =>
           readWorkbookAuthoringRecord(
             createWorkbookAuthoringReader({
+              readScope: () => mutationRuntime.recordReadScope,
               apiBase,
               incidentId,
               recheckAuthority: () => {
@@ -229,13 +281,18 @@ export function useWorkbookShellInfrastructure({
   useMemo(
     () =>
       mutationRuntime.batches.configure(
-        createWorkbookBatchTransport({ apiBase, incidentId }),
+        createWorkbookBatchTransport({
+          apiBase,
+          incidentId,
+          readScope: () => mutationRuntime.recordReadScope,
+        }),
       ),
     [apiBase, incidentId, mutationRuntime],
   );
   const mutationCommands = useMemo(
     () =>
       createWorkbookMutationCommandPorts({
+        readScope: () => mutationRuntime.recordReadScope,
         batches: mutationRuntime.batches,
         apiBase,
         incidentId,
@@ -261,6 +318,7 @@ export function useWorkbookShellInfrastructure({
   );
   useMemo(() => {
     const reader = createWorkbookAuthoringReader({
+      readScope: () => mutationRuntime.recordReadScope,
       apiBase,
       incidentId,
       recheckAuthority: () => {
@@ -330,7 +388,10 @@ export function useWorkbookShellInfrastructure({
     () =>
       mutationRuntime.ordinaryCreate.configure(
         currentAuthorityReader,
-        createOrdinaryCreateTransport(apiBase),
+        createOrdinaryCreateTransport(
+          apiBase,
+          () => mutationRuntime.recordReadScope,
+        ),
         () => {
           void recheckMentionAuthority();
         },
@@ -341,6 +402,7 @@ export function useWorkbookShellInfrastructure({
     () =>
       mutationRuntime.ordinaryCreate.configureReader(
         createWorkbookAuthoringReader({
+          readScope: () => mutationRuntime.recordReadScope,
           apiBase,
           incidentId,
           recheckAuthority: () => {
@@ -361,7 +423,10 @@ export function useWorkbookShellInfrastructure({
           },
         }),
         currentAuthorityReader,
-        createNoteAssociationTransport(apiBase),
+        createNoteAssociationTransport(
+          apiBase,
+          () => mutationRuntime.recordReadScope,
+        ),
       ),
     [
       mutationRuntime,
@@ -382,7 +447,10 @@ export function useWorkbookShellInfrastructure({
           },
         }),
         currentAuthorityReader,
-        createNoteCreateTransport(apiBase),
+        createNoteCreateTransport(
+          apiBase,
+          () => mutationRuntime.recordReadScope,
+        ),
       ),
     [
       apiBase,
@@ -396,6 +464,7 @@ export function useWorkbookShellInfrastructure({
     () =>
       mutationRuntime.coordinationCreate.configure(
         createWorkbookAuthoringReader({
+          readScope: () => mutationRuntime.recordReadScope,
           apiBase,
           incidentId,
           recheckAuthority: () => {
@@ -403,7 +472,10 @@ export function useWorkbookShellInfrastructure({
           },
         }),
         currentAuthorityReader,
-        createCoordinationCreateTransport(apiBase),
+        createCoordinationCreateTransport(
+          apiBase,
+          () => mutationRuntime.recordReadScope,
+        ),
       ),
     [
       apiBase,
@@ -417,6 +489,7 @@ export function useWorkbookShellInfrastructure({
     () =>
       mutationRuntime.contextualCreate.configure(
         createWorkbookAuthoringReader({
+          readScope: () => mutationRuntime.recordReadScope,
           apiBase,
           incidentId,
           recheckAuthority: () => {
@@ -424,12 +497,16 @@ export function useWorkbookShellInfrastructure({
           },
         }),
         currentAuthorityReader,
-        createContextualCreateTransport(apiBase),
+        createContextualCreateTransport(
+          apiBase,
+          () => mutationRuntime.recordReadScope,
+        ),
       ),
     [apiBase, incidentId, mutationRuntime, currentAuthorityReader],
   );
   useMemo(() => {
     const reader = createWorkbookAuthoringReader({
+      readScope: () => mutationRuntime.recordReadScope,
       apiBase,
       incidentId,
       recheckAuthority: () => {
@@ -437,7 +514,10 @@ export function useWorkbookShellInfrastructure({
         void mutationRuntime.timelineFiles.recheckAuthority();
       },
     });
-    const transport = createEvidenceFileTransport(apiBase);
+    const transport = createEvidenceFileTransport(
+      apiBase,
+      () => mutationRuntime.recordReadScope,
+    );
     mutationRuntime.evidenceAttachments.configure(
       reader,
       currentAuthorityReader,
@@ -447,13 +527,17 @@ export function useWorkbookShellInfrastructure({
       reader,
       currentAuthorityReader,
       transport,
-      createTimelineFileLinkTransport(apiBase),
+      createTimelineFileLinkTransport(
+        apiBase,
+        () => mutationRuntime.recordReadScope,
+      ),
     );
   }, [apiBase, incidentId, mutationRuntime, currentAuthorityReader]);
   useMemo(
     () =>
       mutationRuntime.timelineRelatedEvidence.configure(
         createWorkbookAuthoringReader({
+          readScope: () => mutationRuntime.recordReadScope,
           apiBase,
           incidentId,
           recheckAuthority: () => {
@@ -461,7 +545,10 @@ export function useWorkbookShellInfrastructure({
           },
         }),
         currentAuthorityReader,
-        createTimelineRelatedEvidenceTransport(apiBase),
+        createTimelineRelatedEvidenceTransport(
+          apiBase,
+          () => mutationRuntime.recordReadScope,
+        ),
       ),
     [apiBase, incidentId, mutationRuntime, currentAuthorityReader],
   );
@@ -476,8 +563,12 @@ export function useWorkbookShellInfrastructure({
   useMemo(
     () =>
       mutationRuntime.partyLinks.configure(
-        createPartyCreationTransport(apiBase),
+        createPartyCreationTransport(
+          apiBase,
+          () => mutationRuntime.recordReadScope,
+        ),
         createPartyLinkReader({
+          readScope: () => mutationRuntime.recordReadScope,
           apiBase,
           incidentId,
           recheckAuthority: () => {
@@ -492,9 +583,35 @@ export function useWorkbookShellInfrastructure({
     () => createWorkbookStartupAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
+  // Rebind reads only when accepted read authority changes. Rechecking the
+  // same authority must not abort an acknowledged operation's refresh.
+  const readScopeKey = useSyncExternalStore(mutationRuntime.subscribe, () =>
+    JSON.stringify(mutationRuntime.recordReadScope),
+  );
   const viewQuery = useMemo(
-    () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
+    () =>
+      createWorkbookViewQueryAdapter({
+        apiBase,
+        incidentId,
+        readScope: () => {
+          const scope = mutationRuntime.recordReadScope;
+          return acceptedAuthority.role &&
+            scope?.actorId === acceptedAuthority.userId &&
+            scope?.sessionIdentity === sessionIdentity &&
+            JSON.stringify(scope) === readScopeKey
+            ? scope
+            : null;
+        },
+      }),
+    [
+      apiBase,
+      incidentId,
+      mutationRuntime,
+      acceptedAuthority.role,
+      acceptedAuthority.userId,
+      sessionIdentity,
+      readScopeKey,
+    ],
   );
   const workbookRuntime = useWorkbookShellRuntime({
     incidentId,

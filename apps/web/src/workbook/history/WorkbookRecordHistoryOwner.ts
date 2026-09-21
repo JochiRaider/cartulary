@@ -1,12 +1,9 @@
 import { observeAsyncOperation } from "../../services/asyncObservation";
+import type { RecordHistoryData } from "../adapters/workbookHistoryResponse";
 import {
   type WorkbookInspectorNotice,
   WorkbookInspectorNoticeLedger,
 } from "../inspector/workbookInspectorErrorModel";
-import {
-  buildRecordRollbackTargetFromHistoryAction,
-  type RecordHistoryData,
-} from "../inspector/workbookRecordHistoryModel";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type {
   WorkbookOperationFailure,
@@ -15,6 +12,10 @@ import type {
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import { HistoryActionLookup } from "./HistoryActionLookup";
 import {
+  buildRecordRollbackTargetFromHistoryAction,
+  historyTargetEqual,
+} from "./workbookHistoryItem";
+import {
   type HistoryAttempt,
   type HistoryAuthority,
   type HistoryBinding,
@@ -22,7 +23,6 @@ import {
   type HistoryOperation,
   type HistoryReceipt,
   historyActionPermitted,
-  historyTargetEqual,
   type WorkbookRecordHistoryPort,
 } from "./workbookHistoryOperation";
 import type {

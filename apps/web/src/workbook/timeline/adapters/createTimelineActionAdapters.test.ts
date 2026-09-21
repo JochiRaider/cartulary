@@ -11,11 +11,11 @@ import {
   successEnvelope,
   timelineRow,
 } from "../../../testing/timelineWorkbookTestSupport";
+import { historyDiffFixture } from "../../../testing/workbookHistoryTestSupport";
 import { createEvidenceFileTransport } from "../../adapters/createEvidenceFileTransport";
 import { createTimelineFileLinkTransport } from "../../adapters/createTimelineFileLinkTransport";
 import { createWorkbookRecordHistoryAdapter } from "../../adapters/createWorkbookRecordHistoryAdapter";
 import type { HistoryAttempt } from "../../history/workbookHistoryOperation";
-import { historyDiffFixture } from "../../history/workbookHistoryTestFixtures";
 import {
   evidenceViewSchemaId,
   timelineViewSchemaId,

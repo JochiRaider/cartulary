@@ -217,3 +217,75 @@ it("fails closed on malformed or cross-context query success and contains aborts
   controller.abort();
   await expect(pending).resolves.toEqual({ kind: "aborted" });
 });
+
+it("binds accepted query rows to captured authority and rejects late old-session responses", async () => {
+  const incidentId = "00000000-0000-4000-8000-000000000001";
+  const recordId = "00000000-0000-4000-8000-000000000101";
+  let scope = {
+    actorId: "actor",
+    sessionIdentity: "old-session",
+    incidentId,
+    epoch: 0,
+  };
+  const response = () =>
+    new Response(
+      JSON.stringify({
+        data: {
+          incident_id: incidentId,
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId,
+              rowVersion: 3,
+              captureState: "rough",
+              summary: "Scoped row",
+            }),
+          ],
+        },
+        meta: {
+          ...workbookQueryMeta(timelineViewSchemaId),
+          request_id: "scope-query",
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  let finish: ((value: Response) => void) | undefined;
+  const fetchMock = vi
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockImplementation(() => Promise.resolve(response()));
+  vi.stubGlobal("fetch", fetchMock);
+  const port = createWorkbookViewQueryAdapter({
+    apiBase: undefined,
+    incidentId,
+    readScope: () => scope,
+  });
+  const input = {
+    contract: requireViewContract(timelineViewSchemaId),
+    queryState: emptyWorkbookQueryState(),
+    signal: new AbortController().signal,
+  };
+  const unavailable = createWorkbookViewQueryAdapter({
+    apiBase: undefined,
+    incidentId,
+    readScope: () => null,
+  });
+  expect(await unavailable.query(input)).toEqual({ kind: "aborted" });
+  expect(fetchMock).not.toHaveBeenCalled();
+  const pending = port.query(input);
+  await vi.waitFor(() => expect(finish).toBeDefined());
+  scope = { ...scope, sessionIdentity: "new-session", epoch: 2 };
+  if (!finish) throw new Error("Query did not dispatch");
+  finish(response());
+  expect(await pending).toEqual({ kind: "aborted" });
+  const fresh = await port.query(input);
+  expect(fresh).toMatchObject({
+    kind: "accepted",
+    value: { rows: [{ observation: { recordId, rowVersion: 3, scope } }] },
+  });
+});

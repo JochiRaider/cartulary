@@ -466,6 +466,15 @@ Verified by: AC-482
 **REQ-03-299**
 Workbook grids MUST model query data state independently from interaction permission. The closed data-state vocabulary is `initial_loading`, `ready`, `refreshing`, `empty`, `filtered_empty`, `stale_error`, `unavailable`, and `permission_denied`; the interaction vocabulary is `editable` and `read_only`. Refreshing and stale-error states preserve prior authorized rows and dirty drafts; permission or incident-access loss clears protected rows and follows the existing access-loss path. Closed incidents retain readable rows and copy behavior, display the exact lifecycle text `Closed, read-only`, and prohibit editor, paste, fill, create, and bulk-command dispatch. These states are status or overlay presentation and MUST NOT be synthetic record rows.
 
+Retained inspector observations MUST remain bound to the record and authority
+under which their source accepted them. Cloning, converting, caching or rendering
+an observation MUST NOT establish new authority. A late observation from a
+retired authority lifetime MUST NOT repopulate protected presentation. An
+authorized observation arriving with a new authority lifetime MAY be admitted
+only when its source accepted it under that lifetime; without such evidence the
+inspector remains concealed or awaits an authorized read. Ordinary query-window
+eviction MUST NOT by itself revoke an otherwise authorized retained observation.
+
 A validated `session_revoked` message with `reason_code='incident_access_revoked'`
 MUST immediately invalidate the addressed incident's protected presentation,
 including rows, previews, inspectors and dependent extension projections, and

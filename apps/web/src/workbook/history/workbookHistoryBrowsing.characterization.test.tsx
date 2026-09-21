@@ -1,15 +1,18 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  historyDiffFixture,
+  historyPresentationFixture,
+} from "../../testing/workbookHistoryTestSupport";
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
 import { useWorkbookRecordHistoryController } from "../inspector/useWorkbookRecordHistoryController";
+import { useWorkbookRecordHistoryState } from "../inspector/useWorkbookRecordHistoryState";
 import {
-  initialWorkbookRecordHistoryState,
   workbookRecordHistoryLoadedData,
   workbookRecordHistoryReducer,
-  workbookRecordHistoryRequestId,
 } from "../inspector/workbookRecordHistoryModel";
 import { WorkbookRecordHistoryOwner } from "./WorkbookRecordHistoryOwner";
-import { historyDiffFixture } from "./workbookHistoryTestFixtures";
+import { beginHistoryRead, rejectHistoryRead } from "./workbookHistoryBrowsing";
 
 const incidentId = "10000000-0000-4000-8000-000000000001";
 const recordId = "20000000-0000-4000-8000-000000000001";
@@ -119,34 +122,30 @@ describe("History browsing characterization", () => {
     ).toMatchObject({ kind: "accepted", value: { ...data, paging } });
   });
   it("keeps accepted history when a refresh read fails", () => {
-    const requestId = workbookRecordHistoryRequestId(1);
-    let state = workbookRecordHistoryReducer(
-      initialWorkbookRecordHistoryState(subject),
-      { type: "load_requested", requestId, subject },
-    );
-    state = workbookRecordHistoryReducer(state, {
-      type: "load_accepted",
-      requestId,
-      subject,
-      data,
+    const ready = historyPresentationFixture(subject, {
+      ...data,
+      paging: terminal,
     });
-    state = workbookRecordHistoryReducer(state, {
-      type: "load_requested",
-      requestId,
-      subject,
+    const requested = beginHistoryRead(required(ready.browsing), "refresh");
+    const failed = rejectHistoryRead(requested, required(requested.pending), {
+      kind: "retryable",
+      message: "Read failed",
     });
-    state = workbookRecordHistoryReducer(state, {
-      type: "load_rejected",
-      requestId,
-      subject,
-      error: { primaryMessage: "Read failed", technicalFields: [] },
+    const state = workbookRecordHistoryReducer(ready, {
+      type: "browsing_changed",
+      browsing: failed,
     });
-    expect(workbookRecordHistoryLoadedData(state)).toEqual(data);
+    expect(workbookRecordHistoryLoadedData(state)).toEqual({
+      ...data,
+      paging: terminal,
+    });
   });
   it("previews a selected retained item beyond the first page", async () => {
     const t = setup();
     const { result } = renderHook(() =>
       useWorkbookRecordHistoryController({
+        presentation: useWorkbookRecordHistoryState(),
+        coordinate: async () => subject.rowVersion,
         owner: t.owner,
         subject,
         canMutate: true,
@@ -190,6 +189,8 @@ describe("History browsing characterization", () => {
     const t = setup();
     const { result } = renderHook(() =>
       useWorkbookRecordHistoryController({
+        presentation: useWorkbookRecordHistoryState(),
+        coordinate: async () => subject.rowVersion,
         owner: t.owner,
         subject,
         canMutate: true,
@@ -242,6 +243,8 @@ describe("History browsing characterization", () => {
     const { result, rerender } = renderHook(
       ({ recordId }) =>
         useWorkbookRecordHistoryController({
+          presentation: useWorkbookRecordHistoryState(),
+          coordinate: async () => subject.rowVersion,
           owner: t.owner,
           subject: { ...subject, recordId },
           canMutate: true,
@@ -282,6 +285,8 @@ describe("History browsing characterization", () => {
     const t = setup();
     const { result } = renderHook(() =>
       useWorkbookRecordHistoryController({
+        presentation: useWorkbookRecordHistoryState(),
+        coordinate: async () => subject.rowVersion,
         owner: t.owner,
         subject,
         canMutate: true,
@@ -332,6 +337,8 @@ describe("History browsing characterization", () => {
     const { result, rerender } = renderHook(
       ({ active }) =>
         useWorkbookRecordHistoryController({
+          presentation: useWorkbookRecordHistoryState(),
+          coordinate: async () => subject.rowVersion,
           owner: t.owner,
           subject,
           presentationActive: active,

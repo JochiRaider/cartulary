@@ -44,6 +44,7 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | [timelineWorkbookTestSupport.test.tsx](timelineWorkbookTestSupport.test.tsx) | Tests for Timeline workbook test-support helpers. |
 | [timelineWorkbookTestSupport.ts](timelineWorkbookTestSupport.ts) | Shared Timeline workbook fixture helpers, route mocks, and row builders for tests. |
 | [workbookAuthorizationTestSupport.ts](workbookAuthorizationTestSupport.ts) | Deterministic workbook authorization-recovery port fixture. |
+| [workbookHistoryTestSupport.ts](workbookHistoryTestSupport.ts) | Complete semantic History events and explicitly accepted presentation pages shared by tests; never a production fallback. |
 | [workbookImportTestSupport.ts](workbookImportTestSupport.ts) | Workbook import scopes, mappings, units, approvals, previews, and session fixtures. |
 | [workbookInspectorTestSupport.test.tsx](workbookInspectorTestSupport.test.tsx) | Tests for delayed entity-inspector readiness and safe subject diagnostics. |
 | [workbookInspectorTestSupport.ts](workbookInspectorTestSupport.ts) | Entity-inspector readiness waits and diagnostics keyed by stable surface, record, and row-version identity. |

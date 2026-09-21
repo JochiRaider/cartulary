@@ -99,11 +99,14 @@ type RecordEnvelopeReader interface {
 
 type HistoryQuery struct {
 	RecordID uuid.UUID
+	Limit    int
+	After    *HistoryPosition
 }
 
 type HistoryResult struct {
-	Record    RecordHistoryRecord
-	Resources []map[string]any
+	Record RecordHistoryRecord
+	Items  []RecordHistoryItem
+	Next   *HistoryPosition
 }
 
 type DeleteRestoreCommand struct {

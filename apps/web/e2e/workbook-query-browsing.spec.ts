@@ -868,6 +868,7 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
     request: QueryWorkbookViewRequest;
     response?: QueryWorkbookViewResponse;
     status: number;
+    delivered?: boolean;
   }[] = [];
   let mode: "normal" | "abort" | "malformed" | "invalid_cursor" | "hold" =
     "normal";
@@ -890,11 +891,13 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
         : {},
     );
     const payload = await response.json();
-    reads.push({
+    const read = {
       request,
       status: response.status(),
       ...(response.ok() ? { response: payload } : {}),
-    });
+      delivered: false,
+    };
+    reads.push(read);
     if (behavior === "hold") {
       held = true;
       await gate;
@@ -903,6 +906,11 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
       delete payload.meta.paging;
       await route.fulfill({ response, json: payload });
     } else await route.fulfill({ response });
+    // route.fetch also completes for reads cancelled during startup. Only a
+    // response delivered to the page can own the next continuation token.
+    const delivered = await route.request().response();
+    read.delivered =
+      delivered !== null && (await delivered.finished()) === null;
   });
   const sockets = installIncidentSocketMonitor(page, incident);
   await page.goto(
@@ -912,8 +920,10 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
   const controls = page.getByRole("group", { name: "Workbook browsing" });
   const more = controls.getByRole("button", { name: "Load more", exact: true });
   await expect(controls).toContainText("100 records loaded; more available.");
-  const first = reads.at(-1)?.response;
-  if (!first) throw new Error("Missing first page");
+  await expect(more).toBeEnabled();
+  await expect.poll(() => reads.some((read) => read.delivered)).toBe(true);
+  const first = reads.filter((read) => read.delivered).at(-1)?.response;
+  if (!first) throw new Error("Missing delivered first page");
   mode = "abort";
   const failedIndex = reads.length;
   await more.evaluate((button) => {

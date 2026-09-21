@@ -1,7 +1,8 @@
 import type {
   RecordHistoryData,
   RecordHistoryItem,
-} from "./workbookHistoryPage";
+} from "../adapters/workbookHistoryResponse";
+
 export type RecordHistoryRollbackAction =
   RecordHistoryItem["available_rollback_actions"][number];
 

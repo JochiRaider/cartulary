@@ -1,13 +1,22 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { cleanup, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { WorkbookRecoveryFixture } from "../../../testing/WorkbookRecoveryFixture";
 import { createCoordinationCreateTransport } from "../../adapters/createCoordinationCreateTransport";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookAuthoringReadPort } from "../../ports/WorkbookAuthoringReadPort";
 import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
+import { CoordinationCreateRecovery } from "./CoordinationCreateRecovery";
 import {
   type CoordinationVariant,
   coordinationFeature,
@@ -306,6 +315,67 @@ describe("Coordination atomic recovery", () => {
     expect(owner.getSnapshot().draft?.values["lesson.summary"]).toBe(
       "New draft",
     );
+  });
+  it("keeps failed refresh recovery focus when socket evidence arrives during or after the read", async () => {
+    for (const timing of ["during", "after"] as const) {
+      const { owner, transport, receipt, effects } = fixture();
+      const refresh = deferred<void>();
+      effects.refresh.mockReturnValueOnce(refresh.promise);
+      transport.send.mockResolvedValue({ kind: "accepted", receipt });
+      render(
+        <WorkbookRecoveryFixture>
+          <CoordinationCreateRecovery owner={owner} />
+        </WorkbookRecoveryFixture>,
+      );
+      await act(async () => {
+        await owner.submit(token);
+      });
+      await waitFor(() => expect(effects.refresh).toHaveBeenCalledOnce());
+      const entry = required(owner.getSnapshot().entries[0]);
+      const event: RecordChangedMessage = {
+        type: "record_changed",
+        incident_id: authority.incidentId,
+        event_id: "late",
+        emitted_at: "2026-09-21T00:00:00Z",
+        stream_seq: 1,
+        payload: {
+          record_id: artifactId,
+          row_version: 1,
+          client_txn_id: entry.attempt.clientTxnId,
+          actor_user_id: authority.actorId,
+          change_set_id: receipt.data.change_set_id,
+          changed_field_keys: [],
+          affected_views: [
+            {
+              view_schema_id: receipt.data.view_schema_id,
+              change_kind: "invalidate",
+            },
+          ],
+        },
+      };
+      if (timing === "during") {
+        act(() => owner.observeSocket(event));
+        expect(owner.getSnapshot().entries[0]?.refresh).toBe("refreshing");
+      }
+      await act(async () => refresh.reject(new Error("read failed")));
+      await waitFor(() =>
+        expect(owner.getSnapshot().entries[0]?.refresh).toBe("required"),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Recovery (1)" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: /Coordination creation ·/ }),
+      );
+      const retry = screen.getByRole("button", { name: "Retry refresh" });
+      retry.focus();
+      if (timing === "after") await act(async () => owner.observeSocket(event));
+      expect((retry as HTMLButtonElement).disabled).toBe(false);
+      expect(document.activeElement).toBe(retry);
+      expect(effects.refresh).toHaveBeenCalledOnce();
+      await act(async () => owner.retryRefresh(entry.attempt.clientTxnId));
+      expect(owner.getSnapshot().entries[0]?.refresh).toBe("complete");
+      expect(transport.send).toHaveBeenCalledOnce();
+      cleanup();
+    }
   });
   it("allocates a new identity for corrected fresh requests and validates explicit unlinked receipts", async () => {
     const { owner, transport, receipt, ids } = fixture();

@@ -33,8 +33,12 @@ export function useTimelineSurfaceFoundation({
   query,
 }: TimelineSurfaceFoundationInput) {
   const recordActionPort = useMemo(
-    () => createTimelineRecordActionAdapter({ apiBase }),
-    [apiBase],
+    () =>
+      createTimelineRecordActionAdapter({
+        apiBase,
+        readScope: () => mutationRuntime.recordReadScope,
+      }),
+    [apiBase, mutationRuntime],
   );
   const mentionOwner = useMemo(
     () => timelineMentionOwnerFor(mutationRuntime),

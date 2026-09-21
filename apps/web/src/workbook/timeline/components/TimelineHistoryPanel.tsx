@@ -5,17 +5,16 @@ import {
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import type { RefCallback } from "react";
+import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
+import type { RecordHistoryRollbackAction } from "../../history/workbookHistoryItem";
+
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import type { PresentInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import {
   type HistoryBrowsingControls,
   WorkbookRecordHistoryPanel,
 } from "../../inspector/WorkbookInspectorRecordHistory";
-import type {
-  RecordHistoryItem,
-  RecordHistoryRollbackAction,
-  WorkbookRecordHistoryState,
-} from "../../inspector/workbookRecordHistoryModel";
+import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { inspectorSectionStyle } from "./TimelineWorkbookStyles";
 

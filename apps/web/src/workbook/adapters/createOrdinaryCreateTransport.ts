@@ -1,5 +1,6 @@
 import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import type { OrdinaryCreateTransport } from "../features/ordinary/ordinaryCreateOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
 import { workbookCreateCapabilityMatches } from "./workbookCreateCapability";
@@ -8,6 +9,7 @@ import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 /** Existing public create route, with frozen bytes and fresh transport credentials. */
 export function createOrdinaryCreateTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): OrdinaryCreateTransport {
   const operations = createWorkbookOperationExecutor({ apiBase });
   return {
@@ -45,6 +47,7 @@ export function createOrdinaryCreateTransport(
       sendWorkbookRecordMutation(
         { ...attempt, viewSchemaId: attempt.target.viewSchemaId },
         signal,
+        readScope?.() ?? null,
       ),
   };
 }

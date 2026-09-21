@@ -2,35 +2,52 @@ package httpapi
 
 import (
 	"errors"
-	"testing"
-
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/google/uuid"
+	"reflect"
+	"testing"
+	"time"
 )
 
 func TestHistoryKeyset_Unit(t *testing.T) {
 	binding := pagination.Binding{Route: "records.history", ActorUserID: "actor", Limit: 1, Scope: map[string]string{"record_id": "record"}}
-	resources := []map[string]any{{"history_item_ref": "a"}, {"history_item_ref": "b"}}
-	page, cursor, err := pageRecordHistory(binding, nil, resources)
-	if err != nil || len(page) != 1 || cursor == nil || cursor.Mode != pagination.ModeKeyset {
-		t.Fatalf("initial page: %s %+v %v", page, cursor, err)
-	}
-	live := append([]map[string]any{{"history_item_ref": "new"}}, resources...)
-	page, terminal, err := pageRecordHistory(binding, cursor, live)
-	if err != nil || terminal != nil || len(page) != 1 || string(page[0]) != `{"history_item_ref":"b"}` {
-		t.Fatalf("live continuation: %s %+v %v", page, terminal, err)
+	for _, position := range []revisions.HistoryPosition{
+		{CommittedAt: time.Date(2026, 9, 21, 12, 0, 0, 123456000, time.UTC), ChangeSetID: uuid.New(), Kind: revisions.HistoryMutation, SequenceNo: 7},
+		{CommittedAt: time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC), ChangeSetID: uuid.New(), Kind: revisions.HistoryRevision, RevisionNo: 2},
+	} {
+		cursor := historyCursor(binding, &position)
+		got, err := historyPosition(cursor)
+		if err != nil || !reflect.DeepEqual(got, &position) {
+			t.Fatalf("roundtrip: %+v %v", got, err)
+		}
+		for key, invalid := range map[string]string{"version": "old", "kind": "unknown", "sequence_no": "-1", "revision_no": "-1", "committed_at": "invalid", "change_set_id": "invalid"} {
+			bad := historyCursor(binding, &position)
+			bad.Position[key] = invalid
+			if _, err := historyPosition(bad); !errors.Is(err, pagination.ErrInvalidCursorToken) {
+				t.Fatalf("accepted invalid %s: %v", key, err)
+			}
+		}
 	}
 	for _, invalid := range []*pagination.Cursor{
-		pagination.NewOffsetCursor(binding, 1),
-		{Mode: pagination.ModeKeyset},
-		{Mode: pagination.ModeKeyset, Position: map[string]string{"after_history_item_ref": "missing"}},
-		{Mode: pagination.ModeKeyset, Position: map[string]string{"after_history_item_ref": "a", "offset": "1"}},
+		pagination.NewOffsetCursor(binding, 1), {Mode: pagination.ModeKeyset},
+		{Mode: pagination.ModeKeyset, Position: map[string]string{"after_history_item_ref": "legacy"}},
 	} {
-		if _, _, err := pageRecordHistory(binding, invalid, resources); !errors.Is(err, pagination.ErrInvalidCursorToken) {
+		if _, err := historyPosition(invalid); !errors.Is(err, pagination.ErrInvalidCursorToken) {
 			t.Fatalf("invalid cursor accepted: %+v %v", invalid, err)
 		}
 	}
-	page, terminal, err = pageRecordHistory(binding, nil, nil)
-	if err != nil || terminal != nil || len(page) != 0 {
-		t.Fatalf("empty page: %s %+v %v", page, terminal, err)
+	if got, err := historyPosition(nil); got != nil || err != nil {
+		t.Fatalf("initial: %+v %v", got, err)
+	}
+	if historyCursor(binding, nil) != nil {
+		t.Fatal("terminal page has continuation")
+	}
+	items := historyResources([]revisions.RecordHistoryItem{{CommittedAt: time.Date(2026, 9, 21, 12, 0, 0, 0, time.FixedZone("offset", 3600))}})
+	if !reflect.DeepEqual(items[0]["available_rollback_actions"], []string{}) || items[0]["committed_at"] != "2026-09-21T11:00:00Z" {
+		t.Fatalf("wire normalization: %#v", items)
+	}
+	if len(historyResources(nil)) != 0 {
+		t.Fatal("nonempty empty page")
 	}
 }

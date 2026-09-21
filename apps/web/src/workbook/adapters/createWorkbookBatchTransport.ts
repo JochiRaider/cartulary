@@ -11,6 +11,8 @@ import {
 } from "../models/workbookClipboardPaste";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import type {
   WorkbookBatchAttempt,
   WorkbookBatchReceipt,
@@ -38,6 +40,7 @@ function pathFor(
 export function createWorkbookBatchTransport(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
+  readScope?: WorkbookReadScopeSource;
 }): WorkbookBatchTransport {
   return {
     capture(plan, authority, id) {
@@ -76,6 +79,7 @@ export function createWorkbookBatchTransport(options: {
       };
     },
     async send(attempt, signal) {
+      const scope = options.readScope?.() ?? null;
       if (
         attempt.authority.incidentId !== options.incidentId ||
         attempt.path !== pathFor(attempt)
@@ -121,7 +125,15 @@ export function createWorkbookBatchTransport(options: {
           result.payload.data,
         );
         return receipt
-          ? { kind: "acknowledged", receipt }
+          ? {
+              kind: "acknowledged",
+              receipt: {
+                ...receipt,
+                rows: receipt.rows.map((row) =>
+                  acceptWorkbookRowObservation(row, scope),
+                ),
+              },
+            }
           : { kind: "uncertain" };
       } catch {
         return { kind: "uncertain" };

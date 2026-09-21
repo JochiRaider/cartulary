@@ -6,13 +6,15 @@ import {
 } from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation } from "../../services/browserApi";
 import {
-  type HistoryAttempt,
-  type HistoryReceipt,
   historyTargetEqual,
-  type WorkbookRecordHistoryPort,
+  normalizeRecordHistoryData,
+} from "../history/workbookHistoryItem";
+import type {
+  HistoryAttempt,
+  HistoryReceipt,
+  WorkbookRecordHistoryPort,
 } from "../history/workbookHistoryOperation";
 import { validHistoryPaging } from "../history/workbookHistoryPage";
-import { normalizeRecordHistoryData } from "../inspector/workbookRecordHistoryModel";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 
 const invalid = {

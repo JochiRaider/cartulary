@@ -14,6 +14,7 @@ import type { InspectorRecordHistoryAction } from "../inspector/inspectorCapabil
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import { WorkbookInspectorConfirmation } from "../inspector/presentation/WorkbookInspectorFeedback";
 import { useWorkbookRecordHistoryController } from "../inspector/useWorkbookRecordHistoryController";
+import { useWorkbookRecordHistoryState } from "../inspector/useWorkbookRecordHistoryState";
 import { WorkbookRecordHistoryPanel } from "../inspector/WorkbookInspectorRecordHistory";
 import { updateWorkbookInspectorSubject } from "../inspector/workbookInspectorSubject";
 import { HistoryLookupFeedback } from "./HistoryLookupFeedback";
@@ -257,7 +258,7 @@ function HistoryCurrentReview({
       })
     : null;
   const controller = useWorkbookRecordHistoryController({
-    owner,
+    presentation: useWorkbookRecordHistoryState(),
     subject,
 
     canMutate: entry.phase === "acknowledged" || entry.phase === "rejected",

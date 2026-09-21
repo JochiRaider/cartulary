@@ -25,6 +25,8 @@ Source-specific composition belongs in [features](../features/README.md) and
 | [useWorkbookInspectorCoordinator.test.tsx](useWorkbookInspectorCoordinator.test.tsx) | Direct tests for retargeting, lifecycle invalidation, action completion, idempotent close, and focus restoration. |
 | [useWorkbookInspectorCoordinator.ts](useWorkbookInspectorCoordinator.ts) | Schema-bound inspector lifecycle coordinator for explicit open/close, stable row subjects, ordered feature invalidation, action completion, and focus restoration ports. |
 | [WorkbookInspectorContextualActions.tsx](WorkbookInspectorContextualActions.tsx) | Renders admitted contextual inspector actions from canonical feature declarations. |
+| [WorkbookInspectorDetails.tsx](WorkbookInspectorDetails.tsx) | Explicit editor attachments, focus and commands supplied by source owners. |
+| [WorkbookInspectorSavedDetails.tsx](WorkbookInspectorSavedDetails.tsx) | Independent saved-value reading in declared order with optional presentation slots. |
 | [WorkbookInspectorDeclaredPanelList.tsx](WorkbookInspectorDeclaredPanelList.tsx) | Renders declared inspector panels in their owner-defined order. |
 
 ## Related-record authoring
@@ -49,7 +51,8 @@ Source-specific composition belongs in [features](../features/README.md) and
 | [WorkbookInspectorRecordHistory.test.tsx](WorkbookInspectorRecordHistory.test.tsx) | Tests advertised History loading, stable rollback selectors, and exact tombstone restore versions. |
 | [WorkbookInspectorRecordHistory.tsx](WorkbookInspectorRecordHistory.tsx) | Record History inspector composition and browsing controls. |
 | [workbookRecordHistoryModel.test.ts](workbookRecordHistoryModel.test.ts) | Tests stable subject references and rejection of events from obsolete phases or identities. |
-| [workbookRecordHistoryModel.ts](workbookRecordHistoryModel.ts) | Inspector History state machine keyed by subject, read request, and operation identity. |
+| [workbookRecordHistoryModel.ts](workbookRecordHistoryModel.ts) | Subject attachment and unsubmitted review over the sole accepted History browsing representation; display phases are derived. |
+| [useWorkbookRecordHistoryState.ts](useWorkbookRecordHistoryState.ts) | Allocates one presentation state instance shared with the controller and, for Timeline, subject composition. |
 | [workbookRecordHistoryOperation.ts](workbookRecordHistoryOperation.ts) | Builds inspector feedback for completed record History operations. |
 | [workbookRecordHistoryOwnerEffects.ts](workbookRecordHistoryOwnerEffects.ts) | Coordinates History owner effects with inspector subject and presentation lifetime. |
 | [WorkbookRecordHistoryPresentation.tsx](WorkbookRecordHistoryPresentation.tsx) | Loaded record History presentation with action and pending-state bindings. |
@@ -79,9 +82,15 @@ ordinary explicit attempt recovery reachable on its surface after inspector clos
 
 ## Query windows
 
-`useRetainedInspectorRow.ts` retains one authorized source independently of query
-window membership. An absent query member does not establish deletion. Authority
-changes retire the old source; newer committed evidence can update it off-window.
+`useRetainedInspectorRow.ts` retains one source-accepted observation independently
+of query-window membership. Query and operation adapters attach record, version,
+and the existing runtime account/session/incident scope and read-revocation epoch when accepting
+evidence. Conversions preserve that observation; rendering cannot create it.
+Admission filters all candidates by identity, version and authority before choosing
+the newest. An absent query member does not establish deletion. Authority changes
+require fresh evidence, while interaction permissions and window eviction do not
+revoke readable observations. Late write receipts retain their dispatch scope and
+independent recovery lifetime; they cannot grant current read authority.
 
 ## Explicit presentation and feedback
 
@@ -116,3 +125,25 @@ model through a render callback. This delivery slot preserves component identity
 and existing lazy reads without an aggregate ready wrapper or another cache.
 Each readable region distinguishes data from commands and authoring. Concealed
 variants contain no renderable payload. Unrequested History remains neutral.
+
+## Closed shell and saved-value presentation
+
+`WorkbookInspectorShell` accepts exactly one saved, empty or creation variant.
+Saved subjects require the admitted section sequence; empty selection has no
+sections; creation requires its source context and local admitted sections.
+The same sequence drives navigation and mounted content. Source compositions
+resolve the variant before rendering, and creation context must match the schema.
+
+`WorkbookInspectorSavedDetails` consumes accepted rows independently of editing.
+`WorkbookInspectorDetails` supplies field attachments through an explicit
+presentation contract of controls, commands and feedback. It does not import a
+draft hook or draft store type. Source owners retain authoring state and supply
+commands; append-only sources use the reader directly. Preserve null, unloaded,
+empty text, false and zero as distinct saved values.
+
+Query port identity follows accepted read scope, including its revocation epoch;
+an unchanged authorization recheck does not reset a browsing chain or interrupt
+an acknowledged operation's refresh. Timeline partial action receipts carry the
+transport's dispatch-time observation. They can advance a saved-row projection
+only from a matching admitted base version and scope; receipt retention itself
+remains independent of whether protected content may currently be shown.

@@ -32,6 +32,7 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { useAssessmentWorkbookInspectorComposition } from "../features/assessments/useAssessmentWorkbookInspectorComposition";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
+import { useRetainedInspectorRow } from "../inspector/useRetainedInspectorRow";
 import { useWorkbookColumnSizingBinding } from "../layout/useWorkbookColumnSizingBinding";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
@@ -59,10 +60,7 @@ import {
   workbookGroupValue,
 } from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
-import type {
-  RecordRouteCommandPort,
-  TimelineRelatedRecordPort,
-} from "../mutations/workbookMutationCommandPorts";
+import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
 import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 
@@ -99,7 +97,6 @@ export type AssessmentWorkbookSurfaceProps = {
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   onActivateConflict?: WorkbookConflictActivation | undefined;
-  recordMutationCommands: RecordRouteCommandPort;
   relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
@@ -125,7 +122,6 @@ export function AssessmentWorkbookSurface({
   loadState,
   mutationRuntime,
   onActivateConflict,
-  recordMutationCommands,
   relatedMutationCommands,
   collaborationProjection,
   onClearFilters,
@@ -147,8 +143,6 @@ export function AssessmentWorkbookSurface({
   const [selectedAssessmentRecordId, setSelectedAssessmentRecordId] = useState<
     string | null
   >(null);
-  const [selectedAssessmentSnapshot, setSelectedAssessmentSnapshot] =
-    useState<WorkbookQueryRow | null>(null);
   const inspectorContinuityTokenRef = useRef<WorkbookContinuityToken | null>(
     null,
   );
@@ -165,27 +159,36 @@ export function AssessmentWorkbookSurface({
     roleCanCreate &&
     mutationRuntime.assessmentAuthoring.canSubmit() &&
     workbookCreationAvailable(assessmentsContract);
-  const observedSelection =
-    assessmentRows.find(
-      (row) => row.record_id === selectedAssessmentRecordId,
-    ) ??
-    (selectedAssessmentSnapshot?.record_id === selectedAssessmentRecordId
-      ? selectedAssessmentSnapshot
-      : null);
+  const observedSelection = useRetainedInspectorRow({
+    recordId: selectedAssessmentRecordId,
+    rows: [
+      assessmentRows.find(
+        (row) => row.record_id === selectedAssessmentRecordId,
+      ),
+      selectedAssessmentRecordId
+        ? mutationRuntime.assessmentAuthoring.latestRow(
+            selectedAssessmentRecordId,
+          )
+        : null,
+    ],
+    sourceRow: (row) => row,
+    scope:
+      mutationRuntime.recordReadScope?.actorId === currentUserId
+        ? mutationRuntime.recordReadScope
+        : null,
+    readable: !!currentIncidentRole && loadState.kind !== "permission_denied",
+  });
   const selectedAssessment =
     observedSelection &&
     !mutationRuntime.assessmentAuthoring.wasRemoved(
       observedSelection.record_id,
       observedSelection.row_version,
     )
-      ? (mutationRuntime.assessmentAuthoring.latestRow(
-          observedSelection.record_id,
-        ) ??
-        ((mutationRuntime.assessmentAuthoring.latestVersion(
+      ? (mutationRuntime.assessmentAuthoring.latestVersion(
           observedSelection.record_id,
         ) ?? 0) <= observedSelection.row_version
-          ? observedSelection
-          : null))
+        ? observedSelection
+        : null
       : null;
   const defaultColumns = useMemo<readonly GridColumn<WorkbookQueryRow>[]>(
     () =>
@@ -289,12 +292,10 @@ export function AssessmentWorkbookSurface({
     },
     onClearSelectedAssessment: () => {
       setSelectedAssessmentRecordId(null);
-      setSelectedAssessmentSnapshot(null);
     },
     onClearSurfaceSelection: () => {
       continuityPortRef.current?.clear();
       setSelectedAssessmentRecordId(null);
-      setSelectedAssessmentSnapshot(null);
     },
     onRefreshAssessmentRows,
     onRestoreFocus: () => {
@@ -303,7 +304,6 @@ export function AssessmentWorkbookSurface({
       if (token !== null) continuityPortRef.current?.restore(token);
     },
     onSelectAssessment: selectAssessment,
-    recordMutationCommands,
     relatedMutationCommands,
     roleCanCreate,
     selectedAssessment,
@@ -374,25 +374,7 @@ export function AssessmentWorkbookSurface({
 
   function selectAssessment(recordId: string) {
     setSelectedAssessmentRecordId(recordId);
-    const row = assessmentRows.find(
-      (candidate) => candidate.record_id === recordId,
-    );
-    if (row !== undefined) {
-      setSelectedAssessmentSnapshot(row);
-    }
   }
-
-  useEffect(() => {
-    if (selectedAssessmentRecordId === null) {
-      return;
-    }
-    const refreshed = assessmentRows.find(
-      (row) => row.record_id === selectedAssessmentRecordId,
-    );
-    if (refreshed !== undefined) {
-      setSelectedAssessmentSnapshot(refreshed);
-    }
-  }, [assessmentRows, selectedAssessmentRecordId]);
 
   useEffect(() => {
     const detach = mutationRuntime.registerSurface(

@@ -11,9 +11,19 @@ import {
   rowHistoryRollbackPreviewTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties, ReactNode } from "react";
+import type {
+  RecordHistoryData,
+  RecordHistoryItem,
+} from "../adapters/workbookHistoryResponse";
 import { workbookTypography } from "../components/workbookFormStyles";
 import { useHistoryActionPermission } from "../history/WorkbookHistoryContext";
+import type {
+  RecordHistoryRollbackAction,
+  WorkbookRecordHistoryPendingAction,
+} from "../history/workbookHistoryItem";
 import { historyOperationLabel } from "../history/workbookHistoryOperation";
+
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import type { InspectorRecordHistoryAction } from "./inspectorCapabilityResolver";
 import {
   WorkbookHistoryEvent,
@@ -30,13 +40,6 @@ import {
   workbookHistoryPendingTechnicalFields,
   workbookHistoryRollbackLabel,
 } from "./workbookHistoryPresentationModel";
-import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
-import type {
-  RecordHistoryData,
-  RecordHistoryItem,
-  RecordHistoryRollbackAction,
-  WorkbookRecordHistoryPendingAction,
-} from "./workbookRecordHistoryModel";
 
 type HistoryFocusBindings = {
   readonly cancelEventReview: (historyItemRef: string) => void;
@@ -74,7 +77,7 @@ export function WorkbookRecordHistoryLoadedPresentation({
   readonly destructiveSubject: string;
   readonly focus: HistoryFocusBindings;
   readonly pendingAction: WorkbookRecordHistoryPendingAction | null;
-  readonly subject: WorkbookInspectorSubject;
+  readonly subject: WorkbookRecordSubject;
   readonly requestedChangeSetId?: string | undefined;
   readonly onCancelPendingAction: () => void;
   readonly onConfirmPendingAction: () => void;
@@ -138,7 +141,7 @@ function WorkbookRecordHistoryDestructiveActions({
   readonly canMutate: boolean;
   readonly data: RecordHistoryData;
   readonly focus: HistoryFocusBindings;
-  readonly subject: WorkbookInspectorSubject;
+  readonly subject: WorkbookRecordSubject;
   readonly onPreviewDeleteRestore: (operation: "delete" | "restore") => void;
 }) {
   const mayDelete = useHistoryActionPermission("delete");
@@ -270,7 +273,7 @@ function WorkbookRecordHistoryEvents({
   readonly canMutate: boolean;
   readonly data: RecordHistoryData;
   readonly focus: HistoryFocusBindings;
-  readonly subject: WorkbookInspectorSubject;
+  readonly subject: WorkbookRecordSubject;
   readonly onPreviewRollback: (
     item: RecordHistoryItem,
     action: RecordHistoryRollbackAction,
@@ -335,7 +338,7 @@ function WorkbookRecordHistoryRollbackActions({
   readonly canMutate: boolean;
   readonly focus: HistoryFocusBindings;
   readonly item: RecordHistoryItem;
-  readonly subject: WorkbookInspectorSubject;
+  readonly subject: WorkbookRecordSubject;
   readonly onPreviewRollback: (
     item: RecordHistoryItem,
     action: RecordHistoryRollbackAction,
@@ -387,7 +390,7 @@ function WorkbookRecordHistoryRollbackActions({
 
 function availableDestructiveOperation(
   actions: ReadonlySet<InspectorRecordHistoryAction>,
-  subject: WorkbookInspectorSubject,
+  subject: WorkbookRecordSubject,
   data: RecordHistoryData,
 ): "delete" | "restore" | null {
   if (actions.has("delete") && subject.kind === "live" && !data.deleted) {

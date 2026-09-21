@@ -37,10 +37,7 @@ import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInsp
 import { useWorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import { useWorkbookInspectorFieldFeedback } from "../../inspector/useWorkbookInspectorFieldFeedback";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
-import {
-  buildWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "../../inspector/workbookInspectorSubject";
+import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import {
   type GenericCollectionMode,
   genericCollectionItems,
@@ -50,7 +47,11 @@ import {
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
-import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
+import type {
+  WorkbookQueryRow,
+  WorkbookReadScope,
+} from "../../query/WorkbookQueryRow";
 import { DecisionSupersessionContext } from "../coordination/DecisionSupersessionContext";
 import { DecisionSupersessionEditor } from "../coordination/DecisionSupersessionEditor";
 import {
@@ -118,7 +119,7 @@ export function useGenericWorkbookInspectorComposition({
   readonly draftInspectorFields: readonly ViewFieldContract[];
   readonly incidentClosed: boolean;
   readonly inspectorResetKey: string;
-  readonly readScope: string;
+  readonly readScope: WorkbookReadScope | null;
   readonly interactionMode: GridInteractionMode;
   readonly mutation: GenericSurfaceMutationController;
   readonly mutationCommands: WorkbookMutationCommandPorts;
@@ -165,7 +166,7 @@ export function useGenericWorkbookInspectorComposition({
     [contract],
   );
   const [deletedHistorySubject, setDeletedHistorySubject] =
-    useState<WorkbookInspectorSubject | null>(null);
+    useState<WorkbookRecordSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
   const [editFieldKey, setEditFieldKey] = useState("");
@@ -193,7 +194,7 @@ export function useGenericWorkbookInspectorComposition({
     useState<GenericCollectionMode>("add");
   const subjectRow = useRetainedInspectorRow({
     recordId: selectedRecordId,
-    row: [
+    rows: [
       rows.find((row) => row.record_id === selectedRecordId),
       mutation.explicitPatches.latestRow(selectedRecordId),
       mutation.noteAssociations.latestRow(selectedRecordId),
@@ -204,12 +205,8 @@ export function useGenericWorkbookInspectorComposition({
       mutation.ordinaryCreate.latestRow(selectedRecordId),
       lifecycleOwner?.latestRow(selectedRecordId),
       decisionOwner?.latestRow(selectedRecordId),
-    ].reduce<WorkbookQueryRow | null>(
-      (latest, row) =>
-        row && row.row_version > (latest?.row_version ?? 0) ? row : latest,
-      null,
-    ),
-    rowVersion: (row) => row.row_version,
+    ],
+    sourceRow: (row) => row,
     scope: readScope,
     readable: !!currentIncidentRole,
   });
@@ -231,7 +228,7 @@ export function useGenericWorkbookInspectorComposition({
     currentUserId,
     currentIncidentRole,
   ]);
-  const subject: WorkbookInspectorSubject | null =
+  const subject: WorkbookRecordSubject | null =
     subjectRow === null
       ? deletedHistorySubject
       : buildWorkbookInspectorSubject({
@@ -635,13 +632,11 @@ export function useGenericWorkbookInspectorComposition({
             }),
           ],
         history: {
-          beginMutation: mutation.beginMutationReport,
           actions: recordHistoryActions,
           canMutate:
             interactionMode.kind === "editable" &&
             currentIncidentRole !== null &&
             currentIncidentRole !== "viewer",
-          commands: mutationCommands.records,
           effects: {
             deleteAccepted: (accepted) => {
               setIndicatorInspectorHandler(null);

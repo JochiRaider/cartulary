@@ -5,6 +5,7 @@ import {
 } from "@cartulary/view-contracts";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import { preserveWorkbookRowObservation } from "../../query/workbookRowObservation";
 import type { RowValues } from "./timelineFieldRegistry";
 import {
   type CollectionItem,
@@ -169,7 +170,7 @@ export function normalizeTimelineFullRow(
 ): TimelineApiRow {
   const normalized = normalizeViewRowV1(timelineContract, row, source);
   validateTimelineViewSchemaId(normalized.viewSchemaId, source);
-  return {
+  return preserveWorkbookRowObservation(row, {
     view_schema_id: normalized.viewSchemaId,
     record_id: normalized.recordId,
     row_version: normalized.rowVersion,
@@ -177,7 +178,7 @@ export function normalizeTimelineFullRow(
     ...(normalized.groupValues === undefined
       ? {}
       : { group_values: { ...normalized.groupValues } }),
-  };
+  });
 }
 
 export function normalizeTimelinePatchCells(

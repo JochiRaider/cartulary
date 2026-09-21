@@ -1,12 +1,14 @@
 import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import { prepareCoordination } from "../features/coordination/coordinationCreateModel";
 import type { CoordinationTransport } from "../features/coordination/coordinationCreateOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
 
 /** The ordinary route atomically creates target fields, references and source link. */
 export function createCoordinationCreateTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): CoordinationTransport {
   return {
     capture(review, clientTxnId) {
@@ -37,6 +39,7 @@ export function createCoordinationCreateTransport(
       const result = await sendWorkbookRecordMutation(
         { ...attempt, viewSchemaId: attempt.review.draft.target.viewSchemaId },
         signal,
+        readScope?.() ?? null,
       );
       if (result.kind === "accepted") {
         const data = result.receipt.data,

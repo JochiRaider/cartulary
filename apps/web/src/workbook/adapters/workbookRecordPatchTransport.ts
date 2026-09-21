@@ -4,6 +4,8 @@ import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { buildPatchRecordRequest } from "../models/workbookRequestDecoders";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationAccepted } from "../ports/WorkbookPendingMutationPort";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import type { WorkbookOperationExecutor } from "./workbookOperationContract";
 import type { WorkbookProtocolPatchRecordRequest } from "./workbookProtocolTypes";
 
@@ -89,9 +91,11 @@ export function normalizeRecordMutationRow(
 }
 export function createRecordPatchTransport(
   operations: WorkbookOperationExecutor,
+  readScope?: WorkbookReadScopeSource,
 ): RecordPatchTransport {
   return {
     async send(captured, signal) {
+      const scope = readScope?.() ?? null;
       let status: number | null = null;
       try {
         if (
@@ -128,7 +132,13 @@ export function createRecordPatchTransport(
           captured.recordId,
         );
         return receipt && receipt.row.row_version > captured.baseRowVersion
-          ? { kind: "acknowledged", receipt }
+          ? {
+              kind: "acknowledged",
+              receipt: {
+                ...receipt,
+                row: acceptWorkbookRowObservation(receipt.row, scope),
+              },
+            }
           : { kind: "uncertain" };
       } catch {
         return { kind: "uncertain" };

@@ -6,6 +6,9 @@ import {
 import type { ObservationReadPort } from "../features/indicators/observationOperation";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { buildQueryRequest } from "../models/workbookQuery";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
+import { sameWorkbookReadScope } from "../query/workbookRowObservation";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 /** Explicit page size admitted by both existing collection and query contracts. */
@@ -42,6 +45,7 @@ export function validObservationPaging(
 export function createObservationReader(options: {
   apiBase: string | undefined;
   incidentId: string;
+  readScope?: WorkbookReadScopeSource;
 }): ObservationReadPort {
   const operations = createWorkbookOperationExecutor(options);
   return {
@@ -97,6 +101,7 @@ export function createObservationReader(options: {
       }
     },
     async records(viewSchemaId, query, cursor, signal) {
+      const scope = options.readScope?.() ?? null;
       try {
         const contract = requireViewContract(viewSchemaId);
         const result = await operations.execute({
@@ -112,7 +117,12 @@ export function createObservationReader(options: {
           },
           signal,
         });
-        if (signal.aborted) return { kind: "aborted" };
+        if (
+          signal.aborted ||
+          (options.readScope &&
+            !sameWorkbookReadScope(scope, options.readScope()))
+        )
+          return { kind: "aborted" };
         if (result.kind === "rejected") return result;
         const { data, meta } = result.value;
         if (
@@ -129,7 +139,7 @@ export function createObservationReader(options: {
               contract,
               data.rows,
               "Observation records",
-            ),
+            ).map((row) => acceptWorkbookRowObservation(row, scope)),
             hasMore: meta.paging.has_more,
             nextCursor: meta.paging.next_cursor,
           },

@@ -53,14 +53,14 @@ import {
   timelineRowsEnvelope,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { historyDiffFixture } from "../testing/workbookHistoryTestSupport";
 import { createContextualCreateTransport } from "./adapters/createContextualCreateTransport";
 import { createTimelineRelatedEvidenceTransport } from "./adapters/createTimelineRelatedEvidenceTransport";
+import type { RecordHistoryItem } from "./adapters/workbookHistoryResponse";
 import { ContextualCreateContext } from "./features/coordination/ContextualCreateContext";
 import { WorkbookContextualTaskDecisionCreateOwner } from "./features/coordination/WorkbookContextualTaskDecisionCreateOwner";
 import { TimelineRelatedEvidenceContext } from "./features/evidence/TimelineRelatedEvidenceContext";
 import { WorkbookTimelineRelatedEvidenceOwner } from "./features/evidence/WorkbookTimelineRelatedEvidenceOwner";
-import { historyDiffFixture } from "./history/workbookHistoryTestFixtures";
-import type { RecordHistoryItem } from "./inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "./mutations/workbookMutationAuthority";

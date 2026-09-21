@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import { createTimelineInspectorElementRegistry } from "./timelineInspectorElementRegistry";
 
 const viewSchemaId = "workbook.timeline";
@@ -11,9 +11,9 @@ const subject = (recordId: string, rowVersion: number) =>
     rowVersion,
     surfaceLabel: "Timeline",
     viewSchemaId,
-  }) satisfies WorkbookInspectorSubject;
+  }) satisfies WorkbookRecordSubject;
 
-function scope(activeSubject: WorkbookInspectorSubject | null) {
+function scope(activeSubject: WorkbookRecordSubject | null) {
   return {
     invalidationGeneration: 1,
     lifecycleKey: "incident-1:timeline",

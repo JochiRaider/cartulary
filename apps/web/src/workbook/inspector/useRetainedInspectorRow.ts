@@ -1,48 +1,50 @@
 import { useRef } from "react";
+import type {
+  WorkbookQueryRow,
+  WorkbookReadScope,
+} from "../query/WorkbookQueryRow";
+import {
+  sameWorkbookReadScope,
+  workbookRowIsAdmissible,
+} from "../query/workbookRowObservation";
 
-/** One authorized inspector source, independent of loaded-window membership. */
+/** Retains one source-accepted observation independently of loaded-window membership. */
 export function useRetainedInspectorRow<Row>(input: {
   readonly recordId: string | null;
-  readonly row: Row | null;
-  readonly rowVersion: (row: Row) => number;
-  readonly scope: string;
+  readonly rows: readonly (Row | null | undefined)[];
+  readonly sourceRow: (row: Row) => WorkbookQueryRow | null;
+  readonly scope: WorkbookReadScope | null;
   readonly readable: boolean;
 }): Row | null {
-  const retained = useRef<{ recordId: string; row: Row; scope: string } | null>(
-    null,
-  );
-  const authority = useRef(input.scope);
-  const previousRow = useRef(input.row);
-  const retiredRow = useRef<Row | null>(null);
-  if (authority.current !== input.scope) {
-    authority.current = input.scope;
-    // Retire the old observation, not a fresh authorized row arriving in the
-    // same render as the new access scope. Presentation resets are separate.
-    retiredRow.current = previousRow.current;
+  const retained = useRef<{
+    recordId: string;
+    row: Row;
+    scope: WorkbookReadScope;
+  } | null>(null);
+  if (!input.readable || !input.scope) {
     retained.current = null;
+    return null;
   }
-  previousRow.current = input.row;
-  if (!input.readable || !input.recordId) {
-    if (!input.readable) retiredRow.current = input.row;
+  if (!input.recordId) {
     retained.current = null;
     return null;
   }
   if (
-    retained.current?.scope !== input.scope ||
-    retained.current.recordId !== input.recordId
+    !sameWorkbookReadScope(retained.current?.scope, input.scope) ||
+    retained.current?.recordId !== input.recordId
   )
     retained.current = null;
-  if (
-    input.row &&
-    input.row !== retiredRow.current &&
-    (!retained.current ||
-      input.rowVersion(input.row) >= input.rowVersion(retained.current.row))
-  ) {
-    retained.current = {
-      recordId: input.recordId,
-      row: input.row,
-      scope: input.scope,
-    };
+  for (const row of input.rows) {
+    if (!row) continue;
+    const source = input.sourceRow(row);
+    if (
+      !source ||
+      !workbookRowIsAdmissible(source, input.recordId, input.scope)
+    )
+      continue;
+    const prior = retained.current && input.sourceRow(retained.current.row);
+    if (!prior || source.row_version >= prior.row_version)
+      retained.current = { recordId: input.recordId, row, scope: input.scope };
   }
   return retained.current?.row ?? null;
 }

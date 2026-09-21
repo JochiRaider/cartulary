@@ -7,7 +7,10 @@ import {
 } from "@cartulary/view-contracts";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
+
 import {
   WorkbookInspectorNavigationContext,
   type WorkbookInspectorNavigationSelection,
@@ -16,7 +19,7 @@ import {
 import { inspectorContextualCapabilities } from "../inspectorCapabilityResolver";
 import { WorkbookInspectorContextualActions } from "../WorkbookInspectorContextualActions";
 import { WorkbookInspectorDeclaredPanelList } from "../WorkbookInspectorDeclaredPanelList";
-import { WorkbookInspectorDetails } from "../WorkbookInspectorDetails";
+import { WorkbookInspectorSavedDetails } from "../WorkbookInspectorSavedDetails";
 import { workbookHistoryEventPresentation } from "../workbookHistoryPresentationModel";
 import {
   workbookInspectorErrorPresentation,
@@ -28,7 +31,6 @@ import {
   updateWorkbookInspectorSubject,
   workbookInspectorSubjectsEqual,
 } from "../workbookInspectorSubject";
-import type { RecordHistoryItem } from "../workbookRecordHistoryModel";
 import {
   WorkbookHistoryEvent,
   WorkbookHistoryList,
@@ -43,10 +45,7 @@ import {
   inspectorPanel,
   savedInspectorRegion,
 } from "./WorkbookInspectorPanelContent";
-import {
-  WorkbookInspectorPanelSection,
-  WorkbookInspectorShell,
-} from "./WorkbookInspectorShell";
+import { WorkbookInspectorShell } from "./WorkbookInspectorShell";
 import {
   bindWorkbookInspectorAction,
   ownerInspectorDisabledReason,
@@ -221,23 +220,9 @@ describe("Workbook Inspector presentation", () => {
       const last = contract.fields.at(-1);
       if (last) delete cells[last.fieldKey];
       const view = render(
-        <WorkbookInspectorDetails
+        <WorkbookInspectorSavedDetails
           contract={contract}
           row={{ record_id: "saved", row_version: 1, cells }}
-          editableFields={[]}
-          activeField=""
-          onEdit={vi.fn()}
-          onDetach={vi.fn()}
-          onSubmit={vi.fn()}
-          onReviewDraft={vi.fn()}
-          retainedWork={[]}
-          canSubmit={false}
-          editor={{
-            content: null,
-            actions: null,
-            feedback: null,
-            retainedDraft: null,
-          }}
         />,
       );
       const rows = [
@@ -365,15 +350,17 @@ describe("Workbook Inspector presentation", () => {
           <WorkbookInspectorShell
             accessibleLabel="Hosts inspector"
             config={hosts.inspectorConfig}
-            noRowHeading="Hosts inspector"
-            subject={buildWorkbookInspectorSubject({
-              config: hosts.inspectorConfig,
-              kind: "live",
-              label,
-              recordId,
-              rowVersion: 3,
-              surfaceLabel: "Hosts",
-            })}
+            mode="saved"
+            subject={required(
+              buildWorkbookInspectorSubject({
+                config: hosts.inspectorConfig,
+                kind: "live",
+                label,
+                recordId,
+                rowVersion: 3,
+                surfaceLabel: "Hosts",
+              }),
+            )}
             onClose={close}
             sections={[
               {
@@ -405,9 +392,8 @@ describe("Workbook Inspector presentation", () => {
                     },
                   ]),
             ]}
-          >
-            <button type="button">Last section action</button>
-          </WorkbookInspectorShell>
+            feedback={<button type="button">Last section action</button>}
+          />
         ) : null}
       </WorkbookInspectorNavigationContext>
     );
@@ -568,6 +554,7 @@ describe("Workbook Inspector presentation", () => {
       rowVersion: 4,
       surfaceLabel: "Hosts",
     });
+    if (!live || !deleted) throw new Error("Missing subject fixture");
     const props = {
       config: hosts.inspectorConfig,
       currentIncidentRole: "admin" as const,
@@ -615,10 +602,7 @@ describe("Workbook Inspector presentation", () => {
           <WorkbookInspectorShell
             config={props.config}
             accessibleLabel="Inspector"
-            noRowHeading="Inspector"
-            heading="Create a different record"
-            eyebrow="Create"
-            mode="creation"
+            mode="saved"
             subject={live}
             onClose={vi.fn()}
             sections={sections}
@@ -652,7 +636,7 @@ describe("Workbook Inspector presentation", () => {
           <WorkbookInspectorShell
             config={props.config}
             accessibleLabel="Inspector"
-            noRowHeading="Inspector"
+            mode="saved"
             subject={deleted}
             onClose={vi.fn()}
             sections={sections}
@@ -687,8 +671,12 @@ describe("Workbook Inspector presentation", () => {
           <WorkbookInspectorShell
             config={props.config}
             accessibleLabel="Inspector"
-            noRowHeading="Inspector"
-            subject={null}
+            mode="creation"
+            context={{
+              id: "assessment-create",
+              viewSchemaId: props.config.viewSchemaId,
+              heading: "Append assessment",
+            }}
             onClose={vi.fn()}
             sections={sections}
           />
@@ -698,6 +686,36 @@ describe("Workbook Inspector presentation", () => {
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
     expect(screen.getByText("Standalone creation")).not.toBeNull();
     expect(screen.queryByText("History content")).toBeNull();
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(
+      "Append assessment",
+    );
+    expect(
+      screen.getByRole("complementary").getAttribute("data-inspector-state"),
+    ).toBe("creation");
+    expect(
+      screen.queryByText("Select a saved row to inspect its details."),
+    ).toBeNull();
+    expectTypeOf<
+      Extract<
+        ComponentProps<typeof WorkbookInspectorShell>,
+        { mode: "creation" }
+      >["subject"]
+    >().toEqualTypeOf<undefined>();
+    expectTypeOf<
+      Extract<
+        ComponentProps<typeof WorkbookInspectorShell>,
+        { mode: "empty" }
+      >["sections"]
+    >().toEqualTypeOf<undefined>();
+    type Saved = Extract<
+      ComponentProps<typeof WorkbookInspectorShell>,
+      { mode: "saved" }
+    >;
+    expectTypeOf<
+      Partial<Pick<Saved, "sections">> extends Pick<Saved, "sections">
+        ? true
+        : false
+    >().toEqualTypeOf<false>();
   });
 
   it("keeps presentation source free of state orchestration hooks", () => {
@@ -723,12 +741,10 @@ describe("Workbook Inspector presentation", () => {
       <WorkbookInspectorShell
         accessibleLabel="Hosts inspector"
         config={hosts.inspectorConfig}
-        noRowHeading="Hosts inspector"
-        subject={null}
+        mode="empty"
+        heading="Hosts inspector"
         onClose={vi.fn()}
-      >
-        <button type="button">Create a host</button>
-      </WorkbookInspectorShell>,
+      />,
     );
     expect(
       screen.getByRole("complementary").getAttribute("data-inspector-state"),
@@ -737,19 +753,29 @@ describe("Workbook Inspector presentation", () => {
       screen.getByText("Select a saved row to inspect its details."),
     ).not.toBeNull();
     expect(screen.queryByText("no_row_selected")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Create a host" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
   });
 
   it("consumes panel-read groups without rendering their labels", () => {
     render(
-      <WorkbookInspectorPanelSection
-        panel={relationshipsPanel}
-        viewSchemaId={hosts.viewSchemaId}
-      >
-        <p>Relationship content</p>
-      </WorkbookInspectorPanelSection>,
+      <WorkbookInspectorShell
+        accessibleLabel="Hosts inspector"
+        config={hosts.inspectorConfig}
+        mode="creation"
+        context={{
+          id: "test",
+          viewSchemaId: hosts.viewSchemaId,
+          heading: "Host",
+        }}
+        onClose={vi.fn()}
+        sections={[
+          {
+            panel: relationshipsPanel,
+            content: <p>Relationship content</p>,
+            focusDestination: (section) => section,
+          },
+        ]}
+      />,
     );
     expect(screen.getByText("Relationships")).not.toBeNull();
     expect(screen.getByText("Relationship content")).not.toBeNull();
@@ -984,3 +1010,8 @@ describe("Workbook Inspector presentation", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });
+
+function required<T>(value: T | null): T {
+  if (value === null) throw new Error("Missing fixture value");
+  return value;
+}

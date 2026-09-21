@@ -79,10 +79,7 @@ function gridOutcomeForFailure(
   if (failure.kind === "stale_target") {
     return { kind: "stale_target", message };
   }
-  if (
-    failure.kind === "same_field_conflict" ||
-    failure.kind === "client_txn_conflict"
-  ) {
+  if (failure.kind === "same_field_conflict") {
     return { kind: "conflict", message };
   }
   return { kind: "rejected_mutation", message };
@@ -217,13 +214,9 @@ export function createTimelineMutationDriver(
   const settleCompletionCallbacks = (
     unitId: string,
     outcome: GridEditCommitOutcome,
-    retainForRecovery = false,
   ) => {
     const callbacks = completionCallbacksRef.current.get(unitId) ?? [];
-    // A halted request still belongs to its operation owner. Keep its command
-    // settlement observers until Retry or Discard resolves that same unit, so
-    // an attached editor cannot keep returning an obsolete rejection forever.
-    if (!retainForRecovery) completionCallbacksRef.current.delete(unitId);
+    completionCallbacksRef.current.delete(unitId);
     for (const callback of callbacks)
       callback.run(
         outcome.kind === "accepted" && callback.superseded
@@ -658,11 +651,11 @@ export function createTimelineMutationDriver(
       setMutationError(
         plan.kind === "invalid_settlement" ? plan.message : failure.message,
       );
-    settleCompletionCallbacks(
-      unit.id,
-      gridOutcomeForFailure(failure),
-      plan.kind === "halt",
-    );
+    // A retryable transaction-identity halt has not settled the logical edit:
+    // resolving its Promise now would lose the eventual Retry outcome. Other
+    // terminal halts must settle immediately so editing/navigation can recover.
+    if (plan.kind !== "halt" || failure.kind !== "client_txn_conflict")
+      settleCompletionCallbacks(unit.id, gridOutcomeForFailure(failure));
     publishPendingQueueState();
   };
 

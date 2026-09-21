@@ -15,6 +15,7 @@ clipboard exception remains private to [adapters](../adapters/README.md).
 | [WorkbookAuthoringReadPort.ts](WorkbookAuthoringReadPort.ts) | Semantic authoring context, candidate pages, queries, record reads, and authority capabilities. |
 | [WorkbookIncidentPort.ts](WorkbookIncidentPort.ts) | Incident identity and membership capabilities. |
 | [WorkbookPendingMutationPort.ts](WorkbookPendingMutationPort.ts) | Shared queued create/patch execution capability over committed versions and semantic mutation units. |
+| [WorkbookRecordSubject.ts](WorkbookRecordSubject.ts) | Read and operation subject identity shared by History and inspector attachment. |
 | [WorkbookPortResult.ts](WorkbookPortResult.ts) | Shared accepted/aborted/authentication/authorization/stale/retryable/terminal semantic result union. |
 | [WorkbookPreferencePort.ts](WorkbookPreferencePort.ts) | Current-user and incident-default preference capabilities. |
 | [WorkbookSavedViewPort.ts](WorkbookSavedViewPort.ts) | Schema-scoped page discovery, addressed authorized resource reads, accepted-response CRUD and the injected cancellable observation capability shared by read/operation owners. |
@@ -27,3 +28,15 @@ WorkbookReferenceReadPort separates record, Party and incident-member identities
 | File | Responsibility |
 | --- | --- |
 | [WorkbookCandidateReadPort.ts](WorkbookCandidateReadPort.ts) | Typed candidate observation and query capability, independent of selection. |
+
+## Accepted record observations
+
+`WorkbookQueryRow` carries optional source evidence alongside its transport-shaped
+fields. Query and mutation adapters attach record identity, accepted version and
+the existing runtime account/session/incident scope with its read-revocation epoch.
+An unobserved row is not eligible for retained inspector reading. Normalizers and
+presentation conversions preserve matching evidence without granting authority.
+Read revocation is distinct from mutation coordination resumption, query-window
+eviction, incident closure and readable role changes. A delayed write receipt keeps
+its dispatch scope and independent recovery lifetime. A delayed read crossing a
+revocation boundary is rejected before presentation can accept it.

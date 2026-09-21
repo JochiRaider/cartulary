@@ -11,8 +11,11 @@ import type {
   WorkbookAuthoringReadPort,
 } from "../ports/WorkbookAuthoringReadPort";
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import type { WorkbookCanonicalQuery } from "../query/WorkbookViewQueryPort";
 import { readWorkbookQueryMetadata } from "../query/workbookQueryMetadata";
+import { sameWorkbookReadScope } from "../query/workbookRowObservation";
 import { workbookCreateCapabilityMatches } from "./workbookCreateCapability";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
@@ -21,6 +24,7 @@ export function createWorkbookAuthoringReader(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
   readonly recheckAuthority: () => void;
+  readonly readScope?: WorkbookReadScopeSource;
 }): WorkbookAuthoringReadPort {
   const operations = createWorkbookOperationExecutor(options);
   return {
@@ -100,6 +104,7 @@ export function createWorkbookAuthoringReader(options: {
         );
     },
     async page(input) {
+      const scope = options.readScope?.() ?? null;
       let responseAccepted = false;
       try {
         let candidates: WorkbookAuthoringCandidate[];
@@ -191,7 +196,7 @@ export function createWorkbookAuthoringReader(options: {
               recordId: row.record_id,
               displayText: genericInspectorRowLabel(contract, row),
               viewSchemaId: contract.viewSchemaId,
-              row,
+              row: acceptWorkbookRowObservation(row, scope),
             };
           });
         }
@@ -206,7 +211,9 @@ export function createWorkbookAuthoringReader(options: {
             (!paging.next_cursor || paging.next_cursor === input.cursor))
         )
           throw new Error("Invalid reference paging.");
-        return input.signal.aborted
+        return input.signal.aborted ||
+          (options.readScope &&
+            !sameWorkbookReadScope(scope, options.readScope()))
           ? { kind: "aborted" }
           : {
               kind: "accepted",

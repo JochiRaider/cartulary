@@ -8,6 +8,7 @@ import type {
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookReadScope } from "../../query/WorkbookQueryRow";
 import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import { useTimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
@@ -38,7 +39,7 @@ export function useTimelineInspectorStateComposition({
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
   readonly observedMentions: readonly MentionSubject[];
   readonly inspectorResetKey: string;
-  readonly readScope: string;
+  readonly readScope: WorkbookReadScope | null;
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
   readonly workbookFocusAnchorRef: {

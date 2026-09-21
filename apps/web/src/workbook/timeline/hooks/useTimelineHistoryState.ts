@@ -1,10 +1,6 @@
-import { useCallback, useReducer, useRef } from "react";
-import {
-  initialWorkbookRecordHistoryState,
-  type WorkbookRecordHistoryEvent,
-  workbookRecordHistoryPendingAction,
-  workbookRecordHistoryReducer,
-} from "../../inspector/workbookRecordHistoryModel";
+import { useCallback } from "react";
+import { useWorkbookRecordHistoryState } from "../../inspector/useWorkbookRecordHistoryState";
+import { workbookRecordHistoryPendingAction } from "../../inspector/workbookRecordHistoryModel";
 import { selectTimelineInspectorHistorySubject } from "../models/timelineHistoryModel";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
@@ -15,22 +11,8 @@ export function useTimelineHistoryState({
   readonly draftRow: WorkbookRow | null;
   readonly selectedRow: WorkbookRow | null;
 }) {
-  const [rowHistory, reactDispatchRowHistory] = useReducer(
-    workbookRecordHistoryReducer,
-    null,
-    initialWorkbookRecordHistoryState,
-  );
-  const rowHistoryRef = useRef(rowHistory);
-  rowHistoryRef.current = rowHistory;
-  const sendRowHistoryEvent = useCallback(
-    (event: WorkbookRecordHistoryEvent) => {
-      const next = workbookRecordHistoryReducer(rowHistoryRef.current, event);
-      rowHistoryRef.current = next;
-      reactDispatchRowHistory(event);
-      return next;
-    },
-    [],
-  );
+  const { snapshot: rowHistory, dispatch: sendRowHistoryEvent } =
+    useWorkbookRecordHistoryState();
 
   const inspectorHistorySubject = selectTimelineInspectorHistorySubject({
     draftRow,

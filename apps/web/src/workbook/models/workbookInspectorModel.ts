@@ -1,5 +1,5 @@
-import type { WorkbookInspectorSubject } from "../inspector/workbookInspectorSubject";
 import { workbookInspectorSubjectsEqual } from "../inspector/workbookInspectorSubject";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 
 export type WorkbookInspectorInvalidationReason =
   | "action_completed"
@@ -24,26 +24,26 @@ export type WorkbookInspectorState = WorkbookInspectorStateContext &
   (
     | {
         readonly phase: "closed";
-        readonly subject: WorkbookInspectorSubject | null;
+        readonly subject: WorkbookRecordSubject | null;
       }
     | { readonly phase: "open_no_subject"; readonly subject: null }
     | {
         readonly phase: "open_ready";
-        readonly subject: WorkbookInspectorSubject;
+        readonly subject: WorkbookRecordSubject;
       }
   );
 
 export type WorkbookInspectorAction =
   | {
       readonly lifecycleKey: string;
-      readonly subject: WorkbookInspectorSubject | null;
+      readonly subject: WorkbookRecordSubject | null;
       readonly type: "open";
     }
   | { readonly lifecycleKey: string; readonly type: "close" }
   | {
       readonly lifecycleKey: string;
       readonly type: "retarget";
-      readonly subject: WorkbookInspectorSubject | null;
+      readonly subject: WorkbookRecordSubject | null;
     }
   | {
       readonly lifecycleKey: string;

@@ -8,6 +8,8 @@ import {
 } from "@cartulary/protocol-ts/http";
 import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
 import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../../query/WorkbookQueryRow";
 import { timelineCaptureReviewValid } from "../actions/timelineCaptureActionModel";
 import type {
   TimelineCaptureAttempt,
@@ -17,6 +19,7 @@ import type { TimelineCaptureReceipt } from "./timelineCaptureProtocol";
 
 export function createTimelineRecordActionAdapter(options: {
   readonly apiBase: string | undefined;
+  readonly readScope?: WorkbookReadScopeSource;
 }): TimelineRecordActionPort {
   return {
     capture(review, id) {
@@ -56,6 +59,7 @@ export function createTimelineRecordActionAdapter(options: {
       };
     },
     async send(attempt, signal) {
+      const scope = options.readScope?.() ?? null;
       const operationID =
         attempt.review.action === "mark-reviewed"
           ? "markTimelineRecordReviewed"
@@ -106,9 +110,19 @@ export function createTimelineRecordActionAdapter(options: {
           attempt,
           result.payload.data,
         );
-        return receipt
-          ? { kind: "acknowledged", receipt }
-          : { kind: "uncertain" };
+        if (!receipt) return { kind: "uncertain" };
+        const observation = acceptWorkbookRowObservation(
+          {
+            record_id: receipt.data.record_id,
+            row_version: receipt.data.row_version,
+            cells: {},
+          },
+          scope,
+        ).observation;
+        return {
+          kind: "acknowledged",
+          receipt: { ...receipt, ...(observation ? { observation } : {}) },
+        };
       } catch {
         return { kind: "uncertain" };
       }

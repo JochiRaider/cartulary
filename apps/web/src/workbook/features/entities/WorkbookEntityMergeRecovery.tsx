@@ -7,6 +7,7 @@ import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavig
 import type { InspectorRecordHistoryAction } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { useWorkbookRecordHistoryController } from "../../inspector/useWorkbookRecordHistoryController";
+import { useWorkbookRecordHistoryState } from "../../inspector/useWorkbookRecordHistoryState";
 import { WorkbookRecordHistoryPanel } from "../../inspector/WorkbookInspectorRecordHistory";
 import {
   hostsViewSchemaId,
@@ -263,6 +264,7 @@ function MergeHistoryReview({
   const receipt = entry.receipt;
   const recordId = review.survivor.recordId;
   const controller = useWorkbookRecordHistoryController({
+    presentation: useWorkbookRecordHistoryState(),
     owner: runtime.history,
     subject: {
       kind: "live",

@@ -6,6 +6,7 @@ import type {
 import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { workbookInspectorSectionFocusDestination } from "../layout/workbookInspectorNavigation";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import {
   type InspectorContextualCapability,
   inspectorContextualCapabilities,
@@ -17,7 +18,6 @@ import {
 import type { WorkbookInspectorSection } from "./presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorDisabledReason } from "./presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorContextualActions } from "./WorkbookInspectorContextualActions";
-import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
 
 export function WorkbookInspectorDeclaredPanelList({
   config,
@@ -46,7 +46,7 @@ export function WorkbookInspectorDeclaredPanelList({
   readonly onContextualAction: (
     capability: InspectorContextualCapability,
   ) => void;
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
   readonly creationAttachment?:
     | { readonly id: string; readonly viewSchemaId: string }
     | undefined;

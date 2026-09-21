@@ -1,29 +1,9 @@
 import type { InspectorConfig } from "@cartulary/view-contracts";
 
-type WorkbookInspectorSubjectIdentity = {
-  readonly kind: "live" | "deleted";
-  readonly recordId: string;
-  readonly rowVersion: number;
-  readonly viewSchemaId: string;
-};
-
-type WorkbookInspectorSubjectContext = WorkbookInspectorSubjectIdentity & {
-  readonly label: string;
-  readonly surfaceLabel: string;
-};
-
-export type WorkbookInspectorSubject =
-  | (WorkbookInspectorSubjectContext & {
-      readonly kind: "live";
-      readonly stateLabel?: string | undefined;
-    })
-  | (WorkbookInspectorSubjectContext & {
-      readonly kind: "deleted";
-      readonly stateLabel: string;
-    });
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 
 export type WorkbookInspectorLiveSubject = Extract<
-  WorkbookInspectorSubject,
+  WorkbookRecordSubject,
   { readonly kind: "live" }
 >;
 
@@ -42,13 +22,13 @@ export function buildWorkbookInspectorSubject({
   surfaceLabel,
 }: {
   readonly config: InspectorConfig;
-  readonly kind: WorkbookInspectorSubject["kind"];
+  readonly kind: WorkbookRecordSubject["kind"];
   readonly label: string;
   readonly recordId: string | null | undefined;
   readonly rowVersion: number | null | undefined;
   readonly stateLabel?: string | undefined;
   readonly surfaceLabel: string;
-}): WorkbookInspectorSubject | null {
+}): WorkbookRecordSubject | null {
   return validatedWorkbookInspectorSubject({
     kind,
     label,
@@ -61,13 +41,13 @@ export function buildWorkbookInspectorSubject({
 }
 
 export function updateWorkbookInspectorSubject(
-  subject: WorkbookInspectorSubject,
+  subject: WorkbookRecordSubject,
   identity: {
-    readonly kind: WorkbookInspectorSubject["kind"];
+    readonly kind: WorkbookRecordSubject["kind"];
     readonly recordId: string | null | undefined;
     readonly rowVersion: number | null | undefined;
   },
-): WorkbookInspectorSubject | null {
+): WorkbookRecordSubject | null {
   if (
     identity.kind === subject.kind &&
     identity.recordId?.trim() === subject.recordId &&
@@ -88,8 +68,8 @@ export function updateWorkbookInspectorSubject(
 }
 
 export function workbookInspectorSubjectsEqual(
-  left: WorkbookInspectorSubject | null,
-  right: WorkbookInspectorSubject | null,
+  left: WorkbookRecordSubject | null,
+  right: WorkbookRecordSubject | null,
 ): boolean {
   return (
     left === right ||
@@ -111,14 +91,14 @@ function validatedWorkbookInspectorSubject({
   surfaceLabel,
   viewSchemaId,
 }: {
-  readonly kind: WorkbookInspectorSubject["kind"];
+  readonly kind: WorkbookRecordSubject["kind"];
   readonly label: string;
   readonly recordId: string | null | undefined;
   readonly rowVersion: number | null | undefined;
   readonly stateLabel?: string | undefined;
   readonly surfaceLabel: string;
   readonly viewSchemaId: string;
-}): WorkbookInspectorSubject | null {
+}): WorkbookRecordSubject | null {
   const normalizedRecordId = recordId?.trim() ?? "";
   const normalizedLabel = label.trim();
   const normalizedSurfaceLabel = surfaceLabel.trim();

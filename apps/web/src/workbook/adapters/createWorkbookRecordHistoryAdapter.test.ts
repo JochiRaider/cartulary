@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
 import type { HistoryAttempt } from "../history/workbookHistoryOperation";
-import { historyDiffFixture } from "../history/workbookHistoryTestFixtures";
 import { createWorkbookRecordHistoryAdapter } from "./createWorkbookRecordHistoryAdapter";
 
 const recordId = "20000000-0000-4000-8000-000000000001";

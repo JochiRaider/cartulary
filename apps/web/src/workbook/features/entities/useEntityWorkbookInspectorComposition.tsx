@@ -63,17 +63,12 @@ import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
-import {
-  buildWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "../../inspector/workbookInspectorSubject";
+import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import { mergeIdentifierOutcomeText } from "../../models/entityMergePlan";
 import type { EntityRow } from "../../models/entityWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import type {
-  RecordRouteCommandPort,
-  TimelineRelatedRecordPort,
-} from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { timelineRelationshipChipPresentation } from "../../timeline/models/workbookMentionChips";
@@ -98,7 +93,6 @@ export function useEntityWorkbookInspectorComposition({
   onAuthorityUncertain,
   onRefreshEntities,
   onRestoreFocus,
-  recordMutationCommands,
   relatedMutationCommands,
   rows,
   selectedEntity,
@@ -126,7 +120,6 @@ export function useEntityWorkbookInspectorComposition({
     readonly requireAcceptance?: boolean;
   }) => Promise<void>;
   readonly onRestoreFocus: () => void;
-  readonly recordMutationCommands: RecordRouteCommandPort;
   readonly relatedMutationCommands: TimelineRelatedRecordPort;
   readonly rows: readonly EntityRow[];
   readonly selectedEntity: EntityRow | null;
@@ -144,10 +137,10 @@ export function useEntityWorkbookInspectorComposition({
     onRefreshEntities({ requireAcceptance: true }),
   );
   const [deletedHistorySubject, setDeletedHistorySubject] =
-    useState<WorkbookInspectorSubject | null>(null);
+    useState<WorkbookRecordSubject | null>(null);
   const [editFieldKey, setEditFieldKey] = useState("");
   const aliasInputRef = useRef<HTMLInputElement | null>(null);
-  const subject: WorkbookInspectorSubject | null =
+  const subject: WorkbookRecordSubject | null =
     selectedEntity === null
       ? deletedHistorySubject
       : buildWorkbookInspectorSubject({
@@ -482,13 +475,11 @@ export function useEntityWorkbookInspectorComposition({
         disabledTokens,
         feedbackTestId: entityMergeControlTestId("message"),
         history: {
-          beginMutation,
           actions: recordHistoryActions,
           canMutate:
             interactionMode.kind === "editable" &&
             currentIncidentRole !== null &&
             currentIncidentRole !== "viewer",
-          commands: recordMutationCommands,
           effects: {
             deleteAccepted: (accepted) => {
               related.commands.cancel();

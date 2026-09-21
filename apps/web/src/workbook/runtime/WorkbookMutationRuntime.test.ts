@@ -463,18 +463,46 @@ describe("WorkbookMutationRuntimeRegistry", () => {
       };
       const schema = "cartulary.view.evidence.v1";
       runtime.ordinaryCreate.setAuthority(authority);
+      runtime.explicitPatches.setAuthority(authority);
+      const originalReadScope = runtime.recordReadScope;
+      expect(originalReadScope).toMatchObject({
+        actorId: recordId,
+        incidentId,
+        sessionIdentity: "same-account",
+      });
+      runtime.applyAuthorizationRecoveryState("resumed");
+      expect(runtime.recordReadScope).toEqual(originalReadScope);
+      runtime.invalidate({ kind: "incident_role_changed", role: "viewer" });
+      runtime.explicitPatches.setAuthority({ ...authority, role: "viewer" });
+      expect(runtime.recordReadScope).toEqual(originalReadScope);
+      runtime.invalidate({ kind: "incident_closed" });
+      runtime.explicitPatches.setAuthority({ ...authority, closed: true });
+      expect(runtime.recordReadScope).toEqual(originalReadScope);
+      runtime.explicitPatches.setAuthority(authority);
+      runtime.ordinaryCreate.setAuthority(authority);
       runtime.ordinaryCreate.update(
         schema,
         "evidence.title",
         "Retained private draft",
       );
       registry.sessionUnavailable();
+      expect(runtime.recordReadScope).toBeNull();
       expect(runtime.ordinaryCreate.getSnapshot().schemas).toEqual({});
       expect(registry.acquire(scope, create)).toBe(runtime);
       runtime.ordinaryCreate.setAuthority({
         ...authority,
         sessionIdentity: "reauthenticated-same-account",
       });
+      runtime.explicitPatches.setAuthority({
+        ...authority,
+        sessionIdentity: "reauthenticated-same-account",
+      });
+      expect(runtime.recordReadScope?.sessionIdentity).toBe(
+        "reauthenticated-same-account",
+      );
+      expect(runtime.recordReadScope?.epoch).toBeGreaterThan(
+        originalReadScope?.epoch ?? -1,
+      );
       expect(
         runtime.ordinaryCreate.getSnapshot().schemas[schema]?.values[
           "evidence.title"

@@ -4,11 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	"github.com/google/uuid"
 )
 
@@ -29,93 +27,38 @@ func (materializer historyRowMaterializer) Mutation(record RecordHistoryRecord, 
 		AvailableRollbackActions: nil,
 		HistoryEntryRef:          row.HistoryEntryRef,
 		RevisionNo:               row.RevisionNo,
-		createdAt:                row.CommittedAt,
-		changeSetID:              row.ChangeSetID,
 		sequenceNo:               row.SequenceNo,
-		syntheticRank:            0,
-		targetKey:                row.TargetKind + ":" + row.TargetID,
 		hasTargetEntry:           row.HistoryEntryAddressable,
-		rowProjected:             materializer.catalog.byTargetKind[row.TargetKind].dispatchClass == rollbackcontract.DispatchRow,
 	}, nil
 }
 
-func (materializer historyRowMaterializer) Revisions(record RecordHistoryRecord, rows []revisionHistoryRow, mutationItems []RecordHistoryItem) ([]RecordHistoryItem, error) {
-	changeSetsWithMutation := make(map[uuid.UUID]int, len(mutationItems))
-	changeSetsWithRow := make(map[uuid.UUID]bool, len(mutationItems))
-	for i, item := range mutationItems {
-		if _, exists := changeSetsWithMutation[item.ChangeSetID]; !exists {
-			changeSetsWithMutation[item.ChangeSetID] = i
-		}
-		if item.rowProjected {
-			changeSetsWithRow[item.ChangeSetID] = true
-		}
+func (materializer historyRowMaterializer) Revision(record RecordHistoryRecord, row revisionHistoryRow) (RecordHistoryItem, error) {
+	summary, err := materializer.catalog.projectHistory(record, "record", record.RecordID.String(), "row_revision", row.BeforeValue, row.AfterValue)
+	if err != nil {
+		return RecordHistoryItem{}, err
 	}
-	items := make([]RecordHistoryItem, 0, len(rows))
-	for _, row := range rows {
-		revisionNo := row.RevisionNo
-		summary, err := materializer.catalog.projectHistory(record, "record", record.RecordID.String(), "row_revision", row.BeforeValue, row.AfterValue)
-		if err != nil {
-			return nil, err
-		}
-		if index, exists := changeSetsWithMutation[row.ChangeSetID]; exists {
-			if !changeSetsWithRow[row.ChangeSetID] {
-				units := append([]historycontract.Unit{}, mutationItems[index].DiffSummary.Units...)
-				for _, unit := range summary.Units {
-					if unit.Kind == "record" && unit.Operation == "update" && len(unit.Changes) == 0 {
-						continue
-					}
-					units = append(units, unit)
-				}
-				combined, err := historycontract.Summarize(units)
-				if err != nil {
-					return nil, err
-				}
-				mutationItems[index].DiffSummary = combined
-			}
-			continue
-		}
-		items = append(items, RecordHistoryItem{
-			ActorUserID:              row.ActorUserID,
-			CommittedAt:              row.CommittedAt,
-			HistoryItemRef:           historyItemRefForRevision(record.RecordID, row.ChangeSetID, row.RevisionNo),
-			Operation:                historyOperation(row.Source, "row_revision"),
-			DiffSummary:              summary,
-			ChangeSetID:              row.ChangeSetID,
-			AvailableRollbackActions: nil,
-			RevisionNo:               &revisionNo,
-			createdAt:                row.CommittedAt,
-			changeSetID:              row.ChangeSetID,
-			sequenceNo:               int(^uint(0) >> 1),
-			syntheticRank:            1,
-		})
-	}
-	return items, nil
+	return RecordHistoryItem{
+		ActorUserID: row.ActorUserID, CommittedAt: row.CommittedAt,
+		HistoryItemRef: historyItemRefForRevision(record.RecordID, row.ChangeSetID, row.RevisionNo),
+		Operation:      historyOperation(row.Source, "row_revision"), DiffSummary: summary,
+		ChangeSetID: row.ChangeSetID, RevisionNo: &row.RevisionNo,
+	}, nil
 }
 
-// historyPageAssembler owns the canonical newest-first order and resource
-// projection consumed by the HTTP adapter's cursor/limit selection.
-type historyPageAssembler struct{}
-
-func (historyPageAssembler) Resources(items []RecordHistoryItem) []map[string]any {
-	sort.SliceStable(items, func(i, j int) bool {
-		left := items[i]
-		right := items[j]
-		if !left.createdAt.Equal(right.createdAt) {
-			return left.createdAt.After(right.createdAt)
-		}
-		if left.changeSetID != right.changeSetID {
-			return left.changeSetID.String() > right.changeSetID.String()
-		}
-		if left.syntheticRank != right.syntheticRank {
-			return left.syntheticRank < right.syntheticRank
-		}
-		return left.sequenceNo < right.sequenceNo
-	})
-	resources := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		resources = append(resources, item.Resource())
+func (materializer historyRowMaterializer) CoalesceRevision(record RecordHistoryRecord, item *RecordHistoryItem, row revisionHistoryRow) error {
+	revision, err := materializer.Revision(record, row)
+	if err != nil {
+		return err
 	}
-	return resources
+	units := append([]historycontract.Unit{}, item.DiffSummary.Units...)
+	for _, unit := range revision.DiffSummary.Units {
+		if unit.Kind == "record" && unit.Operation == "update" && len(unit.Changes) == 0 {
+			continue
+		}
+		units = append(units, unit)
+	}
+	item.DiffSummary, err = historycontract.Summarize(units)
+	return err
 }
 
 func historyItemRefForMutation(recordID uuid.UUID, changeSetID uuid.UUID, sequenceNo int) string {

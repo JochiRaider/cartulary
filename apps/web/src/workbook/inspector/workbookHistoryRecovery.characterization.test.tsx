@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import { useWorkbookRecordHistoryController } from "./useWorkbookRecordHistoryController";
+import { useWorkbookRecordHistoryState } from "./useWorkbookRecordHistoryState";
 
 it("acknowledges a history mutation before its projection refresh settles", async () => {
   let finishRefresh!: () => void;
@@ -58,8 +59,9 @@ it("acknowledges a history mutation before its projection refresh settles", asyn
   });
   const { result } = renderHook(() =>
     useWorkbookRecordHistoryController({
+      presentation: useWorkbookRecordHistoryState(),
+      coordinate: async () => subject.rowVersion,
       owner,
-      beginMutation: () => () => {},
       canMutate: true,
       subject,
       ownerEffects: {
@@ -160,6 +162,8 @@ it("fences admitted effects when selection leaves and returns to the same record
   const { result, rerender } = renderHook(
     ({ recordId }) =>
       useWorkbookRecordHistoryController({
+        presentation: useWorkbookRecordHistoryState(),
+        coordinate: async () => subject.rowVersion,
         owner,
         canMutate: true,
         subject: { ...subject, recordId },

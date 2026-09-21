@@ -1358,6 +1358,10 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/testing/timelineWorkbookTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testing/workbookHistoryTestSupport"
         }
       ]
     },
@@ -1566,6 +1570,31 @@
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/entrypoints/network-flow"
+        }
+      ]
+    },
+    {
+      "id": "workbook-row-observation-source-acceptance",
+      "level": "error",
+      "message": "Only source query and mutation adapters may attach accepted row observation authority. Presentation and conversions preserve existing evidence.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/**"
+        ],
+        "exclude": [
+          "**/*.test.ts",
+          "**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [
+        "apps/web/src/workbook/adapters/**",
+        "apps/web/src/workbook/query/**",
+        "apps/web/src/workbook/timeline/adapters/**"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/query/acceptWorkbookRowObservation"
         }
       ]
     }

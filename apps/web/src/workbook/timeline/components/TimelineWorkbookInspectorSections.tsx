@@ -1,14 +1,13 @@
 import { type RefCallback, useCallback } from "react";
+import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
+
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { ownedInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import type { HistoryBrowsingControls } from "../../inspector/WorkbookInspectorRecordHistory";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
-import type {
-  RecordHistoryItem,
-  WorkbookRecordHistoryState,
-} from "../../inspector/workbookRecordHistoryModel";
+import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import {
   type CollectionFieldKey,
   timelineCollectionBindings,
@@ -52,7 +51,7 @@ export function useTimelineWorkbookInspectorSections({
     row: WorkbookRow,
     files: FileList | File[],
   ) => void;
-  readonly inspectorHistorySubject: WorkbookInspectorSubject | null;
+  readonly inspectorHistorySubject: WorkbookRecordSubject | null;
   readonly openRowHistory: (recordId: string) => void;
   readonly previewRowHistoryDeleteRestore: (
     operation: "delete" | "restore",

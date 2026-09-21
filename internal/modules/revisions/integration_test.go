@@ -363,6 +363,17 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 			t.Fatalf("unexpected invalid limit reason for %s: %#v", query, body)
 		}
 	}
+	// Invalid pagination must be rejected before reading malformed retained facts.
+	var savedAfter []byte
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT after_value FROM change_set_mutations WHERE change_set_id=$1 AND sequence_no=1`, thirdChangeSet).Scan(&savedAfter); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, harness.DB, `UPDATE change_set_mutations SET after_value='{}' WHERE change_set_id=$1`, thirdChangeSet)
+	for _, query := range []string{"?cursor_token=invalid", "?limit=0"} {
+		response := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, appsupport.WithCookies(login.SessionCookie))
+		httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_pagination_request")
+	}
+	mustExec(t, harness.DB, `UPDATE change_set_mutations SET after_value=$2 WHERE change_set_id=$1`, thirdChangeSet, savedAfter)
 	// Every continuation observes current lifecycle and authority, even with a
 	// previously valid cursor. Tombstones and closed incidents retain history.
 	mustExec(t, harness.DB, `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, recordA, actorID)

@@ -1,3 +1,4 @@
+import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import {
   historyItemContentEqual,
@@ -8,15 +9,14 @@ import {
   type HistoryPageProvenance,
   type HistoryPageRequest,
   type HistoryReadScope,
-  type RecordHistoryItem,
   validHistoryPaging,
 } from "./workbookHistoryPage";
 
 export type HistoryReadKind = "initial" | "continuation" | "refresh";
-export type HistoryBrowseRequest = HistoryPageProvenance & {
+type HistoryBrowseRequest = HistoryPageProvenance & {
   readonly kind: HistoryReadKind;
 };
-export type HistoryAcceptedChain = {
+type HistoryAcceptedChain = {
   readonly data: HistoryPage;
   readonly provenance: ReadonlyMap<string, HistoryPageProvenance>;
   readonly pages: readonly HistoryPageProvenance[];
@@ -240,6 +240,35 @@ export function acceptHistoryPage(
       data,
       provenance,
       pages: retainedPages,
+    },
+  };
+}
+
+/** Reconcile authoritative record observations without replacing event provenance. */
+export function observeHistoryRecord(
+  state: HistoryBrowsingState,
+  observation: {
+    readonly recordId: string;
+    readonly rowVersion: number;
+    readonly deleted: boolean;
+  },
+): HistoryBrowsingState {
+  const accepted = state.accepted;
+  if (
+    state.recordId !== observation.recordId ||
+    !accepted ||
+    observation.rowVersion <= accepted.data.row_version
+  )
+    return state;
+  return {
+    ...state,
+    accepted: {
+      ...accepted,
+      data: {
+        ...accepted.data,
+        row_version: observation.rowVersion,
+        deleted: observation.deleted,
+      },
     },
   };
 }

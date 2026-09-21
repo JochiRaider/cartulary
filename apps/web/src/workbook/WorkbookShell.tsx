@@ -239,6 +239,8 @@ function WorkbookShellContent({
     onIncidentAccessLost,
   });
   const infrastructure = useWorkbookShellInfrastructure({
+    acceptedAuthority: authorization.acceptedAuthority,
+    sessionIdentity,
     recheckMentionAuthority: authorization.loadSessionRole,
     partyAuthorization: authorizationRecovery,
     savedViewOwner: savedViewController,
@@ -620,7 +622,11 @@ function WorkbookShellContent({
         async (receipt, scope) => {
           await reconcileTimelineMentionReceipt(
             infrastructure.timelineMentions,
-            createTimelineMentionSourceReader({ apiBase, incidentId }),
+            createTimelineMentionSourceReader({
+              apiBase,
+              incidentId,
+              readScope: () => infrastructure.mutationRuntime.recordReadScope,
+            }),
             receipt,
             scope,
           );
@@ -628,7 +634,12 @@ function WorkbookShellContent({
             throw new Error("Mention reconciliation detached");
         },
       ),
-    [infrastructure.timelineMentions, apiBase, incidentId],
+    [
+      infrastructure.timelineMentions,
+      infrastructure.mutationRuntime,
+      apiBase,
+      incidentId,
+    ],
   );
   useLayoutEffect(
     () =>

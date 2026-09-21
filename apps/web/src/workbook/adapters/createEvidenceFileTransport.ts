@@ -10,6 +10,7 @@ import {
   validEvidenceObjectUploadTarget,
 } from "../../services/workbookEvidence";
 import type { EvidenceFileTransport } from "../features/evidence/evidenceFileOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
@@ -17,6 +18,7 @@ import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
 export function createEvidenceFileTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): EvidenceFileTransport {
   return {
     capture(input) {
@@ -140,6 +142,7 @@ export function createEvidenceFileTransport(
             },
           },
           signal,
+          readScope?.() ?? null,
         );
         if (
           result.kind === "accepted" &&

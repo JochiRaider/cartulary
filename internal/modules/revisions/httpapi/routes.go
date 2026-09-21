@@ -105,7 +105,21 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	history, err := s.commands.GetHistory(r.Context(), revisions.HistoryQuery{RecordID: recordID})
+
+	binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
+		r.URL.Query(), "records.history", principal.User.ID.String(),
+		map[string]string{"record_id": recordID.String()},
+	)
+	if reasonCode != "" {
+		writeAPIError(w, r, invalidPaginationRequest(reasonCode))
+		return
+	}
+	position, err := historyPosition(cursor)
+	if err != nil {
+		writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+		return
+	}
+	history, err := s.commands.GetHistory(r.Context(), revisions.HistoryQuery{RecordID: recordID, Limit: binding.Limit, After: position})
 	if errors.Is(err, revisions.ErrRecordNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -115,27 +129,8 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record := history.Record
-
-	binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
-		r.URL.Query(),
-		"records.history",
-		principal.User.ID.String(),
-		map[string]string{"record_id": recordID.String()},
-	)
-	if reasonCode != "" {
-		writeAPIError(w, r, invalidPaginationRequest(reasonCode))
-		return
-	}
-
-	rows, nextCursor, err := pageRecordHistory(binding, cursor, history.Resources)
-	switch {
-	case errors.Is(err, pagination.ErrInvalidCursorToken):
-		writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
+	rows := historyResources(history.Items)
+	nextCursor := historyCursor(binding, history.Next)
 
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))

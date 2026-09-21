@@ -16,9 +16,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
+import type { RecordHistoryData } from "../adapters/workbookHistoryResponse";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
-import type { RecordHistoryData } from "../inspector/workbookRecordHistoryModel";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { WorkbookHistoryContext } from "./WorkbookHistoryContext";
 import { WorkbookHistoryRecovery } from "./WorkbookHistoryRecovery";
@@ -27,7 +28,6 @@ import type {
   HistoryReceipt,
   WorkbookRecordHistoryPort,
 } from "./workbookHistoryOperation";
-import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const operations = [
   "delete",
@@ -167,8 +167,6 @@ function setup(
         <WorkbookHistoryRecovery />
         {inspector ? (
           <WorkbookInspectorRecordHistory
-            beginMutation={beginMutation}
-            commands={port}
             subject={subject}
             actions={new Set(["delete", "restore", "rollback"])}
             canMutate

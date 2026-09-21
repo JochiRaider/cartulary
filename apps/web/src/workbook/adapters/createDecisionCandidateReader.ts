@@ -6,16 +6,21 @@ import {
   buildQueryRequest,
   emptyWorkbookQueryState,
 } from "../models/workbookQuery";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
+import { sameWorkbookReadScope } from "../query/workbookRowObservation";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 export function createDecisionCandidateReader(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
+  readonly readScope?: WorkbookReadScopeSource;
 }): DecisionSupersessionReadPort {
   const operations = createWorkbookOperationExecutor(options);
   const contract = requireViewContract(decisionViewId);
   return {
     async page(cursor, signal) {
+      const scope = options.readScope?.() ?? null;
       try {
         const outcome = await operations.execute({
           operationID: "queryWorkbookView",
@@ -30,7 +35,12 @@ export function createDecisionCandidateReader(options: {
           },
           signal,
         });
-        if (signal.aborted) return { kind: "aborted" };
+        if (
+          signal.aborted ||
+          (options.readScope &&
+            !sameWorkbookReadScope(scope, options.readScope()))
+        )
+          return { kind: "aborted" };
         if (outcome.kind === "rejected") return outcome;
         const { data, meta } = outcome.value;
         if (
@@ -56,7 +66,7 @@ export function createDecisionCandidateReader(options: {
               contract,
               data.rows,
               "Decision candidates",
-            ),
+            ).map((row) => acceptWorkbookRowObservation(row, scope)),
             hasMore: meta.paging.has_more,
             nextCursor: meta.paging.next_cursor,
           },

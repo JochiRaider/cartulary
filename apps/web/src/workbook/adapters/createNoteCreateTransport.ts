@@ -1,12 +1,14 @@
 import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import { noteCreateView, prepareNote } from "../features/notes/noteCreateModel";
 import type { NoteTransport } from "../features/notes/noteCreateOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
 
 /** Both Note operations are single atomic creates; the route owns the association. */
 export function createNoteCreateTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): NoteTransport {
   return {
     capture(review, clientTxnId) {
@@ -39,6 +41,7 @@ export function createNoteCreateTransport(
       const result = await sendWorkbookRecordMutation(
         { ...attempt, viewSchemaId: noteCreateView },
         signal,
+        readScope?.() ?? null,
       );
       if (
         result.kind === "accepted" &&

@@ -824,6 +824,7 @@
           "Coordination atomic recovery correlates socket and HTTP acceptance in either order and refreshes late affected views",
           "Coordination atomic recovery fences account replacement and conceals late acceptance through incident-scoped suspension",
           "Coordination atomic recovery freezes all twelve routes and guards same-frame activation before preparation",
+          "Coordination atomic recovery keeps failed refresh recovery focus when socket evidence arrives during or after the read",
           "Coordination atomic recovery keeps malformed or mismatched association receipts uncertain and replay rejection cannot disprove commit",
           "Coordination atomic recovery replays the unchanged attempt after response loss despite closure deletion and transport reconfiguration",
           "Coordination atomic recovery retains deletion observations against stale reads until explicit source clear or recovered review",
@@ -2177,6 +2178,38 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.history_presentation_state",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/workbookRecordHistoryModel.test.ts",
+        "titles": [
+          "record History presentation builds rollback targets only from the server-advertised selector",
+          "record History presentation cancels review without weakening captured operation identity",
+          "record History presentation derives restored subject state from the captured operation",
+          "record History presentation invalidates unsubmitted review on refresh or a newer source version",
+          "record History presentation rejects stale read completion after retarget without keeping a second accepted value",
+          "record History presentation requires accepted browsing before review and rejects mismatched subjects",
+          "record History presentation retains the accepted page and provenance through failed refresh"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.history_recovery_characterization",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3380,6 +3413,7 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/useRetainedInspectorRow.test.ts",
         "titles": [
+          "preserves accepted provenance through cloning and source conversions without relabeling authority",
           "retains one inspector source across window eviction without treating absence as deletion"
         ]
       },
@@ -4517,6 +4551,33 @@
         "file": "apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts",
         "titles": [
           "retains matching batch disclosure from captured sources across query races and presentation detachment"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_editor_recovery_settlement",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts",
+        "titles": [
+          "settles a halted Timeline editor only when Retry or Discard resolves its logical operation",
+          "settles terminal validation immediately while preserving retryable transaction recovery"
         ]
       },
       "evidence_class": "unit",
@@ -7850,6 +7911,7 @@
           "executes creates through the incident-bound generated operation",
           "fails closed for malformed, mismatched, or invalid success responses",
           "rejects cross-incident and undispatchable units before transport",
+          "retains a late write receipt with its dispatch scope without granting current read authority",
           "retains exact patch bytes through acknowledgement loss and retires captured requests"
         ]
       },

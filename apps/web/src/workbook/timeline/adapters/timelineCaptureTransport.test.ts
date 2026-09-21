@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { deferred } from "../../../testing/fetchMockTestSupport";
 import { timelineCaptureReview } from "../../../testing/timelineCaptureActionTestSupport";
 import {
   errorEnvelope,
@@ -170,6 +171,38 @@ it("Timeline transport validates operation specific receipt identity version rea
   ).resolves.toEqual({
     kind: "acknowledged",
     receipt: { operation: "mark-reviewed", data },
+  });
+  const dispatchedScope = {
+    actorId: review.authority.actorId,
+    sessionIdentity: review.authority.sessionIdentity,
+    incidentId: review.authority.incidentId,
+    epoch: 1,
+  };
+  let scope = dispatchedScope;
+  const response = deferred<Response>();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => response.promise),
+  );
+  const scopedAdapter = createTimelineRecordActionAdapter({
+    apiBase: "/base",
+    readScope: () => scope,
+  });
+  const pending = scopedAdapter.send(
+    scopedAdapter.capture(review, "delayed-receipt"),
+    new AbortController().signal,
+  );
+  scope = { ...scope, sessionIdentity: "replacement-session", epoch: 2 };
+  response.resolve(successEnvelope(data));
+  await expect(pending).resolves.toMatchObject({
+    kind: "acknowledged",
+    receipt: {
+      observation: {
+        recordId: data.record_id,
+        rowVersion: data.row_version,
+        scope: dispatchedScope,
+      },
+    },
   });
 });
 it("Timeline transport distinguishes definitive rejection from exceptions ambiguous status and malformed success", async () => {

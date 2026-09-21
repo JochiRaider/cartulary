@@ -8,6 +8,8 @@ import {
 } from "@testing-library/react";
 import { type Dispatch, useReducer } from "react";
 import { expect, it, vi } from "vitest";
+import { historyPresentationFixture } from "../../testing/workbookHistoryTestSupport";
+import type { RecordHistoryData } from "../adapters/workbookHistoryResponse";
 import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
@@ -15,7 +17,6 @@ import type {
 import { WorkbookHistoryContext } from "../history/WorkbookHistoryContext";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import {
-  type RecordHistoryData,
   type WorkbookRecordHistoryEvent,
   type WorkbookRecordHistoryState,
   workbookRecordHistoryReducer,
@@ -95,6 +96,22 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
     key: "record-1",
     recordId: "record-1",
     rowVersion: 3,
+    rawRow: {
+      record_id: "record-1",
+      row_version: 3,
+      view_schema_id: "core.timeline.v1",
+      cells: {},
+      observation: {
+        recordId: "record-1",
+        rowVersion: 3,
+        scope: {
+          actorId: "actor",
+          sessionIdentity: "session",
+          incidentId: "incident",
+          epoch: 0,
+        },
+      },
+    },
   };
   const workbookFocusAnchorRef = {
     current: {
@@ -111,7 +128,12 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
         dismissedMentionsByRow: {},
         observedMentions: [],
         inspectorResetKey,
-        readScope: "incident-account-read-scope",
+        readScope: {
+          actorId: "actor",
+          sessionIdentity: "session",
+          incidentId: "incident",
+          epoch: 0,
+        },
         rows: [committedRow],
         selectedMentionRef: null,
         workbookFocusAnchorRef,
@@ -181,10 +203,11 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
     rowVersion: subject.rowVersion,
   };
   let historyState: WorkbookRecordHistoryState = {
+    ...historyPresentationFixture(subject, {
+      ...data,
+      paging: { limit: 100, has_more: false, next_cursor: null },
+    }),
     pendingAction,
-    phase: "ready",
-    result: { data, kind: "loaded" },
-    subject,
   };
   let publish: Dispatch<WorkbookRecordHistoryEvent> | undefined;
   const dispatchRowHistory = (event: WorkbookRecordHistoryEvent) => {
@@ -300,8 +323,6 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
     "history:operation_accepted",
     "version:5",
     "route:load",
-    "history:load_requested",
-    "history:load_accepted",
     "history:browsing_changed",
     "rows:load",
   ]);
@@ -325,9 +346,10 @@ it("Timeline history rejects queued version changes without replacing the confir
     row_version: 4,
   };
   let snapshot: WorkbookRecordHistoryState = {
-    phase: "ready",
-    subject,
-    result: { kind: "loaded", data },
+    ...historyPresentationFixture(subject, {
+      ...data,
+      paging: { limit: 100, has_more: false, next_cursor: null },
+    }),
     pendingAction: {
       kind: "destructive",
       operation: "delete",

@@ -1,8 +1,10 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
-
-import type { WorkbookQueryRow } from "./WorkbookQueryRow";
+import type {
+  WorkbookQueryRow,
+  WorkbookReadScopeSource,
+} from "./WorkbookQueryRow";
 
 /** Applied server metadata, including sorts that are not authored overrides. */
 export type WorkbookCanonicalQuery = {
@@ -43,6 +45,7 @@ export type WorkbookViewQueryResult =
   WorkbookPortResult<WorkbookViewQueryAccepted>;
 
 export interface WorkbookViewQueryPort {
+  readonly readScope?: WorkbookReadScopeSource | undefined;
   query(input: {
     readonly contract: ViewContract;
     readonly queryState: WorkbookQueryState;

@@ -24,7 +24,7 @@ type InspectorRelatedRecordDraftResult =
       readonly reason: "creation_unavailable" | "semantic_mismatch";
     };
 
-export type InspectorRelatedRecordFormModel = {
+type InspectorRelatedRecordFormModel = {
   readonly draft: Record<string, string>;
   readonly featureGroup: InspectorFeatureGroup;
   readonly error: WorkbookInspectorErrorPresentation | null;

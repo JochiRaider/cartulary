@@ -9,7 +9,7 @@ export type InspectorEditIdentity = Readonly<{
   fieldKey: string;
   action: string;
 }>;
-export type InspectorEditDraft = Readonly<{
+type InspectorEditDraft = Readonly<{
   identity: InspectorEditIdentity;
   baseline: WorkbookQueryRow;
   value: string | null;
@@ -17,7 +17,7 @@ export type InspectorEditDraft = Readonly<{
   revision: number;
   attachment: string | null;
 }>;
-export type InspectorDraftCapture = Readonly<{ key: string; revision: number }>;
+type InspectorDraftCapture = Readonly<{ key: string; revision: number }>;
 export function inspectorEditKey(identity: InspectorEditIdentity): string {
   return JSON.stringify([
     identity.viewSchemaId,

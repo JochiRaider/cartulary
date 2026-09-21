@@ -24,6 +24,7 @@ import {
 } from "../../inspector/workbookRecordHistoryModel";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookReadScope } from "../../query/WorkbookQueryRow";
 import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { LocalConflictState } from "../models/timelineConflictState";
@@ -57,7 +58,7 @@ export function useTimelineInspectorSelection({
   selectedMentionRef,
 }: {
   readonly committedRecords?: TimelineCommittedInspectorRecords;
-  readonly readScope: string;
+  readonly readScope: WorkbookReadScope | null;
   readonly currentIncidentRole: string | null | undefined;
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
   readonly observedMentions: readonly MentionSubject[];
@@ -73,15 +74,15 @@ export function useTimelineInspectorSelection({
   }, [committedRecords, selectedRowId]);
   const selectedRow = useRetainedInspectorRow({
     recordId: selectedRowId,
-    row:
-      (selectedRowId
+    rows: [
+      selectedRowId
         ? committedRecords?.currentCommittedTimelineRow(selectedRowId)
-        : null) ??
+        : null,
       rows.find(
         (row) => row.recordId === selectedRowId && row.recordId !== null,
-      ) ??
-      null,
-    rowVersion: (row) => row.rowVersion ?? 0,
+      ),
+    ],
+    sourceRow: (row) => row.rawRow,
     // Role changes invalidate action authority independently. An accepted
     // incident reader still owns the same source projection.
     scope: readScope,

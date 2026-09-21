@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { InspectorRecordHistoryAction } from "../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import { useWorkbookRecordHistoryController } from "../inspector/useWorkbookRecordHistoryController";
+import { useWorkbookRecordHistoryState } from "../inspector/useWorkbookRecordHistoryState";
 import { WorkbookRecordHistoryPanel } from "../inspector/WorkbookInspectorRecordHistory";
 import { workbookRecordHistoryLoadedData } from "../inspector/workbookRecordHistoryModel";
 import { HistoryLookupFeedback } from "./HistoryLookupFeedback";
@@ -24,6 +25,7 @@ export function WorkbookHistoryReview({
 }) {
   const runtime = useWorkbookHistoryRuntime();
   const controller = useWorkbookRecordHistoryController({
+    presentation: useWorkbookRecordHistoryState(),
     subject: null,
     locator,
     canMutate: true,

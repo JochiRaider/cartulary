@@ -4,11 +4,13 @@ import {
   freezeContextualCreate,
 } from "../features/coordination/contextualCreateModel";
 import type { ContextualCreateTransport } from "../features/coordination/contextualCreateOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
 
 /** Ordinary create only: all relationship context is admitted atomically in this request. */
 export function createContextualCreateTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): ContextualCreateTransport {
   return {
     capture(review, clientTxnId) {
@@ -41,6 +43,7 @@ export function createContextualCreateTransport(
           },
         },
         signal,
+        readScope?.() ?? null,
       );
     },
   };

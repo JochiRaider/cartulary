@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import type { WorkbookRecordHistoryPendingAction } from "../inspector/workbookRecordHistoryModel";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
 import { HistoryActionLookup } from "./HistoryActionLookup";
 import { HistoryPageLookup } from "./HistoryPageLookup";
 import { WorkbookRecordHistoryOwner } from "./WorkbookRecordHistoryOwner";
+import type { WorkbookRecordHistoryPendingAction } from "./workbookHistoryItem";
 import type { HistoryAttempt } from "./workbookHistoryOperation";
 import type {
   HistoryPage,
   HistoryPageProvenance,
   HistoryPageRequest,
 } from "./workbookHistoryPage";
-import { historyDiffFixture } from "./workbookHistoryTestFixtures";
 
 const scope = {
   actorId: "actor",

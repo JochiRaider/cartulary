@@ -21,6 +21,8 @@ import {
 } from "../features/indicators/observationModel";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { decodeCreateViewRowRequest } from "../models/workbookRequestDecoders";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 
 const parameters = (attempt: Pick<IndicatorCreateAttempt, "authority">) => ({
@@ -30,6 +32,7 @@ const parameters = (attempt: Pick<IndicatorCreateAttempt, "authority">) => ({
 export function createIndicatorCreateTransport(options: {
   apiBase: string | undefined;
   incidentId: string;
+  readScope?: WorkbookReadScopeSource;
 }): IndicatorCreateTransport {
   return {
     capture(authority, generation, observation, contract, values, id) {
@@ -59,6 +62,7 @@ export function createIndicatorCreateTransport(options: {
       };
     },
     async send(attempt, signal) {
+      const scope = options.readScope?.() ?? null;
       if (
         attempt.operation !== "createViewRow" ||
         attempt.authority.incidentId !== options.incidentId ||
@@ -106,7 +110,25 @@ export function createIndicatorCreateTransport(options: {
           response.payload,
           response.status,
         );
-        return receipt ? { kind: "accepted", receipt } : { kind: "uncertain" };
+        return receipt
+          ? {
+              kind: "accepted",
+              receipt: {
+                ...receipt,
+                row: acceptWorkbookRowObservation(receipt.row, scope),
+                response: {
+                  ...receipt.response,
+                  data: {
+                    ...receipt.response.data,
+                    row: acceptWorkbookRowObservation(
+                      receipt.response.data.row,
+                      scope,
+                    ),
+                  },
+                },
+              },
+            }
+          : { kind: "uncertain" };
       } catch {
         return { kind: "uncertain" };
       }

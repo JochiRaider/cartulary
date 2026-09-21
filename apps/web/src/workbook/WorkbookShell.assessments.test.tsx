@@ -827,7 +827,7 @@ describe("Assessment workbook surface", () => {
       recordId: "00000000-0000-4000-8000-000000000303",
       state: "confirmed",
     });
-    let assessmentQueryCount = 0;
+    let holdUnfiltered = false;
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init) => {
       const url = String(input);
@@ -910,7 +910,6 @@ describe("Assessment workbook surface", () => {
         });
       }
       if (url.includes(`/views/${assessmentsViewSchemaId}/query`)) {
-        assessmentQueryCount += 1;
         const body = parseRequestBody(init);
         const state = assessmentStateFilterValue(body);
         if (state === "disproven") {
@@ -920,7 +919,7 @@ describe("Assessment workbook surface", () => {
             rows: [disprovenRow],
           });
         }
-        if (assessmentQueryCount > 1 && state === null) {
+        if (holdUnfiltered && state === null) {
           return staleUnfiltered.promise;
         }
         if (state === "cleared") {
@@ -950,6 +949,8 @@ describe("Assessment workbook surface", () => {
     applyAssessmentStateFilter("disproven");
     await expectAssessmentRecordIds(["00000000-0000-4000-8000-000000000304"]);
 
+    // Hold the user-triggered unfiltered read, independently of startup reads.
+    holdUnfiltered = true;
     fireEvent.keyDown(
       screen.getByTestId(
         workbookQueryEntryTestId(

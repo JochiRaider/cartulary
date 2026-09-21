@@ -27,9 +27,8 @@ import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
-import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import { IndicatorInspectorWorkflow } from "../indicators/IndicatorInspectorWorkflow";
 import { IndicatorLifecycleWorkflow } from "../indicators/IndicatorLifecycleWorkflow";
 import {
@@ -65,10 +64,8 @@ export function GenericWorkbookInspector({
     ...WorkbookInspectorRegion[],
   ];
   readonly history: {
-    readonly beginMutation: () => () => void;
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
     readonly canMutate: boolean;
-    readonly commands: RecordRouteCommandPort;
     readonly effects: WorkbookRecordHistoryOwnerEffects;
   };
   readonly indicator: {
@@ -92,7 +89,7 @@ export function GenericWorkbookInspector({
     WorkbookInspectorRegion,
     ...WorkbookInspectorRegion[],
   ];
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
   readonly surfaceTitle: string;
   readonly workflowContent: ReactNode;
   readonly creationAttachment?: string | undefined;
@@ -236,10 +233,8 @@ export function GenericWorkbookInspector({
                 ownedInspectorRegion("record-history", (present) => (
                   <WorkbookInspectorRecordHistory
                     present={present}
-                    beginMutation={history.beginMutation}
                     actions={history.actions}
                     canMutate={history.canMutate}
-                    commands={history.commands}
                     ownerEffects={history.effects}
                     subject={subject}
                   />
@@ -266,16 +261,20 @@ export function GenericWorkbookInspector({
         <WorkbookInspectorShell
           accessibleLabel={`${surfaceTitle} inspector`}
           config={config}
-          eyebrow={creationAttachment ? "Create" : "Inspector"}
-          mode={subject === null && creationAttachment ? "creation" : "record"}
-          noRowHeading={
-            creationAttachment
-              ? `Create ${surfaceTitle}`
-              : `${surfaceTitle} inspector`
-          }
-          subject={subject}
+          {...(subject
+            ? { mode: "saved", subject, sections }
+            : creationAttachment
+              ? {
+                  mode: "creation",
+                  context: {
+                    id: creationAttachment,
+                    viewSchemaId: config.viewSchemaId,
+                    heading: `Create ${surfaceTitle}`,
+                  },
+                  sections,
+                }
+              : { mode: "empty", heading: `${surfaceTitle} inspector` })}
           onClose={onClose}
-          sections={sections}
         ></WorkbookInspectorShell>
       )}
     </WorkbookInspectorDeclaredPanelList>

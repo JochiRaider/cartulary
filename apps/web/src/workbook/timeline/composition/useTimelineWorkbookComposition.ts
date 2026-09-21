@@ -1,4 +1,5 @@
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
+import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
 import { useTimelineFindSource } from "../hooks/useTimelineFindSource";
 import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
@@ -36,11 +37,11 @@ export function useTimelineWorkbookComposition({
     dismissedMentionsByRow: foundation.snapshot.mentions.dismissedMentionsByRow,
     observedMentions: foundation.snapshot.mentions.observedMentions,
     inspectorResetKey: runtime.incident.inspectorResetKey,
-    readScope: JSON.stringify([
-      runtime.incident.id,
-      runtime.incident.currentUserId,
-      runtime.mutationRuntime.authorizationEpoch,
-    ]),
+    readScope:
+      runtime.mutationRuntime.recordReadScope?.actorId ===
+      runtime.incident.currentUserId
+        ? runtime.mutationRuntime.recordReadScope
+        : null,
     rows: foundation.snapshot.rows,
     selectedMentionRef: foundation.snapshot.mentions.selectedMentionRef,
     workbookFocusAnchorRef: grid.refs.workbookFocusAnchor,
@@ -265,6 +266,8 @@ export function useTimelineWorkbookComposition({
     acceptReceipt: (receipt, baseVersion) => {
       const data = receipt.data;
       mutation.commands.save.acceptTimelineActionResult({
+        ...(receipt.observation ? { observation: receipt.observation } : {}),
+        baseRowVersion: baseVersion,
         captureState: data.capture_state,
         changeSetId: data.change_set_id,
         incidentId: data.incident_id,
@@ -277,6 +280,12 @@ export function useTimelineWorkbookComposition({
         rows.map((row) =>
           row.recordId === data.record_id &&
           row.rawRow &&
+          receipt.observation &&
+          workbookRowIsAdmissible(
+            row.rawRow,
+            data.record_id,
+            receipt.observation.scope,
+          ) &&
           row.rowVersion === baseVersion
             ? {
                 ...row,
@@ -285,6 +294,7 @@ export function useTimelineWorkbookComposition({
                 rawRow: {
                   ...row.rawRow,
                   row_version: data.row_version,
+                  observation: receipt.observation,
                   cells: {
                     ...row.rawRow.cells,
                     "timeline.capture_state": { value: data.capture_state },

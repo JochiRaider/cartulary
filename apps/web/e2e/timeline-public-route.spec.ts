@@ -1390,8 +1390,16 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       const retryButton = page.getByTestId(
         workbookEditRecoveryRetryButtonTestId(),
       );
+      const retryResponse = patchController.holdNextPatch({
+        recordId: retryRow.record_id,
+      });
       await retryButton.focus();
       await retryButton.press("Enter");
+      await retryResponse.waitForHit;
+      // The logical editor remains pending until recovery accepts the write.
+      await expect(page.getByTestId(saveStateTestId())).not.toHaveText("Saved");
+      retryResponse.release();
+      await retryResponse.waitForCompletion;
       await expect.poll(() => patchController.calls.length).toBe(4);
       const retriedCall = patchController.calls[3];
       expect(retriedCall?.status).toBe(200);
@@ -1402,6 +1410,15 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       expect(retriedCall?.body.changes).toEqual(blockedCall?.body.changes);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(recoveryPanel).toHaveCount(0);
+      await expect(
+        page.getByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: retryRow.record_id,
+            surface: "grid",
+          }),
+        ),
+      ).toHaveCount(0);
       await page
         .getByRole("button", { name: "Close recovery", exact: true })
         .click();

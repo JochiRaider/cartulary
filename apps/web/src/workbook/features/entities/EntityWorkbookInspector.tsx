@@ -20,9 +20,8 @@ import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookIns
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
-import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 
 export function EntityWorkbookInspector({
   actionFeedback,
@@ -50,10 +49,8 @@ export function EntityWorkbookInspector({
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
   readonly feedbackTestId: string;
   readonly history: {
-    readonly beginMutation: () => () => void;
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
     readonly canMutate: boolean;
-    readonly commands: RecordRouteCommandPort;
     readonly effects: WorkbookRecordHistoryOwnerEffects;
   };
   readonly mergeFeedback: WorkbookInspectorFeedback | null;
@@ -70,7 +67,7 @@ export function EntityWorkbookInspector({
     WorkbookInspectorRegion,
     ...WorkbookInspectorRegion[],
   ];
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
   readonly surfaceTitle: string;
   readonly testId?: string | undefined;
 }) {
@@ -160,10 +157,8 @@ export function EntityWorkbookInspector({
                 ownedInspectorRegion("record-history", (present) => (
                   <WorkbookInspectorRecordHistory
                     present={present}
-                    beginMutation={history.beginMutation}
                     actions={history.actions}
                     canMutate={history.canMutate}
-                    commands={history.commands}
                     ownerEffects={history.effects}
                     subject={subject}
                   />
@@ -190,11 +185,11 @@ export function EntityWorkbookInspector({
         <WorkbookInspectorShell
           accessibleLabel={`${surfaceTitle} inspector`}
           config={config}
-          noRowHeading={`${surfaceTitle} inspector`}
-          subject={subject}
+          {...(subject
+            ? { mode: "saved", subject, sections }
+            : { mode: "empty", heading: `${surfaceTitle} inspector` })}
           testId={testId}
           onClose={onClose}
-          sections={sections}
         ></WorkbookInspectorShell>
       )}
     </WorkbookInspectorDeclaredPanelList>

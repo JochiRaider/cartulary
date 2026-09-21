@@ -1,19 +1,20 @@
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type {
-  RecordHistoryData,
-  WorkbookRecordHistoryPendingAction,
-} from "../inspector/workbookRecordHistoryModel";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
+import type { RecordHistoryData } from "../adapters/workbookHistoryResponse";
 import { WorkbookRecordHistoryOwner } from "./WorkbookRecordHistoryOwner";
+import type { WorkbookRecordHistoryPendingAction } from "./workbookHistoryItem";
 import {
   type HistoryAuthority,
   type HistoryBinding,
   type HistoryReceipt,
-  type HistoryTransportOutcome,
   historyActionPermitted,
   type WorkbookRecordHistoryPort,
 } from "./workbookHistoryOperation";
-import { historyDiffFixture } from "./workbookHistoryTestFixtures";
+
+type HistoryTransportOutcome = Awaited<
+  ReturnType<WorkbookRecordHistoryPort["send"]>
+>;
 
 const authority: HistoryAuthority = {
   actorId: "actor",

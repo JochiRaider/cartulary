@@ -112,7 +112,8 @@ describe("workbook surface ownership policy", () => {
       ),
       "utf8",
     );
-    expect(panelListSource).toContain("config.panels.map");
+    expect(panelListSource).toContain("const sections = config.panels.");
+    expect(panelListSource).toContain("return children(sections)");
     for (const forbiddenOwnerFacade of [
       "mutationCommands",
       "onRefresh",

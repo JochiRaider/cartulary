@@ -12,10 +12,8 @@ import {
   workbookInspectorReducer,
   workbookInspectorStateIsOpen,
 } from "../models/workbookInspectorModel";
-import {
-  type WorkbookInspectorSubject,
-  workbookInspectorSubjectsEqual,
-} from "./workbookInspectorSubject";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
+import { workbookInspectorSubjectsEqual } from "./workbookInspectorSubject";
 
 type WorkbookInspectorOwnerActionPorts = {
   readonly resetOwnerState: (event: WorkbookInspectorResetEvent) => void;
@@ -69,7 +67,7 @@ export function useWorkbookInspectorCoordinator({
   readonly actionPorts: WorkbookInspectorOwnerActionPorts;
   readonly config: InspectorConfig;
   readonly lifecycleKey: string;
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
 }) {
   const effectiveLifecycleKey = `${config.viewSchemaId.length}:${config.viewSchemaId}${lifecycleKey}`;
   const [snapshot, dispatch] = useReducer(
@@ -80,7 +78,7 @@ export function useWorkbookInspectorCoordinator({
   const actionPortsRef = useRef(actionPorts);
   const observedInputsRef = useRef<{
     lifecycleKey: string;
-    subject: WorkbookInspectorSubject | null;
+    subject: WorkbookRecordSubject | null;
   }>({ lifecycleKey: effectiveLifecycleKey, subject: null });
   const currentSubjectRef = useRef(subject);
   const snapshotRef = useRef(snapshot);

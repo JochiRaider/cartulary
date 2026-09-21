@@ -1,12 +1,14 @@
 import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { TimelineFileLinkTransport } from "../features/evidence/timelineFileOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { buildAttachedEvidencePatchRequest } from "../timeline/adapters/timelineEvidenceRequestBuilders";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
 
 export function createTimelineFileLinkTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): TimelineFileLinkTransport {
   return {
     capture(authority, source, evidenceRecordId, clientTxnId) {
@@ -40,6 +42,7 @@ export function createTimelineFileLinkTransport(
           baseRowVersion: attempt.source.row_version,
         },
         signal,
+        readScope?.() ?? null,
       );
     },
   };

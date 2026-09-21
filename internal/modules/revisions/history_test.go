@@ -6,6 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -432,4 +433,79 @@ func requireHistoryOpenAPIParameter(t testing.TB, parameters []any, name string,
 		return
 	}
 	t.Fatalf("missing OpenAPI parameter %s in %s", name, in)
+}
+
+func TestHistoryLogicalPageBoundaries_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, "history-logical-pages")
+	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident, record := seedRecord(t, harness.DB, harness.Server, login, actor, "IR-HISTORY-PAGES")
+	committed := time.Date(2026, 9, 21, 12, 0, 0, 123456000, time.UTC)
+	coalesced := uuid.MustParse("ffffffff-0000-4000-8000-000000000010")
+	mixed := uuid.MustParse("eeeeeeee-0000-4000-8000-000000000010")
+	revisionOnly := uuid.MustParse("dddddddd-0000-4000-8000-000000000010")
+	for _, seed := range []historySeed{
+		{IncidentID: incident, ActorID: actor, RecordID: record, ChangeSetID: coalesced, CreatedAt: committed, SequenceNo: 1, TargetKind: "entity_alias", Operation: "create", RowVersion: 2},
+		{IncidentID: incident, ActorID: actor, RecordID: record, ChangeSetID: mixed, CreatedAt: committed, SequenceNo: 1, TargetKind: "entity_alias", Operation: "create", RowVersion: 3},
+		{IncidentID: incident, ActorID: actor, RecordID: record, ChangeSetID: revisionOnly, CreatedAt: committed.Add(-time.Second), SequenceNo: 1, TargetKind: "host", Operation: "field_update", RowVersion: 4},
+	} {
+		seedHistoryChangeSet(t, harness.DB, seed)
+	}
+	for _, seed := range []historySeed{
+		{IncidentID: incident, ActorID: actor, RecordID: record, ChangeSetID: coalesced, CreatedAt: committed, SequenceNo: 2, TargetKind: "entity_alias", Operation: "create"},
+		{IncidentID: incident, ActorID: actor, RecordID: record, ChangeSetID: mixed, CreatedAt: committed, SequenceNo: 2, TargetKind: "host", Operation: "field_update"},
+	} {
+		seedHistoryMutation(t, harness.DB, seed)
+	}
+	mustExec(t, harness.DB, `DELETE FROM change_set_mutations WHERE change_set_id=$1`, revisionOnly)
+	mustExec(t, harness.DB, `UPDATE change_set_mutations SET history_entry_record_ids='{}' WHERE target_kind='entity_alias' AND change_set_id=ANY($1::uuid[])`, []uuid.UUID{coalesced, mixed})
+	mustExec(t, harness.DB, `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, record, actor)
+	canonical := historyItems(getHistory(t, harness.Server.HTTP.URL, login, record, "?limit=100"))
+	if len(canonical) != 5 {
+		t.Fatalf("logical event count: %d", len(canonical))
+	}
+	for i, want := range []uuid.UUID{coalesced, coalesced, mixed, mixed, revisionOnly} {
+		item := canonical[i].(map[string]any)
+		if item["change_set_id"] != want.String() {
+			t.Fatalf("equal timestamp order at %d: %#v", i, item)
+		}
+		units := item["diff_summary"].(map[string]any)["units"].([]any)
+		wantUnits := 1
+		if i == 0 {
+			wantUnits = 2
+		}
+		if len(units) != wantUnits {
+			t.Fatalf("complete logical event at %d: %#v", i, item)
+		}
+	}
+	for _, limit := range []int{1, 2, 3} {
+		got := collectHistoryPages(t, harness.Server.HTTP.URL, login, record, limit)
+		if !reflect.DeepEqual(got, canonical) {
+			t.Fatalf("page limit %d changed complete events: got=%#v want=%#v", limit, got, canonical)
+		}
+	}
+	// An addition ahead of an accepted position must not shift or duplicate its
+	// continuation. A fresh first-page read discovers the new committed event.
+	body := getHistory(t, harness.Server.HTTP.URL, login, record, "?limit=1")
+	continued := append([]any{}, historyItems(body)...)
+	newChangeSet := uuid.New()
+	seedHistoryChangeSet(t, harness.DB, historySeed{
+		IncidentID: incident, ActorID: actor, RecordID: record, ChangeSetID: newChangeSet,
+		CreatedAt: committed.Add(time.Second), SequenceNo: 1, TargetKind: "host", Operation: "field_update", RowVersion: 5,
+	})
+	for {
+		paging := body["meta"].(map[string]any)["paging"].(map[string]any)
+		cursor, _ := paging["next_cursor"].(string)
+		if cursor == "" {
+			break
+		}
+		body = getHistory(t, harness.Server.HTTP.URL, login, record, "?cursor_token="+cursor)
+		continued = append(continued, historyItems(body)...)
+	}
+	if !reflect.DeepEqual(continued, canonical) {
+		t.Fatalf("concurrent addition changed accepted continuation: got=%#v want=%#v", continued, canonical)
+	}
+	fresh := collectHistoryPages(t, harness.Server.HTTP.URL, login, record, 1)
+	if len(fresh) != len(canonical)+1 || fresh[0].(map[string]any)["change_set_id"] != newChangeSet.String() || !reflect.DeepEqual(fresh[1:], canonical) {
+		t.Fatalf("fresh chain did not discover only the new event: %#v", fresh)
+	}
 }

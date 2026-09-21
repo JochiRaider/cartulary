@@ -5,6 +5,8 @@ import {
 import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
 import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
 import { normalizeWorkbookViewRows } from "../../models/workbookContractRows";
+import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../../query/WorkbookQueryRow";
 import {
   mentionCreateRequest,
   mentionEntityContract,
@@ -14,6 +16,7 @@ import type { TimelineMentionEntityCreationPort } from "../ports/TimelineMention
 /** Ordinary Host/Identity create/upsert, with author-reviewed fields and its own retained receipt. */
 export function createTimelineMentionEntityCreationAdapter(options: {
   readonly apiBase: string | undefined;
+  readonly readScope?: WorkbookReadScopeSource;
 }): TimelineMentionEntityCreationPort {
   return {
     capture(review, id) {
@@ -41,6 +44,7 @@ export function createTimelineMentionEntityCreationAdapter(options: {
       };
     },
     async send(attempt, signal) {
+      const scope = options.readScope?.() ?? null;
       if (
         attempt.path !==
           apiPath(
@@ -95,7 +99,16 @@ export function createTimelineMentionEntityCreationAdapter(options: {
           [data.row],
           "Created mention entity",
         );
-        return { kind: "accepted", receipt: result.payload };
+        return {
+          kind: "accepted",
+          receipt: {
+            ...result.payload,
+            data: {
+              ...data,
+              row: acceptWorkbookRowObservation(data.row, scope),
+            },
+          },
+        };
       } catch {
         return { kind: "uncertain" };
       }

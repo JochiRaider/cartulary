@@ -5,11 +5,14 @@ import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../mutations/workbookOperationOutcome";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScope } from "../query/WorkbookQueryRow";
 import type {
   WorkbookViewQueryPort,
   WorkbookViewQueryResult,
 } from "../query/WorkbookViewQueryPort";
 import { readWorkbookQueryMetadata } from "../query/workbookQueryMetadata";
+import { sameWorkbookReadScope } from "../query/workbookRowObservation";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 const invalidProjectionFailure: WorkbookOperationFailure = {
@@ -30,12 +33,16 @@ function isAbortError(error: unknown): boolean {
 export function createWorkbookViewQueryAdapter(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
+  readonly readScope?: () => WorkbookReadScope | null;
 }): WorkbookViewQueryPort {
   const operations = createWorkbookOperationExecutor({
     apiBase: options.apiBase,
   });
   return {
+    readScope: options.readScope,
     async query(input) {
+      const scope = options.readScope?.() ?? null;
+      if (options.readScope && !scope) return { kind: "aborted" };
       const viewSchemaId = input.contract.viewSchemaId;
       const limit = input.limit ?? 100;
       if (!Number.isInteger(limit) || limit < 1 || limit > 500)
@@ -79,6 +86,11 @@ export function createWorkbookViewQueryAdapter(options: {
           },
         };
       }
+      if (
+        options.readScope &&
+        !sameWorkbookReadScope(scope, options.readScope())
+      )
+        return { kind: "aborted" };
       if (outcome.kind === "rejected") {
         return outcome.failure.kind === "invalid_contract"
           ? invalidProjection()
@@ -111,7 +123,7 @@ export function createWorkbookViewQueryAdapter(options: {
           kind: "accepted",
           value: {
             incidentId: outcome.value.data.incident_id,
-            rows,
+            rows: rows.map((row) => acceptWorkbookRowObservation(row, scope)),
             viewSchemaId: outcome.value.data.view_schema_id,
             ...metadata,
             producingRequest,

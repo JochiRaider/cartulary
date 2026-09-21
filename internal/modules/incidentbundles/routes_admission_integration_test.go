@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -629,6 +630,10 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	}
 	firstImportedHistory := getRecordHistoryItems(t, targetHarness.Server, targetAdmin, seededState.HistoryHostRecordID)
 	secondImportedHistory := getRecordHistoryItems(t, targetHarness.Server, targetAdmin, seededState.HistoryHostRecordID)
+	if pages := getRecordHistoryPages(t, targetHarness.Server, targetAdmin, seededState.HistoryHostRecordID, 1); !reflect.DeepEqual(pages, firstImportedHistory) {
+		t.Fatal("pagination changed imported semantic events, attribution, selectors or eligibility")
+	}
+
 	reversibleFirst := requireHistoryItemForChangeSet(t, firstImportedHistory, seededState.ReversibleChangeSetID)
 	reversibleSecond := requireHistoryItemForChangeSet(t, secondImportedHistory, seededState.ReversibleChangeSetID)
 	nonreversibleFirst := requireHistoryItemForChangeSet(t, firstImportedHistory, seededState.NonReversibleChangeSetID)

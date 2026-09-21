@@ -2,16 +2,14 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { workbookInspectorStateIsOpen } from "../models/workbookInspectorModel";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import { useWorkbookInspectorCoordinator } from "./useWorkbookInspectorCoordinator";
-import {
-  buildWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "./workbookInspectorSubject";
+import { buildWorkbookInspectorSubject } from "./workbookInspectorSubject";
 
 const timeline = requireViewContract("cartulary.view.timeline.v2");
 const config = timeline.inspectorConfig;
 
-function subject(rowVersion = 1): WorkbookInspectorSubject {
+function subject(rowVersion = 1): WorkbookRecordSubject {
   const value = buildWorkbookInspectorSubject({
     config,
     kind: "live",

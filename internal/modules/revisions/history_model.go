@@ -1,6 +1,7 @@
 package revisions
 
 import (
+	"errors"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
@@ -30,36 +31,51 @@ type RecordHistoryItem struct {
 	HistoryEntryRef          *string
 	RevisionNo               *int64
 
-	createdAt      time.Time
-	changeSetID    uuid.UUID
 	sequenceNo     int
-	syntheticRank  int
-	targetKey      string
 	hasTargetEntry bool
-	rowProjected   bool
 }
 
-func (item RecordHistoryItem) Resource() map[string]any {
-	actions := make([]string, 0, len(item.AvailableRollbackActions))
-	actions = append(actions, item.AvailableRollbackActions...)
-	resource := map[string]any{
-		"actor_user_id":              item.ActorUserID.String(),
-		"committed_at":               item.CommittedAt.UTC().Format(time.RFC3339Nano),
-		"history_item_ref":           item.HistoryItemRef,
-		"operation":                  item.Operation,
-		"diff_summary":               item.DiffSummary,
-		"change_set_id":              item.ChangeSetID.String(),
-		"reversible":                 item.Reversible,
-		"available_rollback_actions": actions,
+// HistoryPosition names an immutable logical event, independently of transport encoding.
+type HistoryPosition struct {
+	CommittedAt time.Time
+	ChangeSetID uuid.UUID
+	Kind        HistoryEventKind
+	SequenceNo  int
+	RevisionNo  int64
+}
+type HistoryEventKind string
+
+const (
+	HistoryMutation HistoryEventKind = "mutation"
+	HistoryRevision HistoryEventKind = "revision"
+)
+
+var ErrInvalidHistoryQuery = errors.New("revisions: invalid history query")
+
+func (position HistoryPosition) Validate() error {
+	if position.CommittedAt.IsZero() || position.ChangeSetID == uuid.Nil {
+		return ErrInvalidHistoryQuery
 	}
-	if item.HistoryEntryRef != nil {
-		resource["history_entry_ref"] = *item.HistoryEntryRef
+	switch position.Kind {
+	case HistoryMutation:
+		if position.SequenceNo < 1 || position.SequenceNo > 1<<31-1 || position.RevisionNo != 0 {
+			return ErrInvalidHistoryQuery
+		}
+	case HistoryRevision:
+		if position.SequenceNo != 0 || position.RevisionNo < 1 {
+			return ErrInvalidHistoryQuery
+		}
+	default:
+		return ErrInvalidHistoryQuery
 	}
-	if item.SourceActorID != nil {
-		resource["source_actor_id"] = *item.SourceActorID
+	return nil
+}
+func (query HistoryQuery) validate() error {
+	if query.RecordID == uuid.Nil || query.Limit < 1 || query.Limit > 500 {
+		return ErrInvalidHistoryQuery
 	}
-	if item.RevisionNo != nil {
-		resource["revision_no"] = *item.RevisionNo
+	if query.After != nil {
+		return query.After.Validate()
 	}
-	return resource
+	return nil
 }

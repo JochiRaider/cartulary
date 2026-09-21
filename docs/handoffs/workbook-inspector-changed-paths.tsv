@@ -1,0 +1,174 @@
+path	disposition	owner
+.markdownlint-cli2.jsonc	modified	documentation maintenance
+apps/web/e2e/timeline-public-route.spec.ts	modified	authored browser verification catalog
+apps/web/e2e/workbook-query-browsing.spec.ts	modified	authored browser verification catalog
+apps/web/src/testing/README.md	modified	web.shared, web.testing
+apps/web/src/testing/TimelineWorkbookRuntimeFixture.tsx	modified	web.testing
+apps/web/src/testing/workbookHistoryTestSupport.ts	added	web.testing
+apps/web/src/workbook/WorkbookShell.assessments.test.tsx	modified	web.workbook
+apps/web/src/workbook/WorkbookShell.history.test.tsx	modified	web.workbook
+apps/web/src/workbook/WorkbookShell.inspector.test.tsx	modified	web.workbook
+apps/web/src/workbook/WorkbookShell.surfaces.test.tsx	modified	web.workbook
+apps/web/src/workbook/WorkbookShell.tsx	modified	web.workbook
+apps/web/src/workbook/adapters/createAssessmentAppendTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createContextualCreateTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createCoordinationCreateTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createDecisionCandidateReader.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createEvidenceFileTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createIndicatorCreateTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createIndicatorLifecycleAdapter.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createIndicatorLifecycleReader.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createNoteAssociationTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createNoteCreateTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createObservationReader.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createOrdinaryCreateTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createPartyCreationTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createPartyLinkReader.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createTimelineFileLinkTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createTimelineRelatedEvidenceTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookAuthoringReader.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookBatchTransport.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookDecisionSupersessionAdapter.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookPendingMutationAdapter.test.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookPendingMutationAdapter.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookRecordHistoryAdapter.test.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookRecordHistoryAdapter.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookViewQueryAdapter.test.ts	modified	web.workbook
+apps/web/src/workbook/adapters/createWorkbookViewQueryAdapter.ts	modified	web.workbook
+apps/web/src/workbook/adapters/sendWorkbookRecordMutation.ts	modified	web.workbook
+apps/web/src/workbook/adapters/workbookRecordPatchTransport.ts	modified	web.workbook
+apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx	modified	web.workbook
+apps/web/src/workbook/components/EntityWorkbookSurface.tsx	modified	web.workbook
+apps/web/src/workbook/components/GenericWorkbookSurface.tsx	modified	web.workbook
+apps/web/src/workbook/features/assessments/AssessmentWorkbookInspector.tsx	modified	web.workbook
+apps/web/src/workbook/features/assessments/useAssessmentWorkbookInspectorComposition.tsx	modified	web.workbook
+apps/web/src/workbook/features/coordination/WorkbookCoordinationCreateOwner.ts	modified	web.workbook
+apps/web/src/workbook/features/coordination/coordinationCreateRecovery.test.tsx	modified	web.workbook
+apps/web/src/workbook/features/entities/EntityWorkbookInspector.tsx	modified	web.workbook
+apps/web/src/workbook/features/entities/WorkbookEntityMergeRecovery.tsx	modified	web.workbook
+apps/web/src/workbook/features/entities/entityInspectorEditing.test.tsx	modified	web.workbook
+apps/web/src/workbook/features/entities/useEntityWorkbookInspectorComposition.tsx	modified	web.workbook
+apps/web/src/workbook/features/generic/GenericWorkbookInspector.tsx	modified	web.workbook
+apps/web/src/workbook/features/generic/useGenericWorkbookInspectorComposition.tsx	modified	web.workbook
+apps/web/src/workbook/features/indicators/IndicatorLifecycleWorkflow.tsx	modified	web.workbook
+apps/web/src/workbook/features/indicators/indicatorLifecycle.characterization.test.tsx	modified	web.workbook
+apps/web/src/workbook/history/HistoryActionLookup.test.ts	modified	web.workbook
+apps/web/src/workbook/history/HistoryActionLookup.ts	modified	web.workbook
+apps/web/src/workbook/history/HistoryPageLookup.ts	modified	web.workbook
+apps/web/src/workbook/history/README.md	modified	web.workbook
+apps/web/src/workbook/history/WorkbookBatchHistoryReview.test.tsx	modified	web.workbook
+apps/web/src/workbook/history/WorkbookHistoryContext.ts	modified	web.workbook
+apps/web/src/workbook/history/WorkbookHistoryRecovery.test.tsx	modified	web.workbook
+apps/web/src/workbook/history/WorkbookHistoryRecovery.tsx	modified	web.workbook
+apps/web/src/workbook/history/WorkbookHistoryReview.tsx	modified	web.workbook
+apps/web/src/workbook/history/WorkbookRecordHistoryOwner.test.ts	modified	web.workbook
+apps/web/src/workbook/history/WorkbookRecordHistoryOwner.ts	modified	web.workbook
+apps/web/src/workbook/history/workbookHistoryBrowsing.characterization.test.tsx	modified	web.workbook
+apps/web/src/workbook/history/workbookHistoryBrowsing.test.ts	modified	web.workbook
+apps/web/src/workbook/history/workbookHistoryBrowsing.ts	modified	web.workbook
+apps/web/src/workbook/history/workbookHistoryItem.ts	modified	web.workbook
+apps/web/src/workbook/history/workbookHistoryOperation.ts	modified	web.workbook
+apps/web/src/workbook/history/workbookHistoryPage.ts	modified	web.workbook
+apps/web/src/workbook/history/workbookHistoryTestFixtures.ts	deleted	web.workbook retired; moved to web.testing
+apps/web/src/workbook/hooks/useWorkbookShellInfrastructure.ts	modified	web.workbook
+apps/web/src/workbook/inspector/README.md	modified	web.workbook
+apps/web/src/workbook/inspector/WorkbookInspectorDeclaredPanelList.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/WorkbookInspectorDetails.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/WorkbookInspectorDraftStore.ts	modified	web.workbook
+apps/web/src/workbook/inspector/WorkbookInspectorRecordHistory.test.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/WorkbookInspectorRecordHistory.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/WorkbookInspectorSavedDetails.tsx	added	web.workbook
+apps/web/src/workbook/inspector/WorkbookRecordHistoryPresentation.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/inspectorRelatedRecordModel.ts	modified	web.workbook
+apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/presentation/WorkbookInspectorShell.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/useRetainedInspectorRow.test.ts	modified	web.workbook
+apps/web/src/workbook/inspector/useRetainedInspectorRow.ts	modified	web.workbook
+apps/web/src/workbook/inspector/useWorkbookInspectorCoordinator.test.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/useWorkbookInspectorCoordinator.ts	modified	web.workbook
+apps/web/src/workbook/inspector/useWorkbookRecordHistoryController.ts	modified	web.workbook
+apps/web/src/workbook/inspector/useWorkbookRecordHistoryFocus.ts	modified	web.workbook
+apps/web/src/workbook/inspector/useWorkbookRecordHistoryState.ts	added	web.workbook
+apps/web/src/workbook/inspector/workbookHistoryPresentationModel.test.ts	modified	web.workbook
+apps/web/src/workbook/inspector/workbookHistoryPresentationModel.ts	modified	web.workbook
+apps/web/src/workbook/inspector/workbookHistoryRecovery.characterization.test.tsx	modified	web.workbook
+apps/web/src/workbook/inspector/workbookInspectorErrorModel.ts	modified	web.workbook
+apps/web/src/workbook/inspector/workbookInspectorSubject.ts	modified	web.workbook
+apps/web/src/workbook/inspector/workbookRecordHistoryModel.test.ts	modified	web.workbook
+apps/web/src/workbook/inspector/workbookRecordHistoryModel.ts	modified	web.workbook
+apps/web/src/workbook/models/workbookContractRows.ts	modified	web.workbook
+apps/web/src/workbook/models/workbookInspectorModel.test.ts	modified	web.workbook
+apps/web/src/workbook/models/workbookInspectorModel.ts	modified	web.workbook
+apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.ts	modified	web.workbook
+apps/web/src/workbook/policies/workbookSurfaceOwnershipPolicy.test.ts	modified	web.workbook
+apps/web/src/workbook/ports/README.md	modified	web.workbook
+apps/web/src/workbook/ports/WorkbookRecordSubject.ts	added	web.workbook
+apps/web/src/workbook/query/WorkbookQueryRow.ts	modified	web.workbook
+apps/web/src/workbook/query/WorkbookViewQueryPort.ts	modified	web.workbook
+apps/web/src/workbook/query/acceptWorkbookRowObservation.ts	added	web.workbook
+apps/web/src/workbook/query/useAssessmentSurfaceQuery.ts	modified	web.workbook
+apps/web/src/workbook/query/useGenericSurfaceQuery.ts	modified	web.workbook
+apps/web/src/workbook/query/workbookQueryRowPatch.ts	modified	web.workbook
+apps/web/src/workbook/query/workbookRowObservation.ts	added	web.workbook
+apps/web/src/workbook/runtime/WorkbookExplicitPatchOwner.ts	modified	web.workbook
+apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts	modified	web.workbook
+apps/web/src/workbook/runtime/WorkbookMutationRuntime.ts	modified	web.workbook
+apps/web/src/workbook/surfaces/WorkbookSurfacesFacade.tsx	modified	web.workbook
+apps/web/src/workbook/timeline/adapters/createTimelineActionAdapters.test.ts	modified	web.workbook
+apps/web/src/workbook/timeline/adapters/createTimelineMentionEntityCreationAdapter.ts	modified	web.workbook
+apps/web/src/workbook/timeline/adapters/createTimelineMentionSourceReader.ts	modified	web.workbook
+apps/web/src/workbook/timeline/adapters/createTimelineRecordActionAdapter.ts	modified	web.workbook
+apps/web/src/workbook/timeline/adapters/timelineCaptureProtocol.ts	modified	web.workbook
+apps/web/src/workbook/timeline/adapters/timelineCaptureTransport.test.ts	modified	web.workbook
+apps/web/src/workbook/timeline/components/TimelineHistoryPanel.tsx	modified	web.workbook
+apps/web/src/workbook/timeline/components/TimelineWorkbookInspector.tsx	modified	web.workbook
+apps/web/src/workbook/timeline/components/TimelineWorkbookInspectorSections.tsx	modified	web.workbook
+apps/web/src/workbook/timeline/composition/useTimelineInspectorStateComposition.ts	modified	web.workbook
+apps/web/src/workbook/timeline/composition/useTimelineSurfaceFoundation.ts	modified	web.workbook
+apps/web/src/workbook/timeline/composition/useTimelineWorkbookComposition.ts	modified	web.workbook
+apps/web/src/workbook/timeline/focus/timelineInspectorElementRegistry.test.ts	modified	web.workbook
+apps/web/src/workbook/timeline/focus/timelineInspectorElementRegistry.ts	modified	web.workbook
+apps/web/src/workbook/timeline/hooks/useTimelineCommittedRows.ts	modified	web.workbook
+apps/web/src/workbook/timeline/hooks/useTimelineHistoryActions.ts	modified	web.workbook
+apps/web/src/workbook/timeline/hooks/useTimelineHistoryState.ts	modified	web.workbook
+apps/web/src/workbook/timeline/hooks/useTimelineInspectorFeatureController.ts	modified	web.workbook
+apps/web/src/workbook/timeline/hooks/useTimelineInspectorSelection.ts	modified	web.workbook
+apps/web/src/workbook/timeline/models/timelineCommittedVersionLedger.ts	modified	web.workbook
+apps/web/src/workbook/timeline/models/timelineHistoryModel.ts	modified	web.workbook
+apps/web/src/workbook/timeline/models/timelineRowModel.ts	modified	web.workbook
+apps/web/src/workbook/timeline/mutations/README.md	modified	web.workbook
+apps/web/src/workbook/timeline/mutations/createTimelineMutationDriver.ts	modified	web.workbook
+apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts	modified	web.workbook
+apps/web/src/workbook/timeline/mutations/useTimelineRowMutationCoordinator.test.tsx	modified	web.workbook
+apps/web/src/workbook/timeline/ports/TimelineRecordActionPort.ts	modified	web.workbook
+apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx	modified	web.workbook
+docs/handoffs/workbook-inspector-changed-paths.tsv	added	human execution and handoff evidence
+docs/handoffs/workbook-inspector-symbol-ledger.tsv	added	human execution and handoff evidence
+docs/handoffs/workbook-inspector-ui-ux-audit.md	modified	human execution and handoff evidence
+docs/spec/01_architecture_storage_and_view_contracts.md	modified	adopted Core owner
+docs/spec/03_workbook_interaction_collaboration_and_workflows.md	modified	adopted Core owner
+internal/app/revisionassembly/history_projection_test.go	modified	application revision assembly
+internal/modules/incidentbundles/routes_admission_integration_test.go	modified	module.incidentbundles
+internal/modules/incidentbundles/routes_helpers_integration_test.go	modified	module.incidentbundles
+internal/modules/revisions/README.md	modified	module.revisions
+internal/modules/revisions/application_ports.go	modified	module.revisions
+internal/modules/revisions/command_service.go	modified	module.revisions
+internal/modules/revisions/history_components_test.go	modified	module.revisions
+internal/modules/revisions/history_materializer.go	modified	module.revisions
+internal/modules/revisions/history_model.go	modified	module.revisions
+internal/modules/revisions/history_paging_test.go	added	module.revisions
+internal/modules/revisions/history_repository.go	modified	module.revisions
+internal/modules/revisions/history_service.go	modified	module.revisions
+internal/modules/revisions/history_source_paging_test.go	added	module.revisions
+internal/modules/revisions/history_test.go	modified	module.revisions
+internal/modules/revisions/httpapi/history_pagination.go	modified	module.revisions
+internal/modules/revisions/httpapi/history_pagination_test.go	modified	module.revisions
+internal/modules/revisions/httpapi/routes.go	modified	module.revisions
+internal/modules/revisions/integration_test.go	modified	module.revisions
+internal/testutil/historytest/fixtures.go	added	application test support
+tools/execution_topology_render_index.json	modified	authored verification/source policy or generated projection
+tools/frontend_import_boundaries.json	modified	authored verification/source policy or generated projection
+tools/frontend_source_ownership.json	modified	authored verification/source policy or generated projection
+tools/test_families/module.revisions.json	modified	authored verification/source policy or generated projection
+tools/test_families/module.timeline.json	modified	authored verification/source policy or generated projection
+tools/test_families/web.workbook.json	modified	authored verification/source policy or generated projection

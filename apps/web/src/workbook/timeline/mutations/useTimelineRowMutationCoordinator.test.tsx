@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
@@ -314,6 +315,7 @@ describe("useTimelineRowMutationCoordinator", () => {
         recordId,
         replacementRecordId: null,
         rowVersion: 2,
+        baseRowVersion: 1,
       });
     });
 
@@ -350,6 +352,7 @@ describe("useTimelineRowMutationCoordinator", () => {
         recordId,
         replacementRecordId: null,
         rowVersion: 4,
+        baseRowVersion: 3,
       });
     });
 
@@ -369,10 +372,20 @@ describe("useTimelineRowMutationCoordinator", () => {
     const runtime = runtimeFixture();
     const source = timelineRow(1, "grouped record");
     if (!source.rawRow) throw new Error("Missing source row");
-    const initial = {
+    const scope = {
+      actorId: "actor",
+      sessionIdentity: "session",
+      incidentId,
+      epoch: 0,
+    };
+    const acceptedSource = {
       ...source,
+      rawRow: acceptWorkbookRowObservation(source.rawRow, scope),
+    };
+    const initial = {
+      ...acceptedSource,
       rawRow: {
-        ...source.rawRow,
+        ...acceptedSource.rawRow,
         group_values: { "timeline.capture_state": "rough" },
       },
     };
@@ -387,6 +400,8 @@ describe("useTimelineRowMutationCoordinator", () => {
         recordId,
         replacementRecordId: null,
         rowVersion: 2,
+        baseRowVersion: 1,
+        observation: { recordId, rowVersion: 2, scope },
       });
     });
     const receipt =
@@ -425,6 +440,60 @@ describe("useTimelineRowMutationCoordinator", () => {
     expect(reconciled.rows).toContain(draft);
     unmount();
     runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
+  it("keeps old-scope partial receipts from promoting current saved fields", () => {
+    const scope = {
+      actorId: "actor",
+      sessionIdentity: "current-session",
+      incidentId,
+      epoch: 2,
+    };
+    for (const receiptScope of [
+      null,
+      { ...scope, sessionIdentity: "old-session", epoch: 1 },
+    ]) {
+      const runtime = runtimeFixture();
+      const source = timelineRow(1, "current saved value");
+      if (!source.rawRow) throw new Error("Missing source row");
+      const acceptedSource = {
+        ...source,
+        rawRow: acceptWorkbookRowObservation(source.rawRow, scope),
+      };
+      const { result, unmount } = renderCoordinator(runtime, [acceptedSource]);
+      act(() =>
+        result.current.coordinator.commands.acceptTimelineActionResult({
+          captureState: "reviewed",
+          changeSetId: "20000000-0000-4000-8000-000000000002",
+          incidentId,
+          reason: null,
+          recordId,
+          replacementRecordId: null,
+          rowVersion: 2,
+          baseRowVersion: 1,
+          ...(receiptScope
+            ? { observation: { recordId, rowVersion: 2, scope: receiptScope } }
+            : {}),
+        }),
+      );
+      expect(
+        result.current.coordinator.commands.latestCommittedTimelineRow(
+          recordId,
+        ),
+      ).toBeNull();
+      expect(
+        result.current.coordinator.ports.queryAdmission.currentCommittedTimelineRow(
+          recordId,
+        )?.rawRow,
+      ).toEqual(acceptedSource.rawRow);
+      expect(
+        result.current.coordinator.ports.queryAdmission.knownTimelineRowVersion(
+          recordId,
+        ),
+      ).toBe(2);
+      unmount();
+      runtime.invalidate({ kind: "runtime_disposed" });
+    }
   });
 
   it("admits conflict server state without collapsing its local draft", async () => {

@@ -1,7 +1,7 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from "react";
-import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
+import type { RecordHistoryRollbackAction } from "../history/workbookHistoryItem";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import {
-  type RecordHistoryRollbackAction,
   type WorkbookRecordHistoryState,
   workbookRecordHistoryFeedback,
   workbookRecordHistoryLoadError,
@@ -18,11 +18,13 @@ type HistoryFocusRequest = {
 };
 
 export function useWorkbookRecordHistoryFocus({
+  pending,
   canMutate,
   state,
   onCancelPendingAction,
   onConfirmPendingAction,
 }: {
+  readonly pending: boolean;
   readonly canMutate: boolean;
   readonly state: WorkbookRecordHistoryState;
   readonly onCancelPendingAction: () => void;
@@ -87,6 +89,7 @@ export function useWorkbookRecordHistoryFocus({
   }, []);
 
   useEffect(() => {
+    if (pending) return;
     completeHistoryFocusRequest({
       canMutate,
       currentSubjectIdentity,
@@ -98,6 +101,7 @@ export function useWorkbookRecordHistoryFocus({
       queuePanelFocus,
     });
   }, [
+    pending,
     canMutate,
     currentSubjectIdentity,
     feedback,
@@ -179,14 +183,14 @@ export function useWorkbookRecordHistoryFocus({
 }
 
 export function historyActionIdentity(
-  subject: WorkbookInspectorSubject,
+  subject: WorkbookRecordSubject,
   action: "delete" | "restore",
 ): string {
   return `${historySubjectIdentity(subject)}:${action}`;
 }
 
 export function historyRollbackActionIdentity(
-  subject: WorkbookInspectorSubject,
+  subject: WorkbookRecordSubject,
   historyItemRef: string,
   action: RecordHistoryRollbackAction,
 ): string {
@@ -265,7 +269,7 @@ function historySubmissionCompletionIsReady(
 }
 
 function historySubjectIdentity(
-  subject: WorkbookInspectorSubject | null,
+  subject: WorkbookRecordSubject | null,
 ): string | null {
   return subject === null
     ? null

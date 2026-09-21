@@ -2,12 +2,14 @@ import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { timelineRelatedEvidenceRequest } from "../features/evidence/timelineRelatedEvidenceModel";
 import type { RelatedEvidenceTransport } from "../features/evidence/timelineRelatedEvidenceOperation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { buildAttachedEvidencePatchRequest } from "../timeline/adapters/timelineEvidenceRequestBuilders";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
 
 export function createTimelineRelatedEvidenceTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): RelatedEvidenceTransport {
   return {
     capture(stage, review, clientTxnId, evidenceRecordId) {
@@ -68,6 +70,7 @@ export function createTimelineRelatedEvidenceTransport(
             : {}),
         },
         signal,
+        readScope?.() ?? null,
       );
     },
   };

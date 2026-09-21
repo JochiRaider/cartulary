@@ -9,11 +9,14 @@ import {
   freezeAssessment,
 } from "../features/assessments/assessmentOperation";
 import { buildAssessmentCreatePayload } from "../models/assessmentWorkbookModel";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
 export function createAssessmentAppendTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): AssessmentAppendTransport {
   return {
     capture(review, clientTxnId) {
@@ -35,6 +38,7 @@ export function createAssessmentAppendTransport(
       });
     },
     async send(attempt, signal) {
+      const scope = readScope?.() ?? null;
       let status: number | null = null;
       try {
         const pathParameters = {
@@ -78,7 +82,18 @@ export function createAssessmentAppendTransport(
         )
           ? {
               kind: "accepted",
-              receipt: freezeAssessment(structuredClone(result.payload)),
+              receipt: freezeAssessment(
+                structuredClone({
+                  ...result.payload,
+                  data: {
+                    ...result.payload.data,
+                    row: acceptWorkbookRowObservation(
+                      result.payload.data.row,
+                      scope,
+                    ),
+                  },
+                }),
+              ),
             }
           : { kind: "uncertain" };
       } catch {

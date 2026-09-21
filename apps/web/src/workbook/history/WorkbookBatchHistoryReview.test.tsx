@@ -8,14 +8,15 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
+import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
+import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import { WorkbookBatchRecovery } from "../components/WorkbookBatchRecovery";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { WorkbookBatchTransport } from "../runtime/workbookBatchOperation";
 import { WorkbookHistoryContext } from "./WorkbookHistoryContext";
 import type { WorkbookRecordHistoryPort } from "./workbookHistoryOperation";
-import type { HistoryPage, RecordHistoryItem } from "./workbookHistoryPage";
-import { historyDiffFixture } from "./workbookHistoryTestFixtures";
+import type { HistoryPage } from "./workbookHistoryPage";
 
 const view = "cartulary.view.timeline.v2";
 const authority = {

@@ -18,12 +18,9 @@ import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabili
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
-import { WorkbookInspectorReadOnlyDetails } from "../../inspector/WorkbookInspectorDetails";
+import { WorkbookInspectorSavedDetails } from "../../inspector/WorkbookInspectorSavedDetails";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
-import {
-  buildWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "../../inspector/workbookInspectorSubject";
+import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import { isAssessmentConfidenceBand } from "../../models/assessmentWorkbookModel";
 import {
   enumValuesFor,
@@ -31,10 +28,8 @@ import {
   genericInspectorRowLabel,
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import type {
-  RecordRouteCommandPort,
-  TimelineRelatedRecordPort,
-} from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
@@ -62,7 +57,6 @@ export function useAssessmentWorkbookInspectorComposition({
   onRefreshAssessmentRows,
   onRestoreFocus,
   onSelectAssessment,
-  recordMutationCommands,
   relatedMutationCommands,
   roleCanCreate,
   selectedAssessment,
@@ -85,7 +79,6 @@ export function useAssessmentWorkbookInspectorComposition({
   }) => Promise<void>;
   readonly onRestoreFocus: () => void;
   readonly onSelectAssessment: (recordId: string) => void;
-  readonly recordMutationCommands: RecordRouteCommandPort;
   readonly relatedMutationCommands: TimelineRelatedRecordPort;
   readonly roleCanCreate: boolean;
   readonly selectedAssessment: WorkbookQueryRow | null;
@@ -95,7 +88,7 @@ export function useAssessmentWorkbookInspectorComposition({
     onRefreshAssessmentRows({ requireAcceptance: true }),
   );
   const [deletedHistorySubject, setDeletedHistorySubject] =
-    useState<WorkbookInspectorSubject | null>(null);
+    useState<WorkbookRecordSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
   const beginMutation = useCallback(
@@ -108,7 +101,7 @@ export function useAssessmentWorkbookInspectorComposition({
     lifecycleResetKey: `${inspectorResetKey}:${selectedAssessment?.record_id ?? "none"}:${selectedAssessment?.row_version ?? 0}`,
   });
   const { draft, draftMode, feedback, isSubmitting } = creation.snapshot;
-  const subject: WorkbookInspectorSubject | null =
+  const subject: WorkbookRecordSubject | null =
     selectedAssessment === null
       ? deletedHistorySubject
       : buildWorkbookInspectorSubject({
@@ -196,13 +189,11 @@ export function useAssessmentWorkbookInspectorComposition({
         reject: creation.commands.rejectStart,
       }}
       history={{
-        beginMutation,
         actions: recordHistoryActions,
         canMutate:
           interactionMode.kind === "editable" &&
           currentIncidentRole !== null &&
           currentIncidentRole !== "viewer",
-        commands: recordMutationCommands,
         effects: {
           deleteAccepted: (accepted) => {
             related.commands.cancel();
@@ -230,7 +221,7 @@ export function useAssessmentWorkbookInspectorComposition({
       }}
       detailsContent={
         selectedAssessment ? (
-          <WorkbookInspectorReadOnlyDetails
+          <WorkbookInspectorSavedDetails
             contract={contract}
             row={selectedAssessment}
           />

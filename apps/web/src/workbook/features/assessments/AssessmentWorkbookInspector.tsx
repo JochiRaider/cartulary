@@ -26,9 +26,8 @@ import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookIns
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
-import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
-import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 
 export function AssessmentWorkbookInspector({
   config,
@@ -61,10 +60,8 @@ export function AssessmentWorkbookInspector({
     readonly reject: (message: string) => void;
   };
   readonly history: {
-    readonly beginMutation: () => () => void;
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
     readonly canMutate: boolean;
-    readonly commands: RecordRouteCommandPort;
     readonly effects: WorkbookRecordHistoryOwnerEffects;
   };
   readonly onClose: () => void;
@@ -77,7 +74,7 @@ export function AssessmentWorkbookInspector({
     readonly updateDraft: (fieldKey: string, value: string) => void;
   };
   readonly relatedFeedback: WorkbookInspectorFeedback | null;
-  readonly subject: WorkbookInspectorSubject | null;
+  readonly subject: WorkbookRecordSubject | null;
   readonly workflowContent: ReactNode;
 }) {
   if (currentIncidentRole === null) return null;
@@ -170,10 +167,8 @@ export function AssessmentWorkbookInspector({
                 ownedInspectorRegion("record-history", (present) => (
                   <WorkbookInspectorRecordHistory
                     present={present}
-                    beginMutation={history.beginMutation}
                     actions={history.actions}
                     canMutate={history.canMutate}
-                    commands={history.commands}
                     ownerEffects={history.effects}
                     subject={subject}
                   />
@@ -203,18 +198,22 @@ export function AssessmentWorkbookInspector({
         <WorkbookInspectorShell
           accessibleLabel="Compromise Assessments inspector"
           config={config}
-          eyebrow="Create"
-          heading={
-            draftMode === "follow_on"
-              ? "Append follow-on assessment"
-              : "Append assessment"
-          }
-          mode={subject ? "record" : "creation"}
-          noRowHeading="Append assessment"
-          subject={subject}
+          {...(subject
+            ? { mode: "saved", subject, sections }
+            : {
+                mode: "creation",
+                sections,
+                context: {
+                  id: `assessment-${draftMode}`,
+                  viewSchemaId: config.viewSchemaId,
+                  heading:
+                    draftMode === "follow_on"
+                      ? "Append follow-on assessment"
+                      : "Append assessment",
+                },
+              })}
           testId={assessmentCreatePanelTestId()}
           onClose={onClose}
-          sections={sections}
         ></WorkbookInspectorShell>
       )}
     </WorkbookInspectorDeclaredPanelList>

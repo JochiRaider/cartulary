@@ -10,6 +10,8 @@ import {
   partyViewId,
 } from "../features/parties/partyLinkModel";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
+import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
+import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
@@ -39,6 +41,7 @@ export interface PartyCreationTransport {
 }
 export function createPartyCreationTransport(
   apiBase: string | undefined,
+  readScope?: WorkbookReadScopeSource,
 ): PartyCreationTransport {
   return {
     capture(review, draft, id) {
@@ -61,6 +64,7 @@ export function createPartyCreationTransport(
       });
     },
     async send(attempt, signal) {
+      const scope = readScope?.() ?? null;
       let status: number | null = null;
       try {
         const pathParameters = {
@@ -99,7 +103,19 @@ export function createPartyCreationTransport(
             : { kind: "rejected", failure };
         }
         return acceptedRecordMutation(result.payload.data, partyViewId)
-          ? { kind: "accepted", receipt: result.payload }
+          ? {
+              kind: "accepted",
+              receipt: {
+                ...result.payload,
+                data: {
+                  ...result.payload.data,
+                  row: acceptWorkbookRowObservation(
+                    result.payload.data.row,
+                    scope,
+                  ),
+                },
+              },
+            }
           : { kind: "uncertain" };
       } catch {
         return { kind: "uncertain" };

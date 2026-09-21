@@ -69,22 +69,20 @@ func TestHistoryComponentsMaterializeDecorateAndOrder_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	revisionOnlyChangeSet := uuid.New()
-	revisionItems, err := materializer.Revisions(record, []revisionHistoryRow{
-		{ChangeSetID: olderChangeSet, ActorUserID: actorID, CommittedAt: base, RevisionNo: 2, BeforeValue: snapshot("before"), AfterValue: snapshot("after")},
-		{ChangeSetID: revisionOnlyChangeSet, ActorUserID: actorID, CommittedAt: base.Add(-time.Minute), RevisionNo: 1, AfterValue: snapshot("initial")},
-	}, []RecordHistoryItem{older, newer})
+	revisionItem, err := materializer.Revision(record, revisionHistoryRow{ChangeSetID: revisionOnlyChangeSet, ActorUserID: actorID, CommittedAt: base.Add(-time.Minute), RevisionNo: 1, AfterValue: snapshot("initial")})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(revisionItems) != 1 || revisionItems[0].ChangeSetID != revisionOnlyChangeSet {
-		t.Fatalf("revision-only materialization = %#v", revisionItems)
+	if revisionItem.ChangeSetID != revisionOnlyChangeSet {
+		t.Fatalf("revision-only materialization = %#v", revisionItem)
 	}
+
 	if got := older.DiffSummary.Summary; got != "field update" {
 		t.Fatalf("mutation summary = %#v", got)
 	}
 
 	resolver := &historyAttributionResolverFake{sourceActors: map[string]string{olderChangeSet.String(): "source-user-7"}}
-	items := []RecordHistoryItem{older, newer, revisionItems[0]}
+	items := []RecordHistoryItem{older, newer, revisionItem}
 	if err := (importedHistoryAttributionDecorator{resolver: resolver}).DecorateTx(context.Background(), nil, record.IncidentID, items); err != nil {
 		t.Fatalf("decorate attribution: %v", err)
 	}
@@ -95,16 +93,6 @@ func TestHistoryComponentsMaterializeDecorateAndOrder_Unit(t *testing.T) {
 		t.Fatalf("attribution owner address = %s.%s", resolver.sourceTable, resolver.sourceColumn)
 	}
 
-	resources := (historyPageAssembler{}).Resources(items)
-	if len(resources) != 3 || resources[0]["change_set_id"] != newerChangeSet.String() || resources[2]["change_set_id"] != revisionOnlyChangeSet.String() {
-		t.Fatalf("history page order = %#v", resources)
-	}
-	if got := resources[0]["available_rollback_actions"]; !reflect.DeepEqual(got, []string{}) {
-		t.Fatalf("empty actions must remain a JSON array, got %#v", got)
-	}
-	if got := resources[0]["committed_at"]; got != base.Add(time.Minute).UTC().Format(time.RFC3339Nano) {
-		t.Fatalf("UTC committed_at = %#v", got)
-	}
 }
 
 func TestCurrentTargetKindHistoryAddressability_Unit(t *testing.T) {
@@ -188,6 +176,111 @@ func TestHistoryDecompositionBoundaries_Unit(t *testing.T) {
 }
 
 func TestHistoryQueryRepositoryMapsPersistenceRows_Integration(t *testing.T) {
+	fixture := newHistoryRepositoryFixture(t)
+	database, recordID, changeSetID := fixture.database, fixture.record.RecordID, fixture.changeSetID
+
+	tx, err := database.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin repository transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	repository := historyQueryRepository{}
+	record := fixture.record
+	descriptors, err := repository.SelectDescriptorsTx(context.Background(), tx, record, HistoryQuery{RecordID: recordID, Limit: 1})
+	if err != nil || len(descriptors) != 1 {
+		t.Fatalf("descriptors: %+v %v", descriptors, err)
+	}
+	mutationRows, err := repository.LoadMutationRowsTx(context.Background(), tx, record, descriptors, []string{"record", "host"})
+	if err != nil {
+		t.Fatalf("load mutation rows: %v", err)
+	}
+	if len(mutationRows) != 1 || mutationRows[0].ChangeSetID != changeSetID || mutationRows[0].RevisionNo == nil || *mutationRows[0].RevisionNo != 2 || !mutationRows[0].HistoryEntryAddressable || !mutationRows[0].CoalesceRevision {
+		t.Fatalf("mutation repository mapping = %#v", mutationRows)
+	}
+	revisionRows, err := repository.LoadRevisionRowsTx(context.Background(), tx, record, []HistoryPosition{{ChangeSetID: changeSetID, RevisionNo: 2}})
+	if err != nil {
+		t.Fatalf("load revision rows: %v", err)
+	}
+	if len(revisionRows) != 1 || revisionRows[0].ChangeSetID != changeSetID || revisionRows[0].RevisionNo != 2 {
+		t.Fatalf("revision repository mapping = %#v", revisionRows)
+	}
+	ref, err := repository.EnsureHistoryEntryRefTx(context.Background(), tx, recordID, changeSetID, 1)
+	if err != nil {
+		t.Fatalf("ensure history entry ref: %v", err)
+	}
+	repeated, err := repository.EnsureHistoryEntryRefTx(context.Background(), tx, recordID, changeSetID, 1)
+	if err != nil || repeated != ref {
+		t.Fatalf("stable history entry ref = %q, %v; want %q", repeated, err, ref)
+	}
+}
+
+type historyAttributionResolverFake struct {
+	sourceActors map[string]string
+	sourceTable  string
+	sourceColumn string
+}
+
+func (f *historyAttributionResolverFake) ResolveImportedSourceActorsTx(_ context.Context, _ pgx.Tx, _ uuid.UUID, sourceTable string, sourceColumn string, _ []string) (map[string]string, error) {
+	f.sourceTable = sourceTable
+	f.sourceColumn = sourceColumn
+	return f.sourceActors, nil
+}
+
+func TestSemanticHistoryRejectsMalformedCanonicalFactsAndPreservesValues(t *testing.T) {
+	record := RecordHistoryRecord{RecordID: uuid.New(), RecordType: "host"}
+	catalog := validTargetSemanticsCatalog(t, validProviderContributions())
+	for _, raw := range []string{`{"name":"schema-less"}`, `{"snapshot_schema_id":"cartulary.revisions.snapshot.host.v0","record":{},"source":{}}`, `[]`, `{} {}`} {
+		if _, err := catalog.projectHistory(record, "host", record.RecordID.String(), "patch", nil, []byte(raw)); err == nil {
+			t.Fatalf("accepted unsupported retained facts: %s", raw)
+		}
+	}
+	fields := append(historycontract.Fields("test", "boolean", "flag"), historycontract.Fields("test", "number", "count")...)
+	fields = append(fields, historycontract.Fields("test", "text", "text nullable")...)
+	units, err := historycontract.Row(historycontract.Facts{RecordID: record.RecordID.String(), After: map[string]any{"record": map[string]any{}, "source": map[string]any{"flag": false, "count": 0, "text": "", "nullable": nil}}}, fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := map[string]historycontract.Value{}
+	for _, unit := range units {
+		for _, change := range unit.Changes {
+			if change.Before.State != "absent" {
+				t.Fatal("creation before must be absent")
+			}
+			values[change.FieldKey] = change.After
+		}
+	}
+	if values["test.flag"].Value != false || values["test.count"].Value != 0 || values["test.text"].Value != "" || values["test.nullable"].State != "null" {
+		t.Fatalf("value states lost: %#v", values)
+	}
+	summary, err := historycontract.Summarize(units)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"value":false`) || !strings.Contains(string(encoded), `"value":0`) || !strings.Contains(string(encoded), `"value":""`) {
+		t.Fatalf("present values omitted: %s", encoded)
+	}
+	units[0].Changes[0].After = historycontract.Value{State: "present", Value: map[string]any{"secret": "hidden"}}
+	if _, err := historycontract.Summarize(units); err == nil {
+		t.Fatal("arbitrary object admitted")
+	}
+}
+
+type historyRepositoryFixture struct {
+	database      postgres.DB
+	record        RecordHistoryRecord
+	changeSetID   uuid.UUID
+	actorID       uuid.UUID
+	now           time.Time
+	before, after []byte
+}
+
+func newHistoryRepositoryFixture(t *testing.T) historyRepositoryFixture {
+	t.Helper()
+
 	harness := pgtest.Start(t)
 	var database postgres.DB
 	if pgtest.ExplicitPostgresFixturePolicyT(t) == pgtest.PostgresFixturePolicyTemplateClone {
@@ -293,88 +386,5 @@ VALUES ($1, $2, 2, $3, $4, $5)
 		t.Fatalf("seed record revision: %v", err)
 	}
 
-	tx, err := database.BeginTx(context.Background(), pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin repository transaction: %v", err)
-	}
-	defer func() { _ = tx.Rollback(context.Background()) }()
-	repository := historyQueryRepository{}
-	record := RecordHistoryRecord{IncidentID: incidentResult.Incident.ID, RecordID: recordID, RecordType: "host", RowVersion: 2}
-	mutationRows, err := repository.LoadMutationRowsTx(context.Background(), tx, record)
-	if err != nil {
-		t.Fatalf("load mutation rows: %v", err)
-	}
-	if len(mutationRows) != 1 || mutationRows[0].ChangeSetID != changeSetID || mutationRows[0].RevisionNo == nil || *mutationRows[0].RevisionNo != 2 || !mutationRows[0].HistoryEntryAddressable {
-		t.Fatalf("mutation repository mapping = %#v", mutationRows)
-	}
-	revisionRows, err := repository.LoadRevisionRowsTx(context.Background(), tx, record)
-	if err != nil {
-		t.Fatalf("load revision rows: %v", err)
-	}
-	if len(revisionRows) != 1 || revisionRows[0].ChangeSetID != changeSetID || revisionRows[0].RevisionNo != 2 {
-		t.Fatalf("revision repository mapping = %#v", revisionRows)
-	}
-	ref, err := repository.EnsureHistoryEntryRefTx(context.Background(), tx, recordID, changeSetID, 1)
-	if err != nil {
-		t.Fatalf("ensure history entry ref: %v", err)
-	}
-	repeated, err := repository.EnsureHistoryEntryRefTx(context.Background(), tx, recordID, changeSetID, 1)
-	if err != nil || repeated != ref {
-		t.Fatalf("stable history entry ref = %q, %v; want %q", repeated, err, ref)
-	}
-}
-
-type historyAttributionResolverFake struct {
-	sourceActors map[string]string
-	sourceTable  string
-	sourceColumn string
-}
-
-func (f *historyAttributionResolverFake) ResolveImportedSourceActorsTx(_ context.Context, _ pgx.Tx, _ uuid.UUID, sourceTable string, sourceColumn string, _ []string) (map[string]string, error) {
-	f.sourceTable = sourceTable
-	f.sourceColumn = sourceColumn
-	return f.sourceActors, nil
-}
-
-func TestSemanticHistoryRejectsMalformedCanonicalFactsAndPreservesValues(t *testing.T) {
-	record := RecordHistoryRecord{RecordID: uuid.New(), RecordType: "host"}
-	catalog := validTargetSemanticsCatalog(t, validProviderContributions())
-	for _, raw := range []string{`{"name":"schema-less"}`, `{"snapshot_schema_id":"cartulary.revisions.snapshot.host.v0","record":{},"source":{}}`, `[]`, `{} {}`} {
-		if _, err := catalog.projectHistory(record, "host", record.RecordID.String(), "patch", nil, []byte(raw)); err == nil {
-			t.Fatalf("accepted unsupported retained facts: %s", raw)
-		}
-	}
-	fields := append(historycontract.Fields("test", "boolean", "flag"), historycontract.Fields("test", "number", "count")...)
-	fields = append(fields, historycontract.Fields("test", "text", "text nullable")...)
-	units, err := historycontract.Row(historycontract.Facts{RecordID: record.RecordID.String(), After: map[string]any{"record": map[string]any{}, "source": map[string]any{"flag": false, "count": 0, "text": "", "nullable": nil}}}, fields)
-	if err != nil {
-		t.Fatal(err)
-	}
-	values := map[string]historycontract.Value{}
-	for _, unit := range units {
-		for _, change := range unit.Changes {
-			if change.Before.State != "absent" {
-				t.Fatal("creation before must be absent")
-			}
-			values[change.FieldKey] = change.After
-		}
-	}
-	if values["test.flag"].Value != false || values["test.count"].Value != 0 || values["test.text"].Value != "" || values["test.nullable"].State != "null" {
-		t.Fatalf("value states lost: %#v", values)
-	}
-	summary, err := historycontract.Summarize(units)
-	if err != nil {
-		t.Fatal(err)
-	}
-	encoded, err := json.Marshal(summary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(encoded), `"value":false`) || !strings.Contains(string(encoded), `"value":0`) || !strings.Contains(string(encoded), `"value":""`) {
-		t.Fatalf("present values omitted: %s", encoded)
-	}
-	units[0].Changes[0].After = historycontract.Value{State: "present", Value: map[string]any{"secret": "hidden"}}
-	if _, err := historycontract.Summarize(units); err == nil {
-		t.Fatal("arbitrary object admitted")
-	}
+	return historyRepositoryFixture{database: database, record: RecordHistoryRecord{IncidentID: incidentResult.Incident.ID, RecordID: recordID, RecordType: "host", RowVersion: 2}, changeSetID: changeSetID, actorID: actor.ID, now: now, before: beforeJSON, after: afterJSON}
 }

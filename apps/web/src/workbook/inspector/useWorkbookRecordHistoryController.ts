@@ -2,12 +2,12 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { observeAsyncOperation } from "../../services/asyncObservation";
+import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import type { HistoryActionLookup } from "../history/HistoryActionLookup";
 import {
   type HistoryLookupState,
@@ -22,36 +22,29 @@ import {
   initialHistoryBrowsing,
   rejectHistoryRead,
 } from "../history/workbookHistoryBrowsing";
-import type { HistoryBinding } from "../history/workbookHistoryOperation";
 import {
-  type HistoryPage,
-  sameHistoryReadScope,
-} from "../history/workbookHistoryPage";
+  buildRecordRollbackTargetFromHistoryAction,
+  type RecordHistoryRollbackAction,
+  type WorkbookRecordHistoryPendingAction,
+} from "../history/workbookHistoryItem";
+import type { HistoryBinding } from "../history/workbookHistoryOperation";
+import { sameHistoryReadScope } from "../history/workbookHistoryPage";
 import {
   type HistoryReviewLocator,
   historyReviewAuthorized,
   historyReviewPageLimit,
 } from "../history/workbookHistoryReview";
-import type { RecordRouteCommandPort } from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import {
   workbookInspectorErrorPresentation,
   workbookInspectorLocalErrorFeedback,
   type workbookInspectorMessageFeedback,
 } from "./workbookInspectorErrorModel";
-import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
 import {
-  buildRecordRollbackTargetFromHistoryAction,
-  initialWorkbookRecordHistoryState,
-  type RecordHistoryData,
-  type RecordHistoryItem,
-  type RecordHistoryRollbackAction,
   type WorkbookRecordHistoryEvent,
-  type WorkbookRecordHistoryPendingAction,
   type WorkbookRecordHistoryState,
   workbookRecordHistoryOperationId,
   workbookRecordHistoryPendingAction,
-  workbookRecordHistoryReducer,
-  workbookRecordHistoryRequestId,
 } from "./workbookRecordHistoryModel";
 import { workbookRecordHistoryCompletionFeedback } from "./workbookRecordHistoryOperation";
 import type { WorkbookRecordHistoryOwnerEffects } from "./workbookRecordHistoryOwnerEffects";
@@ -67,45 +60,38 @@ export function useWorkbookRecordHistoryController({
   coordinate,
   presentation,
   presentationActive = true,
-  initialHistory,
   locator,
 }: {
   readonly locator?: HistoryReviewLocator;
-  readonly initialHistory?: RecordHistoryData;
   readonly presentationActive?: boolean;
-  readonly beginMutation?: () => () => void;
-  readonly commands?: RecordRouteCommandPort;
   readonly canMutate: boolean;
   readonly ownerEffects: WorkbookRecordHistoryOwnerEffects;
-  readonly subject: WorkbookInspectorSubject | null;
-  readonly owner?: WorkbookRecordHistoryOwner;
-  readonly coordinate?: HistoryBinding["coordinate"];
-  readonly presentation?: {
+  readonly subject: WorkbookRecordSubject | null;
+  readonly presentation: {
     readonly snapshot: WorkbookRecordHistoryState;
     readonly dispatch: (
       event: WorkbookRecordHistoryEvent,
     ) => WorkbookRecordHistoryState;
   };
-}) {
+} & (
+  | {
+      readonly owner: WorkbookRecordHistoryOwner;
+      readonly coordinate: HistoryBinding["coordinate"];
+    }
+  | {
+      readonly owner?: never;
+      readonly coordinate?: HistoryBinding["coordinate"];
+    }
+)) {
   const runtime = useWorkbookHistoryRuntime();
   const owner = providedOwner ?? runtime?.history;
+  if (!owner || (!coordinate && !runtime))
+    throw new Error("History requires an owner and source write coordination");
   const operations = useSyncExternalStore(
     owner?.subscribe ?? emptySubscription,
     owner?.getSnapshot ?? emptySnapshot,
   );
-  const [localSnapshot, reactDispatch] = useReducer(
-    workbookRecordHistoryReducer,
-    subject,
-    (activeSubject): WorkbookRecordHistoryState =>
-      initialHistory && activeSubject
-        ? {
-            phase: "ready",
-            subject: activeSubject,
-            result: { kind: "loaded", data: initialHistory },
-          }
-        : initialWorkbookRecordHistoryState(activeSubject),
-  );
-  const snapshot = presentation?.snapshot ?? localSnapshot;
+  const snapshot = presentation.snapshot;
   const snapshotRef = useRef(snapshot);
   const presentationRef = useRef(presentation);
   const effectsRef = useRef(ownerEffects);
@@ -137,7 +123,6 @@ export function useWorkbookRecordHistoryController({
     bindingGeneration.current += 1;
   }, [bindingIdentity]);
   const reloadRetarget = useRef(false);
-  const requestSequence = useRef(0);
   const operationSequence = useRef(0);
   const readAbort = useRef<AbortController | null>(null);
   const previewAbort = useRef<AbortController | null>(null);
@@ -157,11 +142,8 @@ export function useWorkbookRecordHistoryController({
   );
 
   const dispatchHistory = useCallback((event: WorkbookRecordHistoryEvent) => {
-    const next = presentationRef.current
-      ? presentationRef.current.dispatch(event)
-      : workbookRecordHistoryReducer(snapshotRef.current, event);
+    const next = presentationRef.current.dispatch(event);
     snapshotRef.current = next;
-    if (!presentationRef.current) reactDispatch(event);
     return next;
   }, []);
   useLayoutEffect(() => {
@@ -207,7 +189,7 @@ export function useWorkbookRecordHistoryController({
 
   const load = useCallback(
     async (
-      activeSubject: WorkbookInspectorSubject,
+      activeSubject: WorkbookRecordSubject,
       feedback?: ReturnType<typeof workbookInspectorMessageFeedback>,
       requestedKind?: HistoryReadKind,
       retry = false,
@@ -506,18 +488,18 @@ export function useWorkbookRecordHistoryController({
     }
   }, [load, dispatchHistory, runLocation]);
   const settle = useCallback(
-    async (active: WorkbookInspectorSubject, signal: AbortSignal) => {
+    async (active: WorkbookRecordSubject, signal: AbortSignal) => {
       owner?.acceptVersion(active.recordId, active.rowVersion);
       return coordinateRef.current
         ? coordinateRef.current(active.recordId, signal)
         : runtime
           ? runtime.coordinateHistory(active.recordId, signal)
-          : active.rowVersion;
+          : null;
     },
     [owner, runtime],
   );
   const rejectReview = useCallback(
-    (active: WorkbookInspectorSubject, message: string) => {
+    (active: WorkbookRecordSubject, message: string) => {
       if (snapshotRef.current.subject?.recordId !== active.recordId) return;
       dispatchHistory({
         type: "lookup_changed",
@@ -614,7 +596,7 @@ export function useWorkbookRecordHistoryController({
   const preview = useCallback(
     async (
       build: (
-        active: WorkbookInspectorSubject,
+        active: WorkbookRecordSubject,
       ) => WorkbookRecordHistoryPendingAction | null,
     ) => {
       const active = snapshotRef.current.subject;
@@ -730,7 +712,7 @@ export function useWorkbookRecordHistoryController({
       ++operationSequence.current,
     );
     const next = dispatchHistory({ operationId, type: "submit" });
-    if (next.phase !== "submitting" || next.operationId !== operationId) return;
+    if (next.submission?.operationId !== operationId) return;
     const effects = effectsRef.current;
     const admittedCoordinate = coordinateRef.current;
     const provenance = previewReview.current?.lookup.snapshot.provenance;
@@ -753,7 +735,7 @@ export function useWorkbookRecordHistoryController({
           ? admittedCoordinate(recordId, signal)
           : runtime
             ? runtime.coordinateHistory(recordId, signal)
-            : Promise.resolve(active.rowVersion),
+            : Promise.reject(new Error("History coordination is unavailable")),
       acknowledged: (receipt) => {
         dispatchHistory({
           feedback: workbookRecordHistoryCompletionFeedback(intent),
@@ -767,23 +749,8 @@ export function useWorkbookRecordHistoryController({
       reconcile: async (receipt, current, history) => {
         const nextSubject = snapshotRef.current.subject;
         if (nextSubject && current()) {
-          const requestId = workbookRecordHistoryRequestId(
-            ++requestSequence.current,
-          );
-          dispatchHistory({
-            requestId,
-            subject: nextSubject,
-            type: "load_requested",
-          });
-          dispatchHistory({
-            data: history,
-            feedback: workbookRecordHistoryCompletionFeedback(intent),
-            requestId,
-            subject: nextSubject,
-            type: "load_accepted",
-          });
           const scope = owner.readScope;
-          if (scope && "paging" in history) {
+          if (scope) {
             const initial = beginHistoryRead(
               initialHistoryBrowsing(
                 scope,
@@ -796,15 +763,10 @@ export function useWorkbookRecordHistoryController({
             if (!initial.pending) return;
             dispatchHistory({
               type: "browsing_changed",
-              browsing: acceptHistoryPage(
-                initial,
-                initial.pending,
-                history as HistoryPage,
-                {
-                  rowVersion: nextSubject.rowVersion,
-                  deleted: nextSubject.kind === "deleted",
-                },
-              ),
+              browsing: acceptHistoryPage(initial, initial.pending, history, {
+                rowVersion: nextSubject.rowVersion,
+                deleted: nextSubject.kind === "deleted",
+              }),
             });
           }
         }
@@ -856,9 +818,9 @@ export function useWorkbookRecordHistoryController({
   }, [owner, canMutate, dispatchHistory, runtime]);
   useEffect(() => {
     const state = snapshotRef.current;
-    if (state.phase !== "submitting") return;
+    if (!state.submission) return;
     const entry = operations.find(
-      (entry) => entry.attempt.subject.recordId === state.subject.recordId,
+      (entry) => entry.attempt.subject.recordId === state.subject?.recordId,
     );
     if (
       !entry ||
@@ -869,7 +831,7 @@ export function useWorkbookRecordHistoryController({
       return;
     dispatchHistory({
       type: "operation_rejected",
-      operationId: state.operationId,
+      operationId: state.submission.operationId,
       feedback: entry.failure
         ? {
             kind: "error",

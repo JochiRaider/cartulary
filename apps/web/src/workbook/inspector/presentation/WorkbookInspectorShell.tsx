@@ -12,7 +12,7 @@ import { type CSSProperties, type ReactNode, useId } from "react";
 import { workbookTypography } from "../../components/workbookFormStyles";
 import { workbookSurfaceInspectorPanelStyle } from "../../layout/WorkbookSurfaceLayout";
 import { useWorkbookInspectorNavigation } from "../../layout/workbookInspectorNavigation";
-import type { WorkbookInspectorSubject } from "../workbookInspectorSubject";
+import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import { WorkbookInspectorActionButton } from "./WorkbookInspectorActions";
 import {
   WorkbookInspectorCompactMetadata,
@@ -31,39 +31,70 @@ export type WorkbookInspectorSection = {
 };
 const noSections: readonly WorkbookInspectorSection[] = [];
 
-export function WorkbookInspectorShell({
-  accessibleLabel,
-  children,
-  config,
-  elementRef,
-  eyebrow = "Inspector",
-  heading,
-  mode = "record",
-  noRowHeading,
-  onClose,
-  subject,
-  testId,
-  sections = noSections,
-}: {
+type ShellCommon = {
   readonly accessibleLabel: string;
-  readonly children?: ReactNode;
   readonly config: InspectorConfig;
   readonly elementRef?: ((element: HTMLElement | null) => void) | undefined;
-  readonly eyebrow?: string | undefined;
-  readonly heading?: string | undefined;
-  readonly mode?: "record" | "creation" | undefined;
-  readonly noRowHeading: string;
   readonly onClose: () => void;
-  readonly subject: WorkbookInspectorSubject | null;
   readonly testId?: string | undefined;
-  readonly sections?: readonly WorkbookInspectorSection[] | undefined;
-}) {
+};
+
+type WorkbookInspectorShellProps = ShellCommon &
+  (
+    | {
+        readonly mode: "saved";
+        readonly subject: WorkbookRecordSubject;
+        readonly sections: readonly WorkbookInspectorSection[];
+        readonly feedback?: ReactNode;
+        readonly heading?: never;
+        readonly context?: never;
+      }
+    | {
+        readonly mode: "empty";
+        readonly heading: string;
+        readonly subject?: never;
+        readonly sections?: never;
+        readonly context?: never;
+        readonly feedback?: never;
+      }
+    | {
+        readonly mode: "creation";
+        readonly context: {
+          readonly id: string;
+          readonly viewSchemaId: string;
+          readonly heading: string;
+        };
+        readonly sections: readonly WorkbookInspectorSection[];
+        readonly subject?: never;
+        readonly heading?: never;
+        readonly feedback?: never;
+      }
+  );
+
+export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
+  const { accessibleLabel, config, elementRef, onClose, testId, mode } = props;
+  const subject = mode === "saved" ? props.subject : null;
+  const sections = mode === "empty" ? noSections : props.sections;
+  const heading =
+    mode === "saved"
+      ? props.subject.label
+      : mode === "creation"
+        ? props.context.heading
+        : props.heading;
+  if (
+    mode === "creation" &&
+    (!props.context.id || props.context.viewSchemaId !== config.viewSchemaId)
+  )
+    throw new Error(
+      "Inspector creation context must belong to its declared source",
+    );
   const headingId = useId();
   const navigationId = useId();
   const scope = JSON.stringify([
     config.viewSchemaId,
     subject?.recordId ?? null,
     subject?.kind ?? mode,
+    mode === "creation" ? props.context.id : null,
   ]);
   const {
     active,
@@ -125,9 +156,11 @@ export function WorkbookInspectorShell({
       <header style={headerStyle}>
         <div style={titleRowStyle}>
           <div style={titleStackStyle}>
-            <p style={eyebrowStyle}>{subject ? "Inspector" : eyebrow}</p>
+            <p style={eyebrowStyle}>
+              {mode === "creation" ? "Create" : "Inspector"}
+            </p>
             <h2 id={headingId} style={titleStyle}>
-              {subject?.label ?? heading ?? noRowHeading}
+              {heading}
             </h2>
           </div>
           <button
@@ -144,7 +177,7 @@ export function WorkbookInspectorShell({
           </button>
         </div>
         {subject === null ? (
-          mode === "record" ? (
+          mode === "empty" ? (
             <p style={messageStyle}>{workbookInspectorNoRowMessage}</p>
           ) : null
         ) : (
@@ -229,7 +262,7 @@ export function WorkbookInspectorShell({
             {section.content}
           </WorkbookInspectorPanelSection>
         ))}
-        {children}
+        {mode === "saved" ? props.feedback : null}
         {subject === null ? null : (
           <section aria-label="Record technical metadata" style={metadataStyle}>
             <WorkbookInspectorTechnicalDetails
@@ -242,7 +275,7 @@ export function WorkbookInspectorShell({
   );
 }
 
-export function WorkbookInspectorPanelSection({
+function WorkbookInspectorPanelSection({
   children,
   elementRef,
   panel,
@@ -272,7 +305,7 @@ export function WorkbookInspectorPanelSection({
 function RecordContext({
   subject,
 }: {
-  readonly subject: WorkbookInspectorSubject;
+  readonly subject: WorkbookRecordSubject;
 }) {
   return (
     <div style={recordContextStyle}>
@@ -285,7 +318,7 @@ function RecordContext({
 }
 
 function subjectTechnicalFields(
-  subject: WorkbookInspectorSubject,
+  subject: WorkbookRecordSubject,
 ): WorkbookInspectorTechnicalField[] {
   return [
     { label: "Record ID", value: subject.recordId },
