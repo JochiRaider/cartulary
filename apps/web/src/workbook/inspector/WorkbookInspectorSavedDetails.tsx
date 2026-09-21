@@ -25,15 +25,25 @@ export function WorkbookInspectorSavedDetails({
   contract,
   row,
   fields,
-  feedback,
+  describedBy,
 }: {
   readonly contract: ViewContract;
   readonly row: WorkbookQueryRow;
   readonly fields?: ReadonlyMap<string, FieldPresentation>;
-  readonly feedback?: ReactNode;
+  readonly describedBy?: string | undefined;
 }) {
   return (
-    <dl style={detailsStyle}>
+    <dl style={detailsStyle} aria-describedby={describedBy}>
+      <style>{`
+        [data-inspector-field-layout="property"] { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto; }
+        [data-inspector-field-layout="property"] > [data-inspector-field-actions] { grid-column: 3; grid-row: 1; }
+        @container inspector-fields (width < ${cartularyDesignPresentation.inspector.propertyStackBelowPx}px) {
+          [data-inspector-field-layout="property"] { grid-template-columns: minmax(0, 1fr) auto; }
+          [data-inspector-field-layout="property"] > dt { grid-column: 1 / -1; }
+          [data-inspector-field-layout="property"] > [data-inspector-field-value] { grid-column: 1; grid-row: 2; }
+          [data-inspector-field-layout="property"] > [data-inspector-field-actions] { grid-column: 2; grid-row: 2; }
+        }
+      `}</style>
       {contract.fields.map((field) => {
         const cell = row.cells[field.fieldKey];
         const value = cell?.value;
@@ -44,33 +54,48 @@ export function WorkbookInspectorSavedDetails({
               ? "Not set"
               : value === ""
                 ? "Empty text"
-                : genericCellLabelForField(
-                    contract.viewSchemaId,
-                    field.fieldKey,
-                    value,
-                  );
+                : typeof value === "boolean"
+                  ? value
+                    ? "True"
+                    : "False"
+                  : typeof value === "string" && field.readKind === "text"
+                    ? value
+                    : genericCellLabelForField(
+                        contract.viewSchemaId,
+                        field.fieldKey,
+                        value,
+                      );
         const kind = inspectorSavedValueKind(field);
+        const override =
+          cartularyDesignPresentation.inspector.fieldLayoutOverrides.find(
+            (layout) =>
+              layout.viewSchemaId === contract.viewSchemaId &&
+              layout.fieldKey === field.fieldKey,
+          );
+        const property = override
+          ? override.layout === "property"
+          : kind === "scalar";
         const slots = fields?.get(field.fieldKey);
         return (
           <div
             key={field.fieldKey}
+            tabIndex={-1}
             data-inspector-saved-field={field.fieldKey}
             data-inspector-value-kind={kind}
+            data-inspector-field-layout={property ? "property" : "narrative"}
             style={{
               ...fieldStyle,
-              gridTemplateColumns:
-                kind === "scalar"
-                  ? "minmax(0, 2fr) minmax(0, 3fr) auto"
-                  : "minmax(0, 1fr) auto",
+              ...(!property
+                ? { gridTemplateColumns: "minmax(0, 1fr) auto" }
+                : {}),
             }}
           >
             <dt style={labelStyle}>{field.label}</dt>
             <dd
+              data-inspector-field-value
               style={{
                 ...valueStyle,
-                ...(kind !== "scalar"
-                  ? { gridColumn: "1 / -1", gridRow: 2 }
-                  : {}),
+                ...(!property ? { gridColumn: "1 / -1", gridRow: 2 } : {}),
               }}
             >
               <SavedValue
@@ -80,10 +105,10 @@ export function WorkbookInspectorSavedDetails({
               />
             </dd>
             <dd
+              data-inspector-field-actions
               style={{
                 margin: 0,
-                gridColumn: kind === "scalar" ? 3 : 2,
-                gridRow: 1,
+                ...(!property ? { gridColumn: 2, gridRow: 1 } : {}),
               }}
             >
               {slots?.controls}
@@ -92,7 +117,6 @@ export function WorkbookInspectorSavedDetails({
           </div>
         );
       })}
-      {feedback}
     </dl>
   );
 }
@@ -146,6 +170,9 @@ function SavedValue({
   }, [lines, value]);
   return (
     <>
+      {value !== "" && value.trim() === "" ? (
+        <span style={workbookTypography("metadata")}>Whitespace only</span>
+      ) : null}
       <div
         id={id}
         ref={text}
@@ -176,6 +203,14 @@ function SavedValue({
       >
         {value}
       </div>
+      {value !== "" && value.trim() === "" ? (
+        <details>
+          <summary>Inspect source whitespace</summary>
+          <code style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+            {JSON.stringify(value)}
+          </code>
+        </details>
+      ) : null}
       {overflow || expanded ? (
         <Button
           aria-expanded={expanded}
@@ -190,6 +225,8 @@ function SavedValue({
 }
 
 const detailsStyle = {
+  containerType: "inline-size",
+  containerName: "inspector-fields",
   display: "grid",
   gap: "var(--ct-spacing-xs)",
   margin: 0,

@@ -90,6 +90,7 @@ export function WorkbookInspectorDeclaredPanelList({
       return [
         {
           panel,
+          ...(model.attention ? { attention: model.attention } : {}),
           focusDestination: workbookInspectorSectionFocusDestination,
           elementRef: (element) => panelRef?.(panel.panelId, element),
           content: (
@@ -97,6 +98,7 @@ export function WorkbookInspectorDeclaredPanelList({
               {subject?.kind !== "live" || capabilities.length === 0 ? null : (
                 <WorkbookInspectorContextualActions
                   capabilities={capabilities}
+                  featureContent={model.featureContent}
                   config={config}
                   currentIncidentRole={currentIncidentRole}
                   disabledTokens={disabledTokens}

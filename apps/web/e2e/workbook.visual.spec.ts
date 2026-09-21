@@ -223,6 +223,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { createInspectorReadingFixture } from "./support/timeline/inspectorReadingFixture";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
@@ -3506,43 +3507,8 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     sessionTracker,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("VISUALINSPECTORHISTORY"),
-      "browser.inspector-history visual inspector actions",
-    );
-    const evidence = await createViewRow(
-      page,
-      incidentId,
-      evidenceViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-EVIDENCE"),
-        "evidence.collector_party_text":
-          "browser.inspector-history visual collector",
-        "evidence.title": "browser.inspector-history visual attached evidence",
-      },
-    );
-    const target = await createViewRow(page, incidentId, timelineViewSchemaId, {
-      [hostRefsFieldKey]: collectionActionsPayload([
-        "browser.inspector-history visual host",
-      ]),
-      client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-TARGET"),
-      "timeline.raw_activity_text":
-        "browser.inspector-history visual inspector details",
-      "timeline.activity_synopsis_text":
-        "browser.inspector-history visual inspector target",
-    });
-    const linkedTarget = await patchRecord(page, target.record_id, {
-      base_row_version: target.row_version,
-      changes: [
-        {
-          action_payload: feP9VisualAttachedEvidencePayload(evidence.record_id),
-          field_key: "timeline.attached_evidence_ids",
-        },
-      ],
-      client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-LINK"),
-      view_schema_id: timelineViewSchemaId,
-    });
+    const { incidentId, target, linkedTarget } =
+      await createInspectorReadingFixture(page);
     const hostItem = requireItemByRawText(
       collectionItems(linkedTarget, hostRefsFieldKey),
       "browser.inspector-history visual host",
@@ -3595,9 +3561,11 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       scroll: { top: 0, left: "left" },
     });
     const inspector = page.getByTestId(timelineInspectorTestId());
-    await inspector
-      .getByRole("button", { name: "Sections", exact: true })
-      .click();
+    const sectionsChooser = inspector.getByRole("button", {
+      name: "Sections",
+      exact: true,
+    });
+    if (await sectionsChooser.isVisible()) await sectionsChooser.click();
     await inspector
       .getByRole("button", { name: "Details", exact: true })
       .click();
@@ -3824,20 +3792,6 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     );
   });
 });
-
-function feP9VisualAttachedEvidencePayload(
-  recordId: string,
-): CollectionActionsV1 {
-  return {
-    kind: "collection_actions_v1",
-    actions: [
-      {
-        op: "add_record_ref",
-        linked_record_id: recordId,
-      },
-    ],
-  };
-}
 
 function feP9VisualHistoryActionTestId(
   item: RecordHistoryItem,

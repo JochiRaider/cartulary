@@ -616,8 +616,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     const permissionDescription = markReviewed.getAttribute("aria-describedby");
     expect(permissionDescription).toBeTruthy();
     expect(
-      document.getElementById(permissionDescription ?? "")?.textContent,
-    ).toBe("Requires the reviewer incident role.");
+      permissionDescription
+        ?.split(/\s+/u)
+        .map((id) => document.getElementById(id)?.textContent),
+    ).toContain("Requires the reviewer incident role.");
     await userEvent.setup().click(markReviewed);
     expect(timelineRecordActionCalls(fetchMock, "mark-reviewed")).toHaveLength(
       0,

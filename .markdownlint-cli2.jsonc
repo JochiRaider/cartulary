@@ -8,6 +8,7 @@
     "docs/spec/**/*.md",
     "docs/guides/**/*.md",
     "docs/handoffs/workbook-inspector-ui-ux-audit.md",
+    "docs/handoffs/workbook-inspector-presentation-redesign-plan.md",
     "docs/handoffs/workbook-indicator-create-from-observation-refactor-handoff.md",
     "docs/handoffs/workbook-party-linking-refactor-handoff.md",
     "docs/handoffs/workbook-assessment-authoring-refactor-handoff.md",

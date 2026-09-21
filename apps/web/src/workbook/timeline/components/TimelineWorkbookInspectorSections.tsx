@@ -1,12 +1,15 @@
-import { type RefCallback, useCallback } from "react";
+import { type RefCallback, useCallback, useSyncExternalStore } from "react";
 import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
-
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { ownedInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import type { WorkbookInspectorAttention } from "../../inspector/presentation/workbookInspectorPresentationModel";
+
 import type { HistoryBrowsingControls } from "../../inspector/WorkbookInspectorRecordHistory";
+import { workbookInspectorOrdinaryAttention } from "../../inspector/workbookInspectorOrdinaryAttention";
 import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import {
   type CollectionFieldKey,
@@ -71,6 +74,23 @@ export function useTimelineWorkbookInspectorSections({
     value: string,
   ) => void;
 }) {
+  useSyncExternalStore(
+    detailsOwner.drafts.subscribe,
+    detailsOwner.drafts.getSnapshot,
+  );
+  useSyncExternalStore(
+    detailsOwner.patches.subscribe,
+    detailsOwner.patches.getSnapshot,
+  );
+  const inspectorAttentionForRow = (
+    row: WorkbookRow,
+  ): readonly WorkbookInspectorAttention[] =>
+    workbookInspectorOrdinaryAttention(
+      detailsOwner.drafts,
+      detailsOwner.patches,
+      timelineViewSchemaId,
+      row.rawRow ?? null,
+    );
   const renderInspectorFieldEditors = useCallback(
     (
       row: WorkbookRow,
@@ -131,32 +151,38 @@ export function useTimelineWorkbookInspectorSections({
     [handleTimelineEvidenceFiles],
   );
 
-  const renderWorkflowSection = useCallback(() => {
-    if (createRelatedWorkflow === null) {
-      return null;
-    }
-    return (
-      <InspectorCreateRelatedWorkflow
-        state={createRelatedWorkflow}
-        onCancel={cancelCreateRelatedWorkflow}
-        onSubmit={() => {
-          void submitCreateRelatedWorkflow();
-        }}
-        onUpdateDraft={(fieldKey, value) => {
-          updateCreateRelatedWorkflowDraft(
-            createRelatedWorkflow.featureGroup.featureGroupKey,
-            fieldKey,
-            value,
-          );
-        }}
-      />
-    );
-  }, [
-    cancelCreateRelatedWorkflow,
-    createRelatedWorkflow,
-    submitCreateRelatedWorkflow,
-    updateCreateRelatedWorkflowDraft,
-  ]);
+  const renderFeatureWorkflow = useCallback(
+    (featureGroupKey: string) => {
+      if (
+        createRelatedWorkflow === null ||
+        createRelatedWorkflow.featureGroup.featureGroupKey !== featureGroupKey
+      ) {
+        return null;
+      }
+      return (
+        <InspectorCreateRelatedWorkflow
+          state={createRelatedWorkflow}
+          onCancel={cancelCreateRelatedWorkflow}
+          onSubmit={() => {
+            void submitCreateRelatedWorkflow();
+          }}
+          onUpdateDraft={(fieldKey, value) => {
+            updateCreateRelatedWorkflowDraft(
+              createRelatedWorkflow.featureGroup.featureGroupKey,
+              fieldKey,
+              value,
+            );
+          }}
+        />
+      );
+    },
+    [
+      cancelCreateRelatedWorkflow,
+      createRelatedWorkflow,
+      submitCreateRelatedWorkflow,
+      updateCreateRelatedWorkflowDraft,
+    ],
+  );
 
   const renderRowHistorySection = useCallback(
     (elementRef?: RefCallback<HTMLElement>) =>
@@ -193,10 +219,11 @@ export function useTimelineWorkbookInspectorSections({
   );
 
   return {
+    inspectorAttentionForRow,
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
     renderRelationshipEditor,
     renderRowHistorySection,
-    renderWorkflowSection,
+    renderFeatureWorkflow,
   };
 }

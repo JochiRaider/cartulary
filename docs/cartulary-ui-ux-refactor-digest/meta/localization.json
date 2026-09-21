@@ -184,7 +184,7 @@
     "apps/web/src/workbook/lifecycle/README.md",
     "apps/web/src/workbook/runtime/README.md",
     "apps/web/vite.config.ts",
-    "contracts/design/presentation.v1.json",
+    "contracts/design/presentation.v2.json",
     "contracts/design/tokens.v1.json",
     "contracts/index.json",
     "contracts/openapi-source/manifest.json",
@@ -235,5 +235,11 @@
     "tools/frontend_visual_fixture_registry.json",
     "tools/generated_artifact_policy.json",
     "tools/test_catalog_owner.json"
-  ]
+  ],
+  "bounded_follow_up": {
+    "date": "2026-09-21",
+    "baseline_commit": "a4ef612aea434696361e9b3d5683f72eecd0180b",
+    "scope": "Inspector presentation v2 consultation paths only; September 13 localization remains historical.",
+    "controlling_tracker": "docs/handoffs/workbook-inspector-presentation-redesign-plan.md"
+  }
 }

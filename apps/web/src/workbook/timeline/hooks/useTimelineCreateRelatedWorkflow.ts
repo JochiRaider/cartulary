@@ -99,7 +99,11 @@ export function useTimelineCreateRelatedWorkflow(
         if (message)
           current.current.setInspectorMessage({
             ...workbookInspectorMessageFeedback(message, "none"),
-            destination: { kind: "panel", panel: feature.panelId },
+            destination: {
+              kind: "feature",
+              panel: feature.panelId,
+              featureGroupKey: feature.featureGroupKey,
+            },
             ...(current.current.selectedSubject
               ? { sourceRecordId: current.current.selectedSubject.recordId }
               : {}),

@@ -46,7 +46,7 @@ import {
 
 test("dismisses and ordinarily restores a mention without relinking", async ({
   page,
-}) => {
+}, testInfo) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("MENTION-LIFECYCLE"),
@@ -152,6 +152,19 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
     .getByTestId(mentionItemTestId(String(seededMention.item_ref)))
     .click();
 
+  const selectedCorrection = page.getByRole("region", {
+    name: "Selected Hosts item",
+  });
+  await expect(selectedCorrection).toBeVisible();
+  expect(
+    await selectedCorrection.evaluate((element) =>
+      element.previousElementSibling?.getAttribute("data-testid"),
+    ),
+  ).toBe(mentionItemTestId(String(seededMention.item_ref)));
+  await testInfo.attach("inspector-relationship-correction", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   const dismissScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   const dismissResponsePromise = waitForMentionAction(page, seededMention);
   await page.getByTestId(mentionDismissButtonTestId()).click();
@@ -194,6 +207,15 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
     collectionItems(findRow(rowsAfterDismiss, row.record_id), hostRefsFieldKey),
   ).toHaveLength(0);
 
+  expect(
+    await selectedCorrection.evaluate((element) =>
+      element.previousElementSibling?.getAttribute("data-testid"),
+    ),
+  ).toBe(mentionItemTestId(String(seededMention.item_ref)));
+  await testInfo.attach("inspector-relationship-dismissed", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   const restoreScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   const restoreResponsePromise = waitForMentionAction(page, seededMention);
   await page.getByTestId(mentionRestoreUnresolvedButtonTestId()).click();

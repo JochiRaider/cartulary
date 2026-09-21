@@ -7,6 +7,7 @@ import { useId, useState, useSyncExternalStore } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import { ownerInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { useWorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import { useWorkbookInspectorFieldFeedback } from "../../inspector/useWorkbookInspectorFieldFeedback";
 import { WorkbookExplicitPatchRecovery } from "../../inspector/WorkbookExplicitPatchRecovery";
@@ -64,6 +65,10 @@ export function TimelineInspectorDetails({
     editableFields.find((candidate) => candidate.fieldKey === fieldKey) ?? null;
   const edit = useWorkbookInspectorEditDraft({
     store: owner.drafts,
+    retainedSelection: {
+      fields: editableFields,
+      select: (identity) => setFieldKey(identity.fieldKey),
+    },
     row: saved,
     field,
     viewSchemaId: timelineViewSchemaId,
@@ -157,10 +162,15 @@ export function TimelineInspectorDetails({
       onSubmit={() => void submit()}
       canSubmit={canSubmit}
       disabledReason={
-        owner.drafts.canAuthor() ? null : "Current access permits reading only."
+        owner.drafts.canAuthor()
+          ? null
+          : ownerInspectorDisabledReason(
+              "timeline",
+              "authoring_unavailable",
+              "Current access permits reading only.",
+            )
       }
       retainedWork={edit.retainedWork}
-      onReviewDraft={(identity) => setFieldKey(identity.fieldKey)}
       collectionDestinations={collectionDestinations}
       editor={{
         content: field ? (

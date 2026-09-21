@@ -74,6 +74,7 @@ Source-specific composition belongs in [features](../features/README.md) and
 | [WorkbookInspectorEditControl.tsx](WorkbookInspectorEditControl.tsx) | Accessible ordinary value control with retained reference identity and explicit clear intent. |
 | [WorkbookInspectorDraftFeedback.tsx](WorkbookInspectorDraftFeedback.tsx) | Local Resume/Discard and changed saved-value review. |
 | [prepareWorkbookInspectorChange.ts](prepareWorkbookInspectorChange.ts) | Patch capability and scalar/action serialization; creation remains separately admitted. |
+| [workbookInspectorOrdinaryAttention.ts](workbookInspectorOrdinaryAttention.ts) | Immutable draft/PATCH attention projection; preserves distinct newer authoring and captured operations. |
 | [WorkbookInspectorDraftStore.test.ts](WorkbookInspectorDraftStore.test.ts) | Draft, capability, review, security and captured-revision regressions. |
 | [useWorkbookInspectorEditDraft.test.tsx](useWorkbookInspectorEditDraft.test.tsx) | Frozen field/action binding through refresh, detachment, no-row and explicit return. |
 

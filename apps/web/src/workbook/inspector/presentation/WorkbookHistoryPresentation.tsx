@@ -1,7 +1,10 @@
 import { type CSSProperties, type ReactNode, useRef } from "react";
 import { workbookTypography } from "../../components/workbookFormStyles";
 import { WorkbookInspectorTechnicalDetails } from "./WorkbookInspectorFeedback";
-import type { WorkbookHistoryEventPresentation } from "./workbookInspectorPresentationModel";
+import type {
+  WorkbookHistoryEventPresentation,
+  WorkbookHistoryValue,
+} from "./workbookInspectorPresentationModel";
 
 export function WorkbookHistoryList({
   children,
@@ -84,29 +87,86 @@ export function WorkbookHistoryEvent({
                   <div key={change.fieldKey} style={changeStyle}>
                     <dt>
                       <strong>{change.label}</strong>
-                      <code style={fieldKeyStyle}>{change.fieldKey}</code>
                     </dt>
                     <dd style={valueStyle}>
                       <span style={metadataStyle}>Before: </span>
-                      {change.before}
+                      <HistoryValue value={change.before} />
                     </dd>
                     <dd style={valueStyle}>
                       <span style={metadataStyle}>After: </span>
-                      {change.after}
+                      <HistoryValue value={change.after} />
                     </dd>
                   </div>
                 ))}
               </dl>
-              <p style={metadataStyle}>
-                Record references: {unit.recordIds.join(", ")}
-              </p>
             </section>
           ))}
-          <WorkbookInspectorTechnicalDetails fields={event.technicalFields} />
+          <WorkbookInspectorTechnicalDetails
+            fields={[
+              ...event.technicalFields,
+              ...event.units.flatMap((unit) => [
+                { label: `${unit.title}: unit reference`, value: unit.key },
+                {
+                  label: `${unit.title}: record references`,
+                  value: unit.recordIds.join(", "),
+                },
+                ...unit.changes.map((change) => ({
+                  label: `Field: ${change.label}`,
+                  value: change.fieldKey,
+                })),
+              ]),
+            ]}
+          />
           {actions}
         </div>
       </details>
     </li>
+  );
+}
+
+function HistoryValue({ value }: { readonly value: WorkbookHistoryValue }) {
+  if (value.state === "absent")
+    return <span data-history-value="absent">Not present</span>;
+  if (value.state === "null")
+    return <span data-history-value="null">No value (null)</span>;
+  const content = value.value;
+  if (typeof content === "string") return <HistoryText value={content} />;
+  if (typeof content === "number" || typeof content === "boolean")
+    return (
+      <span data-history-value="scalar">
+        {typeof content === "boolean"
+          ? content
+            ? "True"
+            : "False"
+          : String(content)}
+      </span>
+    );
+  return content.length === 0 ? (
+    <span data-history-value="collection">No items</span>
+  ) : (
+    <ul
+      data-history-value="collection"
+      style={{ margin: 0, paddingInlineStart: "var(--ct-spacing-lg)" }}
+    >
+      {content.map((item, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Immutable historical collections have no item IDs and may contain duplicate values.
+        <li key={`${index}:${item}`}>
+          <HistoryText value={item} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+function HistoryText({ value }: { readonly value: string }) {
+  if (value === "")
+    return <span data-history-value="empty-text">Empty text</span>;
+  return (
+    <span data-history-value="text">
+      {value.trim() === "" ? <small>Whitespace only: </small> : null}
+      <span style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+        {value}
+      </span>
+    </span>
   );
 }
 
@@ -167,9 +227,4 @@ const valueStyle = {
   margin: 0,
   whiteSpace: "pre-wrap",
   overflowWrap: "anywhere",
-} satisfies CSSProperties;
-const fieldKeyStyle = {
-  ...workbookTypography("mono"),
-  display: "block",
-  color: "var(--ct-colors-ink-muted)",
 } satisfies CSSProperties;

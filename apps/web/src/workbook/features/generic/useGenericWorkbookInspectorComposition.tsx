@@ -307,9 +307,16 @@ export function useGenericWorkbookInspectorComposition({
         : "value",
     presentation: inspectorResetKey,
     active: isOpen,
-    dependencies:
+    retainedSelection: {
+      fields: editableFields,
+      select: (identity) => {
+        setEditCollectionMode(identity.action === "remove" ? "remove" : "add");
+        setEditFieldKey(identity.fieldKey);
+      },
+    },
+    dependenciesForField: (key) =>
       contract.viewSchemaId === taskViewId &&
-      taskGuardFields.some((field) => field === editFieldKey)
+      taskGuardFields.some((field) => field === key)
         ? taskGuardFields
         : [],
   });
@@ -708,12 +715,21 @@ export function useGenericWorkbookInspectorComposition({
         subjectPresent: subject !== null,
       }}
       details={{
+        drafts: mutation.inspectorDrafts,
         patches: mutation.explicitPatches,
         disabledReason:
           interactionMode.kind !== "editable"
-            ? interactionMode.label
+            ? ownerInspectorDisabledReason(
+                contract.viewSchemaId,
+                interactionMode.kind,
+                interactionMode.label,
+              )
             : !mutation.inspectorDrafts.canAuthor()
-              ? "Current access permits reading only."
+              ? ownerInspectorDisabledReason(
+                  contract.viewSchemaId,
+                  "authoring_unavailable",
+                  "Current access permits reading only.",
+                )
               : null,
         edit,
         collectionItems: selectedEditCollectionItems,

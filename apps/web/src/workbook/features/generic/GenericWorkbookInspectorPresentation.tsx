@@ -32,12 +32,15 @@ import {
   savedInspectorRegion,
   type WorkbookInspectorRegion,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import type { WorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import { WorkbookExplicitPatchRecovery } from "../../inspector/WorkbookExplicitPatchRecovery";
 import { WorkbookInspectorDetails } from "../../inspector/WorkbookInspectorDetails";
 import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
+import type { WorkbookInspectorDraftStore } from "../../inspector/WorkbookInspectorDraftStore";
 import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
 import type { WorkbookInspectorErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
+import { useWorkbookInspectorOrdinaryAttention } from "../../inspector/workbookInspectorOrdinaryAttention";
 import type { GenericCollectionMode } from "../../models/genericWorkbookModel";
 import { genericCollectionSupportsRemove } from "../../models/genericWorkbookModel";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
@@ -73,10 +76,24 @@ export function GenericWorkbookInspectorPresentation({
   readonly relationships: GenericRelationshipsProps;
   readonly workflow: GenericWorkflowProps;
 }) {
+  const attention = useWorkbookInspectorOrdinaryAttention(
+    details.drafts,
+    details.patches,
+    details.contract.viewSchemaId,
+    isOpen ? details.selectedEdit.row : null,
+    (identity) =>
+      details.edit.retainedWork.some(
+        (work) =>
+          work.identity.fieldKey === identity.fieldKey &&
+          work.identity.action === identity.action &&
+          work.reviewRequired,
+      ),
+  );
   if (!isOpen) return undefined;
   return (
     <GenericWorkbookInspector
       {...inspector}
+      attention={attention}
       detailsContent={<GenericDetails {...details} />}
       relationshipsContent={
         relationships.noteAssociations ?? [
@@ -203,8 +220,9 @@ function GenericDraftFields(props: GenericWorkflowProps) {
 }
 
 type GenericDetailsProps = {
+  readonly drafts: WorkbookInspectorDraftStore;
   readonly patches: WorkbookExplicitPatchOwner;
-  readonly disabledReason: string | null;
+  readonly disabledReason: WorkbookInspectorDisabledReason | null;
   readonly fieldFeedback: string | null;
   readonly actionError: WorkbookInspectorErrorPresentation | null;
   readonly edit: WorkbookInspectorEditDraft;
@@ -241,12 +259,6 @@ function GenericDetails(props: GenericDetailsProps) {
       canSubmit={!props.mutationPending && props.edit.canSubmit}
       onSubmit={() => void props.submitEdit()}
       retainedWork={props.edit.retainedWork}
-      onReviewDraft={(identity) => {
-        props.setCollectionMode(
-          identity.action === "remove" ? "remove" : "add",
-        );
-        props.setEditFieldKey(identity.fieldKey);
-      }}
       editor={{
         content: field ? (
           <fieldset

@@ -2,6 +2,7 @@ import type { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import type { ReactNode } from "react";
 import type { WorkbookInspectorNotice } from "../workbookInspectorErrorModel";
 import { WorkbookInspectorNoticeView } from "./WorkbookInspectorFeedback";
+import type { WorkbookInspectorAttention } from "./workbookInspectorPresentationModel";
 
 type State<
   T extends (typeof cartularyDesignPresentation.inspector.dataStates)[number],
@@ -95,7 +96,9 @@ export type WorkbookInspectorPanelModel =
         WorkbookInspectorRegion,
         ...WorkbookInspectorRegion[],
       ];
-      readonly authoring?: ReactNode;
+      readonly attention?: readonly WorkbookInspectorAttention[];
+      readonly featureContent?: Readonly<Record<string, ReactNode>>;
+      readonly feedback?: ReactNode;
     };
 
 export function inspectorPanel(
@@ -149,7 +152,7 @@ export function WorkbookInspectorPanelContent({
           )}
         </div>
       ))}
-      {model.authoring}
+      {model.feedback}
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import { getReferenceFieldContract } from "@cartulary/view-contracts";
 import type { ComponentProps } from "react";
 import { GenericMutationControl } from "../components/GenericMutationControl";
@@ -19,54 +20,74 @@ export function WorkbookInspectorEditControl({
   );
   return (
     <>
-      {reference && props.collectionMode !== "remove" ? (
-        <WorkbookReferenceControl
-          field={reference}
-          label={props.field.label}
-          value={edit.value ?? ""}
-          disabled={!edit.canEdit}
-          sourceRecordId={edit.identity.recordId}
-          retained={edit.draft?.references}
-          testId={props.testId}
-          invalid={props.invalid}
-          describedBy={props.describedBy}
-          focusTargetRef={(element) => {
-            edit.controlRef.current = element;
-          }}
-          onChange={edit.update}
-          onAccept={(items) =>
-            edit.selectReferences(
-              items.map((item) => ({
-                recordId: item.identity.id,
-                displayText: item.displayText,
-                viewSchemaId: item.viewSchemaId,
-              })),
-            )
-          }
-        />
-      ) : (
-        <GenericMutationControl
-          {...props}
-          disabled={!edit.canEdit}
-          readOnly={!edit.canEdit && !edit.needsResume}
-          value={edit.value ?? ""}
-          focusTargetRef={(element) => {
-            edit.controlRef.current = element;
-          }}
-          onChange={edit.update}
-        />
-      )}
-      {props.field.clearable && props.field.writeKind === "direct_value" ? (
-        <Button
-          type="button"
-          disabled={!edit.canEdit}
-          onClick={() => edit.update(null)}
-        >
-          Clear {props.field.label}
-        </Button>
-      ) : null}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "start",
+          gap: "var(--ct-spacing-xs)",
+          minInlineSize: 0,
+        }}
+      >
+        <div style={{ flex: "1 1 0", minInlineSize: 0 }}>
+          {reference && props.collectionMode !== "remove" ? (
+            <WorkbookReferenceControl
+              field={reference}
+              label={props.field.label}
+              value={edit.value ?? ""}
+              disabled={!edit.canEdit}
+              sourceRecordId={edit.identity.recordId}
+              retained={edit.draft?.references}
+              testId={props.testId}
+              invalid={props.invalid}
+              describedBy={props.describedBy}
+              focusTargetRef={(element) => {
+                edit.controlRef.current = element;
+              }}
+              onChange={edit.update}
+              onAccept={(items) =>
+                edit.selectReferences(
+                  items.map((item) => ({
+                    recordId: item.identity.id,
+                    displayText: item.displayText,
+                    viewSchemaId: item.viewSchemaId,
+                  })),
+                )
+              }
+            />
+          ) : (
+            <GenericMutationControl
+              {...props}
+              disabled={!edit.canEdit}
+              readOnly={!edit.canEdit && !edit.needsResume}
+              value={edit.value ?? ""}
+              focusTargetRef={(element) => {
+                edit.controlRef.current = element;
+              }}
+              onChange={edit.update}
+            />
+          )}
+        </div>
+        {props.field.clearable && props.field.writeKind === "direct_value" ? (
+          <Button
+            type="button"
+            disabled={!edit.canEdit}
+            style={{
+              minInlineSize:
+                cartularyDesignPresentation.inspector.fieldActionMinSizePx,
+              minBlockSize:
+                cartularyDesignPresentation.inspector.fieldActionMinSizePx,
+              padding: "var(--ct-spacing-xs)",
+              background: "transparent",
+            }}
+            aria-label={`Clear ${props.field.label}`}
+            onClick={() => edit.update(null)}
+          >
+            Clear
+          </Button>
+        ) : null}
+      </div>
       {edit.draft?.value === null ? (
-        <span role="status">This field will be cleared when you update.</span>
+        <span role="status">Sets the value to Not set when updated.</span>
       ) : null}
     </>
   );

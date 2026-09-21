@@ -25,6 +25,7 @@ import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookSameFieldConflictPayload } from "../../runtime/workbookConflictModel";
 import { freezeWorkbookValue } from "../../utils/freezeWorkbookValue";
 import { retainWorkbookReferenceLabels } from "../../utils/retainWorkbookReferenceLabels";
+import type { EvidenceWorkAttention } from "./evidenceWorkAttention";
 import {
   buildTimelineRelatedEvidenceDraft,
   prepareTimelineRelatedEvidence,
@@ -41,6 +42,7 @@ import type {
 } from "./timelineRelatedEvidenceOperation";
 
 type Snapshot = Readonly<{
+  attention: readonly { recordId: string; attention: EvidenceWorkAttention }[];
   authority: WorkbookMutationAuthority | null;
   draft: TimelineRelatedEvidenceDraft | null;
   attachment: symbol | null;
@@ -85,6 +87,7 @@ export class WorkbookTimelineRelatedEvidenceOwner {
   private reader: WorkbookAuthoringReadPort | null = null;
   private authorityReader: WorkbookAuthoringAuthorityReader | null = null;
   private snapshot: Snapshot = {
+    attention: [],
     authority: null,
     draft: null,
     attachment: null,
@@ -125,6 +128,7 @@ export class WorkbookTimelineRelatedEvidenceOwner {
     };
   };
   getSnapshot = () => this.snapshot;
+  getAttentionSnapshot = () => this.snapshot.attention;
   configure(
     reader: WorkbookAuthoringReadPort,
     authorityReader: WorkbookAuthoringAuthorityReader,
@@ -145,8 +149,68 @@ export class WorkbookTimelineRelatedEvidenceOwner {
   getReader() {
     return this.reader;
   }
+  private attention(): Snapshot["attention"] {
+    if (!this.authority) return [];
+    const entries: { recordId: string; attention: EvidenceWorkAttention }[] =
+      [];
+    const captured = [...this.checkpoints.values()];
+    if (
+      this.draft &&
+      !captured.some(
+        (c) =>
+          c.create.attempt.review.draft.id === this.draft?.id &&
+          c.create.attempt.review.draft.revision === this.draft?.revision,
+      )
+    ) {
+      const draft = this.draft;
+      entries.push({
+        recordId: draft.source.recordId,
+        attention: {
+          workId: `related-evidence-draft:${this.incidentId}:${draft.id}`,
+          category: this.preparing
+            ? "in_progress"
+            : this.reviewRevision !== this.reviewedRevision
+              ? "review"
+              : "draft",
+          label: "Unfinished Evidence metadata",
+          outcomeIdentity: `draft:${draft.id}:${draft.revision}`,
+        },
+      });
+    }
+    for (const checkpoint of captured) {
+      const stages = [checkpoint.create, ...checkpoint.links];
+      const linked = this.linkComplete(checkpoint);
+      if (linked && stages.every((s) => !s.receipt || s.refresh === "complete"))
+        continue;
+      const latest = stages.at(-1) ?? checkpoint.create;
+      const category = stages.some((s) => s.uncertain)
+        ? "uncertain"
+        : stages.some((s) => s.phase === "submitting")
+          ? "in_progress"
+          : linked
+            ? "refresh"
+            : latest.phase === "rejected"
+              ? "failure"
+              : "review";
+      entries.push({
+        recordId: checkpoint.create.attempt.review.draft.source.recordId,
+        attention: {
+          workId: `related-evidence:${this.incidentId}:${checkpoint.id}`,
+          category,
+          label: linked
+            ? "Evidence linked; refresh pending"
+            : checkpoint.create.receipt
+              ? "Evidence created; Timeline link incomplete"
+              : "Evidence creation needs attention",
+          outcomeIdentity: `${checkpoint.id}:${latest.attempt.clientTxnId}:${latest.phase}:${latest.refresh}`,
+        },
+      });
+    }
+    return freezeWorkbookValue(entries);
+  }
   private publish() {
     this.snapshot = {
+      attention: this.attention(),
       authority: this.authority,
       draft: this.authority ? this.draft : null,
       attachment: this.authority ? this.attachment : null,

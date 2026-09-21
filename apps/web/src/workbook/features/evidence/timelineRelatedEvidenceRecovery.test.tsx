@@ -244,6 +244,8 @@ describe("Timeline related Evidence recovery", () => {
     expect(create.clientTxnId).not.toBe(link?.clientTxnId);
     expect(Object.isFrozen(create.review.draft.values)).toBe(true);
     expect(f.checkpoint().create.receipt).toEqual(f.createReceipt);
+    expect(f.owner.getAttentionSnapshot()).toEqual([]);
+
     expect(f.checkpoint().links[0]?.receipt).toEqual(f.linkReceipt);
     expect(
       f.owner.latestRow(sourceId)?.cells["timeline.raw_activity_text"],
@@ -264,6 +266,11 @@ describe("Timeline related Evidence recovery", () => {
     await waitFor(() =>
       expect(f.checkpoint().links[0]?.phase).toBe("rejected"),
     );
+    expect(f.owner.getAttentionSnapshot()).toHaveLength(1);
+    expect(f.owner.getAttentionSnapshot()[0]?.attention).toMatchObject({
+      category: "failure",
+      label: "Evidence created; Timeline link incomplete",
+    });
     expect(f.owner.getSnapshot().draft).toBeNull();
     expect(f.checkpoint().create.receipt).toEqual(f.createReceipt);
     expect(

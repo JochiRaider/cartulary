@@ -1,3 +1,4 @@
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import type {
   ViewContract,
   ViewFieldContract,
@@ -5,12 +6,18 @@ import type {
 import {
   type CSSProperties,
   type ReactNode,
+  useId,
   useLayoutEffect,
   useRef,
 } from "react";
 import { workbookTypography } from "../components/workbookFormStyles";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
+import {
+  type WorkbookInspectorDisabledReason,
+  workbookInspectorDisabledReasonKey,
+  workbookInspectorDisabledReasonText,
+} from "./presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorSavedDetails } from "./WorkbookInspectorSavedDetails";
 
 type WorkbookInspectorEditorSlots = {
@@ -33,17 +40,16 @@ type WorkbookInspectorEditPresentation = {
   readonly editor: WorkbookInspectorEditorSlots;
   readonly retainedWork: readonly {
     readonly identity: { readonly fieldKey: string; readonly action: string };
-    readonly canResume: boolean;
+    readonly command: {
+      readonly kind: "resume" | "review";
+      readonly invoke: (trigger?: HTMLElement) => void;
+    } | null;
     readonly discard: () => void;
   }[];
-  readonly onReviewDraft: (identity: {
-    readonly fieldKey: string;
-    readonly action: string;
-  }) => void;
   readonly collectionDestinations?:
     | Readonly<Record<string, (() => void) | undefined>>
     | undefined;
-  readonly disabledReason?: string | null | undefined;
+  readonly disabledReason?: WorkbookInspectorDisabledReason | null | undefined;
 };
 
 /** Saved values always come from the accepted row, never from editor text. */
@@ -59,26 +65,35 @@ export function WorkbookInspectorDetails({
   editor,
   disabledReason,
   retainedWork,
-  onReviewDraft,
   collectionDestinations,
 }: WorkbookInspectorEditPresentation) {
+  const reasonId = useId();
+  const reasonText = disabledReason
+    ? workbookInspectorDisabledReasonText(disabledReason)
+    : null;
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
   const attachment = useRef<HTMLFieldSetElement>(null);
   const previousField = useRef("");
+  const closingField = useRef<{ recordId: string; fieldKey: string } | null>(
+    null,
+  );
   useLayoutEffect(() => {
+    const closing = closingField.current;
+    closingField.current = null;
+    if (closing && !activeField && closing.recordId === row.record_id)
+      editButtons.current.get(closing.fieldKey)?.focus({ preventScroll: true });
     if (activeField && activeField !== previousField.current) {
       attachment.current
         ?.querySelector<HTMLElement>(
-          "input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)",
+          "input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [data-inspector-review-control]:not(:disabled)",
         )
         ?.focus({ preventScroll: true });
     }
     previousField.current = activeField;
-  }, [activeField]);
+  }, [activeField, row.record_id]);
   const detach = () => {
-    const trigger = editButtons.current.get(activeField);
+    closingField.current = { recordId: row.record_id, fieldKey: activeField };
     onDetach();
-    trigger?.focus({ preventScroll: true });
   };
   const fields = new Map(
     contract.fields.map((field) => {
@@ -94,9 +109,32 @@ export function WorkbookInspectorDetails({
         {
           controls: (
             <>
-              {editable ? (
+              {editable && field.fieldKey !== activeField && retained.length ? (
+                retained.map((work) => (
+                  <Button
+                    key={work.identity.action}
+                    style={fieldActionStyle}
+                    data-inspector-edit-field={field.fieldKey}
+                    ref={(element) => {
+                      if (element)
+                        editButtons.current.set(field.fieldKey, element);
+                      else editButtons.current.delete(field.fieldKey);
+                    }}
+                    aria-describedby={disabledReason ? reasonId : undefined}
+                    disabled={!cell || !!disabledReason || !work.command}
+                    onClick={(event) =>
+                      work.command?.invoke(event.currentTarget)
+                    }
+                  >
+                    {work.command?.kind === "review" ? "Review" : "Resume"}{" "}
+                    {retained.length > 1 ? `${work.identity.action} ` : ""}draft
+                    for {field.label}
+                  </Button>
+                ))
+              ) : editable && field.fieldKey !== activeField ? (
                 <Button
-                  tone="secondary"
+                  style={fieldActionStyle}
+                  tone="ordinary"
                   aria-label={`${field.readKind === "collection" ? "Manage" : "Edit"} ${field.label}`}
                   data-inspector-edit-field={field.fieldKey}
                   ref={(element) => {
@@ -105,13 +143,17 @@ export function WorkbookInspectorDetails({
                     else editButtons.current.delete(field.fieldKey);
                   }}
                   disabled={!cell || !!disabledReason}
-                  title={disabledReason ?? undefined}
+                  aria-describedby={disabledReason ? reasonId : undefined}
+                  title={reasonText ?? undefined}
                   onClick={() => onEdit(field.fieldKey)}
                 >
                   {field.readKind === "collection" ? "Manage" : "Edit"}
                 </Button>
               ) : collectionDestinations?.[field.fieldKey] ? (
-                <Button onClick={collectionDestinations[field.fieldKey]}>
+                <Button
+                  style={fieldActionStyle}
+                  onClick={collectionDestinations[field.fieldKey]}
+                >
                   Manage {field.label}
                 </Button>
               ) : null}
@@ -126,20 +168,6 @@ export function WorkbookInspectorDetails({
                   </span>
                   {retained.map((work) => (
                     <span key={work.identity.action}>
-                      {editable ? (
-                        <Button
-                          disabled={
-                            !cell || !!disabledReason || !work.canResume
-                          }
-                          onClick={() => onReviewDraft(work.identity)}
-                        >
-                          Review{" "}
-                          {retained.length > 1
-                            ? `${work.identity.action} `
-                            : ""}
-                          draft for {field.label}
-                        </Button>
-                      ) : null}
                       <Button onClick={work.discard}>
                         Discard{" "}
                         {retained.length > 1 ? `${work.identity.action} ` : ""}
@@ -155,6 +183,7 @@ export function WorkbookInspectorDetails({
                     ref={attachment}
                     style={editorStyle}
                     data-inspector-editor-field={field.fieldKey}
+                    aria-describedby={disabledReason ? reasonId : undefined}
                     onKeyDown={(event) => {
                       if (
                         event.defaultPrevented ||
@@ -201,19 +230,25 @@ export function WorkbookInspectorDetails({
     }),
   );
   return (
-    <WorkbookInspectorSavedDetails
-      contract={contract}
-      row={row}
-      fields={fields}
-      feedback={
-        disabledReason ? (
-          <div>
-            <dt>Editing unavailable</dt>
-            <dd style={{ margin: 0 }}>{disabledReason}</dd>
-          </div>
-        ) : null
-      }
-    />
+    <>
+      {disabledReason ? (
+        <p
+          id={reasonId}
+          data-inspector-read-only-reason={workbookInspectorDisabledReasonKey(
+            disabledReason,
+          )}
+          style={retentionStyle}
+        >
+          {reasonText}
+        </p>
+      ) : null}
+      <WorkbookInspectorSavedDetails
+        contract={contract}
+        row={row}
+        fields={fields}
+        describedBy={disabledReason ? reasonId : undefined}
+      />
+    </>
   );
 }
 
@@ -247,4 +282,13 @@ const retentionStyle = {
   ...workbookTypography("metadata"),
   color: "var(--ct-colors-ink-muted)",
   margin: 0,
+} satisfies CSSProperties;
+
+const fieldActionStyle = {
+  minInlineSize: cartularyDesignPresentation.inspector.fieldActionMinSizePx,
+  minBlockSize: cartularyDesignPresentation.inspector.fieldActionMinSizePx,
+  padding: "var(--ct-spacing-xxs) var(--ct-spacing-xs)",
+  background: "transparent",
+  borderColor: "transparent",
+  textDecoration: "underline",
 } satisfies CSSProperties;

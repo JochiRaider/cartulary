@@ -129,7 +129,7 @@ it("Timeline Details keeps a rejected recovery beside its field with one new ann
 it("Timeline Details copies saved text exactly without including disclosure controls", () => {
   const f = fixture();
   const value = "  Saved Ω\t\nsecond line\n";
-  render(f.surface(raw(1, value)));
+  const view = render(f.surface(raw(1, value)));
   const saved = document.querySelector(
     `[data-inspector-saved-field="${field}"] dd > div[id]`,
   );
@@ -151,6 +151,14 @@ it("Timeline Details copies saved text exactly without including disclosure cont
   expect(setData).toHaveBeenCalledTimes(2);
   selection?.removeAllRanges();
   expect(f.send).not.toHaveBeenCalled();
+  const whitespace = " \t\r\n  ";
+  view.rerender(f.surface(raw(1, whitespace)));
+  expect(screen.getByText("Whitespace only")).not.toBeNull();
+  expect(
+    document.querySelector(
+      `[data-inspector-saved-field="${field}"] dd > div[id]`,
+    )?.textContent,
+  ).toBe(whitespace);
 });
 
 it("Timeline Details reads saved values and retains authoring until explicit submission", async () => {
@@ -171,11 +179,9 @@ it("Timeline Details reads saved values and retains authoring until explicit sub
   expect(input.selectionEnd).toBe(7);
   edit(otherField);
   edit();
-  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
   fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
   expect(screen.queryByRole("textbox")).toBeNull();
   edit();
-  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
   expect(f.send).not.toHaveBeenCalled();
   fireEvent.keyDown(screen.getByRole("textbox"), {
     key: "Enter",
@@ -190,6 +196,20 @@ it("Timeline Details reads saved values and retains authoring until explicit sub
   expect(JSON.parse(f.send.mock.calls[0]?.[0].body ?? "{}").changes).toEqual([
     { field_key: field, value: "Submitted activity" },
   ]);
+  act(() => f.owner.drafts.setAuthority({ ...taskAuthority, role: "viewer" }));
+  const reason = document.querySelector("[data-inspector-read-only-reason]");
+  const fields = document.querySelector("dl");
+  expect(reason?.textContent).toBe("Current access permits reading only.");
+  expect(fields?.getAttribute("aria-describedby")).toBe(reason?.id);
+  if (!reason || !fields) throw new Error("Missing read-only explanation");
+  expect(
+    reason.compareDocumentPosition(fields) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  const action = document.querySelector<HTMLButtonElement>(
+    `[data-inspector-edit-field="${otherField}"]`,
+  );
+  expect(action?.disabled).toBe(true);
+  expect(action?.getAttribute("aria-describedby")).toBe(reason.id);
 });
 
 it("Timeline Details keeps newer authoring after acknowledgement and retries refresh without writes", async () => {
@@ -244,4 +264,43 @@ it("Timeline Details keeps newer authoring after acknowledgement and retries ref
   expect(f.owner.patches.getSnapshot().entries[0]?.receipt?.changeSetId).toBe(
     "change",
   );
+});
+
+it("Timeline Details sends explicit null empty and unchanged source text as distinct intents", async () => {
+  for (const value of [null, "", "  source\r\ntext\t  "] as const) {
+    const f = fixture();
+    const initial = raw();
+    if (value) {
+      f.owner.drafts.update(
+        {
+          viewSchemaId: timelineViewSchemaId,
+          recordId,
+          fieldKey: field,
+          action: "value",
+        },
+        initial,
+        value,
+        "previous-editor",
+      );
+      f.owner.drafts.detach("previous-editor");
+    }
+    f.owner.patches.observeQuery(initial);
+    render(f.surface(initial));
+    const input = edit();
+    if (value === null)
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: `Clear ${contract.fieldMap[field]?.label}`,
+        }),
+      );
+    else if (value === "") fireEvent.change(input, { target: { value } });
+    fireEvent.click(
+      screen.getByTestId(genericEditSubmitTestId(timelineViewSchemaId)),
+    );
+    await waitFor(() => expect(f.send).toHaveBeenCalledOnce());
+    expect(JSON.parse(f.send.mock.calls[0]?.[0].body ?? "{}").changes).toEqual([
+      { field_key: field, value },
+    ]);
+    cleanup();
+  }
 });

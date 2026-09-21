@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.design_presentation.v1",
-  "title": "Cartulary design presentation projection v1",
+  "$id": "cartulary.design_presentation.v2",
+  "title": "Cartulary design presentation projection v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26,8 +26,25 @@
     "inspector": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["data_states", "access_states", "content_states", "header_title_lines", "narrative_preview_lines", "action_outcomes", "unavailable_causes", "announcements"],
+      "required": ["reference_viewport", "persistent_region_max_height_px", "field_action_min_size_px", "property_stack_below_px", "overlay_min_viewport_width_px", "field_layout_overrides", "data_states", "access_states", "content_states", "header_title_lines", "narrative_preview_lines", "action_outcomes", "unavailable_causes", "announcements"],
       "properties": {
+        "reference_viewport": { "const": { "width_px": 1280, "height_px": 720, "inspector_width_px": 420 } },
+        "persistent_region_max_height_px": { "const": 128 },
+        "field_action_min_size_px": { "const": 28 },
+        "property_stack_below_px": { "const": 320 },
+        "overlay_min_viewport_width_px": { "const": 320 },
+        "field_layout_overrides": {
+          "type": "array", "minItems": 10, "uniqueItems": true,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["view_schema_id", "field_key", "layout"],
+            "properties": {
+              "view_schema_id": { "type": "string", "minLength": 1 },
+              "field_key": { "type": "string", "minLength": 1 },
+              "layout": { "enum": ["property", "narrative"] }
+            }
+          }
+        },
         "data_states": { "const": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"] },
         "access_states": { "const": ["readable", "concealed"] },
         "content_states": { "const": ["empty", "populated"] },
@@ -72,7 +89,7 @@
         "successful_navigation": { "const": "collapse" }
       }
     },
-    "schema_id": { "const": "cartulary.design_presentation.v1" },
+    "schema_id": { "const": "cartulary.design_presentation.v2" },
     "owner_id": { "const": "package.ui" },
     "verification_id": { "const": "package.ui.verification.machine_owned_presentation" },
     "presence": {

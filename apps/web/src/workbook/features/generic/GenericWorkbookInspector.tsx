@@ -4,7 +4,7 @@ import type {
   InspectorPanelId,
   ViewContract,
 } from "@cartulary/view-contracts";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useContext } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
@@ -20,7 +20,10 @@ import {
   type WorkbookInspectorRegion,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
-import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
+import type {
+  WorkbookInspectorAttention,
+  WorkbookInspectorDisabledReason,
+} from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
 import type {
@@ -29,6 +32,8 @@ import type {
 } from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
+import { EvidenceAttachmentContext } from "../evidence/EvidenceAttachmentContext";
+import { useEvidenceInspectorAttention } from "../evidence/useEvidenceInspectorAttention";
 import { IndicatorInspectorWorkflow } from "../indicators/IndicatorInspectorWorkflow";
 import { IndicatorLifecycleWorkflow } from "../indicators/IndicatorLifecycleWorkflow";
 import {
@@ -40,6 +45,7 @@ export function GenericWorkbookInspector({
   config,
   currentIncidentRole,
   detailsContent,
+  attention = [],
   disabledTokens,
   evidenceContent,
   history,
@@ -58,6 +64,7 @@ export function GenericWorkbookInspector({
   readonly config: ViewContract["inspectorConfig"];
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly detailsContent: ReactNode;
+  readonly attention?: readonly WorkbookInspectorAttention[];
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
   readonly evidenceContent: readonly [
     WorkbookInspectorRegion,
@@ -101,6 +108,11 @@ export function GenericWorkbookInspector({
       }
     | undefined;
 }) {
+  const evidenceAttention = useEvidenceInspectorAttention(
+    useContext(EvidenceAttachmentContext),
+    config.viewSchemaId,
+    currentIncidentRole && subject?.kind === "live" ? subject.recordId : null,
+  );
   if (currentIncidentRole === null) return null;
   function dispatchContextualAction(
     capability: InspectorContextualCapability,
@@ -143,46 +155,83 @@ export function GenericWorkbookInspector({
     ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
   ) => ({
     ...inspectorPanel(...regions),
-    authoring: (
-      <>
-        {panelId === "workflow" ? (
-          <>
-            {workflowContent}
-            <WorkbookInspectorFeedbackView
-              feedback={relatedFeedback}
-              neutralStyle={feedbackStyle}
-            />
-          </>
-        ) : null}
-        {panelId === "history" ? decisionSupersession?.content : null}
-        {indicatorHandlerAdmitted &&
-        subject?.kind === "live" &&
-        indicator?.handler?.panelId === panelId ? (
-          indicator.handler.action === "indicator.lifecycle.read" ||
-          indicator.handler.action === "indicator.lifecycle.manage" ? (
-            <IndicatorLifecycleWorkflow
-              action={indicator.handler.action}
-              subject={subject}
-            />
-          ) : (
-            <IndicatorInspectorWorkflow
-              action={indicator.handler.action}
-              indicatorRecordId={indicator.recordId}
-              onMutationCommitted={indicator.onMutationCommitted}
-            />
-          )
-        ) : null}
-        {subject?.kind === "live" &&
-        related.state?.featureGroup.panelId === panelId ? (
-          <InspectorCreateRelatedWorkflow
-            state={related.state}
-            onCancel={related.cancel}
-            onSubmit={() => void related.submit()}
-            onUpdateDraft={related.updateDraft}
-          />
-        ) : null}
-      </>
+    attention:
+      panelId === "details"
+        ? attention
+        : panelId === "evidence"
+          ? evidenceAttention
+          : [],
+    featureContent: Object.fromEntries(
+      config.featureGroups.flatMap((feature) => {
+        if (feature.panelId !== panelId || subject?.kind !== "live") return [];
+        const relatedActive =
+          related.state?.featureGroup.featureGroupKey ===
+            feature.featureGroupKey &&
+          related.state.subject.recordId === subject.recordId &&
+          related.state.subject.viewSchemaId === subject.viewSchemaId;
+        const relatedNotice =
+          relatedFeedback?.destination?.kind === "feature" &&
+          relatedFeedback.destination.featureGroupKey ===
+            feature.featureGroupKey &&
+          (!relatedFeedback.sourceRecordId ||
+            relatedFeedback.sourceRecordId === subject.recordId)
+            ? relatedFeedback
+            : null;
+        const decision =
+          feature.featureGroupKey === "decision.supersede"
+            ? decisionSupersession?.content
+            : null;
+        const indicatorActive =
+          indicatorHandlerAdmitted &&
+          indicator?.handler?.panelId === panelId &&
+          feature.routeBinding.actionKey === indicator.handler.action;
+        if (!relatedActive && !relatedNotice && !decision && !indicatorActive)
+          return [];
+        return [
+          [
+            feature.featureGroupKey,
+            <>
+              {decision}
+              {indicatorActive && indicator?.handler ? (
+                indicator.handler.action === "indicator.lifecycle.read" ||
+                indicator.handler.action === "indicator.lifecycle.manage" ? (
+                  <IndicatorLifecycleWorkflow
+                    action={indicator.handler.action}
+                    subject={subject}
+                  />
+                ) : (
+                  <IndicatorInspectorWorkflow
+                    action={indicator.handler.action}
+                    indicatorRecordId={indicator.recordId}
+                    onMutationCommitted={indicator.onMutationCommitted}
+                  />
+                )
+              ) : null}
+              {relatedActive && related.state ? (
+                <InspectorCreateRelatedWorkflow
+                  state={related.state}
+                  onCancel={related.cancel}
+                  onSubmit={() => void related.submit()}
+                  onUpdateDraft={related.updateDraft}
+                />
+              ) : null}
+              <WorkbookInspectorFeedbackView
+                feedback={relatedNotice}
+                neutralStyle={feedbackStyle}
+              />
+            </>,
+          ],
+        ];
+      }),
     ),
+    feedback:
+      panelId === "workflow" &&
+      relatedFeedback?.destination?.kind !== "feature" ? (
+        <WorkbookInspectorFeedbackView
+          feedback={relatedFeedback}
+          neutralStyle={feedbackStyle}
+        />
+      ) : null,
   });
 
   return (
@@ -248,9 +297,9 @@ export function GenericWorkbookInspector({
           subject || creationAttachment
             ? panelContent(
                 "workflow",
-                savedInspectorRegion("workflow", {
-                  kind: "empty",
-                  message: "Choose an available action for this record.",
+                savedInspectorRegion("creation-and-source-workflows", {
+                  kind: "populated",
+                  content: workflowContent,
                 }),
               )
             : undefined,

@@ -3017,6 +3017,7 @@
         "file": "apps/web/src/workbook/inspector/useWorkbookInspectorEditDraft.test.tsx",
         "titles": [
           "binds every retained field and action to its original subject through refresh detachment and explicit return",
+          "resumes an unchanged original draft in one command and requires explicit review after dependency changes",
           "retains selected reference identities outside the current option page and clears with explicit null"
         ]
       },
@@ -3274,7 +3275,8 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
-          "Workbook Inspector presentation keeps record context and Close outside the scrolling section body"
+          "Workbook Inspector presentation keeps record context and Close outside the scrolling section body",
+          "Workbook Inspector presentation measures navigation and fences owner attention without invoking commands"
         ]
       },
       "evidence_class": "unit",
@@ -3384,7 +3386,8 @@
           "Timeline Details copies saved text exactly without including disclosure controls",
           "Timeline Details keeps a rejected recovery beside its field with one new announcement",
           "Timeline Details keeps newer authoring after acknowledgement and retries refresh without writes",
-          "Timeline Details reads saved values and retains authoring until explicit submission"
+          "Timeline Details reads saved values and retains authoring until explicit submission",
+          "Timeline Details sends explicit null empty and unchanged source text as distinct intents"
         ]
       },
       "evidence_class": "unit",

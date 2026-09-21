@@ -167,9 +167,8 @@ it("opens with saved values and submits only explicitly while Escape retains unf
     screen.getByText("Unfinished work retained for Location."),
   ).not.toBeNull();
   fireEvent.click(
-    screen.getByRole("button", { name: "Review draft for Location" }),
+    screen.getByRole("button", { name: "Resume draft for Location" }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
   const resumed = screen.getByTestId(genericEditValueTestId(schema));
   expect((resumed as HTMLInputElement).value).toBe("Unfinished");
   const update = screen.getByTestId(genericEditSubmitTestId(schema));
@@ -181,9 +180,8 @@ it("opens with saved values and submits only explicitly while Escape retains unf
     screen.getByRole("button", { name: "Discard draft for Location" }),
   ).not.toBeNull();
   fireEvent.click(
-    screen.getByRole("button", { name: "Review draft for Location" }),
+    screen.getByRole("button", { name: "Resume draft for Location" }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
   fireEvent.keyDown(screen.getByTestId(genericEditValueTestId(schema)), {
     key: "Enter",
     ctrlKey: true,
@@ -235,7 +233,6 @@ it("retains Entity field authoring for explicit return to its original field", a
   });
   attachField("host.display_name");
   attachField("host.location");
-  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
   expect(
     (screen.getByTestId(genericEditValueTestId(schema)) as HTMLInputElement)
       .value,

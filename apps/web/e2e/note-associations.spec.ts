@@ -1,9 +1,11 @@
 import {
+  cartularyDesignPresentation,
   genericEditSubmitTestId,
   genericEditValueTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
   evidenceViewSchemaId,
@@ -76,8 +78,8 @@ test("Notes manage existing sources evidence and directional references with ret
   await related
     .getByRole("button", { name: "Manage related notes", exact: true })
     .click();
-  await page
-    .getByTestId("note-association-related_note-picker")
+  await related
+    .getByRole("listbox", { name: "Related notes" })
     .selectOption(other.record_id);
   await related.getByRole("button", { name: "Link selected records" }).click();
   await expect(related).toContainText("Associations saved.");
@@ -130,7 +132,8 @@ test("Notes manage existing sources evidence and directional references with ret
     .getByRole("button", { name: "Manage evidence", exact: true })
     .click();
   await page
-    .getByTestId("note-association-evidence-picker")
+    .getByRole("region", { name: "Note evidence", exact: true })
+    .getByRole("listbox", { name: "Evidence" })
     .selectOption(evidence.record_id);
   await panel.getByRole("button", { name: "Link selected records" }).click();
   await expect(panel).toContainText("outcome is unconfirmed");
@@ -150,6 +153,9 @@ test("Notes manage existing sources evidence and directional references with ret
   );
   expect(bodies).toHaveLength(2);
   expect(bodies[1]).toBe(bodies[0]);
+  await expect(
+    recovery.getByRole("button", { name: "Retry refresh", exact: true }),
+  ).toBeEnabled();
   failReads = false;
   await recovery
     .getByRole("button", { name: "Retry refresh", exact: true })
@@ -382,20 +388,36 @@ test("Inspector header remains reachable while the body scrolls at supported nar
   const close = page.getByTestId(
     workbookInspectorCloseButtonTestId(evidenceViewSchemaId),
   );
+  await shell.getByRole("button", { name: "Edit Title", exact: true }).click();
+  await page
+    .getByTestId(genericEditValueTestId(evidenceViewSchemaId))
+    .fill("Unfinished title");
+  await shell
+    .getByRole("button", { name: "Close editor", exact: true })
+    .click();
+  await expect(
+    shell.getByRole("button", { name: "Unfinished work (1)", exact: true }),
+  ).toBeVisible();
   for (const [width, height, zoom, spacing] of [
     [1280, 720, 1, false],
     [1024, 720, 1, false],
     [768, 640, 1, false],
+    [320, 640, 1, false],
     [1280, 720, 2, false],
     [768, 480, 1, true],
+    [320, 640, 1, true],
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.evaluate(
       ({ zoom, spacing }) => {
         document.documentElement.style.zoom = String(zoom);
-        document.body.style.lineHeight = spacing ? "1.5" : "";
-        document.body.style.letterSpacing = spacing ? "0.12em" : "";
-        document.body.style.wordSpacing = spacing ? "0.16em" : "";
+        document.getElementById("inspector-text-spacing-test")?.remove();
+        if (spacing) {
+          const sheet = document.createElement("style");
+          sheet.id = "inspector-text-spacing-test";
+          sheet.textContent = `[data-inspector-state] * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } [data-inspector-state] p { margin-block-end: 2em !important; }`;
+          document.head.append(sheet);
+        }
       },
       { zoom, spacing },
     );
@@ -403,20 +425,38 @@ test("Inspector header remains reachable while the body scrolls at supported nar
       element.scrollTop = element.scrollHeight;
     });
     await expect(close).toBeInViewport();
-    await expect(
-      shell.getByRole("heading", { name: label.trim(), exact: true }),
-    ).toBeInViewport();
+    await expect(shell.locator("header h2")).toBeInViewport();
     const bounds = await shell.evaluate((element) => {
       const header = element.querySelector("header"),
         body = element.querySelector("[data-inspector-scroll-body]");
       if (!header || !body) throw new Error("Missing layout");
       return {
+        headerHeight: header.getBoundingClientRect().height,
+        inspectorWidth: element.getBoundingClientRect().width,
+        horizontalOverflow: body.scrollWidth - body.clientWidth,
+        documentOverflow:
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
         headerBottom: header.getBoundingClientRect().bottom,
         bodyTop: body.getBoundingClientRect().top,
         outerScroll: element.scrollTop,
         bodyScroll: body.scrollTop,
       };
     });
+    expect(bounds.horizontalOverflow).toBeLessThanOrEqual(1);
+    expect(bounds.documentOverflow).toBeLessThanOrEqual(1);
+    if (width === 1280 && zoom === 1) {
+      expect(bounds.inspectorWidth).toBe(
+        cartularyDesignPresentation.inspector.referenceViewport
+          .inspector_width_px,
+      );
+      expect(bounds.headerHeight).toBeLessThanOrEqual(
+        cartularyDesignPresentation.inspector.persistentRegionMaxHeightPx,
+      );
+      await expect(
+        shell.getByRole("button", { name: "Sections", exact: true }),
+      ).toHaveCount(0);
+    }
     expect(bounds.outerScroll).toBe(0);
     expect(bounds.bodyTop).toBeGreaterThanOrEqual(bounds.headerBottom - 1);
     expect(bounds.bodyScroll).toBeGreaterThan(0);
@@ -426,16 +466,30 @@ test("Inspector header remains reachable while the body scrolls at supported nar
         "create_related.note",
       ),
     );
+    await close.focus();
     await action.focus();
-    await action.evaluate((element) =>
-      element.scrollIntoView({ block: "nearest" }),
-    );
     await expect(action).toBeInViewport();
     await expect(close).toBeInViewport();
+    await test
+      .info()
+      .attach(`inspector-header-${width}-${height}-${zoom}-${spacing}`, {
+        body: await page.screenshot({ animations: "disabled" }),
+        contentType: "image/png",
+      });
   }
   await page.evaluate(() => {
     document.documentElement.style.zoom = "1";
   });
   await close.click();
   await expect(shell).toHaveCount(0);
+  const opener = page.getByTestId(
+    workbookInspectorToggleTestId(evidenceViewSchemaId),
+  );
+  await expect(opener).toBeInViewport();
+  await opener.click();
+  await expect(close).toBeInViewport();
+  await expect(
+    page.getByRole("region", { name: "Primary grid", includeHidden: true }),
+  ).toHaveAttribute("inert", "");
+  await close.click();
 });

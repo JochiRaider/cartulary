@@ -220,13 +220,21 @@ describe("retained Evidence file recovery", () => {
     owner.begin({ ...f.evidence, row_version: 1 }, [f.file]);
     owner.begin({ ...f.evidence, row_version: 1 }, [f.file]);
     await waitFor(() => expect(f.transport.finalize).toHaveBeenCalledTimes(1));
+    const workId = owner.getSnapshot()[0]?.attention?.workId;
+    expect(owner.getSnapshot()[0]?.attention?.category).toBe("in_progress");
     owner.detach(token);
+    expect(owner.getSnapshot()[0]?.attention?.workId).toBe(workId);
     pending.resolve({ kind: "accepted", receipt: f.receipt });
     await waitFor(() =>
       expect(owner.getSnapshot()[0]?.refreshRequired).toBe(true),
     );
     expect(owner.getSnapshot()[0]?.accepted).toBe(true);
+    expect(owner.getSnapshot()[0]?.attention).toMatchObject({
+      workId,
+      category: "refresh",
+    });
     await owner.refresh(evidenceId);
+    expect(owner.getSnapshot()[0]?.attention).toBeNull();
     expect(f.transport.slot).toHaveBeenCalledTimes(1);
     expect(f.transport.transfer).toHaveBeenCalledTimes(1);
     expect(f.transport.finalize).toHaveBeenCalledTimes(1);
@@ -248,6 +256,7 @@ describe("retained Evidence file recovery", () => {
     owner.begin({ ...f.evidence, row_version: 1 }, [f.file]);
     await waitFor(() => expect(owner.getSnapshot()[0]?.busy).toBe(false));
     expect(f.transport.finalize).not.toHaveBeenCalled();
+    expect(owner.getSnapshot()[0]?.attention?.category).toBe("uncertain");
     await owner.resume(evidenceId);
     await owner.resume(evidenceId);
     expect(f.transport.finalize.mock.calls[0]?.[0]).toBe(
@@ -283,6 +292,10 @@ describe("retained Evidence file recovery", () => {
     pending.resolve({ kind: "accepted", receipt: f.receipt });
     await waitFor(() => expect(owner.getSnapshot()[0]?.busy).toBe(false));
     expect(links.send).not.toHaveBeenCalled();
+    expect(owner.getSnapshot()[0]?.attention?.category).toBe("review");
+    expect(owner.getSnapshot()[0]?.attention?.label).toContain(
+      "Evidence saved",
+    );
     owner.setPresentation("restored");
     await owner.review(sourceId);
     owner.confirmReview(sourceId);

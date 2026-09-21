@@ -56,6 +56,12 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     expect(onFeedback).toHaveBeenLastCalledWith({
       announcement: "none",
       kind: "message",
+      sourceRecordId: initialSubject.subject.recordId,
+      destination: {
+        kind: "feature",
+        panel: createCommLog.panelId,
+        featureGroupKey: createCommLog.featureGroupKey,
+      },
       message: `Created ${commLog.title} record 20000000-0000-4000-8000-000000000002.`,
     });
   });

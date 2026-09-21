@@ -12,7 +12,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../../..");
-const registryPath = path.join(repoRoot, "contracts/design/presentation.v1.json");
+const registryPath = path.join(repoRoot, "contracts/design/presentation.v2.json");
 const outputPath = path.join(
   repoRoot,
   "packages/ui-contracts/src/generated/design-presentation.ts",

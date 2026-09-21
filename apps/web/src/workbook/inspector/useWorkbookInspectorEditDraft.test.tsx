@@ -11,6 +11,7 @@ import {
   renderHook,
   screen,
 } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, expect, it } from "vitest";
 import { taskAuthority } from "../../testing/taskWorkbookTestSupport";
 import { useWorkbookInspectorEditDraft } from "./useWorkbookInspectorEditDraft";
@@ -76,7 +77,9 @@ it("retains selected reference identities outside the current option page and cl
       action: "value",
     })?.value,
   ).toBeNull();
-  expect(screen.getByRole("status").textContent).toContain("will be cleared");
+  expect(screen.getByRole("status").textContent).toContain(
+    "Sets the value to Not set when updated.",
+  );
 });
 it("binds every retained field and action to its original subject through refresh detachment and explicit return", () => {
   for (const contract of listViewContracts().filter(
@@ -167,4 +170,80 @@ it("binds every retained field and action to its original subject through refres
         expect(hook.result.current.canSubmit).toBe(false);
         hook.unmount();
       }
+});
+
+it("resumes an unchanged original draft in one command and requires explicit review after dependency changes", () => {
+  const contract = requireViewContract("cartulary.view.task_requests.v1");
+  const store = new WorkbookInspectorDraftStore();
+  store.setAuthority(taskAuthority);
+  const row = {
+    record_id: "original",
+    row_version: 1,
+    cells: {
+      "task.title": { value: "Saved" },
+      "task.status": { value: "open" },
+    },
+  };
+  const identity = {
+    viewSchemaId: contract.viewSchemaId,
+    recordId: row.record_id,
+    fieldKey: "task.title",
+    action: "value",
+  };
+  store.update(identity, row, "  retained\r\n", "earlier");
+  const hook = renderHook(
+    ({ saved }) => {
+      const [fieldKey, select] = useState("");
+      const edit = useWorkbookInspectorEditDraft({
+        store,
+        row: saved,
+        field: contract.fieldMap[fieldKey] ?? null,
+        viewSchemaId: contract.viewSchemaId,
+        presentation: "original",
+        active: true,
+        dependenciesForField: () => ["task.status"],
+        retainedSelection: {
+          fields: contract.fields.filter((field) => field.patchWritable),
+          select: (target) => select(target.fieldKey),
+        },
+      });
+      return { edit, select };
+    },
+    { initialProps: { saved: row } },
+  );
+  expect(hook.result.current.edit.retainedWork[0]?.command?.kind).toBe(
+    "resume",
+  );
+  act(() => hook.result.current.edit.retainedWork[0]?.command?.invoke());
+  expect(hook.result.current.edit.canSubmit).toBe(true);
+  expect(hook.result.current.edit.value).toBe("  retained\r\n");
+  act(() => hook.result.current.select(""));
+  hook.rerender({
+    saved: {
+      ...row,
+      row_version: 2,
+      cells: { ...row.cells, "task.status": { value: "blocked" } },
+    },
+  });
+  expect(hook.result.current.edit.retainedWork[0]?.command?.kind).toBe(
+    "review",
+  );
+  act(() => hook.result.current.edit.retainedWork[0]?.command?.invoke());
+  expect(hook.result.current.edit.staleFields).toEqual(["task.status"]);
+  expect(hook.result.current.edit.canSubmit).toBe(false);
+  act(() => hook.result.current.edit.review("task.status", true));
+  expect(hook.result.current.edit.canSubmit).toBe(true);
+  act(() => hook.result.current.select(""));
+  const staleCommand = hook.result.current.edit.retainedWork[0]?.command;
+  act(() => store.setAuthority(null));
+  act(() =>
+    store.setAuthority({
+      ...taskAuthority,
+      sessionIdentity: "replacement-session",
+    }),
+  );
+  act(() => staleCommand?.invoke());
+  expect(hook.result.current.edit.identity.fieldKey).toBe("");
+  expect(hook.result.current.edit.value).toBe("");
+  hook.unmount();
 });

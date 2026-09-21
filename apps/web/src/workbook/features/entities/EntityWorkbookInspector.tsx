@@ -17,6 +17,7 @@ import {
   type WorkbookInspectorRegion,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorAttention } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
@@ -28,6 +29,7 @@ export function EntityWorkbookInspector({
   config,
   currentIncidentRole,
   detailsContent,
+  attention = [],
   evidenceContent,
   disabledTokens,
   feedbackTestId,
@@ -45,6 +47,7 @@ export function EntityWorkbookInspector({
   readonly config: ViewContract["inspectorConfig"];
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly detailsContent: ReactNode;
+  readonly attention?: readonly WorkbookInspectorAttention[];
   readonly evidenceContent: ReactNode;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
   readonly feedbackTestId: string;
@@ -87,30 +90,59 @@ export function EntityWorkbookInspector({
     ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
   ) => ({
     ...inspectorPanel(...regions),
-    authoring: (
-      <>
-        {panelId === "relationships" ? (
-          <>
-            {relationshipFeedback}
+    attention: panelId === "details" ? attention : [],
+    featureContent: Object.fromEntries(
+      config.featureGroups.flatMap((feature) => {
+        if (feature.panelId !== panelId || subject?.kind !== "live") return [];
+        const active =
+          related.state?.featureGroup.featureGroupKey ===
+            feature.featureGroupKey &&
+          related.state.subject.recordId === subject.recordId &&
+          related.state.subject.viewSchemaId === subject.viewSchemaId;
+        const notice =
+          actionFeedback?.destination?.kind === "feature" &&
+          actionFeedback.destination.featureGroupKey ===
+            feature.featureGroupKey &&
+          (!actionFeedback.sourceRecordId ||
+            actionFeedback.sourceRecordId === subject.recordId)
+            ? actionFeedback
+            : null;
+        if (!active && !notice) return [];
+        return [
+          [
+            feature.featureGroupKey,
+            <>
+              {active && related.state ? (
+                <InspectorCreateRelatedWorkflow
+                  state={related.state}
+                  onCancel={related.cancel}
+                  onSubmit={() => void related.submit()}
+                  onUpdateDraft={related.updateDraft}
+                />
+              ) : null}
+              <WorkbookInspectorFeedbackView
+                feedback={notice}
+                neutralStyle={feedbackStyle}
+                testId={feedbackTestId}
+              />
+            </>,
+          ],
+        ];
+      }),
+    ),
+    feedback:
+      panelId === "relationships" ? (
+        <>
+          {relationshipFeedback}
+          {actionFeedback?.destination?.kind !== "feature" ? (
             <WorkbookInspectorFeedbackView
               feedback={actionFeedback}
               neutralStyle={feedbackStyle}
               testId={feedbackTestId}
             />
-          </>
-        ) : null}
-
-        {subject?.kind === "live" &&
-        related.state?.featureGroup.panelId === panelId ? (
-          <InspectorCreateRelatedWorkflow
-            state={related.state}
-            onCancel={related.cancel}
-            onSubmit={() => void related.submit()}
-            onUpdateDraft={related.updateDraft}
-          />
-        ) : null}
-      </>
-    ),
+          ) : null}
+        </>
+      ) : null,
   });
   const relationshipFeedback =
     mergeFeedback === null ? null : (

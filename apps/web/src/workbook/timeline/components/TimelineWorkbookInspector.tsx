@@ -5,11 +5,19 @@ import {
 import type {
   InspectorConfig,
   InspectorDisabledCondition,
+  InspectorFeatureGroup,
   InspectorPanelId,
 } from "@cartulary/view-contracts";
-import type { ReactNode, RefCallback } from "react";
+import { type ReactNode, type RefCallback, useContext } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
-import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
+import { TimelineFileContext } from "../../features/evidence/EvidenceAttachmentContext";
+import { TimelineRelatedEvidenceContext } from "../../features/evidence/TimelineRelatedEvidenceContext";
+import { TimelineRelatedEvidenceInspectorWork } from "../../features/evidence/TimelineRelatedEvidenceInspectorWork";
+import { useEvidenceInspectorAttention } from "../../features/evidence/useEvidenceInspectorAttention";
+import {
+  type InspectorContextualCapability,
+  inspectorContextualCapabilities,
+} from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import {
   inspectorPanel,
@@ -17,7 +25,10 @@ import {
   type WorkbookInspectorRegion,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
-import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
+import type {
+  WorkbookInspectorAttention,
+  WorkbookInspectorDisabledReason,
+} from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
@@ -49,9 +60,10 @@ export function TimelineWorkbookInspector({
   onFeatureAction,
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
-  renderPanelSupplement,
+  inspectorAttentionForRow,
+  renderFeatureSupplement,
   renderRelationshipEditor,
-  renderWorkflowSection,
+  renderFeatureWorkflow,
   renderRowHistorySection,
   rowHistoryRecordId,
   rowHistoryRowVersion,
@@ -84,12 +96,17 @@ export function TimelineWorkbookInspector({
     row: WorkbookRow,
     collectionDestinations: Readonly<Record<string, (() => void) | undefined>>,
   ) => ReactNode;
-  readonly renderPanelSupplement: (panelId: InspectorPanelId) => ReactNode;
+  readonly inspectorAttentionForRow?:
+    | ((row: WorkbookRow) => readonly WorkbookInspectorAttention[])
+    | undefined;
+  readonly renderFeatureSupplement: (
+    feature: InspectorFeatureGroup,
+  ) => ReactNode;
   readonly renderRelationshipEditor: (
     row: WorkbookRow,
     fieldKey: CollectionFieldKey,
   ) => ReactNode;
-  readonly renderWorkflowSection: () => ReactNode;
+  readonly renderFeatureWorkflow: (featureGroupKey: string) => ReactNode;
   readonly renderRowHistorySection: (
     elementRef?: RefCallback<HTMLElement>,
   ) => WorkbookInspectorRegion;
@@ -98,6 +115,24 @@ export function TimelineWorkbookInspector({
   readonly selectedMention: InspectorMention | null;
   readonly selectedRow: WorkbookRow | null;
 }) {
+  const evidenceAttention = useEvidenceInspectorAttention(
+    useContext(TimelineFileContext),
+    inspectorConfig.viewSchemaId,
+    currentIncidentRole ? (selectedRow?.recordId ?? null) : null,
+  );
+  const relatedEvidenceOwner = useContext(
+    TimelineRelatedEvidenceContext,
+  )?.owner;
+  const relatedEvidenceAttention = useEvidenceInspectorAttention(
+    relatedEvidenceOwner
+      ? {
+          subscribe: relatedEvidenceOwner.subscribe,
+          getSnapshot: relatedEvidenceOwner.getAttentionSnapshot,
+        }
+      : null,
+    inspectorConfig.viewSchemaId,
+    currentIncidentRole ? (selectedRow?.recordId ?? null) : null,
+  );
   if (currentIncidentRole === null) return null;
   const disabledTokens = new Set<InspectorDisabledCondition>();
   if (!selectedRow?.recordId && !currentHistoryDeleted) {
@@ -141,6 +176,7 @@ export function TimelineWorkbookInspector({
       : inspectorMessage;
   const localFeedback = (panelId: InspectorPanelId) =>
     visibleFeedback?.destination &&
+    visibleFeedback.destination.kind !== "feature" &&
     "panel" in visibleFeedback.destination &&
     visibleFeedback.destination.panel === panelId &&
     visibleFeedback.destination.kind !== "relationship_item" ? (
@@ -155,12 +191,61 @@ export function TimelineWorkbookInspector({
     region: WorkbookInspectorRegion,
   ) => ({
     ...inspectorPanel(region),
-    authoring: (
-      <>
-        {subject?.kind === "live" ? renderPanelSupplement(panelId) : null}
-        {localFeedback(panelId)}
-      </>
+    attention: panelId === "workflow" ? relatedEvidenceAttention : [],
+    featureContent: Object.fromEntries(
+      inspectorContextualCapabilities({
+        config: inspectorConfig,
+        panelId,
+      }).flatMap((capability) => {
+        if (subject?.kind !== "live") return [];
+        const feature = capability.featureGroup;
+        const supplement = renderFeatureSupplement(feature);
+        const workflow = renderFeatureWorkflow(feature.featureGroupKey);
+        const notice =
+          visibleFeedback?.destination?.kind === "feature" &&
+          visibleFeedback.destination.featureGroupKey ===
+            feature.featureGroupKey
+            ? visibleFeedback
+            : null;
+        const evidenceState = relatedEvidenceOwner?.getSnapshot();
+        const hasEvidenceWork =
+          evidenceState?.draft?.source.recordId === subject.recordId ||
+          evidenceState?.checkpoints.some(
+            (checkpoint) =>
+              checkpoint.create.attempt.review.draft.source.recordId ===
+              subject.recordId,
+          );
+        const evidenceWork =
+          feature.featureGroupKey === "create_related.evidence" &&
+          relatedEvidenceOwner &&
+          hasEvidenceWork ? (
+            <TimelineRelatedEvidenceInspectorWork
+              key={subject.recordId}
+              owner={relatedEvidenceOwner}
+              recordId={subject.recordId}
+            />
+          ) : null;
+        if (
+          supplement == null &&
+          workflow == null &&
+          notice === null &&
+          evidenceWork === null
+        )
+          return [];
+        return [
+          [
+            feature.featureGroupKey,
+            <>
+              {supplement}
+              {workflow}
+              {evidenceWork}
+              <WorkbookInspectorFeedbackView feedback={notice} />
+            </>,
+          ],
+        ];
+      }),
     ),
+    feedback: localFeedback(panelId),
   });
   const liveRow = subject?.kind === "live" ? selectedRow : null;
   const relationships =
@@ -210,49 +295,55 @@ export function TimelineWorkbookInspector({
         details:
           liveRow === null
             ? undefined
-            : withSupplement(
-                "details",
-                savedInspectorRegion("saved-fields", {
-                  kind: "populated",
-                  content: renderInspectorFieldEditors(
-                    liveRow,
-                    Object.fromEntries([
-                      ...timelineCollectionBindings.map(
-                        (binding) =>
-                          [
-                            binding.fieldKey,
-                            () => {
-                              if (subject)
-                                elementRegistry.focusPanel(
-                                  subject,
-                                  "relationships",
-                                );
-                            },
-                          ] as const,
-                      ),
-                      [
-                        "timeline.attached_evidence_ids",
-                        () => {
-                          if (subject)
-                            elementRegistry.focusPanel(subject, "evidence");
-                        },
-                      ],
-                    ]),
-                  ),
-                }),
-              ),
+            : {
+                ...withSupplement(
+                  "details",
+                  savedInspectorRegion("saved-fields", {
+                    kind: "populated",
+                    content: renderInspectorFieldEditors(
+                      liveRow,
+                      Object.fromEntries([
+                        ...timelineCollectionBindings.map(
+                          (binding) =>
+                            [
+                              binding.fieldKey,
+                              () => {
+                                if (subject)
+                                  elementRegistry.focusPanel(
+                                    subject,
+                                    "relationships",
+                                  );
+                              },
+                            ] as const,
+                        ),
+                        [
+                          "timeline.attached_evidence_ids",
+                          () => {
+                            if (subject)
+                              elementRegistry.focusPanel(subject, "evidence");
+                          },
+                        ],
+                      ]),
+                    ),
+                  }),
+                ),
+                attention: inspectorAttentionForRow?.(liveRow) ?? [],
+              },
         evidence:
           liveRow === null
             ? undefined
-            : withSupplement(
-                "evidence",
-                savedInspectorRegion("evidence-metadata", {
-                  kind: "populated",
-                  content: renderEvidenceAttachSection(liveRow, (element) =>
-                    elementRegistry.registerPanel("evidence", element),
-                  ),
-                }),
-              ),
+            : {
+                ...withSupplement(
+                  "evidence",
+                  savedInspectorRegion("evidence-metadata", {
+                    kind: "populated",
+                    content: renderEvidenceAttachSection(liveRow, (element) =>
+                      elementRegistry.registerPanel("evidence", element),
+                    ),
+                  }),
+                ),
+                attention: evidenceAttention,
+              },
         history:
           subject === null
             ? undefined
@@ -282,13 +373,6 @@ export function TimelineWorkbookInspector({
                     kind: "empty",
                     message: "Choose an available workflow action.",
                   }),
-                ),
-                authoring: (
-                  <>
-                    {renderWorkflowSection()}
-                    {renderPanelSupplement("workflow")}
-                    {localFeedback("workflow")}
-                  </>
                 ),
               },
       }}

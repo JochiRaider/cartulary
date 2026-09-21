@@ -21,6 +21,11 @@ type WorkbookInspectorNoticeDestination =
       readonly panel: InspectorPanelId;
       readonly regionId: string;
     }
+  | {
+      readonly kind: "feature";
+      readonly panel: InspectorPanelId;
+      readonly featureGroupKey: string;
+    }
   | { readonly kind: "panel"; readonly panel: InspectorPanelId }
   | { readonly kind: "inspector" };
 

@@ -85,11 +85,23 @@ export function useInspectorCreateRelatedWorkflow({
       ) {
         return false;
       }
+      const report = (feedback: WorkbookInspectorFeedback) =>
+        onFeedback({
+          ...feedback,
+          ...(selectedSubject
+            ? { sourceRecordId: selectedSubject.subject.recordId }
+            : {}),
+          destination: {
+            kind: "feature",
+            panel: featureGroup.panelId,
+            featureGroupKey: featureGroup.featureGroupKey,
+          },
+        });
       const targetContract = getViewContract(
         featureGroup.routeBinding.targetViewSchemaId,
       );
       if (targetContract === undefined) {
-        onFeedback(
+        report(
           workbookInspectorLocalErrorFeedback(
             "The target view does not allow row creation.",
           ),
@@ -97,7 +109,7 @@ export function useInspectorCreateRelatedWorkflow({
         return true;
       }
       if (selectedSubject === null) {
-        onFeedback(
+        report(
           workbookInspectorLocalErrorFeedback(
             "Select a saved row before creating a related record.",
           ),
@@ -111,7 +123,7 @@ export function useInspectorCreateRelatedWorkflow({
         targetContract,
       });
       if (result.kind === "invalid_target") {
-        onFeedback(
+        report(
           workbookInspectorLocalErrorFeedback(
             "The target view does not allow row creation.",
           ),
@@ -216,12 +228,18 @@ export function useInspectorCreateRelatedWorkflow({
           type: "complete",
           workflowId: active.workflowId,
         });
-        onFeedback(
-          workbookInspectorMessageFeedback(
+        onFeedback({
+          ...workbookInspectorMessageFeedback(
             `Created ${active.targetContract.title} record ${outcome.value.recordId}.`,
             "none",
           ),
-        );
+          sourceRecordId: active.subject.recordId,
+          destination: {
+            kind: "feature",
+            panel: active.featureGroup.panelId,
+            featureGroupKey: active.featureGroup.featureGroupKey,
+          },
+        });
       }
       await onCreated();
     } finally {

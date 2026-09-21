@@ -24,7 +24,8 @@ owning source mutations or request lifetimes.
 | --- | --- |
 | [WorkbookInspectorPresentation.test.tsx](WorkbookInspectorPresentation.test.tsx) | Tests valid subject boundaries, ordered panels, deleted-record History, and explicit creation content. |
 
-The shell keeps its compact title, Close control, and Sections disclosure outside the single
+The shell keeps its compact title, Close control, measured direct navigation or Sections disclosure, and optional
+owner-contributed unfinished-work entry outside the single
 `data-inspector-scroll-body`. Full record context and technical metadata belong
 in that body. Semantic focus targets scroll within it; outer slot geometry,
 separator behavior and focus restoration retain their layout owners.
@@ -52,20 +53,24 @@ That boundary also applies complete semantic typography roles. Narrative preview
 limits come from the generated design-presentation facade, not local literals.
 
 Saved Details preserve contract field order. Scalar read kinds use aligned rows;
-source contracts for multiline bodies, reason notes, and Timeline visible text
-use full-width narrative rows. Unknown and collection read kinds stack safely.
+multiline bodies and reason notes use full-width narratives. The closed design
+presentation v2 projection overrides exactly eight Timeline metadata fields to
+compact rows and keeps its two activity fields narrative. Unknown and collection read kinds stack safely.
 Values distinguish unloaded, null, empty text, false and zero. The six-line
 preview measures actual text layout and exposes an explicit expansion control.
 
 Ordinary editing supplies content, actions, feedback and retained-draft slots.
 Update and Close editor share an action row. The draft owner supplies original
 field cues and review/discard commands; the component does not copy draft state.
-Review reattaches the correct field and collection action before explicit Resume.
+An owner-admitted Resume attaches unchanged work in one activation. Changed
+dependencies enter explicit review; original-field and authority checks stay
+with the edit owner.
 Timeline and Entity owners supply collection-management focus destinations.
 
 Relationship summaries retain source mention identity and distinguish raw text,
 resolution state and authorized target labels. Selected correction controls stay
-inside their source group. Collapsing them retains mounted picker/creation state;
+immediately after their original item, including session-observed dismissed
+items. Candidate read/filter/paging/retry controls remain inside the chooser. Collapsing them retains mounted picker/creation state;
 source-owned operation receipts and recovery commands remain outside the
 disclosure. Empty bounded target pages never imply a complete search.
 
@@ -87,8 +92,9 @@ an already-authorized supplied name may replace its identifier label. No
 account-directory query is introduced.
 
 Each event shows attribution and absolute UTC time with a numeric offset.
-`Event details` contains every unit, before/after value, public reference, exact
-timestamp, and the event's reversal choices. Native disclosure preserves mounted
+`Event details` retains every typed before/after value and event-local reversal
+choice. Absent, null, empty text, scalars and collections stay distinct; exact
+field keys and references live in subordinate technical disclosure. Native disclosure preserves mounted
 content. Nested Escape closes the nearest disclosure; confirmation handles its
 own Escape first. Closing event detail cancels its unsubmitted review, including a pending read,
 and clears disposable checking state. Captured submitted work stays with its owner.
@@ -104,7 +110,10 @@ review; field/grid and operation recovery remain with their existing owners.
 Contextual commands render once in canonical feature order as action rows. Their
 result descriptions come from the authored presentation projection; semantic
 capability and mutation intent select authoring or review, never label text.
-Shared reasons retain identity/parameter deduplication alongside those descriptions.
+Panel `featureContent` binds active authoring and feedback to the original
+feature identity immediately after its command. Shared reasons retain
+identity/parameter deduplication; repeated outcome descriptions are shared once
+within the group. No-subject creation remains a source-owned region.
 The contextual dispatcher is not a second route registry: source-local read,
 field, relationship, lifecycle and History contributions retain their bindings.
 Unsupported features retain Core 01’s `omit_feature` behavior; this presentation
@@ -121,3 +130,10 @@ Assessment and Indicator forms consume shared field, group, heading, action and
 text roles. The retired Observation/lifecycle style modules have no remaining
 consumers. These are presentation primitives: each source still owns field
 validation, draft identity, close/discard, source replacement and accepted receipts.
+
+
+Attention contributions carry owner-issued work, subject/authority and outcome
+identities. The shell admits, orders, deduplicates and navigates; it neither
+classifies operations nor dispatches recovery. Navigation uses one admitted
+section sequence for direct and chooser presentations and never opens lazy
+History. Measurement is clipped independently from the visible scrollport.

@@ -48,6 +48,8 @@ import {
   type WorkbookInspectorPanelContentModel,
   type WorkbookInspectorPanelData,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
+import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
+import { ownerInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import {
@@ -63,6 +65,7 @@ import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import { useWorkbookInspectorOrdinaryAttention } from "../../inspector/workbookInspectorOrdinaryAttention";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import { mergeIdentifierOutcomeText } from "../../models/entityMergePlan";
 import type { EntityRow } from "../../models/entityWorkbookModel";
@@ -217,6 +220,10 @@ export function useEntityWorkbookInspectorComposition({
   };
   const edit = useWorkbookInspectorEditDraft({
     store: mutationRuntime.inspectorDrafts,
+    retainedSelection: {
+      fields: editableFields,
+      select: (identity) => setEditFieldKey(identity.fieldKey),
+    },
     row: selectedEntity?.rawRow ?? null,
     field: selectedEdit.field,
     viewSchemaId: contract.viewSchemaId,
@@ -429,12 +436,21 @@ export function useEntityWorkbookInspectorComposition({
   const node = isOpen ? (
     <EntityInspectorPresentation
       details={{
+        drafts: mutationRuntime.inspectorDrafts,
         patches: mutationRuntime.explicitPatches,
         disabledReason:
           interactionMode.kind !== "editable"
-            ? interactionMode.label
+            ? ownerInspectorDisabledReason(
+                contract.viewSchemaId,
+                interactionMode.kind,
+                interactionMode.label,
+              )
             : !mutationRuntime.inspectorDrafts.canAuthor()
-              ? "Current access permits reading only."
+              ? ownerInspectorDisabledReason(
+                  contract.viewSchemaId,
+                  "authoring_unavailable",
+                  "Current access permits reading only.",
+                )
               : null,
         aliasDraft,
         aliasInputRef,
@@ -612,10 +628,17 @@ function EntityInspectorPresentation({
   readonly isOpen: boolean;
   readonly relationships: EntityRelationshipsProps;
 }) {
+  const attention = useWorkbookInspectorOrdinaryAttention(
+    details.drafts,
+    details.patches,
+    details.contract.viewSchemaId,
+    isOpen ? (details.selectedEntity?.rawRow ?? null) : null,
+  );
   if (!isOpen) return undefined;
   return (
     <EntityWorkbookInspector
       {...inspector}
+      attention={attention}
       detailsContent={<EntityDetails {...details} />}
       evidenceContent={
         <p>
@@ -638,8 +661,9 @@ function EntityInspectorPresentation({
 }
 
 type EntityDetailsProps = {
+  readonly drafts: WorkbookMutationRuntime["inspectorDrafts"];
   readonly patches: WorkbookMutationRuntime["explicitPatches"];
-  readonly disabledReason: string | null;
+  readonly disabledReason: WorkbookInspectorDisabledReason | null;
   readonly editFeedback: ReturnType<typeof useWorkbookInspectorFieldFeedback>;
   readonly aliasFeedback: ReturnType<typeof useWorkbookInspectorFieldFeedback>;
   readonly aliasRemoveFeedback: ReturnType<
@@ -683,7 +707,6 @@ function EntityDetails(props: EntityDetailsProps) {
           onSubmit={() => void props.submitEdit()}
           editor={editor}
           retainedWork={props.edit.retainedWork}
-          onReviewDraft={(identity) => props.setEditFieldKey(identity.fieldKey)}
           collectionDestinations={{
             [`${props.selectedEntity.entityType}.aliases`]: () => {
               if (!aliases.current) return;

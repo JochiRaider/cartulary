@@ -5,6 +5,7 @@ import type {
   InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
 import type { InspectorContextualCapability } from "../inspectorCapabilityResolver";
 
 export const workbookInspectorNoRowMessage =
@@ -15,6 +16,30 @@ export type WorkbookInspectorTechnicalField = {
   readonly value: string;
 };
 
+/** An owner-projected obligation; presentation never reconstructs its state. */
+export type WorkbookInspectorAttention = {
+  readonly workId: string;
+  readonly viewSchemaId: string;
+  readonly recordId: string;
+  readonly category:
+    | "draft"
+    | "review"
+    | "failure"
+    | "in_progress"
+    | "uncertain"
+    | "refresh"
+    | "unavailable";
+  readonly label: string;
+  readonly order: number;
+  readonly outcomeIdentity?: string;
+  readonly isCurrent: () => boolean;
+  readonly destination: (section: HTMLElement) => HTMLElement | null;
+  readonly actions?: readonly {
+    readonly label: string;
+    readonly invoke: () => void;
+  }[];
+};
+
 export type WorkbookInspectorActionBinding = {
   readonly outcome: "open_authoring" | "review" | "navigate";
   readonly capability: InspectorContextualCapability;
@@ -22,6 +47,9 @@ export type WorkbookInspectorActionBinding = {
   readonly semanticKey: string;
   readonly testId: string;
 };
+
+export type WorkbookHistoryValue =
+  RecordHistoryItem["diff_summary"]["units"][number]["changes"][number]["before"];
 
 export type WorkbookHistoryEventPresentation = {
   readonly actorLabel: string;
@@ -36,8 +64,8 @@ export type WorkbookHistoryEventPresentation = {
     readonly changes: readonly {
       readonly fieldKey: string;
       readonly label: string;
-      readonly before: string;
-      readonly after: string;
+      readonly before: WorkbookHistoryValue;
+      readonly after: WorkbookHistoryValue;
     }[];
   }[];
   readonly technicalFields: readonly WorkbookInspectorTechnicalField[];

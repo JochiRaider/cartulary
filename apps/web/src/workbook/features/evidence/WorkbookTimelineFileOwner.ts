@@ -25,6 +25,7 @@ import {
   type EvidenceFileReceipt,
   type EvidenceFileTransport,
 } from "./evidenceFileOperation";
+import type { EvidenceWorkAttention } from "./evidenceWorkAttention";
 import type {
   TimelineFileDraftPort,
   TimelineFileLinkAttempt,
@@ -33,6 +34,7 @@ import type {
 } from "./timelineFileOperation";
 
 type Entry = {
+  workId: string;
   source: TimelineFileSource;
   filename: string;
   upload: EvidenceUploadSession;
@@ -59,6 +61,7 @@ type Entry = {
   message: string;
 };
 export type TimelineFileSnapshot = Readonly<{
+  attention: EvidenceWorkAttention | null;
   key: string;
   recordId: string | null;
   reviewText: string | null;
@@ -81,6 +84,7 @@ export class WorkbookTimelineFileOwner {
   private authority: WorkbookMutationAuthority | null = null;
   private actorId: string | null = null;
   private generation = 0;
+  private workSequence = 0;
   private readonly entries = new Map<string, Entry>();
   private readonly versions = new Map<string, number>();
   private readonly listeners = new Set<() => void>();
@@ -177,6 +181,7 @@ export class WorkbookTimelineFileOwner {
   private publish = () => {
     this.snapshot = this.authority
       ? [...this.entries.values()].map((e) => ({
+          attention: this.attention(e),
           key: e.source.key,
           recordId: e.recordId,
           reviewText: !e.reviewCandidate
@@ -219,6 +224,43 @@ export class WorkbookTimelineFileOwner {
       : [];
     for (const listener of this.listeners) listener();
   };
+  private attention(e: Entry): EvidenceWorkAttention | null {
+    const stage = e.evidence.state;
+    const upload = e.upload.status;
+    const uncertain =
+      e.linkUncertain ||
+      stage.phase === "uncertain" ||
+      upload.phase === "slot_uncertain" ||
+      upload.phase === "transfer_uncertain";
+    if (
+      e.refresh === "complete" ||
+      (e.stopped &&
+        !uncertain &&
+        !this.busy(e) &&
+        !stage.receipt &&
+        !e.draftSubmitted)
+    )
+      return null;
+    const category =
+      e.receipt || e.associationPresent
+        ? "refresh"
+        : uncertain
+          ? "uncertain"
+          : this.busy(e) || e.draftSubmitted
+            ? "in_progress"
+            : e.needsReview || stage.phase === "rejected"
+              ? "review"
+              : e.linkFailure || upload.failure
+                ? "failure"
+                : "draft";
+    const workId = e.workId;
+    return {
+      workId,
+      category,
+      label: this.message(e),
+      outcomeIdentity: `${workId}:${upload.phase}:${stage.phase}:${e.linkUncertain}:${e.refresh}`,
+    };
+  }
   private message(e: Entry) {
     if (e.stopped && !e.receipt)
       return "Stopped. Dispatched work remains retained until its outcome is known; saved Evidence is preserved.";
@@ -380,6 +422,7 @@ export class WorkbookTimelineFileOwner {
       },
     );
     const entry: Entry = {
+      workId: `timeline-file:${this.incidentId}:${++this.workSequence}`,
       source: { ...source },
       recordId: source.recordId,
       reviewCandidate: null,

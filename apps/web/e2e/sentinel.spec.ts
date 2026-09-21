@@ -3634,6 +3634,22 @@ async function createFromTimelineWorkflow(
   await expect(
     page.getByTestId(genericCreateSubmitTestId(options.targetViewSchemaId)),
   ).toBeVisible();
+  await expect(action).toHaveCount(1);
+  const commandRow = page.locator(
+    `[data-inspector-feature="${options.actionKey}"]`,
+  );
+  const authoring = commandRow.locator(
+    `[data-inspector-feature-content="${options.actionKey}"]`,
+  );
+  await expect(
+    authoring.getByTestId(
+      genericCreateSubmitTestId(options.targetViewSchemaId),
+    ),
+  ).toBeVisible();
+  await test.info().attach(`inspector-workflow-${options.actionKey}`, {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   for (const [fieldKey, value] of options.fields) {
     const field = requireViewContract(options.targetViewSchemaId).fieldMap[
       fieldKey

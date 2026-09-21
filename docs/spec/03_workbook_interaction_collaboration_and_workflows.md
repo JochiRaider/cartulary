@@ -238,6 +238,24 @@ conflict classes, specialized workflow policy, and REQ-03-299/100 security
 lifetimes continue to apply. Retained work grants no authorization and adds no
 browser persistence, cross-account archive, or reload guarantee.
 
+Explicit ordinary Clear changes only local draft intent and MUST NOT dispatch,
+discard, or cancel an operation. Nullable Timeline Clear sets explicit `null`;
+deleting every character sets `""`. Other fields use their declared clear
+operation or omit Clear. Specialized collections and relationships retain their
+own commands. The Timeline explanation is “Sets the value to Not set when updated.”
+Safe Resume revalidates the original field/action, current access and dependencies
+and attaches in one activation when unchanged. Changed dependencies require
+explicit review without silently accepting a newer baseline.
+
+Record-scoped attention MUST be a projection of existing owners, not another
+operation or authoring owner. Owners supply stable work identity, authorized
+subject/context, safe category and label, original destination, admitted commands
+and attempt/outcome identity. The shared shell orders, renders and navigates;
+it MUST NOT inspect draft stores, classify success or construct recovery requests.
+Separate revisions and operations remain distinct even when they concern the
+same field. Revoking a contribution removes protected labels, counts and pending
+presentation destinations before replacement; stale callbacks grant no authority.
+
 Field feedback shares this canonical edit identity and captured authoring
 revision. An obsolete response MUST NOT invalidate another field or newer draft;
 changing the corresponding authoring revision retires its validation feedback.

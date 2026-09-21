@@ -1,3 +1,4 @@
+import { mentionItemTestId } from "@cartulary/ui-contracts";
 import {
   act,
   cleanup,
@@ -310,14 +311,22 @@ describe("Timeline collection inspection", () => {
     const mentions = buildInspectorMentions(
       {
         recordId: "record-1",
-        collectionValues: { hostRefs: [item], identityRefs: [] },
+        collectionValues: {
+          hostRefs: [
+            item,
+            {
+              ...item,
+              entityMentionId: "host-2",
+              itemRef: "entity_mention:host-2",
+              displayText: "Other host",
+            },
+          ],
+          identityRefs: [],
+        },
       },
       [],
     );
-    const props: Omit<
-      ComponentProps<typeof TimelineMentionsPanel>,
-      "actions"
-    > = {
+    let props: Omit<ComponentProps<typeof TimelineMentionsPanel>, "actions"> = {
       sourceRecordId: "record-1",
       registerCollectionItem: vi.fn(),
       entityIndex: {},
@@ -374,6 +383,18 @@ describe("Timeline collection inspection", () => {
       return <TimelineMentionsPanel {...props} actions={actions} />;
     }
     const { rerender } = render(<Panel />);
+    const selected = screen.getByRole("region", {
+      name: "Selected Hosts item",
+    });
+    expect(selected.previousElementSibling?.getAttribute("data-testid")).toBe(
+      mentionItemTestId(item.itemRef),
+    );
+    expect(selected.nextElementSibling?.getAttribute("data-testid")).toBe(
+      mentionItemTestId("entity_mention:host-2"),
+    );
+    const correction = screen.getByText(
+      "Correction and resolution",
+    ).parentElement;
     const details = screen.getByText("Mention details");
     expect((details.parentElement as HTMLDetailsElement).open).toBe(false);
     fireEvent.click(details);
@@ -413,5 +434,26 @@ describe("Timeline collection inspection", () => {
       item.itemRef,
     );
     expect(send).not.toHaveBeenCalled();
+    const firstMention = mentions[0];
+    if (!firstMention) throw new Error("Missing selected mention fixture");
+    const dismissed = {
+      ...firstMention,
+      status: "dismissed" as const,
+      isActiveRelationshipValue: false,
+    };
+    props = {
+      ...props,
+      inspectorMentions: [dismissed, ...mentions.slice(1)],
+      selectedMention: dismissed,
+    };
+    rerender(<Panel viewer />);
+    expect(screen.getByText("Correction and resolution").parentElement).toBe(
+      correction,
+    );
+    expect(
+      screen
+        .getByRole("region", { name: "Selected Hosts item" })
+        .previousElementSibling?.getAttribute("data-testid"),
+    ).toBe(mentionItemTestId(item.itemRef));
   });
 });

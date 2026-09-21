@@ -11,7 +11,25 @@ describe("design presentation projection", () => {
     expect(cartularyDesignPresentation.inspector).toMatchObject({
       headerTitleLines: 2,
       narrativePreviewLines: 6,
+      persistentRegionMaxHeightPx: 128,
+      fieldActionMinSizePx: 28,
+      propertyStackBelowPx: 320,
+      overlayMinViewportWidthPx: 320,
     });
+    const overrides =
+      cartularyDesignPresentation.inspector.fieldLayoutOverrides;
+    expect(overrides).toHaveLength(10);
+    expect(
+      overrides.filter((entry) => entry.layout === "property"),
+    ).toHaveLength(8);
+    expect(
+      overrides
+        .filter((entry) => entry.layout === "narrative")
+        .map((entry) => entry.fieldKey),
+    ).toEqual([
+      "timeline.raw_activity_text",
+      "timeline.activity_synopsis_text",
+    ]);
     expect(cartularyDesignPresentation.gridCellRangeSelection).toEqual({
       stationaryTolerancePx: 4,
       edgeBandPx: 32,

@@ -16,8 +16,10 @@ import {
   type EvidenceFileReceipt,
   type EvidenceFileTransport,
 } from "./evidenceFileOperation";
+import type { EvidenceWorkAttention } from "./evidenceWorkAttention";
 
 type Entry = {
+  workId: string;
   recordId: string;
   filename: string;
   upload: EvidenceUploadSession;
@@ -32,6 +34,7 @@ type Entry = {
   message: string;
 };
 export type EvidenceAttachmentSnapshot = Readonly<{
+  attention: EvidenceWorkAttention | null;
   recordId: string;
   filename: string;
   message: string;
@@ -51,6 +54,7 @@ export class WorkbookEvidenceAttachmentOwner {
   private authority: WorkbookMutationAuthority | null = null;
   private actorId: string | null = null;
   private generation = 0;
+  private workSequence = 0;
   private readonly entries = new Map<string, Entry>();
   private readonly versions = new Map<string, number>();
   private readonly listeners = new Set<() => void>();
@@ -101,6 +105,7 @@ export class WorkbookEvidenceAttachmentOwner {
           const busy =
             entry.preparing || entry.upload.status.pending || stage.pending;
           return {
+            attention: this.attention(entry),
             recordId: entry.recordId,
             filename: entry.filename,
             message: this.message(entry),
@@ -137,6 +142,36 @@ export class WorkbookEvidenceAttachmentOwner {
       : [];
     for (const listener of this.listeners) listener();
   };
+  private attention(entry: Entry): EvidenceWorkAttention | null {
+    const stage = entry.finalization.state;
+    const upload = entry.upload.status;
+    const uncertain =
+      stage.phase === "uncertain" ||
+      upload.phase === "slot_uncertain" ||
+      upload.phase === "transfer_uncertain";
+    if (
+      entry.refresh === "complete" ||
+      (entry.discarded && !uncertain && !stage.pending && !stage.receipt)
+    )
+      return null;
+    const category = stage.receipt
+      ? "refresh"
+      : uncertain
+        ? "uncertain"
+        : entry.preparing || upload.pending || stage.pending
+          ? "in_progress"
+          : entry.needsReview || stage.phase === "rejected"
+            ? "review"
+            : upload.failure
+              ? "failure"
+              : "draft";
+    return {
+      workId: entry.workId,
+      category,
+      label: this.message(entry),
+      outcomeIdentity: `${entry.workId}:${upload.phase}:${stage.phase}:${entry.refresh}`,
+    };
+  }
   private message(entry: Entry) {
     if (entry.discarded && !entry.finalization.state.receipt)
       return "Stopped. The dispatched attachment remains retained until its outcome is known.";
@@ -301,6 +336,7 @@ export class WorkbookEvidenceAttachmentOwner {
       },
     );
     const entry: Entry = {
+      workId: `evidence-file:${this.incidentId}:${row.record_id}:${++this.workSequence}`,
       recordId: row.record_id,
       filename: admitted.file.name || "Attachment",
       upload,

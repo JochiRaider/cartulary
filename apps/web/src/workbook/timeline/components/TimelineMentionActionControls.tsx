@@ -96,62 +96,76 @@ export function TimelineMentionActionControls({
         >
           {subject.state !== "dismissed" ? (
             <>
-              <label style={labelStyle}>
-                Filter loaded targets
-                <input
-                  style={inputStyle}
-                  value={filter}
-                  onChange={(event) => setFilter(event.currentTarget.value)}
+              <fieldset
+                style={{
+                  border: 0,
+                  padding: 0,
+                  margin: 0,
+                  minInlineSize: 0,
+                  display: "grid",
+                  gap: "var(--ct-spacing-xs)",
+                }}
+              >
+                <legend>Choose target</legend>
+                <label style={labelStyle}>
+                  Filter loaded targets
+                  <input
+                    style={inputStyle}
+                    value={filter}
+                    onChange={(event) => setFilter(event.currentTarget.value)}
+                  />
+                </label>
+                <WorkbookRecordCandidatePicker
+                  selection="single"
+                  label={
+                    subject.state === "resolved"
+                      ? "Correct target"
+                      : "Resolve to existing"
+                  }
+                  testId={mentionResolveTargetSelectTestId()}
+                  disabled={!allowed("resolve_item")}
+                  candidates={options}
+                  selectedRecordIds={
+                    actions.selectedTargetId ? [actions.selectedTargetId] : []
+                  }
+                  onSelectedRecordIdsChange={(ids) =>
+                    actions.changeTarget(ids[0] ?? "")
+                  }
                 />
-              </label>
-              <WorkbookRecordCandidatePicker
-                selection="single"
-                label={
-                  subject.state === "resolved"
-                    ? "Correct target"
-                    : "Resolve to existing"
-                }
-                testId={mentionResolveTargetSelectTestId()}
-                disabled={!allowed("resolve_item")}
-                candidates={options}
-                selectedRecordIds={
-                  actions.selectedTargetId ? [actions.selectedTargetId] : []
-                }
-                onSelectedRecordIdsChange={(ids) =>
-                  actions.changeTarget(ids[0] ?? "")
-                }
-              />
-              <p role="status" style={{ margin: 0 }}>
-                {candidates.phase === "loading" || candidates.phase === "idle"
-                  ? "Loading targets…"
-                  : candidates.phase === "failed"
-                    ? candidates.error
-                    : candidates.candidates.length === 0
-                      ? candidates.hasMore
-                        ? "No targets on the loaded pages. More targets are available."
-                        : "No eligible targets found in this search."
-                      : matches.length === 0
-                        ? "No loaded targets match this filter."
-                        : `${candidates.candidates.length} targets loaded.${candidates.hasMore ? " More targets are available." : " All current pages loaded."}`}
-              </p>
+                <p role="status" style={{ margin: 0 }}>
+                  {candidates.phase === "loading" || candidates.phase === "idle"
+                    ? "Loading targets…"
+                    : candidates.phase === "failed"
+                      ? candidates.error
+                      : candidates.candidates.length === 0
+                        ? candidates.hasMore
+                          ? "No targets on the loaded pages. More targets are available."
+                          : "No eligible targets found in this search."
+                        : matches.length === 0
+                          ? "No loaded targets match this filter."
+                          : `${candidates.candidates.length} targets loaded.${candidates.hasMore ? " More targets are available." : " All current pages loaded."}`}
+                </p>
+                <div style={actionsStyle}>
+                  {candidates.phase === "failed" ? (
+                    <WorkbookInspectorActionButton
+                      tone="secondary"
+                      onClick={() => void candidates.retry()}
+                    >
+                      Retry target read
+                    </WorkbookInspectorActionButton>
+                  ) : null}
+                  {candidates.hasMore ? (
+                    <WorkbookInspectorActionButton
+                      tone="secondary"
+                      disabled={candidates.phase === "loading"}
+                      onClick={() => void candidates.loadMore()}
+                    >
+                      Load more targets
+                    </WorkbookInspectorActionButton>
+                  ) : null}
+                </div>
+              </fieldset>
               <div style={actionsStyle}>
-                {candidates.phase === "failed" ? (
-                  <WorkbookInspectorActionButton
-                    tone="secondary"
-                    onClick={() => void candidates.retry()}
-                  >
-                    Retry target read
-                  </WorkbookInspectorActionButton>
-                ) : null}
-                {candidates.hasMore ? (
-                  <WorkbookInspectorActionButton
-                    tone="secondary"
-                    disabled={candidates.phase === "loading"}
-                    onClick={() => void candidates.loadMore()}
-                  >
-                    Load more targets
-                  </WorkbookInspectorActionButton>
-                ) : null}
                 <WorkbookInspectorActionButton
                   tone="secondary"
                   data-testid={mentionResolveExistingButtonTestId()}

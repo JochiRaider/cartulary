@@ -38,6 +38,7 @@ export function WorkbookInspectorContextualAction({
   disabledTokens,
   additionalDisabledReason,
   descriptionId,
+  outcomeDescriptionId,
   onInvoke,
 }: {
   readonly binding: WorkbookInspectorActionBinding;
@@ -47,6 +48,7 @@ export function WorkbookInspectorContextualAction({
     | WorkbookInspectorDisabledReason
     | undefined;
   readonly descriptionId?: string | undefined;
+  readonly outcomeDescriptionId?: string | undefined;
   readonly onInvoke: () => void;
 }) {
   const reasonId = useId();
@@ -65,7 +67,7 @@ export function WorkbookInspectorContextualAction({
         {...workbookInspectorActionSemanticProps(
           binding,
           [
-            outcomeId,
+            outcomeDescriptionId ?? outcomeId,
             ...(reason === null ? [] : [descriptionId ?? reasonId]),
           ].join(" "),
         )}
@@ -75,9 +77,15 @@ export function WorkbookInspectorContextualAction({
       >
         {binding.featureGroup.label}
       </WorkbookInspectorActionButton>
-      <p id={outcomeId} style={outcomeStyle}>
-        {cartularyDesignPresentation.inspector.actionOutcomes[binding.outcome]}
-      </p>
+      {outcomeDescriptionId ? null : (
+        <p id={outcomeId} style={outcomeStyle}>
+          {
+            cartularyDesignPresentation.inspector.actionOutcomes[
+              binding.outcome
+            ]
+          }
+        </p>
+      )}
       {reason === null || descriptionId ? null : (
         <WorkbookInspectorDisabledReasonMessage id={reasonId}>
           {workbookInspectorDisabledReasonText(reason)}

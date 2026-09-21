@@ -21,22 +21,24 @@ export function useTimelineInspectorPresentation<
   readonly sections: TimelineInspectorSectionsInput;
 }) {
   const {
+    inspectorAttentionForRow,
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
     renderRelationshipEditor,
     renderRowHistorySection,
-    renderWorkflowSection,
+    renderFeatureWorkflow,
   } = useTimelineWorkbookInspectorSections(sections);
   if (!isOpen) return null;
 
   const rowHistoryData = workbookRecordHistoryLoadedData(sections.rowHistory);
   return {
     ...model,
+    inspectorAttentionForRow,
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
     renderRelationshipEditor,
     renderRowHistorySection,
-    renderWorkflowSection,
+    renderFeatureWorkflow,
     rowHistoryRecordId: currentHistoryDeleted ? currentHistoryRecordId : null,
     rowHistoryRowVersion:
       currentHistoryDeleted &&

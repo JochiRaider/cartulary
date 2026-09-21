@@ -5,7 +5,7 @@ document_class: design-direction-contract
 status: adopted/closed-design-contract
 design_contract_schema_id: cartulary.design_direction.v1
 token_registry_schema_id: cartulary.design_tokens.v1
-presentation_contract_schema_id: cartulary.design_presentation.v1
+presentation_contract_schema_id: cartulary.design_presentation.v2
 default_theme_id: dark_graphite
 description: "A dense graphite workbook-native incident workspace with {colors.accent} as the scarce warm accent for focus, primary action, and active-shell emphasis. The interface keeps the grid as the primary work surface, uses adjacent inspectors for enrichment and review, and presents conflicts, evidence, presence, and progressive structure as local semantic state rather than detached workflow chrome."
 
@@ -325,7 +325,7 @@ MUST consume `contracts/design/tokens.v1.json` and MUST NOT read, stat, hash, or
 otherwise depend on this file or another path under `docs/`. Human review MUST
 establish that the machine projection faithfully implements this design owner.
 
-Design contract. `contracts/design/presentation.v1.json` is the corresponding documentation-free projection for the observable presentation values in §§10.1, 10.6, 10.7, 10.8, 12.3, and 12.8. Its schema ID is `cartulary.design_presentation.v1`. It MUST project the exact loading delay and sentence, transient-confirmation timing, status-secondary priority, closed error-family rows, closed grid data-state rows, interaction-mode rows, and their composition rule without adding a presentation family or alternate value. Executable consumers MUST use the generated package facade and MUST NOT parse this document.
+Design contract. `contracts/design/presentation.v2.json` is the corresponding documentation-free projection for the observable presentation values in §§7.3–7.4, 10.1, 10.6, 10.7, 10.8, 12.3–12.4, 12.7, and 12.8. Its schema ID is `cartulary.design_presentation.v2`. It MUST project the exact loading delay and sentence, transient-confirmation timing, status-secondary priority, closed error-family rows, closed grid data-state rows, interaction-mode rows, and their composition rule without adding a presentation family or alternate value. The inspector projection includes its state vocabulary, title/preview limits, reference geometry, field-action minimum, inner-width stacking threshold, exact schema/field layout overrides, and action/announcement presentation. Override references MUST be checked against authored view-schema inputs; duplicates and unknown layouts fail validation. Executable consumers MUST use the generated package facade and MUST NOT parse this document.
 
 ### 3.2 Token registry schema contract
 
@@ -885,7 +885,10 @@ to two lines; its accessible name retains the complete label. An expandable
 record-context block at the beginning of the body exposes the complete visible
 label without enlarging the header. Technical metadata belongs in the body. The
 resize separator remains attached to the outer slot. Focus reveal and section
-navigation MUST target the body scrollport and preserve §12.5 containment.
+navigation MUST target the body scrollport and preserve §12.5 containment. At
+1280×720 with default typography/spacing and a 420px inspector, the persistent
+region, including any compact attention entry, MUST occupy at most 128 CSS px.
+Enlarged text may grow this region; fixed-height clipping is invalid.
 
 Design contract. If the inspector opens as an overlay in a narrower viewport band, the grid behind the overlay MUST be inert to pointer and keyboard until the overlay closes.
 
@@ -935,6 +938,13 @@ Design contract. Each shell chrome mode MUST render according to this table.
 | `below_supported_minimum` | Selected by `select_shell_chrome_mode`. | Safe navigation and session controls remain reachable. | Not required except safe save/conflict path. | Degraded; horizontal scroll or supported-viewport message permitted. | Not required. | Primary save label MUST remain visible when unsaved work exists. | Not claimed. |
 
 Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the shell chrome mode, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
+
+Design contract. From 320px effective viewport width to the desktop minimum, an
+already-open inspector MUST remain usable as a work-area-bounded overlay, with
+the background grid inert and the eligible selected-record opener reachable.
+The base 360px resize minimum MUST NOT constrain this overlay. This inspector
+support does not establish a mobile workbook profile; below 320px the existing
+degraded safe-navigation rules remain. No document scrolling is introduced.
 
 Design contract. Scoped workbook recovery uses one compact `Recovery` entry in
 the top bar and one non-modal panel in the shared work-area host. Its content is
@@ -1406,7 +1416,7 @@ linear speed from zero at its inner boundary to 720 CSS pixels/second at or
 beyond its outer edge. Frame elapsed time is clamped to 32 milliseconds. Each
 frame performs at most one scroll write and one endpoint resolution in the
 existing clipped grid scrollport. Pending editor acceptance suspends scrolling.
-These values are projected through `contracts/design/presentation.v1.json`.
+These values are projected through `contracts/design/presentation.v2.json`.
 
 Design contract. Completed range feedback MUST retain non-color selection cues
 and MUST remain distinct from active-cell focus, inspector-row context and bulk
@@ -1868,6 +1878,11 @@ Design contract. Compound component states MUST resolve through this precedence 
 
 ### 12.4 Buttons
 
+Design contract. Inspector field actions MUST remain discoverable at rest and
+use a quiet token-backed treatment, with targets at least 28×28 CSS px and enough
+width for the complete label. Focus, disabled, pending and hover remain distinct.
+Density comes from alignment and spacing, not smaller text.
+
 Design contract. Primary buttons MUST use `{components.button-primary}`. Secondary buttons MUST use `{components.button-secondary}`. Destructive buttons MUST use `{components.button-danger}` or a destructive dialog action row in §12.2.
 
 Design contract. Destructive action controls MUST include destructive verb text. Icon-only destructive actions are invalid.
@@ -1924,23 +1939,34 @@ Design contract. Menu items that open nested UI MUST state that result in access
 
 ### 12.7 Inspector sections
 
-Design contract. The bounded record header, Close control and a labelled
-`Sections` disclosure MUST remain visible above the single inspector scroll body.
-Navigation and section rendering MUST consume the same admitted ordered section
-descriptors. Readable unrequested and failed sections remain destinations;
-concealed, undeclared and subject-inapplicable sections do not. With no admitted
-destinations, the disclosure is absent. Missing required contributions remain
-coverage errors. Navigation MUST NOT infer admission by inspecting children.
+Design contract. The bounded record header and Close control MUST remain visible
+above one inspector scroll body. One labelled navigation region renders ordinary
+buttons with `aria-current="location"` on the current destination. All admitted
+complete labels, targets, gaps, padding and focus treatment render directly in
+one row when measured capacity permits; equality fits. Otherwise a labelled
+`Sections` chooser exposes the same sequence. Unknown measurements use the
+chooser. The five standard labels MUST fit at 420px with default typography and
+spacing. Labels MUST NOT be abbreviated, text shrunk, or navigation scrolled or
+wrapped to force fit. Reevaluate after size, font, text-spacing or label changes;
+preserve a usable open chooser until selection or dismissal before changing mode.
+
+Navigation and content MUST consume the same admitted ordered descriptors.
+Readable unrequested and failed sections remain destinations; concealed,
+undeclared and subject-inapplicable sections do not. No destinations means no
+navigation. Missing required contributions remain coverage errors. Admission
+MUST NOT be inferred by inspecting children.
 
 Design contract. An explicit admitted opener destination takes precedence.
 Reopening the same subject retains its active section; a new subject without an
 explicit destination starts at the first admitted section. If a destination is
 removed, the first remaining section becomes current. Passive scrolling selects
 the last heading at or above the usable body top, or the first visible heading;
-at the end of the body it selects the final section. Passive observation MUST
+at the end of an overflowing body it selects the final section. Without overflow,
+passive indication selects the first section while explicit activation still
+focuses its destination. Passive observation MUST
 NOT move focus or initiate a read.
 
-Design contract. Sections contains ordinary navigation buttons, not tabs.
+Design contract. Both navigation modes contain ordinary buttons, not tabs.
 Enter/Space chooses a destination, closes the disclosure, scrolls only the body,
 and focuses its heading or existing owner entry control. An unrequested History
 destination focuses `Open history` without invoking it. Escape dismisses the
@@ -1949,7 +1975,13 @@ trigger. Pointer dismissal preserves the user's destination focus. Choosing a
 section MUST NOT unmount contributions, detach ordinary authoring, submit, or
 discard work. Retargeting clears old-subject presentation; concealment removes
 contents, counts, labels and focus destinations together. When concealment
-removes the focused destination, focus returns to a safe surviving control.
+removes the focused destination, focus returns to the first surviving navigation control, then Close, then the
+existing shell access-loss path. Removal outside focus MUST NOT move focus. A
+focused direct control replaced by a chooser transfers focus to Sections; the
+reverse transfer uses the current direct control without scrolling the body.
+Activation revalidates subject and authority. Newer deliberate navigation,
+subject replacement and authority replacement invalidate pending focus work;
+late mounting MUST NOT steal focus.
 
 Design contract. Inspector sections MUST render in active `inspector_config_v1.panels[]` order. When all current-profile panels are declared, that order is Details, Relationships, Evidence, History, Workflow.
 
@@ -1997,10 +2029,23 @@ they do not convert action payloads to scalar patches.
 Design contract. Short scalar saved values MUST use aligned label/value/action
 rows; narrative values use full-width rows. Classification uses existing semantic
 field contracts, never display labels. Unknown presentation uses a readable
-stacked row. Layout MUST NOT omit or reorder declared readable fields. Narrative
-values exceeding six rendered lines expose `Show full value` and `Show less`;
+stacked row. Layout MUST NOT omit or reorder declared readable fields. The following exact
+`cartulary.view.timeline.v2` overrides select presentation, never membership or
+editability: `timeline.date_entered_text`, `timeline.analyst_text`,
+`timeline.mitre_stage_text`, `timeline.device_object_text`, `timeline.ip_address_text`,
+`timeline.activity_utc_text`, `timeline.activity_local_text`, and
+`timeline.data_source_text` use compact property rows; `timeline.raw_activity_text`
+and `timeline.activity_synopsis_text` use full-width narratives. Compact rows
+stack below 320 CSS px inner content width. Empty narratives reserve no blank
+reading area. Both compact and narrative values exceeding six rendered lines expose `Show full value` and `Show less`;
 the six-line limit is projected through the authored presentation contract.
-Editing controls, errors and required recovery content MUST NOT be truncated.
+Exactly six lines need no expansion. Expansion preserves editor identity.
+Whitespace-only values show a qualified cue with exact source available for
+inspection/editing. Null is Not set; valid empty text is Empty text; zero and
+false remain 0 and False. Unobserved values are Not loaded only under the owning
+read state. Required missing response fields fail owner validation. Source text,
+whitespace and line endings remain inert and exact. Editing controls, errors and
+required recovery content MUST NOT be truncated.
 Collection navigation exposes only an admitted existing management destination.
 
 Design contract. An ordinary `Unsaved change` region MUST keep the accepted value
@@ -2010,7 +2055,11 @@ unfinished work MUST have an original-field cue and owner-admitted Resume/Discar
 actions derived from the canonical authoring owner. Only Update or the Core-owned
 Ctrl/Cmd+Enter submission submits; Close, Escape, blur, Tab and navigation do not
 submit or discard. A global Saved indicator MUST NOT imply a local draft was sent.
-Shared presentation receives explicit control, action and feedback contributions;
+Safe Resume MUST revalidate the original identity and unchanged dependencies
+through its owner and attach in one activation. Changed dependencies require
+explicit review. Details-wide read-only reasons precede affected fields and
+retain `aria-describedby`; reason deduplication uses identity and parameters,
+never equal wording. Shared presentation receives explicit control, action and feedback contributions;
 it MUST NOT own another draft store or operation lifetime.
 
 Design contract. Relationship groups colocate their heading, active values,
@@ -2025,7 +2074,8 @@ removal use their declared operation's language and never imply entity deletion.
 
 Design contract. Relationship item summaries MUST show raw mention, semantic
 resolution state and the authorized target when known. One selected correction
-region remains beside its source collection. Target filters, read status, paging
+region immediately follows its originating item within its source collection,
+including session-observed dismissed items. Target filters, read status, paging
 and retry belong inside the chooser. Collapsing controls MUST preserve visible
 pending, uncertain and retained-work cues and their owner-required recovery entry.
 
@@ -2039,7 +2089,12 @@ remain separately described under their source owners.
 Design contract. History MUST show visible attribution, a concise semantic
 description, operation and absolute UTC date/time with numeric offset. An
 authorized name is used when supplied; otherwise the attributed identifier is
-shown as an identifier. Event disclosure exposes complete Core-owned semantic
+shown as an identifier. Before/After retains typed historical values through
+rendering, never reconstructed from current rows or display strings. Unavailable
+historical data is not Not set. Narratives stack; scalar pairs may sit beside
+each other only when both fit. Diagnostic field keys and references remain in
+subordinate technical disclosure unless needed for attribution or safe
+confirmation. Event disclosure exposes complete Core-owned semantic
 units, exact committed timestamp and technical references. Reversal controls
 belong with the event; row deletion/restoration belongs after the reading region
 in `Record actions`. Whole-change-set review MUST state that other records can be
@@ -2051,7 +2106,22 @@ primary affirmative action belongs to each active local decision. A saved subjec
 remains the record header while an attached append/create/transition title stays
 local. No-subject creation identifies its creation mode and admitted source
 context. Specialized workflows retain their own submission and recovery owners;
-there is no panel-global Save.
+there is no panel-global Save. Each active form immediately follows its
+originating command in the same group, keyed by stable feature identity.
+Outcome descriptions are compact and local; no generic Cancel may imply that
+a dispatched operation or accepted write was undone.
+
+Design contract. Unfinished work is record-scoped attention, not a combined
+operation/read/draft status. Existing owners contribute stable work identity,
+subject and authority context, category, safe label, original section/region or
+field/action destination, admitted commands and attempt/outcome identity. The
+shell may order, render, count and navigate but MUST NOT read draft stores,
+compare dependencies, classify write success or construct retries. Deduplicate
+only by owner work identity; order by admitted section, owner local order, then
+stable identity. Older operations and newer drafts remain distinct. Concealment
+withdraws labels, counts, destinations and callbacks together. No unresolved
+work means no attention entry. Detailed attention stays in the body; the compact
+header entry only navigates. Reopening never duplicates operations or notices.
 
 Design contract. Notices render at their captured field, item, region, panel or
 inspector destination. Acknowledged writes followed by failed display refresh
@@ -2169,6 +2239,13 @@ Design contract. `dark_graphite` MUST satisfy WCAG 2.2 AA for all required state
 | Reduced motion | §6.3 governs reduced-motion behavior. |
 | Live regions | §14.2 governs announcements. |
 
+Design contract. Inspector checks MUST cover 200% text enlargement, 320px
+vertical-content reflow, and simultaneous line-height 1.5, paragraph spacing 2,
+letter spacing 0.12 and word spacing 0.16 font-size multiples. Ordinary text
+requires 4.5:1 contrast and relevant non-text state 3:1. The 28px field-action
+minimum is a product choice, distinct from WCAG target-size exceptions. These
+inspector checks alone do not establish whole-page conformance.
+
 ### 14.2 Live-region event matrix
 
 The Find events below apply to Timeline, Hosts and Identities under Core 03
@@ -2190,6 +2267,7 @@ Design contract. Live-region behavior MUST use this matrix.
 | Inspector background read becomes stale | Polite, once per admitted outcome. | Region, retained-observation qualification and available read recovery. |
 | Inspector validation or explicit recovery fails | Assertive when immediate action is required, once per attempt/outcome. | Safe local failure and owner-permitted correction or recovery. |
 | Inspector ordinary write succeeds | Existing save-status or recovery announcement owns the outcome; local copy does not repeat it. | Saved state; distinguish outstanding display refresh. |
+| Inspector attention navigation or layout change | No additional outcome announcement. | Original owner retains attempt/outcome deduplication. |
 | Inspector outcome rerenders or remounts | No additional outcome announcement. | A newly attempted recovery is a distinct outcome even if message text is unchanged. |
 | Presence update only | No live announcement. | None. |
 | Auto-resolution batch complete | Polite. | Count auto-resolved and count unresolved. |

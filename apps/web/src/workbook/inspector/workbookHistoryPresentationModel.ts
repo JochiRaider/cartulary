@@ -17,8 +17,8 @@ export function workbookHistoryEventPresentation(
     changes: unit.changes.map((change) => ({
       fieldKey: change.field_key,
       label: historyFieldLabel(change.field_key),
-      before: historyValueText(change.before),
-      after: historyValueText(change.after),
+      before: change.before,
+      after: change.after,
     })),
   }));
   return {
@@ -83,20 +83,6 @@ function historyFieldLabel(fieldKey: string): string {
   const member = fieldKey.split(".").at(-1) ?? fieldKey;
   const text = member.replaceAll("_", " ");
   return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function historyValueText(
-  value: HistoryUnit["changes"][number]["before"],
-): string {
-  if (value.state === "absent") return "Not present";
-  if (value.state === "null") return "No value (null)";
-  if (value.value === "") return "Empty text";
-  if (typeof value.value === "boolean") return value.value ? "True" : "False";
-  if (Array.isArray(value.value))
-    return value.value.length ? value.value.join("\n") : "No items";
-  return typeof value.value === "string"
-    ? `“${value.value}”`
-    : String(value.value);
 }
 
 export function workbookHistoryRollbackLabel(

@@ -13,7 +13,7 @@ export function WorkbookInspectorDraftFeedback({
   contract: ViewContract;
   row: WorkbookQueryRow | null;
 }) {
-  if (edit.needsResume)
+  if (edit.needsResume && edit.staleFields.length === 0)
     return (
       <div role="status">
         Unfinished work for this record is retained.{" "}
@@ -26,6 +26,10 @@ export function WorkbookInspectorDraftFeedback({
         </Button>{" "}
         <Button
           type="button"
+          style={{
+            marginBlockStart: "var(--ct-spacing-sm)",
+            justifySelf: "start",
+          }}
           onClick={(event) => edit.discard(event.currentTarget)}
         >
           Discard draft
@@ -37,15 +41,17 @@ export function WorkbookInspectorDraftFeedback({
       {edit.staleFields.map((key) => (
         <div role="status" key={key}>
           Saved {contract.fieldMap[key]?.label ?? "field"} changed to{" "}
-          {genericCellLabel(row?.cells[key]?.value)}. Your draft is retained.{" "}
+          {savedReviewValue(row?.cells[key]?.value)}. Your draft is retained.{" "}
           <Button
             type="button"
+            data-inspector-review-control
             onClick={(event) => edit.review(key, false, event.currentTarget)}
           >
             Use saved {contract.fieldMap[key]?.label ?? "field"}
           </Button>{" "}
           <Button
             type="button"
+            data-inspector-review-control
             onClick={(event) => edit.review(key, true, event.currentTarget)}
           >
             {contract.fieldMap[key]?.writeKind === "action_payload"
@@ -58,6 +64,10 @@ export function WorkbookInspectorDraftFeedback({
       {edit.draft ? (
         <Button
           type="button"
+          style={{
+            marginBlockStart: "var(--ct-spacing-sm)",
+            justifySelf: "start",
+          }}
           onClick={(event) => edit.discard(event.currentTarget)}
         >
           Discard draft
@@ -65,4 +75,16 @@ export function WorkbookInspectorDraftFeedback({
       ) : null}
     </>
   );
+}
+
+function savedReviewValue(value: unknown): string {
+  return value === undefined
+    ? "Not loaded"
+    : value === null
+      ? "Not set"
+      : value === ""
+        ? "Empty text"
+        : typeof value === "string"
+          ? value
+          : genericCellLabel(value);
 }

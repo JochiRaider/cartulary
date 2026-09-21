@@ -3,10 +3,12 @@ import {
   evidenceButtonStyle,
   evidenceMessageStyle,
 } from "./EvidenceAccessActions";
+import type { EvidenceWorkAttention } from "./evidenceWorkAttention";
 
 /** Local recovery actions operate on retained identity, independent of selection. */
 export function EvidenceFileRecovery({
   filename,
+  attention,
   presentation = "grid",
   source,
   message,
@@ -26,6 +28,7 @@ export function EvidenceFileRecovery({
   reviewText,
   onConfirmReview,
 }: {
+  readonly attention?: EvidenceWorkAttention | null;
   readonly presentation?: "grid" | "inspector";
   readonly reviewText: string | null;
   readonly onConfirmReview: () => void;
@@ -48,6 +51,8 @@ export function EvidenceFileRecovery({
 }) {
   return (
     <fieldset
+      tabIndex={-1}
+      data-evidence-work-id={attention?.workId}
       aria-label={`${presentation === "inspector" ? "Inspector file recovery" : "File recovery"}: ${filename}`}
       style={{
         border: 0,

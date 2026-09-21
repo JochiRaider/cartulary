@@ -8,7 +8,7 @@ import type {
   InspectorPanel,
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
-import { type CSSProperties, type ReactNode, useId } from "react";
+import { type CSSProperties, type ReactNode, useId, useRef } from "react";
 import { workbookTypography } from "../../components/workbookFormStyles";
 import { workbookSurfaceInspectorPanelStyle } from "../../layout/WorkbookSurfaceLayout";
 import { useWorkbookInspectorNavigation } from "../../layout/workbookInspectorNavigation";
@@ -19,6 +19,7 @@ import {
   WorkbookInspectorTechnicalDetails,
 } from "./WorkbookInspectorFeedback";
 import {
+  type WorkbookInspectorAttention,
   type WorkbookInspectorTechnicalField,
   workbookInspectorNoRowMessage,
 } from "./workbookInspectorPresentationModel";
@@ -26,6 +27,7 @@ import {
 export type WorkbookInspectorSection = {
   readonly panel: InspectorPanel;
   readonly content: ReactNode;
+  readonly attention?: readonly WorkbookInspectorAttention[];
   readonly focusDestination: (section: HTMLElement) => HTMLElement;
   readonly elementRef?: ((element: HTMLElement | null) => void) | undefined;
 };
@@ -90,6 +92,30 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
     );
   const headingId = useId();
   const navigationId = useId();
+  const attentionRef = useRef<HTMLElement>(null);
+  const seenWork = new Set<string>();
+  const attention = sections.flatMap((section) =>
+    [...(section.attention ?? [])]
+      .sort((a, b) => a.order - b.order || a.workId.localeCompare(b.workId))
+      .filter((entry) => {
+        if (
+          !subject ||
+          entry.viewSchemaId !== subject.viewSchemaId ||
+          entry.recordId !== subject.recordId ||
+          !entry.isCurrent() ||
+          seenWork.has(entry.workId)
+        )
+          return false;
+        seenWork.add(entry.workId);
+        return true;
+      })
+      .map((entry) => ({ section, entry })),
+  );
+  const currentAttention = useRef(attention);
+  currentAttention.current = attention;
+  const admitsAttention = (entry: WorkbookInspectorAttention) =>
+    currentAttention.current.some((item) => item.entry === entry) &&
+    entry.isCurrent();
   const scope = JSON.stringify([
     config.viewSchemaId,
     subject?.recordId ?? null,
@@ -99,11 +125,16 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
   const {
     active,
     menuOpen,
+    direct,
+    measurementRef,
+    onNavigationFocus,
+    onNavigationBlur,
     bodyRef,
     navigationRef,
     triggerRef,
     closeRef,
     choose,
+    reveal,
     observeScroll,
     toggleMenu,
     dismissMenu,
@@ -152,13 +183,15 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
         [data-inspector-state] button:hover:not(:disabled):not([aria-busy="true"]) {
           border-color: var(--ct-colors-ink-muted);
         }
+        [data-inspector-state] button[aria-current="location"] {
+          background: var(--ct-colors-surface-3);
+          border-color: var(--ct-colors-ink-muted);
+          text-decoration: underline;
+        }
       `}</style>
       <header style={headerStyle}>
         <div style={titleRowStyle}>
           <div style={titleStackStyle}>
-            <p style={eyebrowStyle}>
-              {mode === "creation" ? "Create" : "Inspector"}
-            </p>
             <h2 id={headingId} style={titleStyle}>
               {heading}
             </h2>
@@ -174,20 +207,21 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
             onClick={onClose}
           >
             <X aria-hidden="true" size={16} />
+            <span>Close</span>
           </button>
         </div>
         {subject === null ? (
           mode === "empty" ? (
             <p style={messageStyle}>{workbookInspectorNoRowMessage}</p>
           ) : null
-        ) : (
-          <RecordContext subject={subject} />
-        )}
+        ) : null}
         {active ? (
           <fieldset
             ref={navigationRef}
             aria-label="Section navigation"
             style={navigationStyle}
+            onFocusCapture={(event) => onNavigationFocus(event.target)}
+            onBlurCapture={(event) => onNavigationBlur(event.relatedTarget)}
             onKeyDown={(event) => {
               if (
                 event.key === "Escape" &&
@@ -201,26 +235,46 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
               }
             }}
           >
-            <WorkbookInspectorActionButton
-              ref={triggerRef}
-              aria-controls={navigationId}
-              aria-expanded={menuOpen}
-              onClick={toggleMenu}
+            <div
+              aria-hidden="true"
+              inert
+              style={{
+                position: "absolute",
+                insetInline: 0,
+                blockSize: 0,
+                overflow: "hidden",
+                visibility: "hidden",
+                pointerEvents: "none",
+              }}
             >
-              Sections
-            </WorkbookInspectorActionButton>
-            <span style={currentSectionStyle}>
-              Current section: {active.panel.label}
-            </span>
-            {menuOpen ? (
-              <nav
-                id={navigationId}
-                aria-label="Inspector sections"
-                style={navigationMenuStyle}
+              <div
+                data-inspector-navigation-measure
+                ref={measurementRef}
+                aria-hidden="true"
+                inert
+                style={measurementStyle}
               >
                 {sections.map((section) => (
-                  <WorkbookInspectorActionButton
+                  <span
                     key={section.panel.panelId}
+                    style={navigationButtonStyle}
+                  >
+                    {section.panel.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {direct ? (
+              <nav
+                aria-label="Inspector sections"
+                style={directNavigationStyle}
+              >
+                {sections.map((section) => (
+                  <button
+                    type="button"
+                    key={section.panel.panelId}
+                    style={navigationButtonStyle}
+                    data-inspector-navigation-panel={section.panel.panelId}
                     aria-current={
                       section.panel.panelId === active.panel.panelId
                         ? "location"
@@ -229,11 +283,58 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
                     onClick={() => choose(section)}
                   >
                     {section.panel.label}
-                  </WorkbookInspectorActionButton>
+                  </button>
                 ))}
               </nav>
-            ) : null}
+            ) : (
+              <>
+                <WorkbookInspectorActionButton
+                  ref={triggerRef}
+                  aria-controls={navigationId}
+                  aria-expanded={menuOpen}
+                  onClick={toggleMenu}
+                >
+                  Sections
+                </WorkbookInspectorActionButton>
+                <span style={currentSectionStyle}>
+                  Current section: {active.panel.label}
+                </span>
+                {menuOpen ? (
+                  <nav
+                    id={navigationId}
+                    aria-label="Inspector sections"
+                    style={navigationMenuStyle}
+                  >
+                    {sections.map((section) => (
+                      <WorkbookInspectorActionButton
+                        key={section.panel.panelId}
+                        aria-current={
+                          section.panel.panelId === active.panel.panelId
+                            ? "location"
+                            : undefined
+                        }
+                        onClick={() => choose(section)}
+                      >
+                        {section.panel.label}
+                      </WorkbookInspectorActionButton>
+                    ))}
+                  </nav>
+                ) : null}
+              </>
+            )}
           </fieldset>
+        ) : null}
+        {attention.length ? (
+          <button
+            type="button"
+            style={attentionButtonStyle}
+            onClick={() => {
+              if (attentionRef.current) reveal(attentionRef.current);
+              attentionRef.current?.focus({ preventScroll: true });
+            }}
+          >
+            Unfinished work ({attention.length})
+          </button>
         ) : null}
       </header>
       <div
@@ -245,8 +346,43 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
         {subject ? (
           <details>
             <summary>Record context</summary>
+            <RecordContext subject={subject} />
             <p style={fullLabelStyle}>{subject.label}</p>
           </details>
+        ) : null}
+        {attention.length ? (
+          <section
+            ref={attentionRef}
+            tabIndex={-1}
+            aria-label="Unfinished work"
+            style={panelSectionStyle}
+          >
+            <h3 style={panelTitleStyle}>Unfinished work</h3>
+            {attention.map(({ section, entry }) => (
+              <div key={entry.workId} data-inspector-attention={entry.category}>
+                <button
+                  type="button"
+                  style={attentionButtonStyle}
+                  onClick={() => {
+                    if (admitsAttention(entry))
+                      choose(section, entry.destination);
+                  }}
+                >
+                  {entry.label}
+                </button>
+                {entry.actions?.map((action) => (
+                  <WorkbookInspectorActionButton
+                    key={action.label}
+                    onClick={() => {
+                      if (admitsAttention(entry)) action.invoke();
+                    }}
+                  >
+                    {action.label}
+                  </WorkbookInspectorActionButton>
+                ))}
+              </div>
+            ))}
+          </section>
         ) : null}
         {sections.map((section) => (
           <WorkbookInspectorPanelSection
@@ -350,7 +486,7 @@ const fullLabelStyle = {
   overflowWrap: "anywhere",
 } satisfies CSSProperties;
 const headerStyle = {
-  padding: "var(--ct-spacing-panel-padding)",
+  padding: "var(--ct-spacing-xs) var(--ct-spacing-panel-padding)",
   borderBlockEnd: "var(--ct-border-hairline)",
   display: "grid",
   gap: "var(--ct-spacing-xs)",
@@ -362,12 +498,6 @@ const titleRowStyle = {
   gap: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;
 const titleStackStyle = { minWidth: 0 } satisfies CSSProperties;
-const eyebrowStyle = {
-  ...workbookTypography("metadata"),
-  margin: 0,
-  color: "var(--ct-colors-ink-muted)",
-  textTransform: "uppercase" as const,
-} satisfies CSSProperties;
 const titleStyle = {
   ...workbookTypography("surface-title"),
   display: "-webkit-box",
@@ -378,6 +508,9 @@ const titleStyle = {
   overflowWrap: "anywhere" as const,
 } satisfies CSSProperties;
 const closeButtonStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "var(--ct-spacing-xs)",
   flexShrink: 0,
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
@@ -385,6 +518,44 @@ const closeButtonStyle = {
   color: "inherit",
   minInlineSize: "var(--ct-density-default-rowHeight)",
   minBlockSize: "var(--ct-density-default-rowHeight)",
+} satisfies CSSProperties;
+const directNavigationStyle = {
+  display: "flex",
+  gap: "var(--ct-spacing-xs)",
+  whiteSpace: "nowrap",
+  padding: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+const navigationButtonStyle = {
+  ...workbookTypography("button"),
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "var(--ct-spacing-xs)",
+  minBlockSize: cartularyDesignPresentation.inspector.fieldActionMinSizePx,
+  boxSizing: "border-box",
+  flexShrink: 0,
+  color: "var(--ct-colors-ink)",
+  background: "transparent",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  cursor: "pointer",
+} satisfies CSSProperties;
+const measurementStyle = {
+  ...directNavigationStyle,
+  position: "absolute",
+  visibility: "hidden",
+  inlineSize: "max-content",
+  pointerEvents: "none",
+} satisfies CSSProperties;
+const attentionButtonStyle = {
+  ...workbookTypography("metadata"),
+  minBlockSize: cartularyDesignPresentation.inspector.fieldActionMinSizePx,
+  color: "var(--ct-colors-ink)",
+  background: "transparent",
+  border: 0,
+  padding: 0,
+  textAlign: "start",
+  cursor: "pointer",
 } satisfies CSSProperties;
 const recordContextStyle = {
   display: "grid",

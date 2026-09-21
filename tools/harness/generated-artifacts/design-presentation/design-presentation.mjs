@@ -8,7 +8,7 @@ import {
 } from "../../contract/index.mjs";
 import { replaceFileAtomically } from "../design-tokens/design-tokens.mjs";
 
-const schemaID = "cartulary.design_presentation.v1";
+const schemaID = "cartulary.design_presentation.v2";
 const generatorID = "cartulary.design_presentation_generation.v1";
 const expectedFamilies = Object.freeze([
   "local_validation",
@@ -87,10 +87,31 @@ export function loadDesignPresentationDocument(filePath) {
     projection.grid_interaction_mode_presentations.map((entry) => entry.mode),
     expectedGridInteractionModes,
   );
+  validateInspectorFieldLayouts(projection.inspector.field_layout_overrides, path.resolve(path.dirname(filePath), "../view-schemas"));
   return {
     inputSha256: createHash("sha256").update(inputBytes).digest("hex"),
     projection,
   };
+}
+
+// Authored semantic references, never a Markdown table or generated registry.
+export function validateInspectorFieldLayouts(overrides, schemasDirectory) {
+  const index = parseStrictJSON(readFileSync(path.join(schemasDirectory, "index.json"), "utf8"));
+  const schemas = new Map(index.view_schemas.map((entry) => [entry.view_schema_id, entry]));
+  const seen = new Set();
+  for (const override of overrides) {
+    const key = JSON.stringify([override.view_schema_id, override.field_key]);
+    if (seen.has(key)) throw new DesignPresentationValidationError(`Duplicate inspector field layout: ${key}`);
+    seen.add(key);
+    if (!["property", "narrative"].includes(override.layout))
+      throw new DesignPresentationValidationError(`Unknown inspector field layout: ${override.layout}`);
+    const entry = schemas.get(override.view_schema_id);
+    if (!entry) throw new DesignPresentationValidationError(`Unknown inspector view schema: ${override.view_schema_id}`);
+    const source = path.join(schemasDirectory, path.basename(entry.artifact_path));
+    const schema = parseStrictJSON(readFileSync(source, "utf8"));
+    if (!schema.fields.some((field) => field.field_key === override.field_key))
+      throw new DesignPresentationValidationError(`Unknown inspector field: ${key}`);
+  }
 }
 
 function assertExactRows(filePath, field, actual, expected) {
@@ -107,6 +128,14 @@ function assertExactRows(filePath, field, actual, expected) {
 export function renderDesignPresentationTypeScript(document) {
   const source = {
     inspector: {
+      referenceViewport: document.projection.inspector.reference_viewport,
+      persistentRegionMaxHeightPx: document.projection.inspector.persistent_region_max_height_px,
+      fieldActionMinSizePx: document.projection.inspector.field_action_min_size_px,
+      propertyStackBelowPx: document.projection.inspector.property_stack_below_px,
+      overlayMinViewportWidthPx: document.projection.inspector.overlay_min_viewport_width_px,
+      fieldLayoutOverrides: document.projection.inspector.field_layout_overrides.map((entry) => ({
+        viewSchemaId: entry.view_schema_id, fieldKey: entry.field_key, layout: entry.layout,
+      })),
       dataStates: document.projection.inspector.data_states,
       accessStates: document.projection.inspector.access_states,
       contentStates: document.projection.inspector.content_states,

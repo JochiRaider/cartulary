@@ -144,7 +144,7 @@ async function verifyLinked(
 
 test("Timeline Evidence creation survives a real collection conflict and links only the retained Evidence after review", async ({
   page,
-}) => {
+}, info) => {
   const f = await fixture(page);
   const existing = await createViewRow(page, f.incident, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("existing"),
@@ -192,6 +192,17 @@ test("Timeline Evidence creation survives a real collection conflict and links o
   await submit(page);
   await conflictedLink;
   await expect.poll(() => creations.length).toBe(1);
+  const localOutcome = page
+    .locator('[data-inspector-feature-content="create_related.evidence"]')
+    .getByRole("region", { name: "Evidence creation result" });
+  await expect(localOutcome).toContainText(
+    "Evidence created; Timeline link incomplete.",
+  );
+  await localOutcome.scrollIntoViewIfNeeded();
+  await info.attach("inspector-workflow-partial-evidence", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   const retained = await recovery(page);
   await expect.poll(() => links.length).toBe(1);
   expect(creations).toHaveLength(1);

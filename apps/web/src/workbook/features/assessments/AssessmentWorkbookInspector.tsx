@@ -101,43 +101,76 @@ export function AssessmentWorkbookInspector({
     }
     if (followOn.open()) followOn.opened();
   };
+  const assessmentAuthoring = (
+    <div style={creationSectionStyle}>
+      <h4 style={workbookFormHeadingStyle}>
+        {draftMode === "follow_on"
+          ? "Append follow-on assessment"
+          : "Append assessment"}
+      </h4>
+      {workflowContent}
+      <WorkbookInspectorFeedbackView
+        feedback={feedback}
+        neutralStyle={feedbackStyle}
+        testId={feedbackTestId}
+      />
+    </div>
+  );
   const panelContent = (
     panelId: InspectorPanelId,
     ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
   ) => ({
     ...inspectorPanel(...regions),
-    authoring: (
-      <>
-        {panelId === "workflow" ? (
-          <div style={creationSectionStyle}>
-            <h4 style={workbookFormHeadingStyle}>
-              {draftMode === "follow_on"
-                ? "Append follow-on assessment"
-                : "Append assessment"}
-            </h4>
-            {workflowContent}
-            <WorkbookInspectorFeedbackView
-              feedback={feedback}
-              neutralStyle={feedbackStyle}
-              testId={feedbackTestId}
-            />
-            <WorkbookInspectorFeedbackView
-              feedback={relatedFeedback}
-              neutralStyle={feedbackStyle}
-            />
-          </div>
-        ) : null}
-        {subject?.kind === "live" &&
-        related.state?.featureGroup.panelId === panelId ? (
-          <InspectorCreateRelatedWorkflow
-            state={related.state}
-            onCancel={related.cancel}
-            onSubmit={() => void related.submit()}
-            onUpdateDraft={related.updateDraft}
-          />
-        ) : null}
-      </>
+    featureContent: Object.fromEntries(
+      config.featureGroups.flatMap((feature) => {
+        if (feature.panelId !== panelId || subject?.kind !== "live") return [];
+        const followOnActive =
+          draftMode === "follow_on" &&
+          feature.featureGroupKey === "create_related.assessment";
+        const active =
+          related.state?.featureGroup.featureGroupKey ===
+            feature.featureGroupKey &&
+          related.state.subject.recordId === subject.recordId &&
+          related.state.subject.viewSchemaId === subject.viewSchemaId;
+        const notice =
+          relatedFeedback?.destination?.kind === "feature" &&
+          relatedFeedback.destination.featureGroupKey ===
+            feature.featureGroupKey &&
+          (!relatedFeedback.sourceRecordId ||
+            relatedFeedback.sourceRecordId === subject.recordId)
+            ? relatedFeedback
+            : null;
+        if (!followOnActive && !active && !notice) return [];
+        return [
+          [
+            feature.featureGroupKey,
+            <>
+              {followOnActive ? assessmentAuthoring : null}
+              {active && related.state ? (
+                <InspectorCreateRelatedWorkflow
+                  state={related.state}
+                  onCancel={related.cancel}
+                  onSubmit={() => void related.submit()}
+                  onUpdateDraft={related.updateDraft}
+                />
+              ) : null}
+              <WorkbookInspectorFeedbackView
+                feedback={notice}
+                neutralStyle={feedbackStyle}
+              />
+            </>,
+          ],
+        ];
+      }),
     ),
+    feedback:
+      panelId === "workflow" &&
+      relatedFeedback?.destination?.kind !== "feature" ? (
+        <WorkbookInspectorFeedbackView
+          feedback={relatedFeedback}
+          neutralStyle={feedbackStyle}
+        />
+      ) : null,
   });
 
   return (
@@ -187,8 +220,11 @@ export function AssessmentWorkbookInspector({
         workflow: panelContent(
           "workflow",
           savedInspectorRegion("assessment-authoring", {
-            kind: "empty",
-            message: "Append an assessment.",
+            kind: "populated",
+            content:
+              subject?.kind === "live" && draftMode === "follow_on"
+                ? null
+                : assessmentAuthoring,
           }),
         ),
       }}

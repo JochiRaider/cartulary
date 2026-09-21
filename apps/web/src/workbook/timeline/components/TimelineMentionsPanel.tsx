@@ -3,7 +3,7 @@ import {
   relationshipItemsTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, type ReactNode, useRef } from "react";
+import { type CSSProperties, Fragment, type ReactNode, useRef } from "react";
 import {
   WorkbookRelationshipChip,
   WorkbookRelationshipChipDetails,
@@ -90,58 +90,78 @@ export function TimelineMentionsPanel({
       selected: selectedMention?.itemRef === item.itemRef,
     });
     return (
-      <button
-        key={item.itemRef}
-        type="button"
-        data-testid={mentionItemTestId(item.itemRef)}
-        aria-label={relationshipChipAccessibleName(presentation)}
-        aria-pressed={presentation.selected}
-        ref={(element) => {
-          registerMention(item.rowRecordId, item.itemRef, element);
-          registerCollectionItem(
-            item.rowRecordId,
-            item.fieldKey,
-            item.itemRef,
-            element,
-          );
-          if (element === null) buttons.current.delete(item.itemRef);
-          else buttons.current.set(item.itemRef, element);
-        }}
-        style={{
-          ...mentionListButtonStyle,
-          ...(presentation.selected ? mentionListButtonSelectedStyle : null),
-        }}
-        onClick={() => onSelectMention(item.rowRecordId, item.itemRef)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-            const index = items.findIndex(
-              (candidate) => candidate.itemRef === item.itemRef,
-            );
-            const next = items[index + (event.key === "ArrowLeft" ? -1 : 1)];
-            if (next)
-              buttons.current.get(next.itemRef)?.focus({ preventScroll: true });
-            event.preventDefault();
-          }
-          if (event.key !== "Tab" && event.key !== "Escape")
-            event.stopPropagation();
-        }}
-      >
-        {presentation.rawText !== presentation.label ? (
-          <span style={mentionRawStyle}>{presentation.rawText}</span>
+      <Fragment key={`${item.rowRecordId}:${item.fieldKey}:${item.itemRef}`}>
+        {item.status === "dismissed" && items[0]?.itemRef === item.itemRef ? (
+          <div>
+            <p style={groupLabelStyle}>Dismissed in this session</p>
+            <p>Observed here; use History for durable changes.</p>
+          </div>
         ) : null}
-        <span style={mentionSummaryStyle}>
-          <WorkbookRelationshipChip decorative presentation={presentation} />
-          <span style={workbookTypography("metadata")}>
-            {presentation.state === "auto_resolved"
-              ? "Automatically resolved"
-              : presentation.state === "resolved"
-                ? "Resolved"
-                : presentation.state === "dismissed"
-                  ? "Dismissed"
-                  : "Unresolved"}
+        <button
+          type="button"
+          data-testid={mentionItemTestId(item.itemRef)}
+          aria-label={relationshipChipAccessibleName(presentation)}
+          aria-pressed={presentation.selected}
+          ref={(element) => {
+            registerMention(item.rowRecordId, item.itemRef, element);
+            registerCollectionItem(
+              item.rowRecordId,
+              item.fieldKey,
+              item.itemRef,
+              element,
+            );
+            if (element === null) buttons.current.delete(item.itemRef);
+            else buttons.current.set(item.itemRef, element);
+          }}
+          style={{
+            ...mentionListButtonStyle,
+            ...(presentation.selected ? mentionListButtonSelectedStyle : null),
+          }}
+          onClick={() => onSelectMention(item.rowRecordId, item.itemRef)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              const index = items.findIndex(
+                (candidate) => candidate.itemRef === item.itemRef,
+              );
+              const next = items[index + (event.key === "ArrowLeft" ? -1 : 1)];
+              if (next)
+                buttons.current
+                  .get(next.itemRef)
+                  ?.focus({ preventScroll: true });
+              event.preventDefault();
+            }
+            if (event.key !== "Tab" && event.key !== "Escape")
+              event.stopPropagation();
+          }}
+        >
+          {presentation.rawText !== presentation.label ? (
+            <span style={mentionRawStyle}>{presentation.rawText}</span>
+          ) : null}
+          <span style={mentionSummaryStyle}>
+            <WorkbookRelationshipChip decorative presentation={presentation} />
+            <span style={workbookTypography("metadata")}>
+              {presentation.state === "auto_resolved"
+                ? "Automatically resolved"
+                : presentation.state === "resolved"
+                  ? "Resolved"
+                  : presentation.state === "dismissed"
+                    ? "Dismissed"
+                    : "Unresolved"}
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+        {selectedMention?.rowRecordId === item.rowRecordId &&
+        selectedMention.fieldKey === item.fieldKey &&
+        selectedMention.itemRef === item.itemRef
+          ? selectedDetails
+          : null}
+        {feedback?.destination?.kind === "relationship_item" &&
+        feedback.destination.fieldKey === item.fieldKey &&
+        feedback.destination.itemRef === item.itemRef &&
+        feedback.sourceRecordId === item.rowRecordId ? (
+          <WorkbookInspectorFeedbackView feedback={feedback} />
+        ) : null}
+      </Fragment>
     );
   };
   return (
@@ -178,29 +198,15 @@ export function TimelineMentionsPanel({
                 }
                 style={mentionGroupColumnStyle}
               >
-                {active.length === 0 ? (
-                  <span>No items</span>
-                ) : (
-                  active.map((item) => renderMention(item, active))
+                {active.length === 0 ? <span>No items</span> : null}
+                {[...active, ...dismissed].map((item) =>
+                  renderMention(
+                    item,
+                    item.status === "dismissed" ? dismissed : active,
+                  ),
                 )}
               </div>
               {relationshipEditors?.[fieldKey]}
-              {selectedMention?.rowRecordId === sourceRecordId &&
-              selectedMention.fieldKey === fieldKey
-                ? selectedDetails
-                : null}
-              {feedback?.destination?.kind === "relationship_item" &&
-              feedback.destination.fieldKey === fieldKey &&
-              feedback.sourceRecordId === sourceRecordId ? (
-                <WorkbookInspectorFeedbackView feedback={feedback} />
-              ) : null}
-              {dismissed.length > 0 ? (
-                <div style={mentionGroupColumnStyle}>
-                  <p style={groupLabelStyle}>Dismissed in this session</p>
-                  <p>Observed here; use History for durable changes.</p>
-                  {dismissed.map((item) => renderMention(item, dismissed))}
-                </div>
-              ) : null}
             </section>
           );
         },

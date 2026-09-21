@@ -33,6 +33,11 @@ linking receipts separately. Shared message severity belongs to
 | [useTimelineRelatedEvidenceAttachment.ts](useTimelineRelatedEvidenceAttachment.ts) | Attaches Timeline-related Evidence presentation to retained source-bound operation state. |
 | [WorkbookTimelineRelatedEvidenceOwner.ts](WorkbookTimelineRelatedEvidenceOwner.ts) | Owns staged Evidence creation and Timeline linking with independent captured attempts and receipts. |
 
+| [evidenceWorkAttention.ts](evidenceWorkAttention.ts) | Narrow source-owned work/category/outcome attention contract. |
+| [useEvidenceInspectorAttention.ts](useEvidenceInspectorAttention.ts) | Subscribes existing owners and admits current-record navigation without requests. |
+| [TimelineRelatedEvidenceInspectorWork.tsx](TimelineRelatedEvidenceInspectorWork.tsx) | Original-command local retained form and stage outcomes using the existing attachment owner. |
+| [TimelineRelatedEvidenceOutcome.tsx](TimelineRelatedEvidenceOutcome.tsx) | Shared local/Recovery stage feedback and source-admitted recovery commands. |
+
 ## Tests
 
 | File | Responsibility |

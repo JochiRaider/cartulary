@@ -15,9 +15,29 @@ export function useWorkbookInspectorEditDraft(input: {
   action?: string;
   presentation: string;
   active: boolean;
-  dependencies?: readonly string[];
+  dependenciesForField?: (fieldKey: string) => readonly string[];
+  retainedSelection?: {
+    readonly fields: readonly ViewFieldContract[];
+    readonly select: (identity: InspectorEditIdentity) => void;
+  };
 }) {
   const { store, row, field } = input;
+  const boundary = JSON.stringify([
+    input.viewSchemaId,
+    row?.record_id,
+    input.presentation,
+    input.active,
+  ]);
+  const authorityGeneration = store.getAuthorityGeneration();
+  const currentInput = useRef({ input, boundary });
+  currentInput.current = { input, boundary };
+  const pendingResume = useRef<{
+    key: string;
+    boundary: string;
+    authorityGeneration: number;
+    revision: number;
+    trigger: HTMLElement | undefined;
+  } | null>(null);
   const controlRef = useRef<HTMLElement | null>(null);
   const resumeFocus = useRef<{
     attachment: string;
@@ -84,21 +104,86 @@ export function useWorkbookInspectorEditDraft(input: {
         ? ""
         : String(saved);
   const dependencies = [
-    ...new Set([identity.fieldKey, ...(input.dependencies ?? [])]),
+    ...new Set([
+      identity.fieldKey,
+      ...(input.dependenciesForField?.(identity.fieldKey) ?? []),
+    ]),
   ];
   const staleFields =
     eligible && row ? store.staleFields(identity, row, dependencies) : [];
+  useLayoutEffect(() => {
+    const pending = pendingResume.current;
+    if (!pending) return;
+    pendingResume.current = null;
+    if (
+      pending.key !== key ||
+      pending.boundary !== boundary ||
+      pending.authorityGeneration !== store.getAuthorityGeneration() ||
+      pending.revision !== draft?.revision ||
+      !eligible ||
+      !store.canAuthor() ||
+      staleFields.length
+    )
+      return;
+    if (pending.trigger)
+      resumeFocus.current = { attachment, trigger: pending.trigger };
+    store.resume(identity, attachment);
+  });
   return {
     identity,
     retainedWork:
       row && input.active
         ? store
             .readRecord(input.viewSchemaId, row.record_id)
-            .map((retained) => ({
-              identity: retained.identity,
-              canResume: store.canAuthor(),
-              discard: () => store.discard(retained.identity),
-            }))
+            .map((retained) => {
+              const target = input.retainedSelection?.fields.find(
+                (candidate) =>
+                  candidate.fieldKey === retained.identity.fieldKey,
+              );
+              const changed = store.staleFields(retained.identity, row, [
+                retained.identity.fieldKey,
+                ...(input.dependenciesForField?.(retained.identity.fieldKey) ??
+                  []),
+              ]);
+              const admitted =
+                !!target?.patchWritable &&
+                Object.hasOwn(row.cells, retained.identity.fieldKey) &&
+                store.canAuthor() &&
+                !!input.retainedSelection;
+              return {
+                identity: retained.identity,
+                reviewRequired: changed.length > 0,
+                command: admitted
+                  ? {
+                      kind: changed.length
+                        ? ("review" as const)
+                        : ("resume" as const),
+                      invoke: (trigger?: HTMLElement) => {
+                        if (
+                          currentInput.current.boundary !== boundary ||
+                          store.getAuthorityGeneration() !==
+                            authorityGeneration ||
+                          !store.canAuthor() ||
+                          store.read(retained.identity)?.revision !==
+                            retained.revision
+                        )
+                          return;
+                        pendingResume.current = {
+                          key: inspectorEditKey(retained.identity),
+                          boundary,
+                          authorityGeneration,
+                          revision: retained.revision,
+                          trigger,
+                        };
+                        currentInput.current.input.retainedSelection?.select(
+                          retained.identity,
+                        );
+                      },
+                    }
+                  : null,
+                discard: () => store.discard(retained.identity),
+              };
+            })
         : [],
     attachment,
     draft,
@@ -140,6 +225,8 @@ export function useWorkbookInspectorEditDraft(input: {
       if (eligible && row) {
         if (trigger) resumeFocus.current = { attachment, trigger };
         store.review(identity, row, changed, keepDraft);
+        if (!store.staleFields(identity, row, dependencies).length)
+          store.resume(identity, attachment);
       }
     },
     capture: () => ({ draft: store.capture(identity), attachment }),

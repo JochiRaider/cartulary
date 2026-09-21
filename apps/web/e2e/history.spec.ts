@@ -74,7 +74,7 @@ function historyItemAt(
 
 test("opens row history from the workbook surface with legal rollback actions", async ({
   page,
-}) => {
+}, info) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("REVISION-HISTORY"),
@@ -131,6 +131,27 @@ test("opens row history from the workbook surface with legal rollback actions", 
     for (const recordId of unit.record_ids)
       await expect(event).toContainText(recordId);
   }
+  for (const technical of await event.locator("section details").all())
+    await expect(technical).not.toHaveAttribute("open");
+  await expect(
+    event.locator('[data-history-value="text"]').first(),
+  ).toBeVisible();
+  await event.scrollIntoViewIfNeeded();
+  await info.attach("inspector-history-typed", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await page.setViewportSize({ width: 320, height: 720 });
+  await event.scrollIntoViewIfNeeded();
+  const inspector = page.locator('[data-inspector-state="ready"]');
+  await expect
+    .poll(() => inspector.evaluate((el) => el.scrollWidth - el.clientWidth))
+    .toBe(0);
+  await info.attach("inspector-history-typed-320", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
   const disclosure = event.locator(":scope > details");
   await disclosure.locator(":scope > summary").press("Escape");
   await expect(disclosure).not.toHaveAttribute("open");

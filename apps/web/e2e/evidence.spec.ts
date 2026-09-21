@@ -808,6 +808,26 @@ test("recovers each uncertain file stage with exact requests after remount and r
     exact: true,
   });
   await expect(recovery).toContainText("Upload preparation is uncertain");
+  const attention = page.getByRole("button", {
+    name: "Unfinished work (1)",
+    exact: true,
+  });
+  await expect(attention).toBeVisible();
+  await attention.click();
+  await page
+    .getByRole("button", {
+      name: "Upload preparation is uncertain. Recover the same request.",
+      exact: true,
+    })
+    .click();
+  expect(slotBodies).toHaveLength(1);
+  expect(transfers).toBe(0);
+  expect(createBodies).toHaveLength(0);
+  expect(linkBodies).toHaveLength(0);
+  await info.attach("inspector-evidence-uncertain", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await recovery.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(recovery).toContainText("Upload acknowledgement is uncertain");
   await recovery.getByRole("button", { name: "Resume", exact: true }).click();

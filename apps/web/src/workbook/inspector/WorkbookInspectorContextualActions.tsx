@@ -1,8 +1,9 @@
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import type {
   InspectorConfig,
   InspectorDisabledCondition,
 } from "@cartulary/view-contracts";
-import { type CSSProperties, useId, useMemo } from "react";
+import { type CSSProperties, type ReactNode, useId, useMemo } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { InspectorContextualCapability } from "./inspectorCapabilityResolver";
 import {
@@ -24,6 +25,7 @@ export function WorkbookInspectorContextualActions({
   disabledTokens,
   additionalDisabledReasons,
   capabilities,
+  featureContent = {},
   onAction,
 }: {
   readonly config: InspectorConfig;
@@ -33,6 +35,7 @@ export function WorkbookInspectorContextualActions({
     | ReadonlyMap<string, WorkbookInspectorDisabledReason>
     | undefined;
   readonly capabilities: readonly InspectorContextualCapability[];
+  readonly featureContent?: Readonly<Record<string, ReactNode>> | undefined;
   readonly onAction: (capability: InspectorContextualCapability) => void;
 }) {
   const groupId = useId();
@@ -76,14 +79,42 @@ export function WorkbookInspectorContextualActions({
     }
     descriptions.set(binding.semanticKey, shared.id);
   }
+  for (const featureKey of Object.keys(featureContent)) {
+    if (
+      !bindings.some(
+        (binding) => binding.featureGroup.featureGroupKey === featureKey,
+      )
+    )
+      throw new Error(
+        `Inspector content has no admitted command: ${config.viewSchemaId}/${featureKey}`,
+      );
+  }
   if (bindings.length === 0) return null;
+  const outcomes = [...new Set(bindings.map((binding) => binding.outcome))];
   return (
     <WorkbookInspectorActionGroup label="Contextual actions">
+      {outcomes.map((outcome) => (
+        <p
+          key={outcome}
+          id={`${groupId}-outcome-${outcome}`}
+          style={{
+            margin: 0,
+            color: "var(--ct-colors-ink-muted)",
+            font: "inherit",
+          }}
+        >
+          {cartularyDesignPresentation.inspector.actionOutcomes[outcome]}
+        </p>
+      ))}
       <ol style={listStyle}>
         {bindings.map((binding) => (
-          <li key={binding.semanticKey}>
+          <li
+            key={binding.semanticKey}
+            data-inspector-feature={binding.featureGroup.featureGroupKey}
+          >
             <WorkbookInspectorContextualAction
               binding={binding}
+              outcomeDescriptionId={`${groupId}-outcome-${binding.outcome}`}
               descriptionId={descriptions.get(binding.semanticKey)}
               currentIncidentRole={currentIncidentRole}
               disabledTokens={disabledTokens}
@@ -92,6 +123,20 @@ export function WorkbookInspectorContextualActions({
               )}
               onInvoke={() => onAction(binding.capability)}
             />
+            {featureContent[binding.featureGroup.featureGroupKey] !==
+            undefined ? (
+              <div
+                data-inspector-feature-content={
+                  binding.featureGroup.featureGroupKey
+                }
+                style={{
+                  paddingBlock: "var(--ct-spacing-sm)",
+                  minInlineSize: 0,
+                }}
+              >
+                {featureContent[binding.featureGroup.featureGroupKey]}
+              </div>
+            ) : null}
           </li>
         ))}
       </ol>

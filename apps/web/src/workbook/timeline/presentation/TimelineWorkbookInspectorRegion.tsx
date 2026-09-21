@@ -30,10 +30,17 @@ export function TimelineWorkbookInspectorRegion({
       onSelectMention={model.onSelectMention}
       renderEvidenceAttachSection={model.renderEvidenceAttachSection}
       renderInspectorFieldEditors={model.renderInspectorFieldEditors}
-      renderPanelSupplement={(panelId) =>
-        panelId === "history" ? (
+      inspectorAttentionForRow={model.inspectorAttentionForRow}
+      renderFeatureSupplement={(feature) =>
+        (feature.featureGroupKey === "timeline.supersede" &&
+          (model.captureEditor ||
+            model.captureResult?.review.action === "supersede")) ||
+        (feature.featureGroupKey === "timeline.mark_reviewed" &&
+          model.captureResult?.review.action === "mark-reviewed") ? (
           <>
-            {model.captureResult?.receipt ? (
+            {model.captureResult?.receipt &&
+            feature.featureGroupKey ===
+              `timeline.${model.captureResult.review.action.replace("-", "_")}` ? (
               <section aria-label="Timeline action result">
                 <p>
                   {model.captureResult.receipt.operation === "mark-reviewed"
@@ -57,14 +64,17 @@ export function TimelineWorkbookInspectorRegion({
                 ) : null}
               </section>
             ) : null}
-            {model.captureEditor ? (
+            {model.captureEditor &&
+            feature.featureGroupKey === "timeline.supersede" ? (
               <TimelineSupersessionEditor
                 key={model.captureEditor.originKey}
                 {...model.captureEditor}
               />
             ) : null}
           </>
-        ) : model.indicatorInspectorHandler?.panelId === panelId &&
+        ) : model.indicatorInspectorHandler?.panelId === feature.panelId &&
+          model.indicatorInspectorHandler.action ===
+            feature.routeBinding.actionKey &&
           model.selectedRow?.recordId &&
           model.selectedRow.rowVersion !== null ? (
           <IndicatorInspectorWorkflow
@@ -77,7 +87,7 @@ export function TimelineWorkbookInspectorRegion({
       }
       renderRelationshipEditor={model.renderRelationshipEditor}
       renderRowHistorySection={model.renderRowHistorySection}
-      renderWorkflowSection={() => model.renderWorkflowSection()}
+      renderFeatureWorkflow={model.renderFeatureWorkflow}
       rowHistoryRecordId={model.rowHistoryRecordId}
       rowHistoryRowVersion={model.rowHistoryRowVersion}
       selectedMention={model.selectedMention}

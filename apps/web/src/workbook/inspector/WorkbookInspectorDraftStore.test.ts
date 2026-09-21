@@ -4,8 +4,10 @@ import {
 } from "@cartulary/view-contracts";
 import { expect, it } from "vitest";
 import { taskAuthority, taskRow } from "../../testing/taskWorkbookTestSupport";
+import { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import { prepareWorkbookInspectorChange } from "./prepareWorkbookInspectorChange";
 import { WorkbookInspectorDraftStore } from "./WorkbookInspectorDraftStore";
+import { workbookInspectorOrdinaryAttention } from "./workbookInspectorOrdinaryAttention";
 
 const identity = {
   viewSchemaId: "cartulary.view.task_requests.v1",
@@ -22,19 +24,53 @@ it("retains original raw intent and review dependencies independently from saved
   const store = fixture(),
     row = taskRow();
   store.update(identity, row, "  unfinished\n", "first");
+  const patches = new WorkbookExplicitPatchOwner(
+    taskAuthority.incidentId,
+    {
+      create: () => {
+        throw new Error("Attention must not create an attempt");
+      },
+    },
+    {
+      coordinate: async () => ({ kind: "settled", minimumRowVersion: 0 }),
+      registerConflict: () => {},
+      accepted: () => {},
+    },
+  );
+  const attention = (saved: typeof row, reviewRequiredFor?: () => boolean) =>
+    workbookInspectorOrdinaryAttention(
+      store,
+      patches,
+      identity.viewSchemaId,
+      saved,
+      reviewRequiredFor,
+    );
+  expect(attention(row)[0]?.category).toBe("draft");
   const replaced = structuredClone(row);
   replaced.row_version++;
   replaced.cells["task.status"] = { value: "blocked" };
   expect(store.staleFields(identity, replaced, ["task.title"])).toEqual([]);
+  expect(
+    attention(
+      replaced,
+      () => store.staleFields(identity, replaced, ["task.status"]).length > 0,
+    )[0]?.category,
+  ).toBe("review");
   replaced.cells["task.title"] = { value: "Concurrent title" };
   expect(store.staleFields(identity, replaced, ["task.title"])).toEqual([
     "task.title",
   ]);
+  expect(attention(replaced)[0]?.category).toBe("review");
   expect(store.read(identity)?.baseline.row_version).toBe(7);
   expect(store.read(identity)?.value).toBe("  unfinished\n");
   store.review(identity, replaced, "task.title", true);
   expect(store.staleFields(identity, replaced, ["task.title"])).toEqual([]);
   expect(store.read(identity)?.value).toBe("  unfinished\n");
+  const current = attention(replaced);
+  expect(current[0]?.category).toBe("draft");
+  store.setAuthority(null);
+  expect(current[0]?.isCurrent()).toBe(false);
+  expect(attention(replaced)).toEqual([]);
 });
 it("requires explicit resumption and never lets another record or attachment consume raw work", () => {
   const store = fixture(),

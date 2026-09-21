@@ -147,6 +147,7 @@ describe("workbook row mutation support", () => {
     const validPayload = {
       data: {
         deleted: false,
+        representation_generation: "history-generation-1",
         incident_id: "00000000-0000-4000-8000-000000000002",
         items: [],
         record_id: "00000000-0000-4000-8000-000000000001",

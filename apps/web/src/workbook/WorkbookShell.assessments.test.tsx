@@ -602,10 +602,11 @@ describe("Assessment workbook surface", () => {
     );
 
     expect(
-      screen.getByRole("heading", {
-        name: "Append follow-on assessment",
-        level: 4,
-      }),
+      screen
+        .getAllByRole("heading", { level: 4 })
+        .find(
+          (heading) => heading.textContent === "Append follow-on assessment",
+        ),
     ).toBeTruthy();
     expect(
       screen

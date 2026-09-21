@@ -34,6 +34,8 @@ export class WorkbookInspectorDraftStore {
   private retired = false;
   private revision = 0;
   private sequence = 0;
+  private authorityGeneration = 0;
+  getAuthorityGeneration = () => this.authorityGeneration;
   private readonly drafts = new Map<string, InspectorEditDraft>();
   private readonly listeners = new Set<() => void>();
   subscribe = (listener: () => void) => {
@@ -58,6 +60,7 @@ export class WorkbookInspectorDraftStore {
       return;
     }
     if (JSON.stringify(this.authority) === JSON.stringify(authority)) return;
+    this.authorityGeneration++;
     this.authority = authority;
     if (authority) {
       this.actorId = authority.actorId;
@@ -208,6 +211,7 @@ export class WorkbookInspectorDraftStore {
     this.emit();
   }
   retire() {
+    this.authorityGeneration++;
     this.retired = true;
     this.authority = null;
     this.drafts.clear();

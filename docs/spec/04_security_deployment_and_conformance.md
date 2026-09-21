@@ -2215,6 +2215,15 @@ it MUST create none of those effects even though it uses `POST`.
   validation or focus. Accepted receipts survive detachment; repeated recovery
   after acknowledgement performs reads only. Exact uncertain replay retains its
   captured identity and bytes under the existing route's admission rules.
+  Navigation additionally covers direct and chooser modes, subject/admission
+  replacement, passive indication, safe focus transfer and unrequested History.
+  Neither mode dispatches a write, initiates a lazy resource read, detaches an
+  ordinary editor or discards work. Clear changes only draft intent; nullable
+  Timeline `null` differs from empty text. Safe Resume attaches in one activation
+  after owner revalidation; changed dependencies require review. Attention is
+  owner-contributed, record/authority scoped, deduplicated by work identity and
+  removed with protected presentation. Older outcomes cannot retire newer drafts
+  or revive concealed destinations. Design-only geometry remains Design-owned.
 - **AC-457**: Row change, row-version change, incident close, authorization loss, delete, merge, hard refresh, and active surface switch invalidate pending inspector forms, confirmations, previews, merge plans, supersede forms, and rollback previews.
   - Verifies: REQ-03-291..REQ-03-292
 - **AC-458**: At least one end-to-end path creates or links from Timeline to Task Request, Decision, Evidence, Communications Log, Handoff, Status Review, and Lesson without leaving the workbook shell.

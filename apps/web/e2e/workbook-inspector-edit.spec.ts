@@ -1,10 +1,12 @@
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
+  cartularyDesignPresentation,
   entityInspectorTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridShellTestId,
   rowCellTestId,
+  timelineInspectorTestId,
   workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorPanelTestId,
@@ -30,6 +32,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { createInspectorReadingFixture } from "./support/timeline/inspectorReadingFixture";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { fetchRecordHistoryCount } from "./support/workbook/history";
@@ -42,6 +45,7 @@ import {
 import {
   activateCommittedGridCell,
   openGenericInspectorForRecord,
+  openTimelineInspector,
 } from "./support/workbook/rowMutations";
 
 async function fixture(page: Page, view: string = hostsViewSchemaId) {
@@ -85,9 +89,8 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   await page.getByRole("button", { name: "Close editor", exact: true }).click();
   await expect(input).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Review draft for Location", exact: true })
+    .getByRole("button", { name: "Resume draft for Location", exact: true })
     .click();
-  await page.getByRole("button", { name: "Resume draft", exact: true }).click();
   await expect(input).toHaveValue("  unfinished location  ");
   const inspector = page.getByTestId(entityInspectorTestId("host"));
   let historyReads = 0;
@@ -95,42 +98,47 @@ test("Inspector edits bind the selected record and retain dirty fields through s
     if (request.url().includes(`/records/${f.first.record_id}/history`))
       historyReads++;
   });
-  for (const width of [1440, 760]) {
+  for (const width of [1440, 760, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    await inspector
-      .getByRole("button", { name: "Sections", exact: true })
-      .click();
-    await inspector
-      .getByRole("button", { name: "History", exact: true })
-      .click();
+    const chooser = inspector.getByRole("button", {
+      name: "Sections",
+      exact: true,
+    });
+    await expect(async () => {
+      if (
+        (await chooser.isVisible()) &&
+        (await chooser.getAttribute("aria-expanded")) === "false"
+      )
+        await chooser.click();
+      await inspector
+        .getByRole("button", { name: "History", exact: true })
+        .click({ timeout: 1000 });
+    }).toPass({ timeout: 5000 });
     await expect(
       inspector.getByRole("button", { name: "Open history", exact: true }),
     ).toBeFocused();
     await expect(
-      inspector.getByText("Current section: History", { exact: true }),
-    ).toBeVisible();
-    await expect(
       inspector.getByRole("button", { name: "Close inspector" }),
     ).toBeInViewport();
     await expect(input).toHaveValue("  unfinished location  ");
-    await inspector
-      .getByRole("button", { name: "Sections", exact: true })
-      .click();
-    await inspector
-      .getByRole("button", { name: "Details", exact: true })
-      .focus();
-    await page.keyboard.press("Escape");
-    await expect(
-      inspector.getByRole("button", { name: "Sections", exact: true }),
-    ).toBeFocused();
-    await expect(inspector).toBeVisible();
-    await inspector
-      .getByRole("button", { name: "Sections", exact: true })
-      .click();
+    if (await chooser.isVisible()) {
+      await chooser.click();
+      await inspector
+        .getByRole("button", { name: "Details", exact: true })
+        .focus();
+      await page.keyboard.press("Escape");
+      await expect(chooser).toBeFocused();
+      await expect(inspector).toBeVisible();
+      await chooser.click();
+    }
     await inspector
       .getByRole("button", { name: "Details", exact: true })
       .click();
     await expect(input).toHaveValue("  unfinished location  ");
+    await test.info().attach(`inspector-navigation-${width}`, {
+      body: await page.screenshot({ animations: "disabled" }),
+      contentType: "image/png",
+    });
   }
   expect(historyReads).toBe(0);
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -147,16 +155,12 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   await expect(page.getByTestId(genericEditSubmitTestId(f.view))).toBeEnabled();
   await editField(page, f.view, "host.business_owner");
   await editField(page, f.view, "host.location");
-  await expect(
-    page.getByTestId(genericEditSubmitTestId(f.view)),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Resume draft", exact: true }).click();
+  await expect(page.getByTestId(genericEditSubmitTestId(f.view))).toBeEnabled();
   await openGenericInspectorForRecord(page, f.view, f.second.record_id);
   await editField(page, f.view, "host.location");
   await expect(input).toHaveValue("");
   await openGenericInspectorForRecord(page, f.view, f.first.record_id);
   await editField(page, f.view, "host.location");
-  await page.getByRole("button", { name: "Resume draft", exact: true }).click();
   await patchRecord(page, f.first.record_id, {
     view_schema_id: f.view,
     base_row_version: 2,
@@ -210,13 +214,141 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   const preview = saved.locator("dd").first().locator("div").first();
   await expect(preview).toHaveText(body);
   const before = (await preview.boundingBox())?.height ?? 0;
+  const narrativeEditor = await editField(page, notesViewSchemaId, "note.body");
+  await narrativeEditor.fill("  retained note authoring\n");
+  const editorIdentity = await narrativeEditor.elementHandle();
   await fullValue.click();
+  expect(
+    await narrativeEditor.evaluate(
+      (element, original) => element === original,
+      editorIdentity,
+    ),
+  ).toBe(true);
+  await expect(narrativeEditor).toHaveValue("  retained note authoring\n");
+  await page.getByRole("button", { name: "Close editor", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Show less for Body", exact: true }),
   ).toBeVisible();
   expect((await preview.boundingBox())?.height ?? 0).toBeGreaterThan(
     before * 2,
   );
+  for (const lines of [5, 6, 7]) {
+    const text = Array.from(
+      { length: lines },
+      (_, index) => `Line ${index + 1}`,
+    ).join("\n");
+    await patchRecord(page, note.record_id, {
+      view_schema_id: notesViewSchemaId,
+      base_row_version: lines - 4,
+      client_txn_id: uniqueTxn("reading-lines"),
+      changes: [{ field_key: "note.body", value: text }],
+    });
+    await expect(preview).toHaveText(text);
+    if (lines <= 6) await expect(fullValue).toHaveCount(0);
+    else await expect(fullValue).toBeVisible();
+  }
+  const sparse = await createInspectorReadingFixture(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(
+    `/?incident_id=${sparse.incidentId}&view_schema_id=${timelineViewSchemaId}`,
+  );
+  await openTimelineInspector(page, sparse.target.record_id);
+  await page.evaluate(() => document.fonts.ready);
+  const reading = page.getByTestId(timelineInspectorTestId());
+  await reading.getByRole("button", { name: "Details", exact: true }).click();
+  const rawActivity = reading.locator(
+    '[data-inspector-saved-field="timeline.raw_activity_text"] [data-inspector-field-value] > div[id]',
+  );
+  await expect(rawActivity).toHaveText(
+    "browser.inspector-history visual inspector details",
+  );
+  const geometry = await rawActivity.evaluate((element) => {
+    const body = element.closest("[data-inspector-scroll-body]");
+    if (!(body instanceof HTMLElement) || !element.firstChild)
+      throw new Error("Missing reading surface");
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const line = range.getClientRects()[0];
+    if (!line) throw new Error("Missing first activity line");
+    return {
+      scroll: body.scrollTop,
+      lineTop: line.top,
+      lineBottom: line.bottom,
+      bodyTop: body.getBoundingClientRect().top,
+      bodyBottom: body.getBoundingClientRect().bottom,
+    };
+  });
+  expect(geometry.lineTop).toBeGreaterThanOrEqual(geometry.bodyTop);
+  expect(geometry.lineBottom).toBeLessThanOrEqual(geometry.bodyBottom);
+  expect((await reading.boundingBox())?.width).toBe(420);
+  for (const override of cartularyDesignPresentation.inspector
+    .fieldLayoutOverrides) {
+    await expect(
+      reading.locator(`[data-inspector-saved-field="${override.fieldKey}"]`),
+    ).toHaveAttribute("data-inspector-field-layout", override.layout);
+  }
+  const action = reading.locator(
+    '[data-inspector-edit-field="timeline.date_entered_text"]',
+  );
+  expect((await action.boundingBox())?.height).toBeGreaterThanOrEqual(
+    cartularyDesignPresentation.inspector.fieldActionMinSizePx,
+  );
+  await test.info().attach("inspector-sparse-reading", {
+    body: await page.screenshot({ animations: "disabled" }),
+    contentType: "image/png",
+  });
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect
+    .poll(async () =>
+      reading
+        .locator('[data-inspector-saved-field="timeline.date_entered_text"]')
+        .evaluate((element) => {
+          const label = element.querySelector("dt"),
+            value = element.querySelector("[data-inspector-field-value]");
+          return (
+            !!label &&
+            !!value &&
+            label.getBoundingClientRect().bottom <=
+              value.getBoundingClientRect().top
+          );
+        }),
+    )
+    .toBe(true);
+  await test.info().attach("inspector-sparse-reading-320", {
+    body: await page.screenshot({ animations: "disabled" }),
+    contentType: "image/png",
+  });
+  const whitespace = "\t\r\n".repeat(300);
+  const whitespaceRow = await createViewRow(
+    page,
+    sparse.incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("reading-whitespace"),
+      "timeline.activity_synopsis_text": "Exact whitespace inspection",
+      "timeline.raw_activity_text": whitespace,
+    },
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(
+    `/?incident_id=${sparse.incidentId}&view_schema_id=${timelineViewSchemaId}`,
+  );
+  await openTimelineInspector(page, whitespaceRow.record_id);
+  await page.setViewportSize({ width: 320, height: 640 });
+  const rawWhitespace = page.locator(
+    '[data-inspector-saved-field="timeline.raw_activity_text"]',
+  );
+  await rawWhitespace
+    .getByText("Inspect source whitespace", { exact: true })
+    .click();
+  await expect(rawWhitespace.locator("code")).toHaveText(
+    JSON.stringify(whitespace),
+  );
+  const whitespaceWidth = await reading.evaluate((element) => ({
+    scroll: element.scrollWidth,
+    client: element.clientWidth,
+  }));
+  expect(whitespaceWidth.scroll).toBeLessThanOrEqual(whitespaceWidth.client);
 });
 
 test("Inspector uncertain recovery replays exact requests without consuming newer authoring", async ({
@@ -258,7 +390,13 @@ test("Inspector uncertain recovery replays exact requests without consuming newe
       exact: true,
     });
     await expect(retry).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Unfinished work (1)", exact: true }),
+    ).toBeVisible();
     await input.fill("Newer unfinished value");
+    await expect(
+      page.getByRole("button", { name: "Unfinished work (2)", exact: true }),
+    ).toBeVisible();
     await page.getByTestId(workbookInspectorCloseButtonTestId(view)).click();
     await retry.focus();
     await retry.press("Enter");
@@ -275,9 +413,12 @@ test("Inspector uncertain recovery replays exact requests without consuming newe
     await switchOrdinarySheet(page, view);
     await openGenericInspectorForRecord(page, view, f.first.record_id);
     await editField(page, view, f.field);
-    await page
-      .getByRole("button", { name: "Resume draft", exact: true })
-      .click();
+    await expect(
+      page.getByTestId(genericEditSubmitTestId(view)),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: /^Keep draft/ }),
+    ).toBeVisible();
     await expect(input).toHaveValue("Newer unfinished value");
   }
 });
@@ -347,9 +488,8 @@ test("a11y.inspector retained editing and recovery remain named keyboard reachab
   await input.fill("Keyboard retained location");
   await page.getByTestId(workbookInspectorCloseButtonTestId(f.view)).click();
   await page.getByTestId(workbookInspectorToggleTestId(f.view)).click();
-  await editField(page, f.view, "host.location");
   const resume = page.getByRole("button", {
-    name: "Resume draft",
+    name: "Resume draft for Location",
     exact: true,
   });
   await resume.focus();
@@ -359,7 +499,7 @@ test("a11y.inspector retained editing and recovery remain named keyboard reachab
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const [width, zoom] of [
     [1280, 1],
-    [390, 1],
+    [320, 1],
     [1280, 2],
   ] as const) {
     await page.setViewportSize({ width, height: 720 });

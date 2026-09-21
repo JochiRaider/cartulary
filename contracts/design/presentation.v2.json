@@ -1,11 +1,68 @@
 {
-  "schema_id": "cartulary.design_presentation.v1",
+  "schema_id": "cartulary.design_presentation.v2",
   "owner_id": "package.ui",
   "verification_id": "package.ui.verification.machine_owned_presentation",
   "inspector": {
     "data_states": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"],
     "access_states": ["readable", "concealed"],
     "content_states": ["empty", "populated"],
+    "reference_viewport": { "width_px": 1280, "height_px": 720, "inspector_width_px": 420 },
+    "persistent_region_max_height_px": 128,
+    "field_action_min_size_px": 28,
+    "property_stack_below_px": 320,
+    "overlay_min_viewport_width_px": 320,
+    "field_layout_overrides": [
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.date_entered_text",
+        "layout": "property"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.analyst_text",
+        "layout": "property"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.mitre_stage_text",
+        "layout": "property"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.device_object_text",
+        "layout": "property"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.ip_address_text",
+        "layout": "property"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.activity_utc_text",
+        "layout": "property"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.activity_local_text",
+        "layout": "property"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.raw_activity_text",
+        "layout": "narrative"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.activity_synopsis_text",
+        "layout": "narrative"
+      },
+      {
+        "view_schema_id": "cartulary.view.timeline.v2",
+        "field_key": "timeline.data_source_text",
+        "layout": "property"
+      }
+    ],
     "header_title_lines": 2,
     "narrative_preview_lines": 6,
     "action_outcomes": {"open_authoring": "Opens authoring. Submit explicitly to save.", "review": "Opens review before any change.", "navigate": "Opens the related workbook view."},
