@@ -1358,6 +1358,13 @@
             "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
             "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
             "module.timeline.browser.capture_action_exact_recovery",
+            "module.timeline.browser.draft_create_activation",
+            "module.timeline.browser.draft_create_cancellation",
+            "module.timeline.browser.draft_create_continuity",
+            "module.timeline.browser.draft_create_controls",
+            "module.timeline.browser.draft_create_rejection",
+            "module.timeline.browser.draft_create_uncertainty",
+            "module.timeline.browser.explicit_blank_create",
             "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38"
           ],
           "specs": [
@@ -3061,6 +3068,13 @@
             "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
             "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
             "module.timeline.browser.capture_action_exact_recovery",
+            "module.timeline.browser.draft_create_activation",
+            "module.timeline.browser.draft_create_cancellation",
+            "module.timeline.browser.draft_create_continuity",
+            "module.timeline.browser.draft_create_controls",
+            "module.timeline.browser.draft_create_rejection",
+            "module.timeline.browser.draft_create_uncertainty",
+            "module.timeline.browser.explicit_blank_create",
             "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38"
           ],
           "specs": [

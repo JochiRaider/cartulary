@@ -6,7 +6,6 @@ import {
 import { Paperclip } from "lucide-react";
 import {
   type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   useRef,
 } from "react";
@@ -26,13 +25,8 @@ export function DraftRowCreateButton({
   readonly row: WorkbookRow;
 }) {
   const draftEvidenceInputRef = useRef<HTMLInputElement | null>(null);
-  const createBlankRow = (
-    event:
-      | ReactKeyboardEvent<HTMLButtonElement>
-      | ReactMouseEvent<HTMLButtonElement>,
-  ) => {
-    if (event.currentTarget.disabled) return;
-    event.preventDefault();
+  const handleCreateClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.disabled || event.button !== 0) return;
     event.stopPropagation();
     onCreate(row);
   };
@@ -56,12 +50,18 @@ export function DraftRowCreateButton({
         disabled={row.pendingSignature !== null}
         style={draftRowCreateButtonStyle}
         type="button"
+        onClick={handleCreateClick}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
-            createBlankRow(event);
+            // Keep gutter keys out of grid navigation; native activation clicks.
+            event.stopPropagation();
           }
         }}
-        onMouseDown={createBlankRow}
+        onMouseDown={(event) => {
+          // Preserve authoring focus so blur cannot submit before activation.
+          event.preventDefault();
+          event.stopPropagation();
+        }}
       >
         +
       </button>

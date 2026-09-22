@@ -93,13 +93,15 @@ describe("Timeline workbook payload coverage", () => {
     const createButton = within(draftGridRow as HTMLDivElement).getByTestId(
       draftRowCreateButtonTestId(),
     );
-    fireEvent.mouseDown(createButton);
-    fireEvent.mouseDown(createButton);
+    act(() => {
+      fireEvent.click(createButton);
+      fireEvent.click(createButton);
+    });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    fireEvent.mouseDown(createButton);
+    fireEvent.click(createButton);
     await act(async () => {
       await Promise.resolve();
     });
@@ -161,5 +163,34 @@ describe("Timeline workbook payload coverage", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(visibleGridRows(document.body)).toHaveLength(1);
     });
+  });
+
+  it("does not create a Timeline row from presses cancellation or non-primary activation", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "10000000-0000-4000-8000-000000000001",
+        view_schema_id: timelineViewSchemaId,
+        rows: [],
+      }),
+    );
+    renderTimelineWorkbook();
+    await screen.findByTestId(draftRowCreateButtonTestId());
+    const button = screen.getByRole("button", { name: "Create timeline row" });
+
+    for (const buttonNumber of [0, 1, 2]) {
+      fireEvent.pointerDown(button, { button: buttonNumber });
+      fireEvent.mouseDown(button, { button: buttonNumber });
+      fireEvent.pointerCancel(button);
+      fireEvent.mouseUp(document.body, { button: buttonNumber });
+    }
+    fireEvent.click(button, { button: 1 });
+    fireEvent.click(button, { button: 2 });
+    // jsdom does not synthesize the native click; browser tests cover that.
+    expect(fireEvent.keyDown(button, { key: "Enter" })).toBe(true);
+    expect(fireEvent.keyDown(button, { key: " " })).toBe(true);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
