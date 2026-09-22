@@ -77,6 +77,7 @@ import {
   queryViewRows,
   waitForViewRow,
 } from "./support/workbook/query";
+import { expectQuerySummaryGeometry } from "./support/workbook/querySummary";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import {
   activateCommittedGridCell,
@@ -359,11 +360,6 @@ async function readWorkbookViewBarGeometry(page: Page) {
         ).find((button) => button.textContent?.trim() === "Columns") ?? null,
         "Columns button",
       );
-      const chipButtons = Array.from(
-        queryControls.querySelectorAll<HTMLButtonElement>(
-          '[role="toolbar"][aria-label="Active query chips"] button[data-query-entry-key]',
-        ),
-      );
       const controls: ReadonlyArray<readonly [string, HTMLElement]> = [
         ["saved-view", requireElement(select(savedViewSelector), "saved view")],
         [
@@ -374,9 +370,6 @@ async function readWorkbookViewBarGeometry(page: Page) {
         ["group", requireElement(select(groupingSelector), "Group select")],
         ["filters", requireElement(select(filterSelector), "Filters button")],
         ["columns", columns],
-        ...chipButtons.map(
-          (button, index) => [`chip-${index}`, button] as const,
-        ),
         [
           "inspector",
           requireElement(select(inspectorSelector), "Inspector button"),
@@ -464,6 +457,7 @@ async function expectWorkbookViewBarGeometry(
     "data-hidden-query-chip-count",
     String(options.hiddenCount),
   );
+  await expectQuerySummaryGeometry(page, options.capacity);
   const geometry = await readWorkbookViewBarGeometry(page);
   expect(geometry.capacity, `${options.label}: chip capacity`).toBe(
     options.capacity,

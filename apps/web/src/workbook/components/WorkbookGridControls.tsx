@@ -5,6 +5,7 @@ import type {
   WorkbookColumnSizingControls,
   WorkbookFrozenColumnControls,
 } from "../layout/WorkbookColumnLayoutController";
+import { WorkbookQuerySummarySlot } from "../layout/WorkbookQuerySummarySlot";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
@@ -171,11 +172,7 @@ export function WorkbookGridControls({
       data-hidden-query-chip-count={projection.hiddenChips.length}
       data-query-chip-capacity={projection.visibleChipCapacity}
       data-testid={workbookViewBarQueryControlsTestId(surface)}
-      style={queryControlsStyleFor(
-        chromeMode,
-        projection.hiddenChips.length,
-        projection.visibleChipCapacity,
-      )}
+      style={queryControlsStyleFor(chromeMode)}
     >
       <WorkbookSortControl
         constrained={chromeMode !== "base" || projection.hiddenChips.length > 0}
@@ -278,27 +275,31 @@ export function WorkbookGridControls({
         projection={projection}
         surface={surface}
       />
-      <WorkbookActiveQueryChips
-        activeKey={surfaceState.rovingEntryKey}
-        condensed={chromeMode !== "base"}
-        entryRefs={queryEntryRefs}
-        onActivate={activateQueryChip}
-        onCommand={onCommand}
-        onFallbackFocus={(chip) => {
-          const trigger =
-            chip.identity.kind === "sort"
-              ? sortTriggerRef.current
-              : chip.identity.kind === "group"
-                ? groupTriggerRef.current
-                : filterTriggerRef.current;
-          if (trigger?.isConnected) trigger.focus({ preventScroll: true });
-        }}
-        onRovingEntryChange={(entryKey) => {
-          dispatch({ type: "set_roving_entry", entryKey, subjectKey });
-        }}
-        projection={projection}
-        surface={surface}
-      />
+      <WorkbookQuerySummarySlot>
+        <WorkbookActiveQueryChips
+          activeKey={surfaceState.rovingEntryKey}
+          condensed={chromeMode !== "base"}
+          entryRefs={queryEntryRefs}
+          onActivate={activateQueryChip}
+          onCommand={onCommand}
+          onFallbackFocus={(chip) => {
+            const trigger =
+              projection.visibleChipCapacity === 0
+                ? filterTriggerRef.current
+                : chip.identity.kind === "sort"
+                  ? sortTriggerRef.current
+                  : chip.identity.kind === "group"
+                    ? groupTriggerRef.current
+                    : filterTriggerRef.current;
+            if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+          }}
+          onRovingEntryChange={(entryKey) => {
+            dispatch({ type: "set_roving_entry", entryKey, subjectKey });
+          }}
+          projection={projection}
+          surface={surface}
+        />
+      </WorkbookQuerySummarySlot>
     </fieldset>
   );
 }
@@ -358,48 +359,19 @@ function executeWorkbookGridQueryCommand(
   }
 }
 
-function queryControlsStyleFor(
-  chromeMode: WorkbookChromeMode,
-  hiddenChipCount: number,
-  visibleChipCapacity: number,
-) {
+function queryControlsStyleFor(chromeMode: WorkbookChromeMode) {
   return {
-    ...queryControlsStyle,
-    ...(chromeMode === "base" && hiddenChipCount > 0
-      ? constrainedBaseQueryControlsStyle
-      : null),
-    ...(chromeMode === "base" ? null : condensedQueryControlsStyle),
-    ...(visibleChipCapacity === 0 ? compactQueryControlsStyle : null),
+    display: "flex",
+    alignItems: "center",
+    gap:
+      chromeMode === "compact_desktop"
+        ? "var(--ct-spacing-xxs)"
+        : "var(--ct-spacing-xs)",
+    boxSizing: "border-box" as const,
+    border: 0,
+    margin: 0,
+    minWidth: 0,
+    padding: 0,
+    overflow: "visible",
   };
 }
-
-const queryControlsStyle = {
-  display: "grid",
-  gridTemplateColumns:
-    "max-content max-content max-content max-content minmax(0, 1fr)",
-  alignItems: "center",
-  gap: "0.35rem",
-  inlineSize: "100%",
-  maxInlineSize: "100%",
-  boxSizing: "border-box" as const,
-  border: 0,
-  margin: 0,
-  minWidth: 0,
-  minInlineSize: 0,
-  padding: 0,
-  flex: "1 1 0",
-  overflow: "visible",
-};
-const constrainedBaseQueryControlsStyle = {
-  gridTemplateColumns:
-    "max-content max-content max-content max-content minmax(0, 1fr)",
-};
-const condensedQueryControlsStyle = {
-  columnGap: "var(--ct-spacing-xs)",
-  gridTemplateColumns:
-    "max-content max-content max-content max-content minmax(0, 1fr)",
-};
-const compactQueryControlsStyle = {
-  columnGap: "var(--ct-spacing-xxs)",
-  gridTemplateColumns: "max-content max-content max-content max-content 0",
-};

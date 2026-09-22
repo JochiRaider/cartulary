@@ -1,5 +1,5 @@
 ---
-version: 0.4.0
+version: 0.5.0
 name: Cartulary
 document_class: design-direction-contract
 status: adopted/closed-design-contract
@@ -182,6 +182,12 @@ layout:
   compactMinHeight: 640px
   topBarHeight: 48px
   viewBarHeight: 40px
+  querySummaryHeight: 32px
+  queryFooterHeight: 32px
+  viewBarSavedViewBaseMinInlineSize: 15rem
+  viewBarSavedViewNarrowMinInlineSize: 12rem
+  viewBarSavedViewCompactMinInlineSize: 10rem
+  querySummaryChipMaxInlineSize: 24rem
   statusStripHeight: 28px
   inspectorDefaultWidth: 420px
   inspectorMinWidth: 360px
@@ -202,6 +208,15 @@ components:
     typography: "{typography.button}"
     rounded: "{rounded.md}"
     padding: "7px 12px"
+  button-quiet:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-muted}"
+    hoverBackgroundColor: "{colors.surface-3}"
+    disabledTextColor: "{colors.ink-subtle}"
+    typography: "{typography.button}"
+    rounded: "{rounded.xs}"
+    padding: "2px 8px"
+    minBlockSize: 28px
   button-danger:
     backgroundColor: "transparent"
     textColor: "{colors.semantic-destructive}"
@@ -806,7 +821,7 @@ Design contract. The application shell MUST contain the regions in the table bel
 | Region | Required contents | Boundary |
 | --- | --- | --- |
 | Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title when not already represented by a selected built-in tab, `System views`, presence summary when assigned by §7.5, and the upper-right account/application menu. | Persistent chrome, not a dashboard. |
-| View bar | Saved-view selector, saved-view actions, sort, group, filter controls, active chips or overflow controls, inspector opener, and add-row control when allowed. | Belongs to active surface only. |
+| View bar | Saved-view selector/actions, query tools, Find where applicable, Clear where applicable, inspector opener and allowed add-row action; conditional query summary beneath the main row. | Belongs to active surface only. |
 | Grid | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells. | Primary work surface. |
 | Inspector | Details, Relationships, Evidence, History, destructive and specialized row actions. | Conditional adjacent or overlay secondary surface opened through explicit controls. |
 | Status strip | Save state, secondary same-surface message, presence summary or overflow when assigned by §7.5. | Capacity-limited working-state strip. |
@@ -816,6 +831,27 @@ Design contract. The default Timeline workbook shell at `{layout.baseViewport}` 
 Design contract. The active surface work area between the view bar and status strip MUST own workbook vertical sizing. The grid and an open inspector MUST fill that same work area regardless of whether the surface renders zero, one, three, or many rows, and the same geometry MUST hold for empty, loading, error, and draft-row states. Grid content and inspector content MUST scroll independently inside the work area, the status strip MUST remain anchored at the bottom of the shell, and the workbook layout MUST NOT create document-level vertical scrolling. Synthetic filler rows, row-count height calculations, fixed `100vh - Npx` offsets, and surface-specific minimum-height workarounds are not valid design strategies.
 
 Design contract. A shell region MAY be visually collapsed only when the responsive algorithm in §7.5 assigns its controls to another reachable region. Omission behavior: a collapsed region with no assigned controls renders no visible container.
+
+Design contract. Incident identity MUST receive the top bar's remaining inline
+space after navigation and bounded presence/account controls; it MUST NOT retain
+an arbitrary fixed maximum while spare space remains. The title yields before
+the incident key. An explicit keyboard- and pointer-operable disclosure exposes
+both complete labels. Account/application controls remain anchored upper-right.
+
+Design contract. The main view-bar row retains `{layout.viewBarHeight}`. Its
+saved-view group MUST receive at least `{layout.viewBarSavedViewBaseMinInlineSize}`
+in base, `{layout.viewBarSavedViewNarrowMinInlineSize}` in narrow desktop and
+`{layout.viewBarSavedViewCompactMinInlineSize}` in compact desktop. The name takes
+flexible space; Modified uses subordinate metadata styling and describes only
+view configuration. Routine tools use quiet commands; the allowed create action
+is the main toolbar's affirmative accent.
+
+Design contract. The conditional query-summary row is part of the view-bar region,
+above the shared grid/inspector work area. It uses `{layout.querySummaryHeight}`
+as its baseline minimum height. No row is reserved when there are no projected
+chips or the band assigns all chips to Filters. Baseline heights MAY expand for
+supported text spacing. Shell scrolling, inspector bounds and the anchored save
+strip retain the ownership described above.
 
 ### 7.2 Shell-exposure surface registry
 
@@ -1030,8 +1066,8 @@ Design contract. Responsive overflow MUST use the region assignment table below.
 | Group control | View bar after Sort | View bar after Sort | View bar after Sort | Not required |
 | Filter control | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | Not required |
 | Columns control | View bar after Filters | View bar after Filters | View bar after Filters | Not required |
-| Active group/sort/filter chips | View bar after Columns; overflow remains in `Filters` | View bar after Columns; overflow remains in `Filters` | Inside the `Filters` popover | Not required |
-| Workbook Find (Timeline, Hosts, Identities) | View bar after active chips or their overflow path | View bar after active chips or their overflow path | View bar after the `Filters` entry path, compact icon button | Not required |
+| Active group/sort/filter chips | Conditional query strip below the main view-bar row; overflow remains in `Filters` | Conditional query strip below the main view-bar row; overflow remains in `Filters` | Inside the `Filters` popover | Not required |
+| Workbook Find (Timeline, Hosts, Identities) | Main view-bar row after Columns | Main view-bar row after Columns | View bar after the `Filters` entry path, compact icon button | Not required |
 | Timeline Clear contents | View bar after Find, compact Clear caption | View bar after Find, icon button | View bar after Find, icon button | Safe selected-cell action when available |
 | Inspector opener | View bar after Timeline Clear contents when present | View bar after Timeline Clear contents when present; Timeline uses an icon button | View bar after Timeline Clear contents when present | Safe conflict access required |
 | Row-create action | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed; Timeline uses an icon button | View bar after the inspector opener when allowed | Not required |
@@ -1053,7 +1089,7 @@ place_active_chips(band, chips):
   else:
     inline_capacity = 0
   inline_count = min(length(ordered), inline_capacity)
-  inline_chips = first inline_count chips
+  inline_chips = first inline_count chips # in the conditional query strip
   overflow_chips = remaining chips
   if overflow_chips is empty: overflow_control = absent
   else: overflow_control = "Filters" with accessible name "Filters, " + length(overflow_chips) + " hidden"
@@ -1068,7 +1104,7 @@ direction; filter detail includes field, operator, and value. Flexible detail
 MAY truncate, but the complete semantic description MUST remain available by
 keyboard, pointer, and accessible name through a focus/hover disclosure and the
 chip's operable editor path. A browser `title` alone is insufficient. The
-capacity values above are presentation slots, not query limits; all remaining
+capacity values above are query-strip presentation slots, not query limits; all remaining
 entries remain available through the ordered `Filters` overflow path.
 
 Design contract. Secondary status-message truncation MUST preserve the full accessible text. Visible truncation uses the first 40 Unicode scalar values followed by `…` in `narrow_desktop`; visible truncation uses the first 24 Unicode scalar values followed by `…` in `compact_desktop` only when a visible secondary summary is rendered. If no secondary message exists, no empty announcement is emitted.
@@ -1103,8 +1139,10 @@ Design contract. `invalidate_or_refresh_required` is row-block state, not a cell
 
 Design contract. Saved-view and query controls apply to the active surface only
 and MUST render in this exact View-bar order: saved-view selector and actions,
-Sort, Group, Filters, Columns, ordered active chips or their `Filters` overflow
-path, Workbook Find on its adopted surfaces, inspector opener, and create action when creation is allowed. The active
+Sort, Group, Filters, Columns, Workbook Find on its adopted surfaces, Timeline
+Clear contents when applicable, inspector opener, and create action when creation
+is allowed. Ordered active chips occupy the conditional query-summary row below
+that main row; Filters retains the complete overflow editor path. The active
 surface title belongs to the top bar when the selected built-in tab or
 system-view switcher does not already provide the same visible title; it is not
 part of the query-control sequence.
@@ -1116,12 +1154,22 @@ part of the query-control sequence.
 | Group control | `Group: None`. | One group chip. | Unsupported group disabled with explanation. | Sets grouping inactive. | 3 |
 | Filters control | No filters. | Filter chips shown or `Filters` overflow. | Invalid filter chip marked and excluded from query submission. | Clears all filters or one selected chip. | 4 |
 | Columns control | Declared default visible columns and order. | Current visible columns and semantic order. | Unknown field blocked before persistence. | Resets the declared layout. | 5 |
-| Active chips | Absent. | Ordered as declared below and limited by §7.5. | Invalid chip remains marked and excluded from query submission. | Removes the selected chip. | 6 |
-| Workbook Find (Timeline, Hosts, Identities) | Closed; accessible name `Find in loaded rows`. | Local search active; panel may be collapsed. | Loaded-scope unavailable reason. | Explicit Close retires the search. | 7 |
+| Active chips (separate query strip) | Absent. | Ordered as declared below and limited by §7.5. | Invalid chip remains marked and excluded from query submission. | Removes the selected chip. | Below main row |
+| Workbook Find (Timeline, Hosts, Identities) | Closed; accessible name `Find in loaded rows`. | Local search active; panel may be collapsed. | Loaded-scope unavailable reason. | Explicit Close retires the search. | 6 |
+| Timeline Clear contents | Explicit selected-cell action. | Existing owner-admitted selection. | Existing authoring validation and recovery. | Clears selected contents under Core 03; distinct from query reset. | 7 |
 | Inspector opener | Closed state. | Open state reflects the active row context. | Disabled with an explanation when no inspectable context exists. | Closes the inspector. | 8 |
 | Create action | Visible only when owner behavior permits creation. | Draft-row creation active. | Owner validation remains local to the draft. | Cancels only the active uncommitted draft. | 9 |
 
 Design contract. Active chips MUST render in this order: group chip, sort chips in applied order, then filter chips in normalized query order.
+
+Design contract. Query-strip chip targets MUST be at least
+`{components.button-quiet.minBlockSize}` high. Details can grow up to
+`{layout.querySummaryChipMaxInlineSize}` while preserving the semantic token and
+full accessible disclosure. Strip appearance/removal and band changes MUST retain
+semantic selection, scroll anchors and owner drafts. Removing a focused chip
+returns focus to its owning query trigger; relocation into compact disclosure
+returns focused chip access to Filters. Accepted chips continue to describe the
+retained rows while requested replacements remain unapplied.
 
 Design contract. Activating a group or sort chip opens its owning View-bar
 editor at that applied entry. Activating a filter chip opens its filter editor
@@ -1223,14 +1271,22 @@ Arrow keys and Home/End MUST move candidate focus without activation; Enter, Spa
 
 #### Bounded query browsing presentation
 
-Core 03 §14.9 owns workbook continuation and retention. The work area presents
-compact ordinary buttons labeled `Load more`, `Earlier rows` and `Refresh`, plus
-the number of committed query records currently loaded. Controls use existing
-tokens, remain keyboard reachable at supported widths and zoom, and do not become
-record rows. Earlier and later availability describe a live window, never a total
-or global row ordinal. Accessible grid descriptions and indices identify the
-loaded window. A terminal continuation reports no more later rows without
-claiming that evicted earlier records are loaded.
+Core 03 §14.9 owns workbook continuation and retention. The grid slot presents a
+compact footer below its scrollport, separately from the shell save strip, with
+`{layout.queryFooterHeight}` baseline minimum height. It reports the number of
+committed query records loaded and exposes Refresh. Earlier rows and Load more
+render when the corresponding continuation exists, or while that control is
+pending or focused following explicit activation. An exhausted control remains
+focusable but unavailable until focus departs. Browsing never auto-loads on scroll.
+
+The footer uses quiet commands, keeps ordinary loading geometry stable and wraps
+within its owned region for supported text spacing. It shares the grid's inert
+state behind an overlay. Earlier and later availability describe a live window,
+never a total or global row ordinal. Accessible grid descriptions identify that
+window. Terminal continuation never implies evicted earlier records are loaded.
+Read failure exposes concise local Retry and, for unapplied replacement, Revert;
+acknowledged writes remain saved. Browsing never submits or discards a retained
+editor draft.
 
 Pending replacement controls identify their edits as unapplied; accepted chips
 and grouping continue to describe retained rows. Replacement failure offers
@@ -1794,7 +1850,7 @@ Design contract. The component variant matrix below is exhaustive for required c
 
 | Component family | Required variants |
 | --- | --- |
-| Button | `primary`, `secondary`, `danger`, `ghost`, `disabled`, `loading`. |
+| Button | `primary`, `secondary`, `quiet`, `danger`, `ghost`, `disabled`, `loading`. |
 | Icon button | `default`, `selected`, `danger`, `disabled`, `loading`. |
 | Text input/editor | `default`, `focused`, `invalid`, `read_only`, `dirty`, `disabled`. |
 | Chip | `neutral`, `unresolved`, `resolved`, `auto_resolved`, `dismissed`, `selected`, `disabled`. |
@@ -1897,6 +1953,20 @@ reason identities MUST remain distinct even when wording matches. Existing
 reason precedence and required disabled-action discoverability remain intact.
 Shared inspector controls use the existing button, field-stack, message and
 spacing token contracts; feature-specific workflow behavior stays with its owner.
+
+Design contract. Quiet commands use `{components.button-quiet}`, transparent at
+rest with distinct hover, focus, unavailable and pending states. Targets are at
+least `{components.button-quiet.minBlockSize}` high; explicit destructive labels
+remain required. Quiet styling does not change admission, request or draft lifetime.
+
+Design contract. Saved-view actions keep Name and Scope directly available,
+followed by compact save and management commands. Update is primary for a mutable
+selected view; otherwise Save as new is primary. Reset, Duplicate and Delete are
+subordinate. Startup is a labeled, initially collapsed disclosure. Pending/failed
+startup operations remain summarized outside it. Confirmation, recovery and owner
+state MUST NOT be scoped to disclosure lifetime. Rename continues through the
+existing name/update action. Closing, switching or collapsing never acknowledges,
+discards or resubmits an operation.
 
 ### 12.5 Inputs and editors
 

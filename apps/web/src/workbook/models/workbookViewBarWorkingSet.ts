@@ -1,3 +1,4 @@
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
@@ -10,9 +11,9 @@ export const workbookViewBarControlOrder = [
   "group",
   "filters",
   "columns",
-  "applied_query",
   "inspector",
   "create",
+  "applied_query",
 ] as const;
 
 export type WorkbookViewBarControlId =
@@ -358,9 +359,9 @@ export function projectWorkbookQueryEntries(
 }
 
 export function queryEntryCapacity(chromeMode: WorkbookChromeMode): number {
-  if (chromeMode === "base") return 3;
-  if (chromeMode === "narrow_desktop") return 2;
-  return 0;
+  return cartularyDesignPresentation.workbookChrome.queryChipCapacities[
+    chromeMode
+  ];
 }
 
 export function describeFilter(filter: WorkbookFilter): string {

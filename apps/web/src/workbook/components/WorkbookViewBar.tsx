@@ -13,6 +13,7 @@ import {
   WorkbookGridControls,
   type WorkbookGridControlsProps,
 } from "./WorkbookGridControls";
+import { workbookQuietCommandStyle } from "./workbookFormStyles";
 
 export type WorkbookViewBarWorkingSetBinding = {
   readonly query: Omit<WorkbookGridControlsProps, "chromeMode"> | null;
@@ -110,24 +111,8 @@ export function WorkbookViewBar({
   );
 }
 
-const compactInputStyle = {
-  borderRadius: "var(--ct-rounded-xs)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-ink)",
-  font: "inherit",
-  minHeight: "1.75rem",
-  padding: "0.22rem 0.45rem",
-} satisfies CSSProperties;
-
 const toolbarButtonStyle = {
-  ...compactInputStyle,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "0.35rem",
-  cursor: "pointer",
-  whiteSpace: "nowrap",
+  ...workbookQuietCommandStyle,
 } satisfies CSSProperties;
 
 const primaryToolbarButtonStyle = {
@@ -167,17 +152,15 @@ function savedViewAllocationStyleFor(
   if (chromeMode === "below_supported_minimum") return { display: "none" };
   const inlineSize =
     chromeMode === "base"
-      ? "min(var(--ct-layout-viewBarSavedViewMaxInlineSize), 24vw)"
+      ? "var(--ct-layout-viewBarSavedViewBaseMinInlineSize)"
       : chromeMode === "narrow_desktop"
-        ? "10rem"
-        : "9rem";
+        ? "var(--ct-layout-viewBarSavedViewNarrowMinInlineSize)"
+        : "var(--ct-layout-viewBarSavedViewCompactMinInlineSize)";
   return {
     display: "flex",
     alignItems: "center",
-    flex: `0 1 ${inlineSize}`,
-    inlineSize,
-    maxInlineSize: "var(--ct-layout-viewBarSavedViewMaxInlineSize)",
-    minInlineSize: 0,
+    flex: `1 0 ${inlineSize}`,
+    minInlineSize: inlineSize,
     overflow: "visible",
   };
 }
@@ -185,8 +168,7 @@ function savedViewAllocationStyleFor(
 const queryAllocationStyle = {
   display: "flex",
   alignItems: "center",
-  flex: "1 1 0",
-  inlineSize: "100%",
+  flex: "0 0 auto",
   maxInlineSize: "100%",
   minInlineSize: 0,
   overflow: "visible",

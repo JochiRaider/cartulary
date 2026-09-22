@@ -13,6 +13,7 @@ import { WorkbookWorkAreaOverlayHost } from "../../shared/WorkbookWorkAreaOverla
 import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
 import { WorkbookQueryBrowsingControls } from "../query/WorkbookQueryBrowsingControls";
 import { statusStripStyle } from "../utils/workbookStyles";
+import { WorkbookQuerySummaryHost } from "./WorkbookQuerySummarySlot";
 import {
   WorkbookInspectorNavigationContext,
   type WorkbookInspectorNavigationSelection,
@@ -59,6 +60,9 @@ export function WorkbookSurfaceLayout({
   readonly onWorkAreaKeyDown?: KeyboardEventHandler<HTMLElement> | undefined;
 }) {
   const inspectorOpen = inspector !== undefined;
+  const [querySummaryHost, setQuerySummaryHost] = useState<HTMLElement | null>(
+    null,
+  );
   const inspectorNavigation =
     useRef<WorkbookInspectorNavigationSelection | null>(null);
   const coordinatedClose = useWorkbookSecondaryPanel(inspectorOpen, () =>
@@ -183,6 +187,7 @@ export function WorkbookSurfaceLayout({
   };
   const workAreaStyle = {
     ...workbookSurfaceWorkAreaStyle,
+    gridRow: 2,
     gridTemplateColumns:
       inspectorOpen && inspectorIsAdjacent
         ? `minmax(0, 1fr) ${effectiveInspectorWidth}px`
@@ -228,8 +233,16 @@ export function WorkbookSurfaceLayout({
           style={workbookSurfaceViewBarStyle}
           viewSchemaId={viewSchemaId}
         >
-          {viewBar}
+          <WorkbookQuerySummaryHost.Provider value={querySummaryHost}>
+            {viewBar}
+          </WorkbookQuerySummaryHost.Provider>
         </WorkbookShellSlotRegion>
+        <section
+          ref={setQuerySummaryHost}
+          className="workbook-query-summary"
+          aria-label="Active query summary"
+          style={{ gridRow: 2, minWidth: 0, position: "relative", zIndex: 8 }}
+        />
         <div
           style={{
             ...workbookSurfaceWorkAreaStyle,
@@ -251,8 +264,8 @@ export function WorkbookSurfaceLayout({
               style={workbookSurfacePrimaryGridSlotStyle}
               viewSchemaId={viewSchemaId}
             >
-              <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
               <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
+              <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
             </WorkbookShellSlotRegion>
             <div
               aria-hidden={
@@ -363,7 +376,7 @@ const workbookSurfaceFrameStyle = {
   position: "relative" as const,
   display: "grid",
   gridTemplateRows:
-    "var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+    "var(--ct-layout-viewBarHeight) auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
   blockSize: "100%",
   minBlockSize: 0,
   minHeight: 0,
@@ -389,7 +402,7 @@ const workbookSurfaceViewBarStyle = {
 
 const workbookSurfaceWorkAreaStyle = {
   position: "relative" as const,
-  gridRow: 2,
+  gridRow: 3,
   display: "grid",
   gridTemplateRows: "minmax(0, 1fr)",
   inlineSize: "100%",
@@ -471,7 +484,7 @@ const workbookSurfaceInspectorSeparatorStyle = {
 
 const workbookSurfaceStatusStripStyle = {
   ...statusStripStyle,
-  gridRow: 3,
+  gridRow: 4,
   minBlockSize: "var(--ct-layout-statusStripHeight)",
 } satisfies CSSProperties;
 

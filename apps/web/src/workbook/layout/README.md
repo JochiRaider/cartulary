@@ -23,6 +23,12 @@ repeated viewport subtraction in surface components.
 | [workbookShellStyles.ts](workbookShellStyles.ts) | Shared shell chrome, work-area, viewport-overlay, and responsive style slots. |
 | [Shared work-area overlay](../../shared/WorkbookWorkAreaOverlay.tsx) | Workbook and Network Analysis recovery host, bounds and internal scrolling. |
 | [WorkbookSurfaceLayout.tsx](WorkbookSurfaceLayout.tsx) | Shared work-area, bounded contextual feedback, independently scrolling grid/inspector slots, overlay geometry, resize behavior, and focus restoration. |
+| [WorkbookQuerySummarySlot.tsx](WorkbookQuerySummarySlot.tsx) | Presentation destination for the conditional query strip. The existing query control retains its reducer and command ownership across responsive changes. |
+
+The shared frame places query details between the main view bar and work area.
+Browsing controls occupy a footer inside the primary grid slot, outside its
+scrollport, and inherit that slot's inert overlay state. The shell save strip
+remains independent of query read status.
 
 ## Tests
 

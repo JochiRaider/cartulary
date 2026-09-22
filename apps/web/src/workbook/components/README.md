@@ -44,6 +44,12 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [WorkbookPresenceMarkers.tsx](WorkbookPresenceMarkers.tsx) | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
 | [WorkbookShellSlots.tsx](WorkbookShellSlots.tsx) | Stable shell slot IDs, labels, and layout slot helpers. |
 | [WorkbookShellTopBar.tsx](WorkbookShellTopBar.tsx) | Responsive built-in/system-surface navigation, registered menu focus, incident identity, presence, and account presentation. |
+| [WorkbookIncidentIdentityDisclosure.tsx](WorkbookIncidentIdentityDisclosure.tsx) | Explicit full incident-key/title disclosure with pointer, keyboard, Escape and focus departure behavior. |
+
+`workbookFormStyles.ts` supplies the shared quiet command treatment. Feature
+owners still supply admission, pending and recovery state. Saved-view Startup
+disclosure state controls presentation only; preference operations and saved-view
+confirmation remain in their existing controllers.
 
 ## Editing and reference controls
 

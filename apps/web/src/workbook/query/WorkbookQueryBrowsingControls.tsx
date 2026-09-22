@@ -1,3 +1,8 @@
+import { useState } from "react";
+import {
+  workbookQuietCommandStyle,
+  workbookTypography,
+} from "../components/workbookFormStyles";
 import type { WorkbookBrowseAction } from "./WorkbookQueryBrowser";
 import { useWorkbookQueryPresentation } from "./WorkbookQueryBrowsingContext";
 
@@ -7,6 +12,8 @@ export function WorkbookQueryBrowsingControls({
 }: {
   readonly viewSchemaId: string;
 }) {
+  const [focusedAction, setFocusedAction] =
+    useState<WorkbookBrowseAction | null>(null);
   const registry = useWorkbookQueryPresentation();
   const browser = registry?.find(viewSchemaId);
   if (!browser || !registry) return null;
@@ -24,6 +31,13 @@ export function WorkbookQueryBrowsingControls({
   ) => (
     <button
       data-grid-editor-external-action="true"
+      onFocus={() => setFocusedAction(action)}
+      onBlur={() => setFocusedAction(null)}
+      aria-busy={
+        state.pending === action ||
+        (action === "restart" && state.pending === "replace") ||
+        undefined
+      }
       type="button"
       aria-disabled={pending || unavailable}
       onPointerDown={() => {
@@ -32,15 +46,7 @@ export function WorkbookQueryBrowsingControls({
       onClick={() => {
         if (!pending && !unavailable) activate(action);
       }}
-      style={{
-        color: "inherit",
-        background: "transparent",
-        border: "var(--ct-border-hairline)",
-        borderRadius: 3,
-        padding: "3px 8px",
-        font: "inherit",
-        opacity: pending || unavailable ? 0.55 : 1,
-      }}
+      style={workbookQuietCommandStyle}
     >
       {label}
     </button>
@@ -49,20 +55,31 @@ export function WorkbookQueryBrowsingControls({
     <fieldset
       aria-label="Workbook browsing"
       style={{
+        ...workbookTypography("metadata"),
+        boxSizing: "border-box",
         margin: 0,
         minWidth: 0,
+        flex: "0 0 auto",
+        minBlockSize: "var(--ct-layout-queryFooterHeight)",
         border: 0,
         display: "flex",
         alignItems: "center",
-        gap: 8,
+        gap: "var(--ct-spacing-xs)",
         flexWrap: "wrap",
-        padding: "4px 8px",
-        fontSize: 12,
-        borderBottom: "var(--ct-border-hairline)",
+        padding: "0 var(--ct-spacing-sm)",
+        color: "var(--ct-colors-ink-muted)",
+        background: "var(--ct-colors-surface-1)",
+        borderTop: "var(--ct-border-hairline)",
       }}
     >
-      {button("Earlier rows", "earlier", !state.hasEarlier || unapplied)}
-      {button("Load more", "more", !state.canLoadMore || unapplied)}
+      {state.hasEarlier ||
+      state.pending === "earlier" ||
+      focusedAction === "earlier"
+        ? button("Earlier rows", "earlier", !state.hasEarlier || unapplied)
+        : null}
+      {state.canLoadMore || state.pending === "more" || focusedAction === "more"
+        ? button("Load more", "more", !state.canLoadMore || unapplied)
+        : null}
       {button("Refresh", "restart")}
       <span
         role="status"
@@ -70,9 +87,7 @@ export function WorkbookQueryBrowsingControls({
         aria-atomic="true"
       >
         {pending
-          ? state.pending === "more"
-            ? "Loading more records…"
-            : "Loading records…"
+          ? `${state.accepted ? `${state.accepted.rows.length} records loaded. ` : ""}${state.pending === "more" ? "Loading more records…" : "Loading records…"}`
           : state.accepted
             ? `${state.accepted.rows.length} records loaded${state.canLoadMore ? "; more available" : state.accepted.paging.hasMore ? "; refresh required" : "; end of current results"}.`
             : "No accepted results."}
@@ -86,7 +101,12 @@ export function WorkbookQueryBrowsingControls({
           </span>
           {button("Retry", "retry")}
           {unapplied ? (
-            <button type="button" onClick={() => registry.revert(viewSchemaId)}>
+            <button
+              data-grid-editor-external-action="true"
+              style={workbookQuietCommandStyle}
+              type="button"
+              onClick={() => registry.revert(viewSchemaId)}
+            >
               Revert
             </button>
           ) : null}

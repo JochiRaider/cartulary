@@ -9,6 +9,7 @@
     "owner_id",
     "verification_id",
     "inspector",
+    "workbook_chrome",
     "grid_cell_range_selection",
     "workbook_column_sizing",
     "workbook_frozen_columns",
@@ -23,6 +24,14 @@
     "error_presentations"
   ],
   "properties": {
+    "workbook_chrome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["query_chip_capacities", "saved_view_startup_initially_open"],
+      "properties": {
+        "query_chip_capacities": { "const": { "base": 3, "narrow_desktop": 2, "compact_desktop": 0, "below_supported_minimum": 0 } },
+        "saved_view_startup_initially_open": { "const": false }
+      }
+    },
     "inspector": {
       "type": "object",
       "additionalProperties": false,

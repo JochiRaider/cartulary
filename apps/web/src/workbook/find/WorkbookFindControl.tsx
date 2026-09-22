@@ -1,6 +1,7 @@
 import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import { Search } from "lucide-react";
 import { type RefObject, useId, useLayoutEffect } from "react";
+import { workbookQuietCommandStyle } from "../components/workbookFormStyles";
 import { menuStyle } from "../components/workbookGridControlStyles";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
@@ -191,16 +192,4 @@ export function WorkbookFindControl({
     </div>
   );
 }
-const buttonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "0.35rem",
-  borderRadius: "var(--ct-rounded-xs)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-ink)",
-  font: "inherit",
-  minHeight: "1.75rem",
-  padding: "0.22rem 0.45rem",
-};
+const buttonStyle = workbookQuietCommandStyle;

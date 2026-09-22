@@ -19,6 +19,46 @@ export function workbookTypography(
   };
 }
 
+export const workbookQuietCommandStyle = {
+  ...workbookTypography("button"),
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "var(--ct-spacing-xs)",
+  border: "1px solid transparent",
+  borderRadius: "var(--ct-component-button-quiet-rounded)",
+  background:
+    "var(--ct-command-background, var(--ct-component-button-quiet-backgroundColor))",
+  color:
+    "var(--ct-command-foreground, var(--ct-component-button-quiet-textColor))",
+  padding: "var(--ct-component-button-quiet-padding)",
+  minBlockSize: "var(--ct-component-button-quiet-minBlockSize)",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
+// Only quiet commands consume these local state variables. Feature admission is
+// still expressed by each native control's disabled/aria-disabled/busy state.
+export const workbookCommandStateStyles = `
+.cartulary-shell .workbook-query-summary:empty { display: none; }
+.cartulary-shell :is(button, summary):hover:not(:disabled):not([aria-disabled="true"]) {
+  --ct-command-background: var(--ct-component-button-quiet-hoverBackgroundColor);
+  --ct-command-foreground: var(--ct-colors-ink);
+}
+.cartulary-shell :is(button, summary):is(:disabled, [aria-disabled="true"]) {
+  --ct-command-foreground: var(--ct-component-button-quiet-disabledTextColor);
+  cursor: not-allowed;
+}
+.cartulary-shell button[aria-busy="true"] {
+  --ct-command-background: var(--ct-component-button-quiet-hoverBackgroundColor);
+  cursor: progress;
+}
+.cartulary-shell :is(button, summary, select):focus-visible {
+  outline: var(--ct-component-focus-ring-border);
+  outline-offset: var(--ct-component-focus-ring-offset);
+}
+`;
+
 // Form controls share authored component states; grid sizing remains with the grid.
 export const workbookFormInputStyle = {
   ...workbookTypography("ui"),

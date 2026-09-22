@@ -36,6 +36,7 @@ export const shellTopBarUnsupportedStyle = {
 };
 
 export const shellTopBarActionsStyle = {
+  marginInlineStart: "auto",
   display: "flex",
   alignItems: "center",
   justifyContent: "flex-end",
@@ -46,6 +47,10 @@ export const shellTopBarActionsStyle = {
 };
 
 export const shellTopBarValueStyle = {
+  flex: "0 0 auto",
+  maxInlineSize:
+    "calc(100% - var(--ct-component-icon-inline-size) - 2 * var(--ct-spacing-xs))",
+  minWidth: 0,
   margin: 0,
   fontWeight: 650,
   color: "var(--ct-colors-ink)",
@@ -55,6 +60,7 @@ export const shellTopBarValueStyle = {
 };
 
 export const shellIncidentTitleStyle = {
+  flex: "1 1 auto",
   minWidth: 0,
   color: "var(--ct-colors-ink-muted)",
   overflow: "hidden",
@@ -66,15 +72,15 @@ export const shellIncidentIdentityStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.45rem",
-  flex: "0 1 11rem",
+  flex: "1 1 0",
   minWidth: 0,
-  overflow: "hidden",
+  position: "relative" as const,
 };
 
 export const currentUserSlotStyle = {
   display: "inline-flex",
   alignItems: "center",
-  flex: "0 1 8rem",
+  flex: "0 0 auto",
   maxInlineSize: "8rem",
   minWidth: 0,
 };

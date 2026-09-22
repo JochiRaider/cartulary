@@ -31,6 +31,10 @@ import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedVie
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
 import { SavedViewActionPanel } from "./SavedViewActionPanel";
 import { SavedViewBrowser } from "./SavedViewBrowser";
+import {
+  workbookQuietCommandStyle,
+  workbookTypography,
+} from "./workbookFormStyles";
 
 export type ActiveSurfaceSavedViewSelectorProps = {
   readonly activeViewSchemaId: string;
@@ -200,9 +204,6 @@ function SavedViewControlPresentation({
       style={{
         ...savedViewControlGroupStyle,
         ...(condensedControls ? condensedSavedViewControlGroupStyle : null),
-        ...(!condensedControls && projection.selectedSavedView !== null
-          ? selectedBaseSavedViewControlGroupStyle
-          : null),
         ...(compactControls ? compactSavedViewControlGroupStyle : null),
       }}
     >
@@ -279,14 +280,7 @@ function SavedViewSelectionField({
         schema={activeViewSchemaId}
         projection={projection}
         triggerRef={selectorRef}
-        triggerStyle={{
-          ...savedViewSelectStyle,
-          ...(condensedControls
-            ? compactSavedViewSelectStyle
-            : projection.selectedSavedView
-              ? allocatedBaseSavedViewSelectStyle
-              : null),
-        }}
+        triggerStyle={savedViewSelectStyle}
         onBase={() => onSelectBaseSurface(activeViewSchemaId)}
       />
     </div>
@@ -352,7 +346,8 @@ const savedViewControlGroupStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.4rem",
-  flex: "0 1 auto",
+  flex: "1 1 auto",
+  inlineSize: "100%",
   minWidth: 0,
   overflow: "visible",
 };
@@ -363,17 +358,11 @@ const condensedSavedViewControlGroupStyle = {
   maxInlineSize: "100%",
 };
 
-const selectedBaseSavedViewControlGroupStyle = {
-  flex: "0 1 var(--ct-layout-viewBarSavedViewMaxInlineSize)",
-  inlineSize: "var(--ct-layout-viewBarSavedViewMaxInlineSize)",
-  maxInlineSize: "var(--ct-layout-viewBarSavedViewMaxInlineSize)",
-};
-
 const savedViewSelectorFrameStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.4rem",
-  flex: "0 1 auto",
+  flex: "1 1 auto",
   minWidth: 0,
 };
 
@@ -392,46 +381,18 @@ const savedViewSelectorLabelStyle = {
   whiteSpace: "nowrap" as const,
 };
 
-const inputStyle = {
-  boxSizing: "border-box" as const,
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.42rem 0.55rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-};
-
 const savedViewSelectStyle = {
-  ...inputStyle,
-  appearance: "auto" as const,
-  inlineSize: "min(var(--ct-layout-viewBarSavedViewMaxInlineSize), 36vw)",
-  minInlineSize: "10rem",
-};
-
-const allocatedBaseSavedViewSelectStyle = {
+  ...workbookQuietCommandStyle,
+  ...workbookTypography("surface-title"),
+  boxSizing: "border-box" as const,
   inlineSize: "100%",
-  minInlineSize: "6.5rem",
-  maxInlineSize: "100%",
-};
-
-const compactSavedViewSelectStyle = {
-  inlineSize: "100%",
-  minInlineSize: "6.5rem",
-  maxInlineSize: "6.5rem",
-};
-
-const modifiedBadgeStyle = {
-  borderRadius: "var(--ct-rounded-xs)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-3)",
+  minInlineSize: 0,
+  justifyContent: "flex-start",
   color: "var(--ct-colors-ink)",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-  padding: "0.25rem 0.4rem",
+};
+const modifiedBadgeStyle = {
+  ...workbookTypography("metadata"),
+  color: "var(--ct-colors-ink-subtle)",
   whiteSpace: "nowrap" as const,
 };
 

@@ -108,6 +108,7 @@ it("reaches later records and returns by keyboard while preserving continuation 
   const query = fixture();
   const user = userEvent.setup();
   await screen.findByText("100 records loaded; more available.");
+  expect(screen.queryByRole("button", { name: "Earlier rows" })).toBeNull();
   const more = screen.getByRole("button", { name: "Load more" });
   more.focus();
   await user.keyboard("{Enter}");
@@ -135,6 +136,26 @@ it("reaches later records and returns by keyboard while preserving continuation 
   );
   expect(query.mock.calls.at(-1)?.[0].cursorToken).toBeUndefined();
   expect(document.activeElement).toBe(earlier);
+  await user.tab();
+  expect(screen.queryByRole("button", { name: "Earlier rows" })).toBeNull();
+
+  more.focus();
+  for (let page = 0; page < 4; page++) {
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(more.getAttribute("aria-disabled")).toBe(
+        page === 3 ? "true" : "false",
+      ),
+    );
+  }
+  await screen.findByText("205 records loaded; end of current results.");
+  expect(document.activeElement).toBe(more);
+  const reads = query.mock.calls.length;
+  await user.keyboard("{Enter}");
+  expect(query).toHaveBeenCalledTimes(reads);
+  await user.tab();
+  expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
 
 it("retains accepted presentation on a failed replacement and offers local retry and revert", async () => {

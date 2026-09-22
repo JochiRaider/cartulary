@@ -3147,7 +3147,11 @@ of an immutable-snapshot violation. Unknown total counts and global record
 ordinals MUST NOT be invented.
 
 The work area MUST expose keyboard-operable `Load more`, `Earlier rows` and
-`Refresh` controls. Loading requires explicit activation; scrolling and ordinary
+`Refresh` controls. Refresh remains visible; a continuation control MAY be omitted
+when no corresponding continuation exists, provided an explicitly activated
+control remains present while pending or focused, and becomes available again
+when its continuation exists. An exhausted focused control remains focusable but
+unavailable until focus departs. Loading requires explicit activation; scrolling and ordinary
 grid navigation MUST NOT prefetch pages. The client MUST retain at most twenty
 earlier producing-request checkpoints. `Earlier rows` re-fetches the immediately
 preceding retained checkpoint into a replacement window, retiring its old forward

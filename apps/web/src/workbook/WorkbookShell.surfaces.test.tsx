@@ -42,6 +42,7 @@ import {
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
+  savedViewStartupToggleTestId,
   savedViewUpdateButtonTestId,
   saveStateTestId,
   surfaceTabTestId,
@@ -2689,6 +2690,9 @@ describe("WorkbookShell surface selection", () => {
     openSavedViewActions(timelineViewSchemaId);
     const createButton = screen.getByTestId(
       savedViewCreateButtonTestId(timelineViewSchemaId),
+    );
+    fireEvent.click(
+      screen.getByTestId(savedViewStartupToggleTestId(timelineViewSchemaId)),
     );
     const homeButton = screen.getByTestId(
       savedViewSetHomeButtonTestId(timelineViewSchemaId),

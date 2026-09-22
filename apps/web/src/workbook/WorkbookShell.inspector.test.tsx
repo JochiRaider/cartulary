@@ -159,7 +159,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     });
     expect(workbookShell).toBeInstanceOf(HTMLElement);
     expect((workbookShell as HTMLElement).style.gridTemplateRows).toBe(
-      "var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+      "var(--ct-layout-viewBarHeight) auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
     );
     expect(
       screen.getByTestId(workbookShellSlotTestId("view-bar")).style.gridRow,
@@ -167,7 +167,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     expect((workArea as HTMLElement).style.gridRow).toBe("2");
     expect(
       screen.getByTestId(workbookShellSlotTestId("status-strip")).style.gridRow,
-    ).toBe("3");
+    ).toBe("4");
     const gridShell = screen.getByTestId(gridShellTestId(timelineViewSchemaId));
     expect(gridShell.style.inlineSize).toBe("100%");
     expect(gridShell.style.blockSize).toBe("100%");

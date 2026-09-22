@@ -272,9 +272,9 @@ describe("workbookGridQueryControls", () => {
       "group",
       "filters",
       "columns",
-      "applied_query",
       "inspector",
       "create",
+      "applied_query",
     ]);
     expect(workingSet.savedView).toMatchObject({
       accessibleName: "Priority investigations, Modified",

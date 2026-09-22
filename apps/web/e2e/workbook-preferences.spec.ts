@@ -5,6 +5,7 @@ import {
   savedViewOptionTestId,
   savedViewSelectorTestId,
   savedViewSetHomeButtonTestId,
+  savedViewStartupToggleTestId,
   surfaceTabTestId,
   workbookColumnsMenuTestId,
   workbookColumnsMenuTriggerTestId,
@@ -342,6 +343,12 @@ test("preferences independently publish delayed reads and guard shortcut admissi
   await close(page);
   await page.getByTestId(surfaceTabTestId(hostsViewSchemaId)).click();
   await openSavedViewActionMenu(page, hostsViewSchemaId);
+  await expect(
+    page.getByTestId(workbookPreferenceTestId("home", "shortcut-outcome")),
+  ).toContainText("Waiting for acknowledgement");
+  await page
+    .getByTestId(savedViewStartupToggleTestId(hostsViewSchemaId))
+    .click();
   const shortcut = page.getByTestId(
     savedViewSetHomeButtonTestId(hostsViewSchemaId),
   );

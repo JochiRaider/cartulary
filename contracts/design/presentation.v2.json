@@ -2,6 +2,10 @@
   "schema_id": "cartulary.design_presentation.v2",
   "owner_id": "package.ui",
   "verification_id": "package.ui.verification.machine_owned_presentation",
+  "workbook_chrome": {
+    "query_chip_capacities": { "base": 3, "narrow_desktop": 2, "compact_desktop": 0, "below_supported_minimum": 0 },
+    "saved_view_startup_initially_open": false
+  },
   "inspector": {
     "data_states": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"],
     "access_states": ["readable", "concealed"],

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { workbookQuietCommandStyle } from "./workbookFormStyles";
 
 export const menuFrameStyle = {
   position: "relative" as const,
@@ -12,19 +13,7 @@ export const fixedMenuFrameStyle = {
 };
 
 export const controlButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "0.3rem",
-  borderRadius: "var(--ct-rounded-xs)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-ink)",
-  padding: "0.28rem 0.5rem",
-  font: "inherit",
-  cursor: "pointer",
-  minBlockSize: "1.8rem",
-  whiteSpace: "nowrap" as const,
+  ...workbookQuietCommandStyle,
 };
 
 export const immutableControlLabelStyle = {

@@ -127,6 +127,10 @@ function assertExactRows(filePath, field, actual, expected) {
 
 export function renderDesignPresentationTypeScript(document) {
   const source = {
+    workbookChrome: {
+      queryChipCapacities: document.projection.workbook_chrome.query_chip_capacities,
+      savedViewStartupInitiallyOpen: document.projection.workbook_chrome.saved_view_startup_initially_open,
+    },
     inspector: {
       referenceViewport: document.projection.inspector.reference_viewport,
       persistentRegionMaxHeightPx: document.projection.inspector.persistent_region_max_height_px,

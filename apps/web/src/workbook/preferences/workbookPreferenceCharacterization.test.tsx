@@ -156,8 +156,11 @@ describe("Workbook preference characterization", () => {
   });
   const open = () =>
     fireEvent.click(screen.getByRole("button", { name: "Saved view actions" }));
-  const setHome = () =>
+  const setHome = () => {
+    if (!screen.queryByRole("button", { name: "Set as my home" }))
+      fireEvent.click(screen.getByRole("button", { name: /^Startup/ }));
     fireEvent.click(screen.getByRole("button", { name: "Set as my home" }));
+  };
   const writes = () =>
     fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT");
 

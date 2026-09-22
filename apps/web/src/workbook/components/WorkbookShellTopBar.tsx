@@ -17,11 +17,9 @@ import {
   currentUserChipStyle,
   currentUserSlotStyle,
   shellIncidentIdentityStyle,
-  shellIncidentTitleStyle,
   shellTopBarActionsStyle,
   shellTopBarStyle,
   shellTopBarUnsupportedStyle,
-  shellTopBarValueStyle,
   surfaceMenuTriggerStyle,
   surfacesMenuFrameStyle,
   surfacesMenuItemSelectedStyle,
@@ -36,8 +34,10 @@ import type { WorkbookIncidentIdentity } from "../models/workbookIncidentIdentit
 import { requiredBuiltInWorkbookSurfaceIds } from "../models/workbookSurfaceRegistry";
 import { displayInitials } from "../utils/workbookPresence";
 import { SystemViewSwitcher } from "./SystemViewSwitcher";
+import { WorkbookIncidentIdentityDisclosure } from "./WorkbookIncidentIdentityDisclosure";
 import { WorkbookShellSlotRegion } from "./WorkbookShellSlots";
 import { WorkbookPresenceSummary } from "./WorkbookStatusStrip";
+import { workbookCommandStateStyles } from "./workbookFormStyles";
 
 type WorkbookShellTopBarProps = {
   readonly recovery?: ReactNode;
@@ -105,6 +105,7 @@ export function WorkbookShellTopBar({
       }}
       viewSchemaId={surface}
     >
+      <style>{workbookCommandStateStyles}</style>
       <div
         data-testid={workbookIncidentIdentityTestId()}
         style={shellIncidentIdentityStyle}
@@ -114,8 +115,11 @@ export function WorkbookShellTopBar({
             : `${incidentIdentity.incident_key} ${incidentIdentity.title}`
         }
       >
-        <strong style={shellTopBarValueStyle}>{incidentKeyLabel}</strong>
-        <span style={shellIncidentTitleStyle}>{incidentTitleLabel}</span>
+        <WorkbookIncidentIdentityDisclosure
+          key={incidentKeyLabel}
+          incidentKey={incidentKeyLabel}
+          title={incidentTitleLabel}
+        />
       </div>
       <span
         aria-hidden="true"

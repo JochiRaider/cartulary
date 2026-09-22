@@ -16,6 +16,7 @@ import {
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
+  savedViewStartupToggleTestId,
   savedViewStatusTestId,
   savedViewUpdateButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -360,7 +361,21 @@ export async function setCurrentSavedViewAsHome(
   surface: string,
 ) {
   await openSavedViewActionMenu(page, surface);
+  await revealStartupAction(
+    page,
+    surface,
+    savedViewSetHomeButtonTestId(surface),
+  );
   await page.getByTestId(savedViewSetHomeButtonTestId(surface)).click();
+}
+
+async function revealStartupAction(
+  page: SavedViewPageLike,
+  surface: string,
+  action: string,
+) {
+  if (!(await isSavedViewLocatorVisible(page.getByTestId(action))))
+    await page.getByTestId(savedViewStartupToggleTestId(surface)).click();
 }
 
 export async function setCurrentSavedViewAsHomeAndWait(
@@ -385,6 +400,11 @@ export async function setCurrentSavedViewAsDefault(
   surface: string,
 ) {
   await openSavedViewActionMenu(page, surface);
+  await revealStartupAction(
+    page,
+    surface,
+    savedViewSetDefaultButtonTestId(surface),
+  );
   await page.getByTestId(savedViewSetDefaultButtonTestId(surface)).click();
 }
 
@@ -475,6 +495,7 @@ async function setCurrentSavedViewPreferenceAndWait(
   );
 
   await openSavedViewActionMenu(page, surface);
+  await revealStartupAction(page, surface, options.buttonTestId);
   await page.getByTestId(options.buttonTestId).click();
   const [request, response] = await Promise.all([
     requestPromise,

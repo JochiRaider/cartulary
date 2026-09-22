@@ -269,6 +269,7 @@ function SortActionButton({
       aria-label={label}
       disabled={disabled}
       role="menuitem"
+      style={controlButtonStyle}
       tabIndex={navigation.tabIndexFor(itemKey)}
       type="button"
       onClick={() => {
@@ -313,6 +314,10 @@ const sortMenuStyle = {
 const sectionStyle = {
   display: "grid",
   gap: "var(--ct-spacing-xs)",
+  border: 0,
+  padding: 0,
+  margin: 0,
+  minWidth: 0,
 };
 const emptyStateStyle = {
   color: "var(--ct-colors-ink-muted)",

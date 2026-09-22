@@ -92,6 +92,7 @@ import {
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
+  savedViewStartupToggleTestId,
   savedViewStatusTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
@@ -303,6 +304,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { expectQuerySummaryGeometry } from "./support/workbook/querySummary";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import {
   clickTimelineRowAction,
@@ -686,6 +688,7 @@ async function expectTextSpacingViewBarResilience(
     "data-hidden-query-chip-count",
     String(options.hiddenCount),
   );
+  await expectQuerySummaryGeometry(page, options.capacity);
   const geometry = await page.evaluate(
     ({
       actionMenuSelector,
@@ -719,11 +722,6 @@ async function expectTextSpacingViewBarResilience(
         ) ?? null,
         "Columns button",
       );
-      const chipButtons = Array.from(
-        controls.querySelectorAll<HTMLButtonElement>(
-          '[role="toolbar"][aria-label="Active query chips"] button[data-query-entry-key]',
-        ),
-      ).filter((button) => button.getBoundingClientRect().width > 0);
       const orderedControls: ReadonlyArray<readonly [string, HTMLElement]> = [
         ["saved-view", requireElement(select(savedViewSelector), "saved view")],
         [
@@ -734,9 +732,6 @@ async function expectTextSpacingViewBarResilience(
         ["group", requireElement(select(groupingSelector), "Group select")],
         ["filters", requireElement(select(filterSelector), "Filters button")],
         ["columns", columns],
-        ...chipButtons.map(
-          (button, index) => [`chip-${index}`, button] as const,
-        ),
         ...Array.from(
           viewBar.querySelectorAll<HTMLButtonElement>("button"),
         ).flatMap((button) => {
@@ -2060,6 +2055,30 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
     await expect(
       page.getByRole("region", { name: "Workbook shell" }),
     ).toHaveCount(1);
+
+    const identity = page.getByRole("button", { name: /^Incident details:/ });
+    await expect(identity).toHaveAccessibleName(
+      /a11y.workbook-shell.row-01 workbook shell/,
+    );
+    await expectVisibleFocus(identity);
+    await identity.press("Enter");
+    const identityDetails = page.getByRole("region", {
+      name: "Incident identity",
+      exact: true,
+    });
+    await expect(identityDetails).toContainText(
+      "a11y.workbook-shell.row-01 workbook shell",
+    );
+    await expect(identityDetails.locator("strong")).toHaveText(
+      await identity.locator("strong").innerText(),
+    );
+    await identity.press("Escape");
+    await expect(identityDetails).toHaveCount(0);
+    await expect(identity).toBeFocused();
+    await identity.click();
+    await expect(identityDetails).toBeVisible();
+    await page.getByTestId(systemViewSwitcherTriggerTestId()).focus();
+    await expect(identityDetails).toHaveCount(0);
 
     for (const slot of workbookShellSlots.filter(
       (slot) => slot !== "inspector",
@@ -4290,6 +4309,12 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     const homeButton = page.getByTestId(
       savedViewSetHomeButtonTestId(timelineViewSchemaId),
     );
+    const startup = page.getByTestId(
+      savedViewStartupToggleTestId(timelineViewSchemaId),
+    );
+    await expect(startup).toHaveAttribute("aria-expanded", "false");
+    await expectVisibleFocus(startup);
+    await startup.press("Enter");
     await expectVisibleFocus(homeButton);
     await homeButton.press("Enter");
     await expect(
@@ -4308,6 +4333,11 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       page.getByTestId(workbookPreferenceTestId("default", "shortcut-outcome")),
     ).toBeVisible();
     await expect(defaultButton).toBeFocused();
+    await startup.click();
+    await expect(defaultButton).toHaveCount(0);
+    await expect(
+      page.getByTestId(workbookPreferenceTestId("default", "shortcut-outcome")),
+    ).toHaveText("Incident default update confirmed.");
     await page.keyboard.press("Escape");
     await expect(
       page.getByTestId(savedViewActionMenuTriggerTestId(timelineViewSchemaId)),
@@ -4387,12 +4417,18 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       hiddenCount: 9,
       width: 1024,
     });
+    await page
+      .getByRole("toolbar", { name: "Active query chips" })
+      .getByRole("button")
+      .first()
+      .focus();
     await expectTextSpacingViewBarResilience(page, {
       capacity: 0,
       height: 640,
       hiddenCount: 11,
       width: 768,
     });
+    await expect(filterTrigger).toBeFocused();
     await expectVisibleFocus(
       page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
     );
@@ -4435,6 +4471,9 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     await expectNoFocusTrap(page);
     await openFilterPopover(page, timelineViewSchemaId);
     await openSavedViewActionMenu(page, timelineViewSchemaId);
+    await page
+      .getByTestId(savedViewStartupToggleTestId(timelineViewSchemaId))
+      .click();
     await expectAndRecordContrast(page, [
       gridSortHeaderTestId(
         timelineViewSchemaId,
@@ -7263,6 +7302,9 @@ test("a11y.preferences independent clear and recovery controls preserve keyboard
   ).toBeFocused();
   await page.setViewportSize({ width: 1280, height: 720 });
   await openSavedViewActionMenu(page, timelineViewSchemaId);
+  await page
+    .getByTestId(savedViewStartupToggleTestId(timelineViewSchemaId))
+    .click();
   await page
     .getByRole("button", {
       name: "Inspect and recover workbook preferences…",

@@ -170,6 +170,7 @@ export {
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
+  savedViewStartupToggleTestId,
   savedViewStatusTestId,
   savedViewUpdateButtonTestId,
 } from "./savedViewSelectors";

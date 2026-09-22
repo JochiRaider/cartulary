@@ -95,6 +95,14 @@ export function savedViewSetHomeButtonTestId(
   return stableTestId(viewScopedTestId("saved-view-set-home", viewSchemaId));
 }
 
+export function savedViewStartupToggleTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(
+    viewScopedTestId("saved-view-startup-toggle", viewSchemaId),
+  );
+}
+
 export function savedViewSetDefaultButtonTestId(
   viewSchemaId: string,
 ): StableTestId {

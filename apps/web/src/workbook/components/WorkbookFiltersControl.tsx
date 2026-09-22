@@ -536,6 +536,7 @@ function AppliedFilterActions({
           <button
             ref={navigation.registerItem(`remove:${chip.key}`)}
             aria-label={`Remove ${chip.accessibleName}`}
+            style={clearButtonStyle}
             type="button"
             onClick={() => onCommand(chip.removeCommand)}
           >

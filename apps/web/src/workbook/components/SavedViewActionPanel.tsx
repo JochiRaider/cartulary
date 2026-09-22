@@ -1,4 +1,5 @@
 import {
+  cartularyDesignPresentation,
   savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
@@ -9,11 +10,12 @@ import {
   savedViewScopeSelectTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
+  savedViewStartupToggleTestId,
   savedViewUpdateButtonTestId,
   workbookPreferenceTestId,
 } from "@cartulary/ui-contracts";
-import { MoreHorizontal } from "lucide-react";
-import { type RefObject, useRef, useSyncExternalStore } from "react";
+import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
+import { type RefObject, useRef, useState, useSyncExternalStore } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import type { SavedViewActionIntent } from "../hooks/useActiveSurfaceSavedViewActions";
 import {
@@ -37,6 +39,7 @@ import {
   type SavedViewRecoveryKey,
   savedViewRecoveryKeys,
 } from "./SavedViewRecovery";
+import { workbookQuietCommandStyle } from "./workbookFormStyles";
 
 type SavedViewActionControlKey =
   | SavedViewRecoveryKey
@@ -49,6 +52,7 @@ type SavedViewActionControlKey =
   | "set_default"
   | "preferences"
   | "set_home"
+  | "startup"
   | "update";
 
 const savedViewActionControlKeys: readonly SavedViewActionControlKey[] = [
@@ -58,6 +62,7 @@ const savedViewActionControlKeys: readonly SavedViewActionControlKey[] = [
   "update",
   "reset",
   "duplicate",
+  "startup",
   "set_home",
   "set_default",
   "preferences",
@@ -96,6 +101,9 @@ export function SavedViewActionPanel({
     | undefined;
   readonly selectedSavedView: SavedViewResource | null;
 }) {
+  const [startupOpen, setStartupOpen] = useState<boolean>(
+    cartularyDesignPresentation.workbookChrome.savedViewStartupInitiallyOpen,
+  );
   const preferences = useWorkbookPreferencesSnapshot(preferenceController);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = savedViewActionMenuTestId(activeViewSchemaId);
@@ -135,8 +143,13 @@ export function SavedViewActionPanel({
     fallbackFocusRef,
     initialItemKey: "name",
     isOpen: control.panelOpen,
-    itemKeys: savedViewActionControlKeys,
+    itemKeys: startupOpen
+      ? savedViewActionControlKeys
+      : savedViewActionControlKeys.filter(
+          (key) => !["set_home", "set_default", "preferences"].includes(key),
+        ),
     onRequestClose: () => {
+      setStartupOpen(false);
       dispatch({ type: "close_panel", surface: activeViewSchemaId });
     },
     subjectKey: `${activeViewSchemaId}:${control.selectionKey}`,
@@ -164,6 +177,7 @@ export function SavedViewActionPanel({
         style={iconButtonStyle}
         type="button"
         onClick={() => {
+          setStartupOpen(false);
           if (!control.panelOpen) navigation.prepareOpen("name");
           dispatch({ type: "toggle_panel", surface: activeViewSchemaId });
         }}
@@ -255,7 +269,6 @@ export function SavedViewActionPanel({
             </label>
           </section>
           <section aria-label="Save as new view" style={sectionStyle}>
-            <strong style={sectionTitleStyle}>Create</strong>
             <button
               ref={registerControl("create")}
               data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
@@ -286,7 +299,6 @@ export function SavedViewActionPanel({
           ) : (
             <>
               <section aria-label="Selected view actions" style={sectionStyle}>
-                <strong style={sectionTitleStyle}>Selected view</strong>
                 <button
                   ref={registerControl("update")}
                   data-testid={savedViewUpdateButtonTestId(
@@ -323,7 +335,6 @@ export function SavedViewActionPanel({
                 </button>
               </section>
               <section aria-label="Duplicate view" style={sectionStyle}>
-                <strong style={sectionTitleStyle}>Duplicate</strong>
                 <button
                   ref={registerControl("duplicate")}
                   data-testid={savedViewDuplicateButtonTestId(
@@ -345,35 +356,61 @@ export function SavedViewActionPanel({
             registerItem={registerControl}
           />
           <section aria-label="Startup view references" style={sectionStyle}>
-            <strong style={sectionTitleStyle}>Startup</strong>
             <button
-              ref={registerControl("set_home")}
-              data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
-              aria-disabled={!preferenceController?.canSetCurrent("home")}
-              style={panelActionStyle}
               type="button"
-              onClick={() => {
-                if (preferenceController?.canSetCurrent("home")) {
-                  preferenceController.setCurrent("home");
-                }
-              }}
-            >
-              Set as my home
-            </button>
-            <button
-              ref={registerControl("set_default")}
-              data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
-              aria-disabled={!preferenceController?.canSetCurrent("default")}
+              ref={registerControl("startup")}
               style={panelActionStyle}
-              type="button"
-              onClick={() => {
-                if (preferenceController?.canSetCurrent("default")) {
-                  preferenceController.setCurrent("default");
-                }
-              }}
+              data-testid={savedViewStartupToggleTestId(activeViewSchemaId)}
+              aria-expanded={startupOpen}
+              aria-controls={`${panelId}-startup`}
+              onClick={() => setStartupOpen(!startupOpen)}
             >
-              Set as incident default
+              Startup
+              {startupOpen ? (
+                <ChevronUp size={16} aria-hidden="true" />
+              ) : (
+                <ChevronDown size={16} aria-hidden="true" />
+              )}
             </button>
+            {startupOpen ? (
+              <div
+                id={`${panelId}-startup`}
+                style={{ display: "grid", gap: "var(--ct-spacing-xs)" }}
+              >
+                <button
+                  ref={registerControl("set_home")}
+                  data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
+                  aria-disabled={!preferenceController?.canSetCurrent("home")}
+                  style={panelActionStyle}
+                  type="button"
+                  onClick={() => {
+                    if (preferenceController?.canSetCurrent("home")) {
+                      preferenceController.setCurrent("home");
+                    }
+                  }}
+                >
+                  Set as my home
+                </button>
+                <button
+                  ref={registerControl("set_default")}
+                  data-testid={savedViewSetDefaultButtonTestId(
+                    activeViewSchemaId,
+                  )}
+                  aria-disabled={
+                    !preferenceController?.canSetCurrent("default")
+                  }
+                  style={panelActionStyle}
+                  type="button"
+                  onClick={() => {
+                    if (preferenceController?.canSetCurrent("default")) {
+                      preferenceController.setCurrent("default");
+                    }
+                  }}
+                >
+                  Set as incident default
+                </button>
+              </div>
+            ) : null}
             {preferences ? (
               <>
                 <p
@@ -400,7 +437,7 @@ export function SavedViewActionPanel({
                 Workbook preference controls are unavailable.
               </p>
             )}
-            {onInspectPreferences ? (
+            {startupOpen && onInspectPreferences ? (
               <button
                 ref={registerControl("preferences")}
                 type="button"
@@ -419,7 +456,6 @@ export function SavedViewActionPanel({
           </section>
           {selectedSavedView === null ? null : (
             <section aria-label="Delete saved view" style={dangerSectionStyle}>
-              <strong style={sectionTitleStyle}>Delete</strong>
               <button
                 ref={registerControl("delete")}
                 data-testid={savedViewDeleteButtonTestId(
@@ -459,16 +495,9 @@ const actionPanelFrameStyle = {
   flex: "0 0 auto",
 };
 const iconButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
+  ...workbookQuietCommandStyle,
   inlineSize: "1.9rem",
   blockSize: "1.9rem",
-  borderRadius: "var(--ct-rounded-xs)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-ink)",
-  cursor: "pointer",
 };
 const actionPanelStyle = {
   position: "absolute" as const,
@@ -494,31 +523,23 @@ const panelTitleStyle = {
 const sectionStyle = {
   display: "grid",
   gap: "var(--ct-spacing-xs)",
-  borderBlockStart: "var(--ct-border-hairline)",
-  paddingBlockStart: "var(--ct-spacing-sm)",
 };
 const dangerSectionStyle = {
   ...sectionStyle,
-  borderColor: "var(--ct-colors-semantic-conflict)",
-};
-const sectionTitleStyle = {
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.78rem",
+  borderBlockStart: "var(--ct-border-hairline)",
+  paddingBlockStart: "var(--ct-spacing-xs)",
 };
 const panelLabelStyle = {
+  margin: 0,
   display: "grid",
   gap: "var(--ct-spacing-xs)",
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.82rem",
 };
 const panelActionStyle = {
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-xs)",
-  background: "transparent",
-  color: "var(--ct-colors-ink)",
-  cursor: "pointer",
-  font: "inherit",
-  padding: "var(--ct-component-button-secondary-padding)",
+  ...workbookQuietCommandStyle,
+  whiteSpace: "normal" as const,
+  justifyContent: "flex-start",
   textAlign: "left" as const,
 };
 const primaryActionStyle = {
@@ -530,6 +551,6 @@ const primaryActionStyle = {
 };
 const dangerPanelActionStyle = {
   ...panelActionStyle,
-  color: "var(--ct-colors-semantic-conflict)",
+  color: "var(--ct-colors-semantic-destructive)",
   fontWeight: 700,
 };

@@ -1,5 +1,12 @@
 import { workbookQueryEntryTestId } from "@cartulary/ui-contracts";
-import { type KeyboardEvent, type RefObject, useEffect, useState } from "react";
+import {
+  type KeyboardEvent,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   WorkbookGridQueryCommand,
   WorkbookGridQueryControlProjection,
@@ -33,6 +40,7 @@ export function WorkbookActiveQueryChips({
   readonly surface: string;
 }) {
   const chips = projection.visibleChips;
+  const focusedChip = useRef<WorkbookQueryChip | null>(null);
   const [describedKey, setDescribedKey] = useState<string | null>(null);
   const resolvedActiveKey = chips.some((chip) => chip.key === activeKey)
     ? activeKey
@@ -43,6 +51,14 @@ export function WorkbookActiveQueryChips({
     onRovingEntryChange(resolvedActiveKey);
   }, [activeKey, onRovingEntryChange, resolvedActiveKey]);
 
+  useLayoutEffect(() => {
+    const focused = focusedChip.current;
+    if (focused && !chips.some((chip) => chip.key === focused.key)) {
+      focusedChip.current = null;
+      onFallbackFocus(focused);
+    }
+  }, [chips, onFallbackFocus]);
+
   const focusAt = (index: number) => {
     const chip = chips[index];
     if (chip === undefined) return;
@@ -51,15 +67,10 @@ export function WorkbookActiveQueryChips({
   };
 
   const deleteChip = (chip: WorkbookQueryChip) => {
-    const index = chips.findIndex((candidate) => candidate.key === chip.key);
-    const fallback = chips[index + 1] ?? chips[index - 1];
-    onRovingEntryChange(fallback?.key ?? null);
+    focusedChip.current = null;
+    onRovingEntryChange(null);
     onCommand(chip.removeCommand);
-    if (fallback !== undefined) {
-      queueMicrotask(() => entryRefs.current.get(fallback.key)?.focus());
-    } else {
-      queueMicrotask(() => onFallbackFocus(chip));
-    }
+    queueMicrotask(() => onFallbackFocus(chip));
   };
 
   const onChipKeyDown = (
@@ -98,6 +109,7 @@ export function WorkbookActiveQueryChips({
     }
   };
 
+  if (chips.length === 0 || projection.visibleChipCapacity === 0) return null;
   return (
     <div
       aria-label="Active query chips"
@@ -130,9 +142,13 @@ export function WorkbookActiveQueryChips({
               style={chipButtonStyle}
               tabIndex={chip.key === resolvedActiveKey ? 0 : -1}
               type="button"
-              onBlur={() => setDescribedKey(null)}
+              onBlur={() => {
+                focusedChip.current = null;
+                setDescribedKey(null);
+              }}
               onClick={(event) => onActivate(chip, event.currentTarget)}
               onFocus={() => {
+                focusedChip.current = chip;
                 onRovingEntryChange(chip.key);
                 setDescribedKey(chip.key);
               }}
@@ -166,11 +182,15 @@ export function WorkbookActiveQueryChips({
 }
 
 const chipRailStyle = {
+  boxSizing: "border-box" as const,
   display: "flex",
   alignItems: "center",
   gap: "var(--ct-spacing-xs)",
   border: 0,
-  padding: 0,
+  padding: "0 var(--ct-spacing-sm)",
+  minBlockSize: "var(--ct-layout-querySummaryHeight)",
+  borderBlockEnd: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
   margin: 0,
   inlineSize: "100%",
   maxInlineSize: "100%",
@@ -183,13 +203,13 @@ const condensedChipRailStyle = { gap: "var(--ct-spacing-xxs)" };
 const chipFrameStyle = {
   position: "relative" as const,
   display: "inline-flex",
-  flex: "1 1 var(--ct-layout-viewBarQueryChipMaxInlineSize)",
+  flex: "1 1 var(--ct-layout-querySummaryChipMaxInlineSize)",
   minInlineSize: "var(--ct-layout-viewBarQueryChipMinInlineSize)",
-  maxInlineSize: "var(--ct-layout-viewBarQueryChipMaxInlineSize)",
+  maxInlineSize: "var(--ct-layout-querySummaryChipMaxInlineSize)",
 };
 const chipButtonStyle = {
   ...controlButtonStyle,
-  background: "var(--ct-colors-surface-3)",
+  background: "var(--ct-colors-surface-2)",
   justifyContent: "flex-start",
   inlineSize: "100%",
   minInlineSize: 0,

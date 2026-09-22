@@ -238,6 +238,7 @@ import {
   test,
 } from "./support/visual/fixtures";
 import { assertVisualPresentation } from "./support/visual/profile";
+import { captureWorkbookLayoutStudies } from "./support/visual/workbookLayoutStudies";
 import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
@@ -949,6 +950,14 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
           (await queryViewRows(page, incidentId, timelineViewSchemaId)).length,
       )
       .toBe(rows.length);
+    await test.info().attach("initial-workbook-geometry", {
+      body: JSON.stringify(await readTimelineGridFirstLayout(page)),
+      contentType: "application/json",
+    });
+    await test.info().attach("initial-workbook-study", {
+      body: await page.screenshot({ animations: "disabled" }),
+      contentType: "image/png",
+    });
     await expect
       .poll(async () => gridSavedRows(page, timelineViewSchemaId).count())
       .toBeGreaterThanOrEqual(12);
@@ -1125,8 +1134,12 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     expect(drawerOpenLayout.inspector?.top).toBeLessThanOrEqual(
       drawerOpenLayout.grid.top + 1,
     );
+    const gridRegion = await page
+      .getByTestId(workbookShellSlotTestId("primary-grid"))
+      .boundingBox();
+    if (!gridRegion) throw new Error("Missing primary grid region");
     expect(drawerOpenLayout.inspector?.bottom).toBeLessThanOrEqual(
-      drawerOpenLayout.grid.bottom,
+      gridRegion.y + gridRegion.height,
     );
     expect(drawerOpenLayout.windowY).toBe(0);
     await expect(
@@ -1327,6 +1340,11 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await assertViewportVisualRegression(
       page,
       "incident-directory-compact-desktop-workbook-shell",
+    );
+    await captureWorkbookLayoutStudies(page, test.info(), () =>
+      normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "left" },
+      }),
     );
   });
 });
@@ -3185,7 +3203,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       "8",
     );
     await expect(
-      queryControls
+      page
         .getByRole("toolbar", { name: "Active query chips" })
         .locator("button[data-query-entry-key]"),
     ).toHaveCount(3);
