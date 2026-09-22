@@ -17,6 +17,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | --- | --- |
 | [adapters/](adapters/README.md) | Private workbook protocol adapters, captured operation transport, response validation, and semantic outcome conversion. |
 | [collaboration/](collaboration/README.md) | Workbook interpretation of decoded collaboration events, presence, reset, and authorization recovery. |
+| [composition/](composition/README.md) | Committed retained runtime construction and replacement-safe presentation attachment. |
 | [components/](components/README.md) | Shared workbook surface facades, shell chrome, query controls, field editors, and recovery presentation. |
 | [continuity/](continuity/README.md) | Semantic grid focus, selection, and viewport continuity through workbook-private adapter bindings. |
 | [evidence/](evidence/README.md) | Workbook-wide Evidence access feedback and live-region presentation. |

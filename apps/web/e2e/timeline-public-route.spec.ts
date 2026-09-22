@@ -1447,14 +1447,17 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
         0,
       );
-      await expect(
-        page.getByTestId(
-          rowCellTestId(
-            discardRow.record_id,
-            "timeline.activity_synopsis_text",
-          ),
-        ),
-      ).toHaveText("end-to-end.mutation-lifecycle.row-01 discard base");
+      const restoredEditor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: discardRow.record_id,
+          surface: "grid",
+        }),
+      );
+      await expect(restoredEditor).toHaveValue(
+        "end-to-end.mutation-lifecycle.row-01 discard base",
+      );
+      await expectRecoveryFocus(page, "Recovery");
       expect(patchController.calls).toHaveLength(5);
       await page
         .getByRole("button", { name: "Close recovery", exact: true })

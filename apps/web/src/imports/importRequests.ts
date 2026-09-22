@@ -84,7 +84,7 @@ export function captureWorkbookUpload(
     filename: file.name,
     metadata: {
       incident_id: scope.incidentId,
-      assistant_profile: "phase2_workbook_import_v1",
+      assistant_profile: "workbook_import_v1",
       client_txn_id: transactionId,
     },
   });

@@ -20,7 +20,7 @@ import {
   useWorkbookBrowsingRegistry,
   WorkbookQueryBrowsingProvider,
 } from "./query/WorkbookQueryBrowsingContext";
-import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "./runtime/createWorkbookMutationRuntime";
 import { workbookConflictEntry } from "./runtime/workbookConflictModel";
 
 afterEach(cleanup);
@@ -190,7 +190,7 @@ it("restores the resolved cell only for the current recovery activation", async 
 
 function fixture() {
   const incidentId = "40000000-0000-4000-8000-000000000004";
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId, clientInstanceId: "tab" },
     { create: () => crypto.randomUUID() },
     { execute: vi.fn() },

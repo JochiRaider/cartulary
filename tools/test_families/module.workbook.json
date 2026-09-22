@@ -6211,7 +6211,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
+        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.test.ts",
         "titles": [
           "derives exactly one primary save-state label for every Table C input condition",
           "keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
@@ -6356,7 +6356,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
+        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.test.ts",
         "titles": [
           "admits row-create, row-patch, and paste-derived replay units with semantic mutation identity",
           "applies successful replay without retargeting by visible row order or labels",

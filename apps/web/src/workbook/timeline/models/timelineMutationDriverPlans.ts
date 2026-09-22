@@ -4,7 +4,7 @@ import type {
   PendingReplaySettlement,
   PendingReplayUnitInput,
   PendingReplayUnitState,
-} from "../../utils/workbookPendingQueue";
+} from "../../runtime/pending/workbookPendingQueue";
 import type { TimelineReplayContext } from "./timelineControllerPorts";
 
 export type TimelinePendingReplayAdmission = PendingReplayUnitInput &

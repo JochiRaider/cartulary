@@ -646,6 +646,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.committed_runtime_attachments_6f73657dcb",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/composition/WorkbookMutationPresentation.test.tsx",
+        "titles": [
+          "Workbook committed presentation constructs once through repeated committed mounts and retires only on replacement",
+          "Workbook committed presentation does not acquire or replace the active lifetime in an abandoned render",
+          "Workbook committed presentation keeps replacement callbacks when obsolete attachment cleanup runs",
+          "Workbook committed presentation rejects a mounted reconciliation result after its attachment is replaced",
+          "Workbook committed presentation retains an admitted dispatch and its acknowledgement after presentation detaches"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.conflict_editor_accessibility",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -8098,12 +8126,17 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/WorkbookRuntimeResponsibilities.test.ts",
         "titles": [
+          "Workbook runtime responsibilities cancels coordination waits on abort and terminal disposal",
           "Workbook runtime responsibilities coalesces lifecycle scheduling and permanently closes on disposal",
+          "Workbook runtime responsibilities does not drain a microtask queued before terminal disposal",
           "Workbook runtime responsibilities pauses owner work without a driver and rejects duplicate registration",
           "Workbook runtime responsibilities preserves compatible conflict drafts and tracks transaction settlement",
           "Workbook runtime responsibilities projects save state from explicit queue, conflict, and surface facts",
+          "Workbook runtime responsibilities publishes complete authority without deriving reads from a feature owner",
           "Workbook runtime responsibilities retains refresh debt and ignores cleanup from a replaced registration",
+          "Workbook runtime responsibilities retires source owners and transport once across repeated terminal transitions",
           "Workbook runtime responsibilities runs at most one retry and supports deterministic cancellation",
+          "Workbook runtime responsibilities settles a waiting history coordinator when its runtime retires",
           "Workbook runtime responsibilities uses injected time and cancels a pending transport retry on disposal"
         ]
       },

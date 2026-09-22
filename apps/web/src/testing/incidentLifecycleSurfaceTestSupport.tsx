@@ -5,16 +5,16 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { IncidentResource } from "../shared/incidentResource";
-import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
-import { metadataActorId } from "../testing/incidentMetadataTestSupport";
 import {
   mutateIncidentLifecycle,
   readLifecycleIncident,
-} from "./api/incidentLifecycleClient";
-import { IncidentLifecycleFeature } from "./IncidentLifecyclePanel";
-import { IncidentLifecycleController } from "./incidentLifecycleController";
-import { IncidentResourceController } from "./incidentResourceController";
+} from "../app/api/incidentLifecycleClient";
+import { IncidentLifecycleFeature } from "../app/IncidentLifecyclePanel";
+import { IncidentLifecycleController } from "../app/incidentLifecycleController";
+import { IncidentResourceController } from "../app/incidentResourceController";
+import type { IncidentResource } from "../shared/incidentResource";
+import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
+import { metadataActorId } from "./incidentMetadataTestSupport";
 
 /** Same retained-controller/conditional-surface composition as App. */
 export function LifecycleTestSurface(props: {

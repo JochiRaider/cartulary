@@ -133,7 +133,7 @@ const optionalStandardizedSurfaceIds = [
   forensicKeywordsViewSchemaId,
   investigativeQueriesViewSchemaId,
 ] as const;
-const feP10WorkbookShellSurfaces = [
+const workbookShellSurfaceCases = [
   {
     groupToken: "coordination",
     label: "Task Requests",
@@ -3254,7 +3254,7 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
     "browser.coordination-review.row-01 workbook shell coordination surfaces",
   );
   const savedViewIdsBySurface = new Map<string, string>();
-  for (const surface of feP10WorkbookShellSurfaces) {
+  for (const surface of workbookShellSurfaceCases) {
     const savedView = await createSavedView(page, incidentId, {
       display_name: `browser.coordination-review.row-01 ${surface.label} saved view`,
       scope: "shared",
@@ -3263,7 +3263,7 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
     savedViewIdsBySurface.set(surface.viewSchemaId, savedView.saved_view_id);
   }
 
-  const firstSurface = feP10WorkbookShellSurfaces[0];
+  const firstSurface = workbookShellSurfaceCases[0];
   if (firstSurface === undefined) {
     throw new Error(
       "browser.coordination-review workbook shell surface list must not be empty",
@@ -3301,7 +3301,7 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
   await topBar.getByTestId(systemViewSwitcherTriggerTestId()).click();
   const menu = page.getByTestId(systemViewSwitcherMenuTestId());
   await expect(menu).toBeVisible();
-  for (const surface of feP10WorkbookShellSurfaces) {
+  for (const surface of workbookShellSurfaceCases) {
     await expect(
       menu.getByTestId(
         systemViewSwitcherOptionTestId(
@@ -3314,7 +3314,7 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
 
-  for (const [index, surface] of feP10WorkbookShellSurfaces.entries()) {
+  for (const [index, surface] of workbookShellSurfaceCases.entries()) {
     if (index > 0) {
       const surfaceQuery = page.waitForRequest((request) => {
         return (

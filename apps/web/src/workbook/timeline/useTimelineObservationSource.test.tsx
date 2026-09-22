@@ -6,7 +6,7 @@ import { deferred } from "../../testing/fetchMockTestSupport";
 import { observationSource } from "../../testing/observationTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";
 import { useTimelineObservationSource } from "./hooks/useTimelineObservationSource";
 import type { TimelineCommittedRecordIdleResult } from "./models/timelineControllerPorts";
@@ -26,7 +26,7 @@ it("Observation source preparation preserves raw committed strings and rejects s
   const row = rowFromApi(raw),
     rowsRef = { current: [row] },
     drafts = createTimelineEditorDraftRegistry();
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { clientInstanceId: "test", incidentId: observationSource.incidentId },
     { create: () => "secure" },
     createWorkbookPendingMutationAdapter({

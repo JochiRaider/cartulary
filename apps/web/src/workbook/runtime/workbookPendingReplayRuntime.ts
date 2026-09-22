@@ -3,7 +3,7 @@ import {
   type PendingReplayScope,
   type PendingReplayUnitState,
   type WorkbookPendingQueueModel,
-} from "../utils/workbookPendingQueue";
+} from "./pending/workbookPendingQueue";
 
 export type WorkbookPendingQueueRuntime = {
   model: WorkbookPendingQueueModel;

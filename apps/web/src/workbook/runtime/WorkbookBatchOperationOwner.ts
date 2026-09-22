@@ -1,7 +1,7 @@
 import { observeAsyncOperation } from "../../services/asyncObservation";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
-import type { PendingReplayUnitState } from "../utils/workbookPendingQueue";
+import type { PendingReplayUnitState } from "./pending/workbookPendingQueue";
 import type {
   WorkbookBatchAdmission,
   WorkbookBatchAttempt,

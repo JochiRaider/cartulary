@@ -352,7 +352,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
+        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.test.ts",
         "titles": [
           "derives save-state conflict anchors from record_id field_key and base_row_version",
           "keeps same-field conflict queue identity separate from pending replay and visible order"

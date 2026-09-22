@@ -4,6 +4,7 @@ import type {
   GridHandle,
 } from "@cartulary/grid-adapter";
 import {
+  dataTestIdSelector,
   workbookIncidentIdentityTestId,
   workbookSurfacesMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
@@ -383,7 +384,7 @@ function focusShellFallback() {
     workbookIncidentIdentityTestId(),
   ]) {
     const container = document.querySelector<HTMLElement>(
-      `[data-testid="${id}"]`,
+      dataTestIdSelector(id),
     );
     const target = container?.matches("button, [tabindex]")
       ? container

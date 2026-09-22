@@ -692,7 +692,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",
-      "sha256": "0d2be5dba2f0a5d401a1f38c0faf0181f5e9aa1d7b82a8d0e2dcf8a7da974b6c"
+      "sha256": "79f91cc60b258f3575bf997eb9ab3d8d565252379ffabfc6f85ea489ae450abf"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png",

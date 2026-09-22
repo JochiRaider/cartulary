@@ -49,8 +49,8 @@ import {
 import { createWorkbookPendingMutationAdapter } from "./adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
-import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
-import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
+import { createWorkbookMutationRuntime } from "./runtime/createWorkbookMutationRuntime";
+import { pendingReplayCapacity } from "./runtime/pending/workbookPendingQueue";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -743,7 +743,7 @@ describe("workbook collaboration coverage", () => {
   });
 
   it("does not coalesce non-contiguous same-record pending patches", () => {
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       {
         clientInstanceId: "client-non-contiguous",
         incidentId: "10000000-0000-4000-8000-000000000001",

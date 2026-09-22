@@ -10,7 +10,7 @@ import {
   testObservation,
   testObservationReceipt,
 } from "../../../testing/observationTestSupport";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { WorkbookMutationRuntimeRegistry } from "../../runtime/WorkbookMutationRuntimeRegistry";
 import type { ObservationOutcome } from "./observationOperation";
 
@@ -23,7 +23,7 @@ it("Observation runtime retains uncertainty across shell recovery with save stat
       clientInstanceId: "tab",
     };
   const create = () =>
-    new WorkbookMutationRuntime(scope, t.ids, { execute: vi.fn() });
+    createWorkbookMutationRuntime(scope, t.ids, { execute: vi.fn() });
   const runtime = registry.acquire(scope, create),
     owner = runtime.indicatorObservations;
   owner.configure(t.reader, t.transport);

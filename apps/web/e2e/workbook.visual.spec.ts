@@ -584,16 +584,6 @@ async function expectWideWorkbookTopBarChrome(page: Page) {
   ).toBeVisible();
 }
 
-async function openTimelineRowActions(page: Page, recordId: string) {
-  const rowTestId = gridRowTestId(timelineViewSchemaId, recordId);
-  await scrollGridTargetIntoView({
-    page,
-    surface: timelineViewSchemaId,
-    targetTestId: rowTestId,
-  });
-  await page.getByTestId(rowTestId).click({ button: "right" });
-}
-
 async function mountedGridTarget(
   page: Page,
   surface: string,
@@ -617,7 +607,20 @@ async function clickTimelineRowAction(
   recordId: string,
   actionTestId: string,
 ) {
-  await openTimelineRowActions(page, recordId);
+  // Keep the existing inspector and the fixture's left-column framing. Row
+  // actions require a semantic cell anchor, not a click on the row container.
+  const anchor = await mountedGridCell(
+    page,
+    timelineViewSchemaId,
+    recordId,
+    "timeline.date_entered_text",
+  );
+  await anchor.evaluate((element) => {
+    const cell = element.closest<HTMLElement>('[role="gridcell"]');
+    if (!cell) throw new Error("Expected Timeline action anchor cell");
+    cell.focus();
+  });
+  await page.keyboard.press("Shift+F10");
   await page.getByTestId(actionTestId).click();
 }
 
@@ -3533,7 +3536,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     );
     const history = await fetchRecordHistory(page, target.record_id);
     const rollbackItem = requireFeP9VisualHistoryEntryAction(history);
-    const rollbackAnchor = feP9VisualRollbackPreviewAnchor(
+    const rollbackAnchor = visualRollbackPreviewAnchor(
       rollbackItem,
       "history_entry",
     );
@@ -3714,7 +3717,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await expect(
       page.getByTestId(
-        feP9VisualHistoryActionTestId(rollbackItem, "history_entry"),
+        visualHistoryActionTestId(rollbackItem, "history_entry"),
       ),
     ).toBeVisible();
     await scrollVisualAnchorToScrollContainerTop(
@@ -3725,7 +3728,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
 
     await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await page
-      .getByTestId(feP9VisualHistoryActionTestId(rollbackItem, "history_entry"))
+      .getByTestId(visualHistoryActionTestId(rollbackItem, "history_entry"))
       .click();
     await expect(
       page.getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor)),
@@ -3772,7 +3775,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       .click();
     await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await page
-      .getByTestId(feP9VisualHistoryActionTestId(rollbackItem, "history_entry"))
+      .getByTestId(visualHistoryActionTestId(rollbackItem, "history_entry"))
       .click();
     await page.route(
       `**/api/v1/records/${target.record_id}/rollback`,
@@ -3811,7 +3814,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
   });
 });
 
-function feP9VisualHistoryActionTestId(
+function visualHistoryActionTestId(
   item: RecordHistoryItem,
   action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
@@ -3821,7 +3824,7 @@ function feP9VisualHistoryActionTestId(
   });
 }
 
-function feP9VisualRollbackPreviewAnchor(
+function visualRollbackPreviewAnchor(
   item: RecordHistoryItem,
   action: RecordHistoryItem["available_rollback_actions"][number],
 ) {

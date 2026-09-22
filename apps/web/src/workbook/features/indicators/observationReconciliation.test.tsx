@@ -15,7 +15,7 @@ import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryO
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { useGenericSurfaceQuery } from "../../query/useGenericSurfaceQuery";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { observationIndicatorView } from "./observationModel";
 import { reconcileObservationReceipt } from "./reconcileObservationReceipt";
 
@@ -173,7 +173,7 @@ it("Observation query materialization fences older HTTP projections against acce
   expect(hook.result.current.rows[0]?.row_version).toBe(10);
   act(() => t.owner.suspend());
   expect(hook.result.current.rows).toEqual([]);
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: observationAuthority.incidentId, clientInstanceId: "tab" },
     t.ids,
     { execute: vi.fn() },

@@ -38,13 +38,12 @@ import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry
 import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
 import type { WorkbookReadScope } from "../workbook/query/WorkbookQueryRow";
-import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../workbook/runtime/createWorkbookMutationRuntime";
 import { reconcileTimelineCaptureReceipt } from "../workbook/timeline/actions/reconcileTimelineCaptureReceipt";
 import { reconcileTimelineMentionReceipt } from "../workbook/timeline/actions/reconcileTimelineMentionReceipt";
 import { TimelineCaptureRecovery } from "../workbook/timeline/actions/TimelineCaptureRecovery";
 import { TimelineMentionRecovery } from "../workbook/timeline/actions/TimelineMentionRecovery";
 import { timelineCaptureOwnerFor } from "../workbook/timeline/actions/timelineCaptureOwnerFor";
-import { timelineMentionAuthority } from "../workbook/timeline/actions/timelineMentionAuthority";
 import { timelineMentionOwnerFor } from "../workbook/timeline/actions/timelineMentionOwnerFor";
 import { createTimelineCandidateReader } from "../workbook/timeline/adapters/createTimelineCandidateReader";
 import { createTimelineMentionEntityCreationAdapter } from "../workbook/timeline/adapters/createTimelineMentionEntityCreationAdapter";
@@ -168,7 +167,7 @@ export function TimelineWorkbookRuntimeFixture({
       readScope: (): WorkbookReadScope | null =>
         mutationRuntime.recordReadScope,
     });
-    const mutationRuntime = new WorkbookMutationRuntime(
+    const mutationRuntime = createWorkbookMutationRuntime(
       { clientInstanceId: "timeline-runtime-fixture", incidentId },
       transactionIds,
       pendingMutationPort,
@@ -196,21 +195,13 @@ export function TimelineWorkbookRuntimeFixture({
   });
   const { clipboardPaste, mutationCommands, mutationRuntime } = runtimeAssembly;
   useLayoutEffect(() => {
-    mutationRuntime.explicitPatches.setAuthority({
+    mutationRuntime.setAuthority({
       actorId: currentUserId ?? "fixture-actor",
       sessionIdentity: "fixture-session",
       incidentId,
       role: currentIncidentRole ?? "",
       closed: incidentClosed,
     });
-    mutationRuntime.batches.setAuthority({
-      actorId: currentUserId ?? "fixture-actor",
-      sessionIdentity: "fixture-session",
-      incidentId,
-      role: currentIncidentRole ?? "",
-      closed: incidentClosed,
-    });
-    return () => mutationRuntime.batches.suspend();
   }, [
     mutationRuntime,
     currentUserId,
@@ -229,15 +220,6 @@ export function TimelineWorkbookRuntimeFixture({
     timelineMentions.configureCreation(
       createTimelineMentionEntityCreationAdapter({ apiBase }),
     );
-    timelineMentions.setAuthority(
-      timelineMentionAuthority({
-        actorId: currentUserId ?? "fixture-actor",
-        sessionIdentity: "fixture-session",
-        incidentId,
-        role: currentIncidentRole ?? "",
-        closed: incidentClosed,
-      }),
-    );
     return timelineMentions.registerReconciliation(async (receipt, scope) => {
       await reconcileTimelineMentionReceipt(
         timelineMentions,
@@ -250,15 +232,7 @@ export function TimelineWorkbookRuntimeFixture({
         scope,
       );
     });
-  }, [
-    timelineMentions,
-    mutationRuntime,
-    apiBase,
-    incidentId,
-    currentUserId,
-    currentIncidentRole,
-    incidentClosed,
-  ]);
+  }, [timelineMentions, mutationRuntime, apiBase, incidentId]);
   useLayoutEffect(() => {
     if (!onRefreshEntities) return;
     return timelineMentions.registerCreationReconciliation(async (scope) => {
@@ -266,7 +240,6 @@ export function TimelineWorkbookRuntimeFixture({
       await onRefreshEntities();
     });
   }, [timelineMentions, onRefreshEntities]);
-  useLayoutEffect(() => () => timelineMentions.retire(), [timelineMentions]);
   const timelineCapture = useMemo(
     () => timelineCaptureOwnerFor(mutationRuntime),
     [mutationRuntime],
@@ -280,13 +253,6 @@ export function TimelineWorkbookRuntimeFixture({
       createTimelineCandidateReader({ apiBase, incidentId }),
       onIncidentAccessLost,
     );
-    timelineCapture.setAuthority({
-      actorId: currentUserId ?? "fixture-actor",
-      sessionIdentity: "fixture-session",
-      incidentId,
-      role: currentIncidentRole ?? "",
-      closed: incidentClosed,
-    });
     return timelineCapture.registerReconciliation(async (receipt, scope) => {
       await reconcileTimelineCaptureReceipt(
         timelineCapture,
@@ -302,32 +268,15 @@ export function TimelineWorkbookRuntimeFixture({
     apiBase,
     incidentId,
     onIncidentAccessLost,
-    currentUserId,
-    currentIncidentRole,
-    incidentClosed,
     mutationRuntime,
   ]);
-  useLayoutEffect(() => () => timelineCapture.retire(), [timelineCapture]);
   useLayoutEffect(() => {
     mutationRuntime.history.configure(
       createWorkbookRecordHistoryAdapter({ apiBase, incidentId }),
     );
-    mutationRuntime.history.setAuthority({
-      actorId: currentUserId ?? "fixture-actor",
-      incidentId,
-      role: currentIncidentRole ?? "",
-      closed: incidentClosed,
-    });
-  }, [
-    mutationRuntime,
-    apiBase,
-    incidentId,
-    currentUserId,
-    currentIncidentRole,
-    incidentClosed,
-  ]);
+  }, [mutationRuntime, apiBase, incidentId]);
   useLayoutEffect(
-    () => () => mutationRuntime.history.retire(),
+    () => () => mutationRuntime.invalidate({ kind: "runtime_disposed" }),
     [mutationRuntime],
   );
   const activeSurfaceRef = useRef<HTMLElement | null>(null);

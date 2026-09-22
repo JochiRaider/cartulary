@@ -5,14 +5,14 @@ import {
 } from "../../shared/sheetRef";
 import { workbookEditRecoveryPresentation } from "../utils/workbookEditRecoveryPresentation";
 import {
-  deriveWorkbookSaveState,
-  type PendingQueueStatusFacts,
-} from "../utils/workbookPendingQueue";
-import {
   selectWorkbookStatusSecondary,
   type WorkbookStatusAction,
   type WorkbookStatusSecondaryCandidate,
 } from "../utils/workbookStatusSecondary";
+import {
+  deriveWorkbookSaveState,
+  type PendingQueueStatusFacts,
+} from "./pending/workbookPendingQueue";
 import {
   type WorkbookConflictEntry,
   workbookConflictQueueKey,

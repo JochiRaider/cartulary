@@ -1,6 +1,6 @@
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
-import type { PendingReplayUnitState } from "../utils/workbookPendingQueue";
+import type { PendingReplayUnitState } from "../runtime/pending/workbookPendingQueue";
 
 export type WorkbookPendingMutationAccepted = {
   readonly changeSetId: string;

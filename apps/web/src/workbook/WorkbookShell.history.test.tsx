@@ -128,13 +128,15 @@ describe("workbook history support coverage", () => {
   });
 
   async function openTimelineHistoryFromContext(recordId: string) {
-    const summaryCell = await screen.findByTestId(
-      timelineScalarEditorTestId({
-        fieldKey: "timeline.activity_synopsis_text",
-        recordId,
-        surface: "grid",
-      }),
+    const editor = await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      recordId,
+      "timeline.activity_synopsis_text",
     );
+    const summaryCell = editor.closest('[role="gridcell"]');
+    if (!summaryCell)
+      throw new Error("Missing semantic History invocation cell");
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     fireEvent.click(
       await screen.findByTestId(rowHistoryOpenButtonTestId(recordId)),

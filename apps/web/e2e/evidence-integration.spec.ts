@@ -66,7 +66,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
     incidentId,
     evidenceViewSchemaId,
     {
-      client_txn_id: uniqueTxn("fei-p6-evidence"),
+      client_txn_id: uniqueTxn("fei-evidence"),
       "evidence.title": "integration.evidence-workflow attach target",
       "evidence.collector_party_text": "Browser evidence",
     },
@@ -262,7 +262,7 @@ test("Verify evidence attach, preview, download, and blocked preview through sam
   );
   const safeBody = "end-to-end.evidence-workflow safe preview body";
   const safeRow = await createViewRow(page, incidentId, evidenceViewSchemaId, {
-    client_txn_id: uniqueTxn("fee-p6-safe-evidence"),
+    client_txn_id: uniqueTxn("fee-safe-evidence"),
     "evidence.title": "end-to-end.evidence-workflow safe evidence",
     "evidence.collector_party_text": "Browser evidence",
   });
@@ -831,13 +831,13 @@ async function createUploadedEvidence(
   },
 ) {
   const row = await createViewRow(page, incidentId, evidenceViewSchemaId, {
-    client_txn_id: uniqueTxn("fee-p6-uploaded-evidence"),
+    client_txn_id: uniqueTxn("fee-uploaded-evidence"),
     "evidence.title": options.title,
     "evidence.collector_party_text": "Browser evidence",
   });
   const blob = await createAndUploadObjectBlob(page, {
     body: options.body,
-    clientTxnId: uniqueTxn("fee-p6-uploaded-blob"),
+    clientTxnId: uniqueTxn("fee-uploaded-blob"),
     contentType: options.contentType,
     filename: options.filename,
     incidentId,
@@ -850,7 +850,7 @@ async function createUploadedEvidence(
       data: {
         object_blob_id: blob.object_blob_id,
         base_row_version: row.row_version,
-        client_txn_id: uniqueTxn("fee-p6-uploaded-attach"),
+        client_txn_id: uniqueTxn("fee-uploaded-attach"),
       } satisfies AttachBlobToEvidenceRecordRequest,
     },
   );
@@ -860,7 +860,7 @@ async function createUploadedEvidence(
   await patchRecord(page, row.record_id, {
     view_schema_id: evidenceViewSchemaId,
     base_row_version: attachEnvelope.data.row.row_version,
-    client_txn_id: uniqueTxn("fee-p6-uploaded-available"),
+    client_txn_id: uniqueTxn("fee-uploaded-available"),
     changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
   });
   return waitForEvidenceState(page, incidentId, row.record_id, {

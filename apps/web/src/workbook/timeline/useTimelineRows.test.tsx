@@ -1,11 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { expect, it } from "vitest";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { useTimelineRows } from "./hooks/useTimelineRows";
 import { timelineMutationOwnerFor } from "./mutations/WorkbookTimelineMutationOwner";
 
 it("useTimelineRows owns the initial draft row ref and monotonic draft index", () => {
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: "incident", clientInstanceId: "client" },
     { create: () => "test-id" },
     {

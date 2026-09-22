@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LifecycleTestSurface } from "../testing/incidentLifecycleSurfaceTestSupport";
 import {
   metadataDeferred as deferred,
   metadataEnvelope as envelope,
@@ -15,7 +16,6 @@ import {
   metadataIncidentId as incidentId,
   metadataJSON as json,
 } from "../testing/incidentMetadataTestSupport";
-import { LifecycleTestSurface } from "./incidentLifecycleTestSurface";
 
 const closed = () =>
   incident({

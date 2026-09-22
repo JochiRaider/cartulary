@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { WorkbookLocalDraftStore } from "../../models/WorkbookLocalDraftStore";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
 import { TimelineCaptureLifecycle } from "../models/TimelineCaptureLifecycle";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
@@ -59,7 +59,7 @@ describe("Timeline editor draft registry", () => {
   it("settles repeated collection callers once per surface revision and admits later identical tokens", () => {
     const row = committedRow();
     const registry = createTimelineEditorDraftRegistry();
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       { incidentId: "incident", clientInstanceId: "test" },
       { create: () => "id" },
       { execute: vi.fn() },
@@ -236,7 +236,7 @@ describe("Timeline editor draft registry", () => {
   it("joins scalar paste and departure by authoring revision while fencing identical newer edits", () => {
     const row = committedRow();
     const registry = createTimelineEditorDraftRegistry();
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       { incidentId: "incident", clientInstanceId: "test" },
       { create: () => "id" },
       { execute: vi.fn() },

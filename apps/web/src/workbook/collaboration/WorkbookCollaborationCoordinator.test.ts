@@ -7,7 +7,7 @@ import {
   timelineRow,
 } from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import {
   normalizeTimelineFullRow,
   rowFromApi,
@@ -89,7 +89,7 @@ function projectionFixture(
   let listener: ((event: IncidentCollaborationEvent) => void) | null = null;
   const cleanupOrder: string[] = [];
   const published: unknown[] = [];
-  const mutationRuntime = new WorkbookMutationRuntime(
+  const mutationRuntime = createWorkbookMutationRuntime(
     {
       clientInstanceId: "client-1",
       incidentId: "incident-1",

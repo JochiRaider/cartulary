@@ -22,6 +22,24 @@ surface refresh obligations. It retains the ordinary creation owner by incident
 and account, outside Timeline dispatch admission. It stays independent of Timeline implementation;
 surface-specific commands enter through registered semantic capabilities.
 
+The [pending queue](pending/README.md) owns memory-local FIFO replay, admission, coalescing and conflict settlement.
+
+## Composition and lifecycle
+
+`createWorkbookMutationRuntime` is the construction entry for production and
+fixtures. Shared queue, conflict, driver, scheduling and surface resources exist
+before `WorkbookMutationFeatureAssembly` creates the fixed feature set. Callbacks
+and subscriptions activate only after all peers exist. Source owners retain their
+own validation, captured attempts and receipt/reconciliation policies.
+
+`WorkbookFeatureLifecycle` requires a lifecycle contribution for every feature.
+The explicit PATCH contribution adapts incident closure to its authority API;
+Timeline supplies its specialized authority projection at its construction edge.
+Accepted read authority belongs to the runtime and is independent of individual
+feature initialization or local operation denial. Terminal retirement is one
+idempotent transition, including source subscriptions, deferred waits, retry,
+queued microtasks and mounted surface registrations.
+
 ## Files
 
 | File | Responsibility |
@@ -34,6 +52,9 @@ surface-specific commands enter through registered semantic capabilities.
 | [workbookLifecycleModel.ts](workbookLifecycleModel.ts) | Shared load, refresh, save, conflict, and recovery lifecycle reducer. |
 | [WorkbookManagedPatchDriver.ts](WorkbookManagedPatchDriver.ts) | Managed-patch admission, transport dispatch, settlement, local projection, conflict registration, and refresh. |
 | [WorkbookMutationDriverRegistry.ts](WorkbookMutationDriverRegistry.ts) | Closed managed-patch/Timeline-row owner envelopes, exact driver registration, duplicate rejection, and absence-safe dispatch. |
+| [createWorkbookMutationRuntime.ts](createWorkbookMutationRuntime.ts) | Fixed construction entry with injectable clock, scheduler and transport. |
+| [WorkbookMutationFeatureAssembly.ts](WorkbookMutationFeatureAssembly.ts) | Concrete feature construction through bounded shared coordination capabilities. |
+| [WorkbookFeatureLifecycle.ts](WorkbookFeatureLifecycle.ts) | Complete typed feature lifecycle and subscription membership. |
 | [WorkbookMutationRuntime.ts](WorkbookMutationRuntime.ts) | Shell-lifetime facade over queue coordination, conflicts, surface registration, managed patches, retry, transaction settlement, and status projection. |
 | [WorkbookMutationRuntimeRegistry.ts](WorkbookMutationRuntimeRegistry.ts) | App-owned registry retaining one incident-scoped mutation runtime across shell detachment and retiring it on scope replacement. |
 | [workbookMutationStatusProjector.ts](workbookMutationStatusProjector.ts) | Pure queue/conflict/explicit-operation status and save-state projection. |

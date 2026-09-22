@@ -8,12 +8,13 @@ import {
 } from "../../../testing/timelineMentionTestSupport";
 import { timelineRow } from "../../../testing/timelineWorkbookTestSupport";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
+import { buildStableMutationSignature } from "../../runtime/pending/workbookPendingQueue";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type {
   WorkbookBatchTransport,
   WorkbookBatchTransportOutcome,
 } from "../../runtime/workbookBatchOperation";
-import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { buildCreatePayload } from "../models/timelineMutationIntents";
@@ -59,7 +60,7 @@ function fixture() {
         },
       },
     });
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: "incident", clientInstanceId: "client" },
     ids,
     { execute },

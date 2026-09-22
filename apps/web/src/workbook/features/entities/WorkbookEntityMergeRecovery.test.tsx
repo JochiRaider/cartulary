@@ -17,13 +17,13 @@ import {
 import { WorkbookRecoveryFixture } from "../../../testing/WorkbookRecoveryFixture";
 import { createWorkbookEntityMergeAdapter } from "../../adapters/createWorkbookEntityMergeAdapter";
 import { WorkbookHistoryContext } from "../../history/WorkbookHistoryContext";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import type { WorkbookEntityMergePort } from "./entityMergeOperation";
 import { WorkbookEntityMergeRecovery } from "./WorkbookEntityMergeRecovery";
 
 afterEach(cleanup);
 function setup(type: "host" | "identity") {
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: mergeIncidentId, clientInstanceId: "merge-ui" },
     { create: () => "retained-merge" },
     { execute: vi.fn() },

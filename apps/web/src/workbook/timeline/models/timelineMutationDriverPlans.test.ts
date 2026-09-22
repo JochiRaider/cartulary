@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createWorkbookPendingQueueRuntime } from "../../runtime/workbookPendingReplayRuntime";
 import type {
   PendingQueueSnapshot,
   PendingReplaySettlement,
   PendingReplayUnitState,
-} from "../../utils/workbookPendingQueue";
+} from "../../runtime/pending/workbookPendingQueue";
+import { createWorkbookPendingQueueRuntime } from "../../runtime/workbookPendingReplayRuntime";
 import {
   planTimelineAcceptedProjection,
   planTimelineDiscard,

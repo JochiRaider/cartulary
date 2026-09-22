@@ -4,8 +4,8 @@ import { emptyPresenceScope } from "./collaboration/workbookPresencePresentation
 import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncements";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
 import { useGenericSurfaceMutationController } from "./hooks/useGenericSurfaceMutationController";
+import { createWorkbookMutationRuntime } from "./runtime/createWorkbookMutationRuntime";
 import { useWorkbookMutationConflicts } from "./runtime/useWorkbookMutationRuntime";
-import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
 import {
   projectWorkbookMutationStatus,
   projectWorkbookStatusForSurface,
@@ -17,7 +17,7 @@ import { selectWorkbookStatusSecondary } from "./utils/workbookStatusSecondary";
 afterEach(cleanup);
 
 function runtimeFixture() {
-  return new WorkbookMutationRuntime(
+  return createWorkbookMutationRuntime(
     { incidentId: "incident-1", clientInstanceId: "client-1" },
     { create: () => "transaction-1" },
     { execute: vi.fn() },
@@ -316,7 +316,7 @@ describe("Workbook save status", () => {
           finishRefresh = resolve;
         }),
     );
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       { incidentId: "incident-1", clientInstanceId: "client-1" },
       { create: () => "transaction-1" },
       {
@@ -342,7 +342,7 @@ describe("Workbook save status", () => {
       role: "editor" as const,
       closed: false,
     };
-    runtime.explicitPatches.setAuthority(authority);
+    runtime.setAuthority(authority);
     runtime.registerSurface("schema-1", refresh);
     runtime.enqueuePatch({
       baseRowVersion: 1,
@@ -361,15 +361,21 @@ describe("Workbook save status", () => {
     // Acknowledgement settles the write; reading the view is a separate fact.
     runtime.notifyPendingChanged();
     expect(runtime.getRefreshRecoverySnapshot()).toBe(debt);
-    runtime.explicitPatches.setAuthority(null);
+    runtime.setAuthority(null);
     expect(runtime.getRefreshRecoverySnapshot()).toEqual([]);
-    runtime.explicitPatches.setAuthority(authority);
+    runtime.setAuthority(authority);
     expect(runtime.getRefreshRecoverySnapshot()).toBe(debt);
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
     expect(
       runtime.getSnapshot().queuedCount + runtime.getSnapshot().inFlightCount,
     ).toBe(0);
     finishRefresh();
+    // A read spanning authority loss cannot clear recovery debt.
+    await vi.waitFor(() =>
+      expect(runtime.getRefreshRecoverySnapshot()).toEqual(debt),
+    );
+    runtime.registerSurface("schema-1", async () => {});
+    await runtime.refreshSurface("schema-1");
     await vi.waitFor(() =>
       expect(runtime.getRefreshRecoverySnapshot()).toEqual([]),
     );

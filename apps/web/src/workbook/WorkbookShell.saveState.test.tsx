@@ -66,7 +66,7 @@ describe("WorkbookShell save-state status strip", () => {
       timelineMutationSubstrateReadyTestId(),
     );
     expect(workbookShell.style.gridTemplateRows).toBe(
-      "var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+      "var(--ct-layout-viewBarHeight) auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
     );
 
     const statusStrip = screen.getByTestId(

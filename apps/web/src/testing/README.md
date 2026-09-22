@@ -19,6 +19,9 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | [incidentMembershipManagementTestSupport.ts](incidentMembershipManagementTestSupport.ts) | Membership authorities, resources, pages, envelopes, and deferred-response helpers. |
 | [incidentMetadataTestSupport.ts](incidentMetadataTestSupport.ts) | Incident metadata authorities, resources, envelopes, and deferred-response helpers. |
 | [referencePackTestSupport.ts](referencePackTestSupport.ts) | Reference Pack actors, versions, catalog pages, and job fixtures. |
+| [incidentMetadataSurfaceTestSupport.tsx](incidentMetadataSurfaceTestSupport.tsx) | Incident metadata presentation composition; tests supply fixture authority. |
+| [incidentLifecycleSurfaceTestSupport.tsx](incidentLifecycleSurfaceTestSupport.tsx) | Incident lifecycle presentation composition; tests supply fixture authority. |
+| [incidentMembershipManagementSurfaceTestSupport.tsx](incidentMembershipManagementSurfaceTestSupport.tsx) | Incident membership management presentation composition; tests supply fixture authority. |
 
 ## Feature workflow fixtures
 

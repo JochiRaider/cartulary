@@ -10,8 +10,8 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { WorkbookBatchOperationOwner } from "../runtime/WorkbookBatchOperationOwner";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { createTimelineBulkTagCommandAdapter } from "./adapters/createTimelineBulkTagCommandAdapter";
 import { createTimelineBulkTagReadiness } from "./bulk/createTimelineBulkTagReadiness";
 import { useTimelineBulkTagController } from "./bulk/useTimelineBulkTagController";
@@ -241,7 +241,7 @@ describe("Timeline bulk tag interaction", () => {
     expect(f.send).not.toHaveBeenCalled();
     // Read actual draft revisions, including a newer edit after queue admission.
     const execute = vi.fn();
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       { incidentId: "incident", clientInstanceId: "test" },
       { create: () => "id" },
       { execute },

@@ -11,7 +11,7 @@ import {
   observationTargetId,
   testObservation,
 } from "../../../testing/observationTestSupport";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { WorkbookMutationRuntimeRegistry } from "../../runtime/WorkbookMutationRuntimeRegistry";
 import type { IndicatorCreateOutcome } from "./indicatorCreateOperation";
 
@@ -148,9 +148,8 @@ it("Canonical authority gates replay and runtime lifetime retains uncertainty wi
       incidentId: observationAuthority.incidentId,
       clientInstanceId: "tab",
     };
-  const runtime = registry.acquire(
-      scope,
-      () => new WorkbookMutationRuntime(scope, t.ids, { execute: vi.fn() }),
+  const runtime = registry.acquire(scope, () =>
+      createWorkbookMutationRuntime(scope, t.ids, { execute: vi.fn() }),
     ),
     owner = runtime.indicatorCreate;
   owner.configure(t.reader, t.transport);

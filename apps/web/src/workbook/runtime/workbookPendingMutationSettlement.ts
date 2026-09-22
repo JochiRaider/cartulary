@@ -1,5 +1,5 @@
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
-import type { PendingReplayPublicError } from "../utils/workbookPendingQueue";
+import type { PendingReplayPublicError } from "./pending/workbookPendingQueue";
 
 const pendingFailureStatus = {
   authentication_required: 401,

@@ -13,7 +13,7 @@ import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type {
   PendingReplayScope,
   PendingReplayUnitState,
-} from "../utils/workbookPendingQueue";
+} from "./pending/workbookPendingQueue";
 import type { WorkbookClientTransactionLedger } from "./WorkbookClientTransactionLedger";
 import type { WorkbookConflictStore } from "./WorkbookConflictStore";
 import type {

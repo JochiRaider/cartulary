@@ -8,10 +8,10 @@ import {
 } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LifecycleTestSurface } from "../testing/incidentLifecycleSurfaceTestSupport";
 import { usePreferenceTestController } from "../testing/workbookPreferenceTestSupport";
 import { WorkbookPreferencesPanel } from "../workbook/preferences/WorkbookPreferencesPanel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
-import { LifecycleTestSurface } from "./incidentLifecycleTestSurface";
 
 describe("IncidentAdminPanel", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

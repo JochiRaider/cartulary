@@ -1677,7 +1677,7 @@ The examples below illustrate the shared multipart upload-envelope contract now 
 ```bash
 curl -X POST /api/v1/import-sessions \
   -H 'Accept: application/json' \
-  -F 'metadata={"incident_id":"inc_2026_017","client_txn_id":"txn_import_01","assistant_profile":"phase2_workbook_import_v1"};type=application/json' \
+  -F 'metadata={"incident_id":"inc_2026_017","client_txn_id":"txn_import_01","assistant_profile":"workbook_import_v1"};type=application/json' \
   -F 'file=@timeline.csv;type=text/csv'
 ```
 
@@ -1686,7 +1686,7 @@ const formData = new FormData();
 const metadata = {
   incident_id: "inc_2026_017",
   client_txn_id: "txn_import_01",
-  assistant_profile: "phase2_workbook_import_v1"
+  assistant_profile: "workbook_import_v1"
 };
 const sourceFile = new File([csvText], "timeline.csv", { type: "text/csv" });
 formData.append(
@@ -1883,7 +1883,7 @@ Formulas, macros, workbook automation, external links, comments, pivot tables, c
     "source_content_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "parser_profile_id": "example_parser_profile_id",
     "parser_version": "2026-04-02",
-    "assistant_profile": "phase2_workbook_import_v1",
+    "assistant_profile": "workbook_import_v1",
     "session_status": "mapped",
     "selected_unit_ids": ["imp_unit_03"],
     "blocking_diagnostics": [

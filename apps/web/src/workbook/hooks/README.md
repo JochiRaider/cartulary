@@ -48,7 +48,7 @@ Timeline-specific controllers live under
 | [useWorkbookRecoveryFocus.ts](useWorkbookRecoveryFocus.ts) | Deterministic focus transfer across blocked-edit, overflow, and same-field conflict recovery. |
 | [useWorkbookSemanticGridFocus.test.tsx](useWorkbookSemanticGridFocus.test.tsx) | Direct tests for semantic grid-entry focus order, lifecycle readiness, and stale-request handling. |
 | [useWorkbookSemanticGridFocus.ts](useWorkbookSemanticGridFocus.ts) | Resolves generation-keyed grid-entry requests through the mounted semantic grid handle. |
-| [useWorkbookShellInfrastructure.ts](useWorkbookShellInfrastructure.ts) | Incident-scoped adapters, registry-owned mutation runtime, command ports, and disposable reference broker. |
+| [useWorkbookShellInfrastructure.ts](useWorkbookShellInfrastructure.ts) | Pure mounted adapters, command ports and reference broker over the committed application-owned mutation runtime. |
 | [useWorkbookShellRuntime.ts](useWorkbookShellRuntime.ts) | Startup, saved-view, query, and layout-state composition facade. |
 
 `useGenericSurfaceMutationController` submits existing-record edits through the

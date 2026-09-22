@@ -30,7 +30,7 @@
 
 ## Generated Files And Artifacts
 
-- Do not hand-edit generated roots declared by `tools/generated_artifact_policy.json`: `internal/gen/**`, `packages/protocol-ts/src/generated/**`, and `packages/ui-contracts/src/generated/**`.
+- Do not hand-edit any generated root declared by `tools/generated_artifact_policy.json`. That machine policy is the exhaustive source of generated-root membership, including View Contracts; prose lists are not a second registry.
 - Do not hand-edit generated harness/topology outputs such as `tools/task_surface.generated.mk` or generated outputs listed in `tools/execution_topology_manifest.json`.
 - Generated topology and schedules are downstream of the owner catalog and authored execution topology. Update owner inputs, then run the relevant Make generator or drift target.
 - Do not hand-edit `go.sum`, `pnpm-lock.yaml`, or tool-managed dependency/install artifacts.

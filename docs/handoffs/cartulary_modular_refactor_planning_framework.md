@@ -46,7 +46,8 @@ Use this table as the default target-module registry. A local plan may split a r
 | `artifacts` | Structured artifact source semantics for notes, coordination artifacts, findings, investigative queries, and forensic keywords. | Exact surface admission, subtype validation/defaults, authoritative artifact persistence, collection-field policy, source mutation atomicity, and thin owner contributions. It does not own workbook UI, generic relationship persistence, revision mechanics, projection lifecycle, or reporting orchestration. |
 | `assessments` | Append-only compromise-assessment source semantics and owner creation. | Subject, state, confidence, rationale, assessor, support-link, and timestamp validation/defaulting; authoritative assessment persistence; merge participation; and thin projection, revision, portability, and recovery contributions. It does not own Workbook transport/UI, physical projection storage, generic Imports/Revisions/Incident Bundles coordination, or Collaboration publication. |
 | `timeline` | Low-friction timeline capture and mutation. | Rough capture validation, mention extraction, row versions, projection triggers. |
-| `entities` | Hosts, identities, parties, mentions, stubs, resolution. | Alias handling, provenance, auto/manual resolution, merge/dedupe. |
+| `entities` | Hosts, identities, mentions, stubs, resolution. | Alias handling, provenance, auto/manual resolution, merge/dedupe. |
+| `parties` | Incident-scoped coordination identities and party references. | Party source validation, creation/linking and source-owner contributions; parties are distinct from investigation entities and deployment users. |
 | `indicators` | Canonical indicators and observations. | Defanging, observation derivation, lifecycle intervals. |
 | `evidence` | Evidence records, object blobs, handles, preview/download, attach/finalize. | Object-store details, safe preview states, blocked states, blob lifecycle. |
 | `imports` | Generic upload/session and import lifecycle. | Framing, staging, unit orchestration and terminal publication; source-specific interpretation remains with its adopted owner. |
@@ -63,11 +64,12 @@ Use this table as the default target-module registry. A local plan may split a r
 | `reference_data` | Reference packs and type registries. | Activation, verification, disconnected packs, optional overlays. |
 | `reporting` | Snapshots, export model, render/release when claimed. | Immutable snapshot derivation, redaction, release binding. |
 | `collaboration` | WebSocket subscriptions, presence, live row updates. | Event ordering, authorization recheck, pending queue interaction. |
+| `savedviews` | Core saved-view resource lifecycle and portable query/layout configuration. | Saved-view validation, version conflicts and persistence; Workbook startup and browser presentation remain separate owners. |
 | `/apps/web` | Workbook shell, controllers, query state, mutation submission, conflicts, inspector, presence. | Browser state, continuity, pending replay, status feedback. |
 | `/packages/grid-adapter` | Direct grid vendor integration and Cartulary-native grid API. | Vendor coordinates, focus, selection, paste/fill, grouping, styling. |
 | `/packages/view-contracts` | TypeScript adapters around generated view-schema contracts. | Contract parsing, field metadata, capabilities. |
 | `/packages/ui-contracts` | Runtime-safe selector and test-id builders. | Stable UI selectors shared across runtime and tests. |
-| `/packages/test-utils` | Browser/helper choreography for tests. | Wait discipline, fixture actions, diagnostics. |
+| `/packages/test-utils` | Shared semantic browser/grid test choreography. | Reusable wait discipline, grid actions and diagnostics; feature-specific fixtures and compositions remain in apps/web testing and e2e support. |
 
 ## 5. Top-level work tracker
 

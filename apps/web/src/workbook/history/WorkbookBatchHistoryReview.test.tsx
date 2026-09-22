@@ -12,7 +12,7 @@ import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import { WorkbookBatchRecovery } from "../components/WorkbookBatchRecovery";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import type { WorkbookBatchTransport } from "../runtime/workbookBatchOperation";
 import { WorkbookHistoryContext } from "./WorkbookHistoryContext";
 import type { WorkbookRecordHistoryPort } from "./workbookHistoryOperation";
@@ -59,7 +59,7 @@ function fixture(
   withConflict = false,
 ) {
   let next = 0;
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: "incident", clientInstanceId: "client" },
     { create: () => `attempt-${++next}` },
     createWorkbookPendingMutationAdapter({

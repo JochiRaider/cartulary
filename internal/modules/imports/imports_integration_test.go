@@ -39,15 +39,29 @@ func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 		"title":         "Enterprise integration import early fail",
 	})
 
-	metadata := `{"incident_id":"` + incident["incident_id"].(string) + `","client_txn_id":"txn-extension_profile-import-early-fail","extra":true}`
-	resp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, "host,summary\nhost-1,alpha\n", "input.csv", false)
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_import_request")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	if details["reason_code"] != "unknown_field" {
-		t.Fatalf("unexpected import rejection details: %#v", details)
+	for _, testCase := range []struct {
+		name, member, field, reason string
+	}{
+		{"unknown", `"extra":true`, "extra", "unknown_field"},
+		{"unsupported-profile", `"assistant_profile":"unsupported_workbook_import"`, "assistant_profile", "unsupported_assistant_profile"},
+		{"empty-profile", `"assistant_profile":""`, "assistant_profile", "unsupported_assistant_profile"},
+		{"null-profile", `"assistant_profile":null`, "assistant_profile", "field_not_nullable"},
+		{"number-profile", `"assistant_profile":12`, "assistant_profile", "invalid_value"},
+		{"boolean-profile", `"assistant_profile":true`, "assistant_profile", "invalid_value"},
+		{"object-profile", `"assistant_profile":{}`, "assistant_profile", "invalid_value"},
+		{"array-profile", `"assistant_profile":[]`, "assistant_profile", "invalid_value"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			metadata := `{"incident_id":"` + incident["incident_id"].(string) + `","client_txn_id":"txn-import-rejected-` + testCase.name + `",` + testCase.member + `}`
+			resp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, "host,summary\nhost-1,alpha\n", "input.csv", false)
+			body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_import_request")
+			details := body["error"].(map[string]any)["details"].(map[string]any)
+			if details["reason_code"] != testCase.reason || details["field"] != testCase.field {
+				t.Fatalf("unexpected import rejection details: %#v", details)
+			}
+			requireImportCounts(t, harness.DB, importCounts{})
+		})
 	}
-
-	requireImportCounts(t, harness.DB, importCounts{})
 }
 
 func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
@@ -82,7 +96,9 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	firstJob := httptestx.RequireSuccessEnvelope(t, firstResp, http.StatusAccepted)["data"].(map[string]any)
 	firstJobID := firstJob["job_id"].(string)
 
-	replayResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, csv, "different-name.csv", true)
+	// Explicit current profile and omitted default are the same normalized request.
+	explicitMetadata := strings.TrimSuffix(metadata, "}") + `,"assistant_profile":"workbook_import_v1"}`
+	replayResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, explicitMetadata, csv, "different-name.csv", true)
 	replayJob := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusAccepted)["data"].(map[string]any)
 	if replayJob["job_id"] != firstJobID {
 		t.Fatalf("exact replay returned different job: first=%q replay=%q", firstJobID, replayJob["job_id"])
@@ -107,7 +123,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	if session["source_file_kind"] != "csv" || session["original_filename"] != "first.csv" || session["session_status"] != "discovered" {
 		t.Fatalf("unexpected import session resource: %#v", session)
 	}
-	if session["parser_profile_id"] != "cartulary.import.phase2_workbook_import.v1" || session["parser_version"] != "phase11_import_adapter_v1" {
+	if session["assistant_profile"] != "workbook_import_v1" || session["parser_profile_id"] != "cartulary.import.workbook.v1" || session["parser_version"] != "workbook_import_adapter_v1" {
 		t.Fatalf("unexpected parser provenance: %#v", session)
 	}
 
@@ -2957,8 +2973,8 @@ SELECT source_metadata, source_header_json, raw_value, cell_kind,
 		"import_session_id":     sessionID,
 		"import_unit_id":        unitID,
 		"source_file_kind":      "csv",
-		"parser_profile_id":     "cartulary.import.phase2_workbook_import.v1",
-		"parser_version":        "phase11_import_adapter_v1",
+		"parser_profile_id":     "cartulary.import.workbook.v1",
+		"parser_version":        "workbook_import_adapter_v1",
 		"locator_kind":          "csv_file",
 		"locator":               "file",
 		"source_rect_a1":        sourceRect,

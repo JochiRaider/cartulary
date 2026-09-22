@@ -13,7 +13,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MembershipTestSurface as MembershipSurface } from "./incidentMembershipManagementTestSurface";
+import { MembershipTestSurface as MembershipSurface } from "../testing/incidentMembershipManagementSurfaceTestSupport";
 
 const incidentId = "00000000-0000-4000-8000-000000001001";
 const userId = "00000000-0000-4000-8000-000000000002";

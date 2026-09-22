@@ -31,6 +31,7 @@ export class WorkbookSurfaceRegistry {
   readonly #refreshing = new Map<string, Promise<void>>();
   readonly #onDebtChanged: (viewSchemaId: string) => void;
   #debtSnapshot: readonly string[] = Object.freeze([]);
+  #disposed = false;
 
   constructor(onDebtChanged: (viewSchemaId: string) => void) {
     this.#onDebtChanged = onDebtChanged;
@@ -43,6 +44,7 @@ export class WorkbookSurfaceRegistry {
     discardBlockedEdit?: WorkbookSurfaceBlockedEditDiscard,
     applyBatch?: WorkbookSurfaceBatchApply,
   ): () => void {
+    if (this.#disposed) return () => {};
     const registration = {
       applyBatch: applyBatch ?? null,
       applyResolvedMutation: applyResolvedMutation ?? null,
@@ -52,7 +54,7 @@ export class WorkbookSurfaceRegistry {
     this.#registrations.set(viewSchemaId, registration);
     if (this.#dirtySurfaces.has(viewSchemaId)) {
       void this.refreshRequired(viewSchemaId).catch(() => {
-        this.#onDebtChanged(viewSchemaId);
+        if (!this.#disposed) this.#onDebtChanged(viewSchemaId);
       });
     }
     return () => {
@@ -95,6 +97,7 @@ export class WorkbookSurfaceRegistry {
     this.#authorityGeneration++;
   }
   invalidate(viewSchemaId: string): void {
+    if (this.#disposed) return;
     this.#debtGenerations.set(
       viewSchemaId,
       (this.#debtGenerations.get(viewSchemaId) ?? 0) + 1,
@@ -106,9 +109,12 @@ export class WorkbookSurfaceRegistry {
     return this.reconcile(viewSchemaId);
   }
   private async reconcile(viewSchemaId: string): Promise<void> {
+    if (this.#disposed) throw new Error("The surface registry is retired.");
     const pending = this.#refreshing.get(viewSchemaId);
     if (pending) {
-      await pending;
+      await pending.catch(() => {
+        /* This caller retries the retained read debt. */
+      });
       if (this.#dirtySurfaces.has(viewSchemaId))
         return this.reconcile(viewSchemaId);
       return;
@@ -119,7 +125,15 @@ export class WorkbookSurfaceRegistry {
     const generation = this.#debtGenerations.get(viewSchemaId);
     const authorityGeneration = this.#authorityGeneration;
     const running = Promise.resolve()
-      .then(registration.refresh)
+      .then(() => {
+        if (
+          this.#disposed ||
+          authorityGeneration !== this.#authorityGeneration ||
+          this.#registrations.get(viewSchemaId) !== registration
+        )
+          throw new Error("The surface refresh binding is obsolete.");
+        return registration.refresh();
+      })
       .then(() => {
         if (authorityGeneration !== this.#authorityGeneration)
           throw new Error("Authorization changed during refresh.");
@@ -131,7 +145,7 @@ export class WorkbookSurfaceRegistry {
       .finally(() => {
         if (this.#refreshing.get(viewSchemaId) === running)
           this.#refreshing.delete(viewSchemaId);
-        this.#onDebtChanged(viewSchemaId);
+        if (!this.#disposed) this.#onDebtChanged(viewSchemaId);
       });
     this.#refreshing.set(viewSchemaId, running);
     await running;
@@ -139,6 +153,7 @@ export class WorkbookSurfaceRegistry {
       return this.reconcile(viewSchemaId);
   }
   async refreshIfMounted(viewSchemaId: string): Promise<void> {
+    if (this.#disposed) return;
     if (this.#registrations.has(viewSchemaId))
       return this.refreshRequired(viewSchemaId);
     this.#dirtySurfaces.add(viewSchemaId);
@@ -150,5 +165,16 @@ export class WorkbookSurfaceRegistry {
     } catch {
       /* Refresh debt is retained for ordinary autosave recovery. */
     }
+  }
+
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    this.#authorityGeneration++;
+    this.#registrations.clear();
+    this.#dirtySurfaces.clear();
+    this.#debtGenerations.clear();
+    this.#refreshing.clear();
+    this.#debtSnapshot = Object.freeze([]);
   }
 }

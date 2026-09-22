@@ -522,7 +522,7 @@ describe("selector contract policy", () => {
       `
         authGateway.requireText("auth-bootstrap-setup-key");
         authGateway.setCheckbox("admin-patch-is-active", false);
-        await expectP1SurfaceA11y(page, {
+        await expectIncidentSelectionSurfaceA11y(page, {
           focusTestId: "auth-login-submit",
           tabStops: ["landing-refresh"],
         });

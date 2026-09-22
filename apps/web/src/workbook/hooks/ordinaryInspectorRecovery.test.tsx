@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../testing/taskWorkbookTestSupport";
 import type { RecordPatchTransport } from "../adapters/workbookRecordPatchTransport";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { useGenericSurfaceMutationController } from "./useGenericSurfaceMutationController";
 
 const viewSchemaId = "cartulary.view.notes.v1",
@@ -35,7 +35,7 @@ const receipt = {
 };
 function fixture() {
   let sequence = 0;
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     {
       incidentId: taskAuthority.incidentId,
       clientInstanceId: "ordinary-inspector",
@@ -49,7 +49,7 @@ function fixture() {
   }));
   const readSource = vi.fn(async () => baseline);
   runtime.explicitPatches.configure({ send }, undefined, readSource);
-  runtime.explicitPatches.setAuthority(taskAuthority);
+  runtime.setAuthority(taskAuthority);
   const refresh = vi.fn(async () => {});
   runtime.registerSurface(viewSchemaId, refresh);
   const hook = renderHook(() =>
@@ -298,21 +298,21 @@ it("rejects obsolete presentation before dispatch and conceals later completion 
     surfaceLabel: "Notes",
   });
   await vi.waitFor(() => expect(f.send).toHaveBeenCalledTimes(1));
-  f.runtime.explicitPatches.setAuthority({ ...taskAuthority, role: "" });
+  f.runtime.setAuthority({ ...taskAuthority, role: "" });
   expect(f.runtime.explicitPatches.getSnapshot().entries).toEqual([]);
   expect(f.runtime.explicitPatches.latestRow(recordId)).toBeNull();
   f.runtime.explicitPatches.suspend();
   complete({ kind: "acknowledged", receipt });
   await submitted;
   expect(f.runtime.explicitPatches.getSnapshot().entries).toEqual([]);
-  f.runtime.explicitPatches.setAuthority({
+  f.runtime.setAuthority({
     ...taskAuthority,
     sessionIdentity: "recovered-session",
   });
   expect(f.runtime.explicitPatches.getSnapshot().entries[1]?.receipt).toEqual(
     receipt,
   );
-  f.runtime.explicitPatches.setAuthority({
+  f.runtime.setAuthority({
     ...taskAuthority,
     actorId: "replacement",
   });

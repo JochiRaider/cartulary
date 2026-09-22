@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MetadataTestSurface } from "../testing/incidentMetadataSurfaceTestSupport";
 import {
   metadataDeferred,
   metadataEnvelope,
@@ -14,7 +15,6 @@ import {
   metadataIncidentId,
   metadataJSON,
 } from "../testing/incidentMetadataTestSupport";
-import { MetadataTestSurface } from "./incidentMetadataTestSurface";
 
 const subject = (
   activeSection: "incident-fields" | "summary" | null = "incident-fields",

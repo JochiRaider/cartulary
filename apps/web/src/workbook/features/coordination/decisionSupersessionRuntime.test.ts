@@ -13,7 +13,7 @@ import { deferred } from "../../../testing/fetchMockTestSupport";
 import { WorkbookRecoveryFixture } from "../../../testing/WorkbookRecoveryFixture";
 import { createWorkbookDecisionSupersessionAdapter } from "../../adapters/createWorkbookDecisionSupersessionAdapter";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { decisionViewId } from "./decisionSupersessionModel";
 import type { DecisionSupersessionTransportPort } from "./decisionSupersessionOperation";
 import { WorkbookDecisionSupersessionRecovery } from "./WorkbookDecisionSupersessionRecovery";
@@ -28,7 +28,7 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
       () => earlier.promise,
     );
     let id = 0;
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       { incidentId: decisionAuthority.incidentId, clientInstanceId: "tab" },
       { create: () => `runtime-${++id}` },
       { execute },
@@ -138,7 +138,7 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
 
 it("Decision admission includes versions already accepted by History", () => {
   const ids = { create: vi.fn(() => "unused") };
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: decisionAuthority.incidentId, clientInstanceId: "tab" },
     ids,
     { execute: vi.fn() },

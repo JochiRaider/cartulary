@@ -12,5 +12,6 @@ export function timelineCaptureOwnerFor(runtime: WorkbookMutationRuntime) {
         },
         accepted: (id, version) => runtime.history.acceptVersion(id, version),
       }),
+    (owner, authority) => owner.setAuthority(authority),
   );
 }

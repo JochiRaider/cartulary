@@ -395,7 +395,14 @@ async function exerciseSurface(page: Page, view: string, actorId: string) {
     await expect(controls).toContainText("100 records loaded; more available.");
     expect(reads.at(-1)?.request.cursor_token).toBeUndefined();
     await expect(earlier).toBeFocused();
-  } else await expect(more).toHaveAttribute("aria-disabled", "true");
+  } else {
+    await expect(controls).toContainText(
+      `${count} records loaded; end of current results.`,
+    );
+    // The exhausted control stays only while it owns focus. Inspector departure
+    // releases that focus, so the unavailable action is no longer rendered.
+    await expect(more).toHaveCount(0);
+  }
   await expect(
     page.getByTestId(gridShellTestId(view)).locator(gridSavedRowsSelector()),
   ).not.toHaveCount(0);

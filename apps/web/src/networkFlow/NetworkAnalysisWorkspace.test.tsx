@@ -2045,7 +2045,7 @@ function importSessionResource() {
     source_content_sha256: sourceDigest,
     parser_profile_id: "tabular_default",
     parser_version: "1.0.0",
-    assistant_profile: "phase2_workbook_import_v1",
+    assistant_profile: "workbook_import_v1",
     session_status: "discovered",
     selected_unit_ids: [],
     blocking_diagnostics: [],

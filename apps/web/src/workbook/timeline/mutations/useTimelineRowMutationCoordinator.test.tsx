@@ -6,7 +6,8 @@ import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSuppor
 import { createWorkbookPendingMutationAdapter } from "../../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
@@ -54,7 +55,7 @@ function timelineApiRow(
 }
 
 function runtimeFixture() {
-  return new WorkbookMutationRuntime(
+  return createWorkbookMutationRuntime(
     { clientInstanceId: "client-1", incidentId },
     { create: (prefix) => `${prefix}-txn` },
     createWorkbookPendingMutationAdapter({ apiBase: undefined, incidentId }),

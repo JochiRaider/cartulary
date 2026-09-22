@@ -3,8 +3,8 @@ import type { TimelineFileDraftPort } from "../../features/evidence/timelineFile
 import type { WorkbookViewApiRow } from "../../models/workbookContractRows";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
+import { buildStableMutationSignature } from "../../runtime/pending/workbookPendingQueue";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
-import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { buildAttachedEvidenceCreateRequest } from "../adapters/timelineEvidenceRequestBuilders";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";

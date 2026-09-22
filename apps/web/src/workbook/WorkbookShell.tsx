@@ -49,14 +49,15 @@ import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
 import { WorkbookObservedStatusStrip } from "./components/WorkbookStatusStrip";
 import { WorkbookSurfaceRefreshNotice } from "./components/WorkbookSurfaceRefreshNotice";
+import { attachWorkbookMutationPresentation } from "./composition/attachWorkbookMutationPresentation";
+import { createWorkbookMutationInfrastructure } from "./composition/createWorkbookMutationInfrastructure";
+import { WorkbookMutationRuntimeBoundary } from "./composition/WorkbookMutationRuntimeBoundary";
 import { AssessmentAppendRecovery } from "./features/assessments/AssessmentAppendRecovery";
 import { ContextualCreateContext } from "./features/coordination/ContextualCreateContext";
 import { ContextualCreateRecovery } from "./features/coordination/ContextualCreateRecovery";
 import { CoordinationCreateContext } from "./features/coordination/CoordinationCreateContext";
 import { CoordinationCreateRecovery } from "./features/coordination/CoordinationCreateRecovery";
 import { DecisionSupersessionContext } from "./features/coordination/DecisionSupersessionContext";
-import { decisionViewId } from "./features/coordination/decisionSupersessionModel";
-import { reconcileDecisionReceipt } from "./features/coordination/reconcileDecisionReceipt";
 import { WorkbookDecisionSupersessionRecovery } from "./features/coordination/WorkbookDecisionSupersessionRecovery";
 import { WorkbookEntityMergeRecovery } from "./features/entities/WorkbookEntityMergeRecovery";
 import {
@@ -67,11 +68,7 @@ import { TimelineRelatedEvidenceContext } from "./features/evidence/TimelineRela
 import { TimelineRelatedEvidenceRecovery } from "./features/evidence/TimelineRelatedEvidenceRecovery";
 import { IndicatorCreateContext } from "./features/indicators/IndicatorCreateContext";
 import { IndicatorLifecycleContext } from "./features/indicators/IndicatorLifecycleContext";
-import { indicatorLifecycleViewId } from "./features/indicators/indicatorLifecycleModel";
 import { ObservationContext } from "./features/indicators/ObservationContext";
-import { reconcileIndicatorCreateReceipt } from "./features/indicators/reconcileIndicatorCreateReceipt";
-import { reconcileIndicatorLifecycleReceipt } from "./features/indicators/reconcileIndicatorLifecycleReceipt";
-import { reconcileObservationReceipt } from "./features/indicators/reconcileObservationReceipt";
 import { WorkbookIndicatorCreateRecovery } from "./features/indicators/WorkbookIndicatorCreateRecovery";
 import { WorkbookIndicatorLifecycleRecovery } from "./features/indicators/WorkbookIndicatorLifecycleRecovery";
 import { WorkbookObservationRecovery } from "./features/indicators/WorkbookObservationRecovery";
@@ -121,12 +118,7 @@ import {
   workbookAccountPresentation,
   workbookActiveSystemSurfaceTitle,
 } from "./models/workbookShellPresentation";
-import {
-  assessmentsViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-  timelineViewSchemaId,
-} from "./models/workbookSurfaceRegistry";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import type { WorkbookPreferenceController } from "./preferences/WorkbookPreferenceController";
 import {
   useWorkbookPreferencesSnapshot,
@@ -134,16 +126,13 @@ import {
 } from "./preferences/WorkbookPreferencesPanel";
 import type { PreferenceWorkbookBinding } from "./preferences/workbookPreferenceModel";
 import { WorkbookQueryBrowsingProvider } from "./query/WorkbookQueryBrowsingContext";
-import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
+import type { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
+import type { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
 import type { SavedViewBinding } from "./savedviews/savedViewOperationModel";
 import type { WorkbookSavedViewController } from "./savedviews/WorkbookSavedViewController";
 import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
-import { reconcileTimelineCaptureReceipt } from "./timeline/actions/reconcileTimelineCaptureReceipt";
-import { reconcileTimelineMentionReceipt } from "./timeline/actions/reconcileTimelineMentionReceipt";
 import { TimelineCaptureRecovery } from "./timeline/actions/TimelineCaptureRecovery";
 import { TimelineMentionRecovery } from "./timeline/actions/TimelineMentionRecovery";
-import { timelineMentionAuthority } from "./timeline/actions/timelineMentionAuthority";
-import { createTimelineMentionSourceReader } from "./timeline/adapters/createTimelineMentionSourceReader";
 
 export type {
   WorkbookAccountApplicationMenuProps,
@@ -189,11 +178,11 @@ type WorkbookShellProps = {
   renderIncidentControls?:
     | ((props: WorkbookIncidentControlsRendererProps) => ReactNode)
     | undefined;
-  mutationRuntimeRegistry?: WorkbookMutationRuntimeRegistry | undefined;
+  mutationRuntimeRegistry: WorkbookMutationRuntimeRegistry;
 };
 
 type WorkbookShellContentProps = WorkbookShellProps & {
-  mutationRuntimeRegistry: WorkbookMutationRuntimeRegistry;
+  mutationRuntime: WorkbookMutationRuntime;
 };
 
 const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
@@ -223,7 +212,7 @@ function WorkbookShellContent({
   onIncidentAccessLost,
   onSessionLost,
   renderIncidentControls,
-  mutationRuntimeRegistry,
+  mutationRuntime,
 }: WorkbookShellContentProps) {
   const collaborationSession = useIncidentCollaborationSession();
   const extensionLifecycle = useWorkbookExtensionAvailability({
@@ -241,16 +230,13 @@ function WorkbookShellContent({
   const infrastructure = useWorkbookShellInfrastructure({
     acceptedAuthority: authorization.acceptedAuthority,
     sessionIdentity,
-    recheckMentionAuthority: authorization.loadSessionRole,
-    partyAuthorization: authorizationRecovery,
     savedViewOwner: savedViewController,
     bindWorkbookSavedViews,
     authorizationRecovered: authorization.acceptRecoveredAuthorization,
     apiBase,
-    clientInstanceId: collaborationSession.clientInstanceId,
     extensionAvailability: extensionLifecycle.controller,
     incidentId,
-    mutationRuntimeRegistry,
+    mutationRuntime,
     onExtensionAvailabilityChange: extensionLifecycle.publishChange,
     onAuthorityUncertain: authorization.loadSessionRole,
   });
@@ -284,84 +270,14 @@ function WorkbookShellContent({
             closed: incidentIdentity?.status !== "active",
           }
         : null;
-    infrastructure.timelineCapture.setAuthority(mergeAuthority);
-    infrastructure.timelineMentions.setAuthority(
-      timelineMentionAuthority(mergeAuthority),
-    );
-    infrastructure.mutationRuntime.indicatorCreate.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.assessmentAuthoring.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.indicatorObservations.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.noteCreate.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.noteAssociations.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.batches.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.ordinaryCreate.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.coordinationCreate.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.contextualCreate.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.timelineRelatedEvidence.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.evidenceAttachments.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.timelineFiles.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.partyLinks.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.indicatorLifecycle.setAuthority(
-      mergeAuthority,
-    );
-    infrastructure.mutationRuntime.history.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.entityMerge.setAuthority(mergeAuthority);
-    infrastructure.mutationRuntime.decisionSupersession.setAuthority(
-      mergeAuthority,
-    );
+    infrastructure.mutationRuntime.setAuthority(mergeAuthority);
   }, [
     infrastructure.mutationRuntime,
-    infrastructure.timelineCapture,
-    infrastructure.timelineMentions,
     authorization.acceptedAuthority,
     incidentId,
     incidentIdentity?.status,
     sessionIdentity,
   ]);
-  useLayoutEffect(
-    () => () => {
-      infrastructure.timelineCapture.suspend();
-      infrastructure.timelineMentions.suspend();
-      infrastructure.mutationRuntime.indicatorObservations.suspend();
-      infrastructure.mutationRuntime.indicatorCreate.suspend();
-      infrastructure.mutationRuntime.assessmentAuthoring.suspend();
-      infrastructure.mutationRuntime.noteCreate.suspend();
-      infrastructure.mutationRuntime.noteAssociations.suspend();
-      infrastructure.mutationRuntime.batches.suspend();
-      infrastructure.mutationRuntime.ordinaryCreate.suspend();
-      infrastructure.mutationRuntime.coordinationCreate.suspend();
-      infrastructure.mutationRuntime.contextualCreate.suspend();
-      infrastructure.mutationRuntime.timelineRelatedEvidence.suspend();
-      infrastructure.mutationRuntime.evidenceAttachments.suspend();
-      infrastructure.mutationRuntime.timelineFiles.suspend();
-      infrastructure.mutationRuntime.explicitPatches.suspend();
-      infrastructure.mutationRuntime.partyLinks.suspend();
-      infrastructure.mutationRuntime.indicatorLifecycle.suspend();
-      infrastructure.mutationRuntime.history.suspend();
-      infrastructure.mutationRuntime.entityMerge.suspend();
-      infrastructure.mutationRuntime.decisionSupersession.suspend();
-    },
-    [
-      infrastructure.mutationRuntime,
-      infrastructure.timelineCapture,
-      infrastructure.timelineMentions,
-    ],
-  );
   const networkFlowSavedGraphController = useNetworkFlowSavedGraphOwner({
     availability: extensionLifecycle.controller,
     apiBase,
@@ -470,187 +386,35 @@ function WorkbookShellContent({
   }, [infrastructure.mutationRuntime, queries.facadeQueries]);
   useLayoutEffect(
     () =>
-      infrastructure.mutationRuntime.history.registerRelatedProjectionRefresh(
-        async (receipt) => {
-          const origin = infrastructure.mutationRuntime.history
-            .getSnapshot()
-            .find((entry) => entry.receipt === receipt)?.attempt
-            .subject.viewSchemaId;
-          if (origin !== hostsViewSchemaId && origin !== identitiesViewSchemaId)
-            await queries.refreshProjection.entities({
-              requireAcceptance: true,
-            });
+      attachWorkbookMutationPresentation({
+        runtime: infrastructure.mutationRuntime,
+        apiBase,
+        actorId: authorization.currentUserId,
+        sessionIdentity,
+        surface: snapshot.surface,
+        extensionWorkspace:
+          snapshot.startupSheetRef.kind === "extension_workspace",
+        refresh: {
+          entities: queries.refreshProjection.entities,
+          assessment: queries.refreshProjection.assessment,
+          generic: queries.refreshProjection.generic,
         },
-      ),
-    [infrastructure.mutationRuntime, queries.refreshProjection.entities],
-  );
-  useLayoutEffect(() => {
-    const owner = infrastructure.mutationRuntime.entityMerge;
-    return owner.registerProjectionRefresh(async () => {
-      const scope = owner.getSnapshot();
-      if (
-        scope.authority?.actorId !== authorization.currentUserId ||
-        scope.authority?.sessionIdentity !== sessionIdentity
-      )
-        throw new Error("Merge projection authority changed");
-      await queries.refreshProjection.entities({ requireAcceptance: true });
-      if (owner.getSnapshot().generation !== scope.generation)
-        throw new Error("Merge projection scope changed");
-      if (snapshot.surface === timelineViewSchemaId)
-        await owner.refreshTimeline();
-      else if (snapshot.surface === assessmentsViewSchemaId)
-        await queries.refreshProjection.assessment({ requireAcceptance: true });
-      else if (
-        snapshot.startupSheetRef.kind !== "extension_workspace" &&
-        snapshot.surface !== hostsViewSchemaId &&
-        snapshot.surface !== identitiesViewSchemaId
-      )
-        await queries.refreshProjection.generic({ requireAcceptance: true });
-    });
-  }, [
-    infrastructure.mutationRuntime,
-    queries.refreshProjection.entities,
-    queries.refreshProjection.assessment,
-    queries.refreshProjection.generic,
-    snapshot.surface,
-    snapshot.startupSheetRef.kind,
-    authorization.currentUserId,
-    sessionIdentity,
-  ]);
-  useLayoutEffect(() => {
-    const runtime = infrastructure.mutationRuntime;
-    return runtime.decisionSupersession.registerReconciliation(
-      async (receipt, scope) => {
-        await reconcileDecisionReceipt(
-          runtime.decisionSupersession,
-          runtime.history,
-          receipt,
-          scope,
-        );
-        if (!scope.isCurrent())
-          throw new Error("Decision reconciliation scope changed");
-        if (snapshot.surface === decisionViewId)
-          await runtime.history.refreshSurface(decisionViewId);
-      },
-    );
-  }, [infrastructure.mutationRuntime, snapshot.surface]);
-  useLayoutEffect(() => {
-    const runtime = infrastructure.mutationRuntime;
-    return runtime.indicatorLifecycle.registerReconciliation(
-      async (receipt, scope) => {
-        await reconcileIndicatorLifecycleReceipt(
-          runtime.indicatorLifecycle,
-          runtime.history,
-          receipt,
-          scope,
-        );
-        if (!scope.isCurrent())
-          throw new Error("Indicator reconciliation detached");
-        if (snapshot.surface === indicatorLifecycleViewId)
-          await runtime.history.refreshSurface(indicatorLifecycleViewId);
-      },
-    );
-  }, [infrastructure.mutationRuntime, snapshot.surface]);
-  useLayoutEffect(() => {
-    const runtime = infrastructure.mutationRuntime;
-    return runtime.indicatorCreate.registerReconciliation(
-      async (_attempt, receipt, scope) => {
-        await reconcileIndicatorCreateReceipt(
-          runtime.indicatorRecords,
-          runtime.indicatorObservations,
-          runtime.history,
-          runtime.scope.incidentId,
-          receipt,
-          scope,
-          () => runtime.indicatorCreate.suspendForAuthorityRecovery(),
-        );
-        if (!scope.isCurrent())
-          throw new Error("Canonical reconciliation detached");
-        if (snapshot.surface === indicatorLifecycleViewId)
-          await runtime.history.refreshSurface(indicatorLifecycleViewId);
-      },
-    );
-  }, [infrastructure.mutationRuntime, snapshot.surface]);
-  useLayoutEffect(() => {
-    const runtime = infrastructure.mutationRuntime;
-    return runtime.indicatorObservations.registerReconciliation(
-      async (attempt, receipt, scope) => {
-        await reconcileObservationReceipt(
-          runtime.indicatorObservations,
-          runtime.history,
-          attempt,
-          receipt,
-          scope,
-        );
-        if (!scope.isCurrent())
-          throw new Error("Observation reconciliation detached");
-        if (
-          snapshot.surface === indicatorLifecycleViewId ||
-          snapshot.surface === timelineViewSchemaId
-        )
-          await runtime.history.refreshSurface(snapshot.surface);
-      },
-    );
-  }, [infrastructure.mutationRuntime, snapshot.surface]);
-  useLayoutEffect(
-    () =>
-      infrastructure.timelineCapture.registerReconciliation(
-        async (receipt, scope) => {
-          await reconcileTimelineCaptureReceipt(
-            infrastructure.timelineCapture,
-            infrastructure.mutationRuntime.history,
-            receipt,
-            scope,
-          );
-          if (!scope.isCurrent())
-            throw new Error("Timeline reconciliation detached");
-          if (snapshot.surface === timelineViewSchemaId)
-            await infrastructure.mutationRuntime.history.refreshSurface(
-              timelineViewSchemaId,
-            );
-        },
-      ),
+        authorityUncertain: authorization.loadSessionRole,
+        authorizationRecovered: authorization.acceptRecoveredAuthorization,
+      }),
     [
-      infrastructure.timelineCapture,
-      infrastructure.mutationRuntime,
-      snapshot.surface,
-    ],
-  );
-  useLayoutEffect(
-    () =>
-      infrastructure.timelineMentions.registerReconciliation(
-        async (receipt, scope) => {
-          await reconcileTimelineMentionReceipt(
-            infrastructure.timelineMentions,
-            createTimelineMentionSourceReader({
-              apiBase,
-              incidentId,
-              readScope: () => infrastructure.mutationRuntime.recordReadScope,
-            }),
-            receipt,
-            scope,
-          );
-          if (!scope.isCurrent())
-            throw new Error("Mention reconciliation detached");
-        },
-      ),
-    [
-      infrastructure.timelineMentions,
       infrastructure.mutationRuntime,
       apiBase,
-      incidentId,
+      authorization.currentUserId,
+      sessionIdentity,
+      snapshot.surface,
+      snapshot.startupSheetRef.kind,
+      queries.refreshProjection.entities,
+      queries.refreshProjection.assessment,
+      queries.refreshProjection.generic,
+      authorization.loadSessionRole,
+      authorization.acceptRecoveredAuthorization,
     ],
-  );
-  useLayoutEffect(
-    () =>
-      infrastructure.timelineMentions.registerCreationReconciliation(
-        async (scope) => {
-          if (!scope.isCurrent()) throw new Error("Entity refresh detached");
-          await queries.refreshProjection.entities({ requireAcceptance: true });
-          if (!scope.isCurrent()) throw new Error("Entity refresh detached");
-        },
-      ),
-    [infrastructure.timelineMentions, queries.refreshProjection.entities],
   );
   const collaboration = useWorkbookCollaborationLifecycle({
     onSessionLost,
@@ -1284,20 +1048,6 @@ function WorkbookShellContent({
 }
 
 export function WorkbookShell(props: WorkbookShellProps) {
-  const localMutationRuntimeRegistry = useMemo(
-    () => new WorkbookMutationRuntimeRegistry(),
-    [],
-  );
-  const mutationRuntimeRegistry =
-    props.mutationRuntimeRegistry ?? localMutationRuntimeRegistry;
-  useEffect(
-    () => () => {
-      if (props.mutationRuntimeRegistry === undefined) {
-        localMutationRuntimeRegistry.dispose();
-      }
-    },
-    [localMutationRuntimeRegistry, props.mutationRuntimeRegistry],
-  );
   return (
     <IncidentCollaborationSession
       apiBase={props.apiBase}
@@ -1310,12 +1060,43 @@ export function WorkbookShell(props: WorkbookShellProps) {
       <WorkbookQueryBrowsingProvider
         key={`${props.incidentId}:${props.sessionIdentity ?? "suspended"}`}
       >
+        <CommittedWorkbookShell {...props} />
+      </WorkbookQueryBrowsingProvider>
+    </IncidentCollaborationSession>
+  );
+}
+
+function CommittedWorkbookShell(props: WorkbookShellProps) {
+  const { clientInstanceId } = useIncidentCollaborationSession();
+  const create = useCallback(
+    () =>
+      createWorkbookMutationInfrastructure({
+        apiBase: props.apiBase,
+        incidentId: props.incidentId,
+        clientInstanceId,
+        partyAuthorization: props.authorizationRecovery,
+      }),
+    [
+      props.apiBase,
+      props.incidentId,
+      props.authorizationRecovery,
+      clientInstanceId,
+    ],
+  );
+  return (
+    <WorkbookMutationRuntimeBoundary
+      registry={props.mutationRuntimeRegistry}
+      incidentId={props.incidentId}
+      clientInstanceId={clientInstanceId}
+      create={create}
+    >
+      {(mutationRuntime) => (
         <WorkbookShellContent
           key={props.incidentId}
           {...props}
-          mutationRuntimeRegistry={mutationRuntimeRegistry}
+          mutationRuntime={mutationRuntime}
         />
-      </WorkbookQueryBrowsingProvider>
-    </IncidentCollaborationSession>
+      )}
+    </WorkbookMutationRuntimeBoundary>
   );
 }

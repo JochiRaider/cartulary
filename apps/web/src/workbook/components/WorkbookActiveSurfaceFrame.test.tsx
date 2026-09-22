@@ -8,14 +8,14 @@ import {
 import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { WorkbookActiveSurfaceFrame } from "./WorkbookActiveSurfaceFrame";
 
 afterEach(cleanup);
 
 it("keeps the original editor accessible while conflict recovery opens and closes", () => {
   const incidentId = "10000000-0000-4000-8000-000000000001";
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId, clientInstanceId: "client" },
     { create: () => "unused-transaction" },
     createWorkbookPendingMutationAdapter({ apiBase: undefined, incidentId }),

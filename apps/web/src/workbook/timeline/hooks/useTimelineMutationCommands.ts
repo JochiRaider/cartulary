@@ -1,7 +1,7 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { useCallback, useMemo } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { PendingReplayUnitInput } from "../../utils/workbookPendingQueue";
+import type { PendingReplayUnitInput } from "../../runtime/pending/workbookPendingQueue";
 import { createTimelineScalarGridCommitAdapter } from "../adapters/createTimelineScalarGridCommitAdapter";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { LocalConflictState } from "../models/timelineConflictState";

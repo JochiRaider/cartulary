@@ -20,8 +20,8 @@ import {
 } from "../features/coordination/taskLifecycleModel";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
+import { createWorkbookMutationRuntime } from "./createWorkbookMutationRuntime";
 import { WorkbookExplicitPatchOwner } from "./WorkbookExplicitPatchOwner";
-import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => {
@@ -310,12 +310,12 @@ it("waits for Task autosave receipt and source verification without waiting for 
   const pending =
     deferred<Awaited<ReturnType<WorkbookPendingMutationPort["execute"]>>>();
   let sequence = 0;
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: taskAuthority.incidentId, clientInstanceId: "task-test" },
     { create: (prefix) => `${prefix}-${++sequence}` },
     { execute: () => pending.promise },
   );
-  runtime.explicitPatches.setAuthority(taskAuthority);
+  runtime.setAuthority(taskAuthority);
   runtime.explicitPatches.observeQuery(taskRow());
   const send = vi.fn<RecordPatchTransport["send"]>(async () => ({
     kind: "acknowledged",

@@ -1,12 +1,12 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
-import { membershipAuthority } from "../testing/incidentMembershipManagementTestSupport";
 import {
   listIncidentMembershipPage,
   mutateIncidentMembership,
-} from "./api/incidentMembershipManagementClient";
-import { IncidentMembershipManagementPanel } from "./IncidentMembershipManagementPanel";
-import { IncidentMembershipManagementController } from "./incidentMembershipManagementController";
+} from "../app/api/incidentMembershipManagementClient";
+import { IncidentMembershipManagementPanel } from "../app/IncidentMembershipManagementPanel";
+import { IncidentMembershipManagementController } from "../app/incidentMembershipManagementController";
+import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
+import { membershipAuthority } from "./incidentMembershipManagementTestSupport";
 
 /** Presentation fixture: lifecycle integration separately uses the real AppSessionController. */
 export function MembershipTestSurface(

@@ -19,9 +19,9 @@ import (
 const (
 	ProfileID = "import"
 
-	assistantProfileWorkbookImport = "phase2_workbook_import_v1"
-	parserProfileWorkbookImport    = "cartulary.import.phase2_workbook_import.v1"
-	parserVersionWorkbookImport    = "phase11_import_adapter_v1"
+	assistantProfileWorkbookImport = "workbook_import_v1"
+	parserProfileWorkbookImport    = "cartulary.import.workbook.v1"
+	parserVersionWorkbookImport    = "workbook_import_adapter_v1"
 
 	sourceFileKindCSV  = "csv"
 	sourceFileKindXLSX = "xlsx"

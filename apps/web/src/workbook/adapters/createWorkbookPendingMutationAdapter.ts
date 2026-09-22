@@ -10,7 +10,7 @@ import type {
 } from "../ports/WorkbookPendingMutationPort";
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
-import type { PendingReplayUnitState } from "../utils/workbookPendingQueue";
+import type { PendingReplayUnitState } from "../runtime/pending/workbookPendingQueue";
 import { invalidWorkbookAdapterResult } from "./workbookAdapterResult";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 import {

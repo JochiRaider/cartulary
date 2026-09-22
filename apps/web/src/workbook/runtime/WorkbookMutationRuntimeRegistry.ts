@@ -1,4 +1,4 @@
-import type { PendingReplayScope } from "../utils/workbookPendingQueue";
+import type { PendingReplayScope } from "./pending/workbookPendingQueue";
 import type { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 
 type RuntimeEntry = {
@@ -30,7 +30,8 @@ export class WorkbookMutationRuntimeRegistry {
       throw new Error("workbook mutation runtime registry is disposed");
     }
     const key = scopeKey(scope);
-    if (this.entry?.key === key) return this.entry.runtime;
+    if (this.entry?.key === key && !this.entry.runtime.retired)
+      return this.entry.runtime;
 
     this.retireCurrent(
       this.entry === null
@@ -72,7 +73,6 @@ export class WorkbookMutationRuntimeRegistry {
     const current = this.entry;
     this.entry = null;
     if (current === null) return;
-    if (reason !== null) current.runtime.invalidate(reason);
-    current.runtime.invalidate({ kind: "runtime_disposed" });
+    current.runtime.invalidate(reason ?? { kind: "runtime_disposed" });
   }
 }

@@ -324,7 +324,7 @@ type IncidentMembershipRecord = {
   user_id: string;
 };
 
-const p1AccessibilityScenarioTitles = [
+const incidentSelectionAccessibilityScenarioTitles = [
   "a11y.incident-selection.row-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
   "a11y.incident-selection.row-01 anonymous login after initial session_required reaches login controls and authenticated landing",
   "a11y.incident-selection.row-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
@@ -335,93 +335,93 @@ const p1AccessibilityScenarioTitles = [
   "a11y.incident-selection.row-01 revoked session after prior authentication announces session end and supports re-authentication",
   "a11y.incident-selection.row-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
 ] as const;
-const p2AccessibilityScenarioTitles = [
+const workbookShellAccessibilityScenarioTitles = [
   "a11y.workbook-shell.row-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named.",
 ] as const;
-const p3AccessibilityScenarioTitles = [
+const gridInteractionAccessibilityScenarioTitles = [
   "a11y.grid-interaction.row-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
 ] as const;
-const p4AccessibilityScenarioTitles = [
+const mutationLifecycleAccessibilityScenarioTitles = [
   "a11y.mutation-lifecycle.row-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
 ] as const;
-const p5AccessibilityScenarioTitles = [
+const entityLinkingAccessibilityScenarioTitles = [
   "a11y.entity-linking.row-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.",
 ] as const;
-const p6AccessibilityScenarioTitles = [
+const evidenceWorkflowAccessibilityScenarioTitles = [
   "a11y.evidence-workflow.row-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
 ] as const;
-const p7AccessibilityScenarioTitles = [
+const collaborationAccessibilityScenarioTitles = [
   "a11y.collaboration.row-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
 ] as const;
-const p8AccessibilityScenarioTitles = [
+const savedViewQueryAccessibilityScenarioTitles = [
   "a11y.saved-view-query.row-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
 ] as const;
-const p9AccessibilityScenarioTitles = [
+const inspectorHistoryAccessibilityScenarioTitles = [
   "a11y.inspector-history.row-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.",
 ] as const;
-const p9ConfigAccessibilityScenarioTitles = [
+const inspectorConfigurationAccessibilityScenarioTitles = [
   "a11y.inspector-history.row-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior.",
 ] as const;
-const p10AccessibilityScenarioTitles = [
+const coordinationReviewAccessibilityScenarioTitles = [
   "a11y.coordination-review.row-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations.",
 ] as const;
-const p11AccessibilityScenarioTitles = [
+const designReadinessAccessibilityScenarioTitles = [
   "a11y.design-readiness.row-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states.",
 ] as const;
 
-if (p2AccessibilityScenarioTitles.length !== 1) {
+if (workbookShellAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.workbook-shell.row-01 must declare exactly 1 scenario; found ${p2AccessibilityScenarioTitles.length}`,
+    `a11y.workbook-shell.row-01 must declare exactly 1 scenario; found ${workbookShellAccessibilityScenarioTitles.length}`,
   );
 }
-if (p3AccessibilityScenarioTitles.length !== 1) {
+if (gridInteractionAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.grid-interaction.row-01 must declare exactly 1 scenario; found ${p3AccessibilityScenarioTitles.length}`,
+    `a11y.grid-interaction.row-01 must declare exactly 1 scenario; found ${gridInteractionAccessibilityScenarioTitles.length}`,
   );
 }
-if (p4AccessibilityScenarioTitles.length !== 1) {
+if (mutationLifecycleAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.mutation-lifecycle.row-01 must declare exactly 1 scenario; found ${p4AccessibilityScenarioTitles.length}`,
+    `a11y.mutation-lifecycle.row-01 must declare exactly 1 scenario; found ${mutationLifecycleAccessibilityScenarioTitles.length}`,
   );
 }
-if (p5AccessibilityScenarioTitles.length !== 1) {
+if (entityLinkingAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.entity-linking.row-01 must declare exactly 1 scenario; found ${p5AccessibilityScenarioTitles.length}`,
+    `a11y.entity-linking.row-01 must declare exactly 1 scenario; found ${entityLinkingAccessibilityScenarioTitles.length}`,
   );
 }
-if (p6AccessibilityScenarioTitles.length !== 1) {
+if (evidenceWorkflowAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.evidence-workflow.row-01 must declare exactly 1 scenario; found ${p6AccessibilityScenarioTitles.length}`,
+    `a11y.evidence-workflow.row-01 must declare exactly 1 scenario; found ${evidenceWorkflowAccessibilityScenarioTitles.length}`,
   );
 }
-if (p7AccessibilityScenarioTitles.length !== 1) {
+if (collaborationAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.collaboration.row-01 must declare exactly 1 scenario; found ${p7AccessibilityScenarioTitles.length}`,
+    `a11y.collaboration.row-01 must declare exactly 1 scenario; found ${collaborationAccessibilityScenarioTitles.length}`,
   );
 }
-if (p8AccessibilityScenarioTitles.length !== 1) {
+if (savedViewQueryAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.saved-view-query.row-01 must declare exactly 1 scenario; found ${p8AccessibilityScenarioTitles.length}`,
+    `a11y.saved-view-query.row-01 must declare exactly 1 scenario; found ${savedViewQueryAccessibilityScenarioTitles.length}`,
   );
 }
-if (p9AccessibilityScenarioTitles.length !== 1) {
+if (inspectorHistoryAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.inspector-history.row-01 must declare exactly 1 scenario; found ${p9AccessibilityScenarioTitles.length}`,
+    `a11y.inspector-history.row-01 must declare exactly 1 scenario; found ${inspectorHistoryAccessibilityScenarioTitles.length}`,
   );
 }
-if (p9ConfigAccessibilityScenarioTitles.length !== 1) {
+if (inspectorConfigurationAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.inspector-history.row-02 must declare exactly 1 scenario; found ${p9ConfigAccessibilityScenarioTitles.length}`,
+    `a11y.inspector-history.row-02 must declare exactly 1 scenario; found ${inspectorConfigurationAccessibilityScenarioTitles.length}`,
   );
 }
-if (p10AccessibilityScenarioTitles.length !== 1) {
+if (coordinationReviewAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.coordination-review.row-01 must declare exactly 1 scenario; found ${p10AccessibilityScenarioTitles.length}`,
+    `a11y.coordination-review.row-01 must declare exactly 1 scenario; found ${coordinationReviewAccessibilityScenarioTitles.length}`,
   );
 }
-if (p11AccessibilityScenarioTitles.length !== 1) {
+if (designReadinessAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `a11y.design-readiness.row-01 must declare exactly 1 scenario; found ${p11AccessibilityScenarioTitles.length}`,
+    `a11y.design-readiness.row-01 must declare exactly 1 scenario; found ${designReadinessAccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -1660,7 +1660,7 @@ function requireA11yHistoryEntryAction(history: RecordHistoryData) {
   return item;
 }
 
-async function expectP1SurfaceA11y(
+async function expectIncidentSelectionSurfaceA11y(
   page: Page,
   options: {
     focusTestId?: string;
@@ -2030,7 +2030,7 @@ async function fulfillPublicError(
 }
 
 test.describe("browser.workbook-shell accessibility readiness", () => {
-  test(p2AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(workbookShellAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -2583,7 +2583,7 @@ if (
 }
 
 test.describe("browser.grid-interaction accessibility readiness", () => {
-  test(p3AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(gridInteractionAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -2714,7 +2714,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
 });
 
 test.describe("browser.mutation-lifecycle accessibility readiness", () => {
-  test(p4AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(mutationLifecycleAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -3075,7 +3075,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
 });
 
 test.describe("browser.entity-linking accessibility readiness", () => {
-  test(p5AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(entityLinkingAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -3301,7 +3301,7 @@ test.describe("browser.entity-linking accessibility readiness", () => {
 });
 
 test.describe("browser.evidence-workflow accessibility readiness", () => {
-  test(p6AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(evidenceWorkflowAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     const incidentId = await createIncident(
@@ -3771,7 +3771,7 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
 
 test.describe("browser.collaboration accessibility readiness", () => {
   test(
-    p7AccessibilityScenarioTitles[0],
+    collaborationAccessibilityScenarioTitles[0],
     async ({ browser, page, sessionTracker }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
@@ -3992,7 +3992,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
           recordId,
           remotePatchPage: remotePage,
           remoteValue: savedConflictValue,
-          txnPrefix: "fea11yp7-conflict",
+          txnPrefix: "fea11y-collaboration-conflict",
         });
         const resolver = page.getByTestId(workbookConflictResolverTestId());
         await expect(resolver).toHaveAttribute(
@@ -4125,7 +4125,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
 });
 
 test.describe("browser.saved-view-query accessibility readiness", () => {
-  test(p8AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(savedViewQueryAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const longSavedViewName =
       "a11y.saved-view-query workbook layout resilience with a deliberately long selected view name";
@@ -4562,7 +4562,7 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
 
 test.describe("browser.inspector-history accessibility readiness", () => {
   test(
-    p9ConfigAccessibilityScenarioTitles[0],
+    inspectorConfigurationAccessibilityScenarioTitles[0],
     async ({ browser, page, sessionTracker }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
@@ -4765,7 +4765,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     },
   );
 
-  test(p9AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(inspectorHistoryAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -4961,7 +4961,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
 });
 
 test.describe("browser.coordination-review accessibility readiness", () => {
-  test(p10AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(coordinationReviewAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -5346,7 +5346,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
 });
 
 test.describe("browser.design-readiness accessibility readiness", () => {
-  test(p11AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(designReadinessAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -5503,7 +5503,7 @@ test.describe("browser.design-readiness accessibility readiness", () => {
 });
 
 test.describe("browser.incident-selection accessibility readiness", () => {
-  test(p1AccessibilityScenarioTitles[0], async ({ page }) => {
+  test(incidentSelectionAccessibilityScenarioTitles[0], async ({ page }) => {
     await clearBrowserSession(page);
     const heldSession = await holdSinglePublicAPIResponse(page, {
       method: "GET",
@@ -5524,7 +5524,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     await expect(page.getByTestId(authTestId("feedback"))).toContainText(
       "Checking current session",
     );
-    await expectP1SurfaceA11y(page, {
+    await expectIncidentSelectionSurfaceA11y(page, {
       focusTestId: authTestId("login-username"),
       tabStops: [authTestId("login-username"), authTestId("login-password")],
     });
@@ -5542,13 +5542,13 @@ test.describe("browser.incident-selection accessibility readiness", () => {
   });
 
   test(
-    p1AccessibilityScenarioTitles[1],
+    incidentSelectionAccessibilityScenarioTitles[1],
     async ({ page, sessionTracker, workerAdminRequest }) => {
-      const email = uniqueEmail("a11y-p1-login");
-      const password = "A11yP1LoginPass!";
+      const email = uniqueEmail("a11y-incident-selection-login");
+      const password = "A11yIncidentSelectionLoginPass!";
       const user = await createDeploymentUser(workerAdminRequest, {
         email,
-        display_name: "A11Y P1 Login",
+        display_name: "A11Y Incident Selection Login",
         initial_password: password,
         mfa_required: false,
         is_deployment_admin: false,
@@ -5560,7 +5560,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         "data-bootstrap-state",
         "anonymous",
       );
-      await expectP1SurfaceA11y(page, {
+      await expectIncidentSelectionSurfaceA11y(page, {
         focusTestId: authTestId("login-username"),
         tabStops: [
           authTestId("login-username"),
@@ -5577,7 +5577,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         page.getByTestId(incidentLandingTestId("refresh")),
       );
       await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
-      await expectP1SurfaceA11y(page, {
+      await expectIncidentSelectionSurfaceA11y(page, {
         focusTestId: incidentLandingTestId("refresh"),
         tabStops: [
           incidentLandingTestId("search"),
@@ -5596,13 +5596,13 @@ test.describe("browser.incident-selection accessibility readiness", () => {
   );
 
   test(
-    p1AccessibilityScenarioTitles[2],
+    incidentSelectionAccessibilityScenarioTitles[2],
     async ({ page, sessionTracker, workerAdminRequest }) => {
-      const email = uniqueEmail("a11y-p1-mfa");
-      const password = "A11yP1MfaPass!";
+      const email = uniqueEmail("a11y-incident-selection-mfa");
+      const password = "A11yIncidentSelectionMfaPass!";
       const user = await createDeploymentUser(workerAdminRequest, {
         email,
-        display_name: "A11Y P1 MFA",
+        display_name: "A11Y Incident Selection MFA",
         initial_password: password,
         mfa_required: true,
         is_deployment_admin: false,
@@ -5624,7 +5624,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         page.getByTestId(authTestId("feedback")),
       );
       expect(await hasSessionCookie(page)).toBeFalsy();
-      await expectP1SurfaceA11y(page, {
+      await expectIncidentSelectionSurfaceA11y(page, {
         focusTestId: authTestId("login-totp-code"),
         tabStops: [
           authTestId("login-username"),
@@ -5641,7 +5641,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       );
       await expect(
         page.getByTestId(incidentLandingTestId("current-user")),
-      ).toContainText("A11Y P1 MFA");
+      ).toContainText("A11Y Incident Selection MFA");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "authentication accessibility",
         email,
@@ -5652,13 +5652,13 @@ test.describe("browser.incident-selection accessibility readiness", () => {
   );
 
   test(
-    p1AccessibilityScenarioTitles[3],
+    incidentSelectionAccessibilityScenarioTitles[3],
     async ({ page, workerAdminRequest }) => {
-      const email = uniqueEmail("a11y-p1-mfa-setup");
-      const password = "A11yP1SetupPass!";
+      const email = uniqueEmail("a11y-incident-selection-mfa-setup");
+      const password = "A11yIncidentSelectionSetupPass!";
       await createDeploymentUser(workerAdminRequest, {
         email,
-        display_name: "A11Y P1 MFA Setup",
+        display_name: "A11Y Incident Selection MFA Setup",
         initial_password: password,
         mfa_required: true,
         is_deployment_admin: false,
@@ -5680,7 +5680,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expectNoPrivateDiagnostics(
         page.getByTestId(authTestId("feedback")),
       );
-      await expectP1SurfaceA11y(page, {
+      await expectIncidentSelectionSurfaceA11y(page, {
         focusTestId: authTestId("bootstrap-begin"),
         tabStops: [authTestId("bootstrap-begin")],
       });
@@ -5690,7 +5690,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       const secretBase32 = await new AuthGateway(page).requireText(
         authTestId("bootstrap-setup-key"),
       );
-      await expectP1SurfaceA11y(page, {
+      await expectIncidentSelectionSurfaceA11y(page, {
         focusTestId: authTestId("bootstrap-complete-code"),
         tabStops: [
           authTestId("bootstrap-complete-code"),
@@ -5709,7 +5709,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     },
   );
 
-  test(p1AccessibilityScenarioTitles[4], async ({ page }) => {
+  test(incidentSelectionAccessibilityScenarioTitles[4], async ({ page }) => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YLAND"),
@@ -5727,7 +5727,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       page.getByTestId(incidentLandingTestId("create-open-button")),
     );
     await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
-    await expectP1SurfaceA11y(page, {
+    await expectIncidentSelectionSurfaceA11y(page, {
       focusTestId: incidentLandingTestId("create-open-button"),
       tabStops: [
         incidentLandingTestId("search"),
@@ -5739,13 +5739,13 @@ test.describe("browser.incident-selection accessibility readiness", () => {
   });
 
   test(
-    p1AccessibilityScenarioTitles[5],
+    incidentSelectionAccessibilityScenarioTitles[5],
     async ({ page, sessionTracker, workerAdminRequest }) => {
-      const email = uniqueEmail("a11y-p1-incident");
-      const password = "A11yP1IncidentPass!";
+      const email = uniqueEmail("a11y-incident-selection-incident");
+      const password = "A11yIncidentSelectionIncidentPass!";
       const user = await createDeploymentUser(workerAdminRequest, {
         email,
-        display_name: "A11Y P1 Incident",
+        display_name: "A11Y Incident Selection Incident",
         initial_password: password,
         mfa_required: false,
         is_deployment_admin: false,
@@ -5802,7 +5802,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expectVisibleFocus(
         page.getByTestId(incidentAdministrationTestId("patch-button")),
       );
-      await expectP1SurfaceA11y(page, {
+      await expectIncidentSelectionSurfaceA11y(page, {
         focusTestId: appRouteTestId("workbook-current-user"),
         tabStops: [appRouteTestId("workbook-current-user")],
       });
@@ -5880,7 +5880,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     },
   );
 
-  test(p1AccessibilityScenarioTitles[6], async ({ page }) => {
+  test(incidentSelectionAccessibilityScenarioTitles[6], async ({ page }) => {
     const routePattern = "**/api/v1/incidents**";
     const routeHandler = async (route: Route) => {
       if (route.request().method().toUpperCase() !== "GET") {
@@ -5916,7 +5916,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     await expectVisibleFocus(
       page.getByTestId(incidentLandingTestId("refresh")),
     );
-    await expectP1SurfaceA11y(page, {
+    await expectIncidentSelectionSurfaceA11y(page, {
       focusTestId: incidentLandingTestId("refresh"),
       tabStops: [incidentLandingTestId("refresh")],
     });
@@ -5929,18 +5929,18 @@ test.describe("browser.incident-selection accessibility readiness", () => {
   });
 
   test(
-    p1AccessibilityScenarioTitles[7],
+    incidentSelectionAccessibilityScenarioTitles[7],
     async ({ page, sessionTracker, workerAdminRequest }) => {
       const incidentId = await createIncident(
         page,
         uniqueIncidentKey("A11YREVOKE"),
         "A11Y revoked incident",
       );
-      const email = uniqueEmail("a11y-p1-revoked");
-      const password = "A11yP1RevokedPass!";
+      const email = uniqueEmail("a11y-incident-selection-revoked");
+      const password = "A11yIncidentSelectionRevokedPass!";
       const user = await createDeploymentUser(workerAdminRequest, {
         email,
-        display_name: "A11Y P1 Revoked",
+        display_name: "A11Y Incident Selection Revoked",
         initial_password: password,
         mfa_required: false,
         is_deployment_admin: false,
@@ -5954,7 +5954,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
         page.getByTestId(appRouteTestId("workbook-current-user")),
-      ).toContainText("A11Y P1 Revoked");
+      ).toContainText("A11Y Incident Selection Revoked");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "authentication accessibility",
         email,
@@ -5975,7 +5975,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expect(page.getByTestId(authTestId("shell-message"))).toContainText(
         "Sign in again",
       );
-      await expectP1SurfaceA11y(page, {
+      await expectIncidentSelectionSurfaceA11y(page, {
         focusTestId: authTestId("login-submit"),
         tabStops: [
           authTestId("login-username"),
@@ -5989,7 +5989,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
         page.getByTestId(appRouteTestId("workbook-current-user")),
-      ).toContainText("A11Y P1 Revoked");
+      ).toContainText("A11Y Incident Selection Revoked");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "authentication accessibility",
         email,
@@ -5999,7 +5999,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     },
   );
 
-  test(p1AccessibilityScenarioTitles[8], async ({ page }) => {
+  test(incidentSelectionAccessibilityScenarioTitles[8], async ({ page }) => {
     const routePattern = "**/api/v1/auth/credential-state";
     const routeHandler = async (route: Route) => {
       await fulfillPublicError(route, {
@@ -6045,7 +6045,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     await expectNoPrivateDiagnostics(
       page.getByTestId(publicErrorSummaryTestIds("account").container),
     );
-    await expectP1SurfaceA11y(page, {
+    await expectIncidentSelectionSurfaceA11y(page, {
       focusTestId: accountTestId("refresh-state"),
       tabStops: [accountTestId("refresh-state"), accountTestId("logout")],
     });

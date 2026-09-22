@@ -1447,7 +1447,7 @@ export interface ImportSessionUploadRequest {
  * via the `definition` "ImportSessionCreateMetadata".
  */
 export interface ImportSessionCreateMetadata {
-  assistant_profile?: "phase2_workbook_import_v1";
+  assistant_profile?: "workbook_import_v1";
   client_txn_id: string;
   incident_id: string;
 }

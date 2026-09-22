@@ -6,7 +6,7 @@ import {
   mentionWorkbookRow,
 } from "../../../testing/timelineMentionTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../../adapters/createWorkbookPendingMutationAdapter";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { createTimelineMentionEntityCreationAdapter } from "../adapters/createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "../adapters/createTimelineMentionResolutionAdapter";
 import type {
@@ -409,7 +409,7 @@ it("Mention suspension conceals protected recovery while account retirement fenc
 });
 it("Mention runtime retention accounts explicit work without consuming autosave capacity", async () => {
   const review = mentionReview();
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     {
       incidentId: review.subject.incidentId,
       clientInstanceId: "mention-runtime",

@@ -8,7 +8,7 @@ import {
 } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { useTimelineSurfaceFoundation } from "./composition/useTimelineSurfaceFoundation";
 import type { TimelineWorkbookSurfaceRuntime } from "./models/timelineWorkbookSurfaceRuntime";
 
@@ -20,7 +20,7 @@ function createMutationRuntime() {
       throw new Error("foundation test does not execute mutations");
     },
   };
-  return new WorkbookMutationRuntime(
+  return createWorkbookMutationRuntime(
     {
       clientInstanceId: "foundation-test",
       incidentId: "incident-1",

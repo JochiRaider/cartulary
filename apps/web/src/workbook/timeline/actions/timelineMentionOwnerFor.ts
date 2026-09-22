@@ -1,4 +1,5 @@
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { timelineMentionAuthority } from "./timelineMentionAuthority";
 import { WorkbookTimelineMentionOperationOwner } from "./WorkbookTimelineMentionOperationOwner";
 
 /** Timeline constructs its concrete owner; the workbook runtime retains only its lifecycle bridge. */
@@ -14,5 +15,7 @@ export function timelineMentionOwnerFor(runtime: WorkbookMutationRuntime) {
         entityAccepted: (id, version) =>
           runtime.acceptEntityVersion(id, version),
       }),
+    (owner, authority) =>
+      owner.setAuthority(timelineMentionAuthority(authority)),
   );
 }

@@ -1,6 +1,6 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import type { PendingReplayPayloadIntent } from "../../utils/workbookPendingQueue";
-import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
+import type { PendingReplayPayloadIntent } from "../../runtime/pending/workbookPendingQueue";
+import { buildStableMutationSignature } from "../../runtime/pending/workbookPendingQueue";
 import {
   type CollectionFieldKey,
   type RowValues,

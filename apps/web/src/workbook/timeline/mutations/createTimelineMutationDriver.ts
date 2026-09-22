@@ -6,6 +6,11 @@ import type {
   WorkbookOperationOutcome,
 } from "../../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
+import type {
+  PendingReplaySettlement,
+  PendingReplayUnitInput,
+  PendingReplayUnitState,
+} from "../../runtime/pending/workbookPendingQueue";
 import type { WorkbookMutationOwnerEnvelope } from "../../runtime/WorkbookMutationDriverRegistry";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type {
@@ -17,11 +22,6 @@ import {
   refreshBlocksWorkbookPendingUnit,
   type WorkbookPendingQueueRuntime,
 } from "../../runtime/workbookPendingReplayRuntime";
-import type {
-  PendingReplaySettlement,
-  PendingReplayUnitInput,
-  PendingReplayUnitState,
-} from "../../utils/workbookPendingQueue";
 import type {
   TimelineReplayContext,
   TimelineRowStoreCommands,

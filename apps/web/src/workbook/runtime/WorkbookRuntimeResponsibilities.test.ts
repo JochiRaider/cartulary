@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import { createWorkbookMutationRuntime } from "./createWorkbookMutationRuntime";
 import { WorkbookClientTransactionLedger } from "./WorkbookClientTransactionLedger";
 import { createWorkbookConflictStore } from "./WorkbookConflictStore";
 import { createWorkbookMutationDriverRegistry } from "./WorkbookMutationDriverRegistry";
-import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 import { WorkbookRetryScheduler } from "./WorkbookRetryScheduler";
 import { WorkbookRuntimeLifecycle } from "./WorkbookRuntimeLifecycle";
 import { WorkbookSurfaceRegistry } from "./WorkbookSurfaceRegistry";
@@ -298,7 +298,7 @@ describe("Workbook runtime responsibilities", () => {
     const execute = vi.fn(async () => {
       throw new Error("offline");
     });
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       scope,
       { create: () => "txn-1" },
       { execute } satisfies WorkbookPendingMutationPort,
@@ -331,5 +331,138 @@ describe("Workbook runtime responsibilities", () => {
     expect(controlled.delays[0]?.cancel).toHaveBeenCalledOnce();
     controlled.delays[0]?.run();
     expect(controlled.microtasks).toHaveLength(0);
+  });
+  it("does not drain a microtask queued before terminal disposal", async () => {
+    const controlled = controlledScheduler();
+    const lifecycle = new WorkbookRuntimeLifecycle(controlled.scheduler);
+    const drain = vi.fn(async () => undefined);
+    lifecycle.requestDrain(drain);
+    lifecycle.dispose();
+    controlled.microtasks.shift()?.();
+    await Promise.resolve();
+    expect(drain).not.toHaveBeenCalled();
+  });
+
+  it("cancels coordination waits on abort and terminal disposal", async () => {
+    const controlled = controlledScheduler();
+    const lifecycle = new WorkbookRuntimeLifecycle(controlled.scheduler);
+    const first = new AbortController();
+    const aborted = lifecycle.wait(first.signal, 16);
+    first.abort();
+    await aborted;
+    expect(controlled.delays[0]?.cancel).toHaveBeenCalledOnce();
+    const disposed = lifecycle.wait(new AbortController().signal, 16);
+    lifecycle.dispose();
+    await disposed;
+    expect(controlled.delays[1]?.cancel).toHaveBeenCalledOnce();
+  });
+
+  it("publishes complete authority without deriving reads from a feature owner", () => {
+    const runtime = createWorkbookMutationRuntime(
+      scope,
+      { create: () => "txn" },
+      {
+        execute: vi.fn(),
+      },
+    );
+    const authority = {
+      incidentId: scope.incidentId,
+      actorId: "actor",
+      sessionIdentity: "session",
+      role: "editor" as const,
+      closed: false,
+    };
+    const observed: unknown[] = [];
+    runtime.subscribe(() =>
+      observed.push([
+        runtime.recordReadScope,
+        runtime.explicitPatches.getSnapshot().authority,
+        runtime.indicatorCreate.getSnapshot().authority,
+        runtime.noteCreate.getSnapshot().authority,
+      ]),
+    );
+    runtime.setAuthority(authority);
+    expect(observed).toHaveLength(1);
+    expect(observed[0]).toEqual([
+      expect.objectContaining({ actorId: "actor", sessionIdentity: "session" }),
+      authority,
+      authority,
+      authority,
+    ]);
+    const readScope = runtime.recordReadScope;
+    runtime.retainSurfaceRefreshDebt("another-source");
+    runtime.explicitPatches.suspend();
+    expect(runtime.recordReadScope).toEqual(readScope);
+    expect(runtime.surfaceRefreshDebts()).toContain("another-source");
+    expect(runtime.surfaceRefreshRequired("another-source")).toBe(true);
+    runtime.applyAuthorizationRecoveryState("paused", false);
+    expect(runtime.recordReadScope).toEqual(readScope);
+    runtime.setAuthority(authority);
+    expect(runtime.noteCreate.getSnapshot().authority).toEqual(authority);
+    runtime.setAuthority({ ...authority, role: "viewer" });
+    expect(runtime.recordReadScope).toEqual(readScope);
+    expect(runtime.noteCreate.canSubmit()).toBe(false);
+    runtime.invalidate({ kind: "session_unavailable" });
+    expect(runtime.recordReadScope).toBeNull();
+    expect(runtime.surfaceRefreshDebts()).toEqual([]);
+    runtime.setAuthority(authority);
+    expect(runtime.recordReadScope?.epoch).toBeGreaterThan(
+      readScope?.epoch ?? -1,
+    );
+    runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
+  it("retires source owners and transport once across repeated terminal transitions", () => {
+    const retire = vi.fn();
+    const runtime = createWorkbookMutationRuntime(
+      scope,
+      { create: () => "txn" },
+      {
+        execute: vi.fn(),
+        retire,
+      },
+    );
+    const history = vi.spyOn(runtime.history, "retire");
+    const notes = vi.spyOn(runtime.noteCreate, "retire");
+    const patches = vi.spyOn(runtime.explicitPatches, "retire");
+    runtime.invalidate({ kind: "incident_changed", nextIncidentId: "next" });
+    runtime.invalidate({ kind: "runtime_disposed" });
+    runtime.invalidate({ kind: "session_unavailable" });
+    expect(retire).toHaveBeenCalledOnce();
+    expect(history).toHaveBeenCalledOnce();
+    expect(notes).toHaveBeenCalledOnce();
+    expect(patches).toHaveBeenCalledOnce();
+    expect(runtime.retired).toBe(true);
+    expect(runtime.recordReadScope).toBeNull();
+  });
+
+  it("settles a waiting history coordinator when its runtime retires", async () => {
+    const controlled = controlledScheduler();
+    const runtime = createWorkbookMutationRuntime(
+      scope,
+      { create: () => "txn" },
+      {
+        execute: vi.fn(),
+      },
+      { clock: { now: () => 1 }, scheduler: controlled.scheduler },
+    );
+    runtime.enqueuePatch({
+      baseRowVersion: 1,
+      changes: [{ field_key: "field", value: "local" }],
+      fieldKey: "field",
+      localValue: "local",
+      recordId: "record",
+      rowLabel: "row",
+      surfaceLabel: "surface",
+      viewSchemaId: "surface",
+    });
+    const waiting = runtime.coordinateHistory(
+      "record",
+      new AbortController().signal,
+    );
+    expect(controlled.delays).toHaveLength(1);
+    runtime.invalidate({ kind: "runtime_disposed" });
+    await expect(waiting).resolves.toBeNull();
+    expect(controlled.delays[0]?.cancel).toHaveBeenCalledOnce();
   });
 });

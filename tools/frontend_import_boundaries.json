@@ -1362,6 +1362,22 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/testing/workbookHistoryTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testing/incidentMetadataSurfaceTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testing/incidentLifecycleSurfaceTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testing/incidentMembershipManagementSurfaceTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testing/workbookMutationRuntimeTestSupport"
         }
       ]
     },

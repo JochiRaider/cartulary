@@ -1,5 +1,6 @@
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
+  dataTestIdSelector,
   gridRowTestId,
   gridRowVersionAttribute,
   gridScrollportSelector,
@@ -126,11 +127,10 @@ test("Timeline pending restoration yields to wheel native input external focus a
         .toBe(true);
       expect(
         await page.evaluate(
-          (id) =>
-            document
-              .querySelector(`[data-testid="${id}"]`)
-              ?.closest("[role='gridcell']")?.isConnected,
-          rowCellTestId(source.record_id, synopsis),
+          (selector) =>
+            document.querySelector(selector)?.closest("[role='gridcell']")
+              ?.isConnected,
+          dataTestIdSelector(rowCellTestId(source.record_id, synopsis)),
         ),
       ).toBe(false);
       const scrollport = page.locator(gridScrollportSelector());

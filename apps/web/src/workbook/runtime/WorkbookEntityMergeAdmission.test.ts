@@ -9,7 +9,7 @@ import {
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import type { WorkbookEntityMergePort } from "../features/entities/entityMergeOperation";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
-import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "./createWorkbookMutationRuntime";
 
 function setup(type: "host" | "identity") {
   let id = 0;
@@ -23,7 +23,7 @@ function setup(type: "host" | "identity") {
         settle = resolve;
       }),
   );
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: mergeIncidentId, clientInstanceId: "merge-test" },
     transactionIds,
     { execute },
@@ -123,7 +123,7 @@ describe("Entity merge record admission", () => {
   it("coordinates direct writes and synchronously rejects overlapping commands while unrelated records remain usable", async () => {
     for (const type of ["host", "identity"] as const) {
       const t = setup(type);
-      t.runtime.explicitPatches.setAuthority(t.review.authority);
+      t.runtime.setAuthority(t.review.authority);
       t.runtime.explicitPatches.configure(
         { send: vi.fn() },
         undefined,

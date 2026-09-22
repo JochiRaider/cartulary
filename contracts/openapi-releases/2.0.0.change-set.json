@@ -1970,6 +1970,12 @@
       "classification": "additive",
       "owner_id": "module.revisions",
       "rationale": "Core 01 REQ-01-049/052A adopts complete, closed semantic History values, imported source attribution and an explicit browsing representation generation. This change is part of the coordinated 2.0.0 server/browser cutover; arbitrary unit objects are retired without a legacy adapter. Canonical retained audit data, logical item identities, opaque reversal selectors, mutation requests and receipts are unchanged. Reviewed component: /components/schemas/RecordHistoryValue."
+    },
+    {
+      "fingerprint": "8f2b354b0e3bcb7f42aa149f73cb3e40837c2b916fad86f55e82a7af8b973d19",
+      "classification": "breaking",
+      "owner_id": "module.imports",
+      "rationale": "Core 01 REQ-01-473, Core 03 REQ-03-163 and Core 04 AC-262 adopt workbook_import_v1 as the sole current Import assistant profile. This pre-production cutover removes the delivery-history spelling without an alias; deploy server and client together against fresh compatible Import/session/job/idempotency state. Parser provenance is renamed coherently; canonical approved-mapping hashes remain independent."
     }
   ]
 }

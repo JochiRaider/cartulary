@@ -17,7 +17,8 @@ import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorC
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { ContextualCreateContext } from "./ContextualCreateContext";
 import type {
   ContextualCreateOutcome,
@@ -157,7 +158,7 @@ describe("contextual create recovery", () => {
       const writes = vi.fn(async () => {
         throw new Error("No source write is permitted");
       });
-      const runtime = new WorkbookMutationRuntime(
+      const runtime = createWorkbookMutationRuntime(
         {
           incidentId: authority.incidentId,
           clientInstanceId: "retained-assessment",

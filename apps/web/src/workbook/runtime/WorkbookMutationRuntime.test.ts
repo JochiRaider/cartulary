@@ -6,7 +6,8 @@ import {
 } from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
-import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "./createWorkbookMutationRuntime";
+import type { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 import { WorkbookMutationRuntimeRegistry } from "./WorkbookMutationRuntimeRegistry";
 
 const incidentId = "10000000-0000-4000-8000-000000000001";
@@ -43,17 +44,15 @@ describe("WorkbookMutationRuntime", () => {
     );
     const registry = new WorkbookMutationRuntimeRegistry();
     const scope = { clientInstanceId: "client-1", incidentId };
-    const runtime = registry.acquire(
-      scope,
-      () =>
-        new WorkbookMutationRuntime(
-          scope,
-          transactionIds,
-          createWorkbookPendingMutationAdapter({
-            apiBase: undefined,
-            incidentId,
-          }),
-        ),
+    const runtime = registry.acquire(scope, () =>
+      createWorkbookMutationRuntime(
+        scope,
+        transactionIds,
+        createWorkbookPendingMutationAdapter({
+          apiBase: undefined,
+          incidentId,
+        }),
+      ),
     );
     const refresh = vi.fn();
     const localDrafts = runtime.localDraftsForSurface(timelineViewSchemaId);
@@ -99,7 +98,7 @@ describe("WorkbookMutationRuntime", () => {
     const registry = new WorkbookMutationRuntimeRegistry();
     const scope = { clientInstanceId: "client-1", incidentId };
     const create = () =>
-      new WorkbookMutationRuntime(
+      createWorkbookMutationRuntime(
         scope,
         transactionIds,
         createWorkbookPendingMutationAdapter({
@@ -147,7 +146,7 @@ describe("WorkbookMutationRuntime", () => {
   it("keeps secure transaction identity failure local without queue admission", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       {
         clientInstanceId: "client-1",
         incidentId,
@@ -201,7 +200,7 @@ describe("WorkbookMutationRuntime", () => {
           }),
       ),
     );
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       {
         clientInstanceId: "client-1",
         incidentId,
@@ -275,7 +274,7 @@ describe("WorkbookMutationRuntime", () => {
         }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       {
         clientInstanceId: "client-1",
         incidentId,
@@ -370,7 +369,7 @@ describe("WorkbookMutationRuntime", () => {
         ),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const runtime = new WorkbookMutationRuntime(
+    const runtime = createWorkbookMutationRuntime(
       { clientInstanceId: "client-1", incidentId },
       transactionIds,
       createWorkbookPendingMutationAdapter({
@@ -445,7 +444,7 @@ describe("WorkbookMutationRuntimeRegistry", () => {
       const registry = new WorkbookMutationRuntimeRegistry();
       const scope = { clientInstanceId: "ordinary-client", incidentId };
       const create = () =>
-        new WorkbookMutationRuntime(
+        createWorkbookMutationRuntime(
           scope,
           transactionIds,
           createWorkbookPendingMutationAdapter({
@@ -463,7 +462,7 @@ describe("WorkbookMutationRuntimeRegistry", () => {
       };
       const schema = "cartulary.view.evidence.v1";
       runtime.ordinaryCreate.setAuthority(authority);
-      runtime.explicitPatches.setAuthority(authority);
+      runtime.setAuthority(authority);
       const originalReadScope = runtime.recordReadScope;
       expect(originalReadScope).toMatchObject({
         actorId: recordId,
@@ -473,12 +472,12 @@ describe("WorkbookMutationRuntimeRegistry", () => {
       runtime.applyAuthorizationRecoveryState("resumed");
       expect(runtime.recordReadScope).toEqual(originalReadScope);
       runtime.invalidate({ kind: "incident_role_changed", role: "viewer" });
-      runtime.explicitPatches.setAuthority({ ...authority, role: "viewer" });
+      runtime.setAuthority({ ...authority, role: "viewer" });
       expect(runtime.recordReadScope).toEqual(originalReadScope);
       runtime.invalidate({ kind: "incident_closed" });
-      runtime.explicitPatches.setAuthority({ ...authority, closed: true });
+      runtime.setAuthority({ ...authority, closed: true });
       expect(runtime.recordReadScope).toEqual(originalReadScope);
-      runtime.explicitPatches.setAuthority(authority);
+      runtime.setAuthority(authority);
       runtime.ordinaryCreate.setAuthority(authority);
       runtime.ordinaryCreate.update(
         schema,
@@ -493,7 +492,7 @@ describe("WorkbookMutationRuntimeRegistry", () => {
         ...authority,
         sessionIdentity: "reauthenticated-same-account",
       });
-      runtime.explicitPatches.setAuthority({
+      runtime.setAuthority({
         ...authority,
         sessionIdentity: "reauthenticated-same-account",
       });
@@ -516,17 +515,15 @@ describe("WorkbookMutationRuntimeRegistry", () => {
           ...scope,
           incidentId: "10000000-0000-4000-8000-000000000002",
         };
-        registry.acquire(
-          next,
-          () =>
-            new WorkbookMutationRuntime(
-              next,
-              transactionIds,
-              createWorkbookPendingMutationAdapter({
-                apiBase: undefined,
-                incidentId: next.incidentId,
-              }),
-            ),
+        registry.acquire(next, () =>
+          createWorkbookMutationRuntime(
+            next,
+            transactionIds,
+            createWorkbookPendingMutationAdapter({
+              apiBase: undefined,
+              incidentId: next.incidentId,
+            }),
+          ),
         );
       }
       runtime.ordinaryCreate.setAuthority(authority);
@@ -566,9 +563,7 @@ describe("WorkbookMutationRuntimeRegistry", () => {
       kind: "incident_changed",
       nextIncidentId: "incident-2",
     });
-    expect(first.invalidate).toHaveBeenNthCalledWith(2, {
-      kind: "runtime_disposed",
-    });
+    expect(first.invalidate).toHaveBeenCalledOnce();
 
     registry.dispose();
     registry.dispose();

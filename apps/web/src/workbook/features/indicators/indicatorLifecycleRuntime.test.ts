@@ -9,7 +9,7 @@ import {
 } from "../../../testing/indicatorLifecycleTestSupport";
 import { createIndicatorLifecycleAdapter } from "../../adapters/createIndicatorLifecycleAdapter";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { WorkbookMutationRuntimeRegistry } from "../../runtime/WorkbookMutationRuntimeRegistry";
 import { indicatorLifecycleViewId } from "./indicatorLifecycleModel";
 import type { IndicatorLifecycleTransportPort } from "./indicatorLifecycleOperation";
@@ -19,7 +19,7 @@ it("Lifecycle runtime waits for same-record edits and requires review of their a
   vi.useFakeTimers();
   const earlier =
     deferred<Awaited<ReturnType<WorkbookPendingMutationPort["execute"]>>>();
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: lifecycleAuthority.incidentId, clientInstanceId: "tab" },
     { create: () => "original" },
     { execute: () => earlier.promise },
@@ -84,7 +84,7 @@ it("Lifecycle runtime retains recovery across shell detachment and retires accou
       clientInstanceId: "tab",
     };
   const create = () =>
-    new WorkbookMutationRuntime(
+    createWorkbookMutationRuntime(
       scope,
       { create: () => "original" },
       { execute: vi.fn() },

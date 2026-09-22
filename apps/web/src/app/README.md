@@ -105,7 +105,6 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentMetadataLifecycle.test.tsx](incidentMetadataLifecycle.test.tsx) | Tests metadata drafts across drawer transitions, role changes, access loss, and session replacement. |
 | [incidentMetadataModel.ts](incidentMetadataModel.ts) | Incident metadata values, field revisions, authority, drafts, and review models. |
 | [IncidentMetadataPanel.tsx](IncidentMetadataPanel.tsx) | Incident metadata editing, save/review feedback, and departure-dialog composition. |
-| [incidentMetadataTestSurface.tsx](incidentMetadataTestSurface.tsx) | Test-only composition fixture for metadata editing and departure review. |
 | [useIncidentMetadata.ts](useIncidentMetadata.ts) | React binding for metadata drafts, incident summary reconciliation, and departure review. |
 
 ## Incident lifecycle
@@ -118,7 +117,6 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentLifecycleIntegration.test.tsx](incidentLifecycleIntegration.test.tsx) | Tests lifecycle draft retention across drawer transitions, role changes, and session replacement. |
 | [incidentLifecycleModel.ts](incidentLifecycleModel.ts) | Lifecycle authority, action drafts, reviews, captured attempts, and problem-state models. |
 | [IncidentLifecyclePanel.tsx](IncidentLifecyclePanel.tsx) | Incident lifecycle controls, action review, recovery, and departure-dialog composition. |
-| [incidentLifecycleTestSurface.tsx](incidentLifecycleTestSurface.tsx) | Test-only composition fixture for incident lifecycle controls and departure review. |
 | [useIncidentLifecycle.ts](useIncidentLifecycle.ts) | React binding for incident lifecycle ownership, authority updates, and departure review. |
 
 ## Incident membership management
@@ -132,7 +130,6 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentMembershipManagementModel.ts](incidentMembershipManagementModel.ts) | Membership page, authority, draft, review, and mutation-attempt models. |
 | [IncidentMembershipManagementPanel.test.tsx](IncidentMembershipManagementPanel.test.tsx) | Tests reviewed membership writes, permission-sensitive controls, and dirty-input departure review. |
 | [IncidentMembershipManagementPanel.tsx](IncidentMembershipManagementPanel.tsx) | Membership browsing, add/edit/remove review, operation recovery, and departure controls. |
-| [incidentMembershipManagementTestSurface.tsx](incidentMembershipManagementTestSurface.tsx) | Test-only composition fixture for membership controls and departure review. |
 | [useIncidentMembershipManagement.ts](useIncidentMembershipManagement.ts) | React binding for membership browsing, reviewed mutations, and departure review. |
 
 ## Incident membership audit
@@ -209,3 +206,5 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [useWorkbookSavedViews.ts](useWorkbookSavedViews.ts) | App-lifetime binding for saved-view controller state and operations. |
 | [WorkbookPreferenceDepartureDialog.tsx](WorkbookPreferenceDepartureDialog.tsx) | Departure review for outstanding workbook preference edits. |
 | [workbookPreferenceIntegration.test.tsx](workbookPreferenceIntegration.test.tsx) | Tests preference work across drawer transitions, role changes, and session replacement. |
+
+Incident presentation test compositions live in [testing](../testing/README.md).

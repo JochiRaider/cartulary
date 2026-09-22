@@ -33,6 +33,7 @@ import {
   workbookCollectionValue,
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
+import { useWorkbookMutationRuntimeTestRegistry } from "../testing/workbookMutationRuntimeTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
 import {
@@ -54,6 +55,7 @@ const authorizationRecovery = workbookAuthorizationRecovery();
 function WorkbookShell(
   props: Omit<
     Parameters<typeof WorkbookShellImpl>[0],
+    | "mutationRuntimeRegistry"
     | "sessionIdentity"
     | "authorizationRecovery"
     | "savedViewController"
@@ -62,8 +64,15 @@ function WorkbookShell(
     | "networkFlowImportController"
     | "bindNetworkFlowImport"
     | "bindWorkbookImport"
-  >,
+  > & {
+    readonly mutationRuntimeRegistry?: Parameters<
+      typeof WorkbookShellImpl
+    >[0]["mutationRuntimeRegistry"];
+  },
 ) {
+  const registry = useWorkbookMutationRuntimeTestRegistry(
+    props.mutationRuntimeRegistry,
+  );
   const savedViews = useSavedViewTestApplication(
     props.incidentId,
     "40000000-0000-4000-8000-000000000301",
@@ -78,6 +87,7 @@ function WorkbookShell(
       bindWorkbookImport={() => {}}
       {...savedViews}
       {...props}
+      mutationRuntimeRegistry={registry}
       authorizationRecovery={authorizationRecovery}
     />
   );

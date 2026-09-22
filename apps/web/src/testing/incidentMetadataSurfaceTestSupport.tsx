@@ -1,13 +1,13 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
-import { metadataActorId } from "../testing/incidentMetadataTestSupport";
 import {
   patchIncidentMetadata,
   readIncidentMetadata,
-} from "./api/incidentMetadataClient";
-import { IncidentAdminPanel } from "./IncidentAdminPanel";
-import { IncidentMetadataPanel } from "./IncidentMetadataPanel";
-import { IncidentMetadataController } from "./incidentMetadataController";
+} from "../app/api/incidentMetadataClient";
+import { IncidentAdminPanel } from "../app/IncidentAdminPanel";
+import { IncidentMetadataPanel } from "../app/IncidentMetadataPanel";
+import { IncidentMetadataController } from "../app/incidentMetadataController";
+import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
+import { metadataActorId } from "./incidentMetadataTestSupport";
 
 export function MetadataTestSurface(
   props: Omit<WorkbookIncidentControlsRendererProps, "activeSection"> & {

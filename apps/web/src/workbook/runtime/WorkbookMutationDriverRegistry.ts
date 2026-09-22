@@ -1,4 +1,4 @@
-import type { PendingReplayUnitState } from "../utils/workbookPendingQueue";
+import type { PendingReplayUnitState } from "./pending/workbookPendingQueue";
 import type {
   WorkbookBatchAttempt,
   WorkbookBatchReceipt,

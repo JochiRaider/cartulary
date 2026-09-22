@@ -1,13 +1,13 @@
 import {
   publicErrorCode,
   publicErrorStatusText,
-} from "../../shared/publicError";
-import type { SheetRef } from "../../shared/sheetRef";
+} from "../../../shared/publicError";
+import type { SheetRef } from "../../../shared/sheetRef";
+import { workbookEditRecoveryPresentation } from "../../utils/workbookEditRecoveryPresentation";
 import {
   parseSameFieldConflictFields,
   type SameFieldConflictFields,
-} from "../runtime/workbookConflictModel";
-import { workbookEditRecoveryPresentation } from "./workbookEditRecoveryPresentation";
+} from "../workbookConflictModel";
 
 export const pendingReplayCapacity = 64;
 

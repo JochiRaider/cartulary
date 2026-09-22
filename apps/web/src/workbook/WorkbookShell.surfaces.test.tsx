@@ -94,6 +94,7 @@ import {
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
+import { useWorkbookMutationRuntimeTestRegistry } from "../testing/workbookMutationRuntimeTestSupport";
 import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { publicWorkbookSchema } from "../testing/workbookSchemaTestSupport";
@@ -145,6 +146,7 @@ const authorizationRecovery = workbookAuthorizationRecovery();
 function WorkbookShell(
   props: Omit<
     Parameters<typeof WorkbookShellImpl>[0],
+    | "mutationRuntimeRegistry"
     | "sessionIdentity"
     | "authorizationRecovery"
     | "savedViewController"
@@ -153,8 +155,15 @@ function WorkbookShell(
     | "networkFlowImportController"
     | "bindNetworkFlowImport"
     | "bindWorkbookImport"
-  >,
+  > & {
+    readonly mutationRuntimeRegistry?: Parameters<
+      typeof WorkbookShellImpl
+    >[0]["mutationRuntimeRegistry"];
+  },
 ) {
+  const registry = useWorkbookMutationRuntimeTestRegistry(
+    props.mutationRuntimeRegistry,
+  );
   const savedViews = useSavedViewTestApplication(
     props.incidentId,
     testUserId,
@@ -186,6 +195,7 @@ function WorkbookShell(
       bindWorkbookImport={() => {}}
       {...savedViews}
       {...props}
+      mutationRuntimeRegistry={registry}
       preferenceController={preferences}
       bindWorkbookPreferences={(binding) => {
         if (!binding) {
@@ -1665,7 +1675,7 @@ describe("WorkbookShell surface selection", () => {
     act(() => {
       // Restore the shared read authority as the production shell does after
       // same-account reauthentication, as well as each retained operation.
-      runtime.explicitPatches.setAuthority(authority);
+      runtime.setAuthority(authority);
       runtime.noteCreate.setAuthority(authority);
       lifecycle.setAuthority(authority);
       runtime.batches.setAuthority(authority);

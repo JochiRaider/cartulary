@@ -20,7 +20,7 @@ import type { RecordPatchTransport } from "../../adapters/workbookRecordPatchTra
 import { WorkbookHistoryContext } from "../../history/WorkbookHistoryContext";
 import { entityRowFromApi } from "../../models/entityWorkbookModel";
 import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
-import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { useEntityWorkbookInspectorComposition } from "./useEntityWorkbookInspectorComposition";
 
 const schema = "cartulary.view.hosts.v1";
@@ -46,7 +46,7 @@ function row(id: string, version = 1) {
 }
 function fixture() {
   let sequence = 0;
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     {
       incidentId: taskAuthority.incidentId,
       clientInstanceId: "inspector-test",
@@ -54,7 +54,7 @@ function fixture() {
     { create: () => `inspector-${++sequence}` },
     { execute: vi.fn() },
   );
-  runtime.explicitPatches.setAuthority(taskAuthority);
+  runtime.setAuthority(taskAuthority);
   const patch = vi.fn<RecordPatchTransport["send"]>(async (input) => ({
     kind: "acknowledged",
     receipt: {

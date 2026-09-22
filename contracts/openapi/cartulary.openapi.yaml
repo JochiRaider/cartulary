@@ -12678,7 +12678,7 @@
         "properties": {
           "assistant_profile": {
             "enum": [
-              "phase2_workbook_import_v1"
+              "workbook_import_v1"
             ],
             "type": "string"
           },

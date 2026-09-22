@@ -9,7 +9,7 @@ import {
   createWorkbookPendingQueueModel,
   type PendingReplayKind,
   type PendingReplayUnitState,
-} from "../utils/workbookPendingQueue";
+} from "../runtime/pending/workbookPendingQueue";
 import { createWorkbookPendingMutationAdapter } from "./createWorkbookPendingMutationAdapter";
 
 const incidentId = "10000000-0000-4000-8000-000000000001";

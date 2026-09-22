@@ -7,13 +7,13 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MembershipTestSurface } from "../testing/incidentMembershipManagementSurfaceTestSupport";
 import {
   membershipAuthority as authority,
   membershipJSON as json,
   membershipEnvelope,
   membershipFixture,
 } from "../testing/incidentMembershipManagementTestSupport";
-import { MembershipTestSurface } from "./incidentMembershipManagementTestSurface";
 
 afterEach(() => {
   cleanup();

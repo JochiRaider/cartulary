@@ -3,7 +3,7 @@ import { timelineRow } from "../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
-import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "./createWorkbookMutationRuntime";
 
 const incidentId = "10000000-0000-4000-8000-000000000001";
 const recordId = "20000000-0000-4000-8000-000000000001";
@@ -17,12 +17,12 @@ function fixture() {
   const execute = vi.fn<WorkbookPendingMutationPort["execute"]>(
     () => new Promise((resolve) => replies.push(resolve)),
   );
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId, clientInstanceId: "grid-autosave-client" },
     { create: () => `grid-autosave-${++sequence}` },
     { execute },
   );
-  runtime.explicitPatches.setAuthority({
+  runtime.setAuthority({
     actorId: "actor",
     sessionIdentity: "session",
     incidentId,

@@ -20,7 +20,7 @@ import { historyDiffFixture } from "../../testing/workbookHistoryTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import type { RecordHistoryData } from "../adapters/workbookHistoryResponse";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
-import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { WorkbookHistoryContext } from "./WorkbookHistoryContext";
 import { WorkbookHistoryRecovery } from "./WorkbookHistoryRecovery";
 import type {
@@ -66,7 +66,7 @@ function setup(
   surface: (typeof surfaces)[number],
   operation: (typeof operations)[number] = "delete",
 ) {
-  const runtime = new WorkbookMutationRuntime(
+  const runtime = createWorkbookMutationRuntime(
     { incidentId: "incident", clientInstanceId: "client" },
     { create: () => crypto.randomUUID() },
     createWorkbookPendingMutationAdapter({
