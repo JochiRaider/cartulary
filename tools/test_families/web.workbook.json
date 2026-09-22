@@ -4618,7 +4618,13 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts",
         "titles": [
+          "coalesces only undispatched capture revisions and preserves an explicit clear before capture",
+          "promotes newer retained capture authoring after detached acknowledgement",
+          "retains admission-refused capture authoring through acceptance at queue capacity",
+          "retains capture authoring through suspension and retires it before late incident or account receipts",
+          "retains newer authoring and blocks orphan successors after creation discard",
           "settles a halted Timeline editor only when Retry or Discard resolves its logical operation",
+          "settles capture successors by revision including clears and equal text without overwriting unrelated fields",
           "settles terminal validation immediately while preserving retryable transaction recovery"
         ]
       },

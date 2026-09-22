@@ -15,9 +15,10 @@ import type {
 } from "../../runtime/workbookBatchOperation";
 import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
+import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { buildCreatePayload } from "../models/timelineMutationIntents";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
-import { createDraftRow, rowFromApi } from "../models/timelineRowModel";
+import { rowFromApi } from "../models/timelineRowModel";
 import type { TimelineMutationDriverPorts } from "./createTimelineMutationDriver";
 import { timelineMutationOwnerFor } from "./WorkbookTimelineMutationOwner";
 
@@ -65,9 +66,14 @@ function fixture() {
   );
   runtimes.push(runtime);
   const owner = timelineMutationOwnerFor(runtime),
-    row = createDraftRow(1),
-    rowsRef = { current: [row] };
+    row = owner.initialRows()[0],
+    rowsRef = { current: row ? [row] : [] };
+  if (!row) throw new Error("Missing initial capture draft");
   const pending = timelinePendingSavesRefsFor(runtime, runtime.pendingQueue());
+  const drafts = createTimelineEditorDraftRegistry(
+    runtime.localDraftsForSurface(timelineViewSchemaId),
+    owner.capture,
+  );
   const ports: TimelineMutationDriverPorts = {
     mutationRuntime: runtime,
     pendingSavesRefs: pending,
@@ -82,9 +88,10 @@ function fixture() {
       rowsRef.current = [row];
       return row;
     },
-    clearSubmittedScalarEditorDraftValuesForRow: vi.fn(),
-    captureEditorDrafts: () => new Map(),
-    acceptEditorPredecessor: () => {},
+    settleEditorRevisions: drafts.settleRevisions,
+    batchAuthoring: drafts.batch,
+    captureEditorDrafts: drafts.captureRow,
+    acceptEditorPredecessor: drafts.acceptPredecessor,
     clearViewportContinuity: vi.fn(),
     conflictQueueRef: { current: {} },
     registerMutationConflict: () => true,
@@ -93,7 +100,6 @@ function fixture() {
     loadRows: async () => {},
     postMutationQueryRefreshRequired: false,
     publishPendingQueueState: vi.fn(),
-    reconcileDiscardedPendingUnit: vi.fn(),
     recordWorkbookTiming: vi.fn(),
     requestAuthorizationRecovery: vi.fn(),
     setRefreshError: vi.fn(),
@@ -111,17 +117,28 @@ function fixture() {
   const detach = owner.attach(() => ports);
   const type = (
     onSettled?: Parameters<typeof owner.enqueuePendingReplayUnit>[1],
+    value = "Typed while upload continues",
+    surface: "grid" | "inspector" = "grid",
   ) => {
-    const authored = {
+    let authored = {
       ...row,
       values: {
         ...row.values,
-        activitySynopsisText: "Typed while upload continues",
+        activitySynopsisText: value,
       },
     };
+    drafts.setDraft(
+      { rowKey: row.key, field: "activitySynopsisText", surface },
+      authored.values.activitySynopsisText,
+      row,
+      true,
+    );
+    authored = drafts.materializeRow(authored, { surface });
     rowsRef.current = [authored];
     const clientTxnId = ids.create("ordinary"),
-      payloadIntent = buildCreatePayload(authored, clientTxnId);
+      payloadIntent = buildCreatePayload(authored, clientTxnId, {
+        allowZeroFieldCreate: true,
+      });
     if (!payloadIntent) throw new Error("Expected qualifying draft input");
     owner.enqueuePendingReplayUnit(
       {
@@ -139,10 +156,13 @@ function fixture() {
         enqueueOrder: pending.pendingReplayOrderRef.current++,
         operationClass: "hot_path",
         status: "queued",
-        mutationSignature: buildStableMutationSignature(payloadIntent),
+        mutationSignature: JSON.stringify([
+          buildStableMutationSignature(payloadIntent),
+          clientTxnId,
+        ]),
         focusField: "activitySynopsisText",
         focusKey: "draft",
-        surface: "grid",
+        surface,
         rowSnapshot: authored,
         continueOnFreshDraft: true,
         detectAutoResolution: false,
@@ -155,6 +175,7 @@ function fixture() {
   return {
     runtime,
     owner,
+    drafts,
     row,
     execute,
     acknowledgement,
@@ -350,4 +371,253 @@ it("settles terminal validation immediately while preserving retryable transacti
   expect(settled).toHaveBeenCalledOnce();
   expect(f.execute).toHaveBeenCalledOnce();
   f.detach();
+});
+
+it("promotes newer retained capture authoring after detached acknowledgement", async () => {
+  const f = fixture();
+  const identity = {
+    rowKey: f.row.key,
+    field: "activitySynopsisText" as const,
+    surface: "grid" as const,
+  };
+  f.drafts.setDraft(identity, "A", f.row, true);
+  f.drafts.beginCapture(f.row.key);
+  f.type();
+  await vi.waitFor(() => expect(f.execute).toHaveBeenCalledTimes(1));
+  f.drafts.setDraft(identity, "B", f.row, true);
+  const revision = [...f.drafts.captureRow(f.row.key, "grid").values()][0];
+  f.detach();
+  f.acknowledgement.resolve({ kind: "accepted", value: f.receipt });
+  await vi.waitFor(() =>
+    expect(f.owner.fileDrafts.resolve(f.row.key).kind).toBe("promoted"),
+  );
+  expect(f.drafts.resolveRowKey(f.row.key)).toBe(recordId);
+  expect(f.drafts.draftValue({ ...identity, rowKey: recordId })).toBe("B");
+  expect([...f.drafts.captureRow(recordId, "grid").values()]).toEqual([
+    revision,
+  ]);
+  expect(f.execute).toHaveBeenCalledTimes(1);
+  const reattached = f.owner.initialRows();
+  expect(reattached.filter((row) => row.recordId === null)).toHaveLength(1);
+  expect(reattached.find((row) => row.recordId === null)?.key).not.toBe(
+    f.row.key,
+  );
+  expect(f.drafts.draftValue({ ...identity, rowKey: recordId })).toBe("B");
+});
+
+it("settles capture successors by revision including clears and equal text without overwriting unrelated fields", async () => {
+  for (const later of ["", "B", "A", "  Ω 東京  "]) {
+    const f = fixture();
+    f.type(undefined, "A");
+    await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+    const captured = structuredClone(f.execute.mock.calls[0]?.[0].unit);
+    if (later === "B")
+      f.drafts.setDraft(
+        { rowKey: f.row.key, field: "analystText", surface: "grid" },
+        "Second owned field",
+        f.row,
+        true,
+      );
+    f.type(undefined, later);
+    const identity = {
+      rowKey: f.row.key,
+      field: "activitySynopsisText" as const,
+      surface: "grid" as const,
+    };
+    f.drafts.setDraft(
+      { ...identity, surface: "inspector" },
+      "Independent inspector",
+      f.row,
+      true,
+    );
+    const receipt = {
+      ...f.receipt,
+      row: {
+        ...f.receipt.row,
+        cells: {
+          ...f.receipt.row.cells,
+          "timeline.activity_synopsis_text": { value: "A" },
+          "timeline.data_source_text": {
+            value: "Independent authoritative source",
+          },
+        },
+      },
+    };
+    f.acknowledgement.resolve({ kind: "accepted", value: receipt });
+    await waitFor(() =>
+      expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(0),
+    );
+    expect(f.execute.mock.calls[0]?.[0].unit).toEqual(captured);
+    expect(f.execute).toHaveBeenCalledTimes(later === "A" ? 1 : 2);
+    if (later !== "A")
+      expect(f.execute.mock.calls[1]?.[0].unit).toMatchObject({
+        kind: "patch",
+        recordId,
+        payloadIntent: {
+          base_row_version: 1,
+          changes: [
+            { field_key: "timeline.activity_synopsis_text", value: later },
+            ...(later === "B"
+              ? [
+                  {
+                    field_key: "timeline.analyst_text",
+                    value: "Second owned field",
+                  },
+                ]
+              : []),
+          ],
+        },
+      });
+    expect(
+      f.drafts.draftValue({ ...identity, rowKey: recordId }),
+    ).toBeUndefined();
+    expect(
+      f.drafts.draftValue({
+        ...identity,
+        rowKey: recordId,
+        surface: "inspector",
+      }),
+    ).toBe("Independent inspector");
+    f.detach();
+  }
+});
+
+it("coalesces only undispatched capture revisions and preserves an explicit clear before capture", async () => {
+  const f = fixture();
+  f.runtime.pendingQueue().model.pauseForAuthRecovery();
+  f.type(undefined, "A");
+  f.type(undefined, "");
+  expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(1);
+  f.runtime.pendingQueue().model.resumeAfterAuthRecovery();
+  f.runtime.requestDrain();
+  await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+  expect(f.execute.mock.calls[0]?.[0].unit.payloadIntent).toEqual({
+    client_txn_id: expect.any(String),
+  });
+  f.acknowledgement.resolve({ kind: "accepted", value: f.receipt });
+  await waitFor(() =>
+    expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(0),
+  );
+  expect(f.execute).toHaveBeenCalledOnce();
+  f.detach();
+});
+
+it("retains newer authoring and blocks orphan successors after creation discard", async () => {
+  const f = fixture();
+  f.type(undefined, "A");
+  await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+  f.type(undefined, "B");
+  f.drafts.setDraft(
+    { rowKey: f.row.key, field: "activitySynopsisText", surface: "grid" },
+    "C refused or unsubmitted",
+    f.row,
+    true,
+  );
+  f.acknowledgement.resolve({
+    kind: "rejected",
+    failure: {
+      kind: "validation",
+      publicCode: "invalid_request",
+      message: "Invalid creation",
+    },
+  });
+  await waitFor(() =>
+    expect(f.runtime.getSnapshot().blockedEdit).not.toBeNull(),
+  );
+  const id = f.runtime.getSnapshot().blockedEdit?.unitId;
+  if (!id) throw new Error("Missing blocked create");
+  expect(f.owner.discardBlockedEdit(id)).toBe(true);
+  await waitFor(() =>
+    expect(f.runtime.getSnapshot().blockedEdit).not.toBeNull(),
+  );
+  expect(f.runtime.getSnapshot().blockedEdit?.unitId).not.toBe(id);
+  expect(f.execute).toHaveBeenCalledOnce();
+  expect(
+    f.drafts.draftValue({
+      rowKey: f.row.key,
+      field: "activitySynopsisText",
+      surface: "grid",
+    }),
+  ).toBe("C refused or unsubmitted");
+  f.detach();
+});
+
+it("retains admission-refused capture authoring through acceptance at queue capacity", async () => {
+  const f = fixture();
+  f.type(undefined, "A");
+  await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+  const first = f.runtime.pendingQueue().model.snapshot().units[0];
+  if (!first) throw new Error("Missing initial create");
+  for (let index = 1; index < 64; index++)
+    f.runtime.pendingQueue().model.admit({
+      ...first,
+      id: `capacity-${index}`,
+      rowKey: `other-${index}`,
+      clientTxnId: `capacity-${index}`,
+      mutationSignature: `capacity-${index}`,
+      coalesceKey: `other-${index}`,
+      enqueueOrder: index + 1,
+      status: "queued",
+    });
+  const refused = vi.fn();
+  f.type(refused, "B refused Ω");
+  expect(refused).toHaveBeenCalledWith(
+    expect.objectContaining({ kind: "rejected_mutation" }),
+  );
+  expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(64);
+  // Fixture ballast has no source driver; keep dispatch fenced to the real create.
+  f.runtime
+    .pendingQueue()
+    .model.setDispatchGuard((unit) => unit.id === first.id);
+  f.acknowledgement.resolve({ kind: "accepted", value: f.receipt });
+  await waitFor(() => expect(f.drafts.resolveRowKey(f.row.key)).toBe(recordId));
+  expect(
+    f.drafts.draftValue({
+      rowKey: recordId,
+      field: "activitySynopsisText",
+      surface: "grid",
+    }),
+  ).toBe("B refused Ω");
+  expect(f.execute).toHaveBeenCalledOnce();
+  f.detach();
+});
+
+it("retains capture authoring through suspension and retires it before late incident or account receipts", async () => {
+  for (const retirement of ["incident_changed", "runtime_disposed"] as const) {
+    const f = fixture();
+    f.type(undefined, "A");
+    await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+    const identity = {
+      rowKey: f.row.key,
+      field: "activitySynopsisText" as const,
+      surface: "grid" as const,
+    };
+    f.drafts.setDraft(identity, "Private B", f.row, true);
+    f.runtime.applyAuthorizationRecoveryState("paused");
+    expect(f.drafts.draftValue(identity)).toBe("Private B");
+    f.runtime.applyAuthorizationRecoveryState("resumed");
+    expect(f.drafts.draftValue(identity)).toBe("Private B");
+    f.runtime.invalidate({ kind: "incident_role_changed", role: "viewer" });
+    expect(f.drafts.draftValue(identity)).toBe("Private B");
+    f.runtime.invalidate({ kind: "incident_closed" });
+    expect(f.drafts.draftValue(identity)).toBe("Private B");
+    f.runtime.invalidate(
+      retirement === "incident_changed"
+        ? { kind: retirement, nextIncidentId: "other" }
+        : { kind: retirement },
+    );
+    expect(f.drafts.draftValue(identity)).toBeUndefined();
+    expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(0);
+    f.acknowledgement.resolve({ kind: "accepted", value: f.receipt });
+    await f.acknowledgement.promise;
+    await Promise.resolve();
+    expect(f.drafts.resolveRowKey(f.row.key)).toBe(f.row.key);
+    expect(
+      f.drafts.draftValue({ ...identity, rowKey: recordId }),
+    ).toBeUndefined();
+    expect(f.owner.fileDrafts.resolve(f.row.key)).toEqual({
+      kind: "unavailable",
+    });
+    expect(f.execute).toHaveBeenCalledOnce();
+  }
 });

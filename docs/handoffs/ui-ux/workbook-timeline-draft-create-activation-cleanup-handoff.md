@@ -297,3 +297,13 @@ The final source selections total three Timeline frontend rows, six workbook
 regression rows and ten browser scenarios with passing evidence across targeted
 runs. Failed characterization/probe runs remain documented and are not reported
 as successful runs. Retained-run maintenance was skipped with `RESULTS_DIR` unset.
+
+
+## Subsequent resolution of pending-capture authoring
+
+The separate scalar replacement limitation recorded above is addressed by the
+[Timeline pending-capture authoring remediation](workbook-timeline-pending-capture-authoring-remediation-handoff.md).
+That slice retains the exact replacement-without-keydown reproduction, moves
+capture identity and promotion into the retained owner, and verifies revision-owned
+successors, detachment and native input. This activation handoff remains historical
+evidence; consult the linked record for current verification and manual limits.

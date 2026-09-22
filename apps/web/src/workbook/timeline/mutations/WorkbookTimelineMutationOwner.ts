@@ -8,10 +8,13 @@ import { buildStableMutationSignature } from "../../utils/workbookPendingQueue";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { buildAttachedEvidenceCreateRequest } from "../adapters/timelineEvidenceRequestBuilders";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import { TimelineCaptureLifecycle } from "../models/TimelineCaptureLifecycle";
+import { projectAcceptedTimelineRow } from "../models/timelineAcceptedProjection";
 import { inputFocusKey } from "../models/timelineFieldRegistry";
 import { buildCreatePayload } from "../models/timelineMutationIntents";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import {
+  createDraftRow,
   normalizeTimelineFullRow,
   rowFromApi,
   type WorkbookRow,
@@ -53,6 +56,7 @@ export class WorkbookTimelineMutationOwner {
   >();
   private readonly fileListeners = new Set<() => void>();
   readonly fileDrafts: TimelineFileDraftPort;
+  readonly capture: TimelineCaptureLifecycle;
   private readonly driver;
   private readonly unregister: () => void;
   private retired = false;
@@ -65,9 +69,9 @@ export class WorkbookTimelineMutationOwner {
       runtime,
       runtime.pendingQueue(),
     );
-    const drafts = createTimelineEditorDraftRegistry(
-      runtime.localDraftsForSurface(timelineViewSchemaId),
-    );
+    const store = runtime.localDraftsForSurface(timelineViewSchemaId);
+    this.capture = new TimelineCaptureLifecycle(store);
+    const drafts = createTimelineEditorDraftRegistry(store, this.capture);
     const presentation = () =>
       this.retired ||
       runtime.pendingQueue().model.snapshot().authPaused ||
@@ -178,11 +182,12 @@ export class WorkbookTimelineMutationOwner {
       },
       applyAcceptedRowMutation: (key, accepted, options) => {
         this.receipts.set(accepted.changeSetId, accepted);
-        this.promotions.set(key, accepted);
+        if (key.startsWith("draft-")) this.promotions.set(key, accepted);
         for (const listener of this.fileListeners) listener();
         if (!presentation())
           runtime.retainSurfaceRefreshDebt(timelineViewSchemaId);
         const row = rowFromApi(accepted.row);
+        if (key.startsWith("draft-")) this.capture.promote(key, row);
         const mentions = this.retired ? null : timelineMentionOwnerFor(runtime);
         if (
           options?.detectAutoResolution !== false &&
@@ -195,24 +200,23 @@ export class WorkbookTimelineMutationOwner {
             changeSetId: accepted.changeSetId,
           });
         else mentions?.observeSource(row);
-        this.rows.current = this.rows.current
-          .filter((item) => item.key !== key && item.recordId !== row.recordId)
-          .concat(row);
+        if (!presentation())
+          this.rows.current = projectAcceptedTimelineRow({
+            committed: row,
+            currentRows: this.rows.current,
+            rowKey: key,
+            nextDraftIndex: this.capture.allocateDraftIndex,
+          }).rows;
         return (
           presentation()?.applyAcceptedRowMutation(key, accepted, options) ??
           row
         );
       },
-      clearSubmittedScalarEditorDraftValuesForRow: (...args) => {
-        const mounted = presentation();
-        if (mounted)
-          mounted.clearSubmittedScalarEditorDraftValuesForRow(...args);
-        else drafts.clearSubmittedRow(...args);
-      },
+      settleEditorRevisions: drafts.settleRevisions,
+      batchAuthoring: drafts.batch,
       captureEditorDrafts: drafts.captureRow,
       acceptEditorPredecessor: (row, fields, previousValues) => {
         drafts.acceptPredecessor(row, fields, previousValues);
-        presentation()?.acceptEditorPredecessor(row, fields, previousValues);
       },
       clearViewportContinuity: (token) =>
         presentation()?.clearViewportContinuity(token),
@@ -252,8 +256,6 @@ export class WorkbookTimelineMutationOwner {
         await presentation()?.loadRows(options);
       },
       publishPendingQueueState: publish,
-      reconcileDiscardedPendingUnit: (...args) =>
-        presentation()?.reconcileDiscardedPendingUnit(...args),
       recordWorkbookTiming: (name, details) => {
         if (typeof performance !== "undefined")
           performance.mark(`cartulary.workbook.${name}`, { detail: details });
@@ -383,6 +385,15 @@ export class WorkbookTimelineMutationOwner {
     this.unregister = registration.unregister;
   }
 
+  initialRows = () => {
+    if (!this.rows.current.some((row) => row.recordId === null))
+      this.rows.current = [
+        ...this.rows.current,
+        createDraftRow(this.capture.allocateDraftIndex()),
+      ];
+    return this.rows.current;
+  };
+
   configureReader(read: ReadSource) {
     this.readSource = read;
   }
@@ -403,6 +414,15 @@ export class WorkbookTimelineMutationOwner {
       if (this.attachment !== attachment) return;
       this.rows.current = read().rowsRef.current;
       this.attachment = null;
+      const referenced = new Set([
+        ...this.runtime
+          .pendingQueue()
+          .model.snapshot()
+          .units.map((unit) => unit.rowKey),
+        ...this.runtime.timelineFiles.getSnapshot().map((entry) => entry.key),
+      ]);
+      for (const key of this.capture.retireUnreferenced(referenced))
+        this.promotions.delete(key);
     };
   }
   readonly enqueuePendingReplayUnit: ReturnType<
@@ -426,6 +446,7 @@ export class WorkbookTimelineMutationOwner {
     ).scalarCommits.clear();
     this.batchSources.clear();
     this.promotions.clear();
+    this.capture.clear();
     this.fileListeners.clear();
     this.rows.current = [];
     this.driver.retire();

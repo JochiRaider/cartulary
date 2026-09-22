@@ -8,6 +8,20 @@ export class WorkbookLocalDraftStore {
   private readonly baselines = new Map<string, string>();
   private sequence = 0;
   private snapshot = 0;
+  private batchDepth = 0;
+  private changed = false;
+  batch = (work: () => void) => {
+    this.batchDepth++;
+    try {
+      work();
+    } finally {
+      this.batchDepth--;
+      if (!this.batchDepth && this.changed) {
+        this.changed = false;
+        this.publish();
+      }
+    }
+  };
   private readonly listeners = new Set<() => void>();
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -17,6 +31,10 @@ export class WorkbookLocalDraftStore {
   };
   getSnapshot = () => this.snapshot;
   private publish() {
+    if (this.batchDepth) {
+      this.changed = true;
+      return;
+    }
     this.snapshot++;
     for (const listener of this.listeners) listener();
   }

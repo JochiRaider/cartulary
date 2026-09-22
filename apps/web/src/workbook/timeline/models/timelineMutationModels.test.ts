@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { planTimelineAcceptedMutationEffects } from "./timelineAcceptedMutationEffects";
 import { projectAcceptedTimelineRow } from "./timelineAcceptedProjection";
 import { projectTimelineCollectionPresentation } from "./timelineCollectionPresentation";
 import { createTimelineCommittedVersionLedger } from "./timelineCommittedVersionLedger";
-import type { TimelineReplayContext } from "./timelineControllerPorts";
-import { reconcileDiscardedTimelineUnit } from "./timelineDiscardedReconciliation";
 import { timelineFieldBinding } from "./timelineFieldRegistry";
 import {
   planTimelineCollectionMutation,
@@ -30,42 +27,6 @@ function savedRow(recordId = "timeline-1", rowVersion = 4): WorkbookRow {
           value: draft.values.activitySynopsisText,
         },
       },
-    },
-  };
-}
-
-function pendingPatch(
-  id: string,
-  enqueueOrder: number,
-  value: string,
-): PendingReplayUnitState {
-  return {
-    id,
-    kind: "patch",
-    source: "autosave",
-    incidentId: "incident-1",
-    clientInstanceId: "client-1",
-    viewSchemaId: timelineViewSchemaId,
-    rowKey: "timeline-1",
-    recordId: "timeline-1",
-    payloadIntent: {
-      base_row_version: 4,
-      changes: [{ field_key: "timeline.activity_synopsis_text", value }],
-    },
-    clientTxnId: `txn-${id}`,
-    mutationSignature: `signature-${id}`,
-    coalesceKey: "record:timeline-1",
-    enqueueOrder,
-    operationClass: "hot_path",
-    status: "queued",
-    identity: {
-      kind: "patch",
-      route_scope: { record_id: "timeline-1" },
-      record_id: "timeline-1",
-      client_txn_id: `txn-${id}`,
-      view_schema_id: timelineViewSchemaId,
-      base_row_version: 4,
-      changes: [{ field_key: "timeline.activity_synopsis_text", value }],
     },
   };
 }
@@ -184,48 +145,6 @@ describe("Timeline mutation models", () => {
     });
   });
 
-  it("reconciles discarded units from committed state and reapplies later FIFO work", () => {
-    const row = savedRow();
-    const discarded = pendingPatch("discarded", 1, "discarded");
-    const remaining = pendingPatch("remaining", 2, "retained");
-    const context: TimelineReplayContext = {
-      sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
-      focusField: "activitySynopsisText",
-      focusKey: "timeline-1:activitySynopsisText:grid",
-      surface: "grid",
-      rowSnapshot: row,
-      continueOnFreshDraft: false,
-      detectAutoResolution: false,
-      promoteToCommittedRowInspect: false,
-      viewportContinuityToken: 1,
-    };
-    const plan = reconcileDiscardedTimelineUnit({
-      committedRow: row,
-      contextByUnitId: new Map([
-        [discarded.id, context],
-        [remaining.id, context],
-      ]),
-      currentRows: [
-        {
-          ...row,
-          values: { ...row.values, activitySynopsisText: "discarded" },
-        },
-      ],
-      discardedUnit: discarded,
-      nextDraftIndex: () => 2,
-      remainingUnits: [remaining],
-    });
-    expect(plan.rows?.[0]).toMatchObject({
-      pendingSignature: "signature-remaining",
-      values: { activitySynopsisText: "retained" },
-    });
-    expect(plan.rows?.[0]?.rawRow).toBe(row.rawRow);
-    expect(plan.cancelEdit).toEqual({
-      fieldKey: "timeline.activity_synopsis_text",
-      recordId: "timeline-1",
-    });
-  });
-
   it("maintains committed row versions as a monotonic reference-preserving ledger", () => {
     const ledger = createTimelineCommittedVersionLedger();
     const versionFour = savedRow("timeline-1", 4);
@@ -272,19 +191,6 @@ describe("Timeline mutation models", () => {
     );
     expect(saved?.rawRow?.cells).not.toHaveProperty(
       "timeline.data_source_text",
-    );
-    const discarded = pendingPatch("discarded", 1, "Discarded");
-    const reconciled = reconcileDiscardedTimelineUnit({
-      committedRow: saved,
-      contextByUnitId: new Map(),
-      currentRows: [withDraft],
-      discardedUnit: discarded,
-      nextDraftIndex: () => 2,
-      remainingUnits: [pendingPatch("later", 2, "Later draft")],
-    });
-    expect(reconciled.rows?.[0]?.rawRow).toBe(canonical);
-    expect(reconciled.rows?.[0]?.values.activitySynopsisText).toBe(
-      "Later draft",
     );
   });
 

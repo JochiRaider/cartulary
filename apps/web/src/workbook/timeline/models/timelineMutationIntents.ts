@@ -1,8 +1,10 @@
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   type CollectionFieldKey,
+  inputFocusKey,
   timelineCollectionBindings,
   timelineScalarBindings,
+  timelineScalarEditorSurfaces,
 } from "./timelineFieldRegistry";
 import type { WorkbookRow } from "./timelineRowModel";
 
@@ -87,14 +89,30 @@ export function buildFollowOnCapturePatch(
   submitted: WorkbookRow,
   following: WorkbookRow,
   clientTxnId: string,
+  submittedRevisions: ReadonlyMap<string, number>,
+  followingRevisions: ReadonlyMap<string, number>,
 ) {
-  const changes: Record<string, unknown>[] = [
-    ...(buildScalarPatchIntent(
-      { ...committed, values: following.values },
-      clientTxnId,
-    )?.changes ?? []),
-  ];
+  const owns = (field: Parameters<typeof inputFocusKey>[1]) =>
+    timelineScalarEditorSurfaces.some((surface) => {
+      const key = inputFocusKey(following.key, field, surface);
+      const revision = followingRevisions.get(key);
+      return revision !== undefined && revision !== submittedRevisions.get(key);
+    });
+  const changes: Record<string, unknown>[] = timelineScalarBindings.flatMap(
+    (binding) =>
+      owns(binding.key) &&
+      following.values[binding.key] !== committed.committedValues[binding.key]
+        ? [
+            {
+              field_key: binding.fieldKey,
+              value: following.values[binding.key],
+            },
+          ]
+        : [],
+  );
+
   for (const binding of timelineCollectionBindings) {
+    if (!owns(binding.draftKey)) continue;
     const acceptedTokens =
       submitted.collectionDrafts[binding.draftKey].split(/\r?\n/u);
     const remaining = following.collectionDrafts[binding.draftKey]

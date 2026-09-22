@@ -1,11 +1,20 @@
 import { timelineScalarEditorTestId } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { TimelineScalarEditor } from "./TimelineScalarEditor";
 
 it("TimelineScalarEditor preserves controlled draft read-only presence and commit behavior", () => {
   const onBlurCommit = vi.fn();
-  const onDraftChange = vi.fn();
+  const registry = createTimelineEditorDraftRegistry();
+  const onDraftChange = vi.fn((rowKey, field, surface, value, input) =>
+    registry.setDraft(
+      { rowKey, field, surface },
+      value,
+      undefined,
+      input !== undefined,
+    ),
+  );
   const onEditModeChange = vi.fn();
   const registerInput = vi.fn();
   const dataTestId = timelineScalarEditorTestId({
@@ -15,6 +24,7 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
   });
   const props = {
     committedValue: "Committed",
+    editorDraftRegistry: registry,
     controlId: "timeline-editor-test",
     dataTestId,
     field: "activitySynopsisText" as const,
@@ -111,9 +121,11 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
   expect(screen.getByRole("alert").textContent).toContain("8 MiB");
   fireEvent.blur(input);
 
-  rerender(
-    <TimelineScalarEditor {...props} draftValue="Controlled" readOnly />,
+  registry.setDraft(
+    { rowKey: "record-1", field: "activitySynopsisText", surface: "grid" },
+    "Controlled",
   );
+  rerender(<TimelineScalarEditor {...props} readOnly />);
   expect(input.value).toBe("Controlled");
   onDraftChange.mockClear();
   fireEvent.input(input, { target: { value: "Ignored" } });

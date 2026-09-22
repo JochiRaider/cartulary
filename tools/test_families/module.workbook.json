@@ -6364,6 +6364,7 @@
           "discards exactly the halted blocker and resumes later FIFO work",
           "halts non-retryable public failures with Table G anchors and queued units behind the blocker",
           "keeps pending queues isolated by incident and client instance scope",
+          "normalizes only authorized never-dispatched head creates without changing replay identity",
           "prepares only first dispatch and never prepares an uncertain replay",
           "preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
           "preserves autosave FIFO and prevents coalescing across explicit batch boundaries",

@@ -76,7 +76,6 @@ export type RenderTimelineGridEditor = (
   focusTargetRef?:
     | ((element: GridEditorFocusTarget | null) => void)
     | undefined,
-  controlledDraftValue?: string | undefined,
   onControlledDraftChange?:
     | ((
         value: string,

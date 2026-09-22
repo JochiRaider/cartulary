@@ -26,10 +26,7 @@ import {
   planTimelineScalarMutation,
 } from "../models/timelineMutationQueueAdmission";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
-import {
-  createDraftRowForKey,
-  type WorkbookRow,
-} from "../models/timelineRowModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type ViewportContinuityRequest =
   | { readonly kind: "input"; readonly focusKey: string }
@@ -39,11 +36,13 @@ type ViewportContinuityRequest =
 function resolveScalarSaveSnapshot({
   currentValue,
   editorDraftRegistry,
+  latestCommittedTimelineRow,
   focusField,
   rowKey,
   rows,
   surface,
 }: {
+  readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
   readonly currentValue: string | undefined;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly focusField: keyof RowValues;
@@ -55,8 +54,8 @@ function resolveScalarSaveSnapshot({
     rows.find(
       (candidate) =>
         candidate.key === editorDraftRegistry.resolveRowKey(rowKey),
-    ) ?? createDraftRowForKey(rowKey);
-  if (row === null) return null;
+    ) ?? latestCommittedTimelineRow(editorDraftRegistry.resolveRowKey(rowKey));
+  if (!row) return null;
   const focusKey = inputFocusKey(row.key, focusField, surface);
   const retained = editorDraftRegistry.draftValueForFocusKey(focusKey);
   // Also capture callers that submit a DOM value without an input notification.
@@ -247,6 +246,7 @@ export function useTimelineMutationCommands({
       const resolved = resolveScalarSaveSnapshot({
         currentValue,
         editorDraftRegistry,
+        latestCommittedTimelineRow,
         focusField,
         rowKey,
         rows: rowsRef.current,
@@ -290,7 +290,15 @@ export function useTimelineMutationCommands({
       }
       const clientTxnId = nextClientTxnId();
       const admission = planTimelineScalarMutation({
-        allowZeroFieldCreate: options.allowZeroFieldCreate === true,
+        allowZeroFieldCreate:
+          options.allowZeroFieldCreate === true ||
+          (snapshot.recordId === null &&
+            pendingSavesRefs.pendingQueueRef.current.model
+              .snapshot()
+              .units.some(
+                (unit) =>
+                  unit.rowKey === effectiveRowKey && unit.kind === "create",
+              )),
         clientTxnId,
         focusField,
         hasConflict:
@@ -380,6 +388,7 @@ export function useTimelineMutationCommands({
       conflictQueueRef,
       editorDraftRegistry,
       enqueueAutosaveReplayForPendingMutation,
+      latestCommittedTimelineRow,
       nextClientTxnId,
       pendingSavesRefs,
       rowsRef,

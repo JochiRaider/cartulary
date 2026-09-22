@@ -6,6 +6,7 @@ import { WorkbookLocalDraftStore } from "../../models/WorkbookLocalDraftStore";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
+import { TimelineCaptureLifecycle } from "../models/TimelineCaptureLifecycle";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import {
   normalizeTimelineFullRow,
@@ -81,7 +82,7 @@ describe("Timeline editor draft registry", () => {
         editorDraftRegistry: registry,
         enqueuePendingReplayUnit: enqueue,
         incidentId: "incident",
-        latestCommittedTimelineRow: () => row,
+        latestCommittedTimelineRow: (id) => (id === row.recordId ? row : null),
         nextClientTxnId: () => String(++txn),
         pendingSavesRefs: timelinePendingSavesRefsFor(
           runtime,
@@ -145,12 +146,7 @@ describe("Timeline editor draft registry", () => {
       enqueue.mock.calls[1]?.[0].mutationSignature,
     );
     registry.setDraft(grid, "newer text");
-    registry.clearSubmittedRow(
-      row.key,
-      row.values,
-      { hostRefs: "raw Ω" },
-      captured,
-    );
+    registry.settleRevisions(row.key, captured ?? new Map());
     enqueue.mock.calls[0]?.[1]?.({ kind: "accepted" });
     expect(first).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
     expect(second).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
@@ -188,6 +184,29 @@ describe("Timeline editor draft registry", () => {
       message: "Rejected",
     });
     expect(registry.draftValue(grid)).toBe("raw Ω");
+    const stale = {
+      rowKey: "draft-retired",
+      field: "activitySynopsisText" as const,
+      surface: "grid" as const,
+    };
+    registry.setDraft(stale, "Unknown retained work");
+    const staleOutcome = vi.fn();
+    hook.result.current.commands.queueScalarSave(
+      stale.rowKey,
+      stale.field,
+      {
+        surface: "grid",
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
+      },
+      "Unknown retained work",
+      staleOutcome,
+    );
+    expect(staleOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "stale_target" }),
+    );
+    expect(enqueue).toHaveBeenCalledTimes(3);
+    expect(registry.draftValue(stale)).toBe("Unknown retained work");
     registry.setDraft(grid, "refused tokens");
     const retryCollection = () =>
       hook.result.current.commands.queueCollectionSave(
@@ -240,7 +259,7 @@ describe("Timeline editor draft registry", () => {
         editorDraftRegistry: registry,
         enqueuePendingReplayUnit: enqueue,
         incidentId: "incident",
-        latestCommittedTimelineRow: () => row,
+        latestCommittedTimelineRow: (id) => (id === row.recordId ? row : null),
         nextClientTxnId: () => String(++txn),
         pendingSavesRefs: timelinePendingSavesRefsFor(
           runtime,
@@ -318,12 +337,7 @@ describe("Timeline editor draft registry", () => {
       enqueue.mock.calls[1]?.[0].mutationSignature,
     );
     registry.setDraft(grid, "raw Ω", row, true);
-    registry.clearSubmittedRow(
-      row.key,
-      { ...row.values, activitySynopsisText: "raw Ω" },
-      undefined,
-      captured,
-    );
+    registry.settleRevisions(row.key, captured ?? new Map());
     enqueue.mock.calls[0]?.[1]?.({ kind: "accepted" });
     expect(first).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
     expect(second).toHaveBeenCalledExactlyOnceWith({ kind: "accepted" });
@@ -517,7 +531,7 @@ describe("Timeline editor draft registry", () => {
       { field: "activitySynopsisText", rowKey: "draft-1", surface: "grid" },
       "typing after submission",
     );
-    registry.acceptCapture("draft-1", refreshed);
+    registry.capture.promote("draft-1", refreshed);
     expect(registry.resolveRowKey("draft-1")).toBe(recordId);
     const input = document.createElement("textarea");
     document.body.append(input);
@@ -536,7 +550,7 @@ describe("Timeline editor draft registry", () => {
     expect(registry.materializeRow(refreshed).values.activitySynopsisText).toBe(
       "typing after submission",
     );
-    registry.clearSubmittedRow("draft-1", refreshed.values);
+    registry.settleRevisions("draft-1", new Map());
     expect(registry.materializeRow(refreshed).values.activitySynopsisText).toBe(
       "typing after submission",
     );
@@ -586,7 +600,10 @@ describe("Timeline editor draft registry", () => {
       "newer inspector edit",
     );
 
-    registry.clearSubmittedRow(recordId, submitted);
+    registry.settleRevisions(
+      recordId,
+      registry.captureRow(recordId, "grid") ?? new Map(),
+    );
 
     expect(
       registry.draftValue({
@@ -655,10 +672,9 @@ describe("Timeline editor draft registry", () => {
     registry.setDraft(identity, "A");
     registry.setDraft({ ...identity, surface: "inspector" }, "A");
     const captured = registry.captureRow(recordId, "grid");
-    const submitted = { ...committedRow().values, activitySynopsisText: "A" };
     registry.setDraft(identity, "B");
     registry.setDraft(identity, "A");
-    registry.clearSubmittedRow(recordId, submitted, undefined, captured);
+    registry.settleRevisions(recordId, captured ?? new Map());
     expect(
       registry.clearCapturedScalarField(recordId, identity.field, captured),
     ).toBe(false);
@@ -666,11 +682,9 @@ describe("Timeline editor draft registry", () => {
     expect(registry.draftValue({ ...identity, surface: "inspector" })).toBe(
       "A",
     );
-    registry.clearSubmittedRow(
+    registry.settleRevisions(
       recordId,
-      submitted,
-      undefined,
-      registry.captureRow(recordId, "grid"),
+      registry.captureRow(recordId, "grid") ?? new Map(),
     );
     expect(registry.draftValue(identity)).toBeUndefined();
     expect(registry.draftValue({ ...identity, surface: "inspector" })).toBe(
@@ -713,16 +727,12 @@ describe("Timeline editor draft registry", () => {
     registry.setDraft(identity, "  pending Ω  ");
     const submitted = registry.materializeRow(committedRow());
     expect(submitted.collectionDrafts.tags).toBe("  pending Ω  ");
-    registry.clearSubmittedRow(recordId, submitted.values);
+    registry.settleRevisions(recordId, new Map());
     expect(registry.draftValue(identity)).toBe("  pending Ω  ");
-    registry.clearSubmittedRow(recordId, submitted.values, { hostRefs: "" });
+    registry.settleRevisions(recordId, new Map());
     expect(registry.draftValue(identity)).toBe("  pending Ω  ");
     registry.setDraft(identity, "newer text");
-    registry.clearSubmittedRow(
-      recordId,
-      submitted.values,
-      submitted.collectionDrafts,
-    );
+    registry.settleRevisions(recordId, new Map());
     expect(registry.materializeRow(committedRow()).collectionDrafts.tags).toBe(
       "newer text",
     );
@@ -737,12 +747,7 @@ describe("Timeline editor draft registry", () => {
       registry.materializeRow(committedRow(), { surface: "inspector" })
         .collectionDrafts.tags,
     ).toBe("independent Inspector text");
-    registry.clearSubmittedRow(
-      recordId,
-      submitted.values,
-      submitted.collectionDrafts,
-      revisions,
-    );
+    registry.settleRevisions(recordId, revisions ?? new Map());
     expect(registry.draftValue(identity)).toBeUndefined();
     expect(registry.draftValue(inspector)).toBe("independent Inspector text");
     registry.setDraft(identity, "new token");
@@ -752,12 +757,7 @@ describe("Timeline editor draft registry", () => {
       new Set(["timeline.tags"]),
     );
     registry.setDraft(identity, "new token", undefined, true);
-    registry.clearSubmittedRow(
-      recordId,
-      submitted.values,
-      submitted.collectionDrafts,
-      captured,
-    );
+    registry.settleRevisions(recordId, captured ?? new Map());
     expect(registry.draftValue(identity)).toBe("new token");
     expect(
       registry.captureRow(recordId, "grid", new Set(["timeline.analyst_text"]))
@@ -767,7 +767,11 @@ describe("Timeline editor draft registry", () => {
 
   it("invalidates drafts when the runtime lifetime changes", () => {
     const { result, rerender } = renderHook(
-      ({ store }) => useTimelineEditorDraftRegistry(store),
+      ({ store }) =>
+        useTimelineEditorDraftRegistry(
+          store,
+          new TimelineCaptureLifecycle(store),
+        ),
       { initialProps: { store: new WorkbookLocalDraftStore() } },
     );
     act(() => {

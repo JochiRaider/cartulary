@@ -1372,6 +1372,29 @@ class WorkbookPendingQueueState {
     return cloneUnit(unit);
   }
 
+  /** Source normalization may replace only the never-dispatched head create. */
+  prepareUnsentCreate(
+    unitId: string,
+    payload: PendingReplayPayloadIntent,
+  ): boolean {
+    if (this.isReplayBlocked()) return false;
+    const unit = this.units.find((candidate) => candidate.status === "queued");
+    if (
+      !unit ||
+      unit.id !== unitId ||
+      unit.kind !== "create" ||
+      this.dispatchedUnits.has(unit) ||
+      !this.dispatchGuard(unit)
+    )
+      return false;
+    unit.payloadIntent = cloneJSONRecord({
+      ...payload,
+      client_txn_id: unit.clientTxnId,
+    });
+    unit.identity = buildPendingReplayMutationIdentity(unit);
+    return true;
+  }
+
   /** Preparation is synchronous and runs exactly once, before capture. */
   markDispatched(
     unitId: string,
@@ -1779,6 +1802,8 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
     peekNextQueued: () => state.peekNextQueued(),
     wasDispatched: (unitId: string) => state.wasDispatched(unitId),
     settleUnchanged: (unitId: string) => state.settleUnchanged(unitId),
+    prepareUnsentCreate: (id: string, payload: PendingReplayPayloadIntent) =>
+      state.prepareUnsentCreate(id, payload),
     markDispatched: (
       unitId: string,
       prepareBase?: (unit: PendingReplayUnitState) => number | null,

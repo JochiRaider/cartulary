@@ -7,10 +7,13 @@ import {
   type FocusEvent as ReactFocusEvent,
   type FormEvent as ReactFormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type {
   FocusFieldKey,
   RowValues,
@@ -24,7 +27,7 @@ export function TimelineScalarEditor({
   committedValue,
   controlId,
   dataTestId,
-  draftValue,
+  editorDraftRegistry,
   field,
   multiline,
   onBlurCommit,
@@ -47,7 +50,7 @@ export function TimelineScalarEditor({
   readonly committedValue: string;
   readonly controlId: string;
   readonly dataTestId: string;
-  readonly draftValue?: string | undefined;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly field: keyof RowValues;
   readonly focusTargetRef?:
     | ((element: GridEditorFocusTarget | null) => void)
@@ -94,16 +97,17 @@ export function TimelineScalarEditor({
   readonly readOnly?: boolean | undefined;
   readonly surface: TimelineScalarEditorSurface;
 }) {
-  const displayValue = draftValue ?? committedValue;
-  const [editorValue, setEditorValue] = useState(displayValue);
+  const editorValue = useSyncExternalStore(
+    editorDraftRegistry.subscribe,
+    useCallback(
+      () =>
+        editorDraftRegistry.draftValue({ rowKey, field, surface }) ??
+        committedValue,
+      [editorDraftRegistry, rowKey, field, surface, committedValue],
+    ),
+  );
   const hasActiveEditRef = useRef(false);
   const [clipboardError, setClipboardError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!hasActiveEditRef.current || draftValue === undefined) {
-      setEditorValue(displayValue);
-    }
-  }, [displayValue, draftValue]);
 
   useEffect(
     () => () => {
@@ -151,10 +155,11 @@ export function TimelineScalarEditor({
     markTypingAcknowledgement(event);
     const native = event.nativeEvent;
     const value = event.currentTarget.value;
-    setEditorValue(value);
     setClipboardError(null);
     onDraftChange(rowKey, field, surface, value, {
-      composing: native instanceof InputEvent && native.isComposing,
+      composing:
+        editorDraftRegistry.isComposing(rowKey) ||
+        (native instanceof InputEvent && native.isComposing),
       pasteCompleted:
         native instanceof InputEvent && native.inputType === "insertFromPaste",
     });
@@ -193,7 +198,6 @@ export function TimelineScalarEditor({
     ) {
       event.preventDefault();
       if (editorValue !== committedValue) {
-        setEditorValue(committedValue);
         onDraftChange(rowKey, field, surface, committedValue);
       }
       onCloseGridEditor?.(false, committedValue);
@@ -242,6 +246,26 @@ export function TimelineScalarEditor({
     value: editorValue,
     onBlur: handleBlur,
     onInput: handleInput,
+    onCompositionStart: (
+      event: ReactFormEvent<HTMLInputElement | HTMLTextAreaElement>,
+    ) => {
+      if (readOnly) return;
+      editorDraftRegistry.beginComposition(rowKey);
+      onDraftChange(rowKey, field, surface, event.currentTarget.value, {
+        composing: true,
+        pasteCompleted: false,
+      });
+    },
+    onCompositionEnd: (
+      event: ReactFormEvent<HTMLInputElement | HTMLTextAreaElement>,
+    ) => {
+      if (!readOnly)
+        onDraftChange(rowKey, field, surface, event.currentTarget.value, {
+          composing: false,
+          pasteCompleted: false,
+        });
+      editorDraftRegistry.endComposition(rowKey);
+    },
     onFocus: handleFocus,
     onKeyDown: handleKeyDown,
     onCopy: isolateClipboard,

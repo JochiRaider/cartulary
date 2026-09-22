@@ -2155,3 +2155,41 @@ describe("conflict anchoring and resolver state unit model", () => {
     expect(presentation.secondaryMessage).not.toContain("/api/v1");
   });
 });
+
+it("normalizes only authorized never-dispatched head creates without changing replay identity", () => {
+  const queue = createQueue();
+  const first = expectAccepted(
+    queue.admit(
+      createUnit({ clientTxnId: "first", rowKey: "draft-1", order: 1 }),
+    ),
+  );
+  const later = expectAccepted(
+    queue.admit(
+      createUnit({ clientTxnId: "later", rowKey: "draft-2", order: 2 }),
+    ),
+  );
+  expect(queue.prepareUnsentCreate(later.id, {})).toBe(false);
+  queue.setDispatchGuard(() => false);
+  expect(queue.prepareUnsentCreate(first.id, {})).toBe(false);
+  queue.setDispatchGuard(() => true);
+  queue.pauseForAuthRecovery();
+  expect(queue.prepareUnsentCreate(first.id, {})).toBe(false);
+  queue.resumeAfterAuthRecovery();
+  expect(
+    queue.prepareUnsentCreate(first.id, { client_txn_id: "must-not-rekey" }),
+  ).toBe(true);
+  const captured = queue.markDispatched(first.id);
+  expect(captured?.payloadIntent).toEqual({ client_txn_id: "first" });
+  expect(
+    queue.prepareUnsentCreate(first.id, {
+      "timeline.activity_synopsis_text": "B",
+    }),
+  ).toBe(false);
+  queue.settleDispatched({
+    ok: false,
+    status: 503,
+    error: { code: "unavailable", message: "Uncertain", retryable: true },
+  });
+  expect(queue.prepareUnsentCreate(first.id, {})).toBe(false);
+  expect(queue.markDispatched(first.id)?.identity).toEqual(captured?.identity);
+});

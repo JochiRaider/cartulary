@@ -1,17 +1,12 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
-import { createDraftRow, type WorkbookRow } from "../models/timelineRowModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
+import type { WorkbookTimelineMutationOwner } from "../mutations/WorkbookTimelineMutationOwner";
 
-export function useTimelineRows() {
-  const [rows, setRows] = useState<WorkbookRow[]>(() => [createDraftRow(1)]);
+export function useTimelineRows(owner: WorkbookTimelineMutationOwner) {
+  const [rows, setRows] = useState<WorkbookRow[]>(owner.initialRows);
   const rowsRef = useRef(rows);
-  const draftCounterRef = useRef(2);
-
-  const nextDraftIndex = useCallback(() => {
-    const value = draftCounterRef.current;
-    draftCounterRef.current += 1;
-    return value;
-  }, []);
+  const nextDraftIndex = owner.capture.allocateDraftIndex;
 
   const replaceRows = useCallback((nextRows: WorkbookRow[]) => {
     setRows(nextRows);

@@ -12,6 +12,7 @@ import { useTimelineRows } from "../hooks/useTimelineRows";
 import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
+import { timelineMutationOwnerFor } from "../mutations/WorkbookTimelineMutationOwner";
 
 type TimelineSurfaceFoundationInput = {
   readonly apiBase: string | undefined;
@@ -61,7 +62,8 @@ export function useTimelineSurfaceFoundation({
   });
   const [loadAccessLost, setLoadAccessLost] = useState(false);
   const [initialLoadGenerationKey, setInitialLoadGenerationKey] = useState(0);
-  const rows = useTimelineRows();
+  const mutationOwner = timelineMutationOwnerFor(mutationRuntime);
+  const rows = useTimelineRows(mutationOwner);
   const mentions = useTimelineMentions(mentionOwner);
   const pendingSaves = timelinePendingSavesRefsFor(
     mutationRuntime,
@@ -69,6 +71,7 @@ export function useTimelineSurfaceFoundation({
   );
   const editorDraftRegistry = useTimelineEditorDraftRegistry(
     mutationRuntime.localDraftsForSurface(timelineViewSchemaId),
+    mutationOwner.capture,
   );
   const bulkTagReadiness = useMemo(
     () =>

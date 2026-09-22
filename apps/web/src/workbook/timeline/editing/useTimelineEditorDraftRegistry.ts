@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { WorkbookLocalDraftStore } from "../../models/WorkbookLocalDraftStore";
+import { TimelineCaptureLifecycle } from "../models/TimelineCaptureLifecycle";
 import {
   type FocusFieldKey,
   inputFocusKey,
@@ -47,14 +48,15 @@ export type TimelineEditorDraftRegistry = ReturnType<
 
 export function createTimelineEditorDraftRegistry(
   store = new WorkbookLocalDraftStore(),
+  capture = new TimelineCaptureLifecycle(store),
 ) {
   const { draftValues, focusKeysByRow } = store;
-  const acceptedDraftRows = new Map<string, string>();
-  const captureRows = new Set<string>();
   const inputIdentities = new Map<string, TimelineInputIdentity>();
   const inputElements = new Map<string, TimelineEditorElement>();
   const rowListeners = new Map<string, Set<() => void>>();
   const inputListeners = new Map<string, Set<() => void>>();
+  const composingRows = new Set<string>();
+  const afterComposition = new Map<string, () => void>();
   let activeCollectionInputKey: string | null = null;
   const publishInput = (key: string | null) => {
     if (key !== null)
@@ -108,6 +110,21 @@ export function createTimelineEditorDraftRegistry(
   const draftValueForFocusKey = (focusKey: string) => draftValues.get(focusKey);
 
   return {
+    isComposing: (rowKey: string) => composingRows.has(rowKey),
+    beginComposition(rowKey: string) {
+      composingRows.add(rowKey);
+    },
+    endComposition(rowKey: string) {
+      composingRows.delete(rowKey);
+      const complete = afterComposition.get(rowKey);
+      afterComposition.delete(rowKey);
+      complete?.();
+    },
+    deferWhileComposing(rowKey: string, complete: () => void) {
+      if (!composingRows.has(rowKey)) return false;
+      afterComposition.set(rowKey, complete);
+      return true;
+    },
     activateCollectionInput,
     deactivateCollectionInput,
     isCollectionInputActive: (key: string) => activeCollectionInputKey === key,
@@ -146,6 +163,7 @@ export function createTimelineEditorDraftRegistry(
       }
       return null;
     },
+    batch: store.batch,
     subscribe: store.subscribe,
     getSnapshot: store.getSnapshot,
     retainedGridDrafts() {
@@ -177,17 +195,12 @@ export function createTimelineEditorDraftRegistry(
           ),
         );
     },
-    resolveRowKey(rowKey: string) {
-      return acceptedDraftRows.get(rowKey) ?? rowKey;
-    },
-    beginCapture(rowKey: string) {
-      const firstInput = !captureRows.has(rowKey);
-      captureRows.add(rowKey);
-      return firstInput;
-    },
-    acceptCapture(rowKey: string, committed: WorkbookRow) {
-      if (!captureRows.delete(rowKey)) return null;
-      acceptedDraftRows.set(rowKey, committed.key);
+    capture,
+    resolveRowKey: capture.resolveRowKey,
+    beginCapture: capture.beginCapture,
+    hasCapture: capture.hasCapture,
+    captureEditor(rowKey: string, committed: WorkbookRow) {
+      if (rowKey === committed.key) return null;
       let active: {
         fieldKey: string;
         collectionFocusKey?: string;
@@ -202,17 +215,6 @@ export function createTimelineEditorDraftRegistry(
         for (const surface of timelineScalarEditorSurfaces) {
           const oldKey = inputFocusKey(rowKey, field, surface);
           const nextKey = inputFocusKey(committed.key, field, surface);
-          const value = draftValues.get(oldKey);
-          if (value !== undefined) {
-            store.move(oldKey, nextKey);
-            if ("key" in binding)
-              store.advanceBaseline(
-                nextKey,
-                committed.committedValues[binding.key],
-              );
-            rememberFocusKey(committed.key, nextKey);
-            store.remove(oldKey);
-          }
           const element = inputElements.get(oldKey);
           if (
             surface === "grid" &&
@@ -255,8 +257,9 @@ export function createTimelineEditorDraftRegistry(
     clearAll() {
       store.clear();
       activeCollectionInputKey = null;
-      acceptedDraftRows.clear();
-      captureRows.clear();
+      capture.clear();
+      composingRows.clear();
+      afterComposition.clear();
       inputElements.clear();
       inputIdentities.clear();
       for (const rowKey of rowListeners.keys()) publishRow(rowKey);
@@ -295,33 +298,19 @@ export function createTimelineEditorDraftRegistry(
       publishRow(rowKey);
       return cleared;
     },
-    clearSubmittedRow(
-      rowKey: string,
-      submittedValues: RowValues,
-      submittedCollections?: Partial<WorkbookRow["collectionDrafts"]>,
-      revisions?: ReadonlyMap<string, number>,
-    ) {
+    settleRevisions(rowKey: string, revisions: ReadonlyMap<string, number>) {
       const originalRowKey = rowKey;
-      rowKey = acceptedDraftRows.get(rowKey) ?? rowKey;
+      rowKey = capture.resolveRowKey(rowKey);
       const owns = (
         field: FocusFieldKey,
         surface: TimelineScalarEditorSurface,
       ) =>
-        revisions === undefined ||
         revisions.get(inputFocusKey(originalRowKey, field, surface)) ===
-          store.revision(inputFocusKey(rowKey, field, surface));
+        store.revision(inputFocusKey(rowKey, field, surface));
       for (const binding of timelineCollectionBindings) {
         for (const surface of timelineScalarEditorSurfaces) {
           const focusKey = inputFocusKey(rowKey, binding.draftKey, surface);
-          if (
-            draftValues.has(focusKey) &&
-            (revisions !== undefined
-              ? owns(binding.draftKey, surface)
-              : surface === "grid" &&
-                submittedCollections !== undefined &&
-                draftValues.get(focusKey) ===
-                  submittedCollections[binding.draftKey])
-          ) {
+          if (draftValues.has(focusKey) && owns(binding.draftKey, surface)) {
             store.remove(focusKey);
             forgetFocusKeyIfUnused(rowKey, focusKey);
           }
@@ -330,10 +319,7 @@ export function createTimelineEditorDraftRegistry(
       for (const binding of timelineScalarBindings) {
         for (const surface of timelineScalarEditorSurfaces) {
           const focusKey = inputFocusKey(rowKey, binding.key, surface);
-          if (
-            owns(binding.key, surface) &&
-            draftValues.get(focusKey) === submittedValues[binding.key]
-          ) {
+          if (owns(binding.key, surface)) {
             store.remove(focusKey);
             forgetFocusKeyIfUnused(rowKey, focusKey);
           }
@@ -363,7 +349,11 @@ export function createTimelineEditorDraftRegistry(
     },
     draftValue(identity: TimelineInputIdentity) {
       return draftValueForFocusKey(
-        inputFocusKey(identity.rowKey, identity.field, identity.surface),
+        inputFocusKey(
+          capture.resolveRowKey(identity.rowKey),
+          identity.field,
+          identity.surface,
+        ),
       );
     },
     draftValueForFocusKey,
@@ -392,11 +382,10 @@ export function createTimelineEditorDraftRegistry(
     },
     inputElementForFocusKey(focusKey: string) {
       const separator = focusKey.indexOf(":");
-      const acceptedRowKey = acceptedDraftRows.get(
+      const acceptedRowKey = capture.resolveRowKey(
         focusKey.slice(0, separator),
       );
-      if (separator >= 0 && acceptedRowKey !== undefined)
-        focusKey = acceptedRowKey + focusKey.slice(separator);
+      if (separator >= 0) focusKey = acceptedRowKey + focusKey.slice(separator);
       const element = inputElements.get(focusKey);
       if (isUsableEditorElement(element)) return element;
       if (element !== undefined) inputElements.delete(focusKey);
@@ -469,7 +458,11 @@ export function createTimelineEditorDraftRegistry(
     },
     needsReview(identity: TimelineScalarEditorIdentity, row: WorkbookRow) {
       const baseline = store.baseline(
-        inputFocusKey(identity.rowKey, identity.field, identity.surface),
+        inputFocusKey(
+          capture.resolveRowKey(identity.rowKey),
+          identity.field,
+          identity.surface,
+        ),
       );
       return (
         baseline !== undefined &&
@@ -478,7 +471,11 @@ export function createTimelineEditorDraftRegistry(
     },
     review(identity: TimelineScalarEditorIdentity, row: WorkbookRow) {
       store.reviewBaseline(
-        inputFocusKey(identity.rowKey, identity.field, identity.surface),
+        inputFocusKey(
+          capture.resolveRowKey(identity.rowKey),
+          identity.field,
+          identity.surface,
+        ),
         row.committedValues[identity.field],
       );
       publishRow(identity.rowKey);
@@ -536,12 +533,9 @@ export function createTimelineEditorDraftRegistry(
       baseline?: WorkbookRow,
       newRevision = false,
     ) {
-      const focusKey = inputFocusKey(
-        identity.rowKey,
-        identity.field,
-        identity.surface,
-      );
-      rememberFocusKey(identity.rowKey, focusKey);
+      const rowKey = capture.resolveRowKey(identity.rowKey);
+      const focusKey = inputFocusKey(rowKey, identity.field, identity.surface);
+      rememberFocusKey(rowKey, focusKey);
       store.write(
         focusKey,
         value,
@@ -558,6 +552,10 @@ export function createTimelineEditorDraftRegistry(
 /** Rebinds mounted input refs without replacing the runtime-owned local draft values. */
 export function useTimelineEditorDraftRegistry(
   store: WorkbookLocalDraftStore,
+  capture: TimelineCaptureLifecycle,
 ): TimelineEditorDraftRegistry {
-  return useMemo(() => createTimelineEditorDraftRegistry(store), [store]);
+  return useMemo(
+    () => createTimelineEditorDraftRegistry(store, capture),
+    [store, capture],
+  );
 }

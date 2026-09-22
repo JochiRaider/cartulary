@@ -19,7 +19,6 @@ import {
 } from "./timelineMutationIntents";
 import {
   applyViewRowPatch,
-  createDraftRowForKey,
   normalizeTimelineFullRow,
   normalizeTimelinePatchCells,
   readTimelineCellValue,
@@ -314,6 +313,14 @@ describe("workbookTimelineModel", () => {
       submitted,
       following,
       "following-capture",
+      new Map([
+        [`${following.key}:hostRefs:grid`, 1],
+        [`${following.key}:tags:grid`, 2],
+      ]),
+      new Map([
+        [`${following.key}:hostRefs:grid`, 3],
+        [`${following.key}:tags:grid`, 4],
+      ]),
     );
     expect(patch?.changes).toContainEqual({
       field_key: "timeline.host_refs",
@@ -335,9 +342,9 @@ describe("workbookTimelineModel", () => {
         submitted,
         submitted,
         "unchanged-capture",
+        new Map(),
+        new Map(),
       ),
     ).toBeNull();
-    expect(createDraftRowForKey("draft-22")).toMatchObject({ key: "draft-22" });
-    expect(createDraftRowForKey("timeline-1")).toBeNull();
   });
 });

@@ -14,11 +14,11 @@ and typed contracts rather than grid coordinates.
 | --- | --- |
 | [timelineAcceptedMutationEffects.ts](timelineAcceptedMutationEffects.ts) | Pure post-acceptance selection, notice, created-row, and continuity effect planning. |
 | [timelineConflictState.ts](timelineConflictState.ts) | Timeline-local same-field and grouped-paste conflict state types. |
-| [timelineDiscardedReconciliation.ts](timelineDiscardedReconciliation.ts) | Pure discarded-unit reconciliation that reapplies later same-row work in FIFO order. |
+| [TimelineCaptureLifecycle.ts](TimelineCaptureLifecycle.ts) | Runtime draft allocation, accepted identity aliases and revision-preserving promotion over the retained draft store. |
 | [timelineMutationDriverPlans.test.ts](timelineMutationDriverPlans.test.ts) | Tests exact owner-unit replay admission, committed versions, and mutation settlement plans. |
 | [timelineMutationDriverPlans.ts](timelineMutationDriverPlans.ts) | Pure Timeline replay admission, settlement, discard, and accepted-projection decisions. |
 | [timelineMutationIntents.ts](timelineMutationIntents.ts) | Exact scalar, collection-action, and draft-create mutation intent construction. |
-| [timelineMutationModels.test.ts](timelineMutationModels.test.ts) | Pure intent, deduplication, acceptance, discard, version-ledger, and discriminated-collection evidence. |
+| [timelineMutationModels.test.ts](timelineMutationModels.test.ts) | Pure intent, deduplication, acceptance, version-ledger, and discriminated-collection evidence. |
 | [timelineMutationQueueAdmission.ts](timelineMutationQueueAdmission.ts) | Pure scalar/collection no-op, conflict, duplicate, and exact queue-admission decisions. |
 | [timelinePendingSaves.ts](timelinePendingSaves.ts) | Timeline-local pending signature, replay-order, and serial-save references. |
 

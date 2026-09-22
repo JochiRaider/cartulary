@@ -266,9 +266,9 @@ export function useTimelineMutationComposition({
   const replay = useTimelineMutationDriver({
     sheetRef: activeSheetRef,
     applyAcceptedRowMutation: rowMutations.commands.applyAcceptedRowMutation,
-    clearSubmittedScalarEditorDraftValuesForRow:
-      foundation.editorDraftRegistry.clearSubmittedRow,
+    settleEditorRevisions: foundation.editorDraftRegistry.settleRevisions,
     acceptEditorPredecessor: foundation.editorDraftRegistry.acceptPredecessor,
+    batchAuthoring: foundation.editorDraftRegistry.batch,
     captureEditorDrafts: foundation.editorDraftRegistry.captureRow,
     clearViewportContinuity: grid.clearViewportContinuity,
     conflictQueueRef: rowMutations.refs.conflictQueueRef,
@@ -301,8 +301,6 @@ export function useTimelineMutationComposition({
       query.queryState.filters.length > 0 ||
       query.queryState.sort.length > 0 ||
       query.queryState.groupBy !== null,
-    reconcileDiscardedPendingUnit:
-      rowMutations.commands.reconcileDiscardedPendingUnit,
     recordWorkbookTiming: foundation.recordWorkbookTiming,
     rowsRef: foundation.rowsRef,
     requestAuthorizationRecovery:

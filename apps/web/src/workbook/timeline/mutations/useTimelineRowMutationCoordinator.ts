@@ -9,7 +9,6 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import { useWorkbookMutationConflicts } from "../../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
-import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { createTimelineSocketTransactionAdapter } from "../adapters/createTimelineSocketTransactionAdapter";
 import { commitTimelineProjection } from "../adapters/timelineProjectionCommitAdapter";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
@@ -28,11 +27,9 @@ import {
 import type { LocalConflictState } from "../models/timelineConflictState";
 import type {
   TimelineMutableRef,
-  TimelineReplayContext,
   TimelineRowMutationEditorPort,
   TimelineRowStoreCommands,
 } from "../models/timelineControllerPorts";
-import { reconcileDiscardedTimelineUnit } from "../models/timelineDiscardedReconciliation";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import {
   rowFromApi,
@@ -93,7 +90,7 @@ export function useTimelineRowMutationCoordinator({
   readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly setSelectedRowId: (recordId: string | null) => void;
 }) {
-  const { replaceRows, updateRows } = rowStoreCommands;
+  const { updateRows } = rowStoreCommands;
   const selectedRowIdRef = useRef(selectedRowId);
   selectedRowIdRef.current = selectedRowId;
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
@@ -175,7 +172,14 @@ export function useTimelineRowMutationCoordinator({
       // The FIFO owns settlement after navigation. A detached projection has
       // no React commit or viewport/focus effects to apply.
       if (!mountedRef.current) return committed;
-      const captureEditor = editorDraftRegistry.acceptCapture(
+      if (
+        editorDraftRegistry.deferWhileComposing(rowKey, () => {
+          if (mountedRef.current)
+            applyAcceptedRowMutation(rowKey, mutation, options);
+        })
+      )
+        return committed;
+      const captureEditor = editorDraftRegistry.captureEditor(
         rowKey,
         committed,
       );
@@ -302,51 +306,6 @@ export function useTimelineRowMutationCoordinator({
     [mutationRuntime, pendingSavesRefs],
   );
 
-  const reconcileDiscardedPendingUnit = useCallback(
-    (
-      discardedUnit: PendingReplayUnitState,
-      remainingUnits: readonly PendingReplayUnitState[],
-      contextByUnitId: ReadonlyMap<string, TimelineReplayContext>,
-    ) => {
-      const plan = reconcileDiscardedTimelineUnit({
-        committedRow:
-          discardedUnit.recordId === null
-            ? null
-            : latestCommittedTimelineRow(discardedUnit.recordId),
-        contextByUnitId,
-        currentRows: rowsRef.current,
-        discardedUnit,
-        nextDraftIndex,
-        remainingUnits,
-      });
-      if (
-        plan.discardedFocusKey !== null &&
-        !plan.remainingFocusKeys.has(plan.discardedFocusKey)
-      ) {
-        editorDraftRegistry.deleteDraftForFocusKey(plan.discardedFocusKey);
-      }
-      editorDraftRegistry.clearScalarDraftsForRow(
-        discardedUnit.rowKey,
-        plan.remainingFocusKeys,
-      );
-      if (plan.cancelEdit !== null) {
-        editorPort.cancelEdit(plan.cancelEdit);
-      }
-      if (plan.rows !== null) {
-        rowsRef.current = [...plan.rows];
-        replaceRows(plan.rows);
-      }
-    },
-    [
-      editorDraftRegistry,
-      editorPort,
-      latestCommittedTimelineRow,
-      nextDraftIndex,
-      rowsRef,
-      replaceRows,
-    ],
-  );
-
   const conflictProjection = useTimelineConflictProjectionAdapter({
     sheetRef,
     acceptCommittedRow: acceptCommittedTimelineRow,
@@ -429,7 +388,6 @@ export function useTimelineRowMutationCoordinator({
       latestCommittedTimelineRow,
       markRowsLoaded,
       publishSaveStatePresentation,
-      reconcileDiscardedPendingUnit,
       registerSameFieldConflict,
       resolvePendingSocketTxn,
       setActiveConflictKey,

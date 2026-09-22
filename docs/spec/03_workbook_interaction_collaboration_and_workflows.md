@@ -449,10 +449,13 @@ Verified by: AC-481
 **REQ-03-298**
 Existing-row grid editing MUST be offered exactly for fields whose discovery entry declares `grid_editable=true`. Editors MUST preserve invalid local text and the original base row version until accepted, canceled, or explicitly discarded; MUST distinguish validation, conflict, stale-target, authorization, and other rejection outcomes; and MUST restore focus to the semantic record-and-field anchor after close. Create-only Indicator fields, append-only Assessment fields, action-payload fields, group rows, draft-as-record targets, and read-only interaction mode MUST reject existing-row grid mutation.
 
-Ordinary committed-cell raw authoring MUST remain memory-local within the same
-account, incident and client-instance runtime independently of presentation
-attachment. The retained identity includes `view_schema_id`, `record_id`,
-`field_key`, grid editor context and an authoring revision. Raw text, explicit
+Ordinary committed-cell and recordless Timeline capture authoring MUST remain
+memory-local within the same account, incident and client-instance runtime
+independently of presentation attachment. The retained identity includes
+`view_schema_id`, `record_id`, `field_key`, editor context and an authoring revision.
+Before creation, a runtime-local draft identity replaces `record_id`; promotion
+binds that identity to the accepted record without reusing it for another draft.
+Raw text, explicit
 clear intent, original authoring baseline, queued intent, captured attempt and
 accepted row MUST remain distinct. Grid and inspector authoring are independent.
 Acknowledgement or discard MUST retire only the authoring revisions owned by that
@@ -1255,7 +1258,7 @@ available until the refused work is explicitly handled.
 
 Coalescing is allowed only as follows:
 
-- For a still-uncommitted local row, one queued create plus later unsent edits to that same local row MUST fold into one queued create unit until the first authoritative create succeeds.
+- For a still-uncommitted local row, eligible later authoring MUST fold into the same create only while that unit has never dispatched and the contiguous FIFO coalescing boundaries below permit it. First dispatch freezes the create request under REQ-03-100. Later admitted authoring MUST remain associated with that logical draft and its create predecessor; after acceptance it MUST become patches to that accepted record, never another create.
 - For an existing authoritative row, unsent patch units for the same `record_id` MAY coalesce only within one contiguous same-record run in the queue. The coalesced unit MUST preserve the final direct-write value for each `field_key` and the declared order of any `collection_actions_v1.actions[]`.
 
 The client MUST NOT coalesce:
@@ -1332,7 +1335,10 @@ rather than using an older rendered snapshot. First dispatch captures the exact
 operation, route, normalized payload, transaction identity and prepared base.
 After dispatch, every uncertain replay MUST use that same captured request,
 including its original base, even when a newer committed version becomes known.
-The capture boundary ends unsent coalescing for that unit. Explicit re-key
+The capture boundary ends unsent coalescing for that unit. For recordless Timeline
+capture, later revisions and successor writes MUST follow §7 independently of
+this immutable attempt; a later clear cannot be inferred from omitted create
+fields or lost during promotion. Explicit re-key
 recovery under REQ-03-302 starts a new attempt subject to current preparation;
 it does not rewrite an uncertain attempt. No additional workbook tab, saved view,
 or inspector workflow is required for this credential-lifecycle behavior.
@@ -1456,6 +1462,30 @@ Verified by: AC-107, AC-108, AC-109, AC-110, AC-111, AC-137, AC-138, AC-139, AC-
 
 **REQ-03-111**
 Typing into the blank trailing timeline row MUST create a real record as soon as one non-empty user-entered value exists.
+
+Recordless capture MUST obey the following transitions, together with
+REQ-03-099/100/298/300 and Core 01 REQ-01-057/069/070:
+
+| Boundary | Required retained state and transition |
+| --- | --- |
+| Before qualifying capture | Retain raw authoring without admitting an unauthorized or nonqualifying create. |
+| Queued, never dispatched | Coalesce eligible authoring within the existing FIFO boundaries; retain field/context revisions and explicit clear intent. |
+| Dispatched or uncertain | Preserve the exact captured request and transaction identity; retain later authoring separately. |
+| Create accepted | Bind the original draft to the accepted record independently of mounted controls; settle only captured authoring revisions. |
+| Successor admitted | Patch only owned field changes or collection actions against the accepted record using current version and authoring-baseline guards. |
+| Rejected or discarded | Preserve newer, unrelated and admission-refused authoring. Dependents of an unaccepted create MUST NOT dispatch as standalone creates. Explicit recovery resolves their target. |
+| Detached or authority changed | Apply REQ-03-100/299 retention, concealment, suspension and retirement independently of presentation. |
+
+Every native edit, including replacement, paste, deletion, composition and an
+equal-valued newer gesture, MUST publish its authoring revision before save
+planning. Neither older rendered values nor acknowledgements may overwrite newer
+authoring. Grid and inspector revisions remain independent. Create-field omission
+MUST NOT erase a later explicit clear. Canceling presentation cannot undo a
+dispatched create. Successful capture leaves exactly one fresh trailing draft;
+identity handoff preserves active editing, selection and composition, while focus
+continuation yields to newer user intent. Remounting MUST NOT reuse unresolved
+draft identities or reconstruct unknown drafts from stale callback keys. These
+guarantees add no durable, reload or cross-tab draft storage.
 Profiles: base
 Verified by: AC-001, AC-002, AC-125, AC-191, AC-193, AC-231
 
@@ -2599,7 +2629,10 @@ Verified by: AC-005, AC-043, AC-231
 **REQ-03-300**
 One stationary unmodified primary pointer click on a committed cell whose active view contract declares `grid_editable=true` and whose direct-value editor is authorized MUST create exactly one edit session on release, focus that editor's declared primary control, and place a collapsed caret immediately after the existing scalar text without selecting that text. No artificial click delay or double-click requirement is permitted. A subsequent click inside the same editor MAY reposition its caret, but double-click MUST NOT create a second edit transition, duplicate presence publication, or duplicate mutation dispatch. Timeline range gestures follow §13.4 and MUST NOT also activate that cell's editor.
 
-A pointer click on a read-only, derived, unauthorized, lifecycle-blocked, collection-valued, or otherwise non-grid-editable cell MUST preserve ordinary cell or row selection without creating an editor. Recordless create-draft controls remain immediately editable. Buttons, checkboxes, relationship chips, overflow controls, collection-token controls, and other owner-declared embedded actions MUST execute only their declared action and MUST NOT activate a parent scalar editor.
+A pointer click on a read-only, derived, unauthorized, lifecycle-blocked, collection-valued, or otherwise non-grid-editable cell MUST preserve ordinary cell or row selection without creating an editor. Recordless create-draft controls remain immediately editable. Their authoring,
+identity handoff and native composition MUST follow §7 and REQ-03-298 independently
+of mounted controls; capture MUST NOT reset newer input or steal newer focus
+intent. Buttons, checkboxes, relationship chips, overflow controls, collection-token controls, and other owner-declared embedded actions MUST execute only their declared action and MUST NOT activate a parent scalar editor.
 
 Moving from an active editor to another cell or outside focus MUST use one deduplicated commit transition. The destination MAY open only after acceptance. Validation, same-field conflict, stale-target, authorization, and other rejection outcomes MUST retain the exact local draft, semantic target, and focusable original editor. `Escape` MUST cancel the draft and return focus to the same semantic cell anchor. Eligible Timeline keyboard entry, rejection and editor cancellation retain a still-valid completed range under §13.4; editor cancellation MUST NOT also collapse that range. Authority loss remains subject to REQ-03-299/100.
 Profiles: base

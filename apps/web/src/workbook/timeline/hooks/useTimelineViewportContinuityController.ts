@@ -97,6 +97,7 @@ export function useTimelineViewportContinuityController({
 }) {
   const active = useRef<Restoration | null>(null);
   const interactionGeneration = useRef(0);
+  const interruptedInputToken = useRef<number | null>(null);
   const mounted = useRef(true);
   const isCurrent = useCallback(
     (restoration: Restoration) => {
@@ -115,13 +116,13 @@ export function useTimelineViewportContinuityController({
   );
 
   const clearViewportContinuity = useCallback(
-    (token: number) => {
+    (token: number, publish = true) => {
       const restoration = active.current;
       if (restoration?.request.token !== token) return;
       active.current = null;
       restoration.controller.abort();
       restoration.cancelPass?.();
-      if (mounted.current)
+      if (mounted.current && publish)
         setViewportContinuityRequest((current) =>
           current?.token === token ? null : current,
         );
@@ -129,11 +130,24 @@ export function useTimelineViewportContinuityController({
     [setViewportContinuityRequest],
   );
 
-  const interruptViewportContinuity = useCallback(() => {
-    interactionGeneration.current += 1;
-    const restoration = active.current;
-    if (restoration) clearViewportContinuity(restoration.request.token);
-  }, [clearViewportContinuity]);
+  const interruptViewportContinuity = useCallback(
+    (event?: Event) => {
+      interactionGeneration.current += 1;
+      const restoration = active.current;
+      if (restoration) {
+        // Input capture runs before the editor publishes its native value. Cancel
+        // focus work synchronously without committing an older controlled value
+        // over that event. The ref is authoritative; state only schedules effects.
+        if (event?.type === "input")
+          interruptedInputToken.current = restoration.request.token;
+        clearViewportContinuity(
+          restoration.request.token,
+          event?.type !== "input",
+        );
+      }
+    },
+    [clearViewportContinuity],
+  );
 
   const resolveInputElement = useCallback(
     (focusKey: string) => {
@@ -171,13 +185,26 @@ export function useTimelineViewportContinuityController({
       if (restoration && !isCurrent(restoration))
         clearViewportContinuity(restoration.request.token);
     };
+    const finishNativeInput = () => {
+      const token = interruptedInputToken.current;
+      interruptedInputToken.current = null;
+      if (token !== null && mounted.current)
+        setViewportContinuityRequest((current) =>
+          current?.token === token ? null : current,
+        );
+    };
     const unsubscribe = scope.subscribe(invalidateScope);
+    // By document bubble, the editor has published native input. Retire only
+    // the interrupted scheduling token, preserving any new request it admitted.
+    document.addEventListener("input", finishNativeInput);
     const events = ["pointerdown", "keydown", "wheel", "input"] as const;
     for (const event of events)
       document.addEventListener(event, interruptViewportContinuity, true);
     document.addEventListener("focusin", focusChanged, true);
     return () => {
       unsubscribe();
+      document.removeEventListener("input", finishNativeInput);
+      interruptedInputToken.current = null;
       for (const event of events)
         document.removeEventListener(event, interruptViewportContinuity, true);
       document.removeEventListener("focusin", focusChanged, true);
@@ -192,6 +219,7 @@ export function useTimelineViewportContinuityController({
     isCurrent,
     resolveInputElement,
     scope,
+    setViewportContinuityRequest,
   ]);
 
   // The scope getter is updated by composition during render, before any layout

@@ -96,7 +96,6 @@ export function useTimelineScalarRenderers({
       focusTargetRef?:
         | ((element: GridEditorFocusTarget | null) => void)
         | undefined,
-      controlledDraftValue?: string | undefined,
       onControlledDraftChange?:
         | ((
             value: string,
@@ -124,17 +123,12 @@ export function useTimelineScalarRenderers({
                 : undefined
             }
             blockedByConflict={localConflict !== undefined}
-            committedValue={row.values[binding.key]}
+            committedValue={
+              (readCurrentRow?.(row) ?? row).committedValues[binding.key]
+            }
             controlId={controlId}
             dataTestId={dataTestId}
-            draftValue={
-              controlledDraftValue ??
-              editorDraftRegistry.draftValue({
-                field: binding.key,
-                rowKey: row.key,
-                surface,
-              })
-            }
+            editorDraftRegistry={editorDraftRegistry}
             field={binding.key}
             focusTargetRef={focusTargetRef}
             multiline={binding.multiline}
@@ -165,7 +159,11 @@ export function useTimelineScalarRenderers({
                   },
                 );
               }
-              if (capturing || input.pasteCompleted) {
+              if (
+                capturing ||
+                editorDraftRegistry.hasCapture(row.key) ||
+                input.pasteCompleted
+              ) {
                 handleBlur(rowKey, field, editorSurface, value);
               }
             }}
@@ -250,7 +248,6 @@ export function useTimelineScalarRenderers({
       focusTargetRef?:
         | ((element: GridEditorFocusTarget | null) => void)
         | undefined,
-      controlledDraftValue?: string | undefined,
       onControlledDraftChange?:
         | ((
             value: string,
@@ -265,7 +262,6 @@ export function useTimelineScalarRenderers({
         timelineScalarControlId(row, binding, "grid"),
         closeGridEditor,
         focusTargetRef,
-        controlledDraftValue,
         onControlledDraftChange,
       ),
     [renderTimelineScalarControl, timelineScalarControlId],

@@ -20,6 +20,7 @@ import {
   type WorkbookRow,
 } from "../models/timelineRowModel";
 import { useTimelineRowMutationCoordinator } from "./useTimelineRowMutationCoordinator";
+import { timelineMutationOwnerFor } from "./WorkbookTimelineMutationOwner";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const incidentId = "10000000-0000-4000-8000-000000000001";
@@ -98,6 +99,7 @@ function renderCoordinator(
       );
       const editorDraftRegistry = useTimelineEditorDraftRegistry(
         runtime.localDraftsForSurface(timelineViewSchemaId),
+        timelineMutationOwnerFor(runtime).capture,
       );
       const loadRows = async () => undefined;
       const nextDraftIndexRef = useRef(2);

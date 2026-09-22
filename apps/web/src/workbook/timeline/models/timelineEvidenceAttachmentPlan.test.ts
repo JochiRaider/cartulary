@@ -7,7 +7,7 @@ import {
   timelineEvidenceTargetIdentity,
 } from "./timelineEvidenceAttachmentPlan";
 import {
-  createDraftRowForKey,
+  createDraftRow,
   normalizeTimelineFullRow,
   rowFromApi,
 } from "./timelineRowModel";
@@ -36,7 +36,7 @@ describe("Timeline Evidence attachment target plan", () => {
   });
 
   it("treats the unselected draft control as the active draft subject", () => {
-    const draft = createDraftRowForKey("draft-1");
+    const draft = createDraftRow(1);
     if (draft === null) throw new Error("expected draft fixture");
     expect(
       planTimelineEvidenceTarget({

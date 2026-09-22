@@ -18,13 +18,13 @@ clears only captured revisions. Independent saved changes require local review.
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineEditorDraftRegistry.ts](useTimelineEditorDraftRegistry.ts) | Binds retained local values to currently mounted input references and row subscriptions; clears only submitted values on acknowledgement. |
+| [useTimelineEditorDraftRegistry.ts](useTimelineEditorDraftRegistry.ts) | Binds retained local values to currently mounted input references and row subscriptions; clears only captured revisions on acknowledgement. |
 
 ## Tests
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineEditorDraftRegistry.test.tsx](useTimelineEditorDraftRegistry.test.tsx) | Characterizes invalid-text preservation, grid/inspector separation, submitted-value cleanup, semantic input registration, row removal, surface detachment, and runtime retirement. |
+| [useTimelineEditorDraftRegistry.test.tsx](useTimelineEditorDraftRegistry.test.tsx) | Characterizes invalid-text preservation, grid/inspector separation, revision-owned cleanup, semantic input registration, row removal, surface detachment, and runtime retirement. |
 
 Predecessor acknowledgement advances only baseline fields that still match that
 predecessor's original authored values. A subsequent explicit review establishes
@@ -33,3 +33,10 @@ its own baseline and is not undone by an older receipt.
 Observation source readiness checks both independent grid and inspector drafts.
 Separating their submission payloads does not make either unsaved source eligible
 for a specialized observation action.
+
+Capture identity and promotion belong to the retained Timeline mutation owner.
+Mounted registries borrow that lifecycle and own only DOM references, selection,
+composition and subscriptions. Scalar values project the retained draft store and
+current committed row; rendered row snapshots are not authoritative authoring.
+Native input publishes before save planning. Capture-phase continuity cancellation
+aborts focus work without rendering over an input event that has not yet published.

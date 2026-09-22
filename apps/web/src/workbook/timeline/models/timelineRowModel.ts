@@ -91,12 +91,6 @@ export function createDraftRow(index: number): WorkbookRow {
   };
 }
 
-export function createDraftRowForKey(rowKey: string): WorkbookRow | null {
-  return rowKey.startsWith("draft-")
-    ? { ...createDraftRow(0), key: rowKey }
-    : null;
-}
-
 function readTimelineStringCell(
   row: TimelineApiRow | WorkbookQueryRow,
   fieldKey: string,

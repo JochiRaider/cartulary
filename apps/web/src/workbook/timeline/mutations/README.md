@@ -11,7 +11,7 @@ against committed-version evidence before presentation observes them.
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineRowMutationCoordinator.ts](useTimelineRowMutationCoordinator.ts) | Applies accepted/discarded plans and composes committed-version, conflict, transaction, save-state, collaboration, and continuity owners. |
+| [useTimelineRowMutationCoordinator.ts](useTimelineRowMutationCoordinator.ts) | Applies accepted presentation plans and composes committed-version, conflict, transaction, save-state, collaboration, and continuity owners. |
 
 ## Tests
 
@@ -50,3 +50,15 @@ Accepted background input and fresh-draft restoration delegate to the cancellabl
 viewport-continuity owner. Active draft-to-record editor transfer remains here,
 including newer text and native selection. Presentation cancellation cannot alter
 accepted versions, acknowledgements, exact replay or required refresh reads.
+
+`WorkbookTimelineMutationOwner` owns capture allocation, aliases and promotion even
+while detached. Acknowledgement batches revision settlement and identity movement
+before notifying subscribers. Active composition defers only the mounted row
+replacement; retained acceptance and queue settlement proceed independently.
+
+`createTimelineMutationDriver` marks successors with their create predecessor.
+Only a never-dispatched FIFO head create can normalize its owned queued authoring;
+exact dispatched replay remains immutable. Accepted successors patch owned fields,
+including explicit clears, rather than diffing a whole old row. Discard settles
+only captured revisions. Orphaned successors halt for local recovery instead of
+becoming creates. The former row-wide discard reconstruction was removed.

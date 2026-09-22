@@ -225,11 +225,9 @@ describe("Timeline collection inspection", () => {
     );
     fireEvent.compositionStart(input);
     act(() =>
-      props.editorDraftRegistry.clearSubmittedRow(
+      props.editorDraftRegistry.settleRevisions(
         props.row.key,
-        props.row.values,
-        { tags: "raw Ω 東京" },
-        captured,
+        captured ?? new Map(),
       ),
     );
     expect(input.value).toBe("raw Ω 東京");

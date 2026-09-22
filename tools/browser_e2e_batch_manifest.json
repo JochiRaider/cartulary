@@ -1365,6 +1365,9 @@
             "module.timeline.browser.draft_create_rejection",
             "module.timeline.browser.draft_create_uncertainty",
             "module.timeline.browser.explicit_blank_create",
+            "module.timeline.browser.pending_capture_composition",
+            "module.timeline.browser.pending_capture_detached",
+            "module.timeline.browser.pending_capture_raw",
             "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38"
           ],
           "specs": [
@@ -3075,6 +3078,9 @@
             "module.timeline.browser.draft_create_rejection",
             "module.timeline.browser.draft_create_uncertainty",
             "module.timeline.browser.explicit_blank_create",
+            "module.timeline.browser.pending_capture_composition",
+            "module.timeline.browser.pending_capture_detached",
+            "module.timeline.browser.pending_capture_raw",
             "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38"
           ],
           "specs": [

@@ -220,7 +220,6 @@ export function useTimelineColumnAssembly({
                         else context.cancel();
                       },
                       context.focusTargetRef,
-                      String(context.draftValue ?? ""),
                       (value, options) => context.setDraftValue(value, options),
                     ),
                 }

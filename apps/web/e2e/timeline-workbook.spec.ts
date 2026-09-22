@@ -26,7 +26,10 @@ import {
   workbookEditRecoveryRetryButtonTestId,
   workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import {
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { waitForCommittedRowSummary } from "./measurement/timingSupport";
@@ -50,6 +53,7 @@ import {
   fetchRecordHistoryCount,
   openHistoryEventDetails,
 } from "./support/workbook/history";
+import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import {
@@ -262,12 +266,14 @@ test("Timeline Create preserves pending fast capture and yields fresh draft focu
     await draft.fill("Incomplete fact Ω");
     await heldCapture.waitForHit;
     await expect(create).toBeDisabled();
+    await draft.fill("Incomplete fact Ω with newer text");
+    await expect(draft).toHaveValue("Incomplete fact Ω with newer text");
     await create.evaluate((button: HTMLButtonElement) => button.click());
     await create.hover();
     await page.mouse.down();
     await page.mouse.up();
     expect(f.creates).toHaveLength(1);
-    await expect(draft).toHaveValue("Incomplete fact Ω");
+    await expect(draft).toHaveValue("Incomplete fact Ω with newer text");
     heldCapture.release();
     await expect
       .poll(async () =>
@@ -275,7 +281,7 @@ test("Timeline Create preserves pending fast capture and yields fresh draft focu
           (row) => row.cells[synopsis]?.value,
         ),
       )
-      .toEqual(["Incomplete fact Ω"]);
+      .toEqual(["Incomplete fact Ω with newer text"]);
     await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
     await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -1089,4 +1095,163 @@ test("Timeline exact action recovery preserves committed transitions change sets
     body: JSON.stringify(evidence, null, 2),
     contentType: "application/json",
   });
+});
+
+test("Timeline pending capture retains native replacement paste and clear revisions", async ({
+  page,
+}) => {
+  const f = await openTimelineCreateFixture(page, "CAPTURE-RAW");
+  const synopsis = "timeline.activity_synopsis_text";
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftCellTestId(synopsis),
+  });
+  const draft = page.getByTestId(draftCellTestId(synopsis));
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: f.createPath,
+  });
+  try {
+    await draft.fill("A");
+    await held.waitForHit;
+    // fill delivers native replacement input without a preceding keydown.
+    for (const value of ["B", "", "  Ω 東京\nraw  ", "A", "B", "A"]) {
+      await draft.fill(value);
+      await expect(draft).toHaveValue(value);
+    }
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.evaluate(() =>
+      navigator.clipboard.writeText("  pasted Ω 東京  "),
+    );
+    await draft.selectText();
+    await page.keyboard.press("Control+v");
+    await expect(draft).toHaveValue("  pasted Ω 東京  ");
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Backspace");
+    await expect(draft).toHaveValue("");
+    expect(f.creates).toHaveLength(1);
+    expect(JSON.parse(f.creates[0] ?? "{}")[synopsis]).toBe("A");
+    held.release();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    const rows = await queryViewRows(page, f.incidentId, timelineViewSchemaId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.cells[synopsis]?.value).toBe("");
+    await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
+    expect(f.creates).toHaveLength(1);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline acknowledgement preserves an active composition until its final input", async ({
+  page,
+}) => {
+  const f = await openTimelineCreateFixture(page, "CAPTURE-COMPOSITION");
+  const synopsis = "timeline.activity_synopsis_text";
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftCellTestId(synopsis),
+  });
+  const draft = page.getByTestId(draftCellTestId(synopsis));
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: f.createPath,
+  });
+  try {
+    await draft.fill("A");
+    await held.waitForHit;
+    const element = await draft.elementHandle();
+    if (!element) throw new Error("Missing native draft editor");
+    // Browser DOM composition events exercise the lifecycle; this is not an OS IME claim.
+    await draft.dispatchEvent("compositionstart", { data: "" });
+    await draft.fill("東京 Ω");
+    held.release();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, f.incidentId, timelineViewSchemaId))
+            .length,
+      )
+      .toBe(1);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    expect(await element.evaluate((input) => input.isConnected)).toBe(true);
+    await expect(draft).toBeFocused();
+    await expect(draft).toHaveValue("東京 Ω");
+    await draft.dispatchEvent("compositionend", { data: "東京 Ω" });
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, f.incidentId, timelineViewSchemaId))[0]
+            ?.cells[synopsis]?.value,
+      )
+      .toBe("東京 Ω");
+    await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
+    await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
+    expect(f.creates).toHaveLength(1);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline capture acknowledgement while detached retains authoring on the original record", async ({
+  page,
+}) => {
+  const f = await openTimelineCreateFixture(page, "CAPTURE-DETACHED");
+  const synopsis = "timeline.activity_synopsis_text";
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftCellTestId(synopsis),
+  });
+  const draft = page.getByTestId(draftCellTestId(synopsis));
+  const originalId = await draft.getAttribute("id");
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: f.createPath,
+  });
+  try {
+    await draft.fill("A");
+    await held.waitForHit;
+    await draft.fill("B after admission Ω");
+    await expect(draft).toHaveValue("B after admission Ω");
+    await switchOrdinarySheet(page, hostsViewSchemaId);
+    held.release();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, f.incidentId, timelineViewSchemaId))[0]
+            ?.cells[synopsis]?.value,
+      )
+      .toBe("B after admission Ω");
+    await switchOrdinarySheet(page, timelineViewSchemaId);
+    const rows = await queryViewRows(page, f.incidentId, timelineViewSchemaId);
+    const recordId = rows[0]?.record_id;
+    if (!recordId) throw new Error("Missing accepted capture record");
+    await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
+    await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
+    await scrollGridCellIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      recordId,
+      cellKey: synopsis,
+    });
+    await page.getByTestId(rowCellTestId(recordId, synopsis)).click();
+    await expect(
+      page.getByTestId(
+        timelineScalarEditorTestId({
+          recordId,
+          fieldKey: synopsis,
+          surface: "grid",
+        }),
+      ),
+    ).toHaveValue("B after admission Ω");
+    await expect(draft).not.toHaveAttribute("id", originalId ?? "");
+    expect(f.creates).toHaveLength(1);
+  } finally {
+    await held.dispose();
+  }
 });

@@ -73,6 +73,7 @@ export type TimelineRowMutationEditorPort = {
 };
 
 export type TimelineReplayContext = {
+  capturePredecessor?: string;
   draftRevisions?: ReadonlyMap<string, number>;
   sheetRef: SheetRef;
   focusField: FocusFieldKey;
