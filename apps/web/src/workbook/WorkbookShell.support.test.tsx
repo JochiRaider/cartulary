@@ -423,6 +423,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       rowInspectButtonTestId("20000000-0000-4000-8000-000000000601"),
     );
     expect(document.activeElement).toBe(inspectButton);
+    expect(screen.queryByTestId(timelineInspectorTestId())).toBeNull();
+    fireEvent.scroll(contextMenu);
+    expect(screen.getByRole("dialog", { name: "Timeline row actions" })).toBe(
+      contextMenu,
+    );
     fireEvent.keyDown(inspectButton, { key: "ArrowDown" });
     expect(document.activeElement).toBe(
       screen.getByTestId(
@@ -435,13 +440,13 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     supersedeShortcut.focus();
     fireEvent.scroll(window);
     expect(
-      screen.getByTestId(
+      screen.queryByTestId(
         workbookRowContextMenuTestId(
           timelineViewSchemaId,
           "20000000-0000-4000-8000-000000000601",
         ),
       ),
-    ).toBeTruthy();
+    ).toBeNull();
 
     supersedeShortcut.blur();
     fireEvent.scroll(window);
@@ -474,9 +479,30 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         ),
       ).toBeNull();
     });
-    expect(document.activeElement).toBe(
-      screen.getByLabelText("Timeline row interaction layer"),
+    expect(document.activeElement?.contains(summaryCell)).toBe(true);
+    fireEvent.contextMenu(summaryCell);
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    fireEvent.pointerDown(outside);
+    outside.focus();
+    expect(
+      screen.queryByRole("dialog", { name: "Timeline row actions" }),
+    ).toBeNull();
+    expect(document.activeElement).toBe(outside);
+    fireEvent.contextMenu(summaryCell);
+    outside.focus();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Timeline row actions" }),
+      ).toBeNull(),
     );
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+    fireEvent.contextMenu(summaryCell);
+    fireEvent.resize(window);
+    expect(
+      screen.queryByRole("dialog", { name: "Timeline row actions" }),
+    ).toBeNull();
   });
 
   it("opens Timeline row actions from the keyboard and ignores draft rows", async () => {
@@ -521,6 +547,114 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         "timeline.activity_synopsis_text",
       ),
     );
+    // A nested owner must keep both native invocation paths, even when its
+    // control is rendered beneath an otherwise eligible committed cell.
+    for (const tag of [
+      "input",
+      "textarea",
+      "select",
+      "button",
+      "a",
+      "summary",
+    ]) {
+      const control = document.createElement(tag);
+      summaryCell.append(control);
+      const secondaryDown = new MouseEvent("pointerdown", {
+        button: 2,
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(control, secondaryDown);
+      expect(secondaryDown.defaultPrevented).toBe(false);
+      const pointer = new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(control, pointer);
+      expect(pointer.defaultPrevented).toBe(false);
+      const keyboard = new KeyboardEvent("keydown", {
+        key: "F10",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(control, keyboard);
+      expect(keyboard.defaultPrevented).toBe(false);
+      expect(
+        screen.queryByRole("dialog", { name: "Timeline row actions" }),
+      ).toBeNull();
+      control.remove();
+    }
+    for (const attribute of [
+      ["contenteditable", "true"],
+      ["role", "menu"],
+      ["role", "dialog"],
+      ["role", "alertdialog"],
+      ["role", "menuitem"],
+      ["role", "slider"],
+      ["role", "spinbutton"],
+      ["popover", "auto"],
+      ["role", "listbox"],
+      ["role", "combobox"],
+      ["role", "button"],
+      ["data-grid-editor-interaction", "true"],
+    ]) {
+      const control = document.createElement("span");
+      control.setAttribute(attribute[0] ?? "role", attribute[1] ?? "button");
+      summaryCell.append(control);
+      const secondaryDown = new MouseEvent("pointerdown", {
+        button: 2,
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(control, secondaryDown);
+      expect(secondaryDown.defaultPrevented).toBe(false);
+      const pointer = new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(control, pointer);
+      expect(pointer.defaultPrevented).toBe(false);
+      fireEvent.keyDown(control, { key: "ContextMenu" });
+      expect(
+        screen.queryByRole("dialog", { name: "Timeline row actions" }),
+      ).toBeNull();
+      control.remove();
+    }
+    for (const event of [
+      new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+      new KeyboardEvent("keydown", {
+        key: "ContextMenu",
+        bubbles: true,
+        cancelable: true,
+      }),
+    ]) {
+      event.preventDefault();
+      fireEvent(summaryCell, event);
+      expect(
+        screen.queryByRole("dialog", { name: "Timeline row actions" }),
+      ).toBeNull();
+    }
+    fireEvent.keyDown(summaryCell, {
+      key: "F10",
+      shiftKey: true,
+      isComposing: true,
+    });
+    expect(
+      screen.queryByRole("dialog", { name: "Timeline row actions" }),
+    ).toBeNull();
+    for (const button of [0, 2]) {
+      const down = new MouseEvent("pointerdown", {
+        button,
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(summaryCell, down);
+      if (button === 2) expect(down.defaultPrevented).toBe(true);
+      expect(
+        screen.queryByRole("dialog", { name: "Timeline row actions" }),
+      ).toBeNull();
+    }
     summaryCell.focus();
     fireEvent.keyDown(summaryCell, { key: "F10", shiftKey: true });
     await screen.findByTestId(

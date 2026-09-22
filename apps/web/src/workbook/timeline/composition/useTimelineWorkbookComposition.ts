@@ -97,6 +97,12 @@ export function useTimelineWorkbookComposition({
     },
   });
   const workflow = useTimelineInspectorWorkflowComposition({
+    rowMenuScopeKey: JSON.stringify([
+      mutation.snapshot.cellRangeScopeKey,
+      runtime.incident.currentRole,
+      runtime.mutationRuntime.authorizationEpoch,
+      runtime.layout.snapshot.incidentClosed,
+    ]),
     mentionOwner: foundation.ports.mentionOwner,
     mentionCandidates: foundation.ports.mentionCandidates,
     earlierSaves: foundation.refs.pendingSaves.saveQueueRef,
@@ -117,6 +123,7 @@ export function useTimelineWorkbookComposition({
         foundation.commands.mentions.setSelectedResolveTargetId,
     },
     grid: {
+      gridHandleRef: grid.refs.gridHandle,
       gridShellRef: grid.refs.gridShell,
 
       restoreTimelineFocusAnchor:
@@ -209,7 +216,7 @@ export function useTimelineWorkbookComposition({
     role: runtime.incident.currentRole,
     workflow: {
       handleTimelineGridContextKeyDown:
-        workflow.commands.rowInteractions.handleTimelineGridContextKeyDown,
+        workflow.commands.rowMenu.handleTimelineGridContextKeyDown,
       openRowHistory: workflow.commands.history.openRowHistory,
       timelineRowForEventTarget:
         workflow.commands.rowInteractions.timelineRowForEventTarget,

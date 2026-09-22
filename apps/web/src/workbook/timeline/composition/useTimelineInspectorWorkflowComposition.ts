@@ -1,5 +1,6 @@
+import type { GridHandle } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useCallback } from "react";
+import { type RefObject, useCallback } from "react";
 import { sheetRefKey } from "../../../shared/sheetRef";
 import { workbookInspectorMessageFeedback } from "../../inspector/workbookInspectorErrorModel";
 import {
@@ -19,6 +20,7 @@ import {
   useTimelineInspectorRowInteractions,
 } from "../hooks/useTimelineInspectorSelection";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
+import { useTimelineRowActionMenu } from "../hooks/useTimelineRowActionMenu";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 
 type CreateRelatedInput = Parameters<
@@ -35,6 +37,7 @@ type InspectorRowInteractionsInput = Parameters<
 type MentionInput = Parameters<typeof useTimelineMentionActions>[0];
 
 type TimelineInspectorWorkflowCompositionInput = {
+  readonly rowMenuScopeKey: string;
   readonly mentionOwner: MentionInput["owner"];
   readonly mentionCandidates: MentionInput["candidatePort"];
   readonly earlierSaves: MentionInput["earlierSaves"];
@@ -57,6 +60,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly setSelectedResolveTargetId: InspectorLifecycleInput["setSelectedResolveTargetId"];
   };
   readonly grid: {
+    readonly gridHandleRef: RefObject<GridHandle | null>;
     readonly gridShellRef: InspectorLifecycleInput["gridShellRef"];
     readonly restoreTimelineFocusAnchor: InspectorLifecycleInput["restoreTimelineFocusAnchor"];
     readonly workbookFocusAnchorRef: InspectorLifecycleInput["workbookFocusAnchorRef"];
@@ -100,6 +104,7 @@ type TimelineInspectorWorkflowCompositionInput = {
 
 export function useTimelineInspectorWorkflowComposition({
   activeSheetRef,
+  rowMenuScopeKey,
   mentionOwner,
   mentionCandidates,
   earlierSaves,
@@ -143,10 +148,15 @@ export function useTimelineInspectorWorkflowComposition({
     },
     setInspectorMessage: inspector.publishFeedback,
   });
+  const rowMenu = useTimelineRowActionMenu({
+    gridHandleRef: grid.gridHandleRef,
+    readable: !!incident.currentRole && !foundation.loadAccessLost,
+    rows: foundation.rows,
+    scopeKey: rowMenuScopeKey,
+  });
   const rowInteractions = useTimelineInspectorRowInteractions({
     elementRegistry: inspector.elementRegistry,
     publishViewingPresence: mutation.publishViewingPresence,
-    rows: foundation.rows,
     rowsRef: foundation.rowsRef,
     selectedRowId: inspector.selection.selectedRowId,
     setInspectorMessage: inspector.publishFeedback,
@@ -253,6 +263,7 @@ export function useTimelineInspectorWorkflowComposition({
       mentions,
       resolveTargetChange: handleResolveTargetChange,
       rowInteractions: rowInteractions.commands,
+      rowMenu: rowMenu.commands,
       workflow: {
         submit: submitWorkflow,
         updateDraft: updateWorkflowDraft,
@@ -263,6 +274,7 @@ export function useTimelineInspectorWorkflowComposition({
       createRelatedWorkflow,
       indicatorHandler: features.snapshot.indicatorHandler,
       rowInteractions: rowInteractions.snapshot,
+      rowMenu: rowMenu.menu,
     },
   };
 }

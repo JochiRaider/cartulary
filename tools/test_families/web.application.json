@@ -2442,6 +2442,7 @@
           "cancels requested restoration on unmount when the consumer owns that policy",
           "closes on subject change and restores to a registered fallback",
           "closes without restoring when focus leaves the registered surface",
+          "delegates Escape restoration to the semantic owner and leaves focus exit alone",
           "focuses on open, wraps, skips disabled items, and restores on Escape",
           "keeps a programmatically focused overlay root inside the focus boundary",
           "reconciles a removed focused item without using its detached element",

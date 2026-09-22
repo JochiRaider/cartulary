@@ -25,6 +25,9 @@ repeated viewport subtraction in surface components.
 | [WorkbookSurfaceLayout.tsx](WorkbookSurfaceLayout.tsx) | Shared work-area, bounded contextual feedback, independently scrolling grid/inspector slots, overlay geometry, resize behavior, and focus restoration. |
 | [WorkbookQuerySummarySlot.tsx](WorkbookQuerySummarySlot.tsx) | Presentation destination for the conditional query strip. The existing query control retains its reducer and command ownership across responsive changes. |
 
+Optional work-area event callbacks retain surface-owned menu admission; the
+frame forwards them without deciding editor ownership or committing authoring.
+
 The shared frame places query details between the main view bar and work area.
 Browsing controls occupy a footer inside the primary grid slot, outside its
 scrollport, and inherit that slot's inert overlay state. The shell save strip

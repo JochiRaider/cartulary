@@ -228,19 +228,15 @@ export function useTimelineWorkbookPresentation({
   const { editingPresenceForCell, presenceForRow } = mutation.snapshot.presence;
   const { publishEditModePresence: handleEditModePresence } =
     mutation.commands.presence;
+  const rowContextMenu = workflow.snapshot.rowMenu;
+  const { handleTimelineGridContextMenu, handleTimelineGridPointerDown } =
+    workflow.commands.rowMenu;
   const {
-    activeRowContextMenuRow,
-    rowContextMenu,
-    rowContextMenuFallbackFocusRef,
-    rowContextMenuReturnFocusRef,
-  } = workflow.snapshot.rowInteractions;
-  const {
-    closeRowContextMenu,
     handleInspectCollection,
     handleSelectMention,
     handleSelectRow,
-    handleTimelineGridContextMenu,
     openInspectorForRow,
+    requestRowPanelFocus,
   } = workflow.commands.rowInteractions;
   const captureActions = composition.captureActions;
   const {
@@ -603,6 +599,7 @@ export function useTimelineWorkbookPresentation({
       onRequestInspectorClose: closeInspector,
       restoreInspectorFocus: inspector.ports.restoreFocus,
       onWorkAreaContextMenu: handleTimelineGridContextMenu,
+      onWorkAreaPointerDown: handleTimelineGridPointerDown,
       onWorkAreaKeyDown: handleTimelineWorkAreaKeyDown,
       testId: timelineMutationSubstrateReadyTestId(),
       viewSchemaId: timelineViewSchemaId,
@@ -613,24 +610,26 @@ export function useTimelineWorkbookPresentation({
         rowContextMenu === null
           ? null
           : {
-              position: rowContextMenu.position,
-              fallbackFocusTargetRef: rowContextMenuFallbackFocusRef,
+              ...rowContextMenu,
               reviewDisabledReason: captureActions.reason(
-                activeRowContextMenuRow,
+                rowContextMenu.row,
                 "mark-reviewed",
               ),
               supersedeDisabledReason: captureActions.reason(
-                activeRowContextMenuRow,
+                rowContextMenu.row,
                 "supersede",
               ),
-              row: activeRowContextMenuRow,
-              returnFocusTargetRef: rowContextMenuReturnFocusRef,
-              onClose: closeRowContextMenu,
-              onInspectRow: openInspectorForRow,
+              onInspectRow: (recordId: string) => {
+                openInspectorForRow(recordId);
+                requestRowPanelFocus(recordId, "details");
+              },
               onMarkReviewed: (rowKey: string) => {
                 captureActions.start(rowKey, "mark-reviewed");
               },
-              onOpenHistory: openRowHistory,
+              onOpenHistory: (recordId: string) => {
+                openRowHistory(recordId);
+                requestRowPanelFocus(recordId, "history");
+              },
               onSupersede: (rowKey: string) => {
                 captureActions.start(rowKey, "supersede");
               },

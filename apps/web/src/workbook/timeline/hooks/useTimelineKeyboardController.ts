@@ -534,6 +534,7 @@ export function useTimelineKeyboardController({
 
   const onWorkAreaKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.defaultPrevented || event.nativeEvent.isComposing) return;
       handleTimelineGridContextKeyDown(event);
       if (event.defaultPrevented || !(event.target instanceof Element)) return;
       if (

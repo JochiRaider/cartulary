@@ -20,7 +20,7 @@ semantic models and commands. Surface layout regions live in
 | [TimelineHistoryPanel.tsx](TimelineHistoryPanel.tsx) | Timeline row history, rollback, delete, restore, and history action presentation. |
 | [TimelineMentionActionControls.tsx](TimelineMentionActionControls.tsx) | Mention action, Entity creation, and operation-recovery feedback controls. |
 | [TimelineMentionsPanel.tsx](TimelineMentionsPanel.tsx) | Timeline mention-resolution inspector panel. |
-| [TimelineRowActions.tsx](TimelineRowActions.tsx) | Timeline row action/context-menu presentation. |
+| [TimelineRowActions.tsx](TimelineRowActions.tsx) | Timeline row menu item navigation, cause-specific dismissal, and measured viewport clamping. Admission and semantic restoration stay in the Timeline hook. |
 | [TimelineScalarEditor.tsx](TimelineScalarEditor.tsx) | Timeline scalar input/textarea editing, commit, presence, clipboard, and grid-editor lifecycle behavior. |
 | [TimelineWorkbook.tsx](TimelineWorkbook.tsx) | Public Timeline facade that retains the collaboration boundary and delegates grouped composition, presentation derivation, and stateless rendering. |
 | [TimelineWorkbookGrid.tsx](TimelineWorkbookGrid.tsx) | Timeline grid renderer, grouped row table wrapper, hidden contract metadata cells, and grid test-ID placement. |

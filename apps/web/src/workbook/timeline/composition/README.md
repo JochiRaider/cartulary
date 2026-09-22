@@ -32,3 +32,8 @@ Collection authoring shares its revision key across the grid and inspector.
 Settlement clears the captured revision through one mounted draft registry, or
 through the retained owner when detached. An earlier socket observation cannot
 leave accepted text in an input or clear typing entered after dispatch.
+
+Row-menu admission/lifetime is independent of Inspector selection. Composition
+supplies the accepted query, incident and authorization scope with the semantic
+grid handle; only explicit Inspect/History activation selects its destination.
+Capture actions retain their existing source-owner preflight and mutation paths.

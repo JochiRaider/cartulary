@@ -509,7 +509,11 @@ export type GridHandle = {
   readonly getActiveCell?: () => GridCellAnchor | null;
   readonly requestFocus: (
     target: GridFocusTarget,
-    options?: { readonly signal?: AbortSignal },
+    options?: {
+      readonly signal?: AbortSignal;
+      /** Overlay focus return does not replace an independently owned range. */
+      readonly preserveSelection?: boolean;
+    },
   ) => Promise<GridFocusResult>;
   readonly focusAdjacentRegion?: (backwards: boolean) => boolean;
   readonly getAnchorRect: (anchor: GridCellAnchor) => DOMRectReadOnly | null;

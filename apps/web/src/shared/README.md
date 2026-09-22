@@ -50,3 +50,8 @@ and detail host; features own their forms, requests, receipts and detach policy.
 
 The work-area recovery overlay sits below the existing view-bar navigation
 layer, so open surface and saved-view menus remain reachable during recovery.
+
+Overlay consumers may supply `onRestoreFocus` to `useRegisteredOverlayNavigation`
+when return focus belongs to a semantic owner. Without it, the registered DOM
+trigger/fallback behavior is unchanged. Consumers wire item focus and overlay
+blur; focus exit closes without restoration and Tab remains native by default.

@@ -1747,6 +1747,41 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.row_action_menu",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-grid-entry.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_row_action_menu"
+        ],
+        "titles": [
+          "Timeline row actions preserve native authoring and dismiss to the semantic destination"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.scalar_clipboard_characterization",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",

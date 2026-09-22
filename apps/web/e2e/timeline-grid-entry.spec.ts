@@ -1,3 +1,4 @@
+import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
@@ -6,15 +7,26 @@ import {
   conflictMarkerTestId,
   draftCellTestId,
   gridFillHandleSelector,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridScrollportSelector,
   gridShellTestId,
+  incidentLandingTestId,
+  relationshipItemsTestId,
   rowCellTestId,
+  rowHistoryOpenButtonTestId,
+  rowHistoryPanelTestId,
+  rowInspectButtonTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
+  timelineCollectionInputTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
+  timelineRowMarkReviewedButtonTestId,
+  timelineRowSupersedeButtonTestId,
   timelineScalarEditorTestId,
   workbookEditRecoveryDiscardButtonTestId,
+  workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -24,12 +36,17 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
 import {
+  uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { createTimelineFillers } from "./support/timeline/fixtures";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { holdBrowserRequest } from "./support/transport/requestInterception";
+import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import {
   fetchFullRecordHistory,
   fetchRecordHistoryCount,
@@ -102,6 +119,338 @@ async function clipboard(page: Page, text: string) {
   await page.evaluate((value) => navigator.clipboard.writeText(value), text);
   await page.keyboard.press("Control+v");
 }
+
+test("Timeline row actions preserve native authoring and dismiss to the semantic destination", async ({
+  page,
+  workerAdminRequest,
+  sessionTracker,
+}) => {
+  test.setTimeout(180_000);
+  page.setDefaultTimeout(10_000);
+  const { incidentId, rows } = await seedTimeline(page, 3);
+  const id = required(rows[0]).record_id;
+  const otherId = required(rows[1]).record_id;
+  const menu = page.getByTestId(
+    workbookRowContextMenuTestId(timelineViewSchemaId, id),
+  );
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      ["PATCH", "POST"].includes(request.method()) &&
+      (request.url().includes("/api/v1/records/") ||
+        request.url().endsWith("/bulk-mutations"))
+    )
+      writes.push(request.url());
+  });
+  await selectCell(page, id);
+  await cell(page, id).click();
+  const input = editor(page, id);
+  await input.press("End");
+  await page.keyboard.type(" native draft");
+  const draft = await input.inputValue();
+  for (const invoke of [
+    () => input.click({ button: "right" }),
+    () => input.press("Shift+F10"),
+    () => input.press("ContextMenu"),
+  ]) {
+    await invoke();
+    await expect(menu).toHaveCount(0);
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue(draft);
+    expect(writes).toEqual([]);
+  }
+  // Native editing history remains intact after the context-menu gestures.
+  await input.press("Control+z");
+  await expect(input).not.toHaveValue(draft);
+  await input.press("Control+Shift+z");
+  await expect(input).toHaveValue(draft);
+  await input.press("Escape");
+  expect(writes).toEqual([]);
+
+  const bulk = page.getByRole("checkbox", {
+    name: `Select record ${id}`,
+    exact: true,
+  });
+  await bulk.check();
+  await selectCell(page, id);
+  await page.keyboard.press("Shift+ArrowDown");
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.keyboard.press("Control+c");
+  const selectedText = await page.evaluate(() =>
+    navigator.clipboard.readText(),
+  );
+  expect(selectedText).toContain("\n");
+  await cell(page, id).click({ button: "right" });
+  await expect(menu).toBeVisible();
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(cell(page, id)).toBeFocused();
+  await page.keyboard.press("Control+c");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    selectedText,
+  );
+  await expect(bulk).toBeChecked();
+  await page.keyboard.press("Shift+F10");
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(menu).toHaveCount(0);
+  await cell(page, id).focus();
+  await page.keyboard.press("ContextMenu");
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Shift+Tab");
+  await expect(menu).toHaveCount(0);
+  await cell(page, id).focus();
+  await page.keyboard.press("ContextMenu");
+  await expect(menu).toBeVisible();
+  await cell(page, otherId).click();
+  await expect(menu).toHaveCount(0);
+  await expect(editor(page, otherId)).toBeFocused();
+  await editor(page, otherId).press("Escape");
+
+  await cell(page, id).focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByTestId(rowInspectButtonTestId(id)).click();
+  const inspector = page.getByTestId(timelineInspectorTestId());
+  await expect(inspector).toBeVisible();
+  await expect
+    .poll(() =>
+      inspector.evaluate((node) => node.contains(document.activeElement)),
+    )
+    .toBe(true);
+  await inspector.locator(`[data-inspector-edit-field="${synopsis}"]`).click();
+  const inspectorDraft = page.getByTestId(
+    timelineScalarEditorTestId({
+      recordId: id,
+      fieldKey: synopsis,
+      surface: "inspector",
+    }),
+  );
+  await inspectorDraft.fill("Unsubmitted Inspector authoring");
+  await cell(page, otherId).click({ button: "right" });
+  const otherMenu = page.getByTestId(
+    workbookRowContextMenuTestId(timelineViewSchemaId, otherId),
+  );
+  await expect(otherMenu).toBeVisible();
+  await expect(inspectorDraft).toHaveValue("Unsubmitted Inspector authoring");
+  expect(writes).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(inspectorDraft).toHaveValue("Unsubmitted Inspector authoring");
+  await inspectorDraft.press("Escape");
+  await cell(page, id).focus();
+  await page.keyboard.press("Shift+F10");
+  await page.keyboard.press("Escape");
+  await expect(inspector).toBeVisible();
+  await expect(cell(page, id)).toBeFocused();
+  await page.keyboard.press("Shift+F10");
+  await page.getByTestId(rowHistoryOpenButtonTestId(id)).click();
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+  await expect
+    .poll(() =>
+      inspector.evaluate((node) => node.contains(document.activeElement)),
+    )
+    .toBe(true);
+  expect(writes).toEqual([]);
+
+  await showTimelineCollectionColumns(page);
+  const tagsSummary = relationshipItemsTestId(id, "timeline.tags", "grid");
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: tagsSummary,
+  });
+  const tags = page
+    .getByTestId(tagsSummary)
+    .locator("xpath=ancestor::*[@role='gridcell'][1]");
+  await tags.getByRole("button", { name: "Add tags token" }).click();
+  const token = page.getByTestId(
+    timelineCollectionInputTestId(id, "timeline.tags", "grid"),
+  );
+  await token.fill("unsubmitted native token");
+  for (const invoke of [
+    () => token.click({ button: "right" }),
+    () => token.press("Shift+F10"),
+  ]) {
+    await invoke();
+    await expect(menu).toHaveCount(0);
+    await expect(token).toBeFocused();
+    await expect(token).toHaveValue("unsubmitted native token");
+    expect(writes).toEqual([]);
+  }
+  await page
+    .getByTestId(relationshipItemsTestId(otherId, "timeline.tags", "grid"))
+    .click({ button: "right" });
+  expect(writes).toEqual([]);
+  await expect(otherMenu).toBeVisible();
+  await page.keyboard.press("Escape");
+  if (!(await token.count()))
+    await tags.getByRole("button", { name: "Add tags token" }).click();
+  await expect(token).toHaveValue("unsubmitted native token");
+  expect(writes).toEqual([]);
+  await token.press("Escape");
+  await expect(inspector).toBeVisible();
+  expect(writes).toEqual([]);
+
+  await selectCell(page, id);
+  await page.keyboard.press("Shift+F10");
+  const displayedRow = page.getByTestId(
+    gridRowTestId(timelineViewSchemaId, id),
+  );
+  const versionBefore = await displayedRow.getAttribute(
+    gridRowVersionAttribute,
+  );
+  await externalPatch(
+    page,
+    incidentId,
+    id,
+    source,
+    "Changed during menu browsing",
+  );
+  await expect(displayedRow).not.toHaveAttribute(
+    gridRowVersionAttribute,
+    versionBefore ?? "",
+  );
+  await expect(menu).toBeVisible();
+  await page.getByTestId(timelineRowMarkReviewedButtonTestId(id)).focus();
+  const currentForReview = required(
+    (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+      (row) => row.record_id === id,
+    ),
+  );
+  const reviewed = await page.request.post(
+    `${apiBase}${buildHTTPOperationPath("markTimelineRecordReviewed", { record_id: id })}`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_row_version: currentForReview.row_version,
+        client_txn_id: uniqueTxn("row-menu-eligibility"),
+      },
+    },
+  );
+  expect(reviewed.ok()).toBe(true);
+  await expect(
+    page.getByTestId(timelineRowMarkReviewedButtonTestId(id)),
+  ).toBeDisabled();
+  await expect(menu).toBeVisible();
+  await expect(
+    page.getByTestId(timelineRowSupersedeButtonTestId(id)),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(cell(page, id)).toBeFocused();
+  await createTimelineFillers(page, incidentId, "Row menu virtualization", 55);
+  await openTimeline(page, incidentId);
+  await selectCell(page, id);
+  await page.keyboard.press("Shift+F10");
+  await expect(menu).toBeVisible();
+  const scrollport = page
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator(gridScrollportSelector());
+  const invokingElement = await cell(page, id).elementHandle();
+  const scrolled = await scrollport.evaluate((node) => {
+    node.scrollTop = node.scrollTop > 200 ? 0 : node.scrollHeight;
+    return node.scrollTop;
+  });
+  await expect(menu).toHaveCount(0);
+  await expect
+    .poll(() => scrollport.evaluate((node) => node.scrollTop))
+    .toBe(scrolled);
+  await expect(scrollport).toBeFocused();
+  // RDG keeps its selected cell mounted while the root owns focus. Moving to
+  // another visible record releases that retention before the semantic return.
+  const loadedRows = await queryViewRows(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  const distantId = required(loadedRows.at(-1)).record_id;
+  await selectCell(
+    page,
+    distantId === id ? required(loadedRows[0]).record_id : distantId,
+  );
+  await expect
+    .poll(() => invokingElement?.evaluate((node) => node.isConnected))
+    .toBe(false);
+  await selectCell(page, id);
+  await page.keyboard.press("Shift+F10");
+  const current = required(
+    (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+      (row) => row.record_id === id,
+    ),
+  );
+  const removed = await page.request.delete(`${apiBase}/api/v1/records/${id}`, {
+    headers: await csrfHeaders(page),
+    data: {
+      base_row_version: current.row_version,
+      client_txn_id: uniqueTxn("row-menu-remove"),
+    },
+  });
+  expect(removed.ok()).toBe(true);
+  await expect(menu).toHaveCount(0);
+  await expect(scrollport).toBeFocused();
+
+  const member = await createIncidentMemberUser(page, incidentId, {
+    display_name: "Menu authority reviewer",
+    email: uniqueEmail("row-menu-reviewer"),
+    initial_password: "RowMenuEditor1!",
+    role: "reviewer",
+    mfa_required: false,
+    is_deployment_admin: false,
+  });
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "timeline-grid-entry",
+    purpose: "Row menu authority invalidation",
+    email: member.email,
+    password: member.initial_password,
+    userId: member.user_id,
+  });
+  const socket = installIncidentSocketMonitor(page, incidentId);
+  await openTimeline(page, incidentId);
+  await socket.waitForAcceptedSocket();
+  await selectCell(page, otherId);
+  await page.keyboard.press("Shift+F10");
+  await expect(otherMenu).toBeVisible();
+  await expect(
+    page.getByTestId(timelineRowMarkReviewedButtonTestId(otherId)),
+  ).toBeEnabled();
+  const membershipPath = `/api/v1/incidents/${incidentId}/memberships/${member.user_id}`;
+  expect(
+    (
+      await workerAdminRequest.patch(membershipPath, {
+        data: { base_membership_version: 1, role: "viewer" },
+      })
+    ).ok(),
+  ).toBe(true);
+  // Role downgrades are observed through the existing action authorization
+  // revalidation; no menu-specific polling or authority source is introduced.
+  const denied = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().includes(`/records/${otherId}/`),
+  );
+  await page.getByTestId(timelineRowMarkReviewedButtonTestId(otherId)).click();
+  expect((await denied).status()).toBe(403);
+  await expect(otherMenu).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
+  await cell(page, otherId).focus();
+  await page.keyboard.press("Shift+F10");
+  await expect(otherMenu).toBeVisible();
+  await expect(
+    page.getByTestId(timelineRowMarkReviewedButtonTestId(otherId)),
+  ).toBeDisabled();
+  await expect(
+    page.getByTestId(timelineRowSupersedeButtonTestId(otherId)),
+  ).toBeDisabled();
+  expect(
+    (
+      await workerAdminRequest.delete(membershipPath, {
+        data: { base_membership_version: 2 },
+      })
+    ).status(),
+  ).toBe(204);
+  await expect(page.getByTestId(incidentLandingTestId("shell"))).toBeVisible();
+  await expect(otherMenu).toHaveCount(0);
+  await expect(scrollport).toHaveCount(0);
+});
 
 test("Timeline native clipboard preserves scalar and rectangular values and rejects malformed representations", async ({
   page,

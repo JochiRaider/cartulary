@@ -38,6 +38,7 @@ export function WorkbookSurfaceLayout({
   workAreaOverlays,
   workAreaAnnouncements,
   onWorkAreaContextMenu,
+  onWorkAreaPointerDown,
   onWorkAreaKeyDown,
 }: {
   readonly chromeMode?: WorkbookChromeMode | undefined;
@@ -56,6 +57,7 @@ export function WorkbookSurfaceLayout({
   readonly workAreaAriaLabel?: string | undefined;
   readonly workAreaAnnouncements?: ReactNode | undefined;
   readonly workAreaOverlays?: ReactNode | undefined;
+  readonly onWorkAreaPointerDown?: PointerEventHandler<HTMLElement> | undefined;
   readonly onWorkAreaContextMenu?: MouseEventHandler<HTMLElement> | undefined;
   readonly onWorkAreaKeyDown?: KeyboardEventHandler<HTMLElement> | undefined;
 }) {
@@ -256,6 +258,7 @@ export function WorkbookSurfaceLayout({
             style={workAreaStyle}
             tabIndex={-1}
             onContextMenu={onWorkAreaContextMenu}
+            onPointerDown={onWorkAreaPointerDown}
             onKeyDownCapture={onWorkAreaKeyDown}
           >
             <WorkbookShellSlotRegion

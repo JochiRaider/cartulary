@@ -105,7 +105,9 @@ presented row identities, including virtualized membership and excluding collaps
 records. It contains no cell values. `navigateToCell` departs through the active
 scalar editor's deduplicated commit gate, then invokes the existing cancellable
 reveal/focus owner. `requestFocus` remains a restoration command and forwards its
-AbortSignal without adding an editor commit. New interactions cancel pending
+AbortSignal without adding an editor commit. Overlay owners can opt into
+`preserveSelection` to restore a cell outside a completed range without replacing
+that range; ordinary navigation keeps its existing selection policy. New interactions cancel pending
 destinations, never authoritative settlement. `ownsNavigationFocus` keeps callers
 out of vendor DOM details when deciding focus-scoped application shortcuts.
 

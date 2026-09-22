@@ -868,6 +868,7 @@ function useSemanticDataGrid<Row>(
         )
       ) {
         if (
+          !options?.preserveSelection &&
           !(cellRangeSelection?.keyboardEntry === "cycle"
             ? gridCellRangeContains(
                 semanticPresentationRef.current,

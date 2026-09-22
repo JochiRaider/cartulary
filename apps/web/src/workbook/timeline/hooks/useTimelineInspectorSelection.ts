@@ -1,8 +1,7 @@
+import type { InspectorPanelId } from "@cartulary/view-contracts";
 import {
   type Dispatch,
   type MutableRefObject,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -28,10 +27,7 @@ import type { WorkbookReadScope } from "../../query/WorkbookQueryRow";
 import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { LocalConflictState } from "../models/timelineConflictState";
-import type {
-  TimelineCommittedInspectorRecords,
-  TimelineRowContextMenuPosition,
-} from "../models/timelineControllerPorts";
+import type { TimelineCommittedInspectorRecords } from "../models/timelineControllerPorts";
 import type { CollectionFieldKey } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import {
@@ -41,11 +37,6 @@ import {
 
 type TimelineRowsRef = {
   readonly current: readonly WorkbookRow[];
-};
-
-type TimelineRowContextMenuState = {
-  readonly position: TimelineRowContextMenuPosition;
-  readonly recordId: string;
 };
 
 export function useTimelineInspectorSelection({
@@ -135,7 +126,6 @@ export function useTimelineInspectorSelection({
 export function useTimelineInspectorRowInteractions({
   elementRegistry,
   publishViewingPresence,
-  rows,
   rowsRef,
   selectedRowId,
   setInspectorMessage,
@@ -145,7 +135,6 @@ export function useTimelineInspectorRowInteractions({
 }: {
   readonly elementRegistry: TimelineInspectorElementRegistry;
   readonly publishViewingPresence: (recordId: string) => void;
-  readonly rows: readonly WorkbookRow[];
   readonly rowsRef: TimelineRowsRef;
   readonly selectedRowId: string | null;
   readonly setInspectorMessage: (
@@ -155,8 +144,53 @@ export function useTimelineInspectorRowInteractions({
   readonly setSelectedMentionRef: Dispatch<SetStateAction<string | null>>;
   readonly setSelectedRowId: Dispatch<SetStateAction<string | null>>;
 }) {
-  const [rowContextMenu, setRowContextMenu] =
-    useState<TimelineRowContextMenuState | null>(null);
+  const [pendingPanelFocus, setPendingPanelFocus] = useState<{
+    readonly recordId: string;
+    readonly panel: InspectorPanelId;
+  } | null>(null);
+  const requestRowPanelFocus = useCallback(
+    (recordId: string, panel: InspectorPanelId) => {
+      setPendingPanelFocus({ recordId, panel });
+    },
+    [],
+  );
+  useLayoutEffect(() => {
+    if (!pendingPanelFocus) return;
+    const row = rowsRef.current.find(
+      (row) => row.recordId === pendingPanelFocus.recordId,
+    );
+    if (
+      !row ||
+      row.rowVersion === null ||
+      selectedRowId !== pendingPanelFocus.recordId
+    ) {
+      setPendingPanelFocus(null);
+      return;
+    }
+    if (
+      elementRegistry.focusPanel(
+        {
+          recordId: pendingPanelFocus.recordId,
+          rowVersion: row.rowVersion,
+          viewSchemaId: timelineViewSchemaId,
+        },
+        pendingPanelFocus.panel,
+      )
+    )
+      setPendingPanelFocus(null);
+  });
+  useEffect(() => {
+    if (!pendingPanelFocus) return;
+    const cancel = () => setPendingPanelFocus(null);
+    document.addEventListener("pointerdown", cancel, true);
+    document.addEventListener("keydown", cancel, true);
+    document.addEventListener("focusin", cancel, true);
+    return () => {
+      document.removeEventListener("pointerdown", cancel, true);
+      document.removeEventListener("keydown", cancel, true);
+      document.removeEventListener("focusin", cancel, true);
+    };
+  }, [pendingPanelFocus]);
   const [pendingMentionFocus, setPendingMentionFocus] = useState<{
     readonly identity: {
       readonly recordId: string;
@@ -167,8 +201,6 @@ export function useTimelineInspectorRowInteractions({
     readonly sourceRecordId: string;
     readonly fieldKey?: CollectionFieldKey;
   } | null>(null);
-  const rowContextMenuFallbackFocusRef = useRef<HTMLElement | null>(null);
-  const rowContextMenuReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const handleSelectRow = useCallback(
     (recordId: string) => {
@@ -203,107 +235,6 @@ export function useTimelineInspectorRowInteractions({
       );
     },
     [rowsRef],
-  );
-
-  const openTimelineRowContextMenu = useCallback(
-    (
-      row: WorkbookRow,
-      position: TimelineRowContextMenuPosition,
-      returnFocusTarget: HTMLElement | null,
-    ) => {
-      if (row.recordId === null) {
-        return;
-      }
-      handleSelectRow(row.recordId);
-      rowContextMenuReturnFocusRef.current = returnFocusTarget;
-      setRowContextMenu({
-        position,
-        recordId: row.recordId,
-      });
-    },
-    [handleSelectRow],
-  );
-
-  const handleTimelineGridContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      const row = timelineRowForEventTarget(event.target);
-      if (row?.recordId === null || row?.recordId === undefined) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      rowContextMenuFallbackFocusRef.current = event.currentTarget;
-      openTimelineRowContextMenu(
-        row,
-        {
-          x: event.clientX,
-          y: event.clientY,
-        },
-        event.target instanceof HTMLElement
-          ? event.target
-          : event.currentTarget,
-      );
-    },
-    [openTimelineRowContextMenu, timelineRowForEventTarget],
-  );
-
-  const handleTimelineGridContextKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (
-        !(
-          event.key === "ContextMenu" ||
-          (event.key === "F10" && event.shiftKey)
-        )
-      ) {
-        return;
-      }
-      const row = timelineRowForEventTarget(event.target);
-      if (row?.recordId === null || row?.recordId === undefined) {
-        return;
-      }
-      const targetElement =
-        event.target instanceof Element
-          ? event.target.closest<HTMLElement>(
-              "[role='gridcell'], [role='rowheader'], [data-grid-record-id]",
-            )
-          : null;
-      const targetRect = targetElement?.getBoundingClientRect();
-      const fallbackRect = event.currentTarget.getBoundingClientRect();
-      event.preventDefault();
-      event.stopPropagation();
-      rowContextMenuFallbackFocusRef.current = event.currentTarget;
-      openTimelineRowContextMenu(
-        row,
-        {
-          x: targetRect ? targetRect.left + 12 : fallbackRect.left + 16,
-          y: targetRect ? targetRect.top + 12 : fallbackRect.top + 16,
-        },
-        targetElement ?? event.currentTarget,
-      );
-    },
-    [openTimelineRowContextMenu, timelineRowForEventTarget],
-  );
-
-  useEffect(() => {
-    if (rowContextMenu === null) {
-      return;
-    }
-    if (!rows.some((row) => row.recordId === rowContextMenu.recordId)) {
-      setRowContextMenu(null);
-    }
-  }, [rowContextMenu, rows]);
-
-  const closeRowContextMenu = useCallback(() => {
-    setRowContextMenu(null);
-  }, []);
-
-  const activeRowContextMenuRow = useMemo(
-    () =>
-      rowContextMenu === null
-        ? null
-        : (rows.find((row) => row.recordId === rowContextMenu.recordId) ??
-          null),
-    [rowContextMenu, rows],
   );
 
   const handleSelectMention = useCallback(
@@ -410,21 +341,14 @@ export function useTimelineInspectorRowInteractions({
 
   return {
     commands: {
-      closeRowContextMenu,
       handleInspectCollection,
       handleSelectMention,
       handleSelectRow,
-      handleTimelineGridContextKeyDown,
-      handleTimelineGridContextMenu,
       openInspectorForRow,
-      setRowContextMenu,
+      requestRowPanelFocus,
       timelineRowForEventTarget,
     },
     snapshot: {
-      activeRowContextMenuRow,
-      rowContextMenu,
-      rowContextMenuFallbackFocusRef,
-      rowContextMenuReturnFocusRef,
       selectedRowId,
     },
   };

@@ -680,6 +680,43 @@
       ]
     },
     {
+      "row_id": "module.workbook.accessibility.timeline_row_action_menu",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_timeline_row_action_menu_accessibility"
+        ],
+        "titles": [
+          "a11y.timeline-row-actions focus and menu scrolling remain reachable across zoom and viewport changes"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",

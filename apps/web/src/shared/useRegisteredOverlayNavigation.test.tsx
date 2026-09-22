@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { type RefObject, useRef, useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useRegisteredOverlayNavigation } from "./useRegisteredOverlayNavigation";
 
 const itemKeys = ["first", "disabled", "last"] as const;
@@ -11,11 +11,13 @@ function OverlayHarness({
   hideTrigger = false,
   keys = itemKeys,
   restoreFocusOnSubjectChange = true,
+  onRestoreFocus,
   subjectKey,
 }: {
   readonly hideTrigger?: boolean;
   readonly keys?: readonly (typeof itemKeys)[number][];
   readonly restoreFocusOnSubjectChange?: boolean;
+  readonly onRestoreFocus?: () => void;
   readonly subjectKey: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +33,7 @@ function OverlayHarness({
     subjectKey,
     restoreFocusOnSubjectChange,
     triggerRef,
+    ...(onRestoreFocus ? { onRestoreFocus } : {}),
   });
 
   return (
@@ -251,4 +254,24 @@ describe("registered overlay navigation", () => {
     expect(screen.queryByRole("button", { name: "Only action" })).toBeNull();
     expect(document.activeElement).toBe(fallback);
   });
+});
+
+it("delegates Escape restoration to the semantic owner and leaves focus exit alone", () => {
+  const restore = vi.fn();
+  render(<OverlayHarness subjectKey="semantic" onRestoreFocus={restore} />);
+  fireEvent.click(screen.getByText("Open"));
+  fireEvent.keyDown(screen.getByText("first"), {
+    key: "Escape",
+    isComposing: true,
+  });
+  expect(restore).not.toHaveBeenCalled();
+  expect(screen.getByRole("menu")).toBeTruthy();
+  fireEvent.keyDown(screen.getByText("first"), { key: "Escape" });
+  expect(restore).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByText("Open"));
+  fireEvent.blur(screen.getByText("first"), {
+    relatedTarget: screen.getByText("Fallback"),
+  });
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(restore).toHaveBeenCalledOnce();
 });

@@ -128,6 +128,7 @@ import {
   workbookQueryEntryTestId,
   workbookQueryOverflowEntryTestId,
   workbookResponsiveBandTestId,
+  workbookRowContextMenuTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -9285,4 +9286,76 @@ test("a11y.timeline-clear selected-cell action retains keyboard access across su
   await page.evaluate(() => {
     document.documentElement.style.zoom = "";
   });
+});
+
+test("a11y.timeline-row-actions focus and menu scrolling remain reachable across zoom and viewport changes", async ({
+  page,
+}, testInfo) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("ROW-MENU"),
+    "Timeline row menu geometry",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("row-menu"),
+    "timeline.activity_synopsis_text": "Row action focus and overflow",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await page.addStyleTag({
+    content: `${dataTestIdSelector(workbookRowContextMenuTestId(timelineViewSchemaId, row.record_id))} button { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }`,
+  });
+  for (const [width, height, zoom] of [
+    [1440, 900, 1],
+    [1024, 720, 1],
+    [768, 640, 1],
+    [390, 720, 1],
+    [1280, 720, 2],
+  ]) {
+    await page.setViewportSize({ width: width ?? 1440, height: height ?? 900 });
+    await page.locator("html").evaluate((node, scale) => {
+      node.style.zoom = String(scale);
+    }, zoom ?? 1);
+    const cell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      row.record_id,
+      "timeline.activity_synopsis_text",
+    );
+    await expectVisibleSemanticGridCellFocus(cell);
+    await page.keyboard.press("Shift+F10");
+    const menu = page.getByTestId(
+      workbookRowContextMenuTestId(timelineViewSchemaId, row.record_id),
+    );
+    await expect(menu).toBeVisible();
+    for (let index = 0; index < 4; index++) {
+      const focused = menu.locator(":focus");
+      await expect(focused).toBeVisible();
+      const box = await focused.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box?.x).toBeGreaterThanOrEqual(0);
+      expect(box?.y).toBeGreaterThanOrEqual(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+        (width ?? 1440) + 1,
+      );
+      expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(
+        (height ?? 900) + 1,
+      );
+      await page.keyboard.press("ArrowDown");
+    }
+    await testInfo.attach(`row-menu-${width}-${height}-zoom-${zoom}`, {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expectVisibleSemanticGridCellFocus(cell);
+    await page.keyboard.press("Shift+F10");
+    await expect(menu).toBeVisible();
+    await page.setViewportSize({
+      width: width ?? 1440,
+      height: (height ?? 900) - 20,
+    });
+    await expect(menu).toHaveCount(0);
+  }
 });

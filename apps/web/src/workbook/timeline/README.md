@@ -54,6 +54,7 @@ the next explicit edit.
 | [useTimelineMentionActions.test.tsx](useTimelineMentionActions.test.tsx) | Characterizes auto-resolution undo identity, committed-version refresh/continuity sequencing, and rejection behavior. |
 | [useTimelineMutationRuntimeBindings.test.tsx](useTimelineMutationRuntimeBindings.test.tsx) | Tests stable mounted registration, current callback dispatch and unmount cleanup. |
 | [useTimelineObservationSource.test.tsx](useTimelineObservationSource.test.tsx) | Tests exact committed Observation source text and rejection after saved or local source changes. |
+| [useTimelineRowActionMenu.test.tsx](useTimelineRowActionMenu.test.tsx) | Covers menu validity and cancellation across semantic focus fallback requests. |
 | [useTimelineRows.test.tsx](useTimelineRows.test.tsx) | Characterizes initial draft-row identity, stable row refs, and monotonic draft allocation. |
 | [useTimelineSurfaceFoundation.test.tsx](useTimelineSurfaceFoundation.test.tsx) | Characterizes stable adapter, row/query, pending-save, and semantic foundation identities. |
 

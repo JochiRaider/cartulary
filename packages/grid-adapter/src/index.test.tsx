@@ -77,6 +77,56 @@ function gridAnchor(recordId: string, fieldKey: string) {
 }
 
 describe("grid-adapter", () => {
+  it("restores overlay cell focus without replacing an independently selected range", async () => {
+    for (const Grid of [SemanticDataGrid, SemanticDataGridTestSupport]) {
+      const handle = createRef<GridHandle>();
+      const changed = vi.fn();
+      const range = {
+        start: gridAnchor("a", "label"),
+        end: gridAnchor("b", "state"),
+      };
+      render(
+        <Grid
+          ref={handle}
+          surface={testSurface}
+          columns={columns}
+          dataRows={["a", "b", "c"].map((recordId) => ({
+            kind: "data" as const,
+            rowIdentity: { kind: "core_record" as const, recordId },
+            data: { label: recordId, state: "open" },
+          }))}
+          cellRange={range}
+          onCellRangeChange={changed}
+          cellRangeSelection={{
+            kind: "contiguous",
+            scopeKey: "overlay",
+            keyboardEntry: "cycle",
+          }}
+        />,
+      );
+      await act(async () => {
+        expect(
+          await handle.current?.requestFocus(
+            { kind: "cell", anchor: gridAnchor("c", "label") },
+            { preserveSelection: true },
+          ),
+        ).toBe("focused");
+      });
+      expect(changed).not.toHaveBeenCalled();
+      expect(document.activeElement?.getAttribute("role")).toBe("gridcell");
+      await act(async () => {
+        await handle.current?.requestFocus({
+          kind: "cell",
+          anchor: gridAnchor("c", "label"),
+        });
+      });
+      expect(changed).toHaveBeenLastCalledWith({
+        start: gridAnchor("c", "label"),
+        end: gridAnchor("c", "label"),
+      });
+      cleanup();
+    }
+  });
   it("captures clear from Delete and the action handle while retaining the range and native keys", async () => {
     for (const { Grid } of semanticContractBindings) {
       const handle = createRef<GridHandle>();

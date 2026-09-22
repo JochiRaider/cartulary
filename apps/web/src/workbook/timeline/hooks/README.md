@@ -16,6 +16,7 @@ Hooks execute owner-local effects over semantic capabilities and pure
 | [useTimelineClipboardPasteController.ts](useTimelineClipboardPasteController.ts) | Captures and admits semantic table targets and preceding autosaves; preserves scalar paste with its editor/creation owner. |
 | [useTimelineGridAnchorController.ts](useTimelineGridAnchorController.ts) | Resolves Timeline grid anchors, paste targets, selected cells, and focus anchors across committed and draft rows. |
 | [useTimelineGridInteractions.ts](useTimelineGridInteractions.ts) | Coordinates Timeline grid refs, keyboard helpers, and grid interaction commands. |
+| [useTimelineRowActionMenu.ts](useTimelineRowActionMenu.ts) | Owns committed-cell menu admission, semantic focus return, and dismissal independently of Inspector selection. |
 | [useTimelineKeyboardController.ts](useTimelineKeyboardController.ts) | Owns Timeline scalar/collection editor keys, grid navigation/range commands, work-area shortcuts, event consumption, and focus priority. |
 | [useTimelineViewportContinuityController.ts](useTimelineViewportContinuityController.ts) | Coordinates Timeline scroll snapshots, focus restoration, continuity tokens, and entity-refresh barriers. |
 
@@ -76,3 +77,12 @@ After editor acceptance, Find interrupts the viewport continuity owner's pending
 restoration before revealing its semantic destination. Collection settlement
 callbacks own explicit departure focus; ordinary source saves retain their
 existing continuity path. Cancellation never interrupts authoritative writes.
+
+`../useTimelineRowActionMenu.test.tsx` covers compatible refresh, hidden membership,
+authority invalidation and cancellation across the complete semantic return chain.
+Production invocation and geometry evidence is routed through the Timeline browser
+and workbook accessibility owners.
+
+The row-menu admission owner also guards admitted secondary pointer-down focus,
+so a following context menu borrows focus without accepting a collection-editor
+departure. Native controls and primary pointer interaction retain their owners.

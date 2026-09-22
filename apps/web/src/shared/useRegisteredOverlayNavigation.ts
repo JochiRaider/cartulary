@@ -36,6 +36,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   reconcileItems = false,
   restoreFocusOnSubjectChange = true,
   restoreFocusOnUnmount = true,
+  onRestoreFocus,
   subjectKey,
   trapTab = false,
   triggerRef,
@@ -51,7 +52,9 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   readonly restoreFocusOnUnmount?: boolean;
   readonly subjectKey: string;
   readonly trapTab?: boolean | undefined;
-  readonly triggerRef: RefObject<HTMLElement | null>;
+  readonly triggerRef?: RefObject<HTMLElement | null>;
+  /** Semantic consumers resolve their current invoking target at dismissal. */
+  readonly onRestoreFocus?: () => void;
 }): RegisteredOverlayNavigation<Key> {
   const [activeKey, setActiveKey] = useState<Key | null>(null);
   const itemRefs = useRef(new Map<Key, OverlayItem>());
@@ -88,6 +91,10 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   }, []);
 
   const restoreTriggerFocus = useCallback(() => {
+    if (onRestoreFocus) {
+      onRestoreFocus();
+      return;
+    }
     const preferred = preferredReturnFocusRef?.current;
     if (
       preferred?.isConnected &&
@@ -97,7 +104,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
       preferred.focus({ preventScroll: true });
       if (document.activeElement === preferred) return;
     }
-    const trigger = triggerRef.current;
+    const trigger = triggerRef?.current;
     if (trigger?.isConnected) {
       trigger.focus({ preventScroll: true });
       if (document.activeElement === trigger) return;
@@ -106,7 +113,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     if (fallback?.isConnected) {
       fallback.focus({ preventScroll: true });
     }
-  }, [fallbackFocusRef, preferredReturnFocusRef, triggerRef]);
+  }, [fallbackFocusRef, preferredReturnFocusRef, triggerRef, onRestoreFocus]);
 
   const close = useCallback(
     (options: { readonly restoreTriggerFocus: boolean }) => {
@@ -196,7 +203,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     onOverlayBlur: (event) => {
       const nextFocus = event.relatedTarget;
       if (
-        nextFocus === triggerRef.current ||
+        (nextFocus !== null && nextFocus === triggerRef?.current) ||
         (nextFocus instanceof Node &&
           event.currentTarget.contains(nextFocus)) ||
         [...itemRefs.current.values()].some((item) => item === nextFocus)
@@ -208,6 +215,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     onItemKeyDown: (event, itemKey) => {
       if (
         event.defaultPrevented ||
+        event.nativeEvent.isComposing ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey

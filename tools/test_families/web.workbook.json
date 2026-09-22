@@ -5116,6 +5116,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_row_menu_lifetime",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline",
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineRowActionMenu.test.tsx",
+        "titles": [
+          "Timeline row menu lifetime cancels the entire semantic fallback chain for newer input focus and scope",
+          "Timeline row menu lifetime keeps compatible refresh and invalidates hidden anchors and authority without stealing outside focus",
+          "Timeline row menu lifetime uses current semantic row then root fallbacks when the invoking field or row disappears"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_rows_model_allocates_exactly_one_draft_8a23914036",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

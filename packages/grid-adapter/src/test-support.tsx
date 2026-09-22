@@ -104,6 +104,7 @@ import {
   buildSemanticPresentationModel,
   coreRowVersion,
   gridAnchorKey,
+  gridCellRangeContains,
   navigateSemanticPresentation,
   planSemanticPasteTargets,
   sameGridCellAnchor,
@@ -111,6 +112,7 @@ import {
   semanticPresentationContainsAnchor,
   semanticTarget,
 } from "./semanticPresentation";
+import { createGridPresentationPort } from "./semanticPresentationPort";
 import {
   nextSemanticSort,
   resolveSemanticBulkSelection,
@@ -230,6 +232,7 @@ function useTestSupportRange(
 }
 
 function useTestSupportGridHandle<Row>({
+  pendingRangeEnd,
   activeCellRef,
   keyboardNavigation,
   rangeKeyboardEntry,
@@ -249,6 +252,7 @@ function useTestSupportGridHandle<Row>({
   setActiveEditor,
   surface,
 }: {
+  readonly pendingRangeEnd: MutableRefObject<GridCellAnchor | null>;
   readonly activeCellRef: MutableRefObject<GridCellAnchor | null>;
   readonly keyboardNavigation: "region" | "spreadsheet";
   readonly rangeKeyboardEntry: "cycle" | undefined;
@@ -270,8 +274,25 @@ function useTestSupportGridHandle<Row>({
   readonly setActiveEditor: (editor: TestActiveEditor | null) => void;
   readonly surface: SemanticDataGridProps<Row>["surface"];
 }) {
-  const latest = useRef({ presentation, editable, hasDraft, columns });
-  latest.current = { presentation, editable, hasDraft, columns };
+  const latest = useRef({
+    presentation,
+    editable,
+    hasDraft,
+    columns,
+    rangeKeyboardEntry,
+  });
+  latest.current = {
+    presentation,
+    editable,
+    hasDraft,
+    columns,
+    rangeKeyboardEntry,
+  };
+  const presentationPort = useMemo(() => createGridPresentationPort(), []);
+  useLayoutEffect(() => {
+    presentationPort.publish(presentation);
+  }, [presentationPort, presentation]);
+  useLayoutEffect(() => () => presentationPort.retire(), [presentationPort]);
   const focusRequests = useMemo(
     () =>
       createSemanticFocusRequests({
@@ -319,6 +340,33 @@ function useTestSupportGridHandle<Row>({
     if (!editable) focusRequests.cancel();
     return () => focusRequests.cancel();
   }, [focusRequests, editable]);
+  const requestFocus = useCallback<GridHandle["requestFocus"]>(
+    (target, options) => {
+      if (options?.signal?.aborted) return Promise.resolve("cancelled");
+      const { presentation, rangeKeyboardEntry } = latest.current;
+      if (
+        target.kind === "cell" &&
+        !options?.preserveSelection &&
+        semanticPresentationContainsAnchor(presentation, target.anchor) &&
+        !(
+          rangeKeyboardEntry === "cycle" &&
+          gridCellRangeContains(presentation, rangeRef.current, target.anchor)
+        )
+      ) {
+        updateRange({ start: target.anchor, end: target.anchor });
+      }
+      const restorationAnchor =
+        target.kind === "cell" && options?.preserveSelection
+          ? target.anchor
+          : null;
+      if (restorationAnchor) pendingRangeEnd.current = restorationAnchor;
+      return focusRequests.requestFocus(target, options).finally(() => {
+        if (restorationAnchor && pendingRangeEnd.current === restorationAnchor)
+          pendingRangeEnd.current = null;
+      });
+    },
+    [focusRequests, pendingRangeEnd, rangeRef, updateRange],
+  );
   useImperativeHandle(
     ref,
     () => ({
@@ -353,7 +401,8 @@ function useTestSupportGridHandle<Row>({
         return true;
       },
       detachEdit: () => setActiveEditor(null),
-      requestFocus: focusRequests.requestFocus,
+      presentation: presentationPort,
+      requestFocus,
       focusAdjacentRegion: (backwards) =>
         focusAdjacentOutsideGrid(scrollElement.current, backwards),
       getScrollElement: () => scrollElement.current,
@@ -443,6 +492,8 @@ function useTestSupportGridHandle<Row>({
       activeCellRef,
       activeEditor,
       focusRequests,
+      presentationPort,
+      requestFocus,
       keyboardNavigation,
       rangeKeyboardEntry,
       rangeRef,
@@ -1567,6 +1618,7 @@ function useSemanticDataGridTestSupport<Row>(
   const { focusSemanticAnchor, publishActiveCell, activeCellRef } =
     useTestSupportFocus(semanticPresentation, focusCommand, onActiveCellChange);
   const focusRequests = useTestSupportGridHandle({
+    pendingRangeEnd,
     activeCellRef,
     keyboardNavigation,
     rangeKeyboardEntry: cellRangeSelection?.keyboardEntry,
