@@ -10,6 +10,7 @@ import {
 } from "../hooks/useTimelineGridInteractions";
 import {
   type TimelineViewportContinuityRequest,
+  type TimelineViewportContinuityScope,
   useTimelineViewportContinuityController,
 } from "../hooks/useTimelineViewportContinuityController";
 import type { WorkbookRow } from "../models/timelineRowModel";
@@ -20,10 +21,12 @@ type TimelineRowsRef = {
 
 export function useTimelineGridEnvironment({
   continuityResetKey,
+  continuityScope,
   editorDraftRegistry,
   rowsRef,
 }: {
   readonly continuityResetKey: string;
+  readonly continuityScope: TimelineViewportContinuityScope;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly rowsRef: TimelineRowsRef;
 }) {
@@ -48,6 +51,7 @@ export function useTimelineGridEnvironment({
       refs: interactionRefs,
     });
   const viewportContinuity = useTimelineViewportContinuityController({
+    scope: continuityScope,
     editorDraftRegistry,
     gridHandleRef: timelineGridHandleRef,
     gridShellRef,
@@ -77,14 +81,9 @@ export function useTimelineGridEnvironment({
     () =>
       createTimelineRowMutationEditorAdapter({
         continuityPort: interactions.continuityPort,
-        focusInput: (focusKey) => {
-          viewportContinuity.commands
-            .resolveInputElement(focusKey)
-            ?.focus({ preventScroll: true });
-        },
         gridHandleRef: timelineGridHandleRef,
       }),
-    [interactions.continuityPort, viewportContinuity.commands],
+    [interactions.continuityPort],
   );
 
   useLayoutEffect(() => {

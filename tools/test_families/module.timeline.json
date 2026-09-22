@@ -1113,6 +1113,41 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.deferred_continuity",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-deferred-continuity.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_deferred_continuity"
+        ],
+        "titles": [
+          "Timeline pending restoration yields to wheel native input external focus and a newer menu"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.range_accessibility",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -3458,6 +3493,7 @@
           "useTimelineRowMutationCoordinator prevents stale action and mutation results from regressing a live high-water row",
           "useTimelineRowMutationCoordinator reconciles same-version query grouping after a lifecycle receipt while retaining local drafts",
           "useTimelineRowMutationCoordinator retains one query-scoped created row when a refresh omits it",
+          "useTimelineRowMutationCoordinator reveals a committed draft row without restoring the pre-create scroll",
           "useTimelineRowMutationCoordinator settles accepted work after unmount without committing or focusing a detached projection"
         ]
       },

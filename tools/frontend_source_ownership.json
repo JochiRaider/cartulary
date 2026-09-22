@@ -1215,6 +1215,7 @@
         "apps/web/src/workbook/timeline/useTimelineRowActionMenu.test.tsx",
         "apps/web/src/workbook/timeline/useTimelineRows.test.tsx",
         "apps/web/src/workbook/timeline/useTimelineSurfaceFoundation.test.tsx",
+        "apps/web/src/workbook/timeline/useTimelineViewportContinuityController.test.tsx",
         "apps/web/src/workbook/utils/GridAdapter.anchor.test.ts",
         "apps/web/src/workbook/utils/freezeWorkbookValue.ts",
         "apps/web/src/workbook/utils/retainWorkbookReferenceLabels.ts",

@@ -19,6 +19,7 @@ import { useTimelineMutationDriver } from "../hooks/useTimelineMutationDriver";
 import { useTimelineMutationRuntimeBindings } from "../hooks/useTimelineMutationRuntimeBindings";
 import { useTimelineRowsLoader } from "../hooks/useTimelineRowsLoader";
 import type { TimelineViewportContinuityTarget } from "../hooks/useTimelineViewportContinuityController";
+import type { TimelineAcceptedContinuity } from "../models/timelineAcceptedMutationEffects";
 import type {
   TimelineMutableRef,
   TimelineRowMutationEditorPort,
@@ -74,6 +75,10 @@ type TimelineMutationCompositionInput = {
       },
     ) => number;
     readonly clearViewportContinuity: (token: number) => void;
+    readonly completeAcceptedViewportContinuity: (
+      token: number | undefined,
+      continuity: TimelineAcceptedContinuity,
+    ) => void;
     readonly editorPort: TimelineRowMutationEditorPort;
     readonly failViewportContinuity: (token: number) => void;
     readonly viewportContinuityRequest: { readonly token: number } | null;
@@ -128,8 +133,7 @@ export function useTimelineMutationComposition({
   const rowMutations = useTimelineRowMutationCoordinator({
     committedRows: foundation.committedRows,
     sheetRef: incident.sheetRef,
-    advanceViewportContinuity: grid.advanceViewportContinuity,
-    clearViewportContinuity: grid.clearViewportContinuity,
+    completeAcceptedViewportContinuity: grid.completeAcceptedViewportContinuity,
     createdRowPresentationScopeKey,
     editorDraftRegistry: foundation.editorDraftRegistry,
     editorPort: grid.editorPort,

@@ -48,10 +48,15 @@ it("useTimelineGridEnvironment owns rounded measurement and observer cleanup", (
       return 1;
     });
   const editorDraftRegistry = createTimelineEditorDraftRegistry();
+  const continuityScope = {
+    getSnapshot: () => ({ key: "continuity-1", readable: true }),
+    subscribe: () => () => {},
+  };
 
   function GridEnvironmentHarness() {
     const grid = useTimelineGridEnvironment({
       continuityResetKey: "continuity-1",
+      continuityScope,
       editorDraftRegistry,
       rowsRef: { current: [] },
     });

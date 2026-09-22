@@ -4539,6 +4539,45 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_deferred_continuity",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline",
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineViewportContinuityController.test.tsx",
+        "titles": [
+          "Timeline deferred continuity cancels acceptance-time fresh draft continuation independently of the accepted result",
+          "Timeline deferred continuity cancels an already pending semantic target for wheel and native input before it mounts",
+          "Timeline deferred continuity cancels pending focus for pointer keyboard scope authority replacement and unmount",
+          "Timeline deferred continuity cancels queued stabilization and late named follow-ups without resurrecting restoration",
+          "Timeline deferred continuity checks ownership after focus acknowledgement before changing geometry",
+          "Timeline deferred continuity continues an uninterrupted create through adapter draft readiness without pre-create scroll",
+          "Timeline deferred continuity keeps owned focus through authoritative row and named follow-up settlement",
+          "Timeline deferred continuity recovers a newly registered input but cancels its bounded retry for newer authoring",
+          "Timeline deferred continuity retires removed targets and cancels the whole unavailable fallback chain",
+          "Timeline deferred continuity reuses acknowledged focus while transient geometry becomes ready",
+          "Timeline deferred continuity settles terminal follow-up failure at a visible row fallback without stealing nested control focus",
+          "Timeline deferred continuity uses a visible fallback after bounded editor readiness and never reopens the editor",
+          "Timeline deferred continuity yields a pending row destination to external focus without a pointer or key event"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_disclosure_retained_receipt",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

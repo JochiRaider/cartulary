@@ -9,11 +9,9 @@ import type {
 /** Translates semantic mutation-editor commands at the grid boundary. */
 export function createTimelineRowMutationEditorAdapter({
   continuityPort,
-  focusInput,
   gridHandleRef,
 }: {
   readonly continuityPort: Pick<WorkbookContinuityPort, "focus">;
-  readonly focusInput: (focusKey: string) => void;
   readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
 }): TimelineRowMutationEditorPort {
   return {
@@ -46,20 +44,6 @@ export function createTimelineRowMutationEditorAdapter({
         recordId,
         viewSchemaId: timelineViewSchemaId,
       });
-    },
-    focusInput: (focusKey) => {
-      focusInput(focusKey);
-    },
-    reveal: ({ fieldKey, recordId }) => {
-      const anchor = {
-        fieldKey,
-        rowIdentity: { kind: "core_record", recordId },
-        surface: {
-          kind: "view_schema",
-          viewSchemaId: timelineViewSchemaId,
-        },
-      } as const;
-      gridHandleRef.current?.scrollToAnchor(anchor);
     },
   };
 }

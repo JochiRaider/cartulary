@@ -45,3 +45,8 @@ result and can leave an acknowledged editor blocking the next gesture.
 Other terminal rejections settle immediately, including validation errors, so
 Find and range navigation can return to the original edit. Discarding their
 retained queue unit does not settle the same command twice.
+
+Accepted background input and fresh-draft restoration delegate to the cancellable
+viewport-continuity owner. Active draft-to-record editor transfer remains here,
+including newer text and native selection. Presentation cancellation cannot alter
+accepted versions, acknowledgements, exact replay or required refresh reads.

@@ -37,3 +37,9 @@ Row-menu admission/lifetime is independent of Inspector selection. Composition
 supplies the accepted query, incident and authorization scope with the semantic
 grid handle; only explicit Inspect/History activation selects its destination.
 Capture actions retain their existing source-owner preflight and mutation paths.
+
+Deferred viewport continuity receives a stable observation port for the accepted
+incident/surface/query scope and live collaboration/mutation authority. Pending
+query replacements retain the accepted scope. Accepted fresh-draft and input
+restoration use the continuity command; active editor promotion stays with the
+mutation editor owner to preserve newer authoring and native selection.

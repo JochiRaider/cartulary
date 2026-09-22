@@ -69,11 +69,8 @@ function renderCoordinator(
     activateEdit: vi.fn(),
     cancelEdit: vi.fn(),
     focus: vi.fn(),
-    focusInput: vi.fn(),
-    reveal: vi.fn(),
   };
-  const advanceViewportContinuity = vi.fn();
-  const clearViewportContinuity = vi.fn();
+  const completeAcceptedViewportContinuity = vi.fn();
   const rendered = renderHook(
     ({
       createdRowPresentationScopeKey,
@@ -112,8 +109,7 @@ function renderCoordinator(
       const coordinator = useTimelineRowMutationCoordinator({
         committedRows: committedRows.commands,
         sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
-        advanceViewportContinuity,
-        clearViewportContinuity,
+        completeAcceptedViewportContinuity,
         createdRowPresentationScopeKey,
         editorDraftRegistry,
         editorPort,
@@ -148,8 +144,7 @@ function renderCoordinator(
   );
   return {
     ...rendered,
-    advanceViewportContinuity,
-    clearViewportContinuity,
+    completeAcceptedViewportContinuity,
     editorPort,
   };
 }
@@ -162,7 +157,7 @@ afterEach(() => {
 describe("useTimelineRowMutationCoordinator", () => {
   it("settles accepted work after unmount without committing or focusing a detached projection", () => {
     const runtime = runtimeFixture();
-    const { result, unmount, editorPort, advanceViewportContinuity } =
+    const { result, unmount, editorPort, completeAcceptedViewportContinuity } =
       renderCoordinator(runtime, [timelineRow(1, "before")]);
     const apply = result.current.coordinator.commands.applyAcceptedRowMutation;
     unmount();
@@ -176,21 +171,16 @@ describe("useTimelineRowMutationCoordinator", () => {
         { viewportContinuityToken: 17 },
       ),
     ).toMatchObject({ rowVersion: 2 });
-    expect(editorPort.focusInput).not.toHaveBeenCalled();
-    expect(advanceViewportContinuity).not.toHaveBeenCalled();
+    expect(editorPort.activateEdit).not.toHaveBeenCalled();
+    expect(completeAcceptedViewportContinuity).not.toHaveBeenCalled();
     runtime.invalidate({ kind: "runtime_disposed" });
   });
 
   it("reveals a committed draft row without restoring the pre-create scroll", () => {
     const runtime = runtimeFixture();
     const draft = createDraftRow(1);
-    const {
-      advanceViewportContinuity,
-      clearViewportContinuity,
-      editorPort,
-      result,
-      unmount,
-    } = renderCoordinator(runtime, [draft]);
+    const { completeAcceptedViewportContinuity, editorPort, result, unmount } =
+      renderCoordinator(runtime, [draft]);
 
     act(() => {
       result.current.coordinator.commands.applyAcceptedRowMutation(
@@ -203,13 +193,12 @@ describe("useTimelineRowMutationCoordinator", () => {
       );
     });
 
-    expect(clearViewportContinuity).toHaveBeenCalledWith(17);
-    expect(advanceViewportContinuity).not.toHaveBeenCalled();
-    expect(editorPort.reveal).toHaveBeenCalledWith({
-      fieldKey: "timeline.activity_synopsis_text",
+    expect(completeAcceptedViewportContinuity).toHaveBeenCalledWith(17, {
+      kind: "fresh_draft",
+      focusKey: expect.any(String),
       recordId,
     });
-    expect(editorPort.focusInput).toHaveBeenCalledOnce();
+    expect(editorPort.activateEdit).not.toHaveBeenCalled();
     expect(result.current.rows.map((row) => row.recordId)).toEqual([
       recordId,
       null,

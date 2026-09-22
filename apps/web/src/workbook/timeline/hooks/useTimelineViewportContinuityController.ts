@@ -1,5 +1,14 @@
-import type { GridCellAnchor, GridHandle } from "@cartulary/grid-adapter";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import type {
+  GridCellAnchor,
+  GridFocusResult,
+  GridFocusTarget,
+  GridHandle,
+} from "@cartulary/grid-adapter";
+import {
+  workbookIncidentIdentityTestId,
+  workbookSurfacesMenuTriggerTestId,
+} from "@cartulary/ui-contracts";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import {
   captureViewportAnchor,
   computeRestoredViewportScroll,
@@ -9,7 +18,11 @@ import {
 } from "../../continuity/gridViewportContinuity";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
-import { timelineScalarBindings } from "../models/timelineFieldRegistry";
+import type { TimelineAcceptedContinuity } from "../models/timelineAcceptedMutationEffects";
+import {
+  timelineCollectionBindings,
+  timelineScalarBindings,
+} from "../models/timelineFieldRegistry";
 import {
   advanceTimelineContinuityRender,
   beginTimelineContinuityLifecycle,
@@ -24,18 +37,32 @@ import {
   transitionTimelineContinuity,
 } from "../models/timelineViewportContinuityModel";
 
-type TimelineMutableRef<T> = {
-  current: T;
-};
-
+type TimelineMutableRef<T> = { current: T };
 export type TimelineViewportContinuityTarget = TimelineContinuitySemanticTarget;
-
 export type TimelineViewportContinuityRequest = {
   token: number;
   lifecycle: TimelineContinuityLifecycle;
   preservedViewport: ViewportSnapshot | null;
 };
 
+/** Accepted presentation identity, with live authority independently observable. */
+export type TimelineViewportContinuityScope = {
+  readonly getSnapshot: () => {
+    readonly key: string;
+    readonly readable: boolean;
+  };
+  readonly subscribe: (listener: () => void) => () => void;
+};
+
+type Restoration = {
+  request: TimelineViewportContinuityRequest;
+  readonly scopeKey: string;
+  readonly controller: AbortController;
+  cancelPass: (() => void) | null;
+  destination: GridFocusTarget | HTMLElement | null;
+};
+
+const synopsis = "timeline.activity_synopsis_text";
 function timelineAnchor(recordId: string, fieldKey: string): GridCellAnchor {
   return {
     fieldKey,
@@ -48,6 +75,7 @@ export function useTimelineViewportContinuityController({
   gridHandleRef,
   gridShellRef,
   editorDraftRegistry,
+  scope,
   setViewportContinuityRequest,
   viewportContinuityRequest,
   viewportContinuityTokenRef,
@@ -55,6 +83,7 @@ export function useTimelineViewportContinuityController({
   readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
   readonly gridShellRef: TimelineMutableRef<HTMLDivElement | null>;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
+  readonly scope: TimelineViewportContinuityScope;
   readonly setViewportContinuityRequest: (
     value:
       | TimelineViewportContinuityRequest
@@ -66,194 +95,150 @@ export function useTimelineViewportContinuityController({
   readonly viewportContinuityRequest: TimelineViewportContinuityRequest | null;
   readonly viewportContinuityTokenRef: TimelineMutableRef<number>;
 }) {
-  const activeViewportContinuityRequestRef =
-    useRef<TimelineViewportContinuityRequest | null>(viewportContinuityRequest);
-  const userInteractionVersionRef = useRef(0);
-  const scrollRestoreSequenceRef = useRef(0);
-  const activeRestoration = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    const recordUserInteraction = () => {
-      userInteractionVersionRef.current += 1;
-    };
-    const recordFocusChange = (event: FocusEvent) => {
-      const target =
-        activeViewportContinuityRequestRef.current?.lifecycle
-          .semanticFocusTarget;
-      if (
-        target?.kind === "input" &&
-        event.target !==
-          editorDraftRegistry.inputElementForFocusKey(target.focusKey)
-      ) {
-        recordUserInteraction();
-      }
-    };
-    document.addEventListener("keydown", recordUserInteraction, true);
-    document.addEventListener("input", recordUserInteraction, true);
-    document.addEventListener("pointerdown", recordUserInteraction, true);
-    document.addEventListener("wheel", recordUserInteraction, true);
-    document.addEventListener("focusin", recordFocusChange, true);
-    return () => {
-      document.removeEventListener("keydown", recordUserInteraction, true);
-      document.removeEventListener("input", recordUserInteraction, true);
-      document.removeEventListener("pointerdown", recordUserInteraction, true);
-      document.removeEventListener("wheel", recordUserInteraction, true);
-      document.removeEventListener("focusin", recordFocusChange, true);
-    };
-  }, [editorDraftRegistry]);
-
-  const currentGridScrollElement = useCallback(
-    () => gridHandleRef.current?.getScrollElement() ?? null,
-    [gridHandleRef],
+  const active = useRef<Restoration | null>(null);
+  const interactionGeneration = useRef(0);
+  const mounted = useRef(true);
+  const isCurrent = useCallback(
+    (restoration: Restoration) => {
+      const currentScope = scope.getSnapshot();
+      return (
+        mounted.current &&
+        active.current === restoration &&
+        !restoration.controller.signal.aborted &&
+        currentScope.readable &&
+        currentScope.key === restoration.scopeKey &&
+        restoration.request.lifecycle.userInterruptionGeneration ===
+          interactionGeneration.current
+      );
+    },
+    [scope],
   );
 
-  const currentGridScrollSnapshot = useCallback(() => {
-    const scrollElement = currentGridScrollElement();
-    if (scrollElement === null) return null;
-    return {
-      top: scrollElement.scrollTop,
-      left: scrollElement.scrollLeft,
-    };
-  }, [currentGridScrollElement]);
+  const clearViewportContinuity = useCallback(
+    (token: number) => {
+      const restoration = active.current;
+      if (restoration?.request.token !== token) return;
+      active.current = null;
+      restoration.controller.abort();
+      restoration.cancelPass?.();
+      if (mounted.current)
+        setViewportContinuityRequest((current) =>
+          current?.token === token ? null : current,
+        );
+    },
+    [setViewportContinuityRequest],
+  );
+
+  const interruptViewportContinuity = useCallback(() => {
+    interactionGeneration.current += 1;
+    const restoration = active.current;
+    if (restoration) clearViewportContinuity(restoration.request.token);
+  }, [clearViewportContinuity]);
 
   const resolveInputElement = useCallback(
-    (focusKey: string) => editorDraftRegistry.inputElementForFocusKey(focusKey),
+    (focusKey: string) => {
+      const input = editorDraftRegistry.inputElementForFocusKey(focusKey);
+      return input?.closest("[inert]") ? null : input;
+    },
     [editorDraftRegistry],
   );
 
-  const resolveViewportContinuityRect = useCallback(
+  useLayoutEffect(() => {
+    mounted.current = true;
+    const focusChanged = (event: FocusEvent) => {
+      const restoration = active.current;
+      if (!restoration) return;
+      const target = restoration.request.lifecycle.semanticFocusTarget;
+      if (
+        target.kind === "input" &&
+        event.target === resolveInputElement(target.focusKey)
+      )
+        return;
+      if (
+        isRestorationFocus(
+          event.target,
+          restoration.destination,
+          gridHandleRef.current,
+        )
+      )
+        return;
+      // Removing an editor naturally leaves body active without a focusin event.
+      // An actual focus transition to another control is always a new owner.
+      interruptViewportContinuity();
+    };
+    const invalidateScope = () => {
+      const restoration = active.current;
+      if (restoration && !isCurrent(restoration))
+        clearViewportContinuity(restoration.request.token);
+    };
+    const unsubscribe = scope.subscribe(invalidateScope);
+    const events = ["pointerdown", "keydown", "wheel", "input"] as const;
+    for (const event of events)
+      document.addEventListener(event, interruptViewportContinuity, true);
+    document.addEventListener("focusin", focusChanged, true);
+    return () => {
+      unsubscribe();
+      for (const event of events)
+        document.removeEventListener(event, interruptViewportContinuity, true);
+      document.removeEventListener("focusin", focusChanged, true);
+      mounted.current = false;
+      const restoration = active.current;
+      if (restoration) clearViewportContinuity(restoration.request.token);
+    };
+  }, [
+    clearViewportContinuity,
+    gridHandleRef,
+    interruptViewportContinuity,
+    isCurrent,
+    resolveInputElement,
+    scope,
+  ]);
+
+  // The scope getter is updated by composition during render, before any layout
+  // effect can start an old destination under the newly accepted presentation.
+  useLayoutEffect(() => {
+    const restoration = active.current;
+    if (restoration && !isCurrent(restoration))
+      clearViewportContinuity(restoration.request.token);
+  });
+
+  const currentGridScrollSnapshot = useCallback((): ScrollPosition | null => {
+    const element = gridHandleRef.current?.getScrollElement();
+    return element
+      ? { top: element.scrollTop, left: element.scrollLeft }
+      : null;
+  }, [gridHandleRef]);
+  const resolveRect = useCallback(
     (target: TimelineViewportContinuityTarget) => {
-      switch (target.kind) {
-        case "row-inspect":
-          return (
-            gridHandleRef.current?.getAnchorRect(
-              timelineAnchor(
-                target.recordId,
-                "timeline.activity_synopsis_text",
-              ),
-            ) ?? null
-          );
-        case "input":
-          return (
-            resolveInputElement(target.focusKey)?.getBoundingClientRect() ??
-            null
-          );
-        case "scroll-only":
-          return null;
-      }
+      if (target.kind === "input")
+        return (
+          resolveInputElement(target.focusKey)?.getBoundingClientRect() ?? null
+        );
+      if (target.kind === "row-inspect")
+        return (
+          gridHandleRef.current?.getAnchorRect(
+            timelineAnchor(target.recordId, synopsis),
+          ) ?? null
+        );
+      return null;
     },
     [gridHandleRef, resolveInputElement],
   );
-
   const currentGridViewportSnapshot = useCallback(
-    (targetRect: DOMRectReadOnly | null = null): ViewportSnapshot | null => {
-      const gridShell = gridShellRef.current;
+    (rect: DOMRectReadOnly | null = null): ViewportSnapshot | null => {
+      const element = gridHandleRef.current?.getScrollElement();
       const scroll = currentGridScrollSnapshot();
-      const scrollElement = currentGridScrollElement();
-      if (gridShell === null || scroll === null || scrollElement === null) {
-        return null;
-      }
-      const containerRect = scrollElement.getBoundingClientRect();
+      if (!gridShellRef.current || !element || !scroll) return null;
+      const container = element.getBoundingClientRect();
       return {
         scroll,
         anchor:
-          targetRect === null ||
-          !isRectFullyVisibleWithinContainer(containerRect, targetRect)
-            ? null
-            : captureViewportAnchor(containerRect, targetRect),
+          rect && isRectFullyVisibleWithinContainer(container, rect)
+            ? captureViewportAnchor(container, rect)
+            : null,
       };
     },
-    [currentGridScrollElement, currentGridScrollSnapshot, gridShellRef],
-  );
-
-  const restoreGridScroll = useCallback(
-    (preservedScroll: ScrollPosition | null) => {
-      const scrollElement = currentGridScrollElement();
-      if (scrollElement === null || preservedScroll === null) {
-        return;
-      }
-      scrollElement.scrollTop = preservedScroll.top;
-      scrollElement.scrollLeft = preservedScroll.left;
-      const sequence = ++scrollRestoreSequenceRef.current;
-      const interaction = userInteractionVersionRef.current;
-      window.requestAnimationFrame(() => {
-        if (
-          sequence !== scrollRestoreSequenceRef.current ||
-          interaction !== userInteractionVersionRef.current
-        )
-          return;
-        const currentScrollElement = currentGridScrollElement();
-        if (currentScrollElement === null) return;
-        currentScrollElement.scrollTop = preservedScroll.top;
-        currentScrollElement.scrollLeft = preservedScroll.left;
-      });
-    },
-    [currentGridScrollElement],
-  );
-
-  const restoreGridViewportForTarget = useCallback(
-    async (
-      focusTarget: () => Promise<boolean>,
-      resolveRect: () => DOMRectReadOnly | null,
-      preservedViewport: ViewportSnapshot | null,
-      signal: AbortSignal,
-    ) => {
-      const currentViewport =
-        preservedViewport?.anchor === null
-          ? ({
-              scroll: currentGridScrollSnapshot(),
-              anchor: null,
-            } satisfies ViewportSnapshot)
-          : (preservedViewport ??
-            ({
-              scroll: currentGridScrollSnapshot(),
-              anchor: null,
-            } satisfies ViewportSnapshot));
-      const preservedScroll = currentViewport.scroll;
-      window.focus();
-      const focusedNow = await focusTarget();
-      if (!focusedNow || signal.aborted) return false;
-      // Compute vertical restoration from the current target geometry. Resetting
-      // to the old scroll first unmounts the newly acknowledged row needlessly.
-      const scrollElement = currentGridScrollElement();
-      if (scrollElement !== null && preservedScroll !== null)
-        scrollElement.scrollLeft = preservedScroll.left;
-      const restoreViewportGeometryNow = async () => {
-        const scrollElement = currentGridScrollElement();
-        const currentRect = resolveRect();
-        if (
-          scrollElement === null ||
-          preservedScroll === null ||
-          currentRect === null
-        ) {
-          return false;
-        }
-        const restoredScroll = computeRestoredViewportScroll({
-          preservedScroll,
-          currentScroll: {
-            top: scrollElement.scrollTop,
-            left: scrollElement.scrollLeft,
-          },
-          preservedAnchor: currentViewport.anchor,
-          containerRect: scrollElement.getBoundingClientRect(),
-          elementRect: currentRect,
-        });
-        restoreGridScroll(restoredScroll);
-        const updatedScrollElement = currentGridScrollElement();
-        const updatedRect = resolveRect();
-        if (updatedScrollElement === null || updatedRect === null) {
-          return false;
-        }
-        const fullyVisible = isRectFullyVisibleWithinContainer(
-          updatedScrollElement.getBoundingClientRect(),
-          updatedRect,
-        );
-        return fullyVisible && !signal.aborted && (await focusTarget());
-      };
-      const restoredNow = await restoreViewportGeometryNow();
-      return focusedNow && restoredNow;
-    },
-    [currentGridScrollElement, currentGridScrollSnapshot, restoreGridScroll],
+    [currentGridScrollSnapshot, gridHandleRef, gridShellRef],
   );
 
   const beginViewportContinuity = useCallback(
@@ -263,158 +248,62 @@ export function useTimelineViewportContinuityController({
         requirements?: readonly TimelineContinuityRequirementName[];
       } = {},
     ) => {
-      const activeRequest = activeViewportContinuityRequestRef.current;
-      if (
-        target.kind === "scroll-only" &&
-        activeRequest !== null &&
-        activeRequest.lifecycle.userInterruptionGeneration ===
-          userInteractionVersionRef.current
-      ) {
-        return activeRequest.token;
-      }
-      const token = viewportContinuityTokenRef.current;
-      viewportContinuityTokenRef.current += 1;
+      const previous = active.current;
+      if (target.kind === "scroll-only" && previous && isCurrent(previous))
+        return previous.request.token;
+      if (previous) clearViewportContinuity(previous.request.token);
+      const token = viewportContinuityTokenRef.current++;
+      const currentScope = scope.getSnapshot();
+      if (!mounted.current || !currentScope.readable) return token;
       const request: TimelineViewportContinuityRequest = {
         token,
         lifecycle: beginTimelineContinuityLifecycle({
           semanticFocusTarget: target,
-          userInterruptionGeneration: userInteractionVersionRef.current,
-          ...(options.requirements === undefined
-            ? {}
-            : { requirements: options.requirements }),
+          userInterruptionGeneration: interactionGeneration.current,
+          ...options,
         }),
-        preservedViewport: currentGridViewportSnapshot(
-          resolveViewportContinuityRect(target),
-        ),
+        preservedViewport: currentGridViewportSnapshot(resolveRect(target)),
       };
-      activeViewportContinuityRequestRef.current = request;
+      active.current = {
+        request,
+        scopeKey: currentScope.key,
+        controller: new AbortController(),
+        cancelPass: null,
+        destination: null,
+      };
       setViewportContinuityRequest(request);
       return token;
     },
     [
+      clearViewportContinuity,
       currentGridViewportSnapshot,
-      resolveViewportContinuityRect,
+      isCurrent,
+      resolveRect,
+      scope,
       setViewportContinuityRequest,
       viewportContinuityTokenRef,
     ],
   );
-  const beginViewportContinuityRef = useRef(beginViewportContinuity);
-  beginViewportContinuityRef.current = beginViewportContinuity;
 
-  const settleViewportContinuityFollowUp = useCallback(
+  const updateRequest = useCallback(
     (
-      token: number,
-      requirement: TimelineContinuityRequirementName,
-      state: "settled" | "terminal",
+      token: number | undefined,
+      update: (
+        request: TimelineViewportContinuityRequest,
+      ) => TimelineViewportContinuityRequest,
     ) => {
-      const activeRequest = activeViewportContinuityRequestRef.current;
-      if (activeRequest?.token === token) {
-        activeViewportContinuityRequestRef.current = {
-          ...activeRequest,
-          lifecycle: settleTimelineContinuityRequirement(
-            activeRequest.lifecycle,
-            requirement,
-            state,
-          ),
-        };
+      const restoration = active.current;
+      if (!restoration || restoration.request.token !== token) return;
+      if (!isCurrent(restoration)) {
+        clearViewportContinuity(restoration.request.token);
+        return;
       }
-      setViewportContinuityRequest((current) => {
-        if (!current || current.token !== token) {
-          return current;
-        }
-        return {
-          ...current,
-          lifecycle: settleTimelineContinuityRequirement(
-            current.lifecycle,
-            requirement,
-            state,
-          ),
-        };
-      });
+      restoration.cancelPass?.();
+      restoration.cancelPass = null;
+      restoration.request = update(restoration.request);
+      setViewportContinuityRequest(restoration.request);
     },
-    [setViewportContinuityRequest],
-  );
-
-  const clearViewportContinuity = useCallback(
-    (token: number) => {
-      const activeRequest = activeViewportContinuityRequestRef.current;
-      if (activeRequest?.token === token) {
-        activeViewportContinuityRequestRef.current = {
-          ...activeRequest,
-          lifecycle: transitionTimelineContinuity(
-            activeRequest.lifecycle,
-            "cancelled",
-          ),
-        };
-        activeViewportContinuityRequestRef.current = null;
-      }
-      setViewportContinuityRequest((current) =>
-        current?.token === token ? null : current,
-      );
-    },
-    [setViewportContinuityRequest],
-  );
-
-  // An admitted semantic destination supersedes deferred source restoration.
-  const interruptViewportContinuity = useCallback(() => {
-    userInteractionVersionRef.current += 1;
-    scrollRestoreSequenceRef.current += 1;
-    activeRestoration.current?.abort();
-    const active = activeViewportContinuityRequestRef.current;
-    if (active) clearViewportContinuity(active.token);
-  }, [clearViewportContinuity]);
-
-  const failViewportContinuity = useCallback(
-    (token: number) => {
-      const activeRequest = activeViewportContinuityRequestRef.current;
-      if (activeRequest?.token === token) {
-        activeViewportContinuityRequestRef.current = {
-          ...activeRequest,
-          lifecycle: transitionTimelineContinuity(
-            activeRequest.lifecycle,
-            "failed",
-          ),
-        };
-      }
-      setViewportContinuityRequest((current) => {
-        if (current === null || current.token !== token) {
-          return current;
-        }
-        return {
-          ...current,
-          lifecycle: transitionTimelineContinuity(current.lifecycle, "failed"),
-        };
-      });
-    },
-    [setViewportContinuityRequest],
-  );
-
-  const requireViewportContinuitySourceRecord = useCallback(
-    (token: number, requirement: TimelineSourceRecordRequirement) => {
-      const activeRequest = activeViewportContinuityRequestRef.current;
-      if (activeRequest?.token === token) {
-        activeViewportContinuityRequestRef.current = {
-          ...activeRequest,
-          lifecycle: requireTimelineSourceRecord(
-            activeRequest.lifecycle,
-            requirement,
-          ),
-        };
-      }
-      setViewportContinuityRequest((current) => {
-        if (current === null || current.token !== token) {
-          return current;
-        }
-        return {
-          ...current,
-          lifecycle: requireTimelineSourceRecord(
-            current.lifecycle,
-            requirement,
-          ),
-        };
-      });
-    },
-    [setViewportContinuityRequest],
+    [clearViewportContinuity, isCurrent, setViewportContinuityRequest],
   );
 
   const advanceViewportContinuity = useCallback(
@@ -425,263 +314,291 @@ export function useTimelineViewportContinuityController({
         target?: TimelineViewportContinuityTarget | null;
       } = {},
     ) => {
-      if (token === undefined) {
-        return;
-      }
-      const activeRequest = activeViewportContinuityRequestRef.current;
-      if (activeRequest?.token === token) {
-        activeViewportContinuityRequestRef.current = {
-          ...activeRequest,
-          lifecycle: advanceTimelineContinuityRender(
-            {
-              ...activeRequest.lifecycle,
-              semanticFocusTarget:
-                options.target ?? activeRequest.lifecycle.semanticFocusTarget,
-            },
-            { sourceRecord: options.sourceRecord },
-          ),
-        };
-      }
-      setViewportContinuityRequest((current) => {
-        if (current === null || current.token !== token) {
-          return current;
-        }
-        return {
-          ...current,
-          lifecycle: advanceTimelineContinuityRender(
-            {
-              ...current.lifecycle,
-              semanticFocusTarget:
-                options.target ?? current.lifecycle.semanticFocusTarget,
-            },
-            { sourceRecord: options.sourceRecord },
-          ),
-        };
-      });
+      updateRequest(token, (request) => ({
+        ...request,
+        lifecycle: advanceTimelineContinuityRender(
+          {
+            ...request.lifecycle,
+            semanticFocusTarget:
+              options.target ?? request.lifecycle.semanticFocusTarget,
+          },
+          { sourceRecord: options.sourceRecord },
+        ),
+      }));
     },
-    [setViewportContinuityRequest],
+    [updateRequest],
   );
-  const advanceViewportContinuityRef = useRef(advanceViewportContinuity);
-  advanceViewportContinuityRef.current = advanceViewportContinuity;
-
-  const scrollToViewportContinuityTarget = useCallback(
-    (target: TimelineViewportContinuityTarget) => {
-      let anchor: GridCellAnchor | null = null;
-      if (target.kind === "row-inspect") {
-        anchor = timelineAnchor(
-          target.recordId,
-          "timeline.activity_synopsis_text",
-        );
-      } else if (target.kind === "input") {
-        const [localRowKey, fieldKey] = target.focusKey.split(":");
-        const rowKey =
-          localRowKey === undefined
-            ? undefined
-            : editorDraftRegistry.resolveRowKey(localRowKey);
-        const scalarBinding = timelineScalarBindings.find(
-          (binding) => binding.key === fieldKey,
-        );
-        if (
-          rowKey !== undefined &&
-          !rowKey.startsWith("draft-") &&
-          scalarBinding !== undefined
-        ) {
-          anchor = {
-            fieldKey: scalarBinding.fieldKey,
-            rowIdentity: { kind: "core_record", recordId: rowKey },
-            surface: {
-              kind: "view_schema",
-              viewSchemaId: timelineViewSchemaId,
+  const completeAcceptedViewportContinuity = useCallback(
+    (token: number | undefined, continuity: TimelineAcceptedContinuity) => {
+      if (continuity.kind === "advance") {
+        advanceViewportContinuity(token, { target: continuity.target });
+      } else {
+        updateRequest(token, (request) => ({
+          ...request,
+          // Creation continues at the trailing draft, never at pre-create scroll.
+          preservedViewport: null,
+          lifecycle: advanceTimelineContinuityRender({
+            ...request.lifecycle,
+            semanticFocusTarget: {
+              kind: "input",
+              focusKey: continuity.focusKey,
             },
-          };
-        }
+          }),
+        }));
       }
-      return anchor === null
-        ? false
-        : (gridHandleRef.current?.scrollToAnchor(anchor) ?? false);
     },
-    [editorDraftRegistry, gridHandleRef],
+    [advanceViewportContinuity, updateRequest],
   );
-
-  const focusViewportContinuityTarget = useCallback(
-    async (
-      target: TimelineViewportContinuityTarget,
-      signal: AbortSignal,
-    ): Promise<boolean> => {
-      if (target.kind === "row-inspect") {
-        return (
-          (await gridHandleRef.current?.requestFocus(
-            {
-              kind: "cell",
-              anchor: timelineAnchor(
-                target.recordId,
-                "timeline.activity_synopsis_text",
-              ),
-            },
-            { signal },
-          )) === "focused"
-        );
-      }
-      if (signal.aborted) return false;
-      if (target.kind === "input") {
-        const element = resolveInputElement(target.focusKey);
-        if (element === null) return false;
-        element.focus({ preventScroll: true });
-        return document.activeElement === element;
-      }
-      return false;
+  const failViewportContinuity = useCallback(
+    (token: number) => {
+      updateRequest(token, (request) => ({
+        ...request,
+        lifecycle: transitionTimelineContinuity(request.lifecycle, "failed"),
+      }));
     },
-    [gridHandleRef, resolveInputElement],
+    [updateRequest],
   );
-
-  const tryRestoreViewportContinuity = useCallback(
-    async (
-      continuity: TimelineViewportContinuityRequest,
-      signal: AbortSignal,
+  const requireViewportContinuitySourceRecord = useCallback(
+    (token: number, requirement: TimelineSourceRecordRequirement) => {
+      updateRequest(token, (request) => ({
+        ...request,
+        lifecycle: requireTimelineSourceRecord(request.lifecycle, requirement),
+      }));
+    },
+    [updateRequest],
+  );
+  const settleViewportContinuityFollowUp = useCallback(
+    (
+      token: number,
+      requirement: TimelineContinuityRequirementName,
+      state: "settled" | "terminal",
     ) => {
-      if (signal.aborted) return false;
-      const target = continuity.lifecycle.semanticFocusTarget;
-      if (target.kind === "scroll-only") {
-        restoreGridScroll(continuity.preservedViewport?.scroll ?? null);
-        return true;
-      }
-      if (resolveViewportContinuityRect(target) === null) {
-        scrollToViewportContinuityTarget(target);
-      }
-      return restoreGridViewportForTarget(
-        () => focusViewportContinuityTarget(target, signal),
-        () => resolveViewportContinuityRect(target),
-        continuity.preservedViewport,
-        signal,
-      );
+      updateRequest(token, (request) => ({
+        ...request,
+        lifecycle: settleTimelineContinuityRequirement(
+          request.lifecycle,
+          requirement,
+          state,
+        ),
+      }));
     },
-    [
-      focusViewportContinuityTarget,
-      resolveViewportContinuityRect,
-      restoreGridScroll,
-      restoreGridViewportForTarget,
-      scrollToViewportContinuityTarget,
-    ],
-  );
-
-  const shouldHoldViewportContinuity = useCallback(
-    (continuity: TimelineViewportContinuityRequest) => {
-      return !timelineContinuityRequirementsSettled(continuity.lifecycle);
-    },
-    [],
-  );
-
-  const userInterruptedViewportContinuity = useCallback(
-    (continuity: TimelineViewportContinuityRequest) => {
-      return (
-        userInteractionVersionRef.current !==
-        continuity.lifecycle.userInterruptionGeneration
-      );
-    },
-    [],
+    [updateRequest],
   );
 
   useLayoutEffect(() => {
+    const restoration = active.current;
+    const request = viewportContinuityRequest;
     if (
-      viewportContinuityRequest === null ||
-      viewportContinuityRequest.lifecycle.renderGeneration < 1
-    ) {
+      !restoration ||
+      restoration.request !== request ||
+      !request ||
+      request.lifecycle.renderGeneration < 1 ||
+      !isCurrent(restoration)
+    )
       return;
-    }
-    let cancelled = false;
     const controller = new AbortController();
-    activeRestoration.current = controller;
-    const restoreTarget = async (attempt: number) => {
-      if (cancelled) {
-        return;
+    let timer: number | undefined;
+    let frame: number | undefined;
+    const cancelPass = () => {
+      controller.abort();
+      if (timer !== undefined) window.clearTimeout(timer);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+    restoration.cancelPass = cancelPass;
+    restoration.controller.signal.addEventListener("abort", cancelPass, {
+      once: true,
+    });
+    const current = () =>
+      isCurrent(restoration) &&
+      restoration.request === request &&
+      !controller.signal.aborted;
+    const pendingRequirements = () =>
+      !timelineContinuityRequirementsSettled(request.lifecycle);
+    const setScroll = (scroll: ScrollPosition | null) => {
+      const element = gridHandleRef.current?.getScrollElement();
+      if (!current() || !element || !scroll) return;
+      element.scrollLeft = scroll.left;
+      if (current()) element.scrollTop = scroll.top;
+    };
+    const semanticFocus = async (
+      destination: GridFocusTarget,
+    ): Promise<GridFocusResult> => {
+      if (!current()) return "cancelled";
+      restoration.destination = destination;
+      const result =
+        (await gridHandleRef.current?.requestFocus(destination, {
+          signal: controller.signal,
+          preserveSelection: true,
+        })) ?? "unavailable";
+      return current() ? result : "cancelled";
+    };
+    const target = request.lifecycle.semanticFocusTarget;
+    let rect = () => resolveRect(target);
+    let needsTargetGeometry = target.kind !== "scroll-only";
+    const fallback = async (
+      recordId?: string,
+      fieldKey = synopsis,
+    ): Promise<GridFocusResult> => {
+      if (!current()) return "cancelled";
+      const grid = gridHandleRef.current;
+      const presentation = grid?.presentation?.getSnapshot();
+      const rowExists =
+        recordId &&
+        (!presentation ||
+          presentation.rowIdentities.some(
+            (row) => row.kind === "core_record" && row.recordId === recordId,
+          ));
+      const field =
+        !presentation || presentation.fieldKeys.includes(fieldKey)
+          ? fieldKey
+          : presentation.fieldKeys[0];
+      if (rowExists && field) {
+        const anchor = timelineAnchor(recordId, field);
+        const result = await semanticFocus({ kind: "cell", anchor });
+        if (result !== "unavailable") {
+          rect = () => gridHandleRef.current?.getAnchorRect(anchor) ?? null;
+          return result;
+        }
       }
-      if (userInterruptedViewportContinuity(viewportContinuityRequest)) {
-        clearViewportContinuity(viewportContinuityRequest.token);
-        return;
+      if (!current()) return "cancelled";
+      // Source projection may still be arriving. Do not turn temporary absence
+      // into permanent removal or poll an adapter-declared unavailable target.
+      if (pendingRequirements()) return "unavailable";
+      const result = await semanticFocus({ kind: "root" });
+      rect = () => null;
+      needsTargetGeometry = false;
+      if (result !== "unavailable" || !current()) return result;
+      for (const element of shellFocusCandidates()) {
+        if (!current()) return "cancelled";
+        restoration.destination = element;
+        element.focus({ preventScroll: true });
+        if (current() && document.activeElement === element) return "focused";
       }
-      if (
-        !(await tryRestoreViewportContinuity(
-          viewportContinuityRequest,
-          controller.signal,
-        ))
-      ) {
-        if (cancelled) return;
-        if (attempt < 60) {
-          window.setTimeout(() => {
-            void restoreTarget(attempt + 1);
-          }, 50);
-        } else {
-          clearViewportContinuity(viewportContinuityRequest.token);
-        }
-        return;
+      return "unavailable";
+    };
+    const inputIdentity =
+      target.kind === "input"
+        ? resolveInputIdentity(target.focusKey, editorDraftRegistry)
+        : null;
+    // A detached registered input has no mount notification. Only this path and
+    // transient layout geometry retain the prior bounded 50ms / 60 retry budget.
+    const focus = async (
+      attempt: number,
+    ): Promise<GridFocusResult | "retry"> => {
+      if (!current()) return "cancelled";
+      if (target.kind === "scroll-only") return "focused";
+      if (target.kind === "row-inspect") return fallback(target.recordId);
+      if (inputIdentity?.draft && inputIdentity.surface === "grid") {
+        const result = await semanticFocus({
+          kind: "draft",
+          fieldKey: inputIdentity.fieldKey,
+        });
+        return result === "unavailable" ? fallback() : result;
       }
-      if (cancelled) return;
-      // A slow named follow-up must not leave focus on <body> after the
-      // authoritative row has committed. Restore the deterministic fallback
-      // provisionally, but keep the lifecycle open until every follow-up has
-      // settled so a later render is revalidated before completion.
-      if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
-        return;
+      const input = resolveInputElement(target.focusKey);
+      if (input) {
+        restoration.destination = input;
+        if (document.activeElement !== input)
+          input.focus({ preventScroll: true });
+        return current() && document.activeElement === input
+          ? "focused"
+          : "cancelled";
       }
-      const stableRenderGeneration =
-        viewportContinuityRequest.lifecycle.renderGeneration;
-      window.requestAnimationFrame(async () => {
-        if (cancelled) {
+      if (attempt < 60) return "retry";
+      return fallback(inputIdentity?.recordId, inputIdentity?.fieldKey);
+    };
+    const viewport = request.preservedViewport?.anchor
+      ? request.preservedViewport
+      : { scroll: currentGridScrollSnapshot(), anchor: null };
+    const geometry = () => {
+      if (!current()) return false;
+      if (target.kind === "scroll-only") {
+        setScroll(request.preservedViewport?.scroll ?? null);
+        return true;
+      }
+      const element = gridHandleRef.current?.getScrollElement();
+      if (!needsTargetGeometry) return true;
+      if (!element || !viewport.scroll) return false;
+      // Inspector inputs own their own geometry; their focus must not make the
+      // workbook scroll to a rectangle outside its scrollport.
+      const input =
+        target.kind === "input" ? resolveInputElement(target.focusKey) : null;
+      if (input && !element.contains(input)) {
+        setScroll(viewport.scroll);
+        return current();
+      }
+      element.scrollLeft = viewport.scroll.left;
+      if (!current()) return false;
+      const targetRect = rect();
+      if (!targetRect) return false;
+      setScroll(
+        computeRestoredViewportScroll({
+          preservedScroll: viewport.scroll,
+          currentScroll: { top: element.scrollTop, left: element.scrollLeft },
+          preservedAnchor: viewport.anchor,
+          containerRect: element.getBoundingClientRect(),
+          elementRect: targetRect,
+        }),
+      );
+      const updatedRect = rect();
+      return (
+        current() &&
+        !!updatedRect &&
+        isRectFullyVisibleWithinContainer(
+          element.getBoundingClientRect(),
+          updatedRect,
+        )
+      );
+    };
+    const finish = () => {
+      if (current() && !pendingRequirements())
+        clearViewportContinuity(request.token);
+    };
+    const retry = (attempt: number) => {
+      if (!current()) return;
+      timer = window.setTimeout(() => {
+        void restore(attempt + 1);
+      }, 50);
+    };
+    let focusedElement: Element | null = null;
+    const restore = async (attempt: number) => {
+      // Geometry can lag a successful semantic focus. Reuse that result while
+      // its element stays mounted; only actual detachment needs focus recovery.
+      if (!focusedElement?.isConnected) {
+        const result = await focus(attempt);
+        if (!current()) return;
+        if (result === "cancelled") {
+          clearViewportContinuity(request.token);
           return;
         }
-        const activeRequest = activeViewportContinuityRequestRef.current;
-        if (
-          activeRequest?.token !== viewportContinuityRequest.token ||
-          activeRequest.lifecycle.renderGeneration !== stableRenderGeneration
-        ) {
-          return;
-        }
-        if (userInterruptedViewportContinuity(activeRequest)) {
-          clearViewportContinuity(activeRequest.token);
-          return;
-        }
-        if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
-          return;
-        }
-        if (
-          !(await tryRestoreViewportContinuity(
-            viewportContinuityRequest,
-            controller.signal,
-          ))
-        ) {
-          if (cancelled) return;
-          if (attempt < 60) {
-            window.setTimeout(() => {
-              void restoreTarget(attempt + 1);
-            }, 50);
-          } else {
-            clearViewportContinuity(viewportContinuityRequest.token);
-          }
-          return;
-        }
-        if (cancelled) return;
-        activeViewportContinuityRequestRef.current = {
-          ...activeRequest,
-          lifecycle: transitionTimelineContinuity(
-            activeRequest.lifecycle,
-            activeRequest.lifecycle.state === "failed" ? "failed" : "completed",
-          ),
-        };
-        clearViewportContinuity(viewportContinuityRequest.token);
+        if (result === "retry") return retry(attempt);
+        if (result === "unavailable") return finish();
+        focusedElement = document.activeElement;
+      }
+      if (!geometry() && attempt < 60) return retry(attempt);
+      if (!current()) return;
+      // One stabilization frame per rendered projection. Readiness is already
+      // owned by the adapter; do not issue another reveal/focus on every frame.
+      frame = window.requestAnimationFrame(() => {
+        if (!current()) return;
+        if (!geometry() && attempt < 60) return retry(attempt);
+        finish();
       });
     };
-    void restoreTarget(0);
+    void restore(0);
     return () => {
-      cancelled = true;
-      controller.abort();
-      if (activeRestoration.current === controller)
-        activeRestoration.current = null;
+      cancelPass();
+      restoration.controller.signal.removeEventListener("abort", cancelPass);
+      if (restoration.cancelPass === cancelPass) restoration.cancelPass = null;
     };
   }, [
+    currentGridScrollSnapshot,
     clearViewportContinuity,
-    shouldHoldViewportContinuity,
-    tryRestoreViewportContinuity,
-    userInterruptedViewportContinuity,
+    editorDraftRegistry,
+    gridHandleRef,
+    isCurrent,
+    resolveInputElement,
+    resolveRect,
     viewportContinuityRequest,
   ]);
 
@@ -690,21 +607,88 @@ export function useTimelineViewportContinuityController({
       advanceViewportContinuity,
       beginViewportContinuity,
       clearViewportContinuity,
+      completeAcceptedViewportContinuity,
       interruptViewportContinuity,
-      currentGridScrollSnapshot,
-      currentGridViewportSnapshot,
       failViewportContinuity,
       requireViewportContinuitySourceRecord,
-      resolveInputElement,
-      resolveViewportContinuityRect,
-      restoreGridScroll,
-      restoreGridViewportForTarget,
-      scrollToViewportContinuityTarget,
       settleViewportContinuityFollowUp,
     },
-    refs: {
-      advanceViewportContinuityRef,
-      beginViewportContinuityRef,
-    },
   };
+}
+
+function resolveInputIdentity(
+  focusKey: string,
+  registry: TimelineEditorDraftRegistry,
+) {
+  const [localRowKey, field, surface] = focusKey.split(":");
+  if (!localRowKey) return null;
+  const rowKey = registry.resolveRowKey(localRowKey);
+  const binding = [
+    ...timelineScalarBindings,
+    ...timelineCollectionBindings,
+  ].find(
+    (binding) => ("key" in binding ? binding.key : binding.draftKey) === field,
+  );
+  if (!binding) return null;
+  return {
+    draft: rowKey.startsWith("draft-"),
+    recordId: rowKey.startsWith("draft-") ? undefined : rowKey,
+    fieldKey: binding.fieldKey,
+    surface: surface ?? "grid",
+  };
+}
+
+function isRestorationFocus(
+  target: EventTarget | null,
+  destination: Restoration["destination"],
+  grid: GridHandle | null,
+) {
+  if (destination instanceof HTMLElement) return target === destination;
+  if (!(target instanceof Element) || !destination) return false;
+  if (destination.kind === "root") return target === grid?.getScrollElement();
+  if (
+    destination.kind !== "cell" ||
+    !grid?.getScrollElement()?.contains(target) ||
+    target.closest("[role='gridcell']") !== target
+  )
+    return false;
+  const cell =
+    target.closest<HTMLElement>("[data-grid-field-key]") ??
+    target
+      .closest("[role='gridcell']")
+      ?.querySelector<HTMLElement>("[data-grid-field-key]");
+  return (
+    cell?.dataset.gridFieldKey === destination.anchor.fieldKey &&
+    destination.anchor.rowIdentity.kind === "core_record" &&
+    target.closest<HTMLElement>("[data-grid-record-id]")?.dataset
+      .gridRecordId === destination.anchor.rowIdentity.recordId
+  );
+}
+
+function shellFocusCandidates() {
+  const candidates = [
+    document.querySelector<HTMLElement>(
+      '[aria-label="Built-in workbook surfaces"] button[aria-current="page"]',
+    ),
+  ];
+  for (const id of [
+    workbookSurfacesMenuTriggerTestId(),
+    workbookIncidentIdentityTestId(),
+  ]) {
+    const container = document.querySelector<HTMLElement>(
+      `[data-testid="${id}"]`,
+    );
+    candidates.push(
+      container?.matches("button, [tabindex]")
+        ? container
+        : (container?.querySelector<HTMLElement>("button, [tabindex]") ?? null),
+    );
+  }
+  return candidates.filter(
+    (element): element is HTMLElement =>
+      !!element &&
+      element.getClientRects().length > 0 &&
+      !element.matches(":disabled, [aria-disabled='true']") &&
+      !element.closest("[inert], [hidden], [aria-hidden='true']"),
+  );
 }

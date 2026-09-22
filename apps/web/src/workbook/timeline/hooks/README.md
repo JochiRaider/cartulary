@@ -18,7 +18,7 @@ Hooks execute owner-local effects over semantic capabilities and pure
 | [useTimelineGridInteractions.ts](useTimelineGridInteractions.ts) | Coordinates Timeline grid refs, keyboard helpers, and grid interaction commands. |
 | [useTimelineRowActionMenu.ts](useTimelineRowActionMenu.ts) | Owns committed-cell menu admission, semantic focus return, and dismissal independently of Inspector selection. |
 | [useTimelineKeyboardController.ts](useTimelineKeyboardController.ts) | Owns Timeline scalar/collection editor keys, grid navigation/range commands, work-area shortcuts, event consumption, and focus priority. |
-| [useTimelineViewportContinuityController.ts](useTimelineViewportContinuityController.ts) | Coordinates Timeline scroll snapshots, focus restoration, continuity tokens, and entity-refresh barriers. |
+| [useTimelineViewportContinuityController.ts](useTimelineViewportContinuityController.ts) | Owns one cancellable presentation lifetime across semantic focus, owned scrolling, geometry stabilization, registered-input recovery and named refresh barriers. |
 
 ## Queries and committed rows
 
@@ -86,3 +86,11 @@ and workbook accessibility owners.
 The row-menu admission owner also guards admitted secondary pointer-down focus,
 so a following context menu borrows focus without accepting a collection-editor
 departure. Native controls and primary pointer interaction retain their owners.
+
+Deferred continuity yields document-wide to pointer, key, wheel, native input and
+external focus. Only the current exact input or semantic navigation target is
+recognized as restoration-owned focus. The composition-supplied accepted scope
+and live authority fence every pass; cancellation aborts Adapter requests and
+cancels frames/timers without changing mutation settlement. Adapter registration
+notifications own virtualized target readiness. Only unnotified registered-input
+or transient geometry readiness retains the bounded 50 ms / 60-retry fallback.

@@ -1,9 +1,11 @@
+import { useMemo, useRef } from "react";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
 import { useTimelineFindSource } from "../hooks/useTimelineFindSource";
 import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
 import { useTimelineSourceWriteCoordination } from "../hooks/useTimelineSourceWriteCoordination";
+import type { TimelineViewportContinuityScope } from "../hooks/useTimelineViewportContinuityController";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import { useTimelineGridEnvironment } from "./useTimelineGridEnvironment";
 import { useTimelineInspectorStateComposition } from "./useTimelineInspectorStateComposition";
@@ -25,7 +27,25 @@ export function useTimelineWorkbookComposition({
     mutationRuntime: runtime.mutationRuntime,
     query: runtime.query,
   });
+  const continuityScopeSnapshot = useRef(() => ({ key: "", readable: false }));
+  const continuityScope = useMemo<TimelineViewportContinuityScope>(
+    () => ({
+      getSnapshot: () => continuityScopeSnapshot.current(),
+      subscribe: (listener) => {
+        const collaboration =
+          runtime.collaborationProjection.subscribe(listener);
+        const mutations =
+          runtime.mutationRuntime.statusSource.subscribe(listener);
+        return () => {
+          collaboration();
+          mutations();
+        };
+      },
+    }),
+    [runtime.collaborationProjection, runtime.mutationRuntime],
+  );
   const grid = useTimelineGridEnvironment({
+    continuityScope,
     continuityResetKey: runtime.incident.continuityResetKey,
     editorDraftRegistry: foundation.refs.editorDraftRegistry,
     rowsRef: foundation.refs.rows,
@@ -73,6 +93,8 @@ export function useTimelineWorkbookComposition({
         grid.commands.viewportContinuity.beginViewportContinuity,
       clearViewportContinuity:
         grid.commands.viewportContinuity.clearViewportContinuity,
+      completeAcceptedViewportContinuity:
+        grid.commands.viewportContinuity.completeAcceptedViewportContinuity,
       editorPort: grid.ports.mutationEditor,
       failViewportContinuity:
         grid.commands.viewportContinuity.failViewportContinuity,
@@ -95,6 +117,18 @@ export function useTimelineWorkbookComposition({
       queryState: foundation.snapshot.query.queryState,
       viewQuery: runtime.query.viewQuery,
     },
+  });
+  continuityScopeSnapshot.current = () => ({
+    key: JSON.stringify([
+      mutation.snapshot.cellRangeScopeKey,
+      runtime.incident.currentRole,
+      runtime.mutationRuntime.authorizationEpoch,
+      runtime.layout.snapshot.incidentClosed,
+    ]),
+    readable:
+      runtime.collaborationProjection.getReadAuthorization() &&
+      !!runtime.incident.currentRole &&
+      !foundation.snapshot.lifecycle.loadAccessLost,
   });
   const workflow = useTimelineInspectorWorkflowComposition({
     rowMenuScopeKey: JSON.stringify([

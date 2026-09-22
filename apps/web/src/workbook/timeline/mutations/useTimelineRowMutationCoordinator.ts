@@ -17,7 +17,6 @@ import type { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows
 import { useTimelineConflictProjectionAdapter } from "../hooks/useTimelineConflictProjectionAdapter";
 import { useTimelineConflicts } from "../hooks/useTimelineConflicts";
 import { useTimelineSaveStatePresentation } from "../hooks/useTimelineSaveStatePresentation";
-import type { TimelineViewportContinuityTarget } from "../hooks/useTimelineViewportContinuityController";
 import {
   planTimelineAcceptedMutationEffects,
   type TimelineAcceptedContinuity,
@@ -56,41 +55,6 @@ function recordWorkbookTiming(
   performance.mark(`cartulary.workbook.${name}`, { detail: details });
 }
 
-function completeAcceptedContinuity({
-  advanceViewportContinuity,
-  clearViewportContinuity,
-  continuity,
-  editorPort,
-  viewportContinuityToken,
-}: {
-  readonly advanceViewportContinuity: (
-    token?: number,
-    options?: { readonly target?: TimelineViewportContinuityTarget | null },
-  ) => void;
-  readonly clearViewportContinuity: (token: number) => void;
-  readonly continuity: TimelineAcceptedContinuity;
-  readonly editorPort: TimelineRowMutationEditorPort;
-  readonly viewportContinuityToken: number | undefined;
-}) {
-  if (continuity.kind === "fresh_draft") {
-    if (viewportContinuityToken !== undefined) {
-      clearViewportContinuity(viewportContinuityToken);
-    }
-    editorPort.reveal({
-      fieldKey: "timeline.activity_synopsis_text",
-      recordId: continuity.recordId,
-    });
-    editorPort.focusInput(continuity.focusKey);
-    return;
-  }
-  advanceViewportContinuity(viewportContinuityToken, {
-    target: continuity.target,
-  });
-  if (continuity.target?.kind === "input") {
-    editorPort.focusInput(continuity.target.focusKey);
-  }
-}
-
 /**
  * Single Timeline owner for row-version admission and transitions between
  * query, fresh/replayed mutations, live patches, conflicts, and continuity.
@@ -98,8 +62,7 @@ function completeAcceptedContinuity({
 export function useTimelineRowMutationCoordinator({
   committedRows,
   sheetRef,
-  advanceViewportContinuity,
-  clearViewportContinuity,
+  completeAcceptedViewportContinuity,
   createdRowPresentationScopeKey,
   editorDraftRegistry,
   editorPort,
@@ -114,11 +77,10 @@ export function useTimelineRowMutationCoordinator({
   readonly committedRows: ReturnType<
     typeof useTimelineCommittedRows
   >["commands"];
-  readonly advanceViewportContinuity: (
-    token?: number,
-    options?: { readonly target?: TimelineViewportContinuityTarget | null },
+  readonly completeAcceptedViewportContinuity: (
+    token: number | undefined,
+    continuity: TimelineAcceptedContinuity,
   ) => void;
-  readonly clearViewportContinuity: (token: number) => void;
   readonly createdRowPresentationScopeKey: string;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly editorPort: TimelineRowMutationEditorPort;
@@ -273,20 +235,16 @@ export function useTimelineRowMutationCoordinator({
           } else editorPort.activateEdit({ ...captureEditor, recordId });
         }, true);
       }
-      completeAcceptedContinuity({
-        advanceViewportContinuity,
-        clearViewportContinuity,
-        continuity: effects.continuity,
-        editorPort,
-        viewportContinuityToken: options.viewportContinuityToken,
-      });
+      completeAcceptedViewportContinuity(
+        options.viewportContinuityToken,
+        effects.continuity,
+      );
       recordWorkbookTiming("apply_row_mutation_end", { kind: "row_mutation" });
       return committed;
     },
     [
       acceptCommittedTimelineRow,
-      advanceViewportContinuity,
-      clearViewportContinuity,
+      completeAcceptedViewportContinuity,
       createdRowPresentationScopeKey,
       editorPort,
       editorDraftRegistry,

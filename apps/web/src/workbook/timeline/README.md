@@ -56,6 +56,7 @@ the next explicit edit.
 | [useTimelineObservationSource.test.tsx](useTimelineObservationSource.test.tsx) | Tests exact committed Observation source text and rejection after saved or local source changes. |
 | [useTimelineRowActionMenu.test.tsx](useTimelineRowActionMenu.test.tsx) | Covers menu validity and cancellation across semantic focus fallback requests. |
 | [useTimelineRows.test.tsx](useTimelineRows.test.tsx) | Characterizes initial draft-row identity, stable row refs, and monotonic draft allocation. |
+| [useTimelineViewportContinuityController.test.tsx](useTimelineViewportContinuityController.test.tsx) | Covers pending semantic readiness, document-wide intent cancellation, scope/authority fencing, follow-ups, detached-input recovery and owned geometry. |
 | [useTimelineSurfaceFoundation.test.tsx](useTimelineSurfaceFoundation.test.tsx) | Characterizes stable adapter, row/query, pending-save, and semantic foundation identities. |
 
 Conflict cell state and local recovery buttons project the retained Workbook

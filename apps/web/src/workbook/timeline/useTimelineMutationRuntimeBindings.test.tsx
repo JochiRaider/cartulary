@@ -26,8 +26,6 @@ it("useTimelineMutationRuntimeBindings retains registration through callback cha
     activateEdit: vi.fn(),
     cancelEdit: vi.fn(),
     focus: vi.fn(),
-    focusInput: vi.fn(),
-    reveal: vi.fn(),
   } satisfies TimelineRowMutationEditorPort;
   const discardBlockedEdit = vi.fn(() => true);
   const applyAcceptedRowMutation = vi.fn();
