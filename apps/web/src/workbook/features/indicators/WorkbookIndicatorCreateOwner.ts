@@ -194,16 +194,6 @@ export class WorkbookIndicatorCreateOwner implements IndicatorCreateOwnerPort {
           entry.phase === "uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      (entry) => this.blocks(entry) || entry.refresh === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) => entry.phase === "uncertain" || entry.refresh === "required",
-    ).length;
-  }
   admit(
     observation: IndicatorObservation,
     contract: ViewContract,

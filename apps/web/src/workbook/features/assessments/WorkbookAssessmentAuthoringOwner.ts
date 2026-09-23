@@ -187,19 +187,6 @@ export class WorkbookAssessmentAuthoringOwner {
       ).length
     );
   }
-  get pendingCount() {
-    return (
-      Number(this.preparing) +
-      [...this.entries.values()].filter(
-        (entry) => entry.transportPending || entry.refresh === "refreshing",
-      ).length
-    );
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) => entry.phase === "uncertain" || entry.refresh === "required",
-    ).length;
-  }
   openStandalone() {
     return this.open(null);
   }

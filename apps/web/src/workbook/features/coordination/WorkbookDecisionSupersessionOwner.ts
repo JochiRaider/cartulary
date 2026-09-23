@@ -213,17 +213,6 @@ export class WorkbookDecisionSupersessionOwner
           entry.phase === "uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      (entry) => this.blocks(entry) || entry.reconciliation === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "uncertain" || entry.reconciliation === "required",
-    ).length;
-  }
   admit(
     review: DecisionSupersessionReview,
     binding: DecisionSupersessionBinding,

@@ -7,7 +7,16 @@ import {
   screen,
 } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { deferred } from "../../../testing/fetchMockTestSupport";
+import {
+  taskRow as committedTaskRow,
+  taskAuthority,
+  taskReceipt,
+} from "../../../testing/taskWorkbookTestSupport";
+import type { RecordPatchTransport } from "../../adapters/workbookRecordPatchTransport";
+import { useGenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { CoordinationWorkflowBindings } from "./CoordinationWorkflowBindings";
 import {
   TaskLifecycleDraftStore,
@@ -28,7 +37,6 @@ const taskRow: WorkbookQueryRow = {
 };
 function mutationPorts() {
   return {
-    beginMutation: vi.fn(() => vi.fn()),
     submitPatchMutation: vi.fn(async () => ({
       changeSetId: "receipt",
       row: taskRow,
@@ -49,6 +57,69 @@ function setup(row = taskRow) {
     ),
   };
 }
+it("counts Task admission once and settles save status before detached refresh recovery", async () => {
+  for (const failedRefresh of [false, true]) {
+    const response =
+      deferred<Awaited<ReturnType<RecordPatchTransport["send"]>>>();
+    const read = deferred<void>();
+    const runtime = createWorkbookMutationRuntime(
+      { incidentId: taskAuthority.incidentId, clientInstanceId: "task-status" },
+      { create: () => "task-status-attempt" },
+      { execute: vi.fn() },
+    );
+    const send = vi.fn<RecordPatchTransport["send"]>(() => response.promise);
+    const refresh = vi.fn(() => read.promise);
+    const row = committedTaskRow();
+    runtime.explicitPatches.configure({ send }, undefined, async () => row);
+    runtime.setAuthority(taskAuthority);
+    runtime.registerSurface(taskViewId, refresh);
+    const hook = renderHook(() => {
+      const mutation = useGenericSurfaceMutationController({
+        mutationRuntime: runtime,
+        sheetRef: { kind: "view_schema", id: taskViewId },
+        surfaceLabel: "Task Requests",
+        selectedRecordId: row.record_id,
+      });
+      return useCoordinationWorkflowController({
+        mutation,
+        drafts: runtime.taskDrafts,
+        row,
+        disabled: mutation.mutationPending,
+      });
+    });
+    act(() => {
+      hook.result.current.update("task.status", "blocked");
+      hook.result.current.update("task.blocked_reason", "Waiting");
+    });
+    let submitted!: Promise<void>;
+    act(() => {
+      submitted = hook.result.current.submit();
+      void hook.result.current.submit();
+    });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    expect.soft(runtime.getSnapshot().explicitInFlightCount).toBe(1);
+    hook.unmount();
+    response.resolve({ kind: "acknowledged", receipt: taskReceipt() });
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect.soft(runtime.getSnapshot().primaryLabel).toBe("Saved");
+    expect(runtime.explicitPatches.getSnapshot().entries[0]?.receipt).toEqual(
+      taskReceipt(),
+    );
+    if (failedRefresh) read.reject(new Error("read unavailable"));
+    else read.resolve();
+    await submitted;
+    expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
+    expect(
+      runtime.explicitPatches.getSnapshot().entries[0]?.reconciliation,
+    ).toBe(failedRefresh ? "required" : "complete");
+    runtime.registerSurface(taskViewId, async () => {});
+    const entry = runtime.explicitPatches.getSnapshot().entries[0];
+    if (!entry) throw new Error("Missing Task receipt");
+    await runtime.explicitPatches.refresh(entry.id);
+    expect(send).toHaveBeenCalledOnce();
+    runtime.invalidate({ kind: "runtime_disposed" });
+  }
+});
 it("initializes Task lifecycle from its saved state", () => {
   const { result } = setup();
   expect(result.current.value("task.status")).toBe("open");
@@ -63,8 +134,7 @@ it("preserves Task lifecycle coordination independently of Decision supersession
   await act(async () => result.current.submit());
   expect(mutation.submitPatchMutation).toHaveBeenCalledWith(
     expect.objectContaining({
-      recordId: "task-1",
-      baseRowVersion: 7,
+      baseline: taskRow,
       changes: [{ field_key: "task.status", value: "done" }],
     }),
   );
@@ -150,7 +220,7 @@ it("preserves drafts until changed guard siblings are explicitly reviewed", asyn
   await act(async () => result.current.submit());
   expect(mutation.submitPatchMutation).toHaveBeenCalledWith(
     expect.objectContaining({
-      baseRowVersion: 8,
+      baseline: newer,
       changes: [
         { field_key: "task.status", value: "blocked" },
         { field_key: "task.blocked_reason", value: "Waiting" },

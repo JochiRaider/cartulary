@@ -324,17 +324,6 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       ).length
     );
   }
-  get pendingCount() {
-    return (
-      Number(this.preparing) +
-      this.stages().filter(
-        (entry) => entry.transportPending || entry.refresh === "refreshing",
-      ).length
-    );
-  }
-  get uncertainCount() {
-    return this.stages().filter((entry) => entry.phase === "uncertain").length;
-  }
   blocksRecord(recordId: string) {
     return this.stages().some(
       (entry) =>
@@ -342,16 +331,6 @@ export class WorkbookTimelineRelatedEvidenceOwner {
         entry.attempt.review.draft.source.recordId === recordId &&
         (entry.phase === "submitting" || entry.phase === "uncertain"),
     );
-  }
-  get blockedCount() {
-    return [...this.checkpoints.values()].filter(
-      (checkpoint) =>
-        checkpoint.create.phase === "uncertain" ||
-        (checkpoint.create.receipt && !this.linkComplete(checkpoint)) ||
-        [checkpoint.create, ...checkpoint.links].some(
-          (entry) => entry.refresh === "required",
-        ),
-    ).length;
   }
   linkComplete(checkpoint: RelatedEvidenceCheckpoint) {
     return (

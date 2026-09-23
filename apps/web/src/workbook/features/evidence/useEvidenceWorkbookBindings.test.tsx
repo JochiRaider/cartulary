@@ -57,9 +57,6 @@ const rejected: EvidenceHandleOutcome = {
 function defaults() {
   return {
     mutationCommands: { issueHandle: vi.fn() },
-    mutation: {
-      beginMutation: vi.fn(() => vi.fn()),
-    },
     onRefresh: vi.fn(),
     ownerBindings: ["evidence_lifecycle"] as const,
     resetKey: "surface-1",
@@ -346,7 +343,8 @@ describe("Evidence workbook bindings", () => {
     fireEvent.paste(attachment, { clipboardData: { files } });
     expect(begin).toHaveBeenCalledTimes(4);
     expect(begin).toHaveBeenLastCalledWith(row, files);
-    expect(props.mutation.beginMutation).not.toHaveBeenCalled();
+    expect(owner.getSnapshot()).toEqual([]);
+    expect(props.mutationCommands.issueHandle).not.toHaveBeenCalled();
     expect(screen.getByText("Choose one file at a time.")).toBeTruthy();
   });
 });

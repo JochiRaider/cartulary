@@ -55,6 +55,12 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | [workbookSchemaTestSupport.ts](workbookSchemaTestSupport.ts) | Public discovery fixtures projected from typed contracts. |
 | [workbookSavedViewTestSupport.ts](workbookSavedViewTestSupport.ts) | Saved-view authorities, resources, controllers, and React application bindings for tests. |
 
+Isolated query consumers use the required browsing provider through
+`workbookQueryTestSupport` render helpers. `TimelineWorkbookRuntimeFixture`
+composes that provider directly. Selection fixtures admit real query results
+before exercising membership-dependent commands; they do not synthesize a
+missing-provider fallback.
+
 ## Setup and architecture policies
 
 Timeline scalar fixtures exercise current control values on Enter/Tab, matching

@@ -2281,6 +2281,7 @@
         "titles": [
           "History recovery surfaces hides retained content during session suspension and reauthorizes replay after closure",
           "History recovery surfaces keeps acknowledgement through refresh failure and retries reads only",
+          "History recovery surfaces keeps read-only history review saved without admitting a mutation",
           "History recovery surfaces retains exact Assessment change_set recovery after inspector closure",
           "History recovery surfaces retains exact Assessment delete recovery after inspector closure",
           "History recovery surfaces retains exact Assessment history_entry recovery after inspector closure",
@@ -4100,8 +4101,14 @@
       "selector": {
         "file": "apps/web/src/workbook/query/WorkbookQueryBrowsingControls.test.tsx",
         "titles": [
+          "fences predecessor cleanup and readers after a successor commits",
+          "preserves committed browsing when a replacement render is suspended and abandoned",
           "reaches later records and returns by keyboard while preserving continuation control focus",
-          "retains accepted presentation on a failed replacement and offers local retry and revert"
+          "reestablishes committed ownership in Strict Mode and rejects the retired response",
+          "requires the browsing provider and refuses inactive or uncommitted reads",
+          "retains accepted presentation on a failed replacement and offers local retry and revert",
+          "retains bounded return state on detachment and clears it on authority retirement",
+          "retires a replaced query port before reading its successor and refuses its late result"
         ]
       },
       "evidence_class": "unit",
@@ -4651,6 +4658,7 @@
           "retains capture authoring through suspension and retires it before late incident or account receipts",
           "retains newer authoring and blocks orphan successors after creation discard",
           "settles a halted Timeline editor only when Retry or Discard resolves its logical operation",
+          "settles a valid empty capture without clearing authoring added after dispatch",
           "settles capture successors by revision including clears and equal text without overwriting unrelated fields",
           "settles terminal validation immediately while preserving retryable transaction recovery"
         ]

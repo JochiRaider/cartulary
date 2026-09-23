@@ -349,7 +349,7 @@ export function createTimelineMutationDriver(
       const baselines = { ...meta.rowSnapshot.committedValues };
       for (const binding of timelineScalarBindings) {
         const changed = timelineScalarEditorSurfaces.some((surface) =>
-          meta.draftRevisions?.has(
+          meta.draftRevisions.has(
             inputFocusKey(input.rowKey, binding.key, surface),
           ),
         );
@@ -371,12 +371,12 @@ export function createTimelineMutationDriver(
         values,
         committedValues: baselines,
       };
-      const incoming = meta.draftRevisions ?? new Map<string, number>();
+      const incoming = meta.draftRevisions;
       const overwritten = new Set(
         [...incoming.keys()].map((key) => key.split(":")[1]),
       );
       meta.draftRevisions = new Map([
-        ...[...(previous.draftRevisions ?? [])].filter(
+        ...[...previous.draftRevisions].filter(
           ([key]) => !overwritten.has(key.split(":")[1]),
         ),
         ...incoming,
@@ -459,11 +459,7 @@ export function createTimelineMutationDriver(
       publishPendingQueueState();
       return false;
     }
-    if (meta)
-      settleEditorRevisions(
-        recovery.unit.rowKey,
-        meta.draftRevisions ?? new Map(),
-      );
+    if (meta) settleEditorRevisions(recovery.unit.rowKey, meta.draftRevisions);
     contextByUnitId.delete(recovery.unit.id);
     mutationRuntime.releaseMutationUnit(recovery.unit.id);
     clearPendingSignatureForUnit(recovery.unit);
@@ -597,7 +593,7 @@ export function createTimelineMutationDriver(
       () => refreshTimelineConflict(settlement.unit, conflict.base_row_version),
       meta.sheetRef,
       new Map(
-        [...(meta.draftRevisions ?? [])].filter(([key]) => {
+        [...meta.draftRevisions].filter(([key]) => {
           const binding = timelineScalarBindingForField(conflict.field_key);
           return (
             binding !== null &&
@@ -724,7 +720,7 @@ export function createTimelineMutationDriver(
     }
     try {
       ports.batchAuthoring(() => {
-        settleEditorRevisions(unit.rowKey, meta.draftRevisions ?? new Map());
+        settleEditorRevisions(unit.rowKey, meta.draftRevisions);
         applyAcceptedRowMutation(unit.rowKey, accepted, {
           continueOnFreshDraft:
             meta.continueOnFreshDraft && meta.rowSnapshot.recordId === null,
@@ -777,8 +773,8 @@ export function createTimelineMutationDriver(
           meta.rowSnapshot,
           context.rowSnapshot,
           queued.clientTxnId,
-          meta.draftRevisions ?? new Map(),
-          context.draftRevisions ?? new Map(),
+          meta.draftRevisions,
+          context.draftRevisions,
         );
         followOnCreatePatches[queued.id] = payload;
         contextByUnitId.set(queued.id, {
@@ -791,7 +787,7 @@ export function createTimelineMutationDriver(
                 timelineScalarBindings
                   .filter((binding) =>
                     timelineScalarEditorSurfaces.some((surface) =>
-                      context.draftRevisions?.has(
+                      context.draftRevisions.has(
                         inputFocusKey(unit.rowKey, binding.key, surface),
                       ),
                     ),
@@ -804,7 +800,7 @@ export function createTimelineMutationDriver(
             },
           },
           draftRevisions: new Map(
-            [...(context.draftRevisions ?? [])].map(([key, revision]) => [
+            [...context.draftRevisions].map(([key, revision]) => [
               committed.key + key.slice(unit.rowKey.length),
               revision,
             ]),
@@ -830,7 +826,7 @@ export function createTimelineMutationDriver(
         if (completed.id !== unit.id && completedContext)
           settleEditorRevisions(
             accepted.row.record_id,
-            completedContext.draftRevisions ?? new Map(),
+            completedContext.draftRevisions,
           );
         contextByUnitId.delete(completed.id);
         mutationRuntime.releaseMutationUnit(completed.id);
@@ -1050,7 +1046,7 @@ export function createTimelineMutationDriver(
       }) &&
       pending.model.settleUnchanged(unit.id)
     ) {
-      settleEditorRevisions(unit.rowKey, meta.draftRevisions ?? new Map());
+      settleEditorRevisions(unit.rowKey, meta.draftRevisions);
       clearViewportContinuity(meta.viewportContinuityToken);
       contextByUnitId.delete(unit.id);
       mutationRuntime.releaseMutationUnit(unit.id);

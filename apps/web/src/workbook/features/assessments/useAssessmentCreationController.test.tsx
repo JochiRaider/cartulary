@@ -262,7 +262,10 @@ describe("Assessment retained append owner", () => {
     await pending;
     expect(send).not.toHaveBeenCalled();
     expect(owner.getSnapshot().draft).not.toBeNull();
-    expect(owner.pendingCount).toBe(0);
+    expect(owner.getSnapshot()).toMatchObject({
+      preparing: false,
+      entries: [],
+    });
   });
   it("retains late detached acceptance while hiding suspended protected state and retires on account change", async () => {
     let resolve!: (value: AssessmentAppendOutcome) => void;

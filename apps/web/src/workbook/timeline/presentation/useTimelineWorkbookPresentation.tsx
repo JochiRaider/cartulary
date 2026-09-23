@@ -129,7 +129,8 @@ export function useTimelineWorkbookPresentation({
   const { filterDraft, queryState: requestedQueryState } =
     foundation.snapshot.query;
   const queryState =
-    mutation.commands.query.browser.presentationQuery(requestedQueryState);
+    mutation.commands.query.browser?.presentationQuery(requestedQueryState) ??
+    requestedQueryState;
   const rows = foundation.snapshot.rows;
   const fileOwner = composition.fileOwner;
   const files = useSyncExternalStore(
@@ -346,7 +347,6 @@ export function useTimelineWorkbookPresentation({
       entityIndex,
       getRelationshipLabel: timelineRelationshipLabel,
       indicatorInspectorHandler,
-      beginMutation: composition.mutation.commands.beginMutation,
       inspectorConfig: timelineInspectorConfig,
       inspectorMentions,
       inspectorMessage,
@@ -410,9 +410,7 @@ export function useTimelineWorkbookPresentation({
     );
     setFilterDraft(defaultFilterDraft(timelineContract));
   }, [setFilterDraft, setQueryState]);
-  const restartQuery = useWorkbookQueryRestart(timelineViewSchemaId, () =>
-    loadRows({ showLoading: true }),
-  );
+  const restartQuery = useWorkbookQueryRestart(timelineViewSchemaId);
   const handleRetry = useCallback(() => {
     void restartQuery();
   }, [restartQuery]);

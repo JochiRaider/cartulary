@@ -1,5 +1,5 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   observationAuthority,
@@ -10,7 +10,10 @@ import {
   testObservationReceipt,
 } from "../../../testing/observationTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
-import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
+import {
+  acceptedQueryMetadata,
+  renderHookWithWorkbookQueryBrowsing as renderHook,
+} from "../../../testing/workbookQueryTestSupport";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { useGenericSurfaceQuery } from "../../query/useGenericSurfaceQuery";

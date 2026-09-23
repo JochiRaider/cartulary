@@ -15,8 +15,8 @@ export function WorkbookQueryBrowsingControls({
   const [focusedAction, setFocusedAction] =
     useState<WorkbookBrowseAction | null>(null);
   const registry = useWorkbookQueryPresentation();
-  const browser = registry?.find(viewSchemaId);
-  if (!browser || !registry) return null;
+  const browser = registry.find(viewSchemaId);
+  if (!browser) return null;
   const state = browser.getSnapshot();
   const pending = state.pending !== null;
   const unapplied =

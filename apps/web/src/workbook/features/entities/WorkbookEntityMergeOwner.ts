@@ -180,17 +180,6 @@ export class WorkbookEntityMergeOwner {
           entry.phase === "uncertain"),
     ).length;
   }
-  get pendingCount(): number {
-    return [...this.entries.values()].filter(
-      (entry) => this.blocks(entry) || entry.reconciliation === "refreshing",
-    ).length;
-  }
-  get blockedCount(): number {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "uncertain" || entry.reconciliation === "required",
-    ).length;
-  }
   admit(
     review: EntityMergeReview,
     binding: EntityMergeBinding,

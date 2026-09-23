@@ -81,7 +81,7 @@ export function useWorkbookQueryController({
     (viewSchemaId: string) => {
       const requested = entryFor(viewSchemaId).queryState;
       return (
-        browsing?.find(viewSchemaId)?.canonicalIntent(requested) ?? requested
+        browsing.find(viewSchemaId)?.canonicalIntent(requested) ?? requested
       );
     },
     [entryFor, browsing],
@@ -122,14 +122,14 @@ export function useWorkbookQueryController({
   const activeEntry = entryFor(surface);
   useEffect(
     () =>
-      browsing?.bindRevert(surface, () => {
+      browsing.bindRevert(surface, () => {
         const accepted = browsing.find(surface)?.getSnapshot().authored;
         if (accepted) setQueryStateForSurface(surface, accepted);
       }),
     [browsing, surface, setQueryStateForSurface],
   );
   const presentedQuery =
-    browsing?.find(surface)?.presentationQuery(activeEntry.queryState) ??
+    browsing.find(surface)?.presentationQuery(activeEntry.queryState) ??
     activeEntry.queryState;
   const activeQueryControls = useMemo<WorkbookActiveQueryControls>(() => {
     const setActiveQueryState = makeQuerySetter(surface);

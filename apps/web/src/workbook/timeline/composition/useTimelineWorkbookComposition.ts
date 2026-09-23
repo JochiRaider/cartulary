@@ -189,7 +189,7 @@ export function useTimelineWorkbookComposition({
       commands: {
         acceptTimelineRecordVersion:
           mutation.commands.save.acceptTimelineRecordVersion,
-        enqueueSaveWork: mutation.commands.save.enqueueSaveWork,
+        enqueueOrderedRead: mutation.commands.save.enqueueOrderedRead,
       },
       loadRows: mutation.commands.query.loadRows,
       publishViewingPresence: mutation.commands.presence.publishViewingPresence,
@@ -443,7 +443,6 @@ export function useTimelineWorkbookComposition({
       statusSource: runtime.mutationRuntime.statusSource,
       sheetRef: runtime.incident.sheetRef,
       commands: {
-        beginMutation: mutation.commands.save.beginSave,
         presence: {
           publishEditModePresence:
             mutation.commands.presence.publishEditModePresence,

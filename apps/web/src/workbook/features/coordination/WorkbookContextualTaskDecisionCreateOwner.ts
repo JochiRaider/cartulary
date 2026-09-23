@@ -220,24 +220,6 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       ).length
     );
   }
-  get pendingCount() {
-    return (
-      Number(this.preparing) +
-      [...this.entries.values()].filter(
-        (entry) => entry.transportPending || entry.refresh === "refreshing",
-      ).length
-    );
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) => entry.phase === "uncertain" || entry.refresh === "required",
-    ).length;
-  }
-  get uncertainCount() {
-    return [...this.entries.values()].filter(
-      (entry) => entry.phase === "uncertain",
-    ).length;
-  }
   begin(
     subject: WorkbookInspectorLiveRowBinding,
     feature: InspectorFeatureGroup,

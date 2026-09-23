@@ -5,10 +5,10 @@ import type {
   PendingReplayUnitInput,
   PendingReplayUnitState,
 } from "../../runtime/pending/workbookPendingQueue";
-import type { TimelineReplayContext } from "./timelineControllerPorts";
+import type { TimelineReplayAdmissionContext } from "./timelineControllerPorts";
 
 export type TimelinePendingReplayAdmission = PendingReplayUnitInput &
-  Omit<TimelineReplayContext, "sheetRef">;
+  TimelineReplayAdmissionContext;
 
 export type TimelineReplayAdmissionPlan =
   | { readonly kind: "dispatch"; readonly committedRowVersion: number | null }

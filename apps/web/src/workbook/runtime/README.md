@@ -32,6 +32,16 @@ before `WorkbookMutationFeatureAssembly` creates the fixed feature set. Callback
 and subscriptions activate only after all peers exist. Source owners retain their
 own validation, captured attempts and receipt/reconciliation policies.
 
+Retained owners expose `unsettledMutationCount` for admitted writes awaiting
+settlement. Recovery and local action availability use their subject-specific
+snapshots and capabilities. An acknowledged receipt with pending or failed
+refresh is read recovery, not another in-flight mutation. Aggregate pending,
+blocked and uncertain counters are not supported feature-owner interfaces.
+Presentation has no manual mutation-reporting capability. The runtime's private
+conflict-submission accounting covers its real request only and ends before read
+recovery. Timeline History reads retain source-write ordering without contributing
+another mutation to the status strip.
+
 `WorkbookFeatureLifecycle` requires a lifecycle contribution for every feature.
 The explicit PATCH contribution adapts incident closure to its authority API;
 Timeline supplies its specialized authority projection at its construction edge.

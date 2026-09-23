@@ -295,20 +295,6 @@ export class WorkbookEvidenceAttachmentOwner {
           entry.finalization.state.phase === "uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      (e) =>
-        e.preparing || e.upload.status.pending || e.finalization.state.pending,
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (e) =>
-        !e.finalization.state.receipt &&
-        !e.upload.status.pending &&
-        !e.preparing,
-    ).length;
-  }
   begin(
     row: WorkbookQueryRow,
     files: FileList | readonly File[],

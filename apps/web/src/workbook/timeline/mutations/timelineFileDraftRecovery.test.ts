@@ -186,6 +186,37 @@ function fixture() {
     ports,
   };
 }
+it("settles a valid empty capture without clearing authoring added after dispatch", async () => {
+  const f = fixture();
+  f.owner.fileDrafts.attachEvidence(f.row.key, evidenceId);
+  await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+  const unit = f.execute.mock.calls[0]?.[0].unit;
+  if (!unit) throw new Error("Missing dispatched create");
+  const context = f.ports.pendingSavesRefs.replayContextByUnitId.get(unit.id);
+  expect(context?.draftRevisions).toEqual(new Map());
+  expect(context?.capturePredecessor).toBeUndefined();
+  expect(unit.recordId).toBeNull();
+  f.drafts.setDraft(
+    { rowKey: f.row.key, field: "activitySynopsisText", surface: "grid" },
+    "Typed after the empty capture",
+    f.row,
+    true,
+  );
+  f.acknowledgement.resolve({ kind: "accepted", value: f.receipt });
+  await waitFor(() =>
+    expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(0),
+  );
+  expect(
+    f.drafts.draftValue({
+      rowKey: f.row.key,
+      field: "activitySynopsisText",
+      surface: "grid",
+    }),
+  ).toBe("Typed after the empty capture");
+  expect(f.execute).toHaveBeenCalledOnce();
+  f.detach();
+});
+
 it("shares screenshot creation with later ordinary input and retains its promotion after detachment", async () => {
   const f = fixture();
   f.owner.fileDrafts.attachEvidence(f.row.key, evidenceId);

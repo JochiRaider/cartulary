@@ -32,14 +32,11 @@ export function useTimelineBulkTagController(
   input: TimelineBulkTagControllerInput,
 ) {
   const browsing = useWorkbookQueryPresentation();
-  const acceptedRows = browsing?.find(timelineViewSchemaId)?.getSnapshot()
+  const acceptedRows = browsing.find(timelineViewSchemaId)?.getSnapshot()
     .accepted?.rows;
   const queryMembers = useMemo(
-    () =>
-      browsing === null
-        ? null
-        : new Set((acceptedRows ?? []).map((row) => row.record_id)),
-    [acceptedRows, browsing],
+    () => new Set((acceptedRows ?? []).map((row) => row.record_id)),
+    [acceptedRows],
   );
   const [selectedRecordIds, setSelectedRecordIds] = useState<
     ReadonlySet<string>
@@ -89,15 +86,12 @@ export function useTimelineBulkTagController(
   const assignTag = useCallback(
     (tagName: string, delivery: object): TimelineBulkTagAdmission => {
       const { input, browsing } = current.current;
-      const members =
-        browsing === null
-          ? null
-          : new Set(
-              (
-                browsing.find(timelineViewSchemaId)?.getSnapshot().accepted
-                  ?.rows ?? []
-              ).map((row) => row.record_id),
-            );
+      const members = new Set(
+        (
+          browsing.find(timelineViewSchemaId)?.getSnapshot().accepted?.rows ??
+          []
+        ).map((row) => row.record_id),
+      );
       const plan = planTimelineBulkTag({
         context: input.context,
         rows: input.rowsRef.current,

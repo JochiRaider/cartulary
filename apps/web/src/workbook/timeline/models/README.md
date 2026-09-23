@@ -10,6 +10,12 @@ and typed contracts rather than grid coordinates.
 
 ## Mutation and replay
 
+`TimelineQueueScalarSave` is the shared grid and Find command signature.
+Admission context contains caller intent; the mutation driver captures the sheet,
+optional creation predecessor, and required editor-revision map before retaining
+replay context. An empty revision map is a completed capture, not missing metadata.
+Settlement uses that capture to preserve newer authoring.
+
 | File | Responsibility |
 | --- | --- |
 | [timelineAcceptedMutationEffects.ts](timelineAcceptedMutationEffects.ts) | Pure post-acceptance selection, notice, created-row, and continuity effect planning. |

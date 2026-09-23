@@ -225,19 +225,6 @@ export class WorkbookCoordinationCreateOwner {
       ).length
     );
   }
-  get pendingCount() {
-    return (
-      Number(this.preparing) +
-      [...this.entries.values()].filter(
-        (entry) => entry.transportPending || entry.refresh === "refreshing",
-      ).length
-    );
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) => entry.phase === "uncertain" || entry.refresh === "required",
-    ).length;
-  }
   registerSourceCoordinator(
     coordinate: (recordId: string, signal: AbortSignal) => Promise<boolean>,
   ) {

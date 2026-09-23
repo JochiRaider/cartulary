@@ -23,7 +23,7 @@ export function useTimelineHistoryActions({
   setIsInspectorOpen,
   setSelectedRowId,
   waitForCommittedRecordIdle,
-  enqueueSaveWork,
+  enqueueOrderedRead,
   presentationActive = true,
 }: {
   readonly presentationActive?: boolean;
@@ -32,7 +32,7 @@ export function useTimelineHistoryActions({
     rowVersion: number,
   ) => void;
   readonly activeHistorySubject: WorkbookRecordSubject | null;
-  readonly enqueueSaveWork: (work: () => Promise<void>) => void;
+  readonly enqueueOrderedRead: (work: () => Promise<void>) => void;
   readonly loadRows: (options: TimelineHistoryLoadRowsOptions) => Promise<void>;
   readonly dispatchRowHistory: (
     event: WorkbookRecordHistoryEvent,
@@ -61,7 +61,7 @@ export function useTimelineHistoryActions({
     coordinate: (recordId, signal) =>
       new Promise<number | null>((resolve) => {
         signal.addEventListener("abort", () => resolve(null), { once: true });
-        enqueueSaveWork(async () => {
+        enqueueOrderedRead(async () => {
           if (signal.aborted) {
             resolve(null);
             return;

@@ -156,7 +156,7 @@ export function useWorkbookSurfaceQueries({
         reason.kind !== "incident_closed" &&
         reason.kind !== "collaboration_reset_required"
       )
-        browsingRegistry?.invalidateAll();
+        browsingRegistry.invalidateAll();
       for (const invalidate of currentInvalidators.current) invalidate(reason);
     },
     [browsingRegistry],
@@ -194,7 +194,7 @@ export function useWorkbookSurfaceQueries({
           refresh({
             requireAcceptance: options?.reason === "authorization_recovered",
           });
-        const browser = browsingRegistry?.find(surface);
+        const browser = browsingRegistry.find(surface);
         if (options?.reason === "record_changed" && browser)
           await browser.reconcile(read);
         else await read();

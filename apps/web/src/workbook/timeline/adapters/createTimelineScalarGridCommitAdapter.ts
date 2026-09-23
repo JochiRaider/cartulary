@@ -1,17 +1,9 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import type { TimelineScalarSaveOptions } from "../models/timelineControllerPorts";
+import type { TimelineQueueScalarSave } from "../models/timelineControllerPorts";
 import type {
   RowValues,
   TimelineScalarEditorSurface,
 } from "../models/timelineFieldRegistry";
-
-export type TimelineQueueScalarSave = (
-  rowKey: string,
-  focusField: keyof RowValues,
-  options: TimelineScalarSaveOptions,
-  currentValue?: string,
-  onSettled?: (outcome: GridEditCommitOutcome) => void,
-) => void;
 
 export function createTimelineScalarGridCommitAdapter(
   queueScalarSave: TimelineQueueScalarSave,

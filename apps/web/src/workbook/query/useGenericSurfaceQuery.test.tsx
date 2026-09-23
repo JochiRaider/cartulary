@@ -3,8 +3,6 @@ import {
   act,
   cleanup,
   fireEvent,
-  render,
-  renderHook,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -18,6 +16,8 @@ import { taskAuthority, taskRow } from "../../testing/taskWorkbookTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import {
   acceptedQueryMetadata,
+  renderWithWorkbookQueryBrowsing as render,
+  renderHookWithWorkbookQueryBrowsing as renderHook,
   workbookQueryMeta,
 } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
@@ -68,7 +68,7 @@ it("retains an accepted empty generic result and its query after a failed replac
     emptyWorkbookQueryState(),
   );
   expect(
-    hook.result.current.browser.hasUnapplied({
+    hook.result.current.browser?.hasUnapplied({
       ...emptyWorkbookQueryState(),
       sort: [{ fieldKey: "note.title", direction: "desc" }],
     }),

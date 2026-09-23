@@ -134,12 +134,21 @@ describe("Note atomic recovery", () => {
     );
     await waitFor(() => expect(effects.refresh).toHaveBeenCalled());
     expect(owner.unsettledMutationCount).toBe(0);
-    expect(owner.pendingCount).toBeGreaterThan(0);
+    expect(owner.getSnapshot().entries[0]).toMatchObject({
+      receipt,
+      refresh: "refreshing",
+    });
     refresh.reject(new Error("refresh unavailable"));
     await recovery;
     expect(owner.getSnapshot().entries[0]?.receipt).toEqual(receipt);
     expect(owner.unsettledMutationCount).toBe(0);
-    await waitFor(() => expect(owner.blockedCount).toBe(1));
+    await waitFor(() =>
+      expect(owner.getSnapshot().entries[0]?.refresh).toBe("required"),
+    );
+    expect(noteRecoveryItems(owner.getSnapshot())).toMatchObject([
+      { attention: "attention" },
+    ]);
+    expect(transport.send).toHaveBeenCalledTimes(2);
   });
 
   it("retains socket observations without fabricating receipts or regressing newer source removal evidence", async () => {

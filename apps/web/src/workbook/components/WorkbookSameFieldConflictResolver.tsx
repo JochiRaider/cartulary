@@ -122,7 +122,7 @@ export function WorkbookSameFieldConflictResolver({
       '[aria-label="Recovery navigation"]',
     );
     const view = conflict.origin.viewSchemaId;
-    const grid = browsing?.grid(view);
+    const grid = browsing.grid(view);
     const scrollElement = grid?.getScrollElement();
     const viewport = scrollElement
       ? { top: scrollElement.scrollTop, left: scrollElement.scrollLeft }
@@ -147,7 +147,7 @@ export function WorkbookSameFieldConflictResolver({
         // A detached/retargeted resolver or newer work must keep its own focus.
         navigation?.close();
         const handoffActivation = navigation?.getSnapshot().activation;
-        const currentGrid = browsing?.grid(view);
+        const currentGrid = browsing.grid(view);
         if (
           currentGrid &&
           scrollElement?.isConnected &&
@@ -170,7 +170,7 @@ export function WorkbookSameFieldConflictResolver({
             result === "focused" &&
             viewport &&
             scrollElement?.isConnected &&
-            browsing?.grid(view)?.getScrollElement() === scrollElement &&
+            browsing.grid(view)?.getScrollElement() === scrollElement &&
             navigation?.getSnapshot().activation === handoffActivation &&
             !navigation?.getSnapshot().open
           ) {

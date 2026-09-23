@@ -261,18 +261,6 @@ export class WorkbookPartyLinkOperationOwner {
         ["preparing", "submitting", "uncertain"].includes(entry.phase),
     ).length;
   }
-  get pendingCount() {
-    return [...this.creations.values()].filter(
-      (entry) =>
-        ["preparing", "submitting"].includes(entry.phase) ||
-        entry.refresh === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.creations.values()].filter(
-      (entry) => entry.phase === "uncertain" || entry.refresh === "required",
-    ).length;
-  }
   private async readSource(
     review: PartyReview,
     signal: AbortSignal,

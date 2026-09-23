@@ -136,7 +136,7 @@ export function useTimelineRowMutationCoordinator({
     mutationRuntime,
     pendingSavesRefs,
   });
-  const { beginRefreshInFlight, beginSave, publishSaveStatePresentation } =
+  const { beginRefreshInFlight, publishSaveStatePresentation } =
     saveState.commands;
 
   const {
@@ -294,16 +294,12 @@ export function useTimelineRowMutationCoordinator({
   const trackPendingSocketTxn = socketTransactions.track;
   const resolvePendingSocketTxn = socketTransactions.resolve;
 
-  const enqueueSaveWork = useCallback(
+  const enqueueOrderedRead = useCallback(
     (work: () => Promise<void>) => {
-      const finish = mutationRuntime.beginExplicitMutation();
       pendingSavesRefs.saveQueueRef.current =
-        pendingSavesRefs.saveQueueRef.current
-          .catch(() => undefined)
-          .then(work)
-          .finally(finish);
+        pendingSavesRefs.saveQueueRef.current.catch(() => undefined).then(work);
     },
-    [mutationRuntime, pendingSavesRefs],
+    [pendingSavesRefs],
   );
 
   const conflictProjection = useTimelineConflictProjectionAdapter({
@@ -378,9 +374,8 @@ export function useTimelineRowMutationCoordinator({
       applyAcceptedRowMutation,
       applyAcceptedBatchRows,
       beginRefreshInFlight,
-      beginSave,
       currentCommittedTimelineRow,
-      enqueueSaveWork,
+      enqueueOrderedRead,
       hasLoadedRows,
       isCurrentLoadSequence,
       knownTimelineRowVersion,

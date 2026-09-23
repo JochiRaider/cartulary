@@ -1,15 +1,17 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import {
+  acceptedQueryMetadata,
+  renderWithWorkbookQueryBrowsing as render,
+  renderHookWithWorkbookQueryBrowsing as renderHook,
+} from "../../testing/workbookQueryTestSupport";
+import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { useWorkbookQueryBrowser } from "../query/WorkbookQueryBrowsingContext";
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { WorkbookBatchOperationOwner } from "../runtime/WorkbookBatchOperationOwner";
 import { createTimelineBulkTagCommandAdapter } from "./adapters/createTimelineBulkTagCommandAdapter";
@@ -86,7 +88,59 @@ function fixture() {
     subscribe: () => () => {},
     blockingReason: vi.fn<() => string | null>(() => null),
   };
-  return { owner, send, port, rowsRef, readiness };
+  const query: WorkbookViewQueryPort["query"] = async (input) => ({
+    kind: "accepted",
+    value: {
+      ...acceptedQueryMetadata(timelineViewSchemaId, input.queryState),
+      incidentId: "incident",
+      viewSchemaId: timelineViewSchemaId,
+      rows: rowsRef.current.flatMap((row) =>
+        row.rawRow === null ? [] : [row.rawRow],
+      ),
+    },
+  });
+  return { owner, send, port, rowsRef, readiness, query };
+}
+
+function useBulkTagFixture(
+  input: Parameters<typeof useTimelineBulkTagController>[0],
+  query: WorkbookViewQueryPort["query"],
+) {
+  const { binding, snapshot } = useWorkbookQueryBrowser(
+    { query },
+    timelineViewSchemaId,
+  );
+  useEffect(() => {
+    const browser = binding.currentBrowser();
+    if (!browser) return;
+    let current = true;
+    const controller = new AbortController();
+    browser.observeRows(
+      input.rows.flatMap((row) => (row.rawRow === null ? [] : [row.rawRow])),
+    );
+    void browser
+      .query({
+        contract,
+        queryState: emptyWorkbookQueryState(),
+        signal: controller.signal,
+      })
+      .then((result) => {
+        if (
+          current &&
+          binding.currentBrowser() === browser &&
+          result.kind === "accepted"
+        )
+          browser.accept(result.value);
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [binding, input.rows]);
+  return {
+    ...useTimelineBulkTagController(input),
+    queryReady: snapshot.accepted !== null,
+  };
 }
 
 describe("Timeline bulk tag interaction", () => {
@@ -94,16 +148,20 @@ describe("Timeline bulk tag interaction", () => {
     const f = fixture();
     const { result, rerender } = renderHook(
       ({ authorized, rows }) =>
-        useTimelineBulkTagController({
-          context: { authorized, capabilityAvailable: true },
-          port: f.port,
-          readiness: f.readiness,
-          precedingSaves: async () => {},
-          rows,
-          rowsRef: f.rowsRef,
-        }),
+        useBulkTagFixture(
+          {
+            context: { authorized, capabilityAvailable: true },
+            port: f.port,
+            readiness: f.readiness,
+            precedingSaves: async () => {},
+            rows,
+            rowsRef: f.rowsRef,
+          },
+          f.query,
+        ),
       { initialProps: { authorized: true, rows: f.rowsRef.current } },
     );
+    await waitFor(() => expect(result.current.queryReady).toBe(true));
     act(() =>
       result.current.snapshot.gridSelection.onSelectedRecordIdsChange(
         new Set(["first", "second"]),
@@ -158,15 +216,19 @@ describe("Timeline bulk tag interaction", () => {
       resolve = done;
     });
     const { result } = renderHook(() =>
-      useTimelineBulkTagController({
-        context: { authorized: true, capabilityAvailable: true },
-        port: f.port,
-        readiness: f.readiness,
-        precedingSaves: () => ready,
-        rows: f.rowsRef.current,
-        rowsRef: f.rowsRef,
-      }),
+      useBulkTagFixture(
+        {
+          context: { authorized: true, capabilityAvailable: true },
+          port: f.port,
+          readiness: f.readiness,
+          precedingSaves: () => ready,
+          rows: f.rowsRef.current,
+          rowsRef: f.rowsRef,
+        },
+        f.query,
+      ),
     );
+    await waitFor(() => expect(result.current.queryReady).toBe(true));
     act(() =>
       result.current.snapshot.gridSelection.onSelectedRecordIdsChange(
         new Set(["first", "second"]),
@@ -200,18 +262,22 @@ describe("Timeline bulk tag interaction", () => {
     expect(f.send.mock.calls[0]).toBeDefined();
   });
 
-  it("surfaces real admission refusal and rejects incomplete or blocked intended targets", () => {
+  it("surfaces real admission refusal and rejects incomplete or blocked intended targets", async () => {
     const f = fixture();
     const { result } = renderHook(() =>
-      useTimelineBulkTagController({
-        context: { authorized: true, capabilityAvailable: true },
-        port: f.port,
-        readiness: f.readiness,
-        precedingSaves: async () => {},
-        rows: f.rowsRef.current,
-        rowsRef: f.rowsRef,
-      }),
+      useBulkTagFixture(
+        {
+          context: { authorized: true, capabilityAvailable: true },
+          port: f.port,
+          readiness: f.readiness,
+          precedingSaves: async () => {},
+          rows: f.rowsRef.current,
+          rowsRef: f.rowsRef,
+        },
+        f.query,
+      ),
     );
+    await waitFor(() => expect(result.current.queryReady).toBe(true));
     act(() =>
       result.current.snapshot.gridSelection.onSelectedRecordIdsChange(
         new Set(["first", "missing"]),
@@ -324,20 +390,24 @@ describe("Timeline bulk tag interaction", () => {
   it("owns raw text locally and retains its native input through zero selection and late outcomes", async () => {
     const f = fixture();
     let renders = 0;
-    let controller: ReturnType<typeof useTimelineBulkTagController> | undefined;
+    let controller: ReturnType<typeof useBulkTagFixture> | undefined;
     function Harness() {
       renders++;
-      controller = useTimelineBulkTagController({
-        context: { authorized: true, capabilityAvailable: true },
-        port: f.port,
-        readiness: f.readiness,
-        precedingSaves: async () => {},
-        rows: f.rowsRef.current,
-        rowsRef: f.rowsRef,
-      });
+      controller = useBulkTagFixture(
+        {
+          context: { authorized: true, capabilityAvailable: true },
+          port: f.port,
+          readiness: f.readiness,
+          precedingSaves: async () => {},
+          rows: f.rowsRef.current,
+          rowsRef: f.rowsRef,
+        },
+        f.query,
+      );
       return <TimelineBulkTagControl binding={controller.controls} />;
     }
     render(<Harness />);
+    await waitFor(() => expect(controller?.queryReady).toBe(true));
     act(() =>
       controller?.snapshot.gridSelection.onSelectedRecordIdsChange(
         new Set(["first"]),

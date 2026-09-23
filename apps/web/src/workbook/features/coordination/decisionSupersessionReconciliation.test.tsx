@@ -1,5 +1,5 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   decisionAuthority,
@@ -9,7 +9,10 @@ import {
   decisionRow,
   decisionTargetId,
 } from "../../../testing/decisionSupersessionTestSupport";
-import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
+import {
+  acceptedQueryMetadata,
+  renderHookWithWorkbookQueryBrowsing as renderHook,
+} from "../../../testing/workbookQueryTestSupport";
 import { createWorkbookDecisionSupersessionAdapter } from "../../adapters/createWorkbookDecisionSupersessionAdapter";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";

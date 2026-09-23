@@ -39,6 +39,19 @@ here and are consumed by Timeline as well as other surfaces.
 
 ## Browsing lifetime
 
+`WorkbookQueryBrowsingProvider` is required in the shell and isolated fixtures.
+Render prepares only a binding identity. Layout effects commit its unique token,
+create or reuse the browser, subscribe, and register the matching reader before
+dependent reads. Inactive and uncommitted bindings have no browser; an
+acceptance-required read rejects instead of dispatching through an alternate
+owner. A replaced token cannot admit results, remove a successor's reader, or
+detach its browser.
+
+Detachment cancels reads and releases passive rows while retaining eligible
+bounded checkpoints and anchors. Authority invalidation and provider retirement
+clear protected state and reject late results. An explicit refresh routes through
+the current committed reader; it has no direct-refresh fallback.
+
 Each active surface retains at most three pages of 100 records and twenty
 request-only return checkpoints. Explicit refresh retires the old cursor chain,
 including after a failed restart. Live invalidations coalesce and re-read only

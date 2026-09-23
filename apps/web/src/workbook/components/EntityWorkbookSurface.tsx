@@ -423,7 +423,7 @@ export function EntityWorkbookSurface({
       queryState,
       layoutState,
     ]),
-    browser: browsing?.find(surface),
+    browser: browsing.find(surface),
     authorization: collaborationProjection,
     readable: !!currentIncidentRole && loadState.kind !== "permission_denied",
     stale: loadState.kind === "stale_error",
@@ -461,7 +461,7 @@ export function EntityWorkbookSurface({
       fieldKey: firstWritableField.fieldKey,
     });
   }, [canCreateRows, createFields]);
-  const restartQuery = useWorkbookQueryRestart(surface, onRefreshEntities);
+  const restartQuery = useWorkbookQueryRestart(surface);
   const dataState = workbookGridDataState({
     emptyAction: canCreateRows
       ? { label: "Add row", onInvoke: focusEntityDraft }

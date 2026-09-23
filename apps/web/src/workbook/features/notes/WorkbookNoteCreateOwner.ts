@@ -210,26 +210,6 @@ export class WorkbookNoteCreateOwner {
       ).length
     );
   }
-  get pendingCount() {
-    return (
-      Number(this.preparing) +
-      [...this.entries.values()].filter(
-        (entry) => entry.transportPending || entry.refresh === "refreshing",
-      ).length
-    );
-  }
-  get blockedCount() {
-    return (
-      this.uncertainCount +
-      [...this.entries.values()].filter((entry) => entry.refresh === "required")
-        .length
-    );
-  }
-  get uncertainCount() {
-    return [...this.entries.values()].filter(
-      (entry) => entry.phase === "uncertain",
-    ).length;
-  }
   canReplay() {
     return (
       !!this.authority?.sessionIdentity &&

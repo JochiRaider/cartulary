@@ -41,15 +41,10 @@ export function useTimelineSaveStatePresentation({
     },
     [mutationRuntime, originSheetRef, pendingSavesRefs],
   );
-  const beginSave = useCallback(
-    () => mutationRuntime.beginExplicitMutation(),
-    [mutationRuntime],
-  );
 
   return {
     commands: {
       beginRefreshInFlight,
-      beginSave,
       publishSaveStatePresentation,
     },
   };

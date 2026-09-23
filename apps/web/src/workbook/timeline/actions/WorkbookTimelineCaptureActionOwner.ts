@@ -193,19 +193,6 @@ export class WorkbookTimelineCaptureActionOwner
           entry.phase === "uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        ["preparing", "submitting"].includes(entry.phase) ||
-        entry.reconciliation === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "uncertain" || entry.reconciliation === "required",
-    ).length;
-  }
   async page(cursor: string | null, signal: AbortSignal) {
     const generation = this.generation;
     if (!this.authority || !this.candidates)

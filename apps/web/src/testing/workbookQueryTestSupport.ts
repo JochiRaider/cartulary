@@ -1,10 +1,33 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
+  type RenderHookOptions,
+  render,
+  renderHook,
+} from "@testing-library/react";
+import {
   emptyWorkbookQueryState,
   type WorkbookQueryState,
   workbookQueryStateFromSavedViewQueryJson,
 } from "../workbook/models/workbookQuery";
+import { WorkbookQueryBrowsingProvider } from "../workbook/query/WorkbookQueryBrowsingContext";
 import type { WorkbookViewQueryAccepted } from "../workbook/query/WorkbookViewQueryPort";
+
+/** Isolated query consumers use the same required owner as the workbook shell. */
+export function renderWithWorkbookQueryBrowsing(
+  ui: Parameters<typeof render>[0],
+) {
+  return render(ui, { wrapper: WorkbookQueryBrowsingProvider });
+}
+
+export function renderHookWithWorkbookQueryBrowsing<Result, Props>(
+  callback: (props: Props) => Result,
+  options?: Pick<RenderHookOptions<Props>, "initialProps">,
+) {
+  return renderHook(callback, {
+    ...options,
+    wrapper: WorkbookQueryBrowsingProvider,
+  });
+}
 
 /** Complete first-page metadata for fixtures; malformed-envelope tests supply raw metadata. */
 export function acceptedQueryMetadata(

@@ -329,14 +329,6 @@ export class WorkbookOrdinaryCreateOwner {
       ).length
     );
   }
-  get pendingCount() {
-    return (
-      this.admission.size +
-      [...this.entries.values()].filter(
-        (entry) => entry.transportPending || entry.refresh === "refreshing",
-      ).length
-    );
-  }
   canReplay() {
     return (
       !!this.authority?.sessionIdentity &&

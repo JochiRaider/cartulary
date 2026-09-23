@@ -59,7 +59,7 @@ export function useWorkbookSemanticGridFocus<Row>({
 }) {
   const browsingRegistry = useWorkbookBrowsingRegistry();
   useLayoutEffect(() => {
-    const unbind = browsingRegistry?.bindGrid(viewSchemaId, gridHandleRef);
+    const unbind = browsingRegistry.bindGrid(viewSchemaId, gridHandleRef);
     return () => {
       const anchor = gridHandleRef.current?.getActiveCell?.();
       if (anchor?.rowIdentity.kind === "core_record")
@@ -76,7 +76,7 @@ export function useWorkbookSemanticGridFocus<Row>({
         ?.find(viewSchemaId)
         ?.rememberAnchor(anchor.rowIdentity.recordId);
     gridHandleRef.current?.setAccessibleDescription?.(
-      browsingRegistry?.find(viewSchemaId)
+      browsingRegistry.find(viewSchemaId)
         ? "Row indices and selection refer to the loaded window. Use the workbook browsing controls to reach additional records."
         : undefined,
     );

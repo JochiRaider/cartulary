@@ -303,10 +303,7 @@ export function AssessmentWorkbookSurface({
     roleCanCreate,
     selectedAssessment,
   });
-  const restartQuery = useWorkbookQueryRestart(
-    assessmentsViewSchemaId,
-    onRefreshAssessmentRows,
-  );
+  const restartQuery = useWorkbookQueryRestart(assessmentsViewSchemaId);
   const dataState = workbookGridDataState({
     emptyAction: canCreate
       ? {

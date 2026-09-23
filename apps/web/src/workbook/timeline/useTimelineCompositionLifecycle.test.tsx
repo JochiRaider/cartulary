@@ -278,7 +278,7 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
           trace.push(`version:${rowVersion}`),
         activeHistorySubject: subject,
         dispatchRowHistory,
-        enqueueSaveWork: (work) => {
+        enqueueOrderedRead: (work) => {
           trace.push("save:enqueue");
           queuedWork = work;
         },
@@ -394,7 +394,7 @@ it("Timeline history rejects queued version changes without replacing the confir
           return snapshot;
         },
         acceptTimelineRecordVersion: vi.fn(),
-        enqueueSaveWork: (work) => {
+        enqueueOrderedRead: (work) => {
           queuedWork = work;
         },
         waitForCommittedRecordIdle: async () => ({ row: null, rowVersion: 6 }),

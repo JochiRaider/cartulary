@@ -92,7 +92,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly activeConflict: Parameters<
       typeof useTimelineInspectorEscape
     >[0]["activeConflict"];
-    readonly commands: Pick<HistoryInput, "enqueueSaveWork"> &
+    readonly commands: Pick<HistoryInput, "enqueueOrderedRead"> &
       Pick<HistoryInput, "acceptTimelineRecordVersion">;
     readonly waitForCommittedRecordIdle: HistoryInput["waitForCommittedRecordIdle"];
     readonly loadRows: HistoryInput["loadRows"];
@@ -186,7 +186,7 @@ export function useTimelineInspectorWorkflowComposition({
     acceptTimelineRecordVersion: mutation.commands.acceptTimelineRecordVersion,
     activeHistorySubject: inspector.history.snapshot.inspectorHistorySubject,
     dispatchRowHistory: inspector.history.commands.dispatchRowHistory,
-    enqueueSaveWork: mutation.commands.enqueueSaveWork,
+    enqueueOrderedRead: mutation.commands.enqueueOrderedRead,
     loadRows: mutation.loadRows,
     rowHistory: inspector.history.snapshot.rowHistory,
     setIsInspectorOpen: inspector.setOpen,

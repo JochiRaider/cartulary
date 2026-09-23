@@ -1155,7 +1155,7 @@ export class WorkbookMutationRuntime {
     );
   }
 
-  beginExplicitMutation(): () => void {
+  private beginConflictSubmission(): () => void {
     this.explicitInFlightCount += 1;
     this.emit();
     let finished = false;
@@ -1371,7 +1371,7 @@ export class WorkbookMutationRuntime {
       releaseRecord();
       return "The reviewed collection contains a change that cannot be represented safely.";
     }
-    const finishMutation = this.beginExplicitMutation();
+    const finishMutation = this.beginConflictSubmission();
     try {
       const outcome = await executeWorkbookConflictResolution({
         apiBase,
@@ -1379,6 +1379,8 @@ export class WorkbookMutationRuntime {
         recordId: entry.conflict.record_id,
         request: body,
       });
+      // The transport outcome settles submission; subsequent observation is read work.
+      finishMutation();
       if (
         this.conflicts.get(key) !== entry ||
         this.entityLifetimeRetired ||

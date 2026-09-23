@@ -22,7 +22,6 @@ import {
   type EvidenceOperationState,
   evidenceOperationFeedback,
 } from "../../evidence/evidenceAccessPresentation";
-import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import {
   savedInspectorRegion,
   type WorkbookInspectorRegion,
@@ -63,7 +62,6 @@ type RecordOperation = {
   readonly rowVersion: number;
   readonly state: EvidenceOperationState;
 };
-type MutationPorts = Pick<GenericSurfaceMutationController, "beginMutation">;
 
 function titleFor(row: WorkbookQueryRow) {
   return (
@@ -84,7 +82,6 @@ const unknownFailure: WorkbookOperationFailure = {
 
 export function useEvidenceWorkbookBindings(input: {
   readonly mutationCommands: EvidenceCapabilityPort;
-  readonly mutation: MutationPorts;
   readonly onRefresh: () => Promise<void> | void;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
   readonly resetKey: string;

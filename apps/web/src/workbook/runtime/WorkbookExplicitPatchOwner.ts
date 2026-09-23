@@ -407,20 +407,6 @@ export class WorkbookExplicitPatchOwner {
           entry.phase === "uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "coordinating" ||
-        entry.phase === "submitting" ||
-        entry.reconciliation === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "uncertain" || entry.reconciliation === "required",
-    ).length;
-  }
   private update(id: string, update: Partial<ExplicitPatchOperation>) {
     const current = this.entries.get(id);
     if (current && !this.retired) {

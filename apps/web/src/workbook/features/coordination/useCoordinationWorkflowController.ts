@@ -11,13 +11,10 @@ import {
   taskViewId,
 } from "./taskLifecycleModel";
 
-export type CoordinationWorkflowMutationPorts = Partial<
-  Pick<GenericSurfaceMutationController, "explicitPatches">
-> &
-  Pick<
-    GenericSurfaceMutationController,
-    "beginMutation" | "submitPatchMutation"
-  >;
+export type CoordinationWorkflowMutationPorts = Pick<
+  GenericSurfaceMutationController,
+  "submitPatchMutation"
+>;
 
 export function useCoordinationWorkflowController({
   mutation,
@@ -75,13 +72,10 @@ export function useCoordinationWorkflowController({
     submitting.current = true;
     const captured = drafts.capture(row.record_id);
     setFeedback(null);
-    const finish = mutation.beginMutation();
     try {
       const accepted = await mutation.submitPatchMutation({
-        baseRowVersion: row.row_version,
         changes,
         purpose: "task-lifecycle",
-        recordId: row.record_id,
         viewSchemaId: taskViewId,
         baseline: row,
         onFailure: (failure) => {
@@ -95,7 +89,6 @@ export function useCoordinationWorkflowController({
       if (accepted) drafts.acknowledge(row.record_id, captured);
     } finally {
       submitting.current = false;
-      finish();
     }
   };
   return {

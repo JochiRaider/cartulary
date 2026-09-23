@@ -1,5 +1,5 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   lifecycleAuthority,
@@ -7,7 +7,10 @@ import {
   lifecycleReceipt,
   lifecycleRow,
 } from "../../../testing/indicatorLifecycleTestSupport";
-import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
+import {
+  acceptedQueryMetadata,
+  renderHookWithWorkbookQueryBrowsing as renderHook,
+} from "../../../testing/workbookQueryTestSupport";
 import { createIndicatorLifecycleAdapter } from "../../adapters/createIndicatorLifecycleAdapter";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";

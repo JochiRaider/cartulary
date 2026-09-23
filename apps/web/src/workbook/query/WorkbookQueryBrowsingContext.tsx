@@ -5,26 +5,105 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { WorkbookQueryBrowser } from "./WorkbookQueryBrowser";
+import {
+  emptyWorkbookBrowsingSnapshot,
+  WorkbookQueryBrowser,
+} from "./WorkbookQueryBrowser";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 
+type QueryBinding = {
+  readonly viewSchemaId: string;
+  readonly query: WorkbookViewQueryPort["query"];
+  readonly token: symbol;
+  readonly active: boolean;
+  readonly currentBrowser: () => WorkbookQueryBrowser | undefined;
+};
+type BrowsingEntry = {
+  readonly query: WorkbookViewQueryPort["query"];
+  readonly browser: WorkbookQueryBrowser;
+  token: symbol | null;
+  unsubscribe: (() => void) | undefined;
+};
+
 class WorkbookQueryBrowsingRegistry {
-  private entries = new Map<
-    string,
-    { port: WorkbookViewQueryPort; browser: WorkbookQueryBrowser }
-  >();
+  private entries = new Map<string, BrowsingEntry>();
   private listeners = new Set<() => void>();
   private revision = 0;
-  private readers = new Map<string, () => Promise<void>>();
+  private readers = new Map<
+    string,
+    { binding: QueryBinding; read: () => Promise<void> }
+  >();
   private reverters = new Map<string, () => void>();
   private grids = new Map<string, { current: GridHandle | null }>();
-  bindRead(view: string, read: () => Promise<void>) {
-    this.readers.set(view, read);
+
+  // Render prepares identity only. Ownership and browser construction start at commit.
+  prepare(
+    query: WorkbookViewQueryPort["query"],
+    viewSchemaId: string,
+    active: boolean,
+  ): QueryBinding {
+    const token = Symbol(viewSchemaId);
+    return {
+      query,
+      viewSchemaId,
+      token,
+      active,
+      currentBrowser: () => {
+        const entry = this.entries.get(viewSchemaId);
+        return active && entry?.token === token ? entry.browser : undefined;
+      },
+    };
+  }
+  commit(binding: QueryBinding) {
+    if (!binding.active) return;
+    const previous = this.entries.get(binding.viewSchemaId);
+    previous?.unsubscribe?.();
+    this.readers.delete(binding.viewSchemaId);
+    let browser: WorkbookQueryBrowser;
+    if (previous?.query === binding.query) {
+      browser = previous.browser;
+      if (previous.token !== null) browser.detach();
+    } else {
+      previous?.browser.invalidate();
+      browser = new WorkbookQueryBrowser(
+        { query: binding.query },
+        binding.viewSchemaId,
+      );
+    }
+    const entry: BrowsingEntry = {
+      query: binding.query,
+      browser,
+      token: binding.token,
+      unsubscribe: undefined,
+    };
+    this.entries.set(binding.viewSchemaId, entry);
+    entry.unsubscribe = browser.subscribe(this.publish);
+    this.publish();
     return () => {
-      if (this.readers.get(view) === read) this.readers.delete(view);
+      if (
+        entry.token !== binding.token ||
+        this.entries.get(binding.viewSchemaId) !== entry
+      )
+        return;
+      entry.token = null;
+      entry.unsubscribe?.();
+      entry.unsubscribe = undefined;
+      this.readers.delete(binding.viewSchemaId);
+      browser.detach();
+      this.publish();
+    };
+  }
+  bindRead(binding: QueryBinding, read: () => Promise<void>) {
+    if (!binding.currentBrowser()) return;
+    const reader = { binding, read };
+    this.readers.set(binding.viewSchemaId, reader);
+    return () => {
+      if (this.readers.get(binding.viewSchemaId) === reader)
+        this.readers.delete(binding.viewSchemaId);
     };
   }
   bindRevert(view: string, revert: () => void) {
@@ -53,11 +132,13 @@ class WorkbookQueryBrowsingRegistry {
     view: string,
     action: Parameters<WorkbookQueryBrowser["activate"]>[0],
   ) {
-    const read = this.readers.get(view),
-      browser = this.find(view);
-    if (!read || !browser) return;
+    const reader = this.readers.get(view);
+    const browser = reader?.binding.currentBrowser();
+    if (!reader || !browser) return;
     this.prepareBrowse(view);
-    await browser.activate(action, read);
+    await browser.activate(action, async () => {
+      if (reader.binding.currentBrowser() === browser) await reader.read();
+    });
   }
   revert(view: string) {
     this.reverters.get(view)?.();
@@ -72,27 +153,29 @@ class WorkbookQueryBrowsingRegistry {
     };
   };
   getSnapshot = () => this.revision;
-  find = (viewSchemaId: string) => this.entries.get(viewSchemaId)?.browser;
-  get(port: WorkbookViewQueryPort, viewSchemaId: string) {
-    const existing = this.entries.get(viewSchemaId);
-    if (existing?.port.query === port.query) return existing.browser;
-    existing?.browser.invalidate();
-    const browser = new WorkbookQueryBrowser(port, viewSchemaId);
-    browser.subscribe(() => {
-      this.revision += 1;
-      for (const listener of this.listeners) listener();
-    });
-    this.entries.set(viewSchemaId, { port, browser });
-    return browser;
-  }
+  private publish = () => {
+    this.revision += 1;
+    for (const listener of this.listeners) listener();
+  };
+  find = (viewSchemaId: string) => {
+    const entry = this.entries.get(viewSchemaId);
+    return entry?.token ? entry.browser : undefined;
+  };
   dispose() {
-    for (const { browser } of this.entries.values()) browser.invalidate();
+    for (const entry of this.entries.values()) {
+      entry.unsubscribe?.();
+      entry.token = null;
+      entry.browser.invalidate();
+    }
+    this.entries.clear();
+    this.readers.clear();
+    this.reverters.clear();
+    this.grids.clear();
+    this.publish();
   }
 }
 
 const Context = createContext<WorkbookQueryBrowsingRegistry | null>(null);
-const noSubscribe = () => () => {};
-const noSnapshot = () => 0;
 
 export function WorkbookQueryBrowsingProvider({
   children,
@@ -104,28 +187,26 @@ export function WorkbookQueryBrowsingProvider({
   return <Context.Provider value={registry}>{children}</Context.Provider>;
 }
 
-export function useWorkbookQueryPresentation() {
+export function useWorkbookBrowsingRegistry() {
   const registry = useContext(Context);
-  useSyncExternalStore(
-    registry?.subscribe ?? noSubscribe,
-    registry?.getSnapshot ?? noSnapshot,
-  );
+  if (!registry) throw new Error("WorkbookQueryBrowsingProvider is required");
   return registry;
 }
 
-export function useWorkbookBrowsingRegistry() {
-  return useContext(Context);
+export function useWorkbookQueryPresentation() {
+  const registry = useWorkbookBrowsingRegistry();
+  useSyncExternalStore(registry.subscribe, registry.getSnapshot);
+  return registry;
 }
 
 export function useWorkbookBrowsingRead(
-  view: string,
+  binding: QueryBinding,
   read: () => Promise<void>,
-  active = true,
 ) {
-  const registry = useContext(Context);
-  useEffect(
-    () => (active ? registry?.bindRead(view, read) : undefined),
-    [registry, view, read, active],
+  const registry = useWorkbookBrowsingRegistry();
+  useLayoutEffect(
+    () => registry.bindRead(binding, read),
+    [registry, binding, read],
   );
 }
 
@@ -134,27 +215,27 @@ export function useWorkbookQueryBrowser(
   viewSchemaId: string,
   active = true,
 ) {
-  const registry = useContext(Context);
+  const registry = useWorkbookBrowsingRegistry();
   const query = port.query;
-  const browser = useMemo(
-    () =>
-      (active ? registry?.get({ query }, viewSchemaId) : undefined) ??
-      new WorkbookQueryBrowser({ query }, viewSchemaId),
+  const binding = useMemo(
+    () => registry.prepare(query, viewSchemaId, active),
     [query, registry, viewSchemaId, active],
   );
-  const snapshot = useSyncExternalStore(browser.subscribe, browser.getSnapshot);
-  useEffect(() => () => browser.detach(), [browser]);
-  return { browser, snapshot };
+  useLayoutEffect(() => registry.commit(binding), [registry, binding]);
+  useSyncExternalStore(registry.subscribe, registry.getSnapshot);
+  const browser = binding.currentBrowser();
+  return {
+    binding,
+    browser,
+    snapshot: browser?.getSnapshot() ?? emptyWorkbookBrowsingSnapshot,
+  };
 }
 
 /** An explicit UI refresh always retires continuation and starts cursor-free. */
-export function useWorkbookQueryRestart(
-  view: string,
-  fallback: () => void | Promise<void>,
-) {
+export function useWorkbookQueryRestart(view: string) {
   const registry = useWorkbookBrowsingRegistry();
-  return useCallback(async () => {
-    if (registry?.find(view)) await registry.activate(view, "restart");
-    else await fallback();
-  }, [registry, view, fallback]);
+  return useCallback(
+    () => registry.activate(view, "restart"),
+    [registry, view],
+  );
 }

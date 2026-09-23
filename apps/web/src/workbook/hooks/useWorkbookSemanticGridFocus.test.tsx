@@ -5,9 +5,10 @@ import type {
   GridFocusResult,
   GridHandle,
 } from "@cartulary/grid-adapter";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { renderWithWorkbookQueryBrowsing as render } from "../../testing/workbookQueryTestSupport";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import { useWorkbookSemanticGridFocus } from "./useWorkbookSemanticGridFocus";
 

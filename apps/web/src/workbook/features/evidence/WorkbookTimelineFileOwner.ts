@@ -388,14 +388,6 @@ export class WorkbookTimelineFileOwner {
           entry.upload.status.phase === "transfer_uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter((e) => this.busy(e)).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (e) => !e.receipt && !e.associationPresent && !this.busy(e),
-    ).length;
-  }
   begin(source: TimelineFileSource, files: FileList | readonly File[]) {
     const admitted = admitEvidenceFile(files);
     if (admitted.kind !== "accepted")

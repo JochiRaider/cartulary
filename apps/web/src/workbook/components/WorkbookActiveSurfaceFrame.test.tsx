@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
@@ -6,6 +6,7 @@ import {
   workbookRecoveryKey,
 } from "../../shared/workbookRecoveryNavigation";
 import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
+import { renderWithWorkbookQueryBrowsing as render } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";

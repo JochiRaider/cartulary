@@ -141,20 +141,6 @@ export class WorkbookBatchOperationOwner {
         ),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      ({ entry }) =>
-        ["waiting", "preparing", "submitting"].includes(entry.phase) ||
-        entry.reconciliation === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      ({ entry }) =>
-        ["uncertain", "rejected"].includes(entry.phase) ||
-        entry.reconciliation === "required",
-    ).length;
-  }
 
   admit(
     plan: WorkbookBatchPlan,

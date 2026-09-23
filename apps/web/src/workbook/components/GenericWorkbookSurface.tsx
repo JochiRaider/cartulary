@@ -641,10 +641,7 @@ export function ContractWorkbookSurface({
       fieldKey: firstWritableField.fieldKey,
     });
   }, [canCreateRows, createFields]);
-  const restartQuery = useWorkbookQueryRestart(
-    contract.viewSchemaId,
-    onRefresh,
-  );
+  const restartQuery = useWorkbookQueryRestart(contract.viewSchemaId);
   const dataState = workbookGridDataState({
     emptyAction: canCreateRows
       ? { label: "Add row", onInvoke: focusDraftRow }

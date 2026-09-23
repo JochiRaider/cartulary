@@ -68,6 +68,8 @@ const initialSnapshot = (): WorkbookBrowsingSnapshot => ({
   earlierEvicted: false,
   pageCount: 0,
 });
+export const emptyWorkbookBrowsingSnapshot = Object.freeze(initialSnapshot());
+
 const contractFailure = (
   message = "Workbook query metadata could not be verified.",
 ): WorkbookOperationFailure => ({ kind: "invalid_contract", message });

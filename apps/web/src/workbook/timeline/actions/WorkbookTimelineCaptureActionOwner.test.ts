@@ -91,7 +91,10 @@ it("Timeline reserves before React updates and captures identity only after prep
   );
   expect(f.ids.create).toHaveBeenCalledTimes(1);
   expect(f.send).toHaveBeenCalledTimes(1);
-  expect(f.owner.pendingCount).toBe(0);
+  expect(f.owner.getSnapshot().entries[0]).toMatchObject({
+    phase: "acknowledged",
+    transportPending: false,
+  });
   expect(f.owner.blocksRecord(f.review.target.recordId)).toBe(false);
 });
 it("Timeline authoring preparation has no transaction and a newer committed version requires another click", async () => {
@@ -222,7 +225,8 @@ it("Timeline retains timeout attempts and late receipts independently of present
   await vi.advanceTimersByTimeAsync(0);
   expect(f.owner.getSnapshot().entries[0]?.phase).toBe("acknowledged");
   expect(f.owner.latestVersion(f.review.target.recordId)).toBe(12);
-  expect(f.owner.pendingCount).toBe(0);
+  expect(f.owner.getSnapshot().entries[0]?.transportPending).toBe(false);
+  expect(f.send).toHaveBeenCalledTimes(1);
   expect(f.accounting.settle).toHaveBeenCalled();
 });
 it("Timeline permits explicit replay while a timed out transport has not settled", async () => {

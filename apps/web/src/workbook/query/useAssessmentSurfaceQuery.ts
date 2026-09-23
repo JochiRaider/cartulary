@@ -48,10 +48,11 @@ export function useAssessmentSurfaceQuery({
   queryState,
   viewQuery,
 }: AssessmentSurfaceQueryInput) {
-  const { browser, snapshot: browsing } = useWorkbookQueryBrowser(
-    viewQuery,
-    assessmentsViewSchemaId,
-  );
+  const {
+    binding,
+    browser,
+    snapshot: browsing,
+  } = useWorkbookQueryBrowser(viewQuery, assessmentsViewSchemaId, active);
   const [rows, setRows] = useState<WorkbookQueryRow[]>([]);
   const [loadState, setLoadState] = useState<WorkbookQueryLoadState>(
     initialWorkbookQueryLoadState,
@@ -69,11 +70,11 @@ export function useAssessmentSurfaceQuery({
       readonly requireAcceptance?: boolean;
       readonly recoveryDepth?: number;
     }) {
-      if (!active) {
+      const browser = binding.currentBrowser();
+      if (!browser || !active) {
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         abortLatestQuery(queryRuntimeRef);
-        browser.detach();
         rowsRef.current = [];
         setRows([]);
         hasAcceptedResultRef.current = false;
@@ -93,7 +94,11 @@ export function useAssessmentSurfaceQuery({
         },
         { recoveryDepth: options?.recoveryDepth ?? 0 },
       );
-      if (!request.isCurrent() || result.kind === "aborted") {
+      if (
+        binding.currentBrowser() !== browser ||
+        !request.isCurrent() ||
+        result.kind === "aborted"
+      ) {
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         return;
@@ -105,7 +110,7 @@ export function useAssessmentSurfaceQuery({
           "authority_unavailable"
         ) {
           onAuthorityUncertain?.();
-          browser.invalidate();
+          binding.currentBrowser()?.invalidate();
           rowsRef.current = [];
           hasAcceptedResultRef.current = false;
           setRows([]);
@@ -151,17 +156,24 @@ export function useAssessmentSurfaceQuery({
           committedRecords.acceptRow(row);
         return row;
       });
-      if (!browser.accept(result.value)) return;
+      if (
+        binding.currentBrowser() !== browser ||
+        !browser.accept(result.value)
+      ) {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
+        return;
+      }
       rowsRef.current = nextRows;
       setRows(nextRows);
       hasAcceptedResultRef.current = true;
       setLoadState({ kind: "ready" });
     },
-    [active, browser, committedRecords, onAuthorityUncertain, queryState],
+    [active, binding, committedRecords, onAuthorityUncertain, queryState],
   );
 
-  useWorkbookBrowsingRead(assessmentsViewSchemaId, refresh, active);
-  useEffect(() => browser.observeRows(rows), [browser, rows]);
+  useWorkbookBrowsingRead(binding, refresh);
+  useEffect(() => binding.currentBrowser()?.observeRows(rows), [binding, rows]);
   const applyRecordChanged = useCallback(
     (payload: RecordChangedPayload): WorkbookSurfaceRecordChangeResult => {
       const affected = payload.affected_views.find(
@@ -210,7 +222,7 @@ export function useAssessmentSurfaceQuery({
         if (committedRecords?.latestRow(row.record_id))
           committedRecords.acceptRow(row);
       setRows(next);
-      const placement = browser.getSnapshot().canonicalQuery;
+      const placement = binding.currentBrowser()?.getSnapshot().canonicalQuery;
       return payload.changed_field_keys.some(
         (key) =>
           placement?.sort.some((sort) => sort.fieldKey === key) ||
@@ -222,7 +234,7 @@ export function useAssessmentSurfaceQuery({
         ? { kind: "refresh_required" }
         : { kind: "applied" };
     },
-    [browser, committedRecords, viewQuery.readScope],
+    [binding, committedRecords, viewQuery.readScope],
   );
 
   const invalidate = useCallback(
@@ -236,10 +248,10 @@ export function useAssessmentSurfaceQuery({
       }
       rowsRef.current = [];
       hasAcceptedResultRef.current = false;
-      browser.invalidate();
+      binding.currentBrowser()?.invalidate();
       setRows([]);
     },
-    [browser],
+    [binding],
   );
 
   useEffect(() => {
@@ -249,7 +261,7 @@ export function useAssessmentSurfaceQuery({
         abortLatestQuery(queryRuntimeRef);
         rowsRef.current = [];
         hasAcceptedResultRef.current = false;
-        browser.invalidate();
+        binding.currentBrowser()?.invalidate();
         setRows([]);
         return;
       }
@@ -267,7 +279,7 @@ export function useAssessmentSurfaceQuery({
         setRows(next);
       }
     });
-  }, [browser, committedRecords]);
+  }, [binding, committedRecords]);
 
   useEffect(
     () => () => {
@@ -284,6 +296,6 @@ export function useAssessmentSurfaceQuery({
     rows,
     browser,
     browsing,
-    acceptedQueryState: browser.presentationQuery(queryState),
+    acceptedQueryState: browser?.presentationQuery(queryState) ?? queryState,
   };
 }

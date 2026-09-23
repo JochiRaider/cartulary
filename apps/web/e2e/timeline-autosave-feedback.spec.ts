@@ -10,7 +10,10 @@ import {
   workbookShellReadyTestId,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import {
+  notesViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import {
   editTimelineSummary,
@@ -32,8 +35,17 @@ import { observeSaveEvents, saveEvents } from "./support/workbook/saveStatus";
 // Browser-only observation port; do not pull the application's CSS graph into
 // the separate E2E TypeScript project through a production-runtime type import.
 type DiagnosticRuntime = {
-  beginExplicitMutation(): () => void;
-  getSnapshot(): unknown;
+  explicitPatches: {
+    submit(input: {
+      baseline: Awaited<ReturnType<typeof createViewRow>>;
+      viewSchemaId: string;
+      changes: readonly { field_key: string; value: string }[];
+      purpose: string;
+      sheetRef: { kind: "view_schema"; id: string };
+      surfaceLabel: string;
+    }): Promise<unknown>;
+  };
+  getSnapshot(): { readonly explicitInFlightCount: number };
   notifyPendingChanged(): void;
 };
 
@@ -41,6 +53,7 @@ type DiagnosticWindow = Window & {
   taf: {
     runtime: DiagnosticRuntime | null;
     counts: Record<string, number>;
+    submissions: Promise<unknown>[];
   };
 };
 
@@ -126,7 +139,7 @@ test("Timeline autosave feedback production characterization", async ({
     const observed = window as unknown as DiagnosticWindow & {
       __REACT_DEVTOOLS_GLOBAL_HOOK__: unknown;
     };
-    observed.taf = { runtime: null, counts: {} };
+    observed.taf = { runtime: null, counts: {}, submissions: [] };
     let previous = new WeakSet<object>();
     observed.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
       supportsFiber: true,
@@ -143,7 +156,7 @@ test("Timeline autosave feedback production characterization", async ({
           if (!fiber) return;
           current.add(fiber);
           const props = fiber.memoizedProps;
-          if (props?.mutationRuntime?.beginExplicitMutation)
+          if (props?.mutationRuntime?.explicitPatches?.submit)
             observed.taf.runtime = props.mutationRuntime;
           if (!previous.has(fiber)) {
             if (
@@ -286,29 +299,148 @@ test("Timeline autosave feedback production characterization", async ({
             unchangedWork[work] ?? 0,
             `${work} during unchanged status`,
           ).toBe(0);
-        const beforeStatus = await counts();
-        await page.evaluate(async () => {
-          const runtime = (window as unknown as DiagnosticWindow).taf.runtime;
-          if (!runtime) throw new Error("Production runtime was not observed");
-          const finishFirst = runtime.beginExplicitMutation();
-          const finishSecond = runtime.beginExplicitMutation();
-          await new Promise(requestAnimationFrame);
-          finishFirst();
-          await new Promise(requestAnimationFrame);
-          finishSecond();
+        // Each hidden Notes subject has its own retained recovery lifetime.
+        const baselines = await Promise.all(
+          ["first", "second"].map((label) =>
+            createViewRow(page, incidentId, notesViewSchemaId, {
+              client_txn_id: uniqueTxn(
+                `taf-status-${loaded}-${inspectorOpen}-${label}`,
+              ),
+              "note.title": `Status ${loaded} ${inspectorOpen} ${label}`,
+              "note.body": "Original body",
+            }),
+          ),
+        );
+        const firstStatusRow = baselines[0],
+          secondStatusRow = baselines[1];
+        if (!firstStatusRow || !secondStatusRow)
+          throw new Error("Missing status fixture rows");
+        const firstStatus = patches.holdNextPatch({
+          recordId: firstStatusRow.record_id,
         });
+        const secondStatus = patches.holdNextPatch({
+          recordId: secondStatusRow.record_id,
+        });
+        let releaseSourceReads = () => {};
+        const sourceReads = new Promise<void>((resolve) => {
+          releaseSourceReads = resolve;
+        });
+        let sourceReadCount = 0;
+        let signalSourceReads = () => {};
+        const sourceReadsStarted = new Promise<void>((resolve) => {
+          signalSourceReads = resolve;
+        });
+        const sourceRoute = `**/api/v1/incidents/${incidentId}/views/${notesViewSchemaId}/query`;
+        await page.route(sourceRoute, async (route) => {
+          sourceReadCount++;
+          if (sourceReadCount === 2) signalSourceReads();
+          await sourceReads;
+          await route.continue();
+        });
+        await settle();
+        const beforeStatus = await counts();
+        const beforeStatusWrites = patches.calls.length;
+        let statusWork: Record<string, number> = {};
+        try {
+          await page.evaluate(
+            ({ baselines, viewSchemaId, body }) => {
+              const diagnostic = (window as unknown as DiagnosticWindow).taf;
+              const runtime = diagnostic.runtime;
+              if (!runtime)
+                throw new Error("Production runtime was not observed");
+              diagnostic.submissions = baselines.map((baseline) =>
+                runtime.explicitPatches.submit({
+                  baseline,
+                  viewSchemaId,
+                  changes: [{ field_key: "note.body", value: body }],
+                  purpose: "generic-patch",
+                  sheetRef: { kind: "view_schema", id: viewSchemaId },
+                  surfaceLabel: "Notes",
+                }),
+              );
+            },
+            {
+              baselines,
+              viewSchemaId: notesViewSchemaId,
+              body: `Saved during Timeline draft ${loaded} ${inspectorOpen}`,
+            },
+          );
+          await sourceReadsStarted;
+          expect(sourceReadCount).toBe(2);
+          expect(
+            await page.evaluate(
+              () =>
+                (
+                  window as unknown as DiagnosticWindow
+                ).taf.runtime?.getSnapshot().explicitInFlightCount,
+            ),
+          ).toBe(2);
+          await expect(page.getByTestId(saveStateTestId())).toHaveText(
+            "Syncing",
+          );
+          expect(patches.calls).toHaveLength(beforeStatusWrites);
+          await settle();
+          // Measure admitted status changes before source/data publication.
+          statusWork = delta(beforeStatus, await counts());
+          releaseSourceReads();
+          await Promise.race([
+            Promise.all([firstStatus.waitForHit, secondStatus.waitForHit]),
+            page
+              .evaluate(() =>
+                Promise.all(
+                  (window as unknown as DiagnosticWindow).taf.submissions,
+                ),
+              )
+              .then(() => {
+                throw new Error(
+                  "Status writes settled without reaching their response gates",
+                );
+              }),
+          ]);
+          await expect(page.getByTestId(saveStateTestId())).toHaveText(
+            "Syncing",
+          );
+          firstStatus.release();
+          await firstStatus.waitForCompletion;
+          await expect
+            .poll(() =>
+              page.evaluate(
+                () =>
+                  (
+                    window as unknown as DiagnosticWindow
+                  ).taf.runtime?.getSnapshot().explicitInFlightCount,
+              ),
+            )
+            .toBe(1);
+          await expect(page.getByTestId(saveStateTestId())).toHaveText(
+            "Syncing",
+          );
+          secondStatus.release();
+          await secondStatus.waitForCompletion;
+          await page.evaluate(() =>
+            Promise.all(
+              (window as unknown as DiagnosticWindow).taf.submissions,
+            ),
+          );
+        } finally {
+          releaseSourceReads();
+          firstStatus.release();
+          secondStatus.release();
+          await page.unroute(sourceRoute);
+        }
+        expect(
+          successfulPatchCalls(patches.calls.slice(beforeStatusWrites)),
+        ).toHaveLength(2);
         await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
         await settle();
-        const statusWork = delta(beforeStatus, await counts());
-        for (const work of [
-          "columnsReplacements",
-          "rowsReplacements",
-          "collectionRenders",
-        ])
-          expect(
-            statusWork[work] ?? 0,
-            `${work} during save status updates`,
-          ).toBe(0);
+        const settlementWork = delta(beforeStatus, await counts());
+        expect(
+          await page.evaluate(
+            () =>
+              (window as unknown as DiagnosticWindow).taf.runtime?.getSnapshot()
+                .explicitInFlightCount,
+          ),
+        ).toBe(0);
         expect(
           await original?.evaluate((element: HTMLInputElement) => ({
             connected: element.isConnected,
@@ -418,6 +550,7 @@ test("Timeline autosave feedback production characterization", async ({
           unchangedSnapshot,
           unchangedWork,
           statusWork,
+          settlementWork,
           notice,
           scalarWrites: 2,
           collectionWrites: 1,

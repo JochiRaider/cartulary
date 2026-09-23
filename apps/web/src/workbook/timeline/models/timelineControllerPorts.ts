@@ -72,10 +72,8 @@ export type TimelineRowMutationEditorPort = {
   }) => void;
 };
 
-export type TimelineReplayContext = {
-  capturePredecessor?: string;
-  draftRevisions?: ReadonlyMap<string, number>;
-  sheetRef: SheetRef;
+/** Caller-owned admission intent; retained capture is constructed by the driver. */
+export type TimelineReplayAdmissionContext = {
   focusField: FocusFieldKey;
   focusKey: string;
   surface: TimelineScalarEditorSurface;
@@ -84,6 +82,12 @@ export type TimelineReplayContext = {
   detectAutoResolution: boolean;
   promoteToCommittedRowInspect: boolean;
   viewportContinuityToken: number | undefined;
+};
+
+export type TimelineReplayContext = TimelineReplayAdmissionContext & {
+  capturePredecessor?: string;
+  draftRevisions: ReadonlyMap<string, number>;
+  sheetRef: SheetRef;
 };
 
 /** Source-owned editor settlement, shared by keyboard departure and local Find. */

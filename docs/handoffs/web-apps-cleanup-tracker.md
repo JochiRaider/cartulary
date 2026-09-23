@@ -4,9 +4,9 @@
 
 - Target: `apps/web`; target label: `web-apps-cleanup`; output: `docs/handoffs/web-apps-cleanup-tracker.md`.
 - Label posture: the user-supplied label is already lowercase kebab case. It labels this cleanup of `apps/web`; it is not a domain/module identity or an algorithmic claim that the path alone produces that label.
-- Current authorization: **implement iteration 2 S-09–S-17**, explicitly requested after plan approval. Specifications, authored contracts, implementation, tests, harness inputs, Make-generated projections and supporting documentation are in scope. Earlier document-only instructions describe prior sessions and do not limit this implementation task.
+- Current authorization: **implement iteration 3, S-18–S-23, in sequence through integrated validation and final handoff**. The user's implementation request supersedes the earlier document-only boundary. Preserve the staged planning artifact and historical exits; save each workstream exit before starting its successor.
 - Current exclusions: deployment, shared-environment resets, migration/reinterpretation of legacy state, visual redesign, durable browser draft storage, cross-tab queues, generic plugin/workflow engines, unrelated dependency upgrades, and conformance/performance publication claims. Future phase growth is a design constraint, not authority to build speculative features or preserve incidental behavior.
-- Current delivery checkpoint: **iterations 1 and 2 completed**. S-00–S-08 remain DONE. S-09–S-17 are DONE. RB-006–012 are closed by current workstream and final integrated evidence. Earlier plans, provisional statuses and failed runs remain historical; they do not supersede the saved exits below.
+- Current delivery checkpoint: **S-18–S-23 DONE**. T-027 and S-00–S-17 remain DONE; RB-001–012 remain closed by their saved exits. Earlier document-only authorization and provisional statuses below remain historical. In particular, the archival T-017 TODO cell is superseded by the saved S-09 DONE exit and S-17 reconciliation.
 - Iteration 2 baseline: `main`, commit `a3ed2bd169cf1955f405bfc14b4cca8bd9b1d749`, clean working tree before this document update. Iteration 1 began at `19e30dbcaa87959d447123ba155af8f96190f163` with an already-staged tracker; that earlier index-preservation posture is historical. The completed implementation and tracker are now committed. Canonical documentation checks may create ordinary ignored outputs.
 - First source read: `docs/handoffs/cartulary_modular_refactor_planning_framework.md`. The framework is doctrine/template, not evidence of current implementation. `AGENTS.md` and the `refactor-tracker` skill and its format reference were read in the preceding planning turn; no nested target AGENTS file was found.
 - Authority: adopted subsystem NLSpecs only within their named scope; then Core 00–04 for implementation conformance; Core 05 only for claim-bearing timed/fixture-sensitive publication; domain vocabulary and support guides; current code/tests for implementation state; prior plans/framework last. This tracker creates no runtime requirements. Source-owner IDs, verification IDs and catalog rows are distinct accounting dimensions.
@@ -51,6 +51,19 @@ The references `docs/domain.md`, `docs/design.md` and `docs/research/nlspec-spec
 Targeted iteration 2 inspection covered the Fallow configuration/report and Make wrapper; production and measurement entries; unused export consumers; inspector creation hooks, retained feature attachments and direct command adapters; Core 01 REQ-01-021/143/635–646 and Core 04 AC-480B/506/508; browser/backend layout normalization and Saved Views portability; bundle admission/source catalog; browser continuity fixtures; and SQL-scanner/task-topology mechanics. The planning pass read live files at the baseline above, not a fresh exhaustive function-by-function audit of all 1,747 files. The original structural inventory remains historical evidence with the exact current delta below.
 
 Decision rules: delete behavior only after tracing all supported entry points and consumers; make internally used declarations private instead of deleting their logic; preserve cohesive owner boundaries even when names look alike; require an explicit retained owner for each future mutation feature; and remove obsolete compatibility as a coordinated contract change. No unused package dependencies were reported, so dependency pruning/upgrades are not invented work. S-07/S-08's retained-runtime and committed-attachment design remains the foundation.
+
+### Iteration 3 — approved document-update boundary
+
+The approved plan is **Remove obsolete state and strengthen owner boundaries**. Its immediate deliverable is this document update, not product implementation. The earlier Plan Mode prohibition describes the planning session; file edits are now permitted within this single-file scope. T-027 records document completion. Future S-18–S-23 execution requires a later implementation task and begins only after its prerequisites are saved.
+
+Baseline rechecked on 2026-09-23 UTC: commit `c1dccf7ae9900035b372d225899d8afada4e3588`, clean working tree and no staged changes before this edit. Iteration 2's implementation is committed in that revision; its earlier uncommitted handoff remains historical. The planning pass's fresh `make frontend-fallow-static` PASS is retained at `.cartulary/test-results/20260923T021055Z-p33918` and applies to this unchanged product baseline. This document task does not rerun or claim new product verification.
+
+Production readiness means maintainable engineering boundaries with evidence-backed behavior and verification. It excludes deployment, release certification, new features, unrelated dependency upgrades, historical-state migration and speculative frameworks. Keep layout v2, bundle format 4, existing public routes, source-owner separation, semantic identities, grid-first interaction, keyboard completeness and server-authoritative authorization.
+
+The supplied `docs/research/nlspec-spec.md` is a specification-quality review lens: make ownership, defaults, failure outcomes and acceptance criteria explicit, and distinguish required behavior from implementation mechanism. It is not an adopted subsystem owner or an additional execution instruction. Core 03 REQ-03-089 and §14.9 already govern the principal corrections. No normative change is planned merely to legitimize existing implementation. A discovered owner contradiction must identify both clauses and block only the dependent slice.
+
+Prefer removal of proven obsolete interfaces, a single retained owner for operation state, and committed presentation attachment over aliases or general-purpose abstractions. Similar names and file size alone do not justify merging feature owners. Existing provenance such as `legacy_import`, historical artifacts and current versioned source contracts are not retirement candidates merely because their names look old.
+
 
 ## 2. Current-State Repository Inventory
 
@@ -2344,6 +2357,54 @@ The 255 visual goldens, 31 fonts and XLSX remain excluded from incidental cleanu
 | `apps/web/src/workbook/utils/workbookPendingQueue.test.ts` | Removed in iteration 1 | none at old path | Callers migrated in S-02/S-03 | none at old path | Existing semantic test identities preserved | No wire/data change | Historical owner; replacement accounted above | low | Tombstone; original inventory row preserved as history |
 | `apps/web/src/workbook/utils/workbookPendingQueue.ts` | Removed in iteration 1 | none at old path | Callers migrated in S-02/S-03 | none at old path | Existing semantic test identities preserved | No wire/data change | Historical owner; replacement accounted above | low | Tombstone; original inventory row preserved as history |
 
+### Iteration 3 inventory reconciliation and scoped candidate ledger
+
+The 2026-09-23 baseline contains **1,747 tracked web paths**: 1,373 TypeScript/TSX files, 65 Markdown files, 11 JSON files, two HTML entries, one CSS file, seven text/license files, 31 font binaries, 255 PNG goldens, one XLSX fixture and one sentinel. The exact path inventory above plus the saved iteration deltas accounts for every current path; an in-memory set comparison found zero unreferenced live paths. Source ownership contains exactly 1,188 unique entries for 1,188 live source TS/TSX paths, with no missing or stale entries. Existing binary, narrative and local-output exclusions remain in force.
+
+This is a refreshed path/accounting check and targeted semantic inspection, not a new exhaustive audit of every function. The previous structural inventory stays historical. The document step adds or removes no web file and changes no source ownership. S-18 must refresh consumers before implementation; subsequent slices append exact changed, added, removed and caller-migrated paths.
+
+Fallow's bounded web findings are zero for unused files, value exports and type exports. Its raw report includes 155 advisory web class-member findings. Live callbacks and structural lifecycle contributions are among them. The aggregate target passed; the health subreport retained a nonblocking exit 1 and findings outside the bounded policy. Do not claim the complete raw report is empty, promote all class findings to blockers, or delete from analyzer output alone.
+
+The following **40 getters across 19 owners** form the reviewed FND-27 family. “Remove” is the approved future disposition, subject to S-18's unchanged-consumer confirmation. The production status aggregator reads `unsettledMutationCount` and retained snapshots instead. Test consumers are migrated to meaningful owner behavior in S-19. The lone internal family dependency is Note's `blockedCount` reading its `uncertainCount`.
+
+| Current source owner path | Getters proposed for removal | Inbound evidence / disposition | Risk and validation |
+| --- | --- | --- | --- |
+| `apps/web/src/workbook/features/assessments/WorkbookAssessmentAuthoringOwner.ts` | pendingCount, blockedCount | pendingCount has a controller-test assertion; no production getter consumer found | Keep assessment admission/receipt/refresh evidence. |
+| `apps/web/src/workbook/features/coordination/WorkbookContextualTaskDecisionCreateOwner.ts` | pendingCount, blockedCount, uncertainCount | No production getter consumer found | Keep contextual duplicate-admission and retained recovery. |
+| `apps/web/src/workbook/features/coordination/WorkbookCoordinationCreateOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve separate coordination owner and lifecycle contribution. |
+| `apps/web/src/workbook/features/coordination/WorkbookDecisionSupersessionOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve supersession settlement and reconciliation. |
+| `apps/web/src/workbook/features/entities/WorkbookEntityMergeOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve merge coordination and retained receipts. |
+| `apps/web/src/workbook/features/evidence/WorkbookEvidenceAttachmentOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve upload/finalization ownership and recovery. |
+| `apps/web/src/workbook/features/evidence/WorkbookTimelineFileOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve file association and late acceptance. |
+| `apps/web/src/workbook/features/evidence/WorkbookTimelineRelatedEvidenceOwner.ts` | pendingCount, blockedCount, uncertainCount | No production getter consumer found | Preserve separate create/link stages and acknowledged read recovery. |
+| `apps/web/src/workbook/features/indicators/WorkbookIndicatorCreateOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve canonical creation/reuse and source receipts. |
+| `apps/web/src/workbook/features/indicators/WorkbookIndicatorLifecycleOwner.ts` | pendingCount, blockedCount | Owner-test assertions found; no production getter consumer found | Replace counter assertions with real entry/recovery outcomes. |
+| `apps/web/src/workbook/features/indicators/WorkbookObservationOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve observation ownership and reconciliation. |
+| `apps/web/src/workbook/features/notes/WorkbookNoteCreateOwner.ts` | pendingCount, blockedCount, uncertainCount | Recovery tests use pendingCount/blockedCount; blockedCount alone reads uncertainCount | Remove the whole obsolete family; retain substantive recovery tests. |
+| `apps/web/src/workbook/features/ordinary/WorkbookOrdinaryCreateOwner.ts` | pendingCount | Runtime-test assertion found; no production getter consumer found | Verify admission release and actual dispatch/receipt. |
+| `apps/web/src/workbook/features/parties/WorkbookPartyLinkOperationOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Keep Party identity/source semantics distinct from Entities. |
+| `apps/web/src/workbook/history/WorkbookRecordHistoryOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve History operation settlement and retained read recovery. |
+| `apps/web/src/workbook/runtime/WorkbookBatchOperationOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve batch admission and conflict/receipt recovery. |
+| `apps/web/src/workbook/runtime/WorkbookExplicitPatchOwner.ts` | pendingCount, blockedCount | No production getter consumer found | Preserve coordinating/submitting/uncertain state and receipt boundary. |
+| `apps/web/src/workbook/timeline/actions/WorkbookTimelineCaptureActionOwner.ts` | pendingCount, blockedCount | Test assertions and unused runtime-port obligations | Migrate tests/port together; preserve capture owner lifecycle. |
+| `apps/web/src/workbook/timeline/actions/WorkbookTimelineMentionOperationOwner.ts` | pendingCount, blockedCount | Unused runtime-port obligations | Keep structural lifecycle methods and mention/link recovery. |
+
+`apps/web/src/workbook/ports/WorkbookTimelineActionRuntimePort.ts` contributes two corresponding unused interface fields, not additional getters. Retain its used lifecycle, version and record-blocking capabilities. Live locals named `pendingCount` in status projection are not members of this removal family. Thirty-six of the forty getters occur in the advisory report; test/internal usage explains why that report alone is insufficient.
+
+Additional directly inspected seams and their dependency closure:
+
+| Path / responsibility | Current consumers and dependencies | Future owner / disposition | Test and contract posture |
+| --- | --- | --- | --- |
+| `apps/web/src/workbook/hooks/useGenericSurfaceMutationController.ts` | Generic inspector and Task workflow; retained Explicit Patch owner; local status/error state | Keep presentation feedback; remove duplicate mutation reporting and ignored request fields | C-28/C-29; save-status and ordinary-inspector recovery tests. |
+| `apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Generic inspector; Evidence capability adapter and retained attachment context | Remove unused mutation-reporting input; keep actual capability transport | Evidence binding tests must observe real effects rather than an unused spy. |
+| `apps/web/src/workbook/timeline/hooks/useTimelineSaveStatePresentation.ts`; `apps/web/src/workbook/timeline/hooks/useTimelineHistoryActions.ts`; `apps/web/src/workbook/timeline/mutations/useTimelineRowMutationCoordinator.ts` | Timeline composition forwards beginSave/beginMutation and serializes History coordination | Remove unused reporting chain; preserve source-write ordering independently from save labels | History and save-status tests; C-28/C-29. |
+| `apps/web/src/workbook/timeline/models/timelineControllerPorts.ts`; `apps/web/src/workbook/timeline/models/timelineMutationDriverPlans.ts`; `apps/web/src/workbook/timeline/adapters/createTimelineScalarGridCommitAdapter.ts` | Find and grid commit adapters; mutation commands and retained driver | Single scalar-command type; separate admission input from retained replay context | C-30; editor registry, driver and exact-replay tests. |
+| `apps/web/src/workbook/query/WorkbookQueryBrowsingContext.tsx`; `apps/web/src/workbook/query/WorkbookQueryBrowser.ts` | WorkbookShell provider; generic/Entity/Assessment/Timeline loaders; browsing controls and semantic focus | One provider-owned browser per active surface; commit-safe registration | C-31; browser/control/recovery tests and continuation catalog rows. |
+| `apps/web/src/workbook/history/WorkbookHistoryRecovery.test.tsx` | Its negative beginMutation spy is returned by the fixture but not connected to the exercised component | Replace vacuous assertion with retained-owner/transport observation | Preserve each History recovery scenario and semantic test identity. |
+
+Shared package facades, backend source owners, generated contracts and active layout/bundle versions are retained. Their existing contract evidence informs the plan; this iteration proposes no backend relocation or generic workflow framework. Unreviewed advisory class members and unrelated duplicate names are explicit exclusions from this bounded deletion ledger, not claims that they are dead or that the whole repository is free of cleanup opportunities.
+
+
 ## 3. Module Boundary Diagnosis
 
 `apps/web` is a **legitimate frontend application and controller surface with multiple internal owners**, transport-adjacent adapters, view/query orchestration and mutation coordination. It is not a thin service facade, nor evidence of a permanent `web-apps-cleanup` domain. Large composition files and a semantic queue under `utils` are coupling findings; they do not prove the whole application is an accidental catch-all. Authoritative persistence, projections, source validation and revision commits remain backend responsibilities in the inspected route/provider chain.
@@ -2380,6 +2441,18 @@ The original diagnosis above describes pre-iteration-1 state. Its deferred runti
 | Layout/bundle version adaptation | Browser query model, platform layout validation, Saved Views portability, Incident Bundles admission | Saved Views layout owner and Incident Bundles format owner | keep | Core 01 and active v1/v2, 3/4 branches | Retire obsolete accepted formats coherently; keep version identity, source integrity and bounded owner contributions. |
 | SQL relation classification and browser target identity | Backend boundary scanner and authored task/topology inputs | Testing Harness/static-analysis ownership | keep | Regex false positives and target missing command ID | Share relation analysis and use the supported browser target; no SQL allowlist exceptions or duplicate command facade. |
 | History viewport and Timeline recovery evidence | History inspector and browser fixture owners | Workbook History presentation and Timeline/Evidence owners | keep | Preserved full/focused baseline failure artifacts | Correct continuity at its presentation owner; establish timeout cause before changing lifecycle behavior. |
+
+### Iteration 3 boundary decisions
+
+| Responsibility found | Current location | Correct owner | Keep / move / split / defer | Evidence and decision |
+| --- | --- | --- | --- | --- |
+| Aggregate mutation status versus feature recovery | Retained feature getters, mutation runtime and presentation wrappers | Retained operation owners provide settlement facts; runtime projects aggregate labels; presentation owns local feedback | split | Remove obsolete counters and duplicate wrapper accounting; keep source-specific recovery and REQ-03-089. |
+| Source record/version identity for explicit patches | Generic patch request duplicates baseline identity/version | Accepted baseline and retained Explicit Patch owner | keep | Remove ignored fields; no parallel caller override of the baseline or new transport contract. |
+| Timeline admission versus captured replay metadata | Admission is derived from retained context; driver always captures draft revisions | Timeline mutation driver captures metadata; callers supply admission intent | split | One command type, complete retained metadata, explicit optional predecessor; preserve recordless authoring. |
+| Query browsing lifetime and presentation attachment | Provider registry plus local fallback browsers; registry acquisition during render | Workbook-scoped registry and source-specific row adapters | split | Pure preparation, committed token-owned attachment, explicit inactive binding and no alternate fallback owner. |
+| Source-specific semantics and historical representations | Indicators, Evidence, Parties, Timeline, Revisions and existing current contracts | Existing distinct owners | keep | No feature-owner merger, provenance rewrite, API narrowing or renewed v1-layout/bundle-3 retirement work. |
+| Remaining raw class-member/duplicate-name findings | Advisory Fallow reports | Existing tooling and actual consumer owners | defer | No broad blocking rule, automatic deletion, artificial imports or suppressions; trace separately before any expanded cleanup. |
+
 
 ## 4. Public Contract and Behavior Freeze Map
 
@@ -2593,6 +2666,20 @@ Cutover boundaries: keep layout identifier `cartulary.layout.v2` and bundle nume
 
 Operational plan: replace server/client together, retire old browser sessions/pending attempts and use fresh compatible Saved Views, bundle job and associated replay/recovery state in an explicitly selected environment. Historical archives/release evidence remain immutable; format 3 archives become unsupported. No old-state migration, fallback reader, alias, dual write or coexistence switch. No unspecified shared reset. S-13/S-14 are one release/rollback unit; rollback requires the complete matching build and compatible fresh state. Structural slices roll back with callers, ownership and catalog changes. The completed Import provenance/mapping separation and earlier fresh-state instructions remain intact.
 
+### Iteration 3 contract additions and behavior corrections
+
+C-01–C-27 and their completed dispositions remain historical. The new freeze map narrows internal interfaces while preserving adopted behavior. The intended save-status correction is explicitly separated from structural removals; product work remains subject to the later implementation task.
+
+| Contract | Adopted owner / boundary | Current evidence and tests | Required characterization | Compatibility and risk |
+| --- | --- | --- | --- | --- |
+| C-28 — Mutation settlement owns save status | Core 03 REQ-03-089; retained-work and authority lifetimes | Runtime sums retained unsettled counts plus manual reporting; generic/Task wrappers outlive acknowledgement; save-status, Explicit Patch and History recovery tests | One admitted operation contributes once; acknowledged delayed/failed refresh is saved; uncertainty, rejection, concurrent work and conflict preserve their defined outcomes; read-only review does not invent a mutation | Observable correctness repair; no changed payload, transaction identity, retry or authorization policy. Local action availability remains subject-scoped. |
+| C-29 — Supported internal capabilities and source identity | Workbook presentation/retained-owner boundary; Core 03 REQ-03-282 committed-version rule | FND-27/28 ledger, Timeline runtime port, generic patch baseline and disconnected negative test | Every remaining port field is consumed or required by a supported interface; deleted fields have no callers; tests exercise real owner/transport effects | Internal signature removal only. Keep lifecycle callbacks reached structurally, accepted baseline identity/version, shared facades and public routes. |
+| C-30 — Timeline admission and retained replay capture | Core 03 retained authoring, dependent-write and exact-replay behavior; Timeline driver owns capture | Duplicate scalar command declarations; driver captures draftRevisions at admission; driver/editor-registry tests | Required captured map, including valid empty map; no retained-context fallback for missing capture; coalescing, predecessor settlement, conflict and newer-draft fencing | Internal type tightening; predecessor absence and recordless capture remain valid. No persistent replay format or migration is introduced. |
+| C-31 — Bounded query ownership and committed lifetime | Core 03 §14.9 and authority invalidation under REQ-03-099/100/299; design's bounded browsing presentation | WorkbookShell always supplies the provider; registry get mutates during render; Browser/control/recovery tests and 22 continuation rows | Strict Mode and abandoned renders cannot invalidate committed state; token-fenced replacement/cleanup; inactive bindings cannot dispatch; subject, port, session and authority replacements fence late results | Internal hook/provider change only. Preserve three-page windows, limit 100, twenty checkpoints, existing bounded recovery, canonical/authored distinction, independent Hosts/Identities and semantic focus. |
+
+No new route, OpenAPI alternative, layout identifier, bundle format or compatibility alias is planned. No normative amendment is needed to weaken an existing owner rule. If characterization reveals an owner ambiguity or contradiction, record the exact clauses and resolve it before dependent implementation; do not silently treat the implementation as authority. Backend validation, source integrity and server authorization remain unchanged.
+
+
 ## 5. Coupling and Boundary Findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
@@ -2633,6 +2720,21 @@ These findings are additional to the closed FND-01–15. Severity is relative to
 
 Intentional retention: centralized credentialed transport and the Evidence upload exception, browser observations versus physical projections, Grid Adapter, captured immutable attempts, parser provenance distinct from mapping hashes, semantic versions, domain `legacy_import`, incident/operation phases, invalid-input fixtures, and immutable historical evidence. Retain measurement entry points and distinct same-named exports across legitimate owners. No unused npm dependency was found; no dependency upgrade is justified by this audit. Preserve draft Reference Pack status and Markdown independence. These decisions retain capabilities for authorization, identity, modular ownership and growth, not merely because they exist.
 
+### Iteration 3 findings and remediation decisions
+
+These are new, scoped findings at `c1dccf7ae9900035b372d225899d8afada4e3588`; they do not reopen FND-01–26. Source inspection establishes the structures below. Predicted lifecycle/status failures still require deterministic characterization in the named workstream; no new browser failure is claimed from inspection alone.
+
+| Finding / classification / owner | Evidence and gap | Remediation and areas | Rationale and long-term benefit | Compatibility / migration | Risk if unresolved | Validation and workstream |
+| --- | --- | --- | --- | --- | --- | --- |
+| FND-27 / should_fix / retained feature owners and Timeline runtime port | Forty obsolete status getters across nineteen owners; production uses unsettledMutationCount/snapshots; test and unused structural consumers recorded in §2 | Remove the getter family and unused port fields; migrate tests to entries, receipts, recovery and dispatches; implementation, types, tests, source docs | One supported status vocabulary; smaller interfaces without merging owners | Internal callers/tests migrate together; no wire or storage change | New consumers can adopt counters that conflate acknowledged read work with unsettled writes | Exact removal ledger and no remaining consumers; meaningful owner tests, types, boundaries and reachability; S-18/S-19 |
+| FND-28 / should_fix / Workbook presentation and adapters | Unused Evidence mutation port and Timeline beginMutation forwarding; ignored generic patch recordId/baseRowVersion; History assertion observes a disconnected spy | Delete unused capabilities/forwarders/fields; use baseline as sole identity/version input; replace vacuous assertions with production observations; implementation, types, tests, docs | Interfaces express actual dependencies and tests enforce real behavior | Internal signatures only; no dummy port, compatibility alias or HTTP change | Misleading admission inputs and false confidence survive apparent cleanup | Type-proven caller migration; real owner/transport negative coverage; S-20 |
+| FND-29 / must_fix / retained operation owners and Workbook status projection | Generic inspector/Task wrappers count operations already counted by Explicit Patch; wrapper spans acknowledgement and awaited refresh; Timeline History coordination also uses manual reporting | Remove duplicate presentation counters; derive action state from retained subject state; separate ordered History reads from mutation reporting; keep remaining runtime-owned conflict submission accounting private; implementation, behavior tests, docs and owner traceability | Exactly one contribution per admitted write and correct saved/read-recovery distinction under REQ-03-089 | Observable defect correction; preserve request identities/bytes, routes, replay, storage and authority | Double counting, misleading Syncing and presentation-dependent status | Deferred-response tests at admission/receipt/refresh boundaries, uncertainty/rejection/concurrency/detachment/read-only review; accepted writes never resent for refresh; S-20 |
+| FND-30 / should_fix / Timeline admission and retained driver | Two TimelineQueueScalarSave definitions; admission derives from retained context; optional draftRevisions despite driver capture; repeated empty-map fallbacks | One command type; separate caller input and retained metadata; require captured revisions and remove impossible absence branches; types, implementation, tests, docs | Ownership and completeness are expressed at the type boundary; less drift during future field growth | Internal compile-time tightening; keep valid empty capture, optional predecessor and recordless authoring; no stored migration | Missing capture is silently accepted and duplicate signatures drift | Scalar/collection, coalescing/predecessor, exact replay, newer drafts and conflicts preserve behavior; S-21 |
+| FND-31 / must_fix / Workbook query registry and presentation attachment | Missing provider creates local browser; useMemo acquisition replaces/invalidates registry entries and subscribes during render | Require provider; remove direct-refresh ownership fallback; pure candidate preparation followed by committed token-owned registration/replacement/cleanup; explicit inactive binding; implementation, types, lifecycle tests/fixtures, docs | Single accountable read owner and predictable lifetimes as surfaces expand | Internal provider/hook contract; isolated tests get explicit providers; Core 03 §14.9 unchanged | Abandoned renders disturb accepted browsing; alternate paths bypass invalidation/continuity | Strict Mode, abandoned/suspended render, replacement, inactivity, detach, authority/session and late-result fencing; continuation/keyboard/Entity independence; S-22 |
+
+Rejected alternatives: preserve unused ports as compatibility shims; feed counters with artificial consumers; add a generic operation framework; make all 155 class-member findings blocking; unify unrelated same-named helpers; or weaken adopted save/browsing behavior to match current code. The required bounded file/value/type reachability gate remains in ordinary check and CI.
+
+
 ## 6. Refactor Workstreams
 
 Workflow numbers follow the user-requested planning structure, not the framework's longer WF-00–13 numbering. `parallel` means independent analysis after prerequisites; it does not authorize parallel code writes or spawn agents. All planning outputs remain in this tracker.
@@ -2664,6 +2766,20 @@ Each implementation slice is its own workstream; the original WF-00–08 plannin
 | S-15 | Browser continuity and recovery closure | chain | S-14 | S-16 | History anchor, Timeline fixture correction, Evidence cause/regression | Four previously failed rows and scheduled suite; save cause, correction and artifacts. |
 | S-16 | Cleanup regression enforcement | chain | S-15 | S-17 | Bounded web reachability gate in existing policy | Positive/negative tool fixtures and normal static target; save retention exceptions and exits. |
 | S-17 | Integrated validation and handoff | chain | S-09–S-16 all DONE | none | Fresh integrated evidence, acceptance and operational handoff | Finalizer before broad check; required browser/owner gates green; final changed-file/rollback record. |
+
+### Iteration 3 workstream graph
+
+Each slice is a separate workstream. Required future order is **S-18 → S-19 → S-20 → S-21 → S-22 → S-23**. This document update starts none of them. Before each workstream, save prerequisites and IN_PROGRESS; after validation save disposition, exact file/removal/caller accounting, evidence, compatibility, rollback and exit status before its successor starts. An unmet exit is BLOCKED. Historical passes cannot replace current implementation evidence.
+
+| Workflow ID | Name | Class | Required previous | Required subsequent | Goal and owners | Validation / handoff checkpoint |
+| --- | --- | --- | --- | --- | --- | --- |
+| S-18 | Evidence and contract checkpoint | root | S-17 DONE, T-027 DONE and later implementation task | S-19 | Refresh ledger/consumers, C-28–31, inventory and owner routing | Current baseline, scoped candidate dispositions and test map saved; contradictions block only dependents. |
+| S-19 | Dead status surface removal | chain | S-18 DONE | S-20 | Remove FND-27 family under existing retained owners | Exact removals and test migrations; owner/type/boundary/reachability results saved. |
+| S-20 | Mutation reporting consolidation | chain | S-19 DONE | S-21 | FND-28/29; explicit operation status, presentation ports and History coordination | Deterministic before/after acknowledgement evidence, single accounting and genuine recovery assertions saved. |
+| S-21 | Timeline contract tightening | chain | S-20 DONE | S-22 | FND-30; Timeline command, admission and driver capture boundary | Complete metadata, single signature and editing/replay evidence saved. |
+| S-22 | Query ownership and committed registration | chain | S-21 DONE | S-23 | FND-31; query registry, hooks and explicit test providers | Lifetime/continuation/authority evidence, fixture migration and cleanup accounting saved. |
+| S-23 | Integrated validation and handoff | chain | S-18–S-22 all DONE | none | Reconcile every new finding/contract/path, acceptance and engineering readiness | Finalizer precedes broad check; fresh required gates pass and self-contained handoff is saved last. |
+
 
 ## 7. Refactor Slice Plan and Execution
 
@@ -2825,6 +2941,24 @@ Creation coverage seed: authored `view_row_create` feature census includes task/
 
 SQL repair boundary: use one relation-classification implementation for the two existing scanner paths and consistent lock association. Track lexical scopes so an unqualified CTE name does not hide a schema-qualified physical table; inspect underlying CTE bodies and write targets. Unsupported/unclassifiable access must not be silently treated as allowed. Fix tooling, not valid application SQL; do not grow a generic query-execution framework or add `events`/`lateral`/`unnest` exemptions.
 
+### Iteration 3 planned implementation checkpoints
+
+All rows below are TODO. “Requires later implementation task” applies to every product change; the present authorization installs this plan only. No new public-format retirement is planned. Source-required correctness changes are identified explicitly rather than represented as behavior-preserving movement.
+
+| Slice ID | Depends on | Intended change and likely files | Principal contract risk | Tests to add or preserve | Validation | Rollback | Completion criterion |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S-18 | S-17 DONE; T-027 DONE; later implementation task | Recheck HEAD/status, all 1,747 paths and 1,188 source entries; refresh the 40-getter ledger plus port/request/type candidates; trace callback/interface/test consumers and map C-28–31 to current catalog rows | Mistaking static candidates or historical results for current proof | Confirm retained lifecycle and shared-facade consumers; identify meaningful new status/React-lifetime characterization | Owner task guides, bounded reachability, inventory/consumer review, focused owner baseline | Documentation/test-evidence changes independently revertible; no product removal in this slice | Exact candidate dispositions, baseline failures with dependent slices, owner traceability and inventory reconciliation saved. |
+| S-19 | S-18 DONE | Remove only reviewed status getters, Note's exclusively associated internal getter dependency and unused Timeline action-port fields; migrate assertions and source guides | Removing used structural lifecycle methods or disguising a weakened test | Assert actual entries, receipts, dispatch counts and recovery availability; preserve feature lifecycle, authority, duplicate activation and uncertain replay | Affected owner rows; frontend-typecheck; import boundaries; web.architecture ownership; frontend-fallow-static | Restore getters, caller tests and port fields as one coherent slice | No consumer of removed members; forty removals individually reconciled; no artificial consumers/suppressions; focused gates pass. |
+| S-20 | S-19 DONE | Characterize acknowledgement first; remove generic/Task presentation mutation wrappers, Evidence's unused reporting port, Timeline beginSave/beginMutation forwarding, ignored patch identity/version fields and disconnected History spy; separate ordered History coordination from reporting | Losing duplicate admission, source-write ordering, feedback or retained operation lifetime; REQ-03-089 status drift | One operation counted once; acknowledgement before delayed/failed refresh; uncertainty and definitive rejection; concurrent independent work; detach/late completion; same-account recovery; account retirement; real History review and recovery effects | Save-status/ordinary-inspector and affected Task/Evidence/History owner slices; focused browser rows; type/boundary/reachability/build | Restore caller/owner/presentation changes together; no API or state migration | Retained owner alone reports its writes; local controls use subject-specific state; acknowledged reads never resend writes or hold Syncing; live conflict-submission reporting remains runtime-owned and ends at settlement. |
+| S-21 | S-20 DONE | Keep canonical TimelineQueueScalarSave in Timeline owner ports; import it from grid adapter; separate admission intent from retained replay context; capture required draftRevisions in driver; remove impossible missing-map branches | Clearing a newer draft, losing predecessor metadata, or accepting caller-supplied retained capture | Grid/Find scalar and collection settlement; coalescing; optional predecessor; valid empty capture; exact uncertain replay; newer draft preservation; recordless creation; conflict recovery | Timeline editor-registry/driver/Find rows; frontend-typecheck; import boundaries; frontend-fallow-static | Revert internal contracts and all constructors/consumers/tests together | One signature and complete retained metadata; admission callers cannot supply driver-owned capture; no wire or persistence change. |
+| S-22 | S-21 DONE | Require WorkbookQueryBrowsingProvider; prepare candidate without registry mutation; commit registration/replacement/subscriptions in effect ownership; token-fence detach; remove fallback refresh/owners; migrate standalone fixtures and represent inactive bindings explicitly | Abandoned render or old cleanup invalidates accepted state; missing provider conceals composition error; continuation/focus regression | Strict Mode replay; suspended/abandoned render; active/inactive transition; port replacement; old-token cleanup; detach/reattach; incident/session/authority changes; late responses; bounded continuation and independent Entity surfaces | Browser/control/recovery unit rows and all 22 existing query-continuation rows; related History/focus evidence; type/boundary/build | Revert provider, hooks, loader adapters and fixture migration together | Render performs no registration, invalidation or subscription; only committed eligible binding dispatches; explicit missing-provider invariant; same authorized runtime retains bounded checkpoints/anchors and old lifetimes cannot affect successors. |
+| S-23 | S-18–S-22 DONE | Reconcile FND-27–31, C-28–31, readiness evidence, exact path/symbol/caller changes and A001–A027 applicability; save final engineering and operational handoff | Unsupported readiness claims, hidden skips or incomplete rollback accounting | All new negative/behavior regressions and affected existing feature/browser scenarios; preserve semantic catalog IDs and unchanged goldens | Finalizer before broad check; required final gate matrix in §8; final lint-markdown and git diff --check | Roll back complete structural slices with callers, tests and accounting; preserve failed evidence | All required gates pass; applicable acceptance rows PASS or reasoned N/A; no applicable BLOCKED exit; final self-contained handoff saved. |
+
+Implementation defaults: local form validation and focus feedback remain presentation responsibilities; aggregate save labels are not a substitute for subject-specific action admission. Timeline admission supplies intent, while the driver alone captures revision metadata; a required empty map is valid, and predecessor absence is valid. Query replacement is prepared without mutating the committed registry, then attached with a unique token after commit; stale cleanup cannot detach the successor. Inactive bindings expose inactive state and cannot dispatch through an alternate owner. Sheet departure and authority retirement keep their distinct adopted semantics.
+
+Do not remove the remaining real conflict-submission accounting merely because other manual wrappers disappear. Keep it private to its runtime owner and exclude post-acknowledgement refresh. Do not replace unrelated read ordering with a new mutation queue or invent a generic workflow engine.
+
+
 ## 8. Validation Plan
 
 The following is the preserved planning-session routing inventory. Current executed results, failures and accepted replacements appear in §7 and the final handoff; the original no-execution statement below applies only to tracker creation.
@@ -2875,6 +3009,39 @@ Mandatory scenarios beyond mechanical cleanup: single feature-owner binding and 
 
 Record each executed command, target result, run root/summary, source revision, relevant changed files, any retries and their causes, and blocker linkage. An environment/setup failure is not product execution proof. A non-reproduced timeout remains a risk until deterministic evidence and scheduled-suite results establish its disposition. No benchmark, deployment, or performance-publication claim follows from repository checks.
 
+### Iteration 3 validation matrix and phase gates
+
+Use public Make targets from the repository root. Refresh `make task-guide ROLE=module-author OWNER=<owner-id>` at implementation time; source owners and test owners are distinct. Planning discovery succeeded for `web.architecture`, `web.workbook` and `module.workbook`. S-18 selects the exact affected rows of other feature owners from the authored catalog rather than inferring routing from paths.
+
+| Layer / phase | Commands or evidence | Scope and required timing | Exit / failure posture |
+| --- | --- | --- | --- |
+| Current document update | `make lint-markdown`; `git diff --check`; read-only history/inventory/ID/link/table audit; Git scope check | Tracker only after plan installation and final completion bookkeeping | Only this file changes; twelve sections/history preserved; S-18–23 stay TODO. Product/generation/finalizer suites are not required for this document-only edit. |
+| Trustworthy discovery: S-18 | Owner task guides; `make frontend-fallow-static`; exact source/inventory comparisons; narrow affected baseline rows | Refresh after any source revision change; record production/test/measurement/interface consumers | No blanket class-member deletion; failures receive target, run root, relevance and dependent slice. |
+| Removal and mutation ownership: S-19/S-20 | `make test-slice OWNER=web.workbook ROWS=<selected-row-ids>` and affected owner slices; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make test-slice OWNER=web.architecture`; `make frontend-fallow-static`; `make build-web` | Narrow owner tests first; meaningful status/receipt/recovery assertions rather than replacement counters | Removed symbols have no consumers; required bounded gate passes; deterministic acknowledgement and read-only review checks pass. |
+| Timeline capture contract: S-21 | `make test-slice OWNER=module.timeline ROWS=<selected-row-ids>`; affected Workbook rows; frontend type/boundary/reachability checks | Canonical command type and every driver metadata constructor/settlement path | Valid recordless/empty capture stays supported; absent retained capture is not silently normalized. |
+| Query lifecycle: S-22 | Selected `web.workbook` unit rows; `make test-slice OWNER=module.workbook ROWS=<selected-row-ids>` for authored continuation rows; affected Revisions rows | Strict Mode/abandoned-render and token-fencing tests; all existing continuation scenarios, not a single selected surface | Bounded windows/checkpoints, authority fencing, focus and independent Entity lifetimes pass without fallback owners. |
+| Catalog and generated accounting | `make test-catalog-check`; `make harness-contract`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check` | Run after authored catalog/source-accounting changes and at final integration; regenerate through `make generate` only when authored inputs require it | Preserve semantic identities; generated files are never hand-edited; tracker/Markdown never becomes executable input. |
+| Integrated engineering readiness: S-23 | `make agent-finalize` **before** `make check` and broader final browser verification | Record RESULTS_DIR if retained successful-run maintenance is used; otherwise explicitly record its omission | Fresh required aggregate passes; prior iterations' results are historical rather than substituted evidence. |
+| Final browser coverage: S-23 | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; `make browser-e2e-a11y`; `make browser-e2e-visual` | Final implementation; preserve current selectors, tolerances, scenario identities and golden bytes | No skips, blanket retries or tolerance relaxation to close gaps. Any intentional visual change follows the reviewed repository golden procedure. |
+| Final handoff closure | `make lint-markdown`; `git diff --check`; exact changed-file/symbol/caller ledger | After final tracker updates | Self-contained outcome, validation, compatibility, rollback, limitations and next action. |
+
+Existing focused rows discovered from authored test families:
+
+| Existing row / family | File / purpose | Planned use |
+| --- | --- | --- |
+| `web.workbook.regression.workbook_save_status_preserves_global_blockers_a_8d590e0883` | `apps/web/src/workbook/workbookSaveStatus.test.tsx` | Replace wrapper-only synthetic assertions with real owner admission/acknowledgement coverage while preserving global blocker evidence. |
+| `web.workbook.regression.inspector_ordinary_recovery` | `apps/web/src/workbook/hooks/ordinaryInspectorRecovery.test.tsx` | Retained ordinary patches, detached presentation, exact recovery and accepted refresh failure. |
+| `module.timeline.frontend.timeline_editor_draft_registry_0de7a147c1` | `apps/web/src/workbook/timeline/editing/useTimelineEditorDraftRegistry.test.tsx` | Captured revisions, newer authoring, coalescing and predecessor settlement. |
+| `web.workbook.regression.query_browsing` | `apps/web/src/workbook/query/WorkbookQueryBrowser.test.ts` | Preserve window/checkpoint/canonical/continuation behavior. |
+| `web.workbook.regression.query_browsing_controls` | `apps/web/src/workbook/query/WorkbookQueryBrowsingControls.test.tsx` | Explicit provider, controls, focus and no implicit dispatch. |
+| `module.workbook.browser_stateful.query_continuation_*` — selection family, not a literal ROWS wildcard | `apps/web/e2e/workbook-query-browsing.spec.ts`; 22 authored rows | S-18 resolves exact IDs for assessments, authority, canonical, comm_log, decisions, evidence, findings, forensic_keywords, handoff, history, hosts, identities, indicators, investigative_queries, lesson, live_recovery, notes, parties, session, status_review, task_requests and timeline. |
+| `module.revisions` History browsing/recovery families | `apps/web/e2e/history-browsing.spec.ts` and `apps/web/e2e/history-recovery.spec.ts` | Preserve Timeline/Entity/Generic/Assessment History continuity and actual retained operation effects. |
+
+New characterization must have authored catalog coverage through the repository's existing mechanisms. No standalone invented target or duplicate analyzer scan is planned. `make openapi-compatibility-check` and affected service-backed slices become additionally required if implementation expands into their contracts; such expansion needs an explicit recorded reason. No such public/backend change is presently planned.
+
+Retained planning evidence: `make frontend-fallow-static` PASS 2/2 at `.cartulary/test-results/20260923T021055Z-p33918`; the bounded web and package findings are zero. Raw advisory findings and the health subreport's nonblocking exit 1 remain visible in `frontend-fallow-static/fallow-static-summary.json` and `frontend-fallow-static/fallow/dead-code.json` under that root. This is baseline discovery evidence, not a pass for any future remediation. The document session rechecked the unchanged revision, inventory and ownership rather than rerunning product suites.
+
+
 ## 9. Top-Level Work Tracker
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
@@ -2912,6 +3079,21 @@ T-017–T-025 describe future implementation and remain TODO. T-026 records only
 | T-024 | Enforce bounded web cleanup regression policy | S-16 | DONE | T-023 | FND-26; existing reachability owner | Real dead cases fail; legitimate consumer cases pass; no suppression growth. |
 | T-025 | Complete fresh integrated validation and handoff | S-17 | DONE | T-017–T-024 | Final run roots, A001–A027 assessment, file/compatibility ledger | Required gates green; blockers closed; self-contained operational/rollback handoff. |
 | T-026 | Install and validate the approved iteration 2 plan | Document update | DONE | Approved user plan and clean baseline | This file only; document validation recorded below | Twelve sections/history retained, current inventory exact, S-09–S-17 TODO, lint/diff/scope checks pass. |
+
+### Iteration 3 work tracker
+
+The current document task is T-027. Its completion installs the future work; it does not start S-18. All completed iteration 1/2 exits remain intact. Historical provisional TODO text is not a reopened blocker.
+
+| ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-027 | Install and validate the approved iteration 3 plan | Document update | DONE | Approved plan; clean c1dccf7ae baseline | This tracker only; current baseline, retained planning report and document validation record in §12 | Twelve sections/history retained; FND-27–31/C-28–31 and all slice gates installed; Markdown/diff/scope checks pass. |
+| T-028 | Refresh removal consumers, contracts and current baseline | S-18 | DONE | T-027 DONE; S-17 DONE; user implementation request | §2 candidate ledger; C-28–31; owner catalog and fresh results | Exact dispositions, inventory, owner/test trace and assigned baseline failures saved. |
+| T-029 | Remove obsolete status surfaces | S-19 | DONE | T-028 DONE | FND-27 and per-owner removal/test accounting | Reviewed members removed, used lifecycle intact, owner/type/boundary/reachability gates pass. |
+| T-030 | Consolidate mutation reporting and remove unused ports | S-20 | DONE | T-029 DONE | FND-28/29; deterministic acknowledgement tests; caller migrations | Single owner accounting, real negative evidence and saved/read-recovery separation pass. |
+| T-031 | Tighten Timeline admission and captured metadata | S-21 | DONE | T-030 DONE | FND-30; one command type; driver capture and editing/replay evidence | Complete retained metadata and no impossible absence branches; valid authoring/recovery preserved. |
+| T-032 | Commit query-owner registration and remove alternate owners | S-22 | DONE | T-031 DONE | FND-31; lifecycle/continuation tests and fixture migration | Pure render, token-fenced attachment, explicit inactivity and required provider pass. |
+| T-033 | Complete fresh integrated validation and handoff | S-23 | DONE | T-028–T-032 DONE | Final gate roots, A001–A027 assessment and exact accounting | Required gates PASS; applicable blockers resolved; complete rollback/operational handoff saved last. |
+
 
 ## 10. Session Handoff Log
 
@@ -3155,6 +3337,52 @@ This is a new session record, not a revision of iteration 1 evidence. Baseline i
 
 Current task skipped checks: no product unit/integration/browser/build, generator, formatter, finalizer or broad check runs. This is a Markdown-only update; those commands belong to the future slices and can modify product/generated state or create unrelated evidence. `RESULTS_DIR` is unset and retained-run maintenance is not performed. The earlier advisory run is identified as prior planning evidence, not a test run repeated in this document task.
 
+### Iteration 3 planning and document-update handoff — 2026-09-23 UTC
+
+#### Iteration 3 scope and authority
+
+| Time | Session | State and files inspected/touched | Commands / result | Next action |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Planning, then tracker update | Read AGENTS, framework/format guidance, NLSpec research, Core 03 save/browsing rules, domain/design boundaries and completed tracker; only tracker is edited | HEAD/status confirm clean committed iteration 2 baseline before edit; current request remains document-only | Validate installation, then leave S-18–S-23 TODO for a later implementation task. |
+
+#### Iteration 3 backend boundary
+
+| Time | Session | Boundary / evidence | Result and limitation | Next action |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Planning/document update | Prior source-owner/public-contract maps retained; this iteration's inspected seams are browser-owned | No backend behavior, storage migration, public route or layout/bundle change proposed; no new backend suite pass claimed | Expand only for demonstrated dependency and record owner, contract and service-backed evidence before changes. |
+
+#### Iteration 3 frontend boundary
+
+| Time | Session | Files and ownership inspected | Result | Next action |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Planning/document update | Nineteen retained owners; Timeline action port; generic/Task patch presentation; Evidence bindings; History tests/coordination; Timeline command/driver; query registry/Browser/loaders and provider | Forty-getter ledger and five findings installed; used structural callbacks distinguished from dead surfaces; 1,188/1,188 source ownership parity | S-18 refreshes consumers; S-19–22 implement only after their saved predecessor exits. |
+
+#### Iteration 3 contract and codegen
+
+| Time | Session | Inputs inspected | Result | Next action |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Planning/document update | Core 03 REQ-03-089, REQ-03-282 and §14.9; internal ports; current source/catalog policies | C-28–31 installed; no new external representation or generated change; Markdown remains human guidance | Keep caller/retained metadata distinctions explicit; update authored projections and Make-generated outputs only if actual changes require them. |
+
+#### Iteration 3 tests and harness
+
+| Time | Session | Commands and artifacts | Result / relevance | Next action |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Planning | `make task-guide` for web.architecture, web.workbook and module.workbook; `make frontend-fallow-static` at `.cartulary/test-results/20260923T021055Z-p33918` | Guides succeeded; bounded gate PASS 2/2 with zero blocking web findings; 155 class-member advisories require consumer evidence | Preserve exact row identities; add meaningful characterization before fixes; do not substitute this baseline for future exits. |
+| 2026-09-23 | Document update | Git HEAD/status; retained report read; exact file/source-ownership set comparisons | Baseline unchanged, all 1,747 paths referenced and no source-accounting drift; no product suite rerun | Markdown, whitespace, history preservation and single-file scope checks before T-027 DONE. |
+
+#### Iteration 3 security and authorization
+
+| Time | Session | Boundary | Required preservation | Next action |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Planning/document update | Server authorization; account/incident/session lifetimes; captured requests and protected query state | No weaker browser authority, silent fallback owner, cross-account reuse, altered replay identity, or resubmission of accepted writes for read recovery | Exercise authority replacement, detachment and late completions in S-20/S-22; identify any contradiction before dependent work. |
+
+#### Iteration 3 open risks and next session
+
+| Time | Session | Risk / current state | Files allowed to change now | Next action |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Document update | Planning complete; product behavior not changed; lifecycle/status conclusions still require targeted regression evidence | `docs/handoffs/web-apps-cleanup-tracker.md` only | Finish document checks; future authorized execution begins at S-18, not at a deletion or broad test bypass. |
+
+
 ## 11. Open Questions and Blockers
 
 The original blockers below are now resolved by authorized execution. The pre-production clean-cutover decision remains in force. No owner-versus-owner contradiction was found in the reviewed clauses; mark any future one **BLOCKED: owner contradiction** and stop only the affected slice.
@@ -3186,6 +3414,21 @@ Historical RB-001–005 remain DONE. The following items do not block saving the
 | RB-012 | Raw dead-code results include false positives and app gate is absent | Blind removal or advisory-only completion cannot establish durable cleanup | FND-16/17/26; reviewed roots/consumer ledger, safe cleanup and bounded enforcement fixtures | CLOSED — corrected roots, reviewed cleanup and S-16 bounded enforcement all pass; graph asserts one execution in check/CI. |
 
 No reviewed owner-versus-owner contradiction has been identified. Newly discovered contradictions must be recorded with exact clauses and block only dependent slices. Unknown Evidence causality is an investigation gap, not authority to alter authorization or retries. No historical baseline failure may be silently carried forward as a production-readiness exclusion for these newly scoped blockers.
+
+### Iteration 3 questions, readiness gates and exclusions
+
+No unanswered product preference or reviewed owner contradiction blocks this document update. RB-001–012 remain closed by their historical exits. The following TODO entries are **future implementation exit gates**, not claims that a required current suite failed; they do not prevent T-027 document completion.
+
+| ID | Question or evidence gap | Why it matters | Required owner / evidence | Status and blocked future exit |
+| --- | --- | --- | --- | --- |
+| RB-013 | Removal ledger requires refreshed callback/interface/test consumers at execution | Advisory findings include live structurally consumed members | S-18 exact dispositions for FND-27/28; source ownership and affected caller/test ledger | CLOSED — S-18/S-19 refreshed consumers and recorded all forty removals with validation. |
+| RB-014 | Duplicate accounting and acknowledged-refresh status need deterministic production-path characterization | Static structure predicts REQ-03-089 divergence; disconnected spies cannot prove behavior | Retained Explicit Patch/History owners; controlled request/receipt/refresh evidence for FND-28/29 | CLOSED — S-20 reproduced and corrected duplicate/status accounting; S-22 completed browser-consumer integration. |
+| RB-015 | Required Timeline capture must be checked across all admission and settlement constructors | Tightening one type without migrating consumers can lose newer drafts or valid recordless capture | Timeline driver/editor owner tests, one signature and complete metadata evidence | CLOSED — S-21 complete capture, valid empty maps, replay and authoring evidence pass. |
+| RB-016 | Committed query attachment needs React lifetime and full continuation evidence | An abandoned render or stale cleanup must not retire another lifetime | Query provider/registry ownership; Strict Mode/suspension/token tests and all affected continuation rows | CLOSED — S-22 lifecycle and all 22 continuation scenarios pass; S-23 corrected and retested the remaining collaboration fixture. |
+| RB-017 | Fresh integrated evidence and acceptance assessment do not yet exist for future changes | Iteration 2 passes cannot certify iteration 3 implementation | S-23 final gates, exact accounting, A001–A027 assessment and self-contained handoff | CLOSED — S-23 required gates, acceptance assessment and complete handoff pass; not an operational deployment authorization. |
+
+Unreviewed advisory class members, independent source owners, genuine optional defaults, valid provenance, historical artifacts, and current source-schema version names remain outside blanket cleanup. This iteration does not introduce a blocking class-member or duplicate-name gate. Missing prerequisites discovered during execution must receive a concrete dependent slice and BLOCKED exit; do not create artificial imports, broad suppressions, retry inflation or historical exclusions to obtain a pass.
+
 
 ## 12. Binary Completion Criteria
 
@@ -4319,3 +4562,441 @@ Final accounting: 229 unique paths (225 modified, two added, two removed), inclu
 Engineering outcome: trustworthy required reachability, canonical browser routing, shared strict SQL relation analysis, removed dead/public surfaces, one retained owner per related creation, current-only layout-v2/bundle-4 admission, stable History/grid continuity, deterministic recovery verification and complete operational guidance. Required gates pass without skips, blanket retries, looser tolerances or golden updates. Retained-run maintenance was skipped because RESULTS_DIR was unset; broader CI/release publication, measurement certification, deployment and shared-environment/state migration remain outside this task for the reasons recorded above.
 
 No engineering work remains in this remediation. Review the working-tree change set before a separately authorized operational cutover. Carry S-13/S-14 as one specification/build/state compatibility unit, retire incompatible sessions/jobs as documented, and retain a matching state snapshot for rollback; do not silently reinterpret legacy layouts or archives.
+
+### Iteration 3 document completion criteria and future implementation handoff
+
+The preceding S-17 closure is immutable iteration 2 history. The current product baseline is its committed result at `c1dccf7ae9900035b372d225899d8afada4e3588`. Iteration 3 is a new, document-only planning step with separate future execution gates.
+
+| Completion criterion | Document-update disposition | Future implementation exit |
+| --- | --- | --- |
+| Scope and authority explicit | PASS — only tracker authorized; supplied documents are guidance/owners within their stated boundaries | Later implementation task required before S-18. |
+| Every target path accounted | PASS — 1,747 live paths referenced; 1,188 unique source ownership entries match live sources | S-18 refreshes exact inventory; every later delta is recorded. |
+| Findings supported and bounded | PASS — FND-27–31 distinguish evidence, remediation, areas, rationale, benefit, compatibility, unresolved risk and validation | Each finding receives final disposition and current evidence. |
+| Contract risks have owners | PASS — C-28–31 map save status, internal capabilities, captured metadata and bounded query lifetimes | No unresolved owner contradiction; observable correction is characterized. |
+| Workstreams are complete and ordered | PASS — six separate workstreams S-18–23 with prerequisites, risk, tests, rollback and binary exits | Save IN_PROGRESS and completed/BLOCKED exits before successors. |
+| Validation and semantic accounting discovered | PASS — public target matrix and existing focused rows; new test registration uses authored catalog | All required current gates pass without weakening coverage. |
+| History and source integrity preserved | PASS — every original line remains in order except the two deliberately refreshed current-scope bullets; twelve numbered sections preserved | Original completed exits, failures, artifacts and historical contracts remain intact. |
+| Single-file write scope and document checks | PASS — Markdown, whitespace, table/path/ID audits and tracker-only diff; artifacts below | Product checks are explicitly not claimed by this document task. |
+| Engineering and operational handoff | PASS — required handoff content below is specified; product work remains TODO | S-23 saves actual final evidence and readiness limitations. |
+
+The S-23 handoff must include source revision and worktree state; FND-27–31/C-28–31/RB-013–017 dispositions; every changed path, getter/port removal, caller and test migration; new or regenerated artifacts and their authored inputs; commands/results/run roots and preserved failures; exact remaining advisories and excluded scope; A001–A027 PASS or scope/owner-rationalized N/A; skipped checks with reasons; compatibility and operational prerequisites; rejected alternatives; and the next engineering action. Applicable BLOCKED acceptance prevents implementation completion.
+
+Compatibility: no new public route, layout version or bundle format; layout v2 and bundle 4 remain current. Internal ports/types narrow together with their callers. No persisted replay migration, automatic legacy conversion or shared-environment reset is needed or authorized. Roll back each structural slice with its callers, tests, authored accounting and any generated projections. Prior S-13/S-14 coherent build/state constraints remain historical obligations for that cutover; this iteration does not introduce a second cutover or downgrade state in place.
+
+This document task intentionally skips product owner suites, broad check/browser suites, generation, formatting and agent-finalize because it changes no product, executable contract, test routing or generated artifact. The planning static target is retained baseline evidence only. Document closure records `make lint-markdown`, `git diff --check` and the exact single-file scope below. S-18–S-23 remain TODO.
+
+#### Iteration 3 document validation record
+
+T-027 DONE. The approved plan is installed across the existing twelve sections with FND-27–31, C-28–31, S-18–S-23, T-028–T-033 and future readiness gates RB-013–017. All six implementation work items remain TODO. No product workstream has started.
+
+Complete-plan `make lint-markdown` PASS at `.cartulary/test-results/20260923T023336Z-p44516`, summary `adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` exits 0. The read-only document audit confirms original history lines preserved in order except the two refreshed scope/checkpoint bullets, all twelve numbered sections, consistent table column counts, forty getter entries across nineteen source files, resolving added literal paths, twenty public Make command identities, five exact focused test-row identities and all twenty-two continuation rows. Completion bookkeeping is followed by a final Markdown/whitespace/scope check before the task response.
+
+Exact changed-file accounting: one modified file, `docs/handoffs/web-apps-cleanup-tracker.md`; no added/deleted file and no staged change. Product source, tests, specifications, typed contracts, generated outputs, lockfiles and goldens are unchanged. Current live web inventory remains 1,747 with 1,188/1,188 source ownership parity. Next authorized product execution begins with S-18's refreshed consumer and baseline checkpoint; this document completion does not certify that future implementation.
+
+### Iteration 3 execution — S-18 start
+
+S-18 IN_PROGRESS. The user authorized the full S-18–S-23 implementation plan. Execution starts on `main` at `c1dccf7ae9900035b372d225899d8afada4e3588`, with only this tracker already staged. The index is preserved; execution edits remain unstaged. S-17 and T-027 are DONE prerequisites. The earlier document-only boundaries are historical.
+
+Core 03 REQ-03-089 owns authoritative settlement versus follow-up reads (C-28); REQ-03-282 owns latest committed version coordination (C-29); REQ-03-099/100 own captured replay and retained authoring (C-30); §14.9 plus REQ-03-299/100 own bounded browsing and authority lifetimes (C-31). Design §§8/10 supply presentation direction, and Domain §§13.10–13.11 supply vocabulary only. Direct inspection found no owner contradiction or normative amendment needed. Static structure confirms the candidate seams; deterministic status and React-lifetime characterization belongs to S-20/S-22.
+
+S-18 consumer/inventory reconciliation: 1,747 tracked web paths and 1,188 live source TS/TSX files; source ownership contains exactly 1,188 unique paths, with no missing or stale entries. The §2 ledger still matches forty getters in nineteen owners. The only production family dependency is Note `blockedCount` → `uncertainCount`; the Timeline runtime port declares the two unused fields. Eight assertions in six test files consume the family. No other property consumer was found across app/package TS/TSX, and retained `unsettledMutationCount` plus lifecycle interfaces remain live. All forty getter dispositions remain REMOVE, together with the two port fields; actual state/receipt/admission assertions replace their tests.
+
+Focused routing: S-19 uses `web.workbook` rows `assessment_append_recovery`, `workbookz_assessment_creation_controller_2f0f2487ec`, `indicator_lifecycle_owner`, `note_create_recovery`, `timeline_capture_recovery`, and `workbookz_mutation_runtime_surface_continuity_97808fe8ae` (each prefixed `web.workbook.regression.`). S-20 additionally uses the saved status/ordinary-inspector rows in §8 and `history_recovery_surfaces`. S-21 uses `module.timeline.frontend.timeline_editor_draft_registry_0de7a147c1` and the current Timeline driver/Find families. S-22 uses the query browser/control rows and the exact twenty-two `module.workbook.browser_stateful.query_continuation_` suffixes: `assessments`, `authority`, `canonical`, `comm_log`, `decisions`, `evidence`, `findings`, `forensic_keywords`, `handoff`, `history`, `hosts`, `identities`, `indicators`, `investigative_queries`, `lesson`, `live_recovery`, `notes`, `parties`, `session`, `status_review`, `task_requests`, `timeline`. These IDs were read from authored catalogs, not inferred from test paths.
+
+Initial baseline attempts failed at process startup: `frontend-fallow-static` at `.cartulary/test-results/20260923T025354Z-p59389` and the four-row Workbook baseline at `.cartulary/test-results/20260923T025411Z-p60036`, both `infra/service_start_error`. The calling shell omitted the existing pinned `tmp/node-runtime/bin` from PATH; scheduler child commands could not locate Node. Subsequent Make invocations explicitly prepend that existing directory. No repository tooling or dependency change is needed. The same four-row Workbook baseline then PASSed 5/5 units at `.cartulary/test-results/20260923T025516Z-p61061` (save status, ordinary inspector recovery, query browsing and controls). These are baseline passes, not evidence of the future fixes.
+
+#### S-18 completed exit
+
+S-18 DONE. `make frontend-fallow-static` PASS 2/2 at `.cartulary/test-results/20260923T025516Z-p61150`; bounded reachability remains clean while raw advisory findings are retained. C-28–31 have current owner traceability, all scoped candidates and twenty-two continuation rows are reconciled, and baseline failures are explained and resolved. No normative text, product, test or generated input changed in S-18. RB-013's refreshed-consumer prerequisite is satisfied; S-19 still must prove the actual removals.
+
+### Iteration 3 execution — S-19 start
+
+S-19 IN_PROGRESS after the saved S-18 exit. Remove only the forty reviewed getters and two unused port fields, migrate eight assertions in six files to real owner observations, and document the supported status interface. Validate affected owner rows, types, import/source ownership and bounded reachability before S-20.
+
+#### S-19 completed exit
+
+S-19 DONE; FND-27 removal and RB-013 are closed. The forty getters in the §2 ledger and `WorkbookTimelineActionRuntimePort.pendingCount/blockedCount` are removed. Repo-wide app/package member searches find no declarations or consumers of the removed family. Structural lifecycle methods and `unsettledMutationCount` remain intact. Exact getter removal accounting:
+
+| Owner path | Removed members |
+| --- | --- |
+| `apps/web/src/workbook/features/assessments/WorkbookAssessmentAuthoringOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/coordination/WorkbookContextualTaskDecisionCreateOwner.ts` | pendingCount, blockedCount, uncertainCount |
+| `apps/web/src/workbook/features/coordination/WorkbookCoordinationCreateOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/coordination/WorkbookDecisionSupersessionOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/entities/WorkbookEntityMergeOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/evidence/WorkbookEvidenceAttachmentOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/evidence/WorkbookTimelineFileOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/evidence/WorkbookTimelineRelatedEvidenceOwner.ts` | pendingCount, uncertainCount, blockedCount |
+| `apps/web/src/workbook/features/indicators/WorkbookIndicatorCreateOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/indicators/WorkbookIndicatorLifecycleOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/indicators/WorkbookObservationOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/features/notes/WorkbookNoteCreateOwner.ts` | pendingCount, blockedCount, uncertainCount |
+| `apps/web/src/workbook/features/ordinary/WorkbookOrdinaryCreateOwner.ts` | pendingCount |
+| `apps/web/src/workbook/features/parties/WorkbookPartyLinkOperationOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/history/WorkbookRecordHistoryOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/runtime/WorkbookBatchOperationOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/runtime/WorkbookExplicitPatchOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/timeline/actions/WorkbookTimelineCaptureActionOwner.ts` | pendingCount, blockedCount |
+| `apps/web/src/workbook/timeline/actions/WorkbookTimelineMentionOperationOwner.ts` | pendingCount, blockedCount |
+
+Caller/test migrations: `useAssessmentCreationController.test.tsx` checks preparation release and empty operation entries; `WorkbookIndicatorLifecycleOwner.test.ts` checks failed admission, dispatch absence, reservation release and accepted receipt; `noteCreateRecovery.test.tsx` checks refresh phases, receipt, recovery attention and dispatch count; `WorkbookTimelineCaptureActionOwner.test.ts` checks acknowledged transport settlement and dispatch count; `WorkbookMutationRuntime.test.ts` checks the retained schema has no admitted entries. Eight original assertions across these five files were migrated (the initial S-18 narrative's six-file count was a counting error). `runtime/README.md` documents the supported status/recovery boundary. No path, catalog or generated membership changed.
+
+Validation: affected six-row slice initially failed 2/7 at `.cartulary/test-results/20260923T025731Z-p63191` because the new ordinary assertion addressed entries outside its schema snapshot and the Note assertion did not await its independent refresh settlement. Both test-migration errors were corrected without product changes. Four original rows passed there; the two corrected rows PASS 3/3 at `.cartulary/test-results/20260923T025831Z-p68017`. `frontend-typecheck` PASS at `.cartulary/test-results/20260923T025754Z-p64714`; import boundaries PASS at `.cartulary/test-results/20260923T025754Z-p64725`; `web.architecture` PASS 12/12 at `.cartulary/test-results/20260923T025754Z-p64660`; bounded reachability PASS 2/2 at `.cartulary/test-results/20260923T025805Z-p66789`. Failures are preserved.
+
+Compatibility: internal removals only, no wire/storage migration. Rollback restores the getter/port family and migrated tests together. Every reviewed removal has current validation; no artificial consumer, suppression or new compatibility path was introduced.
+
+### Iteration 3 execution — S-20 start
+
+S-20 IN_PROGRESS after the saved S-19 exit. First characterize retained PATCH admission, acknowledgement and refresh through production paths, then remove duplicate reports and unused ports/inputs. Preserve source-write ordering, subject-specific action admission, local feedback and private runtime conflict-submission accounting. Replace the disconnected History spy with real owner/transport evidence.
+
+#### S-20 completed exit
+
+S-20 DONE; FND-28/29 and RB-014 closed. The real Task controller/retained PATCH characterization reproduced `explicitInFlightCount=2` for one admitted operation and `Syncing` during acknowledged delayed refresh at `.cartulary/test-results/20260923T030058Z-p70208`. That initial test also exposed a test-only invalid cleanup method; cleanup now uses runtime invalidation. The preceding catalog attempt rejected unsorted titles before execution; the authored titles are now sorted.
+
+The generic/Task presentation wrappers, unused Evidence mutation port, Timeline beginSave/beginMutation forwarding and generic patch identity/version override inputs are removed. Generic action state reads the selected record's retained owner. Task's same-frame submission guard remains a local duplicate-activation guard, not status reporting. Timeline `enqueueOrderedRead` retains the existing source-write ordering without counting reads. Runtime conflict submission is private and finishes before follow-up reads; it retains idempotent exception cleanup. Baseline source identity and latest committed-version coordination remain unchanged. History's disconnected spy is replaced by actual transport and aggregate count assertions plus a four-surface read-only review test. Evidence tests observe owner entries and transport. Status tests now admit real retained PATCH or queue operations rather than calling a manual counter API.
+
+Exact S-20 source/caller/test/document/catalog paths (no added or deleted paths):
+
+- `apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.test.tsx`
+- `apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.ts`
+- `apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.test.tsx`
+- `apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.tsx`
+- `apps/web/src/workbook/features/generic/useGenericWorkbookInspectorComposition.tsx`
+- `apps/web/src/workbook/history/WorkbookHistoryRecovery.test.tsx`
+- `apps/web/src/workbook/hooks/README.md`
+- `apps/web/src/workbook/hooks/ordinaryInspectorRecovery.test.tsx`
+- `apps/web/src/workbook/hooks/useGenericSurfaceMutationController.ts`
+- `apps/web/src/workbook/runtime/README.md`
+- `apps/web/src/workbook/runtime/WorkbookMutationRuntime.ts`
+- `apps/web/src/workbook/timeline/composition/useTimelineInspectorWorkflowComposition.ts`
+- `apps/web/src/workbook/timeline/composition/useTimelineWorkbookComposition.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineHistoryActions.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineSaveStatePresentation.ts`
+- `apps/web/src/workbook/timeline/mutations/useTimelineRowMutationCoordinator.ts`
+- `apps/web/src/workbook/timeline/presentation/useTimelineWorkbookPresentation.tsx`
+- `apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx`
+- `apps/web/src/workbook/workbookSaveStatus.test.tsx`
+- `tools/test_families/module.tasksdecisions.json`
+- `tools/test_families/web.workbook.json`
+
+Validation PASS: status/ordinary/History slice 4/4 `.cartulary/test-results/20260923T030449Z-p76993`; real Task workflow 2/2 `.cartulary/test-results/20260923T030449Z-p77020`; final ordinary/History additions 3/3 `.cartulary/test-results/20260923T030635Z-p18355`; Evidence/Timeline History ordering 3/3 `.cartulary/test-results/20260923T030529Z-p79001`; typecheck 2/2 `.cartulary/test-results/20260923T030449Z-p77077`; build 2/2 `.cartulary/test-results/20260923T030529Z-p79343`; import boundaries 2/2 `.cartulary/test-results/20260923T030529Z-p79141`; reachability 2/2 `.cartulary/test-results/20260923T030529Z-p79154`; architecture 12/12 `.cartulary/test-results/20260923T030651Z-p19306`; authored catalog check exit 0. Focused browser save-status row PASS 11/11 graph units at `.cartulary/test-results/20260923T030529Z-p79047`. Formatting and whitespace checks pass. Searches find no old reporting or forwarding APIs.
+
+Compatibility: internal signature cutover and an owner-required visible save-status correction; no HTTP, storage, replay identity, authorization or format migration. Rollback restores all caller, owner and test changes together, including catalog titles. Acknowledged recovery never resends a write, retained uncertainty remains Syncing, definitive non-conflict rejection is Saved, and concurrent unrelated records retain independent action state.
+
+### Iteration 3 execution — S-21 start
+
+S-21 IN_PROGRESS after the saved S-20 exit. Consolidate the Timeline scalar command type, separate caller-owned admission context from driver-owned capture, require retained draft revisions, and remove only impossible retained-map absence branches. Preserve valid empty capture, optional predecessor and generic conflict metadata optionality.
+
+#### S-21 completed exit
+
+S-21 DONE; FND-30 and RB-015 closed. `TimelineQueueScalarSave` has one declaration in owner ports, imported by grid and Find. `TimelineReplayAdmissionContext` contains caller intent, while retained `TimelineReplayContext` additionally requires the driver's sheet and revision capture and permits a creation predecessor. The driver no longer substitutes empty maps for impossible missing retained captures. Generic conflict metadata remains optional.
+
+Changed paths: `apps/web/src/workbook/timeline/models/{timelineControllerPorts.ts,timelineMutationDriverPlans.ts,README.md}`, `apps/web/src/workbook/timeline/adapters/createTimelineScalarGridCommitAdapter.ts`, `apps/web/src/workbook/timeline/mutations/{createTimelineMutationDriver.ts,timelineFileDraftRecovery.test.ts}`, and the authored `tools/test_families/web.workbook.json` title selection. No generated output or stored format changed. New deterministic file-creation evidence observes a genuinely empty captured map, absent predecessor, and preservation of authoring added after dispatch through acknowledgement. Existing coverage exercises scalar/collection edits, coalescing, predecessors, exact replay, conflicts, newer revisions and recordless creation.
+
+Validation PASS: five Workbook driver/Find/recovery rows 6/6 `.cartulary/test-results/20260923T031312Z-p28437`; Timeline editor registry 2/2 `20260923T031312Z-p28469`; Evidence file-draft recovery 2/2 `20260923T031312Z-p28507`; import boundaries 2/2 `20260923T031312Z-p28755`; reachability 2/2 `20260923T031312Z-p28775`; architecture 12/12 `20260923T031312Z-p28604`; final typecheck 2/2 `20260923T031355Z-p33045`; format 2/2 `20260923T031301Z-p23690` (all roots beneath `.cartulary/test-results/`). No S-21 failure remains.
+
+Compatibility is an atomic internal type cutover with no wire, storage or replay migration. Rollback restores owner types, adapter imports, driver assumptions, test and catalog together; S-20's public behavior correction is independent.
+
+### Iteration 3 execution — S-22 start
+
+S-22 IN_PROGRESS after the saved S-21 exit. Require the query provider, characterize abandoned render and replacement hazards, and move binding ownership to committed layout effects with unique tokens. Reader registration and late-result admission must use the committed token. Remove alternate browser/refresh ownership, migrate isolated fixtures, and verify all twenty-two continuation scenarios plus History and authority continuity. Presentation detachment retains only bounded eligible checkpoint/anchor state; authority invalidation clears it.
+
+#### S-22 integration discoveries
+
+The full Timeline owner selection additionally exercised an E2E diagnostic outside the earlier `src` consumer search. `apps/web/e2e/timeline-autosave-feedback.spec.ts` still called the removed S-20 manual counter, so its characterization failed with “Production runtime was not observed.” This corrects the earlier search's scope: the production cutover stands, but this browser fixture also requires migration to real retained writes and controlled transport settlement. S-22 completion includes that corrective integration evidence.
+
+The same broad selection also attempted four measurement rows outside the required iteration-3 browser gates. Each failed before measurement with `private child capture requires a safe bounded identity`: the harness composes a capture identity longer than its existing 128-character bound. This is a pre-existing routing/harness limitation, not a measured product failure. No threshold, identity-safety policy or measurement claim will be changed as part of this frontend remediation. The full failing root is `.cartulary/test-results/20260923T032235Z-p53291`; focused functional retests and the required final browser gates remain mandatory.
+
+The real-write browser diagnostic revealed a second concrete S-20 integration correction: the generic mutation hook subscribed to every Explicit Patch snapshot, rerendering Timeline for unrelated records. It now subscribes to the selected subject's retained blocking boolean. The status unit test additionally asserts zero renders for unrelated settlement; the browser retains its unchanged-snapshot zero-work and raw-input/focus/selection assertions. The first real-write fixture reused hidden Notes subjects whose acknowledged recovery was still pending (`20260923T033406Z-p58675`, timed out); each diagnostic iteration now uses independent subjects. The next runs (`20260923T033830Z-p98179` and `20260923T034110Z-p37905`) observed four column replacements while combining admission, source reads, acknowledgements and collaboration effects; these counts do not establish which effect caused replacement. The subject subscription correction independently passes its deterministic unit regression. The browser now gates actual source reads and separately verifies two admitted writes/count=2 before dispatch, count=1 while the second response is held, count=0/Saved after both acknowledgements, exactly two successful transports, and unchanged raw editor/focus/selection through settlement. The retired manual-counter-only render assertion is replaced by these production lifecycle observations (the unchanged-snapshot zero-work assertions remain). Actual admission and settlement render counts remain diagnostics, not a new performance budget. A subsequent characterization (`20260923T034524Z-p77115`) isolated zero row/column replacements but three collection renders during real admission, confirming that a bare counter toggle did not exercise equivalent work. Neither failure is treated as a pass or addressed by relaxing assertions.
+
+#### S-22 completed exit
+
+S-22 DONE; FND-31 and RB-016 closed. No adopted-owner amendment was needed. The required provider now prepares inert identity during render, constructs/registers/subscribes browsers in committed layout effects, and binds readers to unique tokens. Replacement and cleanup compare the current token/entry; obsolete readers and late results cannot dispatch or admit. Inactive and uncommitted bindings have no browser and acceptance-required reads reject. All source loaders resolve the committed binding before reads and before acceptance; only the registry detaches presentation. Detachment preserves bounded request checkpoints/anchors while releasing rows; provider/authority retirement clears protected browsing state. Hosts and Identities retain independent owners. UI restart uses the current committed reader without a direct-refresh fallback. Nullable provider branches and Timeline's provider-absent selection fallback are removed.
+
+Isolated query/focus/controller fixtures explicitly compose the provider; the Timeline runtime fixture supplies it at its production-equivalent composition boundary. Bulk selection fixtures admit real query results before selection. New controlled lifecycle cases cover missing composition, inactivity, precommit dispatch, Strict Mode, abandoned rendering, replacement, stale-reader cleanup, detach/return and session retirement. The browser diagnostic migration and subject-only mutation subscription correction described above complete the S-20 consumer accounting across both `src` and `e2e`.
+
+S-22 path accounting (overlaps with S-20 are intentional):
+
+- `apps/web/e2e/timeline-autosave-feedback.spec.ts`
+- `apps/web/src/testing/README.md`
+- `apps/web/src/testing/TimelineWorkbookRuntimeFixture.tsx`
+- `apps/web/src/testing/workbookQueryTestSupport.ts`
+- `apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx`
+- `apps/web/src/workbook/components/EntityWorkbookSurface.tsx`
+- `apps/web/src/workbook/components/GenericWorkbookSurface.tsx`
+- `apps/web/src/workbook/components/WorkbookActiveSurfaceFrame.test.tsx`
+- `apps/web/src/workbook/components/WorkbookSameFieldConflictResolver.tsx`
+- `apps/web/src/workbook/features/coordination/decisionSupersessionReconciliation.test.tsx`
+- `apps/web/src/workbook/features/indicators/indicatorLifecycleReconciliation.test.tsx`
+- `apps/web/src/workbook/features/indicators/observationReconciliation.test.tsx`
+- `apps/web/src/workbook/hooks/README.md`
+- `apps/web/src/workbook/hooks/useGenericSurfaceMutationController.ts`
+- `apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx`
+- `apps/web/src/workbook/hooks/useWorkbookQueryController.ts`
+- `apps/web/src/workbook/hooks/useWorkbookSemanticGridFocus.test.tsx`
+- `apps/web/src/workbook/hooks/useWorkbookSemanticGridFocus.ts`
+- `apps/web/src/workbook/hooks/useWorkbookSurfaceQueries.ts`
+- `apps/web/src/workbook/query/README.md`
+- `apps/web/src/workbook/query/WorkbookQueryBrowser.ts`
+- `apps/web/src/workbook/query/WorkbookQueryBrowsingContext.tsx`
+- `apps/web/src/workbook/query/WorkbookQueryBrowsingControls.test.tsx`
+- `apps/web/src/workbook/query/WorkbookQueryBrowsingControls.tsx`
+- `apps/web/src/workbook/query/ordinaryCreateQuery.test.tsx`
+- `apps/web/src/workbook/query/useAssessmentSurfaceQuery.test.tsx`
+- `apps/web/src/workbook/query/useAssessmentSurfaceQuery.ts`
+- `apps/web/src/workbook/query/useEntitySurfaceQuery.test.tsx`
+- `apps/web/src/workbook/query/useGenericSurfaceQuery.test.tsx`
+- `apps/web/src/workbook/query/useGenericSurfaceQuery.ts`
+- `apps/web/src/workbook/timeline/bulk/useTimelineBulkTagController.ts`
+- `apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineFindSource.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineRowsLoader.ts`
+- `apps/web/src/workbook/timeline/presentation/useTimelineWorkbookPresentation.tsx`
+- `apps/web/src/workbook/timeline/timelineBulkTagInteraction.test.tsx`
+- `apps/web/src/workbook/workbookSaveStatus.test.tsx`
+- `docs/handoffs/web-apps-cleanup-tracker.md`
+- `tools/test_families/web.workbook.json`
+
+Validation PASS (all roots beneath `.cartulary/test-results/`):
+
+| Selection | Current evidence |
+| --- | --- |
+| All 22 query continuation scenarios, including authority, session, History, live recovery, Hosts/Identities and keyboard/focus | 11/11 graph units, `20260923T032236Z-p53682`. |
+| Full Workbook verification owner | 297/297 units, `20260923T032612Z-p78385`; includes History continuity, query/recovery, composition and source ownership. |
+| Entity and Assessment query owners | 2/2 each, `20260923T031928Z-p42726` and `20260923T031928Z-p42699`. |
+| Final committed-lifetime/port replacement regression row | 2/2, `20260923T033040Z-p46023`. |
+| Timeline fixture migration | Six corrected rows pass in `20260923T032808Z-p17535`; its remaining bulk fixture passes 2/2 at `20260923T033149Z-p52749`. |
+| Real subject-specific settlement/render regression | 2/2, `20260923T034110Z-p37885`. |
+| Migrated production autosave/status browser characterization | 11/11, `20260923T034930Z-p15694`; exact two-to-one-to-zero accounting, real receipts and preserved raw editor/focus/selection across 1/100/200/300 rows and Inspector closed/open. |
+| Type checking and lint | 2/2 each, `20260923T034931Z-p15971` and `20260923T034931Z-p15981`. |
+| Imports, reachability and architecture | 2/2 `20260923T033406Z-p58737`; 2/2 `20260923T033406Z-p58745`; 12/12 `20260923T033831Z-p98414`. |
+| Formatting | 2/2, `20260923T034911Z-p11167`; no unrelated authored formatting changes. |
+
+Preserved S-22 failures and their relationship to this change:
+
+| Target / root suffix | Cause and disposition |
+| --- | --- |
+| `test-slice`, `20260923T031544Z-p34205` | Deterministic abandoned-render defect before the commit-owned registry; fixed and regression passes. |
+| `frontend-typecheck`, `20260923T031753Z-p35639`; `test-slice`, `20260923T031807Z-p36059` | Intermediate duplicate binding rename/transform errors; corrected. |
+| `format`, `20260923T031859Z-p36970`, `20260923T032146Z-p46881`; `lint-biome`, `20260923T032155Z-p51795` | New fixture Promise truthiness and stale effect dependency; corrected without suppressions. |
+| `format`, `frontend-typecheck`, `test-slice` preflight attempts | Duplicate catalog titles from an over-broad extraction pattern rejected execution before a run manifest; authored selectors corrected, no product pass claimed. Temporary diagnostic directories were `20260923T032112Z-p45898`, `20260923T032123Z-p46353`, `20260923T032123Z-p46411`. |
+| `frontend-typecheck`, `20260923T032155Z-p51713` | Throw-only Suspense fixture needed an explicit `never` return type; corrected. |
+| `test-slice OWNER=web.workbook`, `20260923T032234Z-p53071` | Missing explicit providers in isolated fixtures; migrated and all 297 units pass. |
+| `test-slice OWNER=module.timeline`, `20260923T032235Z-p53291` | Missing fixture providers, obsolete diagnostic API, and the separate pre-execution measurement identifier limitation; functional failures corrected, measurement advisory retained. |
+| `test-slice`, `20260923T032808Z-p17535` | Bulk fixture lacked accepted query membership; migrated to actual query admission. |
+| `format`, `20260923T033001Z-p35359`; `lint-biome`, `20260923T033101Z-p47517` | Bulk fixture effect dependency incomplete; corrected to observe current source rows, matching the loader. |
+| `test-slice`, `20260923T033040Z-p46002`; `frontend-typecheck`, `20260923T033040Z-p46159` | New bulk fixture omitted its required abort signal; corrected and cleanup aborts the read. |
+| `test-slice`, `20260923T033406Z-p58675`, `20260923T033830Z-p98179`, `20260923T034110Z-p37905`, `20260923T034524Z-p77115` | Browser fixture migration/characterization stages detailed above; final real-owner lifecycle evidence passes. |
+
+Compatibility: internal composition/hook cutover only; no public route, schema, storage, bundle or layout migration. Boundaries remain three pages of 100, twenty checkpoints and two bounded recovery attempts. Rollback restores registry, hooks, callers, explicit fixtures and catalog selections together; include the S-20 diagnostic/subscription follow-up when reverting that interface cutover. No new file, generated output, dependency, golden or visual tolerance was introduced. The optional measurement harness advisory is outside the required product exits and remains explicit; S-23 must now run the complete required gates and final handoff.
+
+### Iteration 3 execution — S-23 start
+
+S-23 IN_PROGRESS after all saved S-18–S-22 completed exits. Reconcile FND-27–31, C-28–31, RB-013–017, exact changed paths, migrated interfaces and A001–A027 against current evidence. Run `agent-finalize` before the full `check` and final browser gates. No qualifying successful retained full warm check root is selected; RESULTS_DIR is unset, so retained-run maintenance is skipped. Run catalog, harness, generation, artifact-policy and JSON-shape gates, followed by final documentation/whitespace checks after saving the completed handoff. Deployment and release certification remain excluded.
+
+S-23 initial finalization FAILED 0/1 at `.cartulary/test-results/20260923T035245Z-p49680` (`unit-artifacts/finalize-summary.json`); the isolated `json-shape-check` FAILED 2/3 at `20260923T035309Z-p50206`. Both report stale generated topology inputs for the two authored test-family changes. This is related projection drift, assigned to S-23. Run public `make generate` from the authored inputs, then repeat finalization before broad verification. No generated file will be hand-edited. RESULTS_DIR remains unset.
+
+`make generate` PASS at `.cartulary/test-results/20260923T035343Z-p50882` regenerated exactly `tools/execution_topology_render_index.json`: its combined input digest and the hashes of the two authored test-family files changed. No generated contract, schedule, golden, dependency or product format changed. Repeated `agent-finalize` PASS 1/1 at `.cartulary/test-results/20260923T035447Z-p54126`; retained-run maintenance is explicitly skipped because RESULTS_DIR is unset. This successful finalization precedes broad final verification.
+
+S-23 accounting gates PASS: `test-catalog-check` at `.cartulary/test-results/20260923T035548Z-p58362/test-catalog-check/tool-run-summary.json`; `harness-contract` 2/2 `20260923T035548Z-p58296`; `generate-drift` 4/4 `20260923T035548Z-p58206`; `generated-artifact-policy-check` 3/3 `20260923T035548Z-p58209`; `json-shape-check` 3/3 `20260923T035548Z-p58212` (all beneath `.cartulary/test-results/`). Full `check` is now running after successful finalization. Final browser gates, complete acceptance assessment and handoff closure remain outstanding; no S-23 completion is claimed yet.
+
+S-23 broad-check discovery: `check` at `.cartulary/test-results/20260923T035657Z-p66070` found `web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472` missing the now-required provider in its isolated hook fixture. This is a related S-22 fixture migration omission outside the previously selected owners. `apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.test.tsx` now uses the existing explicit query-provider render helper, preserving both live-admission/access/teardown and malformed-patch assertions. Changed-path accounting becomes 88. Repeat the focused row, finalization and full check; this first run is not passing evidence.
+
+#### S-23 exact change accounting
+
+Current implementation accounting: 88 modified tracked paths (53 implementation/support, 26 test/spec files, six narrative Markdown files, two authored verification catalogs, one generated topology index); zero added/deleted paths. The original staged tracker is preserved; all execution changes remain unstaged. No dependency, lockfile, golden, route, storage schema, layout version or bundle format changed. The generated index was produced by `make generate` from the two authored catalog changes.
+
+- `apps/web/e2e/timeline-autosave-feedback.spec.ts`
+- `apps/web/src/testing/README.md`
+- `apps/web/src/testing/TimelineWorkbookRuntimeFixture.tsx`
+- `apps/web/src/testing/workbookQueryTestSupport.ts`
+- `apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx`
+- `apps/web/src/workbook/components/EntityWorkbookSurface.tsx`
+- `apps/web/src/workbook/components/GenericWorkbookSurface.tsx`
+- `apps/web/src/workbook/components/WorkbookActiveSurfaceFrame.test.tsx`
+- `apps/web/src/workbook/components/WorkbookSameFieldConflictResolver.tsx`
+- `apps/web/src/workbook/features/assessments/WorkbookAssessmentAuthoringOwner.ts`
+- `apps/web/src/workbook/features/assessments/useAssessmentCreationController.test.tsx`
+- `apps/web/src/workbook/features/coordination/WorkbookContextualTaskDecisionCreateOwner.ts`
+- `apps/web/src/workbook/features/coordination/WorkbookCoordinationCreateOwner.ts`
+- `apps/web/src/workbook/features/coordination/WorkbookDecisionSupersessionOwner.ts`
+- `apps/web/src/workbook/features/coordination/decisionSupersessionReconciliation.test.tsx`
+- `apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.test.tsx`
+- `apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.ts`
+- `apps/web/src/workbook/features/entities/WorkbookEntityMergeOwner.ts`
+- `apps/web/src/workbook/features/evidence/WorkbookEvidenceAttachmentOwner.ts`
+- `apps/web/src/workbook/features/evidence/WorkbookTimelineFileOwner.ts`
+- `apps/web/src/workbook/features/evidence/WorkbookTimelineRelatedEvidenceOwner.ts`
+- `apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.test.tsx`
+- `apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.tsx`
+- `apps/web/src/workbook/features/generic/useGenericWorkbookInspectorComposition.tsx`
+- `apps/web/src/workbook/features/indicators/WorkbookIndicatorCreateOwner.ts`
+- `apps/web/src/workbook/features/indicators/WorkbookIndicatorLifecycleOwner.test.ts`
+- `apps/web/src/workbook/features/indicators/WorkbookIndicatorLifecycleOwner.ts`
+- `apps/web/src/workbook/features/indicators/WorkbookObservationOwner.ts`
+- `apps/web/src/workbook/features/indicators/indicatorLifecycleReconciliation.test.tsx`
+- `apps/web/src/workbook/features/indicators/observationReconciliation.test.tsx`
+- `apps/web/src/workbook/features/notes/WorkbookNoteCreateOwner.ts`
+- `apps/web/src/workbook/features/notes/noteCreateRecovery.test.tsx`
+- `apps/web/src/workbook/features/ordinary/WorkbookOrdinaryCreateOwner.ts`
+- `apps/web/src/workbook/features/parties/WorkbookPartyLinkOperationOwner.ts`
+- `apps/web/src/workbook/history/WorkbookHistoryRecovery.test.tsx`
+- `apps/web/src/workbook/history/WorkbookRecordHistoryOwner.ts`
+- `apps/web/src/workbook/hooks/README.md`
+- `apps/web/src/workbook/hooks/ordinaryInspectorRecovery.test.tsx`
+- `apps/web/src/workbook/hooks/useGenericSurfaceMutationController.ts`
+- `apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx`
+- `apps/web/src/workbook/hooks/useWorkbookQueryController.ts`
+- `apps/web/src/workbook/hooks/useWorkbookSemanticGridFocus.test.tsx`
+- `apps/web/src/workbook/hooks/useWorkbookSemanticGridFocus.ts`
+- `apps/web/src/workbook/hooks/useWorkbookSurfaceQueries.ts`
+- `apps/web/src/workbook/ports/WorkbookTimelineActionRuntimePort.ts`
+- `apps/web/src/workbook/query/README.md`
+- `apps/web/src/workbook/query/WorkbookQueryBrowser.ts`
+- `apps/web/src/workbook/query/WorkbookQueryBrowsingContext.tsx`
+- `apps/web/src/workbook/query/WorkbookQueryBrowsingControls.test.tsx`
+- `apps/web/src/workbook/query/WorkbookQueryBrowsingControls.tsx`
+- `apps/web/src/workbook/query/ordinaryCreateQuery.test.tsx`
+- `apps/web/src/workbook/query/useAssessmentSurfaceQuery.test.tsx`
+- `apps/web/src/workbook/query/useAssessmentSurfaceQuery.ts`
+- `apps/web/src/workbook/query/useEntitySurfaceQuery.test.tsx`
+- `apps/web/src/workbook/query/useGenericSurfaceQuery.test.tsx`
+- `apps/web/src/workbook/query/useGenericSurfaceQuery.ts`
+- `apps/web/src/workbook/runtime/README.md`
+- `apps/web/src/workbook/runtime/WorkbookBatchOperationOwner.ts`
+- `apps/web/src/workbook/runtime/WorkbookExplicitPatchOwner.ts`
+- `apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts`
+- `apps/web/src/workbook/runtime/WorkbookMutationRuntime.ts`
+- `apps/web/src/workbook/timeline/actions/WorkbookTimelineCaptureActionOwner.test.ts`
+- `apps/web/src/workbook/timeline/actions/WorkbookTimelineCaptureActionOwner.ts`
+- `apps/web/src/workbook/timeline/actions/WorkbookTimelineMentionOperationOwner.ts`
+- `apps/web/src/workbook/timeline/adapters/createTimelineScalarGridCommitAdapter.ts`
+- `apps/web/src/workbook/timeline/bulk/useTimelineBulkTagController.ts`
+- `apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.test.tsx`
+- `apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.ts`
+- `apps/web/src/workbook/timeline/composition/useTimelineInspectorWorkflowComposition.ts`
+- `apps/web/src/workbook/timeline/composition/useTimelineWorkbookComposition.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineFindSource.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineHistoryActions.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineRowsLoader.ts`
+- `apps/web/src/workbook/timeline/hooks/useTimelineSaveStatePresentation.ts`
+- `apps/web/src/workbook/timeline/models/README.md`
+- `apps/web/src/workbook/timeline/models/timelineControllerPorts.ts`
+- `apps/web/src/workbook/timeline/models/timelineMutationDriverPlans.ts`
+- `apps/web/src/workbook/timeline/mutations/createTimelineMutationDriver.ts`
+- `apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts`
+- `apps/web/src/workbook/timeline/mutations/useTimelineRowMutationCoordinator.ts`
+- `apps/web/src/workbook/timeline/presentation/useTimelineWorkbookPresentation.tsx`
+- `apps/web/src/workbook/timeline/timelineBulkTagInteraction.test.tsx`
+- `apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx`
+- `apps/web/src/workbook/workbookSaveStatus.test.tsx`
+- `docs/handoffs/web-apps-cleanup-tracker.md`
+- `tools/execution_topology_render_index.json`
+- `tools/test_families/module.tasksdecisions.json`
+- `tools/test_families/web.workbook.json`
+
+Remaining static advisories: bounded web and package reachability each report zero findings. The full static report retains 214 out-of-scope findings (27 unused files, 168 unused exports across reports, ten unresolved imports and nine duplicate exports); its health subprocess exits 1 and is explicitly advisory under the existing profile. Evidence: `.cartulary/test-results/20260923T033406Z-p58745/frontend-fallow-static/fallow-static-summary.json`. These counts are analyzer findings, not confirmed removable APIs; no suppressions or artificial consumers were introduced.
+
+The isolated collaboration fixture retest PASS 2/2 at `.cartulary/test-results/20260923T040151Z-p88039`. Finalization is repeated after this fixture-only correction before the repeated final gates.
+
+#### S-23 compatibility, rollback and operating boundaries
+
+No normative amendment was justified: Core 03 already requires authoritative settlement status, retained exact replay, bounded browsing and authority fencing. `design.md` remains presentation direction and `domain.md` vocabulary/navigation. We rejected compatibility aliases for dead counters/ports, dummy Evidence dependencies, a second generic mutation queue, absent-capture defaults, provider-local fallback browsers and render-time registration. Each would preserve misleading ownership or make later source/surface expansion harder to reason about.
+
+There is no public API or data migration. Existing request IDs, accepted-baseline record identity/version, exact uncertain replay bytes, source ownership, server authorization, bounded query state, layout v2 and bundle format 4 remain current. Observable changes intentionally correct duplicate in-flight counts and `Syncing` after authoritative acknowledgement. Required provider composition is an internal invariant; isolated callers now compose it explicitly. Missing providers fail immediately instead of silently acquiring independent browsing authority.
+
+Rollback is by complete slice: restore S-19 getters with their assertions/port; S-20 signatures, callers, real-owner tests and diagnostic together; S-21 owner types, adapters and driver capture together; S-22 registry/loaders/presentation and all provider fixtures together, including the S-23 collaboration fixture correction. Revert dependent slices together wherever a removed interface crosses them. Restore authored catalog inputs before running `make generate` for the topology index. Retain failed and passing run artifacts for diagnosis; rollback does not rewrite historical evidence or convert stored data.
+
+Environment prerequisites used here: repository-pinned Go and Node/pnpm, existing installed browser dependencies and repository-managed local test services. This shell needs `PATH="$PWD/tmp/node-runtime/bin:$PATH"` for public Make invocations; no dependency upgrade or toolchain-pin change was made. RESULTS_DIR was unset for finalization, so retained-run maintenance was skipped. Deployment, release certification, Core 05 performance publication, legacy-state conversion, durable browser drafts, cross-tab coordination and broad static-advisory cleanup remain outside this effort. The separate optional measurement limitation requires a bounded capture-identity fix in the harness before those four measurement rows can produce evidence; it is not a product performance result.
+
+First full `check` completed FAILED 955/956 at `.cartulary/test-results/20260923T035657Z-p66070`; the sole failure is the provider fixture described above, now passing its focused retest. No other failed unit was excluded. Repeated `agent-finalize` PASS 1/1 at `.cartulary/test-results/20260923T040227Z-p27621`, after the fixture correction and before the repeated full `check` and four required final browser targets. RESULTS_DIR remains unset; retained-run maintenance is skipped.
+
+#### S-23 finding and contract reconciliation
+
+| Finding / contract | Disposition and accountable evidence |
+| --- | --- |
+| FND-27 / C-29 / RB-013 | DONE. Forty individually listed getters across nineteen owners and two unused Timeline runtime fields removed. `unsettledMutationCount`, snapshots and consumed lifecycle callbacks retained. Tests now observe admission, entries, receipts, dispatch/recovery and duplicate activation. S-19 owner/type/boundary/reachability evidence and final whole-app searches cover both production and test consumers. |
+| FND-28 / C-29 / RB-014 | DONE. Evidence's unused reporting input, Timeline reporting forwarders and ignored generic identity/version fields removed atomically with callers. Accepted baseline feeds Explicit Patch identity/version; committed-version coordination is retained. History review assertions observe the exercised owner and transport. No dummy implementation or alias remains. |
+| FND-29 / C-28 / RB-014 | DONE. Explicit Patch is the single owner of generic/Task write accounting; subject-scoped retained state governs availability. Ordered Timeline History reads do not report mutations. Genuine conflict submission stays private and ends at settlement before reads. Controlled unit and production browser evidence distinguishes admission, authoritative receipt, uncertainty/rejection, delayed/failed recovery, detachment and concurrent work; acknowledged reads never resend the accepted write. S-22's browser fixture and unrelated-subject render correction are included. |
+| FND-30 / C-30 / RB-015 | DONE. One Timeline scalar signature; caller intent and driver capture are distinct types. All retained constructors supply required revisions, including a valid empty map; optional predecessor and generic conflict metadata remain optional. Existing scalar/collection, coalescing, conflict, exact replay and newer-draft tests plus the new empty-capture regression pass. |
+| FND-31 / C-31 / RB-016 | DONE. Required provider and committed unique binding tokens replace render-time registration and alternate browsers. Current-binding checks own reads, late admission and cleanup. Inactivity, detachment, session/authority retirement and independent Entity surfaces are explicit. Deterministic lifecycle tests, all 22 continuation scenarios, History continuity and the final collaboration fixture retest pass. |
+| S-23 / T-033 / RB-017 | DONE. All required product gates pass, acceptance is reconciled and the complete handoff is saved below. Optional static/measurement advisories remain explicitly separate from required passing integration evidence. |
+
+C-28 maps to Core 03 REQ-03-089; C-29 to REQ-03-282 and the existing presentation/retained-owner boundary; C-30 to REQ-03-099/100; C-31 to §14.9 and REQ-03-099/100/299. The reviewed owners already express the required outcomes. No adopted-owner contradiction or remaining normative ambiguity blocks these fixes.
+
+Final full `check` PASS 956/956 at `.cartulary/test-results/20260923T040638Z-p38079`, after the provider fixture correction and repeated successful finalization. The four required browser targets now run in sequence against the same completed implementation. Manual visual review examined the unchanged `timeline-mutation-pending-replay-status-linux.png`, `workbook-query-saved-view-query-controls-linux.png` and `workbook-inspector-history-linux.png` under `apps/web/e2e/workbook.visual.spec.ts-snapshots`: status and query navigation remain distinct/reachable, and the History panel preserves its owned scrolling and controls. Automated current-render comparison remains mandatory.
+
+Final `browser-e2e-webserver-backed` PASS 138/138 at `.cartulary/test-results/20260923T040638Z-p38057`, including the migrated real-owner autosave diagnostic. Stateful, accessibility and visual targets follow in sequence; S-23 remains open until those gates and documentation closure pass.
+
+Final `browser-e2e-stateful` PASS 42/42 at `.cartulary/test-results/20260923T040638Z-p38059`. This includes the current query-continuation and save-status groups, plus session/authority, retained authoring and recovery scenarios. Final accessibility is in progress; visual comparison remains next.
+
+Final `browser-e2e-a11y` PASS 20/20 at `.cartulary/test-results/20260923T040638Z-p38105`, zero failed/skipped/cancelled units. The final visual gate now compares the production fixtures against unchanged goldens, masks and tolerances. No accessibility assertion or visual policy was relaxed.
+
+#### S-23 acceptance assessment
+
+This is the iteration 3 assessment, independent of prior iteration tables. Evidence refers to the saved S-18–S-22 exits and S-23 final gate ledger. Density and responsive policy have explicit unchanged-owner scope rationales. All 25 applicable rows are PASS; A006/A008 are N/A for the explicit unchanged-owner boundaries below. No applicable row remains pending or blocked.
+
+| Acceptance | Status | Current evidence and applicability |
+| --- | --- | --- |
+| A001 | PASS | C-28–31 map behavior to Core 03 REQ-03-089/282/099/100/299 and §14.9. Source owners, verification routing, design direction and vocabulary remain distinct. No normative text was changed to accommodate a defect. |
+| A002 | PASS | Each finding records remediation, rationale, future benefit, unresolved risk, retirement and caller migration. State ownership is simplified at retained mutation and committed query boundaries; no generic workflow framework, compatibility shim or similarity-only owner merger was introduced. |
+| A003 | PASS | S-18 refreshed the main/c1dccf7ae baseline, dirty/index state, all 1,747 tracked web paths and 1,188 source entries. Source/import/generated ownership and local guides were reviewed. Final exact 88-path accounting is above; Grid Adapter remains the vendor boundary. |
+| A004 | PASS | Diff review finds no new visual literal, token, theme or density registry. No stylesheet changed. |
+| A005 | PASS | Current dark_graphite presentation and fixture policy remain unchanged; functional and accessibility targets pass. The final visual comparison is separately assessed under A022. |
+| A006 | N/A | This iteration changes no density selection, row/header size, spacing, typography, gutter or editor geometry owner. Existing shared density behavior remains in place; no new density/performance certification is claimed. |
+| A007 | PASS | Retained source creation owners and writable/permission rules remain intact. Note, Assessment, Task, Evidence and Timeline owner tests plus final functional/stateful creation scenarios pass. Valid empty Timeline capture and recordless creation are explicitly covered. |
+| A008 | N/A | Responsive thresholds, CSS-length accessors, viewport fallback, Inspector clamp geometry and ARIA geometry policy are unchanged. Their owners require no new responsive implementation in this state-ownership remediation. |
+| A009 | PASS | Final functional/accessibility gates cover shell navigation and contained grid/Inspector overflow. Manual query/status/History artifact review confirms distinct reachable controls; layout sources are unchanged. |
+| A010 | PASS | Explicit Patch owns writes while presentation retains validation/focus feedback. Subject-specific blocking, review invalidation, duplicate activation, detachment and late outcomes are covered by retained-owner/History tests and final browser targets. No new dispatch fallback or feature route was added. |
+| A011 | PASS | All 22 continuation scenarios and affected History continuity pass. Controlled abandoned-render/replacement/stale-token tests preserve committed state; real-write browser characterization preserves raw editor DOM, draft, focus and exact selection across 1/100/200/300 rows and Inspector states. |
+| A012 | PASS | Request identity generation and transport contracts are unchanged. Timeline scalar/collection/coalescing/predecessor and Explicit Patch tests retain exact captured replay bytes; same-frame duplicate activation and late-receipt/stateful scenarios pass. |
+| A013 | PASS | Deterministic production-path regression proves one admitted write contributes once and authoritative acknowledgement is Saved during pending/failed refresh. Uncertain/rejected outcomes, concurrent records and conflict precedence remain covered. Acknowledged recovery performs reads without resending accepted writes; retained retry/discard rules are unchanged. |
+| A014 | PASS | Timeline driver/editor/Find and final functional/stateful editing scenarios preserve scalar and collection commits, raw draft retention, validation, cancellation, keyboard/paste and scoped recovery. Required capture fencing preserves authoring added after dispatch. |
+| A015 | PASS | Conflict projection and resolution scenarios pass in owner and final functional/stateful verification. Private conflict-submission accounting ends at settlement; saved and authored values and cell-level recovery remain separate. |
+| A016 | PASS | Required provider and committed binding tests exercise inactive/uncommitted non-acceptance, loading/refresh/failure and late-result rejection. Query/producer/Grid Adapter matrices in full check pass; readable data never grants mutation authority. |
+| A017 | PASS | Query authority/session and retained-mutation tests plus final stateful target cover access uncertainty/loss, same-account recovery, account replacement and late responses. Detachment releases passive rows but keeps eligible bounded navigation; authority retirement clears protected state. Independent Hosts/Identities ownership is preserved. |
+| A018 | PASS | Evidence owner/file-draft tests and final functional/stateful/accessibility scenarios pass. Removing an unused input does not alter source lifecycle/overlay/preview distinctions or non-color cues. |
+| A019 | PASS | Final accessibility target passes 20/20, with functional/stateful keyboard, focus and recovery coverage. Existing adopted profile, names, live-region priority and assertions are retained; no additional conformance claim is made. |
+| A020 | PASS | Component/state, long-content, overflow and recovery scenarios pass in the full check and final functional/accessibility gates. No component variant, theme, density or zoom/text-spacing implementation changed; visual policy is independently gated by A022. |
+| A021 | PASS | Functional virtualization and semantic continuity pass across current query windows, source refresh, authority changes and 1/100/200/300-row production autosave characterization. No virtualizer, geometry or timing algorithm changed; diagnostic render counts are not a performance budget. Four optional measurement rows remain unavailable because of the separately recorded pre-execution harness identity limit, so no measurement publication or timing certification is claimed. |
+| A022 | PASS | Final production visual target passes 12/12. Registry, golden bytes, masks, crop/viewport contracts and tolerances are unchanged; three relevant existing artifacts were manually reviewed above. Artifacts remain implementation support, without a claim-publication assertion. |
+| A023 | PASS | Current semantic catalog/scenario IDs remain stable. New regressions use record/view/field identity, committed binding ownership and real transport/retained state. Full check includes selector/UI and ownership policies; no artificial consumer or display-index shortcut was added. |
+| A024 | PASS | Diff/dependency review and architecture/full-check evidence preserve the prohibition on runtime, test, generator, conformance or release dependence on Markdown. Specifications, source READMEs and tracker remain human guidance. |
+| A025 | PASS | Two authored catalog changes generated exactly one topology index through public `make generate`. Catalog, harness, drift, generated-policy and JSON-shape gates pass; no generated root or lockfile was hand-edited. |
+| A026 | PASS | No public route, schema, payload, authorization rule, storage format, layout-v2 or bundle-4 change. Dead internal interfaces retire with consumers; retained capabilities serve adopted owners. Intentional status corrections, no-migration result, operating prerequisites and coordinated rollback are explicit above. |
+| A027 | PASS | Sequential prerequisite/exit checkpoints, exact paths, behavior, interfaces, failures, advisories, compatibility/rollback and next action are recorded. Required product gates and Markdown pass; staged/unstaged whitespace and exact accounting pass. Final closure bookkeeping is rechecked before the task response. |
+
+#### S-23 final required gate ledger
+
+All roots below are beneath `.cartulary/test-results/`. Graph targets have `run-summary.json`; tool targets use the named summary. These are fresh iteration 3 results; prior iteration successes are not used as substitutes. All final aggregate product gates have zero failed, skipped or cancelled units.
+
+| Public command / evidence | Result | Current run root / summary |
+| --- | --- | --- |
+| `make frontend-fallow-static` | PASS 2/2; bounded web/package findings both zero | `20260923T033406Z-p58745/run-summary.json`; repeated inside final `check`, with the same 214 out-of-scope advisories in its `frontend-fallow-static/fallow-static-summary.json`. |
+| `make generate` from authored catalogs | PASS; one generated index changed | `20260923T035343Z-p50882/generate/tool-run-summary.json` |
+| `make test-catalog-check` | PASS, exit 0 | `20260923T035548Z-p58362/test-catalog-check/tool-run-summary.json` |
+| `make harness-contract` | PASS 2/2 | `20260923T035548Z-p58296/run-summary.json` |
+| `make generate-drift` | PASS 4/4 | `20260923T035548Z-p58206/run-summary.json` |
+| `make generated-artifact-policy-check` | PASS 3/3 | `20260923T035548Z-p58209/run-summary.json` |
+| `make json-shape-check` | PASS 3/3 | `20260923T035548Z-p58212/run-summary.json` |
+| `make agent-finalize` after the last fixture correction and before final broad checks | PASS 1/1; RESULTS_DIR unset, retained-run maintenance skipped | `20260923T040227Z-p27621/run-summary.json` |
+| `make check` | PASS 956/956 | `20260923T040638Z-p38079/run-summary.json` |
+| `make browser-e2e-webserver-backed` | PASS 138/138 | `20260923T040638Z-p38057/run-summary.json` |
+| `make browser-e2e-stateful` | PASS 42/42 | `20260923T040638Z-p38059/run-summary.json` |
+| `make browser-e2e-a11y` | PASS 20/20 | `20260923T040638Z-p38105/run-summary.json` |
+| `make browser-e2e-visual` | PASS 12/12; unchanged goldens/tolerances | `20260923T040638Z-p38063/run-summary.json` |
+| `make lint-markdown` for the handoff and acceptance assessment | PASS; final closure bookkeeping rechecked before task response | `20260923T044106Z-p2767/adhoc/lint-markdown/tool-run-summary.json` |
+| `git diff --check` and `git diff --cached --check` | PASS, exit 0; repeated after final closure | Staged and unstaged whitespace inspection. |
+| Exact final change accounting | PASS | 88 modified tracked paths; no added, deleted or untracked paths; original staged tracker preserved. |
+
+Earlier slice ledgers retain focused owner rows, type checking, import/architecture/reachability checks, `build-web`, all 22 continuation scenarios and controlled failure characterizations. The complete check additionally verifies the final collaboration fixture migration and final bounded reachability. No product source changed after that correction. The first finalization/shape failures and sole initial broad-check fixture failure remain recorded with their resolutions; no failed run was relabeled or deleted.
+
+#### S-23 completed exit and engineering handoff
+
+S-23 DONE; T-028–T-033 DONE. FND-27–31, C-28–31 and RB-013–017 are reconciled and closed. S-18–S-22 prerequisite and completed-exit records preceded their successors; S-23 recorded the discovered final collaboration fixture correction, its focused pass, repeated finalization and full aggregate pass. A001–A027: 25 PASS, two scope-rationalized N/A, zero applicable blockers. This tracker is the last changed artifact; final documentation/whitespace/accounting checks follow this closure before the task response.
+
+Final repository state: `main`, HEAD `c1dccf7ae9900035b372d225899d8afada4e3588`, 88 modified paths listed above, no additions/deletions/untracked files. The index still contains only the user's original staged tracker changes; execution changes remain unstaged. No commit, release or deployment was made. Source ownership, request/storage compatibility, layout v2, bundle format 4 and bounded browsing remain intact. The intentional observable correction is accurate write settlement independent of follow-up reads; required committed query ownership prevents abandoned render or obsolete cleanup from owning accepted state.
+
+Remaining advisories are the 214 unbounded static-analysis findings and the four optional measurement rows blocked before execution by the harness's capture-identity length limit. They are not product failures or performance evidence. Retained-run maintenance was skipped because RESULTS_DIR was unset. Release/conformance/performance certification, deployment, legacy conversion and broad advisory cleanup were neither selected nor claimed.
+
+Next engineering action: review and commit the validated implementation with its caller/test/catalog changes and this handoff. Separately address bounded, collision-resistant harness capture identities without relaxing the safety limit, then rerun the four recorded measurement rows before making any timing/publication claim. Apply the coordinated rollback boundaries above if a slice must be reverted; no data conversion is required.

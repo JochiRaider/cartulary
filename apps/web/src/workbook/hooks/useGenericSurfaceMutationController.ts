@@ -25,10 +25,8 @@ type GenericPatchMutationRequest = {
   readonly onFailure?: (failure: WorkbookOperationFailure) => void;
   readonly authoringRevision?: number;
   readonly presentationIdentity?: string;
-  readonly baseRowVersion: number;
   readonly changes: readonly WorkbookProtocolPatchRecordRequest["changes"][number][];
   readonly purpose: string;
-  readonly recordId: string;
   readonly viewSchemaId: string;
 };
 export type GenericSurfaceMutationController = {
@@ -38,8 +36,6 @@ export type GenericSurfaceMutationController = {
   readonly explicitPatches: WorkbookMutationRuntime["explicitPatches"];
   readonly inspectorDrafts: WorkbookMutationRuntime["inspectorDrafts"];
   readonly taskDrafts: WorkbookMutationRuntime["taskDrafts"];
-  readonly beginMutation: () => () => void;
-  readonly beginMutationReport: () => () => void;
   readonly clearMutationError: () => void;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly mutationPending: boolean;
@@ -61,9 +57,9 @@ export function useGenericSurfaceMutationController({
   readonly sheetRef: SheetRef;
   readonly selectedRecordId?: string;
 }): GenericSurfaceMutationController {
-  useSyncExternalStore(
+  const mutationPending = useSyncExternalStore(
     mutationRuntime.explicitPatches.subscribe,
-    mutationRuntime.explicitPatches.getSnapshot,
+    () => mutationRuntime.explicitPatches.blocksRecord(selectedRecordId),
   );
   const generation = useRef(0);
   useLayoutEffect(() => {
@@ -86,23 +82,6 @@ export function useGenericSurfaceMutationController({
   );
   const mutationError =
     errorState.subject === selectedRecordId ? errorState.error : null;
-  const [pendingCount, setPendingCount] = useState(0);
-  const beginMutationReport = useCallback(
-    () => mutationRuntime.beginExplicitMutation(),
-    [mutationRuntime],
-  );
-  const beginMutation = useCallback(() => {
-    const finish = beginMutationReport();
-    setPendingCount((count) => count + 1);
-    setMutationError(null);
-    let finished = false;
-    return () => {
-      if (finished) return;
-      finished = true;
-      finish();
-      setPendingCount((count) => count - 1);
-    };
-  }, [beginMutationReport, setMutationError]);
   const clearMutationError = useCallback(
     () => setMutationError(null),
     [setMutationError],
@@ -177,11 +156,9 @@ export function useGenericSurfaceMutationController({
     inspectorDrafts: mutationRuntime.inspectorDrafts,
     partyLinks: mutationRuntime.partyLinks,
     taskDrafts: mutationRuntime.taskDrafts,
-    beginMutation,
-    beginMutationReport,
     clearMutationError,
     mutationError,
-    mutationPending: pendingCount > 0,
+    mutationPending,
     rejectMutationFailure,
     setValidationError,
     submitPatchMutation,

@@ -39,7 +39,7 @@ export function useTimelineFindSource(input: {
       "subscribe" | "getReadAuthorization"
     >;
   };
-  browser: WorkbookQueryBrowser;
+  browser: WorkbookQueryBrowser | undefined;
   rows: readonly WorkbookRow[];
   registry: TimelineEditorDraftRegistry;
   accessLost: boolean;

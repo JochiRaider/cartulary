@@ -1,5 +1,8 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup, render, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "../testing/fetchMockTestSupport";
+import { taskAuthority } from "../testing/taskWorkbookTestSupport";
 import { emptyPresenceScope } from "./collaboration/workbookPresencePresentation";
 import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncements";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
@@ -19,20 +22,73 @@ import { selectWorkbookStatusSecondary } from "./utils/workbookStatusSecondary";
 
 afterEach(cleanup);
 
+const statusView = "cartulary.view.notes.v1";
+function statusRow(recordId: string, version = 1) {
+  return {
+    record_id: recordId,
+    row_version: version,
+    view_schema_id: statusView,
+    cells: Object.fromEntries(
+      requireViewContract(statusView).fields.map((field) => [
+        field.fieldKey,
+        { value: null },
+      ]),
+    ),
+  };
+}
 function runtimeFixture() {
-  return createWorkbookMutationRuntime(
-    { incidentId: "incident-1", clientInstanceId: "client-1" },
-    { create: () => "transaction-1" },
+  let next = 0;
+  const runtime = createWorkbookMutationRuntime(
+    { incidentId: taskAuthority.incidentId, clientInstanceId: "client-1" },
+    { create: () => `transaction-${++next}` },
     { execute: vi.fn() },
   );
+  runtime.setAuthority(taskAuthority);
+  runtime.explicitPatches.configure(
+    {
+      send: async (request) => ({
+        kind: "acknowledged",
+        receipt: {
+          changeSetId: request.clientTxnId,
+          viewSchemaId: statusView,
+          row: statusRow(request.recordId, 2),
+        },
+      }),
+    },
+    undefined,
+    async (_view, id) => statusRow(id),
+  );
+  runtime.registerSurface(statusView, async () => {});
+  return runtime;
+}
+function admitPatch(
+  runtime: ReturnType<typeof runtimeFixture>,
+  id = "record-1",
+) {
+  const preparation = deferred<void>();
+  const submitted = runtime.explicitPatches.submit(
+    {
+      baseline: statusRow(id),
+      viewSchemaId: statusView,
+      changes: [{ field_key: "note.body", value: "Authored" }],
+      purpose: "generic-patch",
+      sheetRef: { kind: "view_schema", id: statusView },
+      surfaceLabel: "Notes",
+    },
+    [{ prepare: () => preparation.promise }],
+  );
+  return async () => {
+    preparation.resolve();
+    await submitted;
+  };
 }
 
 describe("Workbook save status", () => {
-  it("updates refresh recovery targets without changing the primary label", () => {
+  it("updates refresh recovery targets without changing the primary label", async () => {
     const runtime = runtimeFixture();
     const first = { kind: "saved_view" as const, id: "first" };
     const second = { kind: "saved_view" as const, id: "second" };
-    const finishSave = runtime.beginExplicitMutation();
+    const finishSave = admitPatch(runtime);
     const finishFirst = runtime.beginRefreshStatus(first);
     const before = runtime.getSnapshot();
     runtime.notifyPendingChanged();
@@ -52,10 +108,10 @@ describe("Workbook save status", () => {
       "refresh_paused",
     );
     finishSecond();
-    finishSave();
+    await finishSave();
   });
 
-  it("retains status identity without suppressing execution publications or same-label counts", () => {
+  it("retains status identity without suppressing execution publications or same-label counts", async () => {
     const runtime = runtimeFixture();
     const published = vi.fn();
     const unsubscribe = runtime.subscribe(published);
@@ -73,19 +129,19 @@ describe("Workbook save status", () => {
     expect(status.result.current).toBe(initialPresentation);
     expect(rendered).toHaveBeenCalledTimes(initialRenders);
     status.unmount();
-    const first = runtime.beginExplicitMutation();
+    const first = admitPatch(runtime);
     const one = runtime.getSnapshot();
-    const second = runtime.beginExplicitMutation();
+    const second = admitPatch(runtime, "record-2");
     const two = runtime.getSnapshot();
     expect(two).not.toBe(one);
     expect(two.primaryLabel).toBe(one.primaryLabel);
     expect(two.explicitInFlightCount).toBe(2);
     runtime.notifyPendingChanged();
     expect(runtime.getSnapshot()).toBe(two);
-    second();
+    await second();
     expect(runtime.getSnapshot().explicitInFlightCount).toBe(1);
     expect(two.explicitInFlightCount).toBe(2);
-    first();
+    await first();
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
     const beforeAuthority = runtime.getSnapshot();
     runtime.applyAuthorizationRecoveryState("resumed");
@@ -94,7 +150,7 @@ describe("Workbook save status", () => {
     unsubscribe();
   });
 
-  it("observes replacement conflicts and exact recovery scope while isolating unrelated grid conflicts", () => {
+  it("observes replacement conflicts and exact recovery scope while isolating unrelated grid conflicts", async () => {
     const runtime = runtimeFixture();
     const { result } = renderHook(() =>
       useWorkbookMutationConflicts(runtime.statusSource, "timeline"),
@@ -155,9 +211,9 @@ describe("Workbook save status", () => {
       }).affectedConflictCount,
     ).toBe(1);
     const replaced = result.current;
-    act(() => {
-      const finish = runtime.beginExplicitMutation();
-      finish();
+    await act(async () => {
+      const finish = admitPatch(runtime);
+      await finish();
     });
     expect(result.current).toBe(replaced);
   });
@@ -187,56 +243,103 @@ describe("Workbook save status", () => {
     expect(secondary?.message).not.toContain("/api/");
   });
 
-  it("keeps both overlapping generic operations pending", () => {
+  it("keeps both overlapping generic operations pending", async () => {
     const runtime = runtimeFixture();
-    const { result, unmount } = renderHook(() =>
-      useGenericSurfaceMutationController({
-        mutationRuntime: runtime,
-        surfaceLabel: "Notes",
-        sheetRef: { kind: "saved_view", id: "notes-one" },
-      }),
+    let renders = 0;
+    const { result, rerender, unmount } = renderHook(
+      (selectedRecordId) => {
+        renders++;
+        return useGenericSurfaceMutationController({
+          mutationRuntime: runtime,
+          surfaceLabel: "Notes",
+          sheetRef: { kind: "view_schema", id: statusView },
+          selectedRecordId,
+        });
+      },
+      { initialProps: "record-1" },
     );
-    let first = () => {};
-    let second = () => {};
+    let first!: () => Promise<void>;
+    let second!: () => Promise<void>;
     act(() => {
-      first = result.current.beginMutation();
-      second = result.current.beginMutation();
+      first = admitPatch(runtime);
+      second = admitPatch(runtime, "record-2");
     });
     expect(runtime.getSnapshot().explicitInFlightCount).toBe(2);
-    act(() => {
-      second();
-      second();
-    });
+    expect(result.current.mutationPending).toBe(true);
+    rerender("unrelated-record");
+    expect(result.current.mutationPending).toBe(false);
+    const beforeUnrelatedSettlement = renders;
+    await act(second);
+    expect(renders).toBe(beforeUnrelatedSettlement);
     expect(runtime.getSnapshot().explicitInFlightCount).toBe(1);
     unmount();
     expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
-    act(first);
+    await act(first);
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
   });
 
-  it("does not erase pending Timeline work on surface unmount", () => {
-    const runtime = runtimeFixture();
-    const pending = runtime.pendingQueue();
-    const refs = timelinePendingSavesRefsFor(runtime, pending);
-    const { result, unmount } = renderHook(() =>
+  it("does not erase pending Timeline work on surface unmount", async () => {
+    const response =
+      deferred<
+        Awaited<
+          ReturnType<
+            import("./ports/WorkbookPendingMutationPort").WorkbookPendingMutationPort["execute"]
+          >
+        >
+      >();
+    const execute = vi.fn(() => response.promise);
+    const runtime = createWorkbookMutationRuntime(
+      {
+        incidentId: taskAuthority.incidentId,
+        clientInstanceId: "timeline-status",
+      },
+      { create: () => "timeline-patch" },
+      { execute },
+    );
+    runtime.setAuthority(taskAuthority);
+    runtime.registerSurface("schema-1", async () => {});
+    const { unmount } = renderHook(() =>
       useTimelineSaveStatePresentation({
         sheetRef: { kind: "saved_view", id: "timeline-one" },
         mutationRuntime: runtime,
-        pendingSavesRefs: refs,
+        pendingSavesRefs: timelinePendingSavesRefsFor(
+          runtime,
+          runtime.pendingQueue(),
+        ),
       }),
     );
-    let finish = () => {};
     act(() => {
-      finish = result.current.commands.beginSave();
+      runtime.enqueuePatch({
+        baseRowVersion: 1,
+        changes: [{ field_key: "summary", value: "local" }],
+        fieldKey: "summary",
+        localValue: "local",
+        recordId: "record-1",
+        rowLabel: "Row",
+        surfaceLabel: "Timeline",
+        viewSchemaId: "schema-1",
+      });
     });
-    expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
     unmount();
     expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
-    act(() => {
-      finish();
-      finish();
+    response.resolve({
+      kind: "accepted",
+      value: {
+        changeSetId: "change-1",
+        viewSchemaId: "schema-1",
+        row: {
+          record_id: "record-1",
+          row_version: 2,
+          view_schema_id: "schema-1",
+          cells: {},
+        },
+      },
     });
-    expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
+    await vi.waitFor(() =>
+      expect(runtime.getSnapshot().primaryLabel).toBe("Saved"),
+    );
+    expect(execute).toHaveBeenCalledOnce();
   });
 
   it("leaves visible save labels outside independent live regions", () => {
@@ -252,7 +355,7 @@ describe("Workbook save status", () => {
       container.querySelector('[aria-live], [role="status"], [role="alert"]'),
     ).toBeNull();
   });
-  it("announces each transition once across renders and shell remounts", () => {
+  it("announces each transition once across renders and shell remounts", async () => {
     const runtime = runtimeFixture();
     const host = render(<WorkbookSaveAnnouncements runtime={runtime} />);
     const polite = () =>
@@ -261,9 +364,9 @@ describe("Workbook save status", () => {
       host.getByRole("alert", { name: "Workbook save conflicts" }).textContent;
     expect(polite()).toBe("");
     expect(assertive()).toBe("");
-    let finish = () => {};
+    let finish = async () => {};
     act(() => {
-      finish = runtime.beginExplicitMutation();
+      finish = admitPatch(runtime);
     });
     expect(polite()).toBe("Syncing changes");
     act(() =>
@@ -304,12 +407,12 @@ describe("Workbook save status", () => {
       remount.getByRole("status", { name: "Workbook save updates" })
         .textContent,
     ).toBe("Syncing changes");
-    act(finish);
+    await act(finish);
     expect(
       remount.getByRole("status", { name: "Workbook save updates" })
         .textContent,
     ).toBe("Saved");
-    act(finish);
+    await act(finish);
     expect(runtime.takeSaveAnnouncement()).toBeNull();
     remount.rerender(<WorkbookSaveAnnouncements runtime={runtimeFixture()} />);
     expect(
@@ -406,9 +509,9 @@ describe("Workbook save status", () => {
     );
     act(() => result.current.setValidationError("Enter a title."));
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
-    let finish = () => {};
+    let finish = async () => {};
     act(() => {
-      finish = result.current.beginMutation();
+      finish = admitPatch(runtime);
     });
     act(() =>
       result.current.setValidationError(
@@ -416,7 +519,7 @@ describe("Workbook save status", () => {
       ),
     );
     expect(runtime.getSnapshot().primaryLabel).toBe("Syncing");
-    act(finish);
+    await act(finish);
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
     expect(runtime.getSnapshot().blockedEdit).toBeNull();
     expect(runtime.getSnapshot().conflicts).toEqual([]);

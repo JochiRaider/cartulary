@@ -153,7 +153,6 @@ function setup(
   owner.configure(port);
   const refresh = vi.fn(async () => {});
   owner.registerSurface(subject.viewSchemaId, refresh);
-  const beginMutation = vi.fn(() => () => {});
   const effects = {
     deleteAccepted: vi.fn(),
     restoreAccepted: vi.fn(),
@@ -187,7 +186,6 @@ function setup(
     refresh,
     effects,
     view,
-    beginMutation,
   };
 }
 async function confirm(operation: (typeof operations)[number]) {
@@ -226,6 +224,25 @@ async function confirm(operation: (typeof operations)[number]) {
 }
 
 describe("History recovery surfaces", () => {
+  it("keeps read-only history review saved without admitting a mutation", async () => {
+    for (const surface of surfaces) {
+      const t = setup(surface, "delete");
+      const view = render(t.view(true));
+      fireEvent.click(screen.getByRole("button", { name: "Open history" }));
+      fireEvent.click(
+        await screen.findByTestId(rowHistoryDeleteButtonTestId()),
+      );
+      await screen.findByTestId(
+        rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+      );
+      expect(t.port.load).toHaveBeenCalled();
+      expect(t.send).not.toHaveBeenCalled();
+      expect(t.owner.getSnapshot()).toEqual([]);
+      expect(t.runtime.getSnapshot().primaryLabel).toBe("Saved");
+      expect(t.runtime.getSnapshot().explicitInFlightCount).toBe(0);
+      view.unmount();
+    }
+  });
   it.each([
     ["Timeline", "delete"],
     ["Timeline", "restore"],
@@ -256,7 +273,8 @@ describe("History recovery surfaces", () => {
     );
     expect(t.runtime.getSnapshot().primaryLabel).toBe("Syncing");
     expect(t.runtime.pendingQueue().model.snapshot().units).toEqual([]);
-    expect(t.beginMutation).not.toHaveBeenCalled();
+    expect(t.runtime.getSnapshot().explicitInFlightCount).toBe(1);
+    expect(t.send).toHaveBeenCalledTimes(1);
     const newer = screen.getByRole("textbox", { name: "Newer interaction" });
     newer.focus();
     rerender(t.view(false));

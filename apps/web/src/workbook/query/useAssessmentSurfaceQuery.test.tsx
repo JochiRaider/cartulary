@@ -3,8 +3,6 @@ import {
   act,
   cleanup,
   fireEvent,
-  render,
-  renderHook,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -17,6 +15,8 @@ import {
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import {
   acceptedQueryMetadata,
+  renderWithWorkbookQueryBrowsing as render,
+  renderHookWithWorkbookQueryBrowsing as renderHook,
   workbookQueryMeta,
 } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";

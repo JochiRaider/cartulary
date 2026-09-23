@@ -146,7 +146,7 @@ export function useTimelineCollaborationBindings({
       }
       rowsRef.current = nextRows;
       replaceRows(nextRows);
-      const browser = browsing?.find(timelineViewSchemaId);
+      const browser = browsing.find(timelineViewSchemaId);
       browser?.observeRows(
         nextRows.flatMap((row) => (row.rawRow ? [row.rawRow] : [])),
       );
@@ -181,7 +181,7 @@ export function useTimelineCollaborationBindings({
           return;
         }
         clearCommittedRows();
-        browsing?.find(timelineViewSchemaId)?.invalidate();
+        browsing.find(timelineViewSchemaId)?.invalidate();
         const localDrafts = rowsRef.current.filter(
           (row) => row.recordId === null,
         );
@@ -193,7 +193,7 @@ export function useTimelineCollaborationBindings({
           refreshRows({
             requireAcceptance: options?.reason === "authorization_recovered",
           });
-        const browser = browsing?.find(timelineViewSchemaId);
+        const browser = browsing.find(timelineViewSchemaId);
         if (options?.reason === "record_changed" && browser)
           await browser.reconcile(read);
         else await read();

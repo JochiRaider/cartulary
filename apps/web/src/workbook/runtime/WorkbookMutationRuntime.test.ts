@@ -507,7 +507,9 @@ describe("WorkbookMutationRuntimeRegistry", () => {
           "evidence.title"
         ],
       ).toBe("Retained private draft");
-      expect(runtime.ordinaryCreate.pendingCount).toBe(0);
+      expect(
+        runtime.ordinaryCreate.getSnapshot().schemas[schema]?.entries,
+      ).toEqual([]);
       if (retirement === "account") registry.replaceAccount();
       else if (retirement === "disposal") registry.dispose();
       else {

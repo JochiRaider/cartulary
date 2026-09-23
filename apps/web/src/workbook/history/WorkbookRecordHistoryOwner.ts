@@ -307,22 +307,6 @@ export class WorkbookRecordHistoryOwner {
           entry.phase === "uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "preparing" ||
-        entry.phase === "submitting" ||
-        entry.phase === "uncertain" ||
-        entry.reconciliation === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "rejected" &&
-        entry.failure?.kind === "client_txn_conflict",
-    ).length;
-  }
   acceptVersion(recordId: string, version: number) {
     if (
       Number.isSafeInteger(version) &&

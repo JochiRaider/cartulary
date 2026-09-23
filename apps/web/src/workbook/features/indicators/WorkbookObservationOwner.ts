@@ -233,17 +233,6 @@ export class WorkbookObservationOwner implements ObservationOwnerPort {
           entry.phase === "uncertain"),
     ).length;
   }
-  get pendingCount() {
-    return [...this.entries.values()].filter(
-      (entry) => this.blocks(entry) || entry.reconciliation === "refreshing",
-    ).length;
-  }
-  get blockedCount() {
-    return [...this.entries.values()].filter(
-      (entry) =>
-        entry.phase === "uncertain" || entry.reconciliation === "required",
-    ).length;
-  }
   admit(intent: ObservationIntent, binding: ObservationBinding) {
     if (
       !this.transport ||

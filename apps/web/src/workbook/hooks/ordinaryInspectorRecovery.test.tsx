@@ -212,6 +212,12 @@ it("separates definitive rejection from uncertainty without automatically rekeyi
       uncertain ? "uncertain" : "rejected",
     );
     expect(f.runtime.explicitPatches.getSnapshot().entries).toHaveLength(1);
+    expect(f.runtime.getSnapshot().primaryLabel).toBe(
+      uncertain ? "Syncing" : "Saved",
+    );
+    expect(f.runtime.getSnapshot().explicitInFlightCount).toBe(
+      uncertain ? 1 : 0,
+    );
     if (uncertain)
       expect(f.send.mock.calls[1]?.[0]).toBe(f.send.mock.calls[0]?.[0]);
   }

@@ -267,9 +267,6 @@ export function useGenericWorkbookInspectorComposition({
   );
   const ownerRecordActions = useEvidenceWorkbookBindings({
     mutationCommands: mutationCommands.evidence,
-    mutation: {
-      beginMutation: mutation.beginMutationReport,
-    },
     onRefresh,
     ownerBindings,
     resetKey: inspectorResetKey,
@@ -411,38 +408,28 @@ export function useGenericWorkbookInspectorComposition({
     const captured = edit.capture();
     const onFailure = editFeedback.capture();
     editFeedback.clear();
-    const finish = mutation.beginMutation();
-    try {
-      const payload = await mutation.submitPatchMutation({
-        onFailure,
-        baseline: edit.baseline ?? selectedEdit.row,
-        ...(captured.draft
-          ? { authoringRevision: captured.draft.revision }
-          : {}),
-        presentationIdentity: captured.attachment,
-        isCurrent: () => edit.isCurrent(captured),
-        contributions: [
-          {
-            prepare: async () => {
-              if (!edit.isCurrent(captured))
-                throw new Error(
-                  "The inspector changed before dispatch. Resume your original draft to submit it.",
-                );
-            },
-            acknowledged: () => edit.complete(captured),
-            conflictResolved: () => edit.complete(captured),
+    await mutation.submitPatchMutation({
+      onFailure,
+      baseline: edit.baseline ?? selectedEdit.row,
+      ...(captured.draft ? { authoringRevision: captured.draft.revision } : {}),
+      presentationIdentity: captured.attachment,
+      isCurrent: () => edit.isCurrent(captured),
+      contributions: [
+        {
+          prepare: async () => {
+            if (!edit.isCurrent(captured))
+              throw new Error(
+                "The inspector changed before dispatch. Resume your original draft to submit it.",
+              );
           },
-        ],
-        baseRowVersion: selectedEdit.row.row_version,
-        changes: [change],
-        purpose: "generic-patch",
-        recordId: selectedEdit.row.record_id,
-        viewSchemaId: contract.viewSchemaId,
-      });
-      if (payload === null) return;
-    } finally {
-      finish();
-    }
+          acknowledged: () => edit.complete(captured),
+          conflictResolved: () => edit.complete(captured),
+        },
+      ],
+      changes: [change],
+      purpose: "generic-patch",
+      viewSchemaId: contract.viewSchemaId,
+    });
   };
   const party = useGenericPartyLinkWorkflow({
     owner: mutation.partyLinks,

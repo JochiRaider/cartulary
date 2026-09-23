@@ -61,11 +61,11 @@ export function useGenericSurfaceQuery({
   viewQuery,
   viewSchemaId,
 }: GenericSurfaceQueryInput) {
-  const { browser, snapshot: browsing } = useWorkbookQueryBrowser(
-    viewQuery,
-    viewSchemaId,
-    active,
-  );
+  const {
+    binding,
+    browser,
+    snapshot: browsing,
+  } = useWorkbookQueryBrowser(viewQuery, viewSchemaId, active);
   const [rows, setRows] = useState<WorkbookQueryRow[]>([]);
   const [loadState, setLoadState] = useState<WorkbookQueryLoadState>(
     initialWorkbookQueryLoadState,
@@ -90,14 +90,15 @@ export function useGenericSurfaceQuery({
       readonly requireAcceptance?: boolean;
       readonly recoveryDepth?: number;
     }) {
+      const browser = binding.currentBrowser();
       if (
+        !browser ||
         !active ||
         (ordinaryCreateOwner && !ordinaryCreateOwner.getSnapshot().authority)
       ) {
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         abortLatestQuery(queryRuntimeRef);
-        browser.detach();
         activeViewSchemaIdRef.current = viewSchemaId;
         clearRows();
         setLoadState(initialWorkbookQueryLoadState);
@@ -122,7 +123,11 @@ export function useGenericSurfaceQuery({
         },
         { recoveryDepth: options?.recoveryDepth ?? 0 },
       );
-      if (!request.isCurrent() || result.kind === "aborted") {
+      if (
+        binding.currentBrowser() !== browser ||
+        !request.isCurrent() ||
+        result.kind === "aborted"
+      ) {
         if (options?.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         return;
@@ -134,7 +139,7 @@ export function useGenericSurfaceQuery({
           "authority_unavailable"
         ) {
           onAuthorityUncertain?.();
-          browser.invalidate();
+          binding.currentBrowser()?.invalidate();
           clearRows();
           setLoadState({ kind: "permission_denied", message });
         } else if (hasAcceptedResultRef.current) {
@@ -193,7 +198,14 @@ export function useGenericSurfaceQuery({
         }
         return row;
       });
-      if (!browser.accept(result.value)) return;
+      if (
+        binding.currentBrowser() !== browser ||
+        !browser.accept(result.value)
+      ) {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
+        return;
+      }
       rowsRef.current = nextRows;
       setRows(nextRows);
       hasAcceptedResultRef.current = true;
@@ -210,13 +222,13 @@ export function useGenericSurfaceQuery({
       indicatorOwner,
       ordinaryCreateOwner,
       explicitPatchOwner,
-      browser,
+      binding,
       committedRecordOwner,
     ],
   );
 
-  useWorkbookBrowsingRead(viewSchemaId, refresh, active);
-  useEffect(() => browser.observeRows(rows), [browser, rows]);
+  useWorkbookBrowsingRead(binding, refresh);
+  useEffect(() => binding.currentBrowser()?.observeRows(rows), [binding, rows]);
   const applyRecordChanged = useCallback(
     (payload: RecordChangedPayload): WorkbookSurfaceRecordChangeResult => {
       const affected = payload.affected_views.find(
@@ -283,7 +295,9 @@ export function useGenericSurfaceQuery({
       }
       rowsRef.current = next;
       setRows(next);
-      const placementFields = browser.getSnapshot().canonicalQuery;
+      const placementFields = binding
+        .currentBrowser()
+        ?.getSnapshot().canonicalQuery;
       return placementFields?.filters.some(
         (filter) => filter.op === "full_text",
       ) ||
@@ -306,7 +320,7 @@ export function useGenericSurfaceQuery({
       indicatorOwner,
       ordinaryCreateOwner,
       committedRecordOwner,
-      browser,
+      binding,
       viewQuery.readScope,
     ],
   );
@@ -315,7 +329,7 @@ export function useGenericSurfaceQuery({
     if (!committedRecordOwner || !active) return;
     return committedRecordOwner.subscribe(() => {
       if (!committedRecordOwner.getSnapshot().authority) {
-        browser.invalidate();
+        binding.currentBrowser()?.invalidate();
         clearRows();
         return;
       }
@@ -331,13 +345,13 @@ export function useGenericSurfaceQuery({
         setRows(next);
       }
     });
-  }, [active, browser, clearRows, committedRecordOwner]);
+  }, [active, binding, clearRows, committedRecordOwner]);
 
   useEffect(() => {
     if (!explicitPatchOwner || !active) return;
     return explicitPatchOwner.subscribe(() => {
       if (!explicitPatchOwner.getSnapshot().authority) {
-        browser.invalidate();
+        binding.currentBrowser()?.invalidate();
         clearRows();
         return;
       }
@@ -356,14 +370,14 @@ export function useGenericSurfaceQuery({
         setRows(next);
       }
     });
-  }, [active, browser, clearRows, explicitPatchOwner]);
+  }, [active, binding, clearRows, explicitPatchOwner]);
 
   useEffect(() => {
     if (!indicatorOwner || !active || viewSchemaId !== indicatorsViewSchemaId)
       return;
     return indicatorOwner.subscribe(() => {
       if (!indicatorOwner.getSnapshot().authority) {
-        browser.invalidate();
+        binding.currentBrowser()?.invalidate();
         clearRows();
         return;
       }
@@ -381,7 +395,7 @@ export function useGenericSurfaceQuery({
         setRows(next);
       }
     });
-  }, [indicatorOwner, active, viewSchemaId, clearRows, browser]);
+  }, [indicatorOwner, active, viewSchemaId, clearRows, binding]);
 
   useEffect(() => {
     if (!ordinaryCreateOwner || !active) return;
@@ -391,7 +405,7 @@ export function useGenericSurfaceQuery({
       authorized = !!ordinaryCreateOwner.getSnapshot().authority;
       if (!authorized) {
         abortLatestQuery(queryRuntimeRef);
-        browser.invalidate();
+        binding.currentBrowser()?.invalidate();
         clearRows();
         return;
       }
@@ -411,15 +425,14 @@ export function useGenericSurfaceQuery({
         setRows(next);
       }
     });
-  }, [ordinaryCreateOwner, active, browser, clearRows, refresh]);
+  }, [ordinaryCreateOwner, active, binding, clearRows, refresh]);
 
   useEffect(() => {
     if (active) return;
     abortLatestQuery(queryRuntimeRef);
-    browser.detach();
     clearRows();
     setLoadState(initialWorkbookQueryLoadState);
-  }, [active, browser, clearRows]);
+  }, [active, clearRows]);
 
   const invalidate = useCallback(
     (reason: WorkbookQueryInvalidationReason) => {
@@ -427,10 +440,10 @@ export function useGenericSurfaceQuery({
       if (reason.kind === "incident_closed") return;
       abortLatestQuery(queryRuntimeRef);
       if (reason.kind === "collaboration_reset_required") return;
-      browser.invalidate();
+      binding.currentBrowser()?.invalidate();
       clearRows();
     },
-    [clearRows, browser],
+    [clearRows, binding],
   );
 
   useEffect(
@@ -448,6 +461,6 @@ export function useGenericSurfaceQuery({
     rows,
     browser,
     browsing,
-    acceptedQueryState: browser.presentationQuery(queryState),
+    acceptedQueryState: browser?.presentationQuery(queryState) ?? queryState,
   };
 }

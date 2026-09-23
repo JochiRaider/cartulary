@@ -543,33 +543,6 @@ export class WorkbookTimelineMentionOperationOwner
         ["preparing", "submitting", "uncertain"].includes(entry.phase),
     ).length;
   }
-  get pendingCount() {
-    return (
-      [...this.entries.values()].filter(
-        (entry) =>
-          ["preparing", "submitting"].includes(entry.phase) ||
-          entry.refresh === "refreshing",
-      ).length +
-      [...this.creations.values()].filter(
-        (entry) =>
-          ["preparing", "submitting"].includes(entry.phase) ||
-          entry.refresh === "refreshing",
-      ).length
-    );
-  }
-  get blockedCount() {
-    return (
-      [...this.entries.values()].filter(
-        (entry) => entry.phase === "uncertain" || entry.refresh === "required",
-      ).length +
-      [...this.creations.values()].filter(
-        (entry) =>
-          entry.phase === "uncertain" ||
-          (!!entry.receipt &&
-            (entry.linkKey === null || entry.refresh === "required")),
-      ).length
-    );
-  }
   private current(review: MentionReview, binding: MentionBinding) {
     const latest = this.latestMention(review.subject.mentionId);
     return (

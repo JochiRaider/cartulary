@@ -193,7 +193,9 @@ it("Lifecycle fresh dispatch rechecks role closure subject and secure identity w
     throw new Error("Crypto unavailable");
   });
   expect(t.owner.admit(t.draft(), t.binding)).toBeNull();
-  expect(t.owner.pendingCount).toBe(0);
+  expect(t.owner.getSnapshot().entries).toEqual([]);
+  expect(t.send).not.toHaveBeenCalled();
+  expect(t.owner.blocksRecord(lifecycleIndicator)).toBe(false);
 });
 it("Lifecycle late settlement survives detachment while retired accounts cannot materialize receipts", async () => {
   vi.useFakeTimers();
@@ -230,7 +232,10 @@ it("Lifecycle receipt precedes projection failure and refresh recovery never sen
   const a = t.admit();
   await t.owner.execute(a);
   expect(t.entry()?.reconciliation).toBe("required");
-  expect(t.owner.blockedCount).toBe(1);
+  expect(t.entry()).toMatchObject({
+    phase: "acknowledged",
+    receipt: lifecycleReceipt(),
+  });
   t.projections.mockResolvedValue(undefined);
   await t.owner.refresh(a.id);
   expect(t.entry()?.reconciliation).toBe("complete");
