@@ -8,6 +8,7 @@ override GO_TOOLCHAIN := go1.27.1
 override GOTOOLCHAIN := $(GO_TOOLCHAIN)
 override GO_TOOLCHAIN_READY :=
 CONFIG_FILE ?= $(CURDIR)/configs/dev/config.toml
+REVIEW_PROFILE ?= network_flow_claimed
 CARTULARY_MACHINE_CACHE_DIR ?= $(if $(filter /%,$(strip $(XDG_CACHE_HOME))),$(strip $(XDG_CACHE_HOME))/cartulary,$(if $(filter /%,$(strip $(HOME))),$(strip $(HOME))/.cache/cartulary,))
 GO_CACHE_DIR ?= $(CARTULARY_MACHINE_CACHE_DIR)/go/build
 GO_MOD_CACHE_DIR ?= $(CARTULARY_MACHINE_CACHE_DIR)/go/mod

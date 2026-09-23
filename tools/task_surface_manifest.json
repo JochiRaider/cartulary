@@ -129,6 +129,16 @@
         "target": "harness-public-target-duration-baselines",
         "owner_section": "Section 10.5",
         "reason": "Baseline maintenance consumes completed observation windows and cannot recursively observe itself."
+      },
+      {
+        "target": "browser-design-review",
+        "owner_section": "Section 4",
+        "reason": "Interactive design inspection is helper-only and does not execute product catalog rows."
+      },
+      {
+        "target": "browser-design-review-smoke",
+        "owner_section": "Section 4",
+        "reason": "Review setup smoke is helper-only lifecycle evidence, not product verification."
       }
     ],
     "out_of_scope_targets": [
@@ -805,6 +815,15 @@
           "target": "clean",
           "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
           "description": "preview or remove repo-local build and report artifacts"
+        },
+        {
+          "target": "browser-design-review",
+          "usage": "REVIEW_PROFILE=network_flow_claimed|default",
+          "description": "start a disposable seeded browser review; Ctrl-C removes owned data"
+        },
+        {
+          "target": "browser-design-review-smoke",
+          "description": "prepare and smoke a seeded review, then clean up without waiting"
         }
       ]
     },
@@ -2999,6 +3018,47 @@
         "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b"
       ],
       "test_target": "self"
+    },
+    "browser-design-review": {
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "REVIEW_PROFILE": "$(REVIEW_PROFILE)",
+        "GO": "$(GO)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/browser/design-review.mjs"
+      ]
+    },
+    "browser-design-review-smoke": {
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "REVIEW_PROFILE": "$(REVIEW_PROFILE)",
+        "GO": "$(GO)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/browser/design-review.mjs",
+        "--smoke"
+      ]
     }
   },
   "targets": [
@@ -4483,6 +4543,80 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": []
+      }
+    },
+    {
+      "name": "browser-design-review",
+      "backing_scripts": [
+        "tools/harness/browser/design-review.mjs",
+        "tools/harness/browser/design-review-seed.mjs",
+        "tools/harness/browser/design-review-samples.mjs"
+      ],
+      "output_policy": {
+        "output_class": "interactive_raw",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 0,
+          "stdout_bytes": 0,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "interactive",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.browser_design_review.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "isolated_review",
+          "lifecycle_machine": "broker-owned interactive browser review lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "REVIEW_PROFILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "default",
+              "network_flow_claimed"
+            ],
+            "default": "network_flow_claimed",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     },
     {
@@ -13825,6 +13959,80 @@
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "browser-design-review-smoke",
+      "backing_scripts": [
+        "tools/harness/browser/design-review.mjs",
+        "tools/harness/browser/design-review-seed.mjs",
+        "tools/harness/browser/design-review-samples.mjs"
+      ],
+      "output_policy": {
+        "output_class": "interactive_raw",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 0,
+          "stdout_bytes": 0,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "interactive",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.browser_design_review_smoke.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "isolated_review",
+          "lifecycle_machine": "broker-owned interactive browser review lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "REVIEW_PROFILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "default",
+              "network_flow_claimed"
+            ],
+            "default": "network_flow_claimed",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
     }
   ],
   "harness_tiers": {
@@ -14381,7 +14589,8 @@
     {
       "name": "harness-smoke-web-e2e-lifecycle",
       "backing_scripts": [
-        "tools/harness/browser/tests/test-web-e2e-lifecycle.sh"
+        "tools/harness/browser/tests/test-web-e2e-lifecycle.sh",
+        "tools/harness/browser/tests/test-design-review.mjs"
       ]
     },
     {

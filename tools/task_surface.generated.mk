@@ -26,6 +26,7 @@
   object-store-init \
   object-store-reset \
   dev \
+  browser-design-review \
   codegen-toolchain \
   go-lint-toolchain \
   govulncheck-toolchain \
@@ -151,7 +152,8 @@
   canonical-evidence-drift-suite \
   goose-toolchain \
   release-inventory-artifacts \
-  frontend-artifact-consumer-check
+  frontend-artifact-consumer-check \
+  browser-design-review-smoke
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -211,6 +213,9 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make format                         format authored Go and frontend sources' \
 	'  make clean' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or remove repo-local build and report artifacts' \
+	'  make browser-design-review' \
+	'                                      REVIEW_PROFILE=network_flow_claimed|default start a disposable seeded browser review; Ctrl-C removes owned data' \
+	'  make browser-design-review-smoke    prepare and smoke a seeded review, then clean up without waiting' \
 	'' \
 	'fast verification:' \
 	'  make test-fast                      run the narrower local verification loop' \
@@ -1689,4 +1694,16 @@ frontend-artifact-consumer-check: export CARTULARY_TEST_TARGET ?= frontend-artif
 frontend-artifact-consumer-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 frontend-artifact-consumer-check: $(NODE_BIN)
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection rows --target frontend-artifact-consumer-check --rows harness.browser.boundary_support.frontend_artifact_lifetime,package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b
+
+browser-design-review:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-design-review)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness $(FRONTEND_INSTALL_STAMP); fi
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) REVIEW_PROFILE="$(REVIEW_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,REVIEW_PROFILE)" REVIEW_PROFILE="$(REVIEW_PROFILE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" $(NODE_BIN) ./tools/harness/browser/design-review.mjs
+
+browser-design-review-smoke:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-design-review-smoke)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness $(FRONTEND_INSTALL_STAMP); fi
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) REVIEW_PROFILE="$(REVIEW_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,REVIEW_PROFILE)" REVIEW_PROFILE="$(REVIEW_PROFILE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" $(NODE_BIN) ./tools/harness/browser/design-review.mjs --smoke
 

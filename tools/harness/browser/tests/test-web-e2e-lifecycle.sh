@@ -89,7 +89,7 @@ assert_file_not_contains "$START_SCRIPT" 'source: "standalone"' "no standalone d
 assert_file_not_contains "$PLAYWRIGHT_CONFIG" "webServer:" "canonical Playwright config has no webServer"
 assert_file_not_contains "$PLAYWRIGHT_CONFIG" "reuseExistingServer" "canonical Playwright config has no listener reuse"
 assert_file_contains "$PLAYWRIGHT_CONFIG" 'updateSnapshots: "none"' "ordinary snapshot validation is read-only"
-assert_file_contains "$ATTACH_SCRIPT" 'browser-session-evidence.mjs' "Playwright uses the v4 attachment validator"
+assert_file_contains "$ATTACH_SCRIPT" 'browser-session-evidence.mjs' "Playwright uses the v7 attachment validator"
 
 # Source the adapter only for fail-closed entrypoint checks.
 # shellcheck source=tools/harness/browser/start-web-e2e.sh
@@ -466,7 +466,7 @@ export CARTULARY_TEST_RESULTS_DIR="$results_root"
 export CARTULARY_TEST_RUN_ID="$run_id"
 export CARTULARY_TEST_SUITE_ID="$suite_id"
 export CARTULARY_BROWSER_SESSION_GROUP="$session_id"
-export CARTULARY_BROWSER_STAGE=functional
+export CARTULARY_BROWSER_STAGE=webserver-backed
 export CARTULARY_BROWSER_RUNTIME_PROFILE_ID=default
 export CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services
 export CARTULARY_TEST_SERVICES_CALL_MODE=owned
@@ -529,10 +529,10 @@ JS
 stack_file="$("$NODE_BIN" "$EVIDENCE_HELPER" stack)"
 export CARTULARY_WEB_E2E_STACK_JSON_FILE="$stack_file"
 
-assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v7"' "v4 schema identity"
-assert_json "$stack_file" 'value.suite_id === "suite-test" && value.browser_session_id === "session-default"' "v4 suite/session identity"
-assert_json "$stack_file" 'value.postgres_identity.database_name === "ct_web_test" && value.object_store_identity.bucket === "ct-web-test"' "v4 isolated resource identity"
-assert_json "$stack_file" 'value.frontend.frontend_command_kind === "vite-preview"' "v4 preview identity"
+assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v7"' "v7 schema identity"
+assert_json "$stack_file" 'value.suite_id === "suite-test" && value.browser_session_id === "session-default"' "v7 suite/session identity"
+assert_json "$stack_file" 'value.postgres_identity.database_name === "ct_web_test" && value.object_store_identity.bucket === "ct-web-test"' "v7 isolated resource identity"
+assert_json "$stack_file" 'value.frontend.frontend_command_kind === "vite-preview"' "v7 preview identity"
 if grep -Eq 'access_key|secret|postgres://' "$stack_file"; then
   fail "v7 stack must not contain credentials or DSNs"
 fi
@@ -540,9 +540,9 @@ fi
 attachment_exports="$("$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file")"
 eval "$attachment_exports"
 [[ "$CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED" == "1" ]] ||
-  fail "valid v4 attachment must set the admission marker"
+  fail "valid v7 attachment must set the admission marker"
 [[ "$CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER" == "1" ]] ||
-  fail "valid v4 attachment must select external-server lifecycle semantics"
+  fail "valid v7 attachment must select external-server lifecycle semantics"
 [[ "$CARTULARY_PLAYWRIGHT_STATE_DIR" == "$runtime_root/playwright-state" ]] ||
   fail "Playwright state must be scoped to the attached browser session"
 attachment_json="$("$NODE_BIN" "$EVIDENCE_HELPER" attach-json "$stack_file")"
@@ -568,14 +568,14 @@ source "$ATTACH_SCRIPT"
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 printf '%s\n' "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" |
   grep -Fq 'CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED=1' ||
-  fail "Playwright environment must carry the v4 admission marker"
+  fail "Playwright environment must carry the v7 admission marker"
 printf '%s\n' "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" |
   grep -Fq "CARTULARY_PLAYWRIGHT_STATE_DIR=$runtime_root/playwright-state" ||
   fail "Playwright environment must carry session-scoped shared state"
 
 if CARTULARY_BROWSER_RUNTIME_PROFILE_ID=network_flow_claimed \
   "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then
-  fail "profile-mismatched v4 attachment must fail"
+  fail "profile-mismatched v7 attachment must fail"
 fi
 if CARTULARY_BROWSER_STAGE=measurement "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >"$tmp_dir/wrong-artifact.log" 2>&1; then
   fail "production artifact must not attach to measurement"
@@ -641,3 +641,5 @@ grep -Fq -- '--database-result-file' "$ROOT_DIR/tools/harness/browser/lifecycle/
   fail "browser reset wrapper must retain the database diagnostic"
 
 printf '%s\n' "test-web-e2e-lifecycle: pass"
+
+"$NODE_BIN" "$ROOT_DIR/tools/harness/browser/tests/test-design-review.mjs"

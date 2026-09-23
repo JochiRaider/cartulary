@@ -1318,7 +1318,7 @@ Only the session lifecycle adapter may write them. A ready terminal requires
 the complete ordered state graph `initializing`, `service_attached`,
 `fixture_ready`, `backend_ready`, `frontend_ready`, `ready`; `failed` may close
 any nonterminal state and can never regress. The terminal ready diagnostic MUST
-be published before one immutable v4 stack binds its exact digest together with
+be published before one immutable v7 stack binds its exact digest together with
 the compact service-admission proof, lease, database, object-store namespace, fixture,
 process, and frontend-build identities. Group and target results MUST carry
 ordered run-relative session artifact references and SHA-256 digests. Shared or
@@ -1756,6 +1756,8 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `object-store-init` | `cartulary.harness.command.object_store_init.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Proves local object-store readiness under Section 11, starting an owned instance when absent, and initializes the configured bucket without requiring Postgres. |
 | `object-store-reset` | `cartulary.harness.command.object_store_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Requires `CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset` unless `CARTULARY_CLEANUP_DRY_RUN=1`; clears objects only from the configured local object-store bucket. |
 | `dev` | `cartulary.harness.command.dev.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  |
+| `browser-design-review` | `cartulary.harness.command.browser_design_review.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  |
+| `browser-design-review-smoke` | `cartulary.harness.command.browser_design_review_smoke.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  |
 | `generate` | `cartulary.harness.command.generate.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `generated_artifacts` | `public_active` |  |
 | `generate-drift` | `cartulary.harness.command.generate_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `generated-artifact-policy-check` | `cartulary.harness.command.generated_artifact_policy_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
@@ -2239,6 +2241,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `db-reset`, `postgres-baseline-reset`, `services-down`, `object-store-reset`, `clean`, `distclean` | `CARTULARY_CLEANUP_DRY_RUN` | `exact_1_bool` | no | make command line, environment, makefile default | `false` | use `false` | `false` | `trim` | `exact_1_bool` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `db-reset` | `CARTULARY_DESTRUCTIVE_CONFIRM` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `db-reset` | `usage_error`, exit `2` | `value` | `none` |
 | `postgres-baseline-reset` | `CARTULARY_DESTRUCTIVE_CONFIRM` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `postgres-baseline-reset` | `usage_error`, exit `2` | `value` | `none` |
+| `browser-design-review`, `browser-design-review-smoke` | `REVIEW_PROFILE` | `enum` | no | make command line, environment, makefile default | `network_flow_claimed` | use `network_flow_claimed` | `invalid` | `trim` | `default`, `network_flow_claimed` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `postgres-baseline-reset` | `POSTGRES_BASELINE_PROFILE` | `enum` | no | make command line, environment, makefile default | `dev` | use `dev` | `invalid` | `trim` | `dev`, `mvp` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `object-store-reset` | `CARTULARY_DESTRUCTIVE_CONFIRM` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `object-store-reset` | `usage_error`, exit `2` | `value` | `none` |
 | `agent-finalize` | `ALLOW_OLDER_RESULTS_DIR` | `exact_1_bool` | no | make command line, environment, makefile default | none | omitted | `false` | `trim` | `exact_1_bool` | `usage_error`, exit `2` | `value` | `runtime_env` |
@@ -2545,7 +2548,7 @@ resolve_output_mode(CARTULARY_OUTPUT_MODE, VERBOSE, CI_VERBOSE, CI, target):
 | `scheduler_summary_with_artifacts` | `check`, `test-slice`, `service-backed-test-slice`                                                |                 yes | One `cartulary.harness_run_summary.v1` JSON object plus LF | Empty after wrapper starts; no scheduler progress prose                               | Canonical run manifest, unit events, run summary, target summaries, and unit/row results | Same schema with graph, resource, or child failure                      |
 | `machine_stdout_json`              | `target-plan-json` and other explicitly declared JSON discovery targets                           |                 yes | One closed target JSON value plus LF                    | Empty on success                                                                      | None unless target declares artifacts                     | Invalid input exits `2`; error JSON only when Section 7.4 declares it |
 | `human_summary`                    | `help`, `help-all`, text discovery/explanation targets                                            |                  no | Empty                                                   | Bounded diagnostic allowed on failure                                                 | None unless target row declares diagnostic artifacts      | `machine` rejected as `usage_error`, exit `2`                          |
-| `interactive_raw`                  | `dev`                                                                                             |                  no | Empty when `machine` requested                          | Diagnostic allowed                                                                    | None                                                      | `machine` rejected as `usage_error`, exit `2`                          |
+| `interactive_raw`                  | `dev`, `browser-design-review`, `browser-design-review-smoke`                                                                                             |                  no | Empty when `machine` requested                          | Diagnostic allowed                                                                    | None                                                      | `machine` rejected as `usage_error`, exit `2`                          |
 | `destructive_human`                | `clean`, `distclean`                                                                              |                  no | Empty when `machine` requested                          | Diagnostic allowed                                                                    | None                                                      | `machine` rejected as `usage_error`, exit `2`                          |
 
 Successful `frontend-fallow-static` `summary` and `quiet` output MUST expose only bounded result and artifact references. Raw Fallow JSON, SARIF, Markdown, stdout, and stderr diagnostics MUST be retained as artifacts rather than emitted in successful summary stdout; `verbose` and `debug` modes MAY expose raw child diagnostics.
@@ -4154,6 +4157,37 @@ Verified by: TH-HARNESS-AC-007
 | -------- | --------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `owned`  | `CARTULARY_TEST_SERVICES_MODE=owned` or omitted.    | Not applicable.                                                        | Harness starts and cleans suite resources.                                    |
 | `attach` | `CARTULARY_TEST_SERVICES_MODE=attach`.              | Any missing or invalid session descriptor fails with `configuration_error`. | Harness borrows descriptor-proven containers and deletes only run-owned resources. |
+
+### Interactive browser design review
+
+`browser-design-review` and `browser-design-review-smoke` are helper-only
+interactive preparation commands. They MUST remain outside default verification
+sets and MUST NOT emit passing product catalog rows. `REVIEW_PROFILE` is an
+optional Make-command-line, environment, or default input with exactly `default`
+and `network_flow_claimed` as values; omission selects `network_flow_claimed`.
+Empty or unknown values fail as `usage_error` with exit `2` before preparation.
+The input is forwarded only as runtime environment, with its value available in
+session diagnostics. Machine output mode is unsupported as for `dev`.
+
+Each invocation MUST own a fresh suite runtime, service-broker browser lease,
+private database/object namespace, and sealed frontend artifact. Preparation MUST
+validate the current v7 attachment before API seeding or browser use. The ordinary
+browser lifecycle adapter retains exclusive ownership of startup and teardown;
+these commands MUST NOT attach development services or bypass process, source,
+profile, or build identity checks. Synthetic seed inputs MUST come from machine
+contracts and fixture assets outside Markdown. Credentials and authenticator
+material MUST remain in the private runtime and MUST be removed on completion.
+
+The interactive command remains alive until interruption or owned-runtime failure.
+The smoke command closes after preparation and browser observations. Acquisition,
+preparation, and observation failures MUST stop dependent work. Both commands MUST
+attempt owned browser, service, and private-runtime cleanup, retaining the primary
+failure when cleanup also fails. Startup, lease, cleanup and secret-scan evidence
+remain retained. A review source descriptor may occupy `run-manifest.json` for
+lifecycle source binding, but MUST be labelled `interactive_design_review`, MUST
+NOT claim the canonical harness-run schema, and MUST NOT manufacture graph, row,
+conformance, or release success. Review screenshots are diagnostic observations;
+ordinary review MUST NOT alter committed goldens.
 
 ### 11.0 Postgres Fixture Model
 
