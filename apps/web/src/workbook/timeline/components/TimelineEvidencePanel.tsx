@@ -3,11 +3,17 @@ import {
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import { type RefCallback, useContext, useSyncExternalStore } from "react";
+import {
+  type RefCallback,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { TimelineFileContext } from "../../features/evidence/EvidenceAttachmentContext";
 import { EvidenceAttachmentEntry } from "../../features/evidence/EvidenceAttachmentEntry";
-import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
 import type { TimelineFileSnapshot } from "../../features/evidence/WorkbookTimelineFileOwner";
+import { TimelineAttachmentDetails } from "./TimelineAttachmentFeedback";
 
 const noFileSubscription = () => () => {};
 const emptyFiles: readonly TimelineFileSnapshot[] = [];
@@ -40,11 +46,20 @@ export function TimelineEvidencePanel({
   onFilesSelected,
 }: TimelineEvidencePanelProps) {
   const owner = useContext(TimelineFileContext);
+  const panel = useRef<HTMLElement>(null);
   const files = useSyncExternalStore(
     owner?.subscribe ?? noFileSubscription,
     owner?.getSnapshot ?? noFiles,
   );
   const recordId = row.recordId;
+  // Keep the local fallback ref attached while the Inspector replaces its registry callback.
+  useLayoutEffect(() => {
+    const cleanup = elementRef?.(recordId === null ? null : panel.current);
+    return () => {
+      if (typeof cleanup === "function") cleanup();
+      else elementRef?.(null);
+    };
+  }, [elementRef, recordId]);
   const disabledReason =
     owner?.attachmentDisabledReason() ??
     (owner ? null : "File attachment is unavailable.");
@@ -59,7 +74,7 @@ export function TimelineEvidencePanel({
 
   return (
     <section
-      ref={elementRef}
+      ref={panel}
       tabIndex={-1}
       data-testid={timelineInspectorSectionTestId("evidence")}
       data-evidence-count-state={countDisplay.stateKey}
@@ -88,25 +103,14 @@ export function TimelineEvidencePanel({
       />
       {files.some((entry) => entry.recordId === recordId) ? (
         <section aria-label="Attachment progress and recovery">
-          {owner
-            ? files
-                .filter((entry) => entry.recordId === recordId)
-                .map((entry) => (
-                  <EvidenceFileRecovery
-                    {...entry}
-                    key={entry.key}
-                    presentation="inspector"
-                    source={entry.sourceLabel}
-                    onConfirmReview={() => owner.confirmReview(entry.key)}
-                    onReview={() => void owner.review(entry.key)}
-                    onResume={() => void owner.resume(entry.key)}
-                    onFreshSlot={() => owner.freshSlot(entry.key)}
-                    onNewId={() => owner.newRequestId(entry.key)}
-                    onDiscard={() => owner.discard(entry.key)}
-                    onRefresh={() => void owner.refresh(entry.key)}
-                  />
-                ))
-            : null}
+          {owner ? (
+            <TimelineAttachmentDetails
+              owner={owner}
+              files={files.filter((entry) => entry.recordId === recordId)}
+              presentation="inspector"
+              fallbackRef={panel}
+            />
+          ) : null}
         </section>
       ) : null}
     </section>

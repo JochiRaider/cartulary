@@ -1842,6 +1842,20 @@ Design contract. Evidence badges in dense grid cells MUST show count plus highes
 
 Design contract. If a row has more evidence records than visible badge capacity, the badge MUST show the visible count and an inspectable overflow path with accessible name `Evidence, <total count> records`.
 
+Design clarification. Timeline file feedback remains local to the work area.
+One compact summary distinguishes owner-issued needs-attention, in-progress and
+completed counts. Completion requires an accepted or authoritatively present
+attachment and complete display refresh; absent attention or inactivity alone
+is not success. Uncertainty and retained stopped work remain unfinished.
+Admission rejection is immediately visible. An explicitly opened inline detail
+region uses the existing quarter-work-area ceiling and internal scrolling.
+Unfinished work precedes separately collapsed completed history; additional
+completed files change the count, not resting viewport consumption. Details
+preserve filename, original source, stage and every permitted recovery action.
+Completed detail omits discard. There is no notice-dismissal or suppression store;
+collapsing never stops work, acknowledges uncertainty, drops a File or receipt,
+or dispatches a request. Core 03 §8.1 retains operation ownership.
+
 ## 12. Component contracts
 
 ### 12.1 Component variant matrix
@@ -2156,6 +2170,16 @@ named file drop/paste region and its keyboard alternative use the same owner
 admission. Upload, Evidence creation, source linking and display refresh outcomes
 remain separately described under their source owners.
 
+Design clarification. Timeline Inspector retains source-specific file recovery
+and its attention-navigation destination, sharing action binding with local
+attachment details. The resting grid does not repeat full recovery controls.
+Background changes never open either disclosure or supersede external focus.
+If an owned focused action disappears, focus returns to that work's surviving
+local summary, then the attachment disclosure trigger where present, then the
+existing work-area or Inspector fallback. Security concealment retains its
+existing authority-owned focus path. Work identity, not row labels or filenames,
+keys local detail across replacement, filtering and presentation detachment.
+
 Design contract. History MUST show visible attribution, a concise semantic
 description, operation and absolute UTC date/time with numeric offset. An
 authorized name is used when supplied; otherwise the attributed identifier is
@@ -2337,6 +2361,9 @@ Design contract. Live-region behavior MUST use this matrix.
 | Inspector background read becomes stale | Polite, once per admitted outcome. | Region, retained-observation qualification and available read recovery. |
 | Inspector validation or explicit recovery fails | Assertive when immediate action is required, once per attempt/outcome. | Safe local failure and owner-permitted correction or recovery. |
 | Inspector ordinary write succeeds | Existing save-status or recovery announcement owns the outcome; local copy does not repeat it. | Saved state; distinguish outstanding display refresh. |
+| Timeline file admission rejection or actionable recovery outcome | One local assertive source, keyed by owner event/outcome identity. | Admission reason or filename and stage-specific recovery explanation. |
+| Timeline file progress | One local polite source; Inspector copies remain silent. | Filename and current operation stage. |
+| Timeline file completed history or disclosure changes | No extra saved acknowledgement; existing save-status owns success. Remounting retained detail does not replay outcomes. | Counts and source details remain inspectable without announcement duplication. |
 | Inspector attention navigation or layout change | No additional outcome announcement. | Original owner retains attempt/outcome deduplication. |
 | Inspector outcome rerenders or remounts | No additional outcome announcement. | A newly attempted recovery is a distinct outcome even if message text is unchanged. |
 | Presence update only | No live announcement. | None. |

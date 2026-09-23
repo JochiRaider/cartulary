@@ -111,3 +111,11 @@ export async function chooseEvidenceFile(
   await page.getByRole("button", { name: label, exact: true }).first().click();
   await (await chooser).setFiles(files);
 }
+
+/** Recovery is local and explicitly disclosed; opening it is a user action. */
+export async function openTimelineAttachmentFeedback(page: Page) {
+  const trigger = page.getByRole("button", { name: /^Attachments:/ });
+  await trigger.waitFor({ state: "visible" });
+  if ((await trigger.getAttribute("aria-expanded")) === "false")
+    await trigger.click();
+}

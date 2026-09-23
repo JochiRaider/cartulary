@@ -32,3 +32,8 @@ control after query chips and before Inspector, while the shared control renders
 the floating panel without another toolbar row. Grid registration binds the
 Adapter presentation port; cell states add the orthogonal Find cue. These regions
 do not execute queries, retain drafts or own search state.
+
+The presentation hook passes a stable file-owner reference to the grid. Attachment
+and admission subscriptions live in `TimelineAttachmentFeedback`; progress-only
+publications do not rebuild the grid presentation. Accepted row projections keep
+the existing render path. Surface regions remain stateless.

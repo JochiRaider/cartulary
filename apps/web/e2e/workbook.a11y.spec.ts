@@ -8947,6 +8947,7 @@ test("a11y.evidence-file-recovery keeps stage recovery local reachable and keybo
   const recovery = page.getByRole("group", {
     name: "Inspector file recovery: local-recovery-with-a-long-original-filename-for-narrow-workbook-controls.txt",
     exact: true,
+    includeHidden: true,
   });
   await expect(recovery.getByRole("status")).toContainText(
     "Upload preparation is uncertain",
@@ -9002,9 +9003,21 @@ test("a11y.evidence-file-recovery keeps stage recovery local reachable and keybo
   await resume.press("Enter");
   await expect(recovery).toContainText("Evidence attached.");
   expect(slots).toBe(2);
-  await discard.focus();
-  await discard.press("Enter");
-  await expect(recovery).toHaveCount(0);
+  await expect(discard).toHaveCount(0);
+  // The action disappears on completion: focus stays local, never on body.
+  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe(
+    "BODY",
+  );
+  const history = page.getByText("Completed attachments (1)", { exact: true });
+  await history.focus();
+  await history.press("Enter");
+  await expect(recovery).toBeVisible();
+  await history.press("Enter");
+  await expect(recovery).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: /^Attachments:/ }),
+  ).toHaveAttribute("aria-expanded", "false");
+  expect(slots).toBe(2);
   const rows = await queryViewRows(page, incident, timelineViewSchemaId);
   expect(
     rows.find((row) => row.record_id === source.record_id)?.cells[

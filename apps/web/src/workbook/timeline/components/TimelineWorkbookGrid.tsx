@@ -36,6 +36,7 @@ import {
 } from "react";
 import { admitEvidenceFile } from "../../features/evidence/evidenceFileOperation";
 import type { TimelineFileSource } from "../../features/evidence/timelineFileOperation";
+import type { WorkbookTimelineFileOwner } from "../../features/evidence/WorkbookTimelineFileOwner";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { workbookGroupValue } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -48,6 +49,7 @@ import {
 } from "../models/timelineEvidenceAttachmentPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { compareTimelineGroupValues } from "../models/timelineRowsModel";
+import { TimelineAttachmentFeedback } from "./TimelineAttachmentFeedback";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const timelineGridSurface = {
@@ -58,7 +60,7 @@ const timelineGridSurface = {
 export const TimelineWorkbookGrid = forwardRef<
   GridHandle,
   {
-    readonly fileRecovery?: ReactNode;
+    readonly fileOwner?: WorkbookTimelineFileOwner | undefined;
     readonly operationFeedback?: ReactNode;
     readonly parkedDrafts?: ReactNode;
     readonly onFilesSelected?: (
@@ -109,7 +111,7 @@ export const TimelineWorkbookGrid = forwardRef<
   }
 >(function TimelineWorkbookGrid(
   {
-    fileRecovery,
+    fileOwner,
     operationFeedback,
     parkedDrafts,
     onFilesSelected,
@@ -259,6 +261,8 @@ export const TimelineWorkbookGrid = forwardRef<
         minBlockSize: 0,
         minInlineSize: 0,
         blockSize: "100%",
+        // Local feedback's shared cqh ceiling is relative to this work area.
+        containerType: "size",
       }}
       onPasteCapture={(event) => {
         const files = event.clipboardData?.files;
@@ -279,7 +283,9 @@ export const TimelineWorkbookGrid = forwardRef<
       }}
     >
       {parkedDrafts}
-      {fileRecovery}
+      {fileOwner ? (
+        <TimelineAttachmentFeedback owner={fileOwner} fallbackRef={workArea} />
+      ) : null}
       {operationFeedback}
       <GridViewport
         blockSizing="fill"

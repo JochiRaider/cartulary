@@ -73,3 +73,11 @@ RelatedEvidencePartyControl uses bounded Workbook discovery for two independent
 single Party identities. Its parent retains labels only for currently referenced
 collector/source identities. Candidate reads and retries never modify Party text,
 create Evidence, replay creation, or run the separate linking operation.
+
+The Timeline file snapshot projects unconditional work identity, stable outcome
+identity and typed feedback classification without file bytes, upload targets or
+captured requests. Uncertainty and stopped work are not completed; accepted
+attachment plus complete refresh is completed and excluded from attention.
+Admission notices have event identity even when their wording repeats. Timeline
+owns compact disclosure and announcements; the shared recovery renderer keeps
+its existing-Evidence consumers and commands unchanged.

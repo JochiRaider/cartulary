@@ -18,7 +18,6 @@ import {
 } from "react";
 import { WorkbookParkedGridDrafts } from "../../components/WorkbookParkedGridDrafts";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
-import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
 import { useWorkbookSemanticGridFocus } from "../../hooks/useWorkbookSemanticGridFocus";
 import { useWorkbookColumnSizingBinding } from "../../layout/useWorkbookColumnSizingBinding";
 import {
@@ -131,14 +130,6 @@ export function useTimelineWorkbookPresentation({
     requestedQueryState;
   const rows = foundation.snapshot.rows;
   const fileOwner = composition.fileOwner;
-  const files = useSyncExternalStore(
-    fileOwner.subscribe,
-    fileOwner.getSnapshot,
-  );
-  const fileMessage = useSyncExternalStore(
-    fileOwner.subscribe,
-    fileOwner.getAdmissionNotice,
-  );
   const getTimelineRowState = useCallback(
     (row: GridDataRow<WorkbookRow>): GridRowStateInput => ({
       pending: row.data.pendingSignature !== null,
@@ -491,28 +482,9 @@ export function useTimelineWorkbookPresentation({
             fieldKeys={visibleTimelineColumns.map((column) => column.fieldKey)}
           />
         ) : null,
-      fileRecovery:
-        !loadAccessLost && currentIncidentRole ? (
-          <div style={{ maxBlockSize: "25%", overflow: "auto" }}>
-            {fileMessage ? <div role="status">{fileMessage}</div> : null}
-            {files.map((entry) => (
-              <EvidenceFileRecovery
-                {...entry}
-                key={entry.key}
-                source={entry.sourceLabel}
-                onConfirmReview={() => fileOwner.confirmReview(entry.key)}
-                onReview={() => void fileOwner.review(entry.key)}
-                onResume={() => void fileOwner.resume(entry.key)}
-                onFreshSlot={() => fileOwner.freshSlot(entry.key)}
-                onNewId={() => fileOwner.newRequestId(entry.key)}
-                onDiscard={() => fileOwner.discard(entry.key)}
-                onRefresh={() => void fileOwner.refresh(entry.key)}
-              />
-            ))}
-          </div>
-        ) : null,
+      fileOwner: !loadAccessLost && currentIncidentRole ? fileOwner : undefined,
       onFilesSelected: handleTimelineEvidenceFiles,
-      onFileAdmission: fileOwner.reportAdmission.bind(fileOwner),
+      onFileAdmission: fileOwner.reportAdmission,
       fileEditorRegistry: editorDraftRegistry,
       activeRecordId: selectedRowId,
       bulkSelection: timelineBulkSelection,

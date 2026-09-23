@@ -35,6 +35,8 @@ import type {
 
 type Entry = {
   workId: string;
+  outcomeRevision: number;
+  outcomeFacts: string;
   source: TimelineFileSource;
   filename: string;
   upload: EvidenceUploadSession;
@@ -61,6 +63,9 @@ type Entry = {
   message: string;
 };
 export type TimelineFileSnapshot = Readonly<{
+  workId: string;
+  outcomeIdentity: string;
+  feedbackKind: "needs_attention" | "in_progress" | "completed";
   attention: EvidenceWorkAttention | null;
   key: string;
   recordId: string | null;
@@ -77,6 +82,11 @@ export type TimelineFileSnapshot = Readonly<{
   canNewId: boolean;
   canDiscard: boolean;
   refreshRequired: boolean;
+}>;
+
+export type TimelineFileAdmissionNotice = Readonly<{
+  identity: number;
+  message: string;
 }>;
 
 /** File-backed Evidence and its original Timeline association have independent receipts. */
@@ -99,13 +109,20 @@ export class WorkbookTimelineFileOwner {
     | ((id: string, signal: AbortSignal) => Promise<boolean>)
     | null = null;
   private snapshot: readonly TimelineFileSnapshot[] = [];
-  private admissionNotice: string | null = null;
+  private admissionSequence = 0;
+  private admissionNotice: TimelineFileAdmissionNotice | null = null;
   getAdmissionNotice = () => (this.authority ? this.admissionNotice : null);
-  reportAdmission(message: string | null) {
-    this.admissionNotice = message;
+  reportAdmission = (message: string | null) => {
+    this.admissionNotice =
+      message === null
+        ? null
+        : {
+            identity: ++this.admissionSequence,
+            message,
+          };
     this.publish();
     return message;
-  }
+  };
   constructor(
     readonly incidentId: string,
     private readonly ids: SecureTransactionIdPort,
@@ -180,95 +197,149 @@ export class WorkbookTimelineFileOwner {
   }
   private publish = () => {
     this.snapshot = this.authority
-      ? [...this.entries.values()].map((e) => ({
-          attention: this.attention(e),
-          key: e.source.key,
-          recordId: e.recordId,
-          reviewText: !e.reviewCandidate
-            ? null
-            : e.reviewCandidate === "draft"
-              ? "Original unsaved Timeline draft"
-              : `${String(e.reviewCandidate.cells["timeline.activity_synopsis_text"]?.value ?? e.reviewCandidate.cells["timeline.raw_activity_text"]?.value ?? "Timeline row")} · version ${e.reviewCandidate.row_version}`,
-          filename: e.filename,
-          sourceLabel:
-            e.source.label || e.recordId || "Original Timeline draft",
-          message: this.message(e),
-          busy: this.busy(e),
-          needsReview:
-            e.needsReview ||
-            e.evidence.state.phase === "rejected" ||
-            e.upload.status.phase === "slot_rejected",
-          evidenceAccepted: !!e.evidence.state.receipt,
-          attached: !!e.receipt || e.associationPresent,
-          canResume:
-            this.canWrite() &&
-            !this.busy(e) &&
-            !e.receipt &&
-            !e.associationPresent,
-          canFreshSlot:
-            this.canWrite() && !this.busy(e) && this.freshAllowed(e),
-          canNewId:
-            this.canWrite() &&
-            !this.busy(e) &&
-            (e.evidence.state.failure?.kind === "client_txn_conflict" ||
-              e.upload.status.failure?.kind === "client_txn_conflict" ||
-              e.linkFailure?.kind === "client_txn_conflict"),
-          canDiscard:
-            !e.stopped ||
-            (!this.busy(e) &&
-              !e.linkUncertain &&
-              e.evidence.state.phase !== "uncertain" &&
-              !e.draftSubmitted),
-          refreshRequired: e.refresh === "required",
-        }))
+      ? [...this.entries.values()].map((e) => {
+          const feedbackKind = this.feedbackKind(e);
+          const outcomeIdentity = this.outcomeIdentity(e);
+          return {
+            workId: e.workId,
+            feedbackKind,
+            outcomeIdentity,
+            attention: this.attention(e, feedbackKind, outcomeIdentity),
+            key: e.source.key,
+            recordId: e.recordId,
+            reviewText: !e.reviewCandidate
+              ? null
+              : e.reviewCandidate === "draft"
+                ? "Original unsaved Timeline draft"
+                : `${String(e.reviewCandidate.cells["timeline.activity_synopsis_text"]?.value ?? e.reviewCandidate.cells["timeline.raw_activity_text"]?.value ?? "Timeline row")} · version ${e.reviewCandidate.row_version}`,
+            filename: e.filename,
+            sourceLabel:
+              e.source.label || e.recordId || "Original Timeline draft",
+            message: this.message(e),
+            busy: this.busy(e),
+            needsReview:
+              e.needsReview ||
+              e.evidence.state.phase === "rejected" ||
+              e.upload.status.phase === "slot_rejected",
+            evidenceAccepted: !!e.evidence.state.receipt,
+            attached: !!e.receipt || e.associationPresent,
+            canResume:
+              this.canWrite() &&
+              !this.busy(e) &&
+              !e.receipt &&
+              !e.associationPresent,
+            canFreshSlot:
+              this.canWrite() && !this.busy(e) && this.freshAllowed(e),
+            canNewId:
+              this.canWrite() &&
+              !this.busy(e) &&
+              (e.evidence.state.failure?.kind === "client_txn_conflict" ||
+                e.upload.status.failure?.kind === "client_txn_conflict" ||
+                e.linkFailure?.kind === "client_txn_conflict"),
+            canDiscard:
+              !e.stopped ||
+              (!this.busy(e) &&
+                !e.linkUncertain &&
+                e.evidence.state.phase !== "uncertain" &&
+                !e.draftSubmitted),
+            refreshRequired: e.refresh === "required",
+          };
+        })
       : [];
     for (const listener of this.listeners) listener();
   };
-  private attention(e: Entry): EvidenceWorkAttention | null {
+  private uncertain(e: Entry) {
+    return (
+      e.linkUncertain ||
+      e.evidence.state.phase === "uncertain" ||
+      e.upload.status.phase === "slot_uncertain" ||
+      e.upload.status.phase === "transfer_uncertain"
+    );
+  }
+  private feedbackKind(e: Entry): TimelineFileSnapshot["feedbackKind"] {
+    if (this.uncertain(e)) return "needs_attention";
+    if ((e.receipt || e.associationPresent) && e.refresh === "complete")
+      return "completed";
+    if (e.stopped) return "needs_attention";
+    if (this.busy(e) || e.draftSubmitted || e.refresh === "refreshing")
+      return "in_progress";
+    return "needs_attention";
+  }
+  /** Read-only transition identity; repeated publication does not invent an outcome. */
+  private outcomeIdentity(e: Entry) {
+    const upload = e.upload.status;
+    const stage = e.evidence.state;
+    const facts = JSON.stringify([
+      upload.phase,
+      upload.pending,
+      upload.failure?.kind,
+      upload.failure?.publicCode,
+      stage.phase,
+      stage.pending,
+      stage.failure?.kind,
+      stage.failure?.publicReason,
+      e.preparing,
+      e.linkDispatch,
+      e.linkPending,
+      e.linkUncertain,
+      e.linkFailure?.kind,
+      !!e.receipt,
+      e.associationPresent,
+      e.draftSubmitted,
+      e.stopped,
+      e.refresh,
+      e.needsReview,
+      e.reviewCandidate === "draft" ? "draft" : e.reviewCandidate?.row_version,
+    ]);
+    if (facts !== e.outcomeFacts) {
+      e.outcomeFacts = facts;
+      e.outcomeRevision++;
+    }
+    return `${e.workId}:${e.outcomeRevision}`;
+  }
+  private attention(
+    e: Entry,
+    kind: TimelineFileSnapshot["feedbackKind"],
+    outcomeIdentity: string,
+  ): EvidenceWorkAttention | null {
     const stage = e.evidence.state;
     const upload = e.upload.status;
-    const uncertain =
-      e.linkUncertain ||
-      stage.phase === "uncertain" ||
-      upload.phase === "slot_uncertain" ||
-      upload.phase === "transfer_uncertain";
-    if (
-      e.refresh === "complete" ||
-      (e.stopped &&
-        !uncertain &&
-        !this.busy(e) &&
-        !stage.receipt &&
-        !e.draftSubmitted)
-    )
-      return null;
-    const category =
-      e.receipt || e.associationPresent
-        ? "refresh"
-        : uncertain
-          ? "uncertain"
-          : this.busy(e) || e.draftSubmitted
-            ? "in_progress"
-            : e.needsReview || stage.phase === "rejected"
-              ? "review"
-              : e.linkFailure || upload.failure
-                ? "failure"
-                : "draft";
+    const uncertain = this.uncertain(e);
+    if (kind === "completed") return null;
+    const category = uncertain
+      ? "uncertain"
+      : kind === "in_progress"
+        ? "in_progress"
+        : e.receipt || e.associationPresent
+          ? "refresh"
+          : e.stopped ||
+              e.needsReview ||
+              stage.phase === "rejected" ||
+              upload.phase === "slot_rejected"
+            ? "review"
+            : e.linkFailure || upload.failure
+              ? "failure"
+              : "draft";
     const workId = e.workId;
     return {
       workId,
       category,
       label: this.message(e),
-      outcomeIdentity: `${workId}:${upload.phase}:${stage.phase}:${e.linkUncertain}:${e.refresh}`,
+      outcomeIdentity,
     };
   }
   private message(e: Entry) {
+    if ((e.receipt || e.associationPresent) && e.refresh === "complete")
+      return "Evidence attached.";
     if (e.stopped && !e.receipt)
       return "Stopped. Dispatched work remains retained until its outcome is known; saved Evidence is preserved.";
     if (e.message) return e.message;
     if (e.receipt || e.associationPresent)
       return e.refresh === "complete"
         ? "Evidence attached."
-        : "Evidence attached. Refresh pending.";
+        : e.refresh === "refreshing"
+          ? "Evidence attached. Refreshing display."
+          : "Evidence attached. Refresh pending.";
     if (e.linkUncertain)
       return "Timeline attachment is uncertain. Recover the same link.";
     if (e.linkPending) return "Attaching Evidence to Timeline.";
@@ -279,13 +350,23 @@ export class WorkbookTimelineFileOwner {
     if (e.evidence.state.receipt)
       return e.needsReview
         ? "Evidence saved. Review the original Timeline row before linking."
-        : "Evidence saved. Resume Timeline attachment.";
+        : e.preparing
+          ? "Evidence saved. Preparing Timeline attachment."
+          : "Evidence saved. Resume Timeline attachment.";
     if (e.evidence.state.phase === "uncertain")
       return "Evidence creation is uncertain. Recover the same creation.";
     if (e.evidence.state.phase === "rejected")
       return "Evidence finalization was rejected. The file is retained.";
     if (e.evidence.state.pending) return "Finalizing Evidence.";
     switch (e.upload.status.phase) {
+      case "selected":
+        return e.preparing
+          ? "Checking the original Timeline source."
+          : "File retained for the original Timeline row.";
+      case "ready":
+        return "Upload prepared. Starting transfer.";
+      case "transferred":
+        return "File uploaded. Preparing Evidence.";
       case "slot_pending":
         return "Preparing upload.";
       case "slot_uncertain":
@@ -397,7 +478,7 @@ export class WorkbookTimelineFileOwner {
     if (!this.canWrite() || !this.transport)
       return this.reportAdmission("File attachment is currently unavailable.");
     const existing = this.entries.get(source.key);
-    if (existing && (!existing.receipt || existing.refresh !== "complete"))
+    if (existing && this.feedbackKind(existing) !== "completed")
       return this.reportAdmission(
         "Resume or discard the retained file before choosing another.",
       );
@@ -415,6 +496,8 @@ export class WorkbookTimelineFileOwner {
     );
     const entry: Entry = {
       workId: `timeline-file:${this.incidentId}:${++this.workSequence}`,
+      outcomeRevision: 0,
+      outcomeFacts: "",
       source: { ...source },
       recordId: source.recordId,
       reviewCandidate: null,

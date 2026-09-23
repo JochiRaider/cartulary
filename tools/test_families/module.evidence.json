@@ -714,6 +714,41 @@
       ]
     },
     {
+      "row_id": "module.evidence.browser.timeline_attachment_feedback",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-attachment-feedback.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_attachment_feedback"
+        ],
+        "titles": [
+          "Timeline attachment feedback keeps completed history bounded and presentation independent"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.browser.timeline_related_creation_replay",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser",
@@ -1115,8 +1150,10 @@
           "retained Evidence file recovery conceals retained files and fences late creation on role loss closure and account retirement",
           "retained Evidence file recovery discards a transferring file without creating Evidence from a late callback",
           "retained Evidence file recovery finalizes an uncertain transfer and exactly replays uncertain finalization",
+          "retained Evidence file recovery keeps stopped Timeline rejection distinct from completion and gives identical admission errors distinct identities",
           "retained Evidence file recovery preserves created Evidence after Timeline detachment and recovers only the link",
           "retained Evidence file recovery preserves selected files on replacement refusal and resolves off-page sources through the incident reader",
+          "retained Evidence file recovery projects Timeline completion refresh debt and new work identities without changing retained receipts",
           "retained Evidence file recovery recovers operation authorization denial only after current authority and explicit source review",
           "retained Evidence file recovery rejects multiple files without choosing or discarding one",
           "retained Evidence file recovery requires displayed source review after edits and never links a missing source",

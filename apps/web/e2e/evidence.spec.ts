@@ -41,6 +41,7 @@ import { collectionItems } from "./support/entities/mentions";
 import {
   chooseEvidenceFile,
   createAndUploadObjectBlob,
+  openTimelineAttachmentFeedback,
 } from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";
@@ -745,7 +746,9 @@ async function switchFileSurface(page: Page, view: string) {
 }
 
 async function reviewFileSource(page: Page, filename: string) {
+  await openTimelineAttachmentFeedback(page);
   const recovery = page.getByRole("group", {
+    includeHidden: true,
     name: `File recovery: ${filename}`,
     exact: true,
   });
@@ -824,7 +827,9 @@ test("recovers each uncertain file stage with exact requests after remount and r
       buffer: tinyPNG(),
     },
   );
+  await openTimelineAttachmentFeedback(page);
   const recovery = page.getByRole("group", {
+    includeHidden: true,
     name: `File recovery: ${filename}`,
     exact: true,
   });
@@ -851,14 +856,35 @@ test("recovers each uncertain file stage with exact requests after remount and r
   });
   await recovery.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(recovery).toContainText("Upload acknowledgement is uncertain");
+  await info.attach("uncertain-transfer", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await recovery.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(recovery).toContainText("Evidence creation is uncertain");
+  await info.attach("uncertain-finalization", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await switchFileSurface(page, evidenceViewSchemaId);
   await switchFileSurface(page, timelineViewSchemaId);
+  await openTimelineAttachmentFeedback(page);
   await recovery.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(recovery).toContainText("Review the original Timeline row");
+  await info.attach("accepted-evidence-awaiting-association", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await reviewFileSource(page, filename);
   await expect(recovery).toContainText("Timeline attachment is uncertain");
+  await recovery
+    .getByRole("button", { name: "Discard retained file work", exact: true })
+    .click();
+  await expect(recovery).toContainText("Stopped.");
+  await info.attach("stopped-uncertain-association", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await recovery.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(recovery).toContainText("Evidence attached. Refresh pending.");
   await expect.poll(() => failedReads).toBeGreaterThan(0);
@@ -1009,7 +1035,9 @@ test("keeps ordinary draft typing available during file transfer and shares both
       );
     });
     await expect(
-      page.getByText("Choose one file at a time.", { exact: true }),
+      page
+        .getByRole("region", { name: "Timeline attachments", exact: true })
+        .getByText("Choose one file at a time.", { exact: true }),
     ).toBeVisible();
     expect(slots).toBe(0);
     const filename = ordinaryFirst ? "clipboard-draft.png" : "picker-draft.png";
@@ -1039,7 +1067,9 @@ test("keeps ordinary draft typing available during file transfer and shares both
         },
       );
     }
+    await openTimelineAttachmentFeedback(page);
     const recovery = page.getByRole("group", {
+      includeHidden: true,
       name: `File recovery: ${filename}`,
       exact: true,
     });
@@ -1112,7 +1142,7 @@ test("keeps ordinary draft typing available during file transfer and shares both
 
 test("reviews the original source after a rejected file link while preserving unrelated selection and edits", async ({
   page,
-}) => {
+}, info) => {
   const incident = await createIncident(
     page,
     uniqueIncidentKey("EUR-SOURCE"),
@@ -1188,7 +1218,9 @@ test("reviews the original source after a rejected file link while preserving un
         new DragEvent("drop", { bubbles: true, dataTransfer: data }),
       );
     }, Array.from(tinyPNG()));
+  await openTimelineAttachmentFeedback(page);
   const recovery = page.getByRole("group", {
+    includeHidden: true,
     name: "File recovery: review-source.png",
     exact: true,
   });
@@ -1198,6 +1230,10 @@ test("reviews the original source after a rejected file link while preserving un
     .getByRole("button", { name: "Review original source", exact: true })
     .click();
   await expect(recovery).toContainText("Reviewed concurrent source edit");
+  await info.attach("original-source-review", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await recovery
     .getByRole("button", { name: "Use reviewed source", exact: true })
     .click();
@@ -1481,9 +1517,11 @@ test("Timeline background file gestures require an eligible active grid target",
     "not-a-source",
   );
   await expect(
-    page.getByText("Select the Timeline row or draft for this file.", {
-      exact: true,
-    }),
+    page
+      .getByRole("region", { name: "Timeline attachments", exact: true })
+      .getByText("Select the Timeline row or draft for this file.", {
+        exact: true,
+      }),
   ).toBeVisible();
   await fileGesture(
     page.getByTestId(
@@ -1494,7 +1532,9 @@ test("Timeline background file gestures require an eligible active grid target",
     2,
   );
   await expect(
-    page.getByText("Choose one file at a time.", { exact: true }),
+    page
+      .getByRole("region", { name: "Timeline attachments", exact: true })
+      .getByText("Choose one file at a time.", { exact: true }),
   ).toBeVisible();
   expect(observed.writes.slots).toBe(1);
   observed.stop();
@@ -1512,13 +1552,17 @@ test("Timeline background file gestures require an eligible active grid target",
   const absent = observeFileWrites(page);
   await fileGesture(area, "paste", "background-missing");
   await expect(
-    page.getByText("Select the Timeline row or draft for this file.", {
-      exact: true,
-    }),
+    page
+      .getByRole("region", { name: "Timeline attachments", exact: true })
+      .getByText("Select the Timeline row or draft for this file.", {
+        exact: true,
+      }),
   ).toBeVisible();
   await fileGesture(area, "drop", "multiple", 2);
   await expect(
-    page.getByText("Choose one file at a time.", { exact: true }),
+    page
+      .getByRole("region", { name: "Timeline attachments", exact: true })
+      .getByText("Choose one file at a time.", { exact: true }),
   ).toBeVisible();
   expect(absent.writes).toEqual({
     slots: 0,
@@ -1703,7 +1747,9 @@ test("Timeline file paste preserves native scalar and collection editing during 
       });
       await input.press("Escape");
       release();
+      await openTimelineAttachmentFeedback(page);
       const recovery = page.getByRole("group", {
+        includeHidden: true,
         name: `File recovery: native-${kind}-0.txt`,
         exact: true,
       });
@@ -1812,9 +1858,11 @@ test("Timeline admitted file work keeps its source through selection filtering a
       "stale-background",
     );
     await expect(
-      page.getByText("Select the Timeline row or draft for this file.", {
-        exact: true,
-      }),
+      page
+        .getByRole("region", { name: "Timeline attachments", exact: true })
+        .getByText("Select the Timeline row or draft for this file.", {
+          exact: true,
+        }),
     ).toBeVisible();
     expect(observed.writes.slots).toBe(1);
     const focused = await page.evaluateHandle(() => document.activeElement);
@@ -1823,14 +1871,18 @@ test("Timeline admitted file work keeps its source through selection filtering a
       name: "File recovery: filtered-source-0.txt",
       exact: true,
     });
-    await expect(recovery).toContainText(
-      "Evidence saved. Review the original Timeline row before linking.",
-    );
+    await expect(
+      page.getByRole("button", { name: /^Attachments:/ }),
+    ).toContainText("1 need attention");
     expect(
       await focused.evaluate((element) => element === document.activeElement),
     ).toBe(true);
     expect(await attachedTimelineIds(page, f.incident)).toEqual([]);
     expect(observed.writes.links).toEqual([]);
+    await openTimelineAttachmentFeedback(page);
+    await expect(recovery).toContainText(
+      "Evidence saved. Review the original Timeline row before linking.",
+    );
     await recovery
       .getByRole("button", { name: "Review original source", exact: true })
       .click();
@@ -1908,11 +1960,14 @@ test("Timeline keyboard picker cancellation and removed originals start no uploa
     mimeType: "text/plain",
     buffer: Buffer.from("capture"),
   });
+  await openTimelineAttachmentFeedback(page);
   await expect(
-    page.getByText(
-      "The original Timeline source is unavailable. No upload started.",
-      { exact: true },
-    ),
+    page
+      .getByRole("region", { name: "Timeline attachments", exact: true })
+      .getByText(
+        "The original Timeline source is unavailable. No upload started.",
+        { exact: true },
+      ),
   ).toBeVisible();
   expect(await attachedTimelineIds(page, f.incident)).toEqual([]);
   expect(observed.writes).toEqual({

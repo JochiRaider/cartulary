@@ -1177,15 +1177,15 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       page.getByRole("group", {
         name: "Inspector file recovery: default-timeline-workbook-shell.png",
         exact: true,
+        includeHidden: true,
       }),
     ).toContainText("Evidence attached.");
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
-    await page
-      .getByRole("button", { name: "Discard retained file work", exact: true })
-      .last()
-      .click();
+    await expect(
+      page.getByRole("button", { name: /^Attachments:/ }),
+    ).toHaveText("Attachments: 0 need attention, 0 in progress, 1 completed");
     await page
       .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
       .evaluateAll((elements) => {
@@ -2385,10 +2385,9 @@ test.describe("workbook visual evidence", () => {
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
-    await page
-      .getByRole("button", { name: "Discard retained file work", exact: true })
-      .last()
-      .click();
+    await expect(
+      page.getByRole("button", { name: /^Attachments:/ }),
+    ).toHaveText("Attachments: 0 need attention, 0 in progress, 1 completed");
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -2681,10 +2680,9 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
-    await page
-      .getByRole("button", { name: "Discard retained file work", exact: true })
-      .last()
-      .click();
+    await expect(
+      page.getByRole("button", { name: /^Attachments:/ }),
+    ).toHaveText("Attachments: 0 need attention, 0 in progress, 1 completed");
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();

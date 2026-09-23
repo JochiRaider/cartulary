@@ -344,11 +344,11 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-timeline-evidence-badge-linux.png",
-      "sha256": "0b20b375cfb11aacaa19e1e516a7f0770b7ae4a0e6d650814e7c2ffec0a0c623"
+      "sha256": "b370e86fcd35a5db117c785d3ca5e4fd2fe6f4ab5b961240c0659560e3b59864"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png",
-      "sha256": "ed73fa297664ca679c7b23c48b8d0f5e36d351c1e2f6a68632f527baa595c112"
+      "sha256": "e48ec2fc5e0fa2b2903b2378ab5151fdac97e443542f3b5574ba6777d91ea71b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-confirmed-handoff-failure-linux.png",
@@ -384,15 +384,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
-      "sha256": "59304a4e219bf042b8f345d3216fd4f128e29ed7396a4f8f3e9ce5ab76ca57b8"
+      "sha256": "2213cc6d5cdf0fb6274c5c13aa9c06ba61171ad1b14a1516bad49456f5284c05"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
-      "sha256": "6a0556aafdc6039ef2c1b68eb5aafb0636c11b35a914532aad66121234663641"
+      "sha256": "c70dae20932b27810d811b8633fd2cafe836e51927b2db53793a66e55947dc9d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",
-      "sha256": "fa7d1fdfd379eacda630682843ba6019d928b7fd51a1adacd0b5db45ac68e26d"
+      "sha256": "0b0a97fd8ef944cc1feeca341498b6ecd5228c225e9326270b72b818c12ae02a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-access-retry-linux.png",

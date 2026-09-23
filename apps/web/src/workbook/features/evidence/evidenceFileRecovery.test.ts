@@ -32,7 +32,7 @@ const authority: WorkbookMutationAuthority = {
   closed: false,
 };
 
-function fixture() {
+function fixture(associated = false) {
   let seq = 0;
   const ids = { create: vi.fn((prefix: string) => `${prefix}-${++seq}`) };
   const file = new File(["abc"], "capture.txt", { type: "text/plain" });
@@ -74,7 +74,23 @@ function fixture() {
     requireViewContract(timelineViewSchemaId),
     sourceId,
     1,
-    { "timeline.raw_activity_text": "Original source" },
+    {
+      "timeline.raw_activity_text": "Original source",
+      ...(associated
+        ? {
+            "timeline.attached_evidence_ids": {
+              kind: "collection_value_v1",
+              ordered: false,
+              items: [
+                {
+                  linked_record_id: evidenceId,
+                  item_ref: "existing-association",
+                },
+              ],
+            },
+          }
+        : {}),
+    },
   );
   const receipt = {
     data: {
@@ -149,6 +165,135 @@ function fixture() {
 }
 
 describe("retained Evidence file recovery", () => {
+  it("projects Timeline completion refresh debt and new work identities without changing retained receipts", async () => {
+    const f = fixture();
+    const linked = {
+      data: {
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "70000000-0000-4000-8000-000000000007",
+        row: { ...f.source, row_version: 2 },
+      },
+      meta: { request_id: "link" },
+    };
+    const links = {
+      ...createTimelineFileLinkTransport(undefined),
+      send: vi.fn(async () => ({ kind: "accepted" as const, receipt: linked })),
+    };
+    f.effects.refresh.mockRejectedValueOnce(new Error("refresh failed"));
+    const owner = new WorkbookTimelineFileOwner(incidentId, f.ids, f.effects);
+    owner.configure(f.reader, async () => authority, f.transport, links);
+    owner.setAuthority(authority);
+    const source = { key: sourceId, recordId: sourceId, rowVersion: 1 };
+    owner.begin(source, [f.file]);
+    await waitFor(() =>
+      expect(owner.getSnapshot()[0]?.refreshRequired).toBe(true),
+    );
+    const debt = owner.getSnapshot()[0];
+    expect(debt).toMatchObject({
+      feedbackKind: "needs_attention",
+      evidenceAccepted: true,
+      attached: true,
+      attention: { category: "refresh" },
+    });
+    owner.acceptVersion(sourceId, 1);
+    expect(owner.getSnapshot()[0]?.outcomeIdentity).toBe(debt?.outcomeIdentity);
+    const read = deferred<void>();
+    f.effects.refresh.mockReturnValueOnce(read.promise);
+    const refreshing = owner.refresh(sourceId);
+    expect(owner.getSnapshot()[0]?.feedbackKind).toBe("in_progress");
+    read.resolve();
+    await refreshing;
+    expect(owner.getSnapshot()[0]).toMatchObject({
+      feedbackKind: "completed",
+      workId: debt?.workId,
+      attention: null,
+    });
+    expect(f.effects.accepted).toHaveBeenCalledWith(linked, expect.any(String));
+    expect(links.send).toHaveBeenCalledTimes(1);
+    expect(f.transport.finalize).toHaveBeenCalledTimes(1);
+    owner.begin(source, [f.file]);
+    expect(owner.getSnapshot()[0]?.workId).not.toBe(debt?.workId);
+    expect(owner.getSnapshot()[0]?.feedbackKind).toBe("in_progress");
+    await waitFor(() => expect(owner.getSnapshot()[0]?.busy).toBe(false));
+
+    // An authoritative existing association is complete without inventing a link receipt.
+    const present = fixture(true);
+    const verified = new WorkbookTimelineFileOwner(
+      incidentId,
+      present.ids,
+      present.effects,
+    );
+    const verifiedLinks = {
+      ...createTimelineFileLinkTransport(undefined),
+      send: vi.fn(),
+    };
+    verified.configure(
+      present.reader,
+      async () => authority,
+      present.transport,
+      verifiedLinks,
+    );
+    verified.setAuthority(authority);
+    verified.begin(source, [present.file]);
+    await waitFor(() =>
+      expect(verified.getSnapshot()[0]?.refreshRequired).toBe(true),
+    );
+    expect(verified.getSnapshot()[0]?.feedbackKind).toBe("needs_attention");
+    const oldWork = verified.getSnapshot()[0]?.workId;
+    expect(verified.begin(source, [present.file])).toContain("retained file");
+    await verified.refresh(sourceId);
+    expect(verified.getSnapshot()[0]?.feedbackKind).toBe("completed");
+    expect(verifiedLinks.send).not.toHaveBeenCalled();
+    expect(present.effects.accepted).toHaveBeenCalledExactlyOnceWith(
+      present.receipt,
+      expect.any(String),
+    );
+    expect(verified.begin(source, [present.file])).toBeNull();
+    expect(verified.getSnapshot()[0]?.workId).not.toBe(oldWork);
+    expect(verified.getSnapshot()[0]?.feedbackKind).toBe("in_progress");
+    await waitFor(() => expect(verified.getSnapshot()[0]?.busy).toBe(false));
+    verified.retire();
+  });
+  it("keeps stopped Timeline rejection distinct from completion and gives identical admission errors distinct identities", async () => {
+    const f = fixture();
+    const pending =
+      deferred<Awaited<ReturnType<EvidenceFileTransport["finalize"]>>>();
+    f.transport.finalize.mockReturnValueOnce(pending.promise);
+    const owner = new WorkbookTimelineFileOwner(incidentId, f.ids, f.effects);
+    owner.configure(
+      f.reader,
+      async () => authority,
+      f.transport,
+      createTimelineFileLinkTransport(undefined),
+    );
+    owner.setAuthority(authority);
+    owner.begin({ key: sourceId, recordId: sourceId, rowVersion: 1 }, [f.file]);
+    await waitFor(() => expect(f.transport.finalize).toHaveBeenCalledTimes(1));
+    owner.discard(sourceId);
+    pending.resolve({
+      kind: "rejected",
+      failure: { kind: "validation", message: "Rejected" },
+    });
+    await waitFor(() => expect(owner.getSnapshot()[0]?.busy).toBe(false));
+    expect(owner.getSnapshot()[0]).toMatchObject({
+      feedbackKind: "needs_attention",
+      attached: false,
+      attention: { category: "review" },
+    });
+    expect(owner.getSnapshot()[0]?.message).toContain("Stopped.");
+    const retained = owner.getSnapshot()[0];
+    owner.reportAdmission("Choose one file at a time.");
+    const first = owner.getAdmissionNotice();
+    owner.reportAdmission("Choose one file at a time.");
+    expect(owner.getAdmissionNotice()?.identity).not.toBe(first?.identity);
+    expect(owner.getSnapshot()[0]?.outcomeIdentity).toBe(
+      retained?.outcomeIdentity,
+    );
+    expect(f.transport.finalize).toHaveBeenCalledTimes(1);
+    owner.suspend();
+    expect(owner.getAdmissionNotice()).toBeNull();
+    expect(owner.getSnapshot()).toEqual([]);
+  });
   it("starts no upload for an unavailable original Timeline source", async () => {
     for (const unavailable of [
       "missing",
@@ -659,7 +804,9 @@ describe("retained Evidence file recovery", () => {
     expect(owner.begin(source, [f.file, f.file])).toBe(
       "Choose one file at a time.",
     );
-    expect(owner.getAdmissionNotice()).toBe("Choose one file at a time.");
+    expect(owner.getAdmissionNotice()?.message).toBe(
+      "Choose one file at a time.",
+    );
     expect(owner.getSnapshot()[0]?.filename).toBe(f.file.name);
     await owner.resume(sourceId);
     expect(f.transport.transfer.mock.calls[0]?.[1]).toBe(f.file);

@@ -13,6 +13,7 @@ semantic models and commands. Surface layout regions live in
 
 | File | Responsibility |
 | --- | --- |
+| [TimelineAttachmentFeedback.tsx](TimelineAttachmentFeedback.tsx) | Leaf subscriptions, bounded attachment disclosure, shared source-specific detail/action binding, local focus fallback and outcome announcements; operations remain in the file owner. |
 | [TimelineBulkTagControl.tsx](TimelineBulkTagControl.tsx) | Owns mounted raw tag authoring and local feedback; observes captured batch outcomes without changing selection or grid focus. |
 | [TimelineCollectionCell.tsx](TimelineCollectionCell.tsx) | Focused relationship/tag summary, overflow, and collection-draft cell presentation over discriminated models. |
 | [TimelineDraftRowActions.tsx](TimelineDraftRowActions.tsx) | Timeline draft-row create and evidence-attachment actions. |
@@ -39,6 +40,7 @@ semantic models and commands. Surface layout regions live in
 
 | File | Responsibility |
 | --- | --- |
+| [TimelineAttachmentFeedback.test.tsx](TimelineAttachmentFeedback.test.tsx) | Collapsed completion, original-source commands, focus fallback, distinct announcements and leaf-only render propagation. |
 | [TimelineCollectionCell.test.tsx](TimelineCollectionCell.test.tsx) | Tests hidden collection-item inspection without editing or committing pending text. |
 | [TimelineInspectorDetails.test.tsx](TimelineInspectorDetails.test.tsx) | Tests production explicit submission, retained drafts, saved/unsaved separation and acknowledged read-only recovery. |
 | [TimelineEvidencePanel.test.tsx](TimelineEvidencePanel.test.tsx) | Tests for Timeline evidence panel behavior. |
