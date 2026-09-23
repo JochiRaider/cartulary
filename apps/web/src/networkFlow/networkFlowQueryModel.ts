@@ -167,7 +167,7 @@ export type QueryCompilation<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly issues: readonly QueryIssue[] };
 
-export const queryFieldMetadata = networkFlowQueryMetadata.fields;
+const queryFieldMetadata = networkFlowQueryMetadata.fields;
 export function queryField(field: string) {
   return queryFieldMetadata.find((entry) => entry.field_key === field);
 }

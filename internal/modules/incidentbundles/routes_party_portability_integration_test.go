@@ -13,23 +13,23 @@ import (
 
 func TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "party-incident-bundle-v3-source")
-	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "party-incident-bundle-v3-target")
+	sourceHarness := runtime.StartDefaultServer(t, "party-incident-bundle-current-source")
+	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "party-incident-bundle-current-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
-		"client_txn_id": "txn-party-bundle-v3-source",
-		"incident_key":  "PARTY-BUNDLE-V3",
-		"title":         "Party bundle v3 invariant fixture",
+		"client_txn_id": "txn-party-bundle-current-source",
+		"incident_key":  "PARTY-BUNDLE-CURRENT",
+		"title":         "Party bundle current-format invariant fixture",
 	})
 	incidentID := incident["incident_id"].(string)
 	timelineRow := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
-		"client_txn_id":                   "txn-party-bundle-v3-timeline",
+		"client_txn_id":                   "txn-party-bundle-current-timeline",
 		"timeline.activity_synopsis_text": "Party bundle invariant fixture",
 	})
 	timelineRecordID := timelineRow["row"].(map[string]any)["record_id"].(string)
 	seeded := seedIncidentBundlePortableState(t, sourceHarness, incidentID, timelineRecordID, sourceAdminID)
-	bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-party-bundle-v3-export")
+	bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-party-bundle-current-export")
 	baseRows := decodeNDJSONRows(t, zipMemberBytes(t, bundle, "data/parties.ndjson"))
 	if len(baseRows) != 1 {
 		t.Fatalf("Party fixture rows = %d, want 1", len(baseRows))
@@ -43,14 +43,14 @@ func TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration(t *testing.T)
 		mutate    func([]map[string]any) []map[string]any
 	}{
 		{
-			name: "duplicate identity", txn: "txn-party-bundle-v3-identity",
+			name: "duplicate identity", txn: "txn-party-bundle-current-identity",
 			invariant: "parties.source_identity_admitted",
 			mutate: func(rows []map[string]any) []map[string]any {
 				return append(rows, cloneIncidentBundleRow(rows[0]))
 			},
 		},
 		{
-			name: "closed shape", txn: "txn-party-bundle-v3-shape",
+			name: "closed shape", txn: "txn-party-bundle-current-shape",
 			invariant: "parties.version_shape_exact", hostile: "future_party_secret",
 			mutate: func(rows []map[string]any) []map[string]any {
 				rows[0]["future_party_secret"] = "must-not-escape"
@@ -58,7 +58,7 @@ func TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration(t *testing.T)
 			},
 		},
 		{
-			name: "lifecycle vocabulary", txn: "txn-party-bundle-v3-lifecycle",
+			name: "lifecycle vocabulary", txn: "txn-party-bundle-current-lifecycle",
 			invariant: "parties.identity_lifecycle", hostile: "UNADMITTED-PARTY-KIND",
 			mutate: func(rows []map[string]any) []map[string]any {
 				rows[0]["party_kind"] = "UNADMITTED-PARTY-KIND"
@@ -66,7 +66,7 @@ func TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration(t *testing.T)
 			},
 		},
 		{
-			name: "normalization", txn: "txn-party-bundle-v3-normalization",
+			name: "normalization", txn: "txn-party-bundle-current-normalization",
 			invariant: "parties.normalization_exact", hostile: "PRIVATE-PARTY-SENTINEL",
 			mutate: func(rows []map[string]any) []map[string]any {
 				rows[0]["display_name"] = " PRIVATE-PARTY-SENTINEL "

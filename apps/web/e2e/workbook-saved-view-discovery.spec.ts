@@ -51,7 +51,8 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
             group_by: "timeline.capture_state",
           },
           layout_json: {
-            layout_schema_id: "cartulary.layout.v1",
+            layout_schema_id: "cartulary.layout.v2",
+            frozen_through_field_key: null,
             column_order: requireViewContract(timelineViewSchemaId).fields.map(
               (field) => field.fieldKey,
             ),

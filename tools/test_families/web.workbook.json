@@ -2138,6 +2138,7 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/WorkbookInspectorRecordHistory.test.tsx",
         "titles": [
+          "WorkbookInspectorRecordHistory binds read viewport and focus continuity to the current subject lifetime and request",
           "WorkbookInspectorRecordHistory cancels an event review while its read is pending without dispatching a write",
           "WorkbookInspectorRecordHistory finishes captured owner effects without committing a stale mutation result",
           "WorkbookInspectorRecordHistory loads advertised history and rolls back only through its stable selector",
@@ -3015,9 +3016,9 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/useInspectorCreateRelatedWorkflow.test.tsx",
         "titles": [
-          "useInspectorCreateRelatedWorkflow ignores a late accepted result after cancel and reopen while retaining the owner effect",
-          "useInspectorCreateRelatedWorkflow ignores a late rejection after a row-version retarget",
-          "useInspectorCreateRelatedWorkflow publishes related success as neutral non-announced feedback"
+          "useInspectorCreateRelatedWorkflow binds every authored creation feature to exactly one retained operation owner",
+          "useInspectorCreateRelatedWorkflow does not replace a missing retained owner with a generic form or transport",
+          "useInspectorCreateRelatedWorkflow omits unbound additive creation and never dispatches a fallback"
         ]
       },
       "evidence_class": "unit",
@@ -3329,11 +3330,9 @@
         "file": "apps/web/src/workbook/inspector/inspectorRelatedRecordModel.test.ts",
         "titles": [
           "inspector related-record model builds selected-record, selected-field, and literal seeds",
-          "inspector related-record model ignores obsolete workflow actions after cancel and reopen",
           "inspector related-record model leaves defaults intact for a missing selected field",
-          "inspector related-record model reduces editing, submission, rejection, retry, and completion exhaustively",
-          "inspector related-record model rejects a mismatched target contract",
-          "inspector related-record model retains an equal subject and clears record, version, surface, or no-row retargets"
+          "inspector related-record model projects coordination source input seeds",
+          "inspector related-record model rejects a mismatched target contract"
         ]
       },
       "evidence_class": "unit",
@@ -5148,6 +5147,7 @@
           "Timeline related Evidence recovery retains committed creation after link rejection and retries only a newly reviewed link",
           "Timeline related Evidence recovery retains timeout uncertainty across replay rejection and accepts a late receipt monotonically",
           "Timeline related Evidence recovery routes collection conflicts and preserves the created checkpoint when the saved collection is kept",
+          "Timeline related Evidence recovery serializes projection refresh after link admission and acknowledgement",
           "Timeline related Evidence recovery validates lost malformed and uncorrelated responses for each exact stage transport"
         ]
       },

@@ -61,7 +61,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 	if err != nil {
 		return nil, err
 	}
-	v3 := []string{
+	currentPaths := []string{
 		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
 		"data/timeline_time_profiles.ndjson", "data/timeline_records.ndjson",
 		"data/timeline_source_provenance.ndjson", "data/parties.ndjson",
@@ -99,7 +99,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 			revisionsPort,
 			savedviews.NewIncidentBundleSourcePort(),
 		},
-		RequiredPathsByVersion: map[int][]string{3: v3, 4: v3},
+		RequiredPathsByVersion: map[int][]string{4: currentPaths},
 		AllowedRelationIDs: map[string]struct{}{
 			"incident-core": {}, "record-envelope": {}, "record-revisions": {},
 			"timeline-source": {},
@@ -108,7 +108,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},
 		},
-		SpecialConsumers: map[int]map[string]string{3: special, 4: special},
+		SpecialConsumers: map[int]map[string]string{4: special},
 	})
 }
 

@@ -242,7 +242,7 @@ export type PendingQueueStatusFacts = Readonly<
   >
 > & { readonly sameFieldConflicts: readonly PendingReplaySameFieldConflict[] };
 
-export type PendingUnitFact = Readonly<
+type PendingUnitFact = Readonly<
   Pick<PendingReplayUnitState, "id" | "status" | "enqueueOrder">
 >;
 

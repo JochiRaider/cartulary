@@ -45,7 +45,7 @@
         "io": 1,
         "memory_mb": 512,
         "port_lane": 1,
-        "postgres": 4,
+        "postgres": 2,
         "process": 1
       }
     },
@@ -480,33 +480,6 @@
           {
             "name": "functional-support-network-flow-claimed",
             "target": "browser-e2e-webserver-backed",
-            "kind": "duration_balanced_specs",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "workers": "default",
-            "runtime_profile_id": "network_flow_claimed",
-            "browser_session_group": "browser-functional-network-flow-claimed",
-            "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration"
-          }
-        ],
-        "frontend_artifact_id": "production"
-      },
-      {
-        "name": "functional",
-        "target": "browser-e2e-functional",
-        "groups": [
-          {
-            "name": "functional-default",
-            "target": "browser-e2e-functional",
-            "kind": "duration_balanced_specs",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "workers": "default",
-            "runtime_profile_id": "default"
-          },
-          {
-            "name": "functional-network-flow-claimed",
-            "target": "browser-e2e-functional",
             "kind": "duration_balanced_specs",
             "coverage": "authoritative",
             "execution_dependency": "browser_functional",

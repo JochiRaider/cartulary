@@ -49,10 +49,3 @@ export const inspectorSectionStyle = {
   ...workbookFormFieldsStyle,
   marginBottom: "var(--ct-spacing-sm)",
 };
-
-export const sectionTitleStyle = {
-  ...workbookTypography("section-heading"),
-  margin: 0,
-};
-
-export const inspectorActionStackStyle = workbookFormFieldsStyle;

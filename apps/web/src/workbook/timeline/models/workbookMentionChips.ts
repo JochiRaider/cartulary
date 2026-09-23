@@ -76,7 +76,7 @@ export type AutoResolutionNotice = {
   matchedAliasText: string | null;
 };
 
-export function relationshipItemLabel(
+function relationshipItemLabel(
   item: CollectionItem | InspectorMention,
   entityIndex: Record<string, { label: string }>,
 ) {

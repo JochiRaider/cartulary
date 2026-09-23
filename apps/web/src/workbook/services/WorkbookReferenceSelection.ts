@@ -22,7 +22,7 @@ type Pending = Readonly<{
   history: readonly Checkpoint[];
   kind: "initial" | "continuation";
 }>;
-export type WorkbookReferenceSelectionSnapshot = Readonly<{
+type WorkbookReferenceSelectionSnapshot = Readonly<{
   source: string;
   queryState: WorkbookQueryState;
   page: WorkbookReferencePage | null;

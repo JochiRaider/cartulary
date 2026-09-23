@@ -11,13 +11,6 @@ export type WorkbookSavedViewsResource = {
 
 export type SavedViewEditableScope = "private" | "shared";
 
-export type SavedViewActionKind =
-  | "create"
-  | "update"
-  | "duplicate"
-  | "reset"
-  | "delete";
-
 export type SavedViewControlFeedback = {
   readonly kind: "success" | "error" | "notice";
   readonly message: string;

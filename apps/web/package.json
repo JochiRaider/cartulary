@@ -34,7 +34,7 @@
     "lint": "bash ../../tools/harness/static-analysis/frontend-biome.sh check",
     "test": "vitest",
     "test:e2e": "pnpm run test:e2e:functional && pnpm run test:e2e:stateful",
-    "test:e2e:functional": "make --directory ../.. browser-e2e-functional",
+    "test:e2e:functional": "make --directory ../.. browser-e2e-webserver-backed",
     "test:e2e:stateful": "make --directory ../.. browser-e2e-stateful",
     "test:e2e:a11y": "make --directory ../.. browser-e2e-a11y",
     "test:e2e:visual": "make --directory ../.. browser-e2e-visual",

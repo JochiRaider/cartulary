@@ -114,10 +114,7 @@ const entityViewSchemas: ReadonlySet<string> = new Set([
 ]);
 
 export type { WorkbookQueuedPatchRequest } from "./WorkbookManagedPatchDriver";
-export type {
-  WorkbookMutationSnapshot,
-  WorkbookStatusPresentation,
-} from "./workbookMutationStatusProjector";
+export type { WorkbookMutationSnapshot } from "./workbookMutationStatusProjector";
 
 export type WorkbookSaveAnnouncement = {
   readonly sequence: number;

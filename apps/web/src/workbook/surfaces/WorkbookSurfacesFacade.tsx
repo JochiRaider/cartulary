@@ -227,7 +227,6 @@ export function WorkbookSurfacesFacade({
         mutationRuntime={mutationRuntime}
         clipboardPaste={mutations.clipboardPaste}
         onActivateConflict={onActivateConflict}
-        relatedMutationCommands={mutationCommands.timeline.related}
         collaborationProjection={collaborationProjection}
         loadState={entityLoadState}
         onRefreshEntities={loadEntities}
@@ -270,7 +269,6 @@ export function WorkbookSurfacesFacade({
         layout={layout}
         mutationRuntime={mutationRuntime}
         onActivateConflict={onActivateConflict}
-        relatedMutationCommands={mutationCommands.timeline.related}
         collaborationProjection={collaborationProjection}
         loadState={assessmentLoadState}
         onRefreshAssessmentRows={loadAssessmentSurface}

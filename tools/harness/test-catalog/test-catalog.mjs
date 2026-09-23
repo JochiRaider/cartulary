@@ -318,6 +318,9 @@ function validateRowSemantics({
   if (!profiles.runtimeIDs.has(row.runtime_profile_id)) {
     throw new Error(`${label}.runtime_profile_id is unresolved`);
   }
+  if (row.runner === "playwright" && row.selector.stage === "webserver_backed" && row.resource_profile_id !== "browser_functional") {
+    throw new Error(`${label} ordinary webserver-backed work must use browser_functional`);
+  }
   if (!profiles.resourceIDs.has(row.resource_profile_id)) {
     throw new Error(`${label}.resource_profile_id is unresolved`);
   }

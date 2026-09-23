@@ -85,6 +85,7 @@ type CompileGridColumnsInput<Row> = {
   ) => {
     readonly activation: GridEditorActivation;
     readonly retained: boolean;
+    readonly focusOnAttach: boolean;
     readonly hasValue: boolean;
     readonly value: unknown;
   } | null;
@@ -558,6 +559,7 @@ function SemanticGridEditor<Row>({
   readonly editorSeed: {
     readonly activation: GridEditorActivation;
     readonly retained: boolean;
+    readonly focusOnAttach: boolean;
     readonly hasValue: boolean;
     readonly value: unknown;
   } | null;
@@ -706,13 +708,12 @@ function SemanticGridEditor<Row>({
     const element = focusTargetRef.current;
     if (element === null) return;
     const external = document.activeElement;
-    if (
-      initialAttachment.current.seed?.retained &&
-      external instanceof HTMLElement &&
-      external.closest('[data-grid-editor-external-action="true"]')
-    )
-      return;
-    element.focus({ preventScroll: true });
+    const preserveFocus =
+      initialAttachment.current.seed?.focusOnAttach === false ||
+      (initialAttachment.current.seed?.retained &&
+        external instanceof HTMLElement &&
+        external.closest('[data-grid-editor-external-action="true"]'));
+    if (!preserveFocus) element.focus({ preventScroll: true });
     if (
       (element instanceof HTMLInputElement &&
         element.selectionStart !== null) ||

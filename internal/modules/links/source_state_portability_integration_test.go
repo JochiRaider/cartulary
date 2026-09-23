@@ -71,7 +71,7 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 		}
 		recorder := &linksPortableAttributionRecorder{}
 		importContext := sourceport.ImportContext{
-			IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 3,
+			IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 4,
 			OperationID: "links-invalid-endpoint", Attributions: recorder,
 		}
 		prepared, err := port.PrepareImport(ctx, invalid, importContext)
@@ -99,7 +99,7 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 
 	recorder := &linksPortableAttributionRecorder{}
 	importContext := sourceport.ImportContext{
-		IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 3,
+		IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 4,
 		OperationID: "links-valid-round-trip", Attributions: recorder,
 	}
 	prepared, err := port.PrepareImport(ctx, bundle, importContext)

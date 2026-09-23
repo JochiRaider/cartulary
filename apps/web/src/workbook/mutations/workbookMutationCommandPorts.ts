@@ -1,4 +1,3 @@
-import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookOperationResponse } from "../adapters/workbookOperationContract";
 import type { AssessmentAppendTransport } from "../features/assessments/assessmentOperation";
 import type { WorkbookRecordHistoryPort } from "../history/workbookHistoryOperation";
@@ -55,25 +54,10 @@ export interface TimelineClearMutationPort {
   ): string | null;
 }
 
-export type TimelineRelatedRecordCreated = {
-  readonly changeSetId: string;
-  readonly recordId: string;
-  readonly viewSchemaId: string;
-};
-
-export interface TimelineRelatedRecordPort {
-  createRelatedRecord(input: {
-    readonly contract: ViewContract;
-    readonly draft: Readonly<Record<string, string>>;
-    readonly featureGroupKey: string;
-  }): Promise<WorkbookOperationOutcome<TimelineRelatedRecordCreated>>;
-}
-
 export type TimelineMutationCommandPorts = {
   readonly clear: TimelineClearMutationPort;
   readonly fill: TimelineFillMutationPort;
   readonly identity: TimelineMutationIdentityPort;
-  readonly related: TimelineRelatedRecordPort;
 };
 
 export type AssessmentMutationCommandPort = AssessmentAppendTransport;

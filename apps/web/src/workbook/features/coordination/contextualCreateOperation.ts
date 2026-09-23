@@ -8,9 +8,6 @@ import type { WorkbookOperationFailure } from "../../mutations/workbookOperation
 
 export type {
   WorkbookAuthoringAuthorityReader as ContextualAuthorityReader,
-  WorkbookAuthoringCandidate as ContextualCandidate,
-  WorkbookAuthoringPage as ContextualCandidatePage,
-  WorkbookAuthoringQuery as ContextualCandidateQuery,
   WorkbookAuthoringReadPort as ContextualCreateReader,
 } from "../../ports/WorkbookAuthoringReadPort";
 

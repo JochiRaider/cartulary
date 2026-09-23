@@ -1,7 +1,7 @@
 import type { NetworkFlowTable } from "../services/networkFlowContractAdapter";
 import type { TableAuthority } from "./networkFlowTableOperation";
 export const tableIncidentId = "11111111-1111-4111-8111-111111111111";
-export const tableActorId = "22222222-2222-4222-8222-222222222222";
+const tableActorId = "22222222-2222-4222-8222-222222222222";
 export const tableAuthority = (): TableAuthority => ({
   incidentId: tableIncidentId,
   actorId: tableActorId,

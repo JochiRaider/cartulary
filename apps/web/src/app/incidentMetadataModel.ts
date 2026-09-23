@@ -47,7 +47,7 @@ export const metadataValues = (
   current_phase: r.current_phase ?? "",
   primary_external_case_ref: r.primary_external_case_ref ?? "",
 });
-export const metadataRevisions = (): MetadataRevisions => ({
+const metadataRevisions = (): MetadataRevisions => ({
   description: 0,
   severity: 0,
   tlp: 0,

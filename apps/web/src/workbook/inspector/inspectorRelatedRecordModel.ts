@@ -8,10 +8,9 @@ import {
 } from "../models/genericWorkbookModel";
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 import type { WorkbookInspectorErrorPresentation } from "./workbookInspectorErrorModel";
-import {
-  type WorkbookInspectorLiveRowBinding,
-  type WorkbookInspectorLiveSubject,
-  workbookInspectorSubjectsEqual,
+import type {
+  WorkbookInspectorLiveRowBinding,
+  WorkbookInspectorLiveSubject,
 } from "./workbookInspectorSubject";
 
 type InspectorRelatedRecordDraftResult =
@@ -37,79 +36,6 @@ export type InspectorRelatedRecordWorkflowState =
     readonly subject: WorkbookInspectorLiveSubject;
     readonly phase: "editing" | "submitting";
   };
-
-export type InspectorRelatedRecordWorkflowAction =
-  | {
-      readonly type: "begin";
-      readonly workflowId: symbol;
-      readonly subject: WorkbookInspectorLiveSubject;
-      readonly draft: Record<string, string>;
-      readonly featureGroup: InspectorFeatureGroup;
-      readonly targetContract: ViewContract;
-    }
-  | {
-      readonly type: "update";
-      readonly workflowId: symbol;
-      readonly fieldKey: string;
-      readonly value: string;
-    }
-  | { readonly type: "submit"; readonly workflowId: symbol }
-  | {
-      readonly type: "reject";
-      readonly workflowId: symbol;
-      readonly error: WorkbookInspectorErrorPresentation;
-    }
-  | { readonly type: "complete"; readonly workflowId: symbol }
-  | { readonly type: "cancel"; readonly workflowId: symbol }
-  | {
-      readonly type: "retarget";
-      readonly workflowId: symbol;
-      readonly subject: WorkbookInspectorLiveSubject | null;
-    };
-
-export function inspectorRelatedRecordWorkflowReducer(
-  state: InspectorRelatedRecordWorkflowState | null,
-  action: InspectorRelatedRecordWorkflowAction,
-): InspectorRelatedRecordWorkflowState | null {
-  if (action.type === "begin") {
-    return {
-      draft: action.draft,
-      error: null,
-      featureGroup: action.featureGroup,
-      phase: "editing",
-      subject: action.subject,
-      targetContract: action.targetContract,
-      workflowId: action.workflowId,
-    };
-  }
-  if (state === null || state.workflowId !== action.workflowId) return state;
-  switch (action.type) {
-    case "update":
-      return state.phase === "editing"
-        ? {
-            ...state,
-            draft: { ...state.draft, [action.fieldKey]: action.value },
-            error: null,
-          }
-        : state;
-    case "submit":
-      return state.phase === "editing"
-        ? { ...state, error: null, phase: "submitting" }
-        : state;
-    case "reject":
-      return state.phase === "submitting"
-        ? { ...state, error: action.error, phase: "editing" }
-        : state;
-    case "complete":
-      return state.phase === "submitting" ? null : state;
-    case "cancel":
-      return null;
-    case "retarget":
-      return workbookInspectorSubjectsEqual(state.subject, action.subject)
-        ? state
-        : null;
-  }
-}
 
 export function buildInspectorRelatedRecordDraft({
   currentUserId,

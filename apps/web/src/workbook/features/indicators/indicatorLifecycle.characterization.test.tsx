@@ -60,9 +60,6 @@ function fixture(
       related={{
         begin: () => false,
         state: null,
-        cancel: vi.fn(),
-        submit: async () => {},
-        updateDraft: vi.fn(),
       }}
       indicator={{
         handler: { action, panelId: "history" },

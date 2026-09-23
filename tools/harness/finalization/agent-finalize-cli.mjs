@@ -45,7 +45,6 @@ const deniedTargets = new Set([
   "release-check",
   "browser-e2e",
   "browser-e2e-webserver-backed",
-  "browser-e2e-functional",
   "browser-e2e-support",
   "browser-e2e-stateful",
   "browser-e2e-resettable",

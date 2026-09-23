@@ -491,21 +491,20 @@ export function workbookQueryStateFromSavedViewQueryJson(
   };
 }
 
-/** Strict compatibility boundary. Failure must never become a default layout. */
+/** Strict stored-layout boundary. Failure must never become a default layout. */
 export function workbookLayoutStateFromSavedViewLayoutJson(
   contract: ViewContract,
   value: unknown,
 ): WorkbookLayoutState | null {
   if (!isObjectRecord(value)) return null;
-  const legacy = value.layout_schema_id === "cartulary.layout.v1";
-  if (!legacy && value.layout_schema_id !== "cartulary.layout.v2") return null;
+  if (value.layout_schema_id !== "cartulary.layout.v2") return null;
   const keys = [
     "layout_schema_id",
     "column_order",
     "hidden_field_keys",
     "column_widths",
+    "frozen_through_field_key",
   ];
-  if (!legacy) keys.push("frozen_through_field_key");
   if (
     Object.keys(value).length !== keys.length ||
     keys.some((key) => !Object.hasOwn(value, key))
@@ -527,7 +526,7 @@ export function workbookLayoutStateFromSavedViewLayoutJson(
     })
   )
     return null;
-  const boundary = legacy ? null : value.frozen_through_field_key;
+  const boundary = value.frozen_through_field_key;
   if (
     boundary !== null &&
     (typeof boundary !== "string" || !order.includes(boundary))

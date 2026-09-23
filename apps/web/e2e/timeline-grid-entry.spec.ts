@@ -32,7 +32,7 @@ import {
   requireViewContract,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
@@ -883,8 +883,13 @@ test("Timeline rejected edits keep correction local and preserve rough date text
   await page
     .getByRole("button", { name: "Close recovery", exact: true })
     .click();
-  await selectCell(page, id);
-  await page.keyboard.type("Corrected fact");
+  // Discard reconciles the retained draft back into the active semantic editor.
+  await expect(editor(page, id)).toHaveValue(
+    String(required(rows[0]).cells[synopsis]?.value),
+  );
+  await editor(page, id).focus();
+  await expect(editor(page, id)).toBeFocused();
+  await editor(page, id).fill("Corrected fact");
   await page.keyboard.press("Enter");
   await waitForViewRowByCell(
     page,
@@ -980,16 +985,21 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
   const captured = new Promise<void>((resolve) => {
     queryCaptured = resolve;
   });
-  await page.route(
-    `**${queryPath}`,
-    async (route) => {
-      const response = await route.fetch();
-      queryCaptured();
-      await refreshGate;
-      await route.fulfill({ response });
-    },
-    { times: 1 },
-  );
+  const refreshRequests: string[] = [];
+  const holdFirstRefresh = async (route: Route) => {
+    refreshRequests.push(route.request().postData() ?? "");
+    if (refreshRequests.length > 1) {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    queryCaptured();
+    await refreshGate;
+    await route.fulfill({ response });
+  };
+  // Keep interception installed through the stale-snapshot recovery read.
+  // A one-use route can retire its interception while that immediate read starts.
+  await page.route(`**${queryPath}`, holdFirstRefresh);
   try {
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("live-create"),
@@ -1012,6 +1022,10 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
     await expect(
       page.locator('[data-grid-data-state="refreshing"]'),
     ).toHaveCount(0);
+    // Live create and patch invalidations may coalesce into another refresh;
+    // every recovery read must keep this query's exact request bytes.
+    expect(refreshRequests.length).toBeGreaterThan(1);
+    expect(new Set(refreshRequests).size).toBe(1);
     await expect(editor(page, id)).toHaveValue("Draft kept through refresh");
     await expect(editor(page, id)).toBeFocused();
     expect(
@@ -1025,6 +1039,7 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
     );
   } finally {
     releaseRefresh();
+    await page.unroute(`**${queryPath}`, holdFirstRefresh);
   }
   await page.keyboard.press("Home");
   await page.keyboard.press("ArrowRight");

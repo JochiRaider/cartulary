@@ -101,22 +101,27 @@ func TestSavedViewApplicationOrderingAndNoOp_Unit(t *testing.T) {
 		assertSavedViewRepositoryEvents(t, repository.events, "lock")
 	})
 
-	t.Run("legacy and current equivalent patch has no write", func(t *testing.T) {
+	t.Run("invalid stored state cannot be repaired by a patch", func(t *testing.T) {
 		var legacy map[string]any
 		if err := json.Unmarshal(layout, &legacy); err != nil {
 			t.Fatal(err)
 		}
-		legacy["layout_schema_id"] = viewschema.LegacyLayoutSchemaID
+		legacy["layout_schema_id"] = "cartulary.layout.v1"
 		delete(legacy, "frozen_through_field_key")
 		legacyBytes, _ := json.Marshal(legacy)
-		current := base
-		current.LayoutJSON = legacyBytes
-		next, changed, err := applyPatch(current, patchRequest{LayoutJSON: optionalJSON{Present: true, Value: layout}}, now)
-		if err != nil || changed || next.SavedViewVersion != current.SavedViewVersion || !next.UpdatedAt.Equal(current.UpdatedAt) {
-			t.Fatalf("legacy no-op changed: %+v / %v / %v", next, changed, err)
-		}
-		if string(current.LayoutJSON) != string(legacyBytes) {
-			t.Fatal("read mutated original bytes")
+		for _, invalid := range [][]byte{legacyBytes, []byte("{}"), []byte("null"), nil, []byte("{malformed")} {
+			current := base
+			current.LayoutJSON = invalid
+			repository := &fakeSavedViewRepository{current: current}
+			app := newSavedViewApplication(repository)
+			_, err := app.patch(context.Background(), incidentID, savedViewID, actorUserID, "member", patchRequest{BaseSavedViewVersion: 4, LayoutJSON: optionalJSON{Present: true, Value: layout}}, now)
+			if err == nil {
+				t.Fatal("invalid stored state repaired")
+			}
+			assertSavedViewRepositoryEvents(t, repository.events, "lock")
+			if string(repository.current.LayoutJSON) != string(invalid) || repository.current.SavedViewVersion != current.SavedViewVersion || !repository.current.UpdatedAt.Equal(current.UpdatedAt) {
+				t.Fatal("failed patch mutated stored state")
+			}
 		}
 	})
 

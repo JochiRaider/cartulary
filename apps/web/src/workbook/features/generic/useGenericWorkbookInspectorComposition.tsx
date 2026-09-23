@@ -338,11 +338,6 @@ export function useGenericWorkbookInspectorComposition({
       ? genericCollectionItems(selectedEdit.row, selectedEdit.field.fieldKey)
       : [];
   const createRelatedWorkflow = useInspectorCreateRelatedWorkflow({
-    beginMutation: mutation.beginMutationReport,
-    currentUserId,
-    mutationCommands: mutationCommands.timeline.related,
-    onCreated: async () => {},
-    onFeedback: setRelatedFeedback,
     selectedSubject:
       subjectRow === null || subject?.kind !== "live"
         ? null
@@ -683,10 +678,7 @@ export function useGenericWorkbookInspectorComposition({
         onClose: close,
         related: {
           begin: createRelatedWorkflow.commands.begin,
-          cancel: createRelatedWorkflow.commands.cancel,
           state: createRelatedWorkflow.snapshot.workflow,
-          submit: createRelatedWorkflow.commands.submit,
-          updateDraft: createRelatedWorkflow.commands.updateDraft,
         },
         relatedFeedback,
         subject,

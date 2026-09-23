@@ -92,7 +92,7 @@ export const importStatusLabel: Record<IncidentImportJob["status"], string> = {
 };
 export const admissionUnresolved = (state: IncidentImportState) =>
   state.admission.kind === "pending" || state.admission.kind === "uncertain";
-export const availableImport = (entry: KnownImport) =>
+const availableImport = (entry: KnownImport) =>
   entry.availability !== "unavailable";
 export const cancelableImport = (entry: KnownImport) =>
   availableImport(entry) &&

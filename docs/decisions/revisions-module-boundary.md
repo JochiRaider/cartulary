@@ -94,14 +94,17 @@ DDL executes. It does not backfill, translate, or infer history facts.
 
 Schema-less snapshots have no reader, translator, alias, dual-write path, or
 shape inference. Incident Bundles containing them are rejected. Incident
-Bundle version 3 is the sole admitted version. Retired numeric versions 1 and
-2 have no reader, translator, converter, runtime flag, fallback, or active
-compatibility registry. Version 3 import recomputes deterministic association
+Bundle version 4 is the sole currently admitted version under Core 01
+REQ-01-635. Retired numeric versions 1, 2 and 3 have no reader, translator,
+converter, runtime flag, fallback, or active compatibility registry. Version 4
+import recomputes deterministic association
 facts from the admitted target-semantics version.
 
-No public HTTP or WebSocket operation, authorization precedence, opaque
-selector, conflict-token v3 wire format, Incident Bundle version 3 behavior,
-OpenAPI operation, UI selector, or frontend port changes under this decision.
+This boundary decision changed no public HTTP or WebSocket operation,
+authorization precedence, opaque selector, conflict-token v3 wire format,
+OpenAPI operation, UI selector or frontend port. The subsequent coordinated
+layout/bundle cutover in Core 01 REQ-01-021/635 retires format 3 acceptance
+without changing Revisions source integrity or attribution obligations.
 
 ## Acceptance
 

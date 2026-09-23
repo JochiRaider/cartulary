@@ -399,7 +399,7 @@ function LifecycleContent({
   );
 }
 
-export function LifecycleIntervalDetails({
+function LifecycleIntervalDetails({
   interval,
 }: {
   interval: IndicatorLifecycleInterval;

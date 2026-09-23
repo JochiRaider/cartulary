@@ -279,6 +279,9 @@ type preparedSavedViewRow struct {
 
 func prepareSavedViewImport(bundle savedViewBundle, importContext savedViewImportContext) (preparedSavedViewImport, error) {
 	const logicalPath = "data/saved_views.ndjson"
+	if importContext.BundleVersion != 4 {
+		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.query_layout_legal")
+	}
 	payload, ok := bundle.File(logicalPath)
 	if !ok {
 		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.row_shape_exact")
@@ -379,36 +382,19 @@ func prepareSavedViewRow(row map[string]any, importContext savedViewImportContex
 	if !ok {
 		return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.row_shape_exact")
 	}
-	if !savedViewLayoutShapeExact(layoutValue, importContext.BundleVersion) {
+	if !savedViewLayoutShapeExact(layoutValue) {
 		return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.row_shape_exact")
 	}
 	layoutRaw, err := json.Marshal(layoutValue)
 	if err != nil {
 		return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.query_layout_legal")
 	}
-	var originalCanonical json.RawMessage
-	var layoutErr *viewschema.LayoutError
-	switch importContext.BundleVersion {
-	case 3:
-		originalCanonical, layoutErr = viewschema.NormalizeLegacyLayout(layoutRaw, viewSchemaID)
-	case 4:
-		if layoutValue["layout_schema_id"] != viewschema.LayoutSchemaID {
-			return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.query_layout_legal")
-		}
-		originalCanonical, layoutErr = viewschema.NormalizeLayout(layoutRaw, viewSchemaID)
-	default:
-		return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.query_layout_legal")
-	}
+	layoutJSON, layoutErr := viewschema.NormalizeLayout(layoutRaw, viewSchemaID)
 	if layoutErr != nil {
 		return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.query_layout_legal")
 	}
-	layoutEqual, err := jsonStructurallyEqual(layoutRaw, originalCanonical)
+	layoutEqual, err := jsonStructurallyEqual(layoutRaw, layoutJSON)
 	if err != nil || !layoutEqual {
-		return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.query_layout_legal")
-	}
-	// Original-version row validity is established before preparing current state.
-	layoutJSON, layoutErr := viewschema.NormalizeLayout(originalCanonical, viewSchemaID)
-	if layoutErr != nil {
 		return preparedSavedViewRow{}, savedViewInvariantFailure("saved_views.query_layout_legal")
 	}
 
@@ -609,15 +595,12 @@ func isSavedViewScalarArray(value any) bool {
 	return true
 }
 
-func savedViewLayoutShapeExact(layout map[string]any, bundleVersion int) bool {
+func savedViewLayoutShapeExact(layout map[string]any) bool {
 	// As with queries, {} is a closed-object canonicality failure.
 	if len(layout) == 0 {
 		return true
 	}
-	members := []string{"layout_schema_id", "column_order", "hidden_field_keys", "column_widths"}
-	if bundleVersion == 4 {
-		members = append(members, "frozen_through_field_key")
-	}
+	members := []string{"layout_schema_id", "column_order", "hidden_field_keys", "column_widths", "frozen_through_field_key"}
 	if !hasExactMembers(layout, members, nil) {
 		return false
 	}

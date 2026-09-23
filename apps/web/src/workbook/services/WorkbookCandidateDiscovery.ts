@@ -9,8 +9,8 @@ import type {
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import type { WorkbookCanonicalQuery } from "../query/WorkbookViewQueryPort";
 
-export const workbookCandidatePageLimit = 100;
-export const workbookCandidateCheckpointLimit = 10;
+const workbookCandidatePageLimit = 100;
+const workbookCandidateCheckpointLimit = 10;
 type Checkpoint = Readonly<{
   cursor: string | null;
   pageNumber: number;

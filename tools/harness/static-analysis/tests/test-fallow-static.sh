@@ -37,7 +37,7 @@ let peak = 0;
 const completed = [];
 const delays = new Map([
   ["dead-code", 45],
-  ["dead-code-markdown", 10],
+  ["package-surface-dead-code", 10],
   ["dupes", 30],
   ["health", 20],
 ]);
@@ -251,6 +251,7 @@ cleanup_paths+=("$reachability_root")
 
 mkdir -p \
   "$reachability_root/apps/web/src/testing" \
+  "$reachability_root/apps/web/src/measurement" \
   "$reachability_root/apps/web/public/assets/fonts/inter" \
   "$reachability_root/packages/example/src" \
   "$reachability_root/tools/fallow" \
@@ -328,6 +329,23 @@ cat >"$reachability_root/apps/web/index.html" <<'HTML'
 </html>
 HTML
 
+cat >"$reachability_root/apps/web/measurement.html" <<'HTML'
+<html><body><script src="./src/measurement/main.ts" type="module"></script></body></html>
+HTML
+
+cat >"$reachability_root/apps/web/src/measurement/main.ts" <<'TS'
+import { fixture } from "./fixture";
+console.log(fixture);
+TS
+
+cat >"$reachability_root/apps/web/src/measurement/fixture.ts" <<'TS'
+export const fixture = "measurement";
+TS
+
+cat >"$reachability_root/apps/web/src/measurement/unreachable.ts" <<'TS'
+export const unusedMeasurement = true;
+TS
+
 cat >"$reachability_root/apps/web/public/assets/fonts/fonts.css" <<'CSS'
 @font-face {
   font-family: Inter;
@@ -338,7 +356,29 @@ CSS
 printf 'font\n' >"$reachability_root/apps/web/public/assets/fonts/inter/InterVariable.woff2"
 
 cat >"$reachability_root/apps/web/src/main.tsx" <<'TS'
+import { connect, usedValue, type Reader } from "./surface";
+const reader: Reader = { read: () => usedValue };
+connect(reader, (value) => console.log(value));
 export const app = "cartulary";
+TS
+
+cat >"$reachability_root/apps/web/src/surface.ts" <<'TS'
+export interface Reader { read(): string }
+export function connect(reader: Reader, callback: (value: string) => void) {
+  callback(reader.read());
+}
+export const usedValue = "used";
+export const unusedValue = "dead";
+export type UnusedType = { dead: true };
+TS
+
+cat >"$reachability_root/apps/web/src/fixtureSupport.ts" <<'TS'
+export const testOnly = "test";
+TS
+
+cat >"$reachability_root/apps/web/src/surface.test.ts" <<'TS'
+import { testOnly } from "./fixtureSupport";
+if (testOnly !== "test") throw new Error("fixture failed");
 TS
 
 cat >"$reachability_root/apps/web/src/testing/testSetup.ts" <<'TS'
@@ -414,6 +454,18 @@ cat >"$reachability_root/tools/fallow/reachability_owner.json" <<'JSON'
   "base_config": {
     "path": ".fallowrc.json"
   },
+  "blocking_web_surface": {
+    "root": "apps/web",
+    "rules": ["unused_files", "unused_exports", "unused_types"]
+  },
+  "blocking_package_surfaces": {
+    "packages": [{
+      "package_name": "@cartulary/example",
+      "entrypoint": "apps/web/src/main.tsx",
+      "own_test_globs": ["packages/example/src/**/*.test.ts"]
+    }],
+    "rules": ["unused_exports", "unused_types"]
+  },
   "task_surface": {
     "owner_path": "tools/task_surface_owner.json",
     "script_extensions": [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],
@@ -446,7 +498,7 @@ cat >"$reachability_root/tools/fallow/reachability_owner.json" <<'JSON'
   },
   "vite_public_assets": {
     "public_root": "apps/web/public",
-    "html_entry_files": ["apps/web/index.html"],
+    "html_entry_files": ["apps/web/index.html", "apps/web/measurement.html"],
     "url_prefixes": ["/assets/"],
     "always_used_files": ["apps/web/public/assets/fonts/fonts.css"]
   },
@@ -477,6 +529,10 @@ const result = buildResolvedFallowConfig({
   root: fixtureRoot,
   outputFile: resolvedConfig,
 });
+if (result.stats.vite_module_entry_points !== 2 ||
+    !result.config.entry.includes("apps/web/src/measurement/main.ts")) {
+  throw new Error("expected production and measurement module roots from HTML");
+}
 if (result.stats.task_surface_entry_points < 2) {
   throw new Error("expected task-surface scripts in resolved Fallow config");
 }
@@ -497,12 +553,49 @@ reachability_output="$reachability_root/fallow-reachability.json"
   --no-cache \
   --output-file "$reachability_output" >/dev/null
 
-"$NODE_BIN" --input-type=module - "$reachability_output" <<'EOF'
-import { readFileSync } from "node:fs";
+"$NODE_BIN" --input-type=module - "$reachability_output" "$ROOT_DIR" "$reachability_root" <<'EOF'
+import assert from "node:assert/strict";
+import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
-const [file] = process.argv.slice(2);
+const [file, rootDir, fixtureRoot] = process.argv.slice(2);
+const { collectBlockingWebSurfaceFindings, hasUsableFallowOutput } = await import(
+  pathToFileURL(`${rootDir}/tools/harness/static-analysis/fallow-static-cli.mjs`).href
+);
+const owner = JSON.parse(readFileSync(`${fixtureRoot}/tools/fallow/reachability_owner.json`, "utf8"));
 const data = JSON.parse(readFileSync(file, "utf8"));
+const blocked = collectBlockingWebSurfaceFindings(data, owner.blocking_web_surface);
+assert.deepEqual(blocked.map(({rule, path, symbol}) => [rule, path, symbol]), [
+  ["unused_files", "apps/web/src/measurement/unreachable.ts", null],
+  ["unused_exports", "apps/web/src/surface.ts", "unusedValue"],
+  ["unused_types", "apps/web/src/surface.ts", "UnusedType"],
+]);
+const clean = { ...data, unused_files: [], unused_exports: [], unused_types: [],
+  unused_class_members: [{path: "apps/web/src/surface.ts", name: "read"}],
+  duplicate_exports: [{path: "apps/web/src/surface.ts", name: "connect"}] };
+assert.deepEqual(collectBlockingWebSurfaceFindings(clean, owner.blocking_web_surface), []);
+assert.throws(() => collectBlockingWebSurfaceFindings({}, owner.blocking_web_surface), /missing unused_files/);
+assert.throws(() => collectBlockingWebSurfaceFindings({...clean, unused_files: [{path: "apps/web/../escape.ts"}]}, owner.blocking_web_surface), /invalid relative path/);
+assert.equal(hasUsableFallowOutput({outputFile: file, exitCode: 0}), true);
+assert.equal(hasUsableFallowOutput({outputFile: file, exitCode: 1}), true);
+for (const exitCode of [2, 127, 128])
+  assert.equal(hasUsableFallowOutput({outputFile: file, exitCode}), false);
+const malformed = `${fixtureRoot}/malformed.json`;
+writeFileSync(malformed, "{broken");
+assert.equal(hasUsableFallowOutput({outputFile: malformed, exitCode: 0}), false);
+writeFileSync(malformed, "{}");
+assert.equal(hasUsableFallowOutput({outputFile: malformed, exitCode: 0}), false);
+writeFileSync(malformed, '{"error":true}');
+assert.equal(hasUsableFallowOutput({outputFile: malformed, exitCode: 1}), false);
 const text = JSON.stringify(data);
+for (const file of ["main.ts", "fixture.ts"]) {
+  if (text.includes(`apps/web/src/measurement/${file}`)) {
+    throw new Error(`live measurement module reported unused: ${file}`);
+  }
+}
+if (!text.includes("apps/web/src/measurement/unreachable.ts")) {
+  throw new Error("unreachable measurement peer must remain detectable");
+}
 if (text.includes("apps/web/src/testing/testSetup.ts")) {
   throw new Error("expected Vitest setup file to be owner-reachable");
 }

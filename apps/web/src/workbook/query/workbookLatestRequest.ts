@@ -35,9 +35,3 @@ export function abortLatestQuery(runtime: { current: LatestQueryRuntime }) {
     sequence: runtime.current.sequence + 1,
   };
 }
-
-export function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException
-    ? error.name === "AbortError"
-    : error instanceof Error && error.name === "AbortError";
-}

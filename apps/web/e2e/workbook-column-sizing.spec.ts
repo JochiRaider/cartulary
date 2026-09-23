@@ -915,17 +915,40 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
       })
       .click();
     await expect(columns(page)).toBeVisible();
-    await expect(editor).toHaveCount(direction === "later" ? 0 : 1);
+    await expect(editor).toHaveCount(1);
+    await expect(editor).toHaveValue("Retained frozen draft");
+    await expect(editor).not.toBeFocused();
+    await expect
+      .poll(() =>
+        editor.evaluate((node) => ({
+          recordId: node
+            .closest("[data-grid-record-id]")
+            ?.getAttribute("data-grid-record-id"),
+          fieldKey: node
+            .closest("[data-grid-field-key]")
+            ?.getAttribute("data-grid-field-key"),
+        })),
+      )
+      .toEqual({ recordId: record, fieldKey: summary });
     if (direction === "later")
       await expect(
         page.getByTestId(rowCellTestId(record, "timeline.date_entered_text")),
       ).toHaveCount(1);
+    await expect(
+      page.getByTestId(
+        timelineScalarEditorTestId({
+          recordId: record,
+          fieldKey: "timeline.date_entered_text",
+          surface: "grid",
+        }),
+      ),
+    ).toHaveCount(0);
   }
   await columns(page)
     .getByRole("button", { name: "Close columns", exact: true })
     .click();
-  // The retained semantic editor returns when its field returns to the vendor
-  // edit slot, without opening the intervening field or stealing command focus.
+  // The retained editor follows its semantic field through both moves without
+  // opening the intervening field or stealing command focus.
   await expect(trigger(page)).toBeFocused();
   await expect(editor).toHaveValue("Retained frozen draft");
   await editor.evaluate((node) => {

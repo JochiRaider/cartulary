@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 SCRIPT="$ROOT_DIR/tools/harness/readiness/list-build-inputs.sh"
+NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 
 cleanup() {
@@ -64,10 +65,16 @@ EOF
 chmod +x "$fake_bin/rg"
 touch "$tmp_dir/stale-server"
 
-if PATH="$fake_bin:$PATH" make --no-print-directory -n build-server SERVER_BIN="$tmp_dir/stale-server" >"$tmp_dir/make.stdout" 2>"$tmp_dir/make.stderr"; then
+if env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
+  PATH="$fake_bin:$PATH" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID=broken-rg \
+  make --no-print-directory -n build-server SERVER_BIN="$tmp_dir/stale-server" >"$tmp_dir/make.stdout" 2>"$tmp_dir/make.stderr"; then
   fail "make build-server dry-run unexpectedly succeeded with broken rg"
 fi
 make_failure="$(cat "$tmp_dir/make.stdout" "$tmp_dir/make.stderr")"
-assert_contains "$make_failure" "fake rg failed" "broken rg diagnostic"
-assert_contains "$make_failure" "build input discovery failed" "make discovery failure"
+for diagnostic in "fake rg failed" "build input discovery failed"; do
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/test-support/harness-artifact-assert.mjs" \
+    --repo-root "$ROOT_DIR" --results-root "$tmp_dir/results" --run-id broken-rg \
+    --target build-server --needle "$diagnostic" --label "broken rg diagnostic"
+done
 assert_not_contains "$make_failure" "up to date" "stale binary reuse"

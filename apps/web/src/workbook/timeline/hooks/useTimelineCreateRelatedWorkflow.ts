@@ -55,7 +55,6 @@ export function useTimelineCreateRelatedWorkflow(
     workflow: contextualWorkflow,
     begin: contextualBegin,
     detach: contextualDetach,
-    update: contextualUpdate,
   } = useContextualCreateAttachment(
     input.selectedSubject && input.selectedRow
       ? {
@@ -120,31 +119,9 @@ export function useTimelineCreateRelatedWorkflow(
       evidence.notice,
     ],
   );
-  const updateWorkflowDraft = useCallback(
-    (feature: string, field: string, value: string) => {
-      if (coordination.workflow?.featureGroup.featureGroupKey === feature)
-        coordination.update(field, value);
-      else if (note.workflow?.featureGroup.featureGroupKey === feature)
-        note.update(field, value);
-      else if (contextualWorkflow?.featureGroup.featureGroupKey === feature)
-        contextualUpdate(field, value);
-    },
-    [
-      coordination.workflow,
-      coordination.update,
-      note.workflow,
-      note.update,
-      contextualWorkflow,
-      contextualUpdate,
-    ],
-  );
-  // Each target form dispatches directly through its owner and attachment lease.
-  const submitWorkflow = useCallback(async () => {}, []);
   return {
     beginWorkflow,
     cancelWorkflow,
-    submitWorkflow,
-    updateWorkflowDraft,
     workflow,
   };
 }

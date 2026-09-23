@@ -1,6 +1,5 @@
 export type {
   CloseIncidentRequest,
-  CloseIncidentResponse,
   CreateIncidentMembershipRequest,
   CreateIncidentRequest,
   CreateIncidentResponse,
@@ -10,8 +9,6 @@ export type {
   ListIncidentMembershipsResponse,
   ListVisibleIncidentsResponse,
   PatchIncidentMembershipRequest,
-  ReopenIncidentRequest,
-  ReopenIncidentResponse,
 } from "@cartulary/protocol-ts/http";
 
 import type { ListVisibleIncidentsResponse } from "@cartulary/protocol-ts/http";

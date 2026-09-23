@@ -198,7 +198,7 @@ function runFallow(reportRoot, name, args, outputFile) {
       stdio: ["ignore", stdoutFD, stderrFD],
     });
     child.on("error", () => finish(127));
-    child.on("close", (status, signal) => finish(signal ? 1 : status));
+    child.on("close", (status, signal) => finish(signal ? 128 : status));
   });
 }
 
@@ -241,7 +241,10 @@ function reportFromRun(run) {
   };
 }
 
-function hasUsableFallowOutput(run) {
+export function hasUsableFallowOutput(run) {
+  // Fallow uses 1 for findings. Configuration, process and signal failures
+  // must remain failures even if the child left a partial report behind.
+  if (run.exitCode !== 0 && run.exitCode !== 1) return false;
   if (!existsSync(run.outputFile)) {
     return false;
   }
@@ -250,7 +253,8 @@ function hasUsableFallowOutput(run) {
   }
   try {
     const data = readJSON(run.outputFile);
-    return data?.error !== true;
+    return Boolean(data && typeof data === "object" && !Array.isArray(data) &&
+      !data.error && ["dead-code", "dupes", "health"].includes(data.kind));
   } catch {
     return false;
   }
@@ -356,6 +360,27 @@ export function collectBlockingPackageSurfaceFindings(report, policy) {
             ];
       }),
   );
+}
+
+export function collectBlockingWebSurfaceFindings(report, policy) {
+  return policy.rules.flatMap((rule) => {
+    if (!Array.isArray(report?.[rule])) {
+      throw new Error(`Fallow report is missing ${rule}`);
+    }
+    return report[rule].flatMap((finding) => {
+      if (typeof finding?.path !== "string" ||
+          finding.path.startsWith("/") || finding.path.includes("\\") ||
+          finding.path.split("/").some((part) => !part || part === "." || part === "..")) {
+        throw new Error(`Fallow ${rule} finding has an invalid relative path`);
+      }
+      if (!finding.path.startsWith(`${policy.root}/`)) return [];
+      const symbol = rule === "unused_files" ? null : finding.export_name;
+      if (symbol !== null && (typeof symbol !== "string" || !symbol)) {
+        throw new Error(`Fallow ${rule} finding has no export name`);
+      }
+      return [{ path: finding.path, rule, symbol }];
+    });
+  });
 }
 
 function failureReasonForRuns(runs) {
@@ -499,22 +524,6 @@ async function main() {
       },
       {
         reportRoot,
-        name: "dead-code-markdown",
-        args: [
-          "dead-code",
-          "--config",
-          resolvedConfigRel,
-          "--format",
-          "markdown",
-          "--quiet",
-          "--no-cache",
-          "--output-file",
-          deadCodeMarkdown,
-        ],
-        outputFile: deadCodeMarkdown,
-      },
-      {
-        reportRoot,
         name: "dupes",
         args: [
           "dupes",
@@ -573,7 +582,7 @@ async function main() {
     }
 
     const failedRuns = runs.filter((run) => (
-      run.status !== "pass" && !hasUsableFallowOutput(run)
+      !hasUsableFallowOutput(run)
     ));
     if (failedRuns.length > 0) {
       const failure = failureReasonForRuns(failedRuns);
@@ -620,6 +629,20 @@ async function main() {
       readJSON(packageSurfaceJSON),
       reachability.owner.blocking_package_surfaces,
     );
+    const webSurfaceFindings = collectBlockingWebSurfaceFindings(
+      readJSON(deadCodeJSON),
+      reachability.owner.blocking_web_surface,
+    );
+    // Render the human summary from the same result; never scan a second time
+    // or consume Markdown as verification input.
+    const deadCodeCounts = collectIssueCounts(readJSON(deadCodeJSON));
+    secureWriteFile(deadCodeMarkdown, [
+      "# Fallow static reachability", "",
+      "Detailed findings and actions are retained in dead-code.json.", "",
+      "| Rule | Findings |", "| --- | --- |",
+      ...Object.entries(deadCodeCounts.byRule).sort(([a], [b]) => a.localeCompare(b))
+        .map(([rule, count]) => `| ${rule} | ${count} |`), "",
+    ].join("\n"));
     const totals = {
       reports: reports.length,
       issue_count: 0,
@@ -635,7 +658,7 @@ async function main() {
       warnings.push({
         kind: "fallow_findings",
         issue_count: totals.issue_count,
-        message: "Current Fallow static profile findings are retained as non-blocking static-analysis evidence.",
+        message: "Findings outside the bounded web and package policies remain advisory static-analysis evidence.",
       });
     }
 
@@ -669,8 +692,8 @@ async function main() {
         artifacts: [],
       },
       enforcement: {
-        blocking: false,
-        failure_on_issues: false,
+        blocking: true,
+        failure_on_issues: true,
       },
       artifacts: fallowArtifacts,
       warnings,
@@ -680,6 +703,12 @@ async function main() {
           base_config_path: ".fallowrc.json",
           resolved_config_path: repoRel(resolvedConfig),
           stats: reachability.stats,
+          web_surface: {
+            ...reachability.owner.blocking_web_surface,
+            finding_count: webSurfaceFindings.length,
+            findings: webSurfaceFindings,
+            report_path: repoRel(deadCodeJSON),
+          },
           package_surface: {
             blocking: true,
             failure_on_issues: true,
@@ -706,7 +735,7 @@ async function main() {
       ),
     );
 
-    if (packageSurfaceFindings.length > 0) {
+    if (packageSurfaceFindings.length > 0 || webSurfaceFindings.length > 0) {
       const failures = packageSurfaceFindings.map((finding) => ({
         target,
         label: `${finding.package_name}:${finding.symbol}`,
@@ -714,7 +743,14 @@ async function main() {
         failure_reason: "policy_violation",
         headline: `unused manual package export ${finding.symbol}`,
         artifact: repoRel(packageSurfaceJSON),
-      }));
+      })).concat(webSurfaceFindings.map((finding) => ({
+        target,
+        label: `${finding.path}:${finding.symbol ?? finding.rule}`,
+        failure_class: "product",
+        failure_reason: "policy_violation",
+        headline: `${finding.rule}: ${finding.path}${finding.symbol ? ` (${finding.symbol})` : ""}`,
+        artifact: repoRel(deadCodeJSON),
+      })));
       makeToolSummary({
         identity,
         status: "fail",

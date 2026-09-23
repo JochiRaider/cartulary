@@ -10,7 +10,7 @@ export type IndicatorLinkDiscoveryContext = Omit<
   IndicatorLinkTargetQuery,
   "cursor"
 > & { readonly key: string };
-export type IndicatorLinkDiscoverySnapshot = {
+type IndicatorLinkDiscoverySnapshot = {
   readonly phase: "idle" | "loading" | "ready" | "failed";
   readonly items: readonly IndicatorLinkTargetOption[];
   readonly nextCursor: string | null;

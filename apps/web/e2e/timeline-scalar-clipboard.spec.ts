@@ -415,9 +415,8 @@ test("Timeline scalar native paste joins rapid departure and retains rejected dr
             await page
               .locator(`[data-inspector-edit-field="${synopsis}"]`)
               .click();
-            await page
-              .getByRole("button", { name: "Resume draft", exact: true })
-              .click();
+            await expect(input).toBeFocused();
+            await expect(input).toHaveValue("alpha pasted Ω gamma");
           }
           expected = await input.inputValue();
           await input.press("Control+Enter");

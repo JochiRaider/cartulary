@@ -171,7 +171,7 @@ function ipv4(text: string): bigint | null {
     return null;
   return parts.reduce((n, p) => (n << 8n) + BigInt(p), 0n);
 }
-export function parseQueryIP(text: string): ParsedIP | null {
+function parseQueryIP(text: string): ParsedIP | null {
   if (!text.includes(":")) {
     const bits = ipv4(text);
     return bits === null

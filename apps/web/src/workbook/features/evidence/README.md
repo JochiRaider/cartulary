@@ -9,6 +9,14 @@ their own operation identities. Timeline-related Evidence retains creation and
 linking receipts separately. Shared message severity belongs to
 [workbook Evidence presentation](../../evidence/README.md).
 
+The Timeline related-creation owner sequences admission, creation acknowledgement,
+link admission and link acknowledgement before projection refresh. Socket or user
+refresh requests arriving during preparation/submission are retained until that
+work settles, so a refresh cannot supersede the link's authorization read.
+Refresh recovery sends reads only; accepted writes and their receipts are never
+recreated. Session-observation supersession remains with the session owner.
+
+
 ## Files
 
 | File | Responsibility |

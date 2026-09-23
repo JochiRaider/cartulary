@@ -85,7 +85,7 @@ const initialState = (): IncidentCreationState => ({
   announcement: "polite",
 });
 const blank = (value: string) => /^\p{White_Space}*$/u.test(value);
-export function buildIncidentCreationRequest(
+function buildIncidentCreationRequest(
   draft: IncidentCreationDraft,
   transactionId: string,
 ): Attempt {

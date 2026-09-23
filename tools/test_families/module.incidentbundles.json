@@ -371,7 +371,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestLegacyBundleLayoutConversionAndHistoricalReplay_Integration"
+          "TestLegacyBundleLayoutRejectionAndHistoricalReplay_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -433,8 +433,8 @@
         "package": "./internal/modules/incidentbundles",
         "tests": [
           "TestIncidentBundleImportDescriptorIsClosed_Unit",
+          "TestIncidentsSourcePortCurrentFormatCharacterization_Unit",
           "TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit",
-          "TestIncidentsSourcePortV3Characterization_Unit",
           "TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit",
           "TestSourcePortCatalogRejectsInvalidDescriptors_Unit",
           "TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit",

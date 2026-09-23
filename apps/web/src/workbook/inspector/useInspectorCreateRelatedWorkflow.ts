@@ -1,266 +1,35 @@
-import {
-  getViewContract,
-  type InspectorFeatureGroup,
-} from "@cartulary/view-contracts";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import type { InspectorFeatureGroup } from "@cartulary/view-contracts";
+import { useCallback } from "react";
 import { useContextualCreateAttachment } from "../features/coordination/useContextualCreateAttachment";
 import { useCoordinationCreateAttachment } from "../features/coordination/useCoordinationCreateAttachment";
 import { useNoteCreateAttachment } from "../features/notes/useNoteCreateAttachment";
-import { genericCreateMinimumMessage } from "../models/genericWorkbookModel";
-import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
-import {
-  buildInspectorRelatedRecordDraft,
-  type InspectorRelatedRecordWorkflowAction,
-  inspectorRelatedRecordWorkflowReducer,
-} from "./inspectorRelatedRecordModel";
-import {
-  type WorkbookInspectorFeedback,
-  workbookInspectorErrorPresentation,
-  workbookInspectorLocalErrorFeedback,
-  workbookInspectorLocalErrorPresentation,
-  workbookInspectorMessageFeedback,
-} from "./workbookInspectorErrorModel";
 import type { WorkbookInspectorLiveRowBinding } from "./workbookInspectorSubject";
 
+/** Presentation attaches to explicit retained owners; unbound additive actions are omitted. */
 export function useInspectorCreateRelatedWorkflow({
-  beginMutation,
-  currentUserId,
-  mutationCommands,
-  onCreated,
-  onFeedback,
   selectedSubject,
 }: {
-  readonly beginMutation: () => () => void;
-  readonly currentUserId: string | null;
-  readonly mutationCommands: TimelineRelatedRecordPort;
-  readonly onCreated: () => Promise<void> | void;
-  readonly onFeedback: (feedback: WorkbookInspectorFeedback | null) => void;
   readonly selectedSubject: WorkbookInspectorLiveRowBinding | null;
 }) {
   const note = useNoteCreateAttachment(selectedSubject);
   const coordination = useCoordinationCreateAttachment(selectedSubject);
-  const {
-    workflow: contextualWorkflow,
-    begin: contextualBegin,
-    detach: contextualDetach,
-    update: contextualUpdate,
-  } = useContextualCreateAttachment(selectedSubject);
-  const [workflow, reactDispatch] = useReducer(
-    inspectorRelatedRecordWorkflowReducer,
-    null,
-  );
-  const workflowRef = useRef(workflow);
-  workflowRef.current = workflow;
-  const dispatchWorkflow = useCallback(
-    (action: InspectorRelatedRecordWorkflowAction) => {
-      workflowRef.current = inspectorRelatedRecordWorkflowReducer(
-        workflowRef.current,
-        action,
-      );
-      reactDispatch(action);
-      return workflowRef.current;
-    },
-    [],
-  );
-
-  useEffect(() => {
-    const active = workflowRef.current;
-    if (active === null) return;
-    dispatchWorkflow({
-      type: "retarget",
-      workflowId: active.workflowId,
-      subject: selectedSubject?.subject ?? null,
-    });
-  }, [dispatchWorkflow, selectedSubject]);
-
+  const contextual = useContextualCreateAttachment(selectedSubject);
   const begin = useCallback(
-    (featureGroup: InspectorFeatureGroup): boolean => {
-      if (coordination.begin(featureGroup)) return true;
-      if (note.begin(featureGroup)) return true;
-      if (contextualBegin(featureGroup)) return true;
-      if (
-        featureGroup.routeBinding.kind !== "view_row_create" ||
-        featureGroup.routeBinding.owner !== "view_row_create_route" ||
-        featureGroup.routeBinding.targetViewSchemaId === undefined
-      ) {
-        return false;
-      }
-      const report = (feedback: WorkbookInspectorFeedback) =>
-        onFeedback({
-          ...feedback,
-          ...(selectedSubject
-            ? { sourceRecordId: selectedSubject.subject.recordId }
-            : {}),
-          destination: {
-            kind: "feature",
-            panel: featureGroup.panelId,
-            featureGroupKey: featureGroup.featureGroupKey,
-          },
-        });
-      const targetContract = getViewContract(
-        featureGroup.routeBinding.targetViewSchemaId,
-      );
-      if (targetContract === undefined) {
-        report(
-          workbookInspectorLocalErrorFeedback(
-            "The target view does not allow row creation.",
-          ),
-        );
-        return true;
-      }
-      if (selectedSubject === null) {
-        report(
-          workbookInspectorLocalErrorFeedback(
-            "Select a saved row before creating a related record.",
-          ),
-        );
-        return true;
-      }
-      const result = buildInspectorRelatedRecordDraft({
-        currentUserId,
-        featureGroup,
-        subject: selectedSubject,
-        targetContract,
-      });
-      if (result.kind === "invalid_target") {
-        report(
-          workbookInspectorLocalErrorFeedback(
-            "The target view does not allow row creation.",
-          ),
-        );
-        return true;
-      }
-      dispatchWorkflow({
-        type: "begin",
-        draft: result.draft,
-        featureGroup,
-        subject: selectedSubject.subject,
-        targetContract,
-        workflowId: Symbol("inspector-create-related-workflow"),
-      });
-      onFeedback(null);
-      return true;
-    },
-    [
-      coordination.begin,
-      note.begin,
-      contextualBegin,
-      currentUserId,
-      dispatchWorkflow,
-      onFeedback,
-      selectedSubject,
-    ],
+    (feature: InspectorFeatureGroup): boolean =>
+      coordination.begin(feature) ||
+      note.begin(feature) ||
+      contextual.begin(feature),
+    [coordination.begin, note.begin, contextual.begin],
   );
-
-  const updateDraft = useCallback(
-    (fieldKey: string, value: string) => {
-      if (coordination.workflow) {
-        coordination.update(fieldKey, value);
-        return;
-      }
-      if (note.workflow) {
-        note.update(fieldKey, value);
-        return;
-      }
-      if (contextualWorkflow) {
-        contextualUpdate(fieldKey, value);
-        return;
-      }
-      const active = workflowRef.current;
-      if (active === null) return;
-      dispatchWorkflow({
-        type: "update",
-        fieldKey,
-        value,
-        workflowId: active.workflowId,
-      });
-    },
-    [
-      coordination.workflow,
-      coordination.update,
-      note.workflow,
-      note.update,
-      contextualWorkflow,
-      contextualUpdate,
-      dispatchWorkflow,
-    ],
-  );
-
   const cancel = useCallback(() => {
     note.detach();
     coordination.detach();
-    contextualDetach();
-    const active = workflowRef.current;
-    if (active === null) return;
-    dispatchWorkflow({ type: "cancel", workflowId: active.workflowId });
-  }, [note.detach, coordination.detach, contextualDetach, dispatchWorkflow]);
-
-  const submit = useCallback(async () => {
-    const active = workflowRef.current;
-    if (active === null || active.phase !== "editing") return;
-    const submitted = dispatchWorkflow({
-      type: "submit",
-      workflowId: active.workflowId,
-    });
-    if (submitted?.workflowId !== active.workflowId) return;
-    const finish = beginMutation();
-    try {
-      const outcome = await mutationCommands.createRelatedRecord({
-        contract: active.targetContract,
-        draft: active.draft,
-        featureGroupKey: active.featureGroup.featureGroupKey,
-      });
-      if (outcome.kind === "rejected") {
-        dispatchWorkflow({
-          type: "reject",
-          workflowId: active.workflowId,
-          error:
-            outcome.failure.kind === "validation"
-              ? workbookInspectorLocalErrorPresentation(
-                  genericCreateMinimumMessage(active.targetContract),
-                )
-              : workbookInspectorErrorPresentation(outcome.failure),
-        });
-        return;
-      }
-      if (workflowRef.current?.workflowId === active.workflowId) {
-        dispatchWorkflow({
-          type: "complete",
-          workflowId: active.workflowId,
-        });
-        onFeedback({
-          ...workbookInspectorMessageFeedback(
-            `Created ${active.targetContract.title} record ${outcome.value.recordId}.`,
-            "none",
-          ),
-          sourceRecordId: active.subject.recordId,
-          destination: {
-            kind: "feature",
-            panel: active.featureGroup.panelId,
-            featureGroupKey: active.featureGroup.featureGroupKey,
-          },
-        });
-      }
-      await onCreated();
-    } finally {
-      finish();
-    }
-  }, [
-    beginMutation,
-    dispatchWorkflow,
-    mutationCommands,
-    onCreated,
-    onFeedback,
-  ]);
-
+    contextual.detach();
+  }, [note.detach, coordination.detach, contextual.detach]);
   return {
-    commands: { begin, cancel, submit, updateDraft },
+    commands: { begin, cancel },
     snapshot: {
-      workflow:
-        coordination.workflow ??
-        note.workflow ??
-        contextualWorkflow ??
-        workflow,
+      workflow: coordination.workflow ?? note.workflow ?? contextual.workflow,
     },
   };
 }

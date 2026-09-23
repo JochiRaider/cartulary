@@ -15,7 +15,6 @@ import { createContextualCreateTransport } from "../../adapters/createContextual
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
-import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWriteCoordination";
 import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -627,17 +626,9 @@ describe("contextual create recovery", () => {
   it("attaches shared inspector forms without using the legacy Timeline create port", async () => {
     const { owner, subject, feature } = fixture();
     owner.discard();
-    const legacy: TimelineRelatedRecordPort = {
-      createRelatedRecord: vi.fn(),
-    };
     const { result, rerender, unmount } = renderHook(
       ({ selected }) =>
         useInspectorCreateRelatedWorkflow({
-          beginMutation: () => () => {},
-          currentUserId: actor,
-          mutationCommands: legacy,
-          onCreated: () => {},
-          onFeedback: () => {},
           selectedSubject: selected,
         }),
       {
@@ -656,7 +647,7 @@ describe("contextual create recovery", () => {
     );
     act(() => {
       result.current.commands.begin(feature);
-      result.current.commands.updateDraft("task.title", "Draft");
+      owner.update("task.title", "Draft");
     });
     expect(result.current.snapshot.workflow?.targetContract.viewSchemaId).toBe(
       taskRequestsViewSchemaId,
@@ -671,7 +662,6 @@ describe("contextual create recovery", () => {
     expect(owner.getSnapshot().draft?.source.recordId).toBe(sourceId);
     unmount();
     expect(owner.getSnapshot().draft).not.toBeNull();
-    expect(legacy.createRelatedRecord).not.toHaveBeenCalled();
   });
   it("classifies lost and malformed responses as uncertain and validates complete receipt correlation", async () => {
     for (const decision of [false, true]) {

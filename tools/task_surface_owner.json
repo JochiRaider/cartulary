@@ -2453,14 +2453,6 @@
       "selection": "target",
       "test_target": "self"
     },
-    "browser-e2e-functional": {
-      "prerequisites": [
-        "$(NODE_BIN)"
-      ],
-      "type": "work_graph",
-      "selection": "target",
-      "test_target": "self"
-    },
     "browser-e2e-support": {
       "prerequisites": [
         "$(NODE_BIN)"
@@ -9616,7 +9608,8 @@
         "tools/backend_module_boundaries.json",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs",
-        "tools/harness/static-analysis/exact-file-sets.mjs"
+        "tools/harness/static-analysis/exact-file-sets.mjs",
+        "tools/harness/static-analysis/sql-relations.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9761,7 +9754,8 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "helper_only"
+        "check",
+        "ci"
       ],
       "lifecycle_state": "public_active",
       "family_id": "static_analysis_security",
@@ -10768,18 +10762,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "browser-e2e-functional",
-      "backing_scripts": [
-        "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
-      ],
-      "target_class": "internal_helper",
-      "default_inclusion_sets": [],
-      "lifecycle_state": "candidate_child"
     },
     {
       "name": "browser-e2e-support",
@@ -14186,6 +14168,9 @@
         "tools/release-evidence/check-benchmark-claim.mjs",
         "tools/release-evidence/tests/test-benchmark-claim-check.sh",
         "tools/schemas/cartulary.benchmark_profile_registry.v1.schema.json"
+      ],
+      "command": [
+        "./tools/release-evidence/tests/test-benchmark-claim-check.sh"
       ]
     },
     {

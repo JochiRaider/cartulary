@@ -49,7 +49,7 @@ type SavedGraphPreparation = {
   readonly intent: SavedGraphIntent;
   readonly draft: string;
 };
-export type SavedGraphOperation = SavedGraphPreparation &
+type SavedGraphOperation = SavedGraphPreparation &
   (
     | {
         readonly phase: "preparing";
@@ -83,8 +83,7 @@ export type SavedGraphOperation = SavedGraphPreparation &
         readonly receipt: SavedGraphReceipt;
       }
   );
-export type SavedGraphOperationPhase = SavedGraphOperation["phase"];
-export type SavedGraphSnapshot = {
+type SavedGraphSnapshot = {
   readonly navigation: SavedGraphResultState;
   readonly observations: Readonly<Record<string, SavedGraphObservation>>;
   readonly graphs: readonly NetworkFlowSavedGraph[];

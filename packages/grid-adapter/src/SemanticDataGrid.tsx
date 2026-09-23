@@ -1308,11 +1308,20 @@ function useSemanticDataGrid<Row>(
     const previous = previousPresentationRef.current;
     const current = semanticPresentationRef.current;
     previousPresentationRef.current = current;
-    if (!retainedCellHadFocus || retainedAnchor === null) return;
+    if (retainedAnchor === null) return;
+    const seed = pendingEditorSeedRef.current;
+    const ownsEditor =
+      editable &&
+      seed !== null &&
+      sameGridCellAnchor(seed.anchor, retainedAnchor);
+    // Vendor edit positions are numeric. Keep their semantic identity current
+    // even while a recovery panel or another control owns focus.
+    if (!retainedCellHadFocus && !ownsEditor) return;
     const key = gridAnchorKey(retainedAnchor);
     const before = previous.positions.get(key);
     const after = current.positions.get(key);
     if (before !== undefined && after === undefined) {
+      if (!retainedCellHadFocus) return;
       // Extension surfaces retain their own page-replacement focus policy.
       if (retainedAnchor.rowIdentity.kind !== "core_record") return;
       const fallbackRow = current.rowIdentities[0];
@@ -1344,15 +1353,20 @@ function useSemanticDataGrid<Row>(
     const grid = vendorHandle.current;
     if (grid === null) return;
     const element = grid.element;
-    if (element !== null) {
+    if (element !== null && retainedCellHadFocus) {
       element.scrollTop +=
         (after.rowIdx - before.rowIdx) * workbookGridRowHeightPx(density);
     }
-    const seed = pendingEditorSeedRef.current;
     if (seed !== null && sameGridCellAnchor(seed.anchor, retainedAnchor)) {
       pendingEditorSeedRef.current = {
         ...seed,
-        activation: { ...seed.activation, selectionRange: retainedSelection },
+        focusOnAttach: retainedCellHadFocus,
+        activation: {
+          ...seed.activation,
+          selectionRange: retainedCellHadFocus
+            ? retainedSelection
+            : seed.activation.selectionRange,
+        },
       };
     }
     const restoreSeed = pendingEditorSeedRef.current;
@@ -1367,11 +1381,8 @@ function useSemanticDataGrid<Row>(
       )
         return;
       vendorHandle.current?.selectCell(after, {
-        enableEditor:
-          editable &&
-          seed !== null &&
-          sameGridCellAnchor(seed.anchor, retainedAnchor),
-        shouldFocusCell: true,
+        enableEditor: ownsEditor,
+        shouldFocusCell: retainedCellHadFocus,
       });
     });
   });

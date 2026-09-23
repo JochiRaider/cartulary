@@ -45,6 +45,7 @@ JS
 cache_dir="$TMP_DIR/cache"
 input_file="$TMP_DIR/input.txt"
 output_file="$TMP_DIR/output.txt"
+output_dir="$TMP_DIR/output-dir"
 command_log="$TMP_DIR/command.log"
 command_script="$TMP_DIR/write-output.sh"
 results_dir="$TMP_DIR/results"
@@ -56,6 +57,8 @@ cat >"$command_script" <<'SH'
 set -euo pipefail
 printf 'run\n' >>"$COMMAND_LOG"
 cp "$INPUT_FILE" "$OUTPUT_FILE"
+mkdir -p "$OUTPUT_DIR/empty"
+cp "$INPUT_FILE" "$OUTPUT_DIR/copied.txt"
 SH
 chmod +x "$command_script"
 printf 'value-one\n' >"$input_file"
@@ -66,6 +69,7 @@ run_cache() {
   CARTULARY_TEST_TARGET="$target" \
   INPUT_FILE="$input_file" \
   OUTPUT_FILE="$output_file" \
+  OUTPUT_DIR="$output_dir" \
   COMMAND_LOG="$command_log" \
     "$SCRIPT" \
       \
@@ -77,6 +81,7 @@ run_cache() {
       --input "$input_file" \
       --input "$command_script" \
       --output "$output_file" \
+      --output-dir "$output_dir" \
       --key "fixture=one" \
       -- "$command_script"
 }
@@ -95,6 +100,9 @@ assert_equals \
   "$(json_field "$record_path" 'value.artifacts[0].relative_path')" \
   "${output_file#"$ROOT_DIR"/}" \
   "record identifies the cached output"
+assert_equals "$(json_field "$record_path" 'value.artifacts[0].members.length')" "0" "file has no directory members"
+assert_equals "$(json_field "$record_path" 'value.artifacts[1].members.map(member => member.relative_path).join(",")')" \
+  "copied.txt,empty" "directory records both files and empty directories"
 
 run_cache
 assert_equals "$(cat "$command_log")" "run" "cache hit skips command"

@@ -3,7 +3,7 @@ import type { WorkbookOperationFailure } from "../../mutations/workbookOperation
 import type { WorkbookPortResult } from "../../ports/WorkbookPortResult";
 import type { ObservationPage } from "./observationOperation";
 
-export type ObservationCollectionState<T> = Readonly<{
+type ObservationCollectionState<T> = Readonly<{
   request: number;
   hasAccepted: boolean;
   items: readonly T[];

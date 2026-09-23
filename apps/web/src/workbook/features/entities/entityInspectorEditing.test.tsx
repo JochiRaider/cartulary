@@ -19,7 +19,6 @@ import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport
 import type { RecordPatchTransport } from "../../adapters/workbookRecordPatchTransport";
 import { WorkbookHistoryContext } from "../../history/WorkbookHistoryContext";
 import { entityRowFromApi } from "../../models/entityWorkbookModel";
-import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
 import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import { useEntityWorkbookInspectorComposition } from "./useEntityWorkbookInspectorComposition";
 
@@ -111,7 +110,6 @@ function fixture() {
       canMerge: false,
       contract,
       currentIncidentRole: "editor",
-      currentUserId: taskAuthority.actorId,
       entityActionFeedback: feedback,
       entityIndex: {},
       entityType: "host",
@@ -123,7 +121,6 @@ function fixture() {
       onClearSurfaceSelection: vi.fn(),
       onRefreshEntities: refresh,
       onRestoreFocus: vi.fn(),
-      relatedMutationCommands: {} as TimelineRelatedRecordPort,
       rows,
       selectedEntity: rows.find((item) => item.recordId === selected) ?? null,
       setEntityActionFeedback: setFeedback,

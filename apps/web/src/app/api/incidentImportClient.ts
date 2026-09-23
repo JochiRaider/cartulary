@@ -217,10 +217,7 @@ async function receiveJob(
   };
 }
 /** Cross-field owner rules supplement the generated closed envelope validator. */
-export function validImportJob(
-  job: IncidentImportJob,
-  expectedId?: string,
-): boolean {
+function validImportJob(job: IncidentImportJob, expectedId?: string): boolean {
   if (
     !uuid.test(job.job_id) ||
     (expectedId !== undefined && job.job_id !== expectedId) ||

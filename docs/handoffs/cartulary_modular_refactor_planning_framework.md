@@ -71,6 +71,13 @@ Use this table as the default target-module registry. A local plan may split a r
 | `/packages/ui-contracts` | Runtime-safe selector and test-id builders. | Stable UI selectors shared across runtime and tests. |
 | `/packages/test-utils` | Shared semantic browser/grid test choreography. | Reusable wait discipline, grid actions and diagnostics; feature-specific fixtures and compositions remain in apps/web testing and e2e support. |
 
+For web source navigation, `tools/frontend_source_ownership.json` identifies the
+owner of each file. Cross-file consumers enter through the retained controller,
+operation owner, reader or component they use; local request builders, state
+types and presentation helpers remain private when they have no external
+consumer. Redundant re-exports are not compatibility interfaces. Shared package
+facades retain their separately declared public boundary.
+
 ## 5. Top-level work tracker
 
 Copy this tracker into each concrete plan and update it at every checkpoint.

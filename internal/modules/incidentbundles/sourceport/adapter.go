@@ -85,6 +85,13 @@ func (a *Adapter) PrepareImport(ctx context.Context, bundle Bundle, importContex
 	if a == nil || a.prepare == nil || importContext.OperationID == "" {
 		return Prepared{}, fmt.Errorf("%w: missing preparation", ErrInvalidCatalog)
 	}
+	admitted := false
+	for _, path := range a.descriptor.Paths {
+		admitted = admitted || containsVersion(path.Versions, importContext.BundleVersion)
+	}
+	if !admitted {
+		return Prepared{}, fmt.Errorf("%w: unsupported source version", ErrInvalidCatalog)
+	}
 	value, err := a.prepare(ctx, bundle, importContext)
 	if err != nil {
 		return Prepared{}, err

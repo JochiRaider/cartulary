@@ -33,7 +33,7 @@ export type WorkbookRecoverySource = {
   /** Invalidates presentation/review according to the source owner's policy. */
   readonly detach?: () => void;
 };
-export type WorkbookRecoverySnapshot = {
+type WorkbookRecoverySnapshot = {
   readonly entries: readonly WorkbookRecoveryEntry[];
   readonly count: number;
   readonly open: boolean;

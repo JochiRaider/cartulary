@@ -561,7 +561,7 @@ export class ImportClient {
   }
 }
 
-export function validImportUnit(
+function validImportUnit(
   unit: DiscoveredImportUnit,
   sessionId: string,
   unitId?: string,

@@ -30,7 +30,7 @@ func RequireLinksPortableRoundTrip(t testing.TB, db postgres.DB, incidentID, act
 	for _, file := range exported {
 		bundle[file.Path] = file.Payload
 	}
-	imported := sourceport.ImportContext{IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 3, OperationID: "note-associations-round-trip", Attributions: &associationAttributions{}}
+	imported := sourceport.ImportContext{IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 4, OperationID: "note-associations-round-trip", Attributions: &associationAttributions{}}
 	prepared, err := port.PrepareImport(ctx, bundle, imported)
 	if err != nil {
 		t.Fatal(err)

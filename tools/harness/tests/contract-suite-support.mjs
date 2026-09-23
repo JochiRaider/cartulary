@@ -83,6 +83,7 @@ function readJSON(relative) {
 }
 
 const retiredTargets = [
+  "browser-e2e-functional",
   "check-service-backed",
   "release-browser-readiness",
   "test-fast-service-backed",
@@ -1989,7 +1990,7 @@ suiteCases.evidence.push(semanticCase(
   "browser_artifact_admission", "browser attachments bind the selected artifact and current complete build", ["TH-HARNESS-AC-086"], (context) => {
     const temporaryRoot = mkdtempSync(path.join(tmpdir(), "cartulary-browser-artifact-"));
     try {
-      const production = resolveBrowserFrontendArtifact(root, "functional");
+      const production = resolveBrowserFrontendArtifact(root, "webserver-backed");
       const measurement = resolveBrowserFrontendArtifact(root, "measurement");
       for (const [rowID, expectedProducer] of [
         ["module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229", "build-web"],

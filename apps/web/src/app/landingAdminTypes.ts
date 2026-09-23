@@ -1,5 +1,4 @@
 import type { ReactNode, RefObject } from "react";
-import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
 import type { IncidentCreationBinding } from "./incidentCreationModel";
 import type {
   IncidentDirectoryController,
@@ -93,6 +92,3 @@ export type IncidentLandingProps = {
   onOpenIncident: (incidentId: string) => void;
   notice: string | null;
 };
-
-export type AdministrativeAuditEvent =
-  ListAdministrativeAuditEventsResponse["data"]["audit_events"][number];

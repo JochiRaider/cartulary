@@ -14,7 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 )
 
-func TestIncidentsSourcePortV3Characterization_Unit(t *testing.T) {
+func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 	t.Parallel()
 
 	incidentID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
@@ -35,7 +35,7 @@ func TestIncidentsSourcePortV3Characterization_Unit(t *testing.T) {
 	}
 	path := descriptor.Paths[0]
 	if path.LogicalPath != "data/incident.json" || path.ContentRole != "singleton_json" ||
-		!slices.Equal(path.Versions, []int{3, 4}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
+		!slices.Equal(path.Versions, []int{4}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
 		path.StableIdentityInvariantID != "incident.source_identity_admitted" {
 		t.Fatalf("incident source path drifted: %#v", path)
 	}
@@ -61,7 +61,7 @@ func TestIncidentsSourcePortV3Characterization_Unit(t *testing.T) {
 		t.Fatalf("export incident source: %v", err)
 	}
 	if len(files) != 1 || files[0].Path != "data/incident.json" || !slices.Equal(files[0].Payload, wantPayload) {
-		t.Fatalf("incident source export = %#v, want exact v3 payload %q", files, wantPayload)
+		t.Fatalf("incident source export = %#v, want exact current-format payload %q", files, wantPayload)
 	}
 
 	actors, err := sourceport.NewActorCatalog([]sourceport.ActorDescriptor{{SourceActorID: actorID.String()}})
@@ -72,7 +72,7 @@ func TestIncidentsSourcePortV3Characterization_Unit(t *testing.T) {
 	prepared, err := port.PrepareImport(context.Background(), sourceport.MapBundle{
 		"data/incident.json": wantPayload,
 	}, sourceport.ImportContext{
-		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 3,
+		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 4,
 		OperationID: operationID, Actors: actors,
 	})
 	if err != nil {

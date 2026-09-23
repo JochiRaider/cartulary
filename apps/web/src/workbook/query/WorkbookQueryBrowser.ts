@@ -43,7 +43,7 @@ type Proposal = {
   destination: Destination;
 };
 
-export type WorkbookBrowsingSnapshot = {
+type WorkbookBrowsingSnapshot = {
   readonly accepted: WorkbookViewQueryAccepted | null;
   readonly authored: WorkbookQueryState | null;
   readonly canonicalQuery: WorkbookCanonicalQuery | null;

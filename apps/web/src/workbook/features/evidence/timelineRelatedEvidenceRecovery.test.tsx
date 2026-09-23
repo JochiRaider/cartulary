@@ -206,6 +206,63 @@ function fixture() {
   };
 }
 describe("Timeline related Evidence recovery", () => {
+  it("serializes projection refresh after link admission and acknowledgement", async () => {
+    const f = fixture();
+    const authorityRead = deferred<WorkbookMutationAuthority>();
+    const linkWrite = deferred<void>();
+    f.authorityReader
+      .mockResolvedValueOnce(authority)
+      .mockReturnValueOnce(authorityRead.promise);
+    const send = f.transport.send.getMockImplementation();
+    if (!send) throw new Error("Missing transport fixture");
+    f.transport.send.mockImplementation(async (attempt, signal) => {
+      if (attempt.stage === "link") await linkWrite.promise;
+      return send(attempt, signal);
+    });
+    try {
+      await f.owner.submit(attachment);
+      await waitFor(() => expect(f.authorityReader).toHaveBeenCalledTimes(2));
+      expect(f.checkpoint().create.receipt).toEqual(f.createReceipt);
+      f.owner.observeSocket({
+        type: "record_changed",
+        incident_id: authority.incidentId,
+        event_id: "creation-after-ack",
+        emitted_at: "2026-09-12T20:00:00Z",
+        stream_seq: 1,
+        payload: {
+          record_id: targetId,
+          row_version: 1,
+          actor_user_id: actor,
+          client_txn_id: f.checkpoint().create.attempt.clientTxnId,
+          change_set_id: f.createReceipt.data.change_set_id,
+          changed_field_keys: [],
+          affected_views: [
+            { view_schema_id: evidenceViewSchemaId, change_kind: "invalidate" },
+          ],
+        },
+      });
+      await f.owner.retryRefresh(f.checkpoint().id);
+      expect(f.authorityReader).toHaveBeenCalledTimes(2);
+      authorityRead.resolve(authority);
+      await waitFor(() => expect(f.transport.send).toHaveBeenCalledTimes(2));
+      expect(f.checkpoint().links[0]?.phase).toBe("submitting");
+      await f.owner.retryRefresh(f.checkpoint().id);
+      expect(f.authorityReader).toHaveBeenCalledTimes(2);
+      linkWrite.resolve();
+      await waitFor(() =>
+        expect(f.checkpoint().links[0]?.refresh).toBe("complete"),
+      );
+      expect(f.checkpoint().links[0]?.receipt).toEqual(f.linkReceipt);
+      expect(
+        f.transport.send.mock.calls.map(([attempt]) => attempt.stage),
+      ).toEqual(["create", "link"]);
+      expect(f.authorityReader).toHaveBeenCalledTimes(3);
+    } finally {
+      authorityRead.resolve(authority);
+      linkWrite.resolve();
+    }
+  });
+
   it("reserves duplicate activation and captures two immutable exact requests with independent full receipts", async () => {
     const f = fixture(),
       gate = deferred<WorkbookSourceWriteSettlement>();

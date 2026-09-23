@@ -76,7 +76,5 @@ export function useCoordinationCreateAttachment(
     () => current.current.context?.owner.detach(token),
     [token],
   );
-  const actions = context?.owner.captureDraftActions(token);
-  const update = (key: string, value: string) => actions?.update(key, value);
-  return { workflow, begin, detach, update };
+  return { workflow, begin, detach };
 }

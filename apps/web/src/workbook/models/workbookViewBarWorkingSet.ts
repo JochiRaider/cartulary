@@ -5,7 +5,7 @@ import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import type { WorkbookFilter, WorkbookQueryState } from "./workbookQuery";
 import type { SavedViewResource } from "./workbookSavedViews";
 
-export const workbookViewBarControlOrder = [
+const workbookViewBarControlOrder = [
   "saved_view",
   "sort",
   "group",
@@ -144,7 +144,7 @@ export type WorkbookViewBarWorkingSet = {
   readonly visibleQueryEntryCapacity: number;
 };
 
-export function workbookViewBarSubjectKey({
+function workbookViewBarSubjectKey({
   incidentId,
   selectedSavedView,
   viewSchemaId,
@@ -364,7 +364,7 @@ export function queryEntryCapacity(chromeMode: WorkbookChromeMode): number {
   ];
 }
 
-export function describeFilter(filter: WorkbookFilter): string {
+function describeFilter(filter: WorkbookFilter): string {
   const value = describeFilterArgument(filter);
   const operator =
     {

@@ -2,7 +2,7 @@ package workbookassembly
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"strings"
 
@@ -59,7 +59,7 @@ type noteAssociationProvider struct{ owner *artifacts.NoteAssociations }
 
 func NewNoteAssociationProvider(pool postgres.DB, mutations *artifacts.MutationFacade, rows NoteAssociationProjectionRows) (workbook.NoteAssociationProvider, error) {
 	if isNilDependency(pool) || isNilDependency(rows) {
-		return nil, fmt.Errorf("Note association projection dependencies are required")
+		return nil, errors.New("note association projection dependencies are required")
 	}
 	owner, err := artifacts.NewNoteAssociations(mutations, admission.NewChecker(pool), links.NewStore(), noteAssociationRows{projections: rows})
 	if err != nil {

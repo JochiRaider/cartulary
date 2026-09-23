@@ -60,7 +60,6 @@ import {
   workbookGroupValue,
 } from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
-import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
 import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 
@@ -97,7 +96,6 @@ export type AssessmentWorkbookSurfaceProps = {
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   onActivateConflict?: WorkbookConflictActivation | undefined;
-  relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
   onRefreshAssessmentRows: (options?: {
@@ -122,7 +120,6 @@ export function AssessmentWorkbookSurface({
   loadState,
   mutationRuntime,
   onActivateConflict,
-  relatedMutationCommands,
   collaborationProjection,
   onClearFilters,
   onRefreshAssessmentRows,
@@ -281,7 +278,6 @@ export function AssessmentWorkbookSurface({
     canCreate,
     contract: assessmentsContract,
     currentIncidentRole,
-    currentUserId,
     candidateReader,
     incidentClosed,
     inspectorResetKey,
@@ -304,7 +300,6 @@ export function AssessmentWorkbookSurface({
       if (token !== null) continuityPortRef.current?.restore(token);
     },
     onSelectAssessment: selectAssessment,
-    relatedMutationCommands,
     roleCanCreate,
     selectedAssessment,
   });

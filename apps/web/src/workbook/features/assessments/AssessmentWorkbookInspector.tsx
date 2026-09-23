@@ -69,9 +69,6 @@ export function AssessmentWorkbookInspector({
   readonly related: {
     readonly begin: (featureGroup: InspectorFeatureGroup) => boolean;
     readonly state: InspectorRelatedRecordWorkflowState | null;
-    readonly cancel: () => void;
-    readonly submit: () => Promise<void>;
-    readonly updateDraft: (fieldKey: string, value: string) => void;
   };
   readonly relatedFeedback: WorkbookInspectorFeedback | null;
   readonly subject: WorkbookRecordSubject | null;
@@ -147,12 +144,7 @@ export function AssessmentWorkbookInspector({
             <>
               {followOnActive ? assessmentAuthoring : null}
               {active && related.state ? (
-                <InspectorCreateRelatedWorkflow
-                  state={related.state}
-                  onCancel={related.cancel}
-                  onSubmit={() => void related.submit()}
-                  onUpdateDraft={related.updateDraft}
-                />
+                <InspectorCreateRelatedWorkflow state={related.state} />
               ) : null}
               <WorkbookInspectorFeedbackView
                 feedback={notice}

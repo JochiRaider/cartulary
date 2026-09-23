@@ -385,7 +385,7 @@ func TestRevisionsIncidentBundleRoundTripIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build remapped portable actor catalog: %v", err)
 	}
-	for _, version := range []int{3} {
+	for _, version := range []int{4} {
 		t.Run(fmt.Sprintf("bundle_version_%d", version), func(t *testing.T) {
 			importContext := harness.context
 			importContext.BundleVersion = version
@@ -565,7 +565,7 @@ INSERT INTO hosts (
 		db: store.DB, actor: actor, incidentID: incident.ID, recordID: recordID,
 		changeSet: uuid.New(), createdAt: createdAt, snapshot: snapshot, port: port,
 		context: sourceport.ImportContext{
-			IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 3,
+			IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 4,
 			OperationID:  "revisions-portability-" + suffix,
 			Attributions: attributions, Actors: actors,
 		},

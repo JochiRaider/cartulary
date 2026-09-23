@@ -133,7 +133,7 @@ export function createObservationTransport(options: {
 }
 
 /** The generated decoder checks shape; this checks operation meaning and binding. */
-export function validateObservationReceipt(
+function validateObservationReceipt(
   attempt: ObservationAttempt,
   data: ObservationReceipt,
   status: number,

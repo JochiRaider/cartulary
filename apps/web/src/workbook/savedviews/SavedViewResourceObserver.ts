@@ -12,7 +12,7 @@ export type SavedViewObservation = {
   readonly problem: SavedViewProblem | null;
   readonly revision: number;
 };
-export type SavedViewResourceSlot =
+type SavedViewResourceSlot =
   | "selected"
   | "activation"
   | "operation"

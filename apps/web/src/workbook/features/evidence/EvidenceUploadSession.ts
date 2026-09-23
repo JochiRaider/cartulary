@@ -10,7 +10,7 @@ import type {
 } from "./evidenceFileOperation";
 
 type Slot = Omit<WorkbookProtocolBlobSlotReceipt["data"], "upload_target">;
-export type EvidenceUploadPhase =
+type EvidenceUploadPhase =
   | "selected"
   | "slot_pending"
   | "slot_uncertain"

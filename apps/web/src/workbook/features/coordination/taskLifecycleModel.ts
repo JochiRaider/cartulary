@@ -11,14 +11,13 @@ export const taskStatuses = [
   "done",
   "canceled",
 ] as const;
-export type TaskLifecycleStatus = (typeof taskStatuses)[number];
+type TaskLifecycleStatus = (typeof taskStatuses)[number];
 export const taskGuardFields = [
   "task.status",
   "task.owner_user_id",
   "task.blocked_reason",
   "task.completed_at",
 ] as const;
-export type TaskGuardField = (typeof taskGuardFields)[number];
 export type RecordPatchChange =
   WorkbookProtocolPatchRecordRequest["changes"][number];
 export type TaskFieldError = {
@@ -34,7 +33,7 @@ export function taskValue(row: WorkbookQueryRow, field: string): string {
   const value = row.cells[field]?.value;
   return value === null || value === undefined ? "" : String(value);
 }
-export function taskFieldEqual(
+function taskFieldEqual(
   left: WorkbookQueryRow,
   right: WorkbookQueryRow,
   field: string,
@@ -44,7 +43,7 @@ export function taskFieldEqual(
     JSON.stringify(right.cells[field]?.value ?? null)
   );
 }
-export function taskStatus(value: string): TaskLifecycleStatus | null {
+function taskStatus(value: string): TaskLifecycleStatus | null {
   return taskStatuses.find((status) => status === value) ?? null;
 }
 export function taskTransitionAllowed(from: string, to: string): boolean {

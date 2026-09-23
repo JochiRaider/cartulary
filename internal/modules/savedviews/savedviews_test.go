@@ -226,7 +226,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		"layout column order record id": {
 			displayName: "Invalid layout column order record id",
 			queryJSON:   map[string]any{},
-			layoutJSON:  map[string]any{"layout_schema_id": "cartulary.layout.v1", "column_order": []any{"record_id"}, "hidden_field_keys": []any{}, "column_widths": []any{}},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["column_order"] = []any{"record_id"} }),
 			field:       "layout_json.column_order[0]",
 			reasonCode:  "forbidden_field",
 		},
@@ -495,8 +495,8 @@ func TestSavedViewOpenAPICreateInputIsLenient_Unit(t *testing.T) {
 
 	createLayout := schemaAt(t, schemas, "SavedViewCreateLayoutJSON")
 	variants, ok := createLayout["oneOf"].([]any)
-	if !ok || len(variants) != 3 {
-		t.Fatalf("create layout_json must allow empty object, legacy layout or current layout, got %#v", createLayout)
+	if !ok || len(variants) != 2 {
+		t.Fatalf("create layout_json must allow empty request object or current layout, got %#v", createLayout)
 	}
 	emptyVariant, ok := variants[0].(map[string]any)
 	if !ok || emptyVariant["maxProperties"] != float64(0) {

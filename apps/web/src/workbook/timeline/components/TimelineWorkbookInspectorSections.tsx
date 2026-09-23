@@ -28,7 +28,6 @@ import {
 import type { RenderTimelineCollectionInput } from "./TimelineWorkbookRendererTypes";
 
 export function useTimelineWorkbookInspectorSections({
-  cancelCreateRelatedWorkflow,
   cancelRowHistoryPendingAction,
   canMutateHistory,
   confirmRowHistoryPendingAction,
@@ -42,10 +41,7 @@ export function useTimelineWorkbookInspectorSections({
   renderTimelineCollectionInput,
   detailsOwner,
   rowHistory,
-  submitCreateRelatedWorkflow,
-  updateCreateRelatedWorkflowDraft,
 }: {
-  readonly cancelCreateRelatedWorkflow: () => void;
   readonly cancelRowHistoryPendingAction: () => void;
   readonly canMutateHistory: boolean;
   readonly confirmRowHistoryPendingAction: () => void;
@@ -67,12 +63,6 @@ export function useTimelineWorkbookInspectorSections({
   readonly detailsOwner: TimelineInspectorDetailsOwner;
   readonly historyBrowsingControls: HistoryBrowsingControls;
   readonly rowHistory: WorkbookRecordHistoryState;
-  readonly submitCreateRelatedWorkflow: () => Promise<void>;
-  readonly updateCreateRelatedWorkflowDraft: (
-    featureGroupKey: string,
-    fieldKey: string,
-    value: string,
-  ) => void;
 }) {
   useSyncExternalStore(
     detailsOwner.drafts.subscribe,
@@ -159,29 +149,9 @@ export function useTimelineWorkbookInspectorSections({
       ) {
         return null;
       }
-      return (
-        <InspectorCreateRelatedWorkflow
-          state={createRelatedWorkflow}
-          onCancel={cancelCreateRelatedWorkflow}
-          onSubmit={() => {
-            void submitCreateRelatedWorkflow();
-          }}
-          onUpdateDraft={(fieldKey, value) => {
-            updateCreateRelatedWorkflowDraft(
-              createRelatedWorkflow.featureGroup.featureGroupKey,
-              fieldKey,
-              value,
-            );
-          }}
-        />
-      );
+      return <InspectorCreateRelatedWorkflow state={createRelatedWorkflow} />;
     },
-    [
-      cancelCreateRelatedWorkflow,
-      createRelatedWorkflow,
-      submitCreateRelatedWorkflow,
-      updateCreateRelatedWorkflowDraft,
-    ],
+    [createRelatedWorkflow],
   );
 
   const renderRowHistorySection = useCallback(

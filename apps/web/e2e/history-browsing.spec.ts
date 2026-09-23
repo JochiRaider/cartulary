@@ -18,7 +18,7 @@ import {
   hostsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
@@ -284,6 +284,52 @@ async function browse(page: Page, surface: Surface) {
       rowHistoryItemTestId({ historyItemRef: last.history_item_ref }),
     ),
   ).toHaveCount(0);
+  // Replacing an in-flight continuation cancels its presentation anchor.
+  // Its eventual response must neither append the old page nor move focus/viewport.
+  let releaseOlder = () => {};
+  let heldOlder = false;
+  let releasedOlder = false;
+  const olderGate = new Promise<void>((resolve) => {
+    releaseOlder = resolve;
+  });
+  const continuationPattern = `**/api/v1/records/${row.record_id}/history?*`;
+  const holdOlder = async (route: Route) => {
+    const response = await route.fetch();
+    heldOlder = true;
+    await olderGate;
+    await route.fulfill({ response });
+    releasedOlder = true;
+  };
+  await page.route(continuationPattern, holdOlder);
+  try {
+    await older.focus();
+    await older.press("Enter");
+    await expect.poll(() => heldOlder).toBe(true);
+    const refresh = panel.getByRole("button", {
+      name: "Refresh history",
+      exact: true,
+    });
+    await refresh.focus();
+    await refresh.press("Enter");
+    await expect(refresh).toHaveAttribute("aria-disabled", "false");
+    await expect(firstItem).toBeAttached();
+    const refreshedAnchor = required(await refresh.boundingBox());
+    releaseOlder();
+    await expect.poll(() => releasedOlder).toBe(true);
+    await expect(refresh).toBeFocused();
+    expect(
+      Math.abs(required(await refresh.boundingBox()).y - refreshedAnchor.y),
+    ).toBeLessThan(2);
+    await expect(
+      panel.getByTestId(
+        rowHistoryItemTestId({ historyItemRef: last.history_item_ref }),
+      ),
+    ).toHaveCount(0);
+    await expect(older).toHaveAttribute("aria-disabled", "false");
+  } finally {
+    releaseOlder();
+    await page.unroute(continuationPattern, holdOlder);
+  }
   invalid = true;
   await older.click();
   await expect(

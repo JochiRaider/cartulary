@@ -122,14 +122,14 @@ func ImportIncidentBundleFilesTx(
 	attributions incidentportability.AttributionRecorder,
 ) error {
 	switch bundleVersion {
-	case 3, 4:
+	case 4:
 		if err := importTimelineProfilesTx(ctx, tx, timelineBundleProfilesPath, files[timelineBundleProfilesPath], actorUserID, attributions); err != nil {
 			return err
 		}
-		if err := importTimelineRecordsV3Tx(ctx, tx, files[timelineBundleRecordsPath], actorUserID, attributions); err != nil {
+		if err := importTimelineRecordsTx(ctx, tx, files[timelineBundleRecordsPath], actorUserID, attributions); err != nil {
 			return err
 		}
-		return importTimelineProvenanceV3Tx(ctx, tx, files[timelineBundleProvenancePath])
+		return importTimelineProvenanceTx(ctx, tx, files[timelineBundleProvenancePath])
 	default:
 		return malformedTimelineBundle()
 	}
@@ -183,7 +183,7 @@ SELECT
 	return nil
 }
 
-func importTimelineRecordsV3Tx(
+func importTimelineRecordsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	payload []byte,
@@ -216,7 +216,7 @@ func importTimelineRecordsV3Tx(
 	return nil
 }
 
-func importTimelineProvenanceV3Tx(ctx context.Context, tx pgx.Tx, payload []byte) error {
+func importTimelineProvenanceTx(ctx context.Context, tx pgx.Tx, payload []byte) error {
 	rows, err := decodeLogicalRows(payload)
 	if err != nil {
 		return err

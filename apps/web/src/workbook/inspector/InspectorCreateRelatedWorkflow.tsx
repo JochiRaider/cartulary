@@ -1,15 +1,4 @@
-import {
-  genericCreateFieldTestId,
-  genericCreateSubmitTestId,
-} from "@cartulary/ui-contracts";
 import { useContext, useSyncExternalStore } from "react";
-import { GenericMutationControl } from "../components/GenericMutationControl";
-import {
-  workbookFormActionsStyle as actionsStyle,
-  workbookFormFieldStackStyle as labelStyle,
-  workbookFormMessageStyle as messageStyle,
-  workbookFormFieldsStyle as workflowStyle,
-} from "../components/workbookFormStyles";
 import { ContextualCreateContext } from "../features/coordination/ContextualCreateContext";
 import { ContextualCreateForm } from "../features/coordination/ContextualCreateForm";
 import { CoordinationCreateContext } from "../features/coordination/CoordinationCreateContext";
@@ -23,19 +12,11 @@ import { NoteCreateContext } from "../features/notes/NoteCreateContext";
 import { NoteCreateForm } from "../features/notes/NoteCreateForm";
 import { noteCreateFeature } from "../features/notes/noteCreateModel";
 import type { InspectorRelatedRecordWorkflowState } from "./inspectorRelatedRecordModel";
-import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
-import { WorkbookInspectorPublicError } from "./presentation/WorkbookInspectorFeedback";
 
 export function InspectorCreateRelatedWorkflow({
   state,
-  onCancel,
-  onSubmit,
-  onUpdateDraft,
 }: {
   readonly state: InspectorRelatedRecordWorkflowState;
-  readonly onCancel: () => void;
-  readonly onSubmit: () => void;
-  readonly onUpdateDraft: (fieldKey: string, value: string) => void;
 }) {
   const note = useContext(NoteCreateContext);
   const coordination = useContext(CoordinationCreateContext);
@@ -73,52 +54,7 @@ export function InspectorCreateRelatedWorkflow({
         attachment={state.workflowId}
       />
     ) : null;
-  const createFields = state.targetContract.fields.filter(
-    (field) => field.createWritable,
-  );
-  return (
-    <section aria-label={state.featureGroup.label} style={workflowStyle}>
-      <p style={messageStyle}>Create in {state.targetContract.title}</p>
-      {createFields.map((field) => {
-        const controlId = `inspector-related-${field.fieldKey}`;
-        return (
-          <label htmlFor={controlId} key={field.fieldKey} style={labelStyle}>
-            {field.label}
-            <GenericMutationControl
-              collectionMode="add"
-              field={field}
-              id={controlId}
-              testId={genericCreateFieldTestId(field.fieldKey)}
-              value={state.draft[field.fieldKey] ?? ""}
-              onChange={(value) => onUpdateDraft(field.fieldKey, value)}
-            />
-          </label>
-        );
-      })}
-      {state.error === null ? null : (
-        <WorkbookInspectorPublicError error={state.error} />
-      )}
-      <div style={actionsStyle}>
-        <WorkbookInspectorActionButton
-          data-testid={genericCreateSubmitTestId(
-            state.targetContract.viewSchemaId,
-          )}
-          disabled={state.phase === "submitting"}
-          tone="primary"
-          onClick={onSubmit}
-        >
-          Create related row
-        </WorkbookInspectorActionButton>
-        <WorkbookInspectorActionButton
-          disabled={state.phase === "submitting"}
-          tone="secondary"
-          onClick={onCancel}
-        >
-          Cancel
-        </WorkbookInspectorActionButton>
-      </div>
-    </section>
-  );
+  return null;
 }
 
 function RetainedContextualForm({

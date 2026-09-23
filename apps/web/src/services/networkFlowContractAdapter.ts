@@ -3,7 +3,6 @@ import {
   type Contributor,
   type DecodeFailure,
   type Decoder,
-  type EdgeAnnotationV2,
   type Filter,
   type GraphContributorQueryContinuation,
   type GraphContributorQueryRequestV2,
@@ -17,14 +16,10 @@ import {
   type GraphViewAcceptedV4,
   type GraphViewContributorQueryRequestV2,
   type GraphViewContributorQueryResultV2,
-  type GraphViewCreateRequestV3,
   type GraphViewGetV4,
   type GraphViewListV4,
   type GraphViewMutationResultV4,
-  type GraphViewRefreshRequest,
-  type GraphViewRenameRequestV2,
   type GraphViewResultV4,
-  type GraphViewRetireRequest,
   type GraphViewV4,
   type ImportPreviewResult,
   type IndicatorLinkRequest,
@@ -54,9 +49,7 @@ import {
   type TableQueryContinuation,
   type TableQueryRequest,
   type TableQueryResult,
-  type TableRenameRequest,
   type TableScope,
-  type TableSoftDeleteRequest,
 } from "@cartulary/protocol-ts/network-flow";
 
 export type { NetworkFlowRow, NetworkFlowRowRef, NetworkFlowTable };
@@ -64,7 +57,6 @@ export type { NetworkFlowRow, NetworkFlowRowRef, NetworkFlowTable };
 export type NetworkFlowContributor = Contributor;
 export type NetworkFlowContributorResult = GraphContributorQueryResultV2;
 export type NetworkFlowDiagnostic = RejectedRowDiagnostic;
-export type NetworkFlowEdgeAnnotation = EdgeAnnotationV2;
 export type NetworkFlowGraphResult = GraphQueryResultV2;
 export type NetworkFlowGraphEdge = GraphProjectionEdge;
 export type NetworkFlowGraphVertex = GraphProjectionVertex;
@@ -77,16 +69,7 @@ export type NetworkFlowSavedGraphContributorQueryRequest =
   GraphViewContributorQueryRequestV2;
 export type NetworkFlowSavedGraphContributorResult =
   GraphViewContributorQueryResultV2;
-export type NetworkFlowSavedGraphCreateRequest = GraphViewCreateRequestV3;
-export type NetworkFlowSavedGraphList = GraphViewListV4;
-export type NetworkFlowSavedGraphMutationResult = GraphViewMutationResultV4;
-export type NetworkFlowSavedGraphRefreshRequest = GraphViewRefreshRequest;
-export type NetworkFlowSavedGraphRenameRequest = GraphViewRenameRequestV2;
 export type NetworkFlowSavedGraphResult = GraphViewResultV4;
-export type NetworkFlowSavedGraphRetireRequest = GraphViewRetireRequest;
-export type NetworkFlowContributorQueryRequest = GraphContributorQueryRequestV2;
-export type NetworkFlowContributorQueryContinuation =
-  GraphContributorQueryContinuation;
 export type NetworkFlowContributorPageRequest =
   | GraphContributorQueryRequestV2
   | GraphContributorQueryContinuation;
@@ -104,13 +87,9 @@ export type NetworkFlowRejectedRowsQueryContinuation =
   RejectedRowsQueryContinuation;
 export type NetworkFlowRejectedRowsQueryRequest = RejectedRowsQueryRequest;
 export type NetworkFlowSort = Sort;
-export type NetworkFlowSourceProfileList = SourceProfileListV2;
 export type NetworkFlowTableScope = TableScope;
 export type NetworkFlowTableQueryContinuation = TableQueryContinuation;
 export type NetworkFlowTableQueryRequest = TableQueryRequest;
-export type NetworkFlowTableMutationResult = TableMutationResult;
-export type NetworkFlowTableRenameRequest = TableRenameRequest;
-export type NetworkFlowTableSoftDeleteRequest = TableSoftDeleteRequest;
 
 export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
@@ -275,7 +254,7 @@ export function decodeNetworkFlowContributorResult(
   return result;
 }
 
-export function validateNetworkFlowPage(
+function validateNetworkFlowPage(
   items: readonly unknown[],
   paging: NetworkFlowPaging,
 ): void {
@@ -424,7 +403,7 @@ export function decodeNetworkFlowSavedGraphGet(value: unknown): GraphViewGetV4 {
   return result;
 }
 
-export const savedGraphBindingMembers = [
+const savedGraphBindingMembers = [
   "projection_result_id",
   "source_snapshot_id",
   "projection_schema_id",

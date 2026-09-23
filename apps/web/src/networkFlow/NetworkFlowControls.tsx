@@ -13,14 +13,14 @@ import {
 
 export const networkFlowChromeRootClassName = "network-flow-chrome";
 
-export type NetworkFlowButtonVariant =
+type NetworkFlowButtonVariant =
   | "primary"
   | "secondary"
   | "danger"
   | "ghost"
   | "mode";
 
-export type NetworkFlowButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+type NetworkFlowButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly pending?: boolean;
   readonly selected?: boolean;
   readonly variant?: NetworkFlowButtonVariant;
@@ -73,10 +73,7 @@ export const NetworkFlowButton = forwardRef<
   );
 });
 
-export type NetworkFlowIconButtonProps = Omit<
-  NetworkFlowButtonProps,
-  "aria-label"
-> & {
+type NetworkFlowIconButtonProps = Omit<NetworkFlowButtonProps, "aria-label"> & {
   readonly "aria-label": string;
 };
 
@@ -211,18 +208,6 @@ export function NetworkFlowActionGroup({
     <div
       {...props}
       className={joinClassNames("network-flow-action-group", className)}
-    />
-  );
-}
-
-export function NetworkFlowToolbar({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      {...props}
-      className={joinClassNames("network-flow-toolbar", className)}
     />
   );
 }
@@ -429,7 +414,6 @@ export const networkFlowChromeCssText = `
 }
 
 .${networkFlowChromeRootClassName} .network-flow-action-group,
-.${networkFlowChromeRootClassName} .network-flow-toolbar,
 .${networkFlowChromeRootClassName} .network-flow-pagination {
   min-inline-size: 0;
   display: flex;
@@ -710,10 +694,6 @@ export const networkFlowChromeCssText = `
 }
 
 @media (max-width: 1024px) {
-  .${networkFlowChromeRootClassName} .network-flow-toolbar {
-    align-items: flex-start;
-  }
-
   .${networkFlowChromeRootClassName} .network-flow-field {
     flex: 1 1 12rem;
   }

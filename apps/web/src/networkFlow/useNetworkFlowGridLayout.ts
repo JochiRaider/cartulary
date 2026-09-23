@@ -13,7 +13,7 @@ const sessionLayouts = new Map<string, NetworkFlowGridLayout>();
 
 type LayoutGridSchemaId = NetworkFlowGridSchemaId;
 
-export type NetworkFlowGridLayout = {
+type NetworkFlowGridLayout = {
   readonly order: readonly string[];
   readonly visible: ReadonlySet<string>;
   readonly widths: Readonly<Record<string, number>>;

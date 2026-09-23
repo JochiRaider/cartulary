@@ -16,7 +16,8 @@ import {
   logoutCurrentSession,
 } from "./api/authAccountClient";
 import type { CredentialState } from "./api/publicHttpTypes";
-export type AccountSessionEvent =
+
+type AccountSessionEvent =
   | { readonly kind: "resource_refresh" }
   | {
       readonly kind:

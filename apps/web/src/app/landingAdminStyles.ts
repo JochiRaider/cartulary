@@ -441,14 +441,6 @@ export const formGridStyle: CSSProperties = {
   gap: "var(--ct-spacing-sm)",
 };
 
-export const segmentedFormStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(16rem, 24rem) auto",
-  gap: "var(--ct-spacing-md)",
-  alignItems: "end",
-  marginTop: "var(--ct-spacing-md)",
-};
-
 export const detailsStyle: CSSProperties = {
   marginTop: "0.25rem",
 };
@@ -457,13 +449,6 @@ export const detailsSummaryStyle: CSSProperties = {
   cursor: "pointer",
   color: "var(--ct-colors-ink-muted)",
   fontWeight: 700,
-};
-
-export const buttonRowEndStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "flex-end",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-sm)",
 };
 
 export const primaryButtonStyle: CSSProperties = {
@@ -652,14 +637,6 @@ export const errorDetailStyle: CSSProperties = {
   overflowWrap: "anywhere",
 };
 
-export const definitionPanelStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(12rem, 24rem) minmax(12rem, 24rem) auto",
-  gap: "var(--ct-spacing-md)",
-  alignItems: "end",
-  marginTop: "var(--ct-spacing-md)",
-};
-
 export const definitionLabelStyle: CSSProperties = {
   display: "block",
   color: "var(--ct-colors-ink-subtle)",
@@ -755,11 +732,6 @@ export const redactedBadgeStyle: CSSProperties = {
   borderRadius: "var(--ct-rounded-pill)",
   color: "var(--ct-colors-semantic-caution)",
   fontWeight: 700,
-};
-
-export const nullValueStyle: CSSProperties = {
-  color: "var(--ct-colors-ink-subtle)",
-  fontStyle: "italic",
 };
 
 export const jobPanelStyle: CSSProperties = {

@@ -34,10 +34,10 @@ Source-specific composition belongs in [features](../features/README.md) and
 | File | Responsibility |
 | --- | --- |
 | [InspectorCreateRelatedWorkflow.tsx](InspectorCreateRelatedWorkflow.tsx) | Inspector related-record authoring presentation over declared feature commands. |
-| [inspectorRelatedRecordModel.test.ts](inspectorRelatedRecordModel.test.ts) | Tests related-record seed construction and characterized workflow draft transitions. |
-| [inspectorRelatedRecordModel.ts](inspectorRelatedRecordModel.ts) | Related-record form seeds and pure inspector workflow state transitions. |
-| [useInspectorCreateRelatedWorkflow.test.tsx](useInspectorCreateRelatedWorkflow.test.tsx) | Tests neutral related-creation feedback and detached late-result suppression. |
-| [useInspectorCreateRelatedWorkflow.ts](useInspectorCreateRelatedWorkflow.ts) | React controller for declared related-record authoring and presentation lifetime. |
+| [inspectorRelatedRecordModel.test.ts](inspectorRelatedRecordModel.test.ts) | Tests related-record field and input seeds. |
+| [inspectorRelatedRecordModel.ts](inspectorRelatedRecordModel.ts) | Shared draft seed builder and retained-owner presentation types. |
+| [useInspectorCreateRelatedWorkflow.test.tsx](useInspectorCreateRelatedWorkflow.test.tsx) | Checks every authored creation feature has exactly one retained owner and unbound actions cannot dispatch. |
+| [useInspectorCreateRelatedWorkflow.ts](useInspectorCreateRelatedWorkflow.ts) | Presentation attachments to retained contextual Task/Decision, coordination and Note owners. |
 
 ## Record History
 
@@ -148,3 +148,22 @@ an acknowledged operation's refresh. Timeline partial action receipts carry the
 transport's dispatch-time observation. They can advance a saved-row projection
 only from a matching admitted base version and scope; receipt retention itself
 remains independent of whether protected content may currently be shown.
+
+Related creation requires an explicit retained owner in the capability resolver.
+Contextual Task/Decision, coordination, Note and Timeline Evidence forms submit
+through their own attachment leases; Assessment follow-on authoring uses its
+Assessment owner. The inspector owns no fallback draft reducer, generic form or
+direct create transport. Unknown additive actions are omitted. New features must
+provide owner admission, captured attempts, receipts, authority and recovery before
+joining the typed binding and authored-feature coverage check.
+
+## History read continuity
+
+[useWorkbookHistoryReadContinuity.ts](useWorkbookHistoryReadContinuity.ts) owns
+presentation scroll/focus continuity for History reads. Its semantic control
+anchor is scoped to the mounted panel, record/view, authorization lifetime and
+request/cursor generation. Matching renders preserve its measured position;
+user interaction, replacement, detachment or obsolete completion cancels it.
+Focus restoration uses `preventScroll`. Accepted pages, cursor chains and read
+admission remain with the retained History owner. All four browser History
+surfaces share the continuation/retry and late-response checks.

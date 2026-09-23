@@ -11,9 +11,11 @@ import {
   rowHistoryRollbackPreviewTestId,
 } from "@cartulary/ui-contracts";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
+  renderHook,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -52,6 +54,13 @@ interface RecordRouteCommandPort {
   }): Promise<WorkbookOperationOutcome<RecordLifecycleAccepted>>;
 }
 
+import {
+  acceptHistoryPage,
+  beginHistoryRead,
+  initialHistoryBrowsing,
+  rejectHistoryRead,
+} from "../history/workbookHistoryBrowsing";
+import { useWorkbookHistoryReadContinuity } from "./useWorkbookHistoryReadContinuity";
 import { WorkbookInspectorRecordHistory } from "./WorkbookInspectorRecordHistory";
 
 afterEach(cleanup);
@@ -60,6 +69,146 @@ const historyItemRef = "history-item-1";
 const recordId = "20000000-0000-4000-8000-000000000001";
 
 describe("WorkbookInspectorRecordHistory", () => {
+  it("binds read viewport and focus continuity to the current subject lifetime and request", () => {
+    for (const mode of [
+      "accepted",
+      "retry",
+      "interaction",
+      "replacement",
+      "scope",
+      "obsolete",
+      "detached",
+    ] as const) {
+      const scroller = document.createElement("div");
+      scroller.style.overflowY = "auto";
+      scroller.style.overflowAnchor = "auto";
+      scroller.scrollTop = 40;
+      const panel = document.createElement("section");
+      const older = document.createElement("button");
+      const retry = document.createElement("button");
+      const refresh = document.createElement("button");
+      const elsewhere = document.createElement("input");
+      panel.append(older, retry, refresh);
+      scroller.append(panel, elsewhere);
+      document.body.append(scroller);
+      let shift = 0;
+      Object.defineProperty(older, "getBoundingClientRect", {
+        value: () => ({ top: 120 + shift - scroller.scrollTop }) as DOMRect,
+      });
+      const subject = historySubject(recordId, 5);
+      const page = {
+        ...historyData(),
+        paging: {
+          limit: 100,
+          has_more: true as const,
+          next_cursor: "older-page",
+        },
+      };
+      let browsing = beginHistoryRead(
+        initialHistoryBrowsing(
+          {
+            incidentId: page.incident_id,
+            actorId: "actor",
+            epoch: 1,
+            sessionIdentity: "session",
+          },
+          recordId,
+          subject.viewSchemaId,
+        ),
+        "initial",
+      );
+      if (!browsing.pending) throw new Error("Missing initial request");
+      browsing = acceptHistoryPage(browsing, browsing.pending, page, {
+        rowVersion: 5,
+        deleted: false,
+      });
+      expect(browsing.failure).toBeNull();
+      const refs = [
+        { current: panel },
+        { current: older },
+        { current: refresh },
+      ] as const;
+      const hook = renderHook(
+        (value) =>
+          useWorkbookHistoryReadContinuity(
+            { phase: "ready", ...value },
+            ...refs,
+          ),
+        {
+          initialProps: { browsing, subject },
+        },
+      );
+      try {
+        older.focus();
+        act(() => hook.result.current(older, "continuation"));
+        browsing = beginHistoryRead(browsing, "continuation");
+        shift = 60;
+        hook.rerender({ browsing, subject });
+        expect(older.getBoundingClientRect().top).toBe(80);
+        if (!browsing.pending) throw new Error("Missing continuation");
+        let request = browsing.pending;
+        if (mode === "retry") {
+          browsing = rejectHistoryRead(browsing, request, {
+            kind: "retryable",
+            message: "Temporary failure",
+          });
+          shift = 90;
+          hook.rerender({ browsing, subject });
+          expect(older.getBoundingClientRect().top).toBe(80);
+          retry.focus();
+          act(() => hook.result.current(retry, "continuation", true));
+          browsing = beginHistoryRead(browsing, "continuation", true);
+          if (!browsing.pending) throw new Error("Missing retry");
+          expect(browsing.pending.request).toEqual(request.request);
+          request = browsing.pending;
+          shift = 60;
+          hook.rerender({ browsing, subject });
+          retry.remove();
+        }
+        const cancelled = mode !== "accepted" && mode !== "retry";
+        if (mode === "interaction") fireEvent.wheel(scroller);
+        if (mode === "replacement")
+          hook.rerender({ browsing, subject: historySubject("other", 1) });
+        if (mode === "scope")
+          hook.rerender({
+            browsing: { ...browsing, scope: { ...browsing.scope, epoch: 2 } },
+            subject,
+          });
+        if (mode === "obsolete") {
+          browsing = beginHistoryRead(browsing, "refresh");
+          hook.rerender({ browsing, subject });
+        }
+        if (mode === "detached") hook.unmount();
+        if (cancelled) elsewhere.focus();
+        const priorScroll = scroller.scrollTop;
+        shift = 0;
+        browsing = acceptHistoryPage(
+          browsing,
+          request,
+          {
+            ...page,
+            items: [],
+            paging: { limit: 100, has_more: false, next_cursor: null },
+          },
+          { rowVersion: 5, deleted: false },
+        );
+        if (mode !== "detached") hook.rerender({ browsing, subject });
+        if (cancelled) {
+          expect(scroller.scrollTop).toBe(priorScroll);
+          expect(document.activeElement).toBe(elsewhere);
+        } else {
+          expect(browsing.failure).toBeNull();
+          expect(older.getBoundingClientRect().top).toBe(80);
+          expect(document.activeElement).toBe(older);
+        }
+        expect(scroller.style.overflowAnchor).toBe("auto");
+      } finally {
+        hook.unmount();
+        scroller.remove();
+      }
+    }
+  });
+
   it("cancels an event review while its read is pending without dispatching a write", async () => {
     const pending = deferred<WorkbookOperationOutcome<RecordHistoryData>>();
     const loadHistory = vi

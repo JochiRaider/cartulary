@@ -459,7 +459,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	for _, version := range []int{3, 4} {
+	for _, version := range []int{4} {
 		original := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) { manifest["bundle_version"] = version })
 		verified, err := verifyBundle(verificationInput{Bundle: original, Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}}})
 		if err != nil || verified.Manifest.BundleVersion != version {
@@ -467,7 +467,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 		}
 	}
 
-	for _, version := range []int{1, 2, 5} {
+	for _, version := range []int{1, 2, 3, 5} {
 		t.Run(fmt.Sprintf("unsupported_version_%d", version), func(t *testing.T) {
 			unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
 				manifest["bundle_version"] = version

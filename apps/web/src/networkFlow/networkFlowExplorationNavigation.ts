@@ -112,9 +112,7 @@ export function emptyExploration(
   };
 }
 
-export function explorationResultIdentity(
-  result: NetworkFlowGraphResult,
-): string {
+function explorationResultIdentity(result: NetworkFlowGraphResult): string {
   const projection = result.graph_projection_result;
   return JSON.stringify([
     result.graph_query_digest,
@@ -135,10 +133,10 @@ export function explorationSelectionId(
     : selector.source_edge_id;
 }
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-export function explorationEdgeLabel(selector: EdgeSelector): string {
+function explorationEdgeLabel(selector: EdgeSelector): string {
   return `${selector.source_endpoint_value} → ${selector.destination_endpoint_value} · protocol ${selector.protocol} · port ${selector.destination_port_present ? selector.destination_port : "—"}`;
 }
-export function buildExplorationIndex(
+function buildExplorationIndex(
   result: NetworkFlowGraphResult,
 ): ExplorationIndex {
   const projectedVertices = new Map(

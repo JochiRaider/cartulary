@@ -15,18 +15,13 @@ export type NetworkFlowQueryLoadState =
   | "refreshing"
   | "ready"
   | "error";
-export type PageCommand =
-  | "initial"
-  | "next"
-  | "previous"
-  | "refresh"
-  | "restart";
-export type NetworkFlowPage<Item, Metadata = unknown> = {
+type PageCommand = "initial" | "next" | "previous" | "refresh" | "restart";
+type NetworkFlowPage<Item, Metadata = unknown> = {
   readonly items: readonly Item[];
   readonly paging: NetworkFlowPaging;
   readonly metadata?: Metadata;
 };
-export type CommittedNetworkFlowPage<
+type CommittedNetworkFlowPage<
   Item,
   Request,
   Metadata = unknown,
@@ -36,7 +31,7 @@ export type CommittedNetworkFlowPage<
   readonly contextKey: string;
   readonly pageNumber: number;
 };
-export type NetworkFlowPageAttempt<Request> = {
+type NetworkFlowPageAttempt<Request> = {
   readonly command: PageCommand;
   readonly destination: number;
   readonly request: Request;
@@ -46,7 +41,7 @@ export type NetworkFlowPageAttempt<Request> = {
   readonly notifyQuery: boolean;
   readonly automaticRestart: boolean;
 };
-export type NetworkFlowPageRecovery =
+type NetworkFlowPageRecovery =
   | "retry"
   | "restart"
   | "refresh_resource"
@@ -543,7 +538,7 @@ export function useNetworkFlowPagedQuery<Item, Request, Metadata = unknown>(
   };
 }
 
-export function pageRecovery(
+function pageRecovery(
   error: NetworkFlowRequestError | null,
   invalidCursor = false,
 ): NetworkFlowPageRecovery {

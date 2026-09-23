@@ -26,7 +26,7 @@ import {
   partyViewId,
 } from "./partyLinkModel";
 
-export type PartyCreationOperation = Readonly<{
+type PartyCreationOperation = Readonly<{
   id: string;
   attempt: PartyCreationAttempt;
   phase:
@@ -45,7 +45,7 @@ export type PartyAuthorityReader = (
   baseline: ExplicitPatchAuthority,
   signal: AbortSignal,
 ) => Promise<ExplicitPatchAuthority>;
-export type PartyPatchOperation = ExplicitPatchOperation & {
+type PartyPatchOperation = ExplicitPatchOperation & {
   intent: ExplicitPatchOperation["intent"] & {
     owner: "party_link";
     review: PartyReview;

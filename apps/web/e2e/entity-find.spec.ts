@@ -594,7 +594,8 @@ test("Entity Find follows grouping hidden fields saved views live deletion and s
       display_name: "Entity Find hidden names",
       view_schema_id: f.view,
       layout_json: {
-        layout_schema_id: "cartulary.layout.v1",
+        layout_schema_id: "cartulary.layout.v2",
+        frozen_through_field_key: null,
         column_order: requireViewContract(f.view).fields.map(
           (field) => field.fieldKey,
         ),

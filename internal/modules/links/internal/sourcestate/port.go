@@ -157,7 +157,7 @@ func validatePreparedTx(
 
 func (value preparedImport) matches(importContext sourceport.ImportContext) bool {
 	return value.incidentID != uuid.Nil && value.incidentID == importContext.IncidentID &&
-		value.bundleVersion == importContext.BundleVersion && (value.bundleVersion == 3 || value.bundleVersion == 4) &&
+		value.bundleVersion == importContext.BundleVersion && value.bundleVersion == 4 &&
 		value.operationID != "" && value.operationID == importContext.OperationID
 }
 

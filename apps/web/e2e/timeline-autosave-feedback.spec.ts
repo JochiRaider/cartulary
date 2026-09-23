@@ -273,7 +273,19 @@ test("Timeline autosave feedback production characterization", async ({
         await settle();
         const unchangedWork = delta(before, await counts());
         expect(unchangedSnapshot).toBe(true);
-        expect(unchangedWork.commits ?? 0).toBe(0);
+        // Root commits can include independent presence/presentation work.
+        // Assert the owned grid surfaces; retain root counts as diagnostics.
+        // The status hook's no-render guarantee is checked under React act in
+        // workbookSaveStatus.test.tsx, independent of browser background work.
+        for (const work of [
+          "columnsReplacements",
+          "rowsReplacements",
+          "collectionRenders",
+        ])
+          expect(
+            unchangedWork[work] ?? 0,
+            `${work} during unchanged status`,
+          ).toBe(0);
         const beforeStatus = await counts();
         await page.evaluate(async () => {
           const runtime = (window as unknown as DiagnosticWindow).taf.runtime;

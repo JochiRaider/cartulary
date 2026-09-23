@@ -250,7 +250,6 @@ export function renderBrowserBatchManifest(topology) {
   const selectorStageByKind = new Map([
     ["webserver-backed", "webserver_backed"],
     ["duration_balanced_specs", "webserver_backed"],
-    ["functional", "webserver_backed"],
     ["support", "support"],
     ["stateful", "stateful"],
     ["stateful_partition", "stateful"],
@@ -315,7 +314,7 @@ export function renderBrowserBatchManifest(topology) {
             }
             const fixtureProfileID = [...fixtureProfileIDs][0];
             const quietIdentity = resourceProfileID === "browser_measurement_quiet"
-              ? partition[0].row_id.slice(-10)
+              ? partition[0].row_id
               : "";
             const group = {
               ...clone(policyGroup),

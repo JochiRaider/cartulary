@@ -234,7 +234,7 @@ export type ResolveRecordSameFieldConflictResponseBody = ViewMutationEnvelope | 
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "SavedViewCreateLayoutJSON".
  */
-export type SavedViewCreateLayoutJSON = {} | SavedViewLayoutJSON | SavedViewLegacyLayoutJSON;
+export type SavedViewCreateLayoutJSON = {} | SavedViewLayoutJSON;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "SavedViewScope".
@@ -2614,16 +2614,6 @@ export interface SavedViewLayoutJSON {
 export interface SavedViewColumnWidth {
   field_key: string;
   width_px: number;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "SavedViewLegacyLayoutJSON".
- */
-export interface SavedViewLegacyLayoutJSON {
-  column_order: string[];
-  column_widths: SavedViewColumnWidth[];
-  hidden_field_keys: string[];
-  layout_schema_id: "cartulary.layout.v1";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

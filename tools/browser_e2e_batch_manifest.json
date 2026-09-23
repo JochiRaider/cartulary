@@ -1561,7 +1561,7 @@
           "specs": [
             "apps/web/e2e/workbook-preferences.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1695,1719 +1695,6 @@
         {
           "name": "functional-support-network-flow-claimed-network-flow",
           "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-functional-network-flow-claimed",
-          "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
-          "selected_row_ids": [
-            "module.networkflow.browser.import_recovery",
-            "module.networkflow.browser.import_retained_draft",
-            "module.networkflow.browser.indicator_link_recovery",
-            "module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619",
-            "module.networkflow.browser.network_flow_selector_covers_default_graph_mode_fc65f0ecfd",
-            "module.networkflow.browser.network_flow_selector_covers_importing_nf_fix_00_094b0f779b",
-            "module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_e_346ec21519",
-            "module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_v_171429ad9e",
-            "module.networkflow.browser.network_flow_selector_covers_soft_deleting_a_tab_537fbd618e",
-            "module.networkflow.browser.network_flow_selector_covers_the_filter_selector_12b0cf1448",
-            "module.networkflow.browser.network_flow_selector_covers_when_the_extension_4ce49e0d6f",
-            "module.networkflow.browser.query_authoring_integrity",
-            "module.networkflow.browser.table_lifecycle_continuity",
-            "module.networkflow.browser.verify_claimed_network_analysis_discovery_import_f977242343"
-          ],
-          "specs": [
-            "apps/web/e2e/network-flow.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ]
-        }
-      ],
-      "frontend_artifact_id": "production"
-    },
-    {
-      "name": "functional",
-      "target": "browser-e2e-functional",
-      "groups": [
-        {
-          "name": "functional-default-administrative-audit",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.auth.browser.administrative_audit_read_recovery",
-            "module.auth.browser.administrative_audit_real_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/administrative-audit.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-assessments-recovery",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.assessments.browser.append_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/assessments.recovery.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-auth-and-incident-directory",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8",
-            "module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229",
-            "module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f",
-            "module.auth.browser.invalid_credentials_leave_no_session_cookie_and_47a0f6a4d2",
-            "module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437",
-            "module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3",
-            "module.auth.browser.the_ordinary_login_ui_rejects_missing_and_wrong_f6009192d8",
-            "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508",
-            "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1",
-            "module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899",
-            "module.incidents.browser.incident_creation_native_keyboard_payload_and_fi_b6b4631f5f",
-            "module.incidents.browser.incident_creation_preserves_chosen_navigation_af_24cb9bd4de",
-            "module.incidents.browser.incident_creation_uncertain_replay_and_committed_985931d51a",
-            "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-authoring-candidates",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.authoring_candidates_assessments",
-            "module.workbook.browser.authoring_candidates_note_source",
-            "module.workbook.browser.authoring_candidates_parties"
-          ],
-          "specs": [
-            "apps/web/e2e/authoring-candidates.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-autoresolve",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f"
-          ],
-          "specs": [
-            "apps/web/e2e/autoresolve.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-batch-history-review",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.batch_history_review_clear",
-            "module.timeline.browser.batch_history_review_fill",
-            "module.timeline.browser.batch_history_review_paste",
-            "module.timeline.browser.batch_history_review_tag"
-          ],
-          "specs": [
-            "apps/web/e2e/batch-history-review.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-collaboration",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
-            "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d",
-            "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
-            "module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932",
-            "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054"
-          ],
-          "specs": [
-            "apps/web/e2e/collaboration.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-contextual-coordination-create",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.coordination_create_matrix",
-            "module.workbook.browser.coordination_create_refresh_only",
-            "module.workbook.browser.coordination_create_response_loss",
-            "module.workbook.browser.coordination_create_retained_source",
-            "module.workbook.browser.coordination_create_revocation"
-          ],
-          "specs": [
-            "apps/web/e2e/contextual-coordination-create.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-contextual-create",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.assessments.browser.contextual_decision_refresh",
-            "module.entities.browser.contextual_task_replay",
-            "module.evidence.browser.contextual_creation_discard"
-          ],
-          "specs": [
-            "apps/web/e2e/contextual-create.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-enterprise-auth",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad",
-            "module.auth.browser.the_browser_anonymous_shell_renders_discovered_e_9c637d5924"
-          ],
-          "specs": [
-            "apps/web/e2e/enterprise-auth.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-entity-find",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.entity_find_authority_host",
-            "module.workbook.browser.entity_find_authority_identity",
-            "module.workbook.browser.entity_find_characterization",
-            "module.workbook.browser.entity_find_editing",
-            "module.workbook.browser.entity_find_geometry",
-            "module.workbook.browser.entity_find_inspector",
-            "module.workbook.browser.entity_find_literal",
-            "module.workbook.browser.entity_find_refresh",
-            "module.workbook.browser.entity_find_scope",
-            "module.workbook.browser.entity_find_virtualized",
-            "module.workbook.browser.entity_find_window"
-          ],
-          "specs": [
-            "apps/web/e2e/entity-find.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-evidence-integration",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178"
-          ],
-          "specs": [
-            "apps/web/e2e/evidence-integration.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-evidence",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.evidence.browser.a_screenshot_only_timeline_row_can_be_persisted_d7d7f91ff4",
-            "module.evidence.browser.a_second_live_workbook_session_receives_the_real_194cba3dfb",
-            "module.evidence.browser.an_analyst_attaches_a_screenshot_to_a_selected_t_4568508c1b",
-            "module.evidence.browser.an_inline_safe_type_receives_a_preview_handle_an_076fefa625",
-            "module.evidence.browser.existing_file_recovery",
-            "module.evidence.browser.file_draft_orderings",
-            "module.evidence.browser.file_original_source_review",
-            "module.evidence.browser.file_stage_recovery",
-            "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd"
-          ],
-          "specs": [
-            "apps/web/e2e/evidence.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-grid-provenance",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.entities.browser.verify_hosts_identities_and_notes_grids_render_c_7531b57a50"
-          ],
-          "specs": [
-            "apps/web/e2e/grid-provenance.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-history-browsing",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.revisions.browser.history_browsing_3bb5a426ad51",
-            "module.revisions.browser.history_browsing_4173a20e4a50",
-            "module.revisions.browser.history_browsing_6bf6f16ba2f4",
-            "module.revisions.browser.history_browsing_d48d33829537"
-          ],
-          "specs": [
-            "apps/web/e2e/history-browsing.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-history-recovery",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.revisions.browser.history_recovery_074ea859ee8b",
-            "module.revisions.browser.history_recovery_2f1e64594ac3",
-            "module.revisions.browser.history_recovery_4ce1b29fca56",
-            "module.revisions.browser.history_recovery_7daa846195aa",
-            "module.revisions.browser.history_recovery_9eb7b152cf68",
-            "module.revisions.browser.history_recovery_ac26758a459a",
-            "module.revisions.browser.history_recovery_ed12d3c33549",
-            "module.revisions.browser.history_recovery_fdfce91b2066"
-          ],
-          "specs": [
-            "apps/web/e2e/history-recovery.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-history",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94",
-            "module.revisions.browser.invokes_a_server_supplied_row_restore_action_fro_99dd1b9c66",
-            "module.revisions.browser.opens_row_history_from_the_selected_timeline_wor_c86aac9897",
-            "module.revisions.browser.soft_deletes_and_restores_a_timeline_row_from_wo_e482d20c32",
-            "module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a"
-          ],
-          "specs": [
-            "apps/web/e2e/history.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-import-assistant",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42"
-          ],
-          "specs": [
-            "apps/web/e2e/import-assistant.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-incident-administration",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162",
-            "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece",
-            "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5",
-            "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
-            "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
-            "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
-            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220",
-            "web.design.browser.account_settings_keyboard_responsive_781bd74a33",
-            "web.design.browser.account_settings_real_conflict_replay_46b2ec9831"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-administration.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-incident-import",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "web.design.browser.incident_import_action_access_hardening",
-            "web.design.browser.incident_import_observation_recovery",
-            "web.design.browser.incident_import_real_workflow"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-import.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-incident-lifecycle",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.incidents.browser.lifecycle_acknowledgement",
-            "module.incidents.browser.lifecycle_boundaries",
-            "module.incidents.browser.lifecycle_departure",
-            "module.incidents.browser.lifecycle_replay",
-            "module.incidents.browser.lifecycle_workbook"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-lifecycle.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-incident-membership-audit",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_audit_access_recovery",
-            "module.incidents.browser.membership_audit_read_recovery",
-            "module.incidents.browser.membership_audit_real_browsing",
-            "module.incidents.browser.membership_audit_response_inspection"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-audit.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-incident-membership-management",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_management_departure",
-            "module.incidents.browser.membership_management_live_pages",
-            "module.incidents.browser.membership_management_mutation_recovery",
-            "module.incidents.browser.membership_management_self_actions"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-management.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-incident-metadata-editing",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.incidents.browser.metadata_authority",
-            "module.incidents.browser.metadata_departure",
-            "module.incidents.browser.metadata_live",
-            "module.incidents.browser.metadata_pending_departure",
-            "module.incidents.browser.metadata_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-metadata-editing.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-indicator-canonical-create",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.canonical_create_independent_recovery",
-            "module.workbook.browser.canonical_create_late_closed_replay",
-            "module.workbook.browser.canonical_create_reuse_stale_resolution",
-            "module.workbook.browser.canonical_create_target_authority"
-          ],
-          "specs": [
-            "apps/web/e2e/indicator-canonical-create.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-indicator-lifecycle",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.indicator_lifecycle_exact_recovery",
-            "module.workbook.browser.indicator_lifecycle_late_closed_replay",
-            "module.workbook.browser.indicator_lifecycle_ordered_paging"
-          ],
-          "specs": [
-            "apps/web/e2e/indicator-lifecycle.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-indicator-observations",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.indicator_observations_exact_recovery",
-            "module.workbook.browser.indicator_observations_paging_source_edits"
-          ],
-          "specs": [
-            "apps/web/e2e/indicator-observations.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-inspector-actions",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.revisions.browser.verify_history_and_rollback_preview_action_use_p_4201ff80a8"
-          ],
-          "specs": [
-            "apps/web/e2e/inspector-actions.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-keyboard",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59",
-            "module.workbook.browser.host_paste_recovery",
-            "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d",
-            "module.workbook.browser.identity_paste_recovery",
-            "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9",
-            "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
-            "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3"
-          ],
-          "specs": [
-            "apps/web/e2e/keyboard.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-linked-note-create",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.note_create_recovery",
-            "module.workbook.browser.note_create_revocation",
-            "module.workbook.browser.note_create_source_edit",
-            "module.workbook.browser.note_create_sources"
-          ],
-          "specs": [
-            "apps/web/e2e/linked-note-create.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-mentions-lifecycle",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.entities.browser.the_browser_inspector_dismisses_a_mention_and_re_6150fd43cd"
-          ],
-          "specs": [
-            "apps/web/e2e/mentions.lifecycle.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-mentions-recovery",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.entities.browser.timeline_mention_creation_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/mentions.recovery.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-mentions-resolve",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d",
-            "module.timeline.browser.collection_chips_disclose_exact_members_without_9dfb945466"
-          ],
-          "specs": [
-            "apps/web/e2e/mentions.resolve.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-merge-recovery",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.entities.browser.entity_merge_exact_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/merge-recovery.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-merge",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.entities.browser.the_browser_inspector_merges_duplicate_entities_d0cb95b021"
-          ],
-          "specs": [
-            "apps/web/e2e/merge.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-network-flow",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.networkflow.browser.network_flow_selector_covers_when_the_extension_c90fca78ee"
-          ],
-          "specs": [
-            "apps/web/e2e/network-flow.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-note-associations",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.inspector_collection_feedback",
-            "module.workbook.browser.inspector_local_feedback",
-            "module.workbook.browser.inspector_persistent_header",
-            "module.workbook.browser.note_associations"
-          ],
-          "specs": [
-            "apps/web/e2e/note-associations.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-parties-recovery",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.parties.browser.source_link_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/parties.recovery.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-reference-pack",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.reference_data.browser.administration_async_recovery",
-            "module.reference_data.browser.administration_real_lifecycle",
-            "module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c"
-          ],
-          "specs": [
-            "apps/web/e2e/reference-pack.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-restore",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.recovery.browser.a_harness_owned_browser_fixture_captures_a_retai_d8973973b0"
-          ],
-          "specs": [
-            "apps/web/e2e/restore.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-sentinel",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b",
-            "module.links.browser.the_notes_tab_supports_browser_visible_creation_ae6bdcc2da",
-            "module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e",
-            "module.tasksdecisions.browser.decision_supersession_exact_recovery",
-            "module.tasksdecisions.browser.task_lifecycle_patch_recovery",
-            "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb",
-            "module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a",
-            "module.workbook.browser.live_workbook_timeline_grid_presents_grouped_sam_bf278fe67c",
-            "module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8",
-            "module.workbook.browser.the_browser_visible_view_schema_registry_and_wor_f9e3b8c070",
-            "module.workbook.browser.the_browser_workbook_opens_communications_log_ha_e14517982d",
-            "module.workbook.browser.verify_task_requests_decisions_parties_communica_ea39a44f80"
-          ],
-          "specs": [
-            "apps/web/e2e/sentinel.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-auto-resolution-feedback",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.auto_resolution_feedback_characterization"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-auto-resolution-feedback.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-autosave-feedback",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.autosave_feedback_characterization",
-            "module.timeline.browser.autosave_feedback_query_overlap"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-autosave-feedback.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-bulk-tag",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.bulk_tag_characterization",
-            "module.timeline.browser.bulk_tag_delivery_entry",
-            "module.timeline.browser.bulk_tag_layouts",
-            "module.timeline.browser.bulk_tag_membership",
-            "module.timeline.browser.bulk_tag_prerequisites",
-            "module.timeline.browser.bulk_tag_rejection",
-            "module.timeline.browser.bulk_tag_replay"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-bulk-tag.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-collection-input",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.collection_input_authoring",
-            "module.timeline.browser.collection_input_characterization",
-            "module.timeline.browser.collection_input_lifetime",
-            "module.timeline.browser.collection_input_promotion"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-collection-input.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-deferred-continuity",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.deferred_continuity"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-deferred-continuity.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-find",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.find_accessible_geometry",
-            "module.workbook.browser.find_authority",
-            "module.workbook.browser.find_edit_departure",
-            "module.workbook.browser.find_full_window",
-            "module.workbook.browser.find_literal",
-            "module.workbook.browser.find_query_creation",
-            "module.workbook.browser.find_scope_lifecycle",
-            "module.workbook.browser.find_source_editors",
-            "module.workbook.browser.find_virtualized"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-find.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-grid-entry",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.clear_conflicts",
-            "module.timeline.browser.clear_recovery",
-            "module.timeline.browser.clipboard_fidelity",
-            "module.timeline.browser.row_action_menu",
-            "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
-            "module.timeline.browser.spreadsheet_batch_conflicts",
-            "module.timeline.browser.spreadsheet_batch_headers",
-            "module.timeline.browser.spreadsheet_batch_replay",
-            "module.timeline.browser.spreadsheet_bulk",
-            "module.timeline.browser.spreadsheet_creation",
-            "module.timeline.browser.spreadsheet_keyboard",
-            "module.timeline.browser.spreadsheet_pointer",
-            "module.timeline.browser.spreadsheet_refresh",
-            "module.timeline.browser.spreadsheet_rejection",
-            "module.timeline.browser.spreadsheet_uncertain_create",
-            "module.timeline.browser.spreadsheet_virtualization"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-grid-entry.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-query",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-query.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-range-selection",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.clear_drafts",
-            "module.timeline.browser.clear_eligibility",
-            "module.timeline.browser.clear_groups",
-            "module.timeline.browser.clear_membership",
-            "module.timeline.browser.clear_predecessor",
-            "module.timeline.browser.clear_rectangle",
-            "module.timeline.browser.range_accessibility",
-            "module.timeline.browser.range_authority",
-            "module.timeline.browser.range_cancellation",
-            "module.timeline.browser.range_departure",
-            "module.timeline.browser.range_entry_cycles",
-            "module.timeline.browser.range_entry_lifecycle",
-            "module.timeline.browser.range_entry_native",
-            "module.timeline.browser.range_entry_settlement",
-            "module.timeline.browser.range_gestures",
-            "module.timeline.browser.range_live_membership",
-            "module.timeline.browser.range_presentation",
-            "module.timeline.browser.range_rejection_query",
-            "module.timeline.browser.range_scrolling"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-range-selection.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-related-evidence",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.evidence.browser.timeline_related_creation_replay",
-            "module.evidence.browser.timeline_related_partial_creation",
-            "module.evidence.browser.timeline_related_role_loss",
-            "module.timeline.browser.related_evidence_link_replay",
-            "module.timeline.browser.related_evidence_original_source",
-            "module.timeline.browser.related_evidence_projection_recovery",
-            "module.timeline.browser.related_evidence_unavailable"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-related-evidence.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-scalar-clipboard",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.scalar_clipboard_characterization",
-            "module.timeline.browser.scalar_clipboard_composition",
-            "module.timeline.browser.scalar_clipboard_continuity",
-            "module.timeline.browser.scalar_clipboard_departure",
-            "module.timeline.browser.scalar_clipboard_promotion",
-            "module.timeline.browser.scalar_clipboard_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-scalar-clipboard.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-timeline-workbook",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
-            "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
-            "module.timeline.browser.capture_action_exact_recovery",
-            "module.timeline.browser.draft_create_activation",
-            "module.timeline.browser.draft_create_cancellation",
-            "module.timeline.browser.draft_create_continuity",
-            "module.timeline.browser.draft_create_controls",
-            "module.timeline.browser.draft_create_rejection",
-            "module.timeline.browser.draft_create_uncertainty",
-            "module.timeline.browser.explicit_blank_create",
-            "module.timeline.browser.pending_capture_composition",
-            "module.timeline.browser.pending_capture_detached",
-            "module.timeline.browser.pending_capture_raw",
-            "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-workbook.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-visual-harness",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "harness.browser.boundary_support.frontend_artifact_lifetime",
-            "harness.browser.boundary_support.visual_anchor_geometry",
-            "harness.browser.boundary_support.visual_asset_failure",
-            "harness.browser.boundary_support.visual_preference_lifetime"
-          ],
-          "specs": [
-            "apps/web/e2e/visual-harness.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-column-sizing",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.column_sizing_gestures_saved",
-            "module.workbook.browser.column_sizing_surfaces",
-            "module.workbook.browser.column_sizing_viewport",
-            "module.workbook.browser.frozen_columns_layout",
-            "module.workbook.browser.frozen_columns_threshold"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-column-sizing.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-grid-autosave",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.grid_autosave_availability",
-            "module.workbook.browser.grid_autosave_closure",
-            "module.workbook.browser.grid_autosave_collaboration",
-            "module.workbook.browser.grid_autosave_csrf",
-            "module.workbook.browser.grid_autosave_editor_families",
-            "module.workbook.browser.grid_autosave_exact_replay",
-            "module.workbook.browser.grid_autosave_inspector",
-            "module.workbook.browser.grid_autosave_refresh",
-            "module.workbook.browser.grid_autosave_role",
-            "module.workbook.browser.grid_autosave_session",
-            "module.workbook.browser.grid_autosave_successive",
-            "module.workbook.browser.grid_autosave_surface_matrix",
-            "module.workbook.browser.grid_autosave_timeline_collaboration",
-            "module.workbook.browser.grid_autosave_timestamp_retention",
-            "module.workbook.browser.reference_admission_lifecycle",
-            "module.workbook.browser.reference_grid_commit",
-            "module.workbook.browser.reference_session_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-grid-autosave.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-inspector-edit",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.inspector_detached_refresh",
-            "module.workbook.browser.inspector_exact_replay",
-            "module.workbook.browser.inspector_subject_retention",
-            "module.workbook.browser.reference_selection_recovery",
-            "module.workbook.browser.reference_target_eligibility"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-inspector-edit.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-ordinary-create",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.ordinary_create_continuity",
-            "module.workbook.browser.ordinary_create_detached_refresh",
-            "module.workbook.browser.ordinary_create_matrix",
-            "module.workbook.browser.ordinary_create_uncertain_timeline"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-ordinary-create.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-ordinary-security",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.ordinary_create_closure",
-            "module.workbook.browser.ordinary_create_revocation"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-ordinary-security.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-preferences",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.preferences_1",
-            "module.workbook.browser.preferences_2",
-            "module.workbook.browser.preferences_3",
-            "module.workbook.browser.preferences_4"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-preferences.spec.ts"
-          ],
-          "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-saved-view-discovery",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.savedviews.browser.independent_discovery_continuity"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-saved-view-discovery.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-assessments",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
-            "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.assessments.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook-generic",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.generic.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-default-workbook",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "default",
-          "selected_row_ids": [
-            "module.savedviews.browser.authoring_recovery_005364829450",
-            "module.savedviews.browser.authoring_recovery_38dcbd1862c5",
-            "module.savedviews.browser.authoring_recovery_5cd20f1b328e",
-            "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
-            "module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d",
-            "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
-            "module.workbook.browser.verify_browser_command_helpers_for_sort_filter_g_8f8dc4efe2",
-            "platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5",
-            "platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "browser_session_group": "browser-e2e-functional-default"
-        },
-        {
-          "name": "functional-network-flow-claimed-import-assistant",
-          "target": "browser-e2e-functional",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "default",
-          "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-functional-network-flow-claimed",
-          "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
-          "selected_row_ids": [
-            "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
-            "module.imports.browser.density_containment",
-            "module.imports.browser.keyboard_recovery",
-            "module.imports.browser.partial_outcomes"
-          ],
-          "specs": [
-            "apps/web/e2e/import-assistant.spec.ts"
-          ],
-          "resource_profile_id": "browser_functional",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ]
-        },
-        {
-          "name": "functional-network-flow-claimed-network-flow",
-          "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
@@ -4004,7 +2291,7 @@
       ],
       "groups": [
         {
-          "name": "measurement-measurement-timeline-grid-b615aabfe6",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4023,11 +2310,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-measurement-default-b615aabfe6",
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-afddd2ce13",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4046,11 +2333,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-measurement-default-afddd2ce13",
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-961a4ec1d3",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4069,11 +2356,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-measurement-default-961a4ec1d3",
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-d03cf54e95",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4092,18 +2379,18 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-measurement-default-d03cf54e95",
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-297b6a7322",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-297b6a7322",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322"
@@ -4119,14 +2406,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-f68f4c7a57",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
@@ -4142,14 +2429,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-om_ceiling",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.saved_graph_dom_ceiling",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.saved_graph_dom_ceiling",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.saved_graph_dom_ceiling"
@@ -4165,14 +2452,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-network-flow-navigation-om_ceiling",
+          "name": "measurement-network-flow-claimed-network-flow-navigation-module.networkflow.measurement.exploration_graph_dom_ceiling",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.exploration_graph_dom_ceiling",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.exploration_graph_dom_ceiling"
@@ -4489,7 +2776,7 @@
       ],
       "groups": [
         {
-          "name": "measurement-measurement-timeline-grid-b615aabfe6",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4508,11 +2795,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-resettable-default-b615aabfe6",
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-afddd2ce13",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4531,11 +2818,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-resettable-default-afddd2ce13",
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-961a4ec1d3",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4554,11 +2841,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-resettable-default-961a4ec1d3",
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-d03cf54e95",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -4577,18 +2864,18 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-resettable-default-d03cf54e95",
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-297b6a7322",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-297b6a7322",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322"
@@ -4604,14 +2891,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-f68f4c7a57",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
@@ -4627,14 +2914,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-om_ceiling",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.saved_graph_dom_ceiling",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.saved_graph_dom_ceiling",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.saved_graph_dom_ceiling"
@@ -4650,14 +2937,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-network-flow-navigation-om_ceiling",
+          "name": "measurement-network-flow-claimed-network-flow-navigation-module.networkflow.measurement.exploration_graph_dom_ceiling",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.exploration_graph_dom_ceiling",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.exploration_graph_dom_ceiling"
@@ -5155,7 +3442,7 @@
           ]
         },
         {
-          "name": "measurement-measurement-timeline-grid-b615aabfe6",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -5174,11 +3461,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-default-b615aabfe6",
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-afddd2ce13",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -5197,11 +3484,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-default-afddd2ce13",
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-961a4ec1d3",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -5220,11 +3507,11 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-default-961a4ec1d3",
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-measurement-timeline-grid-d03cf54e95",
+          "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
@@ -5243,18 +3530,18 @@
             "object_store",
             "postgres"
           ],
-          "browser_session_group": "browser-e2e-default-d03cf54e95",
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
           "fixture_profile_id": "ac043_large_grid_snapshot_v1"
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-297b6a7322",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-297b6a7322",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322"
@@ -5270,14 +3557,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-f68f4c7a57",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
@@ -5293,14 +3580,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-om_ceiling",
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.saved_graph_dom_ceiling",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.saved_graph_dom_ceiling",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.saved_graph_dom_ceiling"
@@ -5316,14 +3603,14 @@
           ]
         },
         {
-          "name": "measurement-network-flow-claimed-network-flow-navigation-om_ceiling",
+          "name": "measurement-network-flow-claimed-network-flow-navigation-module.networkflow.measurement.exploration_graph_dom_ceiling",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.networkflow.measurement.exploration_graph_dom_ceiling",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.exploration_graph_dom_ceiling"

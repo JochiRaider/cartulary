@@ -1,5 +1,5 @@
 import type { SheetRef } from "../../shared/sheetRef";
-import { isSheetRef, sheetRefsEqual } from "../../shared/sheetRef";
+import { isSheetRef } from "../../shared/sheetRef";
 
 export type WorkbookPresenceMode = "editing" | "idle" | "viewing";
 
@@ -17,13 +17,6 @@ export type PresenceRecord = WorkbookPresenceInput & {
   observed_at: string;
   user_id: string;
 };
-
-export function presenceMatchesSheet(
-  presence: PresenceRecord,
-  sheetRef: SheetRef,
-) {
-  return sheetRefsEqual(presence.sheet_ref, sheetRef);
-}
 
 export function displayInitials(displayName: string) {
   const parts = displayName.trim().split(/\s+/u).filter(Boolean);

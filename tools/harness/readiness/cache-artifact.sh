@@ -139,6 +139,25 @@ artifact_mode() {
   printf '0%s\n' "$(stat -c '%a' "$1")"
 }
 
+write_artifact_members_json() {
+  local root="$1"
+  local member
+  local first=1
+  printf '['
+  if [[ -d "$root" ]]; then
+    while IFS= read -r -d '' member; do
+      if [[ "$first" -eq 0 ]]; then printf ','; fi
+      first=0
+      printf '{"artifact_type":"%s","relative_path":"%s","mode":"%s","digest":"%s"}' \
+        "$(artifact_type "$member")" \
+        "$(json_escape "${member#"$root"/}")" \
+        "$(artifact_mode "$member")" \
+        "$(artifact_digest "$member")"
+    done < <(find "$root" -mindepth 1 \( -type f -o -type d \) -print0 | LC_ALL=C sort -z)
+  fi
+  printf ']'
+}
+
 write_artifacts_json() {
   local first=1
   local entry
@@ -148,7 +167,7 @@ write_artifacts_json() {
       printf ','
     fi
     first=0
-    printf '{"artifact_type":"%s","relative_path":"%s","destination_class":"repository_artifact","mode":"%s","digest":"%s","producer_identity":"tool-cache:%s:%s","semantic_input_digest":"sha256:%s"}' \
+    printf '{"artifact_type":"%s","relative_path":"%s","destination_class":"repository_artifact","mode":"%s","digest":"%s","producer_identity":"tool-cache:%s:%s","semantic_input_digest":"sha256:%s","members":' \
       "$(artifact_type "$entry")" \
       "$(json_escape "$(repo_rel "$entry")")" \
       "$(artifact_mode "$entry")" \
@@ -156,6 +175,8 @@ write_artifacts_json() {
       "$(json_escape "$scope")" \
       "$(json_escape "$profile_id")" \
       "$input_hash"
+    write_artifact_members_json "$entry"
+    printf '}'
   done
   printf ']'
 }

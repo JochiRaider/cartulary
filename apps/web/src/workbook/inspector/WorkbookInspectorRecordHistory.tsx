@@ -4,13 +4,7 @@ import {
   rowHistoryPanelTestId,
   rowHistoryReadControlTestId,
 } from "@cartulary/ui-contracts";
-import {
-  type CSSProperties,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import { HistoryLookupFeedback } from "../history/HistoryLookupFeedback";
 import {
@@ -33,6 +27,7 @@ import {
   type WorkbookInspectorPanelData,
   WorkbookInspectorRegionContent,
 } from "./presentation/WorkbookInspectorPanelContent";
+import { useWorkbookHistoryReadContinuity } from "./useWorkbookHistoryReadContinuity";
 import { useWorkbookRecordHistoryController } from "./useWorkbookRecordHistoryController";
 import { useWorkbookRecordHistoryFocus } from "./useWorkbookRecordHistoryFocus";
 import { useWorkbookRecordHistoryState } from "./useWorkbookRecordHistoryState";
@@ -152,10 +147,14 @@ export function WorkbookRecordHistoryPanel({
     onCancelPendingAction,
     onConfirmPendingAction,
   });
-  const refreshFocus = useRef<HTMLButtonElement | null>(null);
   const refreshButton = useRef<HTMLButtonElement | null>(null);
   const olderButton = useRef<HTMLButtonElement | null>(null);
-  const retryFocus = useRef<HTMLButtonElement | null>(null);
+  const captureRead = useWorkbookHistoryReadContinuity(
+    state,
+    focus.panelRef,
+    olderButton,
+    refreshButton,
+  );
   const [delayedLoading, setDelayedLoading] = useState(false);
   const loadGeneration =
     state.phase === "loading" ? state.browsing?.pending?.generation : null;
@@ -165,60 +164,6 @@ export function WorkbookRecordHistoryPanel({
     const timer = setTimeout(() => setDelayedLoading(true), 2_000);
     return () => clearTimeout(timer);
   }, [loadGeneration]);
-  useEffect(() => {
-    const cancelScroll = () => {
-      refreshFocus.current = null;
-      retryFocus.current = null;
-    };
-    document.addEventListener("pointerdown", cancelScroll, true);
-    document.addEventListener("keydown", cancelScroll, true);
-    document.addEventListener("wheel", cancelScroll, true);
-    return () => {
-      document.removeEventListener("pointerdown", cancelScroll, true);
-      document.removeEventListener("keydown", cancelScroll, true);
-      document.removeEventListener("wheel", cancelScroll, true);
-    };
-  }, []);
-  useLayoutEffect(() => {
-    if (state.browsing?.pending || !retryFocus.current) return;
-    const trigger = retryFocus.current;
-    retryFocus.current = null;
-    if (
-      document.activeElement === trigger ||
-      (!trigger.isConnected && document.activeElement === document.body)
-    )
-      (olderButton.current ?? refreshButton.current)?.focus({
-        preventScroll: true,
-      });
-  }, [state.browsing]);
-  useLayoutEffect(() => {
-    if (!refreshFocus.current || state.browsing?.pending) return;
-    const trigger = refreshFocus.current;
-    refreshFocus.current = null;
-    const panel = focus.panelRef.current;
-    if (
-      document.activeElement !== trigger ||
-      !panel ||
-      state.browsing?.failure ||
-      !state.browsing?.accepted
-    )
-      return;
-    for (
-      let parent = panel.parentElement;
-      parent;
-      parent = parent.parentElement
-    ) {
-      if (
-        /(auto|scroll)/.test(getComputedStyle(parent).overflowY) &&
-        parent.scrollHeight > parent.clientHeight
-      ) {
-        parent.scrollTop +=
-          panel.getBoundingClientRect().top -
-          parent.getBoundingClientRect().top;
-        break;
-      }
-    }
-  }, [state.browsing, focus.panelRef]);
   const presentedRecordId = state.subject?.recordId ?? idleRecordId ?? null;
   if (presentedRecordId === null) return null;
   if (runtime?.history.readable === false)
@@ -402,7 +347,7 @@ export function WorkbookRecordHistoryPanel({
                   onClick={(event) => {
                     if (refreshBlocked) return;
                     if (state.phase !== "idle")
-                      refreshFocus.current = event.currentTarget;
+                      captureRead(event.currentTarget, "refresh");
                     browsingControls.open();
                   }}
                 >
@@ -422,15 +367,17 @@ export function WorkbookRecordHistoryPanel({
                       !browsing.accepted.data.paging.has_more
                     }
                     aria-busy={browsing.pending?.kind === "continuation"}
-                    onClick={() => {
+                    onClick={(event) => {
                       if (
                         !reading &&
                         !readBlocked &&
                         browsing.chainValid &&
                         !browsing.failure &&
                         browsing.accepted?.data.paging.has_more
-                      )
+                      ) {
+                        captureRead(event.currentTarget, "continuation");
                         browsingControls.loadOlder();
+                      }
                     }}
                   >
                     Load older entries
@@ -447,8 +394,14 @@ export function WorkbookRecordHistoryPanel({
                     )}
                     disabled={reading || readBlocked}
                     onClick={(event) => {
-                      retryFocus.current = event.currentTarget;
-                      if (browsing.failure?.restart) browsingControls.open();
+                      const failure = browsing.failure;
+                      if (!failure) return;
+                      captureRead(
+                        event.currentTarget,
+                        failure.restart ? "refresh" : failure.request.kind,
+                        !failure.restart,
+                      );
+                      if (failure.restart) browsingControls.open();
                       else browsingControls.retryRead();
                     }}
                   >

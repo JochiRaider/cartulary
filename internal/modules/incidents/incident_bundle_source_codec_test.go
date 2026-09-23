@@ -166,7 +166,7 @@ func TestIncidentSourcePrepareBindsPortOperationIncidentVersionAndContract_Unit(
 		"schema":    func(value *preparedIncidentSource) { value.schemaID = "cartulary.other.v1" },
 		"operation": func(value *preparedIncidentSource) { value.operationID = "other" },
 		"incident":  func(value *preparedIncidentSource) { value.incidentID = uuid.New() },
-		"version":   func(value *preparedIncidentSource) { value.bundleVersion = 4 },
+		"version":   func(value *preparedIncidentSource) { value.bundleVersion = 3 },
 		"contract":  func(value *preparedIncidentSource) { value.contractMajor++ },
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -178,16 +178,12 @@ func TestIncidentSourcePrepareBindsPortOperationIncidentVersionAndContract_Unit(
 		})
 	}
 
-	currentVersion := importContext
-	currentVersion.bundleVersion = 4
-	currentPrepared, err := prepareIncidentBundleIncident(contract, validIncidentSourcePayload(t), currentVersion)
-	if err != nil || !currentPrepared.matches(contract, currentVersion) {
-		t.Fatalf("current bundle source binding: %v", err)
-	}
-	wrongVersion := importContext
-	wrongVersion.bundleVersion = 5
-	if _, err := prepareIncidentBundleIncident(contract, validIncidentSourcePayload(t), wrongVersion); !errors.Is(err, errIncidentSourceCatalog) {
-		t.Fatalf("wrong source generation error = %v", err)
+	for _, version := range []int{0, 1, 2, 3, 5} {
+		wrongVersion := importContext
+		wrongVersion.bundleVersion = version
+		if _, err := prepareIncidentBundleIncident(contract, validIncidentSourcePayload(t), wrongVersion); !errors.Is(err, errIncidentSourceCatalog) {
+			t.Fatalf("wrong source generation %d error = %v", version, err)
+		}
 	}
 }
 
@@ -328,7 +324,7 @@ func newIncidentSourceImportContextForTest(t testing.TB, operationID string) inc
 	}
 	return incidentSourceImportContext{
 		incidentID: incidentSourceTestID, actorUserID: incidentSourceImportActor,
-		bundleVersion: 3, operationID: operationID,
+		bundleVersion: 4, operationID: operationID,
 		actorAdmitted: func(actorID string) bool {
 			_, admitted := actors[actorID]
 			return admitted

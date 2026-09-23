@@ -8,8 +8,9 @@ import {
 } from "../workbook/features/indicators/indicatorLifecycleModel";
 import type { LifecycleAuthority } from "../workbook/features/indicators/indicatorLifecycleOperation";
 import type { WorkbookQueryRow } from "../workbook/query/WorkbookQueryRow";
-export const lifecycleIncident = "00000000-0000-4000-8000-000000000001";
-export const lifecycleActor = "00000000-0000-4000-8000-000000000002";
+
+const lifecycleIncident = "00000000-0000-4000-8000-000000000001";
+const lifecycleActor = "00000000-0000-4000-8000-000000000002";
 export const lifecycleIndicator = "00000000-0000-4000-8000-000000000003";
 export const lifecycleAuthority: LifecycleAuthority = {
   incidentId: lifecycleIncident,

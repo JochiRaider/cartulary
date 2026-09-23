@@ -170,15 +170,6 @@ export function isNetworkFlowProtectedStateLoss(
   );
 }
 
-export function isNetworkFlowCursorInvalid(
-  error: NetworkFlowRequestError,
-): boolean {
-  return (
-    error.code === "network_flow_cursor_invalid" &&
-    error.retryAction === "restart_query"
-  );
-}
-
 function safeDetail(value: unknown): string | null {
   return typeof value === "string" && value.length <= 128 ? value : null;
 }

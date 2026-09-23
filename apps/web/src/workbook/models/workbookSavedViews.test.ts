@@ -97,11 +97,10 @@ describe("workbookSavedViews", () => {
     );
     const { frozen_through_field_key: _boundary, ...legacy } = current;
     const old = { ...legacy, layout_schema_id: "cartulary.layout.v1" };
-    expect(savedViewLayoutJsonForPersistence(contract, old)).toEqual({
-      ...current,
-      frozen_through_field_key: null,
-    });
     for (const invalid of [
+      old,
+      legacy,
+      null,
       {},
       { ...current, layout_schema_id: "cartulary.layout.v99" },
       { ...current, frozen_through_field_key: "record_id" },

@@ -10,7 +10,6 @@ export { NetworkFlowImportSurface } from "../../networkFlow/NetworkFlowImportSur
 export { NetworkFlowIndicatorLinkController } from "../../networkFlow/NetworkFlowIndicatorLinkController";
 export { NetworkFlowTableController } from "../../networkFlow/NetworkFlowTableController";
 export { NetworkFlowTableSurface } from "../../networkFlow/NetworkFlowTableLifecycle";
-export { networkFlowTableRecoveryItems } from "../../networkFlow/networkFlowTableRecoveryItems";
 export { SavedGraphController } from "../../networkFlow/SavedGraphController";
 export { useNetworkFlowIndicatorLinkOwner } from "../../networkFlow/useNetworkFlowIndicatorLinkOwner";
 export { useNetworkFlowSavedGraphOwner } from "../../networkFlow/useNetworkFlowSavedGraphOwner";

@@ -62,9 +62,6 @@ export function EntityWorkbookInspector({
   readonly related: {
     readonly begin: (featureGroup: InspectorFeatureGroup) => boolean;
     readonly state: InspectorRelatedRecordWorkflowState | null;
-    readonly cancel: () => void;
-    readonly submit: () => Promise<void>;
-    readonly updateDraft: (fieldKey: string, value: string) => void;
   };
   readonly relationshipsContent: readonly [
     WorkbookInspectorRegion,
@@ -113,12 +110,7 @@ export function EntityWorkbookInspector({
             feature.featureGroupKey,
             <>
               {active && related.state ? (
-                <InspectorCreateRelatedWorkflow
-                  state={related.state}
-                  onCancel={related.cancel}
-                  onSubmit={() => void related.submit()}
-                  onUpdateDraft={related.updateDraft}
-                />
+                <InspectorCreateRelatedWorkflow state={related.state} />
               ) : null}
               <WorkbookInspectorFeedbackView
                 feedback={notice}

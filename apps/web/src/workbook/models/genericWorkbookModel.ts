@@ -168,7 +168,7 @@ function viewSchemaIdForField(fieldKey: string): string {
   return registrations[0]?.viewSchemaId ?? "";
 }
 
-export function splitDraftValues(rawValue: string): string[] {
+function splitDraftValues(rawValue: string): string[] {
   return rawValue
     .split(/\r?\n/u)
     .map((value) => normalizeValue(value))
@@ -253,12 +253,6 @@ export function initialGenericCreateDraft(
     }
   }
   return draft;
-}
-
-export function isPartyRefCollection(fieldKey: string): boolean {
-  return listWorkbookSurfaceRegistrations().some(
-    (entry) => entry.policy.collectionActions[fieldKey] === "party",
-  );
 }
 
 export function genericContractColumnWidth(field: ViewFieldContract): number {

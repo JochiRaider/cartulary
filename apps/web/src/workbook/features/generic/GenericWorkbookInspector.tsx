@@ -87,9 +87,6 @@ export function GenericWorkbookInspector({
   readonly related: {
     readonly begin: (featureGroup: InspectorFeatureGroup) => boolean;
     readonly state: InspectorRelatedRecordWorkflowState | null;
-    readonly cancel: () => void;
-    readonly submit: () => Promise<void>;
-    readonly updateDraft: (fieldKey: string, value: string) => void;
   };
   readonly relatedFeedback: WorkbookInspectorFeedback | null;
   readonly relationshipsContent: readonly [
@@ -208,12 +205,7 @@ export function GenericWorkbookInspector({
                 )
               ) : null}
               {relatedActive && related.state ? (
-                <InspectorCreateRelatedWorkflow
-                  state={related.state}
-                  onCancel={related.cancel}
-                  onSubmit={() => void related.submit()}
-                  onUpdateDraft={related.updateDraft}
-                />
+                <InspectorCreateRelatedWorkflow state={related.state} />
               ) : null}
               <WorkbookInspectorFeedbackView
                 feedback={relatedNotice}

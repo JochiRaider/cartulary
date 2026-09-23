@@ -1,10 +1,5 @@
 import { useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 import type { NetworkFlowTableController } from "./NetworkFlowTableController";
-export type NetworkFlowTableLoadState =
-  | "loading"
-  | "refreshing"
-  | "ready"
-  | "error";
 
 /** Presentation subscribes; the workbook owns authority and operation lifetime. */
 export function useNetworkFlowTableController({

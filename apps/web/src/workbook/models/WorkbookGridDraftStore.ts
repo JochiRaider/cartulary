@@ -11,14 +11,14 @@ export type WorkbookGridDraftCapture = Readonly<{
   key: string;
   revision: number;
 }>;
-export type WorkbookGridDraft = Readonly<{
+type WorkbookGridDraft = Readonly<{
   identity: WorkbookGridDraftIdentity;
   value: string | null;
   baseline: WorkbookQueryRow;
   revision: number;
   validation: string | null;
 }>;
-export const workbookGridDraftKey = (identity: WorkbookGridDraftIdentity) =>
+const workbookGridDraftKey = (identity: WorkbookGridDraftIdentity) =>
   JSON.stringify([
     identity.viewSchemaId,
     identity.recordId,

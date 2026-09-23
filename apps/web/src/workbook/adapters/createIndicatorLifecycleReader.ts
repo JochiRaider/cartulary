@@ -12,7 +12,7 @@ import { sameWorkbookReadScope } from "../query/workbookRowObservation";
 import { indicatorLifecycleConstraints } from "./indicatorLifecycleProtocol";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
-export function validLifecyclePaging(
+function validLifecyclePaging(
   paging:
     | { has_more: boolean; next_cursor: string | null; limit: number }
     | undefined,

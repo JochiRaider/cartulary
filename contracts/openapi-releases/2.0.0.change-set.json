@@ -1822,34 +1822,22 @@
       "rationale": "Adopt explicit Timeline clear_cells_v1 with ordered semantic fields and targets assigning null. Existing command shapes, hashes, routes, and receipts retain their meaning; older servers reject clear."
     },
     {
-      "fingerprint": "7f9500d71bf8ebe03bb57ccc7b20a38b3bee470f1822c2d32204f06102424e09",
-      "classification": "breaking",
-      "owner_id": "module.savedviews",
-      "rationale": "Adopt the Core 01 coordinated layout upgrade exception on existing Saved Views and Workbook startup routes: current responses require layout.v2 with nullable semantic freeze identity; inputs additionally retain strict layout.v1 compatibility. The closed response grammar change is breaking and requires coordinated server/client rollout. Immutable released baselines remain unchanged."
-    },
-    {
       "fingerprint": "065b5fb13b3b430fc553c00c52a2eb005426369ef0f312fbdae30af2161d82e0",
       "classification": "additive",
       "owner_id": "module.savedviews",
-      "rationale": "Adopt the Core 01 coordinated layout upgrade exception on existing Saved Views and Workbook startup routes: current responses require layout.v2 with nullable semantic freeze identity; inputs additionally retain strict layout.v1 compatibility. The closed response grammar change is breaking and requires coordinated server/client rollout. Immutable released baselines remain unchanged."
+      "rationale": "Core 01 REQ-01-021/143 adopts a coordinated pre-production cutover on existing Saved Views and Workbook startup routes: only complete layout.v2 with required nullable semantic freezing is accepted and returned. Layout.v1 input and stored conversion are retired; omitted-create and explicit empty-object defaults remain request-only. Invalid stored state fails without writes or preference repair. Replace server/client coherently and roll back with matching compatible state; immutable released baselines remain unchanged."
     },
     {
       "fingerprint": "8a4d7e424f1bde05f920970b72a6fa91e100d6e53d3f5815e74faa4147c4616a",
       "classification": "breaking",
       "owner_id": "module.savedviews",
-      "rationale": "Adopt the Core 01 coordinated layout upgrade exception on existing Saved Views and Workbook startup routes: current responses require layout.v2 with nullable semantic freeze identity; inputs additionally retain strict layout.v1 compatibility. The closed response grammar change is breaking and requires coordinated server/client rollout. Immutable released baselines remain unchanged."
+      "rationale": "Core 01 REQ-01-021/143 adopts a coordinated pre-production cutover on existing Saved Views and Workbook startup routes: only complete layout.v2 with required nullable semantic freezing is accepted and returned. Layout.v1 input and stored conversion are retired; omitted-create and explicit empty-object defaults remain request-only. Invalid stored state fails without writes or preference repair. Replace server/client coherently and roll back with matching compatible state; immutable released baselines remain unchanged."
     },
     {
       "fingerprint": "be76a3f638d452a63277b6a7accc600831da1cc63eea5104d3c4b6912f2c8cab",
       "classification": "breaking",
       "owner_id": "module.savedviews",
-      "rationale": "Adopt the Core 01 coordinated layout upgrade exception on existing Saved Views and Workbook startup routes: current responses require layout.v2 with nullable semantic freeze identity; inputs additionally retain strict layout.v1 compatibility. The closed response grammar change is breaking and requires coordinated server/client rollout. Immutable released baselines remain unchanged."
-    },
-    {
-      "fingerprint": "221fa13b7edc8b9e60128adc65cf453329826e71b959f058ef9606a8ca18ca05",
-      "classification": "additive",
-      "owner_id": "module.savedviews",
-      "rationale": "Adopt the Core 01 coordinated layout upgrade exception on existing Saved Views and Workbook startup routes: current responses require layout.v2 with nullable semantic freeze identity; inputs additionally retain strict layout.v1 compatibility. The closed response grammar change is breaking and requires coordinated server/client rollout. Immutable released baselines remain unchanged."
+      "rationale": "Core 01 REQ-01-021/143 adopts a coordinated pre-production cutover on existing Saved Views and Workbook startup routes: only complete layout.v2 with required nullable semantic freezing is accepted and returned. Layout.v1 input and stored conversion are retired; omitted-create and explicit empty-object defaults remain request-only. Invalid stored state fails without writes or preference repair. Replace server/client coherently and roll back with matching compatible state; immutable released baselines remain unchanged."
     },
     {
       "fingerprint": "cb70edc4902e786e2ee100f3e824fa8d2df8cca15ae3bb6d1f8064888b83e457",

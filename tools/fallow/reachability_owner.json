@@ -3,6 +3,10 @@
   "base_config": {
     "path": ".fallowrc.json"
   },
+  "blocking_web_surface": {
+    "root": "apps/web",
+    "rules": ["unused_files", "unused_exports", "unused_types"]
+  },
   "blocking_package_surfaces": {
     "packages": [
       {
@@ -71,7 +75,7 @@
   },
   "vite_public_assets": {
     "public_root": "apps/web/public",
-    "html_entry_files": ["apps/web/index.html"],
+    "html_entry_files": ["apps/web/index.html", "apps/web/measurement.html"],
     "url_prefixes": ["/assets/"],
     "always_used_files": ["apps/web/public/assets/fonts/fonts.css"]
   },

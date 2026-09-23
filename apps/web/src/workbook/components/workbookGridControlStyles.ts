@@ -21,14 +21,6 @@ export const immutableControlLabelStyle = {
   whiteSpace: "nowrap" as const,
 };
 
-export const dynamicControlValueStyle = {
-  display: "block",
-  minInlineSize: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-};
-
 export const inputStyle = {
   borderRadius: "var(--ct-component-text-input-rounded)",
   border: "var(--ct-component-text-input-border)",

@@ -14,21 +14,15 @@ import {
   cancelableImport,
   type ImportAuthority,
   type ImportEvent,
-  type IncidentImportState,
   importStatusLabel,
   initialImportState,
   openableImport,
   transitionImport,
 } from "./incidentImportState";
 
-export type {
-  ImportAuthority,
-  IncidentImportState,
-  KnownImport,
-} from "./incidentImportState";
+export type { ImportAuthority } from "./incidentImportState";
 export {
   admissionUnresolved,
-  availableImport,
   cancelableImport,
   importStatusLabel,
   openableImport,
@@ -70,10 +64,6 @@ export type IncidentImportPorts = {
     current: () => boolean,
   ) => Promise<"opened" | "cancelled" | "unavailable" | "access_lost">;
   readonly transactionId?: () => string;
-};
-export type IncidentImportBinding = {
-  readonly controller: IncidentImportController;
-  readonly state: IncidentImportState;
 };
 type WaitResult<T> =
   | { kind: "response"; value: T }

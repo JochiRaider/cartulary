@@ -85,6 +85,12 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/harness_work_graph_owner.json" "${dest}/tools/harness_work_graph_owner.json"
   cp "${ROOT_DIR}/tools/harness_redaction_manifest.json" "${dest}/tools/harness_redaction_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_resource_registry.json" "${dest}/tools/scheduler_resource_registry.json"
+  cp "${ROOT_DIR}/tools/test_catalog_owner.json" "${dest}/tools/test_catalog_owner.json"
+  cp "${ROOT_DIR}/tools/test_catalog_row_migrations.json" "${dest}/tools/test_catalog_row_migrations.json"
+  cp "${ROOT_DIR}/tools/test_runner_registry.json" "${dest}/tools/test_runner_registry.json"
+  cp "${ROOT_DIR}/tools/performance_fixture_snapshot_owner.json" "${dest}/tools/performance_fixture_snapshot_owner.json"
+  cp -R "${ROOT_DIR}/tools/test_families" "${dest}/tools/test_families"
+  cp -R "${ROOT_DIR}/contracts" "${dest}/contracts"
   cp "${ROOT_DIR}/tools/toolchain_pins.json" "${dest}/tools/toolchain_pins.json"
   cp -R "${ROOT_DIR}/tools/harness" "${dest}/tools/harness"
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
@@ -199,6 +205,8 @@ bump_dotted_version() {
     value="${value#"$prefix"}"
   fi
 
+  # Bump the numeric core; prerelease/build suffixes are not numeric patches.
+  value="${value%%[-+]*}"
   IFS=. read -r major minor patch extra <<<"$value"
   if [[ -n "${extra:-}" || -z "${major:-}" || -z "${minor:-}" || -z "${patch:-}" || ! "$patch" =~ ^[0-9]+$ ]]; then
     fail "cannot bump dotted version [$1]"
@@ -324,6 +332,17 @@ preflight_run_id="toolchain-pins-preflight"
 cleanup_paths+=("${preflight_dir}")
 cleanup_paths+=("${preflight_results_root}")
 copy_minimal_repo "${preflight_dir}"
+# Public graph compilation resolves the complete catalog even for a policy-only
+# target. Supply its real tracked source selectors without copying installs or
+# giving the disposable fixture access to the working repository's Git state.
+(
+  cd "${ROOT_DIR}"
+  git ls-files --cached --others --exclude-standard -z -- apps cmd internal packages tools/testservices db ':!**/*.md' |
+    while IFS= read -r -d '' file; do
+      if [[ -f "$file" ]]; then printf '%s\0' "$file"; fi
+    done | tar --null -T - -cf -
+) | tar -xf - -C "${preflight_dir}"
+cp "${ROOT_DIR}"/tools/*.json "${preflight_dir}/tools/"
 replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
 "$NODE_BIN" - "${preflight_dir}/tools/harness_work_graph_owner.json" <<'EOF'
 const fs = require("node:fs");

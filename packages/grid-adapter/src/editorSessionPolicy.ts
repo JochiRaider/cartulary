@@ -10,6 +10,7 @@ export type PendingEditorSeed = {
   readonly anchor: GridCellAnchor;
   readonly baseRowVersion: number;
   readonly retained?: boolean;
+  readonly focusOnAttach?: boolean;
   readonly hasValue: boolean;
   readonly value: unknown;
 };
@@ -36,6 +37,7 @@ export function editorSeedForTarget(
   }
   return {
     retained: pending.retained === true,
+    focusOnAttach: pending.focusOnAttach !== false,
     activation: pending.activation,
     hasValue: pending.hasValue,
     value: pending.value,

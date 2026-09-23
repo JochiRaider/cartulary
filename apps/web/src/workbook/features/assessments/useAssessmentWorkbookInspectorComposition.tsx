@@ -4,7 +4,7 @@ import type {
   InspectorDisabledCondition,
   ViewContract,
 } from "@cartulary/view-contracts";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import {
@@ -28,7 +28,6 @@ import {
   genericInspectorRowLabel,
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -45,7 +44,6 @@ export function useAssessmentWorkbookInspectorComposition({
   canCreate,
   contract,
   currentIncidentRole,
-  currentUserId,
   candidateReader,
   incidentClosed,
   inspectorResetKey,
@@ -57,7 +55,7 @@ export function useAssessmentWorkbookInspectorComposition({
   onRefreshAssessmentRows,
   onRestoreFocus,
   onSelectAssessment,
-  relatedMutationCommands,
+
   roleCanCreate,
   selectedAssessment,
 }: {
@@ -65,7 +63,6 @@ export function useAssessmentWorkbookInspectorComposition({
   readonly canCreate: boolean;
   readonly contract: ViewContract;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
-  readonly currentUserId: string | null;
   readonly candidateReader: AssessmentCandidateReadPort;
   readonly incidentClosed: boolean;
   readonly inspectorResetKey: string;
@@ -79,7 +76,7 @@ export function useAssessmentWorkbookInspectorComposition({
   }) => Promise<void>;
   readonly onRestoreFocus: () => void;
   readonly onSelectAssessment: (recordId: string) => void;
-  readonly relatedMutationCommands: TimelineRelatedRecordPort;
+
   readonly roleCanCreate: boolean;
   readonly selectedAssessment: WorkbookQueryRow | null;
 }) {
@@ -91,10 +88,6 @@ export function useAssessmentWorkbookInspectorComposition({
     useState<WorkbookRecordSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
-  const beginMutation = useCallback(
-    () => mutationRuntime.beginExplicitMutation(),
-    [mutationRuntime],
-  );
   const creation = useAssessmentCreationController({
     owner: mutationRuntime.assessmentAuthoring,
     sheetRef,
@@ -115,11 +108,6 @@ export function useAssessmentWorkbookInspectorComposition({
         });
 
   const related = useInspectorCreateRelatedWorkflow({
-    beginMutation,
-    currentUserId,
-    mutationCommands: relatedMutationCommands,
-    onCreated: onRefreshAssessmentRows,
-    onFeedback: setRelatedFeedback,
     selectedSubject:
       selectedAssessment === null || subject?.kind !== "live"
         ? null
@@ -239,10 +227,7 @@ export function useAssessmentWorkbookInspectorComposition({
       }
       related={{
         begin: related.commands.begin,
-        cancel: related.commands.cancel,
         state: related.snapshot.workflow,
-        submit: related.commands.submit,
-        updateDraft: related.commands.updateDraft,
       }}
       relatedFeedback={relatedFeedback}
       subject={subject}

@@ -3,6 +3,7 @@ package incidentbundles_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"slices"
@@ -36,41 +37,44 @@ func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *tes
 	})
 
 	bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-retired-version")
-	retiredBundle := replaceZipMember(t, bundle, "manifest.json", func(original []byte) []byte {
-		var manifest map[string]any
-		if err := json.Unmarshal(original, &manifest); err != nil {
-			t.Fatalf("decode current manifest: %v", err)
+	for _, version := range []int{1, 2, 3} {
+		txnID := fmt.Sprintf("txn-import-retired-version-%d", version)
+		retiredBundle := replaceZipMember(t, bundle, "manifest.json", func(original []byte) []byte {
+			var manifest map[string]any
+			if err := json.Unmarshal(original, &manifest); err != nil {
+				t.Fatalf("decode current manifest: %v", err)
+			}
+			manifest["bundle_version"] = float64(version)
+			payload, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatalf("encode retired-version manifest: %v", err)
+			}
+			return append(payload, '\n')
+		})
+		beforeDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
+		terminal := assertImportFailureLeavesState(
+			t, targetHarness, targetAdmin, incidentID,
+			txnID, retiredBundle, "unsupported_bundle_version",
+		)
+		errorSummary := terminal["error_summary"].(map[string]any)
+		if errorSummary["retryable"] != false {
+			t.Fatalf("retired version failure must be non-retryable: %#v", errorSummary)
 		}
-		manifest["bundle_version"] = float64(2)
-		payload, err := json.Marshal(manifest)
-		if err != nil {
-			t.Fatalf("encode retired-version manifest: %v", err)
+		replay := postImport(
+			t, targetHarness.Server, targetAdmin,
+			fmt.Sprintf(`{"client_txn_id":%q}`, txnID),
+			retiredBundle, "retired-version-replay.zip",
+		)
+		replayedJob := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
+		if replayedJob["job_id"] != terminal["job_id"] {
+			t.Fatalf("retired version replay returned a different job: first=%v replay=%v", terminal["job_id"], replayedJob["job_id"])
 		}
-		return append(payload, '\n')
-	})
-	beforeDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
-	terminal := assertImportFailureLeavesState(
-		t, targetHarness, targetAdmin, incidentID,
-		"txn-import-retired-version", retiredBundle, "unsupported_bundle_version",
-	)
-	errorSummary := terminal["error_summary"].(map[string]any)
-	if errorSummary["retryable"] != false {
-		t.Fatalf("retired version failure must be non-retryable: %#v", errorSummary)
-	}
-	replay := postImport(
-		t, targetHarness.Server, targetAdmin,
-		`{"client_txn_id":"txn-import-retired-version"}`,
-		retiredBundle, "retired-version-replay.zip",
-	)
-	replayedJob := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
-	if replayedJob["job_id"] != terminal["job_id"] {
-		t.Fatalf("retired version replay returned a different job: first=%v replay=%v", terminal["job_id"], replayedJob["job_id"])
-	}
-	afterDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
-	if afterDurability.Jobs != beforeDurability.Jobs+1 ||
-		afterDurability.Payloads != beforeDurability.Payloads+1 ||
-		afterDurability.Idempotency != beforeDurability.Idempotency+1 {
-		t.Fatalf("retired version durable admission mismatch: before=%#v after=%#v", beforeDurability, afterDurability)
+		afterDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
+		if afterDurability.Jobs != beforeDurability.Jobs+1 ||
+			afterDurability.Payloads != beforeDurability.Payloads+1 ||
+			afterDurability.Idempotency != beforeDurability.Idempotency+1 {
+			t.Fatalf("retired version durable admission mismatch: before=%#v after=%#v", beforeDurability, afterDurability)
+		}
 	}
 }
 
@@ -137,7 +141,7 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	}
 }
 
-func TestLegacyBundleLayoutConversionAndHistoricalReplay_Integration(t *testing.T) {
+func TestLegacyBundleLayoutRejectionAndHistoricalReplay_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	source := runtime.StartDefaultServer(t, "frozen-layout-legacy-source")
 	target := startIsolatedIncidentBundleServer(t, runtime, "frozen-layout-legacy-target")
@@ -159,33 +163,35 @@ func TestLegacyBundleLayoutConversionAndHistoricalReplay_Integration(t *testing.
 		t.Fatal(err)
 	}
 	layout["column_widths"] = []map[string]any{{"field_key": "timeline.activity_synopsis_text", "width_px": 240}}
-	layout["layout_schema_id"] = "cartulary.layout.v1"
-	delete(layout, "frozen_through_field_key")
-	legacyLayout, _ := json.Marshal(layout)
+	layout["frozen_through_field_key"] = "timeline.activity_synopsis_text"
+	currentLayout, _ := json.Marshal(layout)
 	savedID := uuid.New().String()
-	if _, err := source.DB.Exec(`INSERT INTO saved_views (saved_view_id, incident_id, view_schema_id, scope, display_name, query_json, layout_json, owner_user_id) VALUES ($1, $2, 'cartulary.view.timeline.v2', 'private', 'Legacy fixture', '{"filters":[],"sort":[]}'::jsonb, $3::jsonb, $4)`, savedID, incidentID, legacyLayout, adminID); err != nil {
+	if _, err := source.DB.Exec(`INSERT INTO saved_views (saved_view_id, incident_id, view_schema_id, scope, display_name, query_json, layout_json, owner_user_id) VALUES ($1, $2, 'cartulary.view.timeline.v2', 'private', 'Legacy fixture', '{"filters":[],"sort":[]}'::jsonb, $3::jsonb, $4)`, savedID, incidentID, currentLayout, adminID); err != nil {
 		t.Fatal(err)
 	}
 	beforeStored := stringScalar(t, source.DB, `SELECT layout_json::text FROM saved_views WHERE saved_view_id=$1`, savedID)
 	exported := exportBundleBytes(t, source, admin, incidentID, "frozen-historical-export")
 	if stringScalar(t, source.DB, `SELECT layout_json::text FROM saved_views WHERE saved_view_id=$1`, savedID) != beforeStored {
-		t.Fatal("export rewrote legacy stored layout")
+		t.Fatal("export rewrote stored layout")
 	}
 	rows := decodeNDJSONRows(t, zipMemberBytes(t, exported, "data/saved_views.ndjson"))
 	if len(rows) != 1 {
 		t.Fatalf("saved rows=%d", len(rows))
 	}
 	exportedLayout := rows[0]["layout_json"].(map[string]any)
-	if exportedLayout["layout_schema_id"] != "cartulary.layout.v2" || exportedLayout["frozen_through_field_key"] != nil {
+	if exportedLayout["layout_schema_id"] != "cartulary.layout.v2" || exportedLayout["frozen_through_field_key"] != "timeline.activity_synopsis_text" {
 		t.Fatalf("exported layout=%#v", exportedLayout)
 	}
-	// Construct an original v3 fixture from a layout that has never had freezing.
-	// This is test fixture construction, never a downgrade of authored freezing.
+	// Construct retired-format bytes solely to prove rejection and immutable historical replay.
 	exportedLayout["layout_schema_id"] = "cartulary.layout.v1"
 	delete(exportedLayout, "frozen_through_field_key")
 	legacy := replaceStructuredBundleMember(t, exported, "data/saved_views.ndjson", encodeNDJSONRows(t, rows))
 	// A v4 archive carrying v1 rows must fail after integrity admission, atomically.
 	assertImportFailureLeavesState(t, target, targetAdmin, incidentID, "frozen-version-mismatch", legacy, "source_family_invalid")
+	// Integrity of an admitted current archive is checked before source-row validation.
+	tampered := replaceZipMember(t, legacy, "data/saved_views.ndjson", func([]byte) []byte { return []byte("invalid layout bytes\n") })
+	assertImportFailureLeavesState(t, target, targetAdmin, incidentID, "frozen-integrity-first", tampered, "checksum_mismatch")
+	assertImportFailureLeavesState(t, target, targetAdmin, incidentID, "frozen-signature-first", appendZipMember(t, legacy, "integrity/signature.ed25519", []byte("invalid-signature")), "signature_mismatch")
 	legacy = replaceZipMember(t, legacy, "manifest.json", func(raw []byte) []byte {
 		var manifest map[string]any
 		if err := json.Unmarshal(raw, &manifest); err != nil {
@@ -199,18 +205,16 @@ func TestLegacyBundleLayoutConversionAndHistoricalReplay_Integration(t *testing.
 		return append(encoded, '\n')
 	})
 	originalDigest := hashHexBytes(legacy)
-	// Integrity failures take precedence over invalid row/layout conversion.
-	tampered := replaceZipMember(t, legacy, "data/saved_views.ndjson", func([]byte) []byte { return []byte("invalid layout bytes\n") })
-	assertImportFailureLeavesState(t, target, targetAdmin, incidentID, "frozen-integrity-first", tampered, "checksum_mismatch")
-	assertImportFailureLeavesState(t, target, targetAdmin, incidentID, "frozen-signature-first", appendZipMember(t, legacy, "integrity/signature.ed25519", []byte("invalid-signature")), "signature_mismatch")
-	terminal := importBundleAndWait(t, target.Server, targetAdmin, legacy, "frozen-legacy-import")
+	assertImportFailureLeavesState(t, target, targetAdmin, incidentID, "frozen-legacy-import", legacy, "unsupported_bundle_version")
+	terminal := importBundleAndWait(t, target.Server, targetAdmin, exported, "frozen-current-import")
 	if terminal["result_summary"].(map[string]any)["code"] != incidentBundleImportedCode {
-		t.Fatalf("legacy import=%#v", terminal)
+		t.Fatalf("current import=%#v", terminal)
 	}
+
 	if hashHexBytes(legacy) != originalDigest {
 		t.Fatal("import changed original archive bytes")
 	}
-	expected, errLayout := viewschema.NormalizeLayout(legacyLayout, "cartulary.view.timeline.v2")
+	expected, errLayout := viewschema.NormalizeLayout(currentLayout, "cartulary.view.timeline.v2")
 	if errLayout != nil {
 		t.Fatal(errLayout)
 	}
@@ -223,9 +227,9 @@ func TestLegacyBundleLayoutConversionAndHistoricalReplay_Integration(t *testing.
 		t.Fatal("import did not persist current layout")
 	}
 	beforeEffects := snapshotEnvelopeDurability(t, target.DB)
-	replayedImport := importBundleAndWait(t, target.Server, targetAdmin, legacy, "frozen-legacy-import")
+	replayedImport := importBundleAndWait(t, target.Server, targetAdmin, exported, "frozen-current-import")
 	if replayedImport["job_id"] != terminal["job_id"] || snapshotEnvelopeDurability(t, target.DB) != beforeEffects {
-		t.Fatal("legacy import replay created durable work")
+		t.Fatal("current import replay created durable work")
 	}
 	// Seed a completed historical artifact into this disposable fixture. Its
 	// existing request/receipt identity remains exactly as admitted before upgrade.

@@ -165,7 +165,7 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 			got := descriptor.Paths[index]
 			if got.LogicalPath != wantPath.path || got.ContentRole != "source_rows" ||
 				got.StableIdentityInvariantID != "artifacts.source_identity_admitted" ||
-				!slices.Equal(got.Versions, []int{3, 4}) || !slices.Equal(got.StableIdentity, []string{wantPath.identity}) {
+				!slices.Equal(got.Versions, []int{4}) || !slices.Equal(got.StableIdentity, []string{wantPath.identity}) {
 				t.Fatalf("artifact incident-bundle path %d = %#v, want %s/%s", index, got, wantPath.path, wantPath.identity)
 			}
 		}

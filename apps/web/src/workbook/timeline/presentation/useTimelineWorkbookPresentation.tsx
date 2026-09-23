@@ -199,14 +199,9 @@ export function useTimelineWorkbookPresentation({
   const { cancelRowHistoryPendingAction } = inspector.commands.history;
   const createRelatedWorkflow = workflow.snapshot.createRelatedWorkflow;
   const indicatorInspectorHandler = workflow.snapshot.indicatorHandler;
-  const {
-    cancelFeatureAction: cancelInspectorFeatureAction,
-    handleFeatureAction: handleInspectorFeatureAction,
-  } = workflow.commands.feature;
-  const {
-    submit: submitCreateRelatedWorkflow,
-    updateDraft: updateCreateRelatedWorkflowDraft,
-  } = workflow.commands.workflow;
+  const { handleFeatureAction: handleInspectorFeatureAction } =
+    workflow.commands.feature;
+
   const closeInspector = workflow.commands.closeInspector;
 
   const { conflictQueue, getCellState } = mutation.snapshot.conflict;
@@ -379,7 +374,6 @@ export function useTimelineWorkbookPresentation({
       observationSource: composition.observationSource,
     },
     sections: {
-      cancelCreateRelatedWorkflow: cancelInspectorFeatureAction,
       cancelRowHistoryPendingAction,
       canMutateHistory:
         !incidentClosed &&
@@ -396,8 +390,6 @@ export function useTimelineWorkbookPresentation({
       renderTimelineCollectionInput,
       detailsOwner: composition.inspectorDetails,
       rowHistory,
-      submitCreateRelatedWorkflow,
-      updateCreateRelatedWorkflowDraft,
     },
   });
 

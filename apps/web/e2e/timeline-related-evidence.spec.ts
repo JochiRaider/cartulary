@@ -445,7 +445,12 @@ test("Timeline Evidence accepted writes survive failed projections and recover t
 }) => {
   const f = await fixture(page);
   let failedReads = false,
-    writes = 0;
+    writes = 0,
+    linkCommitted = false;
+  let releaseAcknowledgement = () => {};
+  const acknowledgement = new Promise<void>((resolve) => {
+    releaseAcknowledgement = resolve;
+  });
   page.on("request", (request) => {
     if (
       (request.method() === "PATCH" &&
@@ -462,6 +467,8 @@ test("Timeline Evidence accepted writes survive failed projections and recover t
     if (route.request().method() !== "PATCH") return route.continue();
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
+    linkCommitted = true;
+    await acknowledgement;
     failedReads = true;
     await route.fulfill({ response });
   });
@@ -471,8 +478,22 @@ test("Timeline Evidence accepted writes survive failed projections and recover t
       response.request().method() === "PATCH" &&
       response.url().endsWith(`/records/${f.source.record_id}`),
   );
-  await submit(page);
-  expect((await linkedResponse).ok()).toBe(true);
+  try {
+    await submit(page);
+    await expect.poll(() => linkCommitted).toBe(true);
+    // The server has committed the link, but its acknowledgement is held.
+    // A projection refresh must wait for that acknowledgement and send no write.
+    expect(writes).toBe(2);
+    await page
+      .getByRole("region", { name: "Evidence creation result", exact: true })
+      .getByRole("button", { name: "Refresh Evidence result", exact: true })
+      .click();
+    expect(writes).toBe(2);
+    releaseAcknowledgement();
+    expect((await linkedResponse).ok()).toBe(true);
+  } finally {
+    releaseAcknowledgement();
+  }
   const retained = await recovery(page);
   await expect(retained).toContainText("Projection refresh is incomplete");
   expect(writes).toBe(2);

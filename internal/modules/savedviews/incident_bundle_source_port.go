@@ -17,10 +17,6 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		Dependencies: []string{"revisions"},
 		Paths: []sourceport.Path{{
 			LogicalPath: "data/saved_views.ndjson", ContentRole: "source_rows",
-			SchemaID: "cartulary.incident_bundle.saved_views.row.v1",
-			Versions: []int{3}, StableIdentity: []string{"saved_view_id"}, StableIdentityInvariantID: "saved_views.source_identity_admitted",
-		}, {
-			LogicalPath: "data/saved_views.ndjson", ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.saved_views.row.v2",
 			Versions: []int{4}, StableIdentity: []string{"saved_view_id"}, StableIdentityInvariantID: "saved_views.source_identity_admitted",
 		}},

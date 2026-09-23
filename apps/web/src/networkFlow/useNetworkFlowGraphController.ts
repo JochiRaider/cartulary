@@ -9,7 +9,6 @@ import type { NetworkFlowTableController } from "./NetworkFlowTableController";
 import type {
   NetworkFlowContributor,
   NetworkFlowContributorPageRequest,
-  NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
   NetworkFlowGraphSelector,
   NetworkFlowTable,
@@ -52,18 +51,7 @@ function selectionContext(state: ExplorationNavigation): string {
   ]);
 }
 
-export type NetworkFlowGraphScopeMode =
-  | "active_table"
-  | "selected_tables"
-  | "all_active_tables";
-
-export type NetworkFlowGraphSelection = NetworkFlowGraphSelector;
-export type NetworkFlowGraphAggregationMode =
-  NetworkFlowGraphQueryRequest["aggregation"]["mode"];
-export type NetworkFlowGraphBucketWidth = Extract<
-  NetworkFlowGraphQueryRequest["aggregation"],
-  { readonly mode: "time_bucket_v1" }
->["bucket_width_seconds"];
+type NetworkFlowGraphSelection = NetworkFlowGraphSelector;
 
 export function useNetworkFlowGraphController({
   availability,

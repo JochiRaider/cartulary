@@ -95,7 +95,7 @@ export function savedGraphWriteFailure(caught: unknown): SavedGraphWriteError {
   );
 }
 /** Exact public codes keep invalid limits distinct from exhausted quotas. */
-export function savedGraphFailureCategory(
+function savedGraphFailureCategory(
   error: NetworkFlowRequestError,
 ): SavedGraphFailureCategory {
   switch (error.code) {

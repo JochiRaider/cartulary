@@ -552,9 +552,6 @@
           },
           {
             "$ref": "#/components/schemas/SavedViewLayoutJSON"
-          },
-          {
-            "$ref": "#/components/schemas/SavedViewLegacyLayoutJSON"
           }
         ]
       },
@@ -795,40 +792,6 @@
           "created_at",
           "updated_at",
           "saved_view_version"
-        ]
-      },
-      "SavedViewLegacyLayoutJSON": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "layout_schema_id": {
-            "type": "string",
-            "const": "cartulary.layout.v1"
-          },
-          "column_order": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "hidden_field_keys": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "column_widths": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SavedViewColumnWidth"
-            }
-          }
-        },
-        "required": [
-          "layout_schema_id",
-          "column_order",
-          "hidden_field_keys",
-          "column_widths"
         ]
       }
     }

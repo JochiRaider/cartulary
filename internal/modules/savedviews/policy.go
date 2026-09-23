@@ -93,7 +93,7 @@ func normalizeMutationQuery(raw json.RawMessage, viewSchemaID string) ([]byte, *
 }
 
 func normalizeMutationLayout(raw json.RawMessage, viewSchemaID string) ([]byte, *mutationPolicyError) {
-	normalized, layoutErr := viewschema.NormalizeLayout(raw, viewSchemaID)
+	normalized, layoutErr := viewschema.NormalizeLayoutRequest(raw, viewSchemaID)
 	if layoutErr == nil {
 		return normalized, nil
 	}
@@ -101,7 +101,7 @@ func normalizeMutationLayout(raw json.RawMessage, viewSchemaID string) ([]byte, 
 }
 
 func applyPatch(current savedViewRecord, request patchRequest, updatedAt time.Time) (savedViewRecord, bool, error) {
-	currentLayout, layoutErr := normalizeMutationLayout(current.LayoutJSON, current.ViewSchemaID)
+	currentLayout, layoutErr := viewschema.NormalizeLayout(current.LayoutJSON, current.ViewSchemaID)
 	if layoutErr != nil {
 		return savedViewRecord{}, false, errors.New("savedviews: invalid layout")
 	}

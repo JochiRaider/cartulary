@@ -125,8 +125,6 @@ export function useTimelineInspectorWorkflowComposition({
   const {
     beginWorkflow,
     cancelWorkflow,
-    submitWorkflow,
-    updateWorkflowDraft,
     workflow: createRelatedWorkflow,
   } = useTimelineCreateRelatedWorkflow({
     isInspectorOpen: inspector.lifecycle.phase !== "closed",
@@ -264,10 +262,6 @@ export function useTimelineInspectorWorkflowComposition({
       resolveTargetChange: handleResolveTargetChange,
       rowInteractions: rowInteractions.commands,
       rowMenu: rowMenu.commands,
-      workflow: {
-        submit: submitWorkflow,
-        updateDraft: updateWorkflowDraft,
-      },
     },
     ports: {},
     snapshot: {

@@ -43,20 +43,6 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 		}
 		return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	}
-	// Read both ordinary and system stored v1 resources through the current projection.
-	legacy := savedViewLayoutWith(t, func(layout map[string]any) {
-		layout["layout_schema_id"] = "cartulary.layout.v1"
-		delete(layout, "frozen_through_field_key")
-	})
-	legacyBytes, err := json.Marshal(legacy)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, resourceID := range ids[:2] {
-		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE saved_views SET layout_json=$2 WHERE saved_view_id=$1`, resourceID, legacyBytes); err != nil {
-			t.Fatal(err)
-		}
-	}
 	type storedState struct {
 		Layout, Updated string
 		Version         int64
@@ -68,7 +54,7 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 		}
 		return state
 	}
-	beforeLegacy := readStored(ids[0])
+	beforePrivate := readStored(ids[0])
 	beforeSystem := readStored(ids[1])
 
 	unfiltered := read("", viewer)["data"].(map[string]any)["saved_views"].([]any)
@@ -100,17 +86,17 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 	for _, row := range rows {
 		layout := row.(map[string]any)["layout_json"].(map[string]any)
 		if layout["layout_schema_id"] != "cartulary.layout.v2" || layout["frozen_through_field_key"] != nil {
-			t.Fatal("legacy read did not normalize", layout)
+			t.Fatal("current layout is incomplete", layout)
 		}
 	}
-	if readStored(ids[0]) != beforeLegacy || readStored(ids[1]) != beforeSystem {
-		t.Fatal("read rewrote legacy resource")
+	if readStored(ids[0]) != beforePrivate || readStored(ids[1]) != beforeSystem {
+		t.Fatal("read rewrote stored resource")
 	}
-	// Equivalent current-format PATCH also leaves the historical stored bytes untouched.
+	// Canonical no-op PATCH leaves current stored bytes and versions untouched.
 	currentLayout := rows[0].(map[string]any)["layout_json"]
-	patchSavedViewHTTP(t, harness.Server.HTTP.URL, id, ids[0], viewer, viewerCSRF, map[string]any{"base_saved_view_version": beforeLegacy.Version, "layout_json": currentLayout})
-	if readStored(ids[0]) != beforeLegacy {
-		t.Fatal("normalized no-op rewrote stored v1")
+	patchSavedViewHTTP(t, harness.Server.HTTP.URL, id, ids[0], viewer, viewerCSRF, map[string]any{"base_saved_view_version": beforePrivate.Version, "layout_json": currentLayout})
+	if readStored(ids[0]) != beforePrivate {
+		t.Fatal("canonical no-op rewrote stored layout")
 	}
 
 	missing := "00000000-0000-4000-8000-000000009999"
@@ -185,6 +171,46 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, endpoint+"/"+hidden, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
+
+	t.Run("invalid stored layouts fail without repair or preference changes", func(t *testing.T) {
+		legacy := savedViewLayoutWith(t, func(layout map[string]any) {
+			layout["layout_schema_id"] = "cartulary.layout.v1"
+			delete(layout, "frozen_through_field_key")
+		})
+		unknown := savedViewLayoutWith(t, func(layout map[string]any) { layout["layout_schema_id"] = "cartulary.layout.v99" })
+		missing := savedViewLayoutWith(t, func(layout map[string]any) { delete(layout, "frozen_through_field_key") })
+		for _, invalid := range []any{legacy, unknown, missing, map[string]any{}, nil, []any{}} {
+			invalidBytes, _ := json.Marshal(invalid)
+			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE saved_views SET layout_json=$2 WHERE saved_view_id=$1`, ids[0], invalidBytes); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE user_workbook_preferences SET home_sheet_ref=jsonb_build_object('kind','saved_view','id',$3::text) WHERE incident_id=$1 AND user_id=$2`, id, viewerID, ids[0]); err != nil {
+				t.Fatal(err)
+			}
+			before := readStored(ids[0])
+			var preferenceBefore, preferenceAfter string
+			preferenceSQL := `SELECT home_sheet_ref::text || updated_at::text FROM user_workbook_preferences WHERE incident_id=$1 AND user_id=$2`
+			if err := harness.DB.QueryRowContext(context.Background(), preferenceSQL, id, viewerID).Scan(&preferenceBefore); err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range []string{endpoint + "/" + ids[0], endpoint + "?view_schema_id=" + schema, harness.Server.HTTP.URL + "/api/v1/incidents/" + id + "/workbook-startup"} {
+				response := httptestx.DoJSON(t, http.MethodGet, path, nil, httptestx.WithCookies(viewer))
+				httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
+			}
+			response := httptestx.DoJSON(t, http.MethodPatch, endpoint+"/"+ids[0], map[string]any{"base_saved_view_version": before.Version, "layout_json": currentLayout}, httptestx.WithCookies(viewer, viewerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value))
+			httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
+			if err := harness.DB.QueryRowContext(context.Background(), preferenceSQL, id, viewerID).Scan(&preferenceAfter); err != nil {
+				t.Fatal(err)
+			}
+			if readStored(ids[0]) != before || preferenceAfter != preferenceBefore {
+				t.Fatal("invalid read/update repaired stored state or preferences")
+			}
+		}
+		valid, _ := json.Marshal(currentLayout)
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE saved_views SET layout_json=$2 WHERE saved_view_id=$1`, ids[0], valid); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	// Current membership is evaluated again for an existing cursor and detail.
 	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, id, viewerID); err != nil {

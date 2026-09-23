@@ -106,7 +106,6 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
 import {
   useWorkbookQueryPresentation,
   useWorkbookQueryRestart,
@@ -158,7 +157,6 @@ export type EntityWorkbookSurfaceProps = {
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   onActivateConflict?: WorkbookConflictActivation | undefined;
-  relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
   viewQuery: WorkbookViewQueryPort;
@@ -208,7 +206,6 @@ export function EntityWorkbookSurface({
   loadState,
   mutationRuntime,
   onActivateConflict,
-  relatedMutationCommands,
   collaborationProjection,
   onClearFilters,
   viewQuery,
@@ -381,7 +378,6 @@ export function EntityWorkbookSurface({
     canMerge,
     contract,
     currentIncidentRole,
-    currentUserId,
     entityActionFeedback,
     entityIndex,
     entityType,
@@ -401,7 +397,7 @@ export function EntityWorkbookSurface({
       inspectorContinuityTokenRef.current = null;
       if (token !== null) continuityPortRef.current?.restore(token);
     },
-    relatedMutationCommands,
+
     rows,
     selectedEntity,
     setEntityActionFeedback,

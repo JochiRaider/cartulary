@@ -32,7 +32,7 @@ export function isContextualCreateFeature(
     key === "create_related.task_request" || key === "create_related.decision"
   );
 }
-export function contextualTarget(key: ContextualCreateFeature) {
+function contextualTarget(key: ContextualCreateFeature) {
   return key === "create_related.task_request"
     ? taskRequestsViewSchemaId
     : decisionsViewSchemaId;

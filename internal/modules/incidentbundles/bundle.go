@@ -29,7 +29,10 @@ var incidentBundleOptionalSectionTokens = map[string]struct{}{
 	"snapshots":       {},
 }
 
-var requiredStructuredFilesV3 = []string{
+// requiredStructuredFiles is the current export surface. It remains a named
+// value because tests and manifest construction intentionally prove that the
+// current source-file registry is closed.
+var requiredStructuredFiles = []string{
 	"data/incident.json",
 	"data/actors.ndjson",
 	"data/records.ndjson",
@@ -65,11 +68,6 @@ var requiredStructuredFilesV3 = []string{
 	"data/saved_views.ndjson",
 	"data/reference_pack_refs.json",
 }
-
-// requiredStructuredFiles is the current export surface. It remains a named
-// value because tests and manifest construction intentionally prove that the
-// current source-file registry is closed.
-var requiredStructuredFiles = requiredStructuredFilesV3
 
 type manifestInput struct {
 	BundleID             string
@@ -345,7 +343,7 @@ func parseBundleVersion(manifestBytes []byte) (int, error) {
 		return 0, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	switch version {
-	case 3, bundleVersion:
+	case bundleVersion:
 		return version, nil
 	default:
 		return 0, &verificationError{ReasonCode: "unsupported_bundle_version"}
@@ -354,8 +352,8 @@ func parseBundleVersion(manifestBytes []byte) (int, error) {
 
 func requiredStructuredFilesForVersion(version int) ([]string, error) {
 	switch version {
-	case 3, bundleVersion:
-		return requiredStructuredFilesV3, nil
+	case bundleVersion:
+		return requiredStructuredFiles, nil
 	default:
 		return nil, &verificationError{ReasonCode: "unsupported_bundle_version"}
 	}

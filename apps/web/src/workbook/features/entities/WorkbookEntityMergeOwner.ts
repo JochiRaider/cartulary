@@ -15,7 +15,7 @@ import type {
   EntityMergeReview,
 } from "./entityMergeReview";
 
-export type EntityMergeOwnerSnapshot = {
+type EntityMergeOwnerSnapshot = {
   readonly authority: EntityMergeAuthority | null;
   readonly generation: number;
   readonly entries: readonly EntityMergeOperation[];

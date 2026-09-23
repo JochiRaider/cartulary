@@ -182,7 +182,7 @@ function snapshotBuilderUnit(root, group, fixture, owner) {
 function lifecycleKey(stage, group) {
   return [
     stage.name,
-    group.browserSessionGroup,
+    group.functionalLaneID ?? group.browserSessionGroup,
     group.runtimeProfileID,
     group.resourceProfileID,
     group.fixtureProfileID ?? "mutable",
@@ -267,7 +267,7 @@ function resetUnit(root, stage, group, dependencies, fixture, resetLabel) {
     current_run_evidence_outputs: [
       `${group.target}/reset-boundary/${safeID(resetLabel)}.attempt.json`,
     ],
-    failure_policy: requiredFailurePolicy(),
+    failure_policy: group.functionalLaneID ? finalizableFailurePolicy() : requiredFailurePolicy(),
     estimated_work_ms: 1000,
   };
 }

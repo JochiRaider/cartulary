@@ -427,7 +427,7 @@ export function useTimelineMentionActions(input: Input) {
     handleUndoAutoResolutionNotice,
   };
 }
-export function currentSubject(
+function currentSubject(
   row: WorkbookRow,
   id: string | null,
   owner: WorkbookTimelineMentionOperationOwner,

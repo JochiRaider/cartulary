@@ -160,10 +160,10 @@ func TestPartyIncidentBundlePreparationAndInvariantPrecedence_Unit(t *testing.T)
 		sourceport.MapBundle{partyIncidentBundlePath: encodePartyPortableRows(t, base)},
 		sourceport.ImportContext{
 			IncidentID: incidentID, ActorUserID: importContext.ActorUserID,
-			BundleVersion: 2, OperationID: "retired-version",
+			BundleVersion: 3, OperationID: "retired-version",
 		},
-	); !errors.Is(err, sourceport.ErrPreparedBinding) {
-		t.Fatalf("version 2 preparation error = %v; want ErrPreparedBinding", err)
+	); !errors.Is(err, sourceport.ErrInvalidCatalog) {
+		t.Fatalf("retired version preparation error = %v; want ErrInvalidCatalog", err)
 	}
 }
 
@@ -336,7 +336,7 @@ func partyPortableImportContext(incidentID uuid.UUID, operationID string) source
 	return sourceport.ImportContext{
 		IncidentID:    incidentID,
 		ActorUserID:   uuid.MustParse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
-		BundleVersion: 3,
+		BundleVersion: 4,
 		OperationID:   operationID,
 	}
 }

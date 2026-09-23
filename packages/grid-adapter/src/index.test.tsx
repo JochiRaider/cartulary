@@ -3569,11 +3569,13 @@ describe("grid-adapter", () => {
 
   it("keeps RDG row identity stable across reorder, sort, rerender, and editable cells", async () => {
     const handle = createRef<GridHandle>();
+    const commit = vi.fn(async () => ({ kind: "accepted" as const }));
     type EditableHarnessRow = HarnessRow & {
       readonly recordId: string;
     };
 
     function ReorderedGridHarness() {
+      const [fieldsReversed, setFieldsReversed] = useState(false);
       const [rows, setRows] = useState<readonly EditableHarnessRow[]>([
         { recordId: "record-1", label: "Alpha", state: "open" },
         { recordId: "record-2", label: "Zulu", state: "reviewed" },
@@ -3593,7 +3595,7 @@ describe("grid-adapter", () => {
             contractWritable: true,
             editor: {
               initialDraftValue: (row) => row.label,
-              commit: async () => ({ kind: "accepted" }),
+              commit,
               renderEditor: (context) => (
                 <input
                   aria-label="Reordered semantic editor"
@@ -3643,9 +3645,20 @@ describe("grid-adapter", () => {
           })),
         [rows],
       );
+      const orderedColumns = useMemo(
+        () =>
+          fieldsReversed ? [...editableColumns].reverse() : editableColumns,
+        [editableColumns, fieldsReversed],
+      );
 
       return (
         <GridViewport testId="reordered-grid-shell">
+          <button
+            type="button"
+            onClick={() => setFieldsReversed((value) => !value)}
+          >
+            Reverse fields
+          </button>
           <button
             data-testid="reverse-rows"
             type="button"
@@ -3657,6 +3670,7 @@ describe("grid-adapter", () => {
           </button>
           <button
             data-testid="rerender-reordered-grid"
+            data-grid-editor-external-action="true"
             type="button"
             onClick={() => {
               setRenderMarker((current) => current + 1);
@@ -3677,7 +3691,7 @@ describe("grid-adapter", () => {
           <SemanticDataGrid
             ref={handle}
             surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
-            columns={editableColumns}
+            columns={orderedColumns}
             onSortChange={(nextSort) => {
               setSort(nextSort);
               setRows((current) =>
@@ -3743,6 +3757,40 @@ describe("grid-adapter", () => {
         .closest("[data-grid-record-id]")
         ?.getAttribute("data-grid-record-id"),
     ).toBe("record-1");
+    for (const external of [
+      screen.getByTestId("rerender-reordered-grid"),
+      screen.getByTestId("reverse-rows"),
+    ]) {
+      external.focus();
+      for (const command of [
+        screen.getByTestId("reverse-rows"),
+        screen.getByRole("button", { name: "Reverse fields" }),
+      ]) {
+        fireEvent.click(command);
+        await waitFor(() => {
+          const current = screen.getByRole("textbox", {
+            name: "Reordered semantic editor",
+          });
+          expect(
+            current
+              .closest("[data-grid-record-id]")
+              ?.getAttribute("data-grid-record-id"),
+          ).toBe("record-1");
+          expect(
+            current
+              .closest("[data-grid-field-key]")
+              ?.getAttribute("data-grid-field-key"),
+          ).toBe("label");
+          expect((current as HTMLInputElement).value).toBe(
+            "Uncommitted through reorder",
+          );
+          expect((current as HTMLInputElement).selectionStart).toBe(4);
+          expect(document.activeElement).toBe(external);
+        });
+      }
+    }
+    expect(commit).not.toHaveBeenCalled();
+    screen.getByRole("textbox", { name: "Reordered semantic editor" }).focus();
     fireEvent.click(screen.getByTestId("reverse-rows"));
     await waitFor(() =>
       expect(

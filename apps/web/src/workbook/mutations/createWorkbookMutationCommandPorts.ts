@@ -10,7 +10,6 @@ import { createWorkbookOperationExecutor } from "../adapters/workbookOperationEx
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import type { WorkbookBatchOperationOwner } from "../runtime/WorkbookBatchOperationOwner";
-import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type { WorkbookMutationCommandPorts } from "./workbookMutationCommandPorts";
 
@@ -134,11 +133,6 @@ export function createWorkbookMutationCommandPorts(
           );
         },
       },
-      related: createTimelineRelatedRecordCommandAdapter({
-        createClientTxnId: (prefix) => createId(context.transactionIds, prefix),
-        incidentId: context.incidentId,
-        operations,
-      }),
     },
     assessment: createAssessmentAppendTransport(
       context.apiBase,

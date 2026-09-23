@@ -1,16 +1,13 @@
 import type {
   ApplyWorkbookBulkMutationRequest,
-  AttachBlobToEvidenceRecordRequest,
   AttachBlobToEvidenceRecordResponse,
   CollectionActionsV1,
-  CreateObjectBlobSlotRequest,
   CreateObjectBlobSlotResponse,
   CreateRecordLinkedNoteRequest,
   CreateRecordLinkedNoteResponse,
   CreateViewRowRequest,
   CreateViewRowResponse,
   ListNoteAssociationsResponse,
-  MergeEntityRecordRequest,
   MergeEntityRecordResponse,
   MutateNoteAssociationsRequest,
   MutateNoteAssociationsResponse,
@@ -28,13 +25,9 @@ import type {
  * projections and proves unknown values through the request decoders.
  */
 export type WorkbookProtocolCollectionActions = CollectionActionsV1;
-export type WorkbookProtocolAttachBlobRequest =
-  AttachBlobToEvidenceRecordRequest;
 export type WorkbookProtocolAttachBlobReceipt =
   AttachBlobToEvidenceRecordResponse;
 export type WorkbookProtocolBlobSlotReceipt = CreateObjectBlobSlotResponse;
-export type WorkbookProtocolCreateObjectBlobSlotRequest =
-  CreateObjectBlobSlotRequest;
 export type WorkbookProtocolCreateLinkedNoteRequest =
   CreateRecordLinkedNoteRequest;
 export type WorkbookProtocolCreateLinkedNoteReceipt =
@@ -44,8 +37,6 @@ export type WorkbookProtocolPatchRecordRequest = PatchRecordRequest;
 export type WorkbookProtocolQueryViewRequest = QueryWorkbookViewRequest;
 export type WorkbookProtocolResolveConflictRequest =
   ResolveRecordSameFieldConflictRequest;
-
-export type WorkbookProtocolMergeRequest = MergeEntityRecordRequest;
 export type WorkbookProtocolMergeReceipt = MergeEntityRecordResponse["data"];
 
 export type WorkbookProtocolMentionReceipt =

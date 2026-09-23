@@ -110,7 +110,7 @@ function storedTime(time: string | null): string | null {
     return value ? `.${value}Z` : "Z";
   });
 }
-export function validatedLifecycleReceipt(
+function validatedLifecycleReceipt(
   attempt: LifecycleAttempt,
   data: IndicatorLifecycleReceipt,
   status: number,

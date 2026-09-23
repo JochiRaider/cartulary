@@ -7,7 +7,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../../pages/deploymentAdministration";
 import { rewriteSessionPresentation } from "../auth/sessionPresentation";
 
-// Test-only v3 empty-workbook source, using the authored machine inventory.
+// Test-only current-format empty-workbook source, using the authored machine inventory.
 // Actual admission, validation, publication and membership run on the server.
 export function importBundleFixture(status: "active" | "closed" = "active") {
   const incidentId = randomUUID();
@@ -31,7 +31,7 @@ export function importBundleFixture(status: "active" | "closed" = "active") {
     ...catalog.families.flatMap((family) => family.paths),
     ...catalog.special_consumers,
   ]) {
-    if (source.versions.includes(3) && !source.logical_path.includes("*"))
+    if (source.versions.includes(4) && !source.logical_path.includes("*"))
       sources.set(source.logical_path, Buffer.alloc(0));
   }
   const json = (value: unknown) => Buffer.from(`${JSON.stringify(value)}\n`);
@@ -87,7 +87,7 @@ export function importBundleFixture(status: "active" | "closed" = "active") {
     "manifest.json",
     json({
       bundle_format: "cartulary.incident_bundle",
-      bundle_version: 3,
+      bundle_version: 4,
       bundle_id: randomUUID(),
       incident_id: incidentId,
       incident_key: key,

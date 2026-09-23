@@ -5,7 +5,10 @@ import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncement
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
 import { useGenericSurfaceMutationController } from "./hooks/useGenericSurfaceMutationController";
 import { createWorkbookMutationRuntime } from "./runtime/createWorkbookMutationRuntime";
-import { useWorkbookMutationConflicts } from "./runtime/useWorkbookMutationRuntime";
+import {
+  useWorkbookMutationConflicts,
+  useWorkbookMutationRuntime,
+} from "./runtime/useWorkbookMutationRuntime";
 import {
   projectWorkbookMutationStatus,
   projectWorkbookStatusForSurface,
@@ -57,9 +60,19 @@ describe("Workbook save status", () => {
     const published = vi.fn();
     const unsubscribe = runtime.subscribe(published);
     const initial = runtime.getSnapshot();
-    runtime.notifyPendingChanged();
+    const rendered = vi.fn();
+    const status = renderHook(() => {
+      rendered();
+      return useWorkbookMutationRuntime(runtime.statusSource);
+    });
+    const initialPresentation = status.result.current;
+    const initialRenders = rendered.mock.calls.length;
+    act(() => runtime.notifyPendingChanged());
     expect(runtime.getSnapshot()).toBe(initial);
     expect(published).toHaveBeenCalledOnce();
+    expect(status.result.current).toBe(initialPresentation);
+    expect(rendered).toHaveBeenCalledTimes(initialRenders);
+    status.unmount();
     const first = runtime.beginExplicitMutation();
     const one = runtime.getSnapshot();
     const second = runtime.beginExplicitMutation();

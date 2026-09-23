@@ -173,7 +173,7 @@ release_check_logical_block="$(normalize_make_continuations "$release_check_bloc
 release_readiness_block="$(extract_target_definition release-readiness-evidence)"
 license_report_block="$(extract_target_definition license-report)"
 sbom_block="$(extract_target_definition sbom)"
-release_inventory_block="$(extract_target_definition release-inventory-artifacts)"
+release_inventory_block="$(normalize_make_continuations "$(extract_target_definition release-inventory-artifacts)")"
 help_output="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory help)"
 help_all_output="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory help-all)"
 release_check_explain="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory explain-target TARGET=release-check DETAIL=summary)"
@@ -183,7 +183,7 @@ for public_target in test-fast release-check release-readiness-evidence license-
 done
 assert_contains "$release_check_logical_block" 'work-graph/runner-cli.mjs --selection aggregate --target release-check' "release-check graph runner"
 assert_contains "$release_readiness_block" './tools/release-evidence/release-readiness-evidence.mjs' "release readiness evidence command"
-assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
+assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &:' "SBOM/license artifact generation rule"
 assert_contains "$makefile_content" './tools/release-evidence/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
 assert_contains "$license_report_block" 'license-report: release-inventory-artifacts' "license-report producer prerequisite"
 assert_contains "$license_report_block" 'ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)' "license-report graph-child prerequisite cutover"

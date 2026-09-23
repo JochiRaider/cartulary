@@ -1369,7 +1369,7 @@ CREATE TABLE incident_workbook_preferences (
 -- Informative: public `POST /api/v1/incidents/{incident_id}/saved-views`
 -- requires non-null `display_name` and `query_json`, defaults omitted
 -- `scope` to `private`, normalizes omitted or `{}` `layout_json` to the
--- canonical schema-derived `cartulary.layout.v1` object, and keeps
+-- canonical schema-derived `cartulary.layout.v2` object, and keeps
 -- startup/default surface selection in the separate workbook-preference
 -- objects above rather than on saved-view rows.
 --
@@ -1709,7 +1709,8 @@ CREATE TABLE incident_workbook_preferences (
 
 ```json
 {
-  "layout_schema_id": "cartulary.layout.v1",
+  "layout_schema_id": "cartulary.layout.v2",
+  "frozen_through_field_key": null,
   "column_order": [
     "evidence.title",
     "evidence.lifecycle_state",
@@ -1737,7 +1738,8 @@ CREATE TABLE incident_workbook_preferences (
 
 ```json
 {
-  "layout_schema_id": "cartulary.layout.v1",
+  "layout_schema_id": "cartulary.layout.v2",
+  "frozen_through_field_key": null,
   "column_order": [
     "evidence.title",
     "evidence.requested_at",
@@ -1768,7 +1770,14 @@ CREATE TABLE incident_workbook_preferences (
 
 ### Non-normative migration note for saved-view normalization
 
-Legacy omitted `filters` normalize to `filters=[]`. Legacy omitted or `{}` `layout_json` normalizes to the canonical schema-derived `cartulary.layout.v1` object for the owning `view_schema_id`. Ambiguous legacy saved views are better left unrepaired at runtime. If an incident-portability implementation imports a saved view that cannot be normalized against the resolved `view_schema_id`, a defensible current-profile choice is to skip that saved-view object, import the core incident state, and emit a deterministic diagnostic rather than fail the entire bundle import. The underlying rationale for the closed shared-layout grammar is to preserve portable workbook semantics while keeping per-session UI state client-local.
+Current request defaults and layout validation are defined only by Core 01
+REQ-01-142..146. Omitted-create or explicitly empty-object request layouts use the
+canonical v2 default; stored and portable layouts require complete valid v2 and
+never use request defaulting. Incident Bundle format 4 rejects invalid Saved Views
+rows atomically rather than skipping, converting or silently repairing them. The
+closed shared-layout grammar preserves portable workbook semantics while keeping
+per-session UI state client-local. Historical DDL sketches above are informative,
+not a migration or runtime acceptance path.
 
 ```sql
 CREATE TABLE timeline_grid_projection (

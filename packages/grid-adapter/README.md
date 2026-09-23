@@ -20,6 +20,12 @@ fallback does not replace extension-owned page focus. Operational-state actions
 retain their return anchor across deferred acceptance and temporary document-body
 focus caused by a disabled control.
 
+Reordering reconciles the vendor editor position by semantic record and field
+even when an external control owns focus. Reattachment retains the exact draft
+and text selection without a write; only an editor that previously owned focus
+may restore focus and scroll. Recovery controls and ordinary external controls
+keep their focus while the query presentation changes.
+
 Grouping descriptors may supply `compareValues` for owner-defined bucket order.
 The adapter preserves incoming row order within each bucket and never turns that
 comparison into a server query sort. The package's generic default remains

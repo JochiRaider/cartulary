@@ -12,7 +12,7 @@ import { sameWorkbookReadScope } from "../query/workbookRowObservation";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 /** Explicit page size admitted by both existing collection and query contracts. */
-export const observationPageSize = 100;
+const observationPageSize = 100;
 const invalid = {
   kind: "rejected" as const,
   failure: {
@@ -28,7 +28,7 @@ const failed = {
     message: "The collection could not be loaded. Retry this read.",
   },
 };
-export function validObservationPaging(
+function validObservationPaging(
   paging:
     | { has_more: boolean; next_cursor: string | null; limit: number }
     | undefined,

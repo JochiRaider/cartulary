@@ -109,7 +109,6 @@
   format-frontend \
   browser-e2e \
   browser-e2e-webserver-backed \
-  browser-e2e-functional \
   browser-e2e-support \
   browser-e2e-stateful \
   browser-e2e-resettable \
@@ -1241,11 +1240,6 @@ browser-e2e-webserver-backed:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-webserver-backed)
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
 	  CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target browser-e2e-webserver-backed
-
-browser-e2e-functional: export CARTULARY_TEST_TARGET ?= browser-e2e-functional
-browser-e2e-functional: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-browser-e2e-functional: $(NODE_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target browser-e2e-functional
 
 browser-e2e-support: export CARTULARY_TEST_TARGET ?= browser-e2e-support
 browser-e2e-support: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

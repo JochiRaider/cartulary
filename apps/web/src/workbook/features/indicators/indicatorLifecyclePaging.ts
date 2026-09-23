@@ -3,7 +3,7 @@ import type { WorkbookOperationFailure } from "../../mutations/workbookOperation
 import type { WorkbookPortResult } from "../../ports/WorkbookPortResult";
 import type { LifecyclePage } from "./indicatorLifecycleOperation";
 
-export type LifecyclePagingState<T> = Readonly<{
+type LifecyclePagingState<T> = Readonly<{
   request: number;
   hasAccepted: boolean;
   items: readonly T[];

@@ -26,7 +26,7 @@ import type {
   OrdinaryCreateTransport,
 } from "./ordinaryCreateOperation";
 
-export type OrdinaryCreateSchemaSnapshot = Readonly<{
+type OrdinaryCreateSchemaSnapshot = Readonly<{
   draft: OrdinaryCreateDraft;
   values: Readonly<Record<string, string>>;
   errors: Readonly<Record<string, string>>;

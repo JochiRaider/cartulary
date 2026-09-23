@@ -5,8 +5,8 @@ import type {
   WorkbookSavedViewPort,
 } from "../ports/WorkbookSavedViewPort";
 
-export const savedViewDiscoveryLimit = 50;
-export const savedViewPreviousCursorLimit = 10;
+const savedViewDiscoveryLimit = 50;
+const savedViewPreviousCursorLimit = 10;
 type Destination = {
   cursor: string | null;
   previous: readonly (string | null)[];

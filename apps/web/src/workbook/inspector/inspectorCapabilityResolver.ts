@@ -10,6 +10,71 @@ import {
 
 export type InspectorRecordHistoryAction = "delete" | "restore" | "rollback";
 
+type RelatedCreationOwner =
+  | "contextual"
+  | "coordination"
+  | "note"
+  | "timeline_evidence"
+  | "assessment";
+
+/** A route alone never grants a generic mutation lifetime. */
+export function inspectorRelatedCreationOwner(
+  viewSchemaId: string,
+  feature: InspectorFeatureGroup,
+): RelatedCreationOwner | null {
+  const route = feature.routeBinding;
+  if (feature.featureGroupKey === "create_related.note")
+    return route.kind === "record_action" &&
+      route.owner === "record_linked_note_create_route" &&
+      route.actionKey === feature.featureGroupKey
+      ? "note"
+      : null;
+  if (
+    route.kind !== "view_row_create" ||
+    route.owner !== "view_row_create_route"
+  )
+    return null;
+  const targets = {
+    "create_related.task_request": [
+      "cartulary.view.task_requests.v1",
+      "contextual",
+    ],
+    "create_related.decision": ["cartulary.view.decisions.v1", "contextual"],
+    "create_related.comm_log": ["cartulary.view.comm_log.v1", "coordination"],
+    "create_related.handoff": ["cartulary.view.handoff.v1", "coordination"],
+    "create_related.status_review": [
+      "cartulary.view.status_review.v1",
+      "coordination",
+    ],
+    "create_related.lesson": ["cartulary.view.lesson.v1", "coordination"],
+    "create_related.evidence": [
+      "cartulary.view.evidence.v1",
+      "timeline_evidence",
+    ],
+    "create_related.assessment": [
+      "cartulary.view.assessments.v1",
+      "assessment",
+    ],
+  } as const satisfies Readonly<
+    Record<string, readonly [string, RelatedCreationOwner]>
+  >;
+  const binding = Object.entries(targets).find(
+    ([key]) => key === feature.featureGroupKey,
+  )?.[1];
+  if (!binding || binding[0] !== route.targetViewSchemaId) return null;
+  if (
+    binding[1] === "timeline_evidence" &&
+    viewSchemaId !== "cartulary.view.timeline.v2"
+  )
+    return null;
+  if (
+    binding[1] === "assessment" &&
+    viewSchemaId !== "cartulary.view.assessments.v1"
+  )
+    return null;
+  return binding[1];
+}
+
 export type InspectorContextualCapability =
   | {
       readonly kind: "timeline_capture";
@@ -117,7 +182,8 @@ function contextualCapability(
     return { featureGroup, kind: "note_create", semanticKey };
   if (
     featureGroup.routeBinding.kind === "view_row_create" &&
-    featureGroup.routeBinding.owner === "view_row_create_route"
+    featureGroup.routeBinding.owner === "view_row_create_route" &&
+    inspectorRelatedCreationOwner(viewSchemaId, featureGroup) !== null
   ) {
     return { featureGroup, kind: "create_related", semanticKey };
   }

@@ -34,6 +34,7 @@
       "build-server",
       "build-server-harness",
       "check-harness-smoke",
+      "frontend-fallow-static",
       "frontend-import-boundary-check",
       "frontend-typecheck",
       "generate-drift",

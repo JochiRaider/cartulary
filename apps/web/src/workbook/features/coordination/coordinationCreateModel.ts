@@ -117,9 +117,8 @@ export function coordinationIds(
 ): readonly string[] {
   return raw ? raw.split("\n") : [];
 }
-export const exactRecordId = (raw: string) =>
+const exactRecordId = (raw: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(raw);
-export { normalizeWorkbookAuthoringText as normalizeCoordinationText } from "../../models/workbookAuthoringValues";
 export function prepareCoordination(
   draft: CoordinationDraft,
   clientTxnId: string,

@@ -20,7 +20,6 @@ tracking.
 | [createTimelineMentionResolutionAdapter.ts](createTimelineMentionResolutionAdapter.ts) | Resolves one versioned entity-mention action and validates its exact source and mention response identities. |
 | [createTimelineMentionSourceReader.ts](createTimelineMentionSourceReader.ts) | Reads and validates authoritative Timeline sources for mention actions. |
 | [createTimelineRecordActionAdapter.ts](createTimelineRecordActionAdapter.ts) | Executes and normalizes Timeline review and supersede actions. |
-| [createTimelineRelatedRecordCommandAdapter.ts](createTimelineRelatedRecordCommandAdapter.ts) | Creates one inspector-related record and performs the Evidence-only source-row link through exact commands. |
 | [createTimelineRowMutationEditorAdapter.ts](createTimelineRowMutationEditorAdapter.ts) | Translates active editor promotion, cancellation and explicit recovery focus; background accepted restoration stays with viewport continuity. |
 | [createTimelineScalarGridCommitAdapter.ts](createTimelineScalarGridCommitAdapter.ts) | Adapts Grid Adapter scalar commits to the Timeline scalar-save command and exact settlement promise. |
 | [createTimelineSocketTransactionAdapter.ts](createTimelineSocketTransactionAdapter.ts) | Adapts Timeline accepted/action transaction tracking to the shell-lifetime runtime ledger. |

@@ -33,12 +33,6 @@ export type RowValues = {
 
 export type FocusFieldKey = keyof RowValues | CollectionDraftKey;
 
-export function isTimelineCollectionDraftKey(
-  field: FocusFieldKey,
-): field is CollectionDraftKey {
-  return field === "hostRefs" || field === "identityRefs" || field === "tags";
-}
-
 export type TimelineScalarBinding = {
   readonly kind: "scalar";
   readonly fieldKey: TimelineEditableFieldKey;

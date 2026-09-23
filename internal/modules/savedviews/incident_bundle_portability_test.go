@@ -25,7 +25,7 @@ func TestIncidentBundleSavedViewCanonicalExport_Integration(t *testing.T) {
 	actorID := uuid.MustParse("00000000-0000-4000-8000-000000110301")
 	incidentID := uuid.MustParse("00000000-0000-4000-8000-000000110302")
 	emptyIncidentID := uuid.MustParse("00000000-0000-4000-8000-000000110303")
-	canonicalLayout, layoutErr := viewschema.NormalizeLayout(nil, "cartulary.view.timeline.v2")
+	canonicalLayout, layoutErr := viewschema.DefaultLayout("cartulary.view.timeline.v2")
 	if layoutErr != nil {
 		t.Fatalf("build canonical export layout: %#v", layoutErr)
 	}
@@ -779,17 +779,11 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 
 func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 	t.Run("versioned layout grammar and lossless current preparation", func(t *testing.T) {
-		for _, version := range []int{3, 4} {
+		for _, version := range []int{4} {
 			row := validPortableSavedViewRow(t)
 			layout := row["layout_json"].(map[string]any)
 			boundary := any("timeline.activity_synopsis_text")
-			if version == 3 {
-				layout["layout_schema_id"] = viewschema.LegacyLayoutSchemaID
-				delete(layout, "frozen_through_field_key")
-				boundary = nil
-			} else {
-				layout["frozen_through_field_key"] = boundary
-			}
+			layout["frozen_through_field_key"] = boundary
 			original := encodePortableSavedViewRow(t, row)
 			ctx := strictSavedViewImportContext(t)
 			ctx.BundleVersion = version
@@ -1004,7 +998,7 @@ func validPortableSavedViewRow(t testing.TB) map[string]any {
 	if queryErr != nil {
 		t.Fatalf("build canonical saved-view query: %#v", queryErr)
 	}
-	layoutJSON, layoutErr := viewschema.NormalizeLayout(nil, "cartulary.view.timeline.v2")
+	layoutJSON, layoutErr := viewschema.DefaultLayout("cartulary.view.timeline.v2")
 	if layoutErr != nil {
 		t.Fatalf("build canonical saved-view layout: %#v", layoutErr)
 	}

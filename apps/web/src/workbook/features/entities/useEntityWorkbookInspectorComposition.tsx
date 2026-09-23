@@ -18,7 +18,6 @@ import {
   type Dispatch,
   type RefObject,
   type SetStateAction,
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -70,7 +69,6 @@ import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspector
 import { mergeIdentifierOutcomeText } from "../../models/entityMergePlan";
 import type { EntityRow } from "../../models/entityWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -83,7 +81,6 @@ export function useEntityWorkbookInspectorComposition({
   canMerge,
   contract,
   currentIncidentRole,
-  currentUserId,
   entityActionFeedback,
   entityIndex,
   entityType,
@@ -96,7 +93,6 @@ export function useEntityWorkbookInspectorComposition({
   onAuthorityUncertain,
   onRefreshEntities,
   onRestoreFocus,
-  relatedMutationCommands,
   rows,
   selectedEntity,
   setEntityActionFeedback,
@@ -107,7 +103,6 @@ export function useEntityWorkbookInspectorComposition({
   readonly canMerge: boolean;
   readonly contract: ViewContract;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
-  readonly currentUserId: string | null;
   readonly entityActionFeedback: WorkbookInspectorFeedback | null;
   readonly entityIndex: Record<string, EntityRow>;
   readonly entityType: EntityRow["entityType"];
@@ -123,7 +118,6 @@ export function useEntityWorkbookInspectorComposition({
     readonly requireAcceptance?: boolean;
   }) => Promise<void>;
   readonly onRestoreFocus: () => void;
-  readonly relatedMutationCommands: TimelineRelatedRecordPort;
   readonly rows: readonly EntityRow[];
   readonly selectedEntity: EntityRow | null;
   readonly setEntityActionFeedback: Dispatch<
@@ -167,10 +161,6 @@ export function useEntityWorkbookInspectorComposition({
     onAuthorityUncertain,
     authorityIdentity: inspectorResetKey,
   });
-  const beginMutation = useCallback(
-    () => mutationRuntime.beginExplicitMutation(),
-    [mutationRuntime],
-  );
   const merge = useEntityMergeController({
     canMerge:
       canMerge && !incidentClosed && interactionMode.kind === "editable",
@@ -275,11 +265,6 @@ export function useEntityWorkbookInspectorComposition({
     [inspectorConfig],
   );
   const related = useInspectorCreateRelatedWorkflow({
-    beginMutation,
-    currentUserId,
-    mutationCommands: relatedMutationCommands,
-    onCreated: onRefreshEntities,
-    onFeedback: setEntityActionFeedback,
     selectedSubject:
       selectedEntity === null || subject?.kind !== "live"
         ? null
@@ -542,10 +527,7 @@ export function useEntityWorkbookInspectorComposition({
         onClose: close,
         related: {
           begin: related.commands.begin,
-          cancel: related.commands.cancel,
           state: related.snapshot.workflow,
-          submit: related.commands.submit,
-          updateDraft: related.commands.updateDraft,
         },
         subject,
         surfaceTitle: contract.title,

@@ -6,6 +6,7 @@
   "required": [
     "schema_id",
     "base_config",
+    "blocking_web_surface",
     "blocking_package_surfaces",
     "task_surface",
     "harness_entrypoints",
@@ -23,6 +24,15 @@
       "required": ["path"],
       "properties": {
         "path": { "$ref": "#/$defs/repo_path" }
+      }
+    },
+    "blocking_web_surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "rules"],
+      "properties": {
+        "root": { "const": "apps/web" },
+        "rules": { "const": ["unused_files", "unused_exports", "unused_types"] }
       }
     },
     "blocking_package_surfaces": {

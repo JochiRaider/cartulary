@@ -48,7 +48,6 @@ const browserGroupKeys = new Set([
 const allowedGroupKinds = new Set([
   "webserver-backed",
   "duration_balanced_specs",
-  "functional",
   "support",
   "stateful",
   "stateful_partition",

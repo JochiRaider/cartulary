@@ -198,6 +198,33 @@ function validateVitePublicAssets(root, vitePublicAssets) {
   }
 }
 
+function collectViteModuleEntrypoints(root, vitePublicAssets) {
+  const entries = [];
+  for (const htmlFile of vitePublicAssets.html_entry_files) {
+    const source = readFileSync(repoPath(root, htmlFile), "utf8")
+      .replace(/<!--[\s\S]*?-->/gu, "");
+    for (const [tag] of source.matchAll(/<script\b[^>]*>/giu)) {
+      const attributes = new Map(Array.from(
+        tag.matchAll(/\b(type|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/giu),
+        (match) => [match[1].toLowerCase(), match[2] ?? match[3] ?? match[4]],
+      ));
+      if (attributes.get("type") !== "module" || !attributes.has("src")) continue;
+      const sourcePath = attributes.get("src");
+      if (/^(?:[a-z]+:|\/\/)/iu.test(sourcePath)) {
+        throw new Error(`${htmlFile} module entry must be a local source file`);
+      }
+      const directory = path.posix.dirname(htmlFile);
+      const entry = path.posix.join(directory, sourcePath.replace(/^\//u, "").split(/[?#]/u)[0]);
+      if (!entry.startsWith(`${directory}/`)) {
+        throw new Error(`${htmlFile} module entry escapes its application root`);
+      }
+      assertExistingFile(root, entry, `${htmlFile} module entry`);
+      entries.push(entry);
+    }
+  }
+  return uniqueSorted(entries);
+}
+
 function packageJSONHasDependency(root, packageName) {
   const packageJSON = readJSON(repoPath(root, "package.json"));
   return [
@@ -300,6 +327,7 @@ export function buildResolvedFallowConfig({
   const taskSurfaceScripts = collectTaskSurfaceScripts(root, owner);
   const harnessEntrypoints = collectHarnessEntrypoints(root, owner);
   const harnessDynamicExports = collectHarnessDynamicExports(root, owner);
+  const viteModuleEntrypoints = collectViteModuleEntrypoints(root, owner.vite_public_assets);
   const executableToolingDependencies = uniqueSorted(
     owner.executable_tooling_dependencies.map((entry) => entry.package_name),
   );
@@ -310,6 +338,7 @@ export function buildResolvedFallowConfig({
       ...(baseConfig.entry ?? []),
       ...taskSurfaceScripts,
       ...harnessEntrypoints,
+      ...viteModuleEntrypoints,
     ]),
     ignoreExports: mergeIgnoreExportRules([
       ...(baseConfig.ignoreExports ?? []),
@@ -360,6 +389,7 @@ export function buildResolvedFallowConfig({
       ),
       vitest_setup_files: owner.vitest.setup_files.length,
       vite_public_assets: owner.vite_public_assets.always_used_files.length,
+      vite_module_entry_points: viteModuleEntrypoints.length,
       executable_tooling_dependencies: executableToolingDependencies.length,
     },
   };

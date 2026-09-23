@@ -74,10 +74,5 @@ export function useNoteCreateAttachment(
     () => current.current.context?.owner.detach(token),
     [token],
   );
-  const update = useCallback(
-    (key: string, value: string) =>
-      current.current.context?.owner.update(key, value),
-    [],
-  );
-  return { workflow, begin, detach, update };
+  return { workflow, begin, detach };
 }

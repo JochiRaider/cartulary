@@ -65,8 +65,8 @@
       "additionalProperties": false,
       "required": ["blocking", "failure_on_issues"],
       "properties": {
-        "blocking": { "const": false },
-        "failure_on_issues": { "const": false }
+        "blocking": { "type": "boolean" },
+        "failure_on_issues": { "type": "boolean" }
       }
     },
     "artifacts": {

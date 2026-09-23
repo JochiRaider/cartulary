@@ -364,7 +364,8 @@ describe("workbook query controls", () => {
 
     expect(
       workbookLayoutStateFromSavedViewLayoutJson(contract, {
-        layout_schema_id: "cartulary.layout.v1",
+        layout_schema_id: "cartulary.layout.v2",
+        frozen_through_field_key: null,
         column_order: ["timeline.activity_synopsis_text", "row_version"],
         hidden_field_keys: ["record_id"],
         column_widths: [],

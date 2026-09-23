@@ -76,10 +76,5 @@ export function useContextualCreateAttachment(
     () => current.current.context?.owner.detach(token),
     [token],
   );
-  const update = useCallback(
-    (field: string, value: string) =>
-      current.current.context?.owner.update(field, value),
-    [],
-  );
-  return { workflow, begin, detach, update };
+  return { workflow, begin, detach };
 }

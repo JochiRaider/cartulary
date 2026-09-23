@@ -55,7 +55,7 @@ func TestManifestProjectsExactSourceStateSurfaceAndDefensiveCopies(t *testing.T)
 	if got := validated.pathSpecs()[0]; got.allowedColumns[0] != "record_link_id" || got.stableIdentity[0] != "record_link_id" {
 		t.Fatalf("path accessor exposed manifest state: %#v", got)
 	}
-	if got := validated.descriptor(); got.Paths[0].Versions[0] != 3 || got.InvariantIDs[0] != expectedInvariants[0] {
+	if got := validated.descriptor(); got.Paths[0].Versions[0] != 4 || got.InvariantIDs[0] != expectedInvariants[0] {
 		t.Fatalf("descriptor exposed manifest state: %#v", got)
 	}
 }

@@ -133,24 +133,36 @@ func TestLayoutVersionCompatibilityAndFrozenBoundary_Unit(t *testing.T) {
 			t.Fatalf("round trip changed: %s / %s / %+v", first, second, err)
 		}
 	})
-	t.Run("legacy conversion and original portable canonicality", func(t *testing.T) {
-		layout := defaultLayoutMap(t, schema)
-		delete(layout, "frozen_through_field_key")
-		layout["layout_schema_id"] = LegacyLayoutSchemaID
-		raw, _ := json.Marshal(layout)
-		legacy, err := NormalizeLegacyLayout(raw, schema)
-		if err != nil {
-			t.Fatalf("legacy: %+v", err)
+	t.Run("request defaults never apply to stored layouts", func(t *testing.T) {
+		for _, raw := range []json.RawMessage{nil, {}, []byte("{}"), []byte(" { } ")} {
+			if _, err := NormalizeLayout(raw, schema); err == nil {
+				t.Fatal("stored default accepted")
+			}
+			got, err := NormalizeLayoutRequest(raw, schema)
+			want, _ := DefaultLayout(schema)
+			if err != nil || string(got) != string(want) {
+				t.Fatalf("request default: %s / %v", got, err)
+			}
 		}
-		normalized := normalizeLayoutMap(t, schema, layout)
-		if normalized["layout_schema_id"] != LayoutSchemaID || normalized["frozen_through_field_key"] != nil {
-			t.Fatal(normalized)
-		}
-		var original map[string]any
-		if json.Unmarshal(legacy, &original) != nil || original["layout_schema_id"] != LegacyLayoutSchemaID || len(original) != 4 {
-			t.Fatal(string(legacy))
+		for _, raw := range []json.RawMessage{[]byte("null"), []byte("[]"), []byte("{bad"), []byte("{}{}")} {
+			if _, err := NormalizeLayoutRequest(raw, schema); err == nil {
+				t.Fatal("malformed request default accepted")
+			}
 		}
 	})
+	t.Run("legacy grammar rejected at both boundaries", func(t *testing.T) {
+		layout := defaultLayoutMap(t, schema)
+		delete(layout, "frozen_through_field_key")
+		layout["layout_schema_id"] = "cartulary.layout.v1"
+		raw, _ := json.Marshal(layout)
+		if _, err := NormalizeLayout(raw, schema); err == nil {
+			t.Fatal("legacy stored layout accepted")
+		}
+		if _, err := NormalizeLayoutRequest(raw, schema); err == nil {
+			t.Fatal("legacy request layout accepted")
+		}
+	})
+
 	for name, change := range map[string]func(map[string]any){
 		"unknown version":     func(m map[string]any) { m["layout_schema_id"] = "cartulary.layout.v99" },
 		"missing boundary":    func(m map[string]any) { delete(m, "frozen_through_field_key") },
@@ -158,7 +170,7 @@ func TestLayoutVersionCompatibilityAndFrozenBoundary_Unit(t *testing.T) {
 		"technical boundary":  func(m map[string]any) { m["frozen_through_field_key"] = "record_id" },
 		"non-string boundary": func(m map[string]any) { m["frozen_through_field_key"] = 1 },
 		"unknown member":      func(m map[string]any) { m["frozen_count"] = 1 },
-		"legacy extension":    func(m map[string]any) { m["layout_schema_id"] = LegacyLayoutSchemaID },
+		"legacy extension":    func(m map[string]any) { m["layout_schema_id"] = "cartulary.layout.v1" },
 		"duplicate order":     func(m map[string]any) { m["column_order"] = append(m["column_order"].([]any), "host.fqdn") },
 		"invalid width": func(m map[string]any) {
 			m["column_widths"] = []any{map[string]any{"field_key": "host.fqdn", "width_px": 4097}}

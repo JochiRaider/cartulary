@@ -914,7 +914,21 @@ Every material `react-data-grid` state surface used by Cartulary MUST map to a C
 
 The view-schema v2 discovery field capability `grid_editable` is the sole client authority for existing-row inline editing. `write_kind` continues to describe route-level write shape and MUST NOT be treated as an editability shortcut. Create-only Indicator and append-only Assessment direct values remain non-grid-editable. Writable incident-member user references use exact internal `user_id` values under `incident_member_user_ref_v1`; app code must not submit a label or email address.
 
-Saved layout is app-owned semantic state keyed by `view_schema_id`. `/apps/web` applies and captures the complete `cartulary.layout.v1` permutation, hidden set, and sparse widths; `/packages/grid-adapter` translates semantic order, width, visibility, and reorder events to RDG. Bulk selection, ranges, active cell, inspector subject, data state, and interaction mode remain separate client state and never enter saved layouts.
+Saved layout is app-owned semantic state keyed by `view_schema_id`. `/apps/web` applies and captures the complete `cartulary.layout.v2` permutation, hidden set, sparse widths, and required nullable semantic frozen boundary; `/packages/grid-adapter` translates semantic order, width, visibility, and reorder events to RDG. Bulk selection, ranges, active cell, inspector subject, data state, and interaction mode remain separate client state and never enter saved layouts.
+
+### Current layout and portability cutover
+
+Saved layouts accept only `cartulary.layout.v2`; Incident Bundles admit only format
+4. Core 01 REQ-01-021/143/635 and Core 04 AC-480B/506/508 own the coordinated
+pre-production cutover. Replace server and client together, retire incompatible
+sessions, pending attempts and queued legacy imports, and validate against
+disposable fresh state. A deployment or shared-state reset is a separate operator
+action. Omitted-create and empty-object layout defaults are request-only; stored
+and portable invalid or legacy layouts fail without conversion or read repair.
+Preserve historical schemas, archives, baselines, completed jobs and receipts.
+Rollback requires the matching specification/build and compatible state; do not
+downgrade newly admitted state in place. Preservation of incompatible live state
+requires a separately adopted migration contract.
 
 Workbook owners MUST express conflict, invalid, pending, stale, saved, read-only/derived, inspector-active, bulk-selected, and active-cell presentation through the adapter's semantic state inputs. `/apps/web` MUST NOT pass CSS class names, RDG state tokens, generated coordinates, or DOM selectors as presentation state. `/packages/grid-adapter` owns the deterministic design-precedence compiler, adapter-private row/cell/header/selection/draft/state classes, accessible state attributes, and non-color markers. Stable automation continues to use `/packages/ui-contracts` selectors plus semantic `data-grid-*` attributes; RDG class hashes and element nesting remain non-contractual.
 
@@ -1044,6 +1058,8 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make distclean`     | Remove repo-local tool/runtime caches and frontend dependency install roots after printing the removal list  |
 
 If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both MUST be updated together when this task surface changes.
+
+The existing `frontend-fallow-static` target is required by `check` and inherited by CI. Its bounded web policy rejects unused files, value exports and type exports under `apps/web`; manual shared-package facades retain their separate consumer check. Production and measurement HTML modules, Vitest tests/setup, browser scenarios and authored tooling entries supply reachability roots. Keep those roots explicit in `tools/fallow/reachability_owner.json`; do not add artificial imports or broad suppressions to keep dead code alive. Class-member, duplicate-name, complexity and out-of-scope cleanup findings remain advisory. Analyzer/configuration failures fail the target. JSON, SARIF and a Markdown summary retain review evidence; the Markdown summary is rendered from JSON without another scan and is never a verification input.
 
 The exhaustive public help surface is grouped by operator workflow rather than implementation type:
 

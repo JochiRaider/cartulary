@@ -74,6 +74,7 @@ export class WorkbookTimelineRelatedEvidenceOwner {
   private readonly checkpoints = new Map<string, RelatedEvidenceCheckpoint>();
   private readonly dispatches = new Map<string, number>();
   private readonly refreshes = new Set<string>();
+  private readonly deferredRefreshes = new Set<string>();
   private readonly newIdReviewed = new Set<string>();
   private readonly rows = new Map<string, WorkbookQueryRow>();
   private readonly removed = new Map<string, number>();
@@ -222,6 +223,16 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       checkpoints: this.authority ? [...this.checkpoints.values()] : [],
     };
     for (const listener of this.listeners) listener();
+    // Admission and its acknowledgement own the authorization/read sequence.
+    // Socket-driven projection work resumes after that sequence settles.
+    for (const id of this.deferredRefreshes) {
+      const checkpoint = this.checkpoints.get(id);
+      if (!checkpoint) this.deferredRefreshes.delete(id);
+      else if (this.authority && !this.refreshBlocked(checkpoint)) {
+        this.deferredRefreshes.delete(id);
+        void this.retryRefresh(id);
+      }
+    }
   }
   setAuthority(authority: WorkbookMutationAuthority | null) {
     if (
@@ -267,6 +278,7 @@ export class WorkbookTimelineRelatedEvidenceOwner {
     this.checkpoints.clear();
     this.dispatches.clear();
     this.refreshes.clear();
+    this.deferredRefreshes.clear();
     this.newIdReviewed.clear();
     this.rows.clear();
     this.removed.clear();
@@ -1346,6 +1358,14 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       if (entry.receipt) void this.retryRefresh(id);
     }
   }
+  private refreshBlocked(checkpoint: RelatedEvidenceCheckpoint) {
+    return (
+      this.preparing ||
+      [checkpoint.create, ...checkpoint.links].some(
+        (stage) => stage.phase === "submitting",
+      )
+    );
+  }
   async retryRefresh(id: string) {
     const checkpoint = this.checkpoints.get(id),
       reader = this.reader,
@@ -1361,6 +1381,10 @@ export class WorkbookTimelineRelatedEvidenceOwner {
       this.refreshes.has(id)
     )
       return;
+    if (this.refreshBlocked(checkpoint)) {
+      this.deferredRefreshes.add(id);
+      return;
+    }
     const accepted = [checkpoint.create, ...checkpoint.links].filter(
       (entry) => !!entry.receipt,
     );
