@@ -72,6 +72,8 @@ import { createContractTestContext } from "./contract-test-context.mjs";
 import { assertLazyCaseContext, assertImportAndFailureIsolation } from "./contract-initialization-cases.mjs";
 import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure } from "./contract-catalog-cases.mjs";
 
+import { assertPrivateChildCaptureBoundary } from "./private-child-capture-cases.mjs";
+
 const root = path.resolve(import.meta.dirname, "../../..");
 
 function compareASCII(left, right) {
@@ -954,6 +956,18 @@ function assertGraphContract(context, kind) {
       );
       assert.equal(isolatedPlan.shards.length, 3);
       assert.ok(isolatedPlan.shards.every((shard) => shard.isolated));
+      return;
+    }
+    case "measurement_semantic_identity": {
+      const graph = context.compiler.compile({ kind: "target", target: "browser-e2e-measurement" });
+      const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:measurement:measurement-measurement-timeline-grid-"));
+      const rows = context.catalog.rows.filter((row) => row.selector?.file === "apps/web/e2e/measurement/timeline-grid.spec.ts");
+      assert.equal(groups.length, 4);
+      assert.deepEqual(groups.map((unit) => unit.command.environment.CARTULARY_FIXTURE_ROW_ID).sort(), rows.map((row) => row.row_id).sort());
+      for (const unit of groups) {
+        assert.ok(unit.unit_id.endsWith(unit.command.environment.CARTULARY_FIXTURE_ROW_ID), "full catalog identity survives routing");
+        assert.ok(unit.unit_id.length > 128, "semantic identities are independent of private capture component bounds");
+      }
       return;
     }
     case "target_graph_validation": {
@@ -1933,6 +1947,7 @@ function semanticCase(id, name, acceptanceIDs, run) {
 
 const suiteCases = {
   boundaries: [
+    semanticCase("private_child_capture_boundary", "private child capture owns allocation and exception-safe cleanup", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-014", "TH-HARNESS-AC-015"], assertPrivateChildCaptureBoundary),
     semanticCase("public_timezone_projection_boundary", "packaged timezone projection excludes backend-only artifacts", ["TH-HARNESS-AC-005"], () => {
       execFileSync(process.execPath, ["tools/harness/generated-artifacts/tests/test-json-shapes.mjs"], { cwd: root, stdio: "pipe" });
     }),
@@ -1968,6 +1983,7 @@ const suiteCases = {
     semanticCase("active_owner_row_coverage", "every active owner retains current row coverage", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "active_owner_coverage")),
   ],
   graph: [
+    semanticCase("measurement_semantic_identity", "measurement groups preserve complete semantic identities independently of private storage", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "measurement_semantic_identity")),
     semanticCase("aggregate_graph_determinism", "aggregate work graphs are deterministic", ["TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "aggregate_determinism")),
     semanticCase("row_evidence_output_contract", "row graphs declare exact current-run evidence outputs", ["TH-HARNESS-AC-087"], (context) => assertGraphContract(context, "row_evidence_outputs")),
     semanticCase("go_lpt_cpu_budget", "Go LPT planning preserves row closure and CPU budgets", ["TH-HARNESS-AC-087"], (context) => assertGraphContract(context, "go_lpt_budget")),

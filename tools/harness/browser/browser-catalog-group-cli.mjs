@@ -6,6 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+  publicExitCodeForFailure,
   redactString,
   redactValue,
   secureMkdir,
@@ -17,6 +18,7 @@ import {
   playwrightGroupExitCode,
 } from "../execution/runners/playwright.mjs";
 import { groupRowsByPerformanceFixture } from "../performance-fixture/index.mjs";
+import { reportCommandFailure } from "../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
@@ -276,9 +278,10 @@ async function main() {
   const startedAt = new Date().toISOString();
   const started = Date.now();
   let child;
+  let primaryError;
+  let cleanupError;
   try {
     child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
-      captureID: `browser-${stage.name}-${group.name}`.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-"),
       cwd: root,
       env: {
         ...process.env,
@@ -300,11 +303,18 @@ async function main() {
     });
     secureWriteFile(stdoutPath, redactString(child.stdout ?? ""));
     secureWriteFile(stderrPath, redactString(child.stderr ?? ""));
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    child?.cleanup();
-    rendererLease?.cleanup();
+    for (const release of [() => child?.cleanup(), () => rendererLease?.cleanup()]) {
+      try { release(); }
+      catch (error) { cleanupError ??= error; }
+    }
+    if (cleanupError) process.stderr.write("private browser resources cleanup failed (cleanup_error)\n");
     process.removeListener("SIGINT", onInterrupt);
     process.removeListener("SIGTERM", onTerminate);
+    if (cleanupError && !primaryError && !child) throw cleanupError;
   }
   let report = null;
   try {
@@ -339,9 +349,10 @@ async function main() {
       );
     }
   }
-  const exitCode = measurementEvidenceError === null
+  const primaryExitCode = measurementEvidenceError === null
     ? playwrightGroupExitCode(rowResults, child)
     : 11;
+  const exitCode = primaryExitCode || (cleanupError ? 12 : 0);
   const finishedAt = new Date().toISOString();
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
@@ -382,6 +393,7 @@ async function main() {
   };
   validateSchemaSync(result.schema_id, result);
   secureWriteFile(path.join(artifactRoot, "browser-group-result.json"), `${JSON.stringify(result, null, 2)}\n`);
+  if (exitCode === 12 && cleanupError) process.stderr.write("failure_class=harness failure_reason=cleanup_error\n");
   if (exitCode !== 0) {
     process.stderr.write(
       `[FAIL] target=${group.target} group=${group.name} exit_code=${exitCode} failed_rows=${rowResults.filter((row) => row.terminal_state !== "passed").length}\n`,
@@ -394,5 +406,6 @@ try {
   process.exitCode = await main();
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
-  process.exitCode = error.message === usage() ? 2 : 11;
+  if (error.message === usage()) process.exitCode = 2;
+  else process.exitCode = publicExitCodeForFailure(reportCommandFailure(root, error, { failure_class: "artifact", failure_reason: "artifact_error" }));
 }

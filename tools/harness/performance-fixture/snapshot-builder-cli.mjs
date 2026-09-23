@@ -5,7 +5,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { validateSchemaSync } from "../contract/index.mjs";
+import { publicExitCodeForFailure, validateSchemaSync } from "../contract/index.mjs";
+import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
 import {
   loadPerformanceFixtureSnapshotRegistry,
@@ -107,18 +108,25 @@ export async function runSnapshotBuilder(argv) {
     "--builder-unit-id", builderUnitID,
     "--artifact-file", artifact,
   ], {
-    captureID: `snapshot-builder-${expectedKey.slice(0, 16)}`,
     cwd: repoRoot,
     env: process.env,
     repoRoot,
     runRoot: runRoot(),
   });
+  let primaryError;
   try {
     if (result.status !== 0) {
       throw new Error((result.stderr || result.stdout || `snapshot builder exited ${result.status}`).trim());
     }
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    result.cleanup();
+    try { result.cleanup(); }
+    catch (error) {
+      if (!primaryError) throw error;
+      process.stderr.write("snapshot capture cleanup failed (cleanup_error)\n");
+    }
   }
   validateExisting(artifact, expected);
   validateDiagnostics(diagnostics, {
@@ -134,6 +142,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     process.stdout.write(`${await runSnapshotBuilder(process.argv.slice(2))}\n`);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
-    process.exitCode = 1;
+    if (error instanceof CommandFailure) {
+      const failure = reportCommandFailure(repoRoot, error, error);
+      process.stderr.write(`failure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
+      process.exitCode = publicExitCodeForFailure(failure);
+    } else process.exitCode = 1;
   }
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
@@ -59,6 +59,8 @@ try {
   assert.equal(rowOutcome.failure_reason, "artifact_error", JSON.stringify(rowOutcome));
   assert.ok(lstatSync(path.join(runRoot, "rows", `${rowID}.json`), { throwIfNoEntry: false }), JSON.stringify(rowOutcome));
   assert.equal(JSON.parse(readFileSync(path.join(runRoot, "rows", `${rowID}.json`))).failure_reason, "artifact_error", "canonical shell row preserves the cause before the executor writes its result");
+  assert.deepEqual(readdirSync(runtime.privatePath("child-captures")), [], "failed row execution releases its private captures");
+  assert.equal(readdirSync(runtime.root).some((name) => name.startsWith("command-failure-")), false, "row execution releases command failure contexts");
   const waiting = { unit_id: "target:build-web", kind: "artifact", command: { executable: process.execPath, args: [fixture, "wait"], environment: { CARTULARY_TEST_TARGET: "build-web" } }, timeout_ms: 500 };
   const timedOut = await executeUnitProcess(waiting, { cwd: root, environment });
   assert.equal(timedOut.failure_reason, "timeout_failure");

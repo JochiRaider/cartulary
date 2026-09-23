@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadTestCatalog, targetForCatalogRow } from "../../test-catalog/index.mjs";
 import { publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
-import { createCommandFailureContext, readCommandFailure } from "../../runtime/command-failure.mjs";
+import { createCommandFailureContext, readCommandFailure, reportCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
@@ -57,7 +57,7 @@ function writeResult(result) {
   writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
 }
 
-async function execute(invocation, index) {
+async function execute(invocation) {
   const commandID = [...readTaskCommandTargets()].find(([, target]) => target === process.env.CARTULARY_TEST_TARGET)?.[0];
   const context = invocation.detailsFile && commandID ? createCommandFailureContext({
     repoRoot: root, environment: process.env, unitID: process.env.CARTULARY_WORK_UNIT_ID || `row:${invocation.rows[0].row_id}`, commandID,
@@ -65,15 +65,25 @@ async function execute(invocation, index) {
   let result;
   try {
     result = await runPrivateCapturedProcess(invocation.command, invocation.args, {
-      captureID: `row-runner-${process.pid}-${index}`,
       cwd: root,
       env: { ...process.env, ...context?.environment },
       repoRoot: root,
       runRoot: runRoot(),
       tailBytes: 1024 * 1024,
     });
-  } catch (error) { context?.close(); throw error; }
-  return { ...result, commandFailure: context?.read() ?? null, cleanup() { result.cleanup(); context?.close(); } };
+  } catch (error) {
+    try { context?.close(); }
+    catch { process.stderr.write("row command context cleanup failed (cleanup_error)\n"); }
+    throw error;
+  }
+  return { ...result, commandFailure: context?.read() ?? null, cleanup() {
+    let failure;
+    for (const release of [() => result.cleanup(), () => context?.close()]) {
+      try { release(); }
+      catch (error) { failure ??= error; }
+    }
+    if (failure) throw failure;
+  } };
 }
 
 function invocationsForRows(rows) {
@@ -167,8 +177,9 @@ async function main() {
   const startedAt = new Date().toISOString();
   const started = Date.now();
   const results = [];
-  for (const [index, invocation] of invocations.entries()) {
-    const execution = await execute(invocation, index);
+  let cleanupFailed = false;
+  for (const invocation of invocations) {
+    const execution = await execute(invocation);
     try {
       if (rows[0].runner === "shell") execution.commandFailure = readCommandFailure(root);
       results.push(...await adapt(invocation, execution));
@@ -177,7 +188,11 @@ async function main() {
         if (execution.stderr) process.stderr.write(redactString(execution.stderr));
       }
     } finally {
-      execution.cleanup();
+      try { execution.cleanup(); }
+      catch {
+        cleanupFailed = true;
+        process.stderr.write("row capture cleanup failed (cleanup_error)\n");
+      }
     }
   }
   for (const result of results) {
@@ -196,7 +211,10 @@ async function main() {
       );
     }
   }
-  if (results.every((result) => result.terminal_state === "passed")) return 0;
+  if (results.every((result) => result.terminal_state === "passed")) {
+    if (cleanupFailed) process.stderr.write("failure_class=harness failure_reason=cleanup_error\n");
+    return cleanupFailed ? 12 : 0;
+  }
   const failures = results
     .filter((result) => result.terminal_state !== "passed")
     .map(canonicalFailure);
@@ -207,5 +225,6 @@ try {
   process.exitCode = await main();
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
-  process.exitCode = error.message === usage() ? 2 : 11;
+  if (error.message === usage()) process.exitCode = 2;
+  else process.exitCode = publicExitCodeForFailure(reportCommandFailure(root, error, { failure_class: "artifact", failure_reason: "artifact_error" }));
 }

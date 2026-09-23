@@ -20,6 +20,7 @@ import {
   compactJSONString,
   prettyJSONString,
   publicExitCodeForSummary,
+  primaryPublicFailure,
   redactString,
   resolveRetainedArtifactIdentity,
   secureMkdir,
@@ -156,6 +157,8 @@ async function runWrapped(target, invocation) {
   const startedMs = monotonicMs();
   const childEnvironment = buildMakeNodeToolChildEnv(target, process.env);
   let child;
+  let captureFailure;
+  let cleanupFailed = false;
   if (quietLikeOutput()) {
     const suiteRuntime = createSuiteRuntime({
       repoRoot: process.cwd(),
@@ -172,16 +175,20 @@ async function runWrapped(target, invocation) {
         process.execPath,
         [invocation.script, ...invocation.args],
         {
-          captureID: `make-node-tool-${target}`,
           cwd: process.cwd(),
           env: childEnvironment,
           repoRoot: process.cwd(),
           runRoot: runRootAbs,
         },
       );
-      child.cleanup();
+    } catch (error) {
+      captureFailure = error;
+      child = { status: 11, stdout: "", stderr: `${error.message}\n` };
     } finally {
-      suiteRuntime.close();
+      for (const release of [() => child?.cleanup?.(), () => suiteRuntime.close()]) {
+        try { release(); }
+        catch { cleanupFailed = true; }
+      }
     }
   } else {
     child = spawnSync(process.execPath, [invocation.script, ...invocation.args], {
@@ -190,6 +197,7 @@ async function runWrapped(target, invocation) {
     });
     if (child.error) throw child.error;
   }
+  if (cleanupFailed) child.stderr = `${child.stderr ?? ""}private tool resources cleanup failed (cleanup_error)\n`;
   const status = child.status ?? 1;
   const stdoutFile = quietLikeOutput()
     ? writeIfNonEmpty(stdoutLog, child.stdout ?? "")
@@ -198,10 +206,10 @@ async function runWrapped(target, invocation) {
     ? writeIfNonEmpty(stderrLog, child.stderr ?? "")
     : null;
   const usageFailure = status === 2;
-  const fallbackFailureClass = usageFailure
+  const fallbackFailureClass = captureFailure ? "artifact" : usageFailure
     ? "config"
     : classifyExecutionFailure(target, target, invocation.script);
-  const fallbackFailureReason = usageFailure
+  const fallbackFailureReason = captureFailure ? "artifact_error" : usageFailure
     ? "usage_error"
     : classifyExecutionFailureReason(target, target, invocation.script);
   const fallbackFailureHeadline = usageFailure
@@ -210,7 +218,7 @@ async function runWrapped(target, invocation) {
   const runRoot = relToCwd(runRootAbs);
   const summaryFile = toolSummaryPath(targetRootAbs);
   const summaryRel = runRelativePath(runRootAbs, summaryFile);
-  const childSummary = readToolSummary(summaryFile, target);
+  const childSummary = captureFailure ? null : readToolSummary(summaryFile, target);
   const summary = childSummary ?? buildToolRunSummary({
     target,
     command: ["make", target],
@@ -242,6 +250,13 @@ async function runWrapped(target, invocation) {
           ],
     rerunCommands: [`make ${target}`],
   });
+  if (cleanupFailed) {
+    summary.failures.push({ target, label: target, failure_class: "harness", failure_reason: "cleanup_error", headline: "private tool resources cleanup failed", artifact: stderrFile ? relToCwd(stderrFile) : "" });
+    summary.status = "fail";
+    const primary = primaryPublicFailure(summary.failures);
+    summary.failure_class = primary.failure_class;
+    summary.failure_reason = primary.failure_reason;
+  }
   summary.summary_artifacts = addUniqueArtifacts(summary.summary_artifacts, [
     fileArtifactRef("tool_run_summary", summaryRel),
   ]);
