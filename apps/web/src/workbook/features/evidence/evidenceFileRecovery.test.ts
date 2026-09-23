@@ -149,6 +149,70 @@ function fixture() {
 }
 
 describe("retained Evidence file recovery", () => {
+  it("starts no upload for an unavailable original Timeline source", async () => {
+    for (const unavailable of [
+      "missing",
+      "superseded",
+      "unverifiable",
+      "draft",
+    ] as const) {
+      const f = fixture();
+      const page = vi.fn<WorkbookAuthoringReadPort["page"]>(async () => {
+        if (unavailable === "unverifiable") throw new Error("read unavailable");
+        return {
+          kind: "accepted",
+          value: {
+            candidates:
+              unavailable === "superseded"
+                ? [
+                    {
+                      recordId: sourceId,
+                      viewSchemaId: timelineViewSchemaId,
+                      displayText: "Original",
+                      row: {
+                        ...f.source,
+                        cells: {
+                          ...f.source.cells,
+                          "timeline.capture_state": { value: "superseded" },
+                        },
+                      },
+                    },
+                  ]
+                : [],
+            hasMore: false,
+            nextCursor: null,
+          },
+        };
+      });
+      const owner = new WorkbookTimelineFileOwner(incidentId, f.ids, f.effects);
+      owner.configure(
+        { ...f.reader, page },
+        async () => authority,
+        f.transport,
+        createTimelineFileLinkTransport(undefined),
+      );
+      owner.configureDrafts({
+        subscribe: () => () => {},
+        resolve: () => ({ kind: "unavailable" }),
+        attachEvidence: vi.fn(),
+      });
+      owner.setAuthority(authority);
+      owner.begin(
+        {
+          key: unavailable === "draft" ? "draft-original" : sourceId,
+          recordId: unavailable === "draft" ? null : sourceId,
+          rowVersion: unavailable === "draft" ? null : 1,
+        },
+        [f.file],
+      );
+      await waitFor(() => expect(owner.getSnapshot()[0]?.busy).toBe(false));
+      expect(f.transport.slot).not.toHaveBeenCalled();
+      expect(f.transport.transfer).not.toHaveBeenCalled();
+      expect(f.transport.finalize).not.toHaveBeenCalled();
+      expect(f.effects.coordinate).not.toHaveBeenCalled();
+      owner.retire();
+    }
+  });
   it("rejects multiple files without choosing or discarding one", () => {
     const f = fixture();
     expect(admitEvidenceFile([f.file, f.file])).toEqual({

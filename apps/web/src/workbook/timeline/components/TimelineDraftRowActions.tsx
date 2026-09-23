@@ -4,11 +4,10 @@ import {
   timelineDraftEvidenceFileInputTestId,
 } from "@cartulary/ui-contracts";
 import { Paperclip } from "lucide-react";
-import {
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-  useRef,
-} from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useEvidenceFilePicker } from "../../features/evidence/EvidenceAttachmentEntry";
+import type { TimelineFileSource } from "../../features/evidence/timelineFileOperation";
+import { captureTimelineFileSource } from "../models/timelineEvidenceAttachmentPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { actionButtonStyle } from "./TimelineWorkbookStyles";
 
@@ -19,12 +18,16 @@ export function DraftRowCreateButton({
 }: {
   readonly onCreate: (row: WorkbookRow) => void;
   readonly onFilesSelected?: (
-    row: WorkbookRow,
-    files: FileList | File[],
+    source: TimelineFileSource,
+    files: readonly File[],
   ) => void;
   readonly row: WorkbookRow;
 }) {
-  const draftEvidenceInputRef = useRef<HTMLInputElement | null>(null);
+  const source = captureTimelineFileSource(row);
+  const picker = useEvidenceFilePicker(
+    (files) => onFilesSelected?.(source, files),
+    row.pendingSignature !== null,
+  );
   const handleCreateClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
     if (event.currentTarget.disabled || event.button !== 0) return;
     event.stopPropagation();
@@ -36,7 +39,7 @@ export function DraftRowCreateButton({
     if (event.currentTarget.disabled) return;
     event.preventDefault();
     event.stopPropagation();
-    draftEvidenceInputRef.current?.click();
+    picker.open();
   };
 
   return (
@@ -68,6 +71,7 @@ export function DraftRowCreateButton({
       {onFilesSelected ? (
         <>
           <button
+            data-grid-editor-external-action="true"
             aria-label="Attach evidence to draft timeline row"
             disabled={row.pendingSignature !== null}
             style={{
@@ -79,22 +83,21 @@ export function DraftRowCreateButton({
             type="button"
             onClick={openDraftEvidencePicker}
             onMouseDown={(event) => {
+              event.preventDefault();
               event.stopPropagation();
             }}
           >
             <Paperclip aria-hidden="true" size={12} />
           </button>
           <input
-            ref={draftEvidenceInputRef}
+            ref={picker.input}
+            aria-label="Attach evidence to draft timeline row"
             data-testid={timelineDraftEvidenceFileInputTestId()}
             disabled={row.pendingSignature !== null}
             style={{ display: "none" }}
             type="file"
             accept="image/*,.txt,.pdf,text/plain,application/pdf"
-            onChange={(event) => {
-              onFilesSelected(row, event.currentTarget.files ?? []);
-              event.currentTarget.value = "";
-            }}
+            onClick={picker.capture}
           />
         </>
       ) : null}

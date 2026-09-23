@@ -3712,9 +3712,10 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineEvidenceAttachmentPlan.test.ts",
         "titles": [
-          "Timeline Evidence attachment target plan re-reads the current row version before each dispatch",
-          "Timeline Evidence attachment target plan rejects deleted, replaced, and pending targets",
-          "Timeline Evidence attachment target plan rejects invalid action contexts"
+          "Timeline file gesture targets captures only the explicit row and current version without selection inputs",
+          "Timeline file gesture targets fails closed for missing ambiguous and unavailable targets without substituting a draft",
+          "Timeline file gesture targets leaves pending creation and source write coordination to the existing owners",
+          "Timeline file gesture targets retains an exact draft and follows only its accepted lifecycle alias"
         ]
       },
       "evidence_class": "unit",

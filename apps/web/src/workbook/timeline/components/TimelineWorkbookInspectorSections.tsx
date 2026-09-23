@@ -1,5 +1,6 @@
 import { type RefCallback, useCallback, useSyncExternalStore } from "react";
 import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
+import type { TimelineFileSource } from "../../features/evidence/timelineFileOperation";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { ownedInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
@@ -47,8 +48,8 @@ export function useTimelineWorkbookInspectorSections({
   readonly confirmRowHistoryPendingAction: () => void;
   readonly createRelatedWorkflow: InspectorRelatedRecordWorkflowState | null;
   readonly handleTimelineEvidenceFiles: (
-    row: WorkbookRow,
-    files: FileList | File[],
+    source: TimelineFileSource,
+    files: FileList | readonly File[],
   ) => void;
   readonly inspectorHistorySubject: WorkbookRecordSubject | null;
   readonly openRowHistory: (recordId: string) => void;

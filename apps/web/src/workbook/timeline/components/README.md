@@ -23,7 +23,7 @@ semantic models and commands. Surface layout regions live in
 | [TimelineRowActions.tsx](TimelineRowActions.tsx) | Timeline row menu item navigation, cause-specific dismissal, and measured viewport clamping. Admission and semantic restoration stay in the Timeline hook. |
 | [TimelineScalarEditor.tsx](TimelineScalarEditor.tsx) | Timeline scalar input/textarea editing, commit, presence, clipboard, and grid-editor lifecycle behavior. |
 | [TimelineWorkbook.tsx](TimelineWorkbook.tsx) | Public Timeline facade that retains the collaboration boundary and delegates grouped composition, presentation derivation, and stateless rendering. |
-| [TimelineWorkbookGrid.tsx](TimelineWorkbookGrid.tsx) | Timeline grid renderer, grouped row table wrapper, hidden contract metadata cells, and grid test-ID placement. |
+| [TimelineWorkbookGrid.tsx](TimelineWorkbookGrid.tsx) | Timeline grid renderer and file-gesture admission: semantic local row/editor identity takes precedence over the scoped active grid target, then the pure resolver captures the source. Also owns hidden contract metadata cells and grid test-ID placement. |
 | [TimelineWorkbookInspector.tsx](TimelineWorkbookInspector.tsx) | Timeline inspector shell, panel tabs, disabled-state presentation, selected-row state, and inspector messages. |
 | [TimelineInspectorDetails.tsx](TimelineInspectorDetails.tsx) | Saved Timeline values and one explicit ordinary editor, using retained inspector drafts and PATCH contributions with source normalization and accepted-row effects. |
 | [TimelineWorkbookInspectorSections.tsx](TimelineWorkbookInspectorSections.tsx) | Timeline inspector section factories for field editors, relationships, evidence attach, related-row creation, and row history. |

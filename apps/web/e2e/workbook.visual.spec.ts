@@ -170,6 +170,7 @@ import {
   createUploadedEvidenceFixture,
   type EvidenceUploadOptions,
 } from "./support/evidence/fixtures";
+import { chooseEvidenceFile } from "./support/evidence/uploads";
 import {
   networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
@@ -1163,13 +1164,14 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         response.request().method() === "PATCH" &&
         response.url().endsWith(`/api/v1/records/${selectedRow.record_id}`),
     );
-    await page
-      .getByTestId(timelineEvidenceFileInputTestId(selectedRow.record_id))
-      .setInputFiles({
+    await chooseEvidenceFile(
+      page.getByTestId(timelineEvidenceFileInputTestId(selectedRow.record_id)),
+      {
         name: "default-timeline-workbook-shell.png",
         mimeType: "image/png",
         buffer: tinyPNG(),
-      });
+      },
+    );
     expect((await evidenceLinkResponse).ok()).toBe(true);
     await expect(
       page.getByRole("group", {
@@ -2261,13 +2263,14 @@ test.describe("workbook visual evidence", () => {
       evidenceViewSchemaId,
       evidencePreviewButtonTestId(evidenceRow.record_id),
     );
-    await page
-      .getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id))
-      .setInputFiles({
+    await chooseEvidenceFile(
+      page.getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id)),
+      {
         name: "visual-request.txt",
         mimeType: "text/plain",
         buffer: Buffer.from("evidence_lifecycle visual evidence", "utf8"),
-      });
+      },
+    );
     await expect(
       page.getByRole("group", {
         name: "File recovery: visual-request.txt",
@@ -2371,13 +2374,14 @@ test.describe("workbook visual evidence", () => {
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeVisible();
     await openTimelineInspector(page, timelineRow.record_id);
-    await page
-      .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
-      .setInputFiles({
+    await chooseEvidenceFile(
+      page.getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id)),
+      {
         name: "visual-badge.png",
         mimeType: "image/png",
         buffer: tinyPNG(),
-      });
+      },
+    );
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
@@ -2666,13 +2670,14 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toHaveAttribute("aria-label", "Timeline evidence attachment");
-    await page
-      .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
-      .setInputFiles({
+    await chooseEvidenceFile(
+      page.getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id)),
+      {
         buffer: tinyPNG(),
         mimeType: "image/png",
         name: "timeline-evidence.png",
-      });
+      },
+    );
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");

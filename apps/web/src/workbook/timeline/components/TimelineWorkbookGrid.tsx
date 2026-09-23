@@ -32,11 +32,20 @@ import {
   type Ref,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
+import { admitEvidenceFile } from "../../features/evidence/evidenceFileOperation";
+import type { TimelineFileSource } from "../../features/evidence/timelineFileOperation";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { workbookGroupValue } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import {
+  resolveTimelineFileTarget,
+  type TimelineFileTarget,
+  timelineFileTargetInstruction,
+} from "../models/timelineEvidenceAttachmentPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { compareTimelineGroupValues } from "../models/timelineRowsModel";
 
@@ -52,7 +61,15 @@ export const TimelineWorkbookGrid = forwardRef<
     readonly fileRecovery?: ReactNode;
     readonly operationFeedback?: ReactNode;
     readonly parkedDrafts?: ReactNode;
-    readonly onFilesSelected?: (files: File[], editorRowKey?: string) => void;
+    readonly onFilesSelected?: (
+      source: TimelineFileSource,
+      files: readonly File[],
+    ) => void;
+    readonly onFileAdmission?: (message: string) => void;
+    readonly fileEditorRegistry?: Pick<
+      TimelineEditorDraftRegistry,
+      "activeInput" | "resolveRowKey"
+    >;
     readonly activeRecordId: string | null;
     readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
     readonly clipboardPaste: GridClipboardPasteContract;
@@ -96,6 +113,8 @@ export const TimelineWorkbookGrid = forwardRef<
     operationFeedback,
     parkedDrafts,
     onFilesSelected,
+    onFileAdmission,
+    fileEditorRegistry,
     activeRecordId,
     bulkSelection,
     clipboardPaste,
@@ -126,6 +145,70 @@ export const TimelineWorkbookGrid = forwardRef<
   },
   ref,
 ) {
+  const workArea = useRef<HTMLElement>(null);
+  const gridHandle = useRef<GridHandle | null>(null);
+  const activeFileTarget = useRef<{
+    scope: string;
+    target: TimelineFileTarget | null;
+  } | null>(null);
+  const registerGrid = useCallback(
+    (handle: GridHandle | null) => {
+      gridHandle.current = handle;
+      if (typeof ref === "function") ref(handle);
+      else if (ref) ref.current = handle;
+    },
+    [ref],
+  );
+  const localFileTarget = (
+    target: EventTarget | null,
+  ): TimelineFileTarget | null => {
+    if (!(target instanceof Element) || !workArea.current?.contains(target))
+      return null;
+    const editor = fileEditorRegistry?.activeInput(target);
+    if (editor?.surface === "grid") return { kind: "row", key: editor.rowKey };
+    const record = target.closest<HTMLElement>("[data-grid-record-id]");
+    if (record)
+      return { kind: "record", recordId: record.dataset.gridRecordId ?? "" };
+    if (target.closest('[data-cartulary-grid-draft-row="true"]'))
+      return timelineDraftRow
+        ? { kind: "row", key: timelineDraftRow.data.key }
+        : { kind: "unavailable" };
+    // Headers and group rows are known non-sources, not background fallbacks.
+    if (target.closest('[role="row"], [role="columnheader"]'))
+      return { kind: "unavailable" };
+    return null;
+  };
+  const admitFiles = (target: EventTarget, files: File[]) => {
+    const admission = admitEvidenceFile(files);
+    if (admission.kind === "rejected") {
+      onFileAdmission?.(admission.message);
+      return;
+    }
+    if (admission.kind === "empty" || interactionMode.kind !== "editable")
+      return;
+    const local = localFileTarget(target);
+    const active = activeFileTarget.current;
+    const resolution = resolveTimelineFileTarget(
+      local ?? (active?.scope === cellRangeScopeKey ? active.target : null),
+      rows,
+      fileEditorRegistry?.resolveRowKey ?? ((key) => key),
+    );
+    const presentation = gridHandle.current?.presentation?.getSnapshot();
+    if (
+      resolution.kind !== "resolved" ||
+      (local === null &&
+        resolution.source.recordId !== null &&
+        !presentation?.rowIdentities.some(
+          (identity) =>
+            identity.kind === "core_record" &&
+            identity.recordId === resolution.source.recordId,
+        ))
+    ) {
+      onFileAdmission?.(timelineFileTargetInstruction);
+      return;
+    }
+    onFilesSelected?.(resolution.source, files);
+  };
   const activeRowIdentity = useMemo(
     () =>
       activeRecordId === null
@@ -162,8 +245,14 @@ export const TimelineWorkbookGrid = forwardRef<
   );
   return (
     <section
+      ref={workArea}
       aria-label="Timeline file work area"
       tabIndex={-1}
+      onFocusCapture={(event) => {
+        const target = localFileTarget(event.target);
+        if (target !== null)
+          activeFileTarget.current = { scope: cellRangeScopeKey, target };
+      }}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -176,11 +265,7 @@ export const TimelineWorkbookGrid = forwardRef<
         if (!onFilesSelected || !files?.length) return;
         event.preventDefault();
         event.stopPropagation();
-        const control =
-          event.target instanceof Element
-            ? event.target.closest<HTMLElement>("[data-timeline-file-source]")
-            : null;
-        onFilesSelected(Array.from(files), control?.dataset.timelineFileSource);
+        admitFiles(event.target, Array.from(files));
       }}
       onDragOver={(event) => {
         if (onFilesSelected && event.dataTransfer.types.includes("Files"))
@@ -190,7 +275,7 @@ export const TimelineWorkbookGrid = forwardRef<
         if (!onFilesSelected || !event.dataTransfer.files.length) return;
         event.preventDefault();
         event.stopPropagation();
-        onFilesSelected(Array.from(event.dataTransfer.files));
+        admitFiles(event.target, Array.from(event.dataTransfer.files));
       }}
     >
       {parkedDrafts}
@@ -210,7 +295,7 @@ export const TimelineWorkbookGrid = forwardRef<
             keyboardEntry: "cycle",
           }}
           keyboardNavigation="spreadsheet"
-          ref={ref}
+          ref={registerGrid}
           activeRowIdentity={activeRowIdentity}
           allowPasteCreateRows
           clipboardPaste={clipboardPaste}
@@ -224,7 +309,16 @@ export const TimelineWorkbookGrid = forwardRef<
           getRowState={getRowState}
           grouping={grouping}
           interactionMode={interactionMode}
-          onActiveCellChange={onActiveCellChange}
+          onActiveCellChange={(anchor) => {
+            activeFileTarget.current = {
+              scope: cellRangeScopeKey,
+              target:
+                anchor?.rowIdentity.kind === "core_record"
+                  ? { kind: "record", recordId: anchor.rowIdentity.recordId }
+                  : localFileTarget(document.activeElement),
+            };
+            onActiveCellChange(anchor);
+          }}
           onColumnReorder={onColumnReorder}
           onColumnSizingIntent={onColumnSizingIntent}
           onFillCells={onFillCells}

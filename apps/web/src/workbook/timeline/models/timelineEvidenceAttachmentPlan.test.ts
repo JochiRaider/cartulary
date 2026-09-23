@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
-  planTimelineEvidenceTarget,
-  timelineEvidenceTargetIdentity,
+  captureTimelineFileSource,
+  resolveTimelineFileTarget,
 } from "./timelineEvidenceAttachmentPlan";
 import {
   createDraftRow,
@@ -13,77 +13,106 @@ import {
 } from "./timelineRowModel";
 
 const timeline = requireViewContract(timelineViewSchemaId);
-const row = rowFromApi(
-  normalizeTimelineFullRow(
-    fullWorkbookViewRow(timeline, "record-1", 3, {}),
-    "evidence target plan fixture",
-  ),
-);
-const context = {
-  authorized: true,
-  capabilityAvailable: true,
-  selectedRowKey: row.key,
-  surfaceKey: "view_schema:timeline",
-};
-const identity = timelineEvidenceTargetIdentity(row, context.surfaceKey);
+const saved = (id: string) =>
+  rowFromApi(
+    normalizeTimelineFullRow(
+      fullWorkbookViewRow(timeline, id, 3, {}),
+      "file gesture target",
+    ),
+  );
+const unchanged = (key: string) => key;
 
-describe("Timeline Evidence attachment target plan", () => {
-  it("re-reads the current row version before each dispatch", () => {
-    const current = { ...row, rowVersion: 5 };
-    expect(
-      planTimelineEvidenceTarget({ context, identity, rows: [current] }),
-    ).toEqual({ kind: "dispatch", target: current });
-  });
-
-  it("treats the unselected draft control as the active draft subject", () => {
-    const draft = createDraftRow(1);
-    if (draft === null) throw new Error("expected draft fixture");
-    expect(
-      planTimelineEvidenceTarget({
-        context: { ...context, selectedRowKey: null },
-        identity: timelineEvidenceTargetIdentity(draft, context.surfaceKey),
-        rows: [draft],
-      }),
-    ).toEqual({ kind: "dispatch", target: draft });
-  });
-
-  it("rejects invalid action contexts", () => {
-    for (const [nextContext, reason] of [
-      [{ ...context, authorized: false }, "authorization_lost"],
-      [{ ...context, capabilityAvailable: false }, "capability_unavailable"],
-      [{ ...context, surfaceKey: "saved_view:other" }, "surface_changed"],
-      [{ ...context, selectedRowKey: "other" }, "selection_changed"],
-    ] as const) {
-      expect(
-        planTimelineEvidenceTarget({
-          context: nextContext,
-          identity,
-          rows: [row],
-        }),
-      ).toEqual({ kind: "reject", reason });
-    }
-  });
-
-  it("rejects deleted, replaced, and pending targets", () => {
-    expect(planTimelineEvidenceTarget({ context, identity, rows: [] })).toEqual(
-      {
-        kind: "reject",
-        reason: "target_missing",
-      },
+describe("Timeline file gesture targets", () => {
+  it("captures only the explicit row and current version without selection inputs", () => {
+    const a = saved("record-a"),
+      b = saved("record-b");
+    const result = resolveTimelineFileTarget(
+      { kind: "record", recordId: "record-b" },
+      [a, b],
+      unchanged,
     );
+    expect(result).toEqual({
+      kind: "resolved",
+      source: captureTimelineFileSource(b),
+    });
     expect(
-      planTimelineEvidenceTarget({
-        context,
-        identity,
-        rows: [{ ...row, recordId: "replacement" }],
-      }),
-    ).toEqual({ kind: "reject", reason: "target_identity_changed" });
+      resolveTimelineFileTarget({ kind: "row", key: b.key }, [a, b], unchanged),
+    ).toEqual(result);
+    expect(result.kind === "resolved" && result.source).not.toBe(b);
+  });
+  it("retains an exact draft and follows only its accepted lifecycle alias", () => {
+    const original = createDraftRow(1),
+      replacement = createDraftRow(2),
+      accepted = saved("accepted-original");
     expect(
-      planTimelineEvidenceTarget({
-        context,
-        identity,
-        rows: [{ ...row, pendingSignature: "pending" }],
-      }),
-    ).toEqual({ kind: "reject", reason: "target_not_dispatchable" });
+      resolveTimelineFileTarget(
+        { kind: "row", key: original.key },
+        [original, replacement],
+        unchanged,
+      ),
+    ).toEqual({
+      kind: "resolved",
+      source: captureTimelineFileSource(original),
+    });
+    expect(
+      resolveTimelineFileTarget(
+        { kind: "row", key: original.key },
+        [replacement],
+        unchanged,
+      ),
+    ).toEqual({ kind: "unavailable" });
+    expect(
+      resolveTimelineFileTarget(
+        { kind: "row", key: original.key },
+        [accepted, replacement],
+        (key) => (key === original.key ? accepted.key : key),
+      ),
+    ).toEqual({
+      kind: "resolved",
+      source: captureTimelineFileSource(accepted),
+    });
+  });
+  it("fails closed for missing ambiguous and unavailable targets without substituting a draft", () => {
+    const row = saved("record-a"),
+      draft = createDraftRow(1);
+    expect(resolveTimelineFileTarget(null, [row, draft], unchanged)).toEqual({
+      kind: "missing",
+    });
+    expect(
+      resolveTimelineFileTarget(
+        { kind: "record", recordId: "gone" },
+        [row, draft],
+        unchanged,
+      ),
+    ).toEqual({ kind: "unavailable" });
+    expect(
+      resolveTimelineFileTarget(
+        { kind: "record", recordId: "record-a" },
+        [row, row, draft],
+        unchanged,
+      ),
+    ).toEqual({ kind: "ambiguous" });
+    for (const invalid of [
+      { ...row, captureState: "superseded" },
+      { ...row, rowVersion: null },
+      { ...row, viewSchemaId: "another-view" },
+    ])
+      expect(
+        resolveTimelineFileTarget(
+          { kind: "record", recordId: "record-a" },
+          [invalid, draft],
+          unchanged,
+        ),
+      ).toEqual({ kind: "unavailable" });
+  });
+  it("leaves pending creation and source write coordination to the existing owners", () => {
+    const draft = { ...createDraftRow(1), pendingSignature: "ordinary-create" };
+    expect(
+      resolveTimelineFileTarget(
+        { kind: "row", key: draft.key },
+        [draft],
+        unchanged,
+      ),
+    ).toEqual({ kind: "resolved", source: captureTimelineFileSource(draft) });
   });
 });

@@ -204,6 +204,7 @@ import {
   createUploadedEvidenceFixture,
   type EvidenceUploadOptions,
 } from "./support/evidence/fixtures";
+import { chooseEvidenceFile } from "./support/evidence/uploads";
 import {
   importNetworkFlowCSV,
   networkFlowMinimalCSV,
@@ -8935,13 +8936,14 @@ test("a11y.evidence-file-recovery keeps stage recovery local reachable and keybo
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
   await openTimelineInspector(page, source.record_id);
-  await page
-    .getByTestId(timelineEvidenceFileInputTestId(source.record_id))
-    .setInputFiles({
+  await chooseEvidenceFile(
+    page.getByTestId(timelineEvidenceFileInputTestId(source.record_id)),
+    {
       name: "local-recovery-with-a-long-original-filename-for-narrow-workbook-controls.txt",
       mimeType: "text/plain",
       buffer: Buffer.from("Recovery file"),
-    });
+    },
+  );
   const recovery = page.getByRole("group", {
     name: "Inspector file recovery: local-recovery-with-a-long-original-filename-for-narrow-workbook-controls.txt",
     exact: true,

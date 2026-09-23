@@ -328,13 +328,19 @@ describe("Evidence workbook bindings", () => {
       </EvidenceAttachmentContext.Provider>,
     );
     const files = [new File(["one"], "one.txt"), new File(["two"], "two.txt")];
-    for (const context of ["row", "inspector"] as const)
+    for (const context of ["row", "inspector"] as const) {
+      fireEvent.click(
+        screen.getByTestId(
+          evidenceAttachFileInputTestId(row.record_id, context),
+        ),
+      );
       fireEvent.change(
         screen.getByTestId(
           evidenceAttachFileInputTestId(row.record_id, context),
         ),
         { target: { files } },
       );
+    }
     expect(begin).toHaveBeenCalledTimes(2);
     const attachment = screen.getByRole("region", {
       name: "File attachment for Investigation screenshot",

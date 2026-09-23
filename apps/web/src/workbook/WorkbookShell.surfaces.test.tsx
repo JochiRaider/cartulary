@@ -3981,6 +3981,11 @@ describe("WorkbookShell surface selection", () => {
       ).textContent,
     ).toBe("Inconsistent");
 
+    fireEvent.click(
+      screen.getByTestId(
+        evidenceAttachFileInputTestId("00000000-0000-4000-8000-000000004010"),
+      ),
+    );
     fireEvent.change(
       screen.getByTestId(
         evidenceAttachFileInputTestId("00000000-0000-4000-8000-000000004010"),
@@ -4039,6 +4044,11 @@ describe("WorkbookShell surface selection", () => {
     );
     expect(lifecyclePatchCall).toBeUndefined();
 
+    fireEvent.click(
+      screen.getByTestId(
+        evidenceAttachFileInputTestId("00000000-0000-4000-8000-000000004015"),
+      ),
+    );
     fireEvent.change(
       screen.getByTestId(
         evidenceAttachFileInputTestId("00000000-0000-4000-8000-000000004015"),
@@ -4130,6 +4140,7 @@ describe("WorkbookShell surface selection", () => {
     const input = await screen.findByTestId(
       timelineEvidenceFileInputTestId("21000000-0000-4000-8000-000000000001"),
     );
+    fireEvent.click(input);
     fireEvent.change(input, {
       target: {
         files: [
@@ -4204,6 +4215,11 @@ describe("WorkbookShell surface selection", () => {
     );
     await openTimelineInspectorFromContext(
       "21000000-0000-4000-8000-000000000001",
+    );
+    fireEvent.click(
+      await screen.findByTestId(
+        timelineEvidenceFileInputTestId("21000000-0000-4000-8000-000000000001"),
+      ),
     );
     fireEvent.change(
       await screen.findByTestId(

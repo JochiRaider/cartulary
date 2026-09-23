@@ -239,7 +239,6 @@ export function TimelineScalarEditor({
       ? `${controlId}-clipboard-error`
       : undefined,
     "data-testid": dataTestId,
-    "data-timeline-file-source": surface === "grid" ? rowKey : undefined,
     id: controlId,
     ref: inputRef,
     readOnly,

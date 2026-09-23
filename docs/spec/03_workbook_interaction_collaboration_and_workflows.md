@@ -1590,6 +1590,27 @@ slot creation, preserve existing work, and report `Choose one file at a time.`
 The current workflow creates no bulk-upload command. A zero-byte file remains
 eligible under Core 01 REQ-01-243. Accepted hints use REQ-01-244 normalization.
 
+Timeline file gestures MUST capture one explicit semantic source before starting
+attachment work. A row-local drop or file paste targets that committed row or
+retained creation draft without requiring prior selection. A background work-area
+gesture MAY use the current unambiguous eligible active grid target; without one,
+the client MUST report a local instruction to select a row or draft and MUST NOT
+start an upload. Inspector selection, display text, visual row positions and
+vendor coordinates MUST NOT supply a substitute source. A known unavailable
+source MUST NOT fall through to another source.
+
+A picker MUST retain its invoking source through chooser completion. Cancellation
+starts no operation, and source replacement or presentation detachment MUST NOT
+retarget the selected file. Before its first upload, the client MUST verify the
+captured source's availability through the existing incident-bound read or
+retained draft owner, independently of current filters and mounted rows. An
+unavailable or unverifiable original starts no upload. This admission check MUST
+NOT submit unrelated scalar or collection authoring. One gesture admits at most
+one file operation. Section 11.1 owns file/image precedence over text paste;
+sections 7 and 13 continue to own raw authoring, composition, caret/selection,
+draft promotion and focus. Attachment initiation MUST NOT force Inspector opening
+or allow late outcomes to take focus from newer work.
+
 Timeline file transfer MUST NOT occupy the autosave mutation queue. Before an
 undispatched association, the client MUST coordinate earlier source writes,
 verify the original source through an incident-bound authoritative read, and

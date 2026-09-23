@@ -286,6 +286,78 @@
       ]
     },
     {
+      "row_id": "module.evidence.browser.file_background_targeting",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_background_targeting"
+        ],
+        "titles": [
+          "Timeline background file gestures require an eligible active grid target"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_delayed_target",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_delayed_target"
+        ],
+        "titles": [
+          "Timeline admitted file work keeps its source through selection filtering and detachment"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.browser.file_draft_orderings",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser",
@@ -321,6 +393,78 @@
       ]
     },
     {
+      "row_id": "module.evidence.browser.file_draft_targeting",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_draft_targeting"
+        ],
+        "titles": [
+          "Timeline draft scalar and collection file gestures retain their draft instead of Inspector context"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_editor_continuity",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_editor_continuity"
+        ],
+        "titles": [
+          "Timeline file paste preserves native scalar and collection editing during upload"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.browser.file_original_source_review",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser",
@@ -341,6 +485,150 @@
         ],
         "titles": [
           "reviews the original source after a rejected file link while preserving unrelated selection and edits"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_picker_lifetime",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_picker_lifetime"
+        ],
+        "titles": [
+          "Timeline keyboard picker cancellation and removed originals start no upload"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_picker_promotion",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_picker_promotion"
+        ],
+        "titles": [
+          "Timeline picker follows its invoking draft promotion and accepts a zero-byte file"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_picker_targeting",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_picker_targeting"
+        ],
+        "titles": [
+          "Timeline picker completion keeps the invoking source after Inspector replacement"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.browser.file_row_targeting",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_file_row_targeting"
+        ],
+        "titles": [
+          "Timeline row-local file gestures target B independently of active A and Inspector C"
         ]
       },
       "evidence_class": "browser",
@@ -750,6 +1038,37 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.evidence.frontend_unit.file_picker_targeting",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "module.timeline",
+        "module.workbook",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/evidence/EvidenceAttachmentEntry.test.tsx",
+        "titles": [
+          "Evidence attachment chooser borrows authoring focus and leaves text-only clipboard events native",
+          "Evidence attachment chooser cancels without admission and refuses completion without an invocation",
+          "Evidence attachment chooser captures the invoking callback across source replacement for both presentations",
+          "Evidence attachment chooser keeps a draft invocation when the trailing draft is replaced"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.evidence.frontend_unit.private_object_blob_upload_hides_target_4b2f89cd31",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.frontend_unit",
@@ -804,7 +1123,8 @@
           "retained Evidence file recovery retains an exact uncertain slot and never repeats an uncertain transfer",
           "retained Evidence file recovery retains existing-Evidence acceptance across detachment and failed refresh",
           "retained Evidence file recovery retains timed-out finalization through replay denial and accepts its late receipt",
-          "retained Evidence file recovery retires an unused capability after issuing-session replacement"
+          "retained Evidence file recovery retires an unused capability after issuing-session replacement",
+          "retained Evidence file recovery starts no upload for an unavailable original Timeline source"
         ]
       },
       "evidence_class": "unit",

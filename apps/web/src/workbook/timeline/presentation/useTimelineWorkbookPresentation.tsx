@@ -14,13 +14,11 @@ import {
   useCallback,
   useLayoutEffect,
   useMemo,
-  useRef,
   useSyncExternalStore,
 } from "react";
 import { WorkbookParkedGridDrafts } from "../../components/WorkbookParkedGridDrafts";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
 import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
-import { admitEvidenceFile } from "../../features/evidence/evidenceFileOperation";
 import { useWorkbookSemanticGridFocus } from "../../hooks/useWorkbookSemanticGridFocus";
 import { useWorkbookColumnSizingBinding } from "../../layout/useWorkbookColumnSizingBinding";
 import {
@@ -141,7 +139,6 @@ export function useTimelineWorkbookPresentation({
     fileOwner.subscribe,
     fileOwner.getAdmissionNotice,
   );
-  const fileAnchor = useRef<GridCellAnchor | null>(null);
   const getTimelineRowState = useCallback(
     (row: GridDataRow<WorkbookRow>): GridRowStateInput => ({
       pending: row.data.pendingSignature !== null,
@@ -454,7 +451,6 @@ export function useTimelineWorkbookPresentation({
   );
   const handleActiveCellChange = useCallback(
     (anchor: GridCellAnchor | null) => {
-      fileAnchor.current = anchor;
       updateTimelineSurfaceFocusAnchor(
         anchor?.rowIdentity.kind === "core_record"
           ? anchor.rowIdentity.recordId
@@ -515,44 +511,9 @@ export function useTimelineWorkbookPresentation({
             ))}
           </div>
         ) : null,
-      onFilesSelected: (selected: File[], editorRowKey?: string) => {
-        const admission = admitEvidenceFile(selected);
-        if (admission.kind === "rejected") {
-          fileOwner.reportAdmission(admission.message);
-          return;
-        }
-        if (admission.kind === "empty") return;
-        if (
-          interactionMode.kind !== "editable" ||
-          incidentClosed ||
-          loadAccessLost
-        )
-          return;
-        const identity = fileAnchor.current?.rowIdentity;
-        const target = editorRowKey
-          ? rows.find((row) => row.key === editorRowKey)
-          : identity?.kind === "core_record"
-            ? rows.find((row) => row.recordId === identity.recordId)
-            : rows.find((row) => row.recordId === selectedRowId);
-        if (!target) {
-          fileOwner.reportAdmission(
-            "Select the Timeline row or draft for this file.",
-          );
-          return;
-        }
-        fileOwner.begin(
-          {
-            label:
-              target.values.activitySynopsisText ||
-              target.values.rawActivityText ||
-              "Timeline draft",
-            key: target.key,
-            recordId: target.recordId,
-            rowVersion: target.rowVersion,
-          },
-          selected,
-        );
-      },
+      onFilesSelected: handleTimelineEvidenceFiles,
+      onFileAdmission: fileOwner.reportAdmission.bind(fileOwner),
+      fileEditorRegistry: editorDraftRegistry,
       activeRecordId: selectedRowId,
       bulkSelection: timelineBulkSelection,
       clipboardPaste: timelineClipboardPaste,

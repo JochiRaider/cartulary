@@ -111,6 +111,7 @@ describe("TimelineEvidencePanel", () => {
       name: "Attach file to this Timeline record",
     });
     const file = new File(["content"], "evidence.txt", { type: "text/plain" });
+    fireEvent.click(button);
     fireEvent.change(
       screen.getByTestId(timelineEvidenceFileInputTestId("record-1")),
       { target: { files: [file] } },

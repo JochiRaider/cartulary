@@ -6,6 +6,37 @@ import {
   workbookTypography,
 } from "../../components/workbookFormStyles";
 
+/** A chooser owns its invocation until change/cancel, including after React detachment. */
+export function useEvidenceFilePicker(
+  onAttach: (files: readonly File[]) => void,
+  disabled: boolean,
+) {
+  const input = useRef<HTMLInputElement>(null);
+  const cancelPrevious = useRef<(() => void) | null>(null);
+  const capture = () => {
+    const element = input.current;
+    if (!element || disabled) return;
+    cancelPrevious.current?.();
+    const clear = () => {
+      element.removeEventListener("change", complete);
+      element.removeEventListener("cancel", clear);
+      element.value = "";
+      cancelPrevious.current = null;
+    };
+    const complete = () => {
+      const files = Array.from(element.files ?? []);
+      clear();
+      if (files.length) onAttach(files);
+    };
+    // Do not remove on unmount: the detached invoking input can still complete
+    // its native chooser. The source owner rechecks current authority/availability.
+    element.addEventListener("change", complete);
+    element.addEventListener("cancel", clear);
+    cancelPrevious.current = clear;
+  };
+  return { input, capture, open: () => input.current?.click() };
+}
+
 /** Picker, drop and paste share one entry; the source owner rechecks admission. */
 export function EvidenceAttachmentEntry({
   title,
@@ -24,15 +55,16 @@ export function EvidenceAttachmentEntry({
   readonly compact?: boolean;
   readonly regionTestId?: string | undefined;
 }) {
-  const input = useRef<HTMLInputElement>(null);
   const description = useId();
   const disabled = disabledReason !== null || busy;
+  const picker = useEvidenceFilePicker(onAttach, disabled);
   const attach = (files: FileList | readonly File[]) => {
     if (!disabled && files.length) onAttach(Array.from(files));
   };
   const controls = (
     <>
       <button
+        data-grid-editor-external-action="true"
         type="button"
         aria-label={`Attach file to ${title}`}
         aria-describedby={compact ? undefined : description}
@@ -42,22 +74,26 @@ export function EvidenceAttachmentEntry({
           compact ? workbookGridActionButtonStyle : workbookFormButtonStyle
         }
         title={disabledReason ?? undefined}
-        onClick={() => input.current?.click()}
+        onMouseDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
+          picker.open();
+        }}
       >
         {compact ? "Attach" : "Attach file"}
       </button>
       <input
-        ref={input}
+        ref={picker.input}
         hidden
         type="file"
         data-testid={testId}
         disabled={disabled}
         aria-label={`Attach file to ${title}`}
         accept="image/*,.txt,.pdf,text/plain,application/pdf"
-        onChange={(event) => {
-          attach(event.currentTarget.files ?? []);
-          event.currentTarget.value = "";
-        }}
+        onClick={picker.capture}
       />
     </>
   );
@@ -88,7 +124,7 @@ export function EvidenceAttachmentEntry({
           (event.key === "Enter" || event.key === " ")
         ) {
           event.preventDefault();
-          if (!disabled && !event.repeat) input.current?.click();
+          if (!disabled && !event.repeat) picker.open();
         }
       }}
     >

@@ -624,6 +624,7 @@
         "apps/web/src/workbook/features/entities/useEntityWorkbookInspectorComposition.tsx",
         "apps/web/src/workbook/features/evidence/EvidenceAccessActions.tsx",
         "apps/web/src/workbook/features/evidence/EvidenceAttachmentContext.ts",
+        "apps/web/src/workbook/features/evidence/EvidenceAttachmentEntry.test.tsx",
         "apps/web/src/workbook/features/evidence/EvidenceAttachmentEntry.tsx",
         "apps/web/src/workbook/features/evidence/EvidenceFileFinalization.ts",
         "apps/web/src/workbook/features/evidence/EvidenceFileRecovery.tsx",

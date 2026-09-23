@@ -493,6 +493,11 @@ export class WorkbookTimelineFileOwner {
         else {
           if (prior.phase === "rejected") return;
           if (
+            e.upload.status.phase === "selected" &&
+            !(await this.availableBeforeUpload(e))
+          )
+            return;
+          if (
             !e.upload.isFinalizable &&
             !(await e.upload.prepare(this.authority))
           )
@@ -570,6 +575,49 @@ export class WorkbookTimelineFileOwner {
       }
     }
     this.publish();
+  }
+  /** Admission checks existence without settling or submitting any editor work. */
+  private async availableBeforeUpload(e: Entry) {
+    this.observeDrafts();
+    const generation = this.generation;
+    let available = false;
+    try {
+      if (e.recordId && this.reader) {
+        const row = await readWorkbookAuthoringRecord(
+          this.reader,
+          timelineViewSchemaId,
+          e.recordId,
+          new AbortController().signal,
+        );
+        available =
+          !!row &&
+          row.cells["timeline.capture_state"]?.value !== "superseded" &&
+          row.row_version >=
+            Math.max(
+              e.reviewedVersion ?? 0,
+              this.versions.get(e.recordId) ?? 0,
+            );
+      } else if (!e.recordId) {
+        const state = this.drafts?.resolve(e.source.key);
+        available =
+          state?.kind === "draft" ||
+          state?.kind === "pending" ||
+          state?.kind === "promoted";
+      }
+    } catch {
+      // A failed read is not permission to upload to a replacement source.
+    }
+    if (
+      generation !== this.generation ||
+      !this.canWrite() ||
+      e.stopped ||
+      this.entries.get(e.source.key) !== e
+    )
+      return false;
+    if (!available)
+      e.message =
+        "The original Timeline source is unavailable. No upload started.";
+    return available;
   }
   private hasEvidence(row: WorkbookQueryRow, evidenceId: string) {
     const value = row.cells["timeline.attached_evidence_ids"]?.value;

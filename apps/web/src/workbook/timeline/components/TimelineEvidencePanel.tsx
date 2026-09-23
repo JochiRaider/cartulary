@@ -13,6 +13,8 @@ const noFileSubscription = () => () => {};
 const emptyFiles: readonly TimelineFileSnapshot[] = [];
 const noFiles = () => emptyFiles;
 
+import type { TimelineFileSource } from "../../features/evidence/timelineFileOperation";
+import { captureTimelineFileSource } from "../models/timelineEvidenceAttachmentPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { bodyStyle, inspectorSectionStyle } from "./TimelineWorkbookStyles";
 
@@ -26,8 +28,8 @@ type TimelineEvidencePanelProps = {
   readonly elementRef?: RefCallback<HTMLElement> | undefined;
   readonly row: WorkbookRow;
   readonly onFilesSelected: (
-    row: WorkbookRow,
-    files: FileList | File[],
+    source: TimelineFileSource,
+    files: FileList | readonly File[],
   ) => void;
 };
 
@@ -46,9 +48,10 @@ export function TimelineEvidencePanel({
   const disabledReason =
     owner?.attachmentDisabledReason() ??
     (owner ? null : "File attachment is unavailable.");
-  const attach = (files: FileList | File[]) => {
+  const source = captureTimelineFileSource(row);
+  const attach = (files: readonly File[]) => {
     if (!owner || owner.attachmentDisabledReason() !== null) return;
-    onFilesSelected(row, files);
+    onFilesSelected(source, files);
   };
   if (recordId === null) {
     return null;
@@ -81,7 +84,7 @@ export function TimelineEvidencePanel({
         testId={timelineEvidenceFileInputTestId(recordId)}
         disabledReason={disabledReason}
         busy={false}
-        onAttach={(selected) => attach(Array.from(selected))}
+        onAttach={attach}
       />
       {files.some((entry) => entry.recordId === recordId) ? (
         <section aria-label="Attachment progress and recovery">

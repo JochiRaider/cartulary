@@ -4,7 +4,7 @@ import type {
   CreateObjectBlobSlotRequest,
   CreateObjectBlobSlotResponse,
 } from "@cartulary/protocol-ts/http";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { csrfHeaders } from "../auth/browserSession";
 import { apiBase } from "../runtime/configuration";
@@ -97,4 +97,17 @@ export async function createAndUploadObjectBlob(
     throw new Error(`object blob upload failed with HTTP ${upload.status()}`);
   }
   return blob;
+}
+
+/** Exercise chooser invocation before completion; direct change skips source capture. */
+export async function chooseEvidenceFile(
+  input: Locator,
+  files: Parameters<Locator["setInputFiles"]>[0],
+) {
+  const page = input.page();
+  const label = await input.getAttribute("aria-label");
+  if (!label) throw new Error("Evidence picker must name its invoking action");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: label, exact: true }).first().click();
+  await (await chooser).setFiles(files);
 }

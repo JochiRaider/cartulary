@@ -25,12 +25,12 @@ recreated. Session-observation supersession remains with the session owner.
 | [EvidenceUploadSession.ts](EvidenceUploadSession.ts) | Retains the File and validated slot; confines the opaque session-bound target to one transfer. |
 | [EvidenceFileFinalization.ts](EvidenceFileFinalization.ts) | Retains immutable finalization attempts and accepted receipts independently of presentation. |
 | [WorkbookEvidenceAttachmentOwner.ts](WorkbookEvidenceAttachmentOwner.ts) | Existing-Evidence attachment, source review, exact recovery and read reconciliation. |
-| [WorkbookTimelineFileOwner.ts](WorkbookTimelineFileOwner.ts) | Atomic file-backed Evidence creation and original Timeline association with separate receipts. |
+| [WorkbookTimelineFileOwner.ts](WorkbookTimelineFileOwner.ts) | Checks original-source availability before upload without submitting editors, then owns atomic file-backed Evidence creation and original Timeline association with separate receipts. |
 | [timelineFileOperation.ts](timelineFileOperation.ts) | Timeline source identity, captured link receipts and the original draft promotion port. |
 | [EvidenceAttachmentContext.ts](EvidenceAttachmentContext.ts) | Supplies both incident-retained file owners to grid and inspector presentations. |
 | [EvidenceFileRecovery.tsx](EvidenceFileRecovery.tsx) | Compact local stage feedback and explicit review, resume, fresh upload, discard and refresh controls. |
 | [EvidenceAccessActions.tsx](EvidenceAccessActions.tsx) | Evidence preview/download actions with access feedback and shared control styles. |
-| [EvidenceAttachmentEntry.tsx](EvidenceAttachmentEntry.tsx) | Shared file picker and named drop/paste region; all paths delegate to the current source owner. |
+| [EvidenceAttachmentEntry.tsx](EvidenceAttachmentEntry.tsx) | Shared chooser captures its invoking callback until completion/cancellation, including presentation detachment. Named drop/paste regions delegate once to their source owner; external actions borrow editor focus. |
 | [RelatedEvidencePartyControl.tsx](RelatedEvidencePartyControl.tsx) | Party selection and linking controls for Timeline-related Evidence authoring. |
 | [TimelineRelatedEvidenceContext.ts](TimelineRelatedEvidenceContext.ts) | React context exposing Timeline-related Evidence operation ownership. |
 | [TimelineRelatedEvidenceForm.tsx](TimelineRelatedEvidenceForm.tsx) | Timeline-related Evidence metadata authoring and reviewed create/link controls. |
@@ -50,6 +50,7 @@ recreated. Session-observation supersession remains with the session owner.
 
 | File | Responsibility |
 | --- | --- |
+| [EvidenceAttachmentEntry.test.tsx](EvidenceAttachmentEntry.test.tsx) | Chooser invocation lifetime, draft replacement, cancellation, native text paste, and external-action focus borrowing. |
 | [evidenceFileRecovery.test.ts](evidenceFileRecovery.test.ts) | Stage uncertainty, complete receipts, source identity, retirement and current-authority recovery. |
 | [timelineRelatedEvidenceAuthoring.test.tsx](timelineRelatedEvidenceAuthoring.test.tsx) | Tests source-bound Evidence drafts, authoring minima, exact omission, and presentation detachment. |
 | [timelineRelatedEvidenceRecovery.test.tsx](timelineRelatedEvidenceRecovery.test.tsx) | Tests duplicate reservation, independent creation/link receipts, and link-only recovery. |
