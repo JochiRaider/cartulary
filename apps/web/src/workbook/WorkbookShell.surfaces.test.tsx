@@ -4236,17 +4236,26 @@ describe("WorkbookShell surface selection", () => {
       },
     );
 
+    const uploadPutCalls = () =>
+      fetchMock.mock.calls.filter(
+        ([input, init]) =>
+          String(input).endsWith("/api/v1/object-uploads/test-token") &&
+          (init as RequestInit | undefined)?.method === "PUT",
+      );
+    await waitFor(() => expect(uploadPutCalls()).toHaveLength(1));
     await waitFor(() => {
       expect(
         within(
-          screen.getByRole("group", {
-            name: "File recovery: screenshot.txt",
-          }),
+          within(screen.getByTestId(timelineInspectorTestId())).getByRole(
+            "group",
+            { name: "Inspector file recovery: screenshot.txt" },
+          ),
         ).getByText(
           "Upload acknowledgement is uncertain. Recover by finalizing the file.",
         ),
       ).toBeTruthy();
     });
+    expect(uploadPutCalls()).toHaveLength(1);
     expect(
       fetchMock.mock.calls.some(([input, init]) => {
         return (
