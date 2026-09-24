@@ -46,6 +46,131 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("separates accepted chips from requested filter editing and removal", () => {
+    const contract = requireViewContract(timelineSurface);
+    const accepted = {
+      filters: [
+        {
+          fieldKey: "timeline.date_entered_sort_day",
+          op: "range" as const,
+          arg: { gte: "2026-04-01" },
+        },
+      ],
+      groupBy: "timeline.capture_state",
+      sort: [
+        { fieldKey: "timeline.activity_sort_ts", direction: "desc" as const },
+      ],
+    };
+    const requested = [
+      {
+        fieldKey: "timeline.date_entered_sort_day",
+        op: "range" as const,
+        arg: { gte: "2026-01-01" },
+      },
+    ];
+    const onApplyFilter = vi.fn();
+    const onClearFilters = vi.fn();
+    const onRemoveFilter = vi.fn();
+    const props = {
+      contract,
+      filterDraft: defaultFilterDraft(contract),
+      layoutState: defaultWorkbookLayoutState(contract),
+      onApplyFilter,
+      onClearFilters,
+      onColumnHiddenChange: vi.fn(),
+      onColumnMove: vi.fn(),
+      onFilterDraftChange: vi.fn(),
+      onGroupByChange: vi.fn(),
+      onRemoveFilter,
+      onResetColumns: vi.fn(),
+      onSortChange: vi.fn(),
+      queryState: accepted,
+      surface: timelineSurface,
+      freezing: { status: null, onBoundaryChange: vi.fn() },
+      sizing,
+    };
+    const { rerender } = render(
+      <WorkbookGridControls {...props} requestedFilters={requested} />,
+    );
+    const trigger = screen.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineSurface),
+    );
+    expect(trigger.textContent).toContain("Unapplied");
+    fireEvent.click(trigger);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Edit unapplied.*Date entered/i }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Edit unapplied filter" }),
+    ).toBeTruthy();
+    const lower = screen.getByTestId(gridFilterValueTestId(timelineSurface));
+    expect((lower as HTMLInputElement).value).toBe("2026-01-01");
+    fireEvent.change(lower, { target: { value: "2026-02-01" } });
+    fireEvent.keyDown(lower, { key: "Escape" });
+    expect(onApplyFilter).not.toHaveBeenCalled();
+    const chip = screen.getByTestId(
+      workbookQueryEntryTestId(
+        timelineSurface,
+        "filter",
+        "timeline.date_entered_sort_day",
+      ),
+    );
+    fireEvent.click(chip);
+    expect(screen.getByRole("dialog", { name: "Edit filter" })).toBeTruthy();
+    expect(
+      (
+        screen.getByTestId(
+          gridFilterValueTestId(timelineSurface),
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("2026-04-01");
+    fireEvent.keyDown(
+      screen.getByTestId(gridFilterValueTestId(timelineSurface)),
+      { key: "Escape" },
+    );
+
+    rerender(<WorkbookGridControls {...props} requestedFilters={[]} />);
+    expect(chip.isConnected).toBe(true);
+    fireEvent.click(trigger);
+    const restore = screen.getByRole("button", { name: /Restore Date/i });
+    expect(restore.parentElement?.textContent).toContain("Unapplied");
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Clear filters",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    fireEvent.click(restore);
+    expect(onApplyFilter).toHaveBeenCalledWith({
+      fieldKey: "timeline.date_entered_sort_day",
+      op: "range",
+      lowerKind: "gte",
+      lowerValue: "2026-04-01",
+      upperKind: "lte",
+      upperValue: "",
+    });
+    expect(onClearFilters).not.toHaveBeenCalled();
+
+    rerender(
+      <WorkbookGridControls
+        {...props}
+        requestedFilters={[
+          ...accepted.filters,
+          {
+            fieldKey: "timeline.tags",
+            op: "contains_any",
+            arg: { values: ["review"] },
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Remove unapplied.*Tags/i }),
+    );
+    expect(onRemoveFilter).toHaveBeenCalledWith("timeline.tags");
+  });
+
   it("leaves native filter control keys alone and contains the complete range Tab order after pointer focus", () => {
     render(<StatefulGridControls />);
     fireEvent.click(

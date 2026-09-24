@@ -8,6 +8,7 @@ import {
   parseDeclaredGroupField,
   parseWorkbookBooleanDraftValue,
   projectWorkbookGridQueryControls,
+  projectWorkbookRequestedFilterChanges,
   reduceWorkbookGridControlsTransientState,
   validateFilterDraft,
   workbookGridSurfaceTransientState,
@@ -22,6 +23,46 @@ import {
 const surface = "cartulary.view.timeline.v2";
 
 describe("workbookGridQueryControls", () => {
+  it("projects requested additions, edits and removals against accepted filters", () => {
+    const contract = requireViewContract(surface);
+    const accepted = [
+      {
+        fieldKey: "timeline.date_entered_sort_day",
+        op: "range" as const,
+        arg: { gte: "2026-04-01" },
+      },
+      {
+        fieldKey: "timeline.has_evidence",
+        op: "eq" as const,
+        arg: { value: false },
+      },
+    ];
+    const requested = [
+      {
+        fieldKey: "timeline.date_entered_sort_day",
+        op: "range" as const,
+        arg: { gte: "2026-01-01" },
+      },
+      {
+        fieldKey: "timeline.tags",
+        op: "contains_any" as const,
+        arg: { values: ["alpha"] },
+      },
+    ];
+    expect(
+      projectWorkbookRequestedFilterChanges(contract, accepted, requested).map(
+        ({ kind, filter }) => [kind, filter.fieldKey],
+      ),
+    ).toEqual([
+      ["changed", "timeline.date_entered_sort_day"],
+      ["added", "timeline.tags"],
+      ["removed", "timeline.has_evidence"],
+    ]);
+    expect(
+      projectWorkbookRequestedFilterChanges(contract, accepted, accepted),
+    ).toEqual([]);
+  });
+
   it("executes the complete ordered-sort lifecycle with reference-preserving no-ops", () => {
     const contract = requireViewContract(surface);
     const sortable = contract.fields

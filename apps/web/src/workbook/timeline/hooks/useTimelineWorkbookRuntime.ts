@@ -6,8 +6,6 @@ import {
   useReducer,
 } from "react";
 import {
-  applyFilterDraft,
-  clearFilterDraftValue,
   type FilterDraft,
   replaceWorkbookSort,
   updateGroupBy,
@@ -31,15 +29,6 @@ type TimelineWorkbookRuntimeInput = {
   readonly setFilterDraft: FilterDraftSetter;
   readonly setQueryState: WorkbookQueryStateSetter;
 };
-
-function applyTimelineFilterDraftToQuery(
-  setQueryState: WorkbookQueryStateSetter,
-  setFilterDraft: FilterDraftSetter,
-  draft: FilterDraft,
-): void {
-  setQueryState((current) => applyFilterDraft(current, draft));
-  setFilterDraft(clearFilterDraftValue);
-}
 
 export function useTimelineWorkbookRuntime({
   filterDraft,
@@ -80,12 +69,6 @@ export function useTimelineWorkbookRuntime({
       ),
     [setOperationError],
   );
-  const applyQueryFilter = useCallback(
-    (draft: FilterDraft = filterDraft) => {
-      applyTimelineFilterDraftToQuery(setQueryState, setFilterDraft, draft);
-    },
-    [filterDraft, setFilterDraft, setQueryState],
-  );
 
   const handleQueryGroupByChange = useCallback(
     (groupBy: string | null) => {
@@ -116,7 +99,6 @@ export function useTimelineWorkbookRuntime({
       setMutationError,
     },
     query: {
-      applyQueryFilter,
       filterDraft,
       handleQueryGroupByChange,
       handleQuerySortChange,

@@ -30,7 +30,10 @@ import {
 } from "../../models/workbookGridState";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import {
+  applyFilterDraft,
+  clearFilterDraftValue,
   defaultFilterDraft,
+  type FilterDraft,
   removeFilterField,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -117,7 +120,6 @@ export function useTimelineWorkbookPresentation({
     },
   } = foundation.snapshot;
   const {
-    applyQueryFilter,
     handleQueryGroupByChange,
     handleQuerySortChange,
     setFilterDraft,
@@ -128,6 +130,18 @@ export function useTimelineWorkbookPresentation({
   const queryState =
     mutation.commands.query.browser?.presentationQuery(requestedQueryState) ??
     requestedQueryState;
+  const browser = mutation.commands.query.browser;
+  const canonicalRequestedQuery =
+    browser?.canonicalIntent(requestedQueryState) ?? requestedQueryState;
+  const handleApplyFilter = useCallback(
+    (draft: FilterDraft) => {
+      setQueryState((current) =>
+        applyFilterDraft(browser?.canonicalIntent(current) ?? current, draft),
+      );
+      setFilterDraft(clearFilterDraftValue);
+    },
+    [browser, setFilterDraft, setQueryState],
+  );
   const rows = foundation.snapshot.rows;
   const fileOwner = composition.fileOwner;
   const getTimelineRowState = useCallback(
@@ -393,11 +407,12 @@ export function useTimelineWorkbookPresentation({
           ? { kind: "stale_error", message: refreshError }
           : { kind: "ready" };
   const handleClearFilters = useCallback(() => {
-    setQueryState((current) =>
-      current.filters.length === 0 ? current : { ...current, filters: [] },
-    );
+    setQueryState((current) => {
+      const intent = browser?.canonicalIntent(current) ?? current;
+      return intent.filters.length === 0 ? intent : { ...intent, filters: [] };
+    });
     setFilterDraft(defaultFilterDraft(timelineContract));
-  }, [setFilterDraft, setQueryState]);
+  }, [browser, setFilterDraft, setQueryState]);
   const restartQuery = useWorkbookQueryRestart(timelineViewSchemaId);
   const handleRetry = useCallback(() => {
     void restartQuery();
@@ -453,9 +468,14 @@ export function useTimelineWorkbookPresentation({
   );
   const handleRemoveFilter = useCallback(
     (fieldKey: string) => {
-      setQueryState((current) => removeFilterField(current, fieldKey));
+      setQueryState((current) =>
+        removeFilterField(
+          browser?.canonicalIntent(current) ?? current,
+          fieldKey,
+        ),
+      );
     },
-    [setQueryState],
+    [browser, setQueryState],
   );
   const handleInspectorToggle = useCallback(() => {
     setIsInspectorOpen(true);
@@ -600,7 +620,7 @@ export function useTimelineWorkbookPresentation({
               layoutState,
               sizing: layout.commands.sizing,
               freezing: layout.commands.freezing,
-              onApplyFilter: applyQueryFilter,
+              onApplyFilter: handleApplyFilter,
               onClearFilters: handleClearFilters,
               onColumnHiddenChange: handleColumnHiddenChange,
               onColumnMove: handleColumnMove,
@@ -610,6 +630,7 @@ export function useTimelineWorkbookPresentation({
               onResetColumns: handleResetColumns,
               onSortChange: handleQuerySortChange,
               queryState,
+              requestedFilters: canonicalRequestedQuery.filters,
               requestedGroupBy: requestedQueryState.groupBy,
               requestedSort: requestedQueryState.sort,
               surface: timelineViewSchemaId,

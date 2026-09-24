@@ -1577,8 +1577,8 @@ test("Timeline Filters editor preserves native keys, range traversal, and focus 
   await secondQuery;
   await expect(chip).toBeFocused();
   await expect
-    .poll(async () => visibleRecordIds(page))
-    .toEqual([String(alpha.record_id), String(beta.record_id)]);
+    .poll(async () => (await visibleRecordIds(page)).slice().sort())
+    .toEqual([String(alpha.record_id), String(beta.record_id)].sort());
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
     page,
@@ -1635,6 +1635,335 @@ test("Timeline Filters editor preserves native keys, range traversal, and focus 
   await notesDialog.getByRole("textbox", { name: "Upper-bound value" }).focus();
   await page.keyboard.press("Escape");
   await expect(notesTrigger).toBeFocused();
+});
+
+test("Timeline requested Filters remain editable during held and failed replacements", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FILTER-REQUESTED"),
+    "Requested Filters replacement",
+  );
+  const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("filter-requested-alpha"),
+    "timeline.date_entered_text": "2026-01-15",
+    "timeline.activity_synopsis_text": "Requested Alpha",
+  });
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("filter-requested-beta"),
+    "timeline.date_entered_text": "2026-08-20",
+    "timeline.activity_synopsis_text": "Requested Beta",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect.poll(async () => (await visibleRecordIds(page)).length).toBe(2);
+  const acceptedIds = await visibleRecordIds(page);
+  expect(acceptedIds.slice().sort()).toEqual(
+    [String(alpha.record_id), String(beta.record_id)].sort(),
+  );
+
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    const recordEndpoint = request.url().includes("/api/v1/records");
+    if (
+      (request.url().includes(`/incidents/${incidentId}/`) || recordEndpoint) &&
+      (request.method() === "PATCH" ||
+        request.method() === "PUT" ||
+        request.method() === "DELETE" ||
+        (request.method() === "POST" &&
+          (request.url().endsWith("/rows") || recordEndpoint)))
+    )
+      writes.push(request.url());
+  });
+  const requests: QueryWorkbookViewRequest[] = [];
+  let outcome: "hold" | "fail" | "ordinary" = "ordinary";
+  let release = () => {};
+  let held = Promise.resolve();
+  const holdNext = () => {
+    held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    outcome = "hold";
+  };
+  await page.route(
+    `**/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      const request = route
+        .request()
+        .postDataJSON() as QueryWorkbookViewRequest;
+      requests.push(request);
+      const selected = outcome;
+      const selectedGate = selected === "hold" ? held : null;
+      outcome = "ordinary";
+      if (selected === "fail") {
+        await route.abort("failed");
+        return;
+      }
+      const response = await route.fetch();
+      if (selectedGate !== null) await selectedGate;
+      try {
+        await route.fulfill({ response });
+      } catch (error) {
+        if (selectedGate === null) throw error;
+      }
+    },
+  );
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+  );
+  const field = page.getByTestId(gridFilterFieldTestId(timelineViewSchemaId));
+  const lower = page.getByTestId(gridFilterValueTestId(timelineViewSchemaId));
+  const apply = page.getByTestId(gridFilterApplyTestId(timelineViewSchemaId));
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(
+      timelineViewSchemaId,
+      "filter",
+      "timeline.date_entered_sort_day",
+    ),
+  );
+  try {
+    await trigger.click();
+    await field.selectOption("timeline.date_entered_sort_day");
+    await page
+      .getByTestId(workbookFilterOperatorTestId(timelineViewSchemaId))
+      .selectOption("range");
+    await lower.fill("2026-04-01");
+    holdNext();
+    await apply.click();
+    await expect.poll(() => requests.length).toBe(1);
+    expect(requests[0]?.filters).toEqual([
+      {
+        field_key: "timeline.date_entered_sort_day",
+        op: "range",
+        arg: { gte: "2026-04-01" },
+      },
+    ]);
+    await expect.poll(() => visibleRecordIds(page)).toEqual(acceptedIds);
+    await expect(chip).toHaveCount(0);
+    await expect(trigger).toContainText("Unapplied");
+    await trigger.click();
+    await page
+      .getByRole("button", { name: /Edit unapplied.*Date entered/i })
+      .click();
+    await expect(lower).toHaveValue("2026-04-01");
+    await lower.fill("2026-03-01");
+    await expect(lower).toBeFocused();
+    release();
+    await expect(chip).toBeVisible();
+    await expect
+      .poll(() => visibleRecordIds(page))
+      .toEqual([String(beta.record_id)]);
+    await expect(trigger).not.toContainText("Unapplied");
+    await expect(lower).toHaveValue("2026-03-01");
+    await expect(lower).toBeFocused();
+    await lower.press("Escape");
+    await expect(trigger).toBeFocused();
+    expect(requests).toHaveLength(1);
+
+    await chip.press("Enter");
+    await lower.fill("2026-01-01");
+    outcome = "fail";
+    await apply.click();
+    await expect.poll(() => requests.length).toBe(2);
+    expect(requests[1]?.filters).toEqual([
+      {
+        field_key: "timeline.date_entered_sort_day",
+        op: "range",
+        arg: { gte: "2026-01-01" },
+      },
+    ]);
+    await expect(chip).toBeVisible();
+    await expect
+      .poll(() => visibleRecordIds(page))
+      .toEqual([String(beta.record_id)]);
+    await expect(trigger).toContainText("Unapplied");
+    await page.setViewportSize({ width: 768, height: 640 });
+    await trigger.click();
+    await page
+      .getByRole("button", { name: /Edit Filter 1, Date Entered/i })
+      .click();
+    await expect(lower).toHaveValue("2026-04-01");
+    await lower.press("Escape");
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await page
+      .getByRole("button", { name: /Edit unapplied.*Date entered/i })
+      .click();
+    await expect(lower).toHaveValue("2026-01-01");
+
+    await lower.fill("2026-02-01");
+    holdNext();
+    await apply.click();
+    await expect.poll(() => requests.length).toBe(3);
+    expect(requests[2]?.filters).toEqual([
+      {
+        field_key: "timeline.date_entered_sort_day",
+        op: "range",
+        arg: { gte: "2026-02-01" },
+      },
+    ]);
+    await expect
+      .poll(() => visibleRecordIds(page))
+      .toEqual([String(beta.record_id)]);
+    await trigger.click();
+    await page
+      .getByRole("button", { name: /Edit unapplied.*Date entered/i })
+      .click();
+    await expect(lower).toHaveValue("2026-02-01");
+    await lower.fill("2026-09-01");
+    await apply.click();
+    await expect.poll(() => requests.length).toBe(4);
+    expect(requests[3]?.filters).toEqual([
+      {
+        field_key: "timeline.date_entered_sort_day",
+        op: "range",
+        arg: { gte: "2026-09-01" },
+      },
+    ]);
+    await expect.poll(() => visibleRecordIds(page)).toEqual([]);
+    await trigger.click();
+    const acceptedOverflow = page.getByRole("button", {
+      name: /Edit Filter 1, Date Entered.*2026-09-01/i,
+    });
+    await expect(acceptedOverflow).toBeVisible();
+    await expect(trigger).not.toContainText("Unapplied");
+    release();
+    await expect.poll(() => visibleRecordIds(page)).toEqual([]);
+    await expect(acceptedOverflow).toBeVisible();
+    await expect(trigger).not.toContainText("Unapplied");
+    expect(writes).toEqual([]);
+  } finally {
+    release();
+  }
+});
+
+test("Notes canonical Filters reconcile pending clear, Revert and Retry", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("NOTE-FILTER-REQUESTED"),
+    "Notes requested Filters",
+  );
+  await createViewRow(page, incidentId, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("note-filter-alpha"),
+    "note.title": "Alpha responder",
+    "note.body": "Alpha content",
+  });
+  await createViewRow(page, incidentId, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("note-filter-beta"),
+    "note.title": "Beta responder",
+    "note.body": "Beta content",
+  });
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(notesViewSchemaId)}`,
+  );
+  const rows = page
+    .getByTestId(gridShellTestId(notesViewSchemaId))
+    .locator('[role="row"][data-grid-record-id]:not([data-grid-record-id=""])');
+  await expect(rows).toHaveCount(2);
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    const recordEndpoint = request.url().includes("/api/v1/records");
+    if (
+      (request.url().includes(`/incidents/${incidentId}/`) || recordEndpoint) &&
+      (request.method() === "PATCH" ||
+        request.method() === "PUT" ||
+        request.method() === "DELETE" ||
+        (request.method() === "POST" &&
+          (request.url().endsWith("/rows") || recordEndpoint)))
+    )
+      writes.push(request.url());
+  });
+  const reads: QueryWorkbookViewRequest[] = [];
+  let outcome: "hold" | "fail" | "ordinary" = "ordinary";
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    `**/incidents/${incidentId}/views/${notesViewSchemaId}/query`,
+    async (route) => {
+      reads.push(route.request().postDataJSON() as QueryWorkbookViewRequest);
+      const selected = outcome;
+      outcome = "ordinary";
+      if (selected === "fail") {
+        await route.abort("failed");
+        return;
+      }
+      const response = await route.fetch();
+      if (selected === "hold") await gate;
+      await route.fulfill({ response });
+    },
+  );
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(notesViewSchemaId),
+  );
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(notesViewSchemaId, "filter", "note.full_text"),
+  );
+  const browsing = page.getByRole("group", { name: "Workbook browsing" });
+  try {
+    outcome = "hold";
+    await applyFilterChip(
+      page,
+      notesViewSchemaId,
+      "note.full_text",
+      "  Alpha   ",
+    );
+    await expect.poll(() => reads.length).toBe(1);
+    await expect(rows).toHaveCount(2);
+    await expect(trigger).toContainText("Unapplied");
+    release();
+    await expect(rows).toHaveCount(1);
+    await expect(chip).toBeVisible();
+    await expect(trigger).not.toContainText("Unapplied");
+
+    outcome = "fail";
+    await trigger.click();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect.poll(() => reads.length).toBe(2);
+    expect(reads[1]?.filters).toBeUndefined();
+    await expect(rows).toHaveCount(1);
+    await expect(chip).toBeVisible();
+    await expect(trigger).toContainText("Unapplied");
+    await page.getByRole("button", { name: /Restore Full text/i }).click();
+    await expect(trigger).not.toContainText("Unapplied");
+    await expect(rows).toHaveCount(1);
+    await expect(chip).toBeVisible();
+
+    const clearAgainStart = reads.length;
+    outcome = "fail";
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect.poll(() => reads.length).toBe(clearAgainStart + 1);
+    expect(reads.at(-1)?.filters).toBeUndefined();
+    await expect(trigger).toContainText("Unapplied");
+    await browsing.getByRole("button", { name: "Revert" }).click();
+    await expect(trigger).not.toContainText("Unapplied");
+    await expect(chip).toBeVisible();
+
+    outcome = "fail";
+    const deleteStart = reads.length;
+    await chip.press("Delete");
+    await expect.poll(() => reads.length).toBe(deleteStart + 1);
+    await expect(chip).toBeVisible();
+    await expect(trigger).toContainText("Unapplied");
+    const requestedRemoval = reads.at(-1);
+    expect(requestedRemoval?.filters).toBeUndefined();
+    const retryStart = reads.length;
+    await browsing.getByRole("button", { name: "Retry" }).click();
+    await expect.poll(() => reads.length).toBe(retryStart + 1);
+    expect(reads.at(-1)).toEqual(requestedRemoval);
+    await expect(rows).toHaveCount(2);
+    await expect(chip).toHaveCount(0);
+    await expect(trigger).not.toContainText("Unapplied");
+    expect(writes).toEqual([]);
+  } finally {
+    release();
+  }
 });
 
 test("browser Notes full_text and prefix queries remain exact", async ({

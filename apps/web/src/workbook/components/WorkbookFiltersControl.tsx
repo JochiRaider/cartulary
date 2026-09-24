@@ -18,11 +18,13 @@ import {
   validateFilterDraft,
   type WorkbookGridQueryCommand,
   type WorkbookGridQueryControlProjection,
+  type WorkbookRequestedFilterChange,
 } from "../models/workbookGridQueryControls";
 import {
   type FilterDraft,
   filterDraftForField,
   isWorkbookFilterOperator,
+  type WorkbookFilter,
 } from "../models/workbookQuery";
 import {
   clearButtonStyle,
@@ -43,14 +45,19 @@ export function WorkbookFiltersControl({
   contract,
   draft,
   editingFieldKey,
+  editingRequestedFilter,
   filterCount,
+  requestedFilterCount,
+  requestedChanges,
   isOpen,
   onApply,
   onChangeDraft,
   onClose,
   onCommand,
   onEditFilter,
+  onEditRequestedFilter,
   onEditQueryEntry,
+  onRestoreFilter,
   onToggle,
   projection,
   returnFocusRef,
@@ -60,16 +67,21 @@ export function WorkbookFiltersControl({
   readonly contract: ViewContract;
   readonly draft: FilterDraft;
   readonly editingFieldKey: string | null;
+  readonly editingRequestedFilter: boolean;
   readonly filterCount: number;
+  readonly requestedFilterCount: number;
+  readonly requestedChanges: readonly WorkbookRequestedFilterChange[];
   readonly isOpen: boolean;
   readonly onApply: (draft: FilterDraft) => void;
   readonly onChangeDraft: (draft: FilterDraft) => void;
   readonly onClose: () => void;
   readonly onCommand: (command: WorkbookGridQueryCommand) => void;
   readonly onEditFilter: (fieldKey: string) => void;
+  readonly onEditRequestedFilter: (fieldKey: string) => void;
   readonly onEditQueryEntry: (
     entry: WorkbookGridQueryControlProjection["chips"][number],
   ) => void;
+  readonly onRestoreFilter: (filter: WorkbookFilter) => void;
   readonly onToggle: () => void;
   readonly projection: WorkbookGridQueryControlProjection;
   readonly returnFocusRef: RefObject<HTMLElement | null>;
@@ -84,13 +96,23 @@ export function WorkbookFiltersControl({
       : draft.op === "eq"
         ? ["operand_kind", ...(draft.operandKind === "null" ? [] : ["value"])]
         : ["value"]),
+    ...requestedChanges.flatMap((change) =>
+      change.kind === "removed"
+        ? [`restore:${change.filter.fieldKey}`]
+        : change.kind === "added"
+          ? [
+              `edit_requested:${change.filter.fieldKey}`,
+              `remove_requested:${change.filter.fieldKey}`,
+            ]
+          : [`edit_requested:${change.filter.fieldKey}`],
+    ),
     ...projection.chips
       .filter((chip) => chip.identity.kind === "filter")
       .flatMap((chip) => [`edit:${chip.key}`, `remove:${chip.key}`]),
     ...projection.hiddenChips
       .filter((chip) => chip.identity.kind !== "filter")
       .map((chip) => `overflow:${chip.key}`),
-    ...(filterCount > 0 ? ["clear"] : []),
+    ...(requestedFilterCount > 0 ? ["clear"] : []),
     ...(editingFieldKey === null ? [] : ["remove_editing"]),
     "cancel",
     "apply",
@@ -125,8 +147,8 @@ export function WorkbookFiltersControl({
         aria-haspopup="dialog"
         aria-label={
           hiddenCount > 0
-            ? `Filters, ${filterCount} active filters, ${hiddenCount} hidden query entries`
-            : `Filters, ${filterCount} active filters`
+            ? `Filters, ${filterCount} active filters, ${hiddenCount} hidden query entries${requestedChanges.length > 0 ? ", Unapplied changes" : ""}`
+            : `Filters, ${filterCount} active filters${requestedChanges.length > 0 ? ", Unapplied changes" : ""}`
         }
         data-testid={workbookFilterPopoverTriggerTestId(surface)}
         style={controlButtonStyle}
@@ -138,10 +160,17 @@ export function WorkbookFiltersControl({
       >
         <SlidersHorizontal aria-hidden="true" size={15} />
         Filters{filterCount > 0 ? ` ${filterCount}` : ""}
+        {requestedChanges.length > 0 ? " · Unapplied" : ""}
       </button>
       {isOpen ? (
         <div
-          aria-label={editingFieldKey === null ? "Add filter" : "Edit filter"}
+          aria-label={
+            editingFieldKey === null
+              ? "Add filter"
+              : editingRequestedFilter
+                ? "Edit unapplied filter"
+                : "Edit filter"
+          }
           data-testid={workbookFilterPopoverTestId(surface)}
           id={workbookFilterPopoverTestId(surface)}
           role="dialog"
@@ -152,7 +181,11 @@ export function WorkbookFiltersControl({
           onKeyDown={navigation.onOverlayKeyDown}
         >
           <strong>
-            {editingFieldKey === null ? "Add filter" : "Edit filter"}
+            {editingFieldKey === null
+              ? "Add filter"
+              : editingRequestedFilter
+                ? "Edit unapplied filter"
+                : "Edit filter"}
           </strong>
           <label style={stackedLabelStyle}>
             Field
@@ -211,12 +244,16 @@ export function WorkbookFiltersControl({
               {validation.message}
             </p>
           ) : null}
-          <AppliedFilterActions
+          <FilterQueryActions
             filterCount={filterCount}
+            requestedFilterCount={requestedFilterCount}
+            requestedChanges={requestedChanges}
             navigation={navigation}
             onCommand={onCommand}
             onEditFilter={onEditFilter}
+            onEditRequestedFilter={onEditRequestedFilter}
             onEditQueryEntry={onEditQueryEntry}
+            onRestoreFilter={onRestoreFilter}
             projection={projection}
             surface={surface}
           />
@@ -494,22 +531,30 @@ function TextOperand({
   );
 }
 
-function AppliedFilterActions({
+function FilterQueryActions({
   filterCount,
+  requestedFilterCount,
+  requestedChanges,
   navigation,
   onCommand,
   onEditFilter,
+  onEditRequestedFilter,
   onEditQueryEntry,
+  onRestoreFilter,
   projection,
   surface,
 }: {
   readonly filterCount: number;
+  readonly requestedFilterCount: number;
+  readonly requestedChanges: readonly WorkbookRequestedFilterChange[];
   readonly navigation: ReturnType<typeof useRegisteredOverlayNavigation>;
   readonly onCommand: (command: WorkbookGridQueryCommand) => void;
   readonly onEditFilter: (fieldKey: string) => void;
+  readonly onEditRequestedFilter: (fieldKey: string) => void;
   readonly onEditQueryEntry: (
     entry: WorkbookGridQueryControlProjection["chips"][number],
   ) => void;
+  readonly onRestoreFilter: (filter: WorkbookFilter) => void;
   readonly projection: WorkbookGridQueryControlProjection;
   readonly surface: string;
 }) {
@@ -519,9 +564,72 @@ function AppliedFilterActions({
   const otherOverflow = projection.hiddenChips.filter(
     (chip) => chip.identity.kind !== "filter",
   );
-  if (filterEntries.length === 0 && otherOverflow.length === 0) return null;
+  if (
+    filterEntries.length === 0 &&
+    otherOverflow.length === 0 &&
+    requestedChanges.length === 0
+  )
+    return null;
   return (
-    <section aria-label="Applied query overflow" style={queryListStyle}>
+    <section
+      aria-label="Filters and applied query overflow"
+      style={queryListStyle}
+    >
+      {requestedChanges.length === 0 ? null : (
+        <strong>Unapplied changes</strong>
+      )}
+      {requestedChanges.map((change) =>
+        change.kind === "removed" ? (
+          <div key={change.filter.fieldKey} style={appliedRowStyle}>
+            <span>Remove {change.label} · Unapplied</span>
+            <button
+              ref={navigation.registerItem(`restore:${change.filter.fieldKey}`)}
+              aria-label={`Restore ${change.label}`}
+              style={clearButtonStyle}
+              type="button"
+              onClick={() => onRestoreFilter(change.filter)}
+            >
+              Restore
+            </button>
+          </div>
+        ) : (
+          <div key={change.filter.fieldKey} style={appliedRowStyle}>
+            <button
+              ref={navigation.registerItem(
+                `edit_requested:${change.filter.fieldKey}`,
+              )}
+              aria-label={`Edit unapplied ${change.label}`}
+              style={queryListButtonStyle}
+              type="button"
+              onClick={() => {
+                onEditRequestedFilter(change.filter.fieldKey);
+                navigation.focusItem("operator");
+              }}
+            >
+              {change.kind === "added" ? "Add" : "Change"} {change.label} ·
+              Unapplied
+            </button>
+            {change.kind === "added" ? (
+              <button
+                ref={navigation.registerItem(
+                  `remove_requested:${change.filter.fieldKey}`,
+                )}
+                aria-label={`Remove unapplied ${change.label}`}
+                style={clearButtonStyle}
+                type="button"
+                onClick={() =>
+                  onCommand({
+                    kind: "filter_remove",
+                    fieldKey: change.filter.fieldKey,
+                  })
+                }
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
+        ),
+      )}
       {filterEntries.length === 0 ? null : <strong>Applied filters</strong>}
       {filterEntries.map((chip) => (
         <div key={chip.key} style={appliedRowStyle}>
@@ -553,10 +661,11 @@ function AppliedFilterActions({
           </button>
         </div>
       ))}
-      {filterCount > 0 ? (
+      {filterCount > 0 || requestedFilterCount > 0 ? (
         <button
           ref={navigation.registerItem("clear")}
           data-testid={workbookFilterClearButtonTestId(surface)}
+          disabled={requestedFilterCount === 0}
           style={clearButtonStyle}
           type="button"
           onClick={() => onCommand({ kind: "filters_clear" })}

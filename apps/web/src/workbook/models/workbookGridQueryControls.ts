@@ -4,9 +4,11 @@ import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
   buildFilterFromDraft,
   type FilterDraft,
+  type WorkbookFilter,
   type WorkbookQueryState,
   type WorkbookSortEntry,
 } from "./workbookQuery";
+import { savedViewJSONEqual } from "./workbookSavedViews";
 import {
   projectWorkbookQueryEntries,
   queryEntryCapacity,
@@ -66,6 +68,59 @@ export type WorkbookSortControlEntry = {
   readonly label: string;
   readonly priority: number;
 };
+
+export type WorkbookRequestedFilterChange = {
+  readonly filter: WorkbookFilter;
+  readonly kind: "added" | "changed" | "removed";
+  readonly label: string;
+};
+
+/** Compare owner-provided query values without retaining another query state. */
+export function projectWorkbookRequestedFilterChanges(
+  contract: ViewContract,
+  accepted: readonly WorkbookFilter[],
+  requested: readonly WorkbookFilter[],
+): readonly WorkbookRequestedFilterChange[] {
+  const acceptedByField = new Map(
+    accepted.map((filter) => [filter.fieldKey, filter]),
+  );
+  const requestedByField = new Map(
+    requested.map((filter) => [filter.fieldKey, filter]),
+  );
+  const labels = new Map(
+    projectWorkbookQueryEntries(contract, {
+      filters: [...accepted, ...requested],
+      groupBy: null,
+      sort: [],
+    })
+      .filter((entry) => entry.identity.kind === "filter")
+      .map((entry) => [entry.identity.fieldKey, entry.detail]),
+  );
+  return [
+    ...requested.flatMap((filter) => {
+      const previous = acceptedByField.get(filter.fieldKey);
+      if (previous && savedViewJSONEqual(previous, filter)) return [];
+      return [
+        {
+          filter,
+          kind: previous ? ("changed" as const) : ("added" as const),
+          label: labels.get(filter.fieldKey) ?? filter.fieldKey,
+        },
+      ];
+    }),
+    ...accepted.flatMap((filter) =>
+      requestedByField.has(filter.fieldKey)
+        ? []
+        : [
+            {
+              filter,
+              kind: "removed" as const,
+              label: labels.get(filter.fieldKey) ?? filter.fieldKey,
+            },
+          ],
+    ),
+  ];
+}
 
 export type WorkbookColumnControlEntry = {
   readonly fieldKey: string;

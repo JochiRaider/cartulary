@@ -1897,6 +1897,7 @@
           "WorkbookGridControls replaces an older draft on Fit and follows passive width only while untouched",
           "WorkbookGridControls returns filter dismissal focus and reconciles controls removed by draft changes",
           "WorkbookGridControls returns from the final sort to Add and from a removed invoking chip to Sort",
+          "WorkbookGridControls separates accepted chips from requested filter editing and removal",
           "WorkbookGridControls shows requested Sort controls before acceptance and leaves late updates outside focus",
           "WorkbookGridControls validates explicit sizing and restores one default with predictable cancellation focus"
         ]
@@ -1929,6 +1930,7 @@
           "workbookGridQueryControls projects closure-free semantic chips in canonical responsive order",
           "workbookGridQueryControls projects deterministic semantic slots at maximum query pressure",
           "workbookGridQueryControls projects one closure-free working set across saved-view, query, layout, and focus state",
+          "workbookGridQueryControls projects requested additions, edits and removals against accepted filters",
           "workbookGridQueryControls rejects a ninth or duplicate sort and recovers admission after removal",
           "workbookGridQueryControls resets the pure presentation seam when its semantic subject changes",
           "workbookGridQueryControls scopes transient drafts to a subject and closes stale panels"
@@ -5797,6 +5799,7 @@
       "selector": {
         "file": "apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx",
         "titles": [
+          "useWorkbookQueryController applies consecutive filter edits to the latest requested query",
           "useWorkbookQueryController keeps query state isolated by exact view_schema_id"
         ]
       },

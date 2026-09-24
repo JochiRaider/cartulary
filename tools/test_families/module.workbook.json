@@ -4144,6 +4144,44 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.requested_filters_stay_editable_through_held_and_598bebf8f3",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_notes_requested_filters_recovery",
+          "scenario_requested_filters_replacement"
+        ],
+        "titles": [
+          "Notes canonical Filters reconcile pending clear, Revert and Retry",
+          "Timeline requested Filters remain editable during held and failed replacements"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",

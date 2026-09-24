@@ -39,6 +39,7 @@ type WorkbookActiveQueryControls = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
+  readonly requestedFilters: WorkbookQueryState["filters"];
   readonly requestedGroupBy: WorkbookQueryState["groupBy"];
   readonly requestedSort: WorkbookQueryState["sort"];
   readonly surface: string;
@@ -130,8 +131,12 @@ export function useWorkbookQueryController({
       }),
     [browsing, surface, setQueryStateForSurface],
   );
+  const activeBrowser = browsing.find(surface);
   const presentedQuery =
-    browsing.find(surface)?.presentationQuery(activeEntry.queryState) ??
+    activeBrowser?.presentationQuery(activeEntry.queryState) ??
+    activeEntry.queryState;
+  const canonicalRequestedQuery =
+    activeBrowser?.canonicalIntent(activeEntry.queryState) ??
     activeEntry.queryState;
   const activeQueryControls = useMemo<WorkbookActiveQueryControls>(() => {
     const setActiveQueryState = makeQuerySetter(surface);
@@ -141,13 +146,21 @@ export function useWorkbookQueryController({
       contract: activeContract,
       filterDraft: activeEntry.filterDraft,
       onApplyFilter: (draft) => {
-        setActiveQueryState((current) => applyFilterDraft(current, draft));
+        setActiveQueryState((current) =>
+          applyFilterDraft(
+            activeBrowser?.canonicalIntent(current) ?? current,
+            draft,
+          ),
+        );
         setActiveFilterDraft(clearFilterDraftValue);
       },
       onClearFilters: () => {
-        setActiveQueryState((current) =>
-          current.filters.length === 0 ? current : { ...current, filters: [] },
-        );
+        setActiveQueryState((current) => {
+          const intent = activeBrowser?.canonicalIntent(current) ?? current;
+          return intent.filters.length === 0
+            ? intent
+            : { ...intent, filters: [] };
+        });
         setActiveFilterDraft(defaultFilterDraft(activeContract));
       },
       onFilterDraftChange: setActiveFilterDraft,
@@ -157,7 +170,12 @@ export function useWorkbookQueryController({
         );
       },
       onRemoveFilter: (fieldKey) => {
-        setActiveQueryState((current) => removeFilterField(current, fieldKey));
+        setActiveQueryState((current) =>
+          removeFilterField(
+            activeBrowser?.canonicalIntent(current) ?? current,
+            fieldKey,
+          ),
+        );
       },
       onSortChange: (sort) => {
         setActiveQueryState((current) =>
@@ -165,6 +183,7 @@ export function useWorkbookQueryController({
         );
       },
       queryState: presentedQuery,
+      requestedFilters: canonicalRequestedQuery.filters,
       requestedGroupBy: activeEntry.queryState.groupBy,
       requestedSort: activeEntry.queryState.sort,
       surface,
@@ -172,6 +191,8 @@ export function useWorkbookQueryController({
   }, [
     activeContract,
     activeEntry,
+    activeBrowser,
+    canonicalRequestedQuery.filters,
     makeQuerySetter,
     setFilterDraftForSurface,
     surface,

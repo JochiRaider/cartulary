@@ -12,6 +12,7 @@ import {
   applyWorkbookSortCommand,
   createWorkbookGridControlsTransientState,
   projectWorkbookGridQueryControls,
+  projectWorkbookRequestedFilterChanges,
   reduceWorkbookGridControlsTransientState,
   type WorkbookGridQueryCommand,
   type WorkbookGridQueryControlProjection,
@@ -48,6 +49,7 @@ export type WorkbookGridControlsProps = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
+  readonly requestedFilters?: WorkbookQueryState["filters"] | undefined;
   readonly requestedGroupBy?: WorkbookQueryState["groupBy"] | undefined;
   readonly requestedSort?: WorkbookQueryState["sort"] | undefined;
   readonly subjectKey?: string | undefined;
@@ -72,6 +74,7 @@ export function WorkbookGridControls({
   onRemoveFilter,
   onSortChange,
   queryState,
+  requestedFilters,
   requestedGroupBy,
   requestedSort,
   subjectKey: suppliedSubjectKey,
@@ -109,6 +112,16 @@ export function WorkbookGridControls({
     [chromeMode, contract, layoutState, queryState],
   );
   const editorSort = requestedSort ?? queryState.sort;
+  const editorFilters = requestedFilters ?? queryState.filters;
+  const requestedFilterChanges = useMemo(
+    () =>
+      projectWorkbookRequestedFilterChanges(
+        contract,
+        queryState.filters,
+        editorFilters,
+      ),
+    [contract, editorFilters, queryState.filters],
+  );
   const editorGroupBy =
     requestedGroupBy === undefined ? queryState.groupBy : requestedGroupBy;
   const groupUnapplied = editorGroupBy !== queryState.groupBy;
@@ -244,6 +257,8 @@ export function WorkbookGridControls({
         contract={contract}
         draft={surfaceState.filterDraft}
         filterCount={queryState.filters.length}
+        requestedFilterCount={editorFilters.length}
+        requestedChanges={requestedFilterChanges}
         isOpen={surfaceState.openPanel === "filters"}
         onApply={(draft) => {
           onFilterDraftChange(draft);
@@ -264,6 +279,9 @@ export function WorkbookGridControls({
         onClose={closeFilterPanel}
         onCommand={onCommand}
         editingFieldKey={surfaceState.editingFilterFieldKey}
+        editingRequestedFilter={
+          surfaceState.activeEntryKey?.startsWith("requested-filter:") ?? false
+        }
         onEditFilter={(fieldKey) => {
           const filter = queryState.filters.find(
             (candidate) => candidate.fieldKey === fieldKey,
@@ -277,6 +295,22 @@ export function WorkbookGridControls({
             subjectKey,
           });
         }}
+        onEditRequestedFilter={(fieldKey) => {
+          const filter = editorFilters.find(
+            (candidate) => candidate.fieldKey === fieldKey,
+          );
+          if (filter === undefined) return;
+          dispatch({
+            type: "edit_filter",
+            activeEntryKey: `requested-filter:${fieldKey}`,
+            fieldKey,
+            filterDraft: filterDraftFromFilter(filter),
+            subjectKey,
+          });
+        }}
+        onRestoreFilter={(filter) =>
+          onApplyFilter(filterDraftFromFilter(filter))
+        }
         onEditQueryEntry={activateQueryChip}
         onToggle={() => {
           queryEntryReturnFocusRef.current = null;

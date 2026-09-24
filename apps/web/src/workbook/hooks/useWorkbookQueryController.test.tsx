@@ -47,7 +47,83 @@ function QueryControllerHarness({
   );
 }
 
+function FilterQueryHarness() {
+  const controller = useWorkbookQueryController({
+    surface: "cartulary.view.timeline.v2",
+  });
+  return (
+    <section>
+      <button
+        onClick={() => {
+          controller.snapshot.activeQueryControls.onApplyFilter({
+            fieldKey: "timeline.activity_synopsis_text",
+            op: "full_text",
+            query: "seed",
+          });
+          controller.commands.setTimelineQueryState((current) => ({
+            ...current,
+            groupBy: "timeline.capture_state",
+            sort: [
+              { fieldKey: "timeline.date_entered_sort_day", direction: "desc" },
+            ],
+          }));
+        }}
+        type="button"
+      >
+        Seed query
+      </button>
+      {(["2026-04-01", "2026-09-01"] as const).map((lowerValue) => (
+        <button
+          key={lowerValue}
+          onClick={() =>
+            controller.snapshot.activeQueryControls.onApplyFilter({
+              fieldKey: "timeline.date_entered_sort_day",
+              lowerKind: "gte",
+              lowerValue,
+              op: "range",
+              upperKind: "lte",
+              upperValue: "",
+            })
+          }
+          type="button"
+        >
+          Apply {lowerValue}
+        </button>
+      ))}
+      <output aria-label="requested-query">
+        {JSON.stringify(controller.snapshot.timelineQueryState)}
+      </output>
+    </section>
+  );
+}
+
 describe("useWorkbookQueryController", () => {
+  it("applies consecutive filter edits to the latest requested query", () => {
+    render(<FilterQueryHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Seed query" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply 2026-04-01" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply 2026-09-01" }));
+
+    expect(
+      JSON.parse(screen.getByLabelText("requested-query").textContent ?? "{}"),
+    ).toEqual({
+      filters: [
+        {
+          arg: { query: "seed" },
+          fieldKey: "timeline.activity_synopsis_text",
+          op: "full_text",
+        },
+        {
+          arg: { gte: "2026-09-01" },
+          fieldKey: "timeline.date_entered_sort_day",
+          op: "range",
+        },
+      ],
+      groupBy: "timeline.capture_state",
+      sort: [{ fieldKey: "timeline.date_entered_sort_day", direction: "desc" }],
+    });
+  });
+
   it("keeps query state isolated by exact view_schema_id", () => {
     render(<QueryControllerHarness instanceId="one" />);
     fireEvent.click(screen.getByRole("button", { name: "Update Timeline" }));
