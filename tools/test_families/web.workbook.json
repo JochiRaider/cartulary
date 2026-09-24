@@ -1882,11 +1882,15 @@
           "WorkbookGridControls exposes add, direction, priority, boundary, removal, and limit recovery actions",
           "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
+          "WorkbookGridControls keeps focus in Sort when Add replaces its control and a boundary move disables",
           "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
+          "WorkbookGridControls keeps the roving Sort item aligned with pointer focus and removes toward a neighbor",
           "WorkbookGridControls leaves native filter control keys alone and contains the complete range Tab order after pointer focus",
           "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
           "WorkbookGridControls parses filter controls exactly and restores focus on Escape",
           "WorkbookGridControls returns filter dismissal focus and reconciles controls removed by draft changes",
+          "WorkbookGridControls returns from the final sort to Add and from a removed invoking chip to Sort",
+          "WorkbookGridControls shows requested Sort controls before acceptance and leaves late updates outside focus",
           "WorkbookGridControls validates explicit sizing and restores one default with predictable cancellation focus"
         ]
       },

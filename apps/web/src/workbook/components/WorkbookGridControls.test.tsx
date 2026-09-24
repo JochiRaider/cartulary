@@ -14,7 +14,13 @@ import {
   workbookSortOptionTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { useLayoutEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
@@ -330,6 +336,265 @@ describe("WorkbookGridControls", () => {
     ).toBeInstanceOf(HTMLElement);
   });
 
+  it("keeps focus in Sort when Add replaces its control and a boundary move disables", () => {
+    const contract = requireViewContract(timelineSurface);
+    const [first, second] = contract.sortFields;
+    if (first === undefined || second === undefined)
+      throw new Error("Timeline needs two sortable fields");
+    const firstLabel = contract.fieldMap[first]?.label ?? first;
+    const secondLabel = contract.fieldMap[second]?.label ?? second;
+    render(<StatefulGridControls />);
+    fireEvent.click(
+      screen.getByTestId(workbookSortMenuTriggerTestId(timelineSurface)),
+    );
+    const firstAdd = screen.getByRole("menuitem", {
+      name: `Add sort ${firstLabel}`,
+    });
+    firstAdd.focus();
+    fireEvent.click(firstAdd);
+    const firstDirection = screen.getByRole("menuitemcheckbox", {
+      name: `Set ${firstLabel} descending`,
+    });
+    expect(document.activeElement).toBe(firstDirection);
+    const secondAdd = screen.getByRole("menuitem", {
+      name: `Add sort ${secondLabel}`,
+    });
+    secondAdd.focus();
+    fireEvent.click(secondAdd);
+    const secondDirection = screen.getByRole("menuitemcheckbox", {
+      name: `Set ${secondLabel} descending`,
+    });
+    expect(document.activeElement).toBe(secondDirection);
+    const moveEarlier = screen.getByRole("menuitem", {
+      name: `Move ${secondLabel} earlier`,
+    });
+    moveEarlier.focus();
+    fireEvent.click(moveEarlier);
+    expect(document.activeElement).toBe(secondDirection);
+    expect((moveEarlier as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("keeps the roving Sort item aligned with pointer focus and removes toward a neighbor", () => {
+    const contract = requireViewContract(timelineSurface);
+    const [first, second] = contract.sortFields;
+    if (first === undefined || second === undefined)
+      throw new Error("Timeline needs two sortable fields");
+    const firstLabel = contract.fieldMap[first]?.label ?? first;
+    const secondLabel = contract.fieldMap[second]?.label ?? second;
+    render(
+      <StatefulGridControls
+        initialSort={[
+          { fieldKey: first, direction: "asc" },
+          { fieldKey: second, direction: "asc" },
+        ]}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId(workbookSortMenuTriggerTestId(timelineSurface)),
+    );
+    const removeFirst = screen.getByRole("menuitem", {
+      name: `Remove ${firstLabel} sort`,
+    });
+    act(() => removeFirst.focus());
+    expect(removeFirst.tabIndex).toBe(0);
+    expect(
+      screen
+        .getByTestId(workbookSortMenuTestId(timelineSurface))
+        .querySelectorAll('[role^="menuitem"][tabindex="0"]'),
+    ).toHaveLength(1);
+    fireEvent.keyDown(removeFirst, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitemcheckbox", {
+        name: `Set ${secondLabel} descending`,
+      }),
+    );
+    act(() => removeFirst.focus());
+    fireEvent.keyDown(removeFirst, { key: "Home" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitemcheckbox", {
+        name: `Set ${firstLabel} descending`,
+      }),
+    );
+    removeFirst.focus();
+    fireEvent.click(removeFirst);
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitemcheckbox", {
+        name: `Set ${secondLabel} descending`,
+      }),
+    );
+  });
+
+  it("returns from the final sort to Add and from a removed invoking chip to Sort", () => {
+    const contract = requireViewContract(timelineSurface);
+    const first = contract.sortFields[0];
+    if (first === undefined) throw new Error("Timeline needs a sortable field");
+    const label = contract.fieldMap[first]?.label ?? first;
+    render(
+      <StatefulGridControls
+        initialSort={[{ fieldKey: first, direction: "asc" }]}
+      />,
+    );
+    const trigger = screen.getByTestId(
+      workbookSortMenuTriggerTestId(timelineSurface),
+    );
+    const chip = screen.getByTestId(
+      workbookQueryEntryTestId(timelineSurface, "sort", first),
+    );
+    fireEvent.click(chip);
+    const direction = screen.getByRole("menuitemcheckbox", {
+      name: `Set ${label} descending`,
+    });
+    expect(document.activeElement).toBe(direction);
+    const remove = screen.getByRole("menuitem", {
+      name: `Remove ${label} sort`,
+    });
+    act(() => remove.focus());
+    fireEvent.click(remove);
+    const add = screen.getByRole("menuitem", { name: `Add sort ${label}` });
+    expect(document.activeElement).toBe(add);
+    fireEvent.keyDown(add, { key: "Escape" });
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("shows requested Sort controls before acceptance and leaves late updates outside focus", () => {
+    const contract = requireViewContract(timelineSurface);
+    const [first, second] = contract.sortFields;
+    if (first === undefined || second === undefined)
+      throw new Error("Timeline needs two sortable fields");
+    const firstLabel = contract.fieldMap[first]?.label ?? first;
+    const secondLabel = contract.fieldMap[second]?.label ?? second;
+    const empty = emptyWorkbookQueryState();
+    const one = [{ fieldKey: first, direction: "asc" as const }];
+    const two = [...one, { fieldKey: second, direction: "asc" as const }];
+    const onSortChange = vi.fn();
+    const { rerender } = render(
+      <>
+        <ControlledSortGridControls
+          accepted={empty}
+          requestedSort={[]}
+          onSortChange={onSortChange}
+          subjectKey="timeline"
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    const trigger = screen.getByTestId(
+      workbookSortMenuTriggerTestId(timelineSurface),
+    );
+    fireEvent.click(trigger);
+    const addFirst = screen.getByRole("menuitem", {
+      name: `Add sort ${firstLabel}`,
+    });
+    act(() => addFirst.focus());
+    fireEvent.click(addFirst);
+    expect(onSortChange).toHaveBeenLastCalledWith(one);
+    rerender(
+      <>
+        <ControlledSortGridControls
+          accepted={empty}
+          requestedSort={one}
+          onSortChange={onSortChange}
+          subjectKey="timeline"
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    const firstDirection = screen.getByRole("menuitemcheckbox", {
+      name: `Set ${firstLabel} descending`,
+    });
+    expect(document.activeElement).toBe(firstDirection);
+    expect(
+      screen.queryByTestId(
+        workbookQueryEntryTestId(timelineSurface, "sort", first),
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        "Sort changes are unapplied until the query is accepted.",
+      ),
+    ).toBeTruthy();
+    const addSecond = screen.getByRole("menuitem", {
+      name: `Add sort ${secondLabel}`,
+    });
+    act(() => addSecond.focus());
+    fireEvent.click(addSecond);
+    expect(onSortChange).toHaveBeenLastCalledWith(two);
+    rerender(
+      <>
+        <ControlledSortGridControls
+          accepted={empty}
+          requestedSort={two}
+          onSortChange={onSortChange}
+          subjectKey="timeline"
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    const secondDirection = screen.getByRole("menuitemcheckbox", {
+      name: `Set ${secondLabel} descending`,
+    });
+    expect(document.activeElement).toBe(secondDirection);
+    rerender(
+      <>
+        <ControlledSortGridControls
+          accepted={{ ...empty }}
+          requestedSort={two}
+          onSortChange={onSortChange}
+          subjectKey="timeline"
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    expect(document.activeElement).toBe(secondDirection);
+    expect(
+      screen.getByText(
+        "Sort changes are unapplied until the query is accepted.",
+      ),
+    ).toBeTruthy();
+    const outside = screen.getByRole("button", { name: "Outside destination" });
+    act(() => outside.focus());
+    expect(
+      screen.queryByTestId(workbookSortMenuTestId(timelineSurface)),
+    ).toBeNull();
+    // A failed/retained replacement can be reverted after the user has left.
+    rerender(
+      <>
+        <ControlledSortGridControls
+          accepted={empty}
+          requestedSort={[]}
+          onSortChange={onSortChange}
+          subjectKey="timeline"
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    expect(document.activeElement).toBe(outside);
+    rerender(
+      <>
+        <ControlledSortGridControls
+          accepted={{ ...empty, sort: two }}
+          requestedSort={two}
+          onSortChange={onSortChange}
+          subjectKey="timeline"
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    expect(document.activeElement).toBe(outside);
+    rerender(
+      <>
+        <ControlledSortGridControls
+          accepted={{ ...empty, sort: two }}
+          requestedSort={two}
+          onSortChange={onSortChange}
+          subjectKey="next-surface"
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    expect(document.activeElement).toBe(outside);
+  });
+
   it("keeps invalid drafts visible, excludes them from apply, and resets panels by surface", () => {
     const contract = requireViewContract(timelineSurface);
     const onApplyFilter = vi.fn();
@@ -557,11 +822,16 @@ describe("WorkbookGridControls", () => {
   });
 });
 
-function StatefulGridControls() {
+function StatefulGridControls({
+  initialSort = [],
+}: {
+  readonly initialSort?: WorkbookQueryState["sort"];
+}) {
   const contract = requireViewContract(timelineSurface);
-  const [queryState, setQueryState] = useState<WorkbookQueryState>(
-    emptyWorkbookQueryState(),
-  );
+  const [queryState, setQueryState] = useState<WorkbookQueryState>({
+    ...emptyWorkbookQueryState(),
+    sort: initialSort,
+  });
   const owner = useWorkbookColumnLayoutController({ activeContract: contract });
   const controls = owner.snapshot.activeLayoutControls;
   const layoutState = controls.layoutState;
@@ -603,6 +873,41 @@ function StatefulGridControls() {
         setQueryState((current) => ({ ...current, sort }));
       }}
       queryState={queryState}
+      surface={timelineSurface}
+    />
+  );
+}
+
+function ControlledSortGridControls({
+  accepted,
+  onSortChange,
+  requestedSort,
+  subjectKey,
+}: {
+  readonly accepted: WorkbookQueryState;
+  readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
+  readonly requestedSort: WorkbookQueryState["sort"];
+  readonly subjectKey: string;
+}) {
+  const contract = requireViewContract(timelineSurface);
+  return (
+    <WorkbookGridControls
+      contract={contract}
+      filterDraft={defaultFilterDraft(contract)}
+      freezing={{ status: null, onBoundaryChange: vi.fn() }}
+      layoutState={defaultWorkbookLayoutState(contract)}
+      onApplyFilter={vi.fn()}
+      onColumnHiddenChange={vi.fn()}
+      onColumnMove={vi.fn()}
+      onFilterDraftChange={vi.fn()}
+      onGroupByChange={vi.fn()}
+      onRemoveFilter={vi.fn()}
+      onResetColumns={vi.fn()}
+      onSortChange={onSortChange}
+      queryState={accepted}
+      requestedSort={requestedSort}
+      sizing={sizing}
+      subjectKey={subjectKey}
       surface={timelineSurface}
     />
   );

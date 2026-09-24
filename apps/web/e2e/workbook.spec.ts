@@ -36,11 +36,14 @@ import {
   workbookFilterPopoverTriggerTestId,
   workbookQueryEntryTestId,
   workbookShellReadyTestId,
+  workbookSortMenuTestId,
+  workbookSortMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
 import {
   evidenceViewSchemaId,
   hostsViewSchemaId,
   notesViewSchemaId,
+  requireViewContract,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
@@ -1297,6 +1300,157 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
     await expect(groupRow.locator("input, textarea, select")).toHaveCount(0);
     await expect(groupRow.locator("button")).toHaveCount(1);
   }
+});
+
+test("Timeline Sort editor keeps focus through a continuous keyboard session", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("SORT-KEYBOARD"),
+    "Workbook Sort keyboard and focus",
+  );
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+  const contract = requireViewContract(timelineViewSchemaId);
+  const fields = contract.fields
+    .map((field) => field.fieldKey)
+    .filter((fieldKey) => contract.sortableFieldMap[fieldKey]);
+  expect(fields.length).toBeGreaterThan(8);
+  const label = (fieldKey: string) =>
+    contract.fieldMap[fieldKey]?.label ?? fieldKey;
+  const direction = (
+    fieldKey: string,
+    next: "ascending" | "descending" = "descending",
+  ) =>
+    page.getByRole("menuitemcheckbox", {
+      name: `Set ${label(fieldKey)} ${next}`,
+    });
+  const trigger = page.getByTestId(
+    workbookSortMenuTriggerTestId(timelineViewSchemaId),
+  );
+  await trigger.click();
+  const menu = page.getByTestId(workbookSortMenuTestId(timelineViewSchemaId));
+  await expect(menu).toBeVisible();
+  const first = fields[0];
+  const second = fields[1];
+  if (first === undefined || second === undefined)
+    throw new Error("Timeline needs two sortable fields");
+  await expect(
+    page.getByRole("menuitem", { name: `Add sort ${label(first)}` }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(first)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: `Remove ${label(first)} sort` }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: `Add sort ${label(second)}` }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(second)).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(second, "ascending")).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: `Move ${label(second)} earlier` }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(second, "ascending")).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: `Remove ${label(second)} sort` }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(first)).toBeFocused();
+
+  const added = [first];
+  for (let index = 1; index < 8; index += 1) {
+    const next = fields.filter((fieldKey) => !added.includes(fieldKey)).at(-1);
+    if (next === undefined)
+      throw new Error("Timeline needs eight sortable fields");
+    await page.keyboard.press("End");
+    await expect(
+      page.getByRole("menuitem", { name: `Add sort ${label(next)}` }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(direction(next)).toBeFocused();
+    added.push(next);
+  }
+  await expect(
+    menu.getByText(/Remove a sort before adding another/),
+  ).toBeVisible();
+  const last = added.at(-1);
+  const previous = added.at(-2);
+  if (last === undefined || previous === undefined)
+    throw new Error("Expected full Sort list");
+  await page.keyboard.press("End");
+  await expect(
+    page.getByRole("menuitem", { name: `Remove ${label(last)} sort` }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(previous)).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(
+    page.getByRole("menuitem", { name: `Add sort ${label(last)}` }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(last)).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(timelineViewSchemaId, "sort", first),
+  );
+  for (
+    let step = 0;
+    step < 12 &&
+    !(await chip.evaluate((node) => document.activeElement === node));
+    step += 1
+  ) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(chip).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(first)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: `Remove ${label(first)} sort` }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(direction(added[1] as string)).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  const grid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
+  for (
+    let step = 0;
+    step < 24 && (await grid.locator(":focus").count()) === 0;
+    step += 1
+  ) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(grid.locator(":focus")).toHaveCount(1);
+
+  await trigger.click();
+  const surviving = added[1];
+  if (surviving === undefined) throw new Error("Expected a surviving sort");
+  await direction(surviving).click();
+  await expect(direction(surviving, "ascending")).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: `Move ${label(surviving)} later` }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("combobox", { name: "Group rows" }),
+  ).toBeFocused();
+  await expect(menu).toBeHidden();
 });
 
 test("Timeline Filters editor preserves native keys, range traversal, and focus return across surfaces", async ({

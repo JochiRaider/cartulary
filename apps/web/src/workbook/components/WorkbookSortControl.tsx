@@ -21,6 +21,7 @@ import {
 
 export function WorkbookSortControl({
   constrained,
+  editorProjection,
   isOpen,
   onClose,
   onCommand,
@@ -29,9 +30,11 @@ export function WorkbookSortControl({
   returnFocusRef,
   requestedFieldKey,
   surface,
+  sortUnapplied,
   triggerRef,
 }: {
   readonly constrained: boolean;
+  readonly editorProjection: WorkbookGridQueryControlProjection;
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly onCommand: (command: WorkbookGridQueryCommand) => void;
@@ -40,9 +43,13 @@ export function WorkbookSortControl({
   readonly returnFocusRef: RefObject<HTMLElement | null>;
   readonly requestedFieldKey: string | null;
   readonly surface: string;
+  readonly sortUnapplied: boolean;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-  const itemKeys = useMemo(() => sortControlItemKeys(projection), [projection]);
+  const itemKeys = useMemo(
+    () => sortControlItemKeys(editorProjection),
+    [editorProjection],
+  );
   const requestedKey =
     requestedFieldKey === null ? null : `${requestedFieldKey}:direction`;
   const initialKey =
@@ -55,10 +62,15 @@ export function WorkbookSortControl({
     itemKeys,
     onRequestClose: onClose,
     preferredReturnFocusRef: returnFocusRef,
+    reconcileItemKey: sortReconciledItemKey,
+    reconcileItems: true,
+    restoreFocusOnSubjectChange: false,
+    restoreFocusOnUnmount: false,
     subjectKey: `${surface}:${requestedFieldKey ?? "trigger"}`,
     triggerRef,
   });
-  const atLimit = projection.sortEntries.length >= workbookOrderedSortLimit;
+  const atLimit =
+    editorProjection.sortEntries.length >= workbookOrderedSortLimit;
 
   return (
     <div
@@ -103,17 +115,22 @@ export function WorkbookSortControl({
           style={sortMenuStyle}
           tabIndex={-1}
           onBlur={navigation.onOverlayBlur}
-          onKeyDown={(event) => {
-            if (event.defaultPrevented || navigation.activeKey === null) return;
-            navigation.onItemKeyDown(event, navigation.activeKey);
-          }}
+          onFocusCapture={navigation.onOverlayFocus}
+          onKeyDown={navigation.onOverlayKeyDown}
         >
+          {sortUnapplied ? (
+            <p role="status" style={sortLimitStyle}>
+              Sort changes are unapplied until the query is accepted.
+            </p>
+          ) : null}
           <fieldset style={sectionStyle}>
-            <legend>Applied sorts</legend>
-            {projection.sortEntries.length === 0 ? (
+            <legend>
+              {sortUnapplied ? "Requested sorts" : "Applied sorts"}
+            </legend>
+            {editorProjection.sortEntries.length === 0 ? (
               <span style={emptyStateStyle}>No user sort override.</span>
             ) : (
-              projection.sortEntries.map((entry) => (
+              editorProjection.sortEntries.map((entry) => (
                 <div
                   key={entry.fieldKey}
                   data-testid={workbookSortAppliedEntryTestId(
@@ -159,7 +176,7 @@ export function WorkbookSortControl({
                     entry={entry}
                     navigation={navigation}
                     onCommand={onCommand}
-                    sortCount={projection.sortEntries.length}
+                    sortCount={editorProjection.sortEntries.length}
                   />
                 </div>
               ))
@@ -167,7 +184,7 @@ export function WorkbookSortControl({
           </fieldset>
           <fieldset style={sectionStyle}>
             <legend>Add sort</legend>
-            {projection.unusedSortableFields.map((field) => {
+            {editorProjection.unusedSortableFields.map((field) => {
               const itemKey = `${field.fieldKey}:add`;
               return (
                 <button
@@ -302,6 +319,36 @@ function sortControlItemKeys(
     ]),
     ...projection.unusedSortableFields.map((field) => `${field.fieldKey}:add`),
   ];
+}
+
+function sortReconciledItemKey(
+  previousKey: string,
+  previousKeys: readonly string[],
+  eligibleKeys: readonly string[],
+): string | null {
+  const separator = previousKey.lastIndexOf(":");
+  if (separator < 0) return null;
+  const fieldKey = previousKey.slice(0, separator);
+  const action = previousKey.slice(separator + 1);
+  const directionKey = `${fieldKey}:direction`;
+  if (eligibleKeys.includes(directionKey)) return directionKey;
+  if (action !== "add") {
+    const priorDirections = previousKeys.filter((key) =>
+      key.endsWith(":direction"),
+    );
+    const oldIndex = priorDirections.indexOf(directionKey);
+    if (oldIndex >= 0) {
+      for (const key of priorDirections.slice(oldIndex + 1)) {
+        if (eligibleKeys.includes(key)) return key;
+      }
+      for (const key of priorDirections.slice(0, oldIndex).reverse()) {
+        if (eligibleKeys.includes(key)) return key;
+      }
+    }
+  }
+  const sameFieldAdd = `${fieldKey}:add`;
+  if (eligibleKeys.includes(sameFieldAdd)) return sameFieldAdd;
+  return eligibleKeys.find((key) => key.endsWith(":add")) ?? null;
 }
 
 const sortMenuFrameStyle = { ...menuFrameStyle, flex: "0 0 auto" };

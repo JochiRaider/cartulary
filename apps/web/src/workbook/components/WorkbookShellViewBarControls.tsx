@@ -56,6 +56,7 @@ export function workbookShellViewBarWorkingSet({
             onResetColumns: snapshot.activeLayoutControls.onResetColumns,
             onSortChange: snapshot.activeQueryControls.onSortChange,
             queryState: snapshot.activeQueryControls.queryState,
+            requestedSort: snapshot.activeQueryControls.requestedSort,
             surface: snapshot.activeQueryControls.surface,
             subjectKey,
           },

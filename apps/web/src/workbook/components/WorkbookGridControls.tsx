@@ -48,6 +48,7 @@ export type WorkbookGridControlsProps = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
+  readonly requestedSort?: WorkbookQueryState["sort"] | undefined;
   readonly subjectKey?: string | undefined;
   readonly surface: string;
   readonly sizing: WorkbookColumnSizingControls;
@@ -70,6 +71,7 @@ export function WorkbookGridControls({
   onRemoveFilter,
   onSortChange,
   queryState,
+  requestedSort,
   subjectKey: suppliedSubjectKey,
   surface,
   sizing,
@@ -104,6 +106,26 @@ export function WorkbookGridControls({
       }),
     [chromeMode, contract, layoutState, queryState],
   );
+  const editorSort = requestedSort ?? queryState.sort;
+  const sortEditorProjection = useMemo(
+    () =>
+      editorSort === queryState.sort
+        ? projection
+        : projectWorkbookGridQueryControls({
+            chromeMode,
+            contract,
+            layoutState,
+            queryState: { ...queryState, sort: editorSort },
+          }),
+    [chromeMode, contract, editorSort, layoutState, projection, queryState],
+  );
+  const sortUnapplied =
+    editorSort.length !== queryState.sort.length ||
+    editorSort.some(
+      (entry, index) =>
+        entry.fieldKey !== queryState.sort[index]?.fieldKey ||
+        entry.direction !== queryState.sort[index]?.direction,
+    );
   const commandPorts: WorkbookGridCommandPorts = {
     contract,
     onClearFilters,
@@ -115,6 +137,7 @@ export function WorkbookGridControls({
     onResetColumns,
     onSortChange,
     queryState,
+    requestedSort: editorSort,
   };
   const onCommand = (command: WorkbookGridQueryCommand) => {
     executeWorkbookGridQueryCommand(command, commandPorts);
@@ -176,6 +199,7 @@ export function WorkbookGridControls({
     >
       <WorkbookSortControl
         constrained={chromeMode !== "base" || projection.hiddenChips.length > 0}
+        editorProjection={sortEditorProjection}
         isOpen={surfaceState.openPanel === "sort"}
         onClose={closePanel}
         onCommand={onCommand}
@@ -192,6 +216,7 @@ export function WorkbookGridControls({
             : null
         }
         surface={surface}
+        sortUnapplied={sortUnapplied}
         triggerRef={sortTriggerRef}
       />
       <WorkbookGroupControl
@@ -316,6 +341,7 @@ type WorkbookGridCommandPorts = Pick<
   | "onResetColumns"
   | "onSortChange"
   | "queryState"
+  | "requestedSort"
 >;
 
 function executeWorkbookGridQueryCommand(
@@ -327,12 +353,13 @@ function executeWorkbookGridQueryCommand(
     case "sort_set_direction":
     case "sort_move":
     case "sort_remove": {
+      const currentSort = ports.requestedSort ?? ports.queryState.sort;
       const next = applyWorkbookSortCommand(
         ports.contract,
-        ports.queryState.sort,
+        currentSort,
         command,
       );
-      if (next !== ports.queryState.sort) ports.onSortChange(next);
+      if (next !== currentSort) ports.onSortChange(next);
       return;
     }
     case "group_set":

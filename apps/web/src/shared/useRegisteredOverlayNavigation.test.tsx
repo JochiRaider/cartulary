@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { type RefObject, useCallback, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useRegisteredOverlayNavigation } from "./useRegisteredOverlayNavigation";
@@ -13,12 +19,18 @@ function OverlayHarness({
   keys = itemKeys,
   restoreFocusOnSubjectChange = true,
   onRestoreFocus,
+  reconcileItemKey,
   subjectKey,
 }: {
   readonly hideTrigger?: boolean;
-  readonly keys?: readonly (typeof itemKeys)[number][];
+  readonly keys?: readonly string[];
   readonly restoreFocusOnSubjectChange?: boolean;
   readonly onRestoreFocus?: () => void;
+  readonly reconcileItemKey?: (
+    itemKey: string,
+    previousKeys: readonly string[],
+    eligibleKeys: readonly string[],
+  ) => string | null;
   readonly subjectKey: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +43,7 @@ function OverlayHarness({
     isOpen,
     itemKeys: keys,
     onRequestClose: () => setIsOpen(false),
+    reconcileItemKey,
     subjectKey,
     restoreFocusOnSubjectChange,
     triggerRef,
@@ -259,6 +272,57 @@ describe("registered overlay navigation", () => {
     expect(document.activeElement).toBe(
       screen.getByRole("menuitem", { name: "last" }),
     );
+  });
+
+  it("returns to the trigger when the last registered item disappears", () => {
+    const { rerender } = render(<OverlayHarness subjectKey="surface-a" />);
+    const trigger = screen.getByRole("button", { name: "Open" });
+    fireEvent.click(trigger);
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "first" }),
+    );
+    rerender(<OverlayHarness keys={[]} subjectKey="surface-a" />);
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("validates a semantic replacement and never reclaims an outside destination", () => {
+    const replacement = vi.fn(() => "extra");
+    const { rerender } = render(
+      <>
+        <OverlayHarness subjectKey="surface-a" reconcileItemKey={replacement} />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    rerender(
+      <>
+        <OverlayHarness
+          keys={["disabled", "last", "extra"]}
+          subjectKey="surface-a"
+          reconcileItemKey={replacement}
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    expect(replacement).toHaveBeenCalled();
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "extra" }),
+    );
+    const outside = screen.getByRole("button", { name: "Outside destination" });
+    act(() => outside.focus());
+    expect(screen.queryByRole("menu")).toBeNull();
+    rerender(
+      <>
+        <OverlayHarness
+          keys={["last"]}
+          subjectKey="surface-a"
+          reconcileItemKey={replacement}
+        />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    expect(document.activeElement).toBe(outside);
   });
 
   it("allows a destination owner to suppress subject-change restoration", () => {
