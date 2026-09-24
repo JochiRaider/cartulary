@@ -4530,6 +4530,45 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser_stateful.group_requested_replacement",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "workbook_group_pointer_hosts",
+          "workbook_group_requested_replacement_after_failed",
+          "workbook_group_requested_replacement_during_delayed"
+        ],
+        "titles": [
+          "Workbook Group pointer selection stays scoped to Hosts",
+          "Workbook Group retains requested keyboard choice after failed replacement",
+          "Workbook Group retains requested keyboard choice during delayed replacement"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser_stateful.preferences_extension",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser_stateful",

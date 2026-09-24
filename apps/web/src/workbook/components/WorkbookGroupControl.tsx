@@ -1,16 +1,18 @@
 import { gridGroupingSelectTestId } from "@cartulary/ui-contracts";
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import {
   parseDeclaredGroupField,
   type WorkbookGridQueryCommand,
   type WorkbookGridQueryControlProjection,
 } from "../models/workbookGridQueryControls";
+import { visuallyHiddenStyle } from "../utils/workbookStyles";
 import {
   immutableControlLabelStyle,
   selectStyle,
 } from "./workbookGridControlStyles";
 
 export function WorkbookGroupControl({
+  groupUnapplied,
   isOpen,
   onClose,
   onCommand,
@@ -18,9 +20,11 @@ export function WorkbookGroupControl({
   projection,
   returnFocusRef,
   selectedFieldKey,
+  subjectKey,
   surface,
   triggerRef,
 }: {
+  readonly groupUnapplied: boolean;
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly onCommand: (command: WorkbookGridQueryCommand) => void;
@@ -28,24 +32,35 @@ export function WorkbookGroupControl({
   readonly projection: WorkbookGridQueryControlProjection;
   readonly returnFocusRef: RefObject<HTMLElement | null>;
   readonly selectedFieldKey: string | null;
+  readonly subjectKey: string;
   readonly surface: string;
   readonly triggerRef: RefObject<HTMLSelectElement | null>;
 }) {
+  const currentSubjectKey = useRef(subjectKey);
+  currentSubjectKey.current = subjectKey;
   useEffect(() => {
     if (isOpen) triggerRef.current?.focus();
   }, [isOpen, triggerRef]);
   const declaredFields = projection.groupOptions.map(
     (option) => option.fieldKey,
   );
+  const requestedLabel =
+    projection.groupOptions.find(
+      (option) => option.fieldKey === selectedFieldKey,
+    )?.label ??
+    selectedFieldKey ??
+    "None";
+  const statusId = `${gridGroupingSelectTestId(surface)}-unapplied`;
   return (
     <label style={groupControlStyle}>
       <span style={immutableControlLabelStyle}>Group:</span>
       <select
         ref={triggerRef}
+        aria-describedby={groupUnapplied ? statusId : undefined}
         aria-label="Group rows"
         data-testid={gridGroupingSelectTestId(surface)}
         style={groupSelectStyle}
-        title={projection.activeGroupLabel}
+        title={requestedLabel}
         value={selectedFieldKey ?? ""}
         onChange={(event) => {
           const parsed = parseDeclaredGroupField(
@@ -65,6 +80,7 @@ export function WorkbookGroupControl({
             event.preventDefault();
             onClose();
             queueMicrotask(() => {
+              if (currentSubjectKey.current !== subjectKey) return;
               const preferred = returnFocusRef.current;
               if (preferred?.isConnected) preferred.focus();
               else triggerRef.current?.focus();
@@ -79,6 +95,14 @@ export function WorkbookGroupControl({
           </option>
         ))}
       </select>
+      {groupUnapplied ? (
+        <span id={statusId} role="status" style={groupUnappliedStyle}>
+          Unapplied
+          <span style={visuallyHiddenStyle}>
+            {`. Requested ${requestedLabel}; retained results grouped by ${projection.activeGroupLabel}.`}
+          </span>
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -96,4 +120,8 @@ const groupControlStyle = {
   fontSize: "0.78rem",
   whiteSpace: "nowrap" as const,
   minWidth: 0,
+};
+const groupUnappliedStyle = {
+  flex: "0 0 auto",
+  color: "var(--ct-colors-ink-muted)",
 };

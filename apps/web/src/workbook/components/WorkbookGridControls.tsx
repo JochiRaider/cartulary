@@ -48,6 +48,7 @@ export type WorkbookGridControlsProps = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
+  readonly requestedGroupBy?: WorkbookQueryState["groupBy"] | undefined;
   readonly requestedSort?: WorkbookQueryState["sort"] | undefined;
   readonly subjectKey?: string | undefined;
   readonly surface: string;
@@ -71,6 +72,7 @@ export function WorkbookGridControls({
   onRemoveFilter,
   onSortChange,
   queryState,
+  requestedGroupBy,
   requestedSort,
   subjectKey: suppliedSubjectKey,
   surface,
@@ -107,6 +109,9 @@ export function WorkbookGridControls({
     [chromeMode, contract, layoutState, queryState],
   );
   const editorSort = requestedSort ?? queryState.sort;
+  const editorGroupBy =
+    requestedGroupBy === undefined ? queryState.groupBy : requestedGroupBy;
+  const groupUnapplied = editorGroupBy !== queryState.groupBy;
   const sortEditorProjection = useMemo(
     () =>
       editorSort === queryState.sort
@@ -220,6 +225,7 @@ export function WorkbookGridControls({
         triggerRef={sortTriggerRef}
       />
       <WorkbookGroupControl
+        groupUnapplied={groupUnapplied}
         isOpen={surfaceState.openPanel === "group"}
         onClose={closePanel}
         onCommand={onCommand}
@@ -229,7 +235,8 @@ export function WorkbookGridControls({
         }}
         projection={projection}
         returnFocusRef={queryEntryReturnFocusRef}
-        selectedFieldKey={queryState.groupBy}
+        selectedFieldKey={editorGroupBy}
+        subjectKey={subjectKey}
         surface={surface}
         triggerRef={groupTriggerRef}
       />

@@ -1881,12 +1881,14 @@
         "file": "apps/web/src/workbook/components/WorkbookGridControls.test.tsx",
         "titles": [
           "WorkbookGridControls cancels pending Fit on panel departure without undoing completed width",
+          "WorkbookGridControls does not restore a retired Group subject's focus after Escape",
           "WorkbookGridControls exposes add, direction, priority, boundary, removal, and limit recovery actions",
           "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
           "WorkbookGridControls keeps focus in Sort when Add replaces its control and a boundary move disables",
           "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
           "WorkbookGridControls keeps newer invalid text and caret while an older Fit completes",
+          "WorkbookGridControls keeps requested Group choices distinct from accepted chips through delay, failure, retry, Revert, and None",
           "WorkbookGridControls keeps the fitted width in the open input when Apply follows Fit",
           "WorkbookGridControls keeps the roving Sort item aligned with pointer focus and removes toward a neighbor",
           "WorkbookGridControls leaves native filter control keys alone and contains the complete range Tab order after pointer focus",
@@ -4081,6 +4083,7 @@
           "Workbook query browsing discards invalid cursor chains once and retains failed restart recovery without the old cursor",
           "Workbook query browsing fences superseded results and errors and clears protected cursors on authority invalidation",
           "Workbook query browsing guards duplicate activation and retries the captured continuation without losing accepted rows",
+          "Workbook query browsing keeps accepted grouping through superseded failure and retries the current None request",
           "Workbook query browsing re-fetches a detached position and keeps canonical presentation separate from unapplied intent",
           "Workbook query browsing rejects a producing-request mismatch and follows authoritative continuation on short and empty pages",
           "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation"

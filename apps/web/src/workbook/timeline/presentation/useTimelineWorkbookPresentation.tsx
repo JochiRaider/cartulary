@@ -610,8 +610,10 @@ export function useTimelineWorkbookPresentation({
               onResetColumns: handleResetColumns,
               onSortChange: handleQuerySortChange,
               queryState,
+              requestedGroupBy: requestedQueryState.groupBy,
               requestedSort: requestedQueryState.sort,
               surface: timelineViewSchemaId,
+              subjectKey: viewBarWorkingSet?.query?.subjectKey,
             },
           }
         : viewBarWorkingSet,

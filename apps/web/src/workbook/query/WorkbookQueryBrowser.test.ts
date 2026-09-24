@@ -2,8 +2,15 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
-import { emptyWorkbookQueryState } from "../models/workbookQuery";
-import { notesViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { acceptedQueryMetadata } from "../../testing/workbookQueryTestSupport";
+import {
+  emptyWorkbookQueryState,
+  type WorkbookQueryState,
+} from "../models/workbookQuery";
+import {
+  notesViewSchemaId,
+  timelineViewSchemaId,
+} from "../models/workbookSurfaceRegistry";
 import { WorkbookQueryBrowser } from "./WorkbookQueryBrowser";
 import type {
   WorkbookViewQueryPort,
@@ -279,6 +286,79 @@ describe("Workbook query browsing", () => {
       pending: null,
     });
     expect(browser.accept(accepted.value)).toBe(false);
+  });
+
+  it("keeps accepted grouping through superseded failure and retries the current None request", async () => {
+    const timelineContract = requireViewContract(timelineViewSchemaId);
+    const capture = {
+      ...emptyWorkbookQueryState(),
+      groupBy: "timeline.capture_state",
+    };
+    const evidence = { ...capture, groupBy: "timeline.has_evidence" };
+    const mentions = {
+      ...capture,
+      groupBy: "timeline.has_unresolved_mentions",
+    };
+    const none = { ...capture, groupBy: null };
+    const acceptedFor = (
+      request: Parameters<WorkbookViewQueryPort["query"]>[0],
+    ): WorkbookViewQueryResult => ({
+      kind: "accepted",
+      value: {
+        ...acceptedQueryMetadata(timelineViewSchemaId, request.queryState),
+        incidentId: "incident",
+        viewSchemaId: timelineViewSchemaId,
+        rows: [
+          fullWorkbookViewRow(
+            timelineContract,
+            "00000000-0000-4000-8000-000000000001",
+            1,
+            { "timeline.activity_synopsis_text": "Grouped record" },
+          ),
+        ],
+      },
+    });
+    const query = vi.fn<WorkbookViewQueryPort["query"]>(async (request) =>
+      acceptedFor(request),
+    );
+    const browser = new WorkbookQueryBrowser({ query }, timelineViewSchemaId);
+    const read = async (queryState: WorkbookQueryState) => {
+      const result = await browser.query({
+        contract: timelineContract,
+        queryState,
+        signal: new AbortController().signal,
+      });
+      if (result.kind === "accepted") browser.accept(result.value);
+      return result;
+    };
+    await read(capture);
+    const older = deferred<WorkbookViewQueryResult>();
+    query.mockImplementationOnce(() => older.promise);
+    const oldRead = read(evidence);
+    await read(mentions);
+    expect(browser.getSnapshot().authored?.groupBy).toBe(mentions.groupBy);
+    older.resolve({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Superseded failure" },
+    });
+    expect(await oldRead).toEqual({ kind: "aborted" });
+    expect(browser.getSnapshot().failure).toBeNull();
+    expect(browser.presentationQuery(evidence).groupBy).toBe(mentions.groupBy);
+
+    query.mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Current failure" },
+    });
+    await read(none);
+    expect(browser.getSnapshot().requested?.groupBy).toBeNull();
+    expect(browser.getSnapshot().authored?.groupBy).toBe(mentions.groupBy);
+    expect(browser.getSnapshot().failure?.message).toBe("Current failure");
+    expect(browser.hasUnapplied(none)).toBe(true);
+    await read(none);
+    expect(browser.getSnapshot().requested?.groupBy).toBeNull();
+    expect(browser.getSnapshot().authored?.groupBy).toBeNull();
+    expect(browser.getSnapshot().failure).toBeNull();
+    expect(browser.hasUnapplied(none)).toBe(false);
   });
 
   it("re-fetches a detached position and keeps canonical presentation separate from unapplied intent", async () => {

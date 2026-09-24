@@ -6,6 +6,7 @@ import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
+  gridGroupingSelectTestId,
   workbookColumnsMenuTriggerTestId,
   workbookFilterOperatorTestId,
   workbookFilterPopoverTestId,
@@ -599,6 +600,142 @@ describe("WorkbookGridControls", () => {
     expect(document.activeElement).toBe(outside);
   });
 
+  it("keeps requested Group choices distinct from accepted chips through delay, failure, retry, Revert, and None", () => {
+    const acceptedField = "timeline.capture_state";
+    const firstChoice = "timeline.has_evidence";
+    const latestChoice = "timeline.has_unresolved_mentions";
+    const accepted = {
+      ...emptyWorkbookQueryState(),
+      groupBy: acceptedField,
+    };
+    const onGroupByChange = vi.fn();
+    const renderControls = (
+      applied: WorkbookQueryState,
+      requestedGroupBy: string | null,
+    ) => (
+      <ControlledGroupGridControls
+        accepted={applied}
+        onGroupByChange={onGroupByChange}
+        requestedGroupBy={requestedGroupBy}
+        subjectKey="incident:timeline:base"
+      />
+    );
+    const { rerender } = render(renderControls(accepted, acceptedField));
+    const grouping = screen.getByTestId(
+      gridGroupingSelectTestId(timelineSurface),
+    ) as HTMLSelectElement;
+    const acceptedChipId = workbookQueryEntryTestId(
+      timelineSurface,
+      "group",
+      acceptedField,
+    );
+    const statusId = `${gridGroupingSelectTestId(timelineSurface)}-unapplied`;
+    act(() => grouping.focus());
+    fireEvent.change(grouping, { target: { value: firstChoice } });
+    expect(onGroupByChange).toHaveBeenLastCalledWith(firstChoice);
+    rerender(renderControls(accepted, firstChoice));
+    expect(grouping.value).toBe(firstChoice);
+    expect(document.activeElement).toBe(grouping);
+    expect(screen.getByTestId(acceptedChipId)).toBeTruthy();
+    expect(document.getElementById(statusId)?.textContent).toContain(
+      "retained results grouped by Capture State",
+    );
+    expect(grouping.title).toBe("Has Evidence");
+
+    fireEvent.change(grouping, { target: { value: latestChoice } });
+    expect(onGroupByChange).toHaveBeenLastCalledWith(latestChoice);
+    rerender(renderControls(accepted, latestChoice));
+    expect(grouping.value).toBe(latestChoice);
+    expect(screen.getByTestId(acceptedChipId)).toBeTruthy();
+    rerender(renderControls({ ...accepted }, latestChoice));
+    expect(grouping.value).toBe(latestChoice);
+    expect(document.activeElement).toBe(grouping);
+
+    const latestAccepted = { ...accepted, groupBy: latestChoice };
+    rerender(renderControls(latestAccepted, latestChoice));
+    expect(document.getElementById(statusId)).toBeNull();
+    expect(screen.queryByTestId(acceptedChipId)).toBeNull();
+    expect(
+      screen.getByTestId(
+        workbookQueryEntryTestId(timelineSurface, "group", latestChoice),
+      ),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(grouping);
+
+    rerender(renderControls(latestAccepted, null));
+    expect(grouping.value).toBe("");
+    expect(document.getElementById(statusId)?.textContent).toContain(
+      "Requested None; retained results grouped by Has Unresolved Mentions",
+    );
+    rerender(renderControls({ ...latestAccepted }, null));
+    expect(grouping.value).toBe("");
+    rerender(renderControls(latestAccepted, latestChoice));
+    expect(grouping.value).toBe(latestChoice);
+    expect(document.getElementById(statusId)).toBeNull();
+    rerender(renderControls({ ...latestAccepted, groupBy: null }, null));
+    expect(grouping.value).toBe("");
+    expect(document.getElementById(statusId)).toBeNull();
+    expect(
+      screen.queryByTestId(
+        workbookQueryEntryTestId(timelineSurface, "group", latestChoice),
+      ),
+    ).toBeNull();
+    expect(document.activeElement).toBe(grouping);
+  });
+
+  it("does not restore a retired Group subject's focus after Escape", async () => {
+    const accepted = {
+      ...emptyWorkbookQueryState(),
+      groupBy: "timeline.capture_state",
+    };
+    const onGroupByChange = vi.fn();
+    const { rerender } = render(
+      <>
+        <ControlledGroupGridControls
+          accepted={accepted}
+          onGroupByChange={onGroupByChange}
+          requestedGroupBy={accepted.groupBy}
+          subjectKey="incident:timeline:saved-one"
+        />
+        <button type="button">New context destination</button>
+      </>,
+    );
+    const chip = screen.getByTestId(
+      workbookQueryEntryTestId(
+        timelineSurface,
+        "group",
+        "timeline.capture_state",
+      ),
+    );
+    fireEvent.click(chip);
+    const grouping = screen.getByTestId(
+      gridGroupingSelectTestId(timelineSurface),
+    );
+    expect(document.activeElement).toBe(grouping);
+    fireEvent.keyDown(grouping, { key: "Escape" });
+    rerender(
+      <>
+        <ControlledGroupGridControls
+          accepted={emptyWorkbookQueryState()}
+          onGroupByChange={onGroupByChange}
+          requestedGroupBy={null}
+          subjectKey="incident:timeline:saved-two"
+        />
+        <button type="button">New context destination</button>
+      </>,
+    );
+    const outside = screen.getByRole("button", {
+      name: "New context destination",
+    });
+    act(() => outside.focus());
+    await act(async () => undefined);
+    expect(document.activeElement).toBe(outside);
+    expect((grouping as HTMLSelectElement).value).toBe("");
+    expect(
+      screen.queryByTestId(chip.getAttribute("data-testid") ?? ""),
+    ).toBeNull();
+  });
+
   it("keeps invalid drafts visible, excludes them from apply, and resets panels by surface", () => {
     const contract = requireViewContract(timelineSurface);
     const onApplyFilter = vi.fn();
@@ -1108,6 +1245,41 @@ function ControlledSortGridControls({
       onSortChange={onSortChange}
       queryState={accepted}
       requestedSort={requestedSort}
+      sizing={sizing}
+      subjectKey={subjectKey}
+      surface={timelineSurface}
+    />
+  );
+}
+
+function ControlledGroupGridControls({
+  accepted,
+  onGroupByChange,
+  requestedGroupBy,
+  subjectKey,
+}: {
+  readonly accepted: WorkbookQueryState;
+  readonly onGroupByChange: (groupBy: string | null) => void;
+  readonly requestedGroupBy: string | null;
+  readonly subjectKey: string;
+}) {
+  const contract = requireViewContract(timelineSurface);
+  return (
+    <WorkbookGridControls
+      contract={contract}
+      filterDraft={defaultFilterDraft(contract)}
+      freezing={{ status: null, onBoundaryChange: vi.fn() }}
+      layoutState={defaultWorkbookLayoutState(contract)}
+      onApplyFilter={vi.fn()}
+      onColumnHiddenChange={vi.fn()}
+      onColumnMove={vi.fn()}
+      onFilterDraftChange={vi.fn()}
+      onGroupByChange={onGroupByChange}
+      onRemoveFilter={vi.fn()}
+      onResetColumns={vi.fn()}
+      onSortChange={vi.fn()}
+      queryState={accepted}
+      requestedGroupBy={requestedGroupBy}
       sizing={sizing}
       subjectKey={subjectKey}
       surface={timelineSurface}

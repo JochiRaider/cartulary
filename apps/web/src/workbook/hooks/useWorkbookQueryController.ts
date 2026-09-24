@@ -39,6 +39,7 @@ type WorkbookActiveQueryControls = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
+  readonly requestedGroupBy: WorkbookQueryState["groupBy"];
   readonly requestedSort: WorkbookQueryState["sort"];
   readonly surface: string;
 };
@@ -164,6 +165,7 @@ export function useWorkbookQueryController({
         );
       },
       queryState: presentedQuery,
+      requestedGroupBy: activeEntry.queryState.groupBy,
       requestedSort: activeEntry.queryState.sort,
       surface,
     };

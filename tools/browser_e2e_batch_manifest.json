@@ -2139,6 +2139,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
+            "module.workbook.browser_stateful.group_requested_replacement",
             "module.workbook.browser_stateful.query_continuation_assessments",
             "module.workbook.browser_stateful.query_continuation_authority",
             "module.workbook.browser_stateful.query_continuation_canonical",
@@ -3300,6 +3301,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
+            "module.workbook.browser_stateful.group_requested_replacement",
             "module.workbook.browser_stateful.query_continuation_assessments",
             "module.workbook.browser_stateful.query_continuation_authority",
             "module.workbook.browser_stateful.query_continuation_canonical",
