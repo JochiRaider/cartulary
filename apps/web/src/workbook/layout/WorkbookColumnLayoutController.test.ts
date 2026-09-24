@@ -33,8 +33,7 @@ function harness() {
   };
   const unbind = owner.bind(id, { defaultWidth: () => 300, port });
   owner.activate("timeline:base");
-  const fit = () =>
-    owner.onIntent(id, { kind: "fit_visible", fieldKey: field });
+  const fit = () => owner.fitVisible(id, field);
   return { owner, requests, unbind, fit, port };
 }
 describe("Workbook column sizing", () => {
@@ -102,7 +101,7 @@ describe("Workbook column sizing", () => {
       capped: true,
       cellCount: 0,
     });
-    await completed;
+    expect(await completed).toEqual({ kind: "completed", widthPx: 4096 });
     expect(h.owner.currentLayoutStateForSurface(id).columnWidths[field]).toBe(
       4096,
     );
@@ -114,6 +113,7 @@ describe("Workbook column sizing", () => {
   });
   it("rejects obsolete results after newer commands configuration changes and departure", async () => {
     for (const change of [
+      (h: ReturnType<typeof harness>) => h.owner.applyWidth(id, field, 480),
       (h: ReturnType<typeof harness>) =>
         h.owner.onIntent(id, {
           kind: "set_width",
@@ -146,7 +146,7 @@ describe("Workbook column sizing", () => {
         capped: false,
         cellCount: 4,
       });
-      await completed;
+      expect(await completed).toEqual({ kind: "cancelled" });
       expect(h.owner.currentLayoutStateForSurface(id)).toEqual(before);
     }
   });
@@ -164,13 +164,39 @@ describe("Workbook column sizing", () => {
       kind: "unavailable",
       reason: "Fonts are loading.",
     });
-    await Promise.all([first, second]);
+    expect(await first).toEqual({ kind: "cancelled" });
+    expect(await second).toEqual({
+      kind: "unavailable",
+      reason: "Fonts are loading.",
+    });
     expect(h.owner.currentLayoutStateForSurface(id).columnWidths).toEqual({});
     expect(h.owner.getSnapshot().notice).toBe("Fonts are loading.");
     h.owner.hide(id, field, true);
     const measure = vi.spyOn(h.port, "measureVisibleContent");
     h.fit();
     expect(measure).not.toHaveBeenCalled();
+  });
+  it("returns applied and restored widths with one owner notice", () => {
+    const h = harness();
+    expect(h.owner.applyWidth(id, field, 300)).toEqual({
+      kind: "completed",
+      widthPx: 300,
+    });
+    expect(h.owner.read(id, field).overridden).toBe(true);
+    expect(h.owner.getSnapshot().notice).toContain("width set to 300 px");
+    expect(h.owner.restoreDefault(id, field)).toEqual({
+      kind: "completed",
+      widthPx: 300,
+    });
+    expect(h.owner.read(id, field).overridden).toBe(false);
+    expect(h.owner.getSnapshot().notice).toContain("default width restored");
+    h.owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx: 440 });
+    expect(h.owner.getSnapshot().notice).toBeNull();
+    expect(h.owner.applyWidth(id, field, 39)).toEqual({
+      kind: "unavailable",
+      reason: "Enter a whole number from 40 to 4096.",
+    });
+    expect(h.owner.read(id, field).width).toBe(440);
   });
 });
 

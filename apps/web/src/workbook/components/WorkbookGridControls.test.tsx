@@ -1,3 +1,7 @@
+import type {
+  GridColumnMeasurement,
+  GridColumnSizingPort,
+} from "@cartulary/grid-adapter";
 import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
@@ -758,6 +762,172 @@ describe("WorkbookGridControls", () => {
     ).toBeNull();
   });
 
+  it("keeps the fitted width in the open input when Apply follows Fit", async () => {
+    const { port, requests } = deferredSizingPort();
+    render(<StatefulGridControls sizingPort={port} />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const label = requireViewContract(timelineSurface).fields[0]?.label ?? "";
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const input = screen.getByRole("textbox", {
+      name: "Width in CSS pixels",
+    }) as HTMLInputElement;
+    expect(input.value).toBe("240");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fit visible content" }),
+    );
+    await act(async () => {
+      requests[0]?.resolve({
+        kind: "measured",
+        widthPx: 520,
+        capped: false,
+        cellCount: 2,
+      });
+    });
+    expect(screen.getByText(/Current: 520 px/)).toBeTruthy();
+    expect(input.value).toBe("520");
+    fireEvent.click(screen.getByRole("button", { name: "Apply width" }));
+    expect(screen.getByText(/Current: 520 px/)).toBeTruthy();
+  });
+
+  it("keeps newer invalid text and caret while an older Fit completes", async () => {
+    const { port, requests } = deferredSizingPort();
+    render(<StatefulGridControls sizingPort={port} />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const label = requireViewContract(timelineSurface).fields[0]?.label ?? "";
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const input = screen.getByRole("textbox", {
+      name: "Width in CSS pixels",
+    }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "410" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fit visible content" }),
+    );
+    expect(screen.getByText("Measuring visible content…")).toBeTruthy();
+    input.focus();
+    fireEvent.change(input, { target: { value: "5x" } });
+    input.setSelectionRange(1, 1);
+    await act(async () => {
+      requests[0]?.resolve({
+        kind: "measured",
+        widthPx: 520,
+        capped: false,
+        cellCount: 2,
+      });
+    });
+    expect(screen.getByText(/Current: 520 px/)).toBeTruthy();
+    expect(input.value).toBe("5x");
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([1, 1]);
+    fireEvent.click(screen.getByRole("button", { name: "Apply width" }));
+    expect(screen.getByRole("alert").textContent).toContain("40 to 4096");
+    expect(screen.getByText(/Current: 520 px/)).toBeTruthy();
+    fireEvent.change(input, { target: { value: "530" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply width" }));
+    expect(screen.getByText(/Current: 530 px/)).toBeTruthy();
+    expect(input.value).toBe("530");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fit visible content" }),
+    );
+    fireEvent.change(input, { target: { value: "53x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply width" }));
+    expect(requests[1]?.signal.aborted).toBe(true);
+    await act(async () => {
+      requests[1]?.resolve({
+        kind: "measured",
+        widthPx: 700,
+        capped: false,
+        cellCount: 2,
+      });
+    });
+    expect(screen.getByText(/Current: 530 px/)).toBeTruthy();
+    expect(input.value).toBe("53x");
+  });
+
+  it("replaces an older draft on Fit and follows passive width only while untouched", async () => {
+    const { port, requests } = deferredSizingPort();
+    const externalResize = {
+      current: null as ((widthPx: number) => Promise<void>) | null,
+    };
+    render(
+      <StatefulGridControls
+        externalResize={externalResize}
+        sizingPort={port}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const label = requireViewContract(timelineSurface).fields[0]?.label ?? "";
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const input = screen.getByRole("textbox", {
+      name: "Width in CSS pixels",
+    }) as HTMLInputElement;
+    expect(externalResize.current).not.toBeNull();
+    await act(async () => {
+      await externalResize.current?.(300);
+    });
+    expect(screen.getByText(/Current: 300 px/)).toBeTruthy();
+    expect(input.value).toBe("300");
+    fireEvent.change(input, { target: { value: "410" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fit visible content" }),
+    );
+    await act(async () => {
+      requests[0]?.resolve({
+        kind: "measured",
+        widthPx: 520,
+        capped: false,
+        cellCount: 2,
+      });
+    });
+    expect(input.value).toBe("520");
+    await act(async () => {
+      await externalResize.current?.(550);
+    });
+    expect(input.value).toBe("550");
+    fireEvent.change(input, { target: { value: "55x" } });
+    input.setSelectionRange(2, 2);
+    await act(async () => {
+      await externalResize.current?.(560);
+    });
+    expect(screen.getByText(/Current: 560 px/)).toBeTruthy();
+    expect(input.value).toBe("55x");
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 2]);
+    fireEvent.click(screen.getByRole("button", { name: "Restore default" }));
+    expect(screen.getByText(/Current: 240 px/)).toBeTruthy();
+    expect(input.value).toBe("240");
+  });
+
+  it("cancels pending Fit on panel departure without undoing completed width", async () => {
+    const { port, requests } = deferredSizingPort();
+    render(<StatefulGridControls sizingPort={port} />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const label = requireViewContract(timelineSurface).fields[0]?.label ?? "";
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fit visible content" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: `Width for ${label}` }),
+    );
+    await act(async () => {
+      requests[0]?.resolve({
+        kind: "measured",
+        widthPx: 520,
+        capped: false,
+        cellCount: 2,
+      });
+    });
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    expect(screen.getByText(/Current: 240 px/)).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Width in CSS pixels",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("240");
+  });
+
   it("keeps column commands available when every data column is hidden", () => {
     const contract = requireViewContract(timelineSurface);
     const layout = defaultWorkbookLayoutState(contract);
@@ -824,8 +994,14 @@ describe("WorkbookGridControls", () => {
 
 function StatefulGridControls({
   initialSort = [],
+  sizingPort,
+  externalResize,
 }: {
   readonly initialSort?: WorkbookQueryState["sort"];
+  readonly sizingPort?: GridColumnSizingPort;
+  readonly externalResize?: {
+    current: ((widthPx: number) => Promise<void>) | null;
+  };
 }) {
   const contract = requireViewContract(timelineSurface);
   const [queryState, setQueryState] = useState<WorkbookQueryState>({
@@ -837,9 +1013,19 @@ function StatefulGridControls({
   const layoutState = controls.layoutState;
   useLayoutEffect(
     () =>
-      controls.bindColumnSizing({ defaultWidth: () => 240, port: undefined }),
-    [controls.bindColumnSizing],
+      controls.bindColumnSizing({ defaultWidth: () => 240, port: sizingPort }),
+    [controls.bindColumnSizing, sizingPort],
   );
+  useLayoutEffect(() => {
+    if (!externalResize) return;
+    const fieldKey = contract.fields[0]?.fieldKey;
+    if (!fieldKey) return;
+    externalResize.current = (widthPx) =>
+      controls.onColumnSizingIntent({ kind: "set_width", fieldKey, widthPx });
+    return () => {
+      externalResize.current = null;
+    };
+  }, [contract, controls.onColumnSizingIntent, externalResize]);
   const [filterDraft, setFilterDraft] = useState(() =>
     defaultFilterDraft(contract),
   );
@@ -876,6 +1062,22 @@ function StatefulGridControls({
       surface={timelineSurface}
     />
   );
+}
+
+function deferredSizingPort() {
+  const requests: {
+    resolve: (result: GridColumnMeasurement) => void;
+    signal: AbortSignal;
+  }[] = [];
+  const port: GridColumnSizingPort = {
+    unavailableReason: () => null,
+    subscribe: () => () => undefined,
+    measureVisibleContent: (_field, { signal }) =>
+      new Promise((resolve) => {
+        requests.push({ resolve, signal });
+      }),
+  };
+  return { port, requests };
 }
 
 function ControlledSortGridControls({
@@ -920,8 +1122,9 @@ const sizing = {
     overridden: false,
     unavailableReason: "Column measurement is unavailable.",
   }),
-  onIntent: vi.fn(),
-  restoreDefault: vi.fn(),
+  applyWidth: vi.fn(() => ({ kind: "completed" as const, widthPx: 240 })),
+  fitVisible: vi.fn(async () => ({ kind: "cancelled" as const })),
+  restoreDefault: vi.fn(() => ({ kind: "completed" as const, widthPx: 240 })),
   cancel: vi.fn(),
   pendingField: null,
   notice: null,

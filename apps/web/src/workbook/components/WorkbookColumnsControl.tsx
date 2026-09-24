@@ -180,7 +180,6 @@ export function WorkbookColumnsControl({
               fieldKey={selected.fieldKey}
               label={selected.label}
               onCancel={closeWidth}
-              onNotice={setNotice}
               sizing={sizing}
             />
           ) : (
@@ -315,20 +314,23 @@ function ColumnWidthPanel({
   fieldKey,
   label,
   onCancel,
-  onNotice,
   sizing,
 }: {
   readonly fieldKey: string;
   readonly label: string;
   readonly onCancel: () => void;
-  readonly onNotice: (message: string) => void;
   readonly sizing: WorkbookColumnSizingControls;
 }) {
   const descriptor = sizing.read(fieldKey);
   const [text, setText] = useState(String(descriptor.width ?? ""));
   const [error, setError] = useState<string | null>(null);
+  const draft = useRef(false);
+  const editRevision = useRef(0);
   const input = useRef<HTMLInputElement>(null);
   const id = useId();
+  useLayoutEffect(() => {
+    if (!draft.current) setText(String(descriptor.width ?? ""));
+  }, [descriptor.width]);
   useLayoutEffect(() => {
     input.current?.focus({ preventScroll: true });
     input.current?.select();
@@ -340,12 +342,18 @@ function ColumnWidthPanel({
         event.preventDefault();
         const widthPx = parseWorkbookColumnWidth(text);
         if (widthPx === null) {
+          sizing.cancel();
           setError("Enter a whole number from 40 to 4096.");
           return;
         }
+        const outcome = sizing.applyWidth(fieldKey, widthPx);
+        if (outcome.kind !== "completed") {
+          if (outcome.kind === "unavailable") setError(outcome.reason);
+          return;
+        }
+        draft.current = false;
+        setText(String(outcome.widthPx ?? ""));
         setError(null);
-        sizing.onIntent({ kind: "set_width", fieldKey, widthPx });
-        onNotice(`${label} width set to ${widthPx} px.`);
       }}
     >
       <strong style={{ overflowWrap: "anywhere" }}>{label}</strong>
@@ -365,6 +373,8 @@ function ColumnWidthPanel({
         aria-describedby={error ? `${id}-error` : `${id}-range`}
         style={{ ...inputStyle, inlineSize: "100%", minInlineSize: 0 }}
         onChange={(event) => {
+          draft.current = true;
+          editRevision.current += 1;
           setText(event.currentTarget.value);
           setError(null);
         }}
@@ -389,9 +399,17 @@ function ColumnWidthPanel({
             descriptor.unavailableReason !== null ||
             sizing.pendingField === fieldKey
           }
-          onClick={() => {
-            setError(null);
-            sizing.onIntent({ kind: "fit_visible", fieldKey });
+          onClick={async () => {
+            const startedAtRevision = editRevision.current;
+            const outcome = await sizing.fitVisible(fieldKey);
+            if (
+              outcome.kind === "completed" &&
+              editRevision.current === startedAtRevision
+            ) {
+              draft.current = false;
+              setText(String(outcome.widthPx ?? ""));
+              setError(null);
+            }
           }}
         >
           Fit visible content
@@ -400,9 +418,12 @@ function ColumnWidthPanel({
           style={controlButtonStyle}
           type="button"
           onClick={() => {
-            setError(null);
-            sizing.restoreDefault(fieldKey);
-            setText(String(descriptor.defaultWidth ?? ""));
+            const outcome = sizing.restoreDefault(fieldKey);
+            if (outcome.kind === "completed") {
+              draft.current = false;
+              setText(String(outcome.widthPx ?? ""));
+              setError(null);
+            } else if (outcome.kind === "unavailable") setError(outcome.reason);
           }}
         >
           Restore default

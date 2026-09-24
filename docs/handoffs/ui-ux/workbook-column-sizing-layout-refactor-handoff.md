@@ -530,3 +530,89 @@ changed/new files, unchanged main HEAD 031b3b0b175266f9ddf87f55af36048df5da8748.
 No digest, lockfile, dependency, backend or storage path changed. Every applicable
 acceptance row and the completed-handoff checklist pass; no required implementation
 or validation remains. Next action: review the uncommitted implementation.
+
+## 2026-09-23 width-editor coherence follow-up
+
+This bounded follow-up starts from clean `main` at `669cb26b3`. Core 03
+REQ-03-295 owns the working layout, sparse widths, one-time Fit, cancellation
+and editor-focus borrowing; Core 01 REQ-01-143 owns the `40..4096` limits;
+design §8.3 owns the panel's input, feedback and dismissal behavior. Source
+ownership remains `web.workbook`; verification routes through `web.workbook`
+unit rows and `module.workbook` production-browser rows. The digest and this
+earlier handoff were navigation and historical evidence, not product authority.
+The narrow advisory query used the verified React stack and UX domain. R001,
+R002 and R006 support keyboard operation, focus and local validation; R012 is
+adapted to the existing controller and local input lifetime.
+
+### Characterization and change
+
+The new component characterization first ran against the old implementation:
+Fit applied `520` px while the still-open input remained `240`. The focused
+row failed exactly at that assertion, 13/14 tests passing, at
+`20260924T015115Z-p59293`. Earlier attempts at `20260924T014647Z-p55011`
+and `20260924T014712Z-p55820` stopped before assertions with
+`service_start_error`: the shell PATH lacked the repository's pinned Node
+runtime. Subsequent public Make runs placed `tmp/node-runtime/bin` on PATH.
+
+The controller remains the sole working-layout store. Its panel commands now
+return typed completed, unavailable or cancelled outcomes, with effective width
+on completion. Apply, Fit and Restore publish completion through the owner's
+notice; the component's separate Apply notice path is removed. Grid Adapter
+header intents retain their existing width path, so drag movement does not
+generate panel completion announcements. The binding still supplies defaults
+and measurement capability, never a second width map.
+
+The panel retains only unapplied text, a manual-draft marker and an edit
+revision. Untouched text follows current width. A successful Fit replaces text
+that preceded activation; text typed while it was pending remains exact, with
+focus and caret, even though Fit applies to layout. Invalid Apply cancels a
+pending Fit and leaves layout unchanged. A successful Apply canonicalizes the
+input to the applied integer; Restore removes only the chosen sparse override
+and displays its effective default. Cancel and Escape discard unapplied text
+and pending measurement, not a completed sizing action. Existing owner fences
+for newer actions, binding changes and context replacement remain in place.
+
+### Verification and limits
+
+| Public Make selection | Result and run root |
+| --- | --- |
+| Focused `web.workbook` sizing controller and component rows, cache off | PASS 3/3 at `20260924T021044Z-p35207`; includes Fit → Apply, refinement, newer invalid text/caret, passive sync, Restore and cancellation. |
+| `module.workbook.browser.column_sizing_gestures_saved`, cache off | PASS 11/11 at `20260924T020207Z-p11146`; one open Timeline panel covers keyboard Fit, input/header geometry, Apply, manual refinement, Restore, focus and zero record writes. |
+| `module.workbook` sizing surfaces, viewport and accessibility rows, cache off | PASS 13/13 at `20260924T020313Z-p44073`; includes viewport cancellation, cross-surface geometry and narrow/zoom keyboard checks. |
+| `make generate` then `env -u RESULTS_DIR make agent-finalize` | PASS at `20260924T020523Z-p80918` and `20260924T020543Z-p84054`. Generator changed only the expected topology input digest/hash index. Finalizer made no additional changes; retained-run maintenance was skipped because no qualifying full warm-check `RESULTS_DIR` was supplied. |
+| `make frontend-typecheck`, `make lint-biome`, `make frontend-import-boundary-check` | PASS at `20260924T020624Z-p90918`, `20260924T020906Z-p33353` and `20260924T015949Z-p84187`. |
+| `make json-shape-check`, `make generated-artifact-policy-check`, `make generate-drift` | PASS at `20260924T020624Z-p90733`, `20260924T020624Z-p90809` and `20260924T020624Z-p90841`. |
+| `make lint-markdown` and final `git diff --check` | PASS at `20260924T021209Z-p36597` and in the reviewed worktree. |
+| Full `make test-slice OWNER=web.workbook`, cache off | FAIL 296/297 rows at `20260924T020613Z-p87925`: the unchanged upload-recovery test in `WorkbookShell.surfaces.test.tsx` did not find `File recovery: screenshot.txt`. Its exact row failed again in isolation at `20260924T020906Z-p33226`. No sizing action occurs in that test; this follow-up did not change upload or attachment code. The failure is retained as an unresolved broader-check limitation, not a sizing pass or a baseline-proven pre-existing defect. |
+
+The first `agent-finalize` attempt (`20260924T020444Z-p79429`) and direct
+`json-shape-check` (`20260924T020507Z-p80083`) failed because the authored
+test-family manifest changed before topology regeneration. Running `make
+generate` repaired that projection. The first browser attempt
+(`20260924T015942Z-p74895`) failed only at a new test assumption that the Fit
+button retained focus after its pending disabled state; the assertion was
+replaced with an enabled-state check while keyboard activation, input focus
+and Escape focus return remain tested. No product focus rule was relaxed.
+
+No storage, saved-view wire format, dependency, backend, record mutation,
+Grid Adapter interface, golden or design token changed. Fit still measures
+bounded committed content on screen once; it does not refit passively. Browser
+evidence is the supported Chromium harness, not universal assistive-technology
+certification. No measured performance improvement is claimed. Full CI,
+release and unrelated backend suites were not run because this is a bounded
+frontend interaction correction.
+
+### Digest acceptance assessment
+
+| Rows | Assessment and evidence |
+| --- | --- |
+| A001–A004, A023–A026 | PASS: exact Core/design owners and current source/test routing were checked; the one controller action boundary removes a duplicate notice path; no token or Markdown product dependency was introduced; stable semantic selectors and the public generator/policy checks pass. |
+| A011, A014, A019–A021 | PASS: controller/component and production rows cover raw input, caret/focus, invalid validation, keyboard operation, cancellation, zoom, cross-surface use and virtualized viewport measurement. |
+| A027 | PASS for this sizing follow-up: owner map, change, retirement, verification failures and limits, compatibility and rollback are recorded here. The unrelated broad upload row remains explicitly failed. |
+| A005–A010, A012–A013, A015–A018, A022 | N/A: theme, density, creation, shell/inspector/overflow, transaction and query/evidence semantics, and visual fixtures are outside this input/controller correction; no visual artifact changed. |
+
+Rollback reverts this follow-up's width control, controller/hook, tests,
+authored `web.workbook` test-family selector, generated topology render index
+and this handoff addition together. Saved resources and analyst data require no
+migration or rollback. The remaining action outside this sizing slice is to
+triage the reproducible upload-recovery test failure under its own owner.

@@ -30,10 +30,20 @@ export type WorkbookColumnSizingDescriptor = {
   readonly overridden: boolean;
   readonly unavailableReason: string | null;
 };
+export type WorkbookColumnSizingOutcome =
+  | { readonly kind: "completed"; readonly widthPx: number | undefined }
+  | { readonly kind: "unavailable"; readonly reason: string }
+  | { readonly kind: "cancelled" };
 export type WorkbookColumnSizingControls = {
   readonly read: (fieldKey: string) => WorkbookColumnSizingDescriptor;
-  readonly onIntent: (intent: GridColumnSizingIntent) => void;
-  readonly restoreDefault: (fieldKey: string) => void;
+  readonly applyWidth: (
+    fieldKey: string,
+    widthPx: number,
+  ) => WorkbookColumnSizingOutcome;
+  readonly fitVisible: (
+    fieldKey: string,
+  ) => Promise<WorkbookColumnSizingOutcome>;
+  readonly restoreDefault: (fieldKey: string) => WorkbookColumnSizingOutcome;
   readonly cancel: () => void;
   readonly pendingField: string | null;
   readonly notice: string | null;
@@ -129,25 +139,51 @@ export class WorkbookColumnLayoutController {
   reorder = (id: string, from: string, to: string) =>
     this.update(id, (c, s) => reorderWorkbookColumns(c, s, from, to));
   reset = (id: string) => this.update(id, (c) => defaultWorkbookLayoutState(c));
-  restoreDefault = (id: string, field: string) => {
+  restoreDefault = (id: string, field: string): WorkbookColumnSizingOutcome => {
+    if (!this.contractFor(id).fieldMap[field])
+      return { kind: "unavailable", reason: "Column is unavailable." };
     this.update(id, (c, s) => restoreWorkbookColumnDefault(c, s, field));
     this.publish({
       notice: `${this.label(id, field)} default width restored.`,
     });
+    return { kind: "completed", widthPx: this.read(id, field).width };
   };
+  applyWidth = (
+    id: string,
+    field: string,
+    widthPx: number,
+  ): WorkbookColumnSizingOutcome => this.setWidth(id, field, widthPx, true);
+  private setWidth(
+    id: string,
+    field: string,
+    widthPx: number,
+    announce: boolean,
+  ): WorkbookColumnSizingOutcome {
+    if (!this.contractFor(id).fieldMap[field])
+      return { kind: "unavailable", reason: "Column is unavailable." };
+    if (!isWorkbookColumnWidth(widthPx)) {
+      this.cancel();
+      return {
+        kind: "unavailable",
+        reason: "Enter a whole number from 40 to 4096.",
+      };
+    }
+    this.update(id, (c, s) => setWorkbookColumnWidth(c, s, field, widthPx));
+    if (announce)
+      this.publish({
+        notice: `${this.label(id, field)} width set to ${widthPx} px.`,
+      });
+    return { kind: "completed", widthPx };
+  }
   onIntent = async (
     id: string,
     intent: GridColumnSizingIntent,
   ): Promise<void> => {
-    if (!this.contractFor(id).fieldMap[intent.fieldKey]) return;
     if (intent.kind === "fit_visible") {
-      return this.fitVisible(id, intent.fieldKey);
+      await this.fitVisible(id, intent.fieldKey);
+      return;
     }
-    this.cancel();
-    if (!isWorkbookColumnWidth(intent.widthPx)) return;
-    this.update(id, (c, s) =>
-      setWorkbookColumnWidth(c, s, intent.fieldKey, intent.widthPx),
-    );
+    this.setWidth(id, intent.fieldKey, intent.widthPx, false);
   };
   bind = (id: string, binding: WorkbookColumnSizingBinding) => {
     this.cancel();
@@ -197,13 +233,19 @@ export class WorkbookColumnLayoutController {
   private label(id: string, field: string) {
     return this.contractFor(id).fieldMap[field]?.label ?? field;
   }
-  private async fitVisible(id: string, field: string) {
+  fitVisible = async (
+    id: string,
+    field: string,
+  ): Promise<WorkbookColumnSizingOutcome> => {
+    if (!this.contractFor(id).fieldMap[field])
+      return { kind: "unavailable", reason: "Column is unavailable." };
     this.cancel();
     const binding = this.bindings.get(id);
     const reason = this.read(id, field).unavailableReason;
     if (reason !== null || !binding?.port) {
-      this.publish({ notice: reason ?? "Column measurement is unavailable." });
-      return;
+      const unavailableReason = reason ?? "Column measurement is unavailable.";
+      this.publish({ notice: unavailableReason });
+      return { kind: "unavailable", reason: unavailableReason };
     }
     const abort = new AbortController();
     this.pending = abort;
@@ -225,7 +267,7 @@ export class WorkbookColumnLayoutController {
       binding !== this.bindings.get(id) ||
       layout !== this.currentLayoutStateForSurface(id)
     )
-      return;
+      return { kind: "cancelled" };
     this.pending = null;
     if (result.kind === "measured" && isWorkbookColumnWidth(result.widthPx)) {
       this.entries.set(
@@ -241,10 +283,17 @@ export class WorkbookColumnLayoutController {
         pendingField: null,
         notice: `${this.label(id, field)} fitted to ${result.widthPx} px${result.cellCount === 0 ? " using the header" : ""}.${result.capped ? " Maximum width reached; content may still be clipped." : ""}`,
       });
-    } else
-      this.publish({
-        pendingField: null,
-        notice: result.kind === "unavailable" ? result.reason : null,
-      });
-  }
+      return { kind: "completed", widthPx: result.widthPx };
+    }
+    if (result.kind === "cancelled") {
+      this.publish({ pendingField: null, notice: null });
+      return { kind: "cancelled" };
+    }
+    const unavailableReason =
+      result.kind === "unavailable"
+        ? result.reason
+        : "Column measurement returned an invalid width. Try Fit again.";
+    this.publish({ pendingField: null, notice: unavailableReason });
+    return { kind: "unavailable", reason: unavailableReason };
+  };
 }

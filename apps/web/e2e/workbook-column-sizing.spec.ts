@@ -215,6 +215,56 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
       mutations += 1;
   });
   const input = await widthPanel(page);
+  await input.fill("700");
+  await input.press("Enter");
+  await expect.poll(() => width(header(page))).toBe(700);
+  await input.press("Tab");
+  await expect(
+    columns(page).getByRole("button", { name: "Apply width", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  const fitButton = columns(page).getByRole("button", {
+    name: "Fit visible content",
+    exact: true,
+  });
+  await expect(fitButton).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("status").filter({ hasText: /fitted to/ }),
+  ).toBeVisible();
+  await expect.poll(() => width(header(page))).not.toBe(700);
+  const samePanelFitWidth = await width(header(page));
+  expect(samePanelFitWidth).toBeLessThan(1000);
+  await expect(input).toHaveValue(String(samePanelFitWidth));
+  await expect(fitButton).toBeEnabled();
+  await input.focus();
+  await input.press("Enter");
+  await expect.poll(() => width(header(page))).toBe(samePanelFitWidth);
+  await expect(input).toHaveValue(String(samePanelFitWidth));
+  await expect(input).toBeFocused();
+  await expect(
+    page.getByRole("status").filter({ hasText: /width set to/ }),
+  ).toBeVisible();
+  const refinedWidth = samePanelFitWidth + 37;
+  await input.fill(String(refinedWidth));
+  await input.press("Enter");
+  await expect.poll(() => width(header(page))).toBe(refinedWidth);
+  await expect(input).toHaveValue(String(refinedWidth));
+  await expect(input).toBeFocused();
+  await input.press("Tab");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  const restoreButton = columns(page).getByRole("button", {
+    name: "Restore default",
+    exact: true,
+  });
+  await expect(restoreButton).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => width(header(page))).toBe(defaultWidth);
+  await expect(input).toHaveValue(String(defaultWidth));
+  await expect(
+    page.getByRole("status").filter({ hasText: /default width restored/ }),
+  ).toBeVisible();
   for (const value of ["39", "4097", "40.5", "NaN"]) {
     await input.fill(value);
     await columns(page)

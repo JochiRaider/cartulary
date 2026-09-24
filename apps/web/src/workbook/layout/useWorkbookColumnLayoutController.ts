@@ -34,6 +34,9 @@ export function useWorkbookColumnLayoutController({
         owner.reorder(id, from, to),
       onColumnSizingIntent: (intent: GridColumnSizingIntent) =>
         owner.onIntent(id, intent),
+      onApplyColumnWidth: (field: string, widthPx: number) =>
+        owner.applyWidth(id, field, widthPx),
+      onFitColumnVisible: (field: string) => owner.fitVisible(id, field),
       onRestoreColumnDefault: (field: string) =>
         owner.restoreDefault(id, field),
       onCancelColumnSizing: owner.cancel,
@@ -61,7 +64,8 @@ export function useWorkbookColumnLayoutController({
         },
         sizing: {
           read: commands.readColumnSizing,
-          onIntent: commands.onColumnSizingIntent,
+          applyWidth: commands.onApplyColumnWidth,
+          fitVisible: commands.onFitColumnVisible,
           restoreDefault: commands.onRestoreColumnDefault,
           cancel: commands.onCancelColumnSizing,
           pendingField: snapshot.pendingField,
