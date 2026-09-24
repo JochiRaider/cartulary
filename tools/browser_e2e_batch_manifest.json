@@ -1681,6 +1681,7 @@
             "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
             "module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d",
             "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
+            "module.workbook.browser.filter_editor_keyboard_focus",
             "module.workbook.browser.verify_browser_command_helpers_for_sort_filter_g_8f8dc4efe2",
             "platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5",
             "platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd"

@@ -17,6 +17,8 @@ export type RegisteredOverlayNavigation<Key extends string> = {
   readonly focusItem: (itemKey: Key) => boolean;
   readonly onItemFocus: (itemKey: Key) => void;
   readonly onOverlayBlur: (event: FocusEvent<HTMLElement>) => void;
+  readonly onOverlayFocus: (event: FocusEvent<HTMLElement>) => void;
+  readonly onOverlayKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   readonly onItemKeyDown: (
     event: KeyboardEvent<HTMLElement>,
     itemKey: Key,
@@ -31,6 +33,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   initialItemKey,
   isOpen,
   itemKeys,
+  keyboardMode = "menu",
   onRequestClose,
   preferredReturnFocusRef,
   reconcileItems = false,
@@ -45,6 +48,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   readonly initialItemKey: Key | null;
   readonly isOpen: boolean;
   readonly itemKeys: readonly Key[];
+  readonly keyboardMode?: "form" | "menu";
   readonly onRequestClose: () => void;
   readonly preferredReturnFocusRef?: RefObject<HTMLElement | null> | undefined;
   readonly reconcileItems?: boolean;
@@ -125,6 +129,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     [onRequestClose],
   );
 
+  // A registered control can become disabled without changing its key or ref.
   useLayoutEffect(() => {
     const subjectChanged = previousSubjectKeyRef.current !== subjectKey;
     previousSubjectKeyRef.current = subjectKey;
@@ -173,18 +178,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     if (firstKey !== undefined) {
       focusItem(firstKey);
     }
-  }, [
-    activeKey,
-    eligibleKeys,
-    focusItem,
-    initialItemKey,
-    isOpen,
-    onRequestClose,
-    restoreTriggerFocus,
-    restoreFocusOnSubjectChange,
-    reconcileItems,
-    subjectKey,
-  ]);
+  });
 
   useLayoutEffect(
     () => () => {
@@ -194,6 +188,36 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     },
     [restoreFocusOnUnmount, restoreTriggerFocus],
   );
+
+  const onItemKeyDown = (event: KeyboardEvent<HTMLElement>, itemKey: Key) => {
+    if (
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    )
+      return;
+    const decision = registeredOverlayKeyDecision(
+      event.key,
+      event.shiftKey,
+      itemKey,
+      eligibleKeys(),
+      trapTab,
+      keyboardMode,
+    );
+    if (decision.kind === "none") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (decision.kind === "close") {
+      close({ restoreTriggerFocus: true });
+      return;
+    }
+    focusItem(decision.itemKey);
+  };
+
+  const registeredKeyFor = (target: EventTarget | null) =>
+    [...itemRefs.current].find(([, item]) => item === target)?.[0] ?? null;
 
   return {
     activeKey,
@@ -212,31 +236,13 @@ export function useRegisteredOverlayNavigation<Key extends string>({
       }
       close({ restoreTriggerFocus: false });
     },
-    onItemKeyDown: (event, itemKey) => {
-      if (
-        event.defaultPrevented ||
-        event.nativeEvent.isComposing ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey
-      )
-        return;
-      const decision = registeredOverlayKeyDecision(
-        event.key,
-        event.shiftKey,
-        itemKey,
-        eligibleKeys(),
-        trapTab,
-      );
-      if (decision.kind === "none") return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (decision.kind === "close") {
-        close({ restoreTriggerFocus: true });
-        return;
-      }
-      focusItem(decision.itemKey);
+    onOverlayFocus: (event) => {
+      setActiveKey(registeredKeyFor(event.target));
     },
+    onOverlayKeyDown: (event) => {
+      onItemKeyDown(event, registeredKeyFor(event.target) ?? ("" as Key));
+    },
+    onItemKeyDown,
     prepareOpen: (preferredKey = null) => {
       pendingInitialKeyRef.current = preferredKey;
     },
@@ -262,8 +268,25 @@ function registeredOverlayKeyDecision<Key extends string>(
   itemKey: Key,
   eligibleKeys: readonly Key[],
   trapTab: boolean,
+  keyboardMode: "form" | "menu",
 ): RegisteredOverlayKeyDecision<Key> {
   if (key === "Escape") return { kind: "close" };
+  if (keyboardMode === "form") {
+    if (key !== "Tab" || !trapTab || eligibleKeys.length === 0) {
+      return { kind: "none" };
+    }
+    const currentIndex = eligibleKeys.indexOf(itemKey);
+    const target = shiftKey
+      ? currentIndex <= 0
+        ? eligibleKeys[eligibleKeys.length - 1]
+        : undefined
+      : currentIndex < 0 || currentIndex === eligibleKeys.length - 1
+        ? eligibleKeys[0]
+        : undefined;
+    return target === undefined
+      ? { kind: "none" }
+      : { kind: "focus", itemKey: target };
+  }
   if (key === "Tab" && trapTab && eligibleKeys.length > 0) {
     const currentIndex = eligibleKeys.indexOf(itemKey);
     const targetIndex = shiftKey

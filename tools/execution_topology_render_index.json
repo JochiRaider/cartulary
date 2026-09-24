@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:15c4aa3d18d50c74e3bbe23fa7ee9eecaf2f8959e27136ee57f968579d74dcdb",
+  "input_digest": "sha256:94d1705f3d0046f86ca2f14cb8bd1e0b6c1e91138176a71eeb5cff131c80d9c6",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -1137,7 +1137,7 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:19f82e38c62e39c7f510fdaf04e9c4442ebbc2e41470a3166d92e52a6e0c3f60"
+      "hash": "sha256:277798acae4991e7a4c7e221b274146fbc4c7960f5cf49a5da234fa6f5f21a17"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
@@ -1232,7 +1232,7 @@
     {
       "path": "tools/test_families/web.application.json",
       "role": "test_family_manifest",
-      "hash": "sha256:037922093820cfed651b7fa1a95199d648858ab808a85422802fcb10e1b7d302"
+      "hash": "sha256:ca5900638901fa27e749cdad10c69ca3e0fbbdea0d89707e3ed60d4d1616cbf9"
     },
     {
       "path": "tools/test_families/web.architecture.json",
@@ -1257,7 +1257,7 @@
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:dac485a2f956d279775aed5c7f55f9747259061b595b5187b2488fe891a3608c"
+      "hash": "sha256:840e4ca5f90253731d425da178b99417f327a3235213ce1766a97ec2339320e4"
     },
     {
       "path": "tools/test_runner_registry.json",
@@ -1266,7 +1266,7 @@
     }
   ],
   "outputs": {
-    "tools/browser_e2e_batch_manifest.json": "sha256:1f6b5e7cf771251692c032f10165b94071dca20cfb45e995c02ea9beeb65e84a",
+    "tools/browser_e2e_batch_manifest.json": "sha256:fedd58a22e003fdfb42151e688e18bea3aaeb29459f6754fdcc3b311e36ebf03",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
     "tools/task_surface_manifest.json": "sha256:686a38d439c44691912f93723f1e544797158d0b712d6b655d6b0e8018cdc21a",
     "tools/task_surface.generated.mk": "sha256:946deeb71239c5a08475a6fe80fefa4c7ea370fdbc276f0bb51bcd99415a2d5d",

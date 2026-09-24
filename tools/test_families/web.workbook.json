@@ -1883,8 +1883,10 @@
           "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
           "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
+          "WorkbookGridControls leaves native filter control keys alone and contains the complete range Tab order after pointer focus",
           "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
           "WorkbookGridControls parses filter controls exactly and restores focus on Escape",
+          "WorkbookGridControls returns filter dismissal focus and reconciles controls removed by draft changes",
           "WorkbookGridControls validates explicit sizing and restores one default with predictable cancellation focus"
         ]
       },

@@ -1,9 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { type RefObject, useRef, useState } from "react";
+import { type RefObject, useCallback, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useRegisteredOverlayNavigation } from "./useRegisteredOverlayNavigation";
 
 const itemKeys = ["first", "disabled", "last"] as const;
+const formItemKeys = ["first", "second", "last"] as const;
 
 afterEach(cleanup);
 
@@ -110,6 +111,56 @@ function UnmountingOverlayHarness({
   );
 }
 
+function FormOverlayHarness({
+  disableLast = false,
+}: {
+  readonly disableLast?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const onRequestClose = useCallback(() => setIsOpen(false), []);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const navigation = useRegisteredOverlayNavigation({
+    initialItemKey: "first",
+    isOpen,
+    itemKeys: formItemKeys,
+    keyboardMode: "form",
+    onRequestClose,
+    reconcileItems: true,
+    subjectKey: "form",
+    trapTab: true,
+    triggerRef,
+  });
+  return (
+    <div>
+      <button ref={triggerRef} type="button" onClick={() => setIsOpen(true)}>
+        Open form
+      </button>
+      {isOpen ? (
+        <div
+          role="dialog"
+          aria-label="Form"
+          onBlur={navigation.onOverlayBlur}
+          onFocusCapture={navigation.onOverlayFocus}
+          onKeyDown={navigation.onOverlayKeyDown}
+        >
+          <select ref={navigation.registerItem("first")} aria-label="First">
+            <option value="a">A</option>
+            <option value="b">B</option>
+          </select>
+          <input ref={navigation.registerItem("second")} aria-label="Second" />
+          <button
+            ref={navigation.registerItem("last")}
+            disabled={disableLast}
+            type="button"
+          >
+            Last
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function UnmountingOverlay({
   fallbackRef,
   onClose,
@@ -144,6 +195,47 @@ function UnmountingOverlay({
 }
 
 describe("registered overlay navigation", () => {
+  it("keeps form control keys native, wraps only boundary Tab, and reconciles disabled focus", () => {
+    const { rerender } = render(<FormOverlayHarness />);
+    const trigger = screen.getByRole("button", { name: "Open form" });
+    fireEvent.click(trigger);
+    const first = screen.getByRole("combobox", { name: "First" });
+    const second = screen.getByRole("textbox", { name: "Second" });
+    const last = screen.getByRole("button", { name: "Last" });
+    expect(document.activeElement).toBe(first);
+    for (const [control, key] of [
+      [first, "ArrowDown"],
+      [second, "Home"],
+      [second, "End"],
+      [second, "Tab"],
+    ] as const) {
+      control.focus();
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key,
+      });
+      control.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(control);
+    }
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    rerender(<FormOverlayHarness disableLast />);
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(second, { key: "Escape", isComposing: true });
+    expect(screen.getByRole("dialog", { name: "Form" })).toBeTruthy();
+    fireEvent.keyDown(second, { key: "Escape", ctrlKey: true });
+    expect(screen.getByRole("dialog", { name: "Form" })).toBeTruthy();
+    fireEvent.keyDown(second, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Form" })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
   it("cancels requested restoration on unmount when the consumer owns that policy", () => {
     render(<UnmountingOverlayHarness restoreFocusOnUnmount={false} />);
     fireEvent.click(

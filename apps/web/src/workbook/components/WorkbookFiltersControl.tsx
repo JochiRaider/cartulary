@@ -10,7 +10,7 @@ import {
 } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { SlidersHorizontal } from "lucide-react";
-import { type RefObject, useMemo } from "react";
+import type { RefObject } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import {
   parseDeclaredFieldKey,
@@ -76,32 +76,34 @@ export function WorkbookFiltersControl({
   readonly surface: string;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-  const itemKeys = useMemo(
-    () => [
-      "field",
-      "operator",
-      "operand_kind",
-      "value",
-      ...projection.chips
-        .filter((chip) => chip.identity.kind === "filter")
-        .flatMap((chip) => [`edit:${chip.key}`, `remove:${chip.key}`]),
-      ...projection.hiddenChips
-        .filter((chip) => chip.identity.kind !== "filter")
-        .map((chip) => `overflow:${chip.key}`),
-      ...(filterCount > 0 ? ["clear"] : []),
-      ...(editingFieldKey === null ? [] : ["remove_editing"]),
-      "cancel",
-      "apply",
-    ],
-    [editingFieldKey, filterCount, projection.chips, projection.hiddenChips],
-  );
+  const itemKeys = [
+    "field",
+    "operator",
+    ...(draft.op === "range"
+      ? ["lower_kind", "lower_value", "upper_kind", "upper_value"]
+      : draft.op === "eq"
+        ? ["operand_kind", ...(draft.operandKind === "null" ? [] : ["value"])]
+        : ["value"]),
+    ...projection.chips
+      .filter((chip) => chip.identity.kind === "filter")
+      .flatMap((chip) => [`edit:${chip.key}`, `remove:${chip.key}`]),
+    ...projection.hiddenChips
+      .filter((chip) => chip.identity.kind !== "filter")
+      .map((chip) => `overflow:${chip.key}`),
+    ...(filterCount > 0 ? ["clear"] : []),
+    ...(editingFieldKey === null ? [] : ["remove_editing"]),
+    "cancel",
+    "apply",
+  ];
   const initialKey = editingFieldKey === null ? "field" : "operator";
   const navigation = useRegisteredOverlayNavigation({
     initialItemKey: initialKey,
     isOpen,
     itemKeys,
+    keyboardMode: "form",
     onRequestClose: onClose,
     preferredReturnFocusRef: returnFocusRef,
+    reconcileItems: true,
     subjectKey: surface,
     trapTab: true,
     triggerRef,
@@ -146,10 +148,8 @@ export function WorkbookFiltersControl({
           style={filterPopoverStyle}
           tabIndex={-1}
           onBlur={navigation.onOverlayBlur}
-          onKeyDown={(event) => {
-            if (navigation.activeKey === null) return;
-            navigation.onItemKeyDown(event, navigation.activeKey);
-          }}
+          onFocusCapture={navigation.onOverlayFocus}
+          onKeyDown={navigation.onOverlayKeyDown}
         >
           <strong>
             {editingFieldKey === null ? "Add filter" : "Edit filter"}
@@ -231,7 +231,7 @@ export function WorkbookFiltersControl({
                     kind: "filter_remove",
                     fieldKey: editingFieldKey,
                   });
-                  onClose();
+                  navigation.close({ restoreTriggerFocus: true });
                 }}
               >
                 Remove filter
@@ -241,7 +241,7 @@ export function WorkbookFiltersControl({
               ref={navigation.registerItem("cancel")}
               style={secondaryButtonStyle}
               type="button"
-              onClick={onClose}
+              onClick={() => navigation.close({ restoreTriggerFocus: true })}
             >
               Cancel
             </button>
@@ -252,7 +252,10 @@ export function WorkbookFiltersControl({
               style={primaryButtonStyle}
               type="button"
               onClick={() => {
-                if (validation.kind === "valid") onApply(draft);
+                if (validation.kind === "valid") {
+                  navigation.close({ restoreTriggerFocus: true });
+                  onApply(draft);
+                }
               }}
             >
               Apply
@@ -356,6 +359,7 @@ function FilterOperandControl({
           Lower bound
           <span style={boundStyle}>
             <select
+              ref={navigation.registerItem("lower_kind")}
               aria-label="Lower-bound comparison"
               value={draft.lowerKind}
               onChange={(event) => {
@@ -369,7 +373,7 @@ function FilterOperandControl({
               <option value="gt">Greater than</option>
             </select>
             <input
-              ref={navigation.registerItem("value")}
+              ref={navigation.registerItem("lower_value")}
               data-testid={gridFilterValueTestId(surface)}
               style={inputStyle}
               value={draft.lowerValue}
@@ -386,6 +390,7 @@ function FilterOperandControl({
           Upper bound
           <span style={boundStyle}>
             <select
+              ref={navigation.registerItem("upper_kind")}
               aria-label="Upper-bound comparison"
               value={draft.upperKind}
               onChange={(event) => {
@@ -399,6 +404,7 @@ function FilterOperandControl({
               <option value="lt">Less than</option>
             </select>
             <input
+              ref={navigation.registerItem("upper_value")}
               aria-label="Upper-bound value"
               style={inputStyle}
               value={draft.upperValue}
@@ -529,7 +535,10 @@ function AppliedFilterActions({
             )}
             style={queryListButtonStyle}
             type="button"
-            onClick={() => onEditFilter(chip.identity.fieldKey)}
+            onClick={() => {
+              onEditFilter(chip.identity.fieldKey);
+              navigation.focusItem("operator");
+            }}
           >
             {chip.label}
           </button>

@@ -2445,6 +2445,7 @@
           "delegates Escape restoration to the semantic owner and leaves focus exit alone",
           "focuses on open, wraps, skips disabled items, and restores on Escape",
           "keeps a programmatically focused overlay root inside the focus boundary",
+          "keeps form control keys native, wraps only boundary Tab, and reconciles disabled focus",
           "reconciles a removed focused item without using its detached element",
           "restores through the fallback when closing unmounts the navigation owner"
         ]

@@ -3,9 +3,11 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   workbookColumnsMenuTriggerTestId,
+  workbookFilterOperatorTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
   workbookQueryEntryTestId,
+  workbookQueryOverflowEntryTestId,
   workbookSortAppliedEntryTestId,
   workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
@@ -33,6 +35,106 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("leaves native filter control keys alone and contains the complete range Tab order after pointer focus", () => {
+    render(<StatefulGridControls />);
+    fireEvent.click(
+      screen.getByTestId(workbookFilterPopoverTriggerTestId(timelineSurface)),
+    );
+    const field = screen.getByTestId(gridFilterFieldTestId(timelineSurface));
+    const arrow = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    });
+    field.dispatchEvent(arrow);
+    expect(arrow.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(field);
+
+    fireEvent.change(field, {
+      target: { value: "timeline.date_entered_sort_day" },
+    });
+    fireEvent.change(
+      screen.getByTestId(workbookFilterOperatorTestId(timelineSurface)),
+      {
+        target: { value: "range" },
+      },
+    );
+    const lowerComparison = screen.getByRole("combobox", {
+      name: "Lower-bound comparison",
+    });
+    const lowerValue = screen.getByTestId(
+      gridFilterValueTestId(timelineSurface),
+    );
+    const upperComparison = screen.getByRole("combobox", {
+      name: "Upper-bound comparison",
+    });
+    const upperValue = screen.getByRole("textbox", {
+      name: "Upper-bound value",
+    });
+    upperValue.focus();
+    for (const control of [
+      lowerComparison,
+      lowerValue,
+      upperComparison,
+      upperValue,
+    ]) {
+      control.focus();
+      const tab = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Tab",
+      });
+      control.dispatchEvent(tab);
+      expect(tab.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(control);
+    }
+    fireEvent.change(lowerValue, { target: { value: "2026-01-01" } });
+    fireEvent.change(upperValue, { target: { value: "2026-12-31" } });
+    const apply = screen.getByTestId(gridFilterApplyTestId(timelineSurface));
+    expect((apply as HTMLButtonElement).disabled).toBe(false);
+    apply.focus();
+    fireEvent.keyDown(apply, { key: "Tab" });
+    expect(document.activeElement).toBe(field);
+    fireEvent.keyDown(field, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(apply);
+  });
+
+  it("returns filter dismissal focus and reconciles controls removed by draft changes", () => {
+    render(
+      <>
+        <StatefulGridControls />
+        <button type="button">Outside destination</button>
+      </>,
+    );
+    const trigger = screen.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineSurface),
+    );
+    fireEvent.click(trigger);
+    const field = screen.getByTestId(gridFilterFieldTestId(timelineSurface));
+    fireEvent.change(field, { target: { value: "timeline.capture_state" } });
+    const value = screen.getByTestId(gridFilterValueTestId(timelineSurface));
+    value.focus();
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Equality operand kind" }),
+      {
+        target: { value: "null" },
+      },
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Cancel" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.activeElement).toBe(trigger);
+
+    fireEvent.click(trigger);
+    const outside = screen.getByRole("button", { name: "Outside destination" });
+    fireEvent.blur(screen.getByTestId(gridFilterFieldTestId(timelineSurface)), {
+      relatedTarget: outside,
+    });
+    outside.focus();
+    expect(screen.queryByRole("dialog", { name: "Add filter" })).toBeNull();
+    expect(document.activeElement).toBe(outside);
+  });
   it("opens a focused filter chip for editing instead of removing it", () => {
     const contract = requireViewContract(timelineSurface);
     const onRemoveFilter = vi.fn();
@@ -81,6 +183,18 @@ describe("WorkbookGridControls", () => {
         ) as HTMLSelectElement
       ).value,
     ).toBe("timeline.tags");
+    fireEvent.click(
+      screen.getByTestId(
+        workbookQueryOverflowEntryTestId(
+          timelineSurface,
+          "filter",
+          "timeline.tags",
+        ),
+      ),
+    );
+    expect(document.activeElement).toBe(
+      screen.getByTestId(workbookFilterOperatorTestId(timelineSurface)),
+    );
     fireEvent.keyDown(
       screen.getByTestId(workbookFilterPopoverTestId(timelineSurface)),
       { key: "Escape" },

@@ -14,6 +14,9 @@ import {
   sortByHeader,
 } from "@cartulary/test-utils/grid";
 import {
+  gridFilterApplyTestId,
+  gridFilterFieldTestId,
+  gridFilterValueTestId,
   gridGroupingSelectTestId,
   gridGroupRowsSelector,
   gridGroupRowTestId,
@@ -28,6 +31,10 @@ import {
   savedViewUpdateButtonTestId,
   surfaceTabTestId,
   timelineRowMarkReviewedButtonTestId,
+  workbookFilterOperatorTestId,
+  workbookFilterPopoverTestId,
+  workbookFilterPopoverTriggerTestId,
+  workbookQueryEntryTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -1290,6 +1297,190 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
     await expect(groupRow.locator("input, textarea, select")).toHaveCount(0);
     await expect(groupRow.locator("button")).toHaveCount(1);
   }
+});
+
+test("Timeline Filters editor preserves native keys, range traversal, and focus return across surfaces", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FILTER-KEYBOARD"),
+    "Workbook Filters keyboard and focus",
+  );
+  const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("filter-keyboard-alpha"),
+    "timeline.date_entered_text": "2026-01-15",
+    "timeline.activity_synopsis_text": "Filter keyboard Alpha",
+  });
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("filter-keyboard-beta"),
+    "timeline.date_entered_text": "2026-08-20",
+    "timeline.activity_synopsis_text": "Filter keyboard Beta",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+  );
+  await trigger.click();
+  const dialog = page.getByTestId(
+    workbookFilterPopoverTestId(timelineViewSchemaId),
+  );
+  const field = page.getByTestId(gridFilterFieldTestId(timelineViewSchemaId));
+  await expect(field).toBeFocused();
+  const queryRequests: string[] = [];
+  page.on("request", (request) => {
+    if (isViewQueryRequest(request, incidentId, timelineViewSchemaId)) {
+      queryRequests.push(request.postData() ?? "");
+    }
+  });
+
+  await field.selectOption("timeline.date_entered_sort_day");
+  const operator = page.getByTestId(
+    workbookFilterOperatorTestId(timelineViewSchemaId),
+  );
+  await operator.selectOption("range");
+  const lowerComparison = dialog.getByRole("combobox", {
+    name: "Lower-bound comparison",
+  });
+  const lowerValue = page.getByTestId(
+    gridFilterValueTestId(timelineViewSchemaId),
+  );
+  const upperComparison = dialog.getByRole("combobox", {
+    name: "Upper-bound comparison",
+  });
+  const upperValue = dialog.getByRole("textbox", { name: "Upper-bound value" });
+  await lowerComparison.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(lowerComparison).toHaveValue("gt");
+  await expect(lowerComparison).toBeFocused();
+  await lowerValue.fill("2026-04-01");
+  await lowerValue.press("End");
+  await lowerValue.press("Home");
+  await expect(lowerValue).toBeFocused();
+  expect(
+    await lowerValue.evaluate(
+      (element) => (element as HTMLInputElement).selectionStart,
+    ),
+  ).toBe(0);
+  await upperValue.fill("2026-12-31");
+
+  await lowerComparison.focus();
+  await page.keyboard.press("Tab");
+  await expect(lowerValue).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(upperComparison).toBeFocused();
+  await upperValue.click();
+  await page.keyboard.press("Shift+Tab");
+  await expect(upperComparison).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(upperValue).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(upperValue).toBeFocused();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  const apply = page.getByTestId(gridFilterApplyTestId(timelineViewSchemaId));
+  await expect(apply).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(field).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(apply).toBeFocused();
+  expect(queryRequests).toHaveLength(0);
+
+  const firstQuery = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  await apply.press("Enter");
+  expect(readPostBody(await firstQuery)).toMatchObject({
+    filters: [
+      {
+        field_key: "timeline.date_entered_sort_day",
+        op: "range",
+        arg: { gt: "2026-04-01", lte: "2026-12-31" },
+      },
+    ],
+  });
+  await expect(trigger).toBeFocused();
+  await expect
+    .poll(async () => visibleRecordIds(page))
+    .toEqual([String(beta.record_id)]);
+
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(
+      timelineViewSchemaId,
+      "filter",
+      "timeline.date_entered_sort_day",
+    ),
+  );
+  await chip.focus();
+  await chip.press("Enter");
+  await expect(operator).toBeFocused();
+  await expect(field).toBeDisabled();
+  await lowerValue.fill("2026-01-01");
+  const secondQuery = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  await apply.click();
+  await secondQuery;
+  await expect(chip).toBeFocused();
+  await expect
+    .poll(async () => visibleRecordIds(page))
+    .toEqual([String(alpha.record_id), String(beta.record_id)]);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: beta.record_id,
+    surface: timelineViewSchemaId,
+  });
+  const gridValue = page.getByTestId(
+    rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+  );
+  await gridValue.evaluate((element) => {
+    const cell = element.closest<HTMLElement>('[role="gridcell"]');
+    if (cell === null) throw new Error("Expected Timeline grid cell");
+    cell.focus();
+  });
+  expect(
+    await gridValue.evaluate(
+      (element) =>
+        element.closest('[role="gridcell"]') === document.activeElement,
+    ),
+  ).toBe(true);
+
+  await trigger.click();
+  await field.press("Escape");
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  const notesTab = page.getByTestId(surfaceTabTestId(notesViewSchemaId));
+  await notesTab.focus();
+  await expect(dialog).toHaveCount(0);
+  await expect(notesTab).toBeFocused();
+
+  await notesTab.click();
+  const notesTrigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(notesViewSchemaId),
+  );
+  await notesTrigger.click();
+  await page
+    .getByTestId(gridFilterFieldTestId(notesViewSchemaId))
+    .selectOption("note.updated_at");
+  await page
+    .getByTestId(workbookFilterOperatorTestId(notesViewSchemaId))
+    .selectOption("range");
+  const notesDialog = page.getByTestId(
+    workbookFilterPopoverTestId(notesViewSchemaId),
+  );
+  await expect(
+    notesDialog.getByRole("combobox", { name: "Lower-bound comparison" }),
+  ).toBeVisible();
+  await expect(
+    notesDialog.getByRole("textbox", { name: "Upper-bound value" }),
+  ).toBeVisible();
+  await notesDialog.getByRole("textbox", { name: "Upper-bound value" }).focus();
+  await page.keyboard.press("Escape");
+  await expect(notesTrigger).toBeFocused();
 });
 
 test("browser Notes full_text and prefix queries remain exact", async ({
