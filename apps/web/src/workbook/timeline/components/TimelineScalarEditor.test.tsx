@@ -132,3 +132,37 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
   expect(onDraftChange).not.toHaveBeenCalled();
   expect(input.readOnly).toBe(true);
 });
+
+it("TimelineScalarEditor leaves managed departure to the grid owner", () => {
+  const onCloseGridEditor = vi.fn();
+  const onKeyCommit = vi.fn();
+  const registry = createTimelineEditorDraftRegistry();
+  render(
+    <TimelineScalarEditor
+      committedValue="Saved"
+      controlId="managed-editor"
+      dataTestId="managed-editor"
+      editorDraftRegistry={registry}
+      field="activitySynopsisText"
+      onBlurCommit={vi.fn()}
+      onCloseGridEditor={onCloseGridEditor}
+      onDraftChange={vi.fn()}
+      onEditModeChange={vi.fn()}
+      onFocusAnchor={vi.fn()}
+      onFocusRecord={vi.fn()}
+      onKeyCommit={onKeyCommit}
+      presenceFieldKey="timeline.activity_synopsis_text"
+      registerInput={vi.fn()}
+      rowKey="row-1"
+      rowRecordId="record-1"
+      surface="grid"
+    />,
+  );
+  const input = screen.getByTestId("managed-editor") as HTMLInputElement;
+  for (const key of ["Enter", "Tab"] as const)
+    for (const modifier of ["ctrlKey", "metaKey", "altKey"] as const)
+      fireEvent.keyDown(input, { key, [modifier]: true });
+  expect(onCloseGridEditor).not.toHaveBeenCalled();
+  expect(onKeyCommit).toHaveBeenCalledTimes(6);
+  expect(input.value).toBe("Saved");
+});

@@ -11,6 +11,7 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
+  draftCellTestId,
   gridFillHandleSelector,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
@@ -72,6 +73,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
+import { holdBrowserRequest } from "./support/transport/requestInterception";
 import {
   createViewRow,
   queryViewRows,
@@ -1241,6 +1243,159 @@ test("Timeline grid keyboard navigation, edit cancellation, and Esc restore sema
   await alphaSummaryCell.press("Escape");
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await expect(alphaSummaryCell).toBeFocused();
+});
+
+test("Timeline modified departure keys leave production editors and capture in place", async ({
+  page,
+}, testInfo) => {
+  const chords = [
+    "Control+Enter",
+    "Meta+Enter",
+    "Alt+Enter",
+    "Control+Tab",
+    "Meta+Tab",
+    "Alt+Tab",
+  ] as const;
+  const probe = await page.context().newPage();
+  const delivery: Array<{
+    chord: string;
+    reachedPage: boolean;
+    retainedFocus: boolean;
+  }> = [];
+  try {
+    await probe.setContent('<input aria-label="Key delivery probe" />');
+    await probe.evaluate(() => {
+      Reflect.set(window, "__timelineProbeKeys", []);
+      window.addEventListener("keydown", (event) => {
+        (Reflect.get(window, "__timelineProbeKeys") as string[]).push(
+          `${event.ctrlKey}:${event.metaKey}:${event.altKey}:${event.key}`,
+        );
+      });
+    });
+    for (const chord of chords) {
+      await probe.bringToFront();
+      await probe.getByRole("textbox", { name: "Key delivery probe" }).focus();
+      const before = await probe.evaluate(
+        () => (Reflect.get(window, "__timelineProbeKeys") as string[]).length,
+      );
+      await probe.keyboard.press(chord);
+      delivery.push({
+        chord,
+        reachedPage: await probe.evaluate(
+          (count) =>
+            (Reflect.get(window, "__timelineProbeKeys") as string[]).length >
+            count,
+          before,
+        ),
+        retainedFocus: await probe
+          .getByRole("textbox", {
+            name: "Key delivery probe",
+          })
+          .evaluate((input) => document.activeElement === input),
+      });
+    }
+  } finally {
+    await probe.close();
+    await page.bringToFront();
+  }
+  await testInfo.attach("timeline-modified-key-delivery.json", {
+    body: JSON.stringify(delivery, null, 2),
+    contentType: "application/json",
+  });
+
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TIMELINE-MODIFIED-KEYS"),
+    "Timeline modified editor departure",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-modified-keys-row"),
+    "timeline.activity_synopsis_text": "Saved summary",
+  });
+  const writes: Request[] = [];
+  const onRequest = (request: Request) => {
+    if (
+      (request.method() === "PATCH" &&
+        request.url().endsWith(`/api/v1/records/${row.record_id}`)) ||
+      (request.method() === "POST" &&
+        request
+          .url()
+          .endsWith(
+            `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
+          ))
+    )
+      writes.push(request);
+  };
+  page.on("request", onRequest);
+  try {
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(
+      page.getByTestId(timelineMutationSubstrateReadyTestId()),
+    ).toBeVisible();
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: row.record_id,
+      surface: timelineViewSchemaId,
+    });
+    const cell = page
+      .getByTestId(
+        rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+      )
+      .locator('xpath=ancestor::*[@role="gridcell"][1]');
+    await cell.click({ position: { x: 3, y: 3 } });
+    const editor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId: row.record_id,
+        surface: "grid",
+      }),
+    );
+    await editor.fill("  exact committed draft  ");
+    await expect(editor).toBeFocused();
+    for (const item of delivery)
+      if (item.reachedPage && item.retainedFocus) {
+        await page.keyboard.press(item.chord);
+        await expect(editor).toBeFocused();
+        await expect(editor).toHaveValue("  exact committed draft  ");
+        await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+          `${timelineViewSchemaId}:${row.record_id}:timeline.activity_synopsis_text`,
+        );
+        expect(writes).toHaveLength(0);
+      }
+    await page.keyboard.press("Escape");
+
+    const draft = page.getByTestId(
+      draftCellTestId("timeline.activity_synopsis_text"),
+    );
+    const held = await holdBrowserRequest(page, {
+      method: "POST",
+      path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
+    });
+    try {
+      await draft.fill("  exact capture draft  ");
+      await held.waitForHit;
+      await expect(draft).toBeFocused();
+      const baselineWrites = writes.length;
+      for (const item of delivery)
+        if (item.reachedPage && item.retainedFocus) {
+          await page.keyboard.press(item.chord);
+          await expect(draft).toBeFocused();
+          await expect(draft).toHaveValue("  exact capture draft  ");
+          await expect(
+            draft.locator('xpath=ancestor::*[@role="gridcell"][1]'),
+          ).toHaveAttribute("aria-selected", "false");
+          expect(writes).toHaveLength(baselineWrites);
+        }
+      held.release();
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      expect(writes).toHaveLength(baselineWrites);
+    } finally {
+      await held.dispose();
+    }
+  } finally {
+    page.off("request", onRequest);
+  }
 });
 
 test("Timeline clipboard paste maps an exact rectangle and persists the target row", async ({

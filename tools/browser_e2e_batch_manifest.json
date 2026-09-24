@@ -1830,6 +1830,7 @@
           "selected_row_ids": [
             "module.timeline.browser_support.timeline_clipboard_paste_maps_an_exact_rectangle_6dadd393a8",
             "module.timeline.browser_support.timeline_grid_keyboard_navigation_edit_cancellat_6a838bf56c",
+            "module.timeline.browser_support.timeline_grid_modified_editor_departure",
             "module.timeline.browser_support.timeline_grouping_renders_reviewed_and_unreviewe_9b575f8189",
             "module.timeline.browser_support.timeline_keyboard_fill_down_preserves_the_select_66fb142159",
             "module.timeline.browser_support.timeline_virtualization_reaches_off_screen_rows_51067b8ca7"

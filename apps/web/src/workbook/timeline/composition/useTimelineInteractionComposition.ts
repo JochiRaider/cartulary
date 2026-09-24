@@ -49,7 +49,7 @@ type TimelineInteractionCompositionInput = {
     readonly currentTimelineAnchorFor: KeyboardInput["currentTimelineAnchorFor"];
     readonly focusDraftRow: () => void;
     readonly prepareTimelineCollectionNavigation: KeyboardInput["prepareTimelineCollectionNavigation"];
-    readonly navigateTimelineDraftFocus?: KeyboardInput["navigateTimelineDraftFocus"];
+    readonly navigateTimelineDraftFocus: KeyboardInput["navigateTimelineDraftFocus"];
     readonly navigateTimelineFocusAnchor: KeyboardInput["navigateTimelineFocusAnchor"];
     readonly resolveTimelinePasteTargetResolution: ClipboardInput["resolveTimelinePasteTargetResolution"];
     readonly restoreTimelineFocusAnchor: (

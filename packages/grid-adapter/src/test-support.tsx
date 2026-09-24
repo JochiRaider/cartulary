@@ -75,6 +75,7 @@ import {
 } from "./core";
 import {
   focusAdjacentOutsideGrid,
+  gridEditorDepartureChord,
   isInteractiveCellActionTarget,
   nativeEditorOwnsKey,
 } from "./domInteraction";
@@ -2142,6 +2143,11 @@ function TestGridEditor<Row>({
           event.target.closest("[data-grid-editor-interaction]")
         )
           return;
+        if (event.defaultPrevented) {
+          if (event.key === "Enter" || event.key === "Tab")
+            event.stopPropagation();
+          return;
+        }
         if (event.altKey && event.key === "ArrowDown") {
           const action = event.currentTarget.querySelector<HTMLButtonElement>(
             "[data-grid-editor-toolbar] button",
@@ -2160,6 +2166,13 @@ function TestGridEditor<Row>({
           event.target.closest("[data-grid-editor-toolbar]")
         )
           return;
+        if (
+          (event.key === "Enter" || event.key === "Tab") &&
+          gridEditorDepartureChord(event) === null
+        ) {
+          event.stopPropagation();
+          return;
+        }
         if (
           keyboardNavigation === "spreadsheet" &&
           (event.key === "Enter" || event.key === "Tab")

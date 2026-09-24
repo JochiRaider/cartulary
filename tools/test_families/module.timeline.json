@@ -3083,6 +3083,42 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser_support.timeline_grid_modified_editor_departure",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_modified_editor_departure"
+        ],
+        "titles": [
+          "Timeline modified departure keys leave production editors and capture in place"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser_support.timeline_grouping_renders_reviewed_and_unreviewe_9b575f8189",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser_support",
@@ -3896,6 +3932,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/components/TimelineScalarEditor.test.tsx",
         "titles": [
+          "TimelineScalarEditor leaves managed departure to the grid owner",
           "TimelineScalarEditor preserves controlled draft read-only presence and commit behavior"
         ]
       },

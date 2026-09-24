@@ -4359,3 +4359,78 @@ it("keeps multiline select and composition keys local in the production editor",
     cleanup();
   }
 });
+
+it("keeps modified departure chords out of the production editor acceptance gate", async () => {
+  const commit = vi.fn(async () => ({ kind: "accepted" as const }));
+  const handle = createRef<GridHandle>();
+  render(
+    <SemanticDataGrid
+      ref={handle}
+      surface={testSurface}
+      keyboardNavigation="spreadsheet"
+      cellRangeSelection={{
+        kind: "contiguous",
+        scopeKey: "modified-departure",
+        keyboardEntry: "cycle",
+      }}
+      columns={[
+        {
+          fieldKey: "label",
+          label: "Label",
+          contractWritable: true,
+          renderCell: ({ row }: { row: HarnessRow }) => row.label,
+          editor: {
+            commit,
+            initialDraftValue: (row) => row.label,
+            renderEditor: (context) => (
+              <input
+                aria-label="Modified departure editor"
+                ref={context.focusTargetRef}
+                value={String(context.draftValue)}
+                onChange={(event) => context.setDraftValue(event.target.value)}
+              />
+            ),
+          },
+        },
+      ]}
+      dataRows={[
+        {
+          kind: "data",
+          data: { label: "Saved", state: "open" },
+          rowIdentity: { kind: "core_record", recordId: "A" },
+          mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        },
+      ]}
+    />,
+  );
+  await act(async () => {
+    await handle.current?.requestFocus({
+      kind: "cell",
+      anchor: gridAnchor("A", "label"),
+    });
+  });
+  fireEvent.keyDown(document.activeElement as Element, { key: "F2" });
+  const input = (await screen.findByRole("textbox", {
+    name: "Modified departure editor",
+  })) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "  exact raw draft  " } });
+  for (const key of ["Enter", "Tab"] as const) {
+    for (const modifier of ["ctrlKey", "metaKey", "altKey"] as const) {
+      for (const shiftKey of [false, true]) {
+        await act(async () => {
+          fireEvent.keyDown(input, { key, [modifier]: true, shiftKey });
+        });
+        expect(
+          commit,
+          `${modifier}+${key}+shift:${shiftKey}`,
+        ).not.toHaveBeenCalled();
+        expect(document.activeElement).toBe(input);
+        expect(input.value).toBe("  exact raw draft  ");
+      }
+    }
+  }
+  await act(async () => {
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+  });
+  expect(commit).toHaveBeenCalledTimes(1);
+});

@@ -1,7 +1,8 @@
-import type {
-  GridCellTarget,
-  GridEditCommitOutcome,
-  GridEditorAdapter,
+import {
+  type GridCellTarget,
+  type GridEditCommitOutcome,
+  type GridEditorAdapter,
+  gridEditorDepartureChord,
 } from "@cartulary/grid-adapter";
 import { workbookGridEditorTestId } from "@cartulary/ui-contracts";
 import {
@@ -91,7 +92,7 @@ export function workbookGridEditorAdapter<Row>({
       const reference = getReferenceFieldContract(viewSchemaId, field.fieldKey);
       const draftValue = String(context.draftValue ?? "");
       const commitOnEnter = (event: KeyboardEvent<HTMLFieldSetElement>) => {
-        if (event.nativeEvent.isComposing) return;
+        if (event.defaultPrevented || event.nativeEvent.isComposing) return;
         if (event.target instanceof HTMLSelectElement && event.key === "Enter")
           return;
         if (
@@ -106,7 +107,7 @@ export function workbookGridEditorAdapter<Row>({
           context.cancel();
           return;
         }
-        if (event.key === "Enter" && !event.shiftKey) {
+        if (gridEditorDepartureChord(event) === "Enter" && !event.shiftKey) {
           event.preventDefault();
           void context.commit();
         }

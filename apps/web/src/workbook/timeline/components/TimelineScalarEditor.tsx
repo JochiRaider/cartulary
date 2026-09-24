@@ -184,6 +184,7 @@ export function TimelineScalarEditor({
   const handleKeyDown = (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (event.defaultPrevented) return;
     if (
       event.nativeEvent.isComposing ||
       (multiline && event.key === "Enter" && event.shiftKey)
@@ -201,15 +202,6 @@ export function TimelineScalarEditor({
         onDraftChange(rowKey, field, surface, committedValue);
       }
       onCloseGridEditor?.(false, committedValue);
-      return;
-    }
-    if (
-      surface === "grid" &&
-      onCloseGridEditor !== undefined &&
-      (event.key === "Enter" || event.key === "Tab")
-    ) {
-      event.preventDefault();
-      onCloseGridEditor(true, event.currentTarget.value);
       return;
     }
     onKeyCommit(event, rowKey, field, surface);

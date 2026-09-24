@@ -1,6 +1,7 @@
-import type {
-  GridNavigationIntent,
-  GridNavigationKey,
+import {
+  type GridNavigationIntent,
+  type GridNavigationKey,
+  gridEditorDepartureChord,
 } from "@cartulary/grid-adapter";
 import {
   decideWorkbookApplicationShortcut,
@@ -50,8 +51,6 @@ const timelineEditorNavigationKeys = new Set<string>([
   "ArrowLeft",
   "ArrowRight",
   "ArrowUp",
-  "Enter",
-  "Tab",
 ]);
 
 const noTimelineEditorIntent = {
@@ -63,6 +62,9 @@ const noTimelineEditorIntent = {
 function timelineEditorNavigationIntent(
   event: TimelineKeyboardEvent,
 ): GridNavigationIntent | null {
+  const departure = gridEditorDepartureChord(event);
+  if (departure !== null)
+    return { key: departure, shiftKey: event.shiftKey === true };
   if (
     event.altKey === true ||
     event.ctrlKey === true ||

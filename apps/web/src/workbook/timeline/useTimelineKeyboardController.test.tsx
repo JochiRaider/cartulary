@@ -100,6 +100,9 @@ function controller(
     navigateTimelineFocusAnchor: vi.fn((_anchor, intent) =>
       calls.push(`navigate-${intent.key}-${intent.shiftKey}`),
     ),
+    navigateTimelineDraftFocus: vi.fn((_rowKey, _fieldKey, intent) =>
+      calls.push(`navigate-${intent.key}-${intent.shiftKey}`),
+    ),
     openRowHistory: vi.fn(() => calls.push("open-history")),
     prepareTimelineCollectionNavigation: vi.fn(
       () => () => calls.push("collection-navigate"),
@@ -168,7 +171,7 @@ describe("useTimelineKeyboardController", () => {
       "row-key",
       "activitySynopsisText",
       {
-        continueOnFreshDraft: true,
+        continueOnFreshDraft: false,
         preserveInputFocus: false,
         surface: "grid",
       },
@@ -218,13 +221,13 @@ describe("useTimelineKeyboardController", () => {
         "grid",
       ),
     );
-    expect(draftController.calls).toEqual(["timing", "save-scalar"]);
+    expect(draftController.calls).toEqual(["save-scalar"]);
     expect(draftController.mocks.queueScalarSave).toHaveBeenCalledWith(
       "draft-1",
       "activitySynopsisText",
       {
-        continueOnFreshDraft: true,
-        preserveInputFocus: true,
+        continueOnFreshDraft: false,
+        preserveInputFocus: false,
         surface: "grid",
       },
       "Edited summary",
@@ -274,6 +277,47 @@ describe("useTimelineKeyboardController", () => {
     expect(
       inspectorController.mocks.restoreTimelineFocusAnchor,
     ).not.toHaveBeenCalled();
+  });
+
+  it("rejects modified scalar departure with production draft navigation wired", () => {
+    const input = document.createElement("input");
+    input.value = "  exact raw draft  ";
+    document.body.append(input);
+    input.focus();
+    const committed = controller();
+    const draft = controller({ currentTimelineAnchorFor: () => null });
+    for (const owner of [committed, draft]) {
+      for (const key of ["Enter", "Tab"] as const) {
+        for (const modifier of ["ctrlKey", "metaKey", "altKey"] as const) {
+          for (const shiftKey of [false, true]) {
+            const event = keyboardEvent({
+              currentTarget: input,
+              key,
+              shiftKey,
+              [modifier]: true,
+            });
+            act(() =>
+              owner.result.current.commands.onScalarEditorKeyDown(
+                event,
+                "row-key",
+                "activitySynopsisText",
+                "grid",
+              ),
+            );
+            expect(
+              owner.mocks.queueScalarSave,
+              `${modifier}+${key}+shift:${shiftKey}`,
+            ).not.toHaveBeenCalled();
+            expect(
+              owner.mocks.navigateTimelineDraftFocus,
+            ).not.toHaveBeenCalled();
+            expect(event.preventDefault).not.toHaveBeenCalled();
+            expect(input.value).toBe("  exact raw draft  ");
+          }
+        }
+      }
+    }
+    input.remove();
   });
 
   it("owns collection settlement and cancellation without unreachable editor shortcuts", () => {

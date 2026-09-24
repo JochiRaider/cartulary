@@ -29,7 +29,10 @@ import type {
   GridSemanticStateInput,
   GridSurfaceIdentity,
 } from "./core";
-import { nativeEditorOwnsKey } from "./domInteraction";
+import {
+  gridEditorDepartureChord,
+  nativeEditorOwnsKey,
+} from "./domInteraction";
 import { bindGridEditorReveal } from "./editorReveal";
 import {
   type GridResolvedSemanticState,
@@ -881,6 +884,11 @@ function SemanticGridEditor<Row>({
           event.target.closest("[data-grid-editor-interaction]")
         )
           return;
+        if (event.defaultPrevented) {
+          if (event.key === "Enter" || event.key === "Tab")
+            event.stopPropagation();
+          return;
+        }
         if (event.altKey && event.key === "ArrowDown") {
           const action = event.currentTarget.querySelector<HTMLButtonElement>(
             "[data-grid-editor-toolbar] button",
@@ -903,6 +911,14 @@ function SemanticGridEditor<Row>({
           event.preventDefault();
           event.stopPropagation();
           cancel();
+          return;
+        }
+        if (
+          (event.key === "Enter" || event.key === "Tab") &&
+          gridEditorDepartureChord(event) === null
+        ) {
+          // A rejected chord must not reach a child commit or RDG navigation.
+          event.stopPropagation();
           return;
         }
         if (event.key === "Tab") {

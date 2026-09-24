@@ -7,6 +7,17 @@ export function isInteractiveCellActionTarget(target: EventTarget): boolean {
   );
 }
 
+/** Shift reverses departure; Alt, Ctrl and Meta do not create grid commands. */
+export function gridEditorDepartureChord(event: {
+  readonly key: string;
+  readonly altKey?: boolean | undefined;
+  readonly ctrlKey?: boolean | undefined;
+  readonly metaKey?: boolean | undefined;
+}): "Enter" | "Tab" | null {
+  if (event.altKey || event.ctrlKey || event.metaKey) return null;
+  return event.key === "Enter" || event.key === "Tab" ? event.key : null;
+}
+
 /** Browser text and option interaction takes priority over grid departure. */
 export function nativeEditorOwnsKey(event: {
   readonly target: EventTarget;

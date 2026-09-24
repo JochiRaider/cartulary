@@ -3,7 +3,10 @@ import type {
   GridEditCommitOutcome,
   GridNavigationIntent,
 } from "@cartulary/grid-adapter";
-import { adjacentTabStop } from "@cartulary/grid-adapter";
+import {
+  adjacentTabStop,
+  gridEditorDepartureChord,
+} from "@cartulary/grid-adapter";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -197,9 +200,11 @@ export function useTimelineKeyboardController({
     fieldKey: string,
     intent: GridNavigationIntent,
   ) => (() => void) | null;
-  readonly navigateTimelineDraftFocus?:
-    | ((rowKey: string, fieldKey: string, intent: GridNavigationIntent) => void)
-    | undefined;
+  readonly navigateTimelineDraftFocus: (
+    rowKey: string,
+    fieldKey: string,
+    intent: GridNavigationIntent,
+  ) => void;
   readonly clearRowHistory: () => void;
   readonly currentTimelineAnchorFor: (
     rowKey: string,
@@ -289,6 +294,7 @@ export function useTimelineKeyboardController({
       focusField: keyof RowValues,
       surface: TimelineScalarEditorSurface,
     ) => {
+      if (event.defaultPrevented) return;
       if (
         event.nativeEvent.isComposing ||
         event.key.startsWith("Arrow") ||
@@ -303,15 +309,12 @@ export function useTimelineKeyboardController({
         (candidate) => candidate.key === focusField,
       );
       const fieldKey = binding?.fieldKey ?? focusField;
-      if (
-        surface === "grid" &&
-        navigateTimelineDraftFocus !== undefined &&
-        (event.key === "Enter" || event.key === "Tab")
-      ) {
+      const departure = gridEditorDepartureChord(event);
+      if (surface === "grid" && departure !== null) {
         event.preventDefault();
         event.stopPropagation();
         const navigation: GridNavigationIntent = {
-          key: event.key,
+          key: departure,
           shiftKey: event.shiftKey,
         };
         const original = event.currentTarget;

@@ -907,6 +907,7 @@
           "grid-adapter shows the delayed loading message once per active generation and cancels it on terminal state",
           "grid-adapter survives jsdom layout measurement when row pending state rerenders the RDG grid",
           "grid-adapter translates live cell events and the restricted handle through semantic coordinates",
+          "keeps modified departure chords out of the production editor acceptance gate",
           "keeps multiline select and composition keys local in the production editor"
         ]
       },
