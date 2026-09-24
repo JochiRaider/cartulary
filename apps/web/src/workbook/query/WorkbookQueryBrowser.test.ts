@@ -217,16 +217,92 @@ describe("Workbook query browsing", () => {
     const first = browser.activate("more", read);
     const duplicate = browser.activate("more", read);
     expect(query).toHaveBeenCalledTimes(2);
+    expect(browser.getSnapshot()).toMatchObject({
+      pending: "more",
+      pendingAction: "more",
+    });
     pending.resolve({
       kind: "rejected",
       failure: { kind: "retryable", message: "Offline" },
     });
     await Promise.all([first, duplicate]);
     expect(browser.getSnapshot().accepted).toBe(accepted);
-    await browser.activate("retry", read);
+    const retry = deferred<WorkbookViewQueryResult>();
+    const implementation = query.getMockImplementation();
+    if (!implementation) throw new Error("Missing fixture");
+    query.mockImplementationOnce(() => retry.promise);
+    const retried = browser.activate("retry", read);
+    const repeated = browser.activate("retry", read);
+    expect(query).toHaveBeenCalledTimes(3);
+    expect(browser.getSnapshot()).toMatchObject({
+      pending: "more",
+      pendingAction: "retry",
+      accepted,
+      failure: null,
+    });
+    const retryRequest = query.mock.calls[2]?.[0];
+    if (!retryRequest) throw new Error("Missing retry request");
+    retry.resolve(await implementation(retryRequest));
+    await Promise.all([retried, repeated]);
     expect(query.mock.calls[2]?.[0].cursorToken).toBe(" opaque +/100= ");
     expect(query.mock.calls[2]?.[0].queryState.sort).toEqual([]);
     expect(browser.getSnapshot().accepted?.rows).toHaveLength(200);
+    expect(browser.getSnapshot().pendingAction).toBeNull();
+  });
+
+  it("labels replacement Retry by its initiating action and fences superseded recovery", async () => {
+    const { browser, query, read } = fixture();
+    await read();
+    const replacement = {
+      ...queryState,
+      sort: [{ fieldKey: "note.title", direction: "desc" as const }],
+    };
+    const replace = async () => {
+      const result = await browser.query({
+        ...input(),
+        queryState: replacement,
+      });
+      if (result.kind === "accepted") browser.accept(result.value);
+    };
+    query.mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Offline" },
+    });
+    await replace();
+    const held = deferred<WorkbookViewQueryResult>();
+    query.mockImplementationOnce(() => held.promise);
+    const retry = browser.activate("retry", replace);
+    expect(browser.getSnapshot()).toMatchObject({
+      pending: "replace",
+      pendingAction: "retry",
+      failure: null,
+    });
+    expect(query.mock.calls[2]?.[0].cursorToken).toBeUndefined();
+    expect(query.mock.calls[2]?.[0].queryState.sort).toEqual(replacement.sort);
+    const current = browser.query(input());
+    expect(browser.getSnapshot().pendingAction).toBeNull();
+    const accepted = await current;
+    if (accepted.kind !== "accepted") throw new Error("Expected current page");
+    browser.accept(accepted.value);
+    held.resolve({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Old failure" },
+    });
+    await retry;
+    expect(browser.getSnapshot()).toMatchObject({
+      pending: null,
+      pendingAction: null,
+      failure: null,
+    });
+    const epoch = browser.getSnapshot().focusEpoch;
+    browser.detach();
+    expect(browser.getSnapshot().focusEpoch).toBe(epoch + 1);
+    browser.invalidate();
+    expect(browser.getSnapshot()).toMatchObject({
+      pendingAction: null,
+      failure: null,
+      focusEpoch: epoch + 2,
+    });
   });
 
   it("discards invalid cursor chains once and retains failed restart recovery without the old cursor", async () => {

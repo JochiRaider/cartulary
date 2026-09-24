@@ -49,20 +49,24 @@ type WorkbookBrowsingSnapshot = {
   readonly canonicalQuery: WorkbookCanonicalQuery | null;
   readonly requested: WorkbookQueryState | null;
   readonly pending: Destination["kind"] | null;
+  readonly pendingAction: WorkbookBrowseAction | null;
   readonly failure: WorkbookOperationFailure | null;
+  readonly focusEpoch: number;
   readonly hasEarlier: boolean;
   readonly canLoadMore: boolean;
   readonly earlierEvicted: boolean;
   readonly pageCount: number;
 };
 
-const initialSnapshot = (): WorkbookBrowsingSnapshot => ({
+const initialSnapshot = (focusEpoch = 0): WorkbookBrowsingSnapshot => ({
   accepted: null,
   authored: null,
   canonicalQuery: null,
   requested: null,
   pending: null,
+  pendingAction: null,
   failure: null,
+  focusEpoch,
   hasEarlier: false,
   canLoadMore: false,
   earlierEvicted: false,
@@ -88,12 +92,13 @@ export class WorkbookQueryBrowser {
     value: WorkbookViewQueryAccepted;
     plan: Proposal;
   } | null = null;
-  private requestedAction: WorkbookBrowseAction | null = null;
+  private queuedAction: WorkbookBrowseAction | null = null;
   private failedDestination: Destination | null = null;
   private activationPending = false;
   private anchorRecordId: string | null = null;
   private recoveryDepth = 0;
   private chainInvalidated = false;
+  private focusEpoch = 0;
   private reconciliationEpoch = 0;
   private reconciliation: Promise<void> | null = null;
   private pendingReconciliation: (() => Promise<void>) | null = null;
@@ -195,12 +200,12 @@ export class WorkbookQueryBrowser {
     if (action === "more" && !this.snapshot.canLoadMore) return;
     if (action === "earlier" && this.checkpoints.length === 0) return;
     this.activationPending = true;
-    this.requestedAction = action;
+    this.queuedAction = action;
     try {
       await read();
     } finally {
       this.activationPending = false;
-      this.requestedAction = null;
+      this.queuedAction = null;
     }
   }
   private cancel() {
@@ -214,6 +219,7 @@ export class WorkbookQueryBrowser {
     if (recordId !== null) this.anchorRecordId = recordId;
   }
   detach(anchorRecordId: string | null = this.anchorRecordId) {
+    this.focusEpoch += 1;
     this.reconciliationEpoch += 1;
     this.pendingReconciliation = null;
     this.reconciliation = null;
@@ -246,13 +252,16 @@ export class WorkbookQueryBrowser {
     this.publish({
       accepted: null,
       pending: null,
+      pendingAction: null,
       failure: null,
+      focusEpoch: this.focusEpoch,
       pageCount: 0,
       hasEarlier: this.checkpoints.length > 0,
       canLoadMore: false,
     });
   }
   invalidate() {
+    this.focusEpoch += 1;
     this.reconciliationEpoch += 1;
     this.pendingReconciliation = null;
     this.reconciliation = null;
@@ -265,10 +274,13 @@ export class WorkbookQueryBrowser {
     this.failedDestination = null;
     this.anchorRecordId = null;
     this.chainInvalidated = false;
-    this.snapshot = initialSnapshot();
+    this.snapshot = initialSnapshot(this.focusEpoch);
     this.publish({});
   }
-  private destination(queryState: WorkbookQueryState): Destination {
+  private destination(
+    queryState: WorkbookQueryState,
+    action: WorkbookBrowseAction | null,
+  ): Destination {
     const first: Checkpoint = {
       request: {
         queryState: structuredClone(queryState),
@@ -276,17 +288,17 @@ export class WorkbookQueryBrowser {
       },
       canonical: { filters: [], sort: [] },
     };
-    if (this.requestedAction === "restart" || this.chainInvalidated)
+    if (action === "restart" || this.chainInvalidated)
       return { kind: "restart", start: first, pageCount: 1 };
     if (
       this.snapshot.authored &&
       !savedViewJSONEqual(queryState, this.snapshot.authored)
     )
       return { kind: "replace", start: first, pageCount: 1 };
-    if (this.requestedAction === "retry" && this.failedDestination)
+    if (action === "retry" && this.failedDestination)
       return this.failedDestination;
     const accepted = this.snapshot.accepted;
-    if (this.requestedAction === "more" && accepted?.paging.nextCursor)
+    if (action === "more" && accepted?.paging.nextCursor)
       return {
         kind: "more",
         pageCount: 1,
@@ -303,7 +315,7 @@ export class WorkbookQueryBrowser {
         },
       };
     const earlier = this.checkpoints.at(-1);
-    if (this.requestedAction === "earlier" && earlier)
+    if (action === "earlier" && earlier)
       return { kind: "earlier", start: earlier, pageCount: 1 };
     const page = this.pages[0];
     if (page)
@@ -325,6 +337,12 @@ export class WorkbookQueryBrowser {
   ): Promise<WorkbookViewQueryResult> {
     if (input.contract.viewSchemaId !== this.viewSchemaId)
       return { kind: "rejected", failure: contractFailure() };
+    const action =
+      this.queuedAction ??
+      (options.recoveryDepth && this.snapshot.pending !== null
+        ? this.snapshot.pendingAction
+        : null);
+    this.queuedAction = null;
     this.cancel();
     const generation = this.generation;
     const controller = new AbortController();
@@ -332,7 +350,7 @@ export class WorkbookQueryBrowser {
     const abort = () => controller.abort();
     input.signal.addEventListener("abort", abort, { once: true });
     if (input.signal.aborted) controller.abort();
-    let destination = this.destination(input.queryState);
+    let destination = this.destination(input.queryState, action);
     this.recoveryDepth = options.recoveryDepth ?? 0;
     if (this.recoveryDepth > 0 && this.failedDestination)
       destination = this.failedDestination;
@@ -354,6 +372,7 @@ export class WorkbookQueryBrowser {
     }
     this.publish({
       pending: destination.kind,
+      pendingAction: action,
       failure: null,
       requested: structuredClone(input.queryState),
     });
@@ -411,7 +430,11 @@ export class WorkbookQueryBrowser {
             continue;
           }
           this.failedDestination = destination;
-          this.publish({ pending: null, failure: result.failure });
+          this.publish({
+            pending: null,
+            pendingAction: null,
+            failure: result.failure,
+          });
           return result;
         }
         const incoming = result.pages;
@@ -477,7 +500,7 @@ export class WorkbookQueryBrowser {
     } finally {
       input.signal.removeEventListener("abort", abort);
       if (controller.signal.aborted && generation === this.generation)
-        this.publish({ pending: null });
+        this.publish({ pending: null, pendingAction: null });
     }
   }
   private async readPages(
@@ -608,6 +631,7 @@ export class WorkbookQueryBrowser {
       canLoadMore: value.paging.hasMore,
       earlierEvicted: candidate.plan.earlierEvicted,
       pending: null,
+      pendingAction: null,
       failure: null,
     });
     return true;
@@ -616,7 +640,7 @@ export class WorkbookQueryBrowser {
     if (this.proposal?.value !== value) return;
     this.failedDestination = this.proposal.plan.destination;
     this.proposal = null;
-    this.publish({ pending: null, failure });
+    this.publish({ pending: null, pendingAction: null, failure });
   }
   private isPaginationFailure(failure: WorkbookOperationFailure) {
     return (

@@ -4084,6 +4084,7 @@
           "Workbook query browsing fences superseded results and errors and clears protected cursors on authority invalidation",
           "Workbook query browsing guards duplicate activation and retries the captured continuation without losing accepted rows",
           "Workbook query browsing keeps accepted grouping through superseded failure and retries the current None request",
+          "Workbook query browsing labels replacement Retry by its initiating action and fences superseded recovery",
           "Workbook query browsing re-fetches a detached position and keeps canonical presentation separate from unapplied intent",
           "Workbook query browsing rejects a producing-request mismatch and follows authoritative continuation on short and empty pages",
           "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation"
@@ -4116,13 +4117,16 @@
         "file": "apps/web/src/workbook/query/WorkbookQueryBrowsingControls.test.tsx",
         "titles": [
           "fences predecessor cleanup and readers after a successor commits",
+          "keeps keyboard Retry focused through held reads, repeated failure and success",
+          "keeps keyboard Revert locally focused after restoring the accepted query",
           "preserves committed browsing when a replacement render is suspended and abandoned",
           "reaches later records and returns by keyboard while preserving continuation control focus",
           "reestablishes committed ownership in Strict Mode and rejects the retired response",
           "requires the browsing provider and refuses inactive or uncommitted reads",
           "retains accepted presentation on a failed replacement and offers local retry and revert",
           "retains bounded return state on detachment and clears it on authority retirement",
-          "retires a replaced query port before reading its successor and refuses its late result"
+          "retires a replaced query port before reading its successor and refuses its late result",
+          "retires focused recovery after surface and authority changes"
         ]
       },
       "evidence_class": "unit",

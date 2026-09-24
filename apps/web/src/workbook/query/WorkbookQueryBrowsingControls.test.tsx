@@ -45,9 +45,11 @@ const recordId = (number: number) =>
 function Harness({
   port,
   suspended,
+  controlsViewSchemaId = notesViewSchemaId,
 }: {
   readonly port: WorkbookViewQueryPort;
   readonly suspended?: Promise<void>;
+  readonly controlsViewSchemaId?: string;
 }) {
   const intent = useWorkbookQueryController({ surface: notesViewSchemaId });
   const query = useGenericSurfaceQuery({
@@ -74,7 +76,7 @@ function Harness({
       >
         Sort titles descending
       </button>
-      <WorkbookQueryBrowsingControls viewSchemaId={notesViewSchemaId} />
+      <WorkbookQueryBrowsingControls viewSchemaId={controlsViewSchemaId} />
       <output aria-label="Applied sort">
         {query.acceptedQueryState.sort[0]?.direction ?? "default"}
       </output>
@@ -487,10 +489,13 @@ it("retains accepted presentation on a failed replacement and offers local retry
       .getByRole("button", { name: "Load more" })
       .getAttribute("aria-disabled"),
   ).toBe("true");
-  await user.click(screen.getByRole("button", { name: "Revert" }));
+  const revert = screen.getByRole("button", { name: "Revert" });
+  await user.click(revert);
   await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "Revert" })).toBeNull(),
+    expect(revert.getAttribute("aria-disabled")).toBe("true"),
   );
+  await user.tab();
+  expect(screen.queryByRole("button", { name: "Revert" })).toBeNull();
   expect(screen.getByLabelText("Applied sort").textContent).toBe("default");
   query.mockResolvedValueOnce({
     kind: "rejected",
@@ -507,4 +512,130 @@ it("retains accepted presentation on a failed replacement and offers local retry
   expect(query.mock.calls.at(-1)?.[0].queryState.sort).toEqual([
     { fieldKey: "note.title", direction: "desc" },
   ]);
+});
+
+it("keeps keyboard Retry focused through held reads, repeated failure and success", async () => {
+  const query = fixture();
+  const user = userEvent.setup();
+  await screen.findByText("100 records loaded; more available.");
+  query.mockResolvedValueOnce({
+    kind: "rejected",
+    failure: { kind: "retryable", message: "Offline" },
+  });
+  await user.click(
+    screen.getByRole("button", { name: "Sort titles descending" }),
+  );
+  const retry = await screen.findByRole("button", { name: "Retry" });
+  retry.focus();
+  const repeatedFailure = deferred<WorkbookViewQueryResult>();
+  query.mockImplementationOnce(() => repeatedFailure.promise);
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(query).toHaveBeenCalledTimes(3));
+  expect(retry.isConnected).toBe(true);
+  expect(document.activeElement).toBe(retry);
+  expect(retry.getAttribute("aria-busy")).toBe("true");
+  expect(
+    screen
+      .getByText("100 records loaded. Retrying records…")
+      .getAttribute("aria-live"),
+  ).toBe("off");
+  expect(screen.queryByText("Query changes are unapplied.")).toBeNull();
+  await user.keyboard("{Enter}");
+  expect(query).toHaveBeenCalledTimes(3);
+  await act(() =>
+    repeatedFailure.resolve({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Still offline" },
+    }),
+  );
+  expect(document.activeElement).toBe(retry);
+  expect(retry.getAttribute("aria-disabled")).toBe("false");
+
+  const success = deferred<WorkbookViewQueryResult>();
+  const source = queryPort();
+  query.mockImplementationOnce(() => success.promise);
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(query).toHaveBeenCalledTimes(4));
+  expect(document.activeElement).toBe(retry);
+  const request = requireObserved(query.mock.calls[3])[0];
+  await act(async () => success.resolve(await source(request)));
+  await screen.findByText("100 records loaded; more available.");
+  expect(document.activeElement).toBe(retry);
+  expect(retry.getAttribute("aria-disabled")).toBe("true");
+  expect(
+    screen
+      .getByText("100 records loaded; more available.")
+      .getAttribute("aria-live"),
+  ).toBe("polite");
+  await user.tab();
+  expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+});
+
+it("keeps keyboard Revert locally focused after restoring the accepted query", async () => {
+  const query = fixture();
+  const user = userEvent.setup();
+  await screen.findByText("100 records loaded; more available.");
+  query.mockResolvedValueOnce({
+    kind: "rejected",
+    failure: { kind: "retryable", message: "Offline" },
+  });
+  await user.click(
+    screen.getByRole("button", { name: "Sort titles descending" }),
+  );
+  const revert = await screen.findByRole("button", { name: "Revert" });
+  revert.focus();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(query).toHaveBeenCalledTimes(3));
+  expect(document.activeElement).toBe(revert);
+  expect(revert.isConnected).toBe(true);
+  expect(revert.getAttribute("aria-disabled")).toBe("true");
+  await user.tab();
+  expect(screen.queryByRole("button", { name: "Revert" })).toBeNull();
+});
+
+it("retires focused recovery after surface and authority changes", async () => {
+  const query = queryPort();
+  const port = { query };
+  let registry: ReturnType<typeof useWorkbookBrowsingRegistry> | undefined;
+  function Owner() {
+    registry = useWorkbookBrowsingRegistry();
+    return null;
+  }
+  const subject = (controlsViewSchemaId: string) => (
+    <WorkbookQueryBrowsingProvider>
+      <Owner />
+      <Harness port={port} controlsViewSchemaId={controlsViewSchemaId} />
+    </WorkbookQueryBrowsingProvider>
+  );
+  const mounted = render(subject(notesViewSchemaId));
+  const user = userEvent.setup();
+  await screen.findByText("100 records loaded; more available.");
+  query.mockResolvedValueOnce({
+    kind: "rejected",
+    failure: { kind: "retryable", message: "Offline" },
+  });
+  await user.click(
+    screen.getByRole("button", { name: "Sort titles descending" }),
+  );
+  const retry = await screen.findByRole("button", { name: "Retry" });
+  retry.focus();
+  mounted.rerender(subject("different-surface"));
+  expect(retry.isConnected).toBe(false);
+  await act(() =>
+    requireObserved(registry).activate(notesViewSchemaId, "retry"),
+  );
+  mounted.rerender(subject(notesViewSchemaId));
+  expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+
+  query.mockResolvedValueOnce({
+    kind: "rejected",
+    failure: { kind: "retryable", message: "Offline again" },
+  });
+  await act(() =>
+    requireObserved(registry).activate(notesViewSchemaId, "restart"),
+  );
+  const current = await screen.findByRole("button", { name: "Retry" });
+  current.focus();
+  act(() => requireObserved(registry).invalidateAll());
+  expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
 });

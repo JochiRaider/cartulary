@@ -2161,7 +2161,8 @@
             "module.workbook.browser_stateful.query_continuation_session",
             "module.workbook.browser_stateful.query_continuation_status_review",
             "module.workbook.browser_stateful.query_continuation_task_requests",
-            "module.workbook.browser_stateful.query_continuation_timeline"
+            "module.workbook.browser_stateful.query_continuation_timeline",
+            "module.workbook.browser_stateful.query_recovery_focus"
           ],
           "specs": [
             "apps/web/e2e/workbook-query-browsing.spec.ts"
@@ -3323,7 +3324,8 @@
             "module.workbook.browser_stateful.query_continuation_session",
             "module.workbook.browser_stateful.query_continuation_status_review",
             "module.workbook.browser_stateful.query_continuation_task_requests",
-            "module.workbook.browser_stateful.query_continuation_timeline"
+            "module.workbook.browser_stateful.query_continuation_timeline",
+            "module.workbook.browser_stateful.query_recovery_focus"
           ],
           "specs": [
             "apps/web/e2e/workbook-query-browsing.spec.ts"

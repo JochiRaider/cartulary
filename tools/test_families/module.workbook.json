@@ -5374,6 +5374,43 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser_stateful.query_recovery_focus",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "workbook_query_recovery_focus_notes",
+          "workbook_query_recovery_focus_timeline"
+        ],
+        "titles": [
+          "Workbook query recovery keeps keyboard focus with accepted-empty Notes",
+          "Workbook query recovery retains keyboard focus through Timeline replacement and continuation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser_stateful.verify_coordination_rows_can_be_queried_and_edit_77783541c2",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser_stateful",

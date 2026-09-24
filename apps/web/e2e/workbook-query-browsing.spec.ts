@@ -50,7 +50,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { readCurrentSession } from "./support/auth/sessions";
@@ -263,6 +263,33 @@ async function observeQuery(page: Page, incident: string, view: string) {
     },
   );
   return reads;
+}
+
+async function reachButtonByTab(page: Page, button: Locator) {
+  if (
+    await page.evaluate(() =>
+      Boolean(document.activeElement?.closest('[role="grid"]')),
+    )
+  )
+    await page.keyboard.press("Control+End");
+  for (let step = 0; step < 160; step++) {
+    if (await button.evaluate((element) => document.activeElement === element))
+      return;
+    await page.keyboard.press("Tab");
+  }
+  throw new Error("Keyboard Tab did not reach the workbook browsing action");
+}
+
+async function expectVisibleKeyboardFocus(button: Locator) {
+  await expect(button).toBeFocused();
+  expect(
+    await button.evaluate(
+      (element) =>
+        element.matches(":focus-visible") &&
+        getComputedStyle(element).outlineStyle !== "none" &&
+        Number.parseFloat(getComputedStyle(element).outlineWidth) > 0,
+    ),
+  ).toBe(true);
 }
 
 async function exerciseSurface(page: Page, view: string, actorId: string) {
@@ -1364,6 +1391,252 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
     page.getByTestId(gridRowTestId(view, inserted.record_id)),
   ).toHaveAttribute("data-grid-row-version", "4");
   await expect(controls).toContainText("100 records loaded; more available.");
+});
+
+test("Workbook query recovery retains keyboard focus through Timeline replacement and continuation", async ({
+  page,
+  workerAdmin,
+}) => {
+  test.setTimeout(180_000);
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("WQC-FOCUS"),
+    "Workbook query recovery focus",
+  );
+  await seed(page, incident, timelineViewSchemaId, 105, workerAdmin.user_id);
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      ["PATCH", "PUT", "DELETE"].includes(request.method()) &&
+      request.url().includes("/records/")
+    )
+      writes.push(`${request.method()} ${request.url()}`);
+    if (
+      request.method() === "POST" &&
+      request.url().includes(`/incidents/${incident}/views/`) &&
+      request.url().endsWith("/rows")
+    )
+      writes.push(`POST ${request.url()}`);
+  });
+  const reads: QueryWorkbookViewRequest[] = [];
+  let next: "ordinary" | "fail" | "hold_failure" | "hold_success" = "ordinary";
+  let release = () => {};
+  let gate = Promise.resolve();
+  const hold = (outcome: "hold_failure" | "hold_success") => {
+    gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    next = outcome;
+  };
+  await page.route(
+    `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      const request = route
+        .request()
+        .postDataJSON() as QueryWorkbookViewRequest;
+      const behavior = next;
+      next = "ordinary";
+      reads.push(request);
+      if (behavior === "fail") {
+        await route.abort("failed");
+        return;
+      }
+      const response = await route.fetch();
+      if (behavior === "hold_failure" || behavior === "hold_success") {
+        await gate;
+        if (behavior === "hold_failure") {
+          await route.abort("failed");
+          return;
+        }
+      }
+      await route.fulfill({ response });
+    },
+  );
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
+  );
+  const controls = page.getByRole("group", { name: "Workbook browsing" });
+  const retry = controls.getByRole("button", { name: "Retry", exact: true });
+  const revert = controls.getByRole("button", { name: "Revert", exact: true });
+  const refresh = controls.getByRole("button", {
+    name: "Refresh",
+    exact: true,
+  });
+  const more = controls.getByRole("button", { name: "Load more", exact: true });
+  await expect(controls).toContainText("100 records loaded; more available.");
+  try {
+    next = "fail";
+    await sortByHeader(
+      page,
+      timelineViewSchemaId,
+      "timeline.activity_synopsis_text",
+    );
+    await expect(retry).toBeVisible();
+    await expect(revert).toBeVisible();
+    const failedReplacement = reads.at(-1);
+    expect(failedReplacement?.cursor_token).toBeUndefined();
+    expect(failedReplacement?.limit).toBe(100);
+    expect(failedReplacement?.sort?.[0]?.field_key).toBe(
+      "timeline.activity_synopsis_text",
+    );
+    await expect(controls).toContainText("100 records loaded");
+    await reachButtonByTab(page, retry);
+    hold("hold_failure");
+    const firstRetry = reads.length;
+    await page.keyboard.press("Enter");
+    await expect.poll(() => reads.length).toBe(firstRetry + 1);
+    expect(reads.at(-1)).toEqual(failedReplacement);
+    await expectVisibleKeyboardFocus(retry);
+    await expect(retry).toHaveAttribute("aria-busy", "true");
+    await expect(retry).toHaveAttribute("aria-disabled", "true");
+    await expect(controls).toContainText("Retrying records…");
+    await expect(controls).not.toContainText("Query changes are unapplied.");
+    await page.keyboard.press("Enter");
+    expect(reads.length).toBe(firstRetry + 1);
+    release();
+    await expectVisibleKeyboardFocus(retry);
+    await expect(retry).toHaveAttribute("aria-disabled", "false");
+    await expect(controls).toContainText("Query changes are unapplied.");
+
+    hold("hold_success");
+    const secondRetry = reads.length;
+    await page.keyboard.press("Enter");
+    await expect.poll(() => reads.length).toBe(secondRetry + 1);
+    expect(reads.at(-1)).toEqual(failedReplacement);
+    await expect(retry).toBeFocused();
+    release();
+    await expect(controls).toContainText("100 records loaded; more available.");
+    await expectVisibleKeyboardFocus(retry);
+    await expect(retry).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Tab");
+    await expect(retry).toHaveCount(0);
+
+    await reachButtonByTab(page, more);
+    next = "fail";
+    await page.keyboard.press("Enter");
+    await expect(retry).toBeVisible();
+    const failedContinuation = reads.at(-1);
+    expect(failedContinuation?.cursor_token).toBeTruthy();
+    expect(failedContinuation?.limit).toBe(100);
+    expect(failedContinuation?.sort).toEqual(failedReplacement?.sort);
+    await expect(controls).toContainText("100 records loaded");
+    await reachButtonByTab(page, retry);
+    hold("hold_success");
+    const continuationRetry = reads.length;
+    await page.keyboard.press("Enter");
+    await expect.poll(() => reads.length).toBe(continuationRetry + 1);
+    expect(reads.at(-1)).toEqual(failedContinuation);
+    await expectVisibleKeyboardFocus(retry);
+    await expect(controls).toContainText("Retrying records…");
+    await page.keyboard.press("Shift+Tab");
+    await expect(refresh).toBeFocused();
+    release();
+    await expect(controls).toContainText(
+      "105 records loaded; end of current results.",
+    );
+    await expect(refresh).toBeFocused();
+    await expect(retry).toHaveCount(0);
+
+    next = "fail";
+    await sortByHeader(
+      page,
+      timelineViewSchemaId,
+      "timeline.activity_synopsis_text",
+    );
+    await expect(revert).toBeVisible();
+    await reachButtonByTab(page, revert);
+    hold("hold_success");
+    const reverted = reads.length;
+    await page.keyboard.press("Enter");
+    await expect.poll(() => reads.length).toBe(reverted + 1);
+    await expectVisibleKeyboardFocus(revert);
+    await expect(revert).toHaveAttribute("aria-disabled", "true");
+    release();
+    await expect(controls).toContainText(
+      "105 records loaded; end of current results.",
+    );
+    await expectVisibleKeyboardFocus(revert);
+    await page.keyboard.press("Tab");
+    await expect(revert).toHaveCount(0);
+    expect(writes).toEqual([]);
+  } finally {
+    release();
+  }
+});
+
+test("Workbook query recovery keeps keyboard focus with accepted-empty Notes", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("WQC-EMPTY-FOCUS"),
+    "Workbook empty recovery focus",
+  );
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(notesViewSchemaId)}`,
+  );
+  const controls = page.getByRole("group", { name: "Workbook browsing" });
+  await expect(controls).toContainText(
+    "0 records loaded; end of current results.",
+  );
+  let next: "ordinary" | "fail" | "hold" = "ordinary";
+  let release = () => {};
+  let gate = Promise.resolve();
+  const reads: QueryWorkbookViewRequest[] = [];
+  await page.route(
+    `**/incidents/${incident}/views/${notesViewSchemaId}/query`,
+    async (route) => {
+      const request = route
+        .request()
+        .postDataJSON() as QueryWorkbookViewRequest;
+      const behavior = next;
+      next = "ordinary";
+      reads.push(request);
+      if (behavior === "fail") {
+        await route.abort("failed");
+        return;
+      }
+      const response = await route.fetch();
+      if (behavior === "hold") await gate;
+      await route.fulfill({ response });
+    },
+  );
+  const refresh = controls.getByRole("button", {
+    name: "Refresh",
+    exact: true,
+  });
+  const retry = controls.getByRole("button", { name: "Retry", exact: true });
+  try {
+    await reachButtonByTab(page, refresh);
+    next = "fail";
+    await page.keyboard.press("Enter");
+    await expect(retry).toBeVisible();
+    const failed = reads.at(-1);
+    expect(failed?.cursor_token).toBeUndefined();
+    await expect(controls).toContainText("0 records loaded");
+    await reachButtonByTab(page, retry);
+    gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    next = "hold";
+    const count = reads.length;
+    await page.keyboard.press("Enter");
+    await expect.poll(() => reads.length).toBe(count + 1);
+    expect(reads.at(-1)).toEqual(failed);
+    await expectVisibleKeyboardFocus(retry);
+    await expect(retry).toHaveAttribute("aria-busy", "true");
+    await expect(controls).toContainText("0 records loaded. Retrying records…");
+    release();
+    await expect(controls).toContainText(
+      "0 records loaded; end of current results.",
+    );
+    await expectVisibleKeyboardFocus(retry);
+    await expect(retry).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Tab");
+    await expect(retry).toHaveCount(0);
+  } finally {
+    release();
+  }
 });
 
 test("Workbook continuation revalidates role and membership and fences a late authorized page", async ({
