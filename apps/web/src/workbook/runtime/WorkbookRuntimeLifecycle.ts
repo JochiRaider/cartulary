@@ -44,22 +44,6 @@ export class WorkbookRuntimeLifecycle {
     else this.#cleanups.add(cleanup);
   }
 
-  wait(signal: AbortSignal, milliseconds: number): Promise<void> {
-    if (signal.aborted || this.#disposed) return Promise.resolve();
-    return new Promise((resolve) => {
-      let cancel: () => void = () => {};
-      const finish = () => {
-        cancel();
-        signal.removeEventListener("abort", finish);
-        this.#cleanups.delete(finish);
-        resolve();
-      };
-      this.#cleanups.add(finish);
-      signal.addEventListener("abort", finish, { once: true });
-      cancel = this.#scheduler.scheduleDelay(milliseconds, finish);
-    });
-  }
-
   dispose(): boolean {
     if (this.#disposed) return false;
     this.#disposed = true;

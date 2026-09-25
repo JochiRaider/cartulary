@@ -1789,39 +1789,58 @@ class WorkbookPendingQueueState {
 
 export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
   const state = new WorkbookPendingQueueState(scope);
+  const listeners = new Set<() => void>();
+  const publish = <T>(change: () => T): T => {
+    const result = change();
+    for (const listener of listeners) listener();
+    return result;
+  };
   return {
     scope: state.scope,
-    sealPending: () => state.sealPending(),
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    sealPending: () => publish(() => state.sealPending()),
     setDispatchGuard: (guard: (unit: PendingReplayUnitState) => boolean) =>
-      state.setDispatchGuard(guard),
-    retire: () => state.retire(),
+      publish(() => state.setDispatchGuard(guard)),
+    retire: () => publish(() => state.retire()),
     snapshot: () => state.snapshot(),
     statusFacts: () => state.statusFacts(),
     pendingUnitFacts: () => state.pendingUnitFacts(),
-    admit: (input: PendingReplayUnitInput) => state.admit(input),
+    admit: (input: PendingReplayUnitInput) => publish(() => state.admit(input)),
     peekNextQueued: () => state.peekNextQueued(),
     wasDispatched: (unitId: string) => state.wasDispatched(unitId),
-    settleUnchanged: (unitId: string) => state.settleUnchanged(unitId),
+    settleUnchanged: (unitId: string) =>
+      publish(() => state.settleUnchanged(unitId)),
     prepareUnsentCreate: (id: string, payload: PendingReplayPayloadIntent) =>
-      state.prepareUnsentCreate(id, payload),
+      publish(() => state.prepareUnsentCreate(id, payload)),
     markDispatched: (
       unitId: string,
       prepareBase?: (unit: PendingReplayUnitState) => number | null,
-    ) => state.markDispatched(unitId, prepareBase),
+    ) => publish(() => state.markDispatched(unitId, prepareBase)),
     haltBeforeDispatch: (unitId: string, message: string) =>
-      state.haltBeforeDispatch(unitId, message),
-    dispatchNext: () => state.dispatchNext(),
+      publish(() => state.haltBeforeDispatch(unitId, message)),
+    dispatchNext: () => publish(() => state.dispatchNext()),
     settleDispatched: (result: PendingReplayPublicResult) =>
-      state.settleDispatched(result),
+      publish(() => state.settleDispatched(result)),
     retryHaltedWithNewClientTxnId: (unitId: string, newClientTxnId: string) =>
-      state.retryHaltedWithNewClientTxnId(unitId, newClientTxnId),
-    discardHaltedUnit: (unitId: string) => state.discardHaltedUnit(unitId),
-    resumeAfterAuthRecovery: () => state.resumeAfterAuthRecovery(),
-    pauseForAuthRecovery: () => state.pauseForAuthRecovery(),
-    pauseForTerminalLifecycle: () => state.pauseForTerminalLifecycle(),
-    resumeAfterIncidentReopen: () => state.resumeAfterIncidentReopen(),
-    pauseForIncidentClosure: () => state.pauseForIncidentClosure(),
-    clearSameFieldConflict: (key: string) => state.clearSameFieldConflict(key),
+      publish(() =>
+        state.retryHaltedWithNewClientTxnId(unitId, newClientTxnId),
+      ),
+    discardHaltedUnit: (unitId: string) =>
+      publish(() => state.discardHaltedUnit(unitId)),
+    resumeAfterAuthRecovery: () =>
+      publish(() => state.resumeAfterAuthRecovery()),
+    pauseForAuthRecovery: () => publish(() => state.pauseForAuthRecovery()),
+    pauseForTerminalLifecycle: () =>
+      publish(() => state.pauseForTerminalLifecycle()),
+    resumeAfterIncidentReopen: () =>
+      publish(() => state.resumeAfterIncidentReopen()),
+    pauseForIncidentClosure: () =>
+      publish(() => state.pauseForIncidentClosure()),
+    clearSameFieldConflict: (key: string) =>
+      publish(() => state.clearSameFieldConflict(key)),
   };
 }
 

@@ -7,6 +7,7 @@ import { createWorkbookMutationDriverRegistry } from "./WorkbookMutationDriverRe
 import { WorkbookRetryScheduler } from "./WorkbookRetryScheduler";
 import { WorkbookRuntimeLifecycle } from "./WorkbookRuntimeLifecycle";
 import { WorkbookSurfaceRegistry } from "./WorkbookSurfaceRegistry";
+import { WorkbookWriteCoordinator } from "./WorkbookWriteCoordinator";
 import { workbookConflictEntry } from "./workbookConflictModel";
 import {
   projectWorkbookMutationStatus,
@@ -343,18 +344,87 @@ describe("Workbook runtime responsibilities", () => {
     expect(drain).not.toHaveBeenCalled();
   });
 
-  it("cancels coordination waits on abort and terminal disposal", async () => {
+  it("retains a readiness change during registration and settles concurrent waiters once", async () => {
     const controlled = controlledScheduler();
-    const lifecycle = new WorkbookRuntimeLifecycle(controlled.scheduler);
-    const first = new AbortController();
-    const aborted = lifecycle.wait(first.signal, 16);
-    first.abort();
-    await aborted;
-    expect(controlled.delays[0]?.cancel).toHaveBeenCalledOnce();
-    const disposed = lifecycle.wait(new AbortController().signal, 16);
-    lifecycle.dispose();
-    await disposed;
-    expect(controlled.delays[1]?.cancel).toHaveBeenCalledOnce();
+    const coordinator = new WorkbookWriteCoordinator(controlled.scheduler);
+    let ready = false;
+    let reads = 0;
+    const read = () => {
+      reads += 1;
+      if (reads === 1) {
+        ready = true;
+        coordinator.notifyChanged();
+      }
+      return ready && reads > 1
+        ? ({ kind: "completed", value: true } as const)
+        : ({ kind: "waiting" } as const);
+    };
+    const first = coordinator.wait(new AbortController().signal, false, read);
+    const second = coordinator.wait(new AbortController().signal, false, () =>
+      ready
+        ? ({ kind: "completed", value: true } as const)
+        : ({ kind: "waiting" } as const),
+    );
+    controlled.microtasks.shift()?.();
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(true);
+    coordinator.notifyChanged();
+    expect(controlled.delays).toHaveLength(0);
+  });
+
+  it("wakes on reservation release without another owner event and ignores repeated release", async () => {
+    const controlled = controlledScheduler();
+    const coordinator = new WorkbookWriteCoordinator(controlled.scheduler);
+    const wakeBatches = vi.fn();
+    const release = coordinator.reserveEntity(
+      { recordIds: ["record"], entityType: "host" },
+      wakeBatches,
+    );
+    const waiting = coordinator.wait(new AbortController().signal, false, () =>
+      coordinator.entityWrites.size === 0
+        ? ({ kind: "completed", value: true } as const)
+        : ({ kind: "waiting" } as const),
+    );
+    release();
+    release();
+    controlled.microtasks.shift()?.();
+    await expect(waiting).resolves.toBe(true);
+    expect(wakeBatches).toHaveBeenCalledOnce();
+    expect(controlled.delays).toHaveLength(0);
+  });
+
+  it("cancels pre-aborted and waiting coordination without late acceptance", async () => {
+    const controlled = controlledScheduler();
+    const coordinator = new WorkbookWriteCoordinator(controlled.scheduler);
+    const accept = vi.fn();
+    const preAborted = new AbortController();
+    preAborted.abort();
+    await expect(
+      coordinator.wait(preAborted.signal, false, () => ({
+        kind: "completed",
+        value: true,
+        accept,
+      })),
+    ).resolves.toBe(false);
+    const aborting = new AbortController();
+    const waiting = coordinator.wait(aborting.signal, false, () => ({
+      kind: "waiting",
+    }));
+    aborting.abort();
+    await expect(waiting).resolves.toBe(false);
+    const retired = coordinator.wait(
+      new AbortController().signal,
+      false,
+      () => ({
+        kind: "waiting",
+      }),
+    );
+    coordinator.dispose();
+    await expect(retired).resolves.toBe(false);
+    coordinator.notifyChanged();
+    controlled.microtasks.shift()?.();
+    expect(accept).not.toHaveBeenCalled();
+    expect(controlled.delays).toHaveLength(0);
   });
 
   it("publishes complete authority without deriving reads from a feature owner", () => {
@@ -466,9 +536,78 @@ describe("Workbook runtime responsibilities", () => {
       "record",
       new AbortController().signal,
     );
-    expect(controlled.delays).toHaveLength(1);
+    expect(controlled.delays).toHaveLength(0);
     runtime.invalidate({ kind: "runtime_disposed" });
     await expect(waiting).resolves.toBeNull();
-    expect(controlled.delays[0]?.cancel).toHaveBeenCalledOnce();
+    controlled.microtasks.splice(0).forEach((task) => {
+      task();
+    });
+    expect(controlled.delays).toHaveLength(0);
+  });
+
+  it("distinguishes completed history null from same-record queue waiting", async () => {
+    const controlled = controlledScheduler();
+    const runtime = createWorkbookMutationRuntime(
+      scope,
+      { create: () => "txn" },
+      { execute: vi.fn() },
+      { clock: { now: () => 1 }, scheduler: controlled.scheduler },
+    );
+    await expect(
+      runtime.coordinateHistory("record", new AbortController().signal),
+    ).resolves.toBeNull();
+    runtime.enqueuePatch({
+      baseRowVersion: 1,
+      changes: [{ field_key: "field", value: "local" }],
+      fieldKey: "field",
+      localValue: "local",
+      recordId: "record",
+      rowLabel: "row",
+      surfaceLabel: "surface",
+      viewSchemaId: "surface",
+    });
+    let completed = false;
+    const waiting = runtime
+      .coordinateHistory("record", new AbortController().signal)
+      .then((value) => {
+        completed = true;
+        return value;
+      });
+    await Promise.resolve();
+    expect(completed).toBe(false);
+    const unit = runtime.pendingQueue().model.snapshot().units[0];
+    expect(unit).toBeDefined();
+    runtime.pendingQueue().model.settleUnchanged(unit?.id ?? "");
+    controlled.microtasks.splice(0).forEach((task) => {
+      task();
+    });
+    await expect(waiting).resolves.toBeNull();
+    expect(controlled.delays).toHaveLength(0);
+  });
+
+  it("settles source coordination when its own direct predecessor releases", async () => {
+    const controlled = controlledScheduler();
+    const runtime = createWorkbookMutationRuntime(
+      scope,
+      { create: () => "txn" },
+      { execute: vi.fn() },
+      { clock: { now: () => 1 }, scheduler: controlled.scheduler },
+    );
+    const release = runtime.beginDecisionWrite(["record"]);
+    expect(release).not.toBeNull();
+    const waiting = runtime.coordinateSourceWrites(
+      "record",
+      new AbortController().signal,
+      "cartulary.view.notes.v1",
+    );
+    release?.();
+    controlled.microtasks.splice(0).forEach((task) => {
+      task();
+    });
+    await expect(waiting).resolves.toEqual({
+      kind: "settled",
+      minimumRowVersion: 0,
+    });
+    expect(controlled.delays).toHaveLength(0);
   });
 });

@@ -42,7 +42,10 @@ import { executeWorkbookConflictResolution } from "../mutations/workbookConflict
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
-import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
+import type {
+  WorkbookSourceWriteReservation,
+  WorkbookSourceWriteSettlement,
+} from "../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookTimelineActionRuntimePort } from "../ports/WorkbookTimelineActionRuntimePort";
 import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import type { WorkbookReadScope } from "../query/WorkbookQueryRow";
@@ -90,6 +93,7 @@ import {
   WorkbookSurfaceRegistry,
   type WorkbookSurfaceResolvedMutationApply,
 } from "./WorkbookSurfaceRegistry";
+import { WorkbookWriteCoordinator } from "./WorkbookWriteCoordinator";
 import {
   buildWorkbookConflictResolutionPayload,
   type WorkbookConflictEntry,
@@ -298,7 +302,7 @@ export class WorkbookMutationRuntime {
   readonly indicatorObservations: WorkbookObservationOwner;
   readonly indicatorCreate: WorkbookIndicatorCreateOwner;
   readonly indicatorRecords: WorkbookCommittedRecordPort;
-  private readonly decisionWrites = new Map<symbol, readonly string[]>();
+  private readonly writeCoordinator: WorkbookWriteCoordinator;
   private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime;
   private readonly pendingMutationPort: WorkbookPendingMutationPort;
@@ -318,7 +322,6 @@ export class WorkbookMutationRuntime {
   private readonly observeStatus = createWorkbookMutationStatusObservation();
   private refreshStatusFacts: readonly WorkbookRefreshStatusFact[] = [];
   private entityLifetimeRetired = false;
-  private readonly entityWrites = new Map<symbol, EntityRecordWriteTarget>();
   private snapshot: WorkbookMutationSnapshot;
   private saveAnnouncement: WorkbookSaveAnnouncement | null = null;
   private announcementSequence = 0;
@@ -339,7 +342,18 @@ export class WorkbookMutationRuntime {
     this.drivers = createWorkbookMutationDriverRegistry();
     this.ledger = new WorkbookClientTransactionLedger();
     this.lifecycle = new WorkbookRuntimeLifecycle(dependencies.scheduler);
+    this.writeCoordinator = new WorkbookWriteCoordinator(
+      dependencies.scheduler,
+    );
     this.retryScheduler = new WorkbookRetryScheduler(dependencies.scheduler);
+    this.lifecycle.retainCleanup(
+      this.pendingRuntime.model.subscribe(() =>
+        this.writeCoordinator.notifyChanged(),
+      ),
+    );
+    this.lifecycle.retainCleanup(
+      this.conflicts.subscribe(() => this.writeCoordinator.notifyChanged()),
+    );
     this.surfaces = new WorkbookSurfaceRegistry((viewSchemaId) => {
       if (!this.surfaces.requiresRefresh(viewSchemaId))
         this.batches.surfaceRefreshed(viewSchemaId);
@@ -360,7 +374,7 @@ export class WorkbookMutationRuntime {
       drivers: this.drivers,
       surfaces: this.surfaces,
       taskDrafts: this.taskDrafts,
-      entityWrites: this.entityWrites,
+      entityWrites: this.writeCoordinator.entityWrites,
       get timelineActions() {
         return runtime.timelineActions;
       },
@@ -503,6 +517,7 @@ export class WorkbookMutationRuntime {
         applyAuthority(owner, authority);
       this.lifecycle.retainCleanup(owner.subscribe(() => this.emit()));
       this.timelineActionAuthority(this.acceptedAuthority);
+      this.writeCoordinator.notifyChanged();
     }
     return this.timelineActions as T;
   }
@@ -522,6 +537,7 @@ export class WorkbookMutationRuntime {
         applyAuthority(owner, authority);
       this.lifecycle.retainCleanup(owner.subscribe(() => this.emit()));
       this.timelineMentionAuthority(this.acceptedAuthority);
+      this.writeCoordinator.notifyChanged();
     }
     return this.timelineMentionOperations as T;
   }
@@ -543,14 +559,15 @@ export class WorkbookMutationRuntime {
     draft: LifecycleDraft,
     signal: AbortSignal,
   ): Promise<boolean> {
-    while (!signal.aborted && !this.retired) {
+    return this.writeCoordinator.wait<boolean>(signal, false, () => {
       const pending = this.pendingRuntime.model.snapshot();
       if (pending.authPaused || pending.halted || pending.overflow)
-        return false;
+        return { kind: "completed", value: false };
       const related = this.history
         .getSnapshot()
         .filter((entry) => entry.attempt.subject.recordId === draft.recordId);
-      if (related.some((entry) => entry.phase === "uncertain")) return false;
+      if (related.some((entry) => entry.phase === "uncertain"))
+        return { kind: "completed", value: false };
       if (
         !pending.units.some((unit) => unit.recordId === draft.recordId) &&
         !related.some(
@@ -561,15 +578,17 @@ export class WorkbookMutationRuntime {
             (entry.receipt && entry.reconciliation !== "complete"),
         )
       ) {
-        this.indicatorLifecycle.acceptVersion(
-          draft.recordId,
-          this.history.latestVersion(draft.recordId) ?? draft.baseRowVersion,
-        );
-        return true;
+        const version =
+          this.history.latestVersion(draft.recordId) ?? draft.baseRowVersion;
+        return {
+          kind: "completed",
+          value: true,
+          accept: () =>
+            this.indicatorLifecycle.acceptVersion(draft.recordId, version),
+        };
       }
-      await this.lifecycle.wait(signal, 16);
-    }
-    return false;
+      return { kind: "waiting" };
+    });
   }
 
   beginDecisionWrite(recordIds: readonly string[]): (() => void) | null {
@@ -579,11 +598,7 @@ export class WorkbookMutationRuntime {
       recordIds.some((id) => this.decisionSupersession.blocksRecord(id))
     )
       return null;
-    const token = Symbol("Decision write");
-    this.decisionWrites.set(token, [...recordIds]);
-    return () => {
-      this.decisionWrites.delete(token);
-    };
+    return this.writeCoordinator.reserveDecision(recordIds);
   }
 
   private async coordinateDecisionSupersession(
@@ -591,7 +606,7 @@ export class WorkbookMutationRuntime {
     signal: AbortSignal,
   ): Promise<boolean> {
     const ids = [review.target.recordId, review.replacement.recordId];
-    while (!signal.aborted && !this.retired) {
+    return this.writeCoordinator.wait<boolean>(signal, false, () => {
       const queue = this.pendingRuntime.model.snapshot();
       const queued = queue.units.some((unit) =>
         ids.includes(unit.recordId ?? ""),
@@ -604,128 +619,143 @@ export class WorkbookMutationRuntime {
           queue.sameFieldConflicts.length ||
           this.conflicts.entries().length)
       )
-        return false;
+        return { kind: "completed", value: false };
       const history = this.history
         .getSnapshot()
         .filter((entry) => ids.includes(entry.attempt.subject.recordId));
-      if (history.some((entry) => entry.phase === "uncertain")) return false;
+      if (history.some((entry) => entry.phase === "uncertain"))
+        return { kind: "completed", value: false };
       const earlier = history.some(
         (entry) =>
           entry.transportPending ||
           entry.phase === "preparing" ||
           entry.phase === "submitting",
       );
-      const direct = [...this.decisionWrites.values()].some((records) =>
-        records.some((id) => ids.includes(id)),
+      const direct = [...this.writeCoordinator.decisionWrites.values()].some(
+        (records) => records.some((id) => ids.includes(id)),
       );
       if (!queued && !earlier && !direct) {
-        for (const id of ids)
-          this.decisionSupersession.acceptVersion(
-            id,
-            this.history.latestVersion(id) ?? 0,
-          );
-        return true;
+        const versions = ids.map((id) => this.history.latestVersion(id) ?? 0);
+        return {
+          kind: "completed",
+          value: true,
+          accept: () => {
+            for (const [index, id] of ids.entries())
+              this.decisionSupersession.acceptVersion(id, versions[index] ?? 0);
+          },
+        };
       }
-      await this.lifecycle.wait(signal, 16);
-    }
-    return false;
+      return { kind: "waiting" };
+    });
   }
 
   async coordinateSourceWrites(
     recordId: string,
     signal: AbortSignal,
     viewSchemaId: string,
-    reservation?: {
-      readonly noteAssociation?: boolean;
-      readonly partyReservationId?: string;
-      readonly explicitPatchId?: string;
-      readonly fileOwner?: "evidence" | "timeline";
-    },
+    reservation?: WorkbookSourceWriteReservation,
   ): Promise<WorkbookSourceWriteSettlement> {
-    while (!signal.aborted && !this.retired) {
-      const explicitState = this.explicitPatches.sourceWriteState(
-        recordId,
-        reservation?.explicitPatchId,
-      );
-      if (explicitState === "uncertain")
-        return { kind: "blocked", reason: "uncertain_source" };
-      const queue = this.pendingRuntime.model.snapshot();
-      if (
-        this.timelineActionBlocksRecord(
+    return this.writeCoordinator.wait<WorkbookSourceWriteSettlement>(
+      signal,
+      { kind: "cancelled" },
+      () => {
+        const explicitState = this.explicitPatches.sourceWriteState(
           recordId,
-          reservation?.fileOwner === "timeline",
-        ) ||
-        (reservation?.fileOwner !== "evidence" &&
-          this.evidenceAttachments.blocksRecord(recordId)) ||
-        (!reservation?.noteAssociation &&
-          this.noteAssociations.blocksRecord(recordId)) ||
-        this.batches.blocksRecord(recordId) ||
-        this.entityMerge.blocksRecord(recordId) ||
-        this.decisionSupersession.blocksRecord(recordId) ||
-        this.partyLinks.blocksRecord(
-          recordId,
-          reservation?.partyReservationId,
-        ) ||
-        (viewSchemaId === hostsViewSchemaId &&
-          this.batches.blocksEntityType("host")) ||
-        (viewSchemaId === identitiesViewSchemaId &&
-          this.batches.blocksEntityType("identity")) ||
-        queue.authPaused ||
-        queue.halted ||
-        queue.overflow ||
-        queue.sameFieldConflicts.length ||
-        this.conflicts
-          .entries()
-          .some((entry) => entry.conflict.record_id === recordId)
-      )
-        return { kind: "blocked", reason: "pending_recovery" };
-      const history = this.history
-        .getSnapshot()
-        .filter((entry) => entry.attempt.subject.recordId === recordId);
-      if (history.some((entry) => entry.phase === "uncertain"))
-        return { kind: "blocked", reason: "uncertain_source" };
-      const direct =
-        [...this.entityWrites.values()].some(
-          (target) =>
-            target.recordIds.includes(recordId) ||
-            (viewSchemaId === hostsViewSchemaId &&
-              target.unknownEntityType === "host") ||
-            (viewSchemaId === identitiesViewSchemaId &&
-              target.unknownEntityType === "identity"),
-        ) ||
-        [...this.decisionWrites.values()].some((ids) => ids.includes(recordId));
-      const pending =
-        explicitState === "pending" ||
-        queue.units.some((unit) => unit.recordId === recordId) ||
-        direct ||
-        history.some(
-          (entry) =>
-            entry.transportPending ||
-            entry.phase === "preparing" ||
-            entry.phase === "submitting",
+          reservation?.explicitPatchId,
         );
-      if (!pending) {
-        return {
-          kind: "settled",
-          minimumRowVersion: Math.max(
-            this.history.latestVersion(recordId) ?? 0,
-            this.explicitPatches.latestVersion(recordId) ?? 0,
-            this.assessmentAuthoring.latestVersion(recordId) ?? 0,
-            this.decisionSupersession.latestVersion(recordId) ?? 0,
-            this.indicatorRecords.latestVersion(recordId) ?? 0,
-          ),
-        };
-      }
-      await this.lifecycle.wait(signal, 16);
-    }
-    return { kind: "cancelled" };
+        if (explicitState === "uncertain")
+          return {
+            kind: "completed",
+            value: { kind: "blocked", reason: "uncertain_source" },
+          };
+        const queue = this.pendingRuntime.model.snapshot();
+        if (
+          this.timelineActionBlocksRecord(
+            recordId,
+            reservation?.fileOwner === "timeline",
+          ) ||
+          (reservation?.fileOwner !== "evidence" &&
+            this.evidenceAttachments.blocksRecord(recordId)) ||
+          (!reservation?.noteAssociation &&
+            this.noteAssociations.blocksRecord(recordId)) ||
+          this.batches.blocksRecord(recordId) ||
+          this.entityMerge.blocksRecord(recordId) ||
+          this.decisionSupersession.blocksRecord(recordId) ||
+          this.partyLinks.blocksRecord(
+            recordId,
+            reservation?.partyReservationId,
+          ) ||
+          (viewSchemaId === hostsViewSchemaId &&
+            this.batches.blocksEntityType("host")) ||
+          (viewSchemaId === identitiesViewSchemaId &&
+            this.batches.blocksEntityType("identity")) ||
+          queue.authPaused ||
+          queue.halted ||
+          queue.overflow ||
+          queue.sameFieldConflicts.length ||
+          this.conflicts
+            .entries()
+            .some((entry) => entry.conflict.record_id === recordId)
+        )
+          return {
+            kind: "completed",
+            value: { kind: "blocked", reason: "pending_recovery" },
+          };
+        const history = this.history
+          .getSnapshot()
+          .filter((entry) => entry.attempt.subject.recordId === recordId);
+        if (history.some((entry) => entry.phase === "uncertain"))
+          return {
+            kind: "completed",
+            value: { kind: "blocked", reason: "uncertain_source" },
+          };
+        const direct =
+          [...this.writeCoordinator.entityWrites.values()].some(
+            (target) =>
+              target.recordIds.includes(recordId) ||
+              (viewSchemaId === hostsViewSchemaId &&
+                target.unknownEntityType === "host") ||
+              (viewSchemaId === identitiesViewSchemaId &&
+                target.unknownEntityType === "identity"),
+          ) ||
+          [...this.writeCoordinator.decisionWrites.values()].some((ids) =>
+            ids.includes(recordId),
+          );
+        const pending =
+          explicitState === "pending" ||
+          queue.units.some((unit) => unit.recordId === recordId) ||
+          direct ||
+          history.some(
+            (entry) =>
+              entry.transportPending ||
+              entry.phase === "preparing" ||
+              entry.phase === "submitting",
+          );
+        if (!pending) {
+          return {
+            kind: "completed",
+            value: {
+              kind: "settled" as const,
+              minimumRowVersion: Math.max(
+                this.history.latestVersion(recordId) ?? 0,
+                this.explicitPatches.latestVersion(recordId) ?? 0,
+                this.assessmentAuthoring.latestVersion(recordId) ?? 0,
+                this.decisionSupersession.latestVersion(recordId) ?? 0,
+                this.indicatorRecords.latestVersion(recordId) ?? 0,
+              ),
+            },
+          };
+        }
+        return { kind: "waiting" };
+      },
+    );
   }
 
   async coordinateHistory(
     recordId: string,
     signal: AbortSignal,
   ): Promise<number | null> {
-    while (!signal.aborted && !this.retired) {
+    return this.writeCoordinator.wait<number | null>(signal, null, () => {
       const queue = this.pendingRuntime.model.snapshot();
       if (
         queue.authPaused ||
@@ -734,12 +764,14 @@ export class WorkbookMutationRuntime {
         queue.sameFieldConflicts.length ||
         this.conflicts.entries().length
       )
-        return null;
+        return { kind: "completed", value: null };
       if (!queue.units.some((unit) => unit.recordId === recordId))
-        return this.history.latestVersion(recordId);
-      await this.lifecycle.wait(signal, 16);
-    }
-    return null;
+        return {
+          kind: "completed",
+          value: this.history.latestVersion(recordId),
+        };
+      return { kind: "waiting" };
+    });
   }
 
   beginEntityWrite(
@@ -767,12 +799,9 @@ export class WorkbookMutationRuntime {
         this.entityMerge.blocksEntityType(target.unknownEntityType))
     )
       return null;
-    const token = Symbol("entity write");
-    this.entityWrites.set(token, target);
-    return () => {
-      this.entityWrites.delete(token);
-      this.batches.wake();
-    };
+    return this.writeCoordinator.reserveEntity(target, () =>
+      this.batches.wake(),
+    );
   }
 
   acceptEntityVersion(recordId: string, version: number): void {
@@ -785,7 +814,7 @@ export class WorkbookMutationRuntime {
     signal: AbortSignal,
   ): Promise<boolean> {
     const ids = [review.survivor.recordId, review.loser.recordId];
-    while (!signal.aborted && !this.retired) {
+    return this.writeCoordinator.wait<boolean>(signal, false, () => {
       const queue = this.pendingRuntime.model.snapshot();
       const queued = queue.units.some((unit) =>
         ids.includes(unit.recordId ?? ""),
@@ -798,26 +827,27 @@ export class WorkbookMutationRuntime {
           queue.sameFieldConflicts.length ||
           this.conflicts.entries().length)
       )
-        return false;
+        return { kind: "completed", value: false };
       const history = this.history
         .getSnapshot()
         .filter((entry) => ids.includes(entry.attempt.subject.recordId));
-      if (history.some((entry) => entry.phase === "uncertain")) return false;
+      if (history.some((entry) => entry.phase === "uncertain"))
+        return { kind: "completed", value: false };
       const earlierHistory = history.some(
         (entry) =>
           entry.transportPending ||
           entry.phase === "preparing" ||
           entry.phase === "submitting",
       );
-      const direct = [...this.entityWrites.values()].some(
+      const direct = [...this.writeCoordinator.entityWrites.values()].some(
         (target) =>
           target.recordIds.some((id) => ids.includes(id)) ||
           target.unknownEntityType === review.entityType,
       );
-      if (!queued && !earlierHistory && !direct) return true;
-      await this.lifecycle.wait(signal, 16);
-    }
-    return false;
+      if (!queued && !earlierHistory && !direct)
+        return { kind: "completed", value: true };
+      return { kind: "waiting" };
+    });
   }
 
   pendingQueue(): WorkbookPendingQueueRuntime {
@@ -1388,8 +1418,7 @@ export class WorkbookMutationRuntime {
       this.featureLifecycle.retire();
       this.timelineActionAuthority = null;
       this.timelineMentionAuthority = null;
-      this.entityWrites.clear();
-      this.decisionWrites.clear();
+      this.writeCoordinator.dispose();
       this.inspectorDrafts.retire();
       this.gridDrafts.retire();
       for (const drafts of this.localEditorDrafts.values()) drafts.clear();
@@ -1463,6 +1492,7 @@ export class WorkbookMutationRuntime {
       };
     }
     this.lifecycle.emit();
+    this.writeCoordinator.notifyChanged();
   }
 
   private async refreshInvalidConflictToken(

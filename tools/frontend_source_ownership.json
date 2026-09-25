@@ -1011,6 +1011,7 @@
         "apps/web/src/workbook/runtime/WorkbookRuntimeResponsibilities.test.ts",
         "apps/web/src/workbook/runtime/WorkbookSurfaceRegistry.test.ts",
         "apps/web/src/workbook/runtime/WorkbookSurfaceRegistry.ts",
+        "apps/web/src/workbook/runtime/WorkbookWriteCoordinator.ts",
         "apps/web/src/workbook/runtime/createWorkbookMutationRuntime.ts",
         "apps/web/src/workbook/runtime/pending/workbookPendingQueue.test.ts",
         "apps/web/src/workbook/runtime/pending/workbookPendingQueue.ts",

@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import {
   lifecycleAuthority,
@@ -14,9 +14,7 @@ import { WorkbookMutationRuntimeRegistry } from "../../runtime/WorkbookMutationR
 import { indicatorLifecycleViewId } from "./indicatorLifecycleModel";
 import type { IndicatorLifecycleTransportPort } from "./indicatorLifecycleOperation";
 
-afterEach(() => vi.useRealTimers());
 it("Lifecycle runtime waits for same-record edits and requires review of their accepted version", async () => {
-  vi.useFakeTimers();
   const earlier =
     deferred<Awaited<ReturnType<WorkbookPendingMutationPort["execute"]>>>();
   const runtime = createWorkbookMutationRuntime(
@@ -52,14 +50,16 @@ it("Lifecycle runtime waits for same-record edits and requires review of their a
     viewSchemaId: indicatorLifecycleViewId,
   };
   runtime.enqueuePatch(patch);
-  await vi.advanceTimersByTimeAsync(1);
+  await vi.waitFor(() =>
+    expect(runtime.pendingQueue().model.snapshot().inFlightCount).toBe(1),
+  );
   const attempt = owner.admit(draft, {
     isCurrent: () => true,
     reconcile: async () => {},
   });
   if (!attempt) throw new Error("admission");
   const running = owner.execute(attempt);
-  await vi.advanceTimersByTimeAsync(1);
+  await Promise.resolve();
   expect(send).not.toHaveBeenCalled();
   expect(runtime.enqueuePatch(patch).kind).toBe("rejected_mutation");
   earlier.resolve({
@@ -70,7 +70,6 @@ it("Lifecycle runtime waits for same-record edits and requires review of their a
       row: { ...lifecycleRow(2), view_schema_id: indicatorLifecycleViewId },
     },
   });
-  await vi.advanceTimersByTimeAsync(32);
   await running;
   expect(send).not.toHaveBeenCalled();
   expect(owner.getSnapshot().entries[0]?.phase).toBe("rejected");

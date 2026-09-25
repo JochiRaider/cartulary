@@ -101,21 +101,32 @@ class WorkbookConflictState {
 
 export function createWorkbookConflictStore() {
   const state = new WorkbookConflictState();
+  const listeners = new Set<() => void>();
+  const publish = <T>(change: () => T): T => {
+    const result = change();
+    for (const listener of listeners) listener();
+    return result;
+  };
   return {
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     get size() {
       return state.size;
     },
     entries: () => state.entries(),
     get: (key: string) => state.get(key),
     register: (registration: WorkbookConflictRegistration) =>
-      state.register(registration),
-    replace: (entry: WorkbookConflictEntry) => state.replace(entry),
+      publish(() => state.register(registration)),
+    replace: (entry: WorkbookConflictEntry) =>
+      publish(() => state.replace(entry)),
     setRefresh: (key: string, refresh: WorkbookConflictRefresh) =>
       state.setRefresh(key, refresh),
     refresh: (key: string) => state.refresh(key),
     updateDraft: (key: string, mergedDraft: string) =>
-      state.updateDraft(key, mergedDraft),
-    clear: (key: string) => state.clear(key),
+      publish(() => state.updateDraft(key, mergedDraft)),
+    clear: (key: string) => publish(() => state.clear(key)),
   };
 }
 

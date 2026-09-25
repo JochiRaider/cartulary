@@ -1,6 +1,6 @@
 import { fireEvent, render, within } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import {
   decisionAuthority,
   decisionReceipt,
@@ -18,10 +18,8 @@ import { decisionViewId } from "./decisionSupersessionModel";
 import type { DecisionSupersessionTransportPort } from "./decisionSupersessionOperation";
 import { WorkbookDecisionSupersessionRecovery } from "./WorkbookDecisionSupersessionRecovery";
 
-afterEach(() => vi.useRealTimers());
 it("Decision runtime coordinates queued and direct writes without clearing unrelated drafts", async () => {
   for (const kind of ["queued", "direct"] as const) {
-    vi.useFakeTimers();
     const earlier =
       deferred<Awaited<ReturnType<WorkbookPendingMutationPort["execute"]>>>();
     const execute = vi.fn<WorkbookPendingMutationPort["execute"]>(
@@ -59,7 +57,7 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
     let release: (() => void) | null = null;
     if (kind === "queued") {
       runtime.enqueuePatch(patch);
-      await vi.advanceTimersByTimeAsync(1);
+      await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
     } else release = runtime.beginDecisionWrite([decisionReplacementId]);
     const unrelated = {
       ...patch,
@@ -75,7 +73,7 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
     });
     if (!attempt) throw new Error("Expected admission");
     const running = owner.execute(attempt);
-    await vi.advanceTimersByTimeAsync(1);
+    await Promise.resolve();
     expect(send).not.toHaveBeenCalled();
     expect(runtime.enqueuePatch(patch).kind).toBe("rejected_mutation");
     expect(runtime.beginDecisionWrite([decisionTargetId])).toBeNull();
@@ -95,7 +93,6 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
       owner.acceptRow(decisionRow(decisionReplacementId, "approved", 7));
       release?.();
     }
-    await vi.advanceTimersByTimeAsync(32);
     await running;
     expect(send).not.toHaveBeenCalled();
     expect(owner.getSnapshot().entries[0]?.phase).toBe("rejected");
@@ -132,7 +129,6 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
         ) !== undefined,
     ).toBe(true);
     runtime.invalidate({ kind: "runtime_disposed" });
-    vi.useRealTimers();
   }
 });
 

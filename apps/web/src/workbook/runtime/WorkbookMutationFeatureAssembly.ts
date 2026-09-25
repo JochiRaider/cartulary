@@ -26,7 +26,10 @@ import { WorkbookPartyLinkOperationOwner } from "../features/parties/WorkbookPar
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { EntityRecordWriteTarget } from "../mutations/entityRecordWriteBoundary";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
-import type { WorkbookSourceWriteSettlement } from "../ports/WorkbookSourceWriteCoordination";
+import type {
+  WorkbookSourceWriteReservation,
+  WorkbookSourceWriteSettlement,
+} from "../ports/WorkbookSourceWriteCoordination";
 import type { WorkbookTimelineActionRuntimePort } from "../ports/WorkbookTimelineActionRuntimePort";
 import type { WorkbookReadScope } from "../query/WorkbookQueryRow";
 import type { PendingReplayScope } from "./pending/workbookPendingQueue";
@@ -79,12 +82,7 @@ export type WorkbookMutationFeatureHost = {
     recordId: string,
     signal: AbortSignal,
     viewSchemaId: string,
-    reservation?: {
-      readonly noteAssociation?: boolean;
-      readonly partyReservationId?: string;
-      readonly explicitPatchId?: string;
-      readonly fileOwner?: "evidence" | "timeline";
-    },
+    reservation?: WorkbookSourceWriteReservation,
   ): Promise<WorkbookSourceWriteSettlement>;
   beginEntityWrite(target: EntityRecordWriteTarget): (() => void) | null;
   reserveEntityWrite(target: EntityRecordWriteTarget): (() => void) | null;

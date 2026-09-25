@@ -8191,18 +8191,22 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/WorkbookRuntimeResponsibilities.test.ts",
         "titles": [
-          "Workbook runtime responsibilities cancels coordination waits on abort and terminal disposal",
+          "Workbook runtime responsibilities cancels pre-aborted and waiting coordination without late acceptance",
           "Workbook runtime responsibilities coalesces lifecycle scheduling and permanently closes on disposal",
+          "Workbook runtime responsibilities distinguishes completed history null from same-record queue waiting",
           "Workbook runtime responsibilities does not drain a microtask queued before terminal disposal",
           "Workbook runtime responsibilities pauses owner work without a driver and rejects duplicate registration",
           "Workbook runtime responsibilities preserves compatible conflict drafts and tracks transaction settlement",
           "Workbook runtime responsibilities projects save state from explicit queue, conflict, and surface facts",
           "Workbook runtime responsibilities publishes complete authority without deriving reads from a feature owner",
+          "Workbook runtime responsibilities retains a readiness change during registration and settles concurrent waiters once",
           "Workbook runtime responsibilities retains refresh debt and ignores cleanup from a replaced registration",
           "Workbook runtime responsibilities retires source owners and transport once across repeated terminal transitions",
           "Workbook runtime responsibilities runs at most one retry and supports deterministic cancellation",
           "Workbook runtime responsibilities settles a waiting history coordinator when its runtime retires",
-          "Workbook runtime responsibilities uses injected time and cancels a pending transport retry on disposal"
+          "Workbook runtime responsibilities settles source coordination when its own direct predecessor releases",
+          "Workbook runtime responsibilities uses injected time and cancels a pending transport retry on disposal",
+          "Workbook runtime responsibilities wakes on reservation release without another owner event and ignores repeated release"
         ]
       },
       "evidence_class": "unit",
