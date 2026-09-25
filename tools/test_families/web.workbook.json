@@ -593,10 +593,10 @@
       "selector": {
         "file": "apps/web/src/workbook/layout/WorkbookColumnLayoutController.test.ts",
         "titles": [
+          "Workbook column sizing coalesces duplicate fitting while newer fields supersede and unavailable content changes nothing",
           "Workbook column sizing fits once and reports header-only and capped results",
           "Workbook column sizing preserves sparse defaults and unrelated layout while enforcing portable bounds",
           "Workbook column sizing rejects obsolete results after newer commands configuration changes and departure",
-          "Workbook column sizing repeated fitting admits only the newest result and unavailable content changes nothing",
           "Workbook column sizing returns applied and restored widths with one owner notice",
           "Workbook column sizing validates numeric input without truncating saved fractional widths"
         ]
@@ -1886,8 +1886,11 @@
           "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
           "WorkbookGridControls keeps focus in Sort when Add replaces its control and a boundary move disables",
+          "WorkbookGridControls keeps focus on a semantic column action when movement or freezing disables its invoker",
           "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
           "WorkbookGridControls keeps newer invalid text and caret while an older Fit completes",
+          "WorkbookGridControls keeps pending Fit focus and busy state without admitting a duplicate or reclaiming departed focus",
+          "WorkbookGridControls keeps pending Fit focused when availability changes and moves to Restore after it becomes unavailable",
           "WorkbookGridControls keeps requested Group choices distinct from accepted chips through delay, failure, retry, Revert, and None",
           "WorkbookGridControls keeps the fitted width in the open input when Apply follows Fit",
           "WorkbookGridControls keeps the roving Sort item aligned with pointer focus and removes toward a neighbor",

@@ -1051,6 +1051,158 @@ describe("WorkbookGridControls", () => {
     expect(screen.getByText(/Current: 520 px/)).toBeTruthy();
   });
 
+  it("keeps pending Fit focus and busy state without admitting a duplicate or reclaiming departed focus", async () => {
+    const { port, requests } = deferredSizingPort();
+    render(
+      <>
+        <button type="button">Outside Columns</button>
+        <StatefulGridControls sizingPort={port} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const label = requireViewContract(timelineSurface).fields[0]?.label ?? "";
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const fit = screen.getByRole("button", { name: "Fit visible content" });
+    fit.focus();
+    fireEvent.click(fit);
+    expect(fit.getAttribute("aria-busy")).toBe("true");
+    expect((fit as HTMLButtonElement).disabled).toBe(false);
+    expect(document.activeElement).toBe(fit);
+    fireEvent.click(fit);
+    expect(requests).toHaveLength(1);
+    await act(async () => {
+      requests[0]?.resolve({
+        kind: "measured",
+        widthPx: 520,
+        capped: false,
+        cellCount: 2,
+      });
+    });
+    expect(document.activeElement).toBe(fit);
+    expect(fit.getAttribute("aria-busy")).not.toBe("true");
+    fireEvent.click(fit);
+    const restore = screen.getByRole("button", { name: "Restore default" });
+    restore.focus();
+    await act(async () => {
+      requests[1]?.resolve({
+        kind: "unavailable",
+        reason: "Measurement failed.",
+      });
+    });
+    expect(document.activeElement).toBe(restore);
+    expect(screen.getByRole("status").textContent).toContain(
+      "Measurement failed.",
+    );
+    fit.focus();
+    fireEvent.click(fit);
+    const outside = screen.getByRole("button", { name: "Outside Columns" });
+    outside.focus();
+    fireEvent.pointerDown(outside);
+    expect(
+      screen.queryByRole("dialog", { name: "Column controls" }),
+    ).toBeNull();
+    expect(requests[2]?.signal.aborted).toBe(true);
+    await act(async () => {
+      requests[2]?.resolve({
+        kind: "measured",
+        widthPx: 700,
+        capped: false,
+        cellCount: 2,
+      });
+    });
+    expect(document.activeElement).toBe(outside);
+  });
+
+  it("keeps pending Fit focused when availability changes and moves to Restore after it becomes unavailable", async () => {
+    const { port, requests, setAvailability } = deferredSizingPort();
+    render(<StatefulGridControls sizingPort={port} />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const label = requireViewContract(timelineSurface).fields[0]?.label ?? "";
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const fit = screen.getByRole("button", { name: "Fit visible content" });
+    fit.focus();
+    fireEvent.click(fit);
+    act(() => setAvailability("Visible geometry is unavailable."));
+    expect(fit.getAttribute("aria-busy")).toBe("true");
+    expect((fit as HTMLButtonElement).disabled).toBe(false);
+    expect(document.activeElement).toBe(fit);
+    await act(async () => {
+      requests[0]?.resolve({
+        kind: "unavailable",
+        reason: "Visible geometry is unavailable.",
+      });
+    });
+    expect((fit as HTMLButtonElement).disabled).toBe(true);
+    expect(fit.getAttribute("aria-busy")).not.toBe("true");
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Restore default" }),
+    );
+    expect(
+      document.getElementById(fit.getAttribute("aria-describedby") ?? "")
+        ?.textContent,
+    ).toBe("Visible geometry is unavailable.");
+    act(() => setAvailability(null));
+    fit.focus();
+    fireEvent.click(fit);
+    act(() => setAvailability("Visible geometry is unavailable."));
+    const restore = screen.getByRole("button", { name: "Restore default" });
+    restore.focus();
+    await act(async () => {
+      requests[1]?.resolve({
+        kind: "unavailable",
+        reason: "Visible geometry is unavailable.",
+      });
+    });
+    expect(document.activeElement).toBe(restore);
+  });
+
+  it("keeps focus on a semantic column action when movement or freezing disables its invoker", () => {
+    render(<StatefulGridControls />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const fields = requireViewContract(timelineSurface).fields;
+    const first = fields[0]?.label;
+    const last = fields.at(-1)?.label;
+    if (!first || !last)
+      throw new Error("Timeline column fixtures are required");
+    const earlier = screen.getByRole("button", {
+      name: `Move ${first} earlier`,
+    });
+    const later = screen.getByRole("button", { name: `Move ${first} later` });
+    later.focus();
+    fireEvent.click(later);
+    expect(document.activeElement).toBe(later);
+    earlier.focus();
+    fireEvent.click(earlier);
+    expect((earlier as HTMLButtonElement).disabled).toBe(true);
+    expect(document.activeElement).toBe(later);
+    const lastEarlier = screen.getByRole("button", {
+      name: `Move ${last} earlier`,
+    });
+    const lastLater = screen.getByRole("button", {
+      name: `Move ${last} later`,
+    });
+    lastEarlier.focus();
+    fireEvent.click(lastEarlier);
+    lastLater.focus();
+    fireEvent.click(lastLater);
+    expect((lastLater as HTMLButtonElement).disabled).toBe(true);
+    expect(document.activeElement).toBe(lastEarlier);
+    const freeze = screen.getByRole("button", {
+      name: `Freeze through ${first}`,
+    });
+    freeze.focus();
+    fireEvent.click(freeze);
+    expect((freeze as HTMLButtonElement).disabled).toBe(true);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: `Width for ${first}` }),
+    );
+    const unfreeze = screen.getByRole("button", { name: "Unfreeze columns" });
+    unfreeze.focus();
+    fireEvent.click(unfreeze);
+    expect((unfreeze as HTMLButtonElement).disabled).toBe(true);
+    expect(document.activeElement).toBe(freeze);
+  });
+
   it("keeps newer invalid text and caret while an older Fit completes", async () => {
     const { port, requests } = deferredSizingPort();
     render(<StatefulGridControls sizingPort={port} />);
@@ -1327,19 +1479,33 @@ function StatefulGridControls({
 }
 
 function deferredSizingPort() {
+  let listener: (() => void) | undefined;
+  const availability = { current: null as string | null };
   const requests: {
     resolve: (result: GridColumnMeasurement) => void;
     signal: AbortSignal;
   }[] = [];
   const port: GridColumnSizingPort = {
-    unavailableReason: () => null,
-    subscribe: () => () => undefined,
+    unavailableReason: () => availability.current,
+    subscribe: (next) => {
+      listener = next;
+      return () => {
+        listener = undefined;
+      };
+    },
     measureVisibleContent: (_field, { signal }) =>
       new Promise((resolve) => {
         requests.push({ resolve, signal });
       }),
   };
-  return { port, requests };
+  return {
+    port,
+    requests,
+    setAvailability: (reason: string | null) => {
+      availability.current = reason;
+      listener?.();
+    },
+  };
 }
 
 function ControlledSortGridControls({

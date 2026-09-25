@@ -60,6 +60,12 @@ export class WorkbookColumnLayoutController {
   private bindings = new Map<string, WorkbookColumnSizingBinding>();
   private listeners = new Set<() => void>();
   private pending: AbortController | null = null;
+  private pendingFit: {
+    readonly id: string;
+    readonly field: string;
+    readonly context: string;
+    readonly outcome: Promise<WorkbookColumnSizingOutcome>;
+  } | null = null;
   private context = "";
   private revision = 0;
   private snapshot = {
@@ -221,6 +227,7 @@ export class WorkbookColumnLayoutController {
   cancel = () => {
     const pending = this.pending;
     this.pending = null;
+    this.pendingFit = null;
     pending?.abort();
     if (this.snapshot.pendingField !== null)
       this.publish({ pendingField: null });
@@ -233,25 +240,58 @@ export class WorkbookColumnLayoutController {
   private label(id: string, field: string) {
     return this.contractFor(id).fieldMap[field]?.label ?? field;
   }
-  fitVisible = async (
+  fitVisible = (
     id: string,
     field: string,
   ): Promise<WorkbookColumnSizingOutcome> => {
     if (!this.contractFor(id).fieldMap[field])
-      return { kind: "unavailable", reason: "Column is unavailable." };
+      return Promise.resolve({
+        kind: "unavailable",
+        reason: "Column is unavailable.",
+      });
+    if (
+      this.pending !== null &&
+      this.pendingFit?.id === id &&
+      this.pendingFit.field === field &&
+      this.pendingFit.context === this.context
+    )
+      return this.pendingFit.outcome;
     this.cancel();
     const binding = this.bindings.get(id);
     const reason = this.read(id, field).unavailableReason;
     if (reason !== null || !binding?.port) {
       const unavailableReason = reason ?? "Column measurement is unavailable.";
       this.publish({ notice: unavailableReason });
-      return { kind: "unavailable", reason: unavailableReason };
+      return Promise.resolve({
+        kind: "unavailable",
+        reason: unavailableReason,
+      });
     }
     const abort = new AbortController();
     this.pending = abort;
     const context = this.context;
     const layout = this.currentLayoutStateForSurface(id);
     this.publish({ pendingField: field, notice: null });
+    const outcome = this.completeFit(
+      id,
+      field,
+      binding,
+      abort,
+      context,
+      layout,
+    );
+    this.pendingFit = { id, field, context, outcome };
+    return outcome;
+  };
+  private completeFit = async (
+    id: string,
+    field: string,
+    binding: WorkbookColumnSizingBinding,
+    abort: AbortController,
+    context: string,
+    layout: WorkbookResolvedLayoutState,
+  ): Promise<WorkbookColumnSizingOutcome> => {
+    if (!binding.port) return { kind: "cancelled" };
     const result = await binding.port
       .measureVisibleContent(field, {
         signal: abort.signal,
@@ -269,6 +309,7 @@ export class WorkbookColumnLayoutController {
     )
       return { kind: "cancelled" };
     this.pending = null;
+    this.pendingFit = null;
     if (result.kind === "measured" && isWorkbookColumnWidth(result.widthPx)) {
       this.entries.set(
         id,

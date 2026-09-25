@@ -1202,9 +1202,11 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
+          "scenario_column_keyboard_continuity",
           "scenario_workbook_column_sizing_gestures_saved"
         ],
         "titles": [
+          "Columns keeps one production keyboard session through Fit movement and freezing",
           "Workbook sizing preserves production geometry drafts and saved configuration across every entry point"
         ]
       },

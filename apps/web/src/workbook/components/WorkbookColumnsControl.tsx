@@ -22,6 +22,8 @@ import {
   menuStyle,
 } from "./workbookGridControlStyles";
 
+type ColumnFocusAction = "earlier" | "later" | "freeze" | "unfreeze";
+
 export function WorkbookColumnsControl({
   isOpen,
   onClose,
@@ -45,6 +47,14 @@ export function WorkbookColumnsControl({
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const widthButtons = useRef(new Map<string, HTMLButtonElement>());
+  const earlierButtons = useRef(new Map<string, HTMLButtonElement>());
+  const laterButtons = useRef(new Map<string, HTMLButtonElement>());
+  const freezeButtons = useRef(new Map<string, HTMLButtonElement>());
+  const pendingActionFocus = useRef<{
+    readonly source: HTMLButtonElement;
+    readonly fieldKey: string;
+    readonly action: ColumnFocusAction;
+  } | null>(null);
   const [field, setField] = useState<string | null>(null);
   const returnField = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -99,6 +109,41 @@ export function WorkbookColumnsControl({
     (column) => column.fieldKey === projection.frozenThroughFieldKey,
   );
   const boundary = projection.columns[boundaryIndex];
+  useLayoutEffect(() => {
+    const request = pendingActionFocus.current;
+    pendingActionFocus.current = null;
+    if (!request || !isOpen || field !== null) return;
+    if (
+      !projection.columns.some((column) => column.fieldKey === request.fieldKey)
+    )
+      return;
+    const active = document.activeElement;
+    if (active !== request.source && active !== document.body) return;
+    const eligible = (button: HTMLButtonElement | undefined) =>
+      button?.isConnected && !button.disabled ? button : undefined;
+    const target =
+      request.action === "earlier"
+        ? (eligible(earlierButtons.current.get(request.fieldKey)) ??
+          eligible(laterButtons.current.get(request.fieldKey)))
+        : request.action === "later"
+          ? (eligible(laterButtons.current.get(request.fieldKey)) ??
+            eligible(earlierButtons.current.get(request.fieldKey)))
+          : request.action === "freeze"
+            ? (eligible(freezeButtons.current.get(request.fieldKey)) ??
+              eligible(widthButtons.current.get(request.fieldKey)))
+            : eligible(freezeButtons.current.get(request.fieldKey));
+    if (target && active !== target) target.focus({ preventScroll: true });
+  }, [projection.columns, isOpen, field]);
+  const commandWithFocus = (
+    source: HTMLButtonElement,
+    fieldKey: string,
+    action: ColumnFocusAction,
+    command: WorkbookGridQueryCommand,
+  ) => {
+    if (document.activeElement === source)
+      pendingActionFocus.current = { source, fieldKey, action };
+    onCommand(command);
+  };
   const visibleCount = projection.columns
     .slice(0, boundaryIndex + 1)
     .filter((column) => !column.hidden).length;
@@ -151,6 +196,12 @@ export function WorkbookColumnsControl({
           tabIndex={-1}
           onBlur={(event) => {
             if (
+              pendingActionFocus.current &&
+              (event.relatedTarget === null ||
+                event.relatedTarget === document.body)
+            )
+              return;
+            if (
               event.relatedTarget instanceof Node &&
               !root.current?.contains(event.relatedTarget)
             ) {
@@ -202,30 +253,49 @@ export function WorkbookColumnsControl({
                   </label>
                   <button
                     style={controlButtonStyle}
+                    ref={(node) => {
+                      if (node)
+                        earlierButtons.current.set(column.fieldKey, node);
+                      else earlierButtons.current.delete(column.fieldKey);
+                    }}
                     type="button"
                     aria-label={`Move ${column.label} earlier`}
                     disabled={column.position === 0}
-                    onClick={() =>
-                      onCommand({
-                        kind: "column_move",
-                        fieldKey: column.fieldKey,
-                        direction: "earlier",
-                      })
+                    onClick={(event) =>
+                      commandWithFocus(
+                        event.currentTarget,
+                        column.fieldKey,
+                        "earlier",
+                        {
+                          kind: "column_move",
+                          fieldKey: column.fieldKey,
+                          direction: "earlier",
+                        },
+                      )
                     }
                   >
                     ↑
                   </button>
                   <button
                     style={controlButtonStyle}
+                    ref={(node) => {
+                      if (node) laterButtons.current.set(column.fieldKey, node);
+                      else laterButtons.current.delete(column.fieldKey);
+                    }}
                     type="button"
                     aria-label={`Move ${column.label} later`}
                     disabled={column.position === projection.columns.length - 1}
-                    onClick={() =>
-                      onCommand({
-                        kind: "column_move",
-                        fieldKey: column.fieldKey,
-                        direction: "later",
-                      })
+                    onClick={(event) =>
+                      commandWithFocus(
+                        event.currentTarget,
+                        column.fieldKey,
+                        "later",
+                        {
+                          kind: "column_move",
+                          fieldKey: column.fieldKey,
+                          direction: "later",
+                        },
+                      )
                     }
                   >
                     ↓
@@ -251,16 +321,26 @@ export function WorkbookColumnsControl({
                       gridColumn: "1 / -1",
                       justifySelf: "start",
                     }}
+                    ref={(node) => {
+                      if (node)
+                        freezeButtons.current.set(column.fieldKey, node);
+                      else freezeButtons.current.delete(column.fieldKey);
+                    }}
                     type="button"
                     aria-label={`Freeze through ${column.label}`}
                     disabled={
                       projection.frozenThroughFieldKey === column.fieldKey
                     }
-                    onClick={() =>
-                      onCommand({
-                        kind: "columns_freeze",
-                        fieldKey: column.fieldKey,
-                      })
+                    onClick={(event) =>
+                      commandWithFocus(
+                        event.currentTarget,
+                        column.fieldKey,
+                        "freeze",
+                        {
+                          kind: "columns_freeze",
+                          fieldKey: column.fieldKey,
+                        },
+                      )
                     }
                   >
                     Freeze through this column
@@ -272,8 +352,17 @@ export function WorkbookColumnsControl({
                   style={controlButtonStyle}
                   type="button"
                   disabled={!boundary}
-                  onClick={() => {
-                    onCommand({ kind: "columns_freeze", fieldKey: null });
+                  onClick={(event) => {
+                    if (boundary)
+                      commandWithFocus(
+                        event.currentTarget,
+                        boundary.fieldKey,
+                        "unfreeze",
+                        {
+                          kind: "columns_freeze",
+                          fieldKey: null,
+                        },
+                      );
                     setNotice("Columns unfrozen.");
                   }}
                 >
@@ -327,7 +416,23 @@ function ColumnWidthPanel({
   const draft = useRef(false);
   const editRevision = useRef(0);
   const input = useRef<HTMLInputElement>(null);
+  const fitButton = useRef<HTMLButtonElement>(null);
+  const restoreButton = useRef<HTMLButtonElement>(null);
+  const fitOwnedFocus = useRef(false);
   const id = useId();
+  const fitting = sizing.pendingField === fieldKey;
+  useLayoutEffect(() => {
+    if (
+      fitting ||
+      descriptor.unavailableReason === null ||
+      !fitOwnedFocus.current
+    )
+      return;
+    const active = document.activeElement;
+    if (active === fitButton.current || active === document.body)
+      restoreButton.current?.focus({ preventScroll: true });
+    fitOwnedFocus.current = false;
+  }, [fitting, descriptor.unavailableReason]);
   useLayoutEffect(() => {
     if (!draft.current) setText(String(descriptor.width ?? ""));
   }, [descriptor.width]);
@@ -393,13 +498,27 @@ function ColumnWidthPanel({
           Apply width
         </button>
         <button
+          ref={fitButton}
           style={controlButtonStyle}
           type="button"
-          disabled={
-            descriptor.unavailableReason !== null ||
-            sizing.pendingField === fieldKey
+          disabled={!fitting && descriptor.unavailableReason !== null}
+          aria-busy={fitting || undefined}
+          aria-describedby={
+            fitting
+              ? `${id}-fit-pending`
+              : descriptor.unavailableReason
+                ? `${id}-fit-unavailable`
+                : undefined
           }
+          onFocus={() => {
+            fitOwnedFocus.current = true;
+          }}
+          onBlur={(event) => {
+            if (event.relatedTarget && event.relatedTarget !== document.body)
+              fitOwnedFocus.current = false;
+          }}
           onClick={async () => {
+            if (fitting) return;
             const startedAtRevision = editRevision.current;
             const outcome = await sizing.fitVisible(fieldKey);
             if (
@@ -415,6 +534,7 @@ function ColumnWidthPanel({
           Fit visible content
         </button>
         <button
+          ref={restoreButton}
           style={controlButtonStyle}
           type="button"
           onClick={() => {
@@ -437,10 +557,10 @@ function ColumnWidthPanel({
         viewport. Drafts and unloaded content are excluded.
       </p>
       {descriptor.unavailableReason ? (
-        <p>{descriptor.unavailableReason}</p>
+        <p id={`${id}-fit-unavailable`}>{descriptor.unavailableReason}</p>
       ) : null}
-      {sizing.pendingField === fieldKey ? (
-        <p>Measuring visible content…</p>
+      {fitting ? (
+        <p id={`${id}-fit-pending`}>Measuring visible content…</p>
       ) : null}
     </form>
   );

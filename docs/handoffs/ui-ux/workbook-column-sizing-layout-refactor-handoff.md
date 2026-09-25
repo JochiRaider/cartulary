@@ -616,3 +616,71 @@ authored `web.workbook` test-family selector, generated topology render index
 and this handoff addition together. Saved resources and analyst data require no
 migration or rollback. The remaining action outside this sizing slice is to
 triage the reproducible upload-recovery test failure under its own owner.
+
+## 2026-09-24 Columns keyboard continuity follow-up
+
+Clean `main` at `9855e9222` was the starting point. Core 03 REQ-03-295 owns
+layout, Fit cancellation and editor-focus borrowing; design §§8.3, 12.2, 12.4
+and 14 own Columns dismissal, loading versus unavailable controls, and keyboard
+focus. Source remains `web.workbook`; verification routes through `web.workbook`
+unit and `module.workbook` browser rows. The digest, this handoff's earlier
+entries and `docs/research/nlspec-spec.md` were navigation or historical
+evidence, not additional product authority. The narrow offline UX query mapped
+keyboard and visible focus to R001/R002 (`ADOPT`), local failure feedback to
+R006 (`ADOPT`), and state placement to R012 (`ADAPT` within existing owners).
+
+The new regressions failed against the starting implementation. Unit run
+`20260925T000232Z-p54112` showed two same-field Fit measurements, no pending
+busy state, and lost focus when a boundary action disabled. Production run
+`20260925T000254Z-p54936` showed Chromium's focused Fit becoming disabled and
+inactive while measurement was held in the narrow/zoom scenario. Its first
+dedicated sequence also exposed a fixture setup mistake: reload discarded the
+unsaved order. The fixture now establishes its order after reload. These are
+separate from the earlier historical assertion and from hypotheses about other
+actions. A later unit regression also reproduced an availability change during
+held Fit: the newly disabled pending button lost focus (`20260925T002202Z-p99405`).
+
+Pending Fit now retains its name, visible pending text, `aria-busy`, focus and
+Tab stop. Genuine hidden/off-screen/font/geometry unavailability keeps native
+disabled semantics and a linked explanation. The panel blocks duplicate
+activation; the layout controller coalesces a same-field/context call onto its
+one pending promise while a newer field or layout command still cancels obsolete
+work. If availability changes during measurement, pending Fit remains enabled;
+when it settles unavailable, the field's Restore action receives focus only if
+Fit still owned focus. Ordinary Fit settlement makes no focus request. The
+panel reconciles only its own focused synchronous actions after a layout
+commit: an eligible Move retains
+focus, a boundary Move uses the opposite Move, Freeze uses that field's Width,
+and Unfreeze uses Freeze for the former boundary. Native Tab order and outside
+destination focus remain intact. The pending Fit native-disabled path, the
+same-field newest-wins test expectation and the browser `input.focus()` repair
+were retired. No new focus manager or layout state owner was added.
+
+| Public Make evidence | Result and run root |
+| --- | --- |
+| `make generate` | PASS `20260925T000152Z-p50418`; only the tool-managed topology render index changed. The first attempt `20260925T000123Z-p46898` rejected an unsorted authored scenario ID and was corrected. |
+| Focused `web.workbook` sizing, frozen-layout and controls rows, cache off | PASS 4/4 `20260925T001008Z-p65075`; includes duplicate, failure, cancellation, newer text/caret, outside departure and synchronous focus cases. |
+| Focused `module.workbook` sizing gesture, viewport, surface, frozen layout/threshold and accessibility rows, cache off | PASS 13/13 `20260925T001008Z-p65096`; production keyboard sequence covers both Move boundaries, Freeze/Unfreeze, held and settled Fit, Tab/Shift+Tab/Escape, narrow/zoom, saved layout and zero record writes. |
+| `make agent-finalize` with `RESULTS_DIR` unset | PASS `20260925T001420Z-p16936`; retained-run maintenance skipped because no qualifying full warm-check root was supplied. |
+| Typecheck, import-boundary and Biome lint | PASS `20260925T001443Z-p21016`, `20260925T001443Z-p21032` and `20260925T001443Z-p21075`. An initial format/lint attempt found a new effect dependency diagnostic; it was corrected and `make format` passed at `20260925T001409Z-p12530`. |
+| Generated-artifact policy, JSON shape and generation drift | PASS `20260925T001302Z-p5923`, `20260925T001302Z-p6007` and `20260925T001302Z-p5857`. |
+| Final focused unit and production keyboard/a11y reruns after the last focus guard edit | PASS 4/4 `20260925T001550Z-p22708` and 13/13 `20260925T001550Z-p22737`. |
+| Final availability-transition regression and selected unit/browser reruns, cache off | PASS component row `20260925T002307Z-p1690`, selected unit 4/4 `20260925T002341Z-p6873`, selected service-backed browser 13/13 `20260925T002341Z-p6892`. The browser sequence also asserted a visible outline and in-viewport focus at narrow zoom in `20260925T001759Z-p60700`. |
+| Handoff Markdown lint | PASS `20260925T001550Z-p22928`. |
+| Finalization and broader checks after the availability fix | `make agent-finalize` PASS `20260925T002546Z-p43123` with `RESULTS_DIR` unset, so retained-run maintenance was skipped. Typecheck, import-boundary and Biome PASS `20260925T002610Z-p47291`, `20260925T002610Z-p47380`, `20260925T002610Z-p47492`; generation drift, artifact policy and JSON shape PASS `20260925T002610Z-p47069`, `20260925T002610Z-p47164`, `20260925T002610Z-p47260`; Markdown lint PASS `20260925T002610Z-p47812`. |
+
+No public API, saved-layout wire format, backend, Grid Adapter interface,
+dependency, design token, record mutation or visual golden changed. Sparse
+widths, reset/freeze semantics and retained authoring stay with their existing
+owners. Browser evidence is the supported Chromium harness, not a universal
+assistive-technology claim. Full CI, release and unrelated backend suites were
+not run for this bounded panel correction.
+
+Digest assessment: A001–A004, A011, A014, A019–A021 and A023–A026 PASS on the
+owner map, current source, focused unit/browser evidence and policy checks.
+A027 PASS on this handoff and its recorded limits. A005–A010, A012–A013,
+A015–A018 and A022 are N/A because theme/density, creation, shell/inspector,
+transaction/query/evidence behavior and visual fixtures were not changed.
+Rollback reverts the Columns panel and layout controller edits, tests, authored
+test-family selectors, generated topology index and this follow-up together;
+saved resources and analyst data need no migration or rollback.

@@ -167,6 +167,14 @@ async function seed(page: Page, count = 2) {
   await firstColumn(page);
   return { incident, rows: await queryViewRows(page, incident, surface) };
 }
+async function tabTo(page: Page, control: Locator, limit = 500) {
+  for (let step = 0; step < limit; step += 1) {
+    if (await control.evaluate((node) => document.activeElement === node))
+      return;
+    await page.keyboard.press("Tab");
+  }
+  await expect(control).toBeFocused();
+}
 async function setFreeze(
   page: Page,
   field: string | null,
@@ -197,6 +205,130 @@ async function dragBoundary(page: Page, delta: number) {
   });
   await page.mouse.up();
 }
+
+test("Columns keeps one production keyboard session through Fit movement and freezing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await seed(page);
+  await page.reload();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  await firstColumn(page);
+  let recordWrites = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/(records|rows)(\/|$)/.test(new URL(request.url()).pathname)
+    )
+      recordWrites += 1;
+  });
+  await tabTo(page, trigger(page));
+  await page.keyboard.press("Enter");
+  await expect(columns(page).getByRole("checkbox").first()).toBeFocused();
+  const firstLabel =
+    requireViewContract(surface).fieldMap[summary]?.label ?? "";
+  const lastLabel =
+    (await columns(page)
+      .getByRole("checkbox")
+      .last()
+      .evaluate((node) => node.parentElement?.textContent?.trim())) ?? "";
+  const firstEarlier = columns(page).getByRole("button", {
+    name: `Move ${firstLabel} earlier`,
+  });
+  const firstLater = columns(page).getByRole("button", {
+    name: `Move ${firstLabel} later`,
+  });
+  await tabTo(page, firstLater);
+  await page.keyboard.press("Enter");
+  await expect(firstLater).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(firstEarlier).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(firstEarlier).toBeDisabled();
+  await expect(firstLater).toBeFocused();
+  await expect(firstLater).toHaveCSS("outline-style", "solid");
+  const lastEarlier = columns(page).getByRole("button", {
+    name: `Move ${lastLabel} earlier`,
+  });
+  const lastLater = columns(page).getByRole("button", {
+    name: `Move ${lastLabel} later`,
+  });
+  await tabTo(page, lastEarlier);
+  await page.keyboard.press("Enter");
+  await expect(lastEarlier).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(lastLater).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(lastLater).toBeDisabled();
+  await expect(lastEarlier).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger(page)).toBeFocused();
+  await page.keyboard.press("Enter");
+  const freeze = columns(page).getByRole("button", {
+    name: `Freeze through ${firstLabel}`,
+  });
+  const widthAction = columns(page).getByRole("button", {
+    name: `Width for ${firstLabel}`,
+  });
+  await tabTo(page, freeze);
+  await page.keyboard.press("Enter");
+  await expect(freeze).toBeDisabled();
+  await expect(widthAction).toBeFocused();
+  const unfreeze = columns(page).getByRole("button", {
+    name: "Unfreeze columns",
+  });
+  await tabTo(page, unfreeze);
+  await page.keyboard.press("Enter");
+  await expect(unfreeze).toBeDisabled();
+  await expect(freeze).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(widthAction).toBeFocused();
+  await page.keyboard.press("Enter");
+  const input = columns(page).getByRole("textbox", {
+    name: "Width in CSS pixels",
+  });
+  await expect(input).toBeFocused();
+  const fit = columns(page).getByRole("button", {
+    name: "Fit visible content",
+    exact: true,
+  });
+  await tabTo(page, fit);
+  await holdAnimationFrames(page);
+  await page.keyboard.press("Enter");
+  await expect(
+    columns(page).getByText("Measuring visible content…"),
+  ).toBeVisible();
+  await expect(fit).toBeFocused();
+  await expect(fit).toHaveAttribute("aria-busy", "true");
+  await expect(fit).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("Enter");
+  await expect(fit).toBeFocused();
+  await page.keyboard.press("Tab");
+  const restore = columns(page).getByRole("button", {
+    name: "Restore default",
+  });
+  await expect(restore).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(fit).toBeFocused();
+  await releaseAnimationFrames(page);
+  await expect(
+    page.getByRole("status").filter({ hasText: /fitted to/ }),
+  ).toBeVisible();
+  await expect(fit).toBeFocused();
+  await expect(fit).not.toHaveAttribute("aria-busy", "true");
+  await page.keyboard.press("Tab");
+  await expect(restore).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(fit).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(widthAction).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger(page)).toBeFocused();
+  expect(recordWrites).toBe(0);
+});
 
 test("Workbook sizing preserves production geometry drafts and saved configuration across every entry point", async ({
   page,
@@ -237,7 +369,13 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
   expect(samePanelFitWidth).toBeLessThan(1000);
   await expect(input).toHaveValue(String(samePanelFitWidth));
   await expect(fitButton).toBeEnabled();
-  await input.focus();
+  await expect(fitButton).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    columns(page).getByRole("button", { name: "Apply width", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(input).toBeFocused();
   await input.press("Enter");
   await expect.poll(() => width(header(page))).toBe(samePanelFitWidth);
   await expect(input).toHaveValue(String(samePanelFitWidth));
@@ -795,7 +933,7 @@ test("a11y.column-sizing native controls retain keyboard focus at narrow width z
       content:
         "* { letter-spacing: 0.12em !important; word-spacing: 0.16em !important; line-height: 1.5 !important; }",
     });
-    await trigger(page).focus();
+    await tabTo(page, trigger(page));
     await page.keyboard.press("Enter");
     const checkbox = columns(page).getByRole("checkbox").first();
     await expect(checkbox).toBeFocused();
@@ -829,19 +967,32 @@ test("a11y.column-sizing native controls retain keyboard focus at narrow width z
     await page.keyboard.press("Enter");
     await expect.poll(() => width(header(page))).toBe(248);
     await page.keyboard.press("Tab");
-    await expect(
-      columns(page).getByRole("button", {
-        name: "Fit visible content",
-        exact: true,
-      }),
-    ).toBeFocused();
+    const fit = columns(page).getByRole("button", {
+      name: "Fit visible content",
+      exact: true,
+    });
+    await expect(fit).toBeFocused();
+    await holdAnimationFrames(page);
+    await page.keyboard.press("Enter");
+    await expect(fit).toBeFocused();
+    await expect(fit).toHaveAttribute("aria-busy", "true");
+    await expect(fit).toBeInViewport({ ratio: 1 });
+    await expect(fit).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Tab");
+    const restore = columns(page).getByRole("button", {
+      name: "Restore default",
+      exact: true,
+    });
+    await expect(restore).toBeFocused();
+    await releaseAnimationFrames(page);
     await expect(
-      columns(page).getByRole("button", {
-        name: "Restore default",
-        exact: true,
-      }),
-    ).toBeFocused();
+      page.getByRole("status").filter({ hasText: /fitted to/ }),
+    ).toBeVisible();
+    await expect(restore).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(fit).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(restore).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(
       columns(page).getByRole("button", { name: "Cancel", exact: true }),

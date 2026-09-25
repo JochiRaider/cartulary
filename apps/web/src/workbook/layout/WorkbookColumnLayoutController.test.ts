@@ -150,26 +150,41 @@ describe("Workbook column sizing", () => {
       expect(h.owner.currentLayoutStateForSurface(id)).toEqual(before);
     }
   });
-  it("repeated fitting admits only the newest result and unavailable content changes nothing", async () => {
+  it("coalesces duplicate fitting while newer fields supersede and unavailable content changes nothing", async () => {
     const h = harness();
     const first = h.fit();
     const second = h.fit();
+    expect(h.requests).toHaveLength(1);
+    expect(h.requests[0]?.signal.aborted).toBe(false);
     h.requests[0]?.resolve({
       kind: "measured",
       widthPx: 800,
       capped: false,
       cellCount: 2,
     });
+    expect(await first).toEqual({ kind: "completed", widthPx: 800 });
+    expect(await second).toEqual({ kind: "completed", widthPx: 800 });
+    const otherField = h.owner.fitVisible(id, other);
+    const newer = h.fit();
+    expect(h.requests[1]?.signal.aborted).toBe(true);
     h.requests[1]?.resolve({
+      kind: "measured",
+      widthPx: 600,
+      capped: false,
+      cellCount: 2,
+    });
+    h.requests[2]?.resolve({
       kind: "unavailable",
       reason: "Fonts are loading.",
     });
-    expect(await first).toEqual({ kind: "cancelled" });
-    expect(await second).toEqual({
+    expect(await otherField).toEqual({ kind: "cancelled" });
+    expect(await newer).toEqual({
       kind: "unavailable",
       reason: "Fonts are loading.",
     });
-    expect(h.owner.currentLayoutStateForSurface(id).columnWidths).toEqual({});
+    expect(h.owner.currentLayoutStateForSurface(id).columnWidths).toEqual({
+      [field]: 800,
+    });
     expect(h.owner.getSnapshot().notice).toBe("Fonts are loading.");
     h.owner.hide(id, field, true);
     const measure = vi.spyOn(h.port, "measureVisibleContent");
