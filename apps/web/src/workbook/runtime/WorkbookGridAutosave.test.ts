@@ -326,13 +326,15 @@ describe("Committed grid autosave", () => {
     if (a.kind !== "admitted") throw new Error("Expected admission");
     expect(await a.completion).toEqual({ kind: "accepted" });
     await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
-    expect(f.runtime.explicitPatches.latestReceipt(recordId)).toMatchObject({
-      row: { row_version: 2, cells: { [fieldKey]: { value: "A" } } },
-      changeSetId: expect.any(String),
+    expect(f.runtime.explicitPatches.latestRow(recordId)).toMatchObject({
+      row_version: 2,
+      cells: { [fieldKey]: { value: "A" } },
     });
     f.runtime.explicitPatches.observeQuery(f.initial);
     expect(f.runtime.explicitPatches.latestRow(recordId)?.row_version).toBe(2);
-    expect(f.runtime.surfaceRefreshRequired(timelineViewSchemaId)).toBe(true);
+    expect(f.runtime.getRefreshRecoverySnapshot()).toContain(
+      timelineViewSchemaId,
+    );
     await f.runtime.refreshSurface(timelineViewSchemaId);
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(f.execute).toHaveBeenCalledTimes(1);

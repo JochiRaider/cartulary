@@ -28,6 +28,7 @@ import type { APIRequestContext, Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
+  chooseEvidenceFile,
   createAndUploadObjectBlob,
   resolveObjectUploadTarget,
 } from "./support/evidence/uploads";
@@ -75,16 +76,17 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
 
   await openEvidenceSurface(page, incidentId);
   await expectStableEvidenceControls(page, evidenceRow.record_id);
-  await page
-    .getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id))
-    .setInputFiles({
+  await chooseEvidenceFile(
+    page.getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id)),
+    {
       name: "integration.evidence-workflow-evidence.txt",
       mimeType: "text/plain",
       buffer: Buffer.from(
         "integration.evidence-workflow evidence body",
         "utf8",
       ),
-    });
+    },
+  );
 
   const finalized = await waitForEvidenceState(
     page,
@@ -281,13 +283,14 @@ test("Verify evidence attach, preview, download, and blocked preview through sam
   const workbookURL = page.url();
   await expectStableEvidenceControls(page, safeRow.record_id);
   await expectStableEvidenceActionControls(page, blockedRow.record_id);
-  await page
-    .getByTestId(evidenceAttachFileInputTestId(safeRow.record_id))
-    .setInputFiles({
+  await chooseEvidenceFile(
+    page.getByTestId(evidenceAttachFileInputTestId(safeRow.record_id)),
+    {
       name: "end-to-end.evidence-workflow-safe.txt",
       mimeType: "text/plain",
       buffer: Buffer.from(safeBody, "utf8"),
-    });
+    },
+  );
 
   const finalized = await waitForEvidenceState(
     page,

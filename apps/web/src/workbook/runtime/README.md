@@ -42,7 +42,13 @@ conflict-submission accounting covers its real request only and ends before read
 recovery. Timeline History reads retain source-write ordering without contributing
 another mutation to the status strip.
 
-`WorkbookFeatureLifecycle` requires a lifecycle contribution for every feature.
+`WorkbookFeatureLifecycle` requires lifecycle, subscription and unsettled-write
+participation for every fixed feature. Aggregate status reads that same membership;
+the shared queue and private conflict submission remain separate contributions.
+`WorkbookMutationVersionComposition` wires fixed History, Timeline, Entity and
+accepted-write version recipients in source order. Indicator committed-record
+arbitration remains with the Indicator feature; the runtime exposes its facade
+and handles generic dispatch and lifetime coordination.
 The explicit PATCH contribution adapts incident closure to its authority API;
 Timeline supplies its specialized authority projection at its construction edge.
 Accepted read authority belongs to the runtime and is independent of individual
@@ -64,6 +70,7 @@ queued microtasks and mounted surface registrations.
 | [WorkbookMutationDriverRegistry.ts](WorkbookMutationDriverRegistry.ts) | Closed managed-patch/Timeline-row owner envelopes, exact driver registration, duplicate rejection, and absence-safe dispatch. |
 | [createWorkbookMutationRuntime.ts](createWorkbookMutationRuntime.ts) | Fixed construction entry with injectable clock, scheduler and transport. |
 | [WorkbookMutationFeatureAssembly.ts](WorkbookMutationFeatureAssembly.ts) | Concrete feature construction through bounded shared coordination capabilities. |
+| [WorkbookMutationVersionComposition.ts](WorkbookMutationVersionComposition.ts) | Fixed source-owner version recipient wiring for History, Timeline, Entity and accepted pending writes. |
 | [WorkbookFeatureLifecycle.ts](WorkbookFeatureLifecycle.ts) | Complete typed feature lifecycle and subscription membership. |
 | [WorkbookMutationRuntime.ts](WorkbookMutationRuntime.ts) | Shell-lifetime facade over queue coordination, conflicts, surface registration, managed patches, retry, transaction settlement, and status projection. |
 | [WorkbookMutationRuntimeRegistry.ts](WorkbookMutationRuntimeRegistry.ts) | App-owned registry retaining one incident-scoped mutation runtime across shell detachment and retiring it on scope replacement. |
@@ -129,8 +136,8 @@ its own reservation ID; other retained operations still block admission.
 The committed cache accepts validated contiguous collaboration patches for every
 known Core view before surface attachment. A missing predecessor raises only the
 version floor. The current source baseline must then be read before preparation.
-`surfaceRefreshRequired` and `refreshSurface` expose the existing surface registry
-under current read authority; the notice is presentation only.
+`getRefreshRecoverySnapshot` exposes retained surface debt and `refreshSurface`
+performs the read under current authority; the notice is presentation only.
 
 Local stale-field validation may admit a successor behind an existing grid write:
 a collaboration echo is committed evidence but does not settle that predecessor's

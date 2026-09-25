@@ -180,10 +180,6 @@ export class WorkbookExplicitPatchOwner {
   private readonly running = new Set<string>();
   private readonly rows = new Map<string, WorkbookQueryRow>();
   private readonly versions = new Map<string, number>();
-  private readonly receipts = new Map<
-    string,
-    WorkbookPendingMutationAccepted
-  >();
   private readonly listeners = new Set<() => void>();
   private snapshot: Snapshot = { revision: 0, authority: null, entries: [] };
   constructor(
@@ -268,7 +264,6 @@ export class WorkbookExplicitPatchOwner {
     this.contributions.clear();
     this.rows.clear();
     this.versions.clear();
-    this.receipts.clear();
     this.emit();
   }
   canSubmit() {
@@ -291,9 +286,6 @@ export class WorkbookExplicitPatchOwner {
   }
   latestRow(id: string) {
     return this.canRead() ? (this.rows.get(id) ?? null) : null;
-  }
-  latestReceipt(id: string) {
-    return this.canRead() ? (this.receipts.get(id) ?? null) : null;
   }
   observeRecordChanged(payload: RecordChangedPayload) {
     if (!this.canRead()) return;
@@ -337,9 +329,6 @@ export class WorkbookExplicitPatchOwner {
 
   observeReceipt(receipt: WorkbookPendingMutationAccepted) {
     if (this.retired) return;
-    const id = receipt.row.record_id;
-    if (receipt.row.row_version > (this.receipts.get(id)?.row.row_version ?? 0))
-      this.receipts.set(id, immutableClone(receipt));
     this.acceptRow(receipt.row);
   }
   acceptVersion(id: string, version: number) {

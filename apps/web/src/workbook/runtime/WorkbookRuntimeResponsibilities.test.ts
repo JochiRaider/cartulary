@@ -390,11 +390,17 @@ describe("Workbook runtime responsibilities", () => {
       authority,
     ]);
     const readScope = runtime.recordReadScope;
+    expect(runtime.indicatorRecords.getSnapshot().authority).toEqual(authority);
+    runtime.indicatorObservations.suspend();
+    expect(runtime.indicatorRecords.getSnapshot().authority).toBeNull();
+    expect(runtime.recordReadScope).toEqual(readScope);
+    runtime.indicatorObservations.setAuthority(authority);
+    expect(runtime.indicatorRecords.getSnapshot().authority).toEqual(authority);
     runtime.retainSurfaceRefreshDebt("another-source");
     runtime.explicitPatches.suspend();
     expect(runtime.recordReadScope).toEqual(readScope);
     expect(runtime.surfaceRefreshDebts()).toContain("another-source");
-    expect(runtime.surfaceRefreshRequired("another-source")).toBe(true);
+    expect(runtime.getRefreshRecoverySnapshot()).toContain("another-source");
     runtime.applyAuthorizationRecoveryState("paused", false);
     expect(runtime.recordReadScope).toEqual(readScope);
     runtime.setAuthority(authority);

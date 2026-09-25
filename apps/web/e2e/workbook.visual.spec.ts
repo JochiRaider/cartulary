@@ -3231,6 +3231,10 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
+    const filterTrigger = page.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+    );
+    await filterTrigger.evaluate((element) => (element as HTMLElement).blur());
     await assertViewportVisualRegression(
       page,
       "workbook-view-bar-saved-view-modified",
@@ -3244,23 +3248,20 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       "workbook-query-saved-view-query-controls",
     );
 
-    const filterTrigger = page.getByTestId(
-      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
-    );
     await filterTrigger.click();
     const filterPanel = page.getByTestId(
       workbookFilterPopoverTestId(timelineViewSchemaId),
     );
-    await filterPanel
-      .getByTestId(
-        workbookQueryOverflowEntryTestId(
-          timelineViewSchemaId,
-          "filter",
-          "timeline.tags",
-        ),
-      )
-      .click();
+    const overflowEntry = filterPanel.getByTestId(
+      workbookQueryOverflowEntryTestId(
+        timelineViewSchemaId,
+        "filter",
+        "timeline.tags",
+      ),
+    );
+    await overflowEntry.click();
     await expect(filterPanel).toHaveAttribute("aria-label", "Edit filter");
+    await overflowEntry.focus();
     await assertViewportVisualRegression(
       page,
       "workbook-view-bar-filter-editing-overflow",

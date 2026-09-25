@@ -137,11 +137,16 @@ it("TimelineScalarEditor leaves managed departure to the grid owner", () => {
   const onCloseGridEditor = vi.fn();
   const onKeyCommit = vi.fn();
   const registry = createTimelineEditorDraftRegistry();
+  const dataTestId = timelineScalarEditorTestId({
+    fieldKey: "timeline.activity_synopsis_text",
+    recordId: "record-2",
+    surface: "grid",
+  });
   render(
     <TimelineScalarEditor
       committedValue="Saved"
       controlId="managed-editor"
-      dataTestId="managed-editor"
+      dataTestId={dataTestId}
       editorDraftRegistry={registry}
       field="activitySynopsisText"
       onBlurCommit={vi.fn()}
@@ -153,12 +158,12 @@ it("TimelineScalarEditor leaves managed departure to the grid owner", () => {
       onKeyCommit={onKeyCommit}
       presenceFieldKey="timeline.activity_synopsis_text"
       registerInput={vi.fn()}
-      rowKey="row-1"
-      rowRecordId="record-1"
+      rowKey="record-2"
+      rowRecordId="record-2"
       surface="grid"
     />,
   );
-  const input = screen.getByTestId("managed-editor") as HTMLInputElement;
+  const input = screen.getByTestId(dataTestId) as HTMLInputElement;
   for (const key of ["Enter", "Tab"] as const)
     for (const modifier of ["ctrlKey", "metaKey", "altKey"] as const)
       fireEvent.keyDown(input, { key, [modifier]: true });

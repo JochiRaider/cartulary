@@ -860,6 +860,12 @@ test("Timeline completed ranges retain value refreshes and invalidate deleted me
     .getByRole("button", { name: "Retry", exact: true })
     .click();
   await expect(
+    page
+      .getByRole("group", { name: "Workbook browsing" })
+      .getByRole("button", { name: "Retry", exact: true }),
+  ).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Tab");
+  await expect(
     page.getByRole("group", { name: "Workbook browsing" }),
   ).not.toContainText("Retry");
   await dimensions(page, 3, 1);

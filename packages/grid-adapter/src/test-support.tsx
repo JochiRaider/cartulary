@@ -79,6 +79,9 @@ import {
   isInteractiveCellActionTarget,
   nativeEditorOwnsKey,
 } from "./domInteraction";
+
+export { gridEditorDepartureChord };
+
 import { GridOperationalStatePlane } from "./GridOperationalStatePlane";
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
 import { resolveSemanticGridCapabilities } from "./semanticCapabilities";

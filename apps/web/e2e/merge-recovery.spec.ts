@@ -233,9 +233,10 @@ async function exerciseRecovery(
     loser.record_id,
   );
   let failRefresh = true;
+  let failedRefreshReads = 0;
   await page.route(`**/views/${viewSchemaId}/query`, async (route) => {
     if (!failRefresh) return route.continue();
-    failRefresh = false;
+    failedRefreshReads += 1;
     await route.fulfill({
       status: 500,
       contentType: "application/json",
@@ -265,6 +266,7 @@ async function exerciseRecovery(
     .getByRole("button", { name: "Replay exact merge request" })
     .click();
   await expect(recovery).toContainText("Refresh is still required");
+  expect(failedRefreshReads).toBeGreaterThan(0);
   expect(requests).toHaveLength(2);
   expect(requests[1]).toBe(requests[0]);
   const receipt = receipts.at(-1);
@@ -282,12 +284,12 @@ async function exerciseRecovery(
     body: await recovery.screenshot(),
     contentType: "image/png",
   });
+  failRefresh = false;
   await recovery
     .getByRole("button", { name: "Refresh completed merge" })
     .click();
   await expect(recovery).toContainText("current projections refreshed");
   expect(requests).toHaveLength(2);
-  expect(failRefresh).toBe(false);
   const rows = await queryViewRows(page, incidentId, viewSchemaId);
   const timeline = await queryViewRows(page, incidentId, timelineViewSchemaId);
   const history = await fetchFullRecordHistory(page, survivor.record_id);

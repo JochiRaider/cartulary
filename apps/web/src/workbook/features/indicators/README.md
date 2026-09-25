@@ -8,6 +8,10 @@ Creation, lifecycle, and Observation operations each retain drafts, captured
 attempts, receipts, and reconciliation independently of presentation attachment.
 Transport lives in [workbook adapters](../../adapters/README.md); shared
 [History](../../history/README.md) and query owners supply current materialization.
+`createIndicatorCommittedRecords.ts` arbitrates the three Indicator owners'
+committed rows against their version floors and History, and conceals rows when
+their combined read authority is lost. The Workbook runtime exposes its typed
+record facade without owning that source decision.
 
 ## Canonical Indicator creation
 

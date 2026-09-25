@@ -8,7 +8,7 @@ import type {
 import { workbookSavedFieldEqual } from "../models/workbookSavedValues";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
-import type { WorkbookAcceptedRecordPort } from "../query/WorkbookCommittedRecordPort";
+import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type {
   PendingReplayScope,
@@ -79,7 +79,10 @@ type WorkbookManagedPatchDriverOptions = {
   readonly clock: WorkbookClockPort;
   readonly conflicts: WorkbookConflictStore;
   readonly drafts: WorkbookGridDraftStore;
-  readonly records: WorkbookAcceptedRecordPort;
+  readonly records: Pick<
+    WorkbookCommittedRecordPort,
+    "latestRow" | "latestVersion"
+  >;
   readonly drivers: WorkbookMutationDriverRegistry;
   readonly emit: () => void;
   readonly executeMutation: WorkbookPendingMutationPort["execute"];

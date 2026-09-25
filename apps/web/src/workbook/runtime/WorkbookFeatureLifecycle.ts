@@ -2,6 +2,7 @@ import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAut
 import type { WorkbookMutationFeatures } from "./WorkbookMutationFeatureAssembly";
 
 export type WorkbookLifecycleContribution = {
+  readonly unsettledMutationCount: number;
   setAuthority(authority: WorkbookMutationAuthority | null): void;
   suspend(): void;
   closeIncident(): void;
@@ -29,6 +30,9 @@ export class WorkbookFeatureLifecycle {
     this.contributions = {
       ...features,
       explicitPatches: {
+        get unsettledMutationCount() {
+          return features.explicitPatches.unsettledMutationCount;
+        },
         setAuthority: (authority) =>
           features.explicitPatches.setAuthority(authority),
         suspend: () => features.explicitPatches.suspend(),
@@ -44,6 +48,18 @@ export class WorkbookFeatureLifecycle {
         subscribe: (listener) => features.explicitPatches.subscribe(listener),
       },
     };
+  }
+
+  get unsettledMutationCount(): number {
+    return (
+      Object.values(this.contributions).reduce(
+        (total, owner) => total + owner.unsettledMutationCount,
+        0,
+      ) +
+      this.timeline.actions.unsettledMutationCount +
+      this.timeline.mentions.unsettledMutationCount +
+      this.timeline.mutations.unsettledMutationCount
+    );
   }
 
   subscribe(

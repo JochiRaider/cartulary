@@ -4,14 +4,17 @@
 
 - Target: `apps/web`; target label: `web-apps-cleanup`; output: `docs/handoffs/web-apps-cleanup-tracker.md`.
 - Label posture: the user-supplied label is already lowercase kebab case. It labels this cleanup of `apps/web`; it is not a domain/module identity or an algorithmic claim that the path alone produces that label.
-- Current authorization: **implement iteration 3, S-18–S-23, in sequence through integrated validation and final handoff**. The user's implementation request supersedes the earlier document-only boundary. Preserve the staged planning artifact and historical exits; save each workstream exit before starting its successor.
+- Current authorization: execute the user-approved iteration 4 remediation plan through S-28. The earlier document-only boundary and its completion record remain historical. Each slice is a separate workstream; update this tracker after its exit before starting the next.
 - Current exclusions: deployment, shared-environment resets, migration/reinterpretation of legacy state, visual redesign, durable browser draft storage, cross-tab queues, generic plugin/workflow engines, unrelated dependency upgrades, and conformance/performance publication claims. Future phase growth is a design constraint, not authority to build speculative features or preserve incidental behavior.
-- Current delivery checkpoint: **S-18–S-23 DONE**. T-027 and S-00–S-17 remain DONE; RB-001–012 remain closed by their saved exits. Earlier document-only authorization and provisional statuses below remain historical. In particular, the archival T-017 TODO cell is superseded by the saved S-09 DONE exit and S-17 reconciliation.
+- Current delivery checkpoint: **S-00–S-28 DONE**. T-034 is the completed document update; T-035–T-039 record the implementation and handoff exits below. T-027–T-033 and the saved iteration 1/2 exits remain complete; RB-001–021 are closed by their saved exits. Earlier authorizations, provisional TODO tables, dirty/index states and next-action instructions are historical. In particular, archival T-017 is superseded by the S-09/S-17 exits, and the iteration 3 planning table is superseded by S-18–S-23 completion.
+- Current baseline: `main`, commit `8d46c23385e248e3703ef791fc4106d6de7f3e62`, clean working tree and index before this document update; 1,751 tracked `apps/web` paths and 1,191 source-ownership entries. The iteration 4 additions and final document handoff govern the present task.
 - Iteration 2 baseline: `main`, commit `a3ed2bd169cf1955f405bfc14b4cca8bd9b1d749`, clean working tree before this document update. Iteration 1 began at `19e30dbcaa87959d447123ba155af8f96190f163` with an already-staged tracker; that earlier index-preservation posture is historical. The completed implementation and tracker are now committed. Canonical documentation checks may create ordinary ignored outputs.
-- First source read: `docs/handoffs/cartulary_modular_refactor_planning_framework.md`. The framework is doctrine/template, not evidence of current implementation. `AGENTS.md` and the `refactor-tracker` skill and its format reference were read in the preceding planning turn; no nested target AGENTS file was found.
+- Original inventory's first source read: `docs/handoffs/cartulary_modular_refactor_planning_framework.md`. The framework is doctrine/template, not evidence of current implementation. Iteration 4 reviewed repository instructions, the `refactor-tracker` skill and its format reference, the framework, supplied documents and the scoped live sources identified below; no nested target AGENTS file was found.
 - Authority: adopted subsystem NLSpecs only within their named scope; then Core 00–04 for implementation conformance; Core 05 only for claim-bearing timed/fixture-sensitive publication; domain vocabulary and support guides; current code/tests for implementation state; prior plans/framework last. This tracker creates no runtime requirements. Source-owner IDs, verification IDs and catalog rows are distinct accounting dimensions.
 
 ### Inspected owner and supporting documents
+
+This table preserves inspections from earlier sessions. The iteration 4 scope paragraph below identifies the documents and source boundaries reviewed for the current plan; inherited inspection entries are not fresh conformance evidence.
 
 | Source | Sections inspected / posture | Use here |
 | --- | --- | --- |
@@ -34,7 +37,7 @@
 
 ### Repository inspection depth and limits
 
-Every tracked target text file was opened and read for a structural inventory; binary assets are explicitly excluded below. The inventory records declarations, import edges, test titles, catalog rows and file kinds from live inputs. It is **not** a claim that every function body received an independent conformance audit. Source/import walks use the installed TypeScript parser to read static imports, exports and literal dynamic imports (including type imports); they do not prove runtime reachability or execute tests. Nonliteral imports require later review. A missing static test edge is not proof of missing browser coverage.
+The original inventory session opened every then-tracked target text file for structural inventory; binary assets are explicitly excluded below. That historical inventory records declarations, import edges, test titles, catalog rows and file kinds from its baseline. It is **not** a claim that every function body received an independent conformance audit or that iteration 4 reread every file. Original source/import walks used the installed TypeScript parser for static imports, exports and literal dynamic imports (including type imports); they do not prove runtime reachability or execute tests. Nonliteral imports require later review. A missing static test edge is not proof of missing browser coverage. Iteration 4 supplies current path reconciliation and a bounded source/consumer review separately.
 
 Deeper review covered browser transport, incident collaboration planning, route state, Workbook query acceptance, contract-row adaptation, saved-view adapters, projection-refresh triggers, mutation runtime/registry/ports, pending queue and tests, semantic continuity, Import request capture, Evidence upload, extension availability, and the three app-local test surfaces with their callers. Backend review covered Workbook query/mutation registration and guards, Timeline admission, Saved Views registration, Revisions registration, Collaboration WebSocket registration, Evidence registration, Network Flow admission, Projections adapters and generic operation binding.
 
@@ -65,9 +68,19 @@ The supplied `docs/research/nlspec-spec.md` is a specification-quality review le
 Prefer removal of proven obsolete interfaces, a single retained owner for operation state, and committed presentation attachment over aliases or general-purpose abstractions. Similar names and file size alone do not justify merging feature owners. Existing provenance such as `legacy_import`, historical artifacts and current versioned source contracts are not retirement candidates merely because their names look old.
 
 
+### Iteration 4 — approved document-update boundary
+
+The user selected structural cleanup: proven removals plus bounded simplification of Workbook feature coordination. Only this tracker may change in this task. Retain the twelve sections and useful implementation history; install the new findings and dependent slices without production, test, contract, dependency, configuration, harness or generated-file edits. T-034 documents this delivery; every S-24–S-28 implementation action requires a later authorized task.
+
+The baseline above was rechecked on 2026-09-25 UTC. The preceding planning pass ran `make frontend-fallow-static`, PASS 2/2 at `.cartulary/test-results/20260925T004247Z-p64796`; its bounded web and package findings are both zero. The raw report has 117 advisory class-member candidates; the wrapper separately summarizes 214 advisory findings outside its bounded rules. These are different accounting sets, not a combined removal target. The health subreport exited 1 nonblocking under the existing policy; the public target passed. No blanket class-member gate or suppression change is proposed.
+
+Current source inspection covered `WorkbookMutationRuntime`, `WorkbookFeatureLifecycle`, `WorkbookMutationFeatureAssembly`, infrastructure/presentation composition, Explicit Patch and managed-patch handling, committed-record ports, Assessment authoring, Indicator lifecycle, runtime/autosave tests, relevant source guides and authored test routing. Core 03 REQ-03-089/099/100/282/299 were read for status, retained work, committed versions and authority. `docs/design.md` §§1–2/4 supplies bounded design direction; `docs/domain.md` supplies vocabulary and owner navigation; `docs/research/nlspec-spec.md` supplies specification-quality guidance. Their instructions are not additional user requests, and the research document is not adopted behavioral authority.
+
+Production readiness here means simpler supported interfaces, one accountable feature membership, source-owned reconciliation and reproducible regression evidence. Preserve existing product capabilities and current public/storage formats. Defer source-specific coordination-policy or polling rewrites, harness-wide advisories and the historical measurement capture-identity limitation. There is no new framework, speculative registry, migration, dependency upgrade, release certification or deployment authorization.
+
 ## 2. Current-State Repository Inventory
 
-Snapshot time: `2026-09-22T16:05:28Z`. **1737 tracked target files**: 1,365 TypeScript/TSX files, 63 Markdown files, 11 JSON files, two HTML entries, one CSS file, seven text/license files, 31 font binaries, 255 PNG goldens, one XLSX fixture and one sentinel. All have exact-path rows below. The 1,449 tracked text files were structurally read; 287 binary files and the sentinel are explicitly excluded from semantic refactoring.
+Original historical snapshot time: `2026-09-22T16:05:28Z`. **1737 tracked target files**: 1,365 TypeScript/TSX files, 63 Markdown files, 11 JSON files, two HTML entries, one CSS file, seven text/license files, 31 font binaries, 255 PNG goldens, one XLSX fixture and one sentinel. All have exact-path rows below. The 1,449 tracked text files were structurally read; 287 binary files and the sentinel are explicitly excluded from semantic refactoring. Iteration-specific reconciliations at the end of this section supersede original path counts and source responsibilities where changed.
 
 Inventory key: each row has a stable path-derived `F-…` ID. IDs in caller/test columns resolve to the path in that row; paths outside the target remain written in full. “Tests touching it” lists direct static import tests and transitive test-owner accounting, not executed coverage. Source owner is an accounting baseline/candidate, not a permanent module decision. Export lists include named declarations and explicit export clauses; dynamic/computed public surfaces require review before movement. “No direct generated import” does not imply absence of transitive contracts; §4 freezes the transitive interfaces.
 
@@ -2405,6 +2418,27 @@ Additional directly inspected seams and their dependency closure:
 Shared package facades, backend source owners, generated contracts and active layout/bundle versions are retained. Their existing contract evidence informs the plan; this iteration proposes no backend relocation or generic workflow framework. Unreviewed advisory class members and unrelated duplicate names are explicit exclusions from this bounded deletion ledger, not claims that they are dead or that the whole repository is free of cleanup opportunities.
 
 
+### Iteration 4 inventory reconciliation and scoped evidence
+
+At `8d46c23385e248e3703ef791fc4106d6de7f3e62`, `git ls-files apps/web` lists 1,751 paths; `tools/frontend_source_ownership.json` accounts for 1,191 source entries. The prior tracker names 1,747 of the current paths. The four additions below complete current path accounting. Earlier rows remain historical structural evidence, not a claim that their original exports/callers remain current. Other files retain their recorded owner or explicit artifact exclusion and are outside this iteration's proposed semantic changes; current caller migration remains mandatory in S-24. The comparison from iteration 3's starting commit to current HEAD touches 139 web paths, so earlier detailed bodies/test results cannot substitute for a fresh execution baseline.
+
+| Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `apps/web/e2e/timeline-attachment-feedback.spec.ts` | Production browser attachment feedback and bounded presentation evidence | Playwright scenario | Authored browser routing | Semantic grid helpers, incident/Evidence fixtures, visual preferences | Its attachment feedback scenario | Consumes UI/View package contracts; generates no contract | Timeline/Evidence browser verification | medium | Inventory addition only; preserve scenario and harness identity. |
+| `apps/web/src/workbook/features/evidence/EvidenceAttachmentEntry.test.tsx` | File chooser invocation, replacement, cancellation and authoring-focus tests | Vitest suite | Authored frontend routing | EvidenceAttachmentEntry, draft-row action and row fixtures | Four chooser behavior cases | Consumes UI test IDs | Workbook Evidence | low | Inventory addition only; not dead test support. |
+| `apps/web/src/workbook/timeline/components/TimelineAttachmentFeedback.test.tsx` | Outcome, focus, announcement and source-specific recovery tests | Vitest suite | Authored frontend routing | Timeline feedback/details and retained file-owner types | Seven attachment feedback cases | Existing presentation contracts | Workbook Timeline/Evidence | medium | Preserve completed receipt and retained recovery assertions. |
+| `apps/web/src/workbook/timeline/components/TimelineAttachmentFeedback.tsx` | Timeline file feedback and details presentation | TimelineAttachmentDetails, TimelineAttachmentFeedback | Timeline composition/Inspector | Evidence recovery renderer, retained file owner, React and shared styles | Colocated suite and browser scenario above | Existing UI/design projections | Workbook Timeline presentation | medium | Legitimate current feature; outside structural refactoring scope. |
+
+| Scoped source / consumer evidence | Current finding | Planned disposition and test posture |
+| --- | --- | --- |
+| `features/assessments/WorkbookAssessmentAuthoringOwner.ts:261` under `apps/web/src/workbook` | `invalidateReview` has no Assessment caller. Same-named Entity merge commands are live, distinct behavior. | Remove only the Assessment method; retain its review revision state and actual candidate/authority invalidation paths. Preserve retained append and review tests. |
+| `runtime/WorkbookMutationRuntime.ts:256`, `runtime/WorkbookGridAutosave.test.ts:335`, `runtime/WorkbookRuntimeResponsibilities.test.ts:397` | `surfaceRefreshRequired` is a duplicate query used only by two tests; production consumes refresh-debt snapshots and refresh actions. | Remove helper and update assertions against consumed debt/read-recovery behavior. Do not remove the underlying registry debt policy. |
+| `runtime/WorkbookExplicitPatchOwner.ts:183/295/338`, `query/WorkbookCommittedRecordPort.ts`, `runtime/WorkbookManagedPatchDriver.ts:82/379`, `runtime/WorkbookGridAutosave.test.ts:329` | Per-record full-receipt cache serves only `latestReceipt` and its own replacement check; the sole reader is a test. The managed driver's AcceptedRecord port requires receipt methods it never calls. | Delete duplicate cache/accessor/type, narrow driver input to latest row/version reads; retain runtime receipt admission, validation, authoritative rows and per-operation receipts. |
+| `runtime/WorkbookFeatureLifecycle.ts`, `runtime/WorkbookMutationFeatureAssembly.ts`, `runtime/WorkbookMutationRuntime.ts:981` | Fixed lifecycle membership already exists, while status separately enumerates all retained feature counters. | Extend the existing contribution mechanism; keep queue, conflict submission and late Timeline contributions distinct and counted once. |
+| `runtime/WorkbookMutationRuntime.ts:303/530/660/917/1080`, `composition/createWorkbookMutationInfrastructure.ts`, `composition/attachWorkbookMutationPresentation.ts`, `collaboration/WorkbookCollaborationCoordinator.ts` | Runtime owns Indicator row aggregation and recipient-specific version propagation across History, Timeline, Entity and accepted pending writes. | Indicator aggregation moves to its feature owner; cross-feature propagation moves to fixed composition wiring with existing facade and order preserved. |
+
+Paths in the scoped table are relative to `apps/web/src/workbook` unless fully qualified; line numbers identify this baseline, not permanent anchors. Opened source declarations, bodies and actual consumers support these findings. Static candidates alone do not: live query methods, authority-generation accessors, lifecycle callbacks and Timeline driver members appeared among the 117 advisories and are retained. S-24 must refresh the exact caller ledger after any intervening code change.
+
 ## 3. Module Boundary Diagnosis
 
 `apps/web` is a **legitimate frontend application and controller surface with multiple internal owners**, transport-adjacent adapters, view/query orchestration and mutation coordination. It is not a thin service facade, nor evidence of a permanent `web-apps-cleanup` domain. Large composition files and a semantic queue under `utils` are coupling findings; they do not prove the whole application is an accidental catch-all. Authoritative persistence, projections, source validation and revision commits remain backend responsibilities in the inspected route/provider chain.
@@ -2453,6 +2487,17 @@ The original diagnosis above describes pre-iteration-1 state. Its deferred runti
 | Source-specific semantics and historical representations | Indicators, Evidence, Parties, Timeline, Revisions and existing current contracts | Existing distinct owners | keep | No feature-owner merger, provenance rewrite, API narrowing or renewed v1-layout/bundle-3 retirement work. |
 | Remaining raw class-member/duplicate-name findings | Advisory Fallow reports | Existing tooling and actual consumer owners | defer | No broad blocking rule, automatic deletion, artificial imports or suppressions; trace separately before any expanded cleanup. |
 
+
+### Iteration 4 boundary decisions
+
+| Responsibility found | Current location | Correct owner | Keep / move / split / defer | Evidence and decision |
+| --- | --- | --- | --- | --- |
+| Dead review method and duplicate status query | Assessment owner and runtime facade | Existing owners with smaller supported interfaces | keep | Remove proven unused entry points, not review/debt behavior. |
+| Committed rows versus duplicate full-receipt lookup | Explicit Patch cache and managed-driver port | Explicit Patch retains rows/version floors and operation receipts; managed driver receives read-only record facts | split | Remove unconsumed cache and oversized interface without discarding uncertain-attempt recovery. |
+| Feature lifecycle, subscriptions and write-count membership | Fixed feature lifecycle plus handwritten runtime sum | Existing fixed Workbook feature contributions | keep | Require status participation alongside lifecycle participation; no dynamic plugin registration or generic workflow abstraction. |
+| Indicator committed-row arbitration | Inline runtime `indicatorRecords` object | `workbook/features/indicators` | move | Preserve all three Indicator owners, History version floor and authority-sensitive publication behind the existing record port. |
+| Cross-feature version propagation | Runtime callbacks and repeated recipient lists | Workbook composition | move | Fixed wiring owns recipient policy; source owners retain validation/reconciliation. Runtime retains generic queue, conflict, scheduling and status coordination. |
+| Source-write coordination policies and wait loops | Runtime/source owner boundaries | Existing owners | defer | Their different reservation and blocking semantics are not proven duplicates. Keep this iteration behavior-preserving. |
 
 ## 4. Public Contract and Behavior Freeze Map
 
@@ -2680,6 +2725,16 @@ C-01–C-27 and their completed dispositions remain historical. The new freeze m
 No new route, OpenAPI alternative, layout identifier, bundle format or compatibility alias is planned. No normative amendment is needed to weaken an existing owner rule. If characterization reveals an owner ambiguity or contradiction, record the exact clauses and resolve it before dependent implementation; do not silently treat the implementation as authority. Backend validation, source integrity and server authorization remain unchanged.
 
 
+### Iteration 4 contract additions
+
+| Contract | Owner / current evidence | Existing tests | Required characterization | Risk and compatibility |
+| --- | --- | --- | --- | --- |
+| C-32 — Accepted record facts and receipt lifetime | Core 03 REQ-03-099/100/282; Explicit Patch admission, rows/version floors, managed first-dispatch base and retained operation entries | WorkbookGridAutosave, WorkbookExplicitPatchOwner and Assessment retained append suites | Authoritative acceptance before failed refresh; newer drafts and accepted rows survive; older query rows cannot lower the floor; malformed success stays uncertain; refresh recovery performs reads without replaying accepted writes | Remove only internal duplicate cache/accessors and unused port requirements. Preserve receipt validation, `observeReceipt` and live per-operation recovery receipts. No request/storage migration. |
+| C-33 — One feature contribution per lifecycle and unsettled write | Core 03 REQ-03-089/099/100/299; fixed WorkbookFeatureLifecycle and status projection | Runtime responsibilities, save-status and committed-attachment suites | Exhaustive feature membership; single counting; partial initialization, late Timeline attachment, concurrent owners, acknowledgement/uncertainty, authority suspension and one-time retirement | No changed labels, admission policy or queue accounting. Timeline mutation driver work is already represented by the shared queue; do not count it again. |
+| C-34 — Source-owned records and composition-owned propagation | Core 03 REQ-03-282/299; current Indicator aggregate and History/Timeline/Entity/pending-write recipients | Indicator observations reconciliation, lifecycle, runtime, History and entity-merge suites | Preserve authority transitions, History version floors, stale/equal-version selection, recipient order, schema guards, Assessment deletion, accepted receipts and late outcomes | Existing consumed runtime facade remains. Source semantics and current coordination policies are preserved, not generalized from similar method names. |
+
+Earlier route/envelope, WebSocket, saved-view, storage, authorization, replay, selector, generated-contract and harness freezes remain applicable. No new product behavior or adopted-owner amendment is planned. A demonstrated owner contradiction must identify both clauses and block its dependent slice; no reviewed contradiction currently blocks planning.
+
 ## 5. Coupling and Boundary Findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
@@ -2735,6 +2790,18 @@ These are new, scoped findings at `c1dccf7ae9900035b372d225899d8afada4e3588`; th
 Rejected alternatives: preserve unused ports as compatibility shims; feed counters with artificial consumers; add a generic operation framework; make all 155 class-member findings blocking; unify unrelated same-named helpers; or weaken adopted save/browsing behavior to match current code. The required bounded file/value/type reachability gate remains in ordinary check and CI.
 
 
+### Iteration 4 findings and remediation decisions
+
+| Finding / classification | Evidence | Risk | Proposed owner and remediation | Future benefit / acceptance |
+| --- | --- | --- | --- | --- |
+| FND-32 / should_fix | Assessment `invalidateReview` has no caller; runtime `surfaceRefreshRequired` has only two test callers | Obsolete interfaces suggest supported capabilities and duplicate the production observation surface | Existing Assessment/runtime owners; remove the two methods and migrate tests to actual review/debt behavior | Smaller supported interfaces; no removed-member references, weakened assertions or compatibility aliases; S-25. |
+| FND-33 / should_fix | `latestReceipt` serves one autosave assertion; its duplicate cache has no production reader; managed driver reads only latestRow/latestVersion from WorkbookAcceptedRecordPort | Redundant retained state and unnecessary capability requirements grow with future record work | Explicit Patch keeps source facts and operation receipts; driver receives only record-read functions; remove cache/accessor and AcceptedRecord interface | One meaningful representation per responsibility, without losing acceptance/recovery; C-32 evidence and type-safe migration pass; S-25. |
+| FND-34 / should_fix | Lifecycle uses typed fixed feature membership; calculateSnapshot separately lists eighteen feature counters plus late Timeline contributions | A future owner can receive lifecycle events but disappear from aggregate status, or be counted twice | Extend existing fixed lifecycle contributions with unsettled-write participation; retain queue/conflict accounting separately | Exhaustive membership, one contribution per admitted write and complete teardown; no generic registry; S-26. |
+| FND-35 / should_fix | Runtime inline Indicator aggregation and source/schema-specific propagation lists | Central runtime accumulates source decisions and becomes harder to extend or test independently | Indicator feature owns its committed-record aggregate; fixed composition owns cross-owner version propagation | Runtime keeps generic coordination; source owners remain distinct; C-34 behavior/order preserved by integration evidence; S-27. |
+| FND-36 / intentional/no_action | Zero bounded findings alongside 117 raw member candidates and 214 separately counted wrapper advisories; live callbacks appear in the candidate report | Blanket deletion or gate expansion would damage supported interfaces or obscure evidence | Existing reachability/tooling owner; preserve current blocking rules and review only the bounded ledger | No suppression growth, invented dependency cleanup or claim that all raw findings are defects. Wider tooling and measurement work remains deferred. |
+
+These are maintainability findings, not newly reproduced product failures. File length alone is not evidence for splitting. Rejected alternatives are keeping dead cache/interfaces for hypothetical consumers, moving source policy into a generic workflow engine, adding artificial imports, broadening static gates to every class member, or consolidating source owners because their methods look alike.
+
 ## 6. Refactor Workstreams
 
 Workflow numbers follow the user-requested planning structure, not the framework's longer WF-00–13 numbering. `parallel` means independent analysis after prerequisites; it does not authorize parallel code writes or spawn agents. All planning outputs remain in this tracker.
@@ -2780,6 +2847,18 @@ Each slice is a separate workstream. Required future order is **S-18 → S-19 �
 | S-22 | Query ownership and committed registration | chain | S-21 DONE | S-23 | FND-31; query registry, hooks and explicit test providers | Lifetime/continuation/authority evidence, fixture migration and cleanup accounting saved. |
 | S-23 | Integrated validation and handoff | chain | S-18–S-22 all DONE | none | Reconcile every new finding/contract/path, acceptance and engineering readiness | Finalizer precedes broad check; fresh required gates pass and self-contained handoff is saved last. |
 
+
+### Iteration 4 workstream graph
+
+The present task installs this graph only. Future order is **S-24 → S-25 → S-26 → S-27 → S-28**, after a later implementation authorization. Save prerequisites and IN_PROGRESS before each slice, then the exact change/caller ledger, results, compatibility, rollback and completed exit before its successor. An unmet implementation gate is BLOCKED; no historical pass substitutes for current results.
+
+| Workflow ID | Name | Class | Required previous | Required subsequent | Goal / likely files | Validation and handoff checkpoint |
+| --- | --- | --- | --- | --- | --- | --- |
+| S-24 | Freeze evidence and contracts | root | S-23 DONE; T-034 DONE; later implementation task | S-25 | Refresh §2 candidates, C-32–34 and affected owner/test routing | Current baseline, exact removals, retained members and pre-change characterization saved. |
+| S-25 | Remove dead capabilities and duplicate state | chain | S-24 DONE | S-26 | Assessment, Explicit Patch, committed-record port, managed driver and runtime helpers | Behavior assertions, no remaining removed-symbol consumers, type/boundary/reachability evidence saved. |
+| S-26 | Unify lifecycle and status membership | chain | S-25 DONE | S-27 | Existing fixed feature assembly/lifecycle and aggregate runtime status | Exhaustive membership, once-only accounting, late attachment and lifecycle regression results saved. |
+| S-27 | Restore source and composition ownership | chain | S-26 DONE | S-28 | Indicator record aggregate and fixed version propagation wiring | Source-specific ordering, authority, version and deletion parity demonstrated through real consumers. |
+| S-28 | Validate and close | chain | S-24–S-27 DONE | none | Findings, contracts, implementation/accounting and engineering handoff | Fresh final gates, explicit limitations, exact changed files and rollback saved last. |
 
 ## 7. Refactor Slice Plan and Execution
 
@@ -2959,6 +3038,26 @@ Implementation defaults: local form validation and focus feedback remain present
 Do not remove the remaining real conflict-submission accounting merely because other manual wrappers disappear. Keep it private to its runtime owner and exclude post-acknowledgement refresh. Do not replace unrelated read ordering with a new mutation queue or invent a generic workflow engine.
 
 
+### Iteration 4 planned implementation checkpoints
+
+All five slices are **TODO**. They are internal, behavior-preserving changes; no public-format retirement is selected. Removing live user capabilities, changing coordination/polling policy or modifying adopted behavior is outside this plan and requires a separately scoped authorization. The current document update implements none of these slices.
+
+| Slice ID | Depends on | Intended change / likely files | Contract risks | Tests to add or preserve | Validation | Rollback | Completion criterion |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S-24 | S-23 and T-034 DONE; later implementation task | Refresh HEAD/status, path/source parity, candidate production/test/interface consumers and exact catalog routing. Characterize current fixed membership, acceptance/read recovery and source propagation before moving them. | Mistaking advisory/static absence or historical passes for proof; overlooked structural consumers | Existing runtime, autosave, Assessment, Indicator, History and attachment cases; controlled event/receipt/authority observations | Owner task guides; focused catalog rows; frontend-fallow-static; inventory and consumer audit | Characterization/accounting independently reversible; no product deletion in this slice | Exact candidate disposition and contract/test map saved; discovered failures have concrete relevance, evidence and dependent exits. |
+| S-25 | S-24 DONE | Remove Assessment invalidateReview and runtime surfaceRefreshRequired. Remove Explicit Patch latestReceipt, private duplicate receipts map and its cache-only bookkeeping. Remove WorkbookAcceptedRecordPort; give managed driver only latestRow/latestVersion read capabilities. Migrate callers, meaningful assertions and source guides together. | Accidentally removing active review invalidation, accepted row/version state or per-operation receipt recovery | Acceptance followed by failed refresh; latest row/version floor; newer drafts; malformed receipts; uncertainty/replay; authority concealment and retirement; refresh debt and reads without repeated writes | Selected web.workbook rows; typecheck; import/architecture; reachability; build-web | Restore interface/cache/helpers and their genuine consumer tests together; no data conversion | All selected dead surfaces gone; observeReceipt, validation, accepted records and live operation receipts retained; no aliases/artificial consumers; focused gates pass. |
+| S-26 | S-25 DONE | Extend existing fixed feature contribution mechanism to carry lifecycle/subscription and unsettled-count participation. Derive feature status from that membership; remove the handwritten runtime feature sum. Preserve shared queue/conflict accounting and lazy Timeline owners. | Omitted/double-counted feature, initialization reentrancy, stale subscription or duplicate teardown | Exhaustive current membership; one contribution per owner; simultaneous owners; acknowledged refresh versus unsettled work; late actions/mentions; queue-counted Timeline writes; suspension, detach and retirement | Runtime/status/attachment rows; affected real-owner tests; type/boundary/reachability/build | Restore contribution contract, assembly, projector inputs and callers together | One exhaustive fixed membership drives feature lifecycle/status; private conflict submission and queue work remain separately counted exactly once; no dynamic registry or owner merger. |
+| S-27 | S-26 DONE | Place Indicator committed-record aggregation under features/indicators. Move History, Timeline, Entity and accepted pending-write version propagation into fixed construction wiring. Inject semantic callbacks through existing assembly; retain consumed runtime facade and generic coordination. | Changed authority publication, stale/equal-version arbitration, recipient order, reentrant notifications, schema-specific deletion or late receipt handling | Indicator three-owner initialization/loss; History floors; stale and equal rows; exact recipients/order for each event origin; Assessment deletion; concurrent explicit/autosave work; retirement; existing History/Entity/Indicator integrations | Affected catalog rows and authority/recovery/browser scenarios; type/boundary/reachability/build; source ownership accounting | Revert extracted owner/composition wiring with runtime facades, callers, tests and metadata; include S-26 if interfaces cross | Runtime no longer implements Indicator arbitration or recipient lists; source-owned behavior remains intact; facade and integration evidence demonstrate parity. |
+| S-28 | S-24–S-27 DONE | Reconcile FND-32–36, C-32–34, removed/retained interfaces, exact file changes and validation. Save complete engineering handoff and compatibility/rollback limits. | Unsupported readiness claim, hidden skip, stale evidence or incomplete coordinated rollback | Preserve every affected behavioral regression and semantic routing identity; no relaxed visual policy | Finalizer before check and final browser gates; catalog/generation checks when inputs change; final Markdown/diff/scope checks | Revert complete structural slices with all callers/tests/accounting; retain failed-run evidence | Required gates pass on final implementation; applicable exits closed; deferred tooling/measurement limits explicit; self-contained handoff saved. |
+
+Implementation decisions:
+
+- Receipt removal concerns the unconsumed per-record full-receipt cache, not authoritative acceptance. `observeReceipt` remains the admission path for accepted rows; its validation callers, row/version floors, transaction settlement and operation-owned receipts remain. The driver input becomes a read-only capability with `latestRow` and `latestVersion`, derived from the existing committed-record port. Replace the test-only full-receipt assertion with accepted row/version, completion and actual recovery/dispatch assertions; preserve separate complete-receipt validation tests.
+- Fixed retained feature contributions require an unsettled-write count alongside their existing lifecycle/subscription capabilities. Derive membership from the existing typed feature set, preserve current order, and keep the Explicit Patch close-incident adapter. Actions and mentions attach through their existing retained Timeline lifetimes; the Timeline mutation driver is counted by the queue and is not a second feature write contribution. Keep runtime-owned conflict submission private and stop counting it at settlement.
+- Indicator aggregation preserves the current three owners, partial-initialization notification rule, immediate authority-loss concealment, History version floor, stale-row filtering, equal-version tie order and acceptance propagation order. Keep the runtime's consumed `indicatorRecords` facade typed as the existing committed-record capability; transport and domain meaning stay with source owners.
+- Fixed composition owns version recipient lists for History receipts, Decision supersession receipts, Timeline observations, Entity observations and accepted pending dispatch. Preserve existing recipient order, guards and side effects, including batch prerequisite rows, Assessment deletion and Explicit Patch receipt admission. Inject callbacks through construction; do not make the generic runtime import React/shell composition, introduce a global event bus or deduplicate different source policies by name. S-24 records these exact origin/recipient traces before S-27 movement.
+- S-25–S-27 update local source guides and authored source ownership/catalog inputs only when their actual code/test changes require it. Use public generation targets for derived artifacts. This tracker is human guidance and never a machine-test or runtime input.
+
 ## 8. Validation Plan
 
 The following is the preserved planning-session routing inventory. Current executed results, failures and accepted replacements appear in §7 and the final handoff; the original no-execution statement below applies only to tracker creation.
@@ -3042,6 +3141,40 @@ New characterization must have authored catalog coverage through the repository'
 Retained planning evidence: `make frontend-fallow-static` PASS 2/2 at `.cartulary/test-results/20260923T021055Z-p33918`; the bounded web and package findings are zero. Raw advisory findings and the health subreport's nonblocking exit 1 remain visible in `frontend-fallow-static/fallow-static-summary.json` and `frontend-fallow-static/fallow/dead-code.json` under that root. This is baseline discovery evidence, not a pass for any future remediation. The document session rechecked the unchanged revision, inventory and ownership rather than rerunning product suites.
 
 
+### Iteration 4 validation matrix
+
+Current task validation is document-only. The future implementation matrix is not an instruction to run product suites now. Commands run from the repository root; this shell uses `PATH="$PWD/tmp/node-runtime/bin:$PATH"` for the pinned Node runtime. No toolchain change is proposed.
+
+| Layer / phase | Command or evidence | Scope and timing | Required result / limitation |
+| --- | --- | --- | --- |
+| Current document update | make lint-markdown; git diff --check; Git status/diff and tracker ID/table/path audit | Only tracker after update and final bookkeeping | Twelve numbered sections retained; current scope clear; S-24–28 TODO; only tracker modified. |
+| Retained planning discovery | make frontend-fallow-static | PASS 2/2 at `.cartulary/test-results/20260925T004247Z-p64796`; same product HEAD | Bounded web/package findings zero. 117 member candidates are raw advisory evidence; 214 wrapper advisories are separately counted. Health exit 1 remains nonblocking under existing policy. |
+| Routing / future baseline | make task-guide ROLE=module-author OWNER=web.workbook; make task-guide ROLE=module-author OWNER=web.architecture | Both discovered successfully; refresh S-24 and resolve exact rows in authored catalogs | Source paths are not test-owner IDs. Initial guessed OWNER=web.workbook-runtime was rejected with usage_error; no tests ran, no run root was returned, and the valid owner above resolved it. |
+| Focused behavioral tests | make test-slice OWNER=web.workbook ROWS=<exact-catalog-row-ids> | S-24 baseline/characterization; repeat affected rows for S-25–27 | Real owner outcomes, request counts, accepted rows, status and lifecycle evidence; row seeds below, no literal wildcard. |
+| Structural / build checks | make frontend-typecheck; make frontend-import-boundary-check; make test-slice OWNER=web.architecture; make frontend-fallow-static; make build-web | After each structural slice's narrow behavioral checks | Type-safe caller migration, valid ownership, no new dead bounded surface or runtime/test boundary leakage. |
+| Catalog / generated accounting | make test-catalog-check; make harness-contract; make generate-drift; make generated-artifact-policy-check; make json-shape-check | When authored source/catalog inputs change and at affected final integration | Update authored inputs first; make generate only for required projections. No hand-edited generated root or lockfile. |
+| Final engineering gate | make agent-finalize, then make check | S-28 after final implementation; finalizer precedes broader checks | Fresh required passes. If RESULTS_DIR is unset, report retained-run maintenance skipped. Neither command is needed for this document-only task. |
+| Final browser gates | make browser-e2e-webserver-backed; make browser-e2e-stateful; make browser-e2e-a11y; make browser-e2e-visual | S-28 final code, semantic selectors and unchanged goldens/tolerances | Functional/recovery/authority/focus/accessibility/visual behavior preserved; no skip or retry inflation to conceal failure. |
+| Final handoff | make lint-markdown; git diff --check; exact changed-file and removal/caller ledger | S-28 closure | Results and run roots, failures, limitations, rollback and next action saved. |
+
+Existing `web.workbook` row seeds verified in `tools/test_families/web.workbook.json`:
+
+| Row ID | Evidence / planned use |
+| --- | --- |
+| web.workbook.regression.assessment_append_recovery | Retained append admission, accepted refresh failure, detachment, authority and review behavior. |
+| web.workbook.regression.committed_grid_autosave | Accepted rows, newer drafts, read recovery, dispatch bases and dead introspection migration. |
+| web.workbook.regression.explicit_task_patch_recovery | Explicit Patch receipt validation, uncertainty and retained recovery. |
+| web.workbook.regression.workbookz_mutation_runtime_responsibilities_a106000001 | Runtime lifecycle, debt observation and status responsibilities. |
+| web.workbook.regression.workbook_save_status_preserves_global_blockers_a_8d590e0883 | Real-owner status and global blockers. |
+| web.workbook.regression.committed_runtime_attachments_6f73657dcb | Abandoned/committed presentation, stale cleanup and detached acknowledgement. |
+| web.workbook.regression.indicator_observations_reconciliation | Indicator committed-record aggregate integration and concealment. |
+| web.workbook.regression.indicator_lifecycle_runtime | Indicator version coordination and lifecycle integration. |
+| web.workbook.regression.history_operation_owner | History receipt and recovery propagation. |
+| web.workbook.regression.decision_supersession_runtime | Decision recipient versions and coordination. |
+| web.workbook.regression.entity_merge_admission | Entity reservation/version propagation and shared runtime admission. |
+
+These are actual selectors, not evidence that their present assertions fully characterize every proposed move. S-24 adds missing controlled lifecycle/propagation coverage through the authored catalog and preserves existing semantic IDs. Broaden to other owner/service rows only for demonstrated affected contracts. Deferred measurement rows do not supply performance evidence and are not silently represented as product readiness passes.
+
 ## 9. Top-Level Work Tracker
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
@@ -3094,6 +3227,19 @@ The current document task is T-027. Its completion installs the future work; it 
 | T-032 | Commit query-owner registration and remove alternate owners | S-22 | DONE | T-031 DONE | FND-31; lifecycle/continuation tests and fixture migration | Pure render, token-fenced attachment, explicit inactivity and required provider pass. |
 | T-033 | Complete fresh integrated validation and handoff | S-23 | DONE | T-028–T-032 DONE | Final gate roots, A001–A027 assessment and exact accounting | Required gates PASS; applicable blockers resolved; complete rollback/operational handoff saved last. |
 
+
+### Iteration 4 work tracker
+
+T-034 is the only authorized execution in this session. Completion installs the future plan; it does not start S-24 or mark any production finding fixed. Previous DONE exits remain intact.
+
+| ID | Work item | Workstream | Status | Depends on | Evidence / artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-034 | Install and validate iteration 4 document update | Document update | DONE | User-approved plan; clean 8d46c2338 baseline | This tracker only; §§1–12 iteration 4 additions and final document validation record | Current authorization, inventory, findings, contracts, slices and handoff installed; Markdown/diff/scope checks pass. |
+| T-035 | Refresh exact removals and freeze contracts | S-24 | DONE | T-034 DONE; S-23 DONE; implementation authorized 2026-09-24 | Iteration 4 execution log below; baseline rows `.cartulary/test-results/20260925T010639Z-p84133`; static `.cartulary/test-results/20260925T010701Z-p85979` | Exact consumers, retained members, source traces and baseline failures recorded. |
+| T-036 | Remove dead capabilities and duplicate receipt state | S-25 | DONE | T-035 DONE | S-25 execution log below; focused `.cartulary/test-results/20260925T010851Z-p87963` | Selected surfaces removed; live acceptance/recovery preserved; focused gates pass. |
+| T-037 | Unify fixed lifecycle and status membership | S-26 | DONE | T-036 DONE | S-26 execution log below; focused `.cartulary/test-results/20260925T011323Z-p95076` | Exhaustive participation, single counting and lifecycle behavior pass. |
+| T-038 | Restore Indicator and propagation ownership | S-27 | DONE | T-037 DONE | S-27 execution log below; affected owner rows `.cartulary/test-results/20260925T011814Z-p2778` | Existing facade, authority, version, deletion and ordering behavior preserved. |
+| T-039 | Complete fresh validation and engineering handoff | S-28 | DONE | T-035–T-038 DONE | Final check `20260925T031306Z-p62316`, visual `20260925T032213Z-p28588`, complete gate and acceptance ledger below | Required fresh gates pass; finding/contract dispositions and coordinated rollback saved. |
 
 ## 10. Session Handoff Log
 
@@ -3383,6 +3529,54 @@ Current task skipped checks: no product unit/integration/browser/build, generato
 | 2026-09-23 | Document update | Planning complete; product behavior not changed; lifecycle/status conclusions still require targeted regression evidence | `docs/handoffs/web-apps-cleanup-tracker.md` only | Finish document checks; future authorized execution begins at S-18, not at a deletion or broad test bypass. |
 
 
+### Iteration 4 planning and document-update handoff — 2026-09-25 UTC
+
+The preceding Plan Mode turn gathered evidence and obtained the user's preference for bounded structural cleanup. The following user request authorized implementing that plan's **document update only**. The baseline remained unchanged and clean before editing. All current-session reads outside this tracker are evidence gathering; production work remains TODO.
+
+#### Scope and authority
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-25 UTC | iteration-4-document | T-034 DONE; S-24–28 TODO | AGENTS.md, planning framework, refactor-tracker skill/format, supplied design/domain/NLSpec research and tracker; only tracker touched | git status --short; git rev-parse HEAD; git branch --show-current; targeted reads/searches; final document checks | main/8d46c2338, clean initial tree; historical authorization superseded; document plan installed | None for document plan | Later task required for S-24. |
+
+#### Backend boundary
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-25 UTC | iteration-4-document | No backend change | Core 00/03 authority and behavior; prior route/storage freezes retained as historical evidence | Targeted Core reads | No new route, schema, migration or server behavior selected | None | Preserve backend/source authority in later client cleanup. |
+
+#### Frontend boundary
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-25 UTC | iteration-4-document | FND-32–35 planned, not fixed | §2 runtime/feature/port/composition/collaboration sources, tests and guides; four attachment additions | git ls-files apps/web; targeted rg/sed; read-only inventory/consumer comparisons | 1,751 current paths, 1,191 source entries; exact candidates and retained live members identified | Future caller refresh at S-24 | Remove only proven dead surfaces; characterize structural movement first. |
+
+#### Contract and codegen
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-25 UTC | iteration-4-document | C-32–34 frozen for planning | Committed-record/source-write ports, source/import ownership policies and package entry configuration | Targeted reads and consumer search | Internal narrowing only; generated/contracts/dependencies unchanged | None | Update authored ownership/catalog inputs only with later actual source changes. |
+
+#### Tests and harness
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-25 UTC | iteration-4-document | Retained discovery and document validation pass | Fallow owner/config/report, task surface, test catalogs and focused test bodies | make help; make frontend-fallow-static; valid owner task guides; make lint-markdown; git diff --check; scope/inventory audit; one rejected guessed owner recorded in §8 | Static PASS 2/2; bounded findings zero; Markdown/whitespace/accounting pass; exact routing seeds recorded | No planning blocker; advisory/measurement limits remain deferred | Final closure recheck; fresh implementation tests begin at S-24. |
+
+#### Security and authorization
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-25 UTC | iteration-4-document | Authority/lifetime behavior frozen | Core 03 REQ-03-100/299; runtime, Indicator aggregate, Explicit Patch and committed attachments | Targeted source/owner reads | Concealment, same-account recovery, replacement retirement and accepted-attempt lifetime remain distinct | No reviewed owner contradiction | Characterize authority transitions before extraction; no new fallback authority. |
+
+#### Open risks and next session
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-25 UTC | iteration-4-document | T-034 DONE; future gates RB-018–021 TODO | New contracts, slices and validation matrix | Read-only reconciliation and document review | No production readiness certification or code change claimed | Future gates do not block document completion | Next authorized implementation starts S-24, not broad advisory cleanup. |
+
+Inspected paths and substantive conclusions are recorded in §§1–5 and row routing in §8. Product tests/builds, generation and `agent-finalize` are skipped for this document-only update: the finalizer can refresh generated artifacts, outside the allowed write boundary, and no broader end-of-run product verification is selected. Retained-run maintenance is skipped because RESULTS_DIR is unset. The planning static run is retained discovery at the unchanged product revision, not validation of future implementation. Documentation check results are recorded in the final iteration 4 completion record in §12.
+
 ## 11. Open Questions and Blockers
 
 The original blockers below are now resolved by authorized execution. The pre-production clean-cutover decision remains in force. No owner-versus-owner contradiction was found in the reviewed clauses; mark any future one **BLOCKED: owner contradiction** and stop only the affected slice.
@@ -3430,9 +3624,22 @@ No unanswered product preference or reviewed owner contradiction blocks this doc
 Unreviewed advisory class members, independent source owners, genuine optional defaults, valid provenance, historical artifacts, and current source-schema version names remain outside blanket cleanup. This iteration does not introduce a blocking class-member or duplicate-name gate. Missing prerequisites discovered during execution must receive a concrete dependent slice and BLOCKED exit; do not create artificial imports, broad suppressions, retry inflation or historical exclusions to obtain a pass.
 
 
+### Iteration 4 readiness gates and exclusions
+
+No unresolved user preference or reviewed owner contradiction blocks this document update. RB-001–017 remain closed by historical exits. The following are future implementation gates, not observed current product failures; they do not prevent completion of T-034.
+
+| ID | Question or evidence gate | Why it matters | Required owner / evidence | Status |
+| --- | --- | --- | --- | --- |
+| RB-018 | Reconfirm exact dead-member/cache and structural interface consumers at execution | Code may change after this baseline; test-only names are not sufficient evidence to remove recovery state | S-24 exact ledger and C-32 behavioral characterization before S-25 | DONE |
+| RB-019 | Prove exhaustive lifecycle/status membership, including late Timeline attachment | Missing or duplicated contributions silently distort save state or cleanup | S-26 controlled multi-owner, acknowledgement, suspension and retirement tests under C-33 | DONE |
+| RB-020 | Freeze and preserve source aggregation and recipient traces | Similar propagation calls have different scope, ordering and deletion effects | S-24 origin/recipient map; S-27 Indicator/History/Entity/Decision/Assessment integration evidence under C-34 | DONE |
+| RB-021 | Obtain fresh integrated evidence on final implementation | Historical passes and the planning static run cannot certify the future change | S-28 required gate ledger, exact accounting, rollback and handoff | CLOSED — final check 958/958, four required browser targets PASS, acceptance and exact handoff saved. |
+
+The historical measurement capture-identity limit and wider tooling advisories remain DEFERRED to separate work; their present failure state has not been rerun or newly asserted. They do not authorize expanding this document task into harness changes. If execution discovers a new prerequisite, record its owner, exact evidence and dependent exit; do not add suppressions, inflated retries, compatibility aliases or speculative functionality to close it.
+
 ## 12. Binary Completion Criteria
 
-The original table records iteration 1 planning completion only. The following iteration 1 implementation assessment records S-06 completion. The iteration 2 criteria at the end of this section govern the new plan and its future execution.
+The original table records iteration 1 planning completion only. Later iteration 1–3 assessments and exits remain historical evidence. The iteration 4 document criteria and future implementation handoff at the end of this section govern the current task; no historical implementation next-action paragraph reactivates production work.
 
 | Criterion | Result | Evidence / exact meaning |
 | --- | --- | --- |
@@ -5006,3 +5213,149 @@ Final repository state: `main`, HEAD `c1dccf7ae9900035b372d225899d8afada4e3588`,
 Remaining advisories are the 214 unbounded static-analysis findings and the four optional measurement rows blocked before execution by the harness's capture-identity length limit. They are not product failures or performance evidence. Retained-run maintenance was skipped because RESULTS_DIR was unset. Release/conformance/performance certification, deployment, legacy conversion and broad advisory cleanup were neither selected nor claimed.
 
 Next engineering action: review and commit the validated implementation with its caller/test/catalog changes and this handoff. Separately address bounded, collision-resistant harness capture identities without relaxing the safety limit, then rerun the four recorded measurement rows before making any timing/publication claim. Apply the coordinated rollback boundaries above if a slice must be reverted; no data conversion is required.
+
+### Iteration 4 document completion and future implementation handoff
+
+This is the current handoff. The preceding S-23 commit instruction and all earlier execution authorizations describe their historical sessions. The current user approved installing the iteration 4 plan in this tracker only. No S-24–S-28 implementation, commit, deployment or production verification has occurred in this document task.
+
+| Document completion criterion | Status | Evidence / meaning |
+| --- | --- | --- |
+| Current scope and history distinguished | DONE | §1 single-file authorization and S-00–S-23 exits preserved; original twelve numbered section titles retained; completed S-18–S-23 execution text matches HEAD verbatim. |
+| Every current target path accounted for | DONE | All 1,751 tracked paths named in inherited exact-path accounting plus four additions; 1,191 source entries verified; artifact exclusions retained; no claim of a fresh exhaustive body audit. |
+| Findings, ownership and contracts actionable | DONE | FND-32–36, C-32–34, source/caller evidence and retained behavior reviewed; no owner contradiction known in reviewed scope. |
+| Workflows and exits complete | DONE | S-24–28 have sequential dependencies, rollback, characterization and validation; T-035–T-039 and RB-018–021 remain TODO. |
+| Current and future verification separated | DONE | Retained planning static PASS is discovery only; current Markdown/diff/accounting checks pass; eleven exact catalog row seeds resolve; future product/generation/finalizer gates were not run. |
+| Single-file document boundary satisfied | DONE | Only docs/handoffs/web-apps-cleanup-tracker.md modified; index unchanged; no untracked files or implementation/generated-file edits. |
+
+Future implementation completion additionally requires all five slices DONE, RB-018–021 satisfied, FND-32–35 resolved with actual caller/removal evidence, FND-36's intentional retention respected, and C-32–34 verified through real owner behavior. Required final gates must pass on the final implementation. Record failures with target, run root and relation to the change; preserve failed evidence. Report the exact changed files, source/catalog updates, compatibility and coordinated rollback, including any dependent S-26/S-27 interfaces. No stored data conversion is planned.
+
+Document validation record: **T-034 DONE**. `make lint-markdown` PASS at `.cartulary/test-results/20260925T005507Z-p71397/adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` PASS. Read-only audits confirm the twelve original numbered sections, current path/source accounting, eleven valid catalog seeds, consistent new tables, intact completed iteration 3 execution history and the single-file boundary. Final closure bookkeeping is checked again before the task response. Production sources, tests, configuration, dependencies, contracts and generated artifacts remain unchanged. `agent-finalize`, product/build/browser suites and generation are intentionally skipped for the document-only boundary; retained-run maintenance is skipped because RESULTS_DIR is unset.
+
+The document task is complete. A later explicitly authorized production task begins at S-24 using the then-current HEAD and caller/catalog baseline, and proceeds through S-28 in order. Do not reopen completed historical slices or start the deferred measurement/tooling work as part of this plan.
+
+### Iteration 4 execution — S-24 completed exit, 2026-09-25 UTC
+
+- Prerequisites: S-23 and T-034 DONE; user authorized full S-24–S-28 implementation. Starting HEAD `8d46c23385e248e3703ef791fc4106d6de7f3e62` on `main`; only this tracker was pre-staged. The index was not rewritten. S-24 was marked IN_PROGRESS before its baseline work.
+- Specification disposition: Core 03 REQ-03-089 governs primary save labels and excludes acknowledged refresh reads from in-flight writes; REQ-03-099/100 govern local queue, authoritative acceptance, retained attempts and authority lifetimes; REQ-03-282 governs committed version bases; REQ-03-299 governs data/permission separation and concealment. C-32–34 require internal ownership and regression evidence, not a normative amendment. No reviewed owner contradiction or public-format change was found.
+- Exact removal candidates: Assessment `invalidateReview` has no production or test caller; the distinct Entity `invalidateReview` is live and retained. Runtime `surfaceRefreshRequired` has only `WorkbookGridAutosave.test.ts` and `WorkbookRuntimeResponsibilities.test.ts` callers; production uses debt snapshots/refresh. Explicit Patch `latestReceipt` and its per-record receipts map have one test reader; `WorkbookAcceptedRecordPort` has only the managed-driver consumer, which reads `latestRow`/`latestVersion`. Retain `observeReceipt`, committed rows/version floors, validation and per-operation recovery receipts.
+- C-33 membership: `WorkbookMutationFeatures` defines eighteen fixed owners; `WorkbookFeatureLifecycle` handles lifecycle/subscription while runtime `calculateSnapshot` independently sums eighteen counters and late Timeline actions/mentions. The Timeline mutation driver is queue-counted; conflict submission is a distinct private count. S-26 must make these sets exhaustive without a dynamic registry.
+- C-34 origin/recipient freeze: History receipts update Timeline files, Evidence attachments, Note/ordinary/Coordination/contextual creation, Timeline related Evidence, guarded Entity merge, Explicit Patch, guarded Indicator lifecycle, Assessment deletion/version, and Decision supersession in that order. Decision supersession receipts update two History versions. Timeline observations update creation/association/related-evidence/file/History and late action/mention owners. Entity observations update Note, ordinary, Coordination, contextual, merge and History owners. Accepted pending dispatch updates file/Evidence, batch prerequisite, related Evidence, Note/ordinary/Coordination/contextual, Explicit Patch receipt, then schema-guarded Entity, Decision and Indicator owners. Conflict resolution also routes a guarded Entity version. S-27 preserves these guards, ordering and side effects while moving recipient wiring into fixed composition.
+- Verification: `make task-guide ROLE=module-author OWNER=web.workbook` and `OWNER=web.architecture` resolved. Eleven exact `web.workbook` rows passed at `.cartulary/test-results/20260925T010639Z-p84133`. `make frontend-fallow-static` passed 2/2 at `.cartulary/test-results/20260925T010701Z-p85979`. Initial concurrent runs without pinned Node on PATH failed as infrastructure `service_start_error` at `20260925T010607Z-p82741` and `20260925T010607Z-p82857`; the sequential public-target retries with `PATH="$PWD/tmp/node-runtime/bin:$PATH"` passed. Those initial failures are not product regressions.
+- Compatibility/rollback: characterization and tracker only; no product format or data conversion. Revert this S-24 tracker entry independently if its evidence must be corrected. RB-018 DONE; RB-020 origin map frozen for S-27; T-035 and S-24 DONE. S-25 may begin.
+
+### Iteration 4 execution — S-25 completed exit, 2026-09-25 UTC
+
+- Prerequisite S-24 DONE; T-036 was marked IN_PROGRESS before edits. Removed only Assessment `invalidateReview`, runtime `surfaceRefreshRequired`, Explicit Patch `latestReceipt`/duplicate receipts map, and `WorkbookAcceptedRecordPort`. The managed patch driver now requires only `latestRow`/`latestVersion` from `WorkbookCommittedRecordPort`; `observeReceipt`, committed rows/versions, receipt validation and operation-owned receipts remain. The distinct Entity review command remains live.
+- Exact changed paths for this slice: `apps/web/src/workbook/features/assessments/WorkbookAssessmentAuthoringOwner.ts`, `apps/web/src/workbook/query/WorkbookCommittedRecordPort.ts`, `apps/web/src/workbook/runtime/{WorkbookExplicitPatchOwner.ts,WorkbookManagedPatchDriver.ts,WorkbookMutationRuntime.ts,WorkbookGridAutosave.test.ts,WorkbookRuntimeResponsibilities.test.ts,README.md}`, and this tracker. Removed-symbol search under `apps/web/src` is empty for `latestReceipt`, `WorkbookAcceptedRecordPort` and `surfaceRefreshRequired`; Assessment has no `invalidateReview` reference. Tests now assert accepted row value/version and consumed refresh-debt observations, retained draft, and reads without replay rather than reading a duplicate receipt cache.
+- Verification: four exact `web.workbook` rows PASS 5/5 at `.cartulary/test-results/20260925T010851Z-p87963`; `make frontend-typecheck` PASS at `20260925T011007Z-p90487`; `make frontend-import-boundary-check` PASS at `20260925T011048Z-p91215`; `make frontend-fallow-static` PASS 2/2 at `20260925T011102Z-p91752`; `make build-web` PASS at `20260925T011123Z-p92642`; `git diff --check` PASS. The first typecheck at `20260925T010907Z-p88973` caught an unused local created by the cache removal; it was removed and the rerun passed. All Make runs used the pinned Node PATH documented in §8.
+- Compatibility: internal signature/caller change only; no public wire, saved state or data migration and no alias. Rollback is the coordinated source/type/test/guide edit set above. FND-32/33 and C-32 are closed by the real-owner evidence; T-036 and S-25 DONE. S-26 may begin.
+
+### Iteration 4 execution — S-26 completed exit, 2026-09-25 UTC
+
+- Prerequisite S-25 DONE; T-037 was marked IN_PROGRESS before edits. `WorkbookFeatureLifecycle` now requires `unsettledMutationCount` alongside lifecycle and subscription on every key of the fixed `WorkbookMutationFeatures` type. Its read-time aggregate replaces the runtime's eighteen-name handwritten sum. The Explicit Patch close-incident adapter forwards its count; late Timeline actions/mentions use live owner getters; the Timeline mutation driver contributes zero here because shared FIFO status already counts it. Private conflict submission remains separate.
+- Changed paths for this slice: `apps/web/src/workbook/runtime/{WorkbookFeatureLifecycle.ts,WorkbookMutationRuntime.ts,README.md}` and this tracker. Typecheck proves every fixed feature has count participation; the existing real-owner save-status suite covers overlapping generic operations, acknowledgement with refresh debt and global blockers. Runtime, attachment, autosave and Indicator lifetime rows cover authority, detachment and retirement without artificial counter consumers.
+- Verification: five selected rows PASS 6/6 at `.cartulary/test-results/20260925T011323Z-p95076`; `make frontend-typecheck` PASS at `20260925T011240Z-p94381`; `make frontend-import-boundary-check` PASS at `20260925T011336Z-p96186`; `make frontend-fallow-static` PASS 2/2 at `20260925T011348Z-p96655`; `make build-web` PASS at `20260925T011410Z-p97563`. No new suppression, queue policy, public label or source admission rule was introduced.
+- Compatibility: internal fixed contribution change only. Roll back lifecycle type, count getter, runtime status use and guide together; no stored-data conversion. FND-34/C-33 and RB-019 closed; T-037 and S-26 DONE. S-27 may begin.
+
+### Iteration 4 execution — S-27 completed exit, 2026-09-25 UTC
+
+- Prerequisite S-26 DONE; T-038 was marked IN_PROGRESS before edits. `features/indicators/createIndicatorCommittedRecords.ts` now owns the existing three-owner authority, History floor, stale/equal-version and accepted-row arbitration. The consumed `runtime.indicatorRecords` remains a `WorkbookCommittedRecordPort` facade. `runtime/WorkbookMutationVersionComposition.ts` owns the fixed History, Decision, Timeline, Entity and accepted pending-write recipient wiring; runtime calls it at the same event points and keeps generic dispatch, coordination, lifetime and conflict ownership. Recipient order and schema/deletion guards match S-24's source trace. No global event bus, generic workflow engine or alternate policy was added.
+- Exact changed paths for this slice: the two new modules above, `apps/web/src/workbook/runtime/{WorkbookMutationRuntime.ts,WorkbookRuntimeResponsibilities.test.ts,README.md}`, `apps/web/src/workbook/features/indicators/README.md`, `tools/frontend_source_ownership.json`, and this tracker. The authored source manifest assigns both new modules to `web.workbook`. The runtime no longer contains Indicator aggregation or multi-recipient version lists. Existing source-specific coordination waits and conflict-resolution decisions remain outside this structural movement.
+- Verification: seven affected `web.workbook` rows PASS 8/8 at `.cartulary/test-results/20260925T011814Z-p2778`; authority transition rerun PASS 2/2 at `20260925T011928Z-p5828`; `web.architecture` source ownership PASS 2/2 at `20260925T011954Z-p6446`; `make frontend-typecheck` PASS at `20260925T012004Z-p7098`; import boundary PASS at `20260925T012029Z-p7751`; bounded static PASS 2/2 at `20260925T012042Z-p8229`; web build PASS at `20260925T012101Z-p9115`; `make lint-biome` PASS at `20260925T012148Z-p14988`; `make json-shape-check` PASS at `20260925T012159Z-p15473`.
+- Retained failure evidence: a newly added authority test assertion failed at `20260925T011850Z-p4419` because reapplying unchanged runtime authority does not reinitialize an individually suspended source owner; the test now explicitly restores that owner and passes. Initial `lint-biome` at `20260925T012114Z-p9778` reported formatting/import order; public `make format` PASS at `20260925T012134Z-p10430` resolved it without changing unrelated files.
+- Compatibility: internal module, construction and source-ownership changes only; no route, wire, storage or visual migration. Rollback the Indicator factory, version composition, runtime wiring, source manifest, tests and guides as one unit; include S-26 if the lifecycle interface is reverted. FND-35/C-34 and RB-020 closed; T-038 and S-27 DONE. S-28 may begin.
+
+### Iteration 4 execution — S-28 integrated validation in progress
+
+- Prerequisites S-24–S-27 DONE; T-039 was marked IN_PROGRESS before final checks. Eleven affected `web.workbook` rows PASS 12/12 at `.cartulary/test-results/20260925T012306Z-p16962`. `make test-catalog-check` PASS; `make harness-contract` PASS at `20260925T012331Z-p19189`; `make generate-drift` PASS at `20260925T012403Z-p22733`; `make generated-artifact-policy-check` PASS at `20260925T012421Z-p26660`; first `make agent-finalize` PASS at `20260925T012428Z-p27196` with `RESULTS_DIR` unset, so retained-run maintenance was skipped.
+- Initial `make check` failed 3/958 units at `.cartulary/test-results/20260925T012504Z-p31297`. The exact failures were an unowned literal `managed-editor` test ID in `apps/web/src/workbook/timeline/components/TimelineScalarEditor.test.tsx`, missing `gridEditorDepartureChord` from the shared `packages/grid-adapter/src/test-support.tsx` mock consumed by two Workbook shell rows, and the related sentinel preflight error. None involved the S-25–S-27 runtime implementation. S-28 was marked BLOCKED while these gates were unresolved.
+- The selector test now uses `timelineScalarEditorTestId` with a distinct second record identity; the shared test renderer exports the existing public departure helper. `web.architecture` selector row PASS 2/2 at `20260925T013556Z-p15596`; both `web.workbook` shell rows PASS 3/3 at `20260925T013610Z-p16182`; `module.timeline` editor row PASS 2/2 at `20260925T013656Z-p17921`. The first editor rerun at `20260925T013635Z-p17059` found duplicate semantic IDs between tests and prompted the distinct identity; it is retained failed evidence. `make lint-biome` initially required import organization at `20260925T013706Z-p18539`; public `make format` PASS at `20260925T013719Z-p19083` and lint rerun PASS at `20260925T013728Z-p23551`. T-039 returned to IN_PROGRESS; broad and browser gates remain pending.
+- Second `make agent-finalize` PASS at `20260925T013808Z-p24592`; fresh `make check` PASS 958/958 at `.cartulary/test-results/20260925T013831Z-p28504`. `make browser-e2e-webserver-backed` then failed 2 of 330 Playwright rows (137/140 graph units) at `.cartulary/test-results/20260925T014805Z-p99479`: `module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178` timed out at `uploadState=pending`, and `module.timeline.browser.range_live_membership` still displayed `Retry` during deleted-membership validation. The browser summary failure is the third graph unit. These are currently unclassified against the S-25–S-27 edits; T-039 returned to BLOCKED pending exact owner-row diagnosis and a fresh required gate.
+- Browser diagnosis: the evidence trace recorded no object-blob request after the test assigned files directly to a hidden input. That bypassed the existing chooser capture path. `evidence-integration.spec.ts` now uses the existing `chooseEvidenceFile` helper in both attachment scenarios; the exact failing owner row PASS 11/11 at `20260925T020537Z-p57691`. The unpinned first reproduction was an infrastructure `service_start_error` at `20260925T020236Z-p91170`; the pinned reproduction confirmed the assertion failure at `20260925T020332Z-p24046`. The Timeline trace and existing focused-retry unit test show a successful retry intentionally retains its focused, disabled button until focus moves. The browser assertion now checks successful disabled state, tabs away, and checks removal; its exact owner row PASS 11/11 at `20260925T020632Z-p90544`. No selector, timeout, retry policy or product behavior was relaxed. T-039 returned to IN_PROGRESS for fresh final gates.
+- Third `make agent-finalize` PASS at `20260925T020800Z-p24153`, `make lint-biome` PASS at `20260925T020739Z-p23440`, and fresh `make check` PASS 958/958 at `20260925T020823Z-p28025`. The repeated `make browser-e2e-webserver-backed` failed one of 330 Playwright rows, `module.entities.browser.entity_merge_exact_recovery`, at `.cartulary/test-results/20260925T021730Z-p93974` (138/140 graph units). Its fault route failed one Host query with HTTP 500, but two immediate successful queries then cleared refresh debt before the assertion. The other 66 browser groups, including the corrected Evidence and Timeline groups, passed. T-039 is BLOCKED until deterministic fault-injection repair, the exact owner row, and a fresh required suite pass. No timeout, retry, skip or selector change is proposed.
+- Entity recovery test repair: `apps/web/e2e/merge-recovery.spec.ts` now keeps its deliberate Host query failure active through the acknowledgement assertion, verifies at least one failed refresh read, then clears the fault immediately before the user-triggered recovery read. This removes the one-request race without weakening the claimed state transition. The exact `module.entities.browser.entity_merge_exact_recovery` owner row PASS 11/11 at `.cartulary/test-results/20260925T022942Z-p81296`; `make lint-biome` PASS at `20260925T023058Z-p14513`. T-039 returned to IN_PROGRESS for the final aggregate gates.
+- Fourth `make agent-finalize` PASS at `20260925T023120Z-p15204`; `make check` PASS 958/958 at `20260925T023142Z-p19126`; `make browser-e2e-webserver-backed` PASS 140/140 at `20260925T024102Z-p84980`; `make browser-e2e-stateful` PASS 42/42 at `20260925T025243Z-p68811`; `make browser-e2e-a11y` PASS 20/20 at `20260925T025842Z-p14093`. The required visual target failed 10/12 at `.cartulary/test-results/20260925T030243Z-p53488`: `module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc` differed in a focused Filter button outline in several saved-view screenshots (463 pixels each). Goldens and product styles are unchanged. T-039 is BLOCKED pending a deterministic screenshot focus state and the fresh required visual pass; no mask, tolerance or golden adjustment is authorized by this diagnosis.
+- Visual fixture diagnosis: `apps/web/e2e/workbook.visual.spec.ts` now blurs the Filter trigger before its three neutral query-control captures, then explicitly focuses the selected overflow filter entry before its editing capture. The first focused rerun at `20260925T030916Z-p91718` confirmed the neutral screenshots but exposed an operator-vs-entry focus race in the editing screenshot; the second focused rerun PASS 11/11 at `.cartulary/test-results/20260925T031100Z-p25034`. No golden, mask, viewport, tolerance or product styling changed. T-039 returned to IN_PROGRESS for fresh aggregate validation.
+
+#### S-28 final validation and disposition
+
+All roots in this ledger are under `.cartulary/test-results/`; graph targets have `run-summary.json`. The final product source and authored ownership manifest were fixed before the passing webserver, stateful, accessibility and visual runs. The only later source edit was the visual test fixture's explicit screenshot focus state; the last `make check` and visual gate ran after it. No failed run was deleted or counted as a pass.
+
+| Public target / evidence | Final result | Run root or disposition |
+| --- | --- | --- |
+| Eleven affected `web.workbook` catalog rows | PASS 12/12 | `20260925T012306Z-p16962` |
+| `make test-catalog-check`; `make harness-contract` | PASS; PASS 2/2 | Catalog target after authored source ownership change; `20260925T012331Z-p19189` |
+| `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check` | PASS 4/4; PASS 3/3; PASS 3/3 | `20260925T012403Z-p22733`; `20260925T012421Z-p26660`; `20260925T012159Z-p15473` |
+| `make frontend-typecheck`; `make frontend-import-boundary-check`; `make frontend-fallow-static`; `make build-web` | PASS after S-27; final `check` covers the applicable frontend checks | `20260925T012004Z-p7098`; `20260925T012029Z-p7751`; `20260925T012042Z-p8229`; `20260925T012101Z-p9115` |
+| `make lint-biome` after the last source edit | PASS 2/2 | `20260925T031235Z-p57943` |
+| `make agent-finalize` after the last source edit | PASS 1/1; `RESULTS_DIR` unset, retained-run maintenance skipped | `20260925T031245Z-p58415` |
+| `make check` on the final source | PASS 958/958 | `20260925T031306Z-p62316` |
+| `make browser-e2e-webserver-backed` | PASS 140/140, all 330 Playwright rows | `20260925T024102Z-p84980` |
+| `make browser-e2e-stateful` | PASS 42/42 | `20260925T025243Z-p68811` |
+| `make browser-e2e-a11y` | PASS 20/20 | `20260925T025842Z-p14093` |
+| `make browser-e2e-visual` after the focus fixture edit | PASS 12/12; unchanged golden bytes, masks and tolerances | `20260925T032213Z-p28588` |
+| `make lint-markdown`; staged and unstaged `git diff --check` | PASS; both whitespace checks exit 0 | Markdown `20260925T032837Z-p65496`; post-DONE rerun `20260925T033032Z-p68045`; final whitespace and status audit pass. |
+
+Required negative evidence remains retained: the first broad `check` at `20260925T012504Z-p31297` exposed the raw editor ID and missing grid test helper; the first webserver target at `20260925T014805Z-p99479` exposed the Evidence chooser and Timeline focused Retry test assumptions; the second webserver target at `20260925T021730Z-p93974` exposed the one-request Entity refresh fault race; the first visual target at `20260925T030243Z-p53488` and first exact visual rerun at `20260925T030916Z-p91718` exposed two screenshot focus states. Their corrections and focused rerun roots are recorded in the S-28 log above. No production behavior was changed to satisfy those fixtures.
+
+| Finding / contract | Final disposition and validation |
+| --- | --- |
+| FND-32 / C-32 | Assessment's unused review invalidation and runtime's test-only refresh query are removed; real review and refresh-debt behavior is asserted. Removed-symbol search is empty and S-25/final Workbook checks pass. |
+| FND-33 / C-32 | Explicit Patch has no duplicate receipt map or `latestReceipt`; the managed driver receives only committed row/version reads. Authoritative receipt observation, version floors, uncertain outcome, newer draft and read-only recovery tests pass. |
+| FND-34 / C-33 | All eighteen fixed lifecycle contributions provide unsettled counts through the same typed set. Shared queue and private conflict submission remain separate; late Timeline action/mention counts are read live, while queue-owned driver work is not counted twice. Focused and final status/lifecycle tests pass. |
+| FND-35 / C-34 | Indicator aggregation is feature-owned; fixed version recipients are in Workbook composition. Runtime retains generic coordination. Real-consumer rows cover authority concealment, History floors, equal/stale versions, receipt order, Assessment deletion and late acceptance. |
+| FND-36 | Intentional retention: bounded web/package reachability remains green with zero blocking findings and no new suppression. The wider 117 raw member candidates and 214 wrapper advisories are unverified, deferred evidence, not a deletion list. |
+| Specification | Core 03 REQ-03-089/099/100/282/299 sufficed for C-32–34. No adopted owner, typed projection, public route, stored schema or generated file changed. |
+
+#### S-28 acceptance assessment
+
+This assessment is for iteration 4 only. A006/A008 have explicit unchanged-owner scope rationales; all 25 applicable A001–A027 rows pass. It is human review evidence, not a machine specification or Core 05 claim-publication result.
+
+| Acceptance | Status | Current evidence and applicability |
+| --- | --- | --- |
+| A001 | PASS | S-24 maps C-32–34 to Core 03 owner clauses; no contradiction or normative amendment was required. Verification routing remains separate from requirements. |
+| A002 | PASS | Dead interfaces and duplicate state were removed, and fixed membership/source ownership replaced central duplication without a generic framework or compatibility shim. |
+| A003 | PASS | Starting HEAD, staged tracker, exact consumers, source manifest and 20-path final change set are accounted for below; Grid Adapter remains the vendor boundary. |
+| A004 | PASS | No design token, CSS, theme or local visual literal changed. The visual fix normalizes test focus only. |
+| A005 | PASS | Existing dark_graphite presentation and fixture selection are unchanged; final visual and accessibility gates pass. |
+| A006 | N/A | Density selection, grid dimensions, typography and editor geometry owners were not changed; no density or timing claim is made. |
+| A007 | PASS | Creation owners and minimum-input/permission rules remain intact; final Workbook and browser gates retain creation/recovery coverage. |
+| A008 | N/A | Responsive thresholds, CSS accessors, viewport fallback and Inspector clamp geometry were not changed; no responsive redesign is claimed. |
+| A009 | PASS | Shell/navigation layout is unchanged; final browser, accessibility and visual suites pass at their existing viewports. |
+| A010 | PASS | Assessment review and Explicit Patch authoring remain owner-bound; acceptance, retained drafts, refresh debt and real recovery assertions pass. |
+| A011 | PASS | Committed row/version floors and detached recovery survive the narrower driver port; final Workbook continuation and browser targets pass. |
+| A012 | PASS | Queue identity, captured request bytes, transaction IDs and exact replay remain unchanged; recovery owner rows and stateful target pass. |
+| A013 | PASS | Fixed contributions report one unsettled write each, accepted writes become Saved during later reads, and conflict precedence remains separate; owner and stateful evidence passes. |
+| A014 | PASS | Timeline action/mention lifetimes and queue-owned driver accounting are preserved; Timeline owner row and final functional/stateful editing coverage pass. |
+| A015 | PASS | Private conflict submission remains counted separately from the queue; final check and stateful conflict/recovery scenarios pass. |
+| A016 | PASS | Query read authority and source-specific admission remain separate from mutation status; final browser and Workbook query cases pass. |
+| A017 | PASS | Indicator three-owner authority concealment, source loss/restoration and fixed lifecycle retirement pass real-consumer tests and final check. |
+| A018 | PASS | Evidence upload/attachment behavior is unchanged; the chooser-driven browser test, full webserver suite and accessibility target pass. |
+| A019 | PASS | Accessibility target passes 20/20; focused Retry remains accessible until blur, and no focus/ARIA policy was relaxed. |
+| A020 | PASS | No component variant or state styling changed; full check and unchanged-golden visual comparison pass. |
+| A021 | PASS | Query windows and virtualization algorithms are unchanged; owner/functional continuation scenarios pass, without a performance-publication claim. |
+| A022 | PASS | Final visual comparison passes 12/12 with unchanged goldens, masks, viewports and tolerances; screenshot focus is explicit in its fixture. |
+| A023 | PASS | Semantic selector builders and catalog row identities are retained; one raw editor test ID was corrected, and selector/ownership checks pass. |
+| A024 | PASS | Production, tests and harness still do not read or hash Markdown; README and tracker changes are human guidance only. |
+| A025 | PASS | Two new source files are assigned in the authored ownership manifest; catalog, harness, drift, generated-policy and JSON-shape checks pass without generated-file edits. |
+| A026 | PASS | Internal types/callers changed together with no aliases, public wire change or stored-data migration; rollback boundaries are stated below. |
+| A027 | PASS | All five slice exits, failures, fresh gate roots, exact path ledger, compatibility, rollback, deferred limits and operational next action are recorded here. Markdown and staged/unstaged whitespace checks pass. |
+
+#### S-28 exact change, compatibility and rollback ledger
+
+The final Git worktree has 20 changed paths: 18 tracked paths (including this pre-staged tracker) and two new source files. The original staged tracker content remains staged; execution edits are unstaged. No other file was pre-existing modified at S-24. No commit, deployment, dependency/lockfile change, generated output or stored-data conversion was made.
+
+| Area | Exact changed paths and purpose |
+| --- | --- |
+| Production ownership | `apps/web/src/workbook/features/assessments/WorkbookAssessmentAuthoringOwner.ts`; `apps/web/src/workbook/query/WorkbookCommittedRecordPort.ts`; `apps/web/src/workbook/runtime/WorkbookExplicitPatchOwner.ts`; `apps/web/src/workbook/runtime/WorkbookFeatureLifecycle.ts`; `apps/web/src/workbook/runtime/WorkbookManagedPatchDriver.ts`; `apps/web/src/workbook/runtime/WorkbookMutationRuntime.ts`; new `apps/web/src/workbook/features/indicators/createIndicatorCommittedRecords.ts`; new `apps/web/src/workbook/runtime/WorkbookMutationVersionComposition.ts`. |
+| Production regression assertions | `apps/web/src/workbook/runtime/WorkbookGridAutosave.test.ts`; `apps/web/src/workbook/runtime/WorkbookRuntimeResponsibilities.test.ts`. |
+| Final gate fixtures | `apps/web/e2e/evidence-integration.spec.ts`; `apps/web/e2e/merge-recovery.spec.ts`; `apps/web/e2e/timeline-range-selection.spec.ts`; `apps/web/e2e/workbook.visual.spec.ts`; `apps/web/src/workbook/timeline/components/TimelineScalarEditor.test.tsx`; `packages/grid-adapter/src/test-support.tsx`. |
+| Source ownership and guides | `tools/frontend_source_ownership.json`; `apps/web/src/workbook/features/indicators/README.md`; `apps/web/src/workbook/runtime/README.md`; `docs/handoffs/web-apps-cleanup-tracker.md`. |
+
+Observable `Syncing`, `Saved` and `Conflict` semantics, request/response formats, authorization, stored versions, layout v2 and bundle format 4 remain current. Internal consumers migrate atomically to the narrower committed-record read port and fixed contribution contract; there is no compatibility alias. Source guide changes do not become runtime inputs. The bounded static gate remains blocking only for its existing proven scope. Wider advisory cleanup, optional measurement and Core 05 publication remain outside this iteration.
+
+Rollback by complete slice: restore S-25's Assessment/Explicit Patch/driver interfaces together with their real-behavior tests and runtime guide; restore S-26's fixed lifecycle count contract with every feature adapter and status calculation together; restore S-27's Indicator factory, version composition, runtime wiring, authored source ownership, tests and guides together. If S-26/S-27 interfaces cross in a downstream branch, revert them together. S-28's browser/test fixture corrections can be reverted independently only with their corresponding validation expectations; do not revert a required test helper while retaining its consumer. Preserve all failed/passing run artifacts. No data conversion or previous binary deployment is needed for this uncommitted worktree.
+
+Operating prerequisites: run public Make targets from the repository root with pinned Node available as `PATH="$PWD/tmp/node-runtime/bin:$PATH"`; pinned Go and local test services/browser dependencies were available. `RESULTS_DIR` was unset for finalization, so retained-run maintenance was skipped. The next engineering action after final document checks is review and commit the validated 20-path change set, keeping the user's pre-staged tracker change visible; separately triage wider static advisories only with exact consumer evidence. No release or deployment is claimed.
+
+S-28 DONE; T-039 DONE; RB-021 CLOSED. S-24–S-28 were executed and logged in order, with each completed tracker exit saved before its successor. FND-32–35 and C-32–34 are resolved; FND-36 retains its intentional bounded-gate disposition. A001–A027: 25 PASS, two scope-rationalized N/A, zero applicable blockers. `make lint-markdown` PASS at `.cartulary/test-results/20260925T032837Z-p65496` and after DONE at `20260925T033032Z-p68045`; staged and unstaged `git diff --check` PASS. Final Git audit found exactly 20 changed paths, two new source files with no trailing whitespace, and only the user's original tracker change staged. No execution edit was staged.

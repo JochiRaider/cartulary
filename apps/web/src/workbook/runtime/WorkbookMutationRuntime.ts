@@ -1,4 +1,3 @@
-import { assessmentsViewSchemaId } from "@cartulary/view-contracts";
 import type { AuthorizationRecoveryResult } from "../../shared/authorizationRecovery";
 import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
 import { normalizeRecordMutationRow } from "../adapters/workbookRecordPatchTransport";
@@ -19,10 +18,8 @@ import type { WorkbookEntityMergeOwner } from "../features/entities/WorkbookEnti
 import type { WorkbookEvidenceAttachmentOwner } from "../features/evidence/WorkbookEvidenceAttachmentOwner";
 import type { WorkbookTimelineFileOwner } from "../features/evidence/WorkbookTimelineFileOwner";
 import type { WorkbookTimelineRelatedEvidenceOwner } from "../features/evidence/WorkbookTimelineRelatedEvidenceOwner";
-import {
-  indicatorLifecycleViewId,
-  type LifecycleDraft,
-} from "../features/indicators/indicatorLifecycleModel";
+import { createIndicatorCommittedRecords } from "../features/indicators/createIndicatorCommittedRecords";
+import type { LifecycleDraft } from "../features/indicators/indicatorLifecycleModel";
 import type { WorkbookIndicatorCreateOwner } from "../features/indicators/WorkbookIndicatorCreateOwner";
 import type { WorkbookIndicatorLifecycleOwner } from "../features/indicators/WorkbookIndicatorLifecycleOwner";
 import type { WorkbookObservationOwner } from "../features/indicators/WorkbookObservationOwner";
@@ -79,6 +76,11 @@ import type {
   WorkbookMutationFeatureHost,
   WorkbookMutationFeatures,
 } from "./WorkbookMutationFeatureAssembly";
+import {
+  createWorkbookMutationVersionComposition,
+  entityViewSchemas,
+  type WorkbookMutationVersionComposition,
+} from "./WorkbookMutationVersionComposition";
 import { WorkbookRetryScheduler } from "./WorkbookRetryScheduler";
 import { WorkbookRuntimeLifecycle } from "./WorkbookRuntimeLifecycle";
 import {
@@ -107,11 +109,6 @@ import {
   browserWorkbookRuntimeDependencies,
   type WorkbookRuntimeDependencies,
 } from "./workbookRuntimePorts";
-
-const entityViewSchemas: ReadonlySet<string> = new Set([
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-]);
 
 export type { WorkbookQueuedPatchRequest } from "./WorkbookManagedPatchDriver";
 export type { WorkbookMutationSnapshot } from "./workbookMutationStatusProjector";
@@ -151,6 +148,7 @@ export class WorkbookMutationRuntime {
   private transitioningAuthority = false;
   private authoritySuspended = false;
   private readonly featureLifecycle: WorkbookFeatureLifecycle;
+  private readonly versionPropagation: WorkbookMutationVersionComposition;
   private timelineActionAuthority:
     | ((authority: WorkbookMutationAuthority | null) => void)
     | null = null;
@@ -253,13 +251,6 @@ export class WorkbookMutationRuntime {
       : emptyRefreshDebts;
   }
 
-  surfaceRefreshRequired(viewSchemaId: string): boolean {
-    return (
-      this.recordReadScope !== null &&
-      this.surfaces.requiresRefresh(viewSchemaId)
-    );
-  }
-
   async refreshSurface(viewSchemaId: string): Promise<void> {
     if (this.recordReadScope !== null)
       await this.surfaces.refresh(viewSchemaId);
@@ -306,69 +297,7 @@ export class WorkbookMutationRuntime {
   readonly indicatorLifecycle: WorkbookIndicatorLifecycleOwner;
   readonly indicatorObservations: WorkbookObservationOwner;
   readonly indicatorCreate: WorkbookIndicatorCreateOwner;
-  readonly indicatorRecords: WorkbookCommittedRecordPort = {
-    subscribe: (listener) => {
-      let authorized = !!this.indicatorRecords.getSnapshot().authority;
-      const changed = () => {
-        const next = !!this.indicatorRecords.getSnapshot().authority;
-        // The owners initialize sequentially. A partial initialization is
-        // not revocation of an already authorized service query. Once active,
-        // any owner's authority loss must immediately hide protected rows.
-        if (next || authorized) {
-          authorized = next;
-          listener();
-        }
-      };
-      const a = this.indicatorLifecycle.subscribe(changed),
-        b = this.indicatorObservations.subscribe(changed),
-        c = this.indicatorCreate.subscribe(changed);
-      return () => {
-        a();
-        b();
-        c();
-      };
-    },
-    getSnapshot: () =>
-      !this.indicatorCreate.getSnapshot().authority
-        ? this.indicatorCreate.getSnapshot()
-        : this.indicatorObservations.getSnapshot().authority
-          ? this.indicatorLifecycle.getSnapshot()
-          : this.indicatorObservations.getSnapshot(),
-    latestVersion: (id) =>
-      Math.max(
-        this.indicatorLifecycle.latestVersion(id) ?? 0,
-        this.indicatorObservations.latestVersion(id) ?? 0,
-        this.indicatorCreate.latestVersion(id) ?? 0,
-        this.history.latestVersion(id) ?? 0,
-      ) || null,
-    latestRow: (id) => {
-      const rows = [
-        this.indicatorLifecycle.latestRow(id),
-        this.indicatorObservations.latestRow(id),
-        this.indicatorCreate.latestRow(id),
-      ].filter(
-        (row) =>
-          row !== null &&
-          row.row_version >= (this.indicatorRecords.latestVersion(id) ?? 0),
-      );
-      return (
-        rows.sort((a, b) => (b?.row_version ?? 0) - (a?.row_version ?? 0))[0] ??
-        null
-      );
-    },
-    acceptRow: (row) => {
-      if (
-        !this.indicatorRecords.getSnapshot().authority ||
-        row.row_version <
-          (this.indicatorRecords.latestVersion(row.record_id) ?? 0)
-      )
-        return this.indicatorRecords.latestRow(row.record_id);
-      this.indicatorLifecycle.acceptRow(row);
-      this.indicatorObservations.acceptRow(row);
-      this.indicatorCreate.acceptRow(row);
-      return this.indicatorRecords.latestRow(row.record_id);
-    },
-  };
+  readonly indicatorRecords: WorkbookCommittedRecordPort;
   private readonly decisionWrites = new Map<symbol, readonly string[]>();
   private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime;
@@ -472,20 +401,41 @@ export class WorkbookMutationRuntime {
     this.indicatorLifecycle = features.indicatorLifecycle;
     this.history = features.history;
     this.batches = features.batches;
+    this.indicatorRecords = createIndicatorCommittedRecords({
+      lifecycle: features.indicatorLifecycle,
+      observations: features.indicatorObservations,
+      create: features.indicatorCreate,
+      history: features.history,
+    });
+    this.versionPropagation = createWorkbookMutationVersionComposition(
+      features,
+      {
+        actions: () => this.timelineActions,
+        mentions: () => this.timelineMentionOperations,
+      },
+    );
     this.featureLifecycle = new WorkbookFeatureLifecycle(features, {
       actions: {
+        get unsettledMutationCount() {
+          return runtime.timelineActions?.unsettledMutationCount ?? 0;
+        },
         setAuthority: (authority) => this.timelineActionAuthority?.(authority),
         suspend: () => this.timelineActions?.suspend(),
         closeIncident: () => this.timelineActions?.closeIncident(),
         retire: () => this.timelineActions?.retire(),
       },
       mentions: {
+        get unsettledMutationCount() {
+          return runtime.timelineMentionOperations?.unsettledMutationCount ?? 0;
+        },
         setAuthority: (authority) => this.timelineMentionAuthority?.(authority),
         suspend: () => this.timelineMentionOperations?.suspend(),
         closeIncident: () => this.timelineMentionOperations?.closeIncident(),
         retire: () => this.timelineMentionOperations?.retire(),
       },
       mutations: {
+        // The shared queue already accounts for Timeline row mutations.
+        unsettledMutationCount: 0,
         // Timeline pending dispatch is governed by the shared queue's authority.
         setAuthority: () => {},
         suspend: () => {},
@@ -532,91 +482,8 @@ export class WorkbookMutationRuntime {
             this.explicitPatches.getSnapshot().authority,
           );
         },
-        history: () => {
-          for (const entry of this.history.getSnapshot()) {
-            const receipt = entry.receipt;
-            if (receipt) {
-              this.timelineFiles.acceptVersion(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-              this.evidenceAttachments.observe(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-            }
-            if (receipt)
-              this.noteCreate.observe(receipt.recordId, receipt.rowVersion);
-            if (receipt)
-              this.ordinaryCreate.observe(receipt.recordId, receipt.rowVersion);
-            if (receipt)
-              this.coordinationCreate.observe(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-            if (receipt)
-              this.contextualCreate.observe(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-            if (receipt)
-              this.timelineRelatedEvidence.observe(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-            if (
-              receipt &&
-              entityViewSchemas.has(entry.attempt.subject.viewSchemaId)
-            )
-              this.entityMerge.acceptVersion(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-            if (receipt)
-              this.explicitPatches.acceptVersion(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-            if (
-              receipt &&
-              entry.attempt.subject.viewSchemaId === indicatorLifecycleViewId
-            )
-              this.indicatorLifecycle.acceptVersion(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-            if (
-              receipt &&
-              entry.attempt.subject.viewSchemaId === assessmentsViewSchemaId
-            )
-              this.assessmentAuthoring.acceptVersion(
-                receipt.recordId,
-                receipt.rowVersion,
-                receipt.kind === "delete" && receipt.deleted,
-              );
-            if (
-              receipt &&
-              entry.attempt.subject.viewSchemaId === decisionViewId
-            )
-              this.decisionSupersession.acceptVersion(
-                receipt.recordId,
-                receipt.rowVersion,
-              );
-          }
-        },
-        decisionSupersession: () => {
-          for (const entry of this.decisionSupersession.getSnapshot().entries)
-            if (entry.receipt) {
-              this.history.acceptVersion(
-                entry.receipt.target_record_id,
-                entry.receipt.target_row_version,
-              );
-              this.history.acceptVersion(
-                entry.receipt.superseding_record_id,
-                entry.receipt.superseding_row_version,
-              );
-            }
-        },
+        history: () => this.versionPropagation.historyChanged(),
+        decisionSupersession: () => this.versionPropagation.decisionChanged(),
       }),
     );
   }
@@ -660,16 +527,7 @@ export class WorkbookMutationRuntime {
   }
 
   observeTimelineVersion(recordId: string, rowVersion: number): void {
-    this.noteCreate.observe(recordId, rowVersion);
-    this.noteAssociations.observe(recordId, rowVersion);
-    this.ordinaryCreate.observe(recordId, rowVersion);
-    this.coordinationCreate.observe(recordId, rowVersion);
-    this.contextualCreate.observe(recordId, rowVersion);
-    this.timelineRelatedEvidence.observe(recordId, rowVersion);
-    this.timelineFiles.acceptVersion(recordId, rowVersion);
-    this.history.acceptVersion(recordId, rowVersion);
-    this.timelineActions?.acceptVersion(recordId, rowVersion);
-    this.timelineMentionOperations?.acceptVersion(recordId, rowVersion);
+    this.versionPropagation.observeTimelineVersion(recordId, rowVersion);
   }
 
   timelineActionBlocksRecord(recordId: string, excludeFile = false): boolean {
@@ -919,13 +777,7 @@ export class WorkbookMutationRuntime {
 
   acceptEntityVersion(recordId: string, version: number): void {
     if (this.entityLifetimeRetired) return;
-    this.noteCreate.observe(recordId, version);
-    this.noteAssociations.observe(recordId, version);
-    this.ordinaryCreate.observe(recordId, version);
-    this.coordinationCreate.observe(recordId, version);
-    this.contextualCreate.observe(recordId, version);
-    this.entityMerge.acceptVersion(recordId, version);
-    this.history.acceptVersion(recordId, version);
+    this.versionPropagation.acceptEntityVersion(recordId, version);
   }
 
   private async coordinateEntityMerge(
@@ -989,26 +841,7 @@ export class WorkbookMutationRuntime {
       conflicts: this.conflicts.entries(),
       explicitInFlightCount:
         this.explicitInFlightCount +
-        this.batches.unsettledMutationCount +
-        this.history.unsettledMutationCount +
-        this.entityMerge.unsettledMutationCount +
-        this.decisionSupersession.unsettledMutationCount +
-        this.indicatorLifecycle.unsettledMutationCount +
-        this.indicatorObservations.unsettledMutationCount +
-        this.indicatorCreate.unsettledMutationCount +
-        this.assessmentAuthoring.unsettledMutationCount +
-        this.noteCreate.unsettledMutationCount +
-        this.noteAssociations.unsettledMutationCount +
-        this.ordinaryCreate.unsettledMutationCount +
-        this.coordinationCreate.unsettledMutationCount +
-        this.contextualCreate.unsettledMutationCount +
-        this.timelineRelatedEvidence.unsettledMutationCount +
-        this.evidenceAttachments.unsettledMutationCount +
-        this.timelineFiles.unsettledMutationCount +
-        this.explicitPatches.unsettledMutationCount +
-        this.partyLinks.unsettledMutationCount +
-        (this.timelineActions?.unsettledMutationCount ?? 0) +
-        (this.timelineMentionOperations?.unsettledMutationCount ?? 0),
+        this.featureLifecycle.unsettledMutationCount,
       queue: this.pendingRuntime.model.statusFacts(),
       refreshes: this.refreshStatusFacts,
       refreshDebts: this.surfaceRefreshDebts(),
@@ -1063,72 +896,11 @@ export class WorkbookMutationRuntime {
     this.ledger.remember(input.unit.clientTxnId);
     return this.pendingMutationPort.execute(input).then((outcome) => {
       if (this.retired) return outcome;
-      if (outcome.kind === "accepted") {
-        this.timelineFiles.acceptVersion(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-        this.evidenceAttachments.observe(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      }
       if (outcome.kind === "accepted")
-        this.batches.acceptPrerequisiteRow(
+        this.versionPropagation.acceptedPendingMutation(
           input.unit.id,
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
+          outcome.value,
         );
-      if (outcome.kind === "accepted")
-        this.timelineRelatedEvidence.observe(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      if (outcome.kind === "accepted")
-        this.noteAssociations.observe(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      if (outcome.kind === "accepted")
-        this.noteCreate.observe(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      if (outcome.kind === "accepted")
-        this.ordinaryCreate.observe(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      if (outcome.kind === "accepted")
-        this.coordinationCreate.observe(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      if (outcome.kind === "accepted")
-        this.contextualCreate.observe(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      if (outcome.kind === "accepted")
-        this.explicitPatches.observeReceipt(outcome.value);
-      if (
-        outcome.kind === "accepted" &&
-        entityViewSchemas.has(outcome.value.viewSchemaId)
-      )
-        this.acceptEntityVersion(
-          outcome.value.row.record_id,
-          outcome.value.row.row_version,
-        );
-      if (
-        outcome.kind === "accepted" &&
-        outcome.value.viewSchemaId === decisionViewId
-      )
-        this.decisionSupersession.acceptRow(outcome.value.row);
-      if (
-        outcome.kind === "accepted" &&
-        outcome.value.viewSchemaId === indicatorLifecycleViewId
-      )
-        this.indicatorLifecycle.acceptRow(outcome.value.row);
       return outcome;
     });
   }

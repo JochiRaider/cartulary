@@ -258,10 +258,6 @@ export class WorkbookAssessmentAuthoringOwner {
     this.feedback = workbookInspectorLocalErrorFeedback(message);
     this.publish();
   }
-  invalidateReview() {
-    this.reviewRevision++;
-    this.publish();
-  }
   observeCandidates(recordId?: string) {
     this.candidateRevision++;
     if (
