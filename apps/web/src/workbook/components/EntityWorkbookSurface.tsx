@@ -444,6 +444,10 @@ export function EntityWorkbookSurface({
         return null;
       const handle = gridHandleRef.current;
       return {
+        ownsFocus: (focused) =>
+          gridHandleRef.current === handle &&
+          element.isConnected &&
+          focused === element,
         restore: () => {
           if (gridHandleRef.current !== handle || !element.isConnected)
             return false;

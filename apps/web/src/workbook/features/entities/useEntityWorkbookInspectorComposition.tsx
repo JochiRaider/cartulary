@@ -562,6 +562,10 @@ export function useEntityWorkbookInspectorComposition({
       if (!owner || !(target instanceof HTMLElement)) return null;
       const captured = owner.capture();
       return {
+        ownsFocus: (focused: EventTarget | null) =>
+          owner.isCurrent(captured) &&
+          owner.controlRef.current === focused &&
+          target.isConnected,
         restore: () => {
           if (
             !owner.isCurrent(captured) ||

@@ -27,6 +27,8 @@ import {
 /** A source-owned focus loan contains no copied authoring or mutation state. */
 export type WorkbookFindFocusLoan = {
   readonly restore: () => boolean;
+  /** Recognizes focus returned to this source editor during its own settlement. */
+  readonly ownsFocus: (target: EventTarget | null) => boolean;
   readonly settle?: (
     options: GridCellNavigationOptions,
   ) => Promise<GridCellNavigationResult | "accepted">;
@@ -78,6 +80,7 @@ export function useWorkbookFind(input: WorkbookFindInput) {
   latest.current = input;
   const borrowed = useRef<WorkbookFindFocusLoan | null>(null);
   const applyingFocus = useRef<object | null>(null);
+  const pendingTabFocus = useRef(false);
   const origin = useRef<GridCellAnchor | null>(null);
   const lastAdmitted = useRef<GridCellAnchor | null>(null);
   const restoreRequest = useRef<AbortController | null>(null);
@@ -191,6 +194,7 @@ export function useWorkbookFind(input: WorkbookFindInput) {
       borrowed.current = null;
       lastAdmitted.current = null;
       applyingFocus.current = null;
+      pendingTabFocus.current = false;
     }
     lifetime.current = input.lifetimeKey;
   }, [controller, source, input.lifetimeKey]);
@@ -256,6 +260,7 @@ export function useWorkbookFind(input: WorkbookFindInput) {
   const open = useCallback(() => {
     capture();
     restoreRequest.current?.abort();
+    pendingTabFocus.current = false;
     controller.open(
       origin.current ?? gridRef.current?.getActiveCell?.() ?? null,
     );
@@ -266,14 +271,16 @@ export function useWorkbookFind(input: WorkbookFindInput) {
       if (event.isComposing) return;
       restoreRequest.current?.abort();
       applyingFocus.current = null;
+      const own =
+        event.target instanceof Node && hostRef.current?.contains(event.target);
+      // A Tab inside Find is only departure when the resulting focus leaves it.
+      pendingTabFocus.current = own === true && event.key === "Tab";
       if (
         event.target instanceof Node &&
         !hostRef.current?.contains(event.target)
       )
         controller.collapse();
       if (!available) return;
-      const own =
-        event.target instanceof Node && hostRef.current?.contains(event.target);
       const decision = decideWorkbookApplicationShortcut(event, {
         capabilities: {
           find: true,
@@ -300,13 +307,26 @@ export function useWorkbookFind(input: WorkbookFindInput) {
       if (
         event.target instanceof Node &&
         hostRef.current?.contains(event.target)
-      )
+      ) {
+        if (event.type === "focusin") pendingTabFocus.current = false;
         return;
+      }
+      const userTabDeparture =
+        event.type === "focusin" && pendingTabFocus.current;
+      pendingTabFocus.current = false;
       if (event.type !== "focusin") {
         restoreRequest.current?.abort();
         applyingFocus.current = null;
       }
-      if (event.type === "focusin" && controller.getSnapshot().navigating)
+      // Source refocus and the admitted semantic destination belong to this move.
+      if (
+        event.type === "focusin" &&
+        !userTabDeparture &&
+        controller.getSnapshot().navigating &&
+        ((applyingFocus.current !== null &&
+          gridRef.current?.ownsNavigationFocus?.(event.target) === true) ||
+          borrowed.current?.ownsFocus(event.target) === true)
+      )
         return;
       controller.collapse();
     };
@@ -316,13 +336,13 @@ export function useWorkbookFind(input: WorkbookFindInput) {
     // This still cancels destinations synchronously within the same event.
     document.addEventListener("input", outside);
     document.addEventListener("compositionstart", outside, true);
-    document.addEventListener("focusin", outside);
+    document.addEventListener("focusin", outside, true);
     return () => {
       document.removeEventListener("keydown", keyboard, true);
       document.removeEventListener("pointerdown", outside, true);
       document.removeEventListener("input", outside);
       document.removeEventListener("compositionstart", outside, true);
-      document.removeEventListener("focusin", outside);
+      document.removeEventListener("focusin", outside, true);
     };
   }, [available, controller, open]);
   const close = useCallback(async () => {

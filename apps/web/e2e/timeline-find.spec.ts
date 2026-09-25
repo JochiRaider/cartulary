@@ -26,7 +26,7 @@ import {
   requireViewContract,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { revokeAllSessions } from "./support/auth/sessions";
@@ -42,7 +42,10 @@ import {
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  holdBrowserRequest,
+  safelyRemoveRoute,
+} from "./support/transport/requestInterception";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import {
   createViewRow,
@@ -218,6 +221,88 @@ async function noNativeFindCapture(target: Locator) {
       }),
     ),
   );
+}
+
+async function leaveFindWithKeyboard(page: Page, key: "Tab" | "Shift+Tab") {
+  const host = entry(page).locator("..");
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press(key);
+    if (
+      !(await host.evaluate((element) =>
+        element.contains(document.activeElement),
+      ))
+    ) {
+      const focused = await page.locator(":focus").elementHandle();
+      if (!focused) throw new Error("Keyboard departure lost focus");
+      return focused;
+    }
+  }
+  throw new Error("Keyboard traversal did not leave Find");
+}
+
+async function findDepartureGeometry(page: Page) {
+  return grid(page).evaluate((element) => ({
+    scrollLeft: element.scrollLeft,
+    scrollTop: element.scrollTop,
+    range: Array.from(
+      element.querySelectorAll(".cartulary-grid-cell-is-range-selected"),
+      (cell) =>
+        cell.querySelector("[data-testid]")?.getAttribute("data-testid") ??
+        `${cell.getAttribute("aria-rowindex")}:${cell.getAttribute("aria-colindex")}`,
+    ),
+    bulk: Array.from(
+      element.querySelectorAll('[role="gridcell"][aria-selected="true"]'),
+      (cell) =>
+        cell.querySelector("[data-testid]")?.getAttribute("data-testid") ??
+        `${cell.getAttribute("aria-rowindex")}:${cell.getAttribute("aria-colindex")}`,
+    ),
+  }));
+}
+
+async function holdRejectedPatch(page: Page, recordId: string) {
+  const pattern = `**/api/v1/records/${recordId}`;
+  let hitCount = 0;
+  let signalHit!: () => void;
+  let release!: () => void;
+  const waitForHit = new Promise<void>((resolve) => {
+    signalHit = resolve;
+  });
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const handler = async (route: Route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+    hitCount += 1;
+    signalHit();
+    await hold;
+    await route.fulfill({
+      status: 422,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: {
+          code: "invalid_request",
+          details: {},
+          message: "invalid_request",
+          request_id: "timeline-find-rejection",
+          retryable: false,
+          status: 422,
+        },
+      }),
+    });
+  };
+  await page.route(pattern, handler);
+  return {
+    waitForHit,
+    release,
+    hitCount: () => hitCount,
+    dispose: async () => {
+      release();
+      await safelyRemoveRoute(page, pattern, handler);
+    },
+  };
 }
 
 test("Timeline Find searches committed loaded cells and reveals both virtualized axes without query or layout writes", async ({
@@ -687,6 +772,36 @@ test("Timeline Find borrows collection and inspector editors without writes and 
   } finally {
     await gate.dispose();
   }
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: relationshipItemsTestId(f.first, "timeline.tags", "grid"),
+  });
+  await tags.getByRole("button", { name: "Add tags token" }).click();
+  await tagInput.fill("Find delayed departure tag");
+  const delayed = await holdBrowserRequest(page, {
+    method: "PATCH",
+    path: `/api/v1/records/${f.first}`,
+  });
+  try {
+    await find(page, "0084 needle", 1);
+    await input(page).press("Enter");
+    await delayed.waitForHit;
+    await expect(status(page)).toContainText("Waiting for the edit to save");
+    const outside = await leaveFindWithKeyboard(page, "Tab");
+    await expect(entry(page)).toHaveAttribute("aria-expanded", "false");
+    const before = await findDepartureGeometry(page);
+    delayed.release();
+    await expect(tags).toContainText("+1");
+    expect(delayed.hitCount()).toBe(1);
+    expect(
+      await outside.evaluate((element) => document.activeElement === element),
+    ).toBe(true);
+    expect(await findDepartureGeometry(page)).toEqual(before);
+    await expect(cell(page, f.last)).not.toBeFocused();
+  } finally {
+    await delayed.dispose();
+  }
   await openTimelineInspector(page, f.first);
   await page.locator(`[data-inspector-edit-field="${synopsis}"]`).click();
   const inspectorInput = page.getByTestId(
@@ -714,6 +829,36 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     expect(inspectorGate.hitCount()).toBe(0);
   } finally {
     await inspectorGate.dispose();
+  }
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: relationshipItemsTestId(f.first, "timeline.tags", "grid"),
+  });
+  await tags.getByRole("button", { name: "Add tags token" }).click();
+  await tagInput.fill("Find delayed rejected tag");
+  const rejectedGate = await holdRejectedPatch(page, f.first);
+  try {
+    await find(page, "0084 needle", 1);
+    await input(page).press("Enter");
+    await rejectedGate.waitForHit;
+    const outside = await leaveFindWithKeyboard(page, "Shift+Tab");
+    await expect(entry(page)).toHaveAttribute("aria-expanded", "false");
+    const before = await findDepartureGeometry(page);
+    rejectedGate.release();
+    await expect(tagInput).toHaveValue("Find delayed rejected tag");
+    await expect(
+      page.getByRole("region", { name: "Recovery attention" }),
+    ).toContainText("A queued edit could not be completed safely");
+    expect(rejectedGate.hitCount()).toBe(1);
+    expect(
+      await outside.evaluate((element) => document.activeElement === element),
+    ).toBe(true);
+    expect(await findDepartureGeometry(page)).toEqual(before);
+    await expect(cell(page, f.last)).not.toBeFocused();
+    await expect(inspectorInput).toHaveValue("Exact inspector draft");
+  } finally {
+    await rejectedGate.dispose();
   }
 });
 

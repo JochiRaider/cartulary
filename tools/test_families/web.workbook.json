@@ -1555,6 +1555,7 @@
         "titles": [
           "Workbook Find binding fences pending destinations synchronously at owner notifications without cancelling settlement",
           "Workbook Find binding intersects accepted and presented membership without reads and keeps focus loans independent",
+          "Workbook Find binding permits only the admitted Adapter destination focus outside Find",
           "Workbook Find binding retires on schema or authority loss but retains intent on same-schema configuration replacement"
         ]
       },
@@ -4802,6 +4803,7 @@
         "file": "apps/web/src/workbook/timeline/useTimelineFind.test.tsx",
         "titles": [
           "Timeline Find integration borrows ordinary inspector authoring without submitting it during Find navigation",
+          "Timeline Find integration cancels a borrowed collection destination on keyboard focus departure while its write settles",
           "Timeline Find integration intersects accepted membership with presented order without querying or searching creation pins and local drafts",
           "Timeline Find integration retains rejected collection drafts and never departs recordless authoring through creation"
         ]

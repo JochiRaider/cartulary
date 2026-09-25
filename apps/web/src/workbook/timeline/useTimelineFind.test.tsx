@@ -1,4 +1,5 @@
 import type {
+  GridEditCommitOutcome,
   GridHandle,
   GridPresentationSnapshot,
 } from "@cartulary/grid-adapter";
@@ -250,5 +251,75 @@ describe("Timeline Find integration", () => {
     expect(f.input.queueScalarSave).not.toHaveBeenCalled();
     expect(f.navigateToCell).toHaveBeenCalledTimes(1);
     editor.remove();
+  });
+  it("cancels a borrowed collection destination on keyboard focus departure while its write settles", async () => {
+    vi.useFakeTimers();
+    for (const { key, outcome } of [
+      { key: "Tab", outcome: { kind: "accepted" } },
+      {
+        key: "Shift+Tab",
+        outcome: { kind: "validation_error", message: "invalid" },
+      },
+    ] as const) {
+      const f = await fixture();
+      const host = document.createElement("div");
+      const findInput = document.createElement("textarea");
+      const outside = document.createElement("button");
+      const editor = document.createElement("input");
+      host.append(findInput);
+      document.body.append(host, outside, editor);
+      f.result.current.control.hostRef.current = host;
+      f.result.current.control.inputRef.current = findInput;
+      const identity = {
+        rowKey: "one",
+        field: "tags" as const,
+        surface: "grid" as const,
+      };
+      f.input.registry.registerInput(identity, editor);
+      f.input.registry.setDraft(identity, "pending tag");
+      editor.focus();
+      let settle: ((outcome: GridEditCommitOutcome) => void) | undefined;
+      vi.mocked(f.input.queueCollectionSave).mockImplementation(
+        (_row, _field, _draft, _value, _surface, callback) => {
+          settle = callback;
+        },
+      );
+      await f.open();
+      let navigation: Promise<unknown> | undefined;
+      act(() => {
+        navigation = f.result.current.control.navigate(1);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(f.input.queueCollectionSave).toHaveBeenCalledOnce();
+      expect(f.result.current.control.snapshot.navigating).toBe(true);
+      act(() => {
+        findInput.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Tab",
+            shiftKey: key === "Shift+Tab",
+            bubbles: true,
+          }),
+        );
+        outside.focus();
+      });
+      expect(document.activeElement).toBe(outside);
+      expect(f.result.current.control.snapshot.navigating).toBe(false);
+      await act(async () => {
+        settle?.(outcome);
+        await navigation;
+      });
+      expect(f.navigateToCell).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(outside);
+      expect(f.input.queueCollectionSave).toHaveBeenCalledOnce();
+      if (outcome.kind !== "accepted")
+        expect(f.input.registry.draftValue(identity)).toBe("pending tag");
+      f.input.registry.registerInput(identity, null);
+      f.unmount();
+      host.remove();
+      outside.remove();
+      editor.remove();
+    }
   });
 });

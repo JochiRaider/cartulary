@@ -61,6 +61,7 @@ export function useTimelineFindSource(input: {
         target.closest("[data-inspector-editor-field]")
       ) {
         return {
+          ownsFocus: (focused) => target === focused && target.isConnected,
           restore: () => {
             if (!target.isConnected) return false;
             target.focus({ preventScroll: true });
@@ -72,6 +73,9 @@ export function useTimelineFindSource(input: {
       const editor = latest.current.registry.activeInput(target);
       if (!editor) return null;
       return {
+        ownsFocus: (focused) =>
+          latest.current.registry.inputElementForFocusKey(editor.focusKey) ===
+          focused,
         restore: () => {
           const element = latest.current.registry.inputElementForFocusKey(
             editor.focusKey,

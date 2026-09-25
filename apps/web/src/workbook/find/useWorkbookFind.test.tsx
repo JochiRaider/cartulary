@@ -72,7 +72,7 @@ async function fixture() {
     readable: true,
     stale: false,
     readText: () => ["needle"],
-    captureFocus: () => ({ restore }),
+    captureFocus: () => ({ restore, ownsFocus: () => false }),
   };
   const hook = renderHook((props) => useWorkbookFind(props), {
     initialProps: input,
@@ -99,6 +99,9 @@ async function fixture() {
       },
     },
     navigateToCell,
+    ownsNavigationFocus: (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      target.dataset.findDestination === "true",
     requestFocus: vi.fn(async () => "focused"),
     getActiveCell: () => null,
   } as unknown as GridHandle;
@@ -220,5 +223,49 @@ describe("Workbook Find binding", () => {
       await navigation;
     });
     expect(f.result.current.control.snapshot.current).toBeNull();
+  });
+  it("permits only the admitted Adapter destination focus outside Find", async () => {
+    vi.useFakeTimers();
+    const f = await fixture();
+    const host = document.createElement("div");
+    const findInput = document.createElement("textarea");
+    const destination = document.createElement("button");
+    const unrelated = document.createElement("button");
+    destination.dataset.findDestination = "true";
+    host.append(findInput);
+    document.body.append(host, destination, unrelated);
+    f.result.current.control.hostRef.current = host;
+    f.result.current.control.inputRef.current = findInput;
+    await f.open();
+    f.navigateToCell.mockImplementation(async (_anchor, options) => {
+      options?.beforeFocus?.();
+      destination.focus();
+      expect(f.result.current.control.snapshot.navigating).toBe(true);
+      return "focused";
+    });
+    await act(async () => {
+      await f.result.current.control.navigate(1);
+    });
+    expect(document.activeElement).toBe(destination);
+    expect(f.result.current.control.snapshot.current?.rowIdentity).toEqual({
+      kind: "core_record",
+      recordId: "two",
+    });
+    const admitted = f.result.current.control.snapshot.current;
+    act(() => f.result.current.control.open());
+    f.navigateToCell.mockImplementation(async (_anchor, options) => {
+      options?.beforeFocus?.();
+      unrelated.focus();
+      expect(options?.signal?.aborted).toBe(true);
+      return "focused";
+    });
+    await act(async () => {
+      await f.result.current.control.navigate(1);
+    });
+    expect(document.activeElement).toBe(unrelated);
+    expect(f.result.current.control.snapshot.current).toEqual(admitted);
+    host.remove();
+    destination.remove();
+    unrelated.remove();
   });
 });
