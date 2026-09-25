@@ -1041,6 +1041,46 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.collection_input_equal_native_revision",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-collection-input.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_collection_input_equal_native_01_success",
+          "scenario_timeline_collection_input_equal_native_02_rejection",
+          "scenario_timeline_collection_input_equal_native_03_promotion"
+        ],
+        "titles": [
+          "Timeline collection identical native replacement survives older settlement",
+          "Timeline collection newer native authoring fences an older rejection",
+          "Timeline collection recordless equal edit survives create promotion"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.collection_input_lifetime",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -3325,6 +3365,7 @@
           "Timeline collection inspection keeps complete mention details readable when management capability is lost",
           "Timeline collection inspection keeps recordless draft text local and registers independent editor surfaces",
           "Timeline collection inspection mounts only explicit grid authoring, preserves native selection on refresh, and retains independent detached drafts",
+          "Timeline collection inspection publishes one revision for an equal-valued native input and fences older settlement",
           "Timeline collection inspection targets hidden tags without editing or committing pending text"
         ]
       },
@@ -3716,6 +3757,7 @@
           "Timeline editor draft registry materializes invalid scalar text across authoritative row replacement",
           "Timeline editor draft registry owns semantic editor registration, unregistration, and row removal",
           "Timeline editor draft registry prefers an explicit commit value over a stale registered draft",
+          "Timeline editor draft registry preserves equal-valued collection revisions through recordless promotion",
           "Timeline editor draft registry rejects stale, hidden, disabled, and disconnected editor elements",
           "Timeline editor draft registry retains authoring baselines across remount and requires review only for relevant changes",
           "Timeline editor draft registry retains collection text across refresh and clears only the submitted version",

@@ -53,6 +53,335 @@ const fields = [
   ["timeline.tags", "tags"],
 ] as const;
 
+test("Timeline collection identical native replacement survives older settlement", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TCIR"),
+    "Collection native revision",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("tcir-row"),
+    "timeline.activity_synopsis_text": "Native collection revision",
+    "timeline.host_refs": collectionActionsPayload([
+      "seed-host?",
+      "other-host?",
+    ]),
+    "timeline.identity_refs": collectionActionsPayload([
+      "seed-identity?",
+      "other-identity?",
+    ]),
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [
+        { op: "add_tag", tag_name: "seed" },
+        { op: "add_tag", tag_name: "other" },
+      ],
+    },
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page);
+  const close = page.getByTestId(
+    workbookInspectorCloseButtonTestId(timelineViewSchemaId),
+  );
+  const borrowed = page
+    .getByRole("group", { name: "Workbook browsing" })
+    .getByRole("button", { name: "Refresh", exact: true });
+  for (const [field, label] of fields) {
+    if (await close.count()) await close.click();
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: relationshipItemsTestId(row.record_id, field, "grid"),
+    });
+    const cell = page
+      .getByRole("group", {
+        name: `${label[0]?.toUpperCase()}${label.slice(1)} collection cell`,
+        exact: true,
+      })
+      .filter({
+        has: page.getByTestId(
+          relationshipItemsTestId(row.record_id, field, "grid"),
+        ),
+      });
+    const input = page.getByTestId(
+      timelineCollectionInputTestId(row.record_id, field, "grid"),
+    );
+    const inspector = page.getByTestId(
+      timelineCollectionInputTestId(row.record_id, field, "inspector"),
+    );
+    const gridRow = page.getByTestId(
+      gridRowTestId(timelineViewSchemaId, row.record_id),
+    );
+    const originalVersion = await gridRow.getAttribute(gridRowVersionAttribute);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reachedResponse = () => {};
+    const responseHeld = new Promise<void>((resolve) => {
+      reachedResponse = resolve;
+    });
+    let patches = 0;
+    const path = `**/api/v1/records/${row.record_id}`;
+    await page.route(path, async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      patches++;
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      reachedResponse();
+      await gate;
+      await route.fulfill({ response });
+    });
+    try {
+      await page
+        .getByTestId(relationshipOverflowButtonTestId(row.record_id, field))
+        .click();
+      const inspectorDraft = `Independent ${label} Ω?`;
+      await inspector.fill(inspectorDraft);
+      await borrowed.focus();
+      expect(patches).toBe(0);
+      await cell.getByRole("button", { name: `Add ${label} token` }).click();
+      const token = `native replacement ${label} Ω?`;
+      await input.fill(token);
+      await input.press(field === "timeline.identity_refs" ? "Tab" : "Enter");
+      await responseHeld;
+      // The real blur joins the same departure; the next input is a new edit.
+      await input.evaluate((element: HTMLInputElement) => element.blur());
+      await input.focus();
+      expect(patches).toBe(1);
+      await expect(input).toBeFocused();
+      await input.evaluate((element: HTMLInputElement) => {
+        element.dataset.nativeInputCount = "0";
+        element.addEventListener("input", () => {
+          element.dataset.nativeInputCount = String(
+            Number(element.dataset.nativeInputCount) + 1,
+          );
+        });
+      });
+      await input.press("ControlOrMeta+A");
+      await page.keyboard.insertText(token);
+      await expect(input).toHaveAttribute("data-native-input-count", "1");
+      await expect(input).toHaveValue(token);
+      await input.evaluate((element: HTMLInputElement) =>
+        element.setSelectionRange(2, 7, "backward"),
+      );
+      release();
+      await expect
+        .poll(() => gridRow.getAttribute(gridRowVersionAttribute))
+        .not.toBe(originalVersion);
+      await expect(input).toHaveValue(token);
+      await expect(input).toBeFocused();
+      await expect
+        .poll(() =>
+          input.evaluate((element: HTMLInputElement) => [
+            element.selectionStart,
+            element.selectionEnd,
+            element.selectionDirection,
+          ]),
+        )
+        .toEqual([2, 7, "backward"]);
+      await expect(inspector).toHaveValue(inspectorDraft);
+      expect(patches).toBe(1);
+      if (field === "timeline.host_refs") {
+        await page
+          .context()
+          .grantPermissions(["clipboard-read", "clipboard-write"]);
+        await page.evaluate(
+          (value) => navigator.clipboard.writeText(value),
+          `${token}!`,
+        );
+        await input.press("ControlOrMeta+A");
+        await input.press("ControlOrMeta+V");
+        await expect(input).toHaveValue(`${token}!`);
+        await input.press("ControlOrMeta+Z");
+        await expect(input).toHaveValue(token);
+        await input.press("ControlOrMeta+Y");
+        await expect(input).toHaveValue(`${token}!`);
+      }
+      await input.press("Escape");
+      await expect(input).toHaveCount(0);
+    } finally {
+      release();
+      await page.unroute(path);
+    }
+  }
+});
+
+test("Timeline collection newer native authoring fences an older rejection", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TCIRJ"),
+    "Collection rejection revision",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("tcirj-row"),
+    "timeline.activity_synopsis_text": "Native collection rejection",
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [
+        { op: "add_tag", tag_name: "seed" },
+        { op: "add_tag", tag_name: "other" },
+      ],
+    },
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page);
+  const field = "timeline.tags";
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: relationshipItemsTestId(row.record_id, field, "grid"),
+  });
+  const input = page.getByTestId(
+    timelineCollectionInputTestId(row.record_id, field, "grid"),
+  );
+  const overflow = page.getByTestId(
+    relationshipOverflowButtonTestId(row.record_id, field),
+  );
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let reachedResponse = () => {};
+  const responseHeld = new Promise<void>((resolve) => {
+    reachedResponse = resolve;
+  });
+  let patches = 0;
+  let receipts = 0;
+  const path = `**/api/v1/records/${row.record_id}`;
+  await page.route(path, async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    patches++;
+    const response = await route.fetch();
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error.details.reason_code).toBe(
+      "no_effective_change",
+    );
+    reachedResponse();
+    await gate;
+    await route.fulfill({ response });
+    receipts++;
+  });
+  try {
+    await page.getByRole("button", { name: "Add tags token" }).click();
+    await input.fill("seed");
+    await input.press("Enter");
+    await responseHeld;
+    await input.press("ControlOrMeta+A");
+    await page.keyboard.insertText("seed");
+    await input.evaluate((element: HTMLInputElement) =>
+      element.setSelectionRange(1, 3, "backward"),
+    );
+    await overflow.focus();
+    expect(patches).toBe(1);
+    release();
+    await expect.poll(() => receipts).toBe(1);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await expect(overflow).toBeFocused();
+    await expect(input).toHaveValue("seed");
+    expect(
+      await input.evaluate((element: HTMLInputElement) => [
+        element.selectionStart,
+        element.selectionEnd,
+        element.selectionDirection,
+      ]),
+    ).toEqual([1, 3, "backward"]);
+    expect(patches).toBe(1);
+  } finally {
+    release();
+    await page.unroute(path);
+  }
+});
+
+test("Timeline collection recordless equal edit survives create promotion", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TCIRP"),
+    "Collection recordless revision",
+  );
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page);
+  const field = "timeline.tags";
+  const path =
+    "/api/v1/incidents/" +
+    incidentId +
+    "/views/" +
+    timelineViewSchemaId +
+    "/rows";
+  const held = await holdBrowserRequest(page, { method: "POST", path });
+  let patches = 0;
+  const count = (request: import("@playwright/test").Request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().includes("/api/v1/records/")
+    )
+      patches++;
+  };
+  page.on("request", count);
+  try {
+    const draft = page.getByTestId(draftTimelineCollectionInputTestId(field));
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: draftTimelineCollectionInputTestId(field),
+    });
+    const token = "recordless native Ω?";
+    await draft.fill(token);
+    await draft.press("Enter");
+    await held.waitForHit;
+    await expect(draft).toBeFocused();
+    await draft.press("ControlOrMeta+A");
+    await page.keyboard.insertText(token);
+    await draft.evaluate((element: HTMLInputElement) =>
+      element.setSelectionRange(2, 8),
+    );
+    held.release();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, incidentId, timelineViewSchemaId)).length,
+      )
+      .toBe(1);
+    const saved = (
+      await queryViewRows(page, incidentId, timelineViewSchemaId)
+    )[0];
+    if (!saved) throw new Error("Missing promoted collection row");
+    const promoted = page.getByTestId(
+      timelineCollectionInputTestId(saved.record_id, field, "grid"),
+    );
+    await expect(promoted).toHaveValue(token);
+    await expect(promoted).toBeFocused();
+    expect(
+      await promoted.evaluate((element: HTMLInputElement) => [
+        element.selectionStart,
+        element.selectionEnd,
+      ]),
+    ).toEqual([2, 8]);
+    expect(collectionItems(saved, field)).toHaveLength(1);
+    expect(held.hitCount()).toBe(1);
+    expect(patches).toBe(0);
+    await expect(draft).toHaveValue("");
+  } finally {
+    await held.dispose();
+    page.off("request", count);
+  }
+});
+
 test("Timeline collection input production characterization", async ({
   page,
 }, testInfo) => {

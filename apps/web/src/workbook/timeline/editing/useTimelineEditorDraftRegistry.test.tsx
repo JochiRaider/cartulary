@@ -765,6 +765,36 @@ describe("Timeline editor draft registry", () => {
     ).toBe(0);
   });
 
+  it("preserves equal-valued collection revisions through recordless promotion", () => {
+    const registry = createTimelineEditorDraftRegistry();
+    const grid = {
+      field: "tags" as const,
+      rowKey: "draft-1",
+      surface: "grid" as const,
+    };
+    const inspector = { ...grid, surface: "inspector" as const };
+    const token = "recordless Ω";
+    registry.setDraft(grid, token);
+    registry.setDraft(inspector, "Inspector only");
+    const captured = registry.captureRow(
+      grid.rowKey,
+      "grid",
+      new Set(["timeline.tags"]),
+    );
+    registry.beginCapture(grid.rowKey);
+    registry.setDraft(grid, token, undefined, true);
+    const newerRevision = registry.revisionForFocusKey("draft-1:tags:grid");
+    registry.capture.promote(grid.rowKey, committedRow());
+    expect(registry.revisionForFocusKey(`${recordId}:tags:grid`)).toBe(
+      newerRevision,
+    );
+    registry.settleRevisions(grid.rowKey, captured ?? new Map());
+    expect(registry.draftValue({ ...grid, rowKey: recordId })).toBe(token);
+    expect(registry.draftValue({ ...inspector, rowKey: recordId })).toBe(
+      "Inspector only",
+    );
+  });
+
   it("invalidates drafts when the runtime lifetime changes", () => {
     const { result, rerender } = renderHook(
       ({ store }) =>

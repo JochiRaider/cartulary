@@ -91,6 +91,61 @@ function fixture(
 }
 
 describe("Timeline collection inspection", () => {
+  it("publishes one revision for an equal-valued native input and fences older settlement", () => {
+    const props = fixture();
+    const identity = {
+      rowKey: props.row.key,
+      field: "tags" as const,
+      surface: "grid" as const,
+    };
+    const token = "same native Ω";
+    props.editorDraftRegistry.setDraft(identity, token);
+    props.editorDraftRegistry.activateCollectionInput("record-1:tags:grid");
+    const view = render(<TimelineCollectionCell {...props} />);
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    input.focus();
+    const captured = props.editorDraftRegistry.captureRow(
+      props.row.key,
+      "grid",
+      new Set(["timeline.tags"]),
+    );
+    const before =
+      props.editorDraftRegistry.revisionForFocusKey("record-1:tags:grid");
+    fireEvent.input(input, { target: { value: token } });
+    const newer =
+      props.editorDraftRegistry.revisionForFocusKey("record-1:tags:grid");
+    expect(newer).toBe(before + 1);
+    expect(props.queueCollectionSave).not.toHaveBeenCalled();
+    view.rerender(
+      <TimelineCollectionCell
+        {...props}
+        row={{ ...props.row, rowVersion: 4 }}
+      />,
+    );
+    props.editorDraftRegistry.materializeRow(props.row);
+    fireEvent.compositionEnd(input);
+    fireEvent.blur(input, { relatedTarget: input });
+    expect(
+      props.editorDraftRegistry.revisionForFocusKey("record-1:tags:grid"),
+    ).toBe(newer);
+    input.focus();
+    input.setSelectionRange(2, 6, "backward");
+    act(() =>
+      props.editorDraftRegistry.settleRevisions(
+        props.row.key,
+        captured ?? new Map(),
+      ),
+    );
+    expect(props.editorDraftRegistry.draftValue(identity)).toBe(token);
+    expect(input.value).toBe(token);
+    expect(document.activeElement).toBe(input);
+    expect([
+      input.selectionStart,
+      input.selectionEnd,
+      input.selectionDirection,
+    ]).toEqual([2, 6, "backward"]);
+  });
+
   it("targets hidden tags without editing or committing pending text", () => {
     const registry = inspectionRegistry();
     const props = fixture(registry);
@@ -202,7 +257,7 @@ describe("Timeline collection inspection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add tags token" }));
     const input = screen.getByRole("textbox") as HTMLInputElement;
     expect(document.activeElement).toBe(input);
-    fireEvent.change(input, { target: { value: "raw Ω 東京" } });
+    fireEvent.input(input, { target: { value: "raw Ω 東京" } });
     input.setSelectionRange(2, 5, "backward");
     view.rerender(
       <TimelineCollectionCell

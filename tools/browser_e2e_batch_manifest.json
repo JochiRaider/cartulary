@@ -1156,6 +1156,7 @@
           "selected_row_ids": [
             "module.timeline.browser.collection_input_authoring",
             "module.timeline.browser.collection_input_characterization",
+            "module.timeline.browser.collection_input_equal_native_revision",
             "module.timeline.browser.collection_input_lifetime",
             "module.timeline.browser.collection_input_promotion"
           ],

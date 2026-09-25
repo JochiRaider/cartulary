@@ -383,9 +383,9 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
             composing.current = false;
             if (!props.readOnly) retainDraft(event.currentTarget.value);
           }}
-          onChange={(event) => {
+          onInput={(event) => {
             if (!props.readOnly) {
-              retainDraft(event.currentTarget.value);
+              retainDraft(event.currentTarget.value, true);
             }
           }}
           onBlur={(event) => {
