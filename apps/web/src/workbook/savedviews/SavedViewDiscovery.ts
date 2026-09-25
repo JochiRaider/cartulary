@@ -11,6 +11,12 @@ type Destination = {
   cursor: string | null;
   previous: readonly (string | null)[];
 };
+export type SavedViewDiscoveryAction =
+  | "first"
+  | "previous"
+  | "next"
+  | "refresh"
+  | "retry";
 export type SavedViewDiscoverySnapshot = {
   readonly viewSchemaId: string | null;
   readonly open: boolean;
@@ -20,6 +26,7 @@ export type SavedViewDiscoverySnapshot = {
   readonly previous: readonly (string | null)[];
   readonly nextCursor: string | null;
   readonly pending: boolean;
+  readonly pendingAction: SavedViewDiscoveryAction | null;
   readonly stale: boolean;
   readonly problem: SavedViewProblem | null;
 };
@@ -32,6 +39,7 @@ export const emptySavedViewDiscovery = (): SavedViewDiscoverySnapshot => ({
   previous: [],
   nextCursor: null,
   pending: false,
+  pendingAction: null,
   stale: false,
   problem: null,
 });
@@ -63,40 +71,53 @@ export class SavedViewDiscovery {
   open = () => {
     if (this.state.open) return;
     this.publish({ open: true });
-    void this.load({
-      cursor: this.state.cursor,
-      previous: this.state.previous,
-    });
+    void this.load(
+      { cursor: this.state.cursor, previous: this.state.previous },
+      null,
+    );
   };
   close = () => {
     this.cancel();
-    this.publish({ open: false, pending: false });
+    this.publish({ open: false, pending: false, pendingAction: null });
   };
-  first = () => this.load({ cursor: null, previous: [] });
+  first = () => this.load({ cursor: null, previous: [] }, "first");
+  refresh = () => this.load({ cursor: null, previous: [] }, "refresh");
   next = () => {
     if (this.state.pending || this.state.nextCursor === null) return;
-    return this.load({
-      cursor: this.state.nextCursor,
-      previous: [...this.state.previous, this.state.cursor].slice(
-        -savedViewPreviousCursorLimit,
-      ),
-    });
+    return this.load(
+      {
+        cursor: this.state.nextCursor,
+        previous: [...this.state.previous, this.state.cursor].slice(
+          -savedViewPreviousCursorLimit,
+        ),
+      },
+      "next",
+    );
   };
   previous = () => {
     if (this.state.pending || this.state.previous.length === 0) return;
-    return this.load({
-      cursor: this.state.previous.at(-1) ?? null,
-      previous: this.state.previous.slice(0, -1),
-    });
+    return this.load(
+      {
+        cursor: this.state.previous.at(-1) ?? null,
+        previous: this.state.previous.slice(0, -1),
+      },
+      "previous",
+    );
   };
   retry = () =>
-    this.retryDestination ? this.load(this.retryDestination) : this.first();
+    this.retryDestination
+      ? this.load(this.retryDestination, "retry")
+      : this.first();
   revalidate = () =>
-    this.load({ cursor: this.state.cursor, previous: this.state.previous });
+    this.load(
+      { cursor: this.state.cursor, previous: this.state.previous },
+      null,
+    );
   invalidate = (removedId?: string) => {
     this.cancel();
     this.publish({
       pending: false,
+      pendingAction: null,
       stale: this.state.accepted,
       ...(removedId
         ? {
@@ -118,14 +139,17 @@ export class SavedViewDiscovery {
     this.read?.cancel();
     this.read = null;
   }
-  private async load(destination: Destination) {
+  private async load(
+    destination: Destination,
+    action: SavedViewDiscoveryAction | null,
+  ) {
     const port = this.ports.port();
     const schema = this.state.viewSchemaId;
-    if (!port || !schema || !this.state.open) return;
+    if (!port || !schema || !this.state.open || this.state.pending) return;
     this.cancel();
     const generation = this.generation;
     this.retryDestination = destination;
-    this.publish({ pending: true, problem: null });
+    this.publish({ pending: true, pendingAction: action, problem: null });
     const read = this.ports.observe((signal) =>
       port.listPage({
         viewSchemaId: schema,
@@ -163,6 +187,7 @@ export class SavedViewDiscovery {
           previous: destination.previous,
           nextCursor: page.nextCursor,
           pending: false,
+          pendingAction: null,
           stale: false,
           problem: null,
         });
@@ -182,7 +207,12 @@ export class SavedViewDiscovery {
             kind: "transport",
             message: "Saved views could not be loaded. Retry this page.",
           };
-    this.publish({ pending: false, stale: this.state.accepted, problem });
+    this.publish({
+      pending: false,
+      pendingAction: null,
+      stale: this.state.accepted,
+      problem,
+    });
     this.ports.failed(problem);
   }
 }

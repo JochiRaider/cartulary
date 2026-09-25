@@ -3,6 +3,7 @@ import {
   gridSortHeaderTestId,
   savedViewOptionTestId,
   savedViewSelectorTestId,
+  timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -76,8 +77,12 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
     ),
   );
   const first = gate();
+  const nextRead = gate();
+  const retryFailure = gate();
   const later = gate();
   let firstPending = false;
+  let nextPending = false;
+  let retryFailurePending = false;
   let laterPending = false;
   let continuationAttempts = 0;
   const requests: URL[] = [];
@@ -102,6 +107,8 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
       if (url.searchParams.has("cursor_token")) {
         continuationAttempts++;
         if (continuationAttempts === 1) {
+          nextPending = true;
+          await nextRead.ready;
           await route.fulfill({
             status: 500,
             contentType: "application/json",
@@ -119,6 +126,25 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
           return;
         }
         if (continuationAttempts === 2) {
+          retryFailurePending = true;
+          await retryFailure.ready;
+          await route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({
+              error: {
+                code: "internal_error",
+                status: 500,
+                message: "Discovery still unavailable",
+                details: {},
+                request_id: "svd-retry-failure",
+                retryable: true,
+              },
+            }),
+          });
+          return;
+        }
+        if (continuationAttempts === 3) {
           const response = await route.fetch();
           laterPending = true;
           await later.ready;
@@ -133,6 +159,7 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
     `/?incident_id=${incident}&sheet_ref_kind=saved_view&sheet_ref_id=${startup.saved_view_id}`,
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await page.setViewportSize({ width: 768, height: 900 });
   const trigger = page.getByTestId(
     savedViewSelectorTestId(timelineViewSchemaId),
   );
@@ -157,45 +184,118 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
   await expect(trigger).toContainText(startup.display_name);
   first.release();
   await expect(browser.getByRole("option")).toHaveCount(51);
+  const browsingWrites: string[] = [];
+  const browsingQueries: string[] = [];
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (!pathname.startsWith(`/api/v1/incidents/${incident}/`)) return;
+    if (pathname.endsWith(`/views/${timelineViewSchemaId}/query`)) {
+      browsingQueries.push(pathname);
+      return;
+    }
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()))
+      browsingWrites.push(`${request.method()} ${pathname}`);
+  });
+  const browserBounds = await browser.boundingBox();
+  expect(browserBounds).not.toBeNull();
+  if (browserBounds)
+    expect(browserBounds.x + browserBounds.width).toBeLessThanOrEqual(769);
   expect(requests).toHaveLength(1);
   await expect(
     page.getByTestId(
       savedViewOptionTestId(timelineViewSchemaId, startup.saved_view_id),
     ),
   ).toHaveCount(0);
-  await browser.getByRole("button", { name: "Next", exact: true }).click();
+  const base = browser.getByRole("option", {
+    name: "Unsaved view",
+    exact: true,
+  });
+  await expect(base).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(browser.getByRole("option").last()).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    browser.getByRole("button", { name: "First", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  const next = browser.getByRole("button", { name: "Next", exact: true });
+  await expect(next).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => nextPending).toBe(true);
+  await expect(next).toBeFocused();
+  await expect(next).toHaveAttribute("aria-busy", "true");
+  await page.keyboard.press("Enter");
+  expect(continuationAttempts).toBe(1);
+  nextRead.release();
   await expect(
     browser.getByRole("button", { name: "Retry page" }),
   ).toBeVisible();
+  await expect(next).toBeFocused();
   await expect(browser.getByRole("option")).toHaveCount(51);
   await expect(trigger).toHaveAttribute(
     "data-selected-saved-view-id",
     startup.saved_view_id,
   );
-  await browser.getByRole("button", { name: "Retry page" }).click();
+  await page.keyboard.press("Tab");
+  await expect(
+    browser.getByRole("button", { name: "Refresh", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  const retry = browser.getByRole("button", { name: "Retry page" });
+  await expect(retry).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => retryFailurePending).toBe(true);
+  await expect(retry).toBeFocused();
+  await expect(retry).toHaveAttribute("aria-busy", "true");
+  await page.keyboard.press("Enter");
+  expect(continuationAttempts).toBe(2);
+  retryFailure.release();
+  await expect(retry).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect.poll(() => laterPending).toBe(true);
+  await expect(retry).toBeFocused();
+  await expect(retry).toHaveAttribute("aria-busy", "true");
   await expect(browser.getByRole("option")).toHaveCount(51);
-  const base = browser.getByRole("option", {
-    name: "Unsaved view",
-    exact: true,
-  });
-  await base.focus();
-  await base.press("End");
-  await expect(browser.getByRole("option").last()).toBeFocused();
   await expect(trigger).toHaveAttribute(
     "data-selected-saved-view-id",
     startup.saved_view_id,
   );
   later.release();
   await expect(browser.getByRole("option")).toHaveCount(4);
+  await expect(browser.getByRole("option").nth(1)).toBeFocused();
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  await expect(
+    page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
+  ).toHaveValue("");
+  await expect(analystHeader).toBeVisible();
+  expect(browsingQueries).toHaveLength(0);
+  expect(browsingWrites).toEqual([]);
   expect(requests[1]?.searchParams.get("cursor_token")).toBe(
     requests[2]?.searchParams.get("cursor_token"),
   );
-  expect(requests).toHaveLength(3);
-  await browser.getByRole("button", { name: "Previous", exact: true }).click();
+  expect(requests[2]?.searchParams.get("cursor_token")).toBe(
+    requests[3]?.searchParams.get("cursor_token"),
+  );
+  expect(requests).toHaveLength(4);
+  await page.keyboard.press("Tab");
+  await expect(
+    browser.getByRole("button", { name: "First", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    browser.getByRole("button", { name: "Previous", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(browser.getByRole("option")).toHaveCount(51);
-  await browser.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(browser.getByRole("option").nth(1)).toBeFocused();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(next).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(browser.getByRole("option")).toHaveCount(4);
+  expect(browsingQueries).toHaveLength(0);
+  expect(browsingWrites).toEqual([]);
   const candidate = browser
     .getByRole("option")
     .filter({ hasText: "Discovery" })
@@ -207,8 +307,8 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
       request.method() === "POST" &&
       request.url().includes(`/views/${timelineViewSchemaId}/query`),
   );
-  await candidate.focus();
-  await candidate.press("Enter");
+  await expect(candidate).toBeFocused();
+  await page.keyboard.press("Enter");
   expect((await query).postDataJSON().group_by).toBe("timeline.capture_state");
   await expect(trigger).toHaveAttribute("data-selected-saved-view-id", id);
   await expect(

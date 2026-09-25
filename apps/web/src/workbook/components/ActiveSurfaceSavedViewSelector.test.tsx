@@ -11,6 +11,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useLayoutEffect, useSyncExternalStore } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
@@ -384,7 +385,33 @@ describe("ActiveSurfaceSavedViewSelector", () => {
     h.controller.dispose();
   });
   it("browses without applying configuration and restores trigger focus on Escape", async () => {
-    const h = await setup();
+    const replacement = savedViewTestResource({
+      saved_view_id: "replacement-view",
+      display_name: "Replacement view",
+    });
+    const listPage = vi
+      .fn<WorkbookSavedViewPort["listPage"]>()
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: { savedViews: [saved, replacement], nextCursor: null },
+      })
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: { savedViews: [replacement, saved], nextCursor: null },
+      })
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: { savedViews: [saved], nextCursor: null },
+      })
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: { savedViews: [saved], nextCursor: null },
+      })
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: { savedViews: [], nextCursor: null },
+      });
+    const h = await setup({ listPage }, [saved, replacement]);
     expect(h.port.listPage).not.toHaveBeenCalled();
     const trigger = button("Saved view");
     fireEvent.click(trigger);
@@ -396,6 +423,14 @@ describe("ActiveSurfaceSavedViewSelector", () => {
     const base = screen.getByRole("option", { name: "Unsaved view" });
     fireEvent.keyDown(base, { key: "End" });
     expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: /Replacement view/ }),
+    );
+    await act(async () => h.controller.discovery.refresh());
+    expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: /Replacement view/ }),
+    );
+    await act(async () => h.controller.discovery.refresh());
+    expect(document.activeElement).toBe(
       screen.getByRole("option", { name: /Timeline view/ }),
     );
     expect(h.onSelect).not.toHaveBeenCalled();
@@ -403,10 +438,35 @@ describe("ActiveSurfaceSavedViewSelector", () => {
     expect(screen.queryByRole("dialog", { name: "Saved views" })).toBeNull();
     expect(document.activeElement).toBe(trigger);
     expect(trigger.textContent).toContain(saved.display_name);
-    expect(h.port.listPage).toHaveBeenCalledTimes(1);
+    fireEvent.click(trigger);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("option", { name: /Timeline view/ }),
+      ).toBeTruthy(),
+    );
+    fireEvent.keyDown(screen.getByRole("option", { name: "Unsaved view" }), {
+      key: "End",
+    });
+    expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: /Timeline view/ }),
+    );
+    trigger.focus();
+    await act(async () => h.controller.discovery.refresh());
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.getByRole("option", { name: "Unsaved view" })).toBeTruthy();
+    expect(h.port.listPage).toHaveBeenCalledTimes(5);
     h.controller.dispose();
   });
   it("retains accepted choices through continuation failure with a local exact retry", async () => {
+    const user = userEvent.setup();
+    const nextRead =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["listPage"]>>>();
+    const retryFailure =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["listPage"]>>>();
+    const retrySuccess =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["listPage"]>>>();
+    const externalRetry =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["listPage"]>>>();
     const h = await setup({
       listPage: vi
         .fn<WorkbookSavedViewPort["listPage"]>()
@@ -414,36 +474,92 @@ describe("ActiveSurfaceSavedViewSelector", () => {
           kind: "accepted",
           value: { savedViews: [saved], nextCursor: "next" },
         })
-        .mockResolvedValueOnce({
-          kind: "rejected",
-          failure: { kind: "transport", message: "Continuation offline" },
-        })
+        .mockReturnValueOnce(nextRead.promise)
+        .mockReturnValueOnce(retryFailure.promise)
+        .mockReturnValueOnce(retrySuccess.promise)
         .mockResolvedValueOnce({
           kind: "accepted",
-          value: {
-            savedViews: [
-              {
-                ...saved,
-                saved_view_id: "next-view",
-                display_name: "Next view",
-              },
-            ],
-            nextCursor: null,
-          },
-        }),
+          value: { savedViews: [], nextCursor: null },
+        })
+        .mockResolvedValueOnce({
+          kind: "rejected",
+          failure: { kind: "transport", message: "Page offline" },
+        })
+        .mockReturnValueOnce(externalRetry.promise),
     });
     fireEvent.click(button("Saved view"));
     await waitFor(() =>
       expect(button("Next")).not.toHaveProperty("disabled", true),
     );
-    fireEvent.click(button("Next"));
+    const base = screen.getByRole("option", { name: "Unsaved view" });
+    expect(document.activeElement).toBe(base);
+    await user.tab();
+    expect(document.activeElement).toBe(button("First"));
+    await user.tab();
+    const next = button("Next");
+    expect(document.activeElement).toBe(next);
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(h.port.listPage).toHaveBeenCalledTimes(2));
+    expect(next.isConnected).toBe(true);
+    expect(document.activeElement).toBe(next);
+    expect(next.getAttribute("aria-busy")).toBe("true");
+    await user.keyboard("{Enter}");
+    expect(h.port.listPage).toHaveBeenCalledTimes(2);
+    await act(async () =>
+      nextRead.resolve({
+        kind: "rejected",
+        failure: { kind: "transport", message: "Continuation offline" },
+      }),
+    );
     await waitFor(() => expect(button("Retry page")).toBeTruthy());
+    expect(document.activeElement).toBe(next);
     expect(screen.getAllByText(/Continuation offline/)).toHaveLength(1);
     expect(screen.getByRole("option", { name: /Timeline view/ })).toBeTruthy();
     expect(button("Saved view").textContent).toContain(saved.display_name);
-    fireEvent.click(button("Retry page"));
+    expect(screen.getByText("Modified")).toBeTruthy();
+    expect(base.isConnected).toBe(true);
+    await user.tab();
+    expect(document.activeElement).toBe(button("Refresh"));
+    await user.tab();
+    const retry = button("Retry page");
+    expect(document.activeElement).toBe(retry);
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(h.port.listPage).toHaveBeenCalledTimes(3));
+    expect(retry.isConnected).toBe(true);
+    expect(document.activeElement).toBe(retry);
+    expect(retry.getAttribute("aria-busy")).toBe("true");
+    await user.keyboard("{Enter}");
+    expect(h.port.listPage).toHaveBeenCalledTimes(3);
+    await act(async () =>
+      retryFailure.resolve({
+        kind: "rejected",
+        failure: { kind: "transport", message: "Still offline" },
+      }),
+    );
+    expect(document.activeElement).toBe(retry);
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(h.port.listPage).toHaveBeenCalledTimes(4));
+    expect(document.activeElement).toBe(retry);
+    await act(async () =>
+      retrySuccess.resolve({
+        kind: "accepted",
+        value: {
+          savedViews: [
+            {
+              ...saved,
+              saved_view_id: "next-view",
+              display_name: "Next view",
+            },
+          ],
+          nextCursor: null,
+        },
+      }),
+    );
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /Next view/ })).toBeTruthy(),
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: /Next view/ }),
     );
     expect(h.port.listPage).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -453,6 +569,32 @@ describe("ActiveSurfaceSavedViewSelector", () => {
       }),
     );
     expect(h.onSelect).not.toHaveBeenCalled();
+    await act(async () => h.controller.discovery.refresh());
+    expect(document.activeElement).toBe(base);
+    expect(screen.getByText(/No saved views for this surface/)).toBeTruthy();
+    expect((button("Next") as HTMLButtonElement).disabled).toBe(true);
+    expect(button("Saved view").textContent).toContain(saved.display_name);
+    expect(screen.getByText("Modified")).toBeTruthy();
+    await user.tab();
+    expect(document.activeElement).toBe(button("First"));
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(button("Retry page")).toBeTruthy());
+    await user.tab();
+    expect(document.activeElement).toBe(button("Refresh"));
+    await user.tab();
+    expect(document.activeElement).toBe(button("Retry page"));
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(h.port.listPage).toHaveBeenCalledTimes(7));
+    const trigger = button("Saved view");
+    trigger.focus();
+    await act(async () =>
+      externalRetry.resolve({
+        kind: "accepted",
+        value: { savedViews: [], nextCursor: null },
+      }),
+    );
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole("button", { name: "Retry page" })).toBeNull();
     h.controller.dispose();
   });
 });

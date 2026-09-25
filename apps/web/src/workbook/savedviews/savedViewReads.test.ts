@@ -54,6 +54,10 @@ describe("Saved-view independent reads", () => {
     vi.mocked(p.listPage).mockReturnValueOnce(pending.promise);
     const next = discovery.next();
     expect(discovery.getSnapshot().pending).toBe(true);
+    expect(discovery.getSnapshot().pendingAction).toBe("next");
+    void discovery.next();
+    void discovery.first();
+    expect(p.listPage).toHaveBeenCalledTimes(2);
     expect(discovery.getSnapshot().candidates[0]?.saved_view_id).toBe(
       "saved-1",
     );
@@ -64,6 +68,7 @@ describe("Saved-view independent reads", () => {
       stale: true,
       cursor: null,
       previous: [],
+      pendingAction: null,
     });
     vi.mocked(p.listPage).mockResolvedValueOnce({
       kind: "accepted",
@@ -75,6 +80,7 @@ describe("Saved-view independent reads", () => {
       previous: [null],
       stale: false,
       nextCursor: null,
+      pendingAction: null,
     });
     expect(p.listPage).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -117,7 +123,14 @@ describe("Saved-view independent reads", () => {
     for (let i = 0; i < 10; i++) await d.previous();
     expect(d.getSnapshot().cursor).toBe("20");
     expect(d.getSnapshot().previous).toHaveLength(0);
-    await d.first();
+    const first = d.first();
+    expect(d.getSnapshot().pendingAction).toBe("first");
+    await first;
+    expect(d.getSnapshot().cursor).toBeNull();
+    expect(d.getSnapshot().previous).toHaveLength(0);
+    const refresh = d.refresh();
+    expect(d.getSnapshot().pendingAction).toBe("refresh");
+    await refresh;
     expect(d.getSnapshot().cursor).toBeNull();
     expect(d.getSnapshot().previous).toHaveLength(0);
     d.clear();
