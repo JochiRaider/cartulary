@@ -1,26 +1,22 @@
 import { useCallback } from "react";
-import { refreshBlocksWorkbookPendingRecord } from "../../runtime/workbookPendingReplayRuntime";
-import type {
-  TimelineCommittedRecordIdleResult,
-  TimelineMutableRef,
-} from "../models/timelineControllerPorts";
-import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineCommittedRecordIdleOptions = {
-  readonly signal?: AbortSignal;
+  readonly signal: AbortSignal;
   readonly fallbackRowVersion?: number | null | undefined;
   readonly refreshIfMissing?: boolean;
 };
 
 export function useTimelineCommittedRecordIdle({
-  conflictQueueRef,
+  mutationRuntime,
   latestCommittedRowVersion,
   latestCommittedTimelineRow,
   loadRows,
-  pendingSavesRefs,
 }: {
-  readonly conflictQueueRef: TimelineMutableRef<Record<string, unknown>>;
+  readonly mutationRuntime: WorkbookMutationRuntime;
   readonly latestCommittedRowVersion: (
     recordId: string,
   ) => number | null | undefined;
@@ -28,57 +24,88 @@ export function useTimelineCommittedRecordIdle({
   readonly loadRows: (options: {
     readonly showLoading: boolean;
   }) => Promise<void>;
-  readonly pendingSavesRefs: TimelinePendingSavesRefs;
 }) {
   return useCallback(
-    async (
+    (
       recordId: string,
-      options: TimelineCommittedRecordIdleOptions = {},
+      options: TimelineCommittedRecordIdleOptions,
     ): Promise<TimelineCommittedRecordIdleResult | null> => {
-      let attemptedRefresh = false;
-      for (;;) {
-        if (options.signal?.aborted) return null;
-        const pending = pendingSavesRefs.pendingQueueRef.current;
-        const snapshot = pending.model.snapshot();
-        const hasPendingRecordWork = snapshot.units.some(
-          (unit) => unit.recordId === recordId,
-        );
-        if (
-          snapshot.authPaused ||
-          snapshot.halted !== null ||
-          snapshot.overflow !== null ||
-          snapshot.sameFieldConflicts.length > 0 ||
-          Object.keys(conflictQueueRef.current).length > 0
-        ) {
-          return null;
-        }
-        if (
-          !hasPendingRecordWork &&
-          !refreshBlocksWorkbookPendingRecord(pending, recordId)
-        ) {
-          const row = latestCommittedTimelineRow(recordId);
-          const rowVersion =
-            latestCommittedRowVersion(recordId) ?? options.fallbackRowVersion;
-          if (typeof rowVersion === "number") return { row, rowVersion };
+      if (options.signal.aborted || mutationRuntime.retired)
+        return Promise.resolve(null);
+      const authorityEpoch = mutationRuntime.authorizationEpoch;
+      // Only this wait is cancelled. A shared, authority-fenced query may finish
+      // for its other consumers after the requesting action has gone away.
+      return new Promise((resolve, reject) => {
+        const controller = new AbortController();
+        let finished = false;
+        let publication = 0;
+        let unsubscribe = () => {};
+        const cleanup = () => {
+          if (finished) return false;
+          finished = true;
+          unsubscribe();
+          options.signal.removeEventListener("abort", cancel);
+          controller.abort();
+          return true;
+        };
+        const cancel = () => {
+          if (cleanup()) resolve(null);
+        };
+        unsubscribe = mutationRuntime.subscribe(() => {
+          publication++;
           if (
-            options.refreshIfMissing !== false &&
-            attemptedRefresh === false
-          ) {
-            attemptedRefresh = true;
-            await loadRows({ showLoading: false });
-            continue;
-          }
-          return null;
+            mutationRuntime.retired ||
+            mutationRuntime.authorizationEpoch !== authorityEpoch
+          )
+            cancel();
+        });
+        options.signal.addEventListener("abort", cancel, { once: true });
+        if (options.signal.aborted) {
+          cancel();
+          return;
         }
-        await new Promise((resolve) => window.setTimeout(resolve, 16));
-      }
+        const read =
+          async (): Promise<TimelineCommittedRecordIdleResult | null> => {
+            let attemptedRefresh = false;
+            for (;;) {
+              const observedPublication = publication;
+              const readiness = await mutationRuntime.waitForPendingRecordIdle({
+                recordId,
+                viewSchemaId: timelineViewSchemaId,
+                signal: controller.signal,
+              });
+              if (readiness !== "idle" || controller.signal.aborted)
+                return null;
+              // A publication can occur after the coordinator resolves and
+              // before this continuation runs. Recheck before accepting evidence.
+              if (publication !== observedPublication) continue;
+              const row = latestCommittedTimelineRow(recordId);
+              const rowVersion =
+                latestCommittedRowVersion(recordId) ??
+                options.fallbackRowVersion;
+              if (typeof rowVersion === "number") return { row, rowVersion };
+              if (options.refreshIfMissing === false || attemptedRefresh)
+                return null;
+              attemptedRefresh = true;
+              await loadRows({ showLoading: false });
+              if (controller.signal.aborted) return null;
+            }
+          };
+        void read().then(
+          (value) => {
+            if (cleanup()) resolve(value);
+          },
+          (error: unknown) => {
+            if (cleanup()) reject(error);
+          },
+        );
+      });
     },
     [
-      conflictQueueRef,
+      mutationRuntime,
       latestCommittedRowVersion,
       latestCommittedTimelineRow,
       loadRows,
-      pendingSavesRefs,
     ],
   );
 }

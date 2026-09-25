@@ -25,12 +25,10 @@ import {
   type WorkbookInspectorRegion,
 } from "../../inspector/presentation/WorkbookInspectorPanelContent";
 import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
-import type {
-  WorkbookInspectorAttention,
-  WorkbookInspectorDisabledReason,
-} from "../../inspector/presentation/workbookInspectorPresentationModel";
+import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
+import { useWorkbookInspectorOrdinaryAttention } from "../../inspector/workbookInspectorOrdinaryAttention";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import {
@@ -39,6 +37,7 @@ import {
 } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { InspectorMention } from "../models/workbookMentionChips";
+import type { TimelineInspectorDetailsOwner } from "./TimelineInspectorDetails";
 import type { TimelineMentionActions } from "./TimelineMentionActionControls";
 import { TimelineMentionsPanel } from "./TimelineMentionsPanel";
 import { bodyStyle } from "./TimelineWorkbookStyles";
@@ -60,7 +59,7 @@ export function TimelineWorkbookInspector({
   onFeatureAction,
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
-  inspectorAttentionForRow,
+  detailsOwner,
   renderFeatureSupplement,
   renderRelationshipEditor,
   renderFeatureWorkflow,
@@ -96,9 +95,10 @@ export function TimelineWorkbookInspector({
     row: WorkbookRow,
     collectionDestinations: Readonly<Record<string, (() => void) | undefined>>,
   ) => ReactNode;
-  readonly inspectorAttentionForRow?:
-    | ((row: WorkbookRow) => readonly WorkbookInspectorAttention[])
-    | undefined;
+  readonly detailsOwner: Pick<
+    TimelineInspectorDetailsOwner,
+    "drafts" | "patches"
+  >;
   readonly renderFeatureSupplement: (
     feature: InspectorFeatureGroup,
   ) => ReactNode;
@@ -115,6 +115,12 @@ export function TimelineWorkbookInspector({
   readonly selectedMention: InspectorMention | null;
   readonly selectedRow: WorkbookRow | null;
 }) {
+  const inspectorAttention = useWorkbookInspectorOrdinaryAttention(
+    detailsOwner.drafts,
+    detailsOwner.patches,
+    inspectorConfig.viewSchemaId,
+    currentIncidentRole ? (selectedRow?.rawRow ?? null) : null,
+  );
   const evidenceAttention = useEvidenceInspectorAttention(
     useContext(TimelineFileContext),
     inspectorConfig.viewSchemaId,
@@ -327,7 +333,7 @@ export function TimelineWorkbookInspector({
                     ),
                   }),
                 ),
-                attention: inspectorAttentionForRow?.(liveRow) ?? [],
+                attention: inspectorAttention ?? [],
               },
         evidence:
           liveRow === null

@@ -21,7 +21,7 @@ export function useTimelineInspectorPresentation<
   readonly sections: TimelineInspectorSectionsInput;
 }) {
   const {
-    inspectorAttentionForRow,
+    detailsOwner,
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
     renderRelationshipEditor,
@@ -33,7 +33,7 @@ export function useTimelineInspectorPresentation<
   const rowHistoryData = workbookRecordHistoryLoadedData(sections.rowHistory);
   return {
     ...model,
-    inspectorAttentionForRow,
+    detailsOwner,
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
     renderRelationshipEditor,

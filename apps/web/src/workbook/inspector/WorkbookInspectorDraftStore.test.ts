@@ -68,8 +68,18 @@ it("retains original raw intent and review dependencies independently from saved
   expect(store.read(identity)?.value).toBe("  unfinished\n");
   const current = attention(replaced);
   expect(current[0]?.category).toBe("draft");
-  store.setAuthority(null);
+  store.update(
+    { ...identity, recordId: "another-record" },
+    { ...row, record_id: "another-record" },
+    "unrelated",
+    "other",
+  );
+  expect(current[0]?.isCurrent()).toBe(true);
+  store.update(identity, replaced, "new selected draft", "first");
   expect(current[0]?.isCurrent()).toBe(false);
+  const afterEdit = attention(replaced);
+  store.setAuthority(null);
+  expect(afterEdit[0]?.isCurrent()).toBe(false);
   expect(attention(replaced)).toEqual([]);
 });
 it("requires explicit resumption and never lets another record or attachment consume raw work", () => {

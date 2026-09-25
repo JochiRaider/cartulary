@@ -229,12 +229,11 @@ export function useTimelineMutationComposition({
     viewQuery: query.viewQuery,
   });
   const waitForCommittedRecordIdle = useTimelineCommittedRecordIdle({
-    conflictQueueRef: rowMutations.refs.conflictQueueRef,
+    mutationRuntime,
     latestCommittedRowVersion: rowMutations.commands.latestCommittedRowVersion,
     latestCommittedTimelineRow:
       rowMutations.commands.latestCommittedTimelineRow,
     loadRows,
-    pendingSavesRefs: foundation.pendingSavesRefs,
   });
   const activeSheetRef = useMemo<SheetRef>(
     () =>

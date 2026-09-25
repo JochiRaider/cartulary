@@ -259,6 +259,47 @@ never mixes source, catalog, verification, or profile digests.
 - Frontend tests and validators may retain inert documentation references for human
   traceability, but must not open, stat, resolve, or hash those paths.
 
+### Autosave observation and dependent record readiness
+
+Core 03 REQ-03-035/282 owns committed-version acceptance and dependent-write
+blocking; REQ-03-087–089 owns autosave and save labels; REQ-03-283/298–300 owns
+continuity, retained authoring and authority boundaries. Core 04 AC-043 owns the
+existing user-visible performance predicates. The Testing Harness NLSpec owns
+execution, routing, artifacts and failure classification. Domain owns vocabulary
+and owner navigation. Neither domain nor the harness specification defines a
+zero-render requirement.
+
+Snapshot identity and subscription isolation are frontend implementation
+contracts. Test them under controlled React scheduling with the real runtime,
+editor registry and Timeline composition, using the admitted grid test binding.
+Hold unrelated dependencies fixed, observe commits at public component boundaries,
+and include positive controls for delayed editor publications, inspector work,
+accepted rows and replacement conflicts. Historical snapshots remain immutable;
+meaningful same-label counts, exact recovery scope, refresh debt and authority
+changes still reach affected consumers. Execution publications must wake the
+shared write coordinator even when presentation snapshot identity is unchanged.
+Inspector attention observes selected-record facts inside the inspector; unrelated
+operations must not invalidate either that observation or its retained actions.
+
+Browser continuity tests establish loaded-row count, inspector state, exact native
+editor, raw value, focus and selection, then settle a real held operation through
+an operation-specific response boundary. They do not infer whole-root quiescence
+from animation frames, elapsed time or unchanged save labels. Root commit counts
+cannot attribute work to a notification. Keep failure evidence semantic and
+bounded, attach the active case before cleanup, preserve the original failure,
+and release all gates on success, failure and cancellation. Do not retain tokens,
+cookies, credentials, raw payloads or unnecessary authored text in diagnostics.
+
+`WorkbookMutationRuntime.waitForPendingRecordIdle({recordId, viewSchemaId, signal})`
+uses `WorkbookWriteCoordinator` to observe authoritative pending/refresh/conflict
+facts and returns `idle`, `blocked` or `cancelled`. It captures authority and
+retires with the runtime. The Timeline adapter requires a cancellation signal,
+reads the committed-version owner after readiness, and makes at most one missing-
+version refresh, preserving the explicit history fallback. It rechecks after
+refresh and after publications racing a promise continuation. Aborting the caller
+releases its wait promptly without cancelling a shared query; the existing query
+owner fences late results. Do not infer readiness from `Saved` or restore polling.
+
 Grid evidence uses the following ownership split:
 
 | Postcondition | Required implementation/evidence boundary |

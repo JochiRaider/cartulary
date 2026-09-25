@@ -1,14 +1,16 @@
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   gridShellTestId,
   relationshipItemsTestId,
   saveStateTestId,
+  surfaceTabTestId,
   timelineCollectionInputTestId,
   workbookEditRecoveryDiscardButtonTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
-  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
   notesViewSchemaId,
@@ -27,35 +29,12 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
+import { holdBrowserRequest } from "./support/transport/requestInterception";
+import { retainAutosaveFeedbackCase } from "./support/workbook/autosaveFeedback";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import { createViewRow, waitForViewRow } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import { observeSaveEvents, saveEvents } from "./support/workbook/saveStatus";
-
-// Browser-only observation port; do not pull the application's CSS graph into
-// the separate E2E TypeScript project through a production-runtime type import.
-type DiagnosticRuntime = {
-  explicitPatches: {
-    submit(input: {
-      baseline: Awaited<ReturnType<typeof createViewRow>>;
-      viewSchemaId: string;
-      changes: readonly { field_key: string; value: string }[];
-      purpose: string;
-      sheetRef: { kind: "view_schema"; id: string };
-      surfaceLabel: string;
-    }): Promise<unknown>;
-  };
-  getSnapshot(): { readonly explicitInFlightCount: number };
-  notifyPendingChanged(): void;
-};
-
-type DiagnosticWindow = Window & {
-  taf: {
-    runtime: DiagnosticRuntime | null;
-    counts: Record<string, number>;
-    submissions: Promise<unknown>[];
-  };
-};
 
 test("Timeline failed refresh stays stale beside terminal save recovery", async ({
   page,
@@ -118,69 +97,13 @@ test("Timeline failed refresh stays stale beside terminal save recovery", async 
   }
 });
 
+// Collection commit counts belong to controlled React tests. This browser row
+// observes public operations and editor continuity across their response boundary.
 test("Timeline autosave feedback production characterization", async ({
   page,
 }, testInfo) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  // Diagnostic commit observations only. AC-043 runs without this hook.
-  await page.addInitScript(() => {
-    type Fiber = {
-      type?: unknown;
-      flags: number;
-      child?: Fiber;
-      sibling?: Fiber;
-      memoizedProps?: Record<string, unknown> & {
-        mutationRuntime?: DiagnosticRuntime;
-        binding?: { kind?: string };
-      };
-      alternate?: Fiber;
-    };
-    const observed = window as unknown as DiagnosticWindow & {
-      __REACT_DEVTOOLS_GLOBAL_HOOK__: unknown;
-    };
-    observed.taf = { runtime: null, counts: {}, submissions: [] };
-    let previous = new WeakSet<object>();
-    observed.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
-      supportsFiber: true,
-      inject: () => 1,
-      onCommitFiberUnmount: () => {},
-      onCommitFiberRoot: (_renderer: number, root: { current: Fiber }) => {
-        const counts = observed.taf.counts;
-        const increment = (key: string) => {
-          counts[key] = (counts[key] ?? 0) + 1;
-        };
-        increment("commits");
-        const current = new WeakSet<object>();
-        const visit = (fiber: Fiber | undefined) => {
-          if (!fiber) return;
-          current.add(fiber);
-          const props = fiber.memoizedProps;
-          if (props?.mutationRuntime?.explicitPatches?.submit)
-            observed.taf.runtime = props.mutationRuntime;
-          if (!previous.has(fiber)) {
-            if (
-              typeof fiber.type === "function" &&
-              (fiber.flags & 1) !== 0 &&
-              props?.binding?.kind === "collection"
-            )
-              increment("collectionRenders");
-            for (const key of ["columns", "rows"])
-              if (
-                Array.isArray(props?.[key]) &&
-                fiber.alternate &&
-                props?.[key] !== fiber.alternate.memoizedProps?.[key]
-              )
-                increment(`${key}Replacements`);
-          }
-          visit(fiber.child);
-          visit(fiber.sibling);
-        };
-        visit(root.current);
-        previous = current;
-      },
-    };
-  });
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("TAF"),
@@ -196,381 +119,341 @@ test("Timeline autosave feedback production characterization", async ({
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await observeSaveEvents(page);
   await showTimelineCollectionColumns(page, ["Tags"]);
-  const settle = () =>
-    page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        ),
-    );
-  const counts = () =>
-    page.evaluate(() => ({
-      ...(window as unknown as DiagnosticWindow).taf.counts,
-    }));
-  const delta = (
-    before: Record<string, number>,
-    after: Record<string, number>,
-  ) =>
-    Object.fromEntries(
-      [...new Set([...Object.keys(before), ...Object.keys(after)])].map(
-        (key) => [key, (after[key] ?? 0) - (before[key] ?? 0)],
-      ),
-    );
-  const observations: unknown[] = [];
-  const patches = await installPatchController(page);
   const browsing = page.getByRole("group", { name: "Workbook browsing" });
-  try {
-    for (const loaded of [1, 100, 200, 300]) {
-      if (loaded === 100) {
-        await createTimelineFillers(page, incidentId, "taf-window", 299, {
-          occurredAtStart: "2026-04-02T00:00:00Z",
-        });
-        await browsing
-          .getByRole("button", { name: "Refresh", exact: true })
-          .click();
-      } else if (loaded > 100) {
-        await browsing
-          .getByRole("button", { name: "Load more", exact: true })
-          .click();
-      }
-      await expect(browsing).toContainText(`${loaded} records loaded`);
-      for (const inspectorOpen of [false, true]) {
-        const close = page.getByTestId(
-          workbookInspectorCloseButtonTestId(timelineViewSchemaId),
-        );
-        if (await close.count()) await close.click();
-        await scrollGridTargetIntoView({
-          page,
-          surface: timelineViewSchemaId,
-          targetTestId: relationshipItemsTestId(
-            row.record_id,
-            "timeline.tags",
-            "grid",
-          ),
-        });
-        const cell = page
-          .getByRole("group", { name: "Tags collection cell", exact: true })
-          .filter({
-            has: page.getByTestId(
-              relationshipItemsTestId(row.record_id, "timeline.tags", "grid"),
-            ),
-          });
-        await cell
-          .locator("xpath=ancestor::*[@role='gridcell'][1]")
-          .click({ position: { x: 1, y: 1 } });
-        if (inspectorOpen)
-          await page
-            .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
-            .click();
-        await cell
-          .getByRole("button", { name: "Add tags token", exact: true })
-          .click();
-        const input = page.getByTestId(
-          timelineCollectionInputTestId(row.record_id, "timeline.tags", "grid"),
-        );
-        const rawDraft = `retained raw Ω draft ${loaded} ${inspectorOpen}`;
-        await input.fill(rawDraft);
-        await input.evaluate((element: HTMLInputElement) =>
-          element.setSelectionRange(3, 8, "backward"),
-        );
-        const original = await input.elementHandle();
-        await settle();
-        const before = await counts();
-        const unchangedSnapshot = await page.evaluate(() => {
-          const runtime = (window as unknown as DiagnosticWindow).taf.runtime;
-          if (!runtime) throw new Error("Production runtime was not observed");
-          const previous = runtime.getSnapshot();
-          runtime.notifyPendingChanged();
-          return previous === runtime.getSnapshot();
-        });
-        await settle();
-        const unchangedWork = delta(before, await counts());
-        expect(unchangedSnapshot).toBe(true);
-        // Root commits can include independent presence/presentation work.
-        // Assert the owned grid surfaces; retain root counts as diagnostics.
-        // The status hook's no-render guarantee is checked under React act in
-        // workbookSaveStatus.test.tsx, independent of browser background work.
-        for (const work of [
-          "columnsReplacements",
-          "rowsReplacements",
-          "collectionRenders",
-        ])
-          expect(
-            unchangedWork[work] ?? 0,
-            `${work} during unchanged status`,
-          ).toBe(0);
-        // Each hidden Notes subject has its own retained recovery lifetime.
-        const baselines = await Promise.all(
-          ["first", "second"].map((label) =>
-            createViewRow(page, incidentId, notesViewSchemaId, {
-              client_txn_id: uniqueTxn(
-                `taf-status-${loaded}-${inspectorOpen}-${label}`,
-              ),
-              "note.title": `Status ${loaded} ${inspectorOpen} ${label}`,
-              "note.body": "Original body",
-            }),
-          ),
-        );
-        const firstStatusRow = baselines[0],
-          secondStatusRow = baselines[1];
-        if (!firstStatusRow || !secondStatusRow)
-          throw new Error("Missing status fixture rows");
-        const firstStatus = patches.holdNextPatch({
-          recordId: firstStatusRow.record_id,
-        });
-        const secondStatus = patches.holdNextPatch({
-          recordId: secondStatusRow.record_id,
-        });
-        let releaseSourceReads = () => {};
-        const sourceReads = new Promise<void>((resolve) => {
-          releaseSourceReads = resolve;
-        });
-        let sourceReadCount = 0;
-        let signalSourceReads = () => {};
-        const sourceReadsStarted = new Promise<void>((resolve) => {
-          signalSourceReads = resolve;
-        });
-        const sourceRoute = `**/api/v1/incidents/${incidentId}/views/${notesViewSchemaId}/query`;
-        await page.route(sourceRoute, async (route) => {
-          sourceReadCount++;
-          if (sourceReadCount === 2) signalSourceReads();
-          await sourceReads;
-          await route.continue();
-        });
-        await settle();
-        const beforeStatus = await counts();
-        const beforeStatusWrites = patches.calls.length;
-        let statusWork: Record<string, number> = {};
-        try {
-          await page.evaluate(
-            ({ baselines, viewSchemaId, body }) => {
-              const diagnostic = (window as unknown as DiagnosticWindow).taf;
-              const runtime = diagnostic.runtime;
-              if (!runtime)
-                throw new Error("Production runtime was not observed");
-              diagnostic.submissions = baselines.map((baseline) =>
-                runtime.explicitPatches.submit({
-                  baseline,
-                  viewSchemaId,
-                  changes: [{ field_key: "note.body", value: body }],
-                  purpose: "generic-patch",
-                  sheetRef: { kind: "view_schema", id: viewSchemaId },
-                  surfaceLabel: "Notes",
-                }),
-              );
-            },
-            {
-              baselines,
-              viewSchemaId: notesViewSchemaId,
-              body: `Saved during Timeline draft ${loaded} ${inspectorOpen}`,
-            },
-          );
-          await sourceReadsStarted;
-          expect(sourceReadCount).toBe(2);
-          expect(
-            await page.evaluate(
-              () =>
-                (
-                  window as unknown as DiagnosticWindow
-                ).taf.runtime?.getSnapshot().explicitInFlightCount,
-            ),
-          ).toBe(2);
-          await expect(page.getByTestId(saveStateTestId())).toHaveText(
-            "Syncing",
-          );
-          expect(patches.calls).toHaveLength(beforeStatusWrites);
-          await settle();
-          // Measure admitted status changes before source/data publication.
-          statusWork = delta(beforeStatus, await counts());
-          releaseSourceReads();
-          await Promise.race([
-            Promise.all([firstStatus.waitForHit, secondStatus.waitForHit]),
-            page
-              .evaluate(() =>
-                Promise.all(
-                  (window as unknown as DiagnosticWindow).taf.submissions,
-                ),
-              )
-              .then(() => {
-                throw new Error(
-                  "Status writes settled without reaching their response gates",
-                );
-              }),
-          ]);
-          await expect(page.getByTestId(saveStateTestId())).toHaveText(
-            "Syncing",
-          );
-          firstStatus.release();
-          await firstStatus.waitForCompletion;
-          await expect
-            .poll(() =>
-              page.evaluate(
-                () =>
-                  (
-                    window as unknown as DiagnosticWindow
-                  ).taf.runtime?.getSnapshot().explicitInFlightCount,
-              ),
-            )
-            .toBe(1);
-          await expect(page.getByTestId(saveStateTestId())).toHaveText(
-            "Syncing",
-          );
-          secondStatus.release();
-          await secondStatus.waitForCompletion;
-          await page.evaluate(() =>
-            Promise.all(
-              (window as unknown as DiagnosticWindow).taf.submissions,
-            ),
-          );
-        } finally {
-          releaseSourceReads();
-          firstStatus.release();
-          secondStatus.release();
-          await page.unroute(sourceRoute);
-        }
-        expect(
-          successfulPatchCalls(patches.calls.slice(beforeStatusWrites)),
-        ).toHaveLength(2);
-        await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-        await settle();
-        const settlementWork = delta(beforeStatus, await counts());
-        expect(
-          await page.evaluate(
-            () =>
-              (window as unknown as DiagnosticWindow).taf.runtime?.getSnapshot()
-                .explicitInFlightCount,
-          ),
-        ).toBe(0);
-        expect(
-          await original?.evaluate((element: HTMLInputElement) => ({
-            connected: element.isConnected,
-            focused: document.activeElement === element,
-            text: element.value,
-            start: element.selectionStart,
-            end: element.selectionEnd,
-            direction: element.selectionDirection,
-          })),
-        ).toEqual({
-          connected: true,
-          focused: true,
-          text: rawDraft,
-          start: 3,
-          end: 8,
-          direction: "backward",
-        });
-        const beforeCollection = patches.calls.length;
-        const beforeRowChange = await counts();
-        const collection = patches.holdNextPatch({ recordId: row.record_id });
-        try {
-          await input.press(inspectorOpen ? "Tab" : "Enter");
-          await collection.waitForHit;
-          await expect(page.getByTestId(saveStateTestId())).toHaveText(
-            "Syncing",
-          );
-          await expect(input).toHaveValue(rawDraft);
-        } finally {
-          collection.release();
-          await collection.waitForCompletion;
-        }
-        await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-        expect(
-          successfulPatchCalls(patches.calls.slice(beforeCollection)),
-        ).toHaveLength(1);
-        const saved = await waitForViewRow(
-          page,
-          incidentId,
-          timelineViewSchemaId,
-          row.record_id,
-        );
-        expect(JSON.stringify(saved.cells["timeline.tags"])).toContain(
-          rawDraft,
-        );
-        const summary = `Autosave ${loaded} ${inspectorOpen}`;
-        const firstCall = patches.calls.length;
-        const held = patches.holdNextPatch({ recordId: row.record_id });
-        let notice: unknown;
-        try {
-          await editTimelineSummary(page, row.record_id, summary, {
-            outcome: "queued",
-            commit: "Tab",
-          });
-          await held.waitForHit;
-          await expect(page.getByTestId(saveStateTestId())).toHaveText(
-            "Syncing",
-          );
-          const stack = page.getByRole("complementary", {
-            name: "Workbook notices",
-            exact: true,
-          });
-          await expect(stack).toHaveCount(0);
-          const rect = (await stack.count()) ? await stack.boundingBox() : null;
-          const grid = await page
-            .getByTestId(gridShellTestId(timelineViewSchemaId))
-            .boundingBox();
-          notice = {
-            text: (await stack.count()) ? await stack.innerText() : null,
-            rect,
-            overlapsGrid: !!(
-              rect &&
-              grid &&
-              rect.x < grid.x + grid.width &&
-              rect.x + rect.width > grid.x &&
-              rect.y < grid.y + grid.height &&
-              rect.y + rect.height > grid.y
-            ),
-            status: await page
-              .getByTestId(workbookShellSlotTestId("status-strip"))
-              .innerText(),
-          };
-          if (loaded === 100 && !inspectorOpen)
-            await testInfo.attach("held-save-full-workbook", {
-              body: await page.screenshot(),
-              contentType: "image/png",
-            });
-        } finally {
-          held.release();
-          await held.waitForCompletion;
-        }
-        await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-        await expectServerSummaries(page, incidentId, {
-          [row.record_id]: summary,
-        });
-        await editTimelineSummary(page, row.record_id, `${summary} rapid`, {
-          outcome: "accepted",
-        });
-        await expectServerSummaries(page, incidentId, {
-          [row.record_id]: `${summary} rapid`,
-        });
-        expect(
-          successfulPatchCalls(patches.calls.slice(firstCall)),
-        ).toHaveLength(2);
-        observations.push({
-          loaded,
-          inspectorOpen,
-          unchangedSnapshot,
-          unchangedWork,
-          statusWork,
-          settlementWork,
-          notice,
-          scalarWrites: 2,
-          collectionWrites: 1,
-          rowChangeWork: delta(beforeRowChange, await counts()),
-          events: await saveEvents(page),
-        });
-      }
-    }
-  } finally {
-    await patches.dispose();
-    await testInfo.attach("autosave-feedback-observations", {
-      body: JSON.stringify(
-        {
-          kind: "diagnostic-production-characterization-not-timing",
-          observations,
+  for (const loaded of [1, 100, 200, 300]) {
+    for (const inspectorOpen of [false, true]) {
+      const observation = {
+        loaded,
+        inspectorOpen,
+        phase: "setup",
+        recordId: row.record_id,
+        fieldKey: "timeline.tags",
+        surface: "grid",
+        noteWrites: 0,
+        collectionWrites: 0,
+        scalarWrites: 0,
+        editor: null as null | {
+          connected: boolean;
+          focused: boolean;
+          draftMatches: boolean;
+          start: number | null;
+          end: number | null;
+          direction: string | null;
         },
-        null,
-        2,
-      ),
-      contentType: "application/json",
-    });
+        gates: {
+          notes: { started: false, released: false, completed: false },
+          collection: { started: false, released: false, completed: false },
+          scalar: { started: false, released: false, completed: false },
+        },
+        status: "",
+        events: [] as Awaited<ReturnType<typeof saveEvents>>,
+      };
+      let refreshRequestEvidence = () => {};
+      const releaseGate =
+        (name: keyof typeof observation.gates, release: () => void) => () => {
+          observation.gates[name].released = true;
+          release();
+        };
+      const releases: (() => void)[] = [];
+      const disposers: (() => Promise<void>)[] = [];
+      const phase = <T>(name: string, action: () => Promise<T>) => {
+        observation.phase = name;
+        return test.step(`${loaded}/${inspectorOpen}: ${name}`, action, {
+          timeout: 25_000,
+        });
+      };
+      await retainAutosaveFeedbackCase(
+        observation,
+        async () => {
+          if (loaded === 100 && !inspectorOpen)
+            await createTimelineFillers(page, incidentId, "taf-window", 299, {
+              occurredAtStart: "2026-04-02T00:00:00Z",
+            });
+          const patches = await installPatchController(page);
+          disposers.push(patches.dispose);
+          // An ordinary Notes create remains in flight while Timeline is active.
+          // The test never discovers or invokes an application runtime handle.
+          const notePath = `/api/v1/incidents/${incidentId}/views/${notesViewSchemaId}/rows`;
+          const note = await holdBrowserRequest(page, {
+            method: "POST",
+            path: notePath,
+          });
+          const releaseNote = releaseGate("notes", note.release);
+          releases.push(releaseNote);
+          let collectionStart: number | null = null;
+          let scalarStart: number | null = null;
+          refreshRequestEvidence = () => {
+            observation.noteWrites = note.hitCount();
+            observation.gates.notes.started = note.hitCount() > 0;
+            if (collectionStart !== null)
+              observation.collectionWrites =
+                (scalarStart ?? patches.calls.length) - collectionStart;
+            if (scalarStart !== null)
+              observation.scalarWrites = patches.calls.length - scalarStart;
+          };
+          disposers.push(note.dispose);
+          await phase("hold-notes-operation", async () => {
+            await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+            const title = page.getByTestId(
+              genericCreateFieldTestId("note.title"),
+            );
+            if (!(await title.isVisible()))
+              await page
+                .getByTestId(workbookInspectorToggleTestId(notesViewSchemaId))
+                .click();
+            await title.fill(`Status ${loaded} ${inspectorOpen}`);
+            await page
+              .getByTestId(genericCreateSubmitTestId(notesViewSchemaId))
+              .click();
+            await expect.poll(note.hitCount, { timeout: 25_000 }).toBe(1);
+            await expect(page.getByTestId(saveStateTestId())).toHaveText(
+              "Syncing",
+            );
+          });
+          const input = page.getByTestId(
+            timelineCollectionInputTestId(
+              row.record_id,
+              "timeline.tags",
+              "grid",
+            ),
+          );
+          const rawDraft = `retained raw Ω draft ${loaded} ${inspectorOpen}`;
+          await phase("editor-ready", async () => {
+            await page
+              .getByTestId(surfaceTabTestId(timelineViewSchemaId))
+              .click();
+            await expect(
+              page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+            ).toBeVisible();
+            // Each navigation starts a query window. Observe accepted pages rather
+            // than guessing when its effects or the inspector have settled.
+            const firstPage = loaded === 1 ? 1 : 100;
+            await expect(browsing).toContainText(`${firstPage} records loaded`);
+            for (let count = 100; count < loaded; count += 100) {
+              await browsing
+                .getByRole("button", { name: "Load more", exact: true })
+                .click();
+              await expect(browsing).toContainText(
+                `${count + 100} records loaded`,
+              );
+            }
+            const close = page.getByTestId(
+              workbookInspectorCloseButtonTestId(timelineViewSchemaId),
+            );
+            if (await close.isVisible()) await close.click();
+            await scrollGridTargetIntoView({
+              page,
+              surface: timelineViewSchemaId,
+              targetTestId: relationshipItemsTestId(
+                row.record_id,
+                "timeline.tags",
+                "grid",
+              ),
+            });
+            const cell = page
+              .getByRole("group", { name: "Tags collection cell", exact: true })
+              .filter({
+                has: page.getByTestId(
+                  relationshipItemsTestId(
+                    row.record_id,
+                    "timeline.tags",
+                    "grid",
+                  ),
+                ),
+              });
+            await cell
+              .locator("xpath=ancestor::*[@role='gridcell'][1]")
+              .click({ position: { x: 1, y: 1 } });
+            if (inspectorOpen)
+              await page
+                .getByTestId(
+                  workbookInspectorToggleTestId(timelineViewSchemaId),
+                )
+                .click();
+            await expect(close).toHaveCount(inspectorOpen ? 1 : 0);
+            await cell
+              .getByRole("button", { name: "Add tags token", exact: true })
+              .click();
+            await input.fill(rawDraft);
+            await input.evaluate((element: HTMLInputElement) =>
+              element.setSelectionRange(3, 8, "backward"),
+            );
+            await expect(input).toBeFocused();
+            await expect(input).toHaveValue(rawDraft);
+          });
+          const original = await input.elementHandle();
+          if (!original)
+            throw new Error("The authored native editor is absent");
+          disposers.push(() => original.dispose());
+          const readEditor = () =>
+            original.evaluate(
+              (element: HTMLInputElement, expected: string) => ({
+                connected: element.isConnected,
+                focused: document.activeElement === element,
+                draftMatches: element.value === expected,
+                start: element.selectionStart,
+                end: element.selectionEnd,
+                direction: element.selectionDirection,
+              }),
+              rawDraft,
+            );
+          const expectedEditor = {
+            connected: true,
+            focused: true,
+            draftMatches: true,
+            start: 3,
+            end: 8,
+            direction: "backward",
+          };
+          observation.editor = await readEditor();
+          expect(observation.editor).toEqual(expectedEditor);
+          await phase("notes-response-and-continuity", async () => {
+            const response = page.waitForResponse(
+              (response) =>
+                new URL(response.url()).pathname === notePath &&
+                response.request().method() === "POST",
+              { timeout: 25_000 },
+            );
+            releaseNote();
+            const settled = await response;
+            observation.gates.notes.completed = true;
+            expect(settled.ok()).toBe(true);
+            await expect(page.getByTestId(saveStateTestId())).toHaveText(
+              "Saved",
+            );
+            observation.noteWrites = note.hitCount();
+            expect(observation.noteWrites).toBe(1);
+            await expect
+              .poll(async () => {
+                observation.editor = await readEditor();
+                return observation.editor;
+              })
+              .toEqual(expectedEditor);
+          });
+          const beforeCollection = patches.calls.length;
+          collectionStart = beforeCollection;
+          const collection = patches.holdNextPatch({ recordId: row.record_id });
+          const releaseCollection = releaseGate(
+            "collection",
+            collection.release,
+          );
+          releases.push(releaseCollection);
+          await phase("collection-held", async () => {
+            await input.press(inspectorOpen ? "Tab" : "Enter");
+            await collection.waitForHit;
+            observation.gates.collection.started = true;
+            await expect(page.getByTestId(saveStateTestId())).toHaveText(
+              "Syncing",
+            );
+            await expect(input).toHaveValue(rawDraft);
+          });
+          await phase("collection-response", async () => {
+            releaseCollection();
+            await collection.waitForCompletion;
+            observation.gates.collection.completed = true;
+            await expect(page.getByTestId(saveStateTestId())).toHaveText(
+              "Saved",
+            );
+            observation.collectionWrites =
+              patches.calls.length - beforeCollection;
+            expect(observation.collectionWrites).toBe(1);
+            expect(
+              successfulPatchCalls(patches.calls.slice(beforeCollection)),
+            ).toHaveLength(1);
+            const saved = await waitForViewRow(
+              page,
+              incidentId,
+              timelineViewSchemaId,
+              row.record_id,
+            );
+            expect(JSON.stringify(saved.cells["timeline.tags"])).toContain(
+              rawDraft,
+            );
+          });
+          const summary = `Autosave ${loaded} ${inspectorOpen}`;
+          const beforeScalar = patches.calls.length;
+          scalarStart = beforeScalar;
+          const scalar = patches.holdNextPatch({ recordId: row.record_id });
+          const releaseScalar = releaseGate("scalar", scalar.release);
+          releases.push(releaseScalar);
+          await phase("scalar-held", async () => {
+            await editTimelineSummary(page, row.record_id, summary, {
+              outcome: "queued",
+              commit: "Tab",
+            });
+            await scalar.waitForHit;
+            observation.gates.scalar.started = true;
+            await expect(page.getByTestId(saveStateTestId())).toHaveText(
+              "Syncing",
+            );
+            await expect(
+              page.getByRole("complementary", {
+                name: "Workbook notices",
+                exact: true,
+              }),
+            ).toHaveCount(0);
+            if (loaded === 100 && !inspectorOpen)
+              await testInfo.attach("held-save-full-workbook", {
+                body: await page.screenshot(),
+                contentType: "image/png",
+              });
+          });
+          await phase("scalar-responses", async () => {
+            releaseScalar();
+            await scalar.waitForCompletion;
+            observation.gates.scalar.completed = true;
+            await expect(page.getByTestId(saveStateTestId())).toHaveText(
+              "Saved",
+            );
+            await expectServerSummaries(page, incidentId, {
+              [row.record_id]: summary,
+            });
+            await editTimelineSummary(page, row.record_id, `${summary} rapid`, {
+              outcome: "accepted",
+            });
+            await expectServerSummaries(page, incidentId, {
+              [row.record_id]: `${summary} rapid`,
+            });
+            observation.scalarWrites = patches.calls.length - beforeScalar;
+            expect(observation.scalarWrites).toBe(2);
+            expect(
+              successfulPatchCalls(patches.calls.slice(beforeScalar)),
+            ).toHaveLength(2);
+          });
+          observation.phase = "complete";
+        },
+        async (active) => {
+          refreshRequestEvidence();
+          // The case exists before assertions. Attach before releasing gates and
+          // omit payloads, credentials and authored text from retained metadata.
+          active.status =
+            (await page
+              .getByTestId(saveStateTestId())
+              .textContent({ timeout: 1_000 })
+              .catch(() => null)) ?? "unavailable";
+          active.events = (await saveEvents(page).catch(() => [])).slice(-16);
+          await testInfo.attach(
+            `autosave-feedback-${loaded}-${inspectorOpen}-${active.phase}`,
+            {
+              body: JSON.stringify({
+                kind: "semantic-autosave-continuity",
+                ...active,
+              }),
+              contentType: "application/json",
+            },
+          );
+        },
+        async () => {
+          for (const release of releases) release();
+          const results = await Promise.allSettled(
+            disposers.map((dispose) => dispose()),
+          );
+          const failure = results.find(
+            (result) => result.status === "rejected",
+          );
+          if (failure?.status === "rejected") throw failure.reason;
+        },
+      );
+    }
   }
 });

@@ -1,16 +1,13 @@
-import { type RefCallback, useCallback, useSyncExternalStore } from "react";
+import { type RefCallback, useCallback } from "react";
 import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
 import type { TimelineFileSource } from "../../features/evidence/timelineFileOperation";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { ownedInspectorRegion } from "../../inspector/presentation/WorkbookInspectorPanelContent";
-import type { WorkbookInspectorAttention } from "../../inspector/presentation/workbookInspectorPresentationModel";
 
 import type { HistoryBrowsingControls } from "../../inspector/WorkbookInspectorRecordHistory";
-import { workbookInspectorOrdinaryAttention } from "../../inspector/workbookInspectorOrdinaryAttention";
 import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import {
   type CollectionFieldKey,
@@ -65,23 +62,6 @@ export function useTimelineWorkbookInspectorSections({
   readonly historyBrowsingControls: HistoryBrowsingControls;
   readonly rowHistory: WorkbookRecordHistoryState;
 }) {
-  useSyncExternalStore(
-    detailsOwner.drafts.subscribe,
-    detailsOwner.drafts.getSnapshot,
-  );
-  useSyncExternalStore(
-    detailsOwner.patches.subscribe,
-    detailsOwner.patches.getSnapshot,
-  );
-  const inspectorAttentionForRow = (
-    row: WorkbookRow,
-  ): readonly WorkbookInspectorAttention[] =>
-    workbookInspectorOrdinaryAttention(
-      detailsOwner.drafts,
-      detailsOwner.patches,
-      timelineViewSchemaId,
-      row.rawRow ?? null,
-    );
   const renderInspectorFieldEditors = useCallback(
     (
       row: WorkbookRow,
@@ -190,7 +170,7 @@ export function useTimelineWorkbookInspectorSections({
   );
 
   return {
-    inspectorAttentionForRow,
+    detailsOwner,
     renderEvidenceAttachSection,
     renderInspectorFieldEditors,
     renderRelationshipEditor,

@@ -42,10 +42,10 @@ export function useTimelineHistoryActions({
   readonly setSelectedRowId: (recordId: string | null) => void;
   readonly waitForCommittedRecordIdle: (
     recordId: string,
-    options?: {
+    options: {
       readonly fallbackRowVersion?: number | null | undefined;
       readonly refreshIfMissing?: boolean;
-      readonly signal?: AbortSignal;
+      readonly signal: AbortSignal;
     },
   ) => Promise<TimelineCommittedRecordIdleResult | null>;
 }) {

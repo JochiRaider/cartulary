@@ -24,7 +24,7 @@ Hooks execute owner-local effects over semantic capabilities and pure
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineCommittedRecordIdle.ts](useTimelineCommittedRecordIdle.ts) | Waits for one committed Timeline record to become mutation-idle and performs at most one authoritative refresh when its committed version is missing. |
+| [useTimelineCommittedRecordIdle.ts](useTimelineCommittedRecordIdle.ts) | Adapts cancellable runtime readiness to committed Timeline evidence, rechecking authority and publications and performing at most one missing-version refresh without polling. |
 | [useTimelineCommittedRows.ts](useTimelineCommittedRows.ts) | Derives committed Timeline row collections from row/runtime state. |
 | [useTimelineRows.ts](useTimelineRows.ts) | Owns Timeline row state, the stable row ref, initial draft row, monotonic draft allocation, and semantic replace/update commands. |
 | [useTimelineRowsLoader.ts](useTimelineRowsLoader.ts) | Executes the pure load machine around exact query, freshness, local-draft hydration, created-row pinning, access-loss, and continuity boundaries. |

@@ -1,5 +1,5 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { WorkbookInspectorAttention } from "./presentation/workbookInspectorPresentationModel";
@@ -16,14 +16,65 @@ export function useWorkbookInspectorOrdinaryAttention(
   row: WorkbookQueryRow | null,
   reviewRequiredFor?: (identity: InspectorEditIdentity) => boolean,
 ): readonly WorkbookInspectorAttention[] {
-  useSyncExternalStore(drafts.subscribe, drafts.getSnapshot);
-  useSyncExternalStore(patches.subscribe, patches.getSnapshot);
+  const observation = useMemo(() => {
+    let previous = ordinaryAttentionScope(drafts, patches, viewSchemaId, row);
+    return {
+      subscribe: (listener: () => void) => {
+        const unwatchDrafts = drafts.subscribe(listener);
+        const unwatchPatches = patches.subscribe(listener);
+        return () => {
+          unwatchDrafts();
+          unwatchPatches();
+        };
+      },
+      getSnapshot: () => {
+        const next = ordinaryAttentionScope(drafts, patches, viewSchemaId, row);
+        if (!sameAttentionScope(previous, next)) previous = next;
+        return previous;
+      },
+    };
+  }, [drafts, patches, viewSchemaId, row]);
+  useSyncExternalStore(observation.subscribe, observation.getSnapshot);
   return workbookInspectorOrdinaryAttention(
     drafts,
     patches,
     viewSchemaId,
     row,
     reviewRequiredFor,
+  );
+}
+
+// Observe the selected record's immutable owner facts. An unrelated record's
+// publication must neither invalidate this presentation nor stale its actions.
+function ordinaryAttentionScope(
+  drafts: WorkbookInspectorDraftStore,
+  patches: WorkbookExplicitPatchOwner,
+  viewSchemaId: string,
+  row: WorkbookQueryRow | null,
+) {
+  const snapshot = patches.getSnapshot();
+  return {
+    authority: snapshot.authority,
+    draftAuthority: drafts.getAuthorityGeneration(),
+    drafts: row ? drafts.readRecord(viewSchemaId, row.record_id) : [],
+    operations: snapshot.entries.filter(
+      (entry) =>
+        entry.intent.viewSchemaId === viewSchemaId &&
+        entry.intent.baseline.record_id === row?.record_id,
+    ),
+  };
+}
+function sameAttentionScope(
+  left: ReturnType<typeof ordinaryAttentionScope>,
+  right: ReturnType<typeof ordinaryAttentionScope>,
+) {
+  return (
+    left.authority === right.authority &&
+    left.draftAuthority === right.draftAuthority &&
+    left.drafts.length === right.drafts.length &&
+    left.drafts.every((draft, index) => draft === right.drafts[index]) &&
+    left.operations.length === right.operations.length &&
+    left.operations.every((entry, index) => entry === right.operations[index])
   );
 }
 
@@ -36,12 +87,14 @@ export function workbookInspectorOrdinaryAttention(
   reviewRequiredFor?: (identity: InspectorEditIdentity) => boolean,
 ): readonly WorkbookInspectorAttention[] {
   if (!row) return [];
-  const draftSnapshot = drafts.getSnapshot();
+  const scope = ordinaryAttentionScope(drafts, patches, viewSchemaId, row);
   const patchSnapshot = patches.getSnapshot();
   const contract = requireViewContract(viewSchemaId);
   const current = () =>
-    drafts.getSnapshot() === draftSnapshot &&
-    patches.getSnapshot() === patchSnapshot;
+    sameAttentionScope(
+      scope,
+      ordinaryAttentionScope(drafts, patches, viewSchemaId, row),
+    );
   const destination =
     (fieldKey: string | undefined) => (section: HTMLElement) =>
       [

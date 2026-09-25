@@ -107,6 +107,7 @@ import {
 } from "./workbookMutationStatusProjector";
 import {
   createWorkbookPendingQueueRuntime,
+  refreshBlocksWorkbookPendingRecord,
   type WorkbookPendingQueueRuntime,
 } from "./workbookPendingReplayRuntime";
 import {
@@ -747,6 +748,44 @@ export class WorkbookMutationRuntime {
           };
         }
         return { kind: "waiting" };
+      },
+    );
+  }
+
+  /** Pending autosave readiness, independent of save labels and React projections. */
+  waitForPendingRecordIdle({
+    recordId,
+    viewSchemaId,
+    signal,
+  }: {
+    readonly recordId: string;
+    readonly viewSchemaId: string;
+    readonly signal: AbortSignal;
+  }): Promise<"idle" | "blocked" | "cancelled"> {
+    const authorityEpoch = this.authorizationEpoch;
+    return this.writeCoordinator.wait<"idle" | "blocked" | "cancelled">(
+      signal,
+      "cancelled",
+      () => {
+        if (this.retired || this.authorizationEpoch !== authorityEpoch)
+          return { kind: "completed", value: "cancelled" };
+        const queue = this.pendingRuntime.model.snapshot();
+        if (
+          queue.authPaused ||
+          queue.halted ||
+          queue.overflow ||
+          queue.sameFieldConflicts.length ||
+          this.conflicts
+            .entries()
+            .some((entry) => entry.origin.viewSchemaId === viewSchemaId)
+        )
+          return { kind: "completed", value: "blocked" };
+        if (
+          queue.units.some((unit) => unit.recordId === recordId) ||
+          refreshBlocksWorkbookPendingRecord(this.pendingRuntime, recordId)
+        )
+          return { kind: "waiting" };
+        return { kind: "completed", value: "idle" };
       },
     );
   }

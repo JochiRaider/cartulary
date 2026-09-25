@@ -4427,6 +4427,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_autosave_subscription_isolation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/timelineAutosaveIsolation.test.tsx",
+        "titles": [
+          "Timeline composition isolates unchanged publications and overlapping save status from grid and inspector cells",
+          "Timeline composition observes editor activation drafts inspector changes and replacement conflicts independently",
+          "Timeline inspector isolates unrelated drafts and observes selected retained work and authority"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_capture_authoring",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -4588,6 +4614,14 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineCommittedRecordIdle.test.tsx",
         "titles": [
+          "committed record waiting accepts the latest version before resolving a dependent action",
+          "committed record waiting cancels during a shared refresh and ignores late rejection",
+          "committed record waiting rechecks blockers after refresh and cancels on authority replacement",
+          "committed record waiting removes observers on pre-abort idle blocked and refresh failure",
+          "pending record readiness blocks on queue halt overflow and queue conflicts",
+          "pending record readiness cancels independent waiters on abort authority change and retirement",
+          "pending record readiness follows queue and scoped refresh publications without timers",
+          "pending record readiness observes canonical conflicts without a React projection",
           "useTimelineCommittedRecordIdle refreshes a missing committed version at most once"
         ]
       },

@@ -1217,6 +1217,7 @@
         "apps/web/src/workbook/timeline/presentation/TimelineWorkbookViewBarRegion.tsx",
         "apps/web/src/workbook/timeline/presentation/useTimelineInspectorPresentation.tsx",
         "apps/web/src/workbook/timeline/presentation/useTimelineWorkbookPresentation.tsx",
+        "apps/web/src/workbook/timeline/timelineAutosaveIsolation.test.tsx",
         "apps/web/src/workbook/timeline/timelineBulkTagInteraction.test.tsx",
         "apps/web/src/workbook/timeline/timelineCaptureActions.characterization.test.ts",
         "apps/web/src/workbook/timeline/timelineCompositionArchitecture.test.ts",

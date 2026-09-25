@@ -30,7 +30,7 @@ export function TimelineWorkbookInspectorRegion({
       onSelectMention={model.onSelectMention}
       renderEvidenceAttachSection={model.renderEvidenceAttachSection}
       renderInspectorFieldEditors={model.renderInspectorFieldEditors}
-      inspectorAttentionForRow={model.inspectorAttentionForRow}
+      detailsOwner={model.detailsOwner}
       renderFeatureSupplement={(feature) =>
         (feature.featureGroupKey === "timeline.supersede" &&
           (model.captureEditor ||

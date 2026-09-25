@@ -1,5 +1,14 @@
 # Timeline autosave-feedback cleanup
 
+> 2026-09-25 qualification: the earlier TAF-01–05 entries below are historical
+> observations, not a permanent zero-render contract. Their claims of “zero
+> unrelated production grid work” overstate what whole-root DevTools counts can
+> establish. The 200-row/open-inspector failure retained three collection renders
+> across two commits with stable grid inputs and an intact draft. Its source is
+> still unproven. A passing rerun does not resolve that attribution. The remediation
+> section at the end records current contracts, changes and verification.
+
+
 ## Control and execution baseline
 
 Execution began on clean `main` at
@@ -538,3 +547,239 @@ implementation and evidence only; the initially clean user baseline is preserved
 All five workstreams are DONE. Applicable acceptance rows are PASS and N/A rows
 have owner/scope rationales. Next action: review the uncommitted diff and handoff;
 no further implementation, deployment or analyst-data action is pending.
+
+
+## 2026-09-25 autosave verification and event-driven readiness remediation
+
+Implementation baseline: `52a88e620` (`Centralize workbook write coordination`).
+The user authorized implementation of the seven-gap remediation plan. Historical
+execution instructions above describe the previous slice, not new authority.
+There is no change to product requirements, HTTP, database, saved-view or retained-
+draft formats, and no compatibility alias, feature flag or migration.
+
+### Evidence boundary and review groups
+
+Core 03 REQ-03-035/282 owns committed evidence and dependent writes;
+REQ-03-087–089 owns autosave/status; REQ-03-283/298–300 owns continuity, drafts
+and authority. Core 04 AC-043 owns the four existing performance predicates.
+Testing Harness owns execution and artifact mechanics. Frontend implementation
+guidance owns narrow subscriptions, stable snapshots and diagnostic limitations.
+`domain.md`, Core and the harness specification require no normative changes.
+No executable check consumes these Markdown statements.
+
+Review P2 separately from P3. P2 comprises the controlled composition suite,
+record-scoped inspector attention, browser choreography and failure diagnostics.
+P3 comprises runtime pending-record readiness, the Timeline adapter and required
+cancellation signals in its immediate callers/tests. Routing/docs have separable
+hunks for both. To roll back P3, revert those production/test hunks and regenerate
+its catalog projection; retain P2's causal tests and browser rewrite. Never restore
+the invalid browser render gate as a readiness rollback. P2 can be reverted as its
+own group only while retaining equivalent controlled coverage of isolation.
+
+### Gap and phase ledger
+
+| Gap | Implementation and lasting effect | Compatibility and residual risk | Exit evidence |
+| --- | --- | --- | --- |
+| G1 ownership | Dated qualification above and frontend owner map separate implementation diagnostics from product requirements. | No spec behavior change; original three-render attribution remains unresolved. | All assertions map to owners below; no Markdown-consuming executable inputs. |
+| G2 causal isolation | Real runtime/editor/Timeline composition under `act`; commits observed at component boundaries, grid inputs by identity. Explicitly gated editor work is a positive control. | Internal tests only; no arbitrary count tolerance. | Unchanged notification and overlapping status tests; selected drafts, accepted rows and conflicts remain observable. |
+| G3 readiness | Eight browser cases settle a public Notes create after establishing Timeline editor state, then verify collection/scalar saves. Operation phases have 25-second deadlines. | Same semantic browser rows; native focus/raw value/caret/direction and exact write counts remain required. | Service-backed row and query overlap passed; full gate recorded below. |
+| G4 diagnostics | Case allocated before assertions; semantic phase evidence attached before cleanup; all gates released, all disposers attempted, first failure preserved. Private React/runtime discovery removed. | Attachments are internal implementation evidence; metadata excludes payloads, tokens and raw drafts. | Forced setup/editor/response/attachment/cleanup failures exercised by diagnostic helper tests. |
+| G5 composition | Controlled tests exposed broad explicit-patch subscription in parent inspector-section construction. Move attention subscription into inspector and observe only selected record facts; action validity uses the same scoped facts. | Unrelated publications still wake execution. Relevant drafts/operations/authority invalidate attention. No duplicate store or blanket memoization. | Isolation regression fails with a deliberately broadened subscription; positive controls and retained-snapshot tests pass. |
+| G6 readiness | Existing `WorkbookWriteCoordinator` now owns pending-record wait; Timeline retains committed lookup and one missing-version refresh. Signals required, authority/retirement cancellation prompt, shared reads survive caller abort. | Internal TS interfaces migrate together. History fallback preserved. No timer or polling fallback. | Immediate/pending/refresh, halt/auth/overflow/conflicts, pre-abort, concurrent waits, authority/disposal, cleanup and continuation races covered. |
+| G7 accounting | Existing browser and committed-idle rows retained; new composition and diagnostic suites have authored catalog selectors; generated files refreshed only through Make. | No retired row or equivalence alias. Evidence distinguishes infrastructure, regressions, functional and measurement outcomes. | Generation, catalog and schema checks plus terminal ledger below. |
+
+P0 established an executable baseline and separated infrastructure failure from
+product evidence. P1 established owners and the replacement matrix. P2 controlled
+coverage preceded browser gate removal, and the broad subscription defect was
+repaired only after reproduction. P3 is independent of the original render-source
+hypothesis. P4 covers generated projections, finalization, integration and handoff.
+Current phase exits and limitations are recorded with terminal results below.
+
+### Replacement assertion map
+
+| Removed or retained observation | Replacement and owner |
+| --- | --- |
+| Immediate status identity + browser zero collection/row/column counts after two frames | `timelineAutosaveIsolation.test.tsx`: unchanged notification, actual component commits, stable grid inputs with dependencies held fixed. `workbookSaveStatus.test.tsx`: immutable snapshots and execution publications. Implementation support only. |
+| Synthetic hidden Notes submissions and count 2→1→0 | Controlled composition suite uses real explicit-patch owner with separate preparation gates, checks same-label count changes and grid/inspector isolation. Browser uses one real held public Notes create for continuity. Core 03 save labels plus implementation isolation. |
+| Browser row-change work counters | Controlled positive controls for editor activation, gated drafts, inspector selection, accepted query rows and replacement conflicts. Browser authoritative tag/summary reads retain functional acceptance. |
+| Browser root commits/DevTools traversal | Retired as causal evidence; no replacement zero-root requirement. AC-043 remains separate, uninstrumented performance evidence. |
+| Native editor identity/raw text/focus/backward selection | Retained against the original element handle before and after the Notes response in every browser case; no whole-root quiescence claim. Core 03 continuity/authoring. |
+| Collection and scalar commits / notice obstruction | Retained: exactly one successful collection write and two successful scalar writes per case, persisted values, Syncing/Saved transitions, no routine notice stack; one held-save screenshot. |
+| Bounded missing-version refresh | Existing committed-idle catalog row expanded, plus existing row-mutation/source-write coordinator rows prove accepted-version dispatch. Core 03 REQ-03-035/282. |
+
+Canonical new rows are
+`web.workbook.regression.timeline_autosave_subscription_isolation` and
+`harness.browser.boundary_support.autosave_feedback_diagnostics`. Existing
+`web.workbook.regression.timeline_committed_idle_refreshes_once_19e6098c0e`
+retains its bounded-refresh purpose and adds event-driven lifecycle cases. The
+existing runtime-responsibilities row covers coordinator registration/revision
+races and disposal. Existing save-status tests retain exact recovery scope,
+refresh debt, same-label transitions and immutable historical snapshots.
+
+### Current verification ledger
+
+All run suffixes below are under `.cartulary/test-results/`. Make commands used
+the repository's pinned runtime directory `tmp/node-runtime/bin` on `PATH`; the
+shell initially omitted Node/pnpm. This was an environment setup correction, not
+a harness/product change. No root-cause claim is based on a passing rerun.
+
+| Evidence | Outcome / run suffix |
+| --- | --- |
+| Original 200/open failure | Retained `20260925T140418Z-p81602`; attribution remains unproven. |
+| Planning baseline unit slice | PASS `20260925T162558Z-p79100`. |
+| Planning exact browser attempt | No product verdict, `infra/service_start_error`, `20260925T162304Z-p45337`. |
+| Executable unchanged browser baseline | PASS 11/11, `20260925T164856Z-p88760`, after fixing PATH. |
+| Controlled status coupling before repair | Deterministic isolation failure `20260925T165723Z-p31682`; narrowed inspector observation fixed it. |
+| First repaired controlled composition slice | PASS 2/2, `20260925T165914Z-p33893`. |
+| Rewritten autosave and query overlap browser rows | PASS 11/11, `20260925T170135Z-p39919`; all eight continuity cases. |
+| Collection/editor registry/row mutation/source coordination slice | PASS 5/5, `20260925T170400Z-p74551`. |
+| Diagnostic failure/cleanup slice | PASS 2/2, `20260925T170401Z-p74940`. |
+
+Test-authoring failures included unsorted/duplicate catalog titles, a non-exported
+test-binding type, an incorrect inspector selector, a timer assertion that counted
+an existing authority timer, and a queue-conflict fixture using the wrong public
+error shape. These were fixed without weakening production assertions. Their
+superseding results and the final checks follow below.
+
+### Final integration evidence
+
+`make generate` passed at `20260925T171058Z-p90528`; only the generated topology
+input index changed. `env -u RESULTS_DIR make agent-finalize` passed at
+`20260925T171130Z-p93665` before broader checks. Retained-run canonical evidence
+and scheduler maintenance were skipped with `results-dir-not-provided`: no
+qualifying successful full warm `check` root was supplied. That skip is not a
+product pass.
+
+The deliberate broad-subscription sensitivity mutation failed the new composition
+row at `20260925T170943Z-p85210`; the mutation was restored. Final focused
+composition/readiness/inspector-draft coverage passed 4/4 at
+`20260925T171711Z-p89506`. The full frontend run below passed 676/676. The final
+focused run verifies the last test-only type/lint corrections after that suite
+started; production sources were unchanged during the suite.
+
+| Command | Result | Run suffix |
+| --- | --- | --- |
+| `make frontend-typecheck` | PASS 2/2 | `20260925T171446Z-p52630` |
+| `make frontend-unit` | PASS 676/676 | `20260925T171202Z-p98138` |
+| `make frontend-import-boundary-check` | PASS 2/2 | `20260925T171202Z-p98203` |
+| `make lint-biome` | PASS 2/2 | `20260925T171447Z-p53014` |
+| `make generate-drift` | PASS 4/4 | `20260925T171202Z-p97854` |
+| `make generated-artifact-policy-check` | PASS 3/3 | `20260925T171202Z-p97956` |
+| `make json-shape-check` | PASS 3/3 | `20260925T171202Z-p98058` |
+| `make lint-markdown` | PASS | `20260925T171202Z-p98706` |
+
+The first terminal typecheck (`20260925T171202Z-p98045`) rejected an extra
+`view_schema_id` on a new inspector test fixture; the first Biome run
+(`20260925T171202Z-p98339`) rejected two non-null assertions in the new composition
+tests. Both were corrected and superseded above. Neither exposed a production
+failure. The intentionally failing sensitivity run is regression evidence, not an
+unresolved product failure.
+
+Final test-only additions assert that the Timeline adapter schedules neither native
+`setTimeout`/`setInterval` nor coordinator delays, and that cancelling one of two
+waiters sharing a refresh leaves the other able to accept the refreshed version.
+The expanded committed-idle row passed 2/2 at `20260925T172639Z-p67964`;
+`make frontend-typecheck` and `make lint-biome` passed again at
+`20260925T172712Z-p73102` and `20260925T172712Z-p73140`.
+
+The first full browser gate (`20260925T171710Z-p89337`) finished 138/140: the
+asset-lifetime group and its aggregate summary failed. All other groups, including
+the final autosave choreography and history/recovery consumers, passed. The outer
+row classified its rejected child build as `product/test_assertion_failure`, but
+the nested build (`20260925T172608Z-p60437`) recorded
+`artifact/artifact_error`: frontend inputs changed after the run source snapshot.
+The implementation session added the last test coverage during that independent
+build. This is invalid build evidence, not a demonstrated product regression.
+Non-documentation inputs were then frozen. The exact
+`harness.browser.boundary_support.frontend_artifact_lifetime` row passed 11/11 at
+`20260925T173021Z-p84543` without a code fix. A full gate rerun follows below;
+no scenario retry, sleep, threshold or golden adjustment was introduced.
+
+The stateful save-status row
+`module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c`
+passed 11/11 at `20260925T173021Z-p84558`, covering exact saved-view conflict scope,
+global FIFO recovery beside independent work, and queue overflow.
+
+### Changed internal interfaces and review boundaries
+
+- P2 production: `workbook/inspector/workbookInspectorOrdinaryAttention.ts`
+  projects selected-record owner facts and keeps action validity scoped to those
+  facts. Timeline inspector section construction no longer subscribes in the
+  surface parent. Its `detailsOwner` is forwarded through the inspector model and
+  region; `TimelineWorkbookInspector` subscribes at the actual consumer.
+- P2 evidence: `timelineAutosaveIsolation.test.tsx`, the retained inspector-draft
+  test, `e2e/timeline-autosave-feedback.spec.ts`, and
+  `e2e/support/workbook/autosaveFeedback{,.test}.ts`. The source ownership entry,
+  new composition row and new harness diagnostic row belong to this group.
+- P3 production: `WorkbookMutationRuntime.waitForPendingRecordIdle` is the new
+  internal operation. `useTimelineCommittedRecordIdle` now accepts
+  `mutationRuntime` instead of pending refs and the React conflict projection;
+  options require `signal`. Its composition call and History callback type migrate
+  together; Mention/source-coordination callers already supplied signals.
+- P3 evidence: `useTimelineCommittedRecordIdle.test.tsx`, the immediate
+  row-mutation fixture/call, and the additional titles on the existing
+  committed-idle catalog row. Coordinator registration/race evidence remains in
+  the existing runtime-responsibilities suite.
+- Shared handoff: the frontend implementation guide and Timeline READMEs document
+  these boundaries. The generated topology input index is regenerated after
+  either review group changes its authored catalog; do not hand-edit it.
+
+Review groups remain uncommitted and have independent production/test hunks. No
+HTTP, storage, dependency lockfile, visual golden or deployment artifact changed.
+
+Retained autosave JSON from the passing autosave group in the first full run was
+inspected directly: all eight 1/100/200/300 × closed/open cases have `complete`
+phase records, one Notes write, one collection write and two scalar writes. Each
+original editor remained connected and focused with its raw draft matching and
+backward selection 3–8 preserved; Notes/collection/scalar gates all show started,
+released and completed. The attachments retain semantic booleans/identities and
+bounded save events, not raw drafts, payloads or runtime mutation handles.
+
+The clean `make browser-e2e-webserver-backed` rerun passed **140/140 execution
+units** at `20260925T173214Z-p50921`. The previously affected asset-lifetime group
+and the autosave group both passed inside this complete run. The source-snapshot
+failure above is fully dispositioned; no product gate or assertion was weakened.
+The complete functional selection includes dependent History, capture, mention,
+Evidence, authoring/authority, recovery and editor-continuity consumers.
+
+The four existing AC-043 rows passed through the owner-selected
+`make service-backed-test-slice OWNER=module.timeline ROWS=<four measurement rows>`
+at `20260925T174425Z-p35752` (20/20 execution units). The aggregate is
+`browser-e2e-measurement/frontend-measurement-aggregate.json` under that run.
+It is qualified implementation evidence with unchanged fixture/sampling/thresholds,
+not a speedup or Core 05 publication claim. The fixture is
+`ac043_large_grid_snapshot_v1`, key
+`520577706a84ac8a294558004b496faed428370ae5b4d2c7da76a3a5f719fa41`, with one builder,
+four clones and zero scheduler overlaps. No DevTools diagnostic instrumentation
+was installed for this run.
+
+| Predicate | Samples | p95 (ms) | Existing budget (ms) | Result |
+| --- | --- | --- | --- | --- |
+| Summary selection down | 100 | 32.3 | 100 | PASS |
+| Summary focus edit | 100 | 28.2 | 100 | PASS |
+| Committed summary typing acknowledgement | 100 | 31.0 | 100 | PASS |
+| Blank row creation | 100 | 74.0 | 150 | PASS |
+
+### Phase exits and final handoff
+
+| Phase | Exit disposition |
+| --- | --- |
+| P0 evidence baseline | DONE: original render failure retained, attribution unresolved, infrastructure/build-snapshot failures distinguished from functional failures. |
+| P1 contract cleanup | DONE: owners and replacement coverage are explicit; no render-count product requirement added. |
+| P2 reliable verification | DONE: controlled isolation and positive controls pass; regression sensitivity demonstrated; all eight production continuity cases and failure diagnostics pass. |
+| P3 event-driven readiness | DONE: coordinator-backed waiting, required cancellation, refresh/lifecycle/authority/registration and continuation-race coverage, committed acceptance and no polling fallback. |
+| P4 integration and handoff | DONE: implementation, routing, full frontend/browser/stateful, AC-043, documentation lint and diff verification complete. |
+
+Limitations remain explicit: the original three renders have not been attributed
+by new trace evidence. The discovered broad inspector subscription is a separately
+reproduced defect, not proof of that original cause. No latency improvement is
+claimed. Full backend/release/`make check`, visual and accessibility gates were not
+rerun for this internal frontend coordination slice; it changes no backend contract,
+visual design, accessibility contract or golden. Relevant production browser and
+stateful consumers, all frontend units and the unchanged performance predicates
+were verified. Retained-run maintenance remains skipped because `RESULTS_DIR`
+was unset, as required for the absence of a qualifying full warm-check run.
+
+Final documentation check: PASS (`20260925T175022Z-p78575`); `git diff --check` PASS. The next handoff action is review of the
+uncommitted P2/P3 groups; no data migration, deployment flag or compatibility
+cleanup is required.

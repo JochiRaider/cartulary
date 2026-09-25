@@ -43,9 +43,10 @@ the next explicit edit.
 
 | File | Responsibility |
 | --- | --- |
+| [timelineAutosaveIsolation.test.tsx](timelineAutosaveIsolation.test.tsx) | Isolates real composition subscriptions under controlled scheduling and proves editor, inspector, accepted-row and conflict updates remain observable. |
 | [timelineCaptureActions.characterization.test.ts](timelineCaptureActions.characterization.test.ts) | Tests History placement, distinct capture confirmation policies, and exact supersession reason omission. |
 | [timelineCompositionArchitecture.test.ts](timelineCompositionArchitecture.test.ts) | Enforces the slim public root, sole composition-hook caller, stateless presentation regions, forbidden-capability exclusion, and visible-column synchronization ownership. |
-| [useTimelineCommittedRecordIdle.test.tsx](useTimelineCommittedRecordIdle.test.tsx) | Characterizes bounded refresh when a committed record version is temporarily missing. |
+| [useTimelineCommittedRecordIdle.test.tsx](useTimelineCommittedRecordIdle.test.tsx) | Covers event-driven pending/refresh readiness, blockers, cancellation, authority changes, concurrent waits, continuation races and bounded missing-version refresh. |
 | [useTimelineCompositionLifecycle.test.tsx](useTimelineCompositionLifecycle.test.tsx) | Characterizes grid measurement/observer cleanup and inspector selection/continuity reset ownership. |
 | [useTimelineCreateRelatedWorkflow.test.tsx](useTimelineCreateRelatedWorkflow.test.tsx) | Tests retained Evidence creation across navigation and preservation of the original unsent draft. |
 | [useTimelineInspectorFeatureController.test.tsx](useTimelineInspectorFeatureController.test.tsx) | Characterizes canonical feature routing, fail-closed behavior, cancellation, exclusivity, and lifecycle reset. |

@@ -129,13 +129,12 @@ function renderCoordinator(
         setSelectedRowId,
       });
       const waitForCommittedRecordIdle = useTimelineCommittedRecordIdle({
-        conflictQueueRef: coordinator.refs.conflictQueueRef,
+        mutationRuntime: runtime,
         latestCommittedRowVersion:
           coordinator.commands.latestCommittedRowVersion,
         latestCommittedTimelineRow:
           coordinator.commands.latestCommittedTimelineRow,
         loadRows,
-        pendingSavesRefs: pending,
       });
       return { coordinator, rows, waitForCommittedRecordIdle };
     },
@@ -538,7 +537,9 @@ describe("useTimelineRowMutationCoordinator", () => {
       ),
     ).toBe(6);
     await expect(
-      result.current.waitForCommittedRecordIdle(recordId),
+      result.current.waitForCommittedRecordIdle(recordId, {
+        signal: new AbortController().signal,
+      }),
     ).resolves.toBeNull();
     unmount();
     runtime.invalidate({ kind: "runtime_disposed" });

@@ -62,6 +62,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.autosave_feedback_diagnostics",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/workbook/autosaveFeedback.test.ts",
+        "titles": [
+          "autosave diagnostics clean up when attachment fails and report cleanup-only failures",
+          "autosave diagnostics retain each failing phase before cleanup and preserve the original error"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.boundary_support.cleanup_suite_9036a615b1",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
