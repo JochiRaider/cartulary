@@ -76,6 +76,27 @@ export type AutoResolutionNotice = {
   matchedAliasText: string | null;
 };
 
+export type DisclosureReviewFeedback = {
+  readonly key: string;
+  readonly phase: "pending" | "failure";
+  readonly message?: string;
+};
+
+/** A disclosure can keep its retained identity while its reviewed mention changes. */
+export function disclosureReviewKey(
+  notice: AutoResolutionNotice & { readonly identity: string },
+): string {
+  return JSON.stringify([
+    notice.identity,
+    notice.rowRecordId,
+    notice.fieldKey,
+    notice.entityMentionId,
+    notice.itemRef,
+    notice.mentionRowVersion,
+    notice.resolvedRecordId,
+  ]);
+}
+
 function relationshipItemLabel(
   item: CollectionItem | InspectorMention,
   entityIndex: Record<string, { label: string }>,

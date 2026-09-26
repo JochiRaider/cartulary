@@ -27,7 +27,10 @@ import type { WorkbookReadScope } from "../../query/WorkbookQueryRow";
 import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { LocalConflictState } from "../models/timelineConflictState";
-import type { TimelineCommittedInspectorRecords } from "../models/timelineControllerPorts";
+import type {
+  DisclosureReviewNavigationScope,
+  TimelineCommittedInspectorRecords,
+} from "../models/timelineControllerPorts";
 import type { CollectionFieldKey } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import {
@@ -124,6 +127,7 @@ export function useTimelineInspectorSelection({
 }
 
 export function useTimelineInspectorRowInteractions({
+  currentCommittedRow,
   elementRegistry,
   publishViewingPresence,
   rowsRef,
@@ -133,6 +137,7 @@ export function useTimelineInspectorRowInteractions({
   setSelectedMentionRef,
   setSelectedRowId,
 }: {
+  readonly currentCommittedRow: (recordId: string) => WorkbookRow | null;
   readonly elementRegistry: TimelineInspectorElementRegistry;
   readonly publishViewingPresence: (recordId: string) => void;
   readonly rowsRef: TimelineRowsRef;
@@ -200,6 +205,7 @@ export function useTimelineInspectorRowInteractions({
     readonly itemRef: string;
     readonly sourceRecordId: string;
     readonly fieldKey?: CollectionFieldKey;
+    readonly reviewScope?: DisclosureReviewNavigationScope;
   } | null>(null);
 
   const handleSelectRow = useCallback(
@@ -238,10 +244,16 @@ export function useTimelineInspectorRowInteractions({
   );
 
   const handleSelectMention = useCallback(
-    (rowRecordId: string, itemRef: string) => {
+    (
+      rowRecordId: string,
+      itemRef: string,
+      reviewScope?: DisclosureReviewNavigationScope,
+    ) => {
       const rowVersion =
+        currentCommittedRow(rowRecordId)?.rowVersion ??
         rowsRef.current.find((row) => row.recordId === rowRecordId)
-          ?.rowVersion ?? null;
+          ?.rowVersion ??
+        null;
       setSelectedRowId(rowRecordId);
       setSelectedMentionRef(itemRef);
       setInspectorMessage(null);
@@ -255,10 +267,12 @@ export function useTimelineInspectorRowInteractions({
           },
           itemRef,
           sourceRecordId: rowRecordId,
+          ...(reviewScope ? { reviewScope } : {}),
         });
-      }
+      } else reviewScope?.settle(false);
     },
     [
+      currentCommittedRow,
       rowsRef,
       setInspectorMessage,
       setIsInspectorOpen,
@@ -306,15 +320,24 @@ export function useTimelineInspectorRowInteractions({
 
   useLayoutEffect(() => {
     if (pendingMentionFocus === null) return;
-    const row = rowsRef.current.find(
-      (candidate) =>
-        candidate.recordId === pendingMentionFocus.identity.recordId,
-    );
+    const { reviewScope } = pendingMentionFocus;
+    if (reviewScope && !reviewScope.isCurrent()) {
+      setPendingMentionFocus(null);
+      reviewScope.settle(false);
+      return;
+    }
+    const row =
+      currentCommittedRow(pendingMentionFocus.identity.recordId) ??
+      rowsRef.current.find(
+        (candidate) =>
+          candidate.recordId === pendingMentionFocus.identity.recordId,
+      );
     if (
       selectedRowId !== pendingMentionFocus.identity.recordId ||
       row?.rowVersion !== pendingMentionFocus.identity.rowVersion
     ) {
       setPendingMentionFocus(null);
+      reviewScope?.settle(false);
       return;
     }
     if (pendingMentionFocus.fieldKey !== undefined) {
@@ -328,15 +351,25 @@ export function useTimelineInspectorRowInteractions({
         setPendingMentionFocus(null);
       return;
     }
-    if (
-      elementRegistry.containsActiveElement() ||
-      elementRegistry.focusMention(
-        pendingMentionFocus.identity,
-        pendingMentionFocus.sourceRecordId,
-        pendingMentionFocus.itemRef,
-      )
-    )
+    const focused =
+      reviewScope === undefined
+        ? elementRegistry.containsActiveElement() ||
+          elementRegistry.focusMention(
+            pendingMentionFocus.identity,
+            pendingMentionFocus.sourceRecordId,
+            pendingMentionFocus.itemRef,
+          )
+        : reviewScope.runOwnedFocus(() =>
+            elementRegistry.focusMention(
+              pendingMentionFocus.identity,
+              pendingMentionFocus.sourceRecordId,
+              pendingMentionFocus.itemRef,
+            ),
+          );
+    if (focused) {
       setPendingMentionFocus(null);
+      reviewScope?.settle(true);
+    }
   });
 
   return {

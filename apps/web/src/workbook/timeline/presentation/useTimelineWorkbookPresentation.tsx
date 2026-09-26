@@ -585,11 +585,14 @@ export function useTimelineWorkbookPresentation({
       owner: workflow.commands.mentions.owner,
       entityIndex,
       density,
-      onReviewAutoResolution: async (
+      reviewFeedback: workflow.commands.mentions.reviewFeedback,
+      onReviewAutoResolution: (
         notice: import("../actions/WorkbookTimelineMentionOperationOwner").AutoResolutionDisclosure,
       ) => {
-        await workflow.commands.mentions.prepareDisclosureReview(notice);
-        handleSelectMention(notice.rowRecordId, notice.itemRef);
+        workflow.commands.mentions.startDisclosureReview(
+          notice,
+          handleSelectMention,
+        );
       },
       onUndoAutoResolution: handleUndoAutoResolutionNotice,
     },

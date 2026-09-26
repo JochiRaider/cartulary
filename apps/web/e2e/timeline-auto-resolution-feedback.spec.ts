@@ -1,11 +1,16 @@
-import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
+import {
+  applyFilterChip,
+  scrollGridTargetIntoView,
+} from "@cartulary/test-utils/grid";
 import {
   authTestId,
   autoResolutionNoticeFamilySelector,
   dataTestIdSelector,
+  gridRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   incidentLandingTestId,
+  mentionItemTestId,
   relationshipItemsTestId,
   rowCellTestId,
   surfaceTabTestId,
@@ -26,6 +31,8 @@ import { installVisualPreferences } from "./support/auth/visualPreferences";
 import {
   addRelationshipTokenViaUI,
   aliasCollectionActionsPayload,
+  collectionItems,
+  hostRefsFieldKey,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
@@ -35,6 +42,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
+import { holdBrowserRequest } from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import { createViewRow } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
@@ -46,6 +54,371 @@ type DiagnosticWindow = Window & {
     owner: { acceptVersion(id: string, version: number): void } | null;
   };
 };
+
+test("Timeline Review read cannot interrupt newer scalar editing", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("ARF-REVIEW"),
+    "Review read continuity",
+  );
+  await createViewRow(page, incident, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-host"),
+    "host.display_name": "Review canonical host",
+    "host.hostname": "review.example.test",
+    "host.aliases": aliasCollectionActionsPayload(["review alias"]),
+  });
+  const source = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-source"),
+    "timeline.activity_utc_text": "2026-04-01T00:00:00Z",
+    "timeline.activity_synopsis_text": "Original review source",
+  });
+  const editing = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-editing"),
+    "timeline.activity_utc_text": "2026-04-02T00:00:00Z",
+    "timeline.activity_synopsis_text": "Editable destination",
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [{ op: "add_tag", tag_name: "review-editing" }],
+    },
+  });
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page, ["Hosts"]);
+  const resolution = await addRelationshipTokenViaUI(
+    page,
+    source.record_id,
+    "hostRefs",
+    "review alias",
+  );
+  const itemRef = String(
+    collectionItems(resolution.data.row, hostRefsFieldKey).find(
+      (item) => item.raw_text === "review alias",
+    )?.item_ref ?? "",
+  );
+  expect(itemRef).not.toBe("");
+  const notices = page
+    .locator(autoResolutionNoticeFamilySelector())
+    .filter({ has: page.getByRole("button", { name: "Review", exact: true }) });
+  await expect(notices).toHaveCount(1);
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.tags",
+    "review-editing",
+  );
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, source.record_id)),
+  ).toHaveCount(0);
+  await expect(notices).toHaveCount(1);
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, source.record_id)),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, editing.record_id)),
+  ).toBeVisible();
+
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: `/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+  });
+  let reviewWrites = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/records\/|\/entity-mentions\//u.test(request.url())
+    )
+      reviewWrites++;
+  });
+  try {
+    const review = notices
+      .first()
+      .getByRole("button", { name: "Review", exact: true });
+    await review.click();
+    await held.waitForHit;
+    await expect(review).toHaveAttribute("aria-busy", "true");
+    await expect(review).toBeEnabled();
+    await review.press("Enter");
+    const cell = page.getByTestId(
+      rowCellTestId(editing.record_id, "timeline.activity_synopsis_text"),
+    );
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: rowCellTestId(
+        editing.record_id,
+        "timeline.activity_synopsis_text",
+      ),
+    });
+    await cell.click();
+    const input = page.getByTestId(
+      timelineScalarEditorTestId({
+        recordId: editing.record_id,
+        fieldKey: "timeline.activity_synopsis_text",
+        surface: "grid",
+      }),
+    );
+    await input.fill("newer native draft Ω");
+    await input.evaluate((element: HTMLInputElement) =>
+      element.setSelectionRange(2, 7, "backward"),
+    );
+    const original = await input.elementHandle();
+    held.release();
+    await expect.poll(() => held.hitCount()).toBe(1);
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("newer native draft Ω");
+    expect(
+      await original?.evaluate((element: HTMLInputElement) => ({
+        connected: element.isConnected,
+        focused: document.activeElement === element,
+        start: element.selectionStart,
+        end: element.selectionEnd,
+        direction: element.selectionDirection,
+      })),
+    ).toEqual({
+      connected: true,
+      focused: true,
+      start: 2,
+      end: 7,
+      direction: "backward",
+    });
+    await expect(notices).toHaveCount(1);
+    expect(held.hitCount()).toBe(1);
+    expect(reviewWrites).toBe(0);
+    await input.press("Escape");
+    await review.click();
+    await expect(page.getByTestId(mentionItemTestId(itemRef))).toBeFocused();
+    await expect(notices).toHaveCount(1);
+    await expect(
+      page.getByTestId(gridRowTestId(timelineViewSchemaId, source.record_id)),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId(gridRowTestId(timelineViewSchemaId, editing.record_id)),
+    ).toBeVisible();
+    expect(reviewWrites).toBe(0);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline Review read preserves narrow collection editing", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 768, height: 800 });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("ARF-REVIEW-COLLECTION"),
+    "Review collection continuity",
+  );
+  await createViewRow(page, incident, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-collection-host"),
+    "host.display_name": "Collection canonical host",
+    "host.hostname": "collection-review.example.test",
+    "host.aliases": aliasCollectionActionsPayload(["collection alias"]),
+  });
+  const source = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-collection-source"),
+    "timeline.activity_synopsis_text": "Collection review source",
+  });
+  const editing = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-collection-editing"),
+    "timeline.activity_synopsis_text": "Collection editing row",
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [{ op: "add_tag", tag_name: "review-collection-editing" }],
+    },
+  });
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page, ["Hosts", "Tags"]);
+  await addRelationshipTokenViaUI(
+    page,
+    source.record_id,
+    "hostRefs",
+    "collection alias",
+  );
+  const notices = page
+    .locator(autoResolutionNoticeFamilySelector())
+    .filter({ has: page.getByRole("button", { name: "Review", exact: true }) });
+  await expect(notices).toHaveCount(1);
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.tags",
+    "review-collection-editing",
+  );
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, source.record_id)),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, editing.record_id)),
+  ).toBeVisible();
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: `/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+  });
+  let reviewWrites = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/records\/|\/entity-mentions\//u.test(request.url())
+    )
+      reviewWrites++;
+  });
+  try {
+    await notices
+      .first()
+      .getByRole("button", { name: "Review", exact: true })
+      .click();
+    await held.waitForHit;
+    await page
+      .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+      .click();
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: relationshipItemsTestId(
+        editing.record_id,
+        "timeline.tags",
+        "grid",
+      ),
+    });
+    const cell = page
+      .getByRole("group", { name: "Tags collection cell", exact: true })
+      .filter({
+        has: page.getByTestId(
+          relationshipItemsTestId(editing.record_id, "timeline.tags", "grid"),
+        ),
+      });
+    await cell
+      .getByRole("button", { name: "Add tags token", exact: true })
+      .click();
+    const input = page.getByTestId(
+      timelineCollectionInputTestId(editing.record_id, "timeline.tags", "grid"),
+    );
+    await input.fill("newer collection draft Ω");
+    await input.evaluate((element: HTMLInputElement) =>
+      element.setSelectionRange(2, 8, "backward"),
+    );
+    const original = await input.elementHandle();
+    held.release();
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("newer collection draft Ω");
+    expect(
+      await original?.evaluate((element: HTMLInputElement) => ({
+        connected: element.isConnected,
+        focused: document.activeElement === element,
+        start: element.selectionStart,
+        end: element.selectionEnd,
+        direction: element.selectionDirection,
+      })),
+    ).toEqual({
+      connected: true,
+      focused: true,
+      start: 2,
+      end: 8,
+      direction: "backward",
+    });
+    await expect(notices).toHaveCount(1);
+    expect(reviewWrites).toBe(0);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline Review read failure retries at the original source mention", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("ARF-REVIEW-RETRY"),
+    "Review retry",
+  );
+  await createViewRow(page, incident, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-retry-host"),
+    "host.display_name": "Retry canonical host",
+    "host.hostname": "retry-review.example.test",
+    "host.aliases": aliasCollectionActionsPayload(["retry alias"]),
+  });
+  const source = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-retry-source"),
+    "timeline.activity_synopsis_text": "Retry review source",
+  });
+  await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-review-retry-visible"),
+    "timeline.activity_synopsis_text": "Visible retry row",
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [{ op: "add_tag", tag_name: "review-retry-visible" }],
+    },
+  });
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page, ["Hosts"]);
+  const resolution = await addRelationshipTokenViaUI(
+    page,
+    source.record_id,
+    "hostRefs",
+    "retry alias",
+  );
+  const itemRef = String(
+    collectionItems(resolution.data.row, hostRefsFieldKey).find(
+      (item) => item.raw_text === "retry alias",
+    )?.item_ref ?? "",
+  );
+  expect(itemRef).not.toBe("");
+  const notices = page
+    .locator(autoResolutionNoticeFamilySelector())
+    .filter({ has: page.getByRole("button", { name: "Review", exact: true }) });
+  await expect(notices).toHaveCount(1);
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.tags",
+    "review-retry-visible",
+  );
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, source.record_id)),
+  ).toHaveCount(0);
+  let readCount = 0;
+  let reviewWrites = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/records\/|\/entity-mentions\//u.test(request.url())
+    )
+      reviewWrites++;
+  });
+  const queryPath = `**/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/query`;
+  await page.route(queryPath, async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    readCount++;
+    if (readCount === 1) return route.abort("failed");
+    return route.continue();
+  });
+  try {
+    const review = notices
+      .first()
+      .getByRole("button", { name: "Review", exact: true });
+    await review.click();
+    await expect(notices.first().getByRole("alert")).toHaveText(
+      /Could not open the source\. Review again to retry\./u,
+    );
+    await expect(review).toBeEnabled();
+    await review.click();
+    await expect(page.getByTestId(mentionItemTestId(itemRef))).toBeFocused();
+    await expect(notices.first().getByRole("alert")).toHaveCount(0);
+    await expect(notices).toHaveCount(1);
+    expect(readCount).toBe(2);
+    expect(reviewWrites).toBe(0);
+  } finally {
+    await page.unroute(queryPath);
+  }
+});
 
 test("Timeline auto-resolution feedback production characterization compact", async ({
   page,

@@ -153,6 +153,7 @@ export function useTimelineInspectorWorkflowComposition({
     scopeKey: rowMenuScopeKey,
   });
   const rowInteractions = useTimelineInspectorRowInteractions({
+    currentCommittedRow: foundation.currentCommittedRow,
     elementRegistry: inspector.elementRegistry,
     publishViewingPresence: mutation.publishViewingPresence,
     rowsRef: foundation.rowsRef,
@@ -200,6 +201,10 @@ export function useTimelineInspectorWorkflowComposition({
     candidatePort: mentionCandidates,
     earlierSaves,
     selectedMention: inspector.selection.selectedMention,
+    selectedMentionRef: foundation.selectedMentionRef,
+    selectedRowId: inspector.selection.selectedRowId,
+    inspectorInvalidationGeneration: inspector.lifecycle.invalidationGeneration,
+    reviewSurfaceKey: `${actionContext.surfaceKey}:${incident.inspectorResetKey}`,
     selectedTargetId: foundation.selectedTargetId,
     setSelectedTargetId: foundation.setSelectedResolveTargetId,
     presentationKey: `${actionContext.surfaceKey}:${incident.inspectorResetKey}:${inspector.selection.selectedRowId}`,

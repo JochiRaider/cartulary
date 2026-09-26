@@ -13,6 +13,8 @@ import { WorkbookTimelineMentionOperationOwner } from "./actions/WorkbookTimelin
 import { createTimelineMentionEntityCreationAdapter } from "./adapters/createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "./adapters/createTimelineMentionResolutionAdapter";
 import { useTimelineMentionActions } from "./hooks/useTimelineMentionActions";
+import type { DisclosureReviewNavigationScope } from "./models/timelineControllerPorts";
+import type { WorkbookRow } from "./models/timelineRowModel";
 import type { TimelineMentionResolutionPort } from "./ports/TimelineMentionPort";
 
 function setup(review: MentionReview = mentionReview()) {
@@ -35,8 +37,17 @@ function setup(review: MentionReview = mentionReview()) {
   const input = {
     owner,
     rowsRef,
+    acceptDisclosureSource: (row: WorkbookRow) => ({
+      accepted: true,
+      row,
+      stale: false,
+    }),
     earlierSaves: { current: Promise.resolve() },
     selectedMention: mentionInspector(review),
+    selectedMentionRef: review.subject.itemRef as string | null,
+    selectedRowId: review.subject.sourceRecordId,
+    inspectorInvalidationGeneration: 0,
+    reviewSurfaceKey: "timeline:source",
     presentationKey: "timeline:source",
     presentationActive: true,
     candidatePort: {
@@ -70,6 +81,44 @@ async function flush() {
     for (let index = 0; index < 20; index++) await Promise.resolve();
   });
 }
+function disclosureFixture() {
+  const base = mentionReview();
+  const f = setup(
+    mentionReview({
+      subject: {
+        ...base.subject,
+        state: "resolved",
+        resolutionMethod: "auto_match",
+        resolvedRecordId: "70000000-0000-4000-8000-000000000001",
+      },
+      intent: { action: "revert_to_unresolved" },
+    }),
+  );
+  const row = f.rowsRef.current[0];
+  if (!row) throw new Error("Source fixture required");
+  act(() =>
+    f.owner.acceptAutoResolutions(
+      [{ ...row, collectionValues: { ...row.collectionValues, hostRefs: [] } }],
+      [row],
+      {
+        kind: "entry",
+        operationId: "review-match",
+        changeSetId: "review-change",
+      },
+    ),
+  );
+  const notice = f.owner.getDisclosureSnapshot()[0];
+  if (!notice) throw new Error("Disclosure required");
+  f.rowsRef.current = [];
+  return { ...f, row, notice };
+}
+const navigateReview = vi.fn(
+  (
+    _recordId: string,
+    _itemRef: string,
+    scope: DisclosureReviewNavigationScope,
+  ) => scope.settle(true),
+);
 describe("Timeline mention actions", () => {
   it("binds auto-resolution undo to the same current mention version and target", async () => {
     const base = mentionReview();
@@ -208,6 +257,214 @@ describe("Timeline mention actions", () => {
   });
 });
 
+it("coalesces a pending Review and fences its late completion after native editing", async () => {
+  const f = disclosureFixture();
+  navigateReview.mockClear();
+  let resolveRead!: (row: typeof f.row) => void;
+  const read = vi.fn((_id: string, _signal: AbortSignal) => {
+    return new Promise<typeof f.row>((resolve) => {
+      resolveRead = resolve;
+    });
+  });
+  f.owner.configureSourceReader(read);
+  act(() => {
+    f.result.current.startDisclosureReview(f.notice, navigateReview);
+    f.result.current.startDisclosureReview(f.notice, navigateReview);
+  });
+  expect(read).toHaveBeenCalledOnce();
+  const editor = document.createElement("input");
+  document.body.append(editor);
+  act(() => editor.dispatchEvent(new Event("input", { bubbles: true })));
+  expect(read.mock.calls[0]?.[1].aborted).toBe(true);
+  resolveRead(f.row);
+  await flush();
+  expect(navigateReview).not.toHaveBeenCalled();
+  expect(f.result.current.reviewFeedback).toBeNull();
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  editor.remove();
+  f.unmount();
+});
+
+it("shows delayed Review progress and cancels on a same-row Inspector retarget", async () => {
+  const f = disclosureFixture();
+  let resolveRead!: (row: typeof f.row) => void;
+  const read = vi.fn(
+    () =>
+      new Promise<typeof f.row>((resolve) => {
+        resolveRead = resolve;
+      }),
+  );
+  f.owner.configureSourceReader(read);
+  act(() => f.result.current.startDisclosureReview(f.notice, navigateReview));
+  expect(f.result.current.reviewFeedback).toBeNull();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  });
+  expect(f.result.current.reviewFeedback).toEqual({
+    key: expect.any(String),
+    phase: "pending",
+  });
+  f.rerender({ ...f.input, selectedMentionRef: "another-item" });
+  expect(f.result.current.reviewFeedback).toBeNull();
+  resolveRead(f.row);
+  await flush();
+  expect(navigateReview).not.toHaveBeenCalled();
+  f.unmount();
+});
+
+it("rejects a same-row Inspector retarget while Review focus is pending", async () => {
+  const f = disclosureFixture();
+  f.owner.configureSourceReader(async () => f.row);
+  f.rerender({ ...f.input, selectedMentionRef: null });
+  let scope: DisclosureReviewNavigationScope | undefined;
+  act(() =>
+    f.result.current.startDisclosureReview(f.notice, (_row, _item, owned) => {
+      scope = owned;
+    }),
+  );
+  await flush();
+  expect(scope).toBeDefined();
+  f.rerender({ ...f.input, selectedMentionRef: f.notice.itemRef });
+  expect(scope?.isCurrent()).toBe(true);
+  f.rerender({ ...f.input, selectedMentionRef: "another-item" });
+  expect(scope?.isCurrent()).toBe(false);
+  act(() => scope?.settle(true));
+  expect(f.result.current.reviewFeedback).toBeNull();
+  f.unmount();
+});
+
+it("keeps a genuine Review failure local and retries without retaining the old error", async () => {
+  const f = disclosureFixture();
+  navigateReview.mockClear();
+  let attempts = 0;
+  f.owner.configureSourceReader(async () => {
+    if (++attempts === 1) throw new Error("Transport unavailable");
+    return f.row;
+  });
+  act(() => f.result.current.startDisclosureReview(f.notice, navigateReview));
+  await flush();
+  expect(f.result.current.reviewFeedback?.phase).toBe("failure");
+  act(() => f.result.current.startDisclosureReview(f.notice, navigateReview));
+  await flush();
+  expect(attempts).toBe(2);
+  expect(navigateReview).toHaveBeenCalledOnce();
+  expect(f.result.current.reviewFeedback).toBeNull();
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  expect(f.send).not.toHaveBeenCalled();
+  f.unmount();
+});
+
+it("refuses Inspector navigation when the committed source rejects a stale read", async () => {
+  const f = disclosureFixture();
+  const navigate = vi.fn();
+  f.owner.configureSourceReader(async () => f.row);
+  f.rerender({
+    ...f.input,
+    acceptDisclosureSource: () => ({
+      accepted: false,
+      row: f.row,
+      stale: true,
+    }),
+  });
+  act(() => f.result.current.startDisclosureReview(f.notice, navigate));
+  await flush();
+  expect(navigate).not.toHaveBeenCalled();
+  expect(f.result.current.reviewFeedback?.phase).toBe("failure");
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  f.unmount();
+});
+
+it("lets only the latest Review navigate when two mentions share a source row", async () => {
+  const f = disclosureFixture();
+  navigateReview.mockClear();
+  const firstItem = f.row.collectionValues.hostRefs[0];
+  if (!firstItem) throw new Error("First mention required");
+  const secondItem = {
+    ...firstItem,
+    entityMentionId: "second-mention",
+    itemRef: "second-item",
+    rawText: "second alias",
+    displayText: "second alias",
+  };
+  const secondRow = {
+    ...f.row,
+    collectionValues: {
+      ...f.row.collectionValues,
+      hostRefs: [firstItem, secondItem],
+    },
+  };
+  act(() =>
+    f.owner.acceptAutoResolutions([f.row], [secondRow], {
+      kind: "entry",
+      operationId: "second-match",
+      changeSetId: "second-change",
+    }),
+  );
+  const secondNotice = f.owner
+    .getDisclosureSnapshot()
+    .find((notice) => notice.itemRef === secondItem.itemRef);
+  if (!secondNotice) throw new Error("Second disclosure required");
+  let rejectOld!: (error: Error) => void;
+  let resolveNew!: (row: typeof secondRow) => void;
+  const oldRead = new Promise<typeof secondRow>((_resolve, reject) => {
+    rejectOld = reject;
+  });
+  const newRead = new Promise<typeof secondRow>((resolve) => {
+    resolveNew = resolve;
+  });
+  const read = vi
+    .fn()
+    .mockReturnValueOnce(oldRead)
+    .mockReturnValueOnce(newRead);
+  f.owner.configureSourceReader(read);
+  act(() => {
+    f.result.current.startDisclosureReview(f.notice, navigateReview);
+    f.result.current.startDisclosureReview(secondNotice, navigateReview);
+  });
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(read.mock.calls[0]?.[1].aborted).toBe(true);
+  resolveNew(secondRow);
+  await flush();
+  expect(navigateReview).toHaveBeenCalledExactlyOnceWith(
+    secondNotice.rowRecordId,
+    secondNotice.itemRef,
+    expect.any(Object),
+  );
+  rejectOld(new Error("Late failure"));
+  await flush();
+  expect(f.result.current.reviewFeedback).toBeNull();
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(2);
+  f.unmount();
+});
+
+it("fences Review completion after sheet departure authority retirement and unmount", async () => {
+  for (const departure of ["sheet", "authority", "unmount"] as const) {
+    const f = disclosureFixture();
+    navigateReview.mockClear();
+    let resolveRead!: (row: typeof f.row) => void;
+    const read = vi.fn((_id: string, _signal: AbortSignal) => {
+      return new Promise<typeof f.row>((resolve) => {
+        resolveRead = resolve;
+      });
+    });
+    f.owner.configureSourceReader(read);
+    act(() => f.result.current.startDisclosureReview(f.notice, navigateReview));
+    if (departure === "sheet")
+      f.rerender({ ...f.input, reviewSurfaceKey: "hosts:another-sheet" });
+    else if (departure === "authority") act(() => f.owner.setAuthority(null));
+    else f.unmount();
+    await flush();
+    expect(read.mock.calls[0]?.[1].aborted).toBe(true);
+    resolveRead(f.row);
+    await flush();
+    expect(navigateReview).not.toHaveBeenCalled();
+    if (departure !== "unmount") {
+      expect(f.result.current.reviewFeedback).toBeNull();
+      f.unmount();
+    }
+  }
+});
+
 it("Timeline disclosure actions read only their unavailable source and preserve accepted correction through failed refresh", async () => {
   const base = mentionReview();
   const f = setup(
@@ -235,9 +492,16 @@ it("Timeline disclosure actions read only their unavailable source and preserve 
   f.rowsRef.current = [];
   const read = vi.fn(async (_recordId: string, _signal: AbortSignal) => row);
   f.owner.configureSourceReader(read);
-  await act(async () => {
-    expect(await f.result.current.prepareDisclosureReview(notice)).toBe(row);
-  });
+  const navigate = vi.fn(
+    (
+      _recordId: string,
+      _itemRef: string,
+      scope: DisclosureReviewNavigationScope,
+    ) => scope.settle(true),
+  );
+  act(() => f.result.current.startDisclosureReview(notice, navigate));
+  await flush();
+  expect(navigate).toHaveBeenCalledOnce();
   expect(read.mock.calls[0]?.[0]).toBe(notice.rowRecordId);
   expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
   f.owner.configureSourceReader(async () => {

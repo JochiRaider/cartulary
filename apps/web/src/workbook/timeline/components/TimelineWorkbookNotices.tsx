@@ -7,13 +7,16 @@ import {
 import {
   type CSSProperties,
   useLayoutEffect,
-  useState,
   useSyncExternalStore,
 } from "react";
 import type {
   AutoResolutionDisclosure,
   WorkbookTimelineMentionOperationOwner,
 } from "../actions/WorkbookTimelineMentionOperationOwner";
+import {
+  type DisclosureReviewFeedback,
+  disclosureReviewKey,
+} from "../models/workbookMentionChips";
 import { actionButtonStyle } from "./TimelineWorkbookStyles";
 
 /** This leaf observes retained disclosure, independently of grid composition. */
@@ -21,15 +24,15 @@ export function TimelineWorkbookNotices({
   owner,
   density,
   entityIndex,
+  reviewFeedback,
   onReviewAutoResolution,
   onUndoAutoResolution,
 }: {
   readonly owner: WorkbookTimelineMentionOperationOwner;
   readonly entityIndex: Readonly<Record<string, { label: string }>>;
   readonly density: Parameters<typeof workbookGridRowHeightPx>[0];
-  readonly onReviewAutoResolution: (
-    notice: AutoResolutionDisclosure,
-  ) => void | Promise<void>;
+  readonly reviewFeedback: DisclosureReviewFeedback | null;
+  readonly onReviewAutoResolution: (notice: AutoResolutionDisclosure) => void;
   readonly onUndoAutoResolution: (notice: AutoResolutionDisclosure) => void;
 }) {
   const notices = useSyncExternalStore(
@@ -40,10 +43,6 @@ export function TimelineWorkbookNotices({
     owner.subscribe,
     owner.getActionSnapshot,
   );
-  const [reviewFailure, setReviewFailure] = useState<{
-    identity: string;
-    message: string;
-  } | null>(null);
   useLayoutEffect(() => {
     if (notices.length > 0) owner.updateDisclosureLabels(entityIndex);
   }, [owner, entityIndex, notices]);
@@ -59,6 +58,9 @@ export function TimelineWorkbookNotices({
     >
       <ul style={listStyle}>
         {notices.map((notice) => {
+          const reviewKey = disclosureReviewKey(notice);
+          const localReview =
+            reviewFeedback?.key === reviewKey ? reviewFeedback : null;
           const entry = [...actions.entries]
             .reverse()
             .find(
@@ -109,8 +111,11 @@ export function TimelineWorkbookNotices({
                 {entry && ["preparing", "submitting"].includes(entry.phase) ? (
                   <span role="status"> Undo pending.</span>
                 ) : null}
-                {reviewFailure?.identity === notice.identity ? (
-                  <span role="status"> {reviewFailure.message}</span>
+                {localReview?.phase === "pending" ? (
+                  <span role="status"> Opening source…</span>
+                ) : null}
+                {localReview?.phase === "failure" ? (
+                  <span role="alert"> {localReview.message}</span>
                 ) : null}
               </div>
               <div style={actionsStyle}>
@@ -129,20 +134,11 @@ export function TimelineWorkbookNotices({
                 )}
                 <button
                   data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
+                  data-disclosure-review-key={reviewKey}
+                  aria-busy={localReview?.phase === "pending"}
                   style={buttonStyle}
                   type="button"
-                  onClick={() => {
-                    setReviewFailure(null);
-                    void Promise.resolve()
-                      .then(() => onReviewAutoResolution(notice))
-                      .catch(() =>
-                        setReviewFailure({
-                          identity: notice.identity,
-                          message:
-                            "Source unavailable. Review again when it can be read.",
-                        }),
-                      );
-                  }}
+                  onClick={() => onReviewAutoResolution(notice)}
                 >
                   Review
                 </button>

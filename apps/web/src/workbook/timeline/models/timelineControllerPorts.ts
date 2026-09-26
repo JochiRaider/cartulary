@@ -31,6 +31,14 @@ export type TimelineCommittedInspectorRecords = {
   readonly retainInspectorRecord: (recordId: string | null) => void;
 };
 
+/** A Review owner retains this scope until Inspector mention focus settles. */
+export type DisclosureReviewNavigationScope = {
+  readonly signal: AbortSignal;
+  readonly isCurrent: () => boolean;
+  readonly runOwnedFocus: (focus: () => boolean) => boolean;
+  readonly settle: (focused: boolean) => void;
+};
+
 export type TimelineRowContextMenuPosition = {
   readonly x: number;
   readonly y: number;

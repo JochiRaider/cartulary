@@ -2843,6 +2843,46 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.timeline_review_read_preserves_newer_editing_449509d125",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-auto-resolution-feedback.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_review_read_continuity",
+          "scenario_timeline_review_read_failure_retry",
+          "scenario_timeline_review_read_narrow_collection"
+        ],
+        "titles": [
+          "Timeline Review read cannot interrupt newer scalar editing",
+          "Timeline Review read failure retries at the original source mention",
+          "Timeline Review read preserves narrow collection editing"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.timeline_unsaved_cells_retain_keyboard_focus_thr_e5c816b7bf",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",

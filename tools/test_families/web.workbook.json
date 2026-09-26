@@ -556,6 +556,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.cancelled_review_source_read_stops_paging_0de2c50ecb",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/adapters/createTimelineMentionSourceReader.test.ts",
+        "titles": [
+          "aborted Review source reading does not request another Timeline page"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.collection_overflow_opens_exact_inspector_subjec_4e8cde0bd5",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -5021,7 +5045,14 @@
           "Timeline mention actions binds auto-resolution undo to the same current mention version and target",
           "Timeline mention actions retains accepted outcomes on unmount and invalidates a detached create review",
           "Timeline mention actions waits for creation and mention projections before restoring focus",
-          "Timeline mention actions waits for preceding saves and refuses changed mentions instead of rebasing"
+          "Timeline mention actions waits for preceding saves and refuses changed mentions instead of rebasing",
+          "coalesces a pending Review and fences its late completion after native editing",
+          "fences Review completion after sheet departure authority retirement and unmount",
+          "keeps a genuine Review failure local and retries without retaining the old error",
+          "lets only the latest Review navigate when two mentions share a source row",
+          "refuses Inspector navigation when the committed source rejects a stale read",
+          "rejects a same-row Inspector retarget while Review focus is pending",
+          "shows delayed Review progress and cancels on a same-row Inspector retarget"
         ]
       },
       "evidence_class": "unit",
@@ -5282,6 +5313,31 @@
           "Timeline related Evidence recovery routes collection conflicts and preserves the created checkpoint when the saved collection is kept",
           "Timeline related Evidence recovery serializes projection refresh after link admission and acknowledgement",
           "Timeline related Evidence recovery validates lost malformed and uncorrelated responses for each exact stage transport"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_review_notice_pending_and_retry_feedbac_8ccfa10010",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/components/TimelineWorkbookNotices.test.tsx",
+        "titles": [
+          "keeps Review keyboard accessible while source-local progress is busy",
+          "shows a retryable Review read failure beside its disclosure"
         ]
       },
       "evidence_class": "unit",
