@@ -20,6 +20,7 @@ export function createTimelineMentionCandidateReader(options: {
   return {
     async page(entityType, cursor, signal) {
       if (signal.aborted) return { kind: "aborted" };
+      let responseAccepted = false;
       const viewSchemaId =
         entityType === "host" ? hostsViewSchemaId : identitiesViewSchemaId;
       const contract = requireViewContract(viewSchemaId);
@@ -51,11 +52,13 @@ export function createTimelineMentionCandidateReader(options: {
         });
         if (signal.aborted) return { kind: "aborted" };
         if (result.kind === "rejected") return result;
+        responseAccepted = true;
         const { data, meta } = result.value;
         if (
           data.incident_id !== options.incidentId ||
           data.view_schema_id !== viewSchemaId ||
           !meta.paging ||
+          meta.paging.limit !== 100 ||
           data.rows.length > 100 ||
           (meta.paging.has_more
             ? !meta.paging.next_cursor || meta.paging.next_cursor === cursor
@@ -97,8 +100,10 @@ export function createTimelineMentionCandidateReader(options: {
           : {
               kind: "rejected",
               failure: {
-                kind: "retryable",
-                message: "Targets could not be loaded. Retry the read.",
+                kind: responseAccepted ? "invalid_contract" : "retryable",
+                message: responseAccepted
+                  ? "Target page was invalid. Restart target discovery."
+                  : "Targets could not be loaded. Retry the read.",
               },
             };
       }

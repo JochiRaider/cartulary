@@ -257,6 +257,47 @@
       ]
     },
     {
+      "row_id": "module.entities.browser.timeline_mention_candidate_recovery",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/mentions.discovery-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_host_target_retry_focus",
+          "scenario_timeline_identity_target_retry_focus",
+          "scenario_timeline_invalid_continuation_restart"
+        ],
+        "titles": [
+          "Timeline host target retry stays focused while its page is held",
+          "Timeline identity target retry stays focused while its page is held",
+          "Timeline invalid continuation restarts without a cursor and keeps stale selection ineligible"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.entities.browser.timeline_mention_creation_recovery",
       "owner_id": "module.entities",
       "family_id": "module.entities.browser",

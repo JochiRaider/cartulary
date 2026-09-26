@@ -15,6 +15,7 @@ import {
   mentionReview,
   mentionWorkbookRow,
 } from "../../../testing/timelineMentionTestSupport";
+import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
 import { createTimelineMentionCandidateReader } from "../adapters/createTimelineMentionCandidateReader";
 import { TimelineMentionActionControls } from "../components/TimelineMentionActionControls";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
@@ -214,6 +215,579 @@ it("Mention candidate paging retains loaded targets through read failure and ret
     "page-2",
     "page-2",
   ]);
+});
+it("Mention failed cursor-free restart retries the first page rather than the old continuation", async () => {
+  const first = {
+    recordId: "first",
+    rowVersion: 1,
+    displayText: "First",
+    entityType: "host" as const,
+  };
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: true, nextCursor: "page-2" },
+    })
+    .mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Offline" },
+    })
+    .mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Restart failed" },
+    })
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: false, nextCursor: null },
+    });
+  const port = { page };
+  const hook = renderHook(() =>
+    useTimelineMentionCandidates(port, "host", "mention", true),
+  );
+  await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
+  await act(() => hook.result.current.loadMore());
+  await act(() => hook.result.current.restart());
+  await act(() => hook.result.current.retry());
+  expect(page.mock.calls.map((call) => call[1])).toEqual([
+    null,
+    "page-2",
+    null,
+    null,
+  ]);
+});
+it("Mention retry remains connected and focused while its response is held", async () => {
+  const review = mentionReview();
+  const row = mentionWorkbookRow(review);
+  const owner = new WorkbookTimelineMentionOperationOwner(
+    review.subject.incidentId,
+    { create: () => "unused" },
+    { remember: vi.fn(), settle: vi.fn(), accepted: vi.fn() },
+  );
+  owner.setAuthority(review.authority);
+  const first = {
+    recordId: "first",
+    rowVersion: 1,
+    displayText: "First",
+    entityType: "host" as const,
+  };
+  let finish:
+    | ((
+        value: Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>,
+      ) => void)
+    | undefined;
+  const held = new Promise<
+    Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>
+  >((resolve) => {
+    finish = resolve;
+  });
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: true, nextCursor: "page-2" },
+    })
+    .mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Offline" },
+    })
+    .mockImplementationOnce(() => held);
+  const port = { page };
+  function Panel() {
+    const [selectedTargetId, setSelectedTargetId] = useState("");
+    const actions = useTimelineMentionActions({
+      owner,
+      candidatePort: port,
+      rowsRef: { current: [row] },
+      earlierSaves: { current: Promise.resolve() },
+      selectedMention: mentionInspector(review),
+      selectedMentionRef: review.subject.itemRef,
+      selectedRowId: review.subject.sourceRecordId,
+      inspectorReviewGeneration: 0,
+      inspectorAttachmentGeneration: 0,
+      refreshProjection: async () => {},
+      reviewSurfaceKey: "retry-focus",
+      selectedTargetId,
+      setSelectedTargetId,
+      presentationKey: "retry-focus",
+      presentationActive: true,
+      waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+      setInspectorMessage: vi.fn(),
+    });
+    return <TimelineMentionActionControls actions={actions} />;
+  }
+  render(<Panel />);
+  await screen.findByRole("button", { name: "Load more targets" });
+  fireEvent.click(screen.getByRole("button", { name: "Load more targets" }));
+  const retry = await screen.findByRole("button", {
+    name: "Retry target read",
+  });
+  retry.focus();
+  fireEvent.click(retry);
+  await waitFor(() => expect(page).toHaveBeenCalledTimes(3));
+  expect(retry.isConnected).toBe(true);
+  expect(document.activeElement).toBe(retry);
+  const filter = screen.getByRole("textbox", { name: "Filter loaded targets" });
+  filter.focus();
+  fireEvent.scroll(document);
+  await act(async () => {
+    finish?.({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: false, nextCursor: null },
+    });
+    await held;
+  });
+  expect(document.activeElement).toBe(filter);
+});
+it("Mention scope replacement retires pending read focus intent", async () => {
+  const review = mentionReview();
+  const row = mentionWorkbookRow(review);
+  const owner = new WorkbookTimelineMentionOperationOwner(
+    review.subject.incidentId,
+    { create: () => "unused" },
+    { remember: vi.fn(), settle: vi.fn(), accepted: vi.fn() },
+  );
+  owner.setAuthority(review.authority);
+  const first = {
+    recordId: "first",
+    rowVersion: 1,
+    displayText: "First",
+    entityType: "host" as const,
+  };
+  let finish:
+    | ((
+        value: Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>,
+      ) => void)
+    | undefined;
+  const held = new Promise<
+    Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>
+  >((resolve) => {
+    finish = resolve;
+  });
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: true, nextCursor: "page-2" },
+    })
+    .mockImplementationOnce(() => held)
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: false, nextCursor: null },
+    });
+  const port = { page };
+  function Panel({ scope }: { scope: string }) {
+    const [selectedTargetId, setSelectedTargetId] = useState("");
+    const actions = useTimelineMentionActions({
+      owner,
+      candidatePort: port,
+      rowsRef: { current: [row] },
+      earlierSaves: { current: Promise.resolve() },
+      selectedMention: mentionInspector(review),
+      selectedMentionRef: review.subject.itemRef,
+      selectedRowId: review.subject.sourceRecordId,
+      inspectorReviewGeneration: 0,
+      inspectorAttachmentGeneration: 0,
+      refreshProjection: async () => {},
+      reviewSurfaceKey: scope,
+      selectedTargetId,
+      setSelectedTargetId,
+      presentationKey: scope,
+      presentationActive: true,
+      waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+      setInspectorMessage: vi.fn(),
+    });
+    return <TimelineMentionActionControls actions={actions} />;
+  }
+  const view = render(<Panel scope="old" />);
+  const loadMore = await screen.findByRole("button", {
+    name: "Load more targets",
+  });
+  loadMore.focus();
+  fireEvent.click(loadMore);
+  await waitFor(() => expect(page).toHaveBeenCalledTimes(2));
+  const select = screen.getByRole("combobox", {
+    name: "Resolve to existing",
+  }) as HTMLSelectElement;
+  const focusSelect = vi.spyOn(select, "focus");
+  view.rerender(<Panel scope="new" />);
+  await waitFor(() => expect(page).toHaveBeenCalledTimes(3));
+  expect(focusSelect).not.toHaveBeenCalled();
+  await act(async () => {
+    finish?.({
+      kind: "rejected",
+      failure: { kind: "authorization_lost", message: "Old access" },
+    });
+    await held;
+  });
+  expect(focusSelect).not.toHaveBeenCalled();
+});
+it("Mention initial retry and terminal paging admit one read per activation", async () => {
+  const candidate = {
+    recordId: "first",
+    rowVersion: 1,
+    displayText: "First",
+    entityType: "identity" as const,
+  };
+  let finish:
+    | ((
+        value: Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>,
+      ) => void)
+    | undefined;
+  const held = new Promise<
+    Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>
+  >((resolve) => {
+    finish = resolve;
+  });
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Offline" },
+    })
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [candidate], hasMore: true, nextCursor: "next" },
+    })
+    .mockImplementationOnce(() => held);
+  const port = { page };
+  const hook = renderHook(() =>
+    useTimelineMentionCandidates(port, "identity", "initial", true),
+  );
+  await waitFor(() => expect(hook.result.current.phase).toBe("failed"));
+  expect(hook.result.current.failedRead).toMatchObject({
+    kind: "initial",
+    cursor: null,
+  });
+  await act(() => hook.result.current.retry());
+  expect(hook.result.current.candidates).toEqual([candidate]);
+  await act(async () => {
+    void hook.result.current.loadMore();
+    void hook.result.current.loadMore();
+  });
+  expect(page).toHaveBeenCalledTimes(3);
+  expect(hook.result.current.candidates).toEqual([candidate]);
+  await act(async () => {
+    finish?.({
+      kind: "accepted",
+      value: { candidates: [], hasMore: false, nextCursor: null },
+    });
+    await held;
+  });
+  expect(hook.result.current.hasMore).toBe(false);
+  await act(() => hook.result.current.loadMore());
+  expect(page).toHaveBeenCalledTimes(3);
+  expect(page.mock.calls.map((call) => call[1])).toEqual([null, null, "next"]);
+});
+it("Mention malformed and repeated continuations require an explicit fresh chain", async () => {
+  const first = {
+    recordId: "first",
+    rowVersion: 1,
+    displayText: "First",
+    entityType: "host" as const,
+  };
+  const second = { ...first, recordId: "second", displayText: "Second" };
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: true, nextCursor: "page-2" },
+    })
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [second], hasMore: true, nextCursor: "page-2" },
+    })
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [second], hasMore: false, nextCursor: null },
+    });
+  const port = { page };
+  const hook = renderHook(() =>
+    useTimelineMentionCandidates(port, "host", "chain", true, "first"),
+  );
+  await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
+  await act(() => hook.result.current.loadMore());
+  expect(hook.result.current.failure).toBe("unusable_continuation");
+  expect(hook.result.current.candidates).toEqual([first]);
+  await act(() => hook.result.current.restart());
+  expect(hook.result.current.candidates).toEqual([second]);
+  expect(hook.result.current.staleCandidates).toEqual([first]);
+  expect(page.mock.calls.map((call) => call[1])).toEqual([
+    null,
+    "page-2",
+    null,
+  ]);
+});
+it("Mention server-invalid continuation keeps its typed failed identity for exact retry", async () => {
+  const first = {
+    recordId: "first",
+    rowVersion: 1,
+    displayText: "First",
+    entityType: "host" as const,
+  };
+  const invalid = {
+    kind: "rejected" as const,
+    failure: {
+      kind: "validation" as const,
+      message: "Invalid cursor",
+      publicCode: "invalid_view_query",
+      publicReason: "invalid_cursor_token" as const,
+    },
+  };
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: true, nextCursor: "page-2" },
+    })
+    .mockResolvedValueOnce(invalid)
+    .mockResolvedValueOnce(invalid);
+  const port = { page };
+  const hook = renderHook(() =>
+    useTimelineMentionCandidates(port, "host", "invalid", true),
+  );
+  await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
+  await act(() => hook.result.current.loadMore());
+  expect(hook.result.current.failure).toBe("unusable_continuation");
+  expect(hook.result.current.failedRead).toMatchObject({
+    kind: "continuation",
+    cursor: "page-2",
+  });
+  await act(() => hook.result.current.retry());
+  expect(hook.result.current.failure).toBe("unusable_continuation");
+  expect(page.mock.calls.map((call) => call[1])).toEqual([
+    null,
+    "page-2",
+    "page-2",
+  ]);
+});
+it("Mention late scope results are fenced and current authority loss conceals candidates", async () => {
+  const old = {
+    recordId: "old",
+    rowVersion: 1,
+    displayText: "Old",
+    entityType: "host" as const,
+  };
+  const fresh = { ...old, recordId: "fresh", displayText: "Fresh" };
+  let releaseOld:
+    | ((
+        value: Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>,
+      ) => void)
+    | undefined;
+  const held = new Promise<
+    Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>
+  >((resolve) => {
+    releaseOld = resolve;
+  });
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockImplementationOnce(() => held)
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [fresh], hasMore: true, nextCursor: "next" },
+    })
+    .mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "authorization_lost", message: "No access" },
+    });
+  const port = { page };
+  const onAuthorityFailure = vi.fn();
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <WorkbookCandidateAuthorityContext.Provider
+      value={{
+        identity: "account-incident",
+        canRead: true,
+        onAuthorityFailure,
+      }}
+    >
+      {children}
+    </WorkbookCandidateAuthorityContext.Provider>
+  );
+  const hook = renderHook(
+    ({ scope }) => useTimelineMentionCandidates(port, "host", scope, true),
+    { initialProps: { scope: "old" }, wrapper },
+  );
+  hook.rerender({ scope: "new" });
+  await waitFor(() => expect(hook.result.current.candidates).toEqual([fresh]));
+  await act(async () => {
+    releaseOld?.({
+      kind: "accepted",
+      value: { candidates: [old], hasMore: false, nextCursor: null },
+    });
+    await held;
+  });
+  expect(hook.result.current.candidates).toEqual([fresh]);
+  await act(() => hook.result.current.loadMore());
+  expect(hook.result.current.failure).toBe("authority");
+  expect(hook.result.current.candidates).toEqual([]);
+  expect(hook.result.current.failedRead).toBeNull();
+  expect(onAuthorityFailure).toHaveBeenCalledTimes(1);
+});
+it("Mention obsolete authority failure cannot affect a replacement entity type", async () => {
+  const identity = {
+    recordId: "identity",
+    rowVersion: 1,
+    displayText: "Identity",
+    entityType: "identity" as const,
+  };
+  let releaseOld:
+    | ((
+        value: Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>,
+      ) => void)
+    | undefined;
+  const held = new Promise<
+    Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>
+  >((resolve) => {
+    releaseOld = resolve;
+  });
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockImplementationOnce(() => held)
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [identity], hasMore: false, nextCursor: null },
+    });
+  const port = { page };
+  const onAuthorityFailure = vi.fn();
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <WorkbookCandidateAuthorityContext.Provider
+      value={{ identity: "same-authority", canRead: true, onAuthorityFailure }}
+    >
+      {children}
+    </WorkbookCandidateAuthorityContext.Provider>
+  );
+  const hook = renderHook(
+    ({ entityType }) =>
+      useTimelineMentionCandidates(port, entityType, "mention", true),
+    { initialProps: { entityType: "host" as "host" | "identity" }, wrapper },
+  );
+  hook.rerender({ entityType: "identity" });
+  await waitFor(() =>
+    expect(hook.result.current.candidates).toEqual([identity]),
+  );
+  await act(async () => {
+    releaseOld?.({
+      kind: "rejected",
+      failure: { kind: "authorization_lost", message: "Old access" },
+    });
+    await held;
+  });
+  expect(hook.result.current.candidates).toEqual([identity]);
+  expect(onAuthorityFailure).not.toHaveBeenCalled();
+});
+it("Mention restart retains selected label and filter without admitting an unvalidated target", async () => {
+  const review = mentionReview();
+  const row = mentionWorkbookRow(review);
+  const create = vi.fn(() => "unused");
+  const owner = new WorkbookTimelineMentionOperationOwner(
+    review.subject.incidentId,
+    { create },
+    { remember: vi.fn(), settle: vi.fn(), accepted: vi.fn() },
+  );
+  owner.setAuthority(review.authority);
+  const first = {
+    recordId: "first",
+    rowVersion: 1,
+    displayText: "First",
+    entityType: "host" as const,
+  };
+  const second = { ...first, recordId: "second", displayText: "Second" };
+  let finish:
+    | ((
+        value: Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>,
+      ) => void)
+    | undefined;
+  const held = new Promise<
+    Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>
+  >((resolve) => {
+    finish = resolve;
+  });
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockResolvedValueOnce({
+      kind: "accepted",
+      value: { candidates: [first], hasMore: false, nextCursor: null },
+    })
+    .mockImplementationOnce(() => held);
+  const port = { page };
+  function Panel() {
+    const [selectedTargetId, setSelectedTargetId] = useState("");
+    const actions = useTimelineMentionActions({
+      owner,
+      candidatePort: port,
+      rowsRef: { current: [row] },
+      earlierSaves: { current: Promise.resolve() },
+      selectedMention: mentionInspector(review),
+      selectedMentionRef: review.subject.itemRef,
+      selectedRowId: review.subject.sourceRecordId,
+      inspectorReviewGeneration: 0,
+      inspectorAttachmentGeneration: 0,
+      refreshProjection: async () => {},
+      reviewSurfaceKey: "stale-selection",
+      selectedTargetId,
+      setSelectedTargetId,
+      presentationKey: "stale-selection",
+      presentationActive: true,
+      waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+      setInspectorMessage: vi.fn(),
+    });
+    return <TimelineMentionActionControls actions={actions} />;
+  }
+  render(<Panel />);
+  await screen.findByRole("option", { name: "First" });
+  const select = screen.getByRole("combobox", {
+    name: "Resolve to existing",
+  }) as HTMLSelectElement;
+  fireEvent.change(select, { target: { value: "first" } });
+  const filter = screen.getByRole("textbox", {
+    name: "Filter loaded targets",
+  }) as HTMLInputElement;
+  fireEvent.change(filter, { target: { value: "Fir" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Restart target discovery" }),
+  );
+  expect(select.value).toBe("first");
+  expect(filter.value).toBe("Fir");
+  expect(
+    (
+      screen.getByRole("option", {
+        name: /First.*awaiting revalidation/u,
+      }) as HTMLOptionElement
+    ).disabled,
+  ).toBe(true);
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Resolve to existing",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(create).not.toHaveBeenCalled();
+  await act(async () => {
+    finish?.({
+      kind: "accepted",
+      value: { candidates: [second], hasMore: false, nextCursor: null },
+    });
+    await held;
+  });
+  expect(select.value).toBe("first");
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Resolve to existing",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  fireEvent.change(filter, { target: { value: "" } });
+  fireEvent.change(select, { target: { value: "second" } });
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Resolve to existing",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(false);
+  expect(create).not.toHaveBeenCalled();
 });
 it("Mention contextual authoring seeds only display name and requires reviewed identity fields", () => {
   for (const entityType of ["host", "identity"] as const) {

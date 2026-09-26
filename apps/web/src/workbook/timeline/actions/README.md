@@ -8,6 +8,25 @@ Capture actions and mention operations retain reviewed subjects, exact attempts,
 and accepted receipts beyond the active inspector. Optional Entity creation and
 mention resolution keep independent recovery state.
 
+Timeline mention target discovery owns an accumulated Host or Identity candidate
+chain separately from the currently displayed Entity sheet. It captures the
+identity of each initial, continuation, or restart read. Retry repeats the
+failed read and its opaque cursor; Restart target discovery starts a new
+cursor-free chain. A failed restart therefore retries without an older cursor.
+Previously authorized targets may remain visible while the new chain is pending
+or failed, but they are marked as awaiting revalidation and cannot be used for
+resolution until accepted into that chain. The selected target ID and filter
+remain in the Inspector through recoverable reads. Current authority loss uses
+the workbook authority owner to conceal targets. Discovery and recovery make
+reads only; explicit mention actions retain their separate operation owner.
+
+The picker keeps the initiating read control mounted and keyboard reachable
+while pending. A disappearing Retry or Load more control transfers focus to the
+picker only while that interaction still owns focus; newer keyboard, pointer,
+focus, or scroll activity leaves the analyst's destination alone. The shared
+candidate service handles single-page navigation, so Timeline retains its own
+accumulated-page owner rather than coupling it to a mismatched retention model.
+
 Supersession Review preparation reserves its row through the capture owner but
 does not admit a write, create a transaction identity, or appear as action
 recovery. The editor keeps Review mounted and focusable with a stable name and
@@ -37,7 +56,7 @@ alone enters the retained mutation and exact-replay lifetime.
 | [TimelineSupersessionEditor.tsx](TimelineSupersessionEditor.tsx) | Timeline supersession reason authoring, replacement selection, and explicit confirmation. |
 | [useTimelineCandidates.ts](useTimelineCandidates.ts) | Paged Timeline replacement candidate reads with authority and request-lifetime fencing. |
 | [useTimelineCaptureActions.ts](useTimelineCaptureActions.ts) | React binding for reviewed Timeline capture actions and retained operation state. |
-| [useTimelineMentionCandidates.ts](useTimelineMentionCandidates.ts) | Paged eligible Entity discovery for Timeline mention resolution. |
+| [useTimelineMentionCandidates.ts](useTimelineMentionCandidates.ts) | Accumulated eligible Entity pages, exact failed-read identity, restart and authority/scope fencing for mention resolution. |
 | [WorkbookTimelineCaptureActionOwner.ts](WorkbookTimelineCaptureActionOwner.ts) | Timeline review/supersession admission, captured attempts, acknowledgement, and reconciliation ownership. |
 | [WorkbookTimelineMentionOperationOwner.ts](WorkbookTimelineMentionOperationOwner.ts) | Owns mention resolution and optional Entity creation with independent attempts and receipts. |
 
@@ -46,7 +65,7 @@ alone enters the retained mutation and exact-replay lifetime.
 | File | Responsibility |
 | --- | --- |
 | [reconcileTimelineMentionReceipt.test.ts](reconcileTimelineMentionReceipt.test.ts) | Tests mention reconciliation against newer corrections, stale sources, and detached reads. |
-| [timelineMentionCandidates.test.tsx](timelineMentionCandidates.test.tsx) | Tests selected Entity identity, accessible dismissal, and independently paged eligible targets. |
+| [timelineMentionCandidates.test.tsx](timelineMentionCandidates.test.tsx) | Tests selected Entity identity, exact retry/restart, stale eligibility, focus continuity, authority and independently paged targets. |
 | [TimelineSupersessionEditor.test.tsx](TimelineSupersessionEditor.test.tsx) | Tests capture-action eligibility, authored reasons, frozen review, and optional replacement. |
 | [WorkbookTimelineCaptureActionOwner.test.ts](WorkbookTimelineCaptureActionOwner.test.ts) | Tests synchronous capture reservation, preparation ordering, and renewed review for changed versions. |
 | [WorkbookTimelineMentionOperationOwner.test.ts](WorkbookTimelineMentionOperationOwner.test.ts) | Tests retained entity-creation receipts and independent mention-link recovery without duplicate creation. |

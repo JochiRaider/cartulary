@@ -338,6 +338,7 @@ export function useTimelineMentionActions(input: Input) {
       !!snapshot.authority &&
       subject !== null &&
       subject.state !== "dismissed",
+    input.selectedTargetId,
   );
   useEffect(() => {
     alive.current = true;

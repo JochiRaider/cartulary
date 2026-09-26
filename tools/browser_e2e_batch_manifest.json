@@ -793,6 +793,28 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-mentions-discovery-recovery",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.entities.browser.timeline_mention_candidate_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/mentions.discovery-recovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-mentions-lifecycle",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",

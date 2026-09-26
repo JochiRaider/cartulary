@@ -8,6 +8,7 @@ type WorkbookRecordCandidate = {
 export function WorkbookRecordCandidatePicker({
   candidates,
   disabled = false,
+  disabledRecordIds = [],
   label,
   selection = "multiple",
   onSelectedRecordIdsChange,
@@ -16,6 +17,7 @@ export function WorkbookRecordCandidatePicker({
 }: {
   readonly candidates: readonly WorkbookRecordCandidate[];
   readonly disabled?: boolean | undefined;
+  readonly disabledRecordIds?: readonly string[];
   readonly label: string;
   readonly selection?: "single" | "multiple";
   readonly onSelectedRecordIdsChange: (recordIds: string[]) => void;
@@ -52,7 +54,11 @@ export function WorkbookRecordCandidatePicker({
           <option value="">Choose a target</option>
         ) : null}
         {candidates.map((candidate) => (
-          <option key={candidate.recordId} value={candidate.recordId}>
+          <option
+            key={candidate.recordId}
+            value={candidate.recordId}
+            disabled={disabledRecordIds.includes(candidate.recordId)}
+          >
             {candidate.displayText}
           </option>
         ))}

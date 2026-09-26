@@ -5114,6 +5114,41 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_mention_candidate_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/actions/timelineMentionCandidates.test.tsx",
+        "titles": [
+          "Mention failed cursor-free restart retries the first page rather than the old continuation",
+          "Mention initial retry and terminal paging admit one read per activation",
+          "Mention late scope results are fenced and current authority loss conceals candidates",
+          "Mention malformed and repeated continuations require an explicit fresh chain",
+          "Mention obsolete authority failure cannot affect a replacement entity type",
+          "Mention restart retains selected label and filter without admitting an unvalidated target",
+          "Mention retry remains connected and focused while its response is held",
+          "Mention scope replacement retires pending read focus intent",
+          "Mention server-invalid continuation keeps its typed failed identity for exact retry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_mention_complete_receipts",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
