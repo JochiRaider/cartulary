@@ -9,6 +9,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -56,6 +57,12 @@ import {
   WorkGraphCache,
   resolveCacheDependencyClosure,
 } from "../scheduler/work-graph/index.mjs";
+import {
+  assertGraphNodeLaunch,
+  executeUnitProcess,
+  resolveGraphNodeBinary,
+  withGraphNodeRuntime,
+} from "../scheduler/work-graph/executor.mjs";
 import { buildSourceSnapshot } from "../test-catalog/source-snapshot.mjs";
 import { validateFixtureProfile } from "../test-catalog/index.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
@@ -1002,6 +1009,92 @@ function schedulerFixture() {
     unit("b", [], { cpu: 1, process: 1 }),
     unit("c", ["a"], { cpu: 1, process: 1 }),
   ]);
+}
+
+async function assertGraphNodeRuntimeContract() {
+  const scratch = mkdtempSync(path.join(tmpdir(), "cartulary-graph-node-runtime."));
+  try {
+    const emptyBin = path.join(scratch, "empty-bin");
+    const competingBin = path.join(scratch, "competing-bin");
+    mkdirSync(emptyBin);
+    mkdirSync(competingBin);
+    writeFileSync(path.join(competingBin, "node"), "#!/bin/sh\nprintf 'competing-node\\n'\n", { mode: 0o700 });
+    const probe = path.join(scratch, "probe.cjs");
+    writeFileSync(probe, `const { execFileSync } = require("node:child_process");
+process.stdout.write(JSON.stringify({
+  direct: process.execPath,
+  nested: execFileSync("node", ["-p", "process.execPath"], { encoding: "utf8" }).trim(),
+  selected: process.env.NODE_BIN,
+  path: process.env.PATH,
+}) + "\\n");
+`);
+    const nodeBinary = resolveGraphNodeBinary({ cwd: root, nodeBin: process.execPath });
+    assertGraphNodeLaunch(nodeBinary);
+    const expectedNode = realpathSync(nodeBinary);
+    const unit = (executable, launchPath) => ({
+      unit_id: "graph-node-runtime-contract",
+      kind: "runner",
+      command: {
+        executable,
+        args: [probe],
+        environment: { NODE_BIN: path.join(competingBin, "node"), PATH: launchPath },
+      },
+      timeout_ms: 10_000,
+    });
+    for (const launchPath of [emptyBin, competingBin]) {
+      for (const executable of ["node", process.execPath]) {
+        const command = unit(executable, launchPath);
+        const outcome = await executeUnitProcess(command, {
+          cwd: root,
+          environment: { PATH: launchPath, NODE_BIN: nodeBinary },
+          nodeBinary,
+          inheritProcessEnvironment: false,
+          fixtureLease: { allocation: { environment: { PATH: competingBin, NODE_BIN: path.join(competingBin, "node") } } },
+        });
+        assert.equal(outcome.status, "passed", JSON.stringify(outcome));
+        const observed = JSON.parse(outcome.stdout);
+        assert.equal(realpathSync(observed.direct), expectedNode);
+        assert.equal(realpathSync(observed.nested), expectedNode);
+        assert.equal(observed.selected, nodeBinary);
+        assert.equal(observed.path, `${path.dirname(nodeBinary)}${path.delimiter}${launchPath}`);
+        assert.equal(command.command.executable, executable, "runtime resolution does not rewrite graph identity");
+      }
+    }
+    const once = withGraphNodeRuntime({ PATH: competingBin }, nodeBinary);
+    assert.deepEqual(withGraphNodeRuntime(once, nodeBinary), once);
+    const nonExecutable = path.join(scratch, "non-executable-node");
+    writeFileSync(nonExecutable, "invalid", { mode: 0o600 });
+    const invalid = [undefined, path.join(scratch, "missing-node"), nonExecutable];
+    for (const selected of invalid) {
+      const outcome = await executeUnitProcess(unit("node", emptyBin), {
+        cwd: root,
+        environment: { PATH: emptyBin },
+        nodeBinary: selected,
+        inheritProcessEnvironment: false,
+      });
+      assert.equal(outcome.status, "failed");
+      assert.equal(outcome.failure_class, "config");
+      assert.equal(outcome.failure_reason, "configuration_error");
+      assert.equal(outcome.exit_code, 2);
+      assert.equal(outcome.stdout, "", "invalid runtime cannot launch child work");
+    }
+    const invalidExecutable = path.join(scratch, "invalid-executable-node");
+    writeFileSync(invalidExecutable, "#!/bin/sh\nexit 7\n", { mode: 0o700 });
+    assert.throws(() => assertGraphNodeLaunch(invalidExecutable), /could not be executed/u);
+    const missingInterpreter = path.join(scratch, "missing-interpreter-node");
+    writeFileSync(missingInterpreter, "#!/cartulary-absent-interpreter\n", { mode: 0o700 });
+    const launchFailure = await executeUnitProcess(unit("node", emptyBin), {
+      cwd: root,
+      environment: { PATH: emptyBin },
+      nodeBinary: missingInterpreter,
+      inheritProcessEnvironment: false,
+    });
+    assert.equal(launchFailure.failure_class, "config");
+    assert.equal(launchFailure.failure_reason, "configuration_error");
+    assert.equal(launchFailure.exit_code, 2);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 function assertManagedSuiteFailurePropagation() {
@@ -1990,6 +2083,7 @@ const suiteCases = {
     semanticCase("target_graph_validation", "target graphs validate before execution", ["TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "target_graph_validation")),
   ],
   scheduler: [
+    semanticCase("scheduler_node_runtime_binding", "scheduler Node launches and descendants use the selected runtime without shell PATH dependence", ["TH-HARNESS-AC-092"], () => assertGraphNodeRuntimeContract()),
     semanticCase("scheduler_execution_and_cache_admission", "scheduler dependency, fixture, and cache admission lifecycles are exact", ["TH-HARNESS-AC-089", "TH-HARNESS-AC-091"], (context) => assertSchedulerContract(context, "execution_and_cache_admission")),
     semanticCase("scheduler_cancellation", "scheduler cancellation emits terminal evidence", ["TH-HARNESS-AC-089"], (context) => assertSchedulerContract(context, "cancellation")),
     semanticCase("capacity_snapshot_contract", "capacity snapshots enforce detected resource bounds", ["TH-HARNESS-AC-085"], (context) => assertSchedulerContract(context, "capacity_snapshot")),

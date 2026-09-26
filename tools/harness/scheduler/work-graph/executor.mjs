@@ -1,9 +1,52 @@
-import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { publicExitCodeForFailure, validateSchemaSync } from "../../contract/index.mjs";
 import { createCommandFailureContext } from "../../runtime/command-failure.mjs";
+
+function nodeRuntimeError(message) {
+  return Object.assign(new Error(message), {
+    failure_class: "config",
+    failure_reason: "configuration_error",
+  });
+}
+
+export function resolveGraphNodeBinary({ cwd, nodeBin }) {
+  if (typeof nodeBin !== "string" || nodeBin.trim() === "") {
+    throw nodeRuntimeError("selected NODE_BIN is missing");
+  }
+  const resolved = path.resolve(cwd, nodeBin);
+  try {
+    if (!statSync(resolved).isFile()) {
+      throw new Error("not a regular file");
+    }
+    accessSync(resolved, constants.X_OK);
+  } catch {
+    throw nodeRuntimeError("selected NODE_BIN is not an executable file");
+  }
+  return resolved;
+}
+
+export function assertGraphNodeLaunch(nodeBinary) {
+  try {
+    execFileSync(nodeBinary, ["--version"], { timeout: 5000, stdio: "ignore" });
+  } catch {
+    throw nodeRuntimeError("selected NODE_BIN could not be executed");
+  }
+}
+
+export function withGraphNodeRuntime(environment, nodeBinary) {
+  const directory = path.dirname(nodeBinary);
+  const entries = String(environment.PATH ?? "").split(path.delimiter);
+  while (entries[0] === directory) entries.shift();
+  const suffix = entries.join(path.delimiter);
+  return {
+    ...environment,
+    NODE_BIN: nodeBinary,
+    PATH: suffix ? `${directory}${path.delimiter}${suffix}` : directory,
+  };
+}
 
 const commandMaps = new Map();
 function commandID(root, target) {
@@ -110,12 +153,30 @@ export function executeUnitProcess(
     cwd,
     signal,
     environment = {},
+    nodeBinary,
     fixtureLease,
     inheritProcessEnvironment = true,
     outputLimitBytes = 1048576,
   } = {},
 ) {
   return new Promise((resolve) => {
+    let selectedNodeBinary;
+    try {
+      const binding = nodeBinary ?? environment.NODE_BIN;
+      if (binding || unit.command.executable === "node") {
+        selectedNodeBinary = resolveGraphNodeBinary({ cwd, nodeBin: binding });
+      }
+    } catch (error) {
+      resolve({
+        status: "failed",
+        failure_class: "config",
+        failure_reason: "configuration_error",
+        exit_code: 2,
+        stdout: "",
+        stderr: `${error.message}\n`,
+      });
+      return;
+    }
     const childEnvironment = {
       ...(inheritProcessEnvironment ? process.env : {}),
       ...environment,
@@ -133,16 +194,24 @@ export function executeUnitProcess(
       repoRoot: cwd, environment: childEnvironment, unitID: unit.unit_id, commandID: diagnosticCommand,
     }) : null;
     Object.assign(childEnvironment, diagnostic?.environment);
-    const child = spawn(unit.command.executable, unit.command.args, {
-      cwd,
-      env: childEnvironment,
-      detached: process.platform !== "win32",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    if (selectedNodeBinary) {
+      Object.assign(childEnvironment, withGraphNodeRuntime(childEnvironment, selectedNodeBinary));
+    }
+    const child = spawn(
+      unit.command.executable === "node" ? selectedNodeBinary : unit.command.executable,
+      unit.command.args,
+      {
+        cwd,
+        env: childEnvironment,
+        detached: process.platform !== "win32",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
     let stdout = "";
     let stderr = "";
     let cancelled = false;
     let timedOut = false;
+    let spawnFailed = false;
     let killDeadline;
     const append = (current, chunk) =>
       `${current}${chunk}`.slice(-outputLimitBytes);
@@ -165,20 +234,27 @@ export function executeUnitProcess(
     const timeout = setTimeout(() => terminate("timeout"), unit.timeout_ms);
     timeout.unref?.();
     child.on("error", (error) => {
+      spawnFailed = true;
       clearTimeout(timeout);
       clearTimeout(killDeadline);
       diagnostic?.close();
       signal?.removeEventListener("abort", onAbort);
+      const nodeLaunch = unit.command.executable === "node";
       resolve({
         status: "failed",
-        failure_class: "infra",
-        failure_reason: "service_start_error",
-        error,
+        failure_class: nodeLaunch ? "config" : "infra",
+        failure_reason: nodeLaunch ? "configuration_error" : "service_start_error",
+        exit_code: nodeLaunch ? 2 : publicExitCodeForFailure({
+          failure_class: "infra",
+          failure_reason: "service_start_error",
+        }),
+        stderr: nodeLaunch ? "selected NODE_BIN could not be launched\n" : stderr,
+        ...(nodeLaunch ? {} : { error }),
         stdout,
-        stderr,
       });
     });
     child.on("close", (code, closeSignal) => {
+      if (spawnFailed) return;
       clearTimeout(timeout);
       clearTimeout(killDeadline);
       signal?.removeEventListener("abort", onAbort);

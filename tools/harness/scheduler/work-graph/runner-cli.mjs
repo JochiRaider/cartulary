@@ -34,7 +34,12 @@ import {
   resourceCapacities,
 } from "./capability.mjs";
 import { WorkGraphCompiler } from "./compiler.mjs";
-import { executeUnitProcess } from "./executor.mjs";
+import {
+  assertGraphNodeLaunch,
+  executeUnitProcess,
+  resolveGraphNodeBinary,
+  withGraphNodeRuntime,
+} from "./executor.mjs";
 import { runWorkGraph } from "./scheduler.mjs";
 import { resolveVulnerabilityDatabaseRevision } from "./vulnerability.mjs";
 
@@ -185,7 +190,13 @@ function resolvedRuntimeEnvironment(compiler) {
     root,
     process.env.NODE_RUNTIME_DIR || "tmp/node-runtime",
   );
-  environment.NODE_BIN = process.env.NODE_BIN || path.join(environment.NODE_RUNTIME_DIR, "bin/node");
+  environment.NODE_BIN = resolveGraphNodeBinary({
+    cwd: root,
+    nodeBin: process.env.NODE_BIN === undefined
+      ? path.join(environment.NODE_RUNTIME_DIR, "bin/node")
+      : process.env.NODE_BIN,
+  });
+  assertGraphNodeLaunch(environment.NODE_BIN);
   environment.PNPM = process.env.PNPM || path.join(environment.NODE_RUNTIME_DIR, "bin/pnpm");
   return environment;
 }
@@ -785,9 +796,9 @@ async function main() {
   validateSchemaSync(manifest.schema_id, manifest);
   writeJSON(path.join(runRoot, "run-manifest.json"), manifest);
 
-  const suiteRuntime = createSuiteRuntime({ repoRoot: root, runRoot, runID });
   const runtimeEnvironment = resolvedRuntimeEnvironment(compiler);
-  const baseEnvironment = {
+  const suiteRuntime = createSuiteRuntime({ repoRoot: root, runRoot, runID });
+  const baseEnvironment = withGraphNodeRuntime({
     ...graphChildEnvironment(options),
     ...runtimeEnvironment,
     CARTULARY_HARNESS_GRAPH_CHILD: "1",
@@ -800,7 +811,7 @@ async function main() {
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID,
-  };
+  }, runtimeEnvironment.NODE_BIN);
   let suite = null;
   let suiteClosed = false;
   let suiteCloseError = null;
@@ -891,6 +902,7 @@ async function main() {
     let result = await executeUnitProcess(unit, {
       ...context,
       inheritProcessEnvironment: false,
+      nodeBinary: runtimeEnvironment.NODE_BIN,
       environment: {
         ...context.environment,
         CARTULARY_WORK_UNIT_ID: unit.unit_id,
@@ -1014,6 +1026,7 @@ try {
   process.exitCode = await main();
 } catch (error) {
   const configurationFailure =
+    error.failure_class === "config" ||
     error.message === usage() ||
     error.message.includes("capacity override") ||
     error.message.includes("harness_capacity_override") ||

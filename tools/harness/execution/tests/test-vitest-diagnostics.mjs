@@ -8,6 +8,7 @@ import { primaryPublicFailure, publicExitCodeForFailures, validateSchemaSync } f
 import { normalizeVitestObservations, readVitestJSON, reconcileVitestReport } from "../../diagnostics/vitest-failure-details.mjs";
 import { adaptVitestInvocation } from "../runners/vitest.mjs";
 import { createCommandFailureContext } from "../../runtime/command-failure.mjs";
+import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const fixture = path.join(root, "tmp", `vitest-diagnostics-${randomUUID()}`);
@@ -15,8 +16,20 @@ mkdirSync(fixture, { recursive: true, mode: 0o700 });
 const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
 const output = path.join(runRoot, "vitest-diagnostics-contract", randomUUID());
 mkdirSync(output, { recursive: true, mode: 0o700 });
-const suiteRuntime = process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT;
-const fixtureEnvironment = { ...process.env };
+const ownedSuiteRuntime = process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT
+  ? null
+  : createSuiteRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
+const suiteRuntime = ownedSuiteRuntime?.root ?? process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT;
+const fixtureEnvironment = {
+  ...process.env,
+  ...(ownedSuiteRuntime ? {
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: ownedSuiteRuntime.root,
+    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: ownedSuiteRuntime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: ownedSuiteRuntime.runID,
+  } : {}),
+};
+fixtureEnvironment.PATH = [path.dirname(process.execPath), fixtureEnvironment.PATH]
+  .filter(Boolean).join(path.delimiter);
 // Deliberate child failures must not publish into the enclosing successful test command.
 delete fixtureEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
 const reportFile = path.join(output, "runner.json");
@@ -161,4 +174,5 @@ if (mode !== 'missing') writeFileSync(process.env.CARTULARY_VITEST_CAPTURE_FILE,
   process.stdout.write("Vitest real collector, classification, attribution, redaction, and validation contracts passed\n");
 } finally {
   rmSync(fixture, { recursive: true, force: true });
+  ownedSuiteRuntime?.close();
 }
