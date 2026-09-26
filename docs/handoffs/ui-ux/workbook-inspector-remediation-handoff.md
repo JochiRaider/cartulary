@@ -402,3 +402,234 @@ new icon package or generic inspector workflow engine was introduced. Deployment
 and publication are outside this workspace implementation; no release or Core 05
 conformance claim is made. The next action is review and coordinated release of
 the complete change set.
+
+## Mention completion continuity remediation — 2026-09-26
+
+Baseline: clean `main` at `744a0144f8fae82d5fea32aa1a2f5333c32cc4fc`.
+This section tracks the separately authorized correction of mention completion
+and shared inspector lifecycle semantics. Earlier acceptance evidence above is
+historical and does not close this slice.
+
+| Phase | Status | Exit evidence |
+| --- | --- | --- |
+| P0 Reproduction | DONE | `20260926T053000Z-p16392`: composed coordinator/mention-owner/viewport-controller regression leaves `body` active after its own same-row refresh; existing selected cases pass. |
+| P1 Contract clarification | DONE | Core 03 §2.3A separates review, operation, and continuity lifetime; REQ-03-283 remains fallback authority. |
+| P2 Shared lifecycle | DONE | `20260926T053729Z-p22689`, `20260926T055025Z-p44590` and `20260926T060433Z-p90097`: split generations, explicit record updates, coherent snapshot consumption and transition matrix pass. |
+| P3 Mention completion | DONE | `20260926T054036Z-p72433` and `20260926T054224Z-p28248`: receipt-correlation, version floor, terminal fallback, virtualized focus, independent Entity-refresh failure and interruption/attachment/authority cases pass alongside operation recovery and reconciliation. |
+| P4 Verification | DONE | Final `test-fast` passes 721/721 at `20260926T060735Z-p40316`; full webserver-backed browser target passes 140/140 at `20260926T061141Z-p3677`, including the original mention failures and affected continuity/security/recovery groups. |
+| P5 Handoff | DONE | Evidence, compatibility, rollback, and applicable acceptance assessment recorded; Markdown lint passes at `20260926T062404Z-p87654`. |
+
+The original product failures at `20260926T042905Z-p87597` remain unchanged.
+The separate `20260926T044307Z-p79286` harness-contract pass is historical harness
+readiness, not evidence of this product correction. Initial new-test setup runs
+required sorting authored selector titles and defining fixture geometry through
+property descriptors; those setup failures do not establish product causality.
+
+### Cause, owner decisions, and completed remediation
+
+The composed regression reproduces the reported `body` focus failure by accepting
+a mention receipt and advancing the selected source's version through the real
+inspector coordinator. Before the fix, that review invalidation cleared mention
+completion and cancelled its viewport token. The generation split lets this
+operation retain its token. This demonstrates a causal path in a controlled
+schedule; it does not reconstruct every callback in the historical browser run.
+
+Core 03 §2.3A now explicitly separates review validity, admitted operation lifetime,
+and presentation continuity. It references the existing REQ-03-283 rendering,
+acknowledgement, and terminal-fallback obligations. Neither `docs/domain.md` nor the
+Testing Harness NLSpec needed a normative change: vocabulary stays in Domain,
+while TH-HARNESS-REQ-665 and AC-080 continue to govern observation-only test helpers.
+Tests and generators consume authored executable inputs, never these documents.
+
+| Transition | Review generation | Attachment generation | Completion ownership |
+| --- | --- | --- | --- |
+| Same live record receives a different version | Advance; cause `record_updated` | Preserve | Preserve the eligible operation and viewport token |
+| Same attachment completes an action | Advance | Preserve | Settle through the captured operation |
+| Record, schema, or subject kind changes | Advance; cause `retarget` | Advance | Cancel |
+| Close, surface or saved-view change, hard refresh | Advance | Advance | Cancel |
+| Authorization loss, incident closure, deletion or merge | Advance | Advance | Cancel |
+| Equivalent subject/lifecycle input | Preserve | Preserve | Unchanged |
+| Explicit reopen after close | Review was already invalidated by close; advance again if subject changed | Advance | A fresh attachment cannot recover the old token |
+| Newer interaction or unmount | Lifecycle generations need not change | Lifecycle generations need not change | Controller cancels; late callbacks cannot create a replacement token |
+
+Forms, confirmations, Review navigation, and element registrations still use
+review/version validity. Timeline authoring and observation management use the
+explicit same-source event rather than reconstructing it from `retarget`.
+Generic and Entity consumers preserve their draft and destructive-review rules.
+The old ambiguous generation name has been removed without an alias.
+
+Observation-management lifecycle input now accepts the coordinator snapshot as a
+single value. Its subject, generations, phase and cause cannot be assembled from
+different render stages. This matters because selection can advance before the
+coordinator's layout-effect transition commits; a new subject paired with the
+previous cause incorrectly dismissed the workflow during the first implementation.
+The composed coordinator/feature regression and existing browser recovery cases
+cover this boundary.
+
+The presentation-refresh port now receives the exact accepted receipt and source
+version. Only the captured operation with that receipt may lend its current focus
+token. Composition forwards the source requirement and token to the row loader,
+which commits the projection before publishing visible-source evidence. Cached
+records outside the projection cannot satisfy that evidence. A rendered version
+at or above the accepted floor qualifies; a lower version does not. Successful
+completion awaits semantic Grid Adapter focus acknowledgement, preserving selection
+and viewport anchoring with the existing visibility adjustment and field fallback.
+
+Refresh failure terminates the follow-up obligation and permits the existing
+visible fallback only while the token is still eligible. The accepted receipt and
+read-recovery state remain available, and read recovery does not replay the write.
+Entity creation and mention linking retain independent refresh obligations: an
+Entity-refresh failure cannot prematurely finish an in-flight source refresh.
+Cancellation remains distinct from failure and causes no restoration.
+
+### Changed boundaries and validation routing
+
+| Gap | Source and authored inputs | Durable outcome |
+| --- | --- | --- |
+| G1 | Core 03 §2.3A; inspector and Timeline action source guides | Explicit, separately owned review, operation and presentation lifetimes |
+| G2 | `workbookInspectorModel`, `workbookInspectorSubject`, coordinator; Generic composition; Timeline feature/lifecycle/element consumers | One shared transition classification and atomic internal generation migration |
+| G3 | Mention presentation binding, operation owner and reconciler; workflow composition; row loader; viewport controller | Correlated receipt/version requirement reaches committed projection and acknowledged focus |
+| G4 | Mention binding and existing continuity controller | Accepted-write recovery survives terminal refresh failure without reviving cancelled focus |
+| G5 | Model/coordinator tests, composed mention tests, viewport tests, shared continuity helper tests, row-menu virtualization setup and affected consumer fixtures | Controlled receipt/render/input/mount schedules exercise ownership across the real lifecycle |
+| G6 | `tools/test_families/web.workbook.json`, `tools/test_families/module.workbook.json`; generated topology render index; this handoff | New cases selected by existing public rows; exact retained evidence and authority boundaries |
+
+The composed fixture retains the real coordinator, operation owner, projection
+commit adapter, and viewport controller. Transport, read readiness, and the Grid
+Adapter port's mounting/acknowledgement are controllable. Separate adapter tests
+verify the production adapter. Regression schedules cover receipt before projection,
+collaboration projection before receipt, lower/equal/higher source versions,
+replacement of the focused control, deferred mounting, and another operation's
+receipt on the same source. Resolve, dismiss, restore/revert, disclosure Undo and
+create/link recovery share the corrected binding and retained action tests.
+
+Cancellation tests combine successful and failed refresh with pointer, keyboard,
+wheel, native input, composition, external focus, a different row or mention,
+close/reopen, surface departure/return, authority/account change and unmount.
+Accepted failure preserves the receipt and mutation count. Rejected/uncertain
+operation and independent creation/link recovery coverage remains selected.
+Observation helpers additionally assert no synthetic click or event dispatch,
+alongside their existing zero-focus/zero-scroll assertions. Browser selectors and
+continuity assertions are unchanged; no timeout or screenshot-baseline changes
+were made.
+
+The main new cases extend
+`web.workbook.regression.timeline_mention_auto_resolution_undo_ownership_9e834f7b55`
+and
+`module.workbook.frontend_unit.verify_active_view_schema_id_selects_inspector_c_9c4dd5ce7c`.
+Related selections cover coordinator, inspector lifecycle, observation continuity,
+deferred viewport continuity, mention operation recovery/reconciliation and Entity
+editing. Authored selectors remain in their owner catalogs; use the public
+task guide and each retained run manifest for executable membership.
+
+### Verification ledger
+
+All identifiers below are exact directories under `.cartulary/test-results/`.
+Graph counts are execution units, including applicable prerequisites and summary
+units; they are not counts of individual test cases.
+
+| Command or selection | Result and retained run |
+| --- | --- |
+| New composed regression on original implementation | FAIL as intended, `20260926T053000Z-p16392`; expected synopsis focus, observed `body` |
+| `make test-slice OWNER=web.workbook ROWS=…` — mention/coordinator/viewport/observation/feature/lifecycle | PASS 7/7, `20260926T053729Z-p22689` |
+| `make test-slice OWNER=module.workbook ROWS=…` — inspector model | PASS 2/2, `20260926T055025Z-p44590`; final attachment-generation assertions include all invalidation reasons and surface departure |
+| `make test-slice OWNER=package.test_utils` | PASS 2/2, `20260926T054837Z-p99516`; final helper assertion also forbids direct scroll-position writes |
+| `make test-slice OWNER=web.workbook ROWS=…` — mention completion/recovery/reconciliation and Entity editing | PASS 5/5, `20260926T054036Z-p72433` |
+| Coherent observation snapshot, feature controller and mention completion selection | PASS 4/4, `20260926T060433Z-p90097` |
+| Final mention row including independent Entity-refresh failure | PASS 2/2, `20260926T054224Z-p28248` |
+| `make test-slice OWNER=module.timeline ROWS=…` — collection inspection and load machine | PASS 3/3, `20260926T054044Z-p73712` |
+| `make test-slice OWNER=package.grid_adapter` | PASS 57/57, `20260926T054050Z-p74365` |
+| `make service-backed-test-slice OWNER=module.entities ROWS=…` — original resolve/dismiss and mention-creation recovery | PASS 13/13, `20260926T053817Z-p26141`; final aggregate below remains authoritative for later refinements |
+| `make frontend-typecheck` | PASS 2/2, `20260926T060526Z-p94392` |
+| `make frontend-import-boundary-check` | PASS 2/2, `20260926T060550Z-p25550` |
+| `make lint-biome` | PASS 2/2, `20260926T060559Z-p26011` |
+| `make test-catalog-check` | PASS; authored selectors validated without changing public target identities |
+| `make generate` | PASS, `20260926T060501Z-p91320`; final authored inputs generated through Make |
+| `make generate-drift` / `make generated-artifact-policy-check` / `make json-shape-check` | PASS, `20260926T060602Z-p26402` / `20260926T060616Z-p33273` / `20260926T060621Z-p35045` |
+| `make agent-finalize` | PASS 1/1, `20260926T060627Z-p36009`; retained successful full-warm-run maintenance skipped because `RESULTS_DIR` was unset |
+| `make test-fast` | PASS 721/721, `20260926T060735Z-p40316`; final code and test assertions, including coherent snapshot consumption |
+| `make service-backed-test-slice OWNER=module.timeline ROWS=module.timeline.browser.row_action_menu` | PASS 11/11, `20260926T055501Z-p69772`; corrected virtualization setup retains the original unmount and semantic-return assertions |
+| `make service-backed-test-slice OWNER=module.workbook ROWS=…` — canonical creation independent/reuse/closed/authority recovery and observation replay/source edits | PASS 12/12, `20260926T060528Z-p94710`; all six scenarios pass after coherent snapshot consumption |
+| `make browser-e2e-webserver-backed` | PASS 140/140, `20260926T061141Z-p3677`; complete final invocation with no failed, skipped or cancelled units |
+| `make lint-markdown` | PASS, `20260926T062404Z-p87654`; this ledger records its result after completion |
+
+Initial local setup, typecheck and lint attempts identified selector ordering,
+fixture geometry, a composition port typed too narrowly, model-test union narrowing,
+and an obsolete hook dependency. Those change-related issues were corrected before
+the passing selections above. Existing informational formatter suggestions were
+not treated as product defects. Historical result directories remain unchanged.
+
+| Earlier failing command | Result root and disposition |
+| --- | --- |
+| Initial selector validation | Rejected unsorted authored titles before execution; sorted and validated by the passing catalog/slice checks |
+| Initial composed fixture `make test-slice` | `20260926T052930Z-p15612`; fixture geometry setup corrected before the causal regression run |
+| Baseline composed regression `make test-slice` | `20260926T053000Z-p16392`; product continuity defect reproduced and corrected |
+| `make format-frontend` | `20260926T053405Z-p18829`; change-related unused dependency removed; final formatter pass `20260926T054221Z-p27826` |
+| `make frontend-typecheck` | `20260926T053444Z-p19496`; composition port and test union typing corrected; final pass above |
+| `make lint-biome` | `20260926T053457Z-p20016`; obsolete dependency corrected; final pass above |
+| Follow-up `make frontend-typecheck` | `20260926T060440Z-p90883`; snapshot test fixtures lost discriminated-union narrowing; corrected with `satisfies` |
+
+The first full browser invocation, `20260926T054950Z-p8984`, exposed a separate
+row-menu fixture gap in `timeline-grid-entry.spec.ts:370`: it assumed the final
+queried row was far from the invoking row. Its retained trace places the source
+at index 40 of 58 and its chosen destination at index 57, both within the mounted
+range (indices 32–57). The assertion therefore did not test an unmounted source.
+The fixture now selects whichever endpoint is farther from the source's actual
+query index. The unmount assertion, semantic return, selectors, and timeouts remain
+unchanged. This is a deterministic setup correction, not evidence of a mention
+focus regression. Its focused and final aggregate results must close the same
+virtualization acceptance gate; the failed invocation remains intact.
+
+That invocation completed at 136/140 execution units passing. The other two
+failed browser groups were `indicator-canonical-create` and
+`indicator-observations`; their missing retained editor/recovery presentation exposed the
+mixed-snapshot composition defect described above. The fourth failed unit was the
+aggregate summary. The original mention resolve/dismiss groups passed. The full
+run is failed evidence until superseded by a passing final invocation; successful
+individual groups do not close aggregate acceptance.
+
+Rerun `20260926T055846Z-p21758` was interrupted when this product regression was
+identified. Its incomplete Playwright trace then failed artifact validation
+(`artifact_error`), so it supplies no complete verification result. No retained
+artifact was rewritten to turn that interrupted run into a pass. The subsequent
+verification uses fresh public Make invocations after the coherent-snapshot fix.
+
+### Compatibility, retirement, and rollback
+
+This is a cohesive internal TypeScript correction. No HTTP protocol, persistence,
+saved-view, schema, dependency or database migration is needed. The ambiguous
+generation field and generic-retarget inference were retired together; there is
+no compatibility shim or dual interpretation path. Receipt-bearing refresh is an
+internal port change; mutation request bytes, uncertain replay identity and
+source-owned operation lifetime are unchanged.
+
+Deploy the frontend change with its generated routing and tests reviewed as one
+slice. Rollback reverts the cohesive source, specification clarification, tests and
+authored routing, then regenerates downstream topology. It requires no database
+restoration and must preserve accepted receipts and historical run artifacts.
+Do not roll back by weakening continuity assertions or reintroducing a generation
+alias. No release, benchmark, visual-golden campaign or Core 05 publication claim
+is part of this bounded correction.
+
+### Acceptance assessment for this continuity slice
+
+| Row | Status | Evidence and scope |
+| --- | --- | --- |
+| A001 Authority | PASS | Core 03 owns behavior; Domain owns vocabulary/navigation; Harness owns observation and evidence mechanics. No Markdown dependency was introduced. |
+| A002 Scope | PASS | G1–G6 above remain bounded to shared inspector lifecycle and mention presentation completion; no generic workflow engine or unrelated harness change. |
+| A003 Repository state | PASS | Clean baseline recorded; source guides, owner catalogs, generated policy and existing continuity/operation boundaries inspected. |
+| A007 Creation | PASS | Independent Entity creation/link recovery is retained; source rendering cannot finish early after Entity-refresh failure. Existing creation-recovery browser selection passes. |
+| A010 Inspector | PASS | Model/coordinator exact-transition tests cover review invalidation, attachment departure, repeated input and close/reopen. Generic/Entity and Timeline consumer checks pass. |
+| A011 Continuity | PASS | Composed ownership/version/mount/interruption tests and the final 140/140 browser aggregate pass, including both original mention failures. |
+| A012 Transactions | PASS | Requests and replay identities unchanged; operation recovery tests and accepted-write/failed-refresh mutation-count assertions pass. |
+| A013 Recovery | PASS | Accepted receipt survives terminal read failure; no write replay from read recovery; creation and link follow-ups remain separate. |
+| A014 Editing | PASS | Review invalidation remains version-bound; pointer/native input/composition and later editing cancel restoration; retained authoring consumers remain covered. |
+| A016 Data/access | PASS | Visible projection evidence is separate from committed cache; unavailable source follows existing safe fallback; no fabricated row or selection of another record. |
+| A017 Authorization | PASS | Authority/account/unmount cancellation schedules and final production access-loss/account-replacement scenarios pass. |
+| A019 Accessibility | PASS | Semantic synopsis target, visible-field fallback, actual focus acknowledgement and zero helper-induced restoration pass in focused tests and the final production browser aggregate. |
+| A021 Virtualization | PASS | Deferred mount waits for adapter acknowledgement and remains cancellable; all 57 Grid Adapter units pass. Existing minimal visibility adjustment and viewport anchoring remain in use. |
+| A023 Selectors | PASS | New titles extend authored owner rows; existing browser semantic selectors and assertions are unchanged. |
+| A024 Test authority | PASS | No prose loading, hashes, new production debugging API, manufactured focus, timeout inflation or historical evidence rewriting. |
+| A025 Generated artifacts | PASS | Owner inputs regenerated through Make; final settled-source drift/policy/shape checks pass. |
+| A026 Compatibility | PASS | Cohesive internal field/port migration; no persistence, wire, saved-view, dependency or database change; rollback boundaries recorded. |
+| A027 Handoff | PASS | Transition decisions, changed boundaries, selected rows, failure history, exclusions and rollback are recorded; final product aggregates and Markdown lint pass. |
+| A004–A006, A008–A009, A015, A018, A020, A022 | NOT_APPLICABLE | No token/theme/density/responsive/overflow/component/visual change, conflict-policy change, or Evidence workflow change. Existing regression coverage is not a new visual or conformance claim. |

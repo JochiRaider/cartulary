@@ -362,11 +362,13 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
     incidentId,
     timelineViewSchemaId,
   );
-  const distantId = required(loadedRows.at(-1)).record_id;
-  await selectCell(
-    page,
-    distantId === id ? required(loadedRows[0]).record_id : distantId,
-  );
+  // Default ordering may place the source near either end. Choose the farther
+  // endpoint so the source leaves the mounted range, not merely the selection.
+  const sourceIndex = loadedRows.findIndex((row) => row.record_id === id);
+  expect(sourceIndex).toBeGreaterThanOrEqual(0);
+  const distant =
+    sourceIndex < loadedRows.length / 2 ? loadedRows.at(-1) : loadedRows[0];
+  await selectCell(page, required(distant).record_id);
   await expect
     .poll(() => invokingElement?.evaluate((node) => node.isConnected))
     .toBe(false);

@@ -407,27 +407,20 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         new Set(hydratedRows.map((row) => row.key)),
       );
       rowsRef.current = hydratedRows;
-      commitTimelineProjection(() => {
-        replaceRows(hydratedRows);
-        options.afterProjectionCommit?.();
-        publishSaveStatePresentation();
-        markRowsLoaded();
-      }, options.viewportContinuityToken !== undefined);
-      const sourceRecord =
-        sourceEvidenceFromCommittedRows(
-          committedRows,
-          options.sourceRecordRequirement,
-        ) ??
-        (options.sourceRecordRequirement === undefined
-          ? undefined
-          : sourceEvidenceFromCommittedRows(
-              [
-                currentCommittedTimelineRow(
-                  options.sourceRecordRequirement.recordId,
-                ),
-              ].filter((row): row is WorkbookRow => row !== null),
-              options.sourceRecordRequirement,
-            ));
+      commitTimelineProjection(
+        () => {
+          replaceRows(hydratedRows);
+          options.afterProjectionCommit?.();
+          publishSaveStatePresentation();
+          markRowsLoaded();
+        },
+        options.viewportContinuityToken !== undefined ||
+          options.sourceRecordRequirement !== undefined,
+      );
+      const sourceRecord = sourceEvidenceFromCommittedRows(
+        committedRows,
+        options.sourceRecordRequirement,
+      );
       advanceViewportContinuity(
         options.viewportContinuityToken,
         sourceRecord === undefined ? {} : { sourceRecord },
@@ -547,21 +540,10 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         }
       };
 
-      const obligationEvidence =
-        currentSourceRecordEvidence(
-          rowsRef.current,
-          options.sourceRecordRequirement,
-        ) ??
-        (options.sourceRecordRequirement === undefined
-          ? null
-          : currentSourceRecordEvidence(
-              [
-                currentCommittedTimelineRow(
-                  options.sourceRecordRequirement.recordId,
-                ),
-              ].filter((row): row is WorkbookRow => row !== null),
-              options.sourceRecordRequirement,
-            ));
+      const obligationEvidence = currentSourceRecordEvidence(
+        rowsRef.current,
+        options.sourceRecordRequirement,
+      );
       if (!request.isCurrent() || !isCurrentLoadSequence(requestSequence)) {
         if (options.requireAcceptance)
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
@@ -657,7 +639,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       beginTimelineRowsLoad,
       commitAcceptedRows,
       currentMutationEpoch,
-      currentCommittedTimelineRow,
       dispatchLoadEvent,
       freshTimelineRowsForQueryResult,
       hasLoadedRows,

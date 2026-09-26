@@ -1,3 +1,5 @@
+import type { GridFocusResult, GridHandle } from "@cartulary/grid-adapter";
+import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -8,11 +10,19 @@ import {
   mentionReview,
   mentionWorkbookRow,
 } from "../../testing/timelineMentionTestSupport";
+import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { MentionReview } from "./actions/timelineMentionOperationModel";
 import { WorkbookTimelineMentionOperationOwner } from "./actions/WorkbookTimelineMentionOperationOwner";
 import { createTimelineMentionEntityCreationAdapter } from "./adapters/createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "./adapters/createTimelineMentionResolutionAdapter";
+import { commitTimelineProjection } from "./adapters/timelineProjectionCommitAdapter";
+import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";
 import { useTimelineMentionActions } from "./hooks/useTimelineMentionActions";
+import {
+  type TimelineViewportContinuityRequest,
+  useTimelineViewportContinuityController,
+} from "./hooks/useTimelineViewportContinuityController";
 import type { DisclosureReviewNavigationScope } from "./models/timelineControllerPorts";
 import type { WorkbookRow } from "./models/timelineRowModel";
 import type { TimelineMentionResolutionPort } from "./ports/TimelineMentionPort";
@@ -33,8 +43,16 @@ function setup(review: MentionReview = mentionReview()) {
     send,
   });
   owner.setAuthority(review.authority);
-  owner.registerReconciliation(async () => {});
   const rowsRef = { current: [mentionWorkbookRow(review)] };
+  owner.registerReconciliation(async (receipt) => {
+    rowsRef.current = [
+      {
+        ...mentionWorkbookRow(review),
+        rowVersion: receipt.source_record.row_version,
+      },
+    ];
+    await owner.refreshPresentation(receipt, receipt.source_record.row_version);
+  });
   const input = {
     owner,
     rowsRef,
@@ -47,7 +65,9 @@ function setup(review: MentionReview = mentionReview()) {
     selectedMention: mentionInspector(review),
     selectedMentionRef: review.subject.itemRef as string | null,
     selectedRowId: review.subject.sourceRecordId,
-    inspectorInvalidationGeneration: 0,
+    inspectorReviewGeneration: 0,
+    inspectorAttachmentGeneration: 0,
+    refreshProjection: async () => {},
     reviewSurfaceKey: "timeline:source",
     presentationKey: "timeline:source",
     presentationActive: true,
@@ -65,6 +85,7 @@ function setup(review: MentionReview = mentionReview()) {
     focusContinuity: {
       beginViewportContinuity: vi.fn(() => ++focusToken),
       advanceViewportContinuity: vi.fn(),
+      requireViewportContinuitySourceRecord: vi.fn(),
       settleViewportContinuityFollowUp: vi.fn(),
       clearViewportContinuity: vi.fn(),
     },
@@ -621,4 +642,527 @@ it("Timeline disclosure actions read only their unavailable source and preserve 
   ).toHaveBeenCalledTimes(1);
   expect(f.send).toHaveBeenCalledTimes(1);
   f.unmount();
+});
+
+function completionFixture(
+  review = mentionReview({ intent: { action: "dismiss_item" } }),
+) {
+  const owner = new WorkbookTimelineMentionOperationOwner(
+    review.subject.incidentId,
+    { create: () => "completion-attempt" },
+    { remember: vi.fn(), settle: vi.fn(), accepted: vi.fn() },
+  );
+  const receipt = mentionReceipt(review);
+  const send = vi.fn<TimelineMentionResolutionPort["send"]>(async () => ({
+    kind: "accepted",
+    receipt,
+  }));
+  owner.configure({
+    ...createTimelineMentionResolutionAdapter({ apiBase: undefined }),
+    send,
+  });
+  owner.setAuthority(review.authority);
+  owner.registerReconciliation(async (accepted) => {
+    await owner.refreshPresentation(
+      accepted,
+      accepted.source_record.row_version,
+    );
+  });
+  let release!: () => void;
+  let reject!: (error: Error) => void;
+  const refreshProjection = vi.fn(
+    () =>
+      new Promise<void>((resolve, fail) => {
+        release = resolve;
+        reject = fail;
+      }),
+  );
+  const grid = document.createElement("div");
+  grid.tabIndex = -1;
+  grid.scrollTop = 120;
+  grid.scrollLeft = 40;
+  Object.defineProperty(grid, "getBoundingClientRect", {
+    value: () => new DOMRect(0, 0, 600, 400),
+  });
+  const cell = document.createElement("div");
+  cell.tabIndex = -1;
+  cell.role = "gridcell";
+  cell.dataset.gridRecordId = review.subject.sourceRecordId;
+  cell.dataset.gridFieldKey = "timeline.activity_synopsis_text";
+  Object.defineProperty(cell, "getBoundingClientRect", {
+    value: () => new DOMRect(80, 80, 200, 30),
+  });
+  grid.append(cell);
+  const invoker = document.createElement("button");
+  document.body.append(grid, invoker);
+  invoker.focus();
+  const waiting = new Set<() => void>();
+  const requestFocus = vi.fn<GridHandle["requestFocus"]>(
+    (target, options) =>
+      new Promise<GridFocusResult>((resolve) => {
+        const finish = (result: GridFocusResult) => {
+          waiting.delete(ready);
+          options?.signal?.removeEventListener("abort", abort);
+          resolve(result);
+        };
+        const abort = () => finish("cancelled");
+        const ready = () => {
+          if (options?.signal?.aborted) return abort();
+          const element = target.kind === "root" ? grid : cell;
+          if (!element.isConnected) return;
+          element.focus({ preventScroll: true });
+          finish("focused");
+        };
+        options?.signal?.addEventListener("abort", abort, { once: true });
+        waiting.add(ready);
+        ready();
+      }),
+  );
+  const gridHandleRef = {
+    current: {
+      requestFocus,
+      getScrollElement: () => grid,
+      getAnchorRect: () => cell.getBoundingClientRect(),
+    } as unknown as GridHandle,
+  };
+  const gridShellRef = { current: grid };
+  const viewportContinuityTokenRef = { current: 1 };
+  const registry = createTimelineEditorDraftRegistry();
+  const scope = {
+    getSnapshot: () => ({ key: "source", readable: true }),
+    subscribe: () => () => {},
+  };
+  const rowsRef = { current: [mentionWorkbookRow(review)] };
+  const candidatePort = {
+    page: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: {
+        candidates: [
+          {
+            recordId: review.intent.resolvedRecordId ?? "target",
+            rowVersion: 1,
+            displayText: "Target",
+            entityType: review.subject.entityType,
+          },
+        ],
+        nextCursor: null,
+        hasMore: false,
+      },
+    })),
+  };
+  let props = {
+    rowVersion: review.subject.sourceRowVersion,
+    lifecycleKey: "source",
+    recordId: review.subject.sourceRecordId,
+    mentionRef: review.subject.itemRef as string | null,
+  };
+  const hook = renderHook(
+    ({ rowVersion, lifecycleKey, recordId, mentionRef }) => {
+      rowsRef.current = [{ ...mentionWorkbookRow(review), rowVersion }];
+      const inspector = useWorkbookInspectorCoordinator({
+        config: requireViewContract(timelineViewSchemaId).inspectorConfig,
+        lifecycleKey,
+        subject: {
+          kind: "live",
+          recordId,
+          rowVersion,
+          viewSchemaId: timelineViewSchemaId,
+          label: "Source",
+          surfaceLabel: "Timeline",
+        },
+        actionPorts: { resetOwnerState: () => {}, restoreFocus: () => {} },
+      });
+      const [request, setRequest] =
+        useState<TimelineViewportContinuityRequest | null>(null);
+      const continuity = useTimelineViewportContinuityController({
+        gridHandleRef,
+        gridShellRef,
+        scope,
+        editorDraftRegistry: registry,
+        viewportContinuityTokenRef,
+        viewportContinuityRequest: request,
+        setViewportContinuityRequest: setRequest,
+      });
+      const mentions = useTimelineMentionActions({
+        owner,
+        rowsRef,
+        candidatePort,
+        earlierSaves: { current: Promise.resolve() },
+        selectedMention: mentionInspector(review),
+        selectedMentionRef: mentionRef,
+        selectedRowId: recordId,
+        inspectorReviewGeneration: inspector.snapshot.reviewGeneration,
+        inspectorAttachmentGeneration: inspector.snapshot.attachmentGeneration,
+        reviewSurfaceKey: lifecycleKey,
+        presentationKey: lifecycleKey,
+        presentationActive: inspector.snapshot.phase !== "closed",
+        selectedTargetId: review.intent.resolvedRecordId ?? "",
+        setSelectedTargetId: () => {},
+        waitForCommittedRecordIdle: async () => ({
+          row: rowsRef.current[0] ?? null,
+          rowVersion,
+        }),
+        setInspectorMessage: () => {},
+        refreshProjection,
+        focusContinuity: continuity.commands,
+      });
+      return { mentions, inspector, request };
+    },
+    { initialProps: props },
+  );
+  act(() => hook.result.current.inspector.commands.open());
+  const update = (next: Partial<typeof props>) => {
+    props = { ...props, ...next };
+    act(() => hook.rerender(props));
+  };
+  const project = (rowVersion: number) =>
+    act(() => {
+      invoker.remove();
+      cell.dataset.gridRowVersion = String(rowVersion);
+      commitTimelineProjection(() => update({ rowVersion }), true);
+    });
+  return {
+    ...hook,
+    review,
+    receipt,
+    owner,
+    send,
+    grid,
+    cell,
+    invoker,
+    requestFocus,
+    refreshProjection,
+    project,
+    update,
+    mountTarget: () =>
+      act(() => {
+        grid.append(cell);
+        for (const ready of waiting) ready();
+      }),
+    release: () => release(),
+    reject: () => reject(new Error("Refresh unavailable")),
+    dispose: () => {
+      hook.unmount();
+      grid.remove();
+      invoker.remove();
+    },
+  };
+}
+
+it("preserves mention completion through its own same-row inspector refresh", async () => {
+  const f = completionFixture();
+  try {
+    act(() => f.result.current.mentions.act(f.review.intent));
+    await flush();
+    expect(f.owner.getSnapshot().entries[0]?.receipt).toEqual(f.receipt);
+    expect(f.refreshProjection).toHaveBeenCalledOnce();
+    f.project(f.receipt.source_record.row_version);
+    expect(document.activeElement).toBe(document.body);
+    f.release();
+    await flush();
+    expect(document.activeElement).toBe(f.cell);
+    expect([f.grid.scrollTop, f.grid.scrollLeft]).toEqual([120, 40]);
+    expect(f.send).toHaveBeenCalledOnce();
+  } finally {
+    f.dispose();
+  }
+});
+
+it("waits for the response source version across resolution dismissal and reversion", async () => {
+  const base = mentionReview();
+  for (const review of [
+    base,
+    mentionReview({ intent: { action: "dismiss_item" } }),
+    mentionReview({
+      subject: {
+        ...base.subject,
+        state: "resolved",
+        resolvedRecordId: base.intent.resolvedRecordId ?? null,
+        resolutionMethod: "explicit_resolve_route",
+      },
+      intent: { action: "revert_to_unresolved" },
+    }),
+  ]) {
+    for (const extraVersion of [0, 1]) {
+      const f = completionFixture(review);
+      try {
+        await flush();
+        act(() => f.result.current.mentions.act(review.intent));
+        await flush();
+        expect(f.refreshProjection).toHaveBeenCalledWith(
+          {
+            recordId: review.subject.sourceRecordId,
+            minimumRowVersion: f.receipt.source_record.row_version,
+          },
+          1,
+        );
+        f.project(f.receipt.source_record.row_version - 1);
+        await flush();
+        expect(f.requestFocus).not.toHaveBeenCalled();
+        expect(f.result.current.request).not.toBeNull();
+        f.project(f.receipt.source_record.row_version + extraVersion);
+        f.release();
+        await flush();
+        expect(document.activeElement).toBe(f.cell);
+        expect(f.send).toHaveBeenCalledOnce();
+      } finally {
+        f.dispose();
+      }
+    }
+  }
+});
+
+it("accepts collaboration projection before the receipt without restoring early", async () => {
+  const f = completionFixture();
+  try {
+    let accept!: (
+      result: Awaited<ReturnType<TimelineMentionResolutionPort["send"]>>,
+    ) => void;
+    f.send.mockReturnValueOnce(
+      new Promise((resolve) => {
+        accept = resolve;
+      }),
+    );
+    act(() => f.result.current.mentions.act(f.review.intent));
+    await flush();
+    f.project(f.receipt.source_record.row_version);
+    expect(f.requestFocus).not.toHaveBeenCalled();
+    accept({ kind: "accepted", receipt: f.receipt });
+    await flush();
+    f.release();
+    await flush();
+    expect(document.activeElement).toBe(f.cell);
+    expect(f.owner.getSnapshot().entries[0]?.refresh).toBe("complete");
+  } finally {
+    f.dispose();
+  }
+});
+
+it("restores a terminal refresh fallback without replaying an accepted mention", async () => {
+  const f = completionFixture();
+  try {
+    act(() => f.result.current.mentions.act(f.review.intent));
+    await flush();
+    f.invoker.remove();
+    f.reject();
+    await flush();
+    expect(document.activeElement).toBe(f.cell);
+    expect(f.owner.getSnapshot().entries[0]).toMatchObject({
+      receipt: f.receipt,
+      refresh: "required",
+    });
+    const key = f.owner.getSnapshot().entries[0]?.key ?? -1;
+    void f.owner.refresh(key);
+    await flush();
+    const newer = document.createElement("input");
+    document.body.append(newer);
+    act(() => newer.focus());
+    f.project(f.receipt.source_record.row_version);
+    f.release();
+    await flush();
+    expect(document.activeElement).toBe(newer);
+    expect(f.send).toHaveBeenCalledOnce();
+    newer.remove();
+  } finally {
+    f.dispose();
+  }
+});
+
+it("never revives mention completion after interaction attachment or authority cancellation", async () => {
+  for (const cause of [
+    "pointerdown",
+    "keydown",
+    "wheel",
+    "input",
+    "compositionstart",
+    "focus",
+    "close",
+    "surface",
+    "row",
+    "mention",
+    "authority",
+    "account",
+    "unmount",
+  ]) {
+    for (const failed of [false, true]) {
+      const f = completionFixture();
+      const newer = document.createElement("input");
+      document.body.append(newer);
+      try {
+        act(() => f.result.current.mentions.act(f.review.intent));
+        await flush();
+        act(() => {
+          if (cause === "close") {
+            f.result.current.inspector.commands.close();
+          } else if (cause === "surface") f.update({ lifecycleKey: "other" });
+          else if (cause === "row") f.update({ recordId: "other" });
+          else if (cause === "mention") f.update({ mentionRef: "other" });
+          else if (cause === "authority") f.owner.setAuthority(null);
+          else if (cause === "account") f.owner.retire();
+          else if (cause === "unmount") f.unmount();
+          else if (cause === "focus") newer.focus();
+          else newer.dispatchEvent(new Event(cause, { bubbles: true }));
+        });
+        // Returning to the old destination cannot revive its old request.
+        if (cause === "close")
+          act(() => f.result.current.inspector.commands.open());
+        if (cause === "surface") f.update({ lifecycleKey: "source" });
+        if (cause === "row")
+          f.update({ recordId: f.review.subject.sourceRecordId });
+        if (cause === "mention")
+          f.update({ mentionRef: f.review.subject.itemRef });
+        if (cause !== "unmount") f.project(f.receipt.source_record.row_version);
+        f.grid.scrollTop = 250;
+        if (failed) f.reject();
+        else f.release();
+        await flush();
+        expect(
+          f.requestFocus,
+          `${cause}, failed=${failed}`,
+        ).not.toHaveBeenCalled();
+        expect(f.grid.scrollTop).toBe(250);
+        expect(f.send).toHaveBeenCalledOnce();
+      } finally {
+        newer.remove();
+        f.dispose();
+      }
+    }
+  }
+});
+
+it("keeps cancellation ownership while an accepted mention awaits virtualized focus", async () => {
+  for (const close of [false, true]) {
+    const f = completionFixture();
+    try {
+      act(() => f.result.current.mentions.act(f.review.intent));
+      await flush();
+      f.cell.remove();
+      f.project(f.receipt.source_record.row_version);
+      f.release();
+      await flush();
+      expect(f.requestFocus).toHaveBeenCalledOnce();
+      expect(document.activeElement).toBe(document.body);
+      if (close) act(() => f.result.current.inspector.commands.close());
+      f.mountTarget();
+      await flush();
+      expect(document.activeElement).toBe(close ? document.body : f.cell);
+    } finally {
+      f.dispose();
+    }
+  }
+});
+
+it("does not lend the current mention focus token to another receipt on the same source", async () => {
+  const f = completionFixture();
+  try {
+    let accept!: (
+      result: Awaited<ReturnType<TimelineMentionResolutionPort["send"]>>,
+    ) => void;
+    f.send.mockReturnValueOnce(
+      new Promise((resolve) => {
+        accept = resolve;
+      }),
+    );
+    act(() => f.result.current.mentions.act(f.review.intent));
+    await flush();
+    const oldReceipt = {
+      ...f.receipt,
+      source_record: {
+        ...f.receipt.source_record,
+        row_version: f.review.subject.sourceRowVersion,
+      },
+    };
+    const olderRefresh = f.owner.refreshPresentation(
+      oldReceipt,
+      oldReceipt.source_record.row_version,
+    );
+    expect(f.refreshProjection).toHaveBeenLastCalledWith(
+      {
+        recordId: f.review.subject.sourceRecordId,
+        minimumRowVersion: f.review.subject.sourceRowVersion,
+      },
+      undefined,
+    );
+    f.release();
+    await olderRefresh;
+    expect(f.requestFocus).not.toHaveBeenCalled();
+    accept({ kind: "accepted", receipt: f.receipt });
+    await flush();
+    expect(f.refreshProjection).toHaveBeenLastCalledWith(
+      {
+        recordId: f.review.subject.sourceRecordId,
+        minimumRowVersion: f.receipt.source_record.row_version,
+      },
+      1,
+    );
+    f.project(f.receipt.source_record.row_version);
+    f.release();
+    await flush();
+    expect(document.activeElement).toBe(f.cell);
+  } finally {
+    f.dispose();
+  }
+});
+
+it("waits for source rendering before settling a failed Entity creation refresh", async () => {
+  const f = setup();
+  try {
+    let rejectCreation!: (error: Error) => void;
+    let releaseSource!: () => void;
+    f.owner.registerCreationReconciliation(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectCreation = reject;
+        }),
+    );
+    f.owner.registerReconciliation(async (receipt) => {
+      await new Promise<void>((resolve) => {
+        releaseSource = resolve;
+      });
+      f.rowsRef.current = [
+        {
+          ...mentionWorkbookRow(f.review),
+          rowVersion: receipt.source_record.row_version,
+        },
+      ];
+      await f.owner.refreshPresentation(
+        receipt,
+        receipt.source_record.row_version,
+      );
+    });
+    act(() => f.result.current.startCreate());
+    const review = f.result.current.createReview;
+    if (!review) throw new Error("Creation review required");
+    f.owner.configureCreation({
+      ...createTimelineMentionEntityCreationAdapter({ apiBase: undefined }),
+      send: async () => ({
+        kind: "accepted",
+        receipt: mentionCreationReceipt(review),
+      }),
+    });
+    f.send.mockImplementation(async (attempt) => ({
+      kind: "accepted",
+      receipt: mentionReceipt(attempt.review),
+    }));
+    act(() => f.result.current.submitCreate());
+    await flush();
+    rejectCreation(new Error("Entity refresh unavailable"));
+    await flush();
+    expect(f.owner.getSnapshot().creations[0]?.refresh).toBe("required");
+    expect(f.owner.getSnapshot().entries[0]?.refresh).toBe("refreshing");
+    expect(
+      f.input.focusContinuity.advanceViewportContinuity,
+    ).not.toHaveBeenCalled();
+    releaseSource();
+    await flush();
+    expect(
+      f.input.focusContinuity.settleViewportContinuityFollowUp,
+    ).toHaveBeenCalledExactlyOnceWith(9, "row-projection", "terminal");
+    expect(
+      f.input.focusContinuity.advanceViewportContinuity,
+    ).toHaveBeenCalledExactlyOnceWith(9);
+    expect(f.send).toHaveBeenCalledOnce();
+  } finally {
+    f.unmount();
+  }
 });

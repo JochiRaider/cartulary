@@ -15,7 +15,7 @@ const subject = (recordId: string, rowVersion: number) =>
 
 function scope(activeSubject: WorkbookRecordSubject | null) {
   return {
-    invalidationGeneration: 1,
+    reviewGeneration: 1,
     lifecycleKey: "incident-1:timeline",
     subject: activeSubject,
   };
@@ -118,7 +118,7 @@ describe("timeline inspector element registry", () => {
 
     registry.updateScope({
       ...scope(subject("record-1", 3)),
-      invalidationGeneration: 2,
+      reviewGeneration: 2,
     });
     expect(
       registry.focusPanel(

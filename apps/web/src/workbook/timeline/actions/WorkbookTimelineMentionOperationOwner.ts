@@ -96,7 +96,7 @@ export class WorkbookTimelineMentionOperationOwner
     | null = null;
   private recheckAuthority: (() => void) | undefined;
   private presentationRefresh:
-    | ((recordId: string, version: number) => Promise<void>)
+    | ((receipt: MentionReceipt, version: number) => Promise<void>)
     | null = null;
   private reconcile:
     | ((
@@ -388,8 +388,8 @@ export class WorkbookTimelineMentionOperationOwner
       if (this.presentationRefresh === refresh) this.presentationRefresh = null;
     };
   }
-  async refreshPresentation(recordId: string, version: number) {
-    await this.presentationRefresh?.(recordId, version);
+  async refreshPresentation(receipt: MentionReceipt, version: number) {
+    await this.presentationRefresh?.(receipt, version);
   }
   setAuthority(authority: MentionAuthority | null) {
     if (JSON.stringify(authority) === JSON.stringify(this.authority)) return;

@@ -6224,7 +6224,8 @@
           "opens explicitly and represents no selection without inventing a row identity",
           "resets closed when the active surface schema changes",
           "retargets synchronously by stable schema, record, and row-version identity",
-          "selects immutable schema configuration, starts closed, and exposes the declared no-row state"
+          "selects immutable schema configuration, starts closed, and exposes the declared no-row state",
+          "separates review replacement from attachment departure and never revives old attachments"
         ]
       },
       "evidence_class": "unit",

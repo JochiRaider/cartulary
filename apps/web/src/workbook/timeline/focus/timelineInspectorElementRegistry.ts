@@ -7,7 +7,7 @@ import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 type TimelineInspectorElement = HTMLElement;
 
 type TimelineInspectorElementScope = {
-  readonly invalidationGeneration: number;
+  readonly reviewGeneration: number;
   readonly lifecycleKey: string;
   readonly subject: WorkbookRecordSubject | null;
 };
@@ -205,7 +205,7 @@ export function createTimelineInspectorElementRegistry(
         returnTarget = null;
       if (
         scope.lifecycleKey !== nextScope.lifecycleKey ||
-        scope.invalidationGeneration !== nextScope.invalidationGeneration ||
+        scope.reviewGeneration !== nextScope.reviewGeneration ||
         !workbookInspectorSubjectsEqual(scope.subject, nextScope.subject)
       ) {
         clear();
@@ -220,12 +220,12 @@ export function useTimelineInspectorElementRegistry(
 ): TimelineInspectorElementRegistry {
   const registryRef = useRef<TimelineInspectorElementRegistry | null>(null);
   registryRef.current ??= createTimelineInspectorElementRegistry({
-    invalidationGeneration: lifecycle.invalidationGeneration,
+    reviewGeneration: lifecycle.reviewGeneration,
     lifecycleKey: lifecycle.lifecycleKey,
     subject: lifecycle.phase === "open_ready" ? lifecycle.subject : null,
   });
   registryRef.current.updateScope({
-    invalidationGeneration: lifecycle.invalidationGeneration,
+    reviewGeneration: lifecycle.reviewGeneration,
     lifecycleKey: lifecycle.lifecycleKey,
     subject: lifecycle.phase === "open_ready" ? lifecycle.subject : null,
   });

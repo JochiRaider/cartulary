@@ -167,3 +167,19 @@ user interaction, replacement, detachment or obsolete completion cancels it.
 Focus restoration uses `preventScroll`. Accepted pages, cursor chains and read
 admission remain with the retained History owner. All four browser History
 surfaces share the continuation/retry and late-response checks.
+
+## Review and attachment lifetime
+
+The shared coordinator publishes the same subject-change classification to its
+owner-reset callback and reducer. `record_updated` advances `reviewGeneration`
+for a new version of the same live record while preserving
+`attachmentGeneration`. Forms, confirmations, version-bound navigation, and
+registered inspector elements use review/version identity. Completion continuity
+uses attachment identity plus its operation and current interaction/authority
+scope. Closing, retargeting, lifecycle replacement, and explicit reopening cannot
+revive an older attachment. Ordinary retained authoring remains source-owned.
+
+Consumers that combine an inspector subject with its lifecycle metadata receive
+the coordinator snapshot as a unit. Timeline observation management must not
+combine a freshly selected subject with an earlier snapshot's generations or
+cause during a React layout transition.

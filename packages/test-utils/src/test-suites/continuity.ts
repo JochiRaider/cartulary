@@ -17,6 +17,10 @@ export function registerContinuitySuite() {
         gridRect: { height: 300, left: 40, top: 100, width: 400 },
       });
       const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+      const clickSpy = vi.spyOn(HTMLElement.prototype, "click");
+      const eventSpy = vi.spyOn(EventTarget.prototype, "dispatchEvent");
+      const scrollTopSpy = vi.spyOn(Element.prototype, "scrollTop", "set");
+      const scrollLeftSpy = vi.spyOn(Element.prototype, "scrollLeft", "set");
       const scrollIntoViewSpy = vi
         .spyOn(HTMLElement.prototype, "scrollIntoView")
         .mockImplementation(() => undefined);
@@ -33,6 +37,10 @@ export function registerContinuitySuite() {
       ).resolves.toBeUndefined();
 
       expect(focusSpy).not.toHaveBeenCalled();
+      expect(clickSpy).not.toHaveBeenCalled();
+      expect(eventSpy).not.toHaveBeenCalled();
+      expect(scrollTopSpy).not.toHaveBeenCalled();
+      expect(scrollLeftSpy).not.toHaveBeenCalled();
       expect(scrollIntoViewSpy).not.toHaveBeenCalled();
     });
 

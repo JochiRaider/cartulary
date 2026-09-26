@@ -260,7 +260,7 @@ export function useGenericWorkbookInspectorComposition({
     subject,
   });
   const isOpen = workbookInspectorStateIsOpen(inspector.snapshot);
-  const invalidationKey = `${contract.viewSchemaId}:${inspector.snapshot.invalidationGeneration}`;
+  const invalidationKey = `${contract.viewSchemaId}:${inspector.snapshot.reviewGeneration}`;
   const recordHistoryActions = useMemo(
     () => inspectorRecordHistoryActions(inspectorConfig),
     [inspectorConfig],

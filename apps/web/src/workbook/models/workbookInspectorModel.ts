@@ -1,4 +1,4 @@
-import { workbookInspectorSubjectsEqual } from "../inspector/workbookInspectorSubject";
+import { workbookInspectorSubjectChange } from "../inspector/workbookInspectorSubject";
 import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 
 export type WorkbookInspectorInvalidationReason =
@@ -11,11 +11,13 @@ export type WorkbookInspectorInvalidationReason =
   | "surface_changed";
 
 type WorkbookInspectorStateContext = {
-  readonly invalidationGeneration: number;
+  readonly reviewGeneration: number;
+  readonly attachmentGeneration: number;
   readonly invalidationCause:
     | WorkbookInspectorInvalidationReason
     | "close"
     | "retarget"
+    | "record_updated"
     | null;
   readonly lifecycleKey: string;
 };
@@ -58,7 +60,8 @@ export function initialWorkbookInspectorState({
   readonly lifecycleKey: string;
 }): WorkbookInspectorState {
   return {
-    invalidationGeneration: 0,
+    reviewGeneration: 0,
+    attachmentGeneration: 0,
     invalidationCause: null,
     lifecycleKey,
     phase: "closed",
@@ -82,7 +85,8 @@ export function workbookInspectorReducer(
     }
     return {
       invalidationCause: "surface_changed",
-      invalidationGeneration: state.invalidationGeneration + 1,
+      reviewGeneration: state.reviewGeneration + 1,
+      attachmentGeneration: state.attachmentGeneration + 1,
       lifecycleKey: action.lifecycleKey,
       phase: "closed",
       subject: null,
@@ -93,18 +97,23 @@ export function workbookInspectorReducer(
   }
   switch (action.type) {
     case "open": {
-      const subject = workbookInspectorSubjectsEqual(
+      const change = workbookInspectorSubjectChange(
         state.subject,
         action.subject,
-      )
-        ? state.subject
-        : action.subject;
-      if (state.phase !== "closed" && subject === state.subject) {
-        return state;
-      }
+      );
+      const subject = change === null ? state.subject : action.subject;
+      if (state.phase !== "closed" && change === null) return state;
+      const next = {
+        ...state,
+        reviewGeneration: state.reviewGeneration + (change === null ? 0 : 1),
+        attachmentGeneration:
+          state.attachmentGeneration +
+          (state.phase === "closed" || change === "retarget" ? 1 : 0),
+        invalidationCause: change ?? state.invalidationCause,
+      };
       return subject === null
-        ? { ...state, phase: "open_no_subject", subject }
-        : { ...state, phase: "open_ready", subject };
+        ? { ...next, phase: "open_no_subject", subject }
+        : { ...next, phase: "open_ready", subject };
     }
     case "close":
       if (state.phase === "closed") {
@@ -113,48 +122,50 @@ export function workbookInspectorReducer(
       return {
         ...state,
         invalidationCause: "close",
-        invalidationGeneration: state.invalidationGeneration + 1,
+        reviewGeneration: state.reviewGeneration + 1,
+        attachmentGeneration: state.attachmentGeneration + 1,
         phase: "closed",
       };
-    case "retarget":
-      if (workbookInspectorSubjectsEqual(state.subject, action.subject)) {
-        return state;
-      }
-      if (state.phase === "closed") {
-        return {
-          ...state,
-          invalidationCause: "retarget",
-          invalidationGeneration: state.invalidationGeneration + 1,
-          subject: action.subject,
-        };
-      }
+    case "retarget": {
+      const change = workbookInspectorSubjectChange(
+        state.subject,
+        action.subject,
+      );
+      if (change === null) return state;
+      const next = {
+        ...state,
+        invalidationCause: change,
+        reviewGeneration: state.reviewGeneration + 1,
+        attachmentGeneration:
+          state.attachmentGeneration + (change === "retarget" ? 1 : 0),
+      };
+      if (state.phase === "closed")
+        return { ...next, phase: "closed", subject: action.subject };
       return action.subject === null
         ? {
-            ...state,
-            invalidationCause: "retarget",
-            invalidationGeneration: state.invalidationGeneration + 1,
+            ...next,
             phase: "open_no_subject",
             subject: null,
           }
         : {
-            ...state,
-            invalidationCause: "retarget",
-            invalidationGeneration: state.invalidationGeneration + 1,
+            ...next,
             phase: "open_ready",
             subject: action.subject,
           };
+    }
     case "invalidate":
       return action.reason === "action_completed"
         ? {
             ...state,
             invalidationCause: action.reason,
-            invalidationGeneration: state.invalidationGeneration + 1,
+            reviewGeneration: state.reviewGeneration + 1,
           }
         : {
             ...state,
             invalidationCause: action.reason,
-            invalidationGeneration: state.invalidationGeneration + 1,
+            reviewGeneration: state.reviewGeneration + 1,
             phase: "closed",
+            attachmentGeneration: state.attachmentGeneration + 1,
             subject: null,
           };
   }

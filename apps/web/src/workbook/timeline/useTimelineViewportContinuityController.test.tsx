@@ -310,10 +310,9 @@ describe("Timeline deferred continuity", () => {
       });
     });
     await h.mount();
-    expect(document.activeElement).toBe(h.cell);
+    expect(document.activeElement).toBe(h.input);
     expect(h.result.current.request).not.toBeNull();
-    expect(h.requestFocus).toHaveBeenCalledTimes(1);
-    expect(h.requestFocus.mock.calls[0]?.[1]?.preserveSelection).toBe(true);
+    expect(h.requestFocus).not.toHaveBeenCalled();
     await act(async () => {
       h.result.current.advanceViewportContinuity(token, {
         sourceRecord: { recordId: "saved", rowVersion: 4 },
@@ -330,7 +329,8 @@ describe("Timeline deferred continuity", () => {
     expect(h.result.current.request).toBeNull();
     expect(document.activeElement).toBe(h.cell);
     expect([h.grid.scrollTop, h.grid.scrollLeft]).toEqual([120, 40]);
-    expect(h.requestFocus).toHaveBeenCalledTimes(2);
+    expect(h.requestFocus).toHaveBeenCalledOnce();
+    expect(h.requestFocus.mock.calls[0]?.[1]?.preserveSelection).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
   });
 

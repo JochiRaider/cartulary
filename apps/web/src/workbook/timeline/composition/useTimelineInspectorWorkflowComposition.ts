@@ -21,6 +21,7 @@ import {
 } from "../hooks/useTimelineInspectorSelection";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
 import { useTimelineRowActionMenu } from "../hooks/useTimelineRowActionMenu";
+import type { useTimelineRowsLoader } from "../hooks/useTimelineRowsLoader";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 
 type CreateRelatedInput = Parameters<
@@ -96,7 +97,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly commands: Pick<HistoryInput, "enqueueOrderedRead"> &
       Pick<HistoryInput, "acceptTimelineRecordVersion">;
     readonly waitForCommittedRecordIdle: HistoryInput["waitForCommittedRecordIdle"];
-    readonly loadRows: HistoryInput["loadRows"];
+    readonly loadRows: ReturnType<typeof useTimelineRowsLoader>["loadRows"];
     readonly publishViewingPresence: InspectorRowInteractionsInput["publishViewingPresence"];
   };
   readonly onAuthorityUncertain: TimelineWorkbookSurfaceRuntime["onAuthorityUncertain"];
@@ -138,11 +139,8 @@ export function useTimelineInspectorWorkflowComposition({
     cancelCreateRelatedWorkflow: cancelWorkflow,
     lifecycle: {
       authorizationKey: `${incident.currentRole ?? "none"}:${foundation.loadAccessLost}`,
-      invalidationGeneration: inspector.lifecycle.invalidationGeneration,
-      invalidationCause: inspector.lifecycle.invalidationCause,
-      isOpen: inspector.lifecycle.phase !== "closed",
+      inspector: inspector.lifecycle,
       lifecycleKey: `${incident.inspectorResetKey}:${incident.continuityResetKey}`,
-      subject: inspector.selection.selectedRowWorkflowSubject,
       surfaceKey: sheetRefKey(activeSheetRef),
     },
     setInspectorMessage: inspector.publishFeedback,
@@ -170,7 +168,7 @@ export function useTimelineInspectorWorkflowComposition({
     gridShellRef: grid.gridShellRef,
     inspectorInvalidationCause: inspector.lifecycle.invalidationCause,
     inspectorMentions: inspector.selection.inspectorMentions,
-    inspectorInvalidationGeneration: inspector.lifecycle.invalidationGeneration,
+    inspectorReviewGeneration: inspector.lifecycle.reviewGeneration,
     restoreTimelineFocusAnchor: grid.restoreTimelineFocusAnchor,
     rowHistory: inspector.history.snapshot.rowHistory,
     rows: foundation.rows,
@@ -204,7 +202,8 @@ export function useTimelineInspectorWorkflowComposition({
     selectedMention: inspector.selection.selectedMention,
     selectedMentionRef: foundation.selectedMentionRef,
     selectedRowId: inspector.selection.selectedRowId,
-    inspectorInvalidationGeneration: inspector.lifecycle.invalidationGeneration,
+    inspectorReviewGeneration: inspector.lifecycle.reviewGeneration,
+    inspectorAttachmentGeneration: inspector.lifecycle.attachmentGeneration,
     reviewSurfaceKey: `${actionContext.surfaceKey}:${incident.inspectorResetKey}`,
     selectedTargetId: foundation.selectedTargetId,
     setSelectedTargetId: foundation.setSelectedResolveTargetId,
@@ -213,8 +212,15 @@ export function useTimelineInspectorWorkflowComposition({
       workbookInspectorStateIsOpen(inspector.lifecycle) &&
       !foundation.loadAccessLost,
     focusContinuity: grid.focusContinuity,
-    refreshProjection: () =>
-      mutation.loadRows({ showLoading: false, requireAcceptance: true }),
+    refreshProjection: (sourceRecordRequirement, viewportContinuityToken) =>
+      mutation.loadRows({
+        showLoading: false,
+        requireAcceptance: true,
+        sourceRecordRequirement,
+        ...(viewportContinuityToken === undefined
+          ? {}
+          : { viewportContinuityToken }),
+      }),
     rowsRef: foundation.rowsRef,
     setInspectorMessage: inspector.publishFeedback,
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,

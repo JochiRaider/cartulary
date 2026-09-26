@@ -2812,7 +2812,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineInspectorFeatureController.test.tsx",
         "titles": [
-          "useTimelineInspectorFeatureController retains observation management across a same-source committed version while close and deletion retire it"
+          "useTimelineInspectorFeatureController retains observation management across a same-source committed version while close and deletion retire it",
+          "useTimelineInspectorFeatureController retains observation management through the coordinator's committed snapshot transition"
         ]
       },
       "evidence_class": "unit",
@@ -5046,15 +5047,23 @@
           "Timeline mention actions retains accepted outcomes on unmount and invalidates a detached create review",
           "Timeline mention actions waits for creation and mention projections before restoring focus",
           "Timeline mention actions waits for preceding saves and refuses changed mentions instead of rebasing",
+          "accepts collaboration projection before the receipt without restoring early",
           "coalesces a pending Review and fences its late completion after native editing",
+          "does not lend the current mention focus token to another receipt on the same source",
           "fences Review completion after sheet departure authority retirement and unmount",
           "keeps a genuine Review failure local and retries without retaining the old error",
+          "keeps cancellation ownership while an accepted mention awaits virtualized focus",
           "lets only the latest Review navigate when two mentions share a source row",
+          "never revives mention completion after interaction attachment or authority cancellation",
+          "preserves mention completion through its own same-row inspector refresh",
           "refuses Inspector navigation when the committed source rejects a stale read",
           "rejects a same-row Inspector retarget while Review focus is pending",
+          "restores a terminal refresh fallback without replaying an accepted mention",
           "retires presentation intent on same-row Inspector retarget without discarding an accepted Undo",
           "retries an uncertain Undo through a fresh presentation intent and the captured attempt",
-          "shows delayed Review progress and cancels on a same-row Inspector retarget"
+          "shows delayed Review progress and cancels on a same-row Inspector retarget",
+          "waits for source rendering before settling a failed Entity creation refresh",
+          "waits for the response source version across resolution dismissal and reversion"
         ]
       },
       "evidence_class": "unit",

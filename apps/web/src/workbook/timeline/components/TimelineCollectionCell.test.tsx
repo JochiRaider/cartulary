@@ -31,7 +31,7 @@ afterEach(cleanup);
 
 function inspectionRegistry() {
   return createTimelineInspectorElementRegistry({
-    invalidationGeneration: 1,
+    reviewGeneration: 1,
     lifecycleKey: "incident-1:timeline",
     subject: null,
   });
@@ -428,7 +428,9 @@ describe("Timeline collection inspection", () => {
         selectedMention: props.selectedMention,
         selectedMentionRef: review.subject.itemRef,
         selectedRowId: review.subject.sourceRecordId,
-        inspectorInvalidationGeneration: 0,
+        inspectorReviewGeneration: 0,
+        inspectorAttachmentGeneration: 0,
+        refreshProjection: async () => {},
         reviewSurfaceKey: "cell-test",
         selectedTargetId,
         setSelectedTargetId,

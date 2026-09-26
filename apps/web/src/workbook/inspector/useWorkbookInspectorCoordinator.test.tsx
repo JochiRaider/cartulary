@@ -43,11 +43,17 @@ describe("useWorkbookInspectorCoordinator", () => {
     act(() => result.current.commands.open());
     expect(result.current.snapshot.phase).toBe("open_ready");
 
-    const generation = result.current.snapshot.invalidationGeneration;
+    const generation = result.current.snapshot.reviewGeneration;
+    const attachmentGeneration = result.current.snapshot.attachmentGeneration;
+    resetOwnerState.mockClear();
     rerender({ lifecycleKey: "base", rowVersion: 2 });
-    expect(result.current.snapshot.invalidationGeneration).toBe(generation + 1);
-    expect(resetOwnerState).toHaveBeenCalledWith({
-      cause: "retarget",
+    expect(result.current.snapshot.reviewGeneration).toBe(generation + 1);
+    expect(result.current.snapshot.attachmentGeneration).toBe(
+      attachmentGeneration,
+    );
+    expect(result.current.snapshot.invalidationCause).toBe("record_updated");
+    expect(resetOwnerState).toHaveBeenCalledExactlyOnceWith({
+      cause: "record_updated",
       scope: "row_local",
     });
 
@@ -118,9 +124,9 @@ describe("useWorkbookInspectorCoordinator", () => {
     expect(resetOwnerState).not.toHaveBeenCalled();
     act(() => result.current.commands.open());
     act(() => result.current.commands.close({ restoreFocus: true }));
-    const generation = result.current.snapshot.invalidationGeneration;
+    const generation = result.current.snapshot.reviewGeneration;
     act(() => result.current.commands.close());
-    expect(result.current.snapshot.invalidationGeneration).toBe(generation);
+    expect(result.current.snapshot.reviewGeneration).toBe(generation);
     expect(restoreFocus).toHaveBeenCalledOnce();
   });
 });

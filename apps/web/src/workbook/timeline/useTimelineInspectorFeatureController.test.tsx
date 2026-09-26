@@ -8,6 +8,7 @@ import {
   type InspectorContextualCapability,
   inspectorContextualCapabilities,
 } from "../inspector/inspectorCapabilityResolver";
+import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import {
   type TimelineInspectorFeatureLifecycle,
@@ -26,15 +27,19 @@ const indicatorCapability = requireTimelineCapability(
 const createRelatedCapability = requireTimelineCapability(
   "create_related.note",
 );
-const initialLifecycle: TimelineInspectorFeatureLifecycle = {
+const initialLifecycle = {
   authorizationKey: "editor:authorized",
-  invalidationGeneration: 0,
-  invalidationCause: null,
-  isOpen: true,
+  inspector: {
+    reviewGeneration: 0,
+    attachmentGeneration: 0,
+    invalidationCause: null,
+    phase: "open_ready",
+    lifecycleKey: "inspector-1",
+    subject: timelineSubject("row-a", 1),
+  },
   lifecycleKey: "inspector-1:continuity-1",
-  subject: timelineSubject("row-a", 1),
   surfaceKey: "view_schema:cartulary.view.timeline.v2",
-};
+} satisfies TimelineInspectorFeatureLifecycle;
 
 function controller(
   lifecycle: TimelineInspectorFeatureLifecycle = initialLifecycle,
@@ -97,7 +102,11 @@ describe("useTimelineInspectorFeatureController", () => {
     const { mocks, result } = controller({
       ...initialLifecycle,
       authorizationKey: "viewer:authorized",
-      subject: null,
+      inspector: {
+        ...initialLifecycle.inspector,
+        phase: "open_no_subject",
+        subject: null,
+      },
     });
     act(() => result.current.commands.handleFeatureAction(indicatorCapability));
     expect(result.current.snapshot.indicatorHandler).not.toBeNull();
@@ -120,14 +129,29 @@ describe("useTimelineInspectorFeatureController", () => {
   it("resets Indicator and generic workflows on subject, surface, lifecycle, and authorization changes", () => {
     const { mocks, rerender, result } = controller();
     const lifecycleChanges: readonly TimelineInspectorFeatureLifecycle[] = [
-      { ...initialLifecycle, subject: timelineSubject("row-b", 1) },
-      { ...initialLifecycle, subject: timelineSubject("row-c", 2) },
+      {
+        ...initialLifecycle,
+        inspector: {
+          ...initialLifecycle.inspector,
+          subject: timelineSubject("row-b", 1),
+        },
+      },
+      {
+        ...initialLifecycle,
+        inspector: {
+          ...initialLifecycle.inspector,
+          subject: timelineSubject("row-c", 2),
+        },
+      },
       { ...initialLifecycle, surfaceKey: "saved_view:saved-view-2" },
       {
         ...initialLifecycle,
         lifecycleKey: "inspector-2:continuity-2",
       },
-      { ...initialLifecycle, invalidationGeneration: 1 },
+      {
+        ...initialLifecycle,
+        inspector: { ...initialLifecycle.inspector, reviewGeneration: 1 },
+      },
       { ...initialLifecycle, authorizationKey: "none:access-lost" },
     ];
 
@@ -149,10 +173,13 @@ describe("useTimelineInspectorFeatureController", () => {
     act(() => result.current.commands.handleFeatureAction(indicatorCapability));
     const updated = {
       ...initialLifecycle,
-      subject: timelineSubject("row-a", 2),
-      invalidationGeneration: 1,
-      invalidationCause: "retarget" as const,
-    };
+      inspector: {
+        ...initialLifecycle.inspector,
+        subject: timelineSubject("row-a", 2),
+        reviewGeneration: 1,
+        invalidationCause: "record_updated",
+      },
+    } satisfies TimelineInspectorFeatureLifecycle;
     rerender({ activeLifecycle: updated });
     expect(result.current.snapshot.indicatorHandler?.action).toBe(
       "indicator.observations.manage",
@@ -163,9 +190,13 @@ describe("useTimelineInspectorFeatureController", () => {
     rerender({
       activeLifecycle: {
         ...updated,
-        isOpen: false,
-        invalidationGeneration: 2,
-        invalidationCause: "close",
+        inspector: {
+          ...updated.inspector,
+          phase: "closed",
+          reviewGeneration: 2,
+          attachmentGeneration: 1,
+          invalidationCause: "close",
+        },
       },
     });
     expect(result.current.snapshot.indicatorHandler).toBeNull();
@@ -174,11 +205,60 @@ describe("useTimelineInspectorFeatureController", () => {
     rerender({
       activeLifecycle: {
         ...updated,
-        subject: { ...updated.subject, kind: "deleted", stateLabel: "Deleted" },
-        invalidationGeneration: 3,
+        inspector: {
+          ...updated.inspector,
+          subject: {
+            ...timelineSubject("row-a", 2),
+            kind: "deleted",
+            stateLabel: "Deleted",
+          },
+          reviewGeneration: 3,
+          attachmentGeneration: 1,
+        },
       },
     });
     expect(result.current.snapshot.indicatorHandler).toBeNull();
+  });
+
+  it("retains observation management through the coordinator's committed snapshot transition", () => {
+    const mocks = {
+      beginCreateRelatedWorkflow: vi.fn(),
+      cancelCreateRelatedWorkflow: vi.fn(),
+      setInspectorMessage: vi.fn(),
+    };
+    const { result, rerender } = renderHook(
+      ({ recordId, rowVersion }) => {
+        const coordinator = useWorkbookInspectorCoordinator({
+          config: requireViewContract(timelineViewSchemaId).inspectorConfig,
+          lifecycleKey: "source",
+          subject: timelineSubject(recordId, rowVersion),
+          actionPorts: { resetOwnerState: () => {}, restoreFocus: () => {} },
+        });
+        const feature = useTimelineInspectorFeatureController({
+          ...mocks,
+          lifecycle: { ...initialLifecycle, inspector: coordinator.snapshot },
+        });
+        return { coordinator, feature };
+      },
+      { initialProps: { recordId: "row-a", rowVersion: 1 } },
+    );
+    act(() => result.current.coordinator.commands.open());
+    act(() =>
+      result.current.feature.commands.handleFeatureAction(indicatorCapability),
+    );
+    const attached = result.current.coordinator.snapshot.attachmentGeneration;
+    rerender({ recordId: "row-a", rowVersion: 2 });
+    expect(result.current.coordinator.snapshot.invalidationCause).toBe(
+      "record_updated",
+    );
+    expect(result.current.coordinator.snapshot.attachmentGeneration).toBe(
+      attached,
+    );
+    expect(result.current.feature.snapshot.indicatorHandler?.action).toBe(
+      "indicator.observations.manage",
+    );
+    rerender({ recordId: "row-b", rowVersion: 1 });
+    expect(result.current.feature.snapshot.indicatorHandler).toBeNull();
   });
 });
 

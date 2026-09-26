@@ -190,6 +190,26 @@ Algorithm: `complete_mutating_action(result)`.
 3. If the selected row is deleted, merged away, no longer visible, or no longer authorized, enter `no_row_selected`.
 4. Do not navigate away from the workbook shell unless the feature group is an explicit `surface_pivot`.
 
+Review validity, captured operation lifetime, and presentation continuity are
+separate concerns. A new version of the same live source MUST invalidate stale
+reviews and confirmations without treating that passive replacement as a new
+attachment or deliberate user navigation. An admitted operation and its complete
+correlated receipt retain their source-owner lifetimes independently of that
+review invalidation. The operation's pending continuity remains eligible under
+REQ-03-283 while the same attachment, current authorization, and interaction
+ownership remain valid.
+
+Successful mention-mutation restoration MUST wait for the rendered source row
+to reach at least the response's `source_record.row_version`; an accepted higher
+version satisfies that floor. A committed cache observation alone does not prove
+rendered convergence. Completion requires actual focus acknowledgement at the
+eligible semantic target. Terminal refresh failure retains the accepted receipt
+and uses the visible fallback required by REQ-03-283; subsequent recovery performs
+reads only. Newer interaction, attachment replacement, close, surface departure,
+hard refresh, authorization loss, incident closure, deletion, merge, or unmount
+MUST cancel obsolete restoration. Returning to the same record or receiving a
+late completion MUST NOT revive the cancelled intention.
+
 Algorithm: `invalidate_confirmation(reason)`.
 
 Pending confirmations, rollback previews, merge plans, supersede forms, and workflow forms MUST invalidate on selected-row change, row-version change, incident closure, authorization loss, record deletion, record merge, hard refresh, and active `view_schema_id` change.

@@ -391,7 +391,7 @@ export function useTimelineInspectorLifecycle({
   clearRowHistory,
   inspectorInvalidationCause,
   inspectorMentions,
-  inspectorInvalidationGeneration,
+  inspectorReviewGeneration,
   rowHistory,
   rows,
   selectedMentionRef,
@@ -407,7 +407,7 @@ export function useTimelineInspectorLifecycle({
   readonly gridShellRef: MutableRefObject<HTMLDivElement | null>;
   readonly inspectorInvalidationCause: WorkbookInspectorState["invalidationCause"];
   readonly inspectorMentions: readonly { readonly itemRef: string }[];
-  readonly inspectorInvalidationGeneration: number;
+  readonly inspectorReviewGeneration: number;
   readonly restoreTimelineFocusAnchor: (
     anchor: WorkbookContinuityAnchor,
   ) => Promise<boolean>;
@@ -482,37 +482,40 @@ export function useTimelineInspectorLifecycle({
     setSelectedResolveTargetId,
   ]);
 
-  const previousInvalidationGenerationRef = useRef({
-    generation: inspectorInvalidationGeneration,
+  const previousReviewGenerationRef = useRef({
+    generation: inspectorReviewGeneration,
     recordId: selectedRowId,
   });
   useLayoutEffect(() => {
     if (
-      previousInvalidationGenerationRef.current.generation ===
-      inspectorInvalidationGeneration
+      previousReviewGenerationRef.current.generation ===
+      inspectorReviewGeneration
     ) {
       return;
     }
-    const sameSourceRetarget =
-      inspectorInvalidationCause === "retarget" &&
-      previousInvalidationGenerationRef.current.recordId === selectedRowId;
-    previousInvalidationGenerationRef.current = {
-      generation: inspectorInvalidationGeneration,
+    const sameSourceUpdate =
+      inspectorInvalidationCause === "record_updated" &&
+      previousReviewGenerationRef.current.recordId === selectedRowId;
+    previousReviewGenerationRef.current = {
+      generation: inspectorReviewGeneration,
       recordId: selectedRowId,
     };
-    if (!sameSourceRetarget) {
+    if (!sameSourceUpdate) {
       setSelectedMentionRef(null);
       setSelectedResolveTargetId("");
     }
     dispatchRowHistory({ type: "cancel" });
-    if (inspectorInvalidationCause !== "retarget") {
+    if (
+      inspectorInvalidationCause !== "retarget" &&
+      inspectorInvalidationCause !== "record_updated"
+    ) {
       clearRowHistory();
     }
   }, [
     clearRowHistory,
     dispatchRowHistory,
     inspectorInvalidationCause,
-    inspectorInvalidationGeneration,
+    inspectorReviewGeneration,
     selectedRowId,
     setSelectedMentionRef,
     setSelectedResolveTargetId,

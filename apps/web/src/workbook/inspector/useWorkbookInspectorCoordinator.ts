@@ -13,7 +13,7 @@ import {
   workbookInspectorStateIsOpen,
 } from "../models/workbookInspectorModel";
 import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
-import { workbookInspectorSubjectsEqual } from "./workbookInspectorSubject";
+import { workbookInspectorSubjectChange } from "./workbookInspectorSubject";
 
 type WorkbookInspectorOwnerActionPorts = {
   readonly resetOwnerState: (event: WorkbookInspectorResetEvent) => void;
@@ -114,18 +114,9 @@ export function useWorkbookInspectorCoordinator({
       lifecycleKey: effectiveLifecycleKey,
       subject,
     };
-    if (workbookInspectorSubjectsEqual(observed.subject, subject)) {
-      return;
-    }
-    resetOwnerState(
-      observed.subject &&
-        subject &&
-        observed.subject.kind === subject.kind &&
-        observed.subject.viewSchemaId === subject.viewSchemaId &&
-        observed.subject.recordId === subject.recordId
-        ? "record_updated"
-        : "retarget",
-    );
+    const change = workbookInspectorSubjectChange(observed.subject, subject);
+    if (change === null) return;
+    resetOwnerState(change);
     dispatch({
       lifecycleKey: effectiveLifecycleKey,
       type: "retarget",

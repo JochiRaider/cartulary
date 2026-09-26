@@ -40,3 +40,14 @@ mention resolution keep independent recovery state.
 | [TimelineSupersessionEditor.test.tsx](TimelineSupersessionEditor.test.tsx) | Tests capture-action eligibility, authored reasons, frozen review, and optional replacement. |
 | [WorkbookTimelineCaptureActionOwner.test.ts](WorkbookTimelineCaptureActionOwner.test.ts) | Tests synchronous capture reservation, preparation ordering, and renewed review for changed versions. |
 | [WorkbookTimelineMentionOperationOwner.test.ts](WorkbookTimelineMentionOperationOwner.test.ts) | Tests retained entity-creation receipts and independent mention-link recovery without duplicate creation. |
+
+Mention presentation refresh carries the exact accepted receipt and its required
+source version. The presentation binding lends a continuity token only to that
+receipt's captured operation; another mention on the same row cannot borrow it.
+The row loader commits a qualifying projection before publishing continuity
+evidence. A same-source inspector version update invalidates review without
+cancelling eligible completion. Entity-creation refresh remains independent of
+mention-link refresh. Terminal refresh failure retains the receipt and settles
+at an eligible visible fallback; read recovery does not replay the mutation or
+revive cancelled focus. Cancellation ownership remains attached while the Grid
+Adapter awaits a virtualized focus target.

@@ -428,6 +428,9 @@ export function useTimelineViewportContinuityController({
       restoration.request !== request ||
       !request ||
       request.lifecycle.renderGeneration < 1 ||
+      (request.lifecycle.sourceRecordRequirement !== null &&
+        request.lifecycle.followUpRequirements["row-projection"] ===
+          "pending") ||
       !isCurrent(restoration)
     )
       return;

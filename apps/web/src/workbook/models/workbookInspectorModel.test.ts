@@ -36,7 +36,8 @@ describe("workbookInspectorModel", () => {
     expect(timeline.inspectorConfig.viewSchemaId).toBe(timeline.viewSchemaId);
     expect(state).toEqual({
       invalidationCause: null,
-      invalidationGeneration: 0,
+      reviewGeneration: 0,
+      attachmentGeneration: 0,
       lifecycleKey,
       phase: "closed",
       subject: null,
@@ -97,9 +98,16 @@ describe("workbookInspectorModel", () => {
     });
     expect(opened.phase).toBe("open_ready");
     expect(equal).toBe(opened);
-    expect(versionChanged.invalidationGeneration).toBe(1);
+    expect(versionChanged.reviewGeneration).toBe(opened.reviewGeneration + 1);
+    expect(versionChanged.attachmentGeneration).toBe(
+      opened.attachmentGeneration,
+    );
+    expect(versionChanged.invalidationCause).toBe("record_updated");
     expect(versionChanged.subject?.rowVersion).toBe(2);
-    expect(deleted.invalidationGeneration).toBe(2);
+    expect(deleted.reviewGeneration).toBe(versionChanged.reviewGeneration + 1);
+    expect(deleted.attachmentGeneration).toBe(
+      versionChanged.attachmentGeneration + 1,
+    );
     expect(deleted.subject?.kind).toBe("deleted");
   });
 
@@ -125,7 +133,8 @@ describe("workbookInspectorModel", () => {
       });
       expect(invalidated).toMatchObject({
         invalidationCause: reason,
-        invalidationGeneration: 1,
+        reviewGeneration: ready.reviewGeneration + 1,
+        attachmentGeneration: ready.attachmentGeneration + 1,
         phase: "closed",
         subject: null,
       });
@@ -137,7 +146,7 @@ describe("workbookInspectorModel", () => {
     });
     expect(completed).toMatchObject({
       invalidationCause: "action_completed",
-      invalidationGeneration: 1,
+      reviewGeneration: ready.reviewGeneration + 1,
       phase: "open_ready",
       subject,
     });
@@ -157,7 +166,8 @@ describe("workbookInspectorModel", () => {
     });
     expect(changed).toMatchObject({
       invalidationCause: "surface_changed",
-      invalidationGeneration: 1,
+      reviewGeneration: ready.reviewGeneration + 1,
+      attachmentGeneration: ready.attachmentGeneration + 1,
       lifecycleKey: nextLifecycleKey,
       phase: "closed",
       subject: null,
@@ -209,4 +219,73 @@ describe("workbookInspectorModel", () => {
         .map((group) => group.featureGroupKey),
     ).toContain("create_related.note");
   });
+});
+
+it("separates review replacement from attachment departure and never revives old attachments", () => {
+  const apply = (
+    state: ReturnType<typeof initialState>,
+    action: Omit<
+      Extract<
+        Parameters<typeof workbookInspectorReducer>[1],
+        { type: "retarget" }
+      >,
+      "lifecycleKey"
+    >,
+  ) => workbookInspectorReducer(state, { lifecycleKey, ...action });
+  const attached = workbookInspectorReducer(initialState(), {
+    lifecycleKey,
+    type: "open",
+    subject: timelineSubject(),
+  });
+  const updated = apply(attached, {
+    type: "retarget",
+    subject: timelineSubject("row-1", 2),
+  });
+  expect(updated.reviewGeneration).toBe(attached.reviewGeneration + 1);
+  expect(updated.attachmentGeneration).toBe(attached.attachmentGeneration);
+  expect(
+    apply(updated, { type: "retarget", subject: timelineSubject("row-1", 2) }),
+  ).toBe(updated);
+  const completed = workbookInspectorReducer(updated, {
+    lifecycleKey,
+    type: "invalidate",
+    reason: "action_completed",
+  });
+  expect(completed.reviewGeneration).toBe(updated.reviewGeneration + 1);
+  expect(completed.attachmentGeneration).toBe(updated.attachmentGeneration);
+  for (const subject of [
+    timelineSubject("other"),
+    timelineSubject("row-1", 2, "deleted"),
+    { ...timelineSubject(), viewSchemaId: "other-schema" },
+    null,
+  ]) {
+    const departed = apply(updated, { type: "retarget", subject });
+    expect(departed.attachmentGeneration).toBe(
+      updated.attachmentGeneration + 1,
+    );
+    const returned = apply(departed, {
+      type: "retarget",
+      subject: timelineSubject("row-1", 2),
+    });
+    expect(returned.attachmentGeneration).toBeGreaterThan(
+      departed.attachmentGeneration,
+    );
+  }
+  const closed = workbookInspectorReducer(updated, {
+    lifecycleKey,
+    type: "close",
+  });
+  const reopened = workbookInspectorReducer(closed, {
+    lifecycleKey,
+    type: "open",
+    subject: timelineSubject("row-1", 2),
+  });
+  expect(reopened.attachmentGeneration).toBe(closed.attachmentGeneration + 1);
+  expect(
+    workbookInspectorReducer(reopened, {
+      lifecycleKey,
+      type: "open",
+      subject: timelineSubject("row-1", 2),
+    }),
+  ).toBe(reopened);
 });

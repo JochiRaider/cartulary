@@ -11,7 +11,7 @@ it("useTimelineInspectorLifecycle shares one close command across explicit and l
       clearRowHistory,
       gridShellRef: { current: null },
       inspectorInvalidationCause: null,
-      inspectorInvalidationGeneration: 0,
+      inspectorReviewGeneration: 0,
       inspectorMentions: [],
       restoreTimelineFocusAnchor: async () => false,
       rowHistory: initialWorkbookRecordHistoryState(),

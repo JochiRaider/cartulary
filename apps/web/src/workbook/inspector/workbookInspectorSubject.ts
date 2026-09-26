@@ -82,6 +82,20 @@ export function workbookInspectorSubjectsEqual(
   );
 }
 
+/** Version replacement invalidates review, but does not detach a live source. */
+export function workbookInspectorSubjectChange(
+  left: WorkbookRecordSubject | null,
+  right: WorkbookRecordSubject | null,
+): "record_updated" | "retarget" | null {
+  if (workbookInspectorSubjectsEqual(left, right)) return null;
+  return left?.kind === "live" &&
+    right?.kind === "live" &&
+    left.viewSchemaId === right.viewSchemaId &&
+    left.recordId === right.recordId
+    ? "record_updated"
+    : "retarget";
+}
+
 function validatedWorkbookInspectorSubject({
   kind,
   label,

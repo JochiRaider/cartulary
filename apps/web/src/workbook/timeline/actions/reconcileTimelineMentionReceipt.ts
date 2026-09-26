@@ -52,6 +52,6 @@ export async function reconcileTimelineMentionReceipt(
   owner.observeSource(
     rowFromApi(normalizeTimelineFullRow(row, "mention reconciliation")),
   );
-  await owner.refreshPresentation(row.record_id, row.row_version);
+  await owner.refreshPresentation(receipt, row.row_version);
   if (!scope.isCurrent()) throw new Error("Mention reconciliation detached.");
 }

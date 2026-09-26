@@ -10,17 +10,16 @@ import {
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import { workbookInspectorSubjectsEqual } from "../../inspector/workbookInspectorSubject";
-import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
+import {
+  type WorkbookInspectorState,
+  workbookInspectorStateIsOpen,
+} from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 
 export type TimelineInspectorFeatureLifecycle = {
   readonly authorizationKey: string;
-  readonly invalidationGeneration: number;
-  readonly invalidationCause: WorkbookInspectorState["invalidationCause"];
-  readonly isOpen: boolean;
+  readonly inspector: WorkbookInspectorState;
   readonly lifecycleKey: string;
-  readonly subject: WorkbookRecordSubject | null;
   readonly surfaceKey: string;
 };
 
@@ -57,27 +56,24 @@ export function useTimelineInspectorFeatureController({
       return;
     }
     previousLifecycleRef.current = lifecycle;
+    const previousInspector = previousLifecycle.inspector;
+    const inspector = lifecycle.inspector;
     // Observation drafts validate committed versions themselves. A new version
     // of the same live source must not dismiss the Relationships workflow.
     const sameObservationSource =
-      previousLifecycle.isOpen &&
-      lifecycle.isOpen &&
-      previousLifecycle.subject?.kind === "live" &&
-      lifecycle.subject?.kind === "live" &&
-      previousLifecycle.subject.recordId === lifecycle.subject.recordId &&
-      previousLifecycle.subject.viewSchemaId ===
-        lifecycle.subject.viewSchemaId &&
-      sameTimelineInspectorFeatureLifecycle(
-        {
-          ...previousLifecycle,
-          subject: lifecycle.subject,
-          invalidationGeneration:
-            lifecycle.invalidationCause === "retarget"
-              ? lifecycle.invalidationGeneration
-              : previousLifecycle.invalidationGeneration,
-        },
-        lifecycle,
-      );
+      workbookInspectorStateIsOpen(previousInspector) &&
+      workbookInspectorStateIsOpen(inspector) &&
+      previousInspector.subject?.kind === "live" &&
+      inspector.subject?.kind === "live" &&
+      previousInspector.subject.recordId === inspector.subject.recordId &&
+      previousInspector.subject.viewSchemaId ===
+        inspector.subject.viewSchemaId &&
+      previousInspector.attachmentGeneration ===
+        inspector.attachmentGeneration &&
+      previousLifecycle.authorizationKey === lifecycle.authorizationKey &&
+      previousLifecycle.lifecycleKey === lifecycle.lifecycleKey &&
+      previousLifecycle.surfaceKey === lifecycle.surfaceKey &&
+      inspector.invalidationCause === "record_updated";
     setIndicatorHandler((handler) =>
       handler?.action === "indicator.observations.manage" &&
       sameObservationSource
@@ -145,10 +141,15 @@ function sameTimelineInspectorFeatureLifecycle(
 ): boolean {
   return (
     left.authorizationKey === right.authorizationKey &&
-    left.invalidationGeneration === right.invalidationGeneration &&
+    left.inspector.reviewGeneration === right.inspector.reviewGeneration &&
+    left.inspector.attachmentGeneration ===
+      right.inspector.attachmentGeneration &&
     left.lifecycleKey === right.lifecycleKey &&
-    left.isOpen === right.isOpen &&
-    workbookInspectorSubjectsEqual(left.subject, right.subject) &&
+    left.inspector.phase === right.inspector.phase &&
+    workbookInspectorSubjectsEqual(
+      left.inspector.subject,
+      right.inspector.subject,
+    ) &&
     left.surfaceKey === right.surfaceKey
   );
 }
