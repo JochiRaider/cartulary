@@ -180,6 +180,11 @@ async function browse(page: Page, surface: Surface) {
   const observed: string[] = [];
   let fail = true;
   let invalid = false;
+  let releaseRetry = () => {};
+  let retryHeld = false;
+  const retryGate = new Promise<void>((resolve) => {
+    releaseRetry = resolve;
+  });
   await page.route(
     `**/api/v1/records/${row.record_id}/history?*`,
     async (route) => {
@@ -205,6 +210,11 @@ async function browse(page: Page, surface: Surface) {
       } else if (fail) {
         fail = false;
         await route.abort("failed");
+      } else if (surface === "Timeline" && observed.length === 2) {
+        const response = await route.fetch();
+        retryHeld = true;
+        await retryGate;
+        await route.fulfill({ response });
       } else await route.continue();
     },
   );
@@ -220,6 +230,21 @@ async function browse(page: Page, surface: Surface) {
   const retry = panel.getByTestId(rowHistoryReadControlTestId("retry"));
   await retry.focus();
   await retry.press("Enter");
+  if (surface === "Timeline") {
+    try {
+      await expect.poll(() => retryHeld).toBe(true);
+      await expect(retry).toBeAttached();
+      await expect(retry).toBeFocused();
+      await expect(retry).toHaveAttribute("aria-busy", "true");
+      await expect(retry).toHaveAttribute("aria-disabled", "true");
+      await page.keyboard.press("Tab");
+      await expect(retry).not.toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(retry).toBeFocused();
+    } finally {
+      releaseRetry();
+    }
+  }
   await expect(panel).toContainText("No older entries.");
   expect(observed).toHaveLength(2);
   expect(observed[0]).not.toBe("");
@@ -258,12 +283,24 @@ async function browse(page: Page, surface: Surface) {
   });
 
   let failRefresh = true;
+  let refreshRetryHeld = false;
+  let releaseRefreshRetry = () => {};
+  const refreshRetryGate = new Promise<void>((resolve) => {
+    releaseRefreshRetry = resolve;
+  });
+  let refreshReads = 0;
   await page.route(
     `**/api/v1/records/${row.record_id}/history`,
     async (route) => {
+      refreshReads += 1;
       if (failRefresh) {
         failRefresh = false;
         await route.abort("failed");
+      } else if (refreshReads === 2) {
+        const response = await route.fetch();
+        refreshRetryHeld = true;
+        await refreshRetryGate;
+        await route.fulfill({ response });
       } else await route.continue();
     },
   );
@@ -277,8 +314,24 @@ async function browse(page: Page, surface: Surface) {
       rowHistoryItemTestId({ historyItemRef: last.history_item_ref }),
     ),
   ).toBeAttached();
-  await panel.getByTestId(rowHistoryReadControlTestId("retry")).click();
+  const refreshRetry = panel.getByTestId(rowHistoryReadControlTestId("retry"));
+  await refreshRetry.focus();
+  await refreshRetry.press("Enter");
+  try {
+    await expect.poll(() => refreshRetryHeld).toBe(true);
+    await expect(refreshRetry).toBeAttached();
+    await expect(refreshRetry).toBeFocused();
+    await expect(refreshRetry).toHaveAttribute("aria-busy", "true");
+    await expect(refreshRetry).toHaveAttribute("aria-disabled", "true");
+    await refreshRetry.press("Enter");
+    expect(refreshReads).toBe(2);
+  } finally {
+    releaseRefreshRetry();
+  }
   await expect(panel).not.toContainText("History could not be read");
+  await expect(
+    panel.getByRole("button", { name: "Refresh history", exact: true }),
+  ).toBeFocused();
   await expect(
     panel.getByTestId(
       rowHistoryItemTestId({ historyItemRef: last.history_item_ref }),
@@ -336,10 +389,41 @@ async function browse(page: Page, surface: Surface) {
     panel.getByRole("button", { name: "Start fresh history", exact: true }),
   ).toBeVisible();
   await expect(firstItem).toBeAttached();
-  await panel
-    .getByRole("button", { name: "Start fresh history", exact: true })
-    .click();
+  let freshHeld = false;
+  let releaseFresh = () => {};
+  const freshGate = new Promise<void>((resolve) => {
+    releaseFresh = resolve;
+  });
+  let freshCursor: string | null = null;
+  const holdFresh = async (route: Route) => {
+    freshCursor = new URL(route.request().url()).searchParams.get(
+      "cursor_token",
+    );
+    const response = await route.fetch();
+    freshHeld = true;
+    await freshGate;
+    await route.fulfill({ response });
+  };
+  const freshPattern = `**/api/v1/records/${row.record_id}/history`;
+  await page.route(freshPattern, holdFresh);
+  const startFresh = panel.getByTestId(
+    rowHistoryReadControlTestId("start-fresh"),
+  );
+  await startFresh.focus();
+  await startFresh.press("Enter");
+  try {
+    await expect.poll(() => freshHeld).toBe(true);
+    expect(freshCursor).toBeNull();
+    await expect(startFresh).toBeAttached();
+    await expect(startFresh).toBeFocused();
+    await expect(startFresh).toHaveAttribute("aria-busy", "true");
+    await expect(startFresh).toHaveAttribute("aria-disabled", "true");
+    await expect(firstItem).toBeAttached();
+  } finally {
+    releaseFresh();
+  }
   await expect(panel).not.toContainText("History could not be read");
+  await page.unroute(freshPattern, holdFresh);
   await older.click();
   await expect(panel).toContainText("No older entries.");
   const target = required(
@@ -425,6 +509,141 @@ test("Entity browses production history overflow with keyboard recovery and late
 test("Assessment browses production history overflow with keyboard recovery and later rollback", async ({
   page,
 }) => browse(page, "Assessment"));
+
+test("Timeline retains initial History retry focus in a narrow Inspector", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("HISTORY-INITIAL-RETRY"),
+    "Initial History retry",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("initial-retry-row"),
+    "timeline.activity_synopsis_text": "Initial History retry row",
+  });
+  const original = await fetchFullRecordHistory(page, row.record_id);
+  let reads = 0;
+  let held = false;
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const mutations: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.url().includes(`/api/v1/records/${row.record_id}`) &&
+      request.method() !== "GET"
+    )
+      mutations.push(request.method());
+  });
+  const initialPattern = `**/api/v1/records/${row.record_id}/history`;
+  await page.route(initialPattern, async (route) => {
+    reads += 1;
+    if (reads === 1) {
+      await route.abort("failed");
+      return;
+    }
+    const response = await route.fetch();
+    held = true;
+    await gate;
+    await route.fulfill({ response });
+  });
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${timelineViewSchemaId}`,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await clickTimelineRowAction(
+    page,
+    row.record_id,
+    rowHistoryOpenButtonTestId(row.record_id),
+  );
+  const panel = page.getByTestId(rowHistoryPanelTestId());
+  await expect(panel).toContainText("History could not be read");
+  const retry = panel.getByRole("button", {
+    name: "Retry history",
+    exact: true,
+  });
+  await retry.focus();
+  await retry.press("Enter");
+  try {
+    await expect.poll(() => held).toBe(true);
+    await expect(retry).toBeAttached();
+    await expect(retry).toBeFocused();
+    await expect(retry).toHaveAttribute("aria-busy", "true");
+    await expect(retry).toHaveAttribute("aria-disabled", "true");
+    await expect(retry).toBeInViewport();
+    await page.keyboard.press("Tab");
+    await expect(retry).not.toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(retry).toBeFocused();
+    expect(reads).toBe(2);
+    expect(mutations).toEqual([]);
+  } finally {
+    release();
+  }
+  await expect(
+    panel.getByRole("button", { name: "Refresh history", exact: true }),
+  ).toBeFocused();
+  await expect(retry).toHaveCount(0);
+  await page.unroute(initialPattern);
+  let refreshHeld = false;
+  let releaseRefresh = () => {};
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  const holdRefresh = async (route: Route) => {
+    const response = await route.fetch();
+    refreshHeld = true;
+    await refreshGate;
+    await route.fulfill({ response });
+  };
+  await page.route(initialPattern, holdRefresh);
+  const refresh = panel.getByRole("button", {
+    name: "Refresh history",
+    exact: true,
+  });
+  await refresh.focus();
+  await refresh.press("Enter");
+  try {
+    await expect.poll(() => refreshHeld).toBe(true);
+    const summary = panel
+      .getByTestId(
+        rowHistoryItemTestId({
+          historyItemRef: required(original.items[0]).history_item_ref,
+        }),
+      )
+      .getByText("Event details", { exact: true });
+    await summary.click();
+    await expect(summary).toBeFocused();
+    const scrollPosition = () =>
+      summary.evaluate((element) => {
+        let parent = element.parentElement;
+        while (
+          parent &&
+          !/(auto|scroll)/.test(getComputedStyle(parent).overflowY)
+        )
+          parent = parent.parentElement;
+        return parent?.scrollTop ?? 0;
+      });
+    const beforeWheel = await scrollPosition();
+    await page.mouse.wheel(0, 120);
+    await expect.poll(scrollPosition).toBeGreaterThan(beforeWheel);
+    const position = await scrollPosition();
+    releaseRefresh();
+    await expect(panel).not.toContainText("Refreshing…");
+    await expect(summary).toBeFocused();
+    expect(await scrollPosition()).toBe(position);
+  } finally {
+    releaseRefresh();
+    await page.unroute(initialPattern, holdRefresh);
+  }
+  expect(await fetchFullRecordHistory(page, row.record_id)).toEqual(original);
+  expect(mutations).toEqual([]);
+});
 
 function required<T>(value: T | undefined | null): T {
   if (value === undefined || value === null)

@@ -2184,6 +2184,7 @@
           "WorkbookInspectorRecordHistory binds read viewport and focus continuity to the current subject lifetime and request",
           "WorkbookInspectorRecordHistory cancels an event review while its read is pending without dispatching a write",
           "WorkbookInspectorRecordHistory finishes captured owner effects without committing a stale mutation result",
+          "WorkbookInspectorRecordHistory keeps each recovery control mounted through a held read",
           "WorkbookInspectorRecordHistory loads advertised history and rolls back only through its stable selector",
           "WorkbookInspectorRecordHistory rejects a server acceptance for the wrong record before owner effects",
           "WorkbookInspectorRecordHistory restores successful rollback focus only when the exact action identity survives",

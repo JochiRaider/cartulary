@@ -147,6 +147,42 @@
       ]
     },
     {
+      "row_id": "module.revisions.browser.history_initial_retry_focus_b4fe61baa8",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_b4fe61baa8"
+        ],
+        "titles": [
+          "Timeline retains initial History retry focus in a narrow Inspector"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.revisions.browser.history_recovery_074ea859ee8b",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.browser",

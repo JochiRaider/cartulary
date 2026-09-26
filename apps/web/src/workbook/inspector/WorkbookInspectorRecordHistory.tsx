@@ -149,12 +149,14 @@ export function WorkbookRecordHistoryPanel({
   });
   const refreshButton = useRef<HTMLButtonElement | null>(null);
   const olderButton = useRef<HTMLButtonElement | null>(null);
-  const captureRead = useWorkbookHistoryReadContinuity(
-    state,
-    focus.panelRef,
-    olderButton,
-    refreshButton,
-  );
+  const { captureRead, recovery, releaseRecovery } =
+    useWorkbookHistoryReadContinuity(
+      state,
+      focus.panelRef,
+      olderButton,
+      refreshButton,
+      runtime?.history.readable !== false,
+    );
   const [delayedLoading, setDelayedLoading] = useState(false);
   const loadGeneration =
     state.phase === "loading" ? state.browsing?.pending?.generation : null;
@@ -344,6 +346,7 @@ export function WorkbookRecordHistoryPanel({
                   ref={refreshButton}
                   tone="secondary"
                   aria-disabled={refreshBlocked}
+                  aria-busy={browsing?.pending?.kind === "refresh"}
                   onClick={(event) => {
                     if (refreshBlocked) return;
                     if (state.phase !== "idle")
@@ -387,31 +390,42 @@ export function WorkbookRecordHistoryPanel({
                 !browsing.accepted.data.paging.has_more ? (
                   <span>No older entries.</span>
                 ) : null}
-                {browsing?.failure ? (
+                {recovery ? (
                   <WorkbookInspectorActionButton
                     data-testid={rowHistoryReadControlTestId(
-                      browsing.failure.restart ? "start-fresh" : "retry",
+                      recovery.restart ? "start-fresh" : "retry",
                     )}
-                    disabled={reading || readBlocked}
+                    aria-disabled={reading || readBlocked || !browsing?.failure}
+                    aria-busy={reading}
+                    onBlur={releaseRecovery}
                     onClick={(event) => {
-                      const failure = browsing.failure;
-                      if (!failure) return;
+                      const failure = browsing?.failure;
+                      if (!failure || reading || readBlocked) return;
                       captureRead(
                         event.currentTarget,
-                        failure.restart ? "refresh" : failure.request.kind,
+                        failure.restart
+                          ? browsing?.accepted
+                            ? "refresh"
+                            : "initial"
+                          : failure.request.kind,
                         !failure.restart,
+                        true,
                       );
                       if (failure.restart) browsingControls.open();
                       else browsingControls.retryRead();
                     }}
                   >
-                    {browsing.failure.restart
-                      ? "Start fresh history"
-                      : browsing.failure.request.kind === "continuation"
-                        ? "Retry older entries"
-                        : browsing.failure.request.kind === "refresh"
-                          ? "Retry refresh"
-                          : "Retry history"}
+                    {!browsing?.failure && !reading
+                      ? recovery.request.kind === "continuation"
+                        ? "Older entries loaded"
+                        : "History loaded"
+                      : recovery.restart
+                        ? "Start fresh history"
+                        : recovery.request.kind === "continuation"
+                          ? "Retry older entries"
+                          : recovery.request.kind === "refresh"
+                            ? "Retry refresh"
+                            : "Retry history"}
                   </WorkbookInspectorActionButton>
                 ) : null}
               </div>

@@ -5,6 +5,7 @@ import {
   rowHistoryDestructiveConfirmButtonTestId,
   rowHistoryItemTestId,
   rowHistoryPanelTestId,
+  rowHistoryReadControlTestId,
   rowHistoryRestoreButtonTestId,
   rowHistoryRollbackCancelButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
@@ -61,7 +62,10 @@ import {
   rejectHistoryRead,
 } from "../history/workbookHistoryBrowsing";
 import { useWorkbookHistoryReadContinuity } from "./useWorkbookHistoryReadContinuity";
-import { WorkbookInspectorRecordHistory } from "./WorkbookInspectorRecordHistory";
+import {
+  WorkbookInspectorRecordHistory,
+  WorkbookRecordHistoryPanel,
+} from "./WorkbookInspectorRecordHistory";
 
 afterEach(cleanup);
 
@@ -69,10 +73,166 @@ const historyItemRef = "history-item-1";
 const recordId = "20000000-0000-4000-8000-000000000001";
 
 describe("WorkbookInspectorRecordHistory", () => {
+  it("keeps each recovery control mounted through a held read", () => {
+    for (const mode of [
+      "initial",
+      "refresh",
+      "continuation",
+      "restart",
+    ] as const) {
+      const subject = historySubject(recordId, 5);
+      const scope = {
+        incidentId: historyData().incident_id,
+        actorId: "actor",
+        epoch: 1,
+        sessionIdentity: "session",
+      };
+      let browsing = initialHistoryBrowsing(
+        scope,
+        recordId,
+        subject.viewSchemaId,
+      );
+      if (mode !== "initial") {
+        browsing = beginHistoryRead(browsing, "initial");
+        browsing = acceptHistoryPage(
+          browsing,
+          required(browsing.pending),
+          {
+            ...historyData(),
+            paging: { limit: 100, has_more: true, next_cursor: "opaque-older" },
+          },
+          { rowVersion: 5, deleted: false },
+        );
+      }
+      browsing = beginHistoryRead(
+        browsing,
+        mode === "initial"
+          ? "initial"
+          : mode === "refresh"
+            ? "refresh"
+            : "continuation",
+      );
+      const failedRequest = required(browsing.pending);
+      browsing = rejectHistoryRead(browsing, failedRequest, {
+        kind: "retryable",
+        message: "Read failed",
+        ...(mode === "restart"
+          ? { publicCode: "invalid_pagination_request" }
+          : {}),
+      });
+      const open = vi.fn();
+      const retryRead = vi.fn();
+      const controls = {
+        open,
+        retryRead,
+        loadOlder: vi.fn(),
+        continuePreview: vi.fn(),
+        restartPreview: vi.fn(),
+      };
+      const renderPanel = (current: typeof browsing) => (
+        <WorkbookRecordHistoryPanel
+          actions={new Set()}
+          canMutate={false}
+          idleRecordId={recordId}
+          state={{
+            subject,
+            browsing: current,
+            phase: current.accepted || current.failure ? "ready" : "loading",
+          }}
+          browsingControls={controls}
+          onOpenHistory={open}
+          onCancelPendingAction={vi.fn()}
+          onConfirmPendingAction={vi.fn()}
+          onPreviewDeleteRestore={vi.fn()}
+          onPreviewRollback={vi.fn()}
+        />
+      );
+      const view = render(renderPanel(browsing));
+      try {
+        const testId = rowHistoryReadControlTestId(
+          mode === "restart" ? "start-fresh" : "retry",
+        );
+        const button = screen.getByTestId(testId);
+        button.focus();
+        fireEvent.click(button);
+        expect(mode === "restart" ? open : retryRead).toHaveBeenCalledOnce();
+        browsing = beginHistoryRead(
+          browsing,
+          mode === "restart" ? "refresh" : mode,
+          mode !== "restart",
+        );
+        expect(required(browsing.pending).request.cursorToken).toBe(
+          mode === "continuation" ? "opaque-older" : undefined,
+        );
+        view.rerender(renderPanel(browsing));
+        expect(button.isConnected).toBe(true);
+        expect(document.activeElement).toBe(button);
+        expect(button.getAttribute("aria-busy")).toBe("true");
+        expect(button.getAttribute("aria-disabled")).toBe("true");
+        fireEvent.click(button);
+        expect(mode === "restart" ? open : retryRead).toHaveBeenCalledOnce();
+        browsing = rejectHistoryRead(browsing, required(browsing.pending), {
+          kind: "retryable",
+          message: "Read failed again",
+          ...(mode === "restart"
+            ? { publicCode: "invalid_pagination_request" }
+            : {}),
+        });
+        view.rerender(renderPanel(browsing));
+        expect(button.isConnected).toBe(true);
+        expect(document.activeElement).toBe(button);
+        expect(button.getAttribute("aria-disabled")).toBe("false");
+        fireEvent.click(button);
+        browsing = beginHistoryRead(
+          browsing,
+          mode === "restart" ? "refresh" : mode,
+          mode !== "restart",
+        );
+        view.rerender(renderPanel(browsing));
+        browsing = acceptHistoryPage(
+          browsing,
+          required(browsing.pending),
+          {
+            ...historyData(),
+            items: mode === "continuation" ? [] : historyData().items,
+            paging: { limit: 100, has_more: false, next_cursor: null },
+          },
+          { rowVersion: 5, deleted: false },
+        );
+        view.rerender(renderPanel(browsing));
+        expect(button.isConnected).toBe(false);
+        expect(document.activeElement).toBe(
+          screen.getByRole("button", {
+            name:
+              mode === "continuation"
+                ? "Load older entries"
+                : "Refresh history",
+          }),
+        );
+        if (mode === "continuation") {
+          expect(browsing.accepted?.data.items).toHaveLength(1);
+          expect(
+            screen
+              .getByRole("button", { name: "Load older entries" })
+              .getAttribute("aria-disabled"),
+          ).toBe("true");
+        }
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
   it("binds read viewport and focus continuity to the current subject lifetime and request", () => {
     for (const mode of [
       "accepted",
       "retry",
+      "retry-interaction",
+      "retry-replacement",
+      "retry-scope",
+      "retry-authority",
+      "retry-obsolete",
+      "retry-detached",
       "interaction",
       "replacement",
       "scope",
@@ -128,26 +288,36 @@ describe("WorkbookInspectorRecordHistory", () => {
         { current: older },
         { current: refresh },
       ] as const;
+      const initialProps: {
+        browsing: typeof browsing;
+        subject: typeof subject;
+        readable?: boolean;
+      } = { browsing, subject };
       const hook = renderHook(
-        (value) =>
+        (value: {
+          browsing: typeof browsing;
+          subject: ReturnType<typeof historySubject>;
+          readable?: boolean;
+        }) =>
           useWorkbookHistoryReadContinuity(
             { phase: "ready", ...value },
             ...refs,
+            value.readable,
           ),
         {
-          initialProps: { browsing, subject },
+          initialProps,
         },
       );
       try {
         older.focus();
-        act(() => hook.result.current(older, "continuation"));
+        act(() => hook.result.current.captureRead(older, "continuation"));
         browsing = beginHistoryRead(browsing, "continuation");
         shift = 60;
         hook.rerender({ browsing, subject });
         expect(older.getBoundingClientRect().top).toBe(80);
         if (!browsing.pending) throw new Error("Missing continuation");
         let request = browsing.pending;
-        if (mode === "retry") {
+        if (mode === "retry" || mode.startsWith("retry-")) {
           browsing = rejectHistoryRead(browsing, request, {
             kind: "retryable",
             message: "Temporary failure",
@@ -156,29 +326,42 @@ describe("WorkbookInspectorRecordHistory", () => {
           hook.rerender({ browsing, subject });
           expect(older.getBoundingClientRect().top).toBe(80);
           retry.focus();
-          act(() => hook.result.current(retry, "continuation", true));
+          act(() =>
+            hook.result.current.captureRead(retry, "continuation", true, true),
+          );
           browsing = beginHistoryRead(browsing, "continuation", true);
           if (!browsing.pending) throw new Error("Missing retry");
           expect(browsing.pending.request).toEqual(request.request);
           request = browsing.pending;
           shift = 60;
           hook.rerender({ browsing, subject });
-          retry.remove();
+          expect(hook.result.current.recovery?.request.kind).toBe(
+            "continuation",
+          );
         }
         const cancelled = mode !== "accepted" && mode !== "retry";
-        if (mode === "interaction") fireEvent.wheel(scroller);
-        if (mode === "replacement")
+        if (mode === "interaction" || mode === "retry-interaction")
+          fireEvent.wheel(scroller);
+        if (mode === "replacement" || mode === "retry-replacement")
           hook.rerender({ browsing, subject: historySubject("other", 1) });
-        if (mode === "scope")
+        if (mode === "scope" || mode === "retry-scope")
           hook.rerender({
             browsing: { ...browsing, scope: { ...browsing.scope, epoch: 2 } },
             subject,
           });
-        if (mode === "obsolete") {
+        if (mode === "retry-authority")
+          hook.rerender({ browsing, subject, readable: false });
+        if (mode === "obsolete" || mode === "retry-obsolete") {
           browsing = beginHistoryRead(browsing, "refresh");
           hook.rerender({ browsing, subject });
         }
-        if (mode === "detached") hook.unmount();
+        if (mode === "detached" || mode === "retry-detached") hook.unmount();
+        if (
+          mode.startsWith("retry-") &&
+          mode !== "retry-detached" &&
+          mode !== "retry-interaction"
+        )
+          expect(hook.result.current.recovery).toBeNull();
         if (cancelled) elsewhere.focus();
         const priorScroll = scroller.scrollTop;
         shift = 0;
@@ -192,7 +375,8 @@ describe("WorkbookInspectorRecordHistory", () => {
           },
           { rowVersion: 5, deleted: false },
         );
-        if (mode !== "detached") hook.rerender({ browsing, subject });
+        if (mode !== "detached" && mode !== "retry-detached")
+          hook.rerender({ browsing, subject });
         if (cancelled) {
           expect(scroller.scrollTop).toBe(priorScroll);
           expect(document.activeElement).toBe(elsewhere);
@@ -791,6 +975,12 @@ function historySubject(subjectRecordId: string, rowVersion: number) {
     surfaceLabel: "Timeline",
     viewSchemaId: "cartulary.view.timeline.v2",
   };
+}
+
+function required<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined)
+    throw new Error("Missing History fixture");
+  return value;
 }
 
 function deferred<T>() {

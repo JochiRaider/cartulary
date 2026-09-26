@@ -362,6 +362,15 @@ describe("History browsing characterization", () => {
     expect(t.load.mock.calls[1]?.[1].aborted).toBe(true);
     expect(result.current.snapshot.browsing?.pending).toBeNull();
     expect(result.current.snapshot.browsing?.accepted).not.toBeNull();
+    expect(result.current.snapshot.browsing?.failure).not.toBeNull();
+    rerender({ active: true });
+    act(() => result.current.commands.retryRead());
+    await waitFor(() =>
+      expect(result.current.snapshot.browsing?.failure).toBeNull(),
+    );
+    expect(result.current.snapshot.browsing?.accepted?.data.items).toEqual([
+      item,
+    ]);
     expect(t.send).not.toHaveBeenCalled();
   });
 });

@@ -164,9 +164,16 @@ presentation scroll/focus continuity for History reads. Its semantic control
 anchor is scoped to the mounted panel, record/view, authorization lifetime and
 request/cursor generation. Matching renders preserve its measured position;
 user interaction, replacement, detachment or obsolete completion cancels it.
-Focus restoration uses `preventScroll`. Accepted pages, cursor chains and read
-admission remain with the retained History owner. All four browser History
-surfaces share the continuation/retry and late-response checks.
+The initiating recovery control remains mounted and focusable while its admitted
+read is pending, independently of the cleared failure flag. It is busy and
+unavailable for repeat activation; a repeated failure restores the current
+recovery action. Success moves focus to a surviving read control only while the
+initiating interaction still owns it. If a newer interaction cancels that move
+while the old control remains focused, the control shows a neutral completed
+label until focus leaves. Focus restoration uses `preventScroll`. Accepted pages,
+cursor chains and read admission remain with the retained History owner. All
+four browser History surfaces share the continuation/retry and late-response
+checks.
 
 ## Review and attachment lifetime
 

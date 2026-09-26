@@ -398,7 +398,8 @@
             "module.revisions.browser.history_browsing_3bb5a426ad51",
             "module.revisions.browser.history_browsing_4173a20e4a50",
             "module.revisions.browser.history_browsing_6bf6f16ba2f4",
-            "module.revisions.browser.history_browsing_d48d33829537"
+            "module.revisions.browser.history_browsing_d48d33829537",
+            "module.revisions.browser.history_initial_retry_focus_b4fe61baa8"
           ],
           "specs": [
             "apps/web/e2e/history-browsing.spec.ts"
