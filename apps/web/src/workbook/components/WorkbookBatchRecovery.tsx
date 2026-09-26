@@ -1,9 +1,20 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import {
+  useWorkbookRecoveryNavigation,
   useWorkbookRecoverySource,
   WorkbookRecoveryDetail,
 } from "../../shared/WorkbookRecoveryBoundary";
-import type { WorkbookRecoveryItem } from "../../shared/workbookRecoveryNavigation";
+import {
+  type WorkbookRecoveryItem,
+  workbookRecoveryKey,
+} from "../../shared/workbookRecoveryNavigation";
 import { WorkbookHistoryReview } from "../history/WorkbookHistoryReview";
 import {
   type HistoryReviewLocator,
@@ -11,11 +22,21 @@ import {
 } from "../history/workbookHistoryReview";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import type { WorkbookBatchSnapshot } from "../runtime/workbookBatchOperation";
 import { workbookBatchOutcome } from "../runtime/workbookBatchOutcome";
 import { workbookBatchRecoveryItems } from "../runtime/workbookBatchRecoveryItems";
 import type { WorkbookStatusAction } from "../utils/workbookStatusSecondary";
 import { WorkbookBatchRecordChoices } from "./WorkbookBatchRecordChoices";
 import { inputStyle } from "./workbookGridControlStyles";
+
+type BatchRetryPresentation = {
+  readonly batchId: string;
+  readonly action: "mutation" | "refresh";
+  readonly authority: NonNullable<WorkbookBatchSnapshot["authority"]>;
+  readonly activation: number;
+  readonly control: HTMLButtonElement;
+  ownsFocus: boolean;
+};
 
 export function WorkbookBatchRecovery({
   runtime,
@@ -29,7 +50,18 @@ export function WorkbookBatchRecovery({
   useSyncExternalStore(runtime.history.subscribe, runtime.history.getSnapshot);
   const owner = runtime.batches;
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const navigation = useWorkbookRecoveryNavigation();
   const mutation = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot);
+  const [retryPresentation, setRetryPresentation] =
+    useState<BatchRetryPresentation | null>(null);
+  const retryPresentationRef = useRef<BatchRetryPresentation | null>(null);
+  const outcomeRef = useRef<HTMLParagraphElement | null>(null);
+  const originalInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const outcomeId = useId();
+  const clearRetryPresentation = useCallback(() => {
+    retryPresentationRef.current = null;
+    setRetryPresentation(null);
+  }, []);
   const conflictCounts = new Map<string, number>();
   for (const conflict of mutation.conflicts) {
     const id = conflict.batchOperationId;
@@ -72,10 +104,126 @@ export function WorkbookBatchRecovery({
   }
   const selected = useWorkbookRecoverySource("batch", items, {
     detach: () => {
+      clearRetryPresentation();
       setReview(null);
       invoker.current = null;
     },
   });
+  useLayoutEffect(() => {
+    const intent = retryPresentationRef.current;
+    if (!intent) return;
+    const attachment = navigation?.getSnapshot();
+    const entry = snapshot.entries.find((item) => item.id === intent.batchId);
+    if (
+      snapshot.authority !== intent.authority ||
+      selected !== intent.batchId ||
+      !attachment?.open ||
+      attachment.selected !== workbookRecoveryKey("batch", intent.batchId) ||
+      attachment.activation !== intent.activation ||
+      !entry
+    ) {
+      clearRetryPresentation();
+      return;
+    }
+    const pending =
+      intent.action === "mutation"
+        ? entry.transportPending
+        : entry.reconciliation === "refreshing";
+    if (pending) return;
+    const completed =
+      intent.action === "mutation"
+        ? entry.phase === "acknowledged"
+        : entry.reconciliation === "complete";
+    if (
+      completed &&
+      intent.ownsFocus &&
+      document.activeElement === intent.control &&
+      outcomeRef.current?.isConnected
+    )
+      outcomeRef.current.focus({ preventScroll: true });
+    if (
+      completed &&
+      !intent.ownsFocus &&
+      (document.activeElement === intent.control ||
+        document.activeElement === originalInputRef.current ||
+        document.activeElement === document.body)
+    )
+      return;
+    clearRetryPresentation();
+  });
+  useLayoutEffect(() => {
+    if (!retryPresentation) return;
+    const revokeFocus = () => {
+      const current = retryPresentationRef.current;
+      if (current === retryPresentation) current.ownsFocus = false;
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Tab") revokeFocus();
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      if (event.target === retryPresentation.control) return;
+      revokeFocus();
+      const current = retryPresentationRef.current;
+      const entry = owner
+        .getSnapshot()
+        .entries.find((item) => item.id === current?.batchId);
+      if (
+        current === retryPresentation &&
+        entry &&
+        (current.action === "mutation"
+          ? !entry.transportPending
+          : entry.reconciliation !== "refreshing")
+      )
+        clearRetryPresentation();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("focusin", onFocusIn, true);
+    document.addEventListener("pointerdown", revokeFocus, true);
+    document.addEventListener("scroll", revokeFocus, true);
+    document.addEventListener("wheel", revokeFocus, true);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+      document.removeEventListener("pointerdown", revokeFocus, true);
+      document.removeEventListener("scroll", revokeFocus, true);
+      document.removeEventListener("wheel", revokeFocus, true);
+    };
+  }, [retryPresentation, owner, clearRetryPresentation]);
+  const retry = (
+    batchId: string,
+    action: BatchRetryPresentation["action"],
+    control: HTMLButtonElement,
+  ) => {
+    const authority = owner.getSnapshot().authority;
+    const entry = owner
+      .getSnapshot()
+      .entries.find((item) => item.id === batchId);
+    const attachment = navigation?.getSnapshot();
+    if (
+      !authority ||
+      !entry ||
+      retryPresentationRef.current ||
+      !attachment?.open ||
+      attachment.selected !== workbookRecoveryKey("batch", batchId) ||
+      (action === "mutation"
+        ? entry.phase !== "uncertain" ||
+          entry.transportPending ||
+          !owner.canWrite()
+        : entry.phase !== "acknowledged" || entry.reconciliation !== "required")
+    )
+      return;
+    const intent: BatchRetryPresentation = {
+      batchId,
+      action,
+      authority,
+      activation: attachment.activation,
+      control,
+      ownsFocus: document.activeElement === control,
+    };
+    retryPresentationRef.current = intent;
+    setRetryPresentation(intent);
+    owner.retry(batchId);
+  };
   useLayoutEffect(() => {
     // A detached DOM node can retain React props and the pruned receipt closure.
     if (invoker.current && !invoker.current.isConnected) invoker.current = null;
@@ -95,6 +243,7 @@ export function WorkbookBatchRecovery({
   return (
     <WorkbookRecoveryDetail source="batch" item={selected}>
       <section aria-label="Batch action recovery">
+        <style>{`.workbook-batch-outcome:focus { outline: var(--ct-component-focus-ring-border); outline-offset: var(--ct-component-focus-ring-offset); }`}</style>
         {snapshot.admissionError ? (
           <p role="alert">{snapshot.admissionError}</p>
         ) : null}
@@ -110,9 +259,28 @@ export function WorkbookBatchRecovery({
             const firstConflict = conflicts[0];
             const outcome = workbookBatchOutcome(entry, conflicts.length);
             const { label } = outcome;
+            const attachedRetry =
+              retryPresentation?.batchId === entry.id &&
+              retryPresentation.authority === snapshot.authority;
+            const replayRetry =
+              attachedRetry && retryPresentation.action === "mutation";
+            const refreshRetry =
+              attachedRetry && retryPresentation.action === "refresh";
+            const replayPending = replayRetry && entry.transportPending;
+            const refreshPending =
+              refreshRetry && entry.reconciliation === "refreshing";
             return (
               <section key={entry.id} aria-label={`${label} ${index + 1}`}>
-                <p role="status">{outcome.detail}</p>
+                <p
+                  className="workbook-batch-outcome"
+                  role="status"
+                  aria-label={`${label} outcome`}
+                  id={outcomeId}
+                  tabIndex={-1}
+                  ref={outcomeRef}
+                >
+                  {outcome.detail}
+                </p>
                 {outcome.refresh !== "none" ? (
                   <p role="status">
                     {outcome.refresh === "refreshing"
@@ -122,12 +290,15 @@ export function WorkbookBatchRecovery({
                         : "View refresh is pending."}
                   </p>
                 ) : null}
-                {entry.phase === "rejected" || entry.phase === "uncertain" ? (
+                {entry.phase === "rejected" ||
+                entry.phase === "uncertain" ||
+                replayRetry ? (
                   <label
                     style={{ display: "grid", gap: "var(--ct-spacing-xs)" }}
                   >
                     Original input
                     <textarea
+                      ref={originalInputRef}
                       readOnly
                       aria-label="Original batch input"
                       value={outcome.originalInput}
@@ -139,18 +310,39 @@ export function WorkbookBatchRecovery({
                     />
                   </label>
                 ) : null}
-                {entry.phase === "uncertain" ? (
+                {entry.phase === "uncertain" || replayRetry ? (
                   <WorkbookInspectorActionButton
-                    disabled={!owner.canWrite() || entry.transportPending}
-                    onClick={() => owner.retry(entry.id)}
+                    aria-busy={replayPending}
+                    aria-disabled={
+                      !owner.canWrite() ||
+                      replayPending ||
+                      entry.phase !== "uncertain"
+                    }
+                    aria-describedby={
+                      entry.phase === "acknowledged" ? outcomeId : undefined
+                    }
+                    onClick={(event) =>
+                      retry(entry.id, "mutation", event.currentTarget)
+                    }
                   >
                     Retry {label.toLowerCase()}
                   </WorkbookInspectorActionButton>
                 ) : null}
                 {entry.phase === "acknowledged" &&
-                entry.reconciliation === "required" ? (
+                (entry.reconciliation === "required" || refreshRetry) ? (
                   <WorkbookInspectorActionButton
-                    onClick={() => owner.retry(entry.id)}
+                    aria-busy={refreshPending}
+                    aria-disabled={
+                      refreshPending || entry.reconciliation !== "required"
+                    }
+                    aria-describedby={
+                      entry.reconciliation === "complete"
+                        ? outcomeId
+                        : undefined
+                    }
+                    onClick={(event) =>
+                      retry(entry.id, "refresh", event.currentTarget)
+                    }
                   >
                     Retry refresh
                   </WorkbookInspectorActionButton>

@@ -528,6 +528,38 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.batch_recovery_interaction",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookBatchRecovery.test.tsx",
+        "titles": [
+          "Batch recovery does not reclaim focus after selecting another batch",
+          "Batch recovery gives newer focus and scroll intent priority over late settlement",
+          "Batch recovery keeps each shared retry and original input attached through replay and read recovery",
+          "Batch recovery leaves Retry usable after repeated uncertainty and refresh failure",
+          "Batch recovery lets owner pruning remove an obsolete item and use the shell focus fallback",
+          "Batch recovery withdraws protected controls on authority loss without reopening after a late result"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.batch_refresh_debt",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

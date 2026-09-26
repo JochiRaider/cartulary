@@ -8727,11 +8727,18 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
   const path = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
   let fail = true;
   const attempts: string[] = [];
+  let releaseReplay!: () => void;
+  const replayGate = new Promise<void>((resolve) => {
+    releaseReplay = resolve;
+  });
   await page.route(path, async (route) => {
     attempts.push(route.request().postData() ?? "");
     const response = await route.fetch();
     if (fail) await route.abort("connectionfailed");
-    else await route.fulfill({ response });
+    else {
+      await replayGate;
+      await route.fulfill({ response });
+    }
   });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() =>
@@ -8814,6 +8821,56 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
   await expectDecisionControlReachable(page, retry);
   fail = false;
   await retry.press("Enter");
+  try {
+    await expect.poll(() => attempts.length).toBe(2);
+    await expect(retry).toBeFocused();
+    await expect(retry).toHaveAttribute("aria-busy", "true");
+    await expect(retry).toHaveAttribute("aria-disabled", "true");
+    for (const profile of [
+      { width: 390, height: 480, zoom: "", spacing: false },
+      { width: 1280, height: 720, zoom: "200%", spacing: false },
+      { width: 768, height: 640, zoom: "", spacing: true },
+    ]) {
+      await page.setViewportSize({
+        width: profile.width,
+        height: profile.height,
+      });
+      await page.evaluate((zoom) => {
+        document.documentElement.style.zoom = zoom;
+      }, profile.zoom);
+      const spacing = profile.spacing
+        ? await page.addStyleTag({
+            content:
+              "#root * { letter-spacing: 0.12em !important; line-height: 1.5 !important; word-spacing: 0.16em !important; }",
+          })
+        : null;
+      await expect(retry).toBeVisible();
+      await expect(retry).toBeFocused();
+      await expect(retry).toHaveAttribute("aria-busy", "true");
+      await expect(
+        recovery.getByRole("textbox", { name: "Original batch input" }),
+      ).toHaveValue("Retained update\nRetained create");
+      await testInfo.attach(
+        `batch-recovery-pending-${profile.width}${profile.spacing ? "-spacing" : profile.zoom ? "-zoom" : ""}`,
+        {
+          body: await page.screenshot({
+            animations: "disabled",
+            caret: "hide",
+          }),
+          contentType: "image/png",
+        },
+      );
+      if (spacing)
+        await spacing.evaluate((element) =>
+          element.parentNode?.removeChild(element),
+        );
+    }
+  } finally {
+    releaseReplay();
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+  }
   await expect(recovery).toContainText("Saved changes.");
   expect(attempts).toHaveLength(2);
   expect(attempts[0]).toBe(attempts[1]);

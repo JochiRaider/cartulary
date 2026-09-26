@@ -1264,6 +1264,7 @@
             "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
             "module.timeline.browser.spreadsheet_batch_conflicts",
             "module.timeline.browser.spreadsheet_batch_headers",
+            "module.timeline.browser.spreadsheet_batch_recovery_intent",
             "module.timeline.browser.spreadsheet_batch_replay",
             "module.timeline.browser.spreadsheet_bulk",
             "module.timeline.browser.spreadsheet_creation",

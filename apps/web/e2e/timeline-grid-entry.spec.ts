@@ -1517,6 +1517,15 @@ test("Timeline paste retains committed creates through lost response navigation 
   const attempts: string[] = [];
   const changes: string[] = [];
   let failReads = false;
+  let holdRefresh = false;
+  let releaseRefresh!: () => void;
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let reportRefreshHit!: () => void;
+  const refreshHit = new Promise<void>((resolve) => {
+    reportRefreshHit = resolve;
+  });
   let reportLoss!: () => void;
   const lost = new Promise<void>((resolve) => {
     reportLoss = resolve;
@@ -1526,17 +1535,21 @@ test("Timeline paste retains committed creates through lost response navigation 
     releaseReplay = resolve;
   });
   await page.route(`**${queryPath}`, async (route) => {
-    if (!failReads) {
-      await route.continue();
+    if (failReads) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { code: "internal_error", message: "Temporary read failure" },
+        }),
+      });
       return;
     }
-    await route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: { code: "internal_error", message: "Temporary read failure" },
-      }),
-    });
+    if (holdRefresh) {
+      reportRefreshHit();
+      await refreshGate;
+    }
+    await route.continue();
   });
   await page.route(`**${path}`, async (route) => {
     attempts.push(required(route.request().postData()));
@@ -1565,16 +1578,46 @@ test("Timeline paste retains committed creates through lost response navigation 
     await externalPatch(page, incidentId, target, source, "Intervening source");
     const before = await fetchRecordHistoryCount(page, target);
     await openRecoveryItem(page, /^(Paste|Fill|Tag assignment) ·/);
+    await page.setViewportSize({ width: 390, height: 480 });
     const retry = page.getByRole("button", {
       name: "Retry paste",
       exact: true,
     });
     await tabTo(page, retry);
+    const recovery = page.getByRole("region", {
+      name: "Workbook recovery",
+      exact: true,
+    });
+    const replayScroll = await recovery.evaluate((element) => {
+      element.scrollTop = 24;
+      return element.scrollTop;
+    });
+    expect(replayScroll).toBeGreaterThan(0);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
     await page.keyboard.press("Enter");
     await expect.poll(() => attempts.length).toBe(2);
+    await expect(retry).toHaveCount(1);
+    await expect(retry).toBeFocused();
+    await expect(retry).toHaveAttribute("aria-busy", "true");
+    await expect(retry).toHaveAttribute("aria-disabled", "true");
+    await expect(
+      recovery.getByRole("textbox", { name: "Original batch input" }),
+    ).toHaveValue("Captured update\nCaptured new record");
+    expect(await retry.evaluate((element) => element.isConnected)).toBe(true);
+    expect(await recovery.evaluate((element) => element.scrollTop)).toBe(
+      replayScroll,
+    );
+    await page.keyboard.press("Enter");
+    expect(attempts).toHaveLength(2);
     await page
       .getByRole("button", { name: "Close recovery", exact: true })
       .click();
+    await page.setViewportSize({ width: 1440, height: 900 });
     await scrollGridCellIntoView({
       page,
       surface: timelineViewSchemaId,
@@ -1593,11 +1636,46 @@ test("Timeline paste retains committed creates through lost response navigation 
       name: "Retry refresh",
       exact: true,
     });
+    await page.setViewportSize({ width: 390, height: 480 });
     await tabTo(page, refresh);
+    holdRefresh = true;
+    const refreshScroll = await recovery.evaluate((element) => {
+      element.scrollTop = 24;
+      return element.scrollTop;
+    });
+    expect(refreshScroll).toBeGreaterThan(0);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
     await page.keyboard.press("Enter");
+    await refreshHit;
+    await expect(refresh).toHaveCount(1);
+    await expect(refresh).toBeFocused();
+    await expect(refresh).toHaveAttribute("aria-busy", "true");
+    await expect(refresh).toHaveAttribute("aria-disabled", "true");
+    expect(await refresh.evaluate((element) => element.isConnected)).toBe(true);
+    expect(await recovery.evaluate((element) => element.scrollTop)).toBe(
+      refreshScroll,
+    );
+    expect(attempts).toHaveLength(2);
+    releaseRefresh();
+    holdRefresh = false;
     await expect(refresh).toHaveCount(0);
+    await expect(
+      recovery.getByRole("status", { name: "Paste outcome" }),
+    ).toBeFocused();
+    expect(await recovery.evaluate((element) => element.scrollTop)).toBe(
+      refreshScroll,
+    );
     expect(attempts).toEqual([attempts[0], attempts[0]]);
+    const capturedTxn = JSON.parse(required(attempts[0])).client_txn_id;
+    expect(capturedTxn).toBeTruthy();
+    expect(JSON.parse(required(attempts[1])).client_txn_id).toBe(capturedTxn);
     expect(changes).toEqual([changes[0], changes[0]]);
+    await page.setViewportSize({ width: 1440, height: 900 });
     const saved = await queryViewRows(page, incidentId, timelineViewSchemaId);
     expect(saved).toHaveLength(3);
     expect(
@@ -1607,6 +1685,131 @@ test("Timeline paste retains committed creates through lost response navigation 
     expect(attempts).toHaveLength(2);
   } finally {
     releaseReplay();
+    releaseRefresh();
+    if (!page.isClosed()) {
+      await page.unroute(`**${path}`);
+      await page.unroute(`**${queryPath}`);
+    }
+  }
+});
+
+test("Timeline batch recovery honors newer scroll and pointer intent during held replay and refresh", async ({
+  page,
+}) => {
+  const { incidentId, rows } = await seedTimeline(page, 2);
+  const target = required(rows[1]).record_id;
+  const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
+  const queryPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
+  const attempts: string[] = [];
+  let failReads = false;
+  let holdRefresh = false;
+  let reportLoss!: () => void;
+  let reportReplay!: () => void;
+  let reportRefresh!: () => void;
+  let releaseReplay!: () => void;
+  let releaseRefresh!: () => void;
+  const loss = new Promise<void>((resolve) => {
+    reportLoss = resolve;
+  });
+  const replayHit = new Promise<void>((resolve) => {
+    reportReplay = resolve;
+  });
+  const refreshHit = new Promise<void>((resolve) => {
+    reportRefresh = resolve;
+  });
+  const replayGate = new Promise<void>((resolve) => {
+    releaseReplay = resolve;
+  });
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  await page.route(`**${queryPath}`, async (route) => {
+    if (failReads) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { code: "internal_error", message: "Temporary read failure" },
+        }),
+      });
+      return;
+    }
+    if (holdRefresh) {
+      reportRefresh();
+      await refreshGate;
+    }
+    await route.continue();
+  });
+  await page.route(`**${path}`, async (route) => {
+    attempts.push(required(route.request().postData()));
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    if (attempts.length === 1) {
+      await route.abort("connectionfailed");
+      reportLoss();
+    } else {
+      reportReplay();
+      await replayGate;
+      failReads = true;
+      await route.fulfill({ response });
+    }
+  });
+  try {
+    await selectCell(page, target);
+    await clipboard(page, "Scroll-intent update\nScroll-intent create");
+    await loss;
+    await openRecoveryItem(page, /^Paste ·/);
+    await page.setViewportSize({ width: 390, height: 480 });
+    const panel = page.getByRole("region", {
+      name: "Workbook recovery",
+      exact: true,
+    });
+    const retry = panel.getByRole("button", {
+      name: "Retry paste",
+      exact: true,
+    });
+    await tabTo(page, retry);
+    await page.keyboard.press("Enter");
+    await replayHit;
+    await expect(retry).toBeFocused();
+    await panel.hover();
+    await page.mouse.wheel(0, 180);
+    await expect
+      .poll(() => panel.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    const scrolled = await panel.evaluate((element) => element.scrollTop);
+    releaseReplay();
+    const refresh = panel.getByRole("button", {
+      name: "Retry refresh",
+      exact: true,
+    });
+    await expect(refresh).toBeVisible();
+    await expect(retry).toBeFocused();
+    await expect(retry).toHaveAttribute("aria-disabled", "true");
+    expect(await panel.evaluate((element) => element.scrollTop)).toBe(scrolled);
+    await tabTo(page, refresh);
+    await expect(retry).toHaveCount(0);
+    failReads = false;
+    holdRefresh = true;
+    await page.keyboard.press("Enter");
+    await refreshHit;
+    await expect(refresh).toBeFocused();
+    await expect(refresh).toHaveAttribute("aria-busy", "true");
+    await panel.getByRole("button", { name: "Return to workbook" }).click();
+    const destination = await page.locator(":focus").elementHandle();
+    expect(destination).not.toBeNull();
+    releaseRefresh();
+    await expect
+      .poll(() =>
+        destination?.evaluate((element) => document.activeElement === element),
+      )
+      .toBe(true);
+    await expect(panel).toHaveCount(0);
+    expect(attempts).toHaveLength(2);
+    expect(attempts[1]).toBe(attempts[0]);
+  } finally {
+    releaseReplay();
+    releaseRefresh();
     if (!page.isClosed()) {
       await page.unroute(`**${path}`);
       await page.unroute(`**${queryPath}`);

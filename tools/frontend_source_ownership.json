@@ -514,6 +514,7 @@
         "apps/web/src/workbook/components/WorkbookAuthoringReferencePicker.tsx",
         "apps/web/src/workbook/components/WorkbookBatchRecordChoices.test.tsx",
         "apps/web/src/workbook/components/WorkbookBatchRecordChoices.tsx",
+        "apps/web/src/workbook/components/WorkbookBatchRecovery.test.tsx",
         "apps/web/src/workbook/components/WorkbookBatchRecovery.tsx",
         "apps/web/src/workbook/components/WorkbookCandidateBrowsing.tsx",
         "apps/web/src/workbook/components/WorkbookCandidateQueryControl.tsx",

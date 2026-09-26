@@ -84,6 +84,16 @@ confirmation remain in their existing controllers.
 | --- | --- |
 | [WorkbookBatchRecovery.tsx](WorkbookBatchRecovery.tsx) | Compact non-color batch status, original-input recovery, keyboard Retry, reads-only Retry refresh and activation of retained per-cell conflict groups. |
 
+Batch Retry keeps its initiating control focusable and stably named while the
+retained owner dispatches exact replay or read-only refresh. Attachment-local
+intent identifies the action and current authority; it does not retain a request,
+receipt or second failure state. Newer keyboard, pointer, scroll, selection and
+departure intent prevents settlement from reclaiming focus. If scrolling leaves
+focus on a settled control, or Shift+Tab leaves focus on original input, that
+focused presentation remains until focus departs so the shell's removed-focus
+fallback does not reset the panel scroll or replace newer keyboard movement. Genuine
+item pruning and authority withdrawal still use that fallback.
+
 The presentation subscribes to retained runtime state. Opening batch recovery
 attaches one batch identity; reviewing its conflicts uses the existing resolver
 inside the same panel. Bounded original-input previews distinguish multiple
