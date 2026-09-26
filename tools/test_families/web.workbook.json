@@ -3859,6 +3859,39 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.parked_grid_draft_focus_survives_removal_and_pre_bee6364d8c",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookParkedGridDrafts.test.tsx",
+        "titles": [
+          "WorkbookParkedGridDrafts focus continuity cancels pending grid fallback for newer focus, scope change, and unmount",
+          "WorkbookParkedGridDrafts focus continuity does not open a closed disclosure for a background update",
+          "WorkbookParkedGridDrafts focus continuity handles focused reconciliation and preserves focus during background removal",
+          "WorkbookParkedGridDrafts focus continuity moves first and middle discard to the next retained text without changing surviving values",
+          "WorkbookParkedGridDrafts focus continuity moves last-position removal to the previous retained text",
+          "WorkbookParkedGridDrafts focus continuity returns final draft removal and focused summary loss to the grid root",
+          "WorkbookParkedGridDrafts focus continuity uses the visible shell fallback when the grid root is unavailable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.party_link_controls",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

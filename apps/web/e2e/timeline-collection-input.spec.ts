@@ -53,6 +53,136 @@ const fields = [
   ["timeline.tags", "tags"],
 ] as const;
 
+test("Timeline unsaved cells keep keyboard focus through draft discard", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("TCKC"),
+    "Collection keyboard continuity",
+  );
+  const row = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("tckc-row"),
+    "timeline.activity_utc_text": "2026-04-01T00:00:00Z",
+    "timeline.activity_synopsis_text": "Keyboard continuity",
+  });
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page);
+  let patches = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/records/${row.record_id}`)
+    )
+      patches++;
+  });
+  for (const [field, label] of fields) {
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: relationshipItemsTestId(row.record_id, field, "grid"),
+    });
+    await page
+      .getByTestId(relationshipItemsTestId(row.record_id, field, "grid"))
+      .locator("xpath=ancestor::fieldset[1]")
+      .getByRole("button", { name: `Add ${label} token` })
+      .click();
+    await page
+      .getByTestId(timelineCollectionInputTestId(row.record_id, field, "grid"))
+      .fill(`  ${label} Ω 東京  `);
+    await page
+      .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+      .click();
+    await page
+      .getByTestId(workbookColumnsMenuTestId(timelineViewSchemaId))
+      .getByRole("checkbox", {
+        name: label[0]?.toUpperCase() + label.slice(1),
+        exact: true,
+      })
+      .uncheck();
+    await page.keyboard.press("Escape");
+  }
+  const summary = page.getByText("Unsaved cells (3)", { exact: true });
+  await summary.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("textbox", { name: "Retained Hosts" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Discard Hosts draft" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("textbox", { name: "Retained Identities" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Discard Identities draft" }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Unsaved cells (2)", { exact: true }),
+  ).toBeVisible();
+  await test.info().attach("focus-after-middle-discard", {
+    body: JSON.stringify(
+      await page.evaluate(() => ({
+        tag: document.activeElement?.tagName,
+        label: document.activeElement?.getAttribute("aria-label"),
+        text: document.activeElement?.textContent?.trim().slice(0, 80),
+      })),
+    ),
+    contentType: "application/json",
+  });
+  await expect(
+    page.getByRole("textbox", { name: "Retained Tags" }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("textbox", { name: "Retained Hosts" }),
+  ).toHaveValue("  hosts Ω 東京  ");
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    page.getByRole("button", { name: "Discard Hosts draft" }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Unsaved cells (1)", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Retained Tags" }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("textbox", { name: "Retained Tags" }),
+  ).toHaveValue("  tags Ω 東京  ");
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Discard Tags draft" }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Unsaved cells (1)", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("grid")).toBeFocused();
+  await page.keyboard.press("Tab");
+  expect(
+    await page.evaluate(() => document.activeElement !== document.body),
+  ).toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await page.evaluate(() => {
+      const active = document.activeElement;
+      return (
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active.isConnected &&
+        active.getClientRects().length > 0
+      );
+    }),
+  ).toBe(true);
+  expect(patches).toBe(0);
+});
+
 test("Timeline collection identical native replacement survives older settlement", async ({
   page,
 }) => {

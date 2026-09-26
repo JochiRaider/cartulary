@@ -1158,7 +1158,8 @@
             "module.timeline.browser.collection_input_characterization",
             "module.timeline.browser.collection_input_equal_native_revision",
             "module.timeline.browser.collection_input_lifetime",
-            "module.timeline.browser.collection_input_promotion"
+            "module.timeline.browser.collection_input_promotion",
+            "module.timeline.browser.timeline_unsaved_cells_retain_keyboard_focus_thr_e5c816b7bf"
           ],
           "specs": [
             "apps/web/e2e/timeline-collection-input.spec.ts"
@@ -1472,6 +1473,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.workbook.browser.generic_unsaved_cells_preserve_keyboard_and_exte_f0e6722da1",
             "module.workbook.browser.grid_autosave_availability",
             "module.workbook.browser.grid_autosave_closure",
             "module.workbook.browser.grid_autosave_collaboration",

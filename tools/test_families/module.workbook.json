@@ -2308,6 +2308,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.generic_unsaved_cells_preserve_keyboard_and_exte_f0e6722da1",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-grid-autosave.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_generic_unsaved_cells_keyboard_continuity"
+        ],
+        "titles": [
+          "Generic unsaved cells keep keyboard and external focus at a narrow viewport"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.grid_autosave_availability",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",

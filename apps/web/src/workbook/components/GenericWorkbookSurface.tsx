@@ -29,7 +29,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { SheetRef } from "../../shared/sheetRef";
+import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
@@ -724,6 +724,8 @@ export function ContractWorkbookSurface({
               contract={contract}
               recordIds={rows.map((row) => row.record_id)}
               fieldKeys={columns.map((column) => column.fieldKey)}
+              focusScopeKey={`${continuityResetKey}:${sheetRefKey(sheetRef)}`}
+              gridHandleRef={gridHandleRef}
             />
             <WorkbookExplicitPatchRecovery
               owner={mutationRuntime.explicitPatches}

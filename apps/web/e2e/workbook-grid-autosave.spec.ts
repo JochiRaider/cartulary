@@ -1625,6 +1625,106 @@ test("Committed grid drafts stay on their original target through saved views hi
   ).toBe(2);
 });
 
+test("Generic unsaved cells keep keyboard and external focus at a narrow viewport", async ({
+  page,
+}) => {
+  const f = await fixture(page, evidenceViewSchemaId);
+  const field = "evidence.requested_at";
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/records/${f.row.record_id}`)
+    )
+      writes++;
+  });
+  const input = await activate(page, f.view, f.row.record_id, field);
+  const savedValue = await input.inputValue();
+  await input.fill("  unfinished timestamp Ω 東京  ");
+  const columnsTrigger = page.getByTestId(
+    workbookColumnsMenuTriggerTestId(f.view),
+  );
+  await columnsTrigger.click();
+  const requested = page
+    .getByTestId(workbookColumnsMenuTestId(f.view))
+    .getByRole("checkbox", { name: "Requested", exact: true });
+  await requested.uncheck();
+  await expect(input).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  const summary = page.getByText("Unsaved cells (1)", { exact: true });
+  await summary.press("Enter");
+  await page.keyboard.press("Tab");
+  const retained = page.getByRole("textbox", {
+    name: "Retained Requested",
+    exact: true,
+  });
+  await expect(retained).toBeFocused();
+  await expect(retained).toHaveValue("  unfinished timestamp Ω 東京  ");
+  await columnsTrigger.press("Enter");
+  await requested.press("Space");
+  await expect(summary).toHaveCount(0);
+  await expect(requested).toBeFocused();
+  await requested.press("Space");
+  await expect(summary).toBeVisible();
+  await expect(
+    page.locator("details[data-grid-parked-drafts]"),
+  ).not.toHaveAttribute("open", "");
+  await expect(requested).toBeFocused();
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 390, height: 640 });
+  await summary.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(retained).toBeFocused();
+  expect(
+    await retained.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      const scrollport = element.closest("details")?.querySelector("div");
+      const viewport = scrollport?.getBoundingClientRect();
+      return (
+        viewport !== undefined &&
+        bounds.top >= Math.max(0, viewport.top) - 1 &&
+        bounds.bottom <= Math.min(window.innerHeight, viewport.bottom) + 1 &&
+        bounds.left >= 0 &&
+        bounds.right <= window.innerWidth + 1 &&
+        getComputedStyle(element).outlineStyle === "solid"
+      );
+    }),
+  ).toBe(true);
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Discard Requested draft" }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(summary).toHaveCount(0);
+  await expect(page.getByRole("grid")).toBeFocused();
+  await page.keyboard.press("Tab");
+  expect(
+    await page.evaluate(() => document.activeElement !== document.body),
+  ).toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await page.evaluate(() => {
+      const active = document.activeElement;
+      return (
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active.isConnected &&
+        active.getClientRects().length > 0
+      );
+    }),
+  ).toBe(true);
+  expect(writes).toBe(0);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await columnsTrigger.click();
+  await requested.check();
+  await page.keyboard.press("Escape");
+  await expect(input).toHaveCount(0);
+  const reactivated = await activate(page, f.view, f.row.record_id, field);
+  await expect(reactivated).toHaveValue(savedValue);
+  expect(writes).toBe(0);
+});
+
 test("Committed grid CSRF denial recovers current authorization and replays the same request without losing newer text", async ({
   page,
 }) => {

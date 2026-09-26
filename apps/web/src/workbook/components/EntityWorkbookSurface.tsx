@@ -30,7 +30,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { SheetRef } from "../../shared/sheetRef";
+import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { WorkbookClipboardPastePort } from "../adapters/WorkbookClipboardPastePort";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
@@ -810,6 +810,8 @@ export function EntityWorkbookSurface({
               contract={contract}
               recordIds={rows.map((row) => row.recordId)}
               fieldKeys={entityColumns.map((column) => column.fieldKey)}
+              focusScopeKey={`${continuityResetKey}:${sheetRefKey(sheetRef)}`}
+              gridHandleRef={gridHandleRef}
             />
             <WorkbookExplicitPatchRecovery
               owner={mutationRuntime.explicitPatches}

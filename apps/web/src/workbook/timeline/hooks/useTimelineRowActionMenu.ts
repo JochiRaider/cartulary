@@ -4,11 +4,6 @@ import type {
   GridHandle,
 } from "@cartulary/grid-adapter";
 import {
-  dataTestIdSelector,
-  workbookIncidentIdentityTestId,
-  workbookSurfacesMenuTriggerTestId,
-} from "@cartulary/ui-contracts";
-import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -18,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { focusWorkbookShellFallback } from "../../components/workbookFocusFallback";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/timelineRowModel";
@@ -132,7 +128,7 @@ export function useTimelineRowActionMenu({
           const result = await grid.requestFocus(destination, options);
           if (result !== "unavailable") return;
         }
-        if (!controller.signal.aborted) focusShellFallback();
+        if (!controller.signal.aborted) focusWorkbookShellFallback();
       } finally {
         document.removeEventListener("focusin", externalFocus, true);
         document.removeEventListener("pointerdown", cancel, true);
@@ -334,7 +330,7 @@ export function useTimelineRowActionMenu({
   useLayoutEffect(
     () => () => {
       cancelFocus();
-      if (ownsFocus()) focusShellFallback();
+      if (ownsFocus()) focusWorkbookShellFallback();
     },
     [cancelFocus, ownsFocus],
   );
@@ -365,39 +361,6 @@ export function useTimelineRowActionMenu({
             onFocusChange,
           },
   };
-}
-
-function focusShellFallback() {
-  const activeSelector = document.querySelector<HTMLElement>(
-    '[aria-label="Built-in workbook surfaces"] button[aria-current="page"]',
-  );
-  if (
-    activeSelector &&
-    activeSelector.getClientRects().length > 0 &&
-    !activeSelector.matches(":disabled")
-  ) {
-    activeSelector.focus({ preventScroll: true });
-    if (document.activeElement === activeSelector) return;
-  }
-  for (const id of [
-    workbookSurfacesMenuTriggerTestId(),
-    workbookIncidentIdentityTestId(),
-  ]) {
-    const container = document.querySelector<HTMLElement>(
-      dataTestIdSelector(id),
-    );
-    const target = container?.matches("button, [tabindex]")
-      ? container
-      : container?.querySelector<HTMLElement>("button, [tabindex]");
-    if (
-      !target ||
-      target.getClientRects().length === 0 ||
-      target.matches(":disabled")
-    )
-      continue;
-    target.focus({ preventScroll: true });
-    if (document.activeElement === target) return;
-  }
 }
 
 function semanticCell(target: Element) {

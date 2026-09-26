@@ -16,6 +16,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
+import { sheetRefKey } from "../../../shared/sheetRef";
 import { WorkbookParkedGridDrafts } from "../../components/WorkbookParkedGridDrafts";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
 import { useWorkbookSemanticGridFocus } from "../../hooks/useWorkbookSemanticGridFocus";
@@ -500,6 +501,8 @@ export function useTimelineWorkbookPresentation({
             canEdit={interactionMode.kind === "editable" && !incidentClosed}
             rows={rows}
             fieldKeys={visibleTimelineColumns.map((column) => column.fieldKey)}
+            focusScopeKey={sheetRefKey(mutation.sheetRef)}
+            gridHandleRef={grid.refs.gridHandle}
           />
         ) : null,
       fileOwner: !loadAccessLost && currentIncidentRole ? fileOwner : undefined,
@@ -654,15 +657,21 @@ function TimelineParkedGridDrafts({
   canEdit,
   rows,
   fieldKeys,
+  focusScopeKey,
+  gridHandleRef,
 }: {
   registry: TimelineEditorDraftRegistry;
   canEdit: boolean;
   rows: readonly WorkbookRow[];
   fieldKeys: readonly string[];
+  focusScopeKey: string;
+  gridHandleRef: { current: GridHandle | null };
 }) {
   useSyncExternalStore(registry.subscribe, registry.getSnapshot);
   return (
     <WorkbookParkedGridDrafts
+      focusScopeKey={focusScopeKey}
+      gridHandleRef={gridHandleRef}
       drafts={registry.retainedGridDrafts().flatMap((draft) => {
         const reason = !canEdit
           ? "Editing is unavailable."
