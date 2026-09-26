@@ -98,16 +98,29 @@ it("Timeline reserves before React updates and captures identity only after prep
   expect(f.owner.blocksRecord(f.review.target.recordId)).toBe(false);
 });
 it("Timeline authoring preparation has no transaction and a newer committed version requires another click", async () => {
-  const f = fixture();
+  const f = fixture(),
+    pending = deferred<typeof f.review.target>();
+  const authoring = f.owner.prepareReview(
+    f.review,
+    { ...f.binding, prepare: () => pending.promise },
+    new AbortController().signal,
+  );
+  expect(f.owner.blocksRecord(f.review.target.recordId)).toBe(true);
+  expect(f.owner.unsettledMutationCount).toBe(0);
+  expect(f.owner.getSnapshot().entries).toEqual([]);
+  expect(f.ids.create).not.toHaveBeenCalled();
+  pending.resolve(f.review.target);
+  expect(await authoring).toBe(true);
   expect(
     await f.owner.prepareReview(
       f.review,
-      f.binding,
+      { ...f.binding, prepare: async () => null },
       new AbortController().signal,
     ),
-  ).toBe(true);
+  ).toBe(false);
   expect(f.ids.create).not.toHaveBeenCalled();
   expect(f.owner.getSnapshot().entries).toEqual([]);
+  expect(f.owner.unsettledMutationCount).toBe(0);
   const binding = {
     ...f.binding,
     prepare: async () => ({ ...f.review.target, rowVersion: 5 }),
@@ -119,6 +132,38 @@ it("Timeline authoring preparation has no transaction and a newer committed vers
   expect(f.send).not.toHaveBeenCalled();
   expect(f.ids.create).not.toHaveBeenCalled();
   expect(f.owner.latestVersion(f.review.target.recordId)).toBe(5);
+});
+it("Timeline authoring cancellation leaves an earlier admitted write intact", async () => {
+  const f = fixture(),
+    response = deferred<TimelineCaptureOutcome>();
+  f.send.mockReturnValueOnce(response.promise);
+  expect(f.owner.submit(f.review, f.binding)).toBe(true);
+  await vi.waitFor(() => expect(f.send).toHaveBeenCalledTimes(1));
+  const admitted = f.owner.getSnapshot().entries[0];
+  expect(f.owner.unsettledMutationCount).toBe(1);
+  const other = timelineCaptureReview({
+    target: { ...f.review.target, recordId: "another-record" },
+  });
+  const pending = deferred<typeof other.target>();
+  const controller = new AbortController();
+  const authoring = f.owner.prepareReview(
+    other,
+    { ...f.binding, prepare: () => pending.promise },
+    controller.signal,
+  );
+  expect(f.owner.getSnapshot().entries).toEqual([admitted]);
+  expect(f.owner.unsettledMutationCount).toBe(1);
+  controller.abort();
+  pending.resolve(other.target);
+  expect(await authoring).toBe(false);
+  expect(f.owner.getSnapshot().entries).toEqual([admitted]);
+  expect(f.owner.unsettledMutationCount).toBe(1);
+  expect(f.send).toHaveBeenCalledTimes(1);
+  response.resolve(acknowledged(f.review));
+  await vi.waitFor(() =>
+    expect(f.owner.getSnapshot().entries[0]?.receipt).not.toBeNull(),
+  );
+  expect(f.owner.unsettledMutationCount).toBe(0);
 });
 it("Timeline invalidates admission for authority closure state and stale reviewed inputs", () => {
   for (const action of ["mark-reviewed", "supersede"] as const)

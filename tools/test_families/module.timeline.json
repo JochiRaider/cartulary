@@ -2857,6 +2857,41 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.supersession_review_handoff",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_0b1820a8b058"
+        ],
+        "titles": [
+          "Timeline supersession Review stays reachable and late preparation respects Inspector navigation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.timeline_review_read_preserves_newer_editing_449509d125",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",

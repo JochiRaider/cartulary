@@ -4531,9 +4531,14 @@
           "Timeline capture policy preserves distinct review and supersession eligibility and reason semantics",
           "Timeline replacement pagination finds duplicate labels beyond the current page and fences stale reads",
           "Timeline replacement read failure still permits explicitly superseding without replacement",
+          "Timeline supersession Cancel or unmount aborts only its held preparation",
           "Timeline supersession fences changed inputs and closure during preparation",
           "Timeline supersession invalidates confirmation on version authority replacement or reason changes",
-          "Timeline supersession requires authored reason and frozen confirmation with optional replacement"
+          "Timeline supersession keeps Review reachable and respects newer focus during preparation",
+          "Timeline supersession preparation failure retains replacement and supports explicit retry",
+          "Timeline supersession requires authored reason and frozen confirmation with optional replacement",
+          "Timeline supersession retires held preparation on source replacement version or authority loss",
+          "Timeline supersession retires late review after keyboard pointer or scroll navigation"
         ]
       },
       "evidence_class": "unit",
@@ -4586,6 +4591,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/actions/WorkbookTimelineCaptureActionOwner.test.ts",
         "titles": [
+          "Timeline authoring cancellation leaves an earlier admitted write intact",
           "Timeline authoring preparation has no transaction and a newer committed version requires another click",
           "Timeline conceals retained attempts during access loss and fences account retirement",
           "Timeline exact recovery rejection leaves the original outcome uncertain",

@@ -8,6 +8,16 @@ Capture actions and mention operations retain reviewed subjects, exact attempts,
 and accepted receipts beyond the active inspector. Optional Entity creation and
 mention resolution keep independent recovery state.
 
+Supersession Review preparation reserves its row through the capture owner but
+does not admit a write, create a transaction identity, or appear as action
+recovery. The editor keeps Review mounted and focusable with a stable name and
+busy state while the owner checks the committed target and optional replacement.
+Only the still-current attachment, review inputs, authority, and interaction may
+open confirmation and transfer focus. Newer navigation retires that presentation
+transition; another explicit Review is required. Cancel or detachment aborts the
+authoring preparation without cancelling an earlier admitted action. Confirm
+alone enters the retained mutation and exact-replay lifetime.
+
 ## Files
 
 | File | Responsibility |

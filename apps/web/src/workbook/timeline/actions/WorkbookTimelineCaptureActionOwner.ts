@@ -42,6 +42,7 @@ export class WorkbookTimelineCaptureActionOwner
   private sequence = 0;
   private revision = 0;
   private readonly entries = new Map<number, TimelineCaptureOperation>();
+  private readonly authoringPreparations = new Set<number>();
   private readonly versions = new Map<string, number>();
   private readonly listeners = new Set<() => void>();
   private readonly preparations = new Map<number, { cancel: () => void }>();
@@ -128,6 +129,7 @@ export class WorkbookTimelineCaptureActionOwner
     for (const entry of this.entries.values())
       if (entry.attempt) this.settle(entry.attempt.id);
     this.preparations.clear();
+    this.authoringPreparations.clear();
     this.entries.clear();
     this.sending.clear();
     this.transports.clear();
@@ -187,6 +189,7 @@ export class WorkbookTimelineCaptureActionOwner
   get unsettledMutationCount() {
     return [...this.entries.values()].filter(
       (entry) =>
+        !this.authoringPreparations.has(entry.key) &&
         !entry.receipt &&
         (entry.phase === "preparing" ||
           entry.phase === "submitting" ||
@@ -234,6 +237,7 @@ export class WorkbookTimelineCaptureActionOwner
   private reserve(
     review: TimelineCaptureReview,
     binding: TimelineCaptureBinding,
+    authoringOnly = false,
   ) {
     if (
       !this.port ||
@@ -255,6 +259,7 @@ export class WorkbookTimelineCaptureActionOwner
         reconciliation: "pending",
       }),
     );
+    if (authoringOnly) this.authoringPreparations.add(key);
     this.publish();
     return key;
   }
@@ -329,14 +334,15 @@ export class WorkbookTimelineCaptureActionOwner
     binding: TimelineCaptureBinding,
     signal: AbortSignal,
   ) {
-    const key = this.reserve(review, binding);
+    const key = this.reserve(review, binding, true);
     if (key === null) return false;
-    const ready = await this.prepare(key, binding, signal);
-    if (ready) {
+    try {
+      return await this.prepare(key, binding, signal);
+    } finally {
+      this.authoringPreparations.delete(key);
       this.entries.delete(key);
       this.publish();
     }
-    return ready;
   }
   /** Synchronous reservation closes the React double-activation window. */
   submit(review: TimelineCaptureReview, binding: TimelineCaptureBinding) {
@@ -516,7 +522,11 @@ export class WorkbookTimelineCaptureActionOwner
       authority: this.authority,
       generation: this.generation,
       revision: ++this.revision,
-      entries: this.authority ? [...this.entries.values()] : [],
+      entries: this.authority
+        ? [...this.entries.values()].filter(
+            (entry) => !this.authoringPreparations.has(entry.key),
+          )
+        : [],
     });
     for (const listener of this.listeners) listener();
   }

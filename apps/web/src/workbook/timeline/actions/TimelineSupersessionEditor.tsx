@@ -13,6 +13,14 @@ import {
 } from "./timelineCaptureActionModel";
 import { useTimelineCandidates } from "./useTimelineCandidates";
 
+type PreparationIntent = {
+  readonly controller: AbortController;
+  readonly key: string;
+  readonly trigger: HTMLButtonElement;
+  readonly focusAtStart: Element | null;
+  interacted: boolean;
+};
+
 export function TimelineSupersessionEditor({
   target,
   authority,
@@ -60,18 +68,46 @@ export function TimelineSupersessionEditor({
     value: TimelineCaptureReview;
     key: string;
   } | null>(null);
-  const preparation = useRef<AbortController | null>(null);
+  const preparation = useRef<PreparationIntent | null>(null);
   const alive = useRef(true);
   const reasonInput = useRef<HTMLTextAreaElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
   const reviewButton = useRef<HTMLButtonElement>(null);
-  const focusReview = useRef(false);
+  const focusConfirm = useRef<PreparationIntent | null>(null);
   const focusBack = useRef(false);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
-      preparation.current?.abort();
+      preparation.current?.controller.abort();
+      preparation.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    const retire = (event: Event) => {
+      const current = preparation.current;
+      if (!current) return;
+      if (
+        event.target === current.trigger &&
+        ((event instanceof KeyboardEvent &&
+          ["Enter", " "].includes(event.key)) ||
+          event.type === "pointerdown")
+      )
+        return;
+      current.interacted = true;
+    };
+    const events = [
+      "focusin",
+      "keydown",
+      "pointerdown",
+      "wheel",
+      "touchstart",
+      "scroll",
+    ] as const;
+    for (const event of events) document.addEventListener(event, retire, true);
+    return () => {
+      for (const event of events)
+        document.removeEventListener(event, retire, true);
     };
   }, []);
   const selected =
@@ -95,6 +131,16 @@ export function TimelineSupersessionEditor({
   ]);
   const keyRef = useRef(key);
   keyRef.current = key;
+  useLayoutEffect(() => {
+    const current = preparation.current;
+    if (!current || current.key === key) return;
+    current.controller.abort();
+    preparation.current = null;
+    setPreparing(false);
+    setMessage(
+      "The row or reviewed inputs changed. Review the current row again. No supersession was sent.",
+    );
+  }, [key]);
   if (reviewRef.current && reviewRef.current.key !== key) {
     focusBack.current = document.activeElement === confirmButton.current;
     reviewRef.current = null;
@@ -115,19 +161,41 @@ export function TimelineSupersessionEditor({
       (latestVersion(selected.recordId) ?? selected.rowVersion) <=
         selected.rowVersion);
   useLayoutEffect(() => {
-    if (focusReview.current) {
-      focusReview.current = false;
-      confirmButton.current?.focus({ preventScroll: true });
+    const intent = focusConfirm.current;
+    if (intent) {
+      focusConfirm.current = null;
+      if (
+        !intent.interacted &&
+        !intent.controller.signal.aborted &&
+        keyRef.current === intent.key &&
+        reviewRef.current?.key === intent.key &&
+        (document.activeElement === document.body ||
+          document.activeElement === intent.focusAtStart)
+      )
+        confirmButton.current?.focus({ preventScroll: true });
+      else {
+        reviewRef.current = null;
+        renderReview((value) => value + 1);
+      }
     }
     if (focusBack.current) {
       focusBack.current = false;
-      reasonInput.current?.focus({ preventScroll: true });
+      if (document.activeElement === document.body)
+        reasonInput.current?.focus({ preventScroll: true });
     }
   });
   async function prepare() {
-    if (!eligible || preparation.current || normalized === null) return;
-    const controller = new AbortController();
-    preparation.current = controller;
+    const trigger = reviewButton.current;
+    if (!eligible || preparation.current || normalized === null || !trigger)
+      return;
+    const intent: PreparationIntent = {
+      controller: new AbortController(),
+      key: keyRef.current,
+      trigger,
+      focusAtStart: document.activeElement,
+      interacted: false,
+    };
+    preparation.current = intent;
     const capturedKey = keyRef.current;
     const value: TimelineCaptureReview = Object.freeze({
       action: "supersede",
@@ -141,25 +209,47 @@ export function TimelineSupersessionEditor({
     setPreparing(true);
     setMessage(null);
     try {
-      const ready = await onPrepare(value, controller.signal);
-      if (!alive.current || controller.signal.aborted) return;
+      const ready = await onPrepare(value, intent.controller.signal);
+      if (
+        !alive.current ||
+        intent.controller.signal.aborted ||
+        preparation.current !== intent
+      )
+        return;
       if (!ready || keyRef.current !== capturedKey) {
         setMessage(
-          "The row or reviewed inputs changed, or earlier edits need attention. Review the current row again. No supersession was sent.",
+          "The row or replacement could not be prepared, or reviewed inputs changed. Check the current values and select Review again. No supersession was sent.",
+        );
+        return;
+      }
+      if (
+        intent.interacted ||
+        !intent.trigger.isConnected ||
+        (document.activeElement !== intent.trigger &&
+          document.activeElement !== intent.focusAtStart)
+      ) {
+        setMessage(
+          "Review was not opened after newer navigation. Select Review again when ready. No supersession was sent.",
         );
         return;
       }
       reviewRef.current = { value, key: capturedKey };
-      focusReview.current = true;
+      focusConfirm.current = intent;
       renderReview((value) => value + 1);
     } catch {
-      if (alive.current && !controller.signal.aborted)
+      if (
+        alive.current &&
+        !intent.controller.signal.aborted &&
+        preparation.current === intent
+      )
         setMessage(
-          "Earlier edits could not finish. No supersession was sent; your reason is retained.",
+          "Supersession review could not be prepared. Check the current row and replacement, then select Review again. No supersession was sent.",
         );
     } finally {
-      if (preparation.current === controller) preparation.current = null;
-      if (alive.current) setPreparing(false);
+      if (preparation.current === intent) {
+        preparation.current = null;
+        if (alive.current) setPreparing(false);
+      }
     }
   }
   function confirm() {
@@ -254,6 +344,7 @@ export function TimelineSupersessionEditor({
                 background: "var(--ct-colors-surface-1)",
               }}
               onChange={(event) => {
+                if (preparation.current) preparation.current.interacted = true;
                 setReason(event.target.value);
                 setMessage(null);
               }}
@@ -281,6 +372,7 @@ export function TimelineSupersessionEditor({
                 background: "var(--ct-colors-surface-1)",
               }}
               onChange={(event) => {
+                if (preparation.current) preparation.current.interacted = true;
                 setReplacement(
                   candidates.rows.find(
                     (row) => row.recordId === event.target.value,
@@ -346,7 +438,9 @@ export function TimelineSupersessionEditor({
           </div>
           <WorkbookInspectorActionButton
             ref={reviewButton}
-            disabled={!eligible}
+            disabled={!preparing && !eligible}
+            aria-busy={preparing}
+            aria-disabled={preparing || undefined}
             onClick={() => void prepare()}
             data-testid={timelineCaptureActionTestId("review", target.recordId)}
           >
@@ -355,11 +449,16 @@ export function TimelineSupersessionEditor({
         </>
       )}
       {problem ? <p>{problem}</p> : null}
-      {preparing ? (
-        <p role="status">Waiting for earlier edits before review…</p>
-      ) : null}
+      {preparing ? <p role="status">Preparing supersession review…</p> : null}
       {message ? <p role="status">{message}</p> : null}
-      <WorkbookInspectorActionButton onClick={onCancel}>
+      <WorkbookInspectorActionButton
+        onClick={() => {
+          preparation.current?.controller.abort();
+          preparation.current = null;
+          focusConfirm.current = null;
+          onCancel();
+        }}
+      >
         Cancel supersession
       </WorkbookInspectorActionButton>
     </section>

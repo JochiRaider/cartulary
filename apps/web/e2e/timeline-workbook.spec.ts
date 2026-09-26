@@ -699,6 +699,190 @@ test("drives review, demotion, and supersede through the visible workbook surfac
   await reviewerPage.context().close();
 });
 
+test("Timeline supersession Review stays reachable and late preparation respects Inspector navigation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TIMELINE-SUPERSESSION-HANDOFF"),
+    "Timeline supersession handoff",
+  );
+  const target = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("handoff-target"),
+    "timeline.activity_synopsis_text": "Supersession handoff target",
+  });
+  const replacement = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("handoff-replacement"),
+      "timeline.activity_synopsis_text": "Supersession handoff replacement",
+    },
+  );
+  await page.goto(`/?incident_id=${incidentId}`);
+  await openTimelineRowActions(page, target.record_id);
+  await page
+    .getByTestId(timelineRowSupersedeButtonTestId(target.record_id))
+    .click();
+  const reason = page.getByTestId(
+    timelineCaptureActionTestId("reason", target.record_id),
+  );
+  const selection = page.getByTestId(
+    timelineCaptureActionTestId("replacement", target.record_id),
+  );
+  const review = page.getByTestId(
+    timelineCaptureActionTestId("review", target.record_id),
+  );
+  const confirm = page.getByTestId(
+    timelineCaptureActionTestId("confirm", target.record_id),
+  );
+  await reason.fill("  Verified replacement corrects the observation.  ");
+  await expect(
+    selection.locator(`option[value="${replacement.record_id}"]`),
+  ).toHaveCount(1);
+  await selection.selectOption(replacement.record_id);
+
+  const queryPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
+  let held = 0;
+  let failNext = false;
+  let gate: Promise<void> | null = null;
+  let release = () => {};
+  const holdNextRead = () => {
+    gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+  };
+  const mutations: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().endsWith(`/api/v1/records/${target.record_id}/supersede`)
+    )
+      mutations.push(request.postData() ?? "");
+  });
+  const holdValidation = async (route: Route) => {
+    if (failNext) {
+      failNext = false;
+      await route.abort("failed");
+      return;
+    }
+    const response = await route.fetch();
+    const activeGate = gate;
+    if (!activeGate) {
+      await route.fulfill({ response });
+      return;
+    }
+    held++;
+    await activeGate;
+    await route.fulfill({ response });
+  };
+  await page.route(`**${queryPath}`, holdValidation);
+  holdNextRead();
+  await review.focus();
+  await review.press("Enter");
+  try {
+    await expect.poll(() => held).toBe(1);
+    await expect(review).toBeAttached();
+    await expect(review).toBeFocused();
+    await expect(review).toHaveAttribute("aria-busy", "true");
+    await expect(review).toHaveAttribute("aria-disabled", "true");
+    expect(
+      await review.evaluate((element: HTMLButtonElement) => element.disabled),
+    ).toBe(false);
+    await expect(review).toBeInViewport();
+    await review.press("Enter");
+    await review.press("Space");
+    const reviewBounds = await review.boundingBox();
+    expect(reviewBounds).not.toBeNull();
+    if (reviewBounds)
+      await page.mouse.click(
+        reviewBounds.x + reviewBounds.width / 2,
+        reviewBounds.y + reviewBounds.height / 2,
+      );
+    expect(held).toBe(1);
+    expect(mutations).toEqual([]);
+    await page.keyboard.press("Tab");
+    await expect(review).not.toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(review).toBeFocused();
+    await reason.click();
+    await expect(reason).toBeFocused();
+    const scrollBody = page.locator("[data-inspector-scroll-body]");
+    const beforeScroll = await scrollBody.evaluate(
+      (element) => element.scrollTop,
+    );
+    await scrollBody.hover();
+    await page.mouse.wheel(0, 240);
+    await expect
+      .poll(() => scrollBody.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(beforeScroll);
+    const afterScroll = await scrollBody.evaluate(
+      (element) => element.scrollTop,
+    );
+    gate = null;
+    release();
+    await expect(review).toHaveAttribute("aria-busy", "false");
+    await expect(confirm).toHaveCount(0);
+    await expect(reason).toBeAttached();
+    await expect(reason).toBeFocused();
+    expect(await scrollBody.evaluate((element) => element.scrollTop)).toBe(
+      afterScroll,
+    );
+    expect(mutations).toEqual([]);
+  } finally {
+    gate = null;
+    release();
+  }
+
+  failNext = true;
+  await review.focus();
+  await review.press("Enter");
+  await expect(page.getByText(/could not be prepared/)).toBeVisible();
+  await expect(reason).toHaveValue(
+    "  Verified replacement corrects the observation.  ",
+  );
+  await expect(selection).toHaveValue(replacement.record_id);
+  expect(mutations).toEqual([]);
+
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await review.scrollIntoViewIfNeeded();
+  await expect(review).toBeInViewport();
+  await expect(reason).toHaveValue(
+    "  Verified replacement corrects the observation.  ",
+  );
+  await expect(selection).toHaveValue(replacement.record_id);
+  holdNextRead();
+  await review.focus();
+  await review.press("Enter");
+  try {
+    await expect.poll(() => held).toBe(2);
+    await expect(review).toBeAttached();
+    await expect(review).toBeFocused();
+    gate = null;
+    release();
+    await expect(confirm).toBeFocused();
+    await expect(confirm).toBeInViewport();
+    expect(mutations).toEqual([]);
+  } finally {
+    gate = null;
+    release();
+  }
+  await confirm.press("Enter");
+  await expect.poll(() => mutations.length).toBe(1);
+  expect(
+    JSON.parse(mutations[0] ?? "{}") as Record<string, unknown>,
+  ).toMatchObject({
+    base_row_version: target.row_version,
+    reason: "Verified replacement corrects the observation.",
+    replacement_record_id: replacement.record_id,
+  });
+  await page.unroute(`**${queryPath}`, holdValidation);
+});
+
 test("uses public history and visible state to prove replay avoids duplicate mutation effects", async ({
   browser,
   page,
