@@ -179,6 +179,26 @@ function harness() {
 }
 
 describe("Workbook import lifecycle", () => {
+  it("restores acknowledged review without restarting observation on bind", async () => {
+    const h = harness();
+    await h.discover();
+    const job = h.controller.getSnapshot().job;
+    expect(job).not.toBeNull();
+    h.controller.pause();
+    const reads = h.client.readJob.mock.calls.length;
+    h.bind({});
+    await settle();
+    expect(h.controller.getSnapshot().job?.job_id).toBe(job?.job_id);
+    expect(h.controller.getSnapshot().jobCurrent).toBe(false);
+    expect(h.client.readJob).toHaveBeenCalledTimes(reads);
+    const writes = h.client.send.mock.calls.length;
+    const resourceReads = h.client.readSession.mock.calls.length;
+    await h.controller.resumeObservation();
+    expect(h.client.readSession.mock.calls.length).toBeGreaterThan(
+      resourceReads,
+    );
+    expect(h.client.send).toHaveBeenCalledTimes(writes);
+  });
   it("fences late writes at every command stage across role closure claim and incident boundaries", async () => {
     for (const stage of [
       "upload",
@@ -440,9 +460,13 @@ describe("Workbook import lifecycle", () => {
     const jobId = h.controller.getSnapshot().job?.job_id;
     expect(h.controller.getSnapshot().observationFailure).not.toBeNull();
     h.controller.setPresented(false);
+    const reads = h.client.readJob.mock.calls.length;
+    h.controller.setPresented(true);
+    await settle();
+    expect(h.client.readJob).toHaveBeenCalledTimes(reads);
+    expect(h.controller.getSnapshot().jobCurrent).toBe(false);
     await h.controller.resumeObservation();
     await settle();
-    h.controller.setPresented(true);
     expect(h.controller.getSnapshot().job?.job_id).toBe(jobId);
     expect(h.controller.getSnapshot().session?.import_session_id).toBe(
       ids.session,
@@ -681,6 +705,7 @@ describe("Workbook import lifecycle", () => {
     await settle();
     h.controller.stopObservation();
     h.bind({ closed: true });
+    void h.controller.resumeObservation();
     await settle();
     h.controller.stopObservation();
     await h.controller.cancel();
@@ -716,5 +741,24 @@ describe("Workbook import lifecycle", () => {
     h.controller.setPresented(false);
     await h.controller.openResult("cartulary.view.timeline.v2", navigate);
     expect(navigate).toHaveBeenCalledTimes(1);
+  });
+  it("owns presentation cleanup across replacement and keeps a new draft attached", () => {
+    const h = harness();
+    const old = h.controller.attachPresentation(true);
+    const current = h.controller.attachPresentation(true);
+    if (!old || !current) throw new Error("Expected live presentation");
+    h.controller.chooseFile(new File(["source"], "source.csv"));
+    const before = h.controller.getSnapshot();
+    old.detach();
+    expect(old.update(false)).toBe(false);
+    expect(h.controller.getSnapshot()).toBe(before);
+    h.controller.startNew();
+    expect(current.update(true)).toBe(true);
+    current.detach();
+    const detached = h.controller.getSnapshot();
+    current.detach();
+    expect(h.controller.getSnapshot()).toBe(detached);
+    h.controller.dispose();
+    expect(h.controller.attachPresentation(true)).toBeNull();
   });
 });

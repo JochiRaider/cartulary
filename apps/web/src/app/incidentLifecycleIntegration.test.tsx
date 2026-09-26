@@ -8,7 +8,9 @@ import {
 } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
 import {
   metadataActorId as actorId,
   metadataDeferred as deferred,
@@ -22,7 +24,10 @@ import { IncidentLifecyclePanel } from "./IncidentLifecyclePanel";
 import type { IncidentLifecycleController } from "./incidentLifecycleController";
 import { IncidentMetadataController } from "./incidentMetadataController";
 import { IncidentResourceController } from "./incidentResourceController";
-import { useIncidentLifecycle } from "./useIncidentLifecycle";
+
+const useIncidentLifecycle = (
+  options: Parameters<typeof useAppWorkflowsForTest>[0],
+) => useAppWorkflowsForTest(options).lifecycle;
 
 const sessions: AppSessionController[] = [];
 afterEach(() => {
@@ -62,6 +67,18 @@ async function setup() {
   vi.stubGlobal("fetch", fetch);
   const accepted = vi.fn();
   const lost = vi.fn();
+  function Presentation({
+    workflow,
+  }: {
+    workflow: ReturnType<typeof useIncidentLifecycle>;
+  }) {
+    useWorkflowAttachment(
+      workflow.attachSurface,
+      { incidentId, activeSection: "summary", currentIncidentRole: "admin" },
+      true,
+    );
+    return <IncidentLifecyclePanel controller={workflow.controller} />;
+  }
   function Harness() {
     const [open, setOpen] = useState(true);
     const workflow = useIncidentLifecycle({
@@ -79,23 +96,12 @@ async function setup() {
         <button
           type="button"
           onClick={() => {
-            workflow.bindSurface(
-              open
-                ? null
-                : {
-                    incidentId,
-                    activeSection: "summary",
-                    currentIncidentRole: "admin",
-                  },
-            );
             setOpen(!open);
           }}
         >
           Toggle controls
         </button>
-        {open ? (
-          <IncidentLifecyclePanel controller={workflow.controller} />
-        ) : null}
+        {open ? <Presentation workflow={workflow} /> : null}
       </>
     );
   }

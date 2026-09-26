@@ -1,4 +1,9 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import type { AppSessionController } from "./appSessionController";
 
 /** React binds presentation and lifetime only; the controller owns session decisions. */
@@ -6,19 +11,25 @@ export function useAppSession(
   controller: AppSessionController,
   disposeResources: () => void,
 ) {
-  const mounted = useRef(false);
-  const dispose = useRef(disposeResources);
-  dispose.current = disposeResources;
+  const mounted = useRef<AppSessionController | null>(null);
+  const committed = useRef({ controller, disposeResources, disposed: false });
+  useLayoutEffect(() => {
+    if (committed.current.controller === controller)
+      committed.current.disposeResources = disposeResources;
+    else committed.current = { controller, disposeResources, disposed: false };
+  });
   useEffect(() => {
-    mounted.current = true;
+    const lifetime = committed.current;
+    mounted.current = controller;
     controller.start();
     return () => {
-      mounted.current = false;
+      mounted.current = null;
       controller.stop();
       queueMicrotask(() => {
-        if (mounted.current) return;
+        if (mounted.current === controller || lifetime.disposed) return;
+        lifetime.disposed = true;
         controller.dispose();
-        dispose.current();
+        lifetime.disposeResources();
       });
     };
   }, [controller]);

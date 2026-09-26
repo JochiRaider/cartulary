@@ -9,10 +9,12 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { IncidentResource } from "../shared/incidentResource";
+import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type {
   WorkbookDensityMode,
   WorkbookIncidentControlsRendererProps,
 } from "../shared/workbookShellContracts";
+import type { AttachWorkflow } from "../shared/workflowAttachment";
 import { AccountDialog } from "./AccountDialog";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import type { IncidentLifecycleController } from "./incidentLifecycleController";
@@ -21,7 +23,7 @@ import { primaryButtonStyle, secondaryButtonStyle } from "./landingAdminStyles";
 
 export function IncidentLifecycleFeature({
   controller,
-  bindSurface,
+  attachSurface,
   acceptedIncident,
   onIncidentObserved,
   preferenceControls,
@@ -29,21 +31,11 @@ export function IncidentLifecycleFeature({
 }: WorkbookIncidentControlsRendererProps & {
   controller: IncidentLifecycleController;
   preferenceControls?: ReactNode;
-  bindSurface: (surface: WorkbookIncidentControlsRendererProps | null) => void;
+  attachSurface: AttachWorkflow<WorkbookIncidentControlsRendererProps>;
   acceptedIncident: IncidentResource | null;
   onIncidentObserved: (resource: IncidentResource) => void;
 }) {
-  const latest = useRef({ bindSurface, surface });
-  latest.current = { bindSurface, surface };
-  useLayoutEffect(() => bindSurface(surface));
-  useLayoutEffect(() => {
-    const visibility = () => latest.current.bindSurface(latest.current.surface);
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      document.removeEventListener("visibilitychange", visibility);
-      latest.current.bindSurface(null);
-    };
-  }, []);
+  useWorkflowAttachment(attachSurface, surface, true);
   return (
     <IncidentAdminPanel
       {...surface}

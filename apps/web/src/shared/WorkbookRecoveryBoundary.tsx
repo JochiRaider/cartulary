@@ -77,20 +77,23 @@ export function useWorkbookRecoverySource(
 ) {
   const navigation = useWorkbookRecoveryNavigation();
   const latest = useRef(callbacks);
-  latest.current = callbacks;
+  useLayoutEffect(() => {
+    latest.current = callbacks;
+  });
   const registration = useRef<ReturnType<
     WorkbookRecoveryNavigation["register"]
   > | null>(null);
   useLayoutEffect(() => {
     const detach = latest.current.detach;
-    registration.current =
+    const owned =
       navigation?.register(source, {
         activate: (id) => latest.current.activate?.(id) ?? true,
         detach: () => detach?.(),
       }) ?? null;
+    registration.current = owned;
     return () => {
-      registration.current?.unregister();
-      registration.current = null;
+      owned?.unregister();
+      if (registration.current === owned) registration.current = null;
     };
   }, [navigation, source]);
   useLayoutEffect(() => {

@@ -15,13 +15,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { WorkbookImportController } from "../imports/WorkbookImportController";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
 } from "../shared/workbookShellContracts";
-import type { NetworkFlowImportController } from "../workbook/features/NetworkFlowOperations";
-import type { WorkbookPreferenceController } from "../workbook/preferences/WorkbookPreferenceController";
 import { WorkbookPreferencesPanel } from "../workbook/preferences/WorkbookPreferencesPanel";
 import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
 import { AccountApplicationMenu } from "./AccountApplicationMenu";
@@ -66,10 +63,6 @@ import {
   incidentDirectoryStatusText,
 } from "./incidentDirectoryModel";
 import type { IncidentImportController } from "./incidentImportModel";
-import type { IncidentLifecycleController } from "./incidentLifecycleController";
-import type { IncidentMembershipAuditController } from "./incidentMembershipAuditController";
-import type { IncidentMembershipManagementController } from "./incidentMembershipManagementController";
-import type { IncidentMetadataController } from "./incidentMetadataController";
 import { IncidentResourceController } from "./incidentResourceController";
 import {
   IncidentDirectoryShell,
@@ -86,18 +79,11 @@ import { readAppRouteState } from "./routeState";
 import { useAdministrativeAudit } from "./useAdministrativeAudit";
 import { useAppRouteRuntime } from "./useAppRouteRuntime";
 import { useAppSession } from "./useAppSession";
+import { useAppWorkflows } from "./useAppWorkflows";
 import { useIncidentCreation } from "./useIncidentCreation";
 import { useIncidentDirectory } from "./useIncidentDirectory";
 import { useIncidentImport } from "./useIncidentImport";
-import { useIncidentLifecycle } from "./useIncidentLifecycle";
-import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
-import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
-import { useIncidentMetadata } from "./useIncidentMetadata";
-import { useNetworkFlowImport } from "./useNetworkFlowImport";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
-import { useWorkbookImport } from "./useWorkbookImport";
-import { useWorkbookPreferences } from "./useWorkbookPreferences";
-import { useWorkbookSavedViews } from "./useWorkbookSavedViews";
 import { WorkbookPreferenceDepartureDialog } from "./WorkbookPreferenceDepartureDialog";
 
 const LazyWorkbookShell = lazy(async () => {
@@ -148,18 +134,9 @@ export function App({
   themeId,
   authNavigation,
 }: AppProps = {}) {
-  const workbookImportRef = useRef<WorkbookImportController | null>(null);
-  const networkFlowImportRef = useRef<NetworkFlowImportController | null>(null);
-  const preferencesRef = useRef<WorkbookPreferenceController | null>(null);
-  const metadataRef = useRef<IncidentMetadataController | null>(null);
-  const lifecycleRef = useRef<IncidentLifecycleController | null>(null);
+  const workflowsRef = useRef<ReturnType<typeof useAppWorkflows> | null>(null);
   const incidentResourceRef = useRef<IncidentResourceController | null>(null);
-  const membershipManagementRef =
-    useRef<IncidentMembershipManagementController | null>(null);
   const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
-  const membershipAuditRef = useRef<IncidentMembershipAuditController | null>(
-    null,
-  );
   const auditControllerRef = useRef<AdministrativeAuditController | null>(null);
   const accountEditingRef = useRef<AccountSettingsController | null>(null);
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
@@ -172,10 +149,13 @@ export function App({
   const sessionControllerRef = useRef<AppSessionController | null>(null);
   const { commitRoute, route, routeRef } = useAppRouteRuntime({
     hasPendingEdits: () =>
-      (preferencesRef.current?.hasDepartureWork() ?? false) ||
-      (lifecycleRef.current?.hasDepartureWork() ?? false) ||
-      (metadataRef.current?.hasDepartureWork() ?? false) ||
-      (membershipManagementRef.current?.hasDepartureWork() ?? false) ||
+      (workflowsRef.current?.preferences.controller.hasDepartureWork() ??
+        false) ||
+      (workflowsRef.current?.lifecycle.controller.hasDepartureWork() ??
+        false) ||
+      (workflowsRef.current?.metadata.controller.hasDepartureWork() ?? false) ||
+      (workflowsRef.current?.membershipManagement.controller.hasDepartureWork() ??
+        false) ||
       (deploymentUsersRef.current?.hasDirtyDraft() ?? false),
     requestLeave: () => {
       const lifetime = sessionControllerRef.current?.getSnapshot().lifetime;
@@ -183,25 +163,35 @@ export function App({
       return reviewAppDeparture({
         memberships: {
           hasWork: () =>
-            membershipManagementRef.current?.hasDepartureWork() ?? false,
+            workflowsRef.current?.membershipManagement.controller.hasDepartureWork() ??
+            false,
           requestLeave: () =>
-            membershipManagementRef.current?.requestLeave() ??
+            workflowsRef.current?.membershipManagement.controller.requestLeave() ??
             Promise.resolve(true),
         },
         metadata: {
-          hasWork: () => metadataRef.current?.hasDepartureWork() ?? false,
+          hasWork: () =>
+            workflowsRef.current?.metadata.controller.hasDepartureWork() ??
+            false,
           requestLeave: () =>
-            metadataRef.current?.requestLeave() ?? Promise.resolve(true),
+            workflowsRef.current?.metadata.controller.requestLeave() ??
+            Promise.resolve(true),
         },
         lifecycle: {
-          hasWork: () => lifecycleRef.current?.hasDepartureWork() ?? false,
+          hasWork: () =>
+            workflowsRef.current?.lifecycle.controller.hasDepartureWork() ??
+            false,
           requestLeave: () =>
-            lifecycleRef.current?.requestLeave() ?? Promise.resolve(true),
+            workflowsRef.current?.lifecycle.controller.requestLeave() ??
+            Promise.resolve(true),
         },
         preferences: {
-          hasWork: () => preferencesRef.current?.hasDepartureWork() ?? false,
+          hasWork: () =>
+            workflowsRef.current?.preferences.controller.hasDepartureWork() ??
+            false,
           requestLeave: () =>
-            preferencesRef.current?.requestLeave() ?? Promise.resolve(true),
+            workflowsRef.current?.preferences.controller.requestLeave() ??
+            Promise.resolve(true),
         },
         deploymentUsers: {
           hasWork: () => deploymentUsersRef.current?.hasDirtyDraft() ?? false,
@@ -215,13 +205,7 @@ export function App({
     },
     beforeCommit: (next) => {
       if (next.incidentId !== routeRef.current.incidentId) {
-        workbookImportRef.current?.retire();
-        networkFlowImportRef.current?.retire();
-        membershipAuditRef.current?.retire();
-        membershipManagementRef.current?.retire();
-        metadataRef.current?.retire();
-        lifecycleRef.current?.retire();
-        preferencesRef.current?.retire();
+        workflowsRef.current?.retire();
         incidentResourceRef.current?.retire();
       }
       auditControllerRef.current?.setActive(false);
@@ -243,13 +227,7 @@ export function App({
     () =>
       new AppSessionController({
         retireLifetime: (lifetime) => {
-          workbookImportRef.current?.retire();
-          networkFlowImportRef.current?.retire();
-          membershipAuditRef.current?.retire();
-          membershipManagementRef.current?.retire();
-          metadataRef.current?.retire();
-          lifecycleRef.current?.retire();
-          preferencesRef.current?.retire();
+          workflowsRef.current?.retire();
           incidentResourceRef.current?.retire();
           auditControllerRef.current?.retire();
           accountEditingRef.current?.retireLifetime();
@@ -390,10 +368,10 @@ export function App({
     const preventUnload = (event: BeforeUnloadEvent) => {
       if (
         !deploymentUsers.hasDirtyDraft() &&
-        !membershipManagementRef.current?.hasDepartureWork() &&
-        !metadataRef.current?.hasDepartureWork() &&
-        !lifecycleRef.current?.hasDepartureWork() &&
-        !preferencesRef.current?.hasDepartureWork()
+        !workflowsRef.current?.membershipManagement.controller.hasDepartureWork() &&
+        !workflowsRef.current?.metadata.controller.hasDepartureWork() &&
+        !workflowsRef.current?.lifecycle.controller.hasDepartureWork() &&
+        !workflowsRef.current?.preferences.controller.hasDepartureWork()
       )
         return;
       event.preventDefault();
@@ -431,11 +409,7 @@ export function App({
   );
   accountEditingRef.current = accountEditing;
   const sessionSnapshot = useAppSession(sessionController, () => {
-    membershipAuditRef.current?.dispose();
-    membershipManagementRef.current?.dispose();
-    metadataRef.current?.dispose();
-    lifecycleRef.current?.dispose();
-    preferencesRef.current?.dispose();
+    workflowsRef.current?.dispose();
     incidentResourceRef.current?.retire();
     workbookMutationRuntimeRegistry.dispose();
     accountEditing.dispose();
@@ -891,10 +865,7 @@ export function App({
       sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime
     )
       return;
-    membershipManagementRef.current?.retire();
-    metadataRef.current?.retire();
-    lifecycleRef.current?.retire();
-    preferencesRef.current?.retire();
+    workflowsRef.current?.retire();
     incidentResourceRef.current?.retire();
     directoryControllerRef.current?.setActive(false);
     navigationFocusRequestRef.current = {
@@ -930,8 +901,14 @@ export function App({
           );
         },
         accepted: (resource) => {
-          metadataRef.current?.acceptResource(resource, false);
-          lifecycleRef.current?.acceptResource(resource, false);
+          workflowsRef.current?.metadata.controller.acceptResource(
+            resource,
+            false,
+          );
+          workflowsRef.current?.lifecycle.controller.acceptResource(
+            resource,
+            false,
+          );
         },
       }),
   );
@@ -941,59 +918,7 @@ export function App({
     incidentResources.getSnapshot,
   );
 
-  const workbookImport = useWorkbookImport({
-    sessionController,
-    currentIncidentId: () => routeRef.current.incidentId,
-  });
-  workbookImportRef.current = workbookImport.controller;
-  const networkFlowImport = useNetworkFlowImport({
-    sessionController,
-    currentIncidentId: () => routeRef.current.incidentId,
-  });
-  networkFlowImportRef.current = networkFlowImport.controller;
-
-  const savedViews = useWorkbookSavedViews({
-    sessionController,
-    recovery: workbookAuthorizationRecovery,
-    currentIncidentId: () => routeRef.current.incidentId,
-    onIncidentAccessLost: handleIncidentAccessLost,
-    onSessionLost: handleSessionLost,
-  });
-  const preferences = useWorkbookPreferences({
-    sessionController,
-    recovery: workbookAuthorizationRecovery,
-    currentIncidentId: () => routeRef.current.incidentId,
-    onIncidentAccessLost: handleIncidentAccessLost,
-    onSessionLost: handleSessionLost,
-  });
-  preferencesRef.current = preferences.controller;
-
-  const membershipAudit = useIncidentMembershipAudit({
-    sessionController,
-    recovery: workbookAuthorizationRecovery,
-    currentIncidentId: () => routeRef.current.incidentId,
-    onIncidentAccessLost: handleIncidentAccessLost,
-    onSessionLost: handleSessionLost,
-  });
-  membershipAuditRef.current = membershipAudit.controller;
-  const membershipManagement = useIncidentMembershipManagement({
-    sessionController,
-    recovery: workbookAuthorizationRecovery,
-    currentIncidentId: () => routeRef.current.incidentId,
-    onIncidentAccessLost: handleIncidentAccessLost,
-    onSessionLost: handleSessionLost,
-  });
-  membershipManagementRef.current = membershipManagement.controller;
-  const metadata = useIncidentMetadata({
-    onResourceAccepted: incidentResources.accept,
-    sessionController,
-    recovery: workbookAuthorizationRecovery,
-    currentIncidentId: () => routeRef.current.incidentId,
-    onIncidentAccessLost: handleIncidentAccessLost,
-    onSessionLost: handleSessionLost,
-  });
-  metadataRef.current = metadata.controller;
-  const lifecycle = useIncidentLifecycle({
+  const workflows = useAppWorkflows({
     sessionController,
     recovery: workbookAuthorizationRecovery,
     currentIncidentId: () => routeRef.current.incidentId,
@@ -1001,7 +926,19 @@ export function App({
     onSessionLost: handleSessionLost,
     onResourceAccepted: incidentResources.accept,
   });
-  lifecycleRef.current = lifecycle.controller;
+  useLayoutEffect(() => {
+    workflowsRef.current = workflows;
+  }, [workflows]);
+  const {
+    workbookImport,
+    networkFlowImport,
+    savedViews,
+    preferences,
+    membershipAudit,
+    membershipManagement,
+    metadata,
+    lifecycle,
+  } = workflows;
 
   const renderAccountMenu = useCallback(
     (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
@@ -1174,25 +1111,13 @@ export function App({
             <LazyWorkbookShell
               sessionIdentity={sessionSnapshot.lifetime}
               importController={workbookImport.controller}
-              bindWorkbookImport={workbookImport.bindWorkbook}
+              attachWorkbookImport={workbookImport.attachWorkbook}
               networkFlowImportController={networkFlowImport.controller}
-              bindNetworkFlowImport={networkFlowImport.bindWorkbook}
+              attachNetworkFlowImport={networkFlowImport.attachWorkbook}
               savedViewController={savedViews.controller}
-              bindWorkbookSavedViews={(binding) => {
-                if (
-                  sessionController.getSnapshot().lifetime ===
-                  sessionSnapshot.lifetime
-                )
-                  savedViews.bindWorkbook(binding);
-              }}
+              attachWorkbookSavedViews={savedViews.attachWorkbook}
               preferenceController={preferences.controller}
-              bindWorkbookPreferences={(binding) => {
-                if (
-                  sessionController.getSnapshot().lifetime ===
-                  sessionSnapshot.lifetime
-                )
-                  preferences.bindWorkbook(binding);
-              }}
+              attachWorkbookPreferences={preferences.attachWorkbook}
               key={sessionSnapshot.lifetime}
               acceptedIncidentResource={acceptedIncident}
               onIncidentResourceObserved={(resource) => {
@@ -1237,19 +1162,19 @@ export function App({
                   <IncidentMembershipAuditFeature
                     {...props}
                     controller={membershipAudit.controller}
-                    bindSurface={membershipAudit.bindSurface}
+                    attachSurface={membershipAudit.attachSurface}
                   />
                 ) : props.activeSection === "memberships" ? (
                   <IncidentMembershipManagementFeature
                     {...props}
                     controller={membershipManagement.controller}
-                    bindSurface={membershipManagement.bindSurface}
+                    attachSurface={membershipManagement.attachSurface}
                   />
                 ) : props.activeSection === "incident-fields" ? (
                   <IncidentMetadataFeature
                     {...props}
                     controller={metadata.controller}
-                    bindSurface={metadata.bindSurface}
+                    attachSurface={metadata.attachSurface}
                   />
                 ) : (
                   <IncidentLifecycleFeature
@@ -1261,7 +1186,7 @@ export function App({
                         density={props.density}
                       />
                     }
-                    bindSurface={lifecycle.bindSurface}
+                    attachSurface={lifecycle.attachSurface}
                     acceptedIncident={acceptedIncident}
                     onIncidentObserved={(resource) => {
                       if (sessionSnapshot.lifetime && session?.user_id)

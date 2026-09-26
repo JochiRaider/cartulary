@@ -16,6 +16,7 @@ import {
 } from "../services/importClient";
 import { importSessionIdFromReceipt } from "../services/importJobContract";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
+import { createWorkflowAttachment } from "../shared/workflowAttachment";
 import {
   boundedImportRead,
   browserImportClock,
@@ -78,6 +79,11 @@ export class WorkbookImportController {
   private previewQueue: string[] = [];
   private presented = false;
   private disposed = false;
+  private readonly presentation = createWorkflowAttachment<boolean>(
+    () => (this.disposed ? null : () => !this.disposed),
+    (presented) => this.setPresented(presented ?? false),
+  );
+  readonly attachPresentation = this.presentation.attach;
   private readonly clock: ImportClock;
   private readonly transactionId: () => string;
 
@@ -93,12 +99,14 @@ export class WorkbookImportController {
   }
   getSnapshot = () => this.visible;
   subscribe = (listener: () => void) => {
+    if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
   };
   private publish(change: Partial<WorkbookImportState>) {
+    if (this.disposed) return;
     this.state = immutableImportValue({
       ...this.state,
       ...change,
@@ -118,12 +126,8 @@ export class WorkbookImportController {
           });
     for (const listener of this.listeners) listener();
   }
-  bind(binding: WorkbookImportBinding | null) {
+  bind(binding: WorkbookImportBinding) {
     if (this.disposed) return;
-    if (binding === null) {
-      this.pause();
-      return;
-    }
     const changedScope =
       this.scope !== null &&
       (this.scope.incidentId !== binding.scope.incidentId ||
@@ -176,15 +180,13 @@ export class WorkbookImportController {
     });
     if ((!wasActive || changed) && this.state.job) {
       this.publish({ jobCurrent: false });
-      void this.resumeObservation();
+      // Rebinding restores review only; observation requires an explicit action.
     }
   }
   setPresented(presented: boolean) {
+    if (this.disposed || this.presented === presented) return;
     this.presented = presented;
-    if (!presented) {
-      this.navigationStop?.abort();
-      this.navigationStop = null;
-    }
+    if (!presented) this.interrupt({});
   }
   private canRead() {
     return (
@@ -243,11 +245,27 @@ export class WorkbookImportController {
       : operation;
   }
   pause() {
-    this.fence();
     this.binding = null;
+    this.interrupt({ access: "paused", canWrite: false });
+  }
+  private interrupt(change: Partial<WorkbookImportState>) {
+    if (this.disposed) return;
+    this.fence();
     this.publish({
-      access: "paused",
-      canWrite: false,
+      ...change,
+      jobCurrent: false,
+      loadFailure: this.state.session
+        ? importInterruptedFailure()
+        : this.state.loadFailure,
+      units: this.state.units.map((unit) => ({
+        ...unit,
+        preview: null,
+        previewLoading: false,
+        previewFailure:
+          unit.preview !== null || unit.previewLoading
+            ? importInterruptedFailure()
+            : unit.previewFailure,
+      })),
       observing: false,
       loading: false,
       actionPending: false,
@@ -256,6 +274,12 @@ export class WorkbookImportController {
     });
   }
   retire() {
+    if (this.disposed) return;
+    this.presentation.invalidate();
+    this.presented = false;
+    this.clearState();
+  }
+  private clearState() {
     this.fence();
     this.binding = null;
     this.scope = null;
@@ -263,6 +287,7 @@ export class WorkbookImportController {
     this.publish({});
   }
   dispose() {
+    if (this.disposed) return;
     this.retire();
     this.disposed = true;
     this.listeners.clear();
@@ -351,7 +376,7 @@ export class WorkbookImportController {
     )
       return;
     const binding = this.binding;
-    this.retire();
+    this.clearState();
     if (binding) this.bind(binding);
   }
   async upload() {

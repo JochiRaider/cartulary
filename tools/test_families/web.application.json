@@ -1299,6 +1299,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.app_workflow_composition",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/AppWorkflows.test.tsx",
+        "titles": [
+          "commits presentation updates and visibility without admitting abandoned render ports",
+          "constructs eight inert owners and retires and disposes each contribution once",
+          "does not subscribe dispatch or mutate a committed owner from an abandoned render",
+          "keeps owners live through Strict Mode replay and disposes once at terminal departure",
+          "rejects stale attachments mismatched subjects and bindings after retirement or disposal",
+          "replaces the committed session subscription and ignores callbacks from the old source",
+          "retires all old authority before publishing and suppresses a reentrant superseded session"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.authentication_security_operation_lifetime_8021a8bd90",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -2310,9 +2340,11 @@
       "selector": {
         "file": "apps/web/src/app/useNetworkFlowImport.test.tsx",
         "titles": [
+          "Network Flow import application binding distinguishes pending readiness from definitive loss and restores review without replay",
           "Network Flow import application binding fences incident and account replacement before accepting a pending analytical write",
           "Network Flow import application binding hides protected state while the shell is absent and restores only explicit recovery",
-          "Network Flow import application binding retains submitted intent on write loss and retires either withdrawn extension claim"
+          "Network Flow import application binding retains submitted intent on write loss and retires either withdrawn extension claim",
+          "clears retained work when an unsupported profile arrives while detached"
         ]
       },
       "evidence_class": "unit",
@@ -2558,8 +2590,10 @@
       "selector": {
         "file": "apps/web/src/app/useWorkbookImport.test.tsx",
         "titles": [
+          "Workbook import application binding distinguishes pending readiness from definitive loss and restores review without replay",
           "Workbook import application binding fences incident and account replacement before a pending write can be accepted",
-          "Workbook import application binding retains copyable work on role loss and purges it on confirmed profile withdrawal"
+          "Workbook import application binding retains copyable work on role loss and purges it on confirmed profile withdrawal",
+          "clears retained work when an unsupported profile arrives while detached"
         ]
       },
       "evidence_class": "static",

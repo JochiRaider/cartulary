@@ -13,10 +13,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type {
   WorkbookDensityMode,
   WorkbookIncidentControlsRendererProps,
 } from "../shared/workbookShellContracts";
+import type { AttachWorkflow } from "../shared/workflowAttachment";
 import { AccountDialog } from "./AccountDialog";
 import type { IncidentMetadataController } from "./incidentMetadataController";
 import {
@@ -32,23 +34,13 @@ import { primaryButtonStyle, secondaryButtonStyle } from "./landingAdminStyles";
 
 export function IncidentMetadataFeature({
   controller,
-  bindSurface,
+  attachSurface,
   ...surface
 }: WorkbookIncidentControlsRendererProps & {
   controller: IncidentMetadataController;
-  bindSurface: (surface: WorkbookIncidentControlsRendererProps | null) => void;
+  attachSurface: AttachWorkflow<WorkbookIncidentControlsRendererProps>;
 }) {
-  const latest = useRef({ bindSurface, surface });
-  latest.current = { bindSurface, surface };
-  useLayoutEffect(() => bindSurface(surface));
-  useLayoutEffect(() => {
-    const visibility = () => latest.current.bindSurface(latest.current.surface);
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      document.removeEventListener("visibilitychange", visibility);
-      latest.current.bindSurface(null);
-    };
-  }, []);
+  useWorkflowAttachment(attachSurface, surface, true);
   return (
     <IncidentMetadataPanel controller={controller} density={surface.density} />
   );

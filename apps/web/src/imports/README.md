@@ -16,6 +16,7 @@ and the [Import Assistant](../workbook/features/README.md) supplies presentation
 | [importCoordinator.ts](importCoordinator.ts) | Paginated discovery, preview, mapping approval, selection, apply, polling, and cancellation orchestration over validated Import/job operations. |
 | [importRequests.ts](importRequests.ts) | Captures immutable upload and write attempts with scope and transaction identity for replay. |
 | [WorkbookImportController.ts](WorkbookImportController.ts) | Workbook import workflow owner for upload, mapping, approval, selection, apply, and recovery. |
+| [workbookImportBinding.ts](workbookImportBinding.ts) | Feature-owned presentation inputs with typed extension route readiness. |
 | [workbookImportMapping.ts](workbookImportMapping.ts) | Workbook mapping drafts, advisory suggestions, validation, request construction, and clipboard rectangles. |
 | [workbookImportState.ts](workbookImportState.ts) | Workbook import session, unit, and operation state with apply blockers and outcome projections. |
 
@@ -26,3 +27,11 @@ and the [Import Assistant](../workbook/features/README.md) supplies presentation
 | [importCoordinator.test.ts](importCoordinator.test.ts) | Characterization for opaque cursor traversal, exact envelopes, preview/approval separation, stale fingerprints, CSRF, and public errors. |
 | [importJobObservation.test.ts](importJobObservation.test.ts) | Tests bounded import job reads, explicit observation recovery, aborts, and regression rejection. |
 | [WorkbookImportController.test.ts](WorkbookImportController.test.ts) | Tests import-stage authority fencing, advisory mapping suggestions, and duplicate destination errors. |
+
+Presentation closure pauses observation. Temporary readiness loss pauses and
+conceals same-lifetime work. Rebinding restores
+review without resuming observation; explicit observation/recovery uses retained
+receipts and exact captured requests. Unsupported versions, definitive claim/access loss or a current
+protocol defect retires protected Import state. The browser does not implicitly
+cancel server jobs. `workbookImportBinding.ts` owns the presentation input type;
+its readiness comes from the extension availability owner rather than a UI Boolean.

@@ -39,6 +39,49 @@ function deterministicRandom(fill: number) {
 }
 
 describe("extension availability lifecycle", () => {
+  it("separates pending readiness withdrawal and current protocol defects", () => {
+    const c = new ExtensionAvailabilityController({
+      incidentId: "incident-1",
+      randomValues: deterministicRandom(7),
+    });
+    const readiness = () =>
+      c.routeReadiness("network_flow_activity", discovery[0].route_families[0]);
+    expect(readiness()).toBe("pending");
+    c.setDiscovery(discovery);
+    expect(readiness()).toBe("available");
+    c.setDiscovery(null);
+    expect(readiness()).toBe("pending");
+    c.setDiscovery([{ ...discovery[0], claimed: false }]);
+    expect(readiness()).toBe("unavailable");
+    c.setDiscovery(discovery);
+    const stale = c.reserve();
+    const current = c.reserve();
+    if (!stale || !current) throw new Error("reservation");
+    c.acceptWorkbookStartup(stale, {});
+    expect(readiness()).toBe("available");
+    c.acceptWorkbookStartup(current, {});
+    expect(readiness()).toBe("invalid");
+    expect(
+      c.isRouteAvailable(
+        "network_flow_activity",
+        discovery[0].route_families[0],
+      ),
+    ).toBe(false);
+    c.acceptWorkbookStartup(current, availability);
+    expect(readiness()).toBe("available");
+    const changed = vi.fn();
+    c.subscribeAuthority(changed);
+    c.acceptWorkbookStartup(current, {});
+    changed.mockClear();
+    c.acceptWorkbookStartup(current, { ...availability, workspaces: [] });
+    expect(readiness()).toBe("available");
+    expect(changed).toHaveBeenCalledTimes(1);
+    c.acceptWorkbookStartup(current, {});
+    changed.mockClear();
+    c.acceptWorkbookStartupWorkspaces(current, []);
+    expect(readiness()).toBe("available");
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
   it("joins initial discovery with pending startup without admitting unresolved extension actions", async () => {
     const controller = new ExtensionAvailabilityController({
       incidentId: "incident-1",

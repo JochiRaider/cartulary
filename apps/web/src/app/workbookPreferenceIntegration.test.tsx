@@ -8,7 +8,9 @@ import {
 } from "@testing-library/react";
 import { StrictMode, useLayoutEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
 import { metadataJSON as json } from "../testing/incidentMetadataTestSupport";
 import {
   preferenceActorId as actorId,
@@ -21,7 +23,10 @@ import {
 import type { WorkbookPreferenceController } from "../workbook/preferences/WorkbookPreferenceController";
 import { WorkbookPreferencesPanel } from "../workbook/preferences/WorkbookPreferencesPanel";
 import { AppSessionController } from "./appSessionController";
-import { useWorkbookPreferences } from "./useWorkbookPreferences";
+
+const useWorkbookPreferences = (
+  options: Parameters<typeof useAppWorkflowsForTest>[0],
+) => useAppWorkflowsForTest(options).preferences;
 
 const envelope = <T,>(data: T) => ({
   data,
@@ -39,8 +44,8 @@ async function setup() {
     memberships: [{ incident_id: incidentId, role: "admin" }],
   });
   let controller: WorkbookPreferenceController | undefined;
-  let bindWorkbook:
-    | ReturnType<typeof useWorkbookPreferences>["bindWorkbook"]
+  let attachWorkbook:
+    | ReturnType<typeof useWorkbookPreferences>["attachWorkbook"]
     | undefined;
   const session = new AppSessionController({
     session: async () => ({
@@ -84,19 +89,19 @@ async function setup() {
       onSessionLost: () => session.sessionLost(),
     });
     controller = workflow.controller;
-    bindWorkbook = workflow.bindWorkbook;
+    attachWorkbook = workflow.attachWorkbook;
+    useWorkflowAttachment(workflow.attachWorkbook, {
+      incidentId,
+      actorId,
+      apiBase: undefined,
+      surface: {
+        sheetRef: preferenceTimeline,
+        label: "Timeline",
+        available: true,
+      },
+      onAuthorizationRecovered: recovered,
+    });
     useLayoutEffect(() => {
-      workflow.bindWorkbook({
-        incidentId,
-        actorId,
-        apiBase: undefined,
-        surface: {
-          sheetRef: preferenceTimeline,
-          label: "Timeline",
-          available: true,
-        },
-        onAuthorizationRecovered: recovered,
-      });
       // The workbook binds before the independently mounted drawer opens.
       workflow.controller.setInspectionActive(open);
     });
@@ -121,13 +126,13 @@ async function setup() {
   await waitFor(() => expect(bound.getSnapshot().home.read).toBe("ready"));
   return {
     controller: bound,
-    bindWorkbook: (
+    attachWorkbook: (
       binding: Parameters<
-        ReturnType<typeof useWorkbookPreferences>["bindWorkbook"]
+        ReturnType<typeof useWorkbookPreferences>["attachWorkbook"]
       >[0],
     ) => {
-      if (!bindWorkbook) throw new Error("Missing workbook binding");
-      bindWorkbook(binding);
+      if (!attachWorkbook) throw new Error("Missing workbook binding");
+      attachWorkbook(binding);
     },
     session,
     write,
@@ -203,7 +208,7 @@ describe("Preference App integration", () => {
       { incidentId, actorId: "another-actor" },
     ]) {
       act(() =>
-        f.bindWorkbook({
+        f.attachWorkbook({
           ...address,
           apiBase: undefined,
           surface: {

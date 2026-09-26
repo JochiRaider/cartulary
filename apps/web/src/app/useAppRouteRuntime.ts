@@ -3,6 +3,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -39,15 +40,20 @@ export function useAppRouteRuntime(policy?: LeavePolicy): AppRouteRuntime {
   const [route, setRoute] = useState<AppRouteState>(() => readAppRouteState());
   const routeRef = useRef(route);
   const policyRef = useRef(policy);
-  policyRef.current = policy;
+  useLayoutEffect(() => {
+    policyRef.current = policy;
+  });
   const index = useRef(readIndex() ?? 0);
   const request = useRef(0);
   const pending = useRef(false);
   const entryURL = useRef(
     `${window.location.pathname}${window.location.search}${window.location.hash}`,
   );
+  const publication = useRef(0);
   const publish = useCallback((next: AppRouteState) => {
+    const generation = ++publication.current;
     policyRef.current?.beforeCommit(next);
+    if (generation !== publication.current) return;
     routeRef.current = next;
     entryURL.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     startTransition(() => setRoute(next));

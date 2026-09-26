@@ -282,6 +282,12 @@ test("Workbook Import Assistant resumes its known job and recovers only selectio
     .press("Enter");
   await expect(
     assistant.getByRole("button", { name: "Apply 1 selected unit" }),
+  ).toBeDisabled();
+  await assistant
+    .getByRole("button", { name: "Refresh session and outcomes" })
+    .press("Enter");
+  await expect(
+    assistant.getByRole("button", { name: "Apply 1 selected unit" }),
   ).toBeEnabled();
   expect(mappings).toBe(1);
   expect(selections).toBe(2);

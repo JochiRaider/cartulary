@@ -1,7 +1,8 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { observeAccountOperation } from "../app/accountOperation";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
+import { createWorkflowAttachment } from "../shared/workflowAttachment";
 import { createWorkbookSavedViewAdapter } from "../workbook/adapters/createWorkbookSavedViewAdapter";
 import { buildSavedViewLayoutJson } from "../workbook/models/workbookQuery";
 import type { SavedViewResource } from "../workbook/models/workbookSavedViews";
@@ -75,18 +76,26 @@ export function useSavedViewTestApplication(
       }),
   );
   useLayoutEffect(() => () => controller.retire(), [controller]);
+  const presentation = useMemo(
+    () =>
+      createWorkflowAttachment<SavedViewBinding>(
+        (binding) => (binding.incidentId === incidentId ? () => true : null),
+        (binding) => {
+          if (binding)
+            controller.setAuthority({
+              incidentId,
+              actorId,
+              lifetime: "session",
+              role: "admin",
+              apiBase: binding.apiBase,
+            });
+          controller.setBinding(binding);
+        },
+      ),
+    [controller, incidentId, actorId],
+  );
   return {
     savedViewController: controller,
-    bindWorkbookSavedViews: (binding: SavedViewBinding | null) => {
-      if (binding)
-        controller.setAuthority({
-          incidentId,
-          actorId,
-          lifetime: "session",
-          role: "admin",
-          apiBase: binding.apiBase,
-        });
-      controller.setBinding(binding);
-    },
+    attachWorkbookSavedViews: presentation.attach,
   };
 }

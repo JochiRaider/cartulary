@@ -15,6 +15,22 @@ paused. Replacement-shell authorization and an accepted current-surface query
 precede replay. Account replacement retires previous protected state and pending
 work. Directory and incident-creation recovery have separate lifetimes.
 
+The eight retained incident/workbook workflows use named `create*Workflow`
+adapters. Adapters own feature authority, activation, and recovery; React only
+commits their environment and presentation. Import adapters distinguish pending
+route readiness from definitive unavailability and protocol defects. Returning
+current authority restores review; observation and uncertain replay require an
+explicit action. Accepted metadata flows through `IncidentResourceController`,
+including in integration fixtures, independently of drawer presentation.
+
+Presentations attach through typed `update(binding)` / `detach()` handles. A
+replacement invalidates the old handle; subject mismatches are rejected. The
+shared [committed bridge](../shared/useWorkflowAttachment.ts) owns visibility
+listeners and cleanup through [attachment identity](../shared/workflowAttachment.ts), while adapters
+retain feature activation policy. Detachment releases presentation only and
+cannot retire application work. Import shell detachment pauses and conceals
+retained work; returning review does not resume polling or replay a command.
+
 Workbook internals are documented in the [workbook guide](../workbook/README.md).
 
 ## Subdirectories
@@ -73,6 +89,13 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [useAppSession.ts](useAppSession.ts) | Binds accepted session snapshots and controller lifetime to React. |
 | [useAuthentication.ts](useAuthentication.ts) | React binding for authentication commands, local inputs, and TOTP normalization. |
 
+The fixed contribution record in [AppWorkflows.ts](AppWorkflows.ts) supplies
+synchronization, synchronous retirement and terminal disposal for all eight
+owners. [useAppWorkflows.ts](useAppWorkflows.ts) commits environment changes and
+maintains one session subscription; `useAppSession` schedules terminal cleanup
+without disposing live owners during Strict Mode replay. Construction and
+abandoned rendering do not subscribe, dispatch or change active bindings.
+
 ## Shared app coordination
 
 | File | Responsibility |
@@ -105,7 +128,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentMetadataLifecycle.test.tsx](incidentMetadataLifecycle.test.tsx) | Tests metadata drafts across drawer transitions, role changes, access loss, and session replacement. |
 | [incidentMetadataModel.ts](incidentMetadataModel.ts) | Incident metadata values, field revisions, authority, drafts, and review models. |
 | [IncidentMetadataPanel.tsx](IncidentMetadataPanel.tsx) | Incident metadata editing, save/review feedback, and departure-dialog composition. |
-| [useIncidentMetadata.ts](useIncidentMetadata.ts) | React binding for metadata drafts, incident summary reconciliation, and departure review. |
+| [createIncidentMetadataWorkflow.ts](createIncidentMetadataWorkflow.ts) | Feature adapter for metadata drafts, incident summary reconciliation, and departure review. |
 
 ## Incident lifecycle
 
@@ -117,7 +140,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentLifecycleIntegration.test.tsx](incidentLifecycleIntegration.test.tsx) | Tests lifecycle draft retention across drawer transitions, role changes, and session replacement. |
 | [incidentLifecycleModel.ts](incidentLifecycleModel.ts) | Lifecycle authority, action drafts, reviews, captured attempts, and problem-state models. |
 | [IncidentLifecyclePanel.tsx](IncidentLifecyclePanel.tsx) | Incident lifecycle controls, action review, recovery, and departure-dialog composition. |
-| [useIncidentLifecycle.ts](useIncidentLifecycle.ts) | React binding for incident lifecycle ownership, authority updates, and departure review. |
+| [createIncidentLifecycleWorkflow.ts](createIncidentLifecycleWorkflow.ts) | Feature adapter for incident lifecycle ownership, authority updates, and departure review. |
 
 ## Incident membership management
 
@@ -130,7 +153,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentMembershipManagementModel.ts](incidentMembershipManagementModel.ts) | Membership page, authority, draft, review, and mutation-attempt models. |
 | [IncidentMembershipManagementPanel.test.tsx](IncidentMembershipManagementPanel.test.tsx) | Tests reviewed membership writes, permission-sensitive controls, and dirty-input departure review. |
 | [IncidentMembershipManagementPanel.tsx](IncidentMembershipManagementPanel.tsx) | Membership browsing, add/edit/remove review, operation recovery, and departure controls. |
-| [useIncidentMembershipManagement.ts](useIncidentMembershipManagement.ts) | React binding for membership browsing, reviewed mutations, and departure review. |
+| [createIncidentMembershipManagementWorkflow.ts](createIncidentMembershipManagementWorkflow.ts) | Feature adapter for membership browsing, reviewed mutations, and departure review. |
 
 ## Incident membership audit
 
@@ -144,7 +167,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentMembershipAuditModel.ts](incidentMembershipAuditModel.ts) | Membership audit filter validation, paging, authority, and read-state models. |
 | [IncidentMembershipAuditPanel.test.tsx](IncidentMembershipAuditPanel.test.tsx) | Tests incident audit placement, exact-filter validation, and stale or unavailable read feedback. |
 | [IncidentMembershipAuditPanel.tsx](IncidentMembershipAuditPanel.tsx) | Incident membership audit filters, event browsing, paging, and read-state presentation. |
-| [useIncidentMembershipAudit.ts](useIncidentMembershipAudit.ts) | React binding for membership audit activation, applied filters, and read lifetime. |
+| [createIncidentMembershipAuditWorkflow.ts](createIncidentMembershipAuditWorkflow.ts) | Feature adapter for membership audit activation, applied filters, and read lifetime. |
 
 ## Import workflows
 
@@ -159,9 +182,9 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [incidentImportState.ts](incidentImportState.ts) | Pure incident import state transitions, authority checks, and action availability. |
 | [useIncidentImport.ts](useIncidentImport.ts) | React binding and presentation projection for incident import ownership and recovery. |
 | [useNetworkFlowImport.test.tsx](useNetworkFlowImport.test.tsx) | Tests analytical import intent retention, claim withdrawal, and account/incident replacement fencing. |
-| [useNetworkFlowImport.ts](useNetworkFlowImport.ts) | App-lifetime binding for Network Flow import authority, retained work, and surface handoff. |
+| [createNetworkFlowImportWorkflow.ts](createNetworkFlowImportWorkflow.ts) | App-lifetime binding for Network Flow import authority, retained work, and surface handoff. |
 | [useWorkbookImport.test.tsx](useWorkbookImport.test.tsx) | Tests workbook import retention on role loss and retirement on profile or session replacement. |
-| [useWorkbookImport.ts](useWorkbookImport.ts) | App-lifetime binding for workbook import authority and protected workflow state. |
+| [createWorkbookImportWorkflow.ts](createWorkbookImportWorkflow.ts) | App-lifetime binding for workbook import authority and protected workflow state. |
 
 ## Deployment-user administration
 
@@ -202,8 +225,8 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 
 | File | Responsibility |
 | --- | --- |
-| [useWorkbookPreferences.ts](useWorkbookPreferences.ts) | App-lifetime binding for workbook preference ownership and departure review. |
-| [useWorkbookSavedViews.ts](useWorkbookSavedViews.ts) | App-lifetime binding for saved-view controller state and operations. |
+| [createWorkbookPreferencesWorkflow.ts](createWorkbookPreferencesWorkflow.ts) | App-lifetime binding for workbook preference ownership and departure review. |
+| [createWorkbookSavedViewsWorkflow.ts](createWorkbookSavedViewsWorkflow.ts) | App-lifetime binding for saved-view controller state and operations. |
 | [WorkbookPreferenceDepartureDialog.tsx](WorkbookPreferenceDepartureDialog.tsx) | Departure review for outstanding workbook preference edits. |
 | [workbookPreferenceIntegration.test.tsx](workbookPreferenceIntegration.test.tsx) | Tests preference work across drawer transitions, role changes, and session replacement. |
 

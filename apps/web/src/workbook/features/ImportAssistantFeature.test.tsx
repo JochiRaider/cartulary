@@ -219,9 +219,9 @@ describe("ImportAssistantFeature selection lifecycle", () => {
       />,
     );
     const unit = screen.getByRole("region", { name: "Import unit 1" });
-    expect(within(unit).getByRole("alert").textContent).toContain(
-      "Mapping approval is retained",
-    );
+    expect(within(unit).getByText(/Mapping approval is retained/)).toBeTruthy();
+    expect(h.controller.getSnapshot().units[0]?.preview).toBeNull();
+    expect(within(unit).getByText(/Preview:/)).toHaveProperty("role", "alert");
     fireEvent.click(
       within(unit).getByRole("button", { name: "Retry selection" }),
     );

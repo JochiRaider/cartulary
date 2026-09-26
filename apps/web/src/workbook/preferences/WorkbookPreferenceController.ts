@@ -56,6 +56,7 @@ const initial = (): PreferenceSnapshot => ({
 
 /** Two independent resources in one current incident/session. No startup or saved-view policy. */
 export class WorkbookPreferenceController {
+  private disposed = false;
   private state = initial();
   private epoch = 0;
   private sequence = 0;
@@ -82,12 +83,14 @@ export class WorkbookPreferenceController {
   ) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
+    if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
   };
   private publish(patch: Partial<PreferenceSnapshot>) {
+    if (this.disposed) return;
     this.state = { ...this.state, ...patch };
     for (const listener of this.listeners) listener();
   }
@@ -106,6 +109,7 @@ export class WorkbookPreferenceController {
   ): authority is PreferenceAuthority {
     const now = this.state.authority;
     return (
+      !this.disposed &&
       authority !== null &&
       now !== null &&
       epoch === this.epoch &&
@@ -116,6 +120,7 @@ export class WorkbookPreferenceController {
     );
   }
   setAuthority = (authority: PreferenceAuthority | null) => {
+    if (this.disposed) return;
     const previous = this.state.authority;
     if (!authority) {
       if (previous) this.retire();
@@ -141,6 +146,7 @@ export class WorkbookPreferenceController {
     }
   };
   setSurface = (surface: PreferenceSurface | null) => {
+    if (this.disposed) return;
     const old = this.state.surface;
     if (
       old === surface ||
@@ -201,7 +207,9 @@ export class WorkbookPreferenceController {
     this.publish({});
   };
   dispose = () => {
+    if (this.disposed) return;
     this.retire();
+    this.disposed = true;
     this.listeners.clear();
   };
   private acceptAccess(

@@ -105,6 +105,27 @@ export class AppSessionController {
   private sessionRead = 0;
   private readonly resourceReads = { preferences: 0, extensions: 0 };
   private recoveryScope = 0;
+  private transitioningAuthority = false;
+  private pendingAuthority: (() => void) | null = null;
+  private transitionAuthority(change: () => void) {
+    if (this.disposed) return;
+    if (this.transitioningAuthority) {
+      this.pendingAuthority = change;
+      return;
+    }
+    this.transitioningAuthority = true;
+    try {
+      let next: (() => void) | null = change;
+      while (next && !this.disposed) {
+        this.pendingAuthority = null;
+        next();
+        next = this.pendingAuthority;
+      }
+    } finally {
+      this.transitioningAuthority = false;
+      this.pendingAuthority = null;
+    }
+  }
   private disposed = false;
   private readonly ports: SessionPorts;
 
@@ -192,11 +213,15 @@ export class AppSessionController {
     this.endSession();
   }
   private endSession() {
+    this.transitionAuthority(() => this.endSessionNow());
+  }
+  private endSessionNow() {
     if (this.disposed) return;
     ++this.sessionRead;
     ++this.recoveryScope;
     this.cancelObservations();
     this.ports.retireLifetime(null);
+    if (this.disposed || this.pendingAuthority) return;
     this.publish({
       session: null,
       state: "anonymous",
@@ -346,6 +371,9 @@ export class AppSessionController {
   }
 
   private accept(session: SessionData, reauthenticated: boolean) {
+    this.transitionAuthority(() => this.acceptNow(session, reauthenticated));
+  }
+  private acceptNow(session: SessionData, reauthenticated: boolean) {
     const replacement =
       reauthenticated ||
       this.snapshot.session === null ||
@@ -356,8 +384,10 @@ export class AppSessionController {
       const lifetime = `${revision}:${identity(session)}`;
       // These callbacks run before the new account or lifetime becomes observable.
       this.ports.retireLifetime(lifetime);
+      if (this.disposed || this.pendingAuthority) return;
       if (this.accountId !== null && this.accountId !== session.user_id)
         this.ports.replaceAccount();
+      if (this.disposed || this.pendingAuthority) return;
       this.accountId = session.user_id;
       this.publish({
         session,
@@ -370,13 +400,14 @@ export class AppSessionController {
         preferences: { kind: "unresolved" },
         extensions: { kind: "unresolved" },
       });
-      this.refreshResources();
+      if (!this.pendingAuthority && !this.disposed) this.refreshResources();
     } else {
       if (
         this.snapshot.session?.is_deployment_admin &&
         !session.is_deployment_admin
       )
         this.ports.capabilitiesReduced();
+      if (this.disposed || this.pendingAuthority) return;
       this.publish({
         session,
         state: "authenticated",

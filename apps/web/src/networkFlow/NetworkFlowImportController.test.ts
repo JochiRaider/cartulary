@@ -629,7 +629,10 @@ describe("Network Flow import recovery", () => {
     const resuming = h.controller.resumeObservation();
     await vi.advanceTimersByTimeAsync(0);
     h.controller.setPresented(false);
-    expect(h.controller.getSnapshot().discoveryJob?.observing).toBe(true);
+    expect(h.controller.getSnapshot().discoveryJob?.observing).toBe(false);
+    const reads = h.client.readJob.mock.calls.length;
+    h.controller.setPresented(true);
+    expect(h.client.readJob).toHaveBeenCalledTimes(reads);
     h.controller.setWorkspaceActive(false);
     await resuming;
     expect(h.controller.getSnapshot().discoveryJob?.observing).toBe(false);

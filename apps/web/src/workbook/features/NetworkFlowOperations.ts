@@ -2,7 +2,6 @@
 
 export { NetworkFlowIndicatorLinkSurface } from "../../networkFlow/IndicatorLinkDialog";
 export {
-  type NetworkFlowImportBinding,
   NetworkFlowImportController,
   type NetworkFlowImportPort,
 } from "../../networkFlow/NetworkFlowImportController";
@@ -10,6 +9,7 @@ export { NetworkFlowImportSurface } from "../../networkFlow/NetworkFlowImportSur
 export { NetworkFlowIndicatorLinkController } from "../../networkFlow/NetworkFlowIndicatorLinkController";
 export { NetworkFlowTableController } from "../../networkFlow/NetworkFlowTableController";
 export { NetworkFlowTableSurface } from "../../networkFlow/NetworkFlowTableLifecycle";
+export type { NetworkFlowImportSurfaceBinding } from "../../networkFlow/networkFlowImportBinding";
 export { SavedGraphController } from "../../networkFlow/SavedGraphController";
 export { useNetworkFlowIndicatorLinkOwner } from "../../networkFlow/useNetworkFlowIndicatorLinkOwner";
 export { useNetworkFlowSavedGraphOwner } from "../../networkFlow/useNetworkFlowSavedGraphOwner";

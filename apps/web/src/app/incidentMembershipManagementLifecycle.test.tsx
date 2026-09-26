@@ -10,6 +10,7 @@ import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
 import {
   membershipEnvelope,
   membershipFixture,
@@ -18,7 +19,10 @@ import { useIncidentControlsDrawer } from "../workbook/hooks/useIncidentControls
 import { AppSessionController } from "./appSessionController";
 import { IncidentMembershipManagementFeature } from "./IncidentMembershipManagementPanel";
 import type { IncidentMembershipManagementController } from "./incidentMembershipManagementController";
-import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
+
+const useIncidentMembershipManagement = (
+  options: Parameters<typeof useAppWorkflowsForTest>[0],
+) => useAppWorkflowsForTest(options).membershipManagement;
 
 const incidentId = "00000000-0000-4000-8000-000000001001";
 const actorId = "00000000-0000-4000-8000-000000000001";
@@ -108,7 +112,7 @@ async function setup() {
         {drawer.drawerSection === "memberships" ? (
           <IncidentMembershipManagementFeature
             controller={management.controller}
-            bindSurface={management.bindSurface}
+            attachSurface={management.attachSurface}
             incidentId={incidentId}
             currentIncidentRole={role}
             activeSection="memberships"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
+import type { AttachWorkflow } from "../../shared/workflowAttachment";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
 import { createWorkbookReferenceMemberReader } from "../adapters/createWorkbookReferenceMemberReader";
@@ -23,7 +24,7 @@ type WorkbookShellInfrastructureOptions = {
   }>;
   readonly sessionIdentity: string | null;
   readonly savedViewOwner: WorkbookSavedViewController;
-  readonly bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
+  readonly attachWorkbookSavedViews: AttachWorkflow<SavedViewBinding>;
   readonly authorizationRecovered: SavedViewBinding["authorizationRecovered"];
   readonly apiBase: string | undefined;
   readonly extensionAvailability: ExtensionAvailabilityController;
@@ -38,7 +39,7 @@ export function useWorkbookShellInfrastructure({
   acceptedAuthority,
   sessionIdentity,
   savedViewOwner,
-  bindWorkbookSavedViews,
+  attachWorkbookSavedViews,
   authorizationRecovered,
   apiBase,
   extensionAvailability,
@@ -111,7 +112,7 @@ export function useWorkbookShellInfrastructure({
     extensionAvailability,
     onExtensionAvailabilityChange,
     savedViewOwner,
-    bindWorkbookSavedViews,
+    attachWorkbookSavedViews,
     authorizationRecovered,
     apiBase,
     startupPort,

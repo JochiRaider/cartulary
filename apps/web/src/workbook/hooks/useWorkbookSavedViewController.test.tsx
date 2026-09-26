@@ -1,6 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createWorkflowAttachment } from "../../shared/workflowAttachment";
 import { deferred } from "../../testing/fetchMockTestSupport";
 import {
   createSavedViewTestController,
@@ -42,7 +43,10 @@ function setup(overrides: Partial<WorkbookSavedViewPort> = {}) {
   const controller = createSavedViewTestController(port);
   const options: Parameters<typeof useWorkbookSavedViewController>[0] = {
     controller,
-    bindWorkbook: controller.setBinding,
+    attachWorkbook: createWorkflowAttachment(
+      () => () => true,
+      controller.setBinding,
+    ).attach,
     incidentId: saved.incident_id,
     activeContract: contract,
     startupSheetRef: { kind: "saved_view", id: saved.saved_view_id },

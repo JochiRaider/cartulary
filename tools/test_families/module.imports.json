@@ -260,9 +260,11 @@
           "Workbook import lifecycle reconciles changed selection before apply and blocks overlap and terminal sessions",
           "Workbook import lifecycle reconciles current late acknowledgement and fences a replaced lifetime",
           "Workbook import lifecycle requires current cancelability, admits cancellation once, and handles completion races",
+          "Workbook import lifecycle restores acknowledged review without restarting observation on bind",
           "Workbook import lifecycle retains accepted discovery through read failure and resumes the same job after drawer closure",
           "Workbook import lifecycle retains approval after selection failure and recovers only selection across skip and reselect",
-          "Workbook import lifecycle separates cancel requested from canceled and retains committed partial outcomes and navigation"
+          "Workbook import lifecycle separates cancel requested from canceled and retains committed partial outcomes and navigation",
+          "owns presentation cleanup across replacement and keeps a new draft attached"
         ]
       },
       "evidence_class": "unit",

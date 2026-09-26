@@ -6,10 +6,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { StrictMode, useState } from "react";
+import { StrictMode, useState, useSyncExternalStore } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
 import {
   metadataActorId as actorId,
   metadataIncidentId as incidentId,
@@ -23,7 +24,11 @@ import { AppSessionController } from "./appSessionController";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentMetadataFeature } from "./IncidentMetadataPanel";
 import type { IncidentMetadataController } from "./incidentMetadataController";
-import { useIncidentMetadata } from "./useIncidentMetadata";
+import { IncidentResourceController } from "./incidentResourceController";
+
+const useIncidentMetadata = (
+  options: Parameters<typeof useAppWorkflowsForTest>[0],
+) => useAppWorkflowsForTest(options).metadata;
 
 const sessions: AppSessionController[] = [];
 afterEach(() => {
@@ -61,6 +66,20 @@ async function setup() {
   const recovery = session.recoveryPort((id) => id === incidentId);
   const lost = vi.fn();
   const publish = vi.fn();
+  const resources = new IncidentResourceController({
+    isCurrent: (a) => {
+      const state = session.getSnapshot();
+      return (
+        state.lifetime === a.lifetime &&
+        state.session?.user_id === a.actorId &&
+        state.session.memberships.some((m) => m.incident_id === a.incidentId)
+      );
+    },
+    accepted: (resource) => {
+      publish(resource);
+      controller?.acceptResource(resource, false);
+    },
+  });
   const writes: ReturnType<typeof metadataDeferred<Response>>[] = [];
   let resource = metadataIncident();
   let preferenceReads = 0;
@@ -84,6 +103,7 @@ async function setup() {
   function Harness() {
     const [role, setRole] = useState<WorkbookIncidentRole>("admin");
     const editor = useIncidentMetadata({
+      onResourceAccepted: resources.accept,
       sessionController: session,
       recovery,
       currentIncidentId: () => incidentId,
@@ -91,6 +111,10 @@ async function setup() {
       onSessionLost: () => session.sessionLost(),
     });
     controller = editor.controller;
+    const acceptedIncident = useSyncExternalStore(
+      resources.subscribe,
+      resources.getSnapshot,
+    );
     const drawer = useIncidentControlsDrawer(false, (section) => {
       if (section !== "incident-fields") editor.controller.setActive(false);
     });
@@ -122,7 +146,7 @@ async function setup() {
         {drawer.drawerSection === "incident-fields" ? (
           <IncidentMetadataFeature
             controller={editor.controller}
-            bindSurface={editor.bindSurface}
+            attachSurface={editor.attachSurface}
             incidentId={incidentId}
             currentIncidentRole={role}
             activeSection="incident-fields"
@@ -135,7 +159,7 @@ async function setup() {
             incidentId={incidentId}
             currentIncidentRole={role}
             activeSection="summary"
-            acceptedIncident={editor.resource}
+            acceptedIncident={acceptedIncident}
           />
         ) : null}
       </>

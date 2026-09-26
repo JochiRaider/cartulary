@@ -1,22 +1,33 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { NetworkFlowImportSurfaceBinding } from "../../app/useNetworkFlowImport";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useIncidentCollaborationSession } from "../../collaboration/IncidentCollaborationSession";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import {
+  importProfileId,
+  importRouteFamily,
   networkFlowActivityProfileId,
   networkFlowRouteFamily,
 } from "../../extensions/extensionWorkspaceIdentities";
 import { ImportClient } from "../../services/importClient";
+import { useWorkflowAttachment } from "../../shared/useWorkflowAttachment";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
-import type { NetworkFlowImportController } from "../features/NetworkFlowOperations";
+import type { AttachWorkflow } from "../../shared/workflowAttachment";
+import type {
+  NetworkFlowImportController,
+  NetworkFlowImportSurfaceBinding,
+} from "../features/NetworkFlowOperations";
 
 export function useNetworkFlowImportBinding(options: {
   readonly controller: NetworkFlowImportController;
-  readonly bind: (binding: NetworkFlowImportSurfaceBinding | null) => void;
+  readonly attach: AttachWorkflow<NetworkFlowImportSurfaceBinding>;
   readonly incidentId: string;
   readonly apiBase: string | undefined;
   readonly availability: ExtensionAvailabilityController;
-  readonly available: boolean;
   readonly role: WorkbookIncidentRole | null;
   readonly closed: boolean;
   readonly lifecycleVersion: number | undefined;
@@ -28,8 +39,32 @@ export function useNetworkFlowImportBinding(options: {
     incidentId: string;
     lifecycleVersion: number | undefined;
   } | null>(null);
+  const readiness = useSyncExternalStore(
+    (listener) => options.availability.subscribeAuthority(listener),
+    () =>
+      (() => {
+        const availability = options.availability;
+        const importState = availability.routeReadiness(
+          importProfileId,
+          importRouteFamily,
+        );
+        const networkState = availability.routeReadiness(
+          networkFlowActivityProfileId,
+          networkFlowRouteFamily,
+        );
+        if (importState === "invalid" || networkState === "invalid")
+          return "invalid";
+        if (importState === "unavailable" || networkState === "unavailable")
+          return "unavailable";
+        if (importState === "pending" || networkState === "pending")
+          return "pending";
+        return "available";
+      })(),
+  );
   const callbacks = useRef(options);
-  callbacks.current = options;
+  useLayoutEffect(() => {
+    callbacks.current = options;
+  });
   const client = useMemo(
     () =>
       new ImportClient({
@@ -53,8 +88,7 @@ export function useNetworkFlowImportBinding(options: {
       }),
     [options.availability, options.apiBase, options.incidentId],
   );
-  const { incidentId, available, role, closed, controller, lifecycleVersion } =
-    options;
+  const { incidentId, role, closed, controller, lifecycleVersion } = options;
   useLayoutEffect(
     () =>
       session.subscribe((event) => {
@@ -79,42 +113,25 @@ export function useNetworkFlowImportBinding(options: {
       }),
     [controller, session],
   );
-  useLayoutEffect(() => {
-    callbacks.current.bind({
-      incidentId,
-      available,
-      role,
-      closed:
-        closed ||
-        (closureNotice?.incidentId === incidentId &&
-          closureNotice.lifecycleVersion === lifecycleVersion),
-      client,
-      accessFailure: (failure) => {
-        if (failure.code === "incident_closed") {
-          setClosureNotice({
-            incidentId: callbacks.current.incidentId,
-            lifecycleVersion: callbacks.current.lifecycleVersion,
-          });
-          void callbacks.current.recoverIncident();
-        } else {
-          void callbacks.current.recoverAccess();
-        }
-      },
-    });
-  }, [
+  useWorkflowAttachment(options.attach, {
     incidentId,
-    available,
+    readiness,
     role,
-    closed,
+    closed:
+      closed ||
+      (closureNotice?.incidentId === incidentId &&
+        closureNotice.lifecycleVersion === lifecycleVersion),
     client,
-    closureNotice,
-    lifecycleVersion,
-  ]);
-  useLayoutEffect(
-    () => () => {
-      controller.setPresented(false);
-      callbacks.current.bind(null);
+    accessFailure: (failure) => {
+      if (failure.code === "incident_closed") {
+        setClosureNotice({
+          incidentId: callbacks.current.incidentId,
+          lifecycleVersion: callbacks.current.lifecycleVersion,
+        });
+        void callbacks.current.recoverIncident();
+      } else {
+        void callbacks.current.recoverAccess();
+      }
     },
-    [controller],
-  );
+  });
 }

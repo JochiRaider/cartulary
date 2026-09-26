@@ -19,10 +19,12 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type {
   WorkbookDensityMode,
   WorkbookIncidentControlsRendererProps,
 } from "../shared/workbookShellContracts";
+import type { AttachWorkflow } from "../shared/workflowAttachment";
 import { AccountDialog } from "./AccountDialog";
 import type { IncidentMembershipManagementController } from "./incidentMembershipManagementController";
 import {
@@ -35,27 +37,13 @@ import { primaryButtonStyle, secondaryButtonStyle } from "./landingAdminStyles";
 
 export function IncidentMembershipManagementFeature({
   controller,
-  bindSurface,
+  attachSurface,
   ...surface
 }: WorkbookIncidentControlsRendererProps & {
   readonly controller: IncidentMembershipManagementController;
-  readonly bindSurface: (
-    surface: WorkbookIncidentControlsRendererProps | null,
-  ) => void;
+  readonly attachSurface: AttachWorkflow<WorkbookIncidentControlsRendererProps>;
 }) {
-  const latest = useRef({ bindSurface, surface });
-  latest.current = { bindSurface, surface };
-  useLayoutEffect(() => {
-    bindSurface(surface);
-  });
-  useLayoutEffect(() => {
-    const visibility = () => latest.current.bindSurface(latest.current.surface);
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      document.removeEventListener("visibilitychange", visibility);
-      latest.current.bindSurface(null);
-    };
-  }, []);
+  useWorkflowAttachment(attachSurface, surface, true);
   return (
     <IncidentMembershipManagementPanel
       controller={controller}

@@ -8,8 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { NetworkFlowImportSurfaceBinding } from "../app/useNetworkFlowImport";
-import type { WorkbookImportSurfaceBinding } from "../app/useWorkbookImport";
 import {
   IncidentCollaborationSession,
   useIncidentCollaborationSession,
@@ -21,11 +19,12 @@ import {
   networkAnalysisSheetRef,
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
-  networkFlowRouteFamily,
 } from "../extensions/extensionWorkspaceIdentities";
 import type { WorkbookImportController } from "../imports/WorkbookImportController";
+import type { WorkbookImportSurfaceBinding } from "../imports/workbookImportBinding";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
 import type { IncidentResource } from "../shared/incidentResource";
+import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import { WorkbookRecoveryBoundary } from "../shared/WorkbookRecoveryBoundary";
 import { WorkbookWorkAreaOverlayProvider } from "../shared/WorkbookWorkAreaOverlay";
 import { WorkbookRecoveryNavigation } from "../shared/workbookRecoveryNavigation";
@@ -34,6 +33,7 @@ import type {
   WorkbookAccountModel,
   WorkbookIncidentControlsRendererProps,
 } from "../shared/workbookShellContracts";
+import type { AttachWorkflow } from "../shared/workflowAttachment";
 import { WorkbookActiveSurfaceFrame } from "./components/WorkbookActiveSurfaceFrame";
 import { WorkbookActiveSurfacePresentation } from "./components/WorkbookActiveSurfacePresentation";
 import { WorkbookBatchRecovery } from "./components/WorkbookBatchRecovery";
@@ -72,6 +72,7 @@ import { ObservationContext } from "./features/indicators/ObservationContext";
 import { WorkbookIndicatorCreateRecovery } from "./features/indicators/WorkbookIndicatorCreateRecovery";
 import { WorkbookIndicatorLifecycleRecovery } from "./features/indicators/WorkbookIndicatorLifecycleRecovery";
 import { WorkbookObservationRecovery } from "./features/indicators/WorkbookObservationRecovery";
+import type { NetworkFlowImportSurfaceBinding } from "./features/NetworkFlowOperations";
 import {
   type NetworkFlowImportController,
   NetworkFlowImportSurface,
@@ -142,16 +143,14 @@ export type {
 type WorkbookShellProps = {
   sessionIdentity: string | null;
   networkFlowImportController: NetworkFlowImportController;
-  bindNetworkFlowImport: (
-    binding: NetworkFlowImportSurfaceBinding | null,
-  ) => void;
+  attachNetworkFlowImport: AttachWorkflow<NetworkFlowImportSurfaceBinding>;
   importController: WorkbookImportController;
-  bindWorkbookImport: (binding: WorkbookImportSurfaceBinding | null) => void;
+  attachWorkbookImport: AttachWorkflow<WorkbookImportSurfaceBinding>;
   savedViewController: WorkbookSavedViewController;
-  bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
+  attachWorkbookSavedViews: AttachWorkflow<SavedViewBinding>;
   preferenceController?: WorkbookPreferenceController | undefined;
-  bindWorkbookPreferences?:
-    | ((binding: PreferenceWorkbookBinding | null) => void)
+  attachWorkbookPreferences?:
+    | AttachWorkflow<PreferenceWorkbookBinding>
     | undefined;
   onIncidentControlsSectionChange?:
     | ((
@@ -190,13 +189,13 @@ const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 function WorkbookShellContent({
   sessionIdentity,
   networkFlowImportController,
-  bindNetworkFlowImport,
+  attachNetworkFlowImport,
   importController,
-  bindWorkbookImport,
+  attachWorkbookImport,
   savedViewController,
-  bindWorkbookSavedViews,
+  attachWorkbookSavedViews,
   preferenceController,
-  bindWorkbookPreferences,
+  attachWorkbookPreferences,
   onIncidentControlsSectionChange,
   authorizationRecovery,
   incidentId,
@@ -231,7 +230,7 @@ function WorkbookShellContent({
     acceptedAuthority: authorization.acceptedAuthority,
     sessionIdentity,
     savedViewOwner: savedViewController,
-    bindWorkbookSavedViews,
+    attachWorkbookSavedViews,
     authorizationRecovered: authorization.acceptRecoveredAuthorization,
     apiBase,
     extensionAvailability: extensionLifecycle.controller,
@@ -496,46 +495,41 @@ function WorkbookShellContent({
       savedViewController.observePreference("default", null);
     };
   }, [savedViewController, homeId, defaultId]);
-  const preferenceBinding = useRef(bindWorkbookPreferences);
-  preferenceBinding.current = bindWorkbookPreferences;
-  useLayoutEffect(() => {
-    const selected = snapshot.startupSheetRef;
-    const saved = snapshot.savedViewsResource.selectedSavedView;
-    preferenceBinding.current?.({
-      incidentId,
-      actorId: authorization.currentUserId,
-      apiBase,
-      onAuthorizationRecovered: authorization.acceptRecoveredAuthorization,
-      surface: {
-        savedViewLabels: [
-          ...savedViewController.getSnapshot().observations.values(),
-        ].flatMap((observation) =>
-          observation.resource
-            ? [
-                {
-                  id: observation.resource.saved_view_id,
-                  label: observation.resource.display_name,
-                },
-              ]
-            : [],
-        ),
-        sheetRef: selected,
-        label: networkAnalysisActive
-          ? "Network Analysis"
-          : (saved?.display_name ?? null),
-        available:
-          !snapshot.startupPending &&
-          authorization.currentUserId !== null &&
-          authorization.currentIncidentRole !== null &&
-          authorization.currentIncidentRole !== "" &&
-          (selected.kind === "extension_workspace"
-            ? networkAnalysisActive && networkAnalysisAvailable
-            : selected.kind !== "saved_view" ||
-              (saved !== null && saved !== undefined)),
-      },
-    });
+  const selected = snapshot.startupSheetRef;
+  const saved = snapshot.savedViewsResource.selectedSavedView;
+  useWorkflowAttachment(attachWorkbookPreferences, {
+    incidentId,
+    actorId: authorization.currentUserId,
+    apiBase,
+    onAuthorizationRecovered: authorization.acceptRecoveredAuthorization,
+    surface: {
+      savedViewLabels: [
+        ...savedViewController.getSnapshot().observations.values(),
+      ].flatMap((observation) =>
+        observation.resource
+          ? [
+              {
+                id: observation.resource.saved_view_id,
+                label: observation.resource.display_name,
+              },
+            ]
+          : [],
+      ),
+      sheetRef: selected,
+      label: networkAnalysisActive
+        ? "Network Analysis"
+        : (saved?.display_name ?? null),
+      available:
+        !snapshot.startupPending &&
+        authorization.currentUserId !== null &&
+        authorization.currentIncidentRole !== null &&
+        authorization.currentIncidentRole !== "" &&
+        (selected.kind === "extension_workspace"
+          ? networkAnalysisActive && networkAnalysisAvailable
+          : selected.kind !== "saved_view" ||
+            (saved !== null && saved !== undefined)),
+    },
   });
-  useLayoutEffect(() => () => preferenceBinding.current?.(null), []);
   const selectTimelineFallback = useCallback(() => {
     commands.selectWorkbookSurface(timelineViewSchemaId);
   }, [commands.selectWorkbookSurface]);
@@ -582,11 +576,10 @@ function WorkbookShellContent({
     );
   useWorkbookImportBinding({
     controller: importController,
-    bind: bindWorkbookImport,
+    attach: attachWorkbookImport,
     incidentId,
     apiBase,
     availability: extensionLifecycle.controller,
-    available: importAssistantAvailable,
     role: authorization.currentIncidentRole,
     closed: incidentIdentity?.status !== "active",
     recoverAccess: authorization.loadSessionRole,
@@ -597,16 +590,10 @@ function WorkbookShellContent({
   );
   useNetworkFlowImportBinding({
     controller: networkFlowImportController,
-    bind: bindNetworkFlowImport,
+    attach: attachNetworkFlowImport,
     incidentId,
     apiBase,
     availability: extensionLifecycle.controller,
-    available:
-      importAssistantAvailable &&
-      extensionLifecycle.controller.isRouteAvailable(
-        networkFlowActivityProfileId,
-        networkFlowRouteFamily,
-      ),
     role: authorization.currentIncidentRole,
     closed: incidentIdentity?.status !== "active",
     lifecycleVersion: incidentIdentity?.incident_version,

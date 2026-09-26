@@ -1,10 +1,14 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
 import { importTestIds as ids } from "../testing/workbookImportTestSupport";
 import type { NetworkFlowImportPort } from "../workbook/features/NetworkFlowOperations";
 import { AppSessionController } from "./appSessionController";
-import { useNetworkFlowImport } from "./useNetworkFlowImport";
+
+const useNetworkFlowImport = (
+  options: Parameters<typeof useAppWorkflowsForTest>[0],
+) => useAppWorkflowsForTest(options).networkFlowImport;
 
 const controllers: AppSessionController[] = [];
 afterEach(() => {
@@ -16,6 +20,7 @@ const flush = async () => {
 };
 function setup() {
   let incidentId: string = ids.incident;
+  let importMajor = 1;
   let session = sessionResource({
     user_id: ids.actor,
     memberships: [{ incident_id: ids.incident, role: "editor" }],
@@ -52,7 +57,7 @@ function setup() {
               profile_id: "import",
               claimed: withdrawn !== "import",
               claimable: true,
-              contract_major: 1,
+              contract_major: importMajor,
               route_families: ["/api/v1/import-sessions"],
               workspace_keys: [],
               capabilities: [],
@@ -90,22 +95,41 @@ function setup() {
     preview: unavailable,
     previewMapping: unavailable,
   } satisfies NetworkFlowImportPort;
-  const bind = () =>
-    hook.result.current.bindWorkbook({
+  let attachment: ReturnType<
+    ReturnType<typeof useNetworkFlowImport>["attachWorkbook"]
+  > | null = null;
+  const bind = (
+    readiness:
+      | "available"
+      | "pending"
+      | "invalid"
+      | "unavailable" = "available",
+  ) =>
+    (attachment = hook.result.current.attachWorkbook({
       incidentId,
-      available: true,
+      readiness,
       role: "editor",
       closed: false,
       client,
       accessFailure: vi.fn(),
-    });
+    }));
   return {
+    detach: () => attachment?.detach(),
+    unsupported: () => {
+      importMajor = 99;
+    },
+    supported: () => {
+      importMajor = 1;
+    },
     application,
     hook,
     bind,
     send,
     setIncident: (id: string) => {
-      incidentId = id;
+      act(() => {
+        hook.result.current.retire();
+        incidentId = id;
+      });
     },
     setRole: () => {
       session = {
@@ -192,7 +216,7 @@ describe("Network Flow import application binding", () => {
         new File(["source"], "source.csv"),
       );
     });
-    act(() => h.hook.result.current.bindWorkbook(null));
+    act(() => h.detach());
     expect(h.hook.result.current.controller.getSnapshot()).toMatchObject({
       access: "paused",
       write: null,
@@ -202,6 +226,63 @@ describe("Network Flow import application binding", () => {
     expect(
       h.hook.result.current.controller.getSnapshot().write?.disposition,
     ).toBe("uncertain");
+    expect(h.send).toHaveBeenCalledTimes(1);
+  });
+  it("distinguishes pending readiness from definitive loss and restores review without replay", async () => {
+    const h = setup();
+    await h.login();
+    act(() => {
+      void h.hook.result.current.controller.upload(
+        new File(["source"], "source.csv"),
+      );
+    });
+    const request = h.hook.result.current.controller.getSnapshot().write;
+    for (let i = 0; i < 2; i++) {
+      act(() => h.bind("pending"));
+      expect(h.hook.result.current.controller.getSnapshot().access).toBe(
+        "paused",
+      );
+      expect(h.hook.result.current.controller.getSnapshot().write).toBeNull();
+      act(() => h.bind());
+      expect(
+        h.hook.result.current.controller.getSnapshot().write?.disposition,
+      ).toBe("uncertain");
+      expect(h.send).toHaveBeenCalledTimes(1);
+    }
+    expect(h.hook.result.current.controller.getSnapshot().write?.request).toBe(
+      request?.request,
+    );
+    expect(request).not.toBeNull();
+    act(() => h.bind("invalid"));
+    act(() => h.bind());
+    expect(h.hook.result.current.controller.getSnapshot().write).toBeNull();
+    expect(h.send).toHaveBeenCalledTimes(1);
+  });
+  it("clears retained work when an unsupported profile arrives while detached", async () => {
+    const h = setup();
+    await h.login();
+    act(() => {
+      void h.hook.result.current.controller.upload(
+        new File(["source"], "source.csv"),
+      );
+    });
+    let attachment: ReturnType<typeof h.bind> = null;
+    act(() => {
+      attachment = h.bind();
+    });
+    act(() => attachment?.detach());
+    h.unsupported();
+    await act(async () => {
+      h.application.refreshResources();
+      await flush();
+    });
+    h.supported();
+    await act(async () => {
+      h.application.refreshResources();
+      await flush();
+      h.bind();
+    });
+    expect(h.hook.result.current.controller.getSnapshot().write).toBeNull();
     expect(h.send).toHaveBeenCalledTimes(1);
   });
 });

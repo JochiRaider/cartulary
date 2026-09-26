@@ -56,6 +56,7 @@ export class IncidentMetadataController {
   constructor(private readonly ports: IncidentMetadataPorts) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
+    if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -97,11 +98,13 @@ export class IncidentMetadataController {
     for (const listener of this.listeners) listener();
   };
   dispose = () => {
+    if (this.disposed) return;
     this.retire();
     this.disposed = true;
     this.listeners.clear();
   };
   setAuthority = (authority: MetadataAuthority | null) => {
+    if (this.disposed) return;
     const previous = this.state.authority;
     if (!previous && !authority) return;
     if (

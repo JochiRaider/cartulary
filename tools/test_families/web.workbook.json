@@ -1553,6 +1553,7 @@
           "extension availability lifecycle rejects duplicate, unsorted, extra-member, and oversized availability rows",
           "extension availability lifecycle requires the exact discovery, support, authorization, and current-generation intersection",
           "extension availability lifecycle rolls over atomically and disables extensions when secure randomness fails",
+          "extension availability lifecycle separates pending readiness withdrawal and current protocol defects",
           "extension availability lifecycle uses the build-bound browser bootstrap and fails closed when it is malformed"
         ]
       },

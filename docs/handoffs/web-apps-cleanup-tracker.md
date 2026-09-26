@@ -4,17 +4,17 @@
 
 - Target: `apps/web`; target label: `web-apps-cleanup`; output: `docs/handoffs/web-apps-cleanup-tracker.md`.
 - Label posture: the user-supplied label is already lowercase kebab case. It labels this cleanup of `apps/web`; it is not a domain/module identity or an algorithmic claim that the path alone produces that label.
-- Current authorization: implement the user-approved iteration 5 plan through S-33. Update this tracker after each workstream exit and before starting its successor. Historical document-only boundaries do not limit this implementation task; deployment, commit and environment-reset instructions in historical entries remain inactive.
+- Current authorization: implement the approved Iteration 6 remediation through S-34–S-38, including Import policy redesign and review-only recovery. Preserve the pre-existing staged T-046 tracker; save execution changes unstaged. Deployment, commits and environment resets remain outside this task.
 - Current exclusions: deployment, shared-environment resets, migration/reinterpretation of legacy state, visual redesign, durable browser draft storage, cross-tab queues, generic plugin/workflow engines, unrelated dependency upgrades, and conformance/performance publication claims. Future phase growth is a design constraint, not authority to build speculative features or preserve incidental behavior.
-- Current delivery checkpoint: **S-00–S-33 DONE**. T-040 is the completed document update; T-041–T-045 record this implementation task. T-034–T-039 and earlier exits remain complete; RB-001–025 are closed by their saved exits. Historical authorizations, provisional tables, dirty/index states and next-action instructions do not govern this task.
-- Current baseline: `main`, commit `cc01694a995f17bc5d6792866f0426894eb44c44`; the iteration 5 document update was already staged when this implementation task began, with no other changed paths. Preserve that staged content and record subsequent execution edits separately. The document session's clean-tree assertion was historical. The 1,753 tracked `apps/web` paths and 1,193 owned TypeScript paths are the starting inventory; commit `8d46c23385e248e3703ef791fc4106d6de7f3e62` remains the historical iteration 4 baseline.
+- Current delivery checkpoint: **S-00–S-38 DONE**. T-047–T-051 and RB-026–029 are complete; C-38–C-42 are discharged. The appended execution exits control current status; earlier planning-only statements and dirty/index snapshots are historical.
+- Planning baseline: clean `main`, commit `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`, rechecked on 2026-09-26 UTC before T-046. Inventory then: **1,762 tracked web paths and 1,200 owned TypeScript paths**. Against iteration 5's starting commit `cc01694a995f17bc5d6792866f0426894eb44c44`, the web delta was 87 paths: nine additions and 78 modifications, no deletions. Execution began at the same HEAD with T-046 already staged; S-38 records the exact final delta and preserved index. The iteration 5 staged-tracker/untracked-coordinator handoff and iteration 4 baseline `8d46c23385e248e3703ef791fc4106d6de7f3e62` remain historical checkpoints.
 - Iteration 2 baseline: `main`, commit `a3ed2bd169cf1955f405bfc14b4cca8bd9b1d749`, clean working tree before this document update. Iteration 1 began at `19e30dbcaa87959d447123ba155af8f96190f163` with an already-staged tracker; that earlier index-preservation posture is historical. The completed implementation and tracker are now committed. Canonical documentation checks may create ordinary ignored outputs.
 - Original inventory's first source read: `docs/handoffs/cartulary_modular_refactor_planning_framework.md`. The framework is doctrine/template, not evidence of current implementation. Iteration 4 reviewed repository instructions, the `refactor-tracker` skill and its format reference, the framework, supplied documents and the scoped live sources identified below; no nested target AGENTS file was found.
-- Authority: adopted subsystem NLSpecs only within their named scope; then Core 00–04 for implementation conformance; Core 05 only for claim-bearing timed/fixture-sensitive publication; domain vocabulary and support guides; current code/tests for implementation state; prior plans/framework last. This tracker creates no runtime requirements. Source-owner IDs, verification IDs and catalog rows are distinct accounting dimensions.
+- Authority: adopted subsystem NLSpecs and normative Core owner sections define behavior within their named scopes; Core 05 applies to claim-bearing timed/fixture-sensitive publication. Domain vocabulary, bounded design direction and support guides inform the plan; current code/tests establish implementation state; prior plans/framework remain supporting material. This tracker creates no runtime requirements. Source-owner IDs, verification IDs and catalog rows are distinct accounting dimensions.
 
 ### Inspected owner and supporting documents
 
-This table preserves inspections from earlier sessions. The iteration 5 scope paragraph below identifies the documents and source boundaries reviewed for the current plan; inherited inspection entries are not fresh conformance evidence.
+This table preserves inspections from earlier sessions. The iteration 6 scope paragraph below identifies the documents and source boundaries reviewed for the current plan; inherited inspection entries are not fresh conformance evidence.
 
 | Source | Sections inspected / posture | Use here |
 | --- | --- | --- |
@@ -80,13 +80,27 @@ Production readiness here means simpler supported interfaces, one accountable fe
 
 ### Iteration 5 — historical document-update boundary
 
-The user selected Workbook write coordination as the next bounded production-readiness improvement. This paragraph records the earlier document-session boundary; the current implementation authorization and status are stated at the top of §1 and in the iteration 5 work tracker. The chosen work replaces five polling-based waits with explicit change notifications while keeping Source writes, History, Indicator lifecycle, Decision supersession and Entity merge as distinct policies. The selected change supersedes iteration 4's deferral of polling mechanics only; it does not authorize flattening source-specific admission/recovery rules. Application-shell lifecycle work remains deferred.
+The user selected Workbook write coordination as the next bounded production-readiness improvement in that historical session. The chosen work replaced five polling-based waits with explicit change notifications while keeping Source writes, History, Indicator lifecycle, Decision supersession and Entity merge as distinct policies. That change superseded iteration 4's deferral of polling mechanics only; it did not authorize flattening source-specific admission/recovery rules. Application-shell lifecycle work was deferred then; iteration 6 selects the eight bindings below for planning only.
 
 Only this tracker could change during that document session. Preserve its twelve numbered sections and all completed S-00–S-28 exits. T-040 installed findings FND-37–40, contracts C-35–37, sequential slices S-29–S-33 and evidence gates RB-022–025. A plan is not implementation evidence, and passing these engineering gates does not certify deployment or release readiness.
 
 Current inspection covered the runtime's five wait bodies, direct-write reservation acquisition/release, feature assembly/lifecycle/version composition, lifecycle scheduler, queue/conflict mutation facades, Timeline retained mutation publication and late attachment, History callers, transaction-echo handling, coordination tests and authored verification routing. Core 03 committed-version, pending-work and authority/lifetime requirements were reviewed alongside the bounded authority of `docs/domain.md`, `docs/design.md`, repository instructions and the planning framework. `docs/research/nlspec-spec.md` remains inherited supporting guidance, not a new behavioral owner or task instruction. These are scoped inspections; earlier full-path inventory and iteration 4 gate results remain inherited evidence.
 
 The maintained `refactor-tracker` skill and its format reference govern the human planning artifact. The supplied documents and historical handoffs are reference material, distinct from the current user request. Adopted subsystem specifications and normative Core owner clauses govern their named behaviors; machine contracts project them, while catalogs route verification. Markdown must not become a runtime, test, generator, conformance or release dependency.
+
+### Iteration 6 — approved implementation boundary
+
+The selected focus is **consolidate application workflow lifetimes**, covering incident metadata, incident lifecycle, membership management, membership audit, Saved Views, preferences, Workbook Import and Network Flow Import. Plan one fixed application composition and one committed React lifecycle bridge, with explicit feature adapters and owned presentation attachments. This removes repeated ownership lists and obsolete hook paths while making the obligations of each future workflow explicit. It does not merge feature policies or replace the session authority.
+
+The user now authorizes S-34–S-38 implementation in order. The earlier T-046 document-only boundary is historical. The approved expansion adds FND-46/C-42: both Imports distinguish transient readiness loss from definitive unavailability and restore authorized review without restarting polling or uncertain writes. Core 03 §11.2 owns the shared interruption contract; Network Flow references it without merging mapping/apply policy; EXT-REQ-212 remains authoritative for protocol defects and authorization invalidation. No wire/storage migration, generic engine, dependency upgrade or deployment is included.
+
+Execution starts at `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`, with the tracker alone staged and no unstaged changes. The staged document is preserved. Before each slice save IN_PROGRESS; after completion save exact edits, tests/run roots, compatibility, rollback and DONE before starting its successor.
+
+Scoped current inspection covered the eight application hooks, their controllers and presentation callers; `App.tsx`, `appSessionController.ts`, `useAppSession.ts`, `appDepartureReview.ts` and `incidentResourceController.ts`; import binding boundaries; relevant lifetime/integration tests; authored source ownership and verification routing; and the eight newly unlisted inventory paths. Core 01 incident metadata/lifecycle, Core 03 REQ-03-099/100/299, Core 04 membership/audit authority and Extension availability/claim boundaries informed the policy review. This is not a fresh exhaustive body audit of 1,762 files or a claim of specification completeness.
+
+Adopted subsystem specifications and normative Core owner clauses define required behavior in their named scopes. Machine projections and verification catalogs cannot supersede them. `docs/domain.md` supplies vocabulary/owner navigation, `docs/design.md` bounded design direction, and `docs/research/nlspec-spec.md` supporting specification-quality guidance. These documents and historical instructions are not additional user requests. Markdown remains outside executable product, test, generator, conformance and release dependencies. A discovered requirement discrepancy must be recorded against its owner before dependent implementation; do not canonize an incidental hook mechanism as required behavior.
+
+The current Timeline committed-record idle hook already uses runtime notifications and `waitForPendingRecordIdle`; its former presentation idle timer was removed after S-33. The S-33 autosave timing failure and passing reruns remain historical evidence, not a newly reproduced defect or proof of universal resolution. Broad tooling advisories and the historical measurement limitation remain deferred. Completion of this iteration would establish engineering evidence, not deployment certification.
 
 ## 2. Current-State Repository Inventory
 
@@ -2481,6 +2495,32 @@ Adjacent iteration 4 changes to `packages/grid-adapter/src/test-support.tsx`, `t
 
 The four-row discovery run in §8 passed on this revision. It does not prove complete notification coverage or absence of every coordination defect. S-29 refreshes callers, mutators and routing after any intervening change; no static advisory list is a deletion authorization.
 
+### Iteration 6 inventory reconciliation and inspection depth
+
+At `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`, Git reports 1,762 tracked `apps/web` paths; authored source ownership accounts for 1,200 TypeScript paths. The 87-path web delta from `cc01694a995f17bc5d6792866f0426894eb44c44` is **nine additions + 78 modifications + zero deletions**. All 78 modified paths already have inventory entries; their old descriptions and inspection claims remain historical, not assertions of unchanged contents. The ninth addition, `apps/web/src/workbook/runtime/WorkbookWriteCoordinator.ts`, is already named in the S-33 ownership ledger. The table below adds the eight missing exact-path entries. Together with the inherited inventory this accounts for every current tracked target path; it does not declare every historical path still present.
+
+| Newly accounted path | Kind and current responsibility | Consumer / inspection evidence |
+| --- | --- | --- |
+| `apps/web/e2e/support/workbook/autosaveFeedback.ts` | Authored browser support; preserve the original autosave assertion failure while performing cleanup | `timeline-autosave-feedback.spec.ts`; body and direct caller inspected. |
+| `apps/web/e2e/support/workbook/autosaveFeedback.test.ts` | Support tests for original-failure and cleanup behavior | Test declarations/body inspected; no new run in this document task. |
+| `apps/web/src/workbook/components/WorkbookParkedGridDrafts.test.tsx` | Focus continuity regression for parked grid drafts | Production component and fallback callers inspected; existing behavioral evidence, not new workflow coverage. |
+| `apps/web/src/workbook/components/workbookFocusFallback.ts` | Shared live Workbook focus fallback | Used by parked drafts and Timeline row-action menu; preserves available surface/menu/incident focus destinations. |
+| `apps/web/src/workbook/timeline/adapters/createTimelineMentionSourceReader.test.ts` | Mention source-read cancellation regression | Abort stops further page reads; source/test relationship inspected. |
+| `apps/web/src/workbook/timeline/components/TimelineWorkbookNotices.test.tsx` | Review/Undo notice focus and pending/retry behavior | Current notice component and test bodies inspected. |
+| `apps/web/src/workbook/timeline/models/timelineUndoDisclosure.ts` | Exact-subject Undo disclosure matching | Live notice and mention-action callers inspected; retained semantic helper. |
+| `apps/web/src/workbook/timeline/timelineAutosaveIsolation.test.tsx` | Autosave publication/render/source isolation regressions | Test bodies inspected; does not establish that every historical browser timing failure is resolved. |
+
+The 78 modifications span eight browser specs and 70 Workbook source/test/guide paths: coordination/runtime, components, inspectors, History, Find, Saved Views and Timeline. The exact reproducible delta is `git diff --name-status cc01694a995f17bc5d6792866f0426894eb44c44 3e71ce13069fc848c01e2666a04fe67cfabcfd4a -- apps/web`; source inventory plus the nine additions supplies path accounting. Do not confuse this committed 87-path history with this task's single changed tracker. Refresh both path and owner deltas when implementation starts.
+
+| Current scoped source boundary | Evidence read for iteration 6 | Inspection limit / ownership |
+| --- | --- | --- |
+| Eight workflow constructions | `apps/web/src/app/useIncidentMetadata.ts`, `apps/web/src/app/useIncidentLifecycle.ts`, `apps/web/src/app/useIncidentMembershipManagement.ts`, `apps/web/src/app/useIncidentMembershipAudit.ts`, `apps/web/src/app/useWorkbookSavedViews.ts`, `apps/web/src/app/useWorkbookPreferences.ts`, `apps/web/src/app/useWorkbookImport.ts`, `apps/web/src/app/useNetworkFlowImport.ts` | Current constructors, authority mapping, subscriptions, retirement and bindings read; source owner `web.app`, verification owner `web.application`, not interchangeable identifiers. |
+| Application lifetime and resource authority | `apps/web/src/app/App.tsx`, `apps/web/src/app/appSessionController.ts`, `apps/web/src/app/useAppSession.ts`, `apps/web/src/app/appDepartureReview.ts`, `apps/web/src/app/incidentResourceController.ts` | Route/session prepublication retirement, repeated cleanup lists, departure order and accepted-resource flow inspected. Unrelated application owners stay outside migration. |
+| Presentation and import callers | Incident metadata/lifecycle/membership management/audit panels; `WorkbookShell.tsx`; `useWorkbookSavedViewController.ts`, `useWorkbookImportBinding.ts`, `useNetworkFlowImportBinding.ts` under Workbook hooks | Nullable cleanup, visibility listeners, binding ownership and hook-owned import types traced to consumers; feature-specific config/client/collaboration logic remains owned by its feature. |
+| Controller and recovery boundaries | The corresponding application controllers, Import and Network Flow Import controllers, authorization recovery and Incident resource publication | Current behavior is characterization subject to adopted authority, not a second normative owner. Retained work differs across the eight workflows. |
+| Prior timer limitation | `apps/web/src/workbook/timeline/hooks/useTimelineCommittedRecordIdle.ts` and its tests | Current subscription/authority-epoch cancellation replaces the old idle timer; S-33's remaining-timer statement is superseded. Genuine retry timers are outside this plan. |
+| Verification inputs and discovery | `tools/frontend_source_ownership.json`, `tools/test_families/web.application.json`, `tools/test_families/web.workbook.json`, catalog owner routing and public task guides | Current routing read; retained discovery run summaries verified as PASS in §8. No fresh whole-repository scan, broad check or browser gate claimed. |
+
 ## 3. Module Boundary Diagnosis
 
 `apps/web` is a **legitimate frontend application and controller surface with multiple internal owners**, transport-adjacent adapters, view/query orchestration and mutation coordination. It is not a thin service facade, nor evidence of a permanent `web-apps-cleanup` domain. Large composition files and a semantic queue under `utils` are coupling findings; they do not prove the whole application is an accidental catch-all. Authoritative persistence, projections, source validation and revision commits remain backend responsibilities in the inspected route/provider chain.
@@ -2550,6 +2590,22 @@ The original diagnosis above describes pre-iteration-1 state. Its deferred runti
 | Readiness-change publication | Queue/conflict mutators, feature lifecycle subscriptions, reservation changes and late Timeline attachment | Existing state owners publish; fixed composition connects them to coordination | split | Notifications cannot rely on presentation attachment or primary-label changes; coalesce after synchronous state/version propagation. |
 | Retry/backoff, queue dispatch, aggregate save status and version recipients | Existing scheduler, runtime, feature lifecycle and fixed version composition | Existing owners | keep | Coordination does not acquire dispatch, transport, replay, status accounting or source-version ownership. |
 | Application-shell lifecycle and broad advisory cleanup | Other app controllers and tooling | Separate future work | defer | User selected Workbook coordination; no speculative registry, unrelated dependency upgrade or expanded suppression policy. |
+
+### Iteration 6 ownership decisions
+
+| Responsibility | Retained / proposed owner | Boundary and removal decision |
+| --- | --- | --- |
+| Session/account identity and generation | Existing `AppSessionController` | Sole session authority. Preserve synchronous retirement before publishing replacement session/incident state; no mirrored authority cache in the composition. |
+| Eight retained workflow bindings | One fixed application composition with a typed contribution set | Every workflow declares synchronization, retirement and terminal cleanup exactly once. Make omissions a type/composition-test failure; no runtime registration, optional lifecycle escape hatch or generic policy engine. |
+| React lifecycle | One committed application bridge | Subscribe/replace/unsubscribe the session source and commit lifecycle effects here. Construction and abandoned renders cannot subscribe, dispatch requests or mutate active bindings. Fence stale callbacks and reentrant transitions. Coordinate with existing `useAppSession` terminal scheduling rather than introducing a second competing cleanup owner. |
+| Feature admission, activation and recovery | Eight explicit feature adapters around existing controllers | Extract first under current hooks, then migrate composition. Preserve each owner's source-specific recovery, authority checks and retained work; common membership does not imply common activation policy. |
+| Presentation attachment and visibility mechanics | Committed presentation bridge with workflow-owned attachment handles | Handle update/detach operates only on the current attachment. Replacement invalidates older handles; detachment invokes feature policy without taking ownership of session or mutation lifetime. Keep visibility mechanics here and activation rules in adapters. |
+| Import interfaces | Workbook Import and Network Flow feature-owned interface boundaries | Move `WorkbookImportSurfaceBinding` and `NetworkFlowImportSurfaceBinding` out of application hook modules; migrate all callers/tests and remove old exports without aliases. Keep client construction, claim interpretation and collaboration effects source-owned. |
+| Accepted Incident resource | Existing `IncidentResourceController` plus required metadata publication port | Remove only the metadata hook's test-only `resource` mirror and fallback publication. Production and integration tests use the same accepted-resource owner and authority/version guards. |
+| Departure review | Existing fixed `reviewAppDeparture` order | Memberships → metadata → lifecycle → preferences → deployment users. Do not automatically add every lifecycle contribution to departure review. |
+| Adjacent application/domain responsibilities | Account security, deployment administration, incident creation/directory, Incident resource owner and Workbook mutation runtime | Retain existing owners and callbacks. Remove only the selected eight workflows from duplicated App lifetime lists; unrelated session, route and terminal work remains explicit. |
+
+Adapters must make terminal cleanup meaningful using each existing controller's capabilities; for example, a controller exposing retirement rather than disposal still needs fencing against future attachment. Do not add artificial no-op consumers or duplicate controller state to satisfy the contribution shape. Concrete module names may be chosen during S-35/S-36 inside current application/feature boundaries; the responsibility split and exhaustive membership are fixed by this plan.
 
 ## 4. Public Contract and Behavior Freeze Map
 
@@ -2807,6 +2863,31 @@ This matrix freezes the inspected implementation for characterization; S-29 maps
 
 All existing routes, wire formats, storage, selectors, authorization and user capabilities remain frozen. The intended timing change is notification-driven readiness, not a new admission policy, replay identity, migration or automatic retry.
 
+### Iteration 6 contract additions and adopted feature policies
+
+These contracts freeze required outcomes and identify current implementation characterization. They do not promote React effect ordering or every current branch into normative product requirements. S-34 must trace each predicate and transition to its adopted owner and a behavioral test; unresolved discrepancies block only dependent work.
+
+| Contract | Behavioral authority / retained owner | Risk and required evidence | Disposition |
+| --- | --- | --- | --- |
+| C-38 — Authority and committed lifetime | Core 04 session/membership authority; Core 03 REQ-03-099/100/299 within Workbook scope; `AppSessionController` and route commit boundary | Retire old workflows synchronously before new authority becomes observable. Test role change, membership/access loss, account/session replacement, stale callback, reentrant transition, subscription replacement, Strict Mode replay, abandoned render and once-only terminal cleanup. | One fixed eight-member composition; one committed session bridge. No request/subscription/active-binding mutation during construction/render; controller identity stays retained across presentation mounts. |
+| C-39 — Presentation attachment | Core 03 retained-lifetime and concealment requirements within their scope; existing feature activation policies | Old attachment update or cleanup must not overwrite/detach a newer one. Cover hidden drawer, visibility change, shell remount, incident/actor mismatch and detach during pending work. | Owned update/detach handles replace nullable binding cleanup. Visibility mechanics are committed presentation work; adapters decide activation and retained state. Detach is not automatic application retirement. |
+| C-40 — Retained recovery and feature distinctions | Core 01 source workflows; Core 04 incident/admin access; Extension claim/availability ownership; existing recovery owners | Preserve acknowledged-but-unrefreshed state, pending acknowledgements, authorization recovery, uncertainty and withdrawal semantics. Cover role/access/session loss separately, transient discovery/unavailability versus confirmed claim withdrawal, and late completion. | Do not apply Workbook queue semantics wholesale to Saved Views/preferences/imports. Preserve source recovery and replay rules; no automatic resend or new durable browser storage. |
+| C-41 — Resource publication and departure | Core 01 metadata REQ-01-174–178 and incident lifecycle owner sections; Core 04 membership/audit authority; `IncidentResourceController` and `reviewAppDeparture` | Require the production resource port in metadata fixtures; cover stale authority/version publication, late accepted resource, matching lifecycle visibility and exact sequential departure order/cancellation/currentness checks. | Remove hook-only resource mirror/fallback; preserve accepted resource/version owner and memberships → metadata → lifecycle → preferences → deployment users review. |
+| C-42 — Import interruption and review-only recovery | Core 03 REQ-03-309; Network Flow NF-REQ-213; EXT-REQ-212 definitive clearing and stale-response rules | Both workflows distinguish pending readiness from definitive withdrawal/invalidity, preserve concealed same-lifetime work, restore review only, and require explicit reads or exact uncertain replay. Drawer detachment pauses observations; account/incident/session changes clear. | Typed route readiness is not authorization. Source-specific mapping, preview, approval, receipt and handoff remain in feature owners; no job cancellation, automatic resend or persistence migration. |
+
+| Workflow / explicit adapter | Authority and activation retained | Detachment, loss and retained-state policy to characterize | Catalog test seeds (§8) |
+| --- | --- | --- | --- |
+| Incident metadata | Current incident membership, actor and session lifetime; matching drawer section and visibility activate reads | Drawer close deactivates presentation while preserving authorized drafts/recovery and retained Workbook callbacks; incident/session loss retires at its existing boundary. Accepted resources publish through `IncidentResourceController`. | metadata_lifetime; metadata_departure; lifecycle_integration |
+| Incident lifecycle | Same incident/session identity with source-specific role/action rules; lifecycle section visibility | Retain accepted operation/recovery state across drawer mounts; preserve stale authority/version rejection and shared accepted-resource propagation. | lifecycle_integration; app_session_lifecycle_d770146af2 |
+| Membership management | Current incident membership and permitted management actions | Drawer close differs from incident/account retirement; preserve drafts, pending mutation acknowledgement and access-loss recovery. | membership_management_lifetime; app_session_lifecycle_d770146af2 |
+| Membership audit | Incident **admin membership**, not deployment-admin capability or ordinary incident membership | Active audit section/visibility gates reads; losing admin access clears protected data and follows existing role refresh/recovery, without equating every role loss to session termination. | incident_membership_audit_lifetime_integration |
+| Saved Views | Current actor, incident, role, session lifetime and retained API base | Detach closes discovery; feature retains appropriate operation state. Role changes conceal unavailable private data and retain existing refresh behavior. Saved View operations are not Workbook source mutations. | useworkbooksavedviewcontroller_suite_d3f1a57e5d; saved_view_operation_owner |
+| Preferences | Matching actor/incident/session and existing preference permissions | Null presentation currently clears surface while retaining permitted per-incident operations; preserve drafts/recovery and departure review. Do not infer mutation queue semantics. | preference_integration; metadata_departure |
+| Workbook Import | Current session/incident and claimed Import route/profile; authenticated transport/binding availability remain explicit inputs | Anonymous/ended session or incident mismatch retires; temporarily missing session/binding/transport pauses as currently defined. C-42 supersedes the old unavailable-binding asymmetry: pending readiness pauses; confirmed withdrawal/invalid state retires; restored authority enables review only. | workbook_import_lifetime; affected import owner rows |
+| Network Flow Import | Current session/incident plus both Import and Network Flow claims | Discovery not ready and `binding.available === false` pause; confirmed claim withdrawal retires. Preserve same-authority role updates, acknowledged work and late-response fencing. | network_flow_import_lifetime; affected Network Flow owner rows |
+
+Core 04 REQ-04-030 and REQ-04-123 distinguish membership administration/audit access; Extension EXT-REQ-212 supplies the reviewed availability-generation/claim boundary. Core 03 retained-work clauses do not by themselves prescribe every import or preference lifecycle. Record confirmed required outcomes separately from implementation mechanisms during S-34. Core 03 §11.2 and Network Flow import/mapping clauses are amended for C-42; no public wire or stored-data migration is proposed.
+
 ## 5. Coupling and Boundary Findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
@@ -2885,6 +2966,19 @@ These are maintainability findings, not newly reproduced product failures. File 
 
 These findings justify a structural coordination boundary; they do not assert a newly reproduced production hang. Existing polling currently supplies periodic reevaluation, so missing explicit notifications are migration risks that must be resolved before removing it.
 
+### Iteration 6 findings and selected remediation
+
+| Finding / disposition | Baseline gap evidence | Structural consequence | Remediation / completion evidence |
+| --- | --- | --- | --- |
+| FND-41 / RESOLVED | All eight `app/use*` workflow hooks independently construct retained controllers and subscribe to the session; five repeat mounted/layout-retirement/deferred-disposal mechanics, while Saved Views/imports have distinct cleanup variants | A future workflow can omit a lifecycle edge; render-time ref updates and stale callbacks need explicit committed ownership | S-35 adapters and S-36 fixed contribution set/bridge; controlled Strict Mode, abandoned-render, subscription-replacement, reentrancy and terminal tests, not just a shared helper around eight subscriptions. |
+| FND-42 / RESOLVED | `App.tsx` separately lists workflow refs/construction, route precommit retirement, session retirement and final cleanup; the lists differ, including Saved Views' authority-driven retirement | Membership in one list does not guarantee participation elsewhere; changing order can publish new authority before old work is fenced | One explicit eight-workflow composition replaces the corresponding lists; preserve `AppSessionController`, route prepublication ordering, external owners and fixed departure review. Prove exactly-once participation and synchronous retirement. |
+| FND-43 / RESOLVED | Four incident panels repeat bind/visibility/cleanup; Workbook shell, Saved View and import hooks use nullable bindings and cleanup callbacks, with differing existing stale-lifetime guards | Attachment identity and ownership are implicit; consolidation must prevent an obsolete cleanup from clearing a newer presentation without shortening mutation lifetime | S-37 update/detach handles and committed mechanics; stale-handle, hidden-drawer, remount and pending-work tests. Existing feature activation/recovery remains in adapters. No claim of a newly reproduced user-visible race. |
+| FND-44 / RESOLVED | `useIncidentMetadata.ts` returns a `resource` mirror used by `incidentMetadataLifecycle.test.tsx`; optional `onResourceAccepted` falls back to a retained Workbook callback. `App.tsx` already publishes through `IncidentResourceController` | Integration fixtures exercise an alternate resource path, obscuring real authority/version publication | Require the production publication port, remove hook mirror/fallback, and migrate integration fixtures to the Incident resource owner. Preserve accepted rows, version guards and late-publication behavior; no synthetic consumer or alias. |
+| FND-45 / intentional/verified | Audit authority, drawer activation, Saved View/preference operations, import pause/withdrawal and source mutation recovery differ across the eight workflows | A generic workflow engine or universal teardown/recovery rule would increase compatibility burden and change behavior | Keep named adapters and §4 policy matrix. Preserve adjacent owner responsibilities, source-specific recovery and departure order. The retained distinctions are verified by focused and final owner/browser tests; broad tooling/measurement work remains outside scope. |
+| FND-46 / RESOLVED | Boolean readiness discarded or restarted Import work inconsistently; the approved policy replaces that asymmetry | Temporary interruption can lose drafts/receipts or restart hidden polling; authority and availability become conflated | Core 03 REQ-03-309/NF-REQ-213 adopted, typed availability projected in its owner, both adapters implement review-only restoration, and controlled/browser tests validate exact intent, explicit reads, definitive clearing and stale responses. Final S-38 gates pass; contract closure and roots are recorded below. |
+
+The baseline repetition and alternate test path justified the migration; they were not claims that every possible stale-attachment/render failure had occurred. Completed exits record removal and focused characterization. Future workflow growth requires an explicit lifecycle declaration and behavioral tests while leaving feature decisions local; compatibility aliases, suppression changes and invented callers are not substitutes for complete migration.
+
 ## 6. Refactor Workstreams
 
 Workflow numbers follow the user-requested planning structure, not the framework's longer WF-00–13 numbering. `parallel` means independent analysis after prerequisites; it does not authorize parallel code writes or spawn agents. All planning outputs remain in this tracker.
@@ -2955,9 +3049,23 @@ The current document task installs this graph only. Future execution is **S-29 �
 | S-32 | Migrate specialized policies and retire polling | chain | TODO | S-31 DONE | S-33 | Indicator, Decision and Entity coordination; obsolete lifecycle wait and tests | Five policies migrated; no old-helper consumers; real-owner integration evidence saved. |
 | S-33 | Validate and close | chain | TODO | S-29–S-32 DONE | none | Finding/contract disposition, ownership/catalog, integrated checks and handoff | Required final gates pass; exact changed files, limitations and rollback recorded last. |
 
+### Iteration 6 workstream graph — authorized execution
+
+S-34–S-37 are DONE; S-38 is IN_PROGRESS. Order: **S-34 → S-35 → S-36 → S-37 → S-38**. The present implementation authorization supersedes T-046; save each exit before its successor; completed S-00–S-33 are not reopened.
+
+| Workstream | Accountable boundary | Prerequisites | Successor | Measurable exit |
+| --- | --- | --- | --- | --- |
+| S-34 / DONE | Evidence, authority and test routing | T-046 DONE; S-33 DONE; later implementation authorization | S-35 | All eight policy matrices, callbacks, bindings, transitions and owner/test mappings recorded; baseline failures and uncovered requirements have dispositions. |
+| S-35 / DONE | Feature binding adapters and resource publication | S-34 DONE | S-36 | Eight adapters consumed by existing hooks; required metadata publication and relocated import interfaces have real callers/tests; no mirror/fallback/alias remains. |
+| S-36 / DONE | Fixed application composition and committed lifetime | S-35 DONE | S-37 | Eight contributions participate exactly once; one workflow session subscription; stale/reentrant transitions, replacement, Strict Mode and terminal cleanup covered; superseded construction hooks/lists removed. |
+| S-37 / DONE | Presentation attachment ownership | S-36 DONE | S-38 | All selected presentation callers use owned update/detach handles; stale handles cannot alter newer bindings; drafts/receipts/recovery and visibility policies survive detach/remount as required. |
+| S-38 / DONE | Integrated engineering verification and handoff | S-34–S-37 DONE | Review of completed implementation | Required gates pass on completed code; exact change/accounting/removal ledger, limitations and coordinated rollback saved. |
+
+The common composition owns membership and lifetime mechanics only. Source owners retain commands, validation and recovery, and `AppSessionController` retains authority. A future workflow must make synchronization, retirement and terminal behavior explicit; it must not inherit an accidental permissive default or register itself dynamically.
+
 ## 7. Refactor Slice Plan and Execution
 
-**Execution authorized on 2026-09-22.** The implementation checkpoint table below supersedes historical prerequisites and deferrals in the original planning table retained here. S-07/S-08 implement the explicitly requested lifecycle redesign; S-06 remains final. Owner-required behavior governs all structural changes; C-21 is the intentional Import contract change.
+**Historical execution authorization on 2026-09-22.** The implementation checkpoint table below records that iteration's superseding prerequisites and deferrals. S-07/S-08 implemented its requested lifecycle redesign; S-06 was final. Owner-required behavior governed those changes; C-21 was the intentional Import contract change. Current Iteration 6 execution authorization is in §1.
 
 | Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -3175,6 +3283,20 @@ Implementation decisions for the later task:
 - S-30 can coexist with the old waits during the staged migration. S-31 and S-32 remove them in order; coexistence is temporary, not a supported fallback or dual coordination mode. Remove lifecycle.wait only after its last production caller and mechanism-specific tests migrate. Keep genuine retry/backoff delays, queue drain scheduling and the scheduler's delay capability.
 - Update authored source ownership and test catalogs only for actual later code/test changes; regenerate derived outputs through public Make targets. No new route, payload, saved state, selector, dependency, suppression or persistent browser mechanism is needed.
 
+### Iteration 6 implementation checkpoints
+
+| Slice / status | Change and affected owners | Contract risk / required verification | Rollback boundary | Binary exit |
+| --- | --- | --- | --- | --- |
+| S-34 / DONE — Freeze lifetime and policy evidence | Refresh HEAD/status, delta, all eight hook/controller/presentation callers, App lists, session/route callbacks, resource and departure owners. Record event → authority predicate → state/recovery effect → committed ordering → test row for each workflow; distinguish normative requirements from incidental mechanisms. | C-38–42; verify baseline catalog seeds and add characterization for untested transitions before extraction. Record failures, source-vs-verification ownership and any owner discrepancy explicitly; preserved old passes do not close gaps. | Evidence/characterization can be reverted together without changing production. No lifecycle/publication path removed yet. | Every lifecycle event, retained-state decision and callback has an owner/test mapping; exact removal/consumer ledger and baseline disposition saved. |
+| S-35 / DONE — Extract feature binding adapters | After S-34, move authority, recovery and binding decisions out of all eight hooks into explicit adapters, initially called by those hooks. Require metadata Incident resource publication; remove its hook `resource` mirror/fallback and migrate fixture. Move both import binding types into feature-owned interface boundaries with all callers/tests. | Preserve controller authority/activation and resource version acceptance; implement C-42 shared Import readiness and explicit recovery. Test extraction using real controllers and publication owner; fresh type/import/routing checks catch interface leaks. | Revert each adapter with its hook/controller ports and tests; resource port/fixture and import types/callers are coordinated units. Remove new adapters only after reverting their consumers. No aliases kept as rollback aids. | All eight hooks use adapters; tests and App share production resource publication; no duplicate resource state, old type exports, fallback or artificial consumer remains. |
+| S-36 / DONE — Establish fixed application ownership | After S-35, assemble eight retained bindings and one committed React bridge; replace individual session subscriptions, retirement effects and the selected App cleanup lists. Remove superseded construction hooks; keep unrelated owners and session authority. | C-38/C-41: synchronous prepublication retirement; stable owner identities; replacement unsubscribes old source; stale/reentrant callbacks fenced; Strict Mode replay versus terminal cleanup; abandoned rendering has no effects. Define explicit terminal behavior for controllers lacking `dispose`, using their existing retire/fencing semantics. | Revert App/bridge/composition, contribution contracts, hook removal, callers and tests together. Coordinate with `useAppSession` terminal schedule; do not retain both old and new subscriptions during rollback. | Every retained workflow contributes once to synchronization/retirement/terminal cleanup; omission is rejected by typed composition/tests. One workflow session subscription and no selected handwritten parallel lifecycle lists remain. External cleanup and departure order unchanged. |
+| S-37 / DONE — Make presentation attachment ownership explicit | After S-36, introduce handles with update/detach, migrate four incident panels, Saved Views, preferences and both import callers; consolidate common attachment/visibility mechanics while preserving feature activation rules. Remove nullable cleanup paths for the selected bindings. | C-39/C-40: old update/detach is inert after replacement; reject stale account/incident attachments; hidden drawers/remounts preserve permitted drafts, receipts and recovery. Commit changes only after render; detach invokes feature policy without taking mutation lifetime or session authority. | Revert handles, bridge mechanics, every presentation caller and behavioral test as one interface change; reverse before removing S-36 composition or S-35 adapters. | Stale cleanup cannot detach/overwrite newer presentation; no old binding export, null-cleanup compatibility path or duplicate visibility mechanism remains for the migrated bindings. Source-specific activation/recovery evidence passes. |
+| S-38 / DONE — Validate and close | After S-34–S-37, reconcile FND-41–46, C-38–42, RB-026–029, source ownership/catalog inputs, generated projections, every added/modified/deleted file and final handoff. | Fresh selected owner rows, architecture/type/import/reachability/build and final integrated/browser gates in §8; document failures and skipped maintenance rather than inheriting success. | Restore authored accounting with its sources/tests, then regenerate projections through public Make targets. Preserve all run evidence. Reverse dependent attachment and lifecycle migrations before removing shared adapters/infrastructure. | Required checks pass on completed implementation; remaining limitations and exact rollback are explicit; no unaccounted path, compatibility shim or unresolved applicable evidence gate. |
+
+The lifetime bridge must stage options and attachment changes until commit, subscribe safely across source replacement, and fence callbacks by the retained authority/lifetime. It must not mutate an active binding from a render-time ref assignment. Preserve retirement before replacement becomes observable even when retirement callbacks reenter application transitions. Strict Mode effect replay is not proof of a real terminal departure; tests must distinguish those events.
+
+S-35's initial hook consumption was a temporary migration step inside this authorized execution, not a compatibility surface to ship indefinitely. S-36 removes obsolete construction hooks; S-37 completes presentation migration. Save the exact remaining callers and owner/catalog changes at each exit. Revert any slice with all dependent callers/tests/accounting; reverse S-37, then S-36, then S-35 when removing common infrastructure. No data or wire migration is involved.
+
 ## 8. Validation Plan
 
 The following is the preserved planning-session routing inventory. Current executed results, failures and accepted replacements appear in §7 and the final handoff; the original no-execution statement below applies only to tracker creation.
@@ -3313,6 +3435,31 @@ Existing row seeds are the four discovery selectors above plus `web.workbook.reg
 
 Mandatory scenarios include reservation release without another owner event, unrelated records, unknown Entity type reservations, every own-reservation exclusion, notification during registration, simultaneous waiters, repeated notification/release, completed History null, acknowledged writes followed by failed refresh, uncertainty/exact replay, stale reviews/rows, History-driven version floors, late Timeline attachment, same-account recovery, authority loss, detach versus retirement, pre-abort and waiting abort, and late notifications after disposal. Verify actual request counts and outcomes, not only private waiter counters. Broader measurement and harness advisory work remains deferred.
 
+### Iteration 6 discovery evidence and verification routing
+
+The planning discovery on the current product baseline passed eight `web.application` catalog rows, **9/9 graph units**, at `.cartulary/test-results/20260926T151002Z-p8924`, and three `web.workbook` rows, **4/4**, at `.cartulary/test-results/20260926T151002Z-p8942`. Their saved `run-summary.json` results were inspected for this update. These are retained discovery results from before the document edit, not fresh execution in T-046 and not complete coverage of the proposed composition/attachment boundary. Source owner `web.app` and verification owner `web.application` remain distinct.
+
+| Catalog owner | Exact selected discovery rows | Existing evidence / gap to close |
+| --- | --- | --- |
+| `web.application` | `web.application.regression.app_session_lifecycle_d770146af2`; `web.application.regression.incident_membership_audit_lifetime_integration`; `web.application.regression.lifecycle_integration`; `web.application.regression.metadata_lifetime` | Session/incident/audit/metadata integration seeds. Add all-eight composition participation, render purity, reentrancy, replacement and terminal assertions through real owners. |
+| `web.application` | `web.application.regression.network_flow_import_lifetime`; `web.application.regression.preference_integration`; `web.application.regression.workbook_import_lifetime`; `web.application.regression.metadata_departure` | Import/preference/departure seeds. Preserve ordered review and distinguish discovery unavailable, confirmed claim withdrawal, role loss and account loss. |
+| `web.workbook` | `web.workbook.regression.membership_management_lifetime`; `web.workbook.regression.useworkbooksavedviewcontroller_suite_d3f1a57e5d`; `web.workbook.regression.saved_view_operation_owner` | Membership and Saved View retention seeds. Add stale attachment update/detach, hidden drawer and shell remount with in-flight acknowledgement/recovery. |
+
+Refresh routing with `make task-guide ROLE=module-author OWNER=web.application` and `OWNER=web.workbook`, then `make explain-test-owner OWNER=<owner-id>` / target explanations as needed. Run `make test-slice OWNER=<owner-id> ROWS=<comma-separated-catalog-rows>` using the catalog's current IDs. Resolve affected Import/Network Flow and service-backed rows from the authored catalog at S-34; their exact expanded selection is TODO because interface edits have not yet been made. Do not invent row IDs or treat catalog coverage as specification completeness. Public Make targets run at the repository root; the inspected runs used pinned Node via `PATH="$PWD/tmp/node-runtime/bin:$PATH"`.
+
+| Gate / timing | Required evidence | Interpretation |
+| --- | --- | --- |
+| T-046 document update only | `make lint-markdown`; `git diff --check`; exact Git path/status audit; twelve headings and completed-history audit | Only the tracker changes; record results in §12. No product code, tests, generated projections or catalog inputs are edited. |
+| S-34 characterization | Selected application/Workbook rows and affected Import/Network Flow owner rows; source/caller/owner mapping for every transition | Baseline failures and missing coverage must be explicit before extraction. Historic broader passes cannot replace this evidence. |
+| S-35–S-37 focused checks | Adapter, real-controller, Incident resource integration and committed lifecycle/attachment tests; catalog-selected rows for changed owners | Tests assert behavior, accepted resource flow and once-only ownership, not introspection-only fake consumers or mirrored implementation. |
+| Structural gates | `make test-slice OWNER=web.architecture`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make frontend-fallow-static`; `make build-web` | No dead hook/type export, compatibility alias, new cross-feature dependency or suppression expansion. Existing static gate bounds remain unchanged. |
+| Accounting when inputs change | Update authored source ownership and test families/catalog inputs; regenerate via `make generate` or the applicable public generator; validate `test-catalog-check`, `harness-contract`, `generate-drift`, `generated-artifact-policy-check` and `json-shape-check` | Never hand-edit generated policy roots/topology. Narrative paths and this tracker cannot become machine verification inputs. |
+| S-38 final integrated gates | `make agent-finalize` before final `make check`, then `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-a11y`, `make browser-e2e-visual` | Fresh completed-implementation evidence with failures, reruns and run roots. Record whether retained-run maintenance was skipped because `RESULTS_DIR` was unset. No new golden, release or measurement claim is implied. |
+
+Required behavioral cases: Strict Mode replay; abandoned rendering; subscription replacement; stale/reentrant callbacks; stale attachment cleanup and update; hidden drawers; visibility changes; shell remounts; pending acknowledgements and accepted-write/failed-refresh recovery; role change; membership/incident-access loss; session/account replacement; temporary import unavailability versus confirmed claim withdrawal; exact departure order and cancellation/currentness; late Incident resource publication and version/authority rejection. Exercise the eight real owners together as well as each adapter. Presentation detachment must not silently terminate authorized retained work, and terminal cleanup must reject later attachments or callbacks.
+
+No new production-readiness test result is claimed by this document update. Product tests/builds, generation, broad checks, browser gates and `agent-finalize` are intentionally skipped now because only Markdown changes; the discovery roots above are retained evidence. S-33's earlier autosave failure/reruns and the separate measurement limitation remain historical with their original run roots. Reproduce and classify any failure encountered during later implementation rather than treating history as a fresh defect or hiding it with weaker assertions.
+
 ## 9. Top-Level Work Tracker
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
@@ -3381,7 +3528,7 @@ Historical iteration 4 document-session scope: T-034 installed that plan. Subseq
 
 ### Iteration 5 work tracker
 
-The user authorized the iteration 5 implementation in this task. The staged T-040 document update is preserved; S-29–S-33 proceed serially with a saved tracker exit between workstreams.
+Historical iteration 5 implementation record: the user authorized S-29–S-33 in that task, which preserved its staged T-040 update and saved each sequential exit. Current Iteration 6 implementation is separately authorized in §1 and recorded after those historical rows.
 
 | ID | Work item | Workstream | Status | Depends on | Evidence / artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -3392,7 +3539,7 @@ The user authorized the iteration 5 implementation in this task. The staged T-04
 | T-044 | Migrate specialized policies and remove polling | S-32 | DONE | T-043 DONE | S-32 exit below; specialized owner rows, removed-helper search and retry/build checks | All five policies migrated; no coordination polling/helper consumers; genuine retry scheduling retained. |
 | T-045 | Complete fresh integrated validation and handoff | S-33 | DONE | T-041–T-044 DONE | Final required gate roots, finding/contract dispositions and exact change/rollback ledger below | Required checks pass on completed code; limitations explicit; complete handoff saved last. |
 
-### Iteration 5 implementation exits — current task
+### Iteration 5 implementation exits — historical completed task
 
 **S-29 DONE (before S-30).** Baseline is `cc01694a995f17bc5d6792866f0426894eb44c44` on `main`; only the previously staged tracker differed from HEAD at entry. Both `make task-guide ROLE=module-author OWNER=web.workbook` and `OWNER=web.architecture` resolved. The retained four-row baseline on this same product revision passed 5/5 graph units at `.cartulary/test-results/20260925T130359Z-p36398`; it is characterization, not implementation validation. No owner-versus-owner contradiction or demonstrated observable omission was found in the inspected Core 03 clauses, so no normative amendment is justified merely to prescribe event scheduling. Current code outcomes remain subject to these owners, not an independent compatibility promise.
 
@@ -3420,9 +3567,20 @@ Validation: the first five-row run failed 5/6 at `.cartulary/test-results/202609
 
 Validation: specialized four-row Workbook slice PASS 5/5 at `.cartulary/test-results/20260925T135040Z-p86310`; `frontend-typecheck` PASS 2/2 at `20260925T134614Z-p73575`; `build-web` PASS 2/2 at `20260925T134614Z-p73823`; `frontend-fallow-static` PASS 2/2 at `20260925T134946Z-p84763`; `frontend-import-boundary-check` PASS 2/2 at `20260925T134946Z-p84773`; `test-catalog-check` PASS; `lint-biome` PASS 2/2 at `20260925T135040Z-p86479`. Initial `lint-biome` failed at `20260925T134614Z-p73624` on three new test callback lint errors, corrected in the tests. `make format` failed at `20260925T134650Z-p75355` because Biome reported those same errors during its frontend step; it applied no fixes, and later lint passed. RB-024 is satisfied by five-policy integration and removed-helper evidence. S-33 must refresh all final gates on the completed tree.
 
+### Iteration 6 work tracker
+
+| ID | Work item | Workstream | Status | Depends on | Evidence / artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-046 | Install and validate iteration 6 document update | Document update | DONE | Approved plan; clean 3e71ce130 baseline | This tracker only; twelve sections, delta, ownership/policy decisions and §12 document validation | Current scope/history distinguished; new findings/contracts/slices/gates installed; Markdown, whitespace and only-tracker checks pass. |
+| T-047 | Freeze eight-workflow lifetime and policy evidence | S-34 | DONE | T-046 DONE; S-33 DONE; later implementation authorization | Exact source/consumer/authority/event/test ledger; fresh baseline disposition | Every lifecycle/retention decision mapped; normative requirements separated from incidental mechanisms; coverage gaps explicit. |
+| T-048 | Extract feature adapters and remove alternate interfaces | S-35 | DONE | T-047 DONE | Eight adapters through existing hooks; required metadata publication; feature-owned import binding types | All callers/tests migrate together; no hook resource mirror, fallback or old type alias remains. |
+| T-049 | Establish fixed application lifecycle ownership | S-36 | DONE | T-048 DONE | Fixed typed eight-member composition, one committed bridge and corresponding App cleanup removal | Exactly-once sync/retire/terminal participation; authority ordering, replay, abandoned render and replacement tests pass; superseded construction hooks removed. |
+| T-050 | Migrate presentation attachments to owned handles | S-37 | DONE | T-049 DONE | All selected panels, shell, Saved View/preference and import callers; visibility bridge | Stale update/detach is inert; retained work survives appropriate remounts; nullable compatibility paths removed. |
+| T-051 | Complete fresh integrated validation and handoff | S-38 | DONE | T-047–T-050 DONE | Fresh required gate roots, removal/accounting ledger, finding/contract dispositions and rollback | Required checks pass on completed code; applicable evidence gates satisfied; limitations and skipped maintenance explicit. |
+
 ## 10. Session Handoff Log
 
-The following earlier planning and implementation entries are historical checkpoints. The iteration 5 document-session entry records its then-current scope; the iteration 5 implementation exits above and the final S-33 handoff below supersede it. Earlier instructions to implement or commit do not reactivate other production work.
+The earlier planning and implementation entries are historical checkpoints, including iteration 5's staged-tree, implementation authorization and final S-33 handoff. The historical T-046 document entry below precedes the separately authorized Iteration 6 execution in §1 and the appended S-34–S-38 exits. Earlier commit or deferred-work instructions do not expand this execution scope.
 
 Times are UTC. Session `planning-2026-09-22` is the preceding Plan Mode inspection; session `tracker-2026-09-22` creates this file and incorporates subsequent user steering. No prior on-disk tracker history existed to preserve. The only touched file in the creation session is `docs/handoffs/web-apps-cleanup-tracker.md`; all other paths below are reads. Workflow completion describes planning only.
 
@@ -3802,6 +3960,20 @@ Inspected paths and substantive conclusions are recorded in §§1–5 and row ro
 
 Only this tracker is edited. Product checks/builds, generation and `agent-finalize` are not rerun for this prose-only step; the retained discovery result is labeled separately. The finalizer can refresh generated artifacts outside the allowed write boundary. Retained-run maintenance is skipped because RESULTS_DIR is unset. Current documentation results and exact scope audit are recorded in the iteration 5 completion entry in §12.
 
+### Historical Iteration 6 document-update handoff — 2026-09-26 UTC
+
+| Handoff area | Current state / inspected evidence | Authorized change and next boundary |
+| --- | --- | --- |
+| Scope and authority | Clean `main` at `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`; 1,762 tracked web / 1,200 owned TS paths; completed S-00–S-33 preserved; supplied docs interpreted within their boundaries | Only this tracker edited. T-046 validates the plan; S-34–S-38 require a later authorized task. No commit, reset, deployment or implementation follows from historical instructions. |
+| Backend and adjacent owners | No backend change proposed. Account security, deployment administration, creation/directory, Incident resource ownership and Workbook mutation runtime retain their responsibilities | Keep existing transport/auth/resource/source-owner contracts. This plan neither consolidates unrelated controllers nor introduces a new backend/migration dependency. |
+| Frontend ownership and inventory | Eight hooks, controllers, App/session/resource/departure owners and presentation callers inspected; 87 committed changed web paths reconciled; eight missing inventory entries added in §2 | Fixed composition + committed lifecycle bridge + eight adapters + owned presentation handles; delete obsolete hooks/type exports/metadata test path only in later slices. Refresh exact caller/removal ledger at S-34. |
+| Contracts and compatibility | C-38–41 cover authority ordering, presentation, recovery and resource/departure behavior; §4 records all eight distinct policies | Preserve user behavior, routes, wire/storage formats, selectors and authorization. No migration or compatibility alias. Human owner review precedes projection changes if a real requirement discrepancy is found. |
+| Tests and accounting | Retained application discovery 9/9 at 20260926T151002Z-p8924 and Workbook discovery 4/4 at 20260926T151002Z-p8942; no claim of complete new-boundary coverage | T-046 checks Markdown/diff/scope only; §12 records result. Future slices update authored ownership/catalog inputs and regenerate through Make. Product/finalizer/browser work skipped now because the change is documentary. |
+| Security and retained state | Session authority remains in `AppSessionController`; source adapters preserve actor/incident/role checks and recovery, audit admin membership, import pause/withdrawal and version fences | Retire synchronously before replacement publication; detach is presentation-owned and does not acquire authority. No broadened access, automatic resend, durable draft storage or suppression expansion. |
+| Risks, rollback and next action | FND-41–44 unresolved implementation findings; FND-45 retained distinctions; RB-026–029 TODO future evidence gates. Old Timeline idle timer already removed; autosave timing and measurement history retained | Document checks recorded in §12; review the plan next. Later authorized work starts at S-34, saves exits sequentially and reverts dependent attachment/lifetime migrations before infrastructure. Preserve failed/passing evidence; completion is engineering evidence, not deployment certification. |
+
+The plan removes lifecycle duplication structurally while keeping feature decisions explicit. No additional user decision is needed to finish this document; adapter filenames and focused extra row selection are routine implementation choices within the approved boundaries. Current validation results and the exact changed-file audit are recorded at the end of §12, not inferred from earlier run histories.
+
 ## 11. Open Questions and Blockers
 
 The original blockers below are now resolved by authorized execution. The pre-production clean-cutover decision remains in force. No owner-versus-owner contradiction was found in the reviewed clauses; mark any future one **BLOCKED: owner contradiction** and stop only the affected slice.
@@ -3875,9 +4047,22 @@ No unresolved user preference blocks this document update. RB-001–021 remain c
 
 Application-shell lifecycle work, broad static advisories and the historical measurement capture-identity limitation remain DEFERRED to separate tasks. Their current failure state has not been rerun or newly asserted. No generic workflow engine, dynamic feature registry, suppression expansion, polling fallback, dependency upgrade or compatibility alias is authorized by this plan. Any new prerequisite must name its owner, evidence and dependent exit; do not silently expand scope to close a gate.
 
+### Iteration 6 implementation evidence gates
+
+These are the execution evidence requirements for S-34–S-38. Their current dispositions follow; completed RB-001–025 retain their historical outcomes. No owner contradiction was found in the scoped review. Gates are discharged by fresh implementation evidence, not the earlier T-046 planning completion.
+
+| ID / status | Evidence gate | Required closure | Dependency / boundary |
+| --- | --- | --- | --- |
+| RB-026 / DONE | Freeze all eight authority/lifetime/recovery policies and exact callers | S-34 event/owner/test matrix, adopted-requirement mapping, baseline results, missing coverage and precise removal ledger; distinguish claim loss from temporary unavailability and admin audit from ordinary membership | Before S-35. Existing discovery passes alone do not prove complete characterization. |
+| RB-027 / DONE | Prove committed fixed-composition safety | Exactly-once eight-member participation, synchronous retirement before replacement publication, stale/reentrant callback fencing, abandoned-render purity, source replacement, Strict Mode replay and terminal cleanup | S-35/S-36; do not remove old ownership until real-owner tests cover the replacement. No dynamic registry or duplicate session authority. |
+| RB-028 / DONE | Prove attachment ownership and real resource/recovery behavior | Stale update/detach cannot affect newer attachment; hidden drawer/shell remount retains permitted work; late Incident resource publication uses the required production port; departure review order and import withdrawal/unavailability preserved | S-35/S-37; remove old hook publication and nullable binding paths with callers/tests, not behind aliases. |
+| RB-029 / DONE | Obtain final engineering and accounting evidence | S-38 fresh required gates, exact path/removal/owner/catalog delta, generated drift checks where applicable, failure/skip dispositions and reverse dependency rollback | Finalization before broad checks/browser gates; no historical pass substitution or deployment certification. |
+
+Iteration 6 supersedes the old shell-lifecycle deferral only for the eight selected workflows and their application/presentation ownership. Broad tooling advisories, historical measurement capture-identity limitation, unrelated application owners, deployment/release certification, source policy redesign beyond the approved shared Import interruption/recovery contract, and new storage remain outside scope. The former Timeline committed-row timer is already removed in the current baseline and is not a new TODO. Preserve the historical autosave failure/reruns; classify any new reproduction on its own evidence.
+
 ## 12. Binary Completion Criteria
 
-The original table records iteration 1 planning completion only. All iteration 1–4 assessments and exits remain historical evidence. The iteration 5 document criteria and future implementation handoff at the end of this section are historical; the current S-29–S-33 exits and final handoff govern this task. No historical implementation, dirty-tree or next-action paragraph reactivates production work.
+The original table records iteration 1 planning completion only. All iteration 1–5 assessments, implementation exits and worktree/validation/next-action statements remain historical evidence. The authorized Iteration 6 execution, acceptance review and completed handoff at the end of this section govern this task; T-046's planning-only completion is preserved as history.
 
 | Criterion | Result | Evidence / exact meaning |
 | --- | --- | --- |
@@ -5619,6 +5804,8 @@ The then-next authorized production task started at S-29 with a refreshed HEAD/c
 
 ### Iteration 5 implementation validation and engineering handoff — S-33
 
+Historical completed implementation checkpoint. Preserve the following results and then-current 14-path/staged-tree accounting; they describe that implementation revision, not the clean iteration 6 baseline. Subsequent implementation already removed `useTimelineCommittedRecordIdle.ts`'s presentation idle timer. The autosave timing failure and passing reruns below remain historical, not freshly reproduced in T-046. The iteration 6 scope, inventory and next action supersede this checkpoint's commit-next and timer-follow-up instructions.
+
 **S-33 DONE.** The separately saved S-29–S-32 exits precede this validation and handoff. The owner audit found no demonstrated observable contradiction or omission requiring an adopted specification amendment. C-35 is discharged by the five-policy owner/predicate/test ledger and retained outcomes; C-36 by state-owner publication and coordinator registration/release tests; C-37 by abort, disposal, authority, real-owner and completed-`null` tests. FND-37–39 are resolved by the retained coordinator, mutation publication and behavioral tests. FND-40 is intentionally retained: the five named policies, source-specific rules, retry/backoff scheduler and unrelated shell/measurement boundaries remain distinct. RB-022–025 are DONE.
 
 | Area | Exact current-task changed paths and consumer effect |
@@ -5641,3 +5828,278 @@ The removed-symbol audit is deliberately scoped to the five retained runtime rea
 Final accounting: 14 current-task changed paths total — 12 tracked source/test/authored/generated paths plus the tracker and one new untracked coordinator source. No dependency, lockfile, golden, route, schema, adopted specification or other generated file changed. Only the user's pre-existing T-040 tracker content is staged; all S-29–S-33 edits remain unstaged. Initial Node `PATH` service-start failures, the corrected History timer assertion/catalog order, the corrected Biome callback lint, and the pre-generation topology drift failures are recorded in the preceding workstream exits; they passed on rerun. `make check` and all required final browser gates pass on the completed implementation. No commit, deployment, release certification or data conversion was performed. The next engineering action is review and commit of this coherent change set, preserving the existing index distinction; a later separate task may address the presentation-level Timeline idle timer and reproduce the intermittent autosave feedback assertion. Retain all failed and passing run roots for diagnosis.
 
 Final staged and unstaged `git diff --check` passed; the Git audit found exactly the 14 paths in the ledger, with the tracker alone staged and the new coordinator untracked. The last Markdown-only bookkeeping edit adds the post-closure lint run root and does not change executable evidence.
+
+### Historical Iteration 6 document completion and implementation plan
+
+Current task: document update only, based on clean `main` commit `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`. All previous implementation exits remain historical and complete. This task installs the application-workflow plan; it performs no S-34–S-38 production implementation, contract/catalog edit, generation, commit or deployment.
+
+| Document completion criterion | Status | Evidence / meaning |
+| --- | --- | --- |
+| Current authorization and completed history distinguished | DONE | §1 limits work to this tracker; all twelve numbered section titles and completed S-00–S-33 history preserved. Previous staged/dirty-tree, validation-in-progress, implementation and next-action statements are historical. |
+| Current inventory reconciled | DONE | 1,762 tracked web and 1,200 owned TS paths at the fixed baseline; 87-path delta contains nine additions and 78 modifications. Eight previously missing paths added; ninth addition already in S-33. Every current tracked web path is named; inspection depth and inherited evidence remain distinct. |
+| Ownership, findings and contracts specified | DONE | Eight workflow adapters, fixed composition, committed lifecycle/presentation bridges, owned handles and required Incident resource publication; FND-41–45 and C-38–41 preserve feature policies, authority and departure order. |
+| Dependent implementation and rollback prepared | DONE | S-34–S-38 and T-047–T-051 TODO; dependencies, measurable exits, coordinated caller/test/accounting rollback and RB-026–029 future gates recorded. No compatibility alias, generic engine or migration. |
+| Discovery and historical limitations accurately bounded | DONE | Retained application 9/9 and Workbook 4/4 discovery roots verified; fresh proposed-boundary coverage still required. Former Timeline idle timer already removed; earlier autosave failure/reruns retained without claiming a new reproduction. |
+| Markdown, whitespace and single-file scope verified | DONE | make lint-markdown PASS at .cartulary/test-results/20260926T152441Z-p15503 (adhoc/lint-markdown/tool-run-summary.json); git diff --check PASS. Only this tracker differs from HEAD; no staged changes; twelve section titles and completed-history audit pass. |
+
+Future implementation completion requires S-34–S-38 and T-047–T-051 DONE, RB-026–029 satisfied, FND-41–44 resolved with real caller/owner evidence, FND-45's intentional distinctions retained, and C-38–41 verified. All eight workflows must participate exactly once in synchronization, retirement and terminal cleanup. Construction/abandoned renders have no subscriptions, dispatches or active-binding changes; retirement precedes replacement publication; stale/reentrant callbacks and obsolete handles cannot affect a new lifetime or presentation. Remove superseded construction hooks, duplicate App membership lists for these workflows, hook-owned import type exports, nullable presentation compatibility paths and the metadata mirror/fallback with their consumers/tests. Preserve retained recovery, source authority and departure review order.
+
+The later implementation handoff must record every added/modified/deleted source/test/interface/accounting path, authored ownership/catalog changes and generated projections, fresh required target/run results, failures/reruns, skipped maintenance and rollback. Reverse attachment migrations before lifecycle composition, then adapters/infrastructure with their callers and tests. No stored-data conversion, route/storage/wire change, broader authorization or deployment certification is involved.
+
+Current validation record: **T-046 DONE**. `make lint-markdown` passed at `.cartulary/test-results/20260926T152441Z-p15503`, summary `adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` and exact path/history audits passed. All twelve numbered headings are unchanged, all 43 pre-existing DONE task rows are preserved, and completed S-29–S-33 exit bodies remain intact. Only `docs/handoffs/web-apps-cleanup-tracker.md` changed; no staged paths or production edits. Product tests/builds, generation, agent-finalize, broad check and browser gates are intentionally not run for this Markdown-only task; retained discovery results are identified in §8. `RESULTS_DIR` is unset, so retained-run maintenance is skipped. The next action is review of this plan; only a later authorized implementation task starts at S-34 with refreshed HEAD, source/caller and catalog evidence.
+
+
+### Iteration 6 execution — S-34 started
+
+Prerequisites: S-33 and T-046 DONE; user-approved implementation and expanded policy; HEAD/status rechecked, tracker-only staged state preserved. No nested AGENTS file was found. Review uses the Cartulary UI/UX digest as advisory guidance and the adopted owners as authority.
+
+FND-46 / IN_PROGRESS — Boolean Import availability conflates temporary readiness with withdrawal and Workbook Import restarts job observation from bind. Remedy: typed owner readiness, both source-specific adapters using the same interruption classification, explicit observation/recovery after restoration. Areas: specification, implementation, tests and documentation. Benefit: retained intent and predictable recovery without widening authorization. Compatibility: browser behavior changes only; no persistence or wire migration. Leaving it unresolved risks draft/receipt loss and hidden polling. Exit: both real owners preserve exact uncertain intent while paused, conceal protected state, restore review only and clear on definitive loss/protocol defects.
+
+C-42 — Shared Import interruption/recovery contract: transient binding/discovery/transport/authorization uncertainty pauses and conceals same-lifetime work; current authority restores review only; explicit action resumes reads or exact uncertain replay; confirmed access loss, claim withdrawal, unsupported/invalid protocol state, session/account/incident replacement retire. Old callbacks cannot affect a new lifetime. Server jobs are not implicitly cancelled. FND-45 retains source-specific policies, but its historical Import asymmetry freeze is superseded by C-42.
+
+Exact policy/consumer ledger: all eight `app/use*` hooks named in the Iteration 6 inventory move their non-React decisions into named adapters; App and the matching integration fixtures consume them. Four incident panels, WorkbookShell, Saved View binding hook and two Import binding hooks later migrate to owned attachments. AppSessionController retains authority; IncidentResourceController retains resource/version publication; reviewAppDeparture retains its five-owner order. Source ownership and test catalogs follow actual edits.
+
+| Workflow | Events and authority | Retained-state / ordering | Current evidence seed |
+| --- | --- | --- | --- |
+| Metadata | drawer/visibility; member role; actor/incident/session replacement | retain same-authority draft/receipt; resource acceptance through IncidentResourceController; retire before replacement | metadata_lifetime, metadata_ownership, lifecycle_integration |
+| Lifecycle | drawer/visibility; member role and current incident version | preserve operation/refresh separation; resource version rejection; retire before replacement | lifecycle_integration, lifecycle_ownership |
+| Membership management | drawer, write-role loss, membership/session replacement | keep authorized draft and pending acknowledgement; current access recovery only | membership_management_lifetime, membership ownership |
+| Membership audit | drawer/visibility; incident admin membership | clear protected audit on admin loss; deployment_admin grants no incident access | incident_membership_audit_lifetime_integration |
+| Saved Views | shell detach, actor/role/schema changes | close discovery independently of retained operation; conceal no-longer-visible private resources | saved_view_operation_owner, useworkbooksavedviewcontroller_suite_d3f1a57e5d |
+| Preferences | shell detach, actor/incident/session change | detach surface without discarding permitted operation; fixed departure review | preference_integration, metadata_departure |
+| Workbook Import | typed readiness, write/read authority, scope and claim changes | C-42 pause/conceal versus definitive retirement; exact uncertain request retained; explicit resume | workbook_import_lifetime, module.imports.frontend.lifecycle |
+| Network Flow Import | both required claims; typed readiness; lifecycle and source version | C-42 plus analytical mapping/preview/apply/handoff; no automatic writes or observation after interruption | network_flow_import_lifetime, analytical_import_ownership/recovery |
+
+Baseline characterization already run in this session before implementation: application 9/9 at `.cartulary/test-results/20260926T153535Z-p24686`; Workbook 4/4 at `20260926T153535Z-p24689`; Import 2/2 at `20260926T153535Z-p24768`; Network Flow 3/3 at `20260926T153535Z-p24722`; extension availability 3/3 at `20260926T154007Z-p27631`. These are pre-change passes, not new-policy coverage. Missing composition/attachment/reentrancy and typed-readiness cases will be authored in their implementation slices. Existing history remains intact.
+
+
+### S-34 completed exit
+
+S-34/T-047 DONE; RB-026 DONE. Adopted Core 03 REQ-03-309 and NF-REQ-213 specify shared Import interruption/review restoration without changing EXT-REQ-212 security clearing or any wire/storage format. The eight-owner event/policy/test matrix, exact consumer ledger, FND-46/C-42 and replacement of the old Import asymmetry freeze are recorded above. Existing characterization passes are the same-HEAD planning runs listed above; new implementation coverage belongs to S-35–S-37. No contradictory owner requirement was found. `make lint-markdown` PASS at `.cartulary/test-results/20260926T154650Z-p30524`, summary `adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` PASS. Three unstaged paths: tracker and two adopted owners; original tracker index preserved. Rollback the owner amendments and this evidence together before implementation; no production changes yet.
+
+
+### S-35 started
+
+Prerequisites: S-34/T-047 and RB-026 DONE, saved above before this start. Implement named adapters, typed Import readiness/review-only restoration, production metadata resource publication, feature-owned binding interfaces and effective terminal disposal. Focused verification covers application/Workbook, module.imports, web.networkflow and extension availability, plus type/import/source accounting.
+
+
+### S-35 completed exit
+
+S-35/T-048 DONE. Eight `app/create*Workflow.ts` adapters now own authority/activation/recovery and are consumed by the temporary existing hooks through `useAppWorkflowBinding`. `extensions/extensionAvailability.ts` exposes non-authorizing pending/available/unavailable/invalid route readiness, including a current-protocol-defect latch cleared by a valid startup response. Import bindings moved to `imports/workbookImportBinding.ts` and `networkFlow/networkFlowImportBinding.ts` (exported through the existing Network Flow feature facade); Workbook callers subscribe to owner readiness. Both adapters distinguish pause from retirement. Workbook rebind no longer restarts observation; paused job/unit previews become stale. Exact request identity is retained through repeated interruption. Terminal disposal is guarded and Network Flow has explicit disposal. Metadata requires publication and its integration fixture uses IncidentResourceController, with no hook resource mirror or callback fallback.
+
+New tests cover readiness classification/current versus stale protocol failures, repeated Import pauses with exact request retention/no resend, and acknowledged review with explicit observation. Existing cancellation evidence now explicitly resumes observation after closure before cancellation; it no longer assumes the removed implicit bind behavior. Source ownership and authored test titles were updated; `make generate` PASS at `.cartulary/test-results/20260926T155818Z-p49707` refreshed topology projections. Guides describe the owner boundary.
+
+Validation: application selected rows PASS 9/9 at `20260926T155816Z-p49506`; Workbook/extension selected rows PASS 6/6 at `20260926T155625Z-p44886`; Import lifecycle PASS 2/2 at `20260926T155738Z-p47903`; Network Flow ownership/recovery PASS 3/3 at `20260926T155625Z-p44923`; frontend typecheck PASS 2/2 at `20260926T155625Z-p45109`; import boundaries PASS 2/2 at `20260926T155646Z-p47297`; lint-biome PASS 2/2 at `20260926T155740Z-p48168`; final format-frontend exited 0; whitespace PASS. All roots are under `.cartulary/test-results/`.
+
+Failures retained: format `20260926T155309Z-p35535` and first rerun exposed a missing effect dependency/stale import, corrected; typecheck `20260926T155455Z-p41249` exposed the stale route-family import, corrected; lint `20260926T155525Z-p43555` corrected by that import/dependency fix. Import `20260926T155455Z-p41105` exposed the obsolete implicit-resume assertion; `20260926T155625Z-p44856` then exposed awaiting a running polling lifetime in its revised test; explicit start/settle/stop resolved it. A diagnostic `BIOME_CHECK_FLAGS` override was rejected by harness input validation; ordinary public lint then passed. No assertion was weakened to retain the old recovery policy.
+
+Compatibility: intentional review-only browser recovery; no route/payload/storage/data conversion. Rollback adapters/hooks, typed readiness and binding callers, source disposal and tests together; restore authored accounting before Make regeneration. The eight old hooks are temporary S-36 migration inputs, not retained compatibility. Original tracker index remains unchanged.
+
+
+### S-36 started
+
+Prerequisites: saved S-35/T-048 completed exit. Establish one fixed typed composition and committed session bridge, remove superseded construction hooks and selected App lists, and cover real-owner lifecycle/reentrancy/disposal. Keep AppSessionController authority and fixed departure order.
+
+### S-36 completed exit
+
+S-36/T-049 DONE; RB-027 DONE. `AppWorkflows.ts` declares one fixed typed eight-member contribution record and derives synchronization, retirement and disposal from it. `useAppWorkflows.ts` commits mutable ports and replaces its one session subscription after commit. App routes prepublication retirement and terminal cleanup through that composition; external owners and memberships → metadata → lifecycle → preferences → deployment users departure order remain explicit. Eight obsolete construction hooks were removed. Integration fixtures now use the real composition and production resource owner through test support, without production compatibility exports.
+
+Serialized session authority transitions suppress superseded reentrant publication; composition generation guards stop synchronization across authority replacement. Admission is closed during retirement/disposal. Duplicate loss notifications from a single accepted authority observation are coalesced. Subscription release and terminal controller disposal are idempotent. `useAppSession` captures cleanup ownership after commit and preserves Strict Mode replay. Route policy ports also commit after render, with a publication generation guarding reentrant navigation.
+
+Validation: application workflow rows PASS 9/9 at `20260926T160945Z-p62932`; Workbook rows PASS 3/3 at `20260926T160946Z-p63417`; session/route rows PASS 3/3 at `20260926T161035Z-p67783`; typecheck PASS 2/2 at `20260926T160923Z-p62176`; lint-biome PASS 2/2 at `20260926T160923Z-p62186`; import-boundary PASS 2/2 at `20260926T161037Z-p68058`; generation PASS at `20260926T160923Z-p62116`. Final format-frontend and whitespace passed. New composition tests cover all-eight participation, reentrant replacement, obsolete source callbacks, Strict Mode terminal cleanup and abandoned rendering with no subscription or active-owner mutation.
+
+Failures retained: early typecheck `20260926T160249Z-p55529` exposed a missing adapter option declaration, corrected. Application `20260926T160503Z-p57380` and Workbook `20260926T160503Z-p57434` caught duplicate unsubscribe and repeated same-authority access-loss notifications, corrected centrally. Typecheck `20260926T160503Z-p57512` corrected a test unsubscribe return type; lint `20260926T160530Z-p59848` corrected assertion callback returns. Two malformed abbreviated ROWS invocations were rejected before execution; reruns used full registered row IDs. All run roots are under `.cartulary/test-results/`.
+
+Compatibility: internal composition only, no public protocol or departure-policy change. Rollback composition, bridge, App wiring, hook removals and tests together, with authored accounting restored before regeneration. Original staged tracker remains preserved.
+
+### S-37 started
+
+Prerequisites: S-36/T-049 and RB-027 completed and saved above. Replace nullable presentation cleanup with owned typed update/detach handles for all eight callers. Share committed attachment/visibility mechanics while retaining named feature activation, draft and recovery policies. Verify stale handles, mismatched subjects and real detach/return behavior before the final validation slice.
+
+### S-37 completed exit
+
+S-37/T-050 DONE; RB-028 DONE. All eight adapters expose owned typed attachment handles. The shared identity primitive rejects invalid subjects and makes replaced handles inert; a rejected initial attachment may be retried after commit, but an obsolete handle cannot reclaim a newer presentation. `createWorkflowPresentation` captures session source, lifetime, actor and incident without copying authority. `useWorkflowAttachment` commits bindings and visibility callbacks and captures its own cleanup. Four panels, WorkbookShell preferences, Saved Views and both Import callers migrated atomically; nullable public binding cleanup and obsolete hook-owned types are absent. Narrow controller fixtures also use real owned handles.
+
+Import presentation closure now fences pending work and pauses observation in both workflows, retaining exact uncertainty and receipts while marking affected observations/previews stale. Reopening does not restart reads. Workbook's drawer has its own owned presentation handle; starting a new draft preserves that live presentation. Recovery-source callbacks now commit after rendering and unregister their own captured registration. The browser recovery scenario explicitly refreshes stale session review before Apply and still proves one upload/mapping and exact selection recovery. No visual design change is intended.
+
+Validation: all selected application/session rows PASS 10/10 at `20260926T162036Z-p85695`; final composition/Import rows PASS 4/4 at `20260926T162403Z-p29475`; Workbook membership/Saved View rows PASS 4/4 at `20260926T161813Z-p78305`; shell/recovery/attachment rows PASS 7/7 at `20260926T162240Z-p20635`; Network Flow ownership/recovery PASS 3/3 at `20260926T162239Z-p19289`; Import lifecycle/presentation PASS 3/3 at `20260926T162511Z-p34501`; browser Import keyboard/density PASS 11/11 graph units at `20260926T162551Z-p35802`. Typecheck PASS 2/2 at `20260926T162552Z-p36089`; lint PASS 2/2 at `20260926T162553Z-p36099`; import boundaries PASS 2/2 at `20260926T162037Z-p85977`; Make generation PASS at `20260926T162404Z-p29837`. Format and whitespace passed. All roots are under `.cartulary/test-results/`.
+
+Failures retained: mechanical caller migration syntax/type errors at `20260926T161436Z-p71586`, `20260926T161526Z-p72737`, `20260926T161647Z-p76520`, `20260926T161811Z-p77642`, lint `20260926T161631Z-p74039`, application `20260926T161632Z-p74185` and Workbook `20260926T161633Z-p74596` were corrected with complete fixture migration and route-retirement simulation. Broader Import selection `20260926T162216Z-p89018` passed 24/27; failures were the changed stale-preview/explicit-refresh expectations. Focused Import rerun `20260926T162402Z-p29246` passed 4/5 before the stale-preview assertion was updated. The subsequent passing focused and browser roots above close those failures. No intermittent failure was identified in this slice.
+
+Compatibility: selected internal attachment signatures migrate together, with no aliases; intentional Import review-only restoration includes drawer/presentation closure. Roll back S-37 interfaces, callers, controller interruption policy and tests together before reversing S-36 and S-35. Restore authored accounting before regeneration. Staged tracker remains preserved.
+
+### S-38 started
+
+Prerequisites: S-34–S-37/T-047–T-050 DONE; RB-026–028 discharged and exits saved. Final work reconciles findings/contracts, exact source and catalog accounting, generated projections, current static/build/full/browser evidence, acceptance and engineering handoff. Run agent-finalize before broad check; retained-run maintenance is skipped because RESULTS_DIR is unset. Do not infer completion from earlier roots or claim deployment/release certification.
+
+### S-38 accounting and review ledger
+
+Source ownership remains independent of verification routing: `web.app` (31 touched extant paths) routes chiefly through `web.application`; `web.extensions` (2), `web.imports` (3), `web.network_flow` (3), `web.shared` (3), `web.testing` (3), and `web.workbook` (15) retain their authored source boundaries. Existing catalogs route Import through `module.imports`, analytical Import through `web.networkflow`, and Workbook/availability through `web.workbook`. The new composition row belongs to `web.application`. No requirement is inferred from that routing.
+
+Exact added/changed/deleted ledger against HEAD (including the preserved staged tracker), recorded before final validation. `A` means a new authored untracked path awaiting normal user staging; `M` and `D` are tracked changes. The topology render index is the only changed generated output and came from public Make generation.
+
+| Change | Path |
+| --- | --- |
+| M | `apps/web/e2e/import-assistant.spec.ts` |
+| M | `apps/web/src/app/App.tsx` |
+| A | `apps/web/src/app/AppWorkflows.test.tsx` |
+| A | `apps/web/src/app/AppWorkflows.ts` |
+| M | `apps/web/src/app/IncidentLifecyclePanel.tsx` |
+| M | `apps/web/src/app/IncidentMembershipAuditPanel.tsx` |
+| M | `apps/web/src/app/IncidentMembershipManagementPanel.tsx` |
+| M | `apps/web/src/app/IncidentMetadataPanel.tsx` |
+| M | `apps/web/src/app/README.md` |
+| M | `apps/web/src/app/appSessionController.ts` |
+| A | `apps/web/src/app/createIncidentLifecycleWorkflow.ts` |
+| A | `apps/web/src/app/createIncidentMembershipAuditWorkflow.ts` |
+| A | `apps/web/src/app/createIncidentMembershipManagementWorkflow.ts` |
+| A | `apps/web/src/app/createIncidentMetadataWorkflow.ts` |
+| A | `apps/web/src/app/createNetworkFlowImportWorkflow.ts` |
+| A | `apps/web/src/app/createWorkbookImportWorkflow.ts` |
+| A | `apps/web/src/app/createWorkbookPreferencesWorkflow.ts` |
+| A | `apps/web/src/app/createWorkbookSavedViewsWorkflow.ts` |
+| A | `apps/web/src/app/createWorkflowPresentation.ts` |
+| M | `apps/web/src/app/incidentLifecycleController.ts` |
+| M | `apps/web/src/app/incidentLifecycleIntegration.test.tsx` |
+| M | `apps/web/src/app/incidentMembershipAuditController.ts` |
+| M | `apps/web/src/app/incidentMembershipAuditLifecycle.test.tsx` |
+| M | `apps/web/src/app/incidentMembershipManagementController.ts` |
+| M | `apps/web/src/app/incidentMembershipManagementLifecycle.test.tsx` |
+| M | `apps/web/src/app/incidentMetadataController.ts` |
+| M | `apps/web/src/app/incidentMetadataLifecycle.test.tsx` |
+| M | `apps/web/src/app/useAppRouteRuntime.ts` |
+| M | `apps/web/src/app/useAppSession.ts` |
+| A | `apps/web/src/app/useAppWorkflows.ts` |
+| D | `apps/web/src/app/useIncidentLifecycle.ts` |
+| D | `apps/web/src/app/useIncidentMembershipAudit.ts` |
+| D | `apps/web/src/app/useIncidentMembershipManagement.ts` |
+| D | `apps/web/src/app/useIncidentMetadata.ts` |
+| M | `apps/web/src/app/useNetworkFlowImport.test.tsx` |
+| D | `apps/web/src/app/useNetworkFlowImport.ts` |
+| M | `apps/web/src/app/useWorkbookImport.test.tsx` |
+| D | `apps/web/src/app/useWorkbookImport.ts` |
+| D | `apps/web/src/app/useWorkbookPreferences.ts` |
+| D | `apps/web/src/app/useWorkbookSavedViews.ts` |
+| M | `apps/web/src/app/workbookPreferenceIntegration.test.tsx` |
+| M | `apps/web/src/extensions/extensionAvailability.test.ts` |
+| M | `apps/web/src/extensions/extensionAvailability.ts` |
+| M | `apps/web/src/imports/README.md` |
+| M | `apps/web/src/imports/WorkbookImportController.test.ts` |
+| M | `apps/web/src/imports/WorkbookImportController.ts` |
+| A | `apps/web/src/imports/workbookImportBinding.ts` |
+| M | `apps/web/src/networkFlow/NetworkFlowImportController.test.ts` |
+| M | `apps/web/src/networkFlow/NetworkFlowImportController.ts` |
+| A | `apps/web/src/networkFlow/networkFlowImportBinding.ts` |
+| M | `apps/web/src/shared/WorkbookRecoveryBoundary.tsx` |
+| A | `apps/web/src/shared/useWorkflowAttachment.ts` |
+| A | `apps/web/src/shared/workflowAttachment.ts` |
+| A | `apps/web/src/testing/appWorkflowsTestSupport.ts` |
+| M | `apps/web/src/testing/incidentLifecycleSurfaceTestSupport.tsx` |
+| M | `apps/web/src/testing/workbookSavedViewTestSupport.ts` |
+| M | `apps/web/src/workbook/WorkbookShell.assessments.test.tsx` |
+| M | `apps/web/src/workbook/WorkbookShell.gridProvenance.test.tsx` |
+| M | `apps/web/src/workbook/WorkbookShell.surfaces.test.tsx` |
+| M | `apps/web/src/workbook/WorkbookShell.tsx` |
+| M | `apps/web/src/workbook/features/ImportAssistantFeature.test.tsx` |
+| M | `apps/web/src/workbook/features/ImportAssistantFeature.tsx` |
+| M | `apps/web/src/workbook/features/NetworkFlowOperations.ts` |
+| M | `apps/web/src/workbook/hooks/useNetworkFlowImportBinding.ts` |
+| M | `apps/web/src/workbook/hooks/useWorkbookImportBinding.ts` |
+| M | `apps/web/src/workbook/hooks/useWorkbookSavedViewController.test.tsx` |
+| M | `apps/web/src/workbook/hooks/useWorkbookSavedViewController.ts` |
+| M | `apps/web/src/workbook/hooks/useWorkbookShellInfrastructure.ts` |
+| M | `apps/web/src/workbook/hooks/useWorkbookShellRuntime.ts` |
+| M | `apps/web/src/workbook/preferences/WorkbookPreferenceController.ts` |
+| M | `apps/web/src/workbook/savedviews/WorkbookSavedViewController.ts` |
+| M | `docs/handoffs/web-apps-cleanup-tracker.md` |
+| M | `docs/network-flow-activity-nlspec.md` |
+| M | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` |
+| M | `tools/execution_topology_render_index.json` |
+| M | `tools/frontend_source_ownership.json` |
+| M | `tools/test_families/module.imports.json` |
+| M | `tools/test_families/web.application.json` |
+| M | `tools/test_families/web.workbook.json` |
+
+Removal audit: the eight `app/use*` construction hooks are deleted; no source imports or exports refer to them. The S-35 temporary `useAppWorkflowBinding` bridge was created and removed within this effort and is absent from the final tree. The obsolete `NetworkFlowImportBinding` feature-facade re-export was removed after Fallow identified it; the profile-specific surface types remain beside their feature contracts. Selected callers expose `attachSurface` / `attachWorkbook` and handles; no nullable binding-cleanup compatibility API remains. Controller-internal nullable state continues to represent absence, without becoming a second public presentation path.
+
+Git baseline remains branch `main`, HEAD `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`. The sole staged path is the original tracker (index blob `7dcf1b27c5e78a64c69af8798da1928f9a9e11b9`); all execution changes remain unstaged and no commit or deployment was performed. Final whitespace/index accounting follows the gate results.
+
+
+### S-38 completed acceptance review
+
+The implementation hides two real common decisions: fixed lifecycle participation and owned committed presentation identity. Feature authority, activation, source recovery and retained state stay cohesive in named adapters. An additional workflow would require an explicit typed composition member and its own policy/tests; no speculative engine, runtime registry, compatibility alias or shared recovery state was added.
+
+| Digest criteria | Assessment and evidence boundary |
+| --- | --- |
+| A001–A003 | PASS: adopted Core 03/Network Flow clauses precede Import behavior changes; source, verification and specification owners are mapped independently. Current HEAD/index, guides and exact source/removal ledger were reviewed. |
+| A004–A006 | PASS for scope: no token, theme, density, CSS or font registry changed. Existing keyboard/density Import browser cases and final visual evidence pass. |
+| A007 | N/A: ordinary/entity/evidence creation capabilities and source payload schemas are untouched. Import mapping/selection semantics retain their owners and existing tests. |
+| A008–A009 | PASS for changed Import recovery: narrow/short viewport and density/browser containment cases pass without chrome redesign. Final functional, stateful, accessibility and visual gates pass. |
+| A010–A014 | PASS for selected workflows: actual controller/panel, captured request, acknowledgement/refresh, replacement authority, explicit retry, draft and attachment tests pass. Existing row queues and raw editor/paste state are not merged into workflow ownership. |
+| A015 | N/A: cell conflict rendering is outside this application/Import ownership change; no toast/cell policy changed. |
+| A016–A017 | PASS: readiness is non-authorizing, pending versus definitive loss is typed, previews/observations become stale, role/access/account/session boundaries and obsolete callbacks are tested. Temporary interruption retains concealed memory-local work; account/incident/session replacement clears it. |
+| A018 | N/A: Evidence lifecycle/overlay/preview matrix is not changed. |
+| A019–A020 | PASS: final accessibility 20/20 units and 67 scenarios, plus functional/stateful keyboard, escape/focus return, long content, viewport/density and explicit recovery evidence. No component/state styling or accessibility profile changed; visual comparison is assessed separately below. No new accessibility certification is claimed. |
+| A021 | N/A: virtualized result identity and grid algorithms are not modified; import-boundary/architecture checks retain the Grid Adapter boundary. |
+| A022 | PASS: ordinary production visual target 12/12; 255 captures/goldens and 29 fixtures reconcile with no errors, missing/ambiguous mappings or orphans. Representative committed comparison images `metadata-review-narrow-linux.png` and `workbook-preferences-uncertain-linux.png` were manually reviewed; the fresh run confirms their comparison. No golden, renderer, mask, crop, tolerance or visual design changed. |
+| A023–A026 | PASS: existing semantic/UI-contract selectors retained; no executable Markdown dependency added; generated topology comes only from authored catalog inputs via Make. One coordinated browser artifact changes interruption/recovery and internal interfaces, with no DB, wire, storage conversion or legacy compatibility layer. |
+| A027 | PASS: sequential starts/exits, current full/static/browser evidence, preserved failed runs, exact migration/source accounting, compatibility, limitations and reverse rollback are recorded. Final handoff Markdown, whitespace and index verification are recorded with the completed exit. |
+
+Migration and rollback: ship these browser modules as one artifact. No server-job cancellation, database migration, wire-version negotiation or durable browser-state conversion is introduced. Local retained work remains memory-only. Reverse S-37 attachment/caller and presentation-policy changes, then S-36 composition/bridge/App wiring, then S-35 adapters/readiness/resource-publication interfaces with their controllers/tests; restore authored ownership/catalog entries before Make regeneration. Revert the linked owner amendments only with the associated policy implementation. Keep all failed and passing evidence. Deployment is not performed by this engineering handoff.
+
+### S-38 validation progress
+
+Architecture PASS 12/12 at `20260926T162751Z-p70440`. `agent-finalize` PASS 1/1 at `20260926T162750Z-p70198`; final source pass PASS 1/1 at `20260926T163736Z-p59135`. RESULTS_DIR was unset both times, so retained successful-run maintenance was skipped. Fallow initially failed at `20260926T162752Z-p70760` on the unused `NetworkFlowImportBinding` feature-facade export; removal resolved the only bounded finding, and Fallow passed 2/2 at `20260926T162900Z-p79933`. Remaining out-of-bound Fallow findings are advisory in its report, not suppressed new product failures.
+
+Build-web PASS 2/2 at `20260926T162834Z-p76442`; harness-contract PASS 2/2 at `20260926T162834Z-p76388`; generated-artifact-policy PASS 3/3 at `20260926T162834Z-p76316`; JSON-shape PASS 3/3 at `20260926T162834Z-p76318`; generate-drift PASS 4/4 at `20260926T162834Z-p76314`. `test-catalog-check` exited successfully in that Make invocation and its graph unit also passed in check. Markdown PASS at `20260926T163220Z-p58724`, summary `adhoc/lint-markdown/tool-run-summary.json` (final handoff additions will be linted again).
+
+First full `make check` PASS **964/964** at `20260926T162901Z-p80270`, `run-summary.json`. Final review removed duplicate initial composition synchronization and tightened post-disposal publish/subscription/surface guards; focused composition/session verification passed 3/3 at `20260926T163020Z-p28393`. A fresh full check follows finalization on the settled source tree before browser gates. No failed full-check unit or intermittent failure was observed in this integration round. Every root above is under `.cartulary/test-results/`.
+
+S-38 final-review corrections: route readiness classification is now one pure function in the extension availability owner, used both by its mounted controller and by Import adapters receiving session discovery while detached. Unsupported contract majors/capability mismatches therefore retire retained work even without a shell. Both Import tests cover detached unsupported discovery followed by supported restoration without resurrecting the uncertain request. Availability subscribers are also notified when a protocol defect clears through a valid empty workspace result; this restores review without dispatching reads. No new authority cache or application copy of support policy was introduced. Make regeneration PASS at `20260926T164220Z-p32927`; detached Import rows PASS 3/3 at `20260926T164128Z-p16939`.
+
+The subsequent broad integration run (`20260926T163844Z-p64562`) exposed a disposal-guard return-type error (also in focused typecheck `20260926T164129Z-p17622`), corrected by retaining the existing Boolean currentness predicate. It also exposed an intermittent unchanged History characterization assertion at `workbookHistoryBrowsing.characterization.test.tsx:371`: the test waits for failure to clear, which occurs before an asynchronous retry necessarily publishes its rows. The unchanged History row and updated availability row passed together 3/3 at `20260926T164342Z-p86984`. No History production code or assertion was changed; the complete final run must still pass. Earlier passing full evidence is retained without substituting for the final tree's gate.
+
+
+Second broad integration result: `make check` FAIL **962/964** at `20260926T163844Z-p64562` (the two failures described above). Corrected final static checks pass: frontend-typecheck 2/2 at `20260926T164342Z-p87596`, lint-biome 2/2 at `20260926T164342Z-p87744`, and frontend-fallow-static 2/2 at `20260926T164342Z-p87738`. The final sequential gate invocation begins with agent-finalize, import-boundary and generation drift, then full check, webserver-backed, stateful, accessibility and visual browser gates. Production/test source is frozen for that invocation; only handoff documentation is being finalized.
+
+Final frozen-source gate results: agent-finalize PASS 1/1 at `20260926T164845Z-p39429` (RESULTS_DIR unset; retained-run maintenance skipped); frontend-import-boundary-check PASS 2/2 at `20260926T164845Z-p39475`; generate-drift PASS 4/4 at `20260926T164845Z-p39413`; **make check PASS 964/964** at `20260926T164845Z-p39517`, `run-summary.json`. The unchanged History characterization passes in this full run. This is the controlling full-check evidence for the completed implementation; prior full roots remain diagnostic history. The four browser gates follow in the same sequential invocation.
+
+S-38 preclosure audit: exact Git inventory is **79 paths** (53 unstaged modified, eight deleted, one staged-and-unstaged tracker, 17 new authored paths). The S-38 A/M/D ledger covers them. HEAD remains `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`; the sole staged tracker blob remains `7dcf1b27c5e78a64c69af8798da1928f9a9e11b9` (213 additions/11 deletions). Both staged and unstaged whitespace checks pass; the 17 new text paths also have no trailing whitespace. Removed-hook import search finds no consumers. No lockfile, golden image, database, wire schema or dependency version changed. The browser readiness union is authored in its existing availability owner; it needs no wire/schema projection. The topology render index is the sole generated delta.
+
+Remaining boundaries: broad Fallow advisories remain outside its bounded gate and this effort; the unchanged History test timing sensitivity has one retained failure and focused/final full passes. Historical measurement capture-identity work is not rerun because this change makes no measurement claim. Retained-run maintenance alone is skipped because RESULTS_DIR is unset. Deployment, release certification, external environments and durable browser-state conversion are not part of this engineering handoff. No product check was bypassed, no tolerance or suppression was expanded, and no compatibility alias was introduced.
+
+Final browser evidence (sequential invocation): `browser-e2e-webserver-backed` PASS **140/140** at `20260926T164845Z-p39495`, `run-summary.json`; 67 Playwright reports aggregate 370 expected scenarios, zero unexpected, flaky or skipped scenarios. This includes the changed Import explicit-refresh flow. Markdown before final closure PASS at `20260926T171151Z-p33174/adhoc/lint-markdown/tool-run-summary.json`.
+
+Final `browser-e2e-stateful` PASS **42/42** at `20260926T164845Z-p39497`, with 52 expected scenarios across 17 reports and zero unexpected/flaky/skipped. Final `browser-e2e-a11y` PASS **20/20** at `20260926T164845Z-p39543`, with 67 expected scenarios across six reports and zero unexpected/flaky/skipped. Both have `run-summary.json`; roots remain under `.cartulary/test-results/`.
+
+### S-38 contract and ownership closure
+
+| Contract / finding | Closure evidence and durable boundary |
+| --- | --- |
+| C-38 / FND-41–42 | `AppWorkflows` has one typed eight-member contribution record; the committed bridge has one workflow session subscription. Real-owner composition tests cover all-member participation, render abandonment, source replacement, serialized reentrancy and terminal disposal. Session/route owners retire before replacement publication; no second authority store was added. |
+| C-39 / FND-43 | Every selected presentation uses captured update/detach ownership. Subject admission, stale updates and cleanup, Strict Mode, visibility and remount tests pass. Presentation absence invokes feature policy; it cannot retire application authority or reclaim a newer handle. |
+| C-40 / FND-45 | Named adapters retain administrator audit access, Saved View visibility, preferences, source mutation recovery and Import-specific mapping/preview/receipt/handoff. Existing fixed departure participation remains explicit. No generic engine, runtime registry, shared recovery state or new queue was introduced. |
+| C-41 / FND-44 | Metadata requires `onResourceAccepted`; production and integration fixtures publish through `IncidentResourceController`, preserving source authority and monotonic acceptance. Late acceptance reaches matching lifecycle presentation. The mirror, fallback, obsolete hook and old exports are removed; departure order and cancellation remain covered. |
+| C-42 / FND-46 | Adopted REQ-03-309/NF-REQ-213 and EXT-REQ-212 map to owner-typed readiness, non-authorizing adapter admission and feature-specific retained state. Both Import workflows pause/conceal on temporary interruption, restore review only, require explicit reads/recovery, preserve exact uncertain requests, and clear on definitive loss or lifetime replacement. Controlled stale/current protocol, repeated interruption, unsupported detached discovery and browser recovery evidence passes. |
+
+RB-026 is satisfied by S-34's owner-first specification closure, baseline and caller/policy matrix. RB-027 is satisfied by S-36's fixed composition, committed lifecycle and reentrancy tests. RB-028 is satisfied by S-37's complete attachment migration and real retained-recovery/resource publication evidence. RB-029 is satisfied by the final full/static/browser gates, exact authored/generated/removal accounting and completed handoff checks below.
+
+
+### S-38 completed exit and engineering handoff
+
+**S-38/T-051 DONE. S-34–S-38 and T-047–T-051 are DONE; FND-41–44 and FND-46 are RESOLVED; FND-45 is intentional/verified; C-38–C-42 and RB-026–029 are discharged.** Each preceding slice's prerequisites, start, changes, verification, compatibility and completed exit were saved before its successor. All applicable A001–A027 criteria pass; A007/A015/A018/A021 have explicit unchanged-owner scope rationales. Historical starts, failed roots and planning-only statements remain evidence of those checkpoints, not current unfinished work.
+
+Final `browser-e2e-visual` PASS **12/12** at `20260926T164845Z-p39501`, `run-summary.json`. Two Playwright reports contain 47 expected scenarios, zero unexpected/flaky/skipped. `browser-e2e-visual/frontend-visual-reconciliation.json` is PASS: 255 active capture intents, 255 committed goldens, 29 registered fixtures, zero orphan/missing/ambiguous/unresolved entries and zero errors. Existing representative metadata review and uncertain preference comparison images were inspected; the fresh ordinary run passed without updating any golden or acceptance tolerance. Visual evidence is implementation support, not a Core 05 claim-publication result.
+
+The final Make sequence exited 0: `agent-finalize` → `frontend-import-boundary-check` → `generate-drift` → `check` → `browser-e2e-webserver-backed` → `browser-e2e-stateful` → `browser-e2e-a11y` → `browser-e2e-visual`. Its exact roots are above; full check is 964/964. Architecture, typecheck, bounded Fallow, production build, catalog, harness, artifact policy and JSON shape also pass. No required product gate was skipped. The only retained intermittent failure in this iteration is the unchanged History timing assertion from the earlier 962/964 run; its focused and final full reruns pass. Earlier implementation/type/lint/fixture failures are preserved with corrections and passing reruns.
+
+Delivery changes: one fixed application composition owns the eight retained workflows; committed lifecycle and owned presentation handles replace scattered effects and nullable cleanup. Metadata has one accepted-resource publication boundary. Both Imports distinguish temporary readiness from definitive eligibility loss and restore authorized review only after interruption, including drawer closure. Explicit reads or exact uncertain replay preserve existing source recovery contracts; acknowledged commands are not resubmitted. Named feature policies and the fixed departure sequence remain cohesive and separately tested.
+
+Compatibility and operational handoff: deliver the completed browser bundle as one coordinated artifact; mixed intermediate adapter/composition/caller versions are unsupported. There is no database migration, wire-version transition, cross-session archive, durable browser conversion or legacy adapter. Existing server jobs continue independently of local presentation. Rollback proceeds **S-37 → S-36 → S-35**, restoring corresponding callers, controllers, tests and authored ownership/catalog inputs together, then regenerating projections through Make. Revert linked specification amendments with the policy implementation; preserve all evidence. Deployment, commits, release certification, unrelated advisories and historical measurement work remain outside this completed engineering scope.
+
+Final working-tree accounting remains 79 paths: 53 unstaged modifications, eight deletions, one staged-and-unstaged tracker and 17 new authored files. The preceding exact path ledger is the handoff inventory. HEAD and the original staged tracker blob remain unchanged; all execution changes are unstaged. Final documentation/whitespace/index verification follows this saved completion record; no production or test source changed after the successful final gate sequence.
+
+
+Final handoff verification: `make lint-markdown` PASS at `.cartulary/test-results/20260926T172641Z-p21162/adhoc/lint-markdown/tool-run-summary.json`. Staged and unstaged `git diff --check` both exit 0; all 17 new authored files also pass the trailing-whitespace audit. The exact path ledger equals the Git inventory with no missing or extra path. HEAD, sole staged path, staged numstat and index blob match the preserved baseline. Completion bookkeeping is followed by one final Markdown/whitespace check before the task response. No required gate remains open; the completed bundle is ready for engineering review and a separately authorized deployment process.
+
+Post-completion Markdown PASS: `.cartulary/test-results/20260926T172737Z-p23124/adhoc/lint-markdown/tool-run-summary.json`. Final staged/unstaged whitespace and index audits also pass; only this result citation was appended after that lint run.

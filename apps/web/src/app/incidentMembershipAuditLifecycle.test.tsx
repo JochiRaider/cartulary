@@ -14,11 +14,15 @@ import {
   auditEvent,
 } from "../testing/administrativeAuditTestSupport";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
 import { useIncidentControlsDrawer } from "../workbook/hooks/useIncidentControlsDrawer";
 import { AppSessionController } from "./appSessionController";
 import { IncidentMembershipAuditFeature } from "./IncidentMembershipAuditPanel";
 import type { IncidentMembershipAuditController } from "./incidentMembershipAuditController";
-import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
+
+const useIncidentMembershipAudit = (
+  options: Parameters<typeof useAppWorkflowsForTest>[0],
+) => useAppWorkflowsForTest(options).membershipAudit;
 
 const incidentId = "00000000-0000-4000-8000-000000001001";
 const actorId = "00000000-0000-4000-8000-000000000001";
@@ -108,7 +112,7 @@ async function setup() {
         {drawer.drawerSection === "membership-audit" ? (
           <IncidentMembershipAuditFeature
             controller={audit.controller}
-            bindSurface={audit.bindSurface}
+            attachSurface={audit.attachSurface}
             incidentId={incidentId}
             currentIncidentRole={role}
             activeSection="membership-audit"

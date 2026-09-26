@@ -5,6 +5,7 @@ import type {
   ExtensionWorkspaceIdentity,
 } from "../../extensions/extensionAvailability";
 import { sheetRefKey } from "../../shared/sheetRef";
+import type { AttachWorkflow } from "../../shared/workflowAttachment";
 import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { SavedViewBinding } from "../savedviews/savedViewOperationModel";
@@ -29,7 +30,7 @@ export function useWorkbookShellRuntime({
   extensionAvailability,
   onExtensionAvailabilityChange,
   savedViewOwner,
-  bindWorkbookSavedViews,
+  attachWorkbookSavedViews,
   authorizationRecovered,
   apiBase,
   startupPort,
@@ -40,7 +41,7 @@ export function useWorkbookShellRuntime({
   readonly extensionAvailability: ExtensionAvailabilityController;
   readonly onExtensionAvailabilityChange: () => void;
   readonly savedViewOwner: WorkbookSavedViewController;
-  readonly bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
+  readonly attachWorkbookSavedViews: AttachWorkflow<SavedViewBinding>;
   readonly authorizationRecovered: SavedViewBinding["authorizationRecovered"];
   readonly apiBase?: string | undefined;
   readonly startupPort: WorkbookStartupPort;
@@ -97,7 +98,7 @@ export function useWorkbookShellRuntime({
     currentLayoutStateForSurface,
     currentQueryStateForSurface,
     controller: savedViewOwner,
-    bindWorkbook: bindWorkbookSavedViews,
+    attachWorkbook: attachWorkbookSavedViews,
     incidentId,
     selectionGeneration: surfaceSelectionVersionRef.current,
     authorizationRecovered,

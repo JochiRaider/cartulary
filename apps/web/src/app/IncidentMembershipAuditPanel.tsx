@@ -6,10 +6,12 @@ import {
 } from "@cartulary/ui-contracts";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { formatAuditJSON } from "../shared/auditReadValues";
+import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type {
   WorkbookDensityMode,
   WorkbookIncidentControlsRendererProps,
 } from "../shared/workbookShellContracts";
+import type { AttachWorkflow } from "../shared/workflowAttachment";
 import type { IncidentMembershipAuditController } from "./incidentMembershipAuditController";
 import {
   type AuditField,
@@ -58,25 +60,13 @@ const auditCss = `
 /** Mount/visibility binding is separate from presentation and never constructs reads. */
 export function IncidentMembershipAuditFeature({
   controller,
-  bindSurface,
+  attachSurface,
   ...surface
 }: WorkbookIncidentControlsRendererProps & {
   controller: IncidentMembershipAuditController;
-  bindSurface: (surface: WorkbookIncidentControlsRendererProps | null) => void;
+  attachSurface: AttachWorkflow<WorkbookIncidentControlsRendererProps>;
 }) {
-  const latest = useRef({ bindSurface, surface });
-  latest.current = { bindSurface, surface };
-  useLayoutEffect(() => {
-    bindSurface(surface);
-  });
-  useLayoutEffect(() => {
-    const visibility = () => latest.current.bindSurface(latest.current.surface);
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      document.removeEventListener("visibilitychange", visibility);
-      latest.current.bindSurface(null);
-    };
-  }, []);
+  useWorkflowAttachment(attachSurface, surface, true);
   return (
     <IncidentMembershipAuditPanel
       controller={controller}

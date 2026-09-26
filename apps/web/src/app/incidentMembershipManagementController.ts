@@ -61,6 +61,7 @@ export class IncidentMembershipManagementController {
   constructor(private readonly ports: MembershipManagementPorts) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
+    if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -105,11 +106,13 @@ export class IncidentMembershipManagementController {
     for (const listener of this.listeners) listener();
   };
   dispose = () => {
+    if (this.disposed) return;
     this.retire();
     this.disposed = true;
     this.listeners.clear();
   };
   setAuthority = (authority: MembershipAuthority | null) => {
+    if (this.disposed) return;
     const previous = this.state.authority;
     if (!authority && !previous) return;
     if (

@@ -2,9 +2,13 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkbookImportPort } from "../imports/WorkbookImportController";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
 import { importTestIds as ids } from "../testing/workbookImportTestSupport";
 import { AppSessionController } from "./appSessionController";
-import { useWorkbookImport } from "./useWorkbookImport";
+
+const useWorkbookImport = (
+  options: Parameters<typeof useAppWorkflowsForTest>[0],
+) => useAppWorkflowsForTest(options).workbookImport;
 
 const controllers: AppSessionController[] = [];
 afterEach(() => {
@@ -16,6 +20,7 @@ const flush = async () => {
 };
 function setup() {
   let incidentId: string = ids.incident;
+  let importMajor = 1;
   let session = sessionResource({
     user_id: ids.actor,
     memberships: [{ incident_id: ids.incident, role: "editor" }],
@@ -43,7 +48,7 @@ function setup() {
               profile_id: "import",
               claimed,
               claimable: true,
-              contract_major: 1,
+              contract_major: importMajor,
               route_families: ["/api/v1/import-sessions"],
               workspace_keys: [],
               capabilities: [],
@@ -80,22 +85,37 @@ function setup() {
     readUnit: unavailable,
     preview: unavailable,
   } satisfies WorkbookImportPort;
-  const bind = () =>
-    hook.result.current.bindWorkbook({
+  const bind = (
+    readiness:
+      | "available"
+      | "pending"
+      | "invalid"
+      | "unavailable" = "available",
+  ) =>
+    hook.result.current.attachWorkbook({
       incidentId,
-      available: true,
+      readiness,
       role: "editor",
       closed: false,
       client,
       accessFailure: vi.fn(),
     });
   return {
+    unsupported: () => {
+      importMajor = 99;
+    },
+    supported: () => {
+      importMajor = 1;
+    },
     application,
     hook,
     bind,
     send,
     setIncident: (id: string) => {
-      incidentId = id;
+      act(() => {
+        hook.result.current.retire();
+        incidentId = id;
+      });
     },
     setRole: () => {
       session = {
@@ -160,6 +180,67 @@ describe("Workbook import application binding", () => {
         }),
         h.application.getSnapshot().revision,
       );
+      await flush();
+      h.bind();
+    });
+    expect(h.hook.result.current.controller.getSnapshot().operation).toBeNull();
+    expect(h.send).toHaveBeenCalledTimes(1);
+  });
+  it("distinguishes pending readiness from definitive loss and restores review without replay", async () => {
+    const h = setup();
+    await h.login();
+    act(() => {
+      h.hook.result.current.controller.chooseFile(
+        new File(["source"], "source.csv"),
+      );
+      void h.hook.result.current.controller.upload();
+    });
+    const request = h.hook.result.current.controller.getSnapshot().operation;
+    for (let i = 0; i < 2; i++) {
+      act(() => h.bind("pending"));
+      expect(h.hook.result.current.controller.getSnapshot().access).toBe(
+        "paused",
+      );
+      expect(
+        h.hook.result.current.controller.getSnapshot().operation,
+      ).toBeNull();
+      act(() => h.bind());
+      expect(
+        h.hook.result.current.controller.getSnapshot().operation?.phase,
+      ).toBe("uncertain");
+      expect(h.send).toHaveBeenCalledTimes(1);
+    }
+    expect(
+      h.hook.result.current.controller.getSnapshot().operation?.attempt,
+    ).toBe(request?.attempt);
+    expect(request).not.toBeNull();
+    act(() => h.bind("invalid"));
+    act(() => h.bind());
+    expect(h.hook.result.current.controller.getSnapshot().operation).toBeNull();
+    expect(h.send).toHaveBeenCalledTimes(1);
+  });
+  it("clears retained work when an unsupported profile arrives while detached", async () => {
+    const h = setup();
+    await h.login();
+    act(() => {
+      h.hook.result.current.controller.chooseFile(
+        new File(["source"], "source.csv"),
+      );
+      void h.hook.result.current.controller.upload();
+    });
+    let attachment: ReturnType<typeof h.bind> = null;
+    act(() => {
+      attachment = h.bind();
+    });
+    act(() => attachment?.detach());
+    h.unsupported();
+    await act(async () => {
+      h.application.refreshResources();
+      await flush();
+    });
+    h.supported();
+    await act(async () => {
+      h.application.refreshResources();
       await flush();
       h.bind();
     });

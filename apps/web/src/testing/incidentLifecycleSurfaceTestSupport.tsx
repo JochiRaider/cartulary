@@ -1,6 +1,7 @@
 import {
   type ReactNode,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -14,6 +15,7 @@ import { IncidentLifecycleController } from "../app/incidentLifecycleController"
 import { IncidentResourceController } from "../app/incidentResourceController";
 import type { IncidentResource } from "../shared/incidentResource";
 import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
+import { createWorkflowAttachment } from "../shared/workflowAttachment";
 import { metadataActorId } from "./incidentMetadataTestSupport";
 
 /** Same retained-controller/conditional-surface composition as App. */
@@ -26,7 +28,9 @@ export function LifecycleTestSurface(props: {
   onSessionRoleChange?: (() => Promise<void>) | undefined;
 }) {
   const current = useRef(props);
-  current.current = props;
+  useLayoutEffect(() => {
+    current.current = props;
+  });
   const [resources] = useState(
     () =>
       new IncidentResourceController({
@@ -71,12 +75,19 @@ export function LifecycleTestSurface(props: {
       controller.acceptResource(accepted, false);
   });
   useLayoutEffect(() => () => controller.dispose(), [controller]);
-  const bindSurface = (
-    surface: WorkbookIncidentControlsRendererProps | null,
-  ) => {
-    controller.setAuthority(authority());
-    controller.setActive(surface?.activeSection === "summary");
-  };
+  const presentation = useMemo(
+    () =>
+      createWorkflowAttachment<WorkbookIncidentControlsRendererProps>(
+        (binding) =>
+          binding.incidentId === current.current.incidentId
+            ? () => binding.incidentId === current.current.incidentId
+            : null,
+        (surface) => {
+          controller.setActive(surface?.activeSection === "summary");
+        },
+      ),
+    [controller],
+  );
   return props.activeSection === "summary" ? (
     <IncidentLifecycleFeature
       incidentId={props.incidentId}
@@ -84,7 +95,7 @@ export function LifecycleTestSurface(props: {
       activeSection="summary"
       controller={controller}
       preferenceControls={props.preferenceControls}
-      bindSurface={bindSurface}
+      attachSurface={presentation.attach}
       acceptedIncident={
         accepted?.incident_id === props.incidentId ? accepted : null
       }

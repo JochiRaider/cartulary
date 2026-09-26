@@ -73,6 +73,7 @@ function accessProblem(): SavedViewProblem {
 
 /** One current incident/session owns admission, receipts and recovery; UI lifetimes do not. */
 export class WorkbookSavedViewController {
+  private disposed = false;
   private state = initial();
   private listeners = new Set<() => void>();
   private epoch = 0;
@@ -126,12 +127,14 @@ export class WorkbookSavedViewController {
   }
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
+    if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
   };
   private publish(patch: Partial<SavedViewSnapshot>) {
+    if (this.disposed) return;
     this.state = { ...this.state, ...patch };
     if (patch.operation) {
       const operation = patch.operation;
@@ -154,6 +157,7 @@ export class WorkbookSavedViewController {
   ): authority is SavedViewAuthority {
     const now = this.state.authority;
     return (
+      !this.disposed &&
       authority !== null &&
       now !== null &&
       epoch === this.epoch &&
@@ -165,6 +169,7 @@ export class WorkbookSavedViewController {
     );
   }
   setAuthority = (authority: SavedViewAuthority | null) => {
+    if (this.disposed) return;
     const previous = this.state.authority;
     if (!authority) {
       if (previous) this.retire();
@@ -225,6 +230,7 @@ export class WorkbookSavedViewController {
     authority = this.state.authority,
   ) {
     return (
+      !this.disposed &&
       authority !== null &&
       resource.incident_id === authority.incidentId &&
       (resource.scope !== "private" ||
@@ -233,6 +239,7 @@ export class WorkbookSavedViewController {
     );
   }
   setBinding = (binding: SavedViewBinding | null) => {
+    if (this.disposed) return;
     if (binding && binding.incidentId !== this.state.authority?.incidentId)
       return;
     this.binding = binding;
@@ -1006,7 +1013,9 @@ export class WorkbookSavedViewController {
     this.publish(initial());
   };
   dispose = () => {
+    if (this.disposed) return;
     this.retire();
+    this.disposed = true;
     this.listeners.clear();
   };
 }

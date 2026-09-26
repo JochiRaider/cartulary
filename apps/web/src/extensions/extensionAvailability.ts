@@ -30,6 +30,13 @@ export type ExtensionDiscoveryProfile = {
 
 export type ClientExtensionSupportRegistry = ExtensionClientSupportRegistry;
 
+/** Readiness is non-authorizing; pending discovery is not claim withdrawal. */
+export type ExtensionRouteReadiness =
+  | "pending"
+  | "available"
+  | "unavailable"
+  | "invalid";
+
 export class ExtensionAvailabilityUnavailableError extends Error {
   readonly code = "extension_workspace_unavailable";
 
@@ -270,6 +277,31 @@ export function decodeExtensionWorkspaceAvailability(
   return rows;
 }
 
+/** Shared route eligibility, including discovery received without a mounted shell. */
+export function extensionRouteReadiness(
+  profiles: readonly ExtensionDiscoveryProfile[] | null,
+  extensionProfileId: string,
+  routeFamily: string,
+  registry: ClientExtensionSupportRegistry | null = packagedClientExtensionSupportRegistry(),
+): ExtensionRouteReadiness {
+  if (registry === null) return "invalid";
+  if (profiles === null) return "pending";
+  const discovery = profiles?.find(
+    (profile) => profile.profile_id === extensionProfileId,
+  );
+  const support = registry.profiles.find(
+    (profile) => profile.profile_id === extensionProfileId,
+  );
+  return discovery?.claimed &&
+    discovery.capabilities.length === 0 &&
+    discovery.route_families.includes(routeFamily) &&
+    support &&
+    support.capability_ids.length === 0 &&
+    discovery.contract_major === support.supported_contract_majors[0]
+    ? "available"
+    : "unavailable";
+}
+
 export class ExtensionAvailabilityController {
   readonly #discoveryWaiters = new Set<() => void>();
   readonly clientInstanceId: string;
@@ -282,6 +314,7 @@ export class ExtensionAvailabilityController {
   #authorityRevision = 0n;
   readonly #authorityListeners = new Set<() => void>();
   #enabled = true;
+  #protocolInvalid = false;
   #requestTail: Promise<void> = Promise.resolve();
   readonly #randomValues: (bytes: Uint8Array) => Uint8Array;
 
@@ -403,13 +436,19 @@ export class ExtensionAvailabilityController {
     const previous = [...this.#availability].sort().join("\u0001");
     this.#availability.clear();
     if (rows === null) {
+      this.#protocolInvalid = true;
       this.authorityChanged();
       return false;
     }
+    const wasInvalid = this.#protocolInvalid;
+    this.#protocolInvalid = false;
     for (const row of rows) {
       this.#availability.add(workspaceIdentityKey(row));
     }
-    if (previous !== [...this.#availability].sort().join("\u0001"))
+    if (
+      wasInvalid ||
+      previous !== [...this.#availability].sort().join("\u0001")
+    )
       this.authorityChanged();
     return true;
   }
@@ -421,12 +460,17 @@ export class ExtensionAvailabilityController {
     if (!this.isCurrent(tag)) {
       return false;
     }
+    const wasInvalid = this.#protocolInvalid;
+    this.#protocolInvalid = false;
     const previous = [...this.#availability].sort().join("\u0001");
     this.#availability.clear();
     for (const workspace of workspaces) {
       this.#availability.add(workspaceIdentityKey(workspace));
     }
-    if (previous !== [...this.#availability].sort().join("\u0001"))
+    if (
+      wasInvalid ||
+      previous !== [...this.#availability].sort().join("\u0001")
+    )
       this.authorityChanged();
     return true;
   }
@@ -498,24 +542,23 @@ export class ExtensionAvailabilityController {
     return rows;
   }
 
-  isRouteAvailable(extensionProfileId: string, routeFamily: string): boolean {
-    if (!this.#enabled || this.support === null) {
-      return false;
+  routeReadiness(
+    extensionProfileId: string,
+    routeFamily: string,
+  ): ExtensionRouteReadiness {
+    if (!this.#enabled || this.support === null || this.#protocolInvalid) {
+      return "invalid";
     }
-    const discovery = this.#discovery?.find(
-      (profile) => profile.profile_id === extensionProfileId,
+    return extensionRouteReadiness(
+      this.#discovery,
+      extensionProfileId,
+      routeFamily,
+      this.support,
     );
-    const support = this.support.profiles.find(
-      (profile) => profile.profile_id === extensionProfileId,
-    );
-    return Boolean(
-      discovery?.claimed &&
-        discovery.capabilities.length === 0 &&
-        discovery.route_families.includes(routeFamily) &&
-        support &&
-        support.capability_ids.length === 0 &&
-        discovery.contract_major === support.supported_contract_majors[0],
-    );
+  }
+
+  isRouteAvailable(extensionProfileId: string, routeFamily: string): boolean {
+    return this.routeReadiness(extensionProfileId, routeFamily) === "available";
   }
 
   async runProfileRequest<T>(

@@ -1481,6 +1481,19 @@ For Cisco SNA required fields, default empty-value policy MUST materialize as `e
 
 ## 11. Mapping modal behavior
 
+**NF-REQ-213 — Import interruption and review restoration**
+
+Network Flow Import MUST implement Core 03 REQ-03-309. Both the Import and Network
+Flow claims are required. Temporary discovery or presentation unavailability is
+not confirmed claim withdrawal. Restored authority enables review of retained
+drafts and receipts but MUST NOT automatically resume job observation, replay an
+uncertain write, reapply an approved mapping, or repeat an accepted table handoff.
+Mapping previews affected by interruption remain stale until explicit recovery;
+the rules below still govern approval and apply. EXT-REQ-212 continues to require
+clearing on current protocol defects and authorization loss. The shared browser
+recovery contract changes no import-session target, mapping schema, server job,
+idempotency key, or persisted state version.
+
 **NF-REQ-098**
 The mapping modal MUST be explicit. The implementation MAY provide suggestions. Omission behavior: suggestions do not approve a mapping, do not create a table, and do not start import apply without explicit user approval.
 

@@ -78,6 +78,7 @@ import {
 import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkbookImportController } from "../imports/WorkbookImportController";
+import { createWorkflowAttachment } from "../shared/workflowAttachment";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
@@ -123,6 +124,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
+import type { PreferenceWorkbookBinding } from "./preferences/workbookPreferenceModel";
 import type { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
 import type { WorkbookBatchTransport } from "./runtime/workbookBatchOperation";
@@ -150,11 +152,11 @@ function WorkbookShell(
     | "sessionIdentity"
     | "authorizationRecovery"
     | "savedViewController"
-    | "bindWorkbookSavedViews"
+    | "attachWorkbookSavedViews"
     | "importController"
     | "networkFlowImportController"
-    | "bindNetworkFlowImport"
-    | "bindWorkbookImport"
+    | "attachNetworkFlowImport"
+    | "attachWorkbookImport"
   > & {
     readonly mutationRuntimeRegistry?: Parameters<
       typeof WorkbookShellImpl
@@ -191,25 +193,30 @@ function WorkbookShell(
       sessionIdentity="workbook-test"
       importController={new WorkbookImportController()}
       networkFlowImportController={new NetworkFlowImportController()}
-      bindNetworkFlowImport={() => {}}
-      bindWorkbookImport={() => {}}
+      attachNetworkFlowImport={() => ({ update: () => true, detach: () => {} })}
+      attachWorkbookImport={() => ({ update: () => true, detach: () => {} })}
       {...savedViews}
       {...props}
       mutationRuntimeRegistry={registry}
       preferenceController={preferences}
-      bindWorkbookPreferences={(binding) => {
-        if (!binding) {
-          preferences.setSurface(null);
-          return;
-        }
-        preferences.setAuthority({
-          incidentId: props.incidentId,
-          actorId: testUserId,
-          lifetime: "session",
-          role: "admin",
-        });
-        preferences.setSurface(binding.surface);
-      }}
+      attachWorkbookPreferences={
+        createWorkflowAttachment<PreferenceWorkbookBinding>(
+          () => () => true,
+          (binding) => {
+            if (!binding) {
+              preferences.setSurface(null);
+              return;
+            }
+            preferences.setAuthority({
+              incidentId: props.incidentId,
+              actorId: testUserId,
+              lifetime: "session",
+              role: "admin",
+            });
+            preferences.setSurface(binding.surface);
+          },
+        ).attach
+      }
       authorizationRecovery={authorizationRecovery}
     />
   );

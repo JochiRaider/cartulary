@@ -81,6 +81,7 @@ export type NetworkFlowImportBinding = {
 
 /** One analytical workflow. Drafts, acknowledgements and publication never share a disposition. */
 export class NetworkFlowImportController {
+  private disposed = false;
   private state = initialNetworkFlowImportState();
   private recoverySequence = 0;
   private visible = this.state;
@@ -115,12 +116,14 @@ export class NetworkFlowImportController {
   }
   getSnapshot = () => this.visible;
   subscribe = (listener: () => void) => {
+    if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
   };
   private publish(change: Partial<NetworkFlowImportState>) {
+    if (this.disposed) return;
     this.state = immutableImportValue({
       ...this.state,
       ...change,
@@ -141,6 +144,7 @@ export class NetworkFlowImportController {
     for (const listener of this.listeners) listener();
   }
   bind(binding: NetworkFlowImportBinding) {
+    if (this.disposed) return;
     const changedScope =
       this.scope &&
       (this.scope.incidentId !== binding.scope.incidentId ||
@@ -181,6 +185,7 @@ export class NetworkFlowImportController {
   }
   private canRead() {
     return (
+      !this.disposed &&
       this.binding?.available === true &&
       this.binding.role !== null &&
       this.binding.role !== "" &&
@@ -251,13 +256,23 @@ export class NetworkFlowImportController {
     if (this.binding) this.bind({ ...this.binding, closed: true });
   }
   retire() {
+    if (this.disposed) return;
     this.fence();
     this.binding = null;
     this.scope = null;
     this.state = initialNetworkFlowImportState();
     this.publish({});
   }
+  dispose() {
+    if (this.disposed) return;
+    this.retire();
+    this.disposed = true;
+    this.listeners.clear();
+    this.handoffCallback = null;
+  }
   setPresented(presented: boolean) {
+    if (this.disposed) return;
+    if (!presented) this.fence();
     this.publish({ presented });
   }
   setWorkspaceActive(active: boolean) {

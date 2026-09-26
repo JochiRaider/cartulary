@@ -59,11 +59,11 @@ function WorkbookShell(
     | "sessionIdentity"
     | "authorizationRecovery"
     | "savedViewController"
-    | "bindWorkbookSavedViews"
+    | "attachWorkbookSavedViews"
     | "importController"
     | "networkFlowImportController"
-    | "bindNetworkFlowImport"
-    | "bindWorkbookImport"
+    | "attachNetworkFlowImport"
+    | "attachWorkbookImport"
   > & {
     readonly mutationRuntimeRegistry?: Parameters<
       typeof WorkbookShellImpl
@@ -83,8 +83,8 @@ function WorkbookShell(
       sessionIdentity="workbook-test"
       importController={new WorkbookImportController()}
       networkFlowImportController={new NetworkFlowImportController()}
-      bindNetworkFlowImport={() => {}}
-      bindWorkbookImport={() => {}}
+      attachNetworkFlowImport={() => ({ update: () => true, detach: () => {} })}
+      attachWorkbookImport={() => ({ update: () => true, detach: () => {} })}
       {...savedViews}
       {...props}
       mutationRuntimeRegistry={registry}

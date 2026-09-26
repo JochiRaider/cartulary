@@ -1,5 +1,5 @@
 import { workbookImportAssistantTestId } from "@cartulary/ui-contracts";
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import type { WorkbookImportController } from "../../imports/WorkbookImportController";
 import {
   importApplyBlocker,
@@ -8,6 +8,7 @@ import {
 } from "../../imports/workbookImportState";
 import { terminalCommonJob } from "../../services/commonJobContract";
 import { importFailureMessage } from "../../services/importClient";
+import { useWorkflowAttachment } from "../../shared/useWorkflowAttachment";
 
 import type { WorkbookDensityMode } from "../../shared/workbookShellContracts";
 import {
@@ -30,10 +31,7 @@ export function ImportAssistantFeature({
     controller.subscribe,
     controller.getSnapshot,
   );
-  useEffect(() => {
-    controller.setPresented(true);
-    return () => controller.setPresented(false);
-  }, [controller]);
+  useWorkflowAttachment(controller.attachPresentation, true);
   const pending =
     state.operation?.phase === "pending" ||
     state.operation?.phase === "uncertain" ||
@@ -77,7 +75,7 @@ export function ImportAssistantFeature({
             <h3 style={{ margin: 0 }}>Source</h3>
             <p style={{ margin: 0 }}>
               Review a CSV or XLSX workbook. Closing this drawer keeps the
-              current import in this tab; observation may continue.
+              current import in this tab and pauses observation.
             </p>
             {!state.session && !state.job ? (
               <div style={importActionsStyle}>

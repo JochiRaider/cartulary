@@ -2064,6 +2064,34 @@ Verified by: AC-545
 
 File-based structured import beyond clipboard paste belongs to the **Import Extension Profile**.
 
+**REQ-03-309 — Browser Import interruption and recovery**
+
+Workbook Import and source-specific Import workflows MUST distinguish temporary
+readiness loss from definitive loss of eligibility. Presentation detachment,
+unresolved discovery, transport interruption, or unresolved authorization MUST
+pause dispatch and observation and conceal protected presentation while retaining
+permitted local drafts, captured uncertain requests, and acknowledged receipts in
+the same account, incident and session lifetime. Returning current authority and
+availability restores review only: affected resource observations and previews
+remain stale until explicitly refreshed. Rebinding MUST NOT restart observation,
+resend a write, or repeat an acknowledged command. An explicit user action MAY
+resume bounded observation or recover the original captured request under its
+owner's replay contract. Observation following a newly admitted explicit action
+may continue under the existing bounded job contract.
+
+Write-role reduction or incident closure MUST retain permitted copyable drafts
+and receipts while prohibiting disallowed writes. Confirmed incident-access
+loss, withdrawal of a required claim, unsupported profile, a current protocol
+defect requiring clearing under EXT-REQ-212, session termination, account
+replacement, or incident replacement MUST fence old callbacks and clear protected
+Import state. Clearing local state MUST NOT implicitly cancel a server job.
+Stale responses MUST NOT restore content, retire a newer lifetime, or initiate
+recovery. Retention is memory-local only and creates no cross-session archive,
+reload guarantee, or Core pending-queue membership. Profile-specific mapping,
+approval, preview, receipt and handoff requirements continue to apply.
+Profiles: import, network_flow_activity
+Verified by: AC-262; source-profile Import recovery acceptance criteria
+
 #### 11.2.1 Assistant boundary
 
 **REQ-03-153**

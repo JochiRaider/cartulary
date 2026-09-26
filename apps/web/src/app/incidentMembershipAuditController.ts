@@ -55,6 +55,7 @@ export class IncidentMembershipAuditController {
   constructor(private readonly ports: MembershipAuditPorts) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
+    if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -65,6 +66,7 @@ export class IncidentMembershipAuditController {
     announcement?: string,
     announcementRole: "status" | "alert" = "status",
   ) {
+    if (this.disposed) return;
     this.state = {
       ...this.state,
       ...change,
@@ -86,11 +88,13 @@ export class IncidentMembershipAuditController {
     for (const listener of this.listeners) listener();
   };
   dispose = () => {
+    if (this.disposed) return;
     this.retire();
     this.disposed = true;
     this.listeners.clear();
   };
   setAuthority(authority: MembershipAuditAuthority | null) {
+    if (this.disposed) return;
     const prior = this.state.authority;
     if (authority === null && prior === null) return;
     if (

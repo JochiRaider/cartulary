@@ -7,6 +7,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
+import { useWorkflowAttachment } from "../../shared/useWorkflowAttachment";
+import type { AttachWorkflow } from "../../shared/workflowAttachment";
 import {
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
@@ -46,7 +48,7 @@ export function useWorkbookSavedViewController({
   currentLayoutStateForSurface,
   currentQueryStateForSurface,
   controller,
-  bindWorkbook,
+  attachWorkbook,
   incidentId,
   apiBase,
   selectionGeneration,
@@ -69,7 +71,7 @@ export function useWorkbookSavedViewController({
   readonly currentLayoutStateForSurface: (id: string) => WorkbookLayoutState;
   readonly currentQueryStateForSurface: (id: string) => WorkbookQueryState;
   readonly controller: WorkbookSavedViewController;
-  readonly bindWorkbook: (binding: SavedViewBinding | null) => void;
+  readonly attachWorkbook: AttachWorkflow<SavedViewBinding>;
   readonly incidentId: string;
   readonly apiBase?: string | undefined;
   readonly selectionGeneration: number;
@@ -93,11 +95,18 @@ export function useWorkbookSavedViewController({
     layoutJson,
   };
   const working = useRef({ configuration, generation: 0 });
-  if (!savedViewJSONEqual(configuration, working.current.configuration))
-    working.current = {
-      configuration,
-      generation: working.current.generation + 1,
-    };
+  const committedWorking = !savedViewJSONEqual(
+    configuration,
+    working.current.configuration,
+  )
+    ? {
+        configuration,
+        generation: working.current.generation + 1,
+      }
+    : working.current;
+  useLayoutEffect(() => {
+    working.current = committedWorking;
+  });
   const selectedObservation =
     startupSheetRef.kind === "saved_view"
       ? state.observations.get(startupSheetRef.id)
@@ -153,41 +162,36 @@ export function useWorkbookSavedViewController({
       applyWorkbookIdentity,
     ],
   );
-  const bindingRef = useRef(bindWorkbook);
-  bindingRef.current = bindWorkbook;
-  useLayoutEffect(() => {
-    bindingRef.current({
-      apiBase,
-      incidentId,
-      subject: {
+  useWorkflowAttachment(attachWorkbook, {
+    apiBase,
+    incidentId,
+    subject: {
+      viewSchemaId: activeContract.viewSchemaId,
+      savedViewId:
+        startupSheetRef.kind === "saved_view" ? startupSheetRef.id : null,
+      savedViewVersion: selected?.saved_view_version ?? null,
+    },
+    sheetRef: startupSheetRef,
+    selectionGeneration,
+    workingGeneration: committedWorking.generation,
+    queryJson,
+    layoutJson,
+    applyConfiguration,
+    select: selectSavedView,
+    deleted: (resource) => {
+      const fallback = fallbackIdentityAfterSavedViewDelete(
+        startupSheetRef,
+        resource,
+      );
+      if (fallback) applyWorkbookIdentity(fallback);
+    },
+    unavailable: () =>
+      applyWorkbookIdentity({
+        sheetRef: { kind: "view_schema", id: activeContract.viewSchemaId },
         viewSchemaId: activeContract.viewSchemaId,
-        savedViewId:
-          startupSheetRef.kind === "saved_view" ? startupSheetRef.id : null,
-        savedViewVersion: selected?.saved_view_version ?? null,
-      },
-      sheetRef: startupSheetRef,
-      selectionGeneration,
-      workingGeneration: working.current.generation,
-      queryJson,
-      layoutJson,
-      applyConfiguration,
-      select: selectSavedView,
-      deleted: (resource) => {
-        const fallback = fallbackIdentityAfterSavedViewDelete(
-          startupSheetRef,
-          resource,
-        );
-        if (fallback) applyWorkbookIdentity(fallback);
-      },
-      unavailable: () =>
-        applyWorkbookIdentity({
-          sheetRef: { kind: "view_schema", id: activeContract.viewSchemaId },
-          viewSchemaId: activeContract.viewSchemaId,
-        }),
-      authorizationRecovered,
-    });
+      }),
+    authorizationRecovered,
   });
-  useLayoutEffect(() => () => bindingRef.current(null), []);
   const savedViewsResource = useMemo<WorkbookSavedViewsResource>(
     () => workbookSavedViewsResource(selectedObservation, startupSheetRef),
     [selectedObservation, startupSheetRef],
