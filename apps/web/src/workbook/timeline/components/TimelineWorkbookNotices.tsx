@@ -13,6 +13,7 @@ import type {
   AutoResolutionDisclosure,
   WorkbookTimelineMentionOperationOwner,
 } from "../actions/WorkbookTimelineMentionOperationOwner";
+import { matchesUndoDisclosure } from "../models/timelineUndoDisclosure";
 import {
   type DisclosureReviewFeedback,
   disclosureReviewKey,
@@ -27,6 +28,8 @@ export function TimelineWorkbookNotices({
   reviewFeedback,
   onReviewAutoResolution,
   onUndoAutoResolution,
+  onRetryUndoAutoResolution,
+  retryingUndoKey,
 }: {
   readonly owner: WorkbookTimelineMentionOperationOwner;
   readonly entityIndex: Readonly<Record<string, { label: string }>>;
@@ -34,6 +37,11 @@ export function TimelineWorkbookNotices({
   readonly reviewFeedback: DisclosureReviewFeedback | null;
   readonly onReviewAutoResolution: (notice: AutoResolutionDisclosure) => void;
   readonly onUndoAutoResolution: (notice: AutoResolutionDisclosure) => void;
+  readonly onRetryUndoAutoResolution: (
+    notice: AutoResolutionDisclosure,
+    key: number,
+  ) => void;
+  readonly retryingUndoKey?: number | null;
 }) {
   const notices = useSyncExternalStore(
     owner.subscribe,
@@ -63,11 +71,12 @@ export function TimelineWorkbookNotices({
             reviewFeedback?.key === reviewKey ? reviewFeedback : null;
           const entry = [...actions.entries]
             .reverse()
-            .find(
-              (entry) =>
-                entry.attempt.review.subject.mentionId ===
-                notice.entityMentionId,
-            );
+            .find((entry) => matchesUndoDisclosure(entry, notice));
+          const undoAvailable = owner.canUndoDisclosure(notice);
+          const undoPending =
+            entry?.phase === "preparing" || entry?.phase === "submitting";
+          const retryPending =
+            entry?.phase === "submitting" && retryingUndoKey === entry.key;
           const batchKey = JSON.stringify(notice.operation);
           const showBatch =
             notice.operation.kind === "batch" && !batches.has(batchKey);
@@ -122,10 +131,14 @@ export function TimelineWorkbookNotices({
                 {owner.canSubmit("revert_to_unresolved") ? (
                   <button
                     data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
-                    disabled={!owner.canUndoDisclosure(notice)}
+                    aria-disabled={!undoAvailable}
+                    aria-busy={undoPending && !retryPending}
                     style={buttonStyle}
                     type="button"
-                    onClick={() => onUndoAutoResolution(notice)}
+                    onClick={() => {
+                      if (owner.canUndoDisclosure(notice))
+                        onUndoAutoResolution(notice);
+                    }}
                   >
                     Undo
                   </button>
@@ -142,12 +155,22 @@ export function TimelineWorkbookNotices({
                 >
                   Review
                 </button>
-                {entry?.phase === "uncertain" ? (
+                {entry?.phase === "uncertain" || retryPending ? (
                   <button
                     type="button"
-                    disabled={!owner.canSubmit("revert_to_unresolved")}
+                    aria-disabled={
+                      entry.phase !== "uncertain" ||
+                      !owner.canSubmit("revert_to_unresolved")
+                    }
+                    aria-busy={retryPending}
                     style={buttonStyle}
-                    onClick={() => void owner.replay(entry.key)}
+                    onClick={() => {
+                      if (
+                        entry.phase === "uncertain" &&
+                        owner.canSubmit("revert_to_unresolved")
+                      )
+                        onRetryUndoAutoResolution(notice, entry.key);
+                    }}
                   >
                     Retry Undo
                   </button>

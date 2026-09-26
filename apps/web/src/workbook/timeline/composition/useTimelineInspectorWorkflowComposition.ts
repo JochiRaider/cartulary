@@ -63,6 +63,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly gridHandleRef: RefObject<GridHandle | null>;
     readonly gridShellRef: InspectorLifecycleInput["gridShellRef"];
     readonly restoreTimelineFocusAnchor: InspectorLifecycleInput["restoreTimelineFocusAnchor"];
+    readonly focusContinuity: NonNullable<MentionInput["focusContinuity"]>;
     readonly workbookFocusAnchorRef: InspectorLifecycleInput["workbookFocusAnchorRef"];
   };
   readonly incident: Pick<
@@ -211,13 +212,7 @@ export function useTimelineInspectorWorkflowComposition({
     presentationActive:
       workbookInspectorStateIsOpen(inspector.lifecycle) &&
       !foundation.loadAccessLost,
-    restoreActionFocus: (recordId) => {
-      grid.restoreTimelineFocusAnchor({
-        recordId,
-        fieldKey: "timeline.activity_synopsis_text",
-        viewSchemaId: timelineViewSchemaId,
-      });
-    },
+    focusContinuity: grid.focusContinuity,
     refreshProjection: () =>
       mutation.loadRows({ showLoading: false, requireAcceptance: true }),
     rowsRef: foundation.rowsRef,

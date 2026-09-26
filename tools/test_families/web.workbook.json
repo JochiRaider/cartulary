@@ -4735,7 +4735,7 @@
         "file": "apps/web/src/workbook/timeline/useTimelineViewportContinuityController.test.tsx",
         "titles": [
           "Timeline deferred continuity cancels acceptance-time fresh draft continuation independently of the accepted result",
-          "Timeline deferred continuity cancels an already pending semantic target for wheel and native input before it mounts",
+          "Timeline deferred continuity cancels an already pending semantic target for wheel native input and composition before it mounts",
           "Timeline deferred continuity cancels pending focus for pointer keyboard scope authority replacement and unmount",
           "Timeline deferred continuity cancels queued stabilization and late named follow-ups without resurrecting restoration",
           "Timeline deferred continuity checks ownership after focus acknowledgement before changing geometry",
@@ -5052,6 +5052,8 @@
           "lets only the latest Review navigate when two mentions share a source row",
           "refuses Inspector navigation when the committed source rejects a stale read",
           "rejects a same-row Inspector retarget while Review focus is pending",
+          "retires presentation intent on same-row Inspector retarget without discarding an accepted Undo",
+          "retries an uncertain Undo through a fresh presentation intent and the captured attempt",
           "shows delayed Review progress and cancels on a same-row Inspector retarget"
         ]
       },
@@ -5337,6 +5339,7 @@
         "file": "apps/web/src/workbook/timeline/components/TimelineWorkbookNotices.test.tsx",
         "titles": [
           "keeps Review keyboard accessible while source-local progress is busy",
+          "keeps pending Undo and Retry Undo keyboard focusable while guarding duplicate activation",
           "shows a retryable Review read failure beside its disclosure"
         ]
       },

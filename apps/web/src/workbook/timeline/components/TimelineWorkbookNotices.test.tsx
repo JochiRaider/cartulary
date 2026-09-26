@@ -6,6 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import type { MentionOperation } from "../actions/timelineMentionOperationModel";
 import type {
   AutoResolutionDisclosure,
   WorkbookTimelineMentionOperationOwner,
@@ -38,6 +39,7 @@ const owner = {
   getActionSnapshot: () => actions,
   updateDisclosureLabels: vi.fn(),
   canSubmit: () => false,
+  canUndoDisclosure: () => false,
 } as unknown as WorkbookTimelineMentionOperationOwner;
 
 it("keeps Review keyboard accessible while source-local progress is busy", () => {
@@ -50,6 +52,7 @@ it("keeps Review keyboard accessible while source-local progress is busy", () =>
       reviewFeedback={{ key: disclosureReviewKey(notice), phase: "pending" }}
       onReviewAutoResolution={review}
       onUndoAutoResolution={vi.fn()}
+      onRetryUndoAutoResolution={vi.fn()}
     />,
   );
   const region = screen.getByRole("complementary", {
@@ -82,6 +85,7 @@ it("shows a retryable Review read failure beside its disclosure", () => {
       }}
       onReviewAutoResolution={review}
       onUndoAutoResolution={vi.fn()}
+      onRetryUndoAutoResolution={vi.fn()}
     />,
   );
   expect(screen.getByRole("alert").textContent).toContain(
@@ -92,4 +96,59 @@ it("shows a retryable Review read failure beside its disclosure", () => {
   expect(
     screen.getByRole("complementary", { name: "Auto-resolution disclosures" }),
   ).toBeTruthy();
+});
+
+it("keeps pending Undo and Retry Undo keyboard focusable while guarding duplicate activation", () => {
+  const entry = {
+    key: 7,
+    phase: "submitting",
+    attempt: {
+      review: {
+        intent: { action: "revert_to_unresolved" },
+        subject: {
+          mentionId: notice.entityMentionId,
+          sourceRecordId: notice.rowRecordId,
+          sourceFieldKey: notice.fieldKey,
+          itemRef: notice.itemRef,
+          mentionRowVersion: notice.mentionRowVersion,
+          resolvedRecordId: notice.resolvedRecordId,
+          state: "resolved",
+          resolutionMethod: "auto_match",
+        },
+      },
+    },
+  } as MentionOperation;
+  const pendingActions = { entries: [entry] };
+  const pendingOwner = {
+    ...owner,
+    getActionSnapshot: () => pendingActions,
+    canSubmit: () => true,
+    canUndoDisclosure: () => false,
+  } as unknown as WorkbookTimelineMentionOperationOwner;
+  const undo = vi.fn();
+  const retry = vi.fn();
+  render(
+    <TimelineWorkbookNotices
+      owner={pendingOwner}
+      density="default"
+      entityIndex={{}}
+      reviewFeedback={null}
+      onReviewAutoResolution={vi.fn()}
+      onUndoAutoResolution={undo}
+      onRetryUndoAutoResolution={retry}
+      retryingUndoKey={7}
+    />,
+  );
+  const undoButton = screen.getByRole("button", { name: "Undo" });
+  const retryButton = screen.getByRole("button", { name: "Retry Undo" });
+  undoButton.focus();
+  expect(document.activeElement).toBe(undoButton);
+  expect(undoButton.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(undoButton);
+  retryButton.focus();
+  expect(document.activeElement).toBe(retryButton);
+  expect(retryButton.getAttribute("aria-busy")).toBe("true");
+  fireEvent.click(retryButton);
+  expect(undo).not.toHaveBeenCalled();
+  expect(retry).not.toHaveBeenCalled();
 });

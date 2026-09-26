@@ -19,6 +19,7 @@ import type { TimelineMentionResolutionPort } from "./ports/TimelineMentionPort"
 
 function setup(review: MentionReview = mentionReview()) {
   let sequence = 0;
+  let focusToken = 8;
   const owner = new WorkbookTimelineMentionOperationOwner(
     review.subject.incidentId,
     { create: () => (++sequence === 1 ? "hook-key" : `hook-key-${sequence}`) },
@@ -61,7 +62,12 @@ function setup(review: MentionReview = mentionReview()) {
       rowVersion: rowsRef.current[0]?.rowVersion ?? 0,
     })),
     setInspectorMessage: vi.fn(),
-    restoreActionFocus: vi.fn(),
+    focusContinuity: {
+      beginViewportContinuity: vi.fn(() => ++focusToken),
+      advanceViewportContinuity: vi.fn(),
+      settleViewportContinuityFollowUp: vi.fn(),
+      clearViewportContinuity: vi.fn(),
+    },
   };
   const hook = renderHook(
     (props: typeof input) => {
@@ -166,9 +172,9 @@ describe("Timeline mention actions", () => {
       base_mention_row_version: 2,
       client_txn_id: "hook-key",
     });
-    expect(f.input.restoreActionFocus).toHaveBeenCalledWith(
-      review.subject.sourceRecordId,
-    );
+    expect(
+      f.input.focusContinuity.advanceViewportContinuity,
+    ).toHaveBeenCalledWith(9);
     f.unmount();
   });
   it("waits for creation and mention projections before restoring focus", async () => {
@@ -196,12 +202,14 @@ describe("Timeline mention actions", () => {
     await flush();
     expect(f.owner.getSnapshot().entries[0]?.refresh).toBe("complete");
     expect(f.owner.getSnapshot().creations[0]?.refresh).toBe("refreshing");
-    expect(f.input.restoreActionFocus).not.toHaveBeenCalled();
+    expect(
+      f.input.focusContinuity.advanceViewportContinuity,
+    ).not.toHaveBeenCalled();
     release();
     await flush();
-    expect(f.input.restoreActionFocus).toHaveBeenCalledExactlyOnceWith(
-      f.review.subject.sourceRecordId,
-    );
+    expect(
+      f.input.focusContinuity.advanceViewportContinuity,
+    ).toHaveBeenCalledExactlyOnceWith(9);
     f.unmount();
   });
   it("waits for preceding saves and refuses changed mentions instead of rebasing", async () => {
@@ -253,8 +261,94 @@ describe("Timeline mention actions", () => {
     expect(f.owner.getSnapshot().entries[0]?.receipt).toEqual(
       mentionReceipt(f.review),
     );
-    expect(f.input.restoreActionFocus).not.toHaveBeenCalled();
+    expect(
+      f.input.focusContinuity.advanceViewportContinuity,
+    ).not.toHaveBeenCalled();
   });
+});
+
+it("retries an uncertain Undo through a fresh presentation intent and the captured attempt", async () => {
+  const f = disclosureFixture();
+  f.owner.configureSourceReader(async () => f.row);
+  f.send.mockResolvedValueOnce({ kind: "uncertain" });
+  act(() => f.result.current.handleUndoAutoResolutionNotice(f.notice));
+  await flush();
+  const original = f.owner.getSnapshot().entries.at(-1);
+  expect(original?.phase).toBe("uncertain");
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(1);
+  expect(f.input.focusContinuity.clearViewportContinuity).toHaveBeenCalledWith(
+    9,
+  );
+  let accept!: (
+    value: Awaited<ReturnType<TimelineMentionResolutionPort["send"]>>,
+  ) => void;
+  f.send.mockReturnValueOnce(
+    new Promise((resolve) => {
+      accept = resolve;
+    }),
+  );
+  const invoker = document.createElement("button");
+  document.body.append(invoker);
+  invoker.focus();
+  act(() => {
+    f.result.current.handleRetryUndoAutoResolutionNotice(
+      f.notice,
+      original?.key ?? -1,
+    );
+    f.result.current.handleRetryUndoAutoResolutionNotice(
+      f.notice,
+      original?.key ?? -1,
+    );
+  });
+  expect(f.result.current.retryingUndoKey).toBe(original?.key);
+  expect(f.owner.getSnapshot().entries.at(-1)?.phase).toBe("submitting");
+  expect(f.send).toHaveBeenCalledTimes(2);
+  expect(f.send.mock.calls[1]?.[0]).toBe(f.send.mock.calls[0]?.[0]);
+  expect(
+    f.input.focusContinuity.beginViewportContinuity,
+  ).toHaveBeenLastCalledWith(
+    { kind: "row-inspect", recordId: f.notice.rowRecordId },
+    { requirements: ["row-projection"] },
+  );
+  accept({ kind: "accepted", receipt: mentionReceipt(f.review) });
+  await flush();
+  expect(f.owner.getDisclosureSnapshot()).toHaveLength(0);
+  expect(
+    f.input.focusContinuity.advanceViewportContinuity,
+  ).toHaveBeenCalledWith(10);
+  invoker.remove();
+  f.unmount();
+});
+
+it("retires presentation intent on same-row Inspector retarget without discarding an accepted Undo", async () => {
+  const f = disclosureFixture();
+  f.owner.configureSourceReader(async () => f.row);
+  f.owner.registerReconciliation(async () => {
+    throw new Error("Refresh unavailable");
+  });
+  let accept!: (
+    value: Awaited<ReturnType<TimelineMentionResolutionPort["send"]>>,
+  ) => void;
+  f.send.mockReturnValueOnce(
+    new Promise((resolve) => {
+      accept = resolve;
+    }),
+  );
+  act(() => f.result.current.handleUndoAutoResolutionNotice(f.notice));
+  await flush();
+  f.rerender({ ...f.input, selectedMentionRef: "another-item" });
+  expect(f.input.focusContinuity.clearViewportContinuity).toHaveBeenCalledWith(
+    9,
+  );
+  accept({ kind: "accepted", receipt: mentionReceipt(f.review) });
+  await flush();
+  expect(f.owner.getSnapshot().entries.at(-1)?.receipt).toBeTruthy();
+  expect(f.owner.getSnapshot().entries.at(-1)?.refresh).toBe("required");
+  expect(f.send).toHaveBeenCalledOnce();
+  expect(
+    f.input.focusContinuity.advanceViewportContinuity,
+  ).not.toHaveBeenCalled();
+  f.unmount();
 });
 
 it("coalesces a pending Review and fences its late completion after native editing", async () => {
@@ -522,7 +616,9 @@ it("Timeline disclosure actions read only their unavailable source and preserve 
   await flush();
   expect(f.owner.getDisclosureSnapshot()).toHaveLength(0);
   expect(f.owner.getSnapshot().entries.at(-1)?.refresh).toBe("required");
-  expect(f.input.restoreActionFocus).toHaveBeenCalledTimes(1);
+  expect(
+    f.input.focusContinuity.advanceViewportContinuity,
+  ).toHaveBeenCalledTimes(1);
   expect(f.send).toHaveBeenCalledTimes(1);
   f.unmount();
 });

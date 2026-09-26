@@ -159,6 +159,7 @@ export function useTimelineWorkbookComposition({
     grid: {
       gridHandleRef: grid.refs.gridHandle,
       gridShellRef: grid.refs.gridShell,
+      focusContinuity: grid.commands.viewportContinuity,
 
       restoreTimelineFocusAnchor:
         grid.commands.anchors.restoreTimelineFocusAnchor,

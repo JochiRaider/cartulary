@@ -24,7 +24,7 @@ import {
   hostsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page, TestInfo } from "@playwright/test";
+import type { Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { revokeAllSessions } from "./support/auth/sessions";
 import { installVisualPreferences } from "./support/auth/visualPreferences";
@@ -417,6 +417,358 @@ test("Timeline Review read failure retries at the original source mention", asyn
     expect(reviewWrites).toBe(0);
   } finally {
     await page.unroute(queryPath);
+  }
+});
+
+async function prepareUndoContinuity(page: Page) {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("ARF-UNDO-CONTINUITY"),
+    "Undo continuity",
+  );
+  await createViewRow(page, incident, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-undo-host"),
+    "host.display_name": "Undo canonical host",
+    "host.hostname": "undo-continuity.example.test",
+    "host.aliases": aliasCollectionActionsPayload(["undo continuity alias"]),
+  });
+  const source = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-undo-source"),
+    "timeline.activity_synopsis_text": "Undo continuity source",
+  });
+  await createTimelineFillers(page, incident, "undo continuity filler", 24);
+  const editing = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("arf-undo-editing"),
+    "timeline.activity_synopsis_text": "Continue after Undo",
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [{ op: "add_tag", tag_name: "undo-continuity-editing" }],
+    },
+  });
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page, ["Hosts"]);
+  const resolution = await addRelationshipTokenViaUI(
+    page,
+    source.record_id,
+    "hostRefs",
+    "undo continuity alias",
+  );
+  const itemRef = String(
+    collectionItems(resolution.data.row, hostRefsFieldKey).find(
+      (item) => item.raw_text === "undo continuity alias",
+    )?.item_ref ?? "",
+  );
+  expect(itemRef).not.toBe("");
+  const notice = page
+    .locator(autoResolutionNoticeFamilySelector())
+    .filter({ has: page.getByRole("button", { name: "Review", exact: true }) });
+  await expect(notice).toHaveCount(1);
+  return { incident, source, editing, itemRef, notice: notice.first() };
+}
+
+test("Timeline auto-resolution feedback retry Undo retains keyboard position through a held replay", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 768, height: 640 });
+  const { notice } = await prepareUndoContinuity(page);
+  const path = "**/api/v1/entity-mentions/*/resolve";
+  const bodies: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/entity-mentions\/.*\/resolve$/u.test(request.url())
+    )
+      bodies.push(request.postData() ?? "");
+  });
+  const failFirst = async (route: Route) => {
+    await route.abort("failed");
+  };
+  await page.route(path, failFirst);
+  const undo = notice.getByRole("button", { name: "Undo", exact: true });
+  try {
+    await undo.focus();
+    await undo.press("Enter");
+    await expect(
+      notice.getByRole("button", { name: "Retry Undo", exact: true }),
+    ).toBeVisible();
+    await page.unroute(path, failFirst);
+    const held = await holdBrowserRequest(page, {
+      method: "POST",
+      path: "/api/v1/entity-mentions/*/resolve",
+    });
+    try {
+      const retry = notice.getByRole("button", {
+        name: "Retry Undo",
+        exact: true,
+      });
+      await retry.focus();
+      await retry.press("Enter");
+      await held.waitForHit;
+      await expect(retry).toBeFocused();
+      await expect(retry).toHaveAttribute("aria-busy", "true");
+      await retry.press("Enter");
+      expect(held.hitCount()).toBe(1);
+      await page.keyboard.press("Shift+Tab");
+      await expect(
+        notice.getByRole("button", { name: "Review" }),
+      ).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(retry).toBeFocused();
+      held.release();
+      await expect(notice).toHaveCount(0);
+      expect(bodies).toHaveLength(2);
+      expect(bodies[1]).toBe(bodies[0]);
+    } finally {
+      await held.dispose();
+    }
+  } finally {
+    await page.unroute(path, failFirst);
+  }
+});
+
+test("Timeline auto-resolution feedback owned Undo restores a visible source destination", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { notice, source } = await prepareUndoContinuity(page);
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: "/api/v1/entity-mentions/*/resolve",
+  });
+  try {
+    const undo = notice.getByRole("button", { name: "Undo", exact: true });
+    await undo.focus();
+    await undo.press("Enter");
+    await held.waitForHit;
+    await expect(undo).toBeFocused();
+    held.release();
+    await expect(notice).toHaveCount(0);
+    const sourceCell = page.getByRole("gridcell").filter({
+      has: page.getByTestId(
+        rowCellTestId(source.record_id, "timeline.activity_synopsis_text"),
+      ),
+    });
+    await expect(sourceCell).toBeFocused();
+    await expect(sourceCell).toBeInViewport();
+    expect(held.hitCount()).toBe(1);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline auto-resolution feedback owned Undo falls back when its source is off-query", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { notice, source, editing } = await prepareUndoContinuity(page);
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.tags",
+    "undo-continuity-editing",
+  );
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, source.record_id)),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, editing.record_id)),
+  ).toBeVisible();
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: "/api/v1/entity-mentions/*/resolve",
+  });
+  try {
+    const undo = notice.getByRole("button", { name: "Undo", exact: true });
+    await undo.focus();
+    await undo.press("Enter");
+    await held.waitForHit;
+    await expect(undo).toBeFocused();
+    held.release();
+    await expect(notice).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (selector) => !!document.activeElement?.closest(selector),
+          dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
+        ),
+      )
+      .toBe(true);
+    expect(held.hitCount()).toBe(1);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newer scroll or body focus", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { notice } = await prepareUndoContinuity(page);
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: "/api/v1/entity-mentions/*/resolve",
+  });
+  try {
+    const undo = notice.getByRole("button", { name: "Undo", exact: true });
+    await undo.focus();
+    await undo.press("Enter");
+    await held.waitForHit;
+    await expect(undo).toBeFocused();
+    await expect(undo).toHaveAttribute("aria-busy", "true");
+    const grid = page.locator(gridScrollportSelector());
+    await grid.hover();
+    await page.mouse.wheel(0, 36);
+    await expect
+      .poll(() => grid.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    await notice.locator("strong").first().click();
+    await page.mouse.click(1, 1);
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.tagName))
+      .toBe("BODY");
+    const ownedScroll = await grid.evaluate((element) => element.scrollTop);
+    held.release();
+    await expect(notice).toHaveCount(0);
+    await expect
+      .poll(() => grid.evaluate((element) => element.scrollTop))
+      .toBe(ownedScroll);
+    expect(await page.evaluate(() => document.activeElement?.tagName)).toBe(
+      "BODY",
+    );
+    expect(held.hitCount()).toBe(1);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline auto-resolution feedback undo late acceptance preserves same-row Inspector focus", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { notice, itemRef } = await prepareUndoContinuity(page);
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: "/api/v1/entity-mentions/*/resolve",
+  });
+  try {
+    const undo = notice.getByRole("button", { name: "Undo", exact: true });
+    await undo.focus();
+    await undo.press("Enter");
+    await held.waitForHit;
+    await notice.getByRole("button", { name: "Review", exact: true }).click();
+    const item = page.getByTestId(mentionItemTestId(itemRef));
+    await expect(item).toBeFocused();
+    const grid = page.locator(gridScrollportSelector());
+    const newerScroll = await grid.evaluate((element) => element.scrollTop);
+    held.release();
+    await expect(notice).toHaveCount(0);
+    await expect(item).toBeFocused();
+    const settledScroll = await grid.evaluate((element) => ({
+      top: element.scrollTop,
+      maximum: element.scrollHeight - element.clientHeight,
+    }));
+    expect(settledScroll.top).toBe(
+      Math.min(newerScroll, settledScroll.maximum),
+    );
+    expect(held.hitCount()).toBe(1);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline auto-resolution feedback undo late acceptance preserves native scalar editing", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { notice, editing } = await prepareUndoContinuity(page);
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: "/api/v1/entity-mentions/*/resolve",
+  });
+  try {
+    const undo = notice.getByRole("button", { name: "Undo", exact: true });
+    await undo.focus();
+    await undo.press("Enter");
+    await held.waitForHit;
+    const cellId = rowCellTestId(
+      editing.record_id,
+      "timeline.activity_synopsis_text",
+    );
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: cellId,
+    });
+    await page.getByTestId(cellId).click();
+    const input = page.getByTestId(
+      timelineScalarEditorTestId({
+        recordId: editing.record_id,
+        fieldKey: "timeline.activity_synopsis_text",
+        surface: "grid",
+      }),
+    );
+    await input.fill("newer Undo editing Ω");
+    await input.evaluate((element: HTMLInputElement) =>
+      element.setSelectionRange(2, 7, "backward"),
+    );
+    const original = await input.elementHandle();
+    const grid = page.locator(gridScrollportSelector());
+    const newerScroll = await grid.evaluate((element) => element.scrollTop);
+    held.release();
+    await expect(notice).toHaveCount(0);
+    await expect(input).toBeFocused();
+    expect(await grid.evaluate((element) => element.scrollTop)).toBe(
+      newerScroll,
+    );
+    expect(
+      await original?.evaluate((element: HTMLInputElement) => ({
+        connected: element.isConnected,
+        focused: document.activeElement === element,
+        text: element.value,
+        start: element.selectionStart,
+        end: element.selectionEnd,
+        direction: element.selectionDirection,
+      })),
+    ).toEqual({
+      connected: true,
+      focused: true,
+      text: "newer Undo editing Ω",
+      start: 2,
+      end: 7,
+      direction: "backward",
+    });
+    expect(held.hitCount()).toBe(1);
+  } finally {
+    await held.dispose();
+  }
+});
+
+test("Timeline auto-resolution feedback undo late acceptance stays detached after surface navigation", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { notice } = await prepareUndoContinuity(page);
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: "/api/v1/entity-mentions/*/resolve",
+  });
+  try {
+    const undo = notice.getByRole("button", { name: "Undo", exact: true });
+    await undo.focus();
+    await undo.press("Enter");
+    await held.waitForHit;
+    const hostsTab = page.getByTestId(surfaceTabTestId(hostsViewSchemaId));
+    await hostsTab.click();
+    await expect(hostsTab).toHaveAttribute("aria-current", "page");
+    held.release();
+    await expect(hostsTab).toHaveAttribute("aria-current", "page");
+    await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
+    await expect(notice).toHaveCount(0);
+    expect(held.hitCount()).toBe(1);
+  } finally {
+    await held.dispose();
   }
 });
 

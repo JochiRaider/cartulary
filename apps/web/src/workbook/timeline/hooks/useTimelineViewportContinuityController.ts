@@ -198,7 +198,13 @@ export function useTimelineViewportContinuityController({
     // By document bubble, the editor has published native input. Retire only
     // the interrupted scheduling token, preserving any new request it admitted.
     document.addEventListener("input", finishNativeInput);
-    const events = ["pointerdown", "keydown", "wheel", "input"] as const;
+    const events = [
+      "pointerdown",
+      "keydown",
+      "wheel",
+      "input",
+      "compositionstart",
+    ] as const;
     for (const event of events)
       document.addEventListener(event, interruptViewportContinuity, true);
     document.addEventListener("focusin", focusChanged, true);

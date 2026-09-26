@@ -34,6 +34,7 @@ import type {
 } from "../models/timelineControllerPorts";
 import { timelineMentionSubject } from "../models/timelineMentionActionPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
+import { matchesUndoDisclosure } from "../models/timelineUndoDisclosure";
 import {
   type AutoResolutionNotice,
   buildInspectorMentions,
@@ -63,7 +64,19 @@ type Input = {
   readonly setSelectedTargetId: (id: string) => void;
   readonly presentationKey: string;
   readonly presentationActive: boolean;
-  readonly restoreActionFocus?: (sourceRecordId: string) => void;
+  readonly focusContinuity?: {
+    readonly beginViewportContinuity: (
+      target: { kind: "row-inspect"; recordId: string },
+      options: { requirements: readonly ["row-projection"] },
+    ) => number;
+    readonly advanceViewportContinuity: (token: number) => void;
+    readonly settleViewportContinuityFollowUp: (
+      token: number,
+      requirement: "row-projection",
+      state: "settled" | "terminal",
+    ) => void;
+    readonly clearViewportContinuity: (token: number) => void;
+  };
   readonly refreshProjection?: () => Promise<void>;
   readonly waitForCommittedRecordIdle: (
     id: string,
@@ -90,6 +103,23 @@ type DisclosureReviewRequest = {
   ownedFocus: boolean;
   cancelProgress: (() => void) | null;
   cancelNavigationDeadline: (() => void) | null;
+};
+type CompletionIntent = {
+  readonly key: number;
+  readonly creation: boolean;
+  readonly notice: boolean;
+  readonly sourceRecordId: string;
+  readonly invoker: Element | null;
+  readonly token: number | undefined;
+  readonly surfaceKey: string;
+  readonly presentationKey: string;
+  readonly presentationActive: boolean;
+  readonly selectedRowId: string | null;
+  readonly selectedMentionRef: string | null;
+  readonly selectedMentionId: string | null;
+  readonly invalidationGeneration: number;
+  readonly authorityGeneration: number;
+  requested: boolean;
 };
 export function useTimelineMentionActions(input: Input) {
   const { owner } = input;
@@ -120,72 +150,123 @@ export function useTimelineMentionActions(input: Input) {
     [owner],
   );
   const alive = useRef(true);
-  const completionFocus = useRef<{
-    key: number;
-    creation: boolean;
-    notice: boolean;
-    presentationKey: string;
-    presentationActive: boolean;
-    selectedMentionId: string | null;
-    authorityGeneration: number;
-    invoker: Element | null;
-    sourceRecordId: string;
-  } | null>(null);
-  const rememberCompletionFocus = useCallback(
-    (creation = false, notice = false) => {
+  const completionIntent = useRef<CompletionIntent | null>(null);
+  const [retryingUndoKey, setRetryingUndoKey] = useState<number | null>(null);
+  const clearCompletionIntent = useCallback(() => {
+    const intent = completionIntent.current;
+    completionIntent.current = null;
+    if (intent?.token !== undefined)
+      current.current.focusContinuity?.clearViewportContinuity(intent.token);
+  }, []);
+  const rememberCompletionIntent = useCallback(
+    (creation = false, notice = false, operationKey?: number) => {
       const retained = owner.getSnapshot();
       const entry = creation
         ? retained.creations.at(-1)
-        : retained.entries.at(-1);
+        : operationKey === undefined
+          ? retained.entries.at(-1)
+          : retained.entries.find((item) => item.key === operationKey);
       if (!entry) return;
-      completionFocus.current = {
+      clearCompletionIntent();
+      const live = current.current;
+      completionIntent.current = {
         key: entry.key,
         creation,
         notice,
-        presentationKey: current.current.presentationKey,
-        presentationActive: current.current.presentationActive,
-        selectedMentionId:
-          current.current.selectedMention?.entityMentionId ?? null,
-        authorityGeneration: retained.generation,
-        invoker: document.activeElement,
         sourceRecordId: entry.attempt.review.subject.sourceRecordId,
+        invoker: document.activeElement,
+        token: live.focusContinuity?.beginViewportContinuity(
+          {
+            kind: "row-inspect",
+            recordId: entry.attempt.review.subject.sourceRecordId,
+          },
+          { requirements: ["row-projection"] },
+        ),
+        surfaceKey: live.reviewSurfaceKey,
+        presentationKey: live.presentationKey,
+        presentationActive: live.presentationActive,
+        selectedRowId: live.selectedRowId,
+        selectedMentionRef: live.selectedMentionRef,
+        selectedMentionId: live.selectedMention?.entityMentionId ?? null,
+        invalidationGeneration: live.inspectorInvalidationGeneration,
+        authorityGeneration: retained.generation,
+        requested: false,
       };
     },
-    [owner],
+    [clearCompletionIntent, owner],
   );
   useLayoutEffect(() => {
-    const focus = completionFocus.current;
-    if (!focus) return;
+    const intent = completionIntent.current;
+    if (!intent) return;
     if (
-      focus.presentationKey !== input.presentationKey ||
-      focus.presentationActive !== input.presentationActive ||
-      focus.selectedMentionId !==
+      intent.surfaceKey !== input.reviewSurfaceKey ||
+      intent.presentationKey !== input.presentationKey ||
+      intent.presentationActive !== input.presentationActive ||
+      intent.selectedRowId !== input.selectedRowId ||
+      intent.selectedMentionRef !== input.selectedMentionRef ||
+      intent.invalidationGeneration !== input.inspectorInvalidationGeneration ||
+      intent.selectedMentionId !==
         (input.selectedMention?.entityMentionId ?? null) ||
-      focus.authorityGeneration !== snapshot.generation
+      intent.authorityGeneration !== snapshot.generation
     ) {
-      completionFocus.current = null;
+      clearCompletionIntent();
       return;
     }
-    const creation = focus.creation
-      ? snapshot.creations.find((entry) => entry.key === focus.key)
+    const creation = intent.creation
+      ? snapshot.creations.find((entry) => entry.key === intent.key)
       : null;
+    if (intent.creation && !creation) return clearCompletionIntent();
     if (creation && ["pending", "refreshing"].includes(creation.refresh))
       return;
-    const key = creation ? creation.linkKey : focus.key;
+    if (creation?.refresh === "required") return clearCompletionIntent();
+    const key = creation ? creation.linkKey : intent.key;
     const entry = snapshot.entries.find((entry) => entry.key === key);
-    if (entry?.refresh !== "complete" && !(focus.notice && entry?.receipt))
-      return;
-    completionFocus.current = null;
+    if (!entry) return;
     if (
-      document.activeElement === focus.invoker ||
-      document.activeElement === document.body
+      !entry.receipt &&
+      ["uncertain", "rejected", "preparation_failed"].includes(entry.phase)
     )
-      input.restoreActionFocus?.(focus.sourceRecordId);
+      return clearCompletionIntent();
+    const ready = intent.notice
+      ? !!entry.receipt
+      : entry.refresh === "complete";
+    if (ready && !intent.requested) {
+      intent.requested = true;
+      if (intent.token !== undefined)
+        input.focusContinuity?.advanceViewportContinuity(intent.token);
+    }
+    if (
+      intent.notice &&
+      entry.receipt &&
+      (entry.refresh === "complete" || entry.refresh === "required")
+    ) {
+      if (intent.token !== undefined)
+        input.focusContinuity?.settleViewportContinuityFollowUp(
+          intent.token,
+          "row-projection",
+          entry.refresh === "complete" ? "settled" : "terminal",
+        );
+      completionIntent.current = null;
+    } else if (!intent.notice && entry.refresh === "complete") {
+      if (intent.token !== undefined)
+        input.focusContinuity?.settleViewportContinuityFollowUp(
+          intent.token,
+          "row-projection",
+          "settled",
+        );
+      completionIntent.current = null;
+    } else if (!intent.notice && entry.refresh === "required")
+      clearCompletionIntent();
   }, [
+    clearCompletionIntent,
+    input.focusContinuity,
+    input.inspectorInvalidationGeneration,
     input.presentationKey,
     input.presentationActive,
+    input.reviewSurfaceKey,
+    input.selectedMentionRef,
+    input.selectedRowId,
     input.selectedMention?.entityMentionId,
-    input.restoreActionFocus,
     snapshot,
   ]);
   const subject = input.selectedMention
@@ -224,8 +305,9 @@ export function useTimelineMentionActions(input: Input) {
     alive.current = true;
     return () => {
       alive.current = false;
+      clearCompletionIntent();
     };
-  }, []);
+  }, [clearCompletionIntent]);
   const reviewRequest = useRef<DisclosureReviewRequest | null>(null);
   const reviewSequence = useRef(0);
   const [reviewFeedback, setReviewFeedback] =
@@ -453,7 +535,7 @@ export function useTimelineMentionActions(input: Input) {
         "Review the current mention and recover any earlier operation before acting.",
       );
     else {
-      rememberCompletionFocus();
+      rememberCompletionIntent();
       input.setInspectorMessage(null);
     }
   }
@@ -486,7 +568,7 @@ export function useTimelineMentionActions(input: Input) {
         "Review the entity fields and recover any earlier creation before submitting.",
       );
     else {
-      rememberCompletionFocus(true);
+      rememberCompletionIntent(true);
       input.setInspectorMessage(null);
     }
   }
@@ -527,9 +609,33 @@ export function useTimelineMentionActions(input: Input) {
           binding(subject, matches, true),
         )
       )
-        rememberCompletionFocus(false, true);
+        rememberCompletionIntent(false, true);
     },
-    [owner, binding, rememberCompletionFocus],
+    [owner, binding, rememberCompletionIntent],
+  );
+  const handleRetryUndoAutoResolutionNotice = useCallback(
+    (notice: AutoResolutionDisclosure, key: number) => {
+      const retained = owner.getSnapshot();
+      const entry = retained.entries.find((item) => item.key === key);
+      if (
+        !entry ||
+        entry.phase !== "uncertain" ||
+        !matchesUndoDisclosure(entry, notice) ||
+        !owner.canSubmit("revert_to_unresolved") ||
+        !owner
+          .getDisclosureSnapshot()
+          .some(
+            (item) =>
+              item.identity === notice.identity &&
+              disclosureReviewKey(item) === disclosureReviewKey(notice),
+          )
+      )
+        return;
+      setRetryingUndoKey(key);
+      rememberCompletionIntent(false, true, key);
+      void owner.replay(key);
+    },
+    [owner, rememberCompletionIntent],
   );
   const startDisclosureReview = useCallback(
     (
@@ -698,9 +804,11 @@ export function useTimelineMentionActions(input: Input) {
           binding(subject, () => true),
         )
       )
-        rememberCompletionFocus();
+        rememberCompletionIntent();
     },
     handleUndoAutoResolutionNotice,
+    handleRetryUndoAutoResolutionNotice,
+    retryingUndoKey,
   };
 }
 function currentSubject(

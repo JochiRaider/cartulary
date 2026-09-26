@@ -154,8 +154,8 @@ function harness() {
 }
 
 describe("Timeline deferred continuity", () => {
-  it("cancels an already pending semantic target for wheel and native input before it mounts", async () => {
-    for (const event of ["wheel", "input"]) {
+  it("cancels an already pending semantic target for wheel native input and composition before it mounts", async () => {
+    for (const event of ["wheel", "input", "compositionstart"]) {
       const h = harness();
       h.begin();
       const signal = h.requestFocus.mock.calls[0]?.[1]?.signal;

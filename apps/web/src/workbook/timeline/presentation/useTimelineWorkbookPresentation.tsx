@@ -245,7 +245,11 @@ export function useTimelineWorkbookPresentation({
     previewRowHistoryRollback,
     historyBrowsingControls,
   } = workflow.commands.history;
-  const { handleUndoAutoResolutionNotice } = workflow.commands.mentions;
+  const {
+    handleUndoAutoResolutionNotice,
+    handleRetryUndoAutoResolutionNotice,
+    retryingUndoKey,
+  } = workflow.commands.mentions;
   const handleTimelineEvidenceFiles = workflow.commands.evidence;
 
   const { renderTimelineCollectionInput, timelineColumns } =
@@ -595,6 +599,8 @@ export function useTimelineWorkbookPresentation({
         );
       },
       onUndoAutoResolution: handleUndoAutoResolutionNotice,
+      onRetryUndoAutoResolution: handleRetryUndoAutoResolutionNotice,
+      retryingUndoKey,
     },
     status: {
       presence,

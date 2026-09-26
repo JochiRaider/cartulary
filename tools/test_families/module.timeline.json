@@ -94,12 +94,26 @@
           "scenario_timeline_auto_resolution_feedback_authority",
           "scenario_timeline_auto_resolution_feedback_comfortable",
           "scenario_timeline_auto_resolution_feedback_compact",
-          "scenario_timeline_auto_resolution_feedback_default"
+          "scenario_timeline_auto_resolution_feedback_default",
+          "scenario_timeline_owned_undo_off_query_fallback",
+          "scenario_timeline_owned_undo_visible_focus",
+          "scenario_timeline_retry_undo_keyboard_continuity",
+          "scenario_timeline_undo_late_focus_scroll",
+          "scenario_timeline_undo_late_native_editing",
+          "scenario_timeline_undo_late_same_row_inspector",
+          "scenario_timeline_undo_late_surface_navigation"
         ],
         "titles": [
+          "Timeline auto-resolution feedback owned Undo falls back when its source is off-query",
+          "Timeline auto-resolution feedback owned Undo restores a visible source destination",
           "Timeline auto-resolution feedback production characterization comfortable",
           "Timeline auto-resolution feedback production characterization compact",
           "Timeline auto-resolution feedback production characterization default",
+          "Timeline auto-resolution feedback retry Undo retains keyboard position through a held replay",
+          "Timeline auto-resolution feedback undo late acceptance cannot reclaim newer scroll or body focus",
+          "Timeline auto-resolution feedback undo late acceptance preserves native scalar editing",
+          "Timeline auto-resolution feedback undo late acceptance preserves same-row Inspector focus",
+          "Timeline auto-resolution feedback undo late acceptance stays detached after surface navigation",
           "Timeline disclosure arrival preserves scalar collection and native composition editing",
           "Timeline disclosures follow read-only session recovery account replacement and access loss"
         ]
