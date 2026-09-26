@@ -262,7 +262,7 @@ it("Timeline composition observes editor activation drafts inspector changes and
   const active = observed.cells.get(key) ?? 0;
   const editorPublication = deferred<void>();
   const delayedEditor = editorPublication.promise.then(() =>
-    fireEvent.change(input, { target: { value: "raw Ω draft" } }),
+    fireEvent.input(input, { target: { value: "raw Ω draft" } }),
   );
   await act(async () => runtime.notifyPendingChanged());
   expect(observed.cells.get(key)).toBe(active);
