@@ -7,6 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkbookCandidateAuthorityContext } from "../hooks/useWorkbookCandidateDiscovery";
@@ -82,7 +83,226 @@ const select = (...ids: string[]) => {
 };
 const click = (name: string) =>
   fireEvent.click(screen.getByRole("button", { name }));
+function readGate() {
+  let resolve!: (
+    result: Awaited<ReturnType<WorkbookAuthoringReadPort["page"]>>,
+  ) => void;
+  const promise = new Promise<
+    Awaited<ReturnType<WorkbookAuthoringReadPort["page"]>>
+  >((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
 describe("authoring candidate presentation", () => {
+  it("keeps keyboard focus on held First Refresh Next and Previous reads and exhausted controls", async () => {
+    const { props, reader } = setup();
+    const user = userEvent.setup();
+    const first = readGate();
+    const refresh = readGate();
+    const next = readGate();
+    const previous = readGate();
+    const empty = readGate();
+    vi.mocked(reader.page)
+      .mockResolvedValueOnce(page(1))
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => refresh.promise)
+      .mockImplementationOnce(() => next.promise)
+      .mockImplementationOnce(() => previous.promise)
+      .mockImplementationOnce(() => empty.promise);
+    render(<WorkbookAuthoringReferencePicker {...props} />);
+    await screen.findByRole("option", { name: "Party 1-0" });
+
+    for (const [name, gate, result, count] of [
+      ["First candidates", first, page(1), 2],
+      ["Refresh candidates", refresh, page(1), 3],
+      ["Next candidates", next, page(2, null), 4],
+      ["Previous candidates", previous, page(1), 5],
+    ] as const) {
+      const button = screen.getByRole("button", { name });
+      button.focus();
+      await user.keyboard("{Enter}");
+      expect(reader.page).toHaveBeenCalledTimes(count);
+      expect(document.activeElement).toBe(button);
+      expect(button.getAttribute("aria-busy")).toBe("true");
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+      expect(button.hasAttribute("disabled")).toBe(false);
+      await user.keyboard("{Enter} ");
+      fireEvent.click(button);
+      expect(reader.page).toHaveBeenCalledTimes(count);
+      await act(async () => gate.resolve(result));
+      expect(document.activeElement).toBe(button);
+      expect(button.getAttribute("aria-busy")).toBe("false");
+      if (name === "Next candidates" || name === "Previous candidates") {
+        expect(button.getAttribute("aria-disabled")).toBe("true");
+        expect(button.hasAttribute("disabled")).toBe(false);
+        await user.tab();
+        expect(button.hasAttribute("disabled")).toBe(true);
+      }
+    }
+    const emptyRefresh = screen.getByRole("button", {
+      name: "Refresh candidates",
+    });
+    emptyRefresh.focus();
+    await user.keyboard("{Enter}");
+    expect(reader.page).toHaveBeenCalledTimes(6);
+    await act(async () =>
+      empty.resolve({
+        kind: "accepted",
+        value: { candidates: [], hasMore: false, nextCursor: null },
+      }),
+    );
+    expect(document.activeElement).toBe(emptyRefresh);
+    expect(screen.getByText("No candidates match this query.")).toBeTruthy();
+  });
+
+  it("keeps Retry connected through failure success and restart while blocking duplicate activation", async () => {
+    const { props, reader, onApply } = setup();
+    const user = userEvent.setup();
+    const repeatedFailure = readGate();
+    const success = readGate();
+    const restart = readGate();
+    const rejected = {
+      kind: "rejected" as const,
+      failure: { kind: "retryable" as const, message: "Read failed" },
+    };
+    vi.mocked(reader.page)
+      .mockResolvedValueOnce(page(1))
+      .mockResolvedValueOnce(rejected)
+      .mockImplementationOnce(() => repeatedFailure.promise)
+      .mockImplementationOnce(() => success.promise)
+      .mockResolvedValueOnce(page(1))
+      .mockResolvedValueOnce(rejected)
+      .mockImplementationOnce(() => restart.promise);
+    render(<WorkbookAuthoringReferencePicker {...props} />);
+    await screen.findByRole("option", { name: "Party 1-0" });
+    select("1-0");
+    click("Next candidates");
+    await screen.findByRole("alert");
+    const retry = screen.getByRole("button", { name: "Retry candidates" });
+    retry.focus();
+    await user.keyboard("{Enter}");
+    expect(retry.isConnected).toBe(true);
+    expect(retry.getAttribute("aria-busy")).toBe("true");
+    expect(retry.getAttribute("aria-disabled")).toBe("true");
+    expect(retry.hasAttribute("disabled")).toBe(false);
+    await user.keyboard("{Enter} ");
+    fireEvent.click(retry);
+    expect(reader.page).toHaveBeenCalledTimes(3);
+    await act(async () => repeatedFailure.resolve(rejected));
+    expect(document.activeElement).toBe(retry);
+    expect(retry.getAttribute("aria-disabled")).toBe("false");
+
+    await user.keyboard("{Enter}");
+    expect(reader.page).toHaveBeenCalledTimes(4);
+    await act(async () => success.resolve(page(2, null)));
+    expect(document.activeElement).toBe(retry);
+    expect(retry.getAttribute("aria-disabled")).toBe("true");
+    expect(retry.hasAttribute("disabled")).toBe(false);
+    expect(onApply).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Apply references" }));
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(retry.hasAttribute("disabled")).toBe(true);
+    expect(
+      screen
+        .getByRole("button", { name: "Next candidates" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+
+    click("First candidates");
+    await screen.findByRole("option", { name: "Party 1-0" });
+    click("Next candidates");
+    await screen.findByRole("alert");
+    const retryAgain = screen.getByRole("button", {
+      name: "Retry candidates",
+    });
+    retryAgain.focus();
+    await user.keyboard("{Enter}");
+    await act(async () =>
+      restart.resolve({
+        kind: "rejected",
+        failure: {
+          kind: "invalid_contract",
+          message: "Restart from First",
+        },
+      }),
+    );
+    expect(document.activeElement).toBe(retryAgain);
+    expect(retryAgain.getAttribute("aria-disabled")).toBe("true");
+    expect(
+      screen.getByText("Restart this query with First candidates."),
+    ).toBeTruthy();
+  });
+
+  it("retires held read focus after outside interaction scope replacement and authority loss", async () => {
+    const { props, reader, onApply } = setup();
+    const user = userEvent.setup();
+    const outside = readGate();
+    const oldScope = readGate();
+    const oldAuthority = readGate();
+    vi.mocked(reader.page)
+      .mockResolvedValueOnce(page(1))
+      .mockImplementationOnce(() => outside.promise)
+      .mockImplementationOnce(() => oldScope.promise)
+      .mockResolvedValueOnce(page(2, null))
+      .mockImplementationOnce(() => oldAuthority.promise);
+    const failure = vi.fn();
+    const boundary = (revision: number, identity: string, canRead = true) => (
+      <WorkbookCandidateAuthorityContext.Provider
+        value={{ identity, canRead, onAuthorityFailure: failure }}
+      >
+        <WorkbookAuthoringReferencePicker
+          {...props}
+          revision={revision}
+          selected={[
+            {
+              recordId: "private",
+              displayText: "Protected label",
+              viewSchemaId: view,
+            },
+          ]}
+        />
+      </WorkbookCandidateAuthorityContext.Provider>
+    );
+    const rendered = render(boundary(0, "account-a"));
+    await screen.findByRole("option", { name: "Party 1-0" });
+    const refresh = screen.getByRole("button", { name: "Refresh candidates" });
+    refresh.focus();
+    await user.keyboard("{Enter}");
+    const apply = screen.getByRole("button", { name: "Apply references" });
+    apply.focus();
+    fireEvent.wheel(document);
+    await act(async () => outside.resolve(page(1)));
+    expect(document.activeElement).toBe(apply);
+    expect(onApply).not.toHaveBeenCalled();
+
+    refresh.focus();
+    await user.keyboard("{Enter}");
+    rendered.rerender(boundary(1, "account-a"));
+    await screen.findByRole("option", { name: "Party 2-0" });
+    const newRefresh = screen.getByRole("button", {
+      name: "Refresh candidates",
+    });
+    newRefresh.focus();
+    await act(async () => oldScope.resolve(page(3, null)));
+    expect(document.activeElement).toBe(newRefresh);
+    expect(screen.queryByRole("option", { name: "Party 3-0" })).toBeNull();
+
+    await user.keyboard("{Enter}");
+    rendered.rerender(boundary(1, "account-b", false));
+    await act(async () =>
+      oldAuthority.resolve({
+        kind: "rejected",
+        failure: { kind: "authentication_required", message: "Expired" },
+      }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Refresh candidates" }),
+    ).toBeNull();
+    expect(screen.queryByText("Protected label")).toBeNull();
+    expect(failure).not.toHaveBeenCalled();
+    expect(onApply).not.toHaveBeenCalled();
+  });
   it("restores focused selected-reference removal to the next surviving identity", () => {
     function Selection() {
       const [selected, setSelected] = useState([

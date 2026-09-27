@@ -10,6 +10,7 @@ import {
   evidenceViewSchemaId,
   hostsViewSchemaId,
   partiesViewSchemaId,
+  taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Locator, Page } from "@playwright/test";
@@ -108,6 +109,7 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     picker.getByRole("button", { name: /^Remove selected Collector Party / }),
   ).toHaveCount(1);
   await button(picker, "Apply Party").click();
+  await expect(picker).toHaveCount(0);
   await expect(
     f.form.getByTestId(
       genericCreateFieldTestId("evidence.collector_party_text"),
@@ -227,6 +229,161 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     body: await page.screenshot(),
     contentType: "image/png",
   });
+});
+
+test("Timeline contextual Party candidate reads keep keyboard focus through pending retry and exhaustion", async ({
+  page,
+}) => {
+  const f = await openTimelineEvidenceFixture(page);
+  await seed(page, f.incident, partiesViewSchemaId, "party.display_name");
+  await button(f.form, "Keep draft and close").click();
+  await page
+    .getByTestId(
+      workbookInspectorFeatureActionTestId(
+        timelineViewSchemaId,
+        "create_related.task_request",
+      ),
+    )
+    .click();
+  const task = page.getByRole("region", {
+    name: "Create task request",
+    exact: true,
+  });
+  const title = task.getByTestId(genericCreateFieldTestId("task.title"));
+  await title.fill("Keyboard retained task draft");
+  await button(task, "Choose Requester Party").click();
+  const picker = task.getByRole("region", {
+    name: "Choose Requester Party",
+    exact: true,
+  });
+  const candidates = picker.getByRole("combobox", {
+    name: "Requester Party",
+    exact: true,
+  });
+  await expect(candidates.getByRole("option")).toHaveCount(101);
+
+  type Gate = {
+    readonly wait: Promise<void>;
+    readonly requested: () => void;
+    readonly fail: boolean;
+    readonly release: () => void;
+  };
+  let queued: Gate | null = null;
+  let reads = 0;
+  await page.route(
+    `**/incidents/${f.incident}/views/${partiesViewSchemaId}/query`,
+    async (route) => {
+      reads++;
+      const gate = queued;
+      queued = null;
+      if (gate) {
+        gate.requested();
+        await gate.wait;
+        if (gate.fail) await route.abort("failed");
+        else await route.continue();
+      } else await route.continue();
+    },
+  );
+  function hold(fail = false) {
+    let release!: () => void;
+    let requested!: () => void;
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      requested = resolve;
+    });
+    queued = { wait, requested, fail, release };
+    return { entered, release };
+  }
+  async function admit(name: string, fail = false) {
+    const gate = hold(fail);
+    const control = button(picker, name);
+    await control.focus();
+    await page.keyboard.press("Enter");
+    await gate.entered;
+    await expect(control).toBeFocused();
+    await expect(control).toHaveAttribute("aria-busy", "true");
+    await expect(control).toHaveAttribute("aria-disabled", "true");
+    await expect(control).not.toHaveAttribute("disabled");
+    return { control, release: gate.release };
+  }
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const read = await admit("Refresh candidates");
+    const count = reads;
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Space");
+    const bounds = await read.control.boundingBox();
+    if (!bounds) throw new Error("Missing focused Refresh control geometry");
+    await page.mouse.click(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    expect(reads).toBe(count);
+    await read.control.focus();
+    await expect(read.control).toBeFocused();
+    read.release();
+    await expect(picker.getByRole("status")).toContainText("Page 1");
+    await expect(read.control).toBeFocused();
+    await expect(read.control).toHaveAttribute("aria-busy", "false");
+  }
+
+  const selected = await chooseFirst(candidates);
+  const next = await admit("Next candidates", true);
+  next.release();
+  await expect(picker.getByRole("alert")).toContainText(
+    "accepted page remains available",
+  );
+  await expect(next.control).toBeFocused();
+  await expect(candidates).toBeEnabled();
+  await expect(button(picker, "Apply references")).toBeEnabled();
+
+  const failedRetry = await admit("Retry candidates", true);
+  failedRetry.release();
+  await expect(picker.getByRole("alert")).toBeVisible();
+  await expect(failedRetry.control).toBeFocused();
+  await expect(failedRetry.control).toHaveAttribute("aria-disabled", "false");
+
+  const successfulRetry = await admit("Retry candidates");
+  successfulRetry.release();
+  await expect(candidates.getByRole("option")).toHaveCount(7);
+  await expect(successfulRetry.control).toBeFocused();
+  await expect(successfulRetry.control).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.keyboard.press("Tab");
+  await expect(button(picker, "Apply references")).toBeFocused();
+  await expect(button(picker, "Retry candidates")).toBeDisabled();
+  await expect(button(picker, "Next candidates")).toBeDisabled();
+  await expect(
+    picker.getByRole("button", { name: /^Remove selected Requester Party / }),
+  ).toHaveCount(1);
+
+  const previous = await admit("Previous candidates");
+  previous.release();
+  await expect(candidates.getByRole("option")).toHaveCount(101);
+  await expect(previous.control).toBeFocused();
+  await expect(previous.control).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Tab");
+  await expect(previous.control).toBeDisabled();
+
+  const first = await admit("First candidates");
+  first.release();
+  await expect(picker.getByRole("status")).toContainText("Page 1");
+  await expect(first.control).toBeFocused();
+  await expect(title).toHaveValue("Keyboard retained task draft");
+  await button(picker, "Cancel references").click();
+  await expect(title).toHaveValue("Keyboard retained task draft");
+  expect(selected).toBeTruthy();
+  expect(
+    await queryViewRows(page, f.incident, taskRequestsViewSchemaId),
+  ).toHaveLength(0);
 });
 
 test("Timeline contextual reference removal keeps keyboard focus in the reference field", async ({
@@ -429,18 +586,27 @@ test("Note source browsing preserves reviewed identity and text across delayed r
     exact: true,
   });
   await expect(select.getByRole("option")).toHaveCount(101);
-  await button(picker, "Next candidates").click();
+  const heldNext = button(picker, "Next candidates");
+  await heldNext.focus();
+  await page.keyboard.press("Enter");
   await expect.poll(() => pending).toBe(true);
+  await expect(heldNext).toBeFocused();
+  await expect(heldNext).toHaveAttribute("aria-busy", "true");
+  await expect(heldNext).toHaveAttribute("aria-disabled", "true");
   await expect(button(picker, "Apply source")).toBeEnabled();
   await picker
     .getByRole("combobox", { name: "Source sheet", exact: true })
     .selectOption(timelineViewSchemaId);
   await expect(select.getByRole("option")).toHaveCount(2);
+  const externalFocus = button(picker, "Apply source");
+  await externalFocus.focus();
+  await expect(externalFocus).toBeFocused();
   release();
   await expect(
     picker.getByRole("button", { name: /^Remove selected Note source / }),
   ).toHaveCount(1);
   await expect(picker.getByRole("alert")).toHaveCount(0);
+  await expect(externalFocus).toBeFocused();
   await button(picker, "Apply source").click();
   await expect(
     f.form.getByRole("textbox", { name: "Title", exact: true }),
@@ -451,7 +617,31 @@ test("Note source browsing preserves reviewed identity and text across delayed r
   ).toHaveValue(hostsViewSchemaId);
   await expect(select.getByRole("option")).toHaveCount(101);
   await chooseFirst(select);
-  await select.press("Escape");
+  let releaseClosedRead!: () => void;
+  let requestedClosedRead!: () => void;
+  const closedRead = new Promise<void>((resolve) => {
+    releaseClosedRead = resolve;
+  });
+  const closedRequest = new Promise<void>((resolve) => {
+    requestedClosedRead = resolve;
+  });
+  await page.route(
+    `**/incidents/${f.incident}/views/${hostsViewSchemaId}/query`,
+    async (route) => {
+      requestedClosedRead();
+      await closedRead;
+      await route.continue().catch(() => {});
+    },
+  );
+  const closedRefresh = button(picker, "Refresh candidates");
+  await closedRefresh.focus();
+  await page.keyboard.press("Enter");
+  await closedRequest;
+  await expect(closedRefresh).toBeFocused();
+  await expect(closedRefresh).toHaveAttribute("aria-busy", "true");
+  await page.keyboard.press("Escape");
+  await expect(button(f.form, "Choose source")).toBeFocused();
+  releaseClosedRead();
   await expect(button(f.form, "Choose source")).toBeFocused();
   await button(f.form, "Choose source").click();
   await expect(
@@ -555,6 +745,35 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
     exact: true,
   });
   await expect(candidates.getByRole("option")).toHaveCount(100);
+  let releaseSupport!: () => void;
+  let requestedSupport!: () => void;
+  const supportGate = new Promise<void>((resolve) => {
+    releaseSupport = resolve;
+  });
+  const supportRequested = new Promise<void>((resolve) => {
+    requestedSupport = resolve;
+  });
+  await page.route(
+    `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      requestedSupport();
+      await supportGate;
+      await route.continue();
+    },
+  );
+  const supportRefresh = button(support, "Refresh candidates");
+  await supportRefresh.focus();
+  await page.keyboard.press("Enter");
+  await supportRequested;
+  await expect(supportRefresh).toBeFocused();
+  await expect(supportRefresh).toHaveAttribute("aria-busy", "true");
+  await expect(supportRefresh).toHaveAttribute("aria-disabled", "true");
+  releaseSupport();
+  await expect(supportRefresh).toBeFocused();
+  await expect(supportRefresh).toHaveAttribute("aria-busy", "false");
+  await page.unroute(
+    `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+  );
   const first = await chooseFirst(candidates, true);
   await button(support, "Next candidates").click();
   await expect(candidates.getByRole("option")).toHaveCount(5);

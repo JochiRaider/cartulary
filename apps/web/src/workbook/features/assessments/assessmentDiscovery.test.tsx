@@ -12,6 +12,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAssessmentCandidateReader } from "../../adapters/createAssessmentCandidateReader";
 import { useWorkbookCandidateDiscovery } from "../../hooks/useWorkbookCandidateDiscovery";
@@ -45,6 +46,57 @@ const page = (ids: string[], nextCursor: string | null = null) => ({
 });
 
 describe("Assessment discovery", () => {
+  it("keeps the direct shared support Refresh control focused during a held read", async () => {
+    let finish!: (
+      value: Awaited<ReturnType<AssessmentCandidateReadPort["support"]>>,
+    ) => void;
+    const held = new Promise<
+      Awaited<ReturnType<AssessmentCandidateReadPort["support"]>>
+    >((resolve) => {
+      finish = resolve;
+    });
+    const support = vi
+      .fn()
+      .mockResolvedValueOnce(page(["a"], "next"))
+      .mockImplementationOnce(() => held);
+    const reader: AssessmentCandidateReadPort = {
+      subjects: vi.fn(async () => page([])),
+      support,
+    };
+    const update = vi.fn();
+    const draft = initialAssessmentDraft(
+      requireViewContract(assessmentsViewSchemaId),
+    );
+    const user = userEvent.setup();
+    render(
+      <AssessmentSupportPicker
+        reader={reader}
+        draft={draft}
+        disabled={false}
+        revision={0}
+        update={update}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Choose support" }));
+    await waitFor(() => expect(support).toHaveBeenCalledTimes(1));
+    await screen.findByRole("option", { name: "Record a" });
+    const refresh = screen.getByRole("button", { name: "Refresh candidates" });
+    refresh.focus();
+    await user.keyboard("{Enter}");
+    expect(refresh.isConnected).toBe(true);
+    expect(document.activeElement).toBe(refresh);
+    expect(refresh.getAttribute("aria-busy")).toBe("true");
+    expect(refresh.getAttribute("aria-disabled")).toBe("true");
+    expect(refresh.hasAttribute("disabled")).toBe(false);
+    expect(update).not.toHaveBeenCalled();
+    await act(async () => finish(page(["a"])));
+    expect(document.activeElement).toBe(refresh);
+    expect(update).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cancel support selection" }),
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
   it("reads only the authorized selected view and reduces minimal Timeline rows with opaque paging", async () => {
     const fetch = vi.fn(
       async (_url: unknown, _init: RequestInit) =>

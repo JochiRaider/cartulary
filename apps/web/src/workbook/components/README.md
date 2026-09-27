@@ -131,7 +131,13 @@ not delete a receipt. Inspector and workspace dialog activation detach recovery.
 ## Authoring discovery
 
 WorkbookCandidateBrowsing presents bounded page navigation and typed read recovery;
-it owns no selection or mutation.
+it owns no selection or mutation. An initiating read control keeps its name and
+keyboard position while the read is pending. Retry and exhausted page controls
+remain focusable and unavailable while focused, then become natively disabled
+when focus departs. A settled Retry stays mounted so pointer activation of the
+next control keeps stable geometry. Local focus intent retires on newer input or discovery
+scope changes; candidate admission and stale-response handling stay with the
+discovery owner.
 
 Authoring record pickers use WorkbookAuthoringReferencePicker for attachment-local
 staging, WorkbookCandidateSelection for current-page membership and explicit
