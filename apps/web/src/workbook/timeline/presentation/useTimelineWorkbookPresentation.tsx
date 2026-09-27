@@ -270,6 +270,7 @@ export function useTimelineWorkbookPresentation({
       handleSelectRow,
       queueCollectionSave,
       readOnly: interactionMode.kind === "read_only",
+      tagRemovalOwner: composition.inspectorDetails,
       readCurrentRow,
       rowGutterWidth: timelineRowGutterWidth,
       timelineContract,

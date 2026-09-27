@@ -2,7 +2,7 @@ import type { InspectorPanelId } from "@cartulary/view-contracts";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookInspectorTechnicalField } from "./presentation/workbookInspectorPresentationModel";
 
-type WorkbookInspectorNoticeDestination =
+export type WorkbookInspectorNoticeDestination =
   | {
       readonly kind: "field";
       readonly panel: "details";

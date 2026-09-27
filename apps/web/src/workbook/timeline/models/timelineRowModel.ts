@@ -110,7 +110,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function readTimelineTagItems(row: TimelineApiRow): TagCollectionItem[] {
+export function readTimelineTagItems(
+  row: WorkbookQueryRow,
+): TagCollectionItem[] {
   const raw = row.cells["timeline.tags"]?.value;
   const value = isRecord(raw) && Array.isArray(raw.items) ? raw.items : [];
   return value.flatMap((item) => {

@@ -9,6 +9,7 @@ import type {
   TimelineScalarEditorSurface,
 } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
+import type { TimelineInspectorDetailsOwner } from "./TimelineInspectorDetails";
 import type {
   TimelineCollectionKeyDown,
   TimelineCollectionSave,
@@ -41,6 +42,7 @@ export function useTimelineWorkbookRenderers({
   handleSelectRow,
   queueCollectionSave,
   readOnly,
+  tagRemovalOwner,
   readCurrentRow,
   rowGutterWidth,
   timelineContract,
@@ -73,6 +75,7 @@ export function useTimelineWorkbookRenderers({
   readonly handleSelectRow: (recordId: string) => void;
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
+  readonly tagRemovalOwner: TimelineInspectorDetailsOwner;
   readonly readCurrentRow?: ((row: WorkbookRow) => WorkbookRow) | undefined;
   readonly rowGutterWidth: number;
   readonly timelineContract: ViewContract;
@@ -123,6 +126,7 @@ export function useTimelineWorkbookRenderers({
     handleSelectRow,
     queueCollectionSave,
     readOnly,
+    tagRemovalOwner,
     registerInput,
     timelineBindingLabel,
     updateTimelineSurfaceFocusAnchor,

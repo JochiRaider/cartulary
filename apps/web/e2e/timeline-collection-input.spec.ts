@@ -25,6 +25,7 @@ import {
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import { revokeAllSessions } from "./support/auth/sessions";
+import { installVisualPreferences } from "./support/auth/visualPreferences";
 import {
   collectionActionsPayload,
   collectionItems,
@@ -52,6 +53,329 @@ const fields = [
   ["timeline.identity_refs", "identities"],
   ["timeline.tags", "tags"],
 ] as const;
+
+test("Timeline saved tag removal preserves capture and exact collection identity at supported viewports", async ({
+  page,
+  workerAdmin,
+}) => {
+  test.setTimeout(240_000);
+  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 720 },
+  ]) {
+    preferences.select(viewport.width === 1440 ? "comfortable" : "compact");
+    await page.setViewportSize(viewport);
+    const incident = await createIncident(
+      page,
+      uniqueIncidentKey("TSRM"),
+      "Saved tag removal",
+    );
+    const tags = (names: readonly [string, ...string[]]) => {
+      const [first, ...rest] = names;
+      const actions: [
+        { op: "add_tag"; tag_name: string },
+        ...{ op: "add_tag"; tag_name: string }[],
+      ] = [
+        { op: "add_tag", tag_name: first },
+        ...rest.map((tag_name) => ({ op: "add_tag" as const, tag_name })),
+      ];
+      return { kind: "collection_actions_v1" as const, actions };
+    };
+    const longLabel = `z-${"long".repeat(14)}`;
+    const row = await createViewRow(page, incident, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("tsrm-source"),
+      "timeline.activity_synopsis_text": "Tag removal source",
+      "timeline.tags": tags(["alpha", "beta Ω", "gamma", longLabel]),
+    });
+    const other = await createViewRow(page, incident, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("tsrm-other"),
+      "timeline.activity_synopsis_text": "Other tagged source",
+      "timeline.tags": tags(["beta Ω"]),
+    });
+    const before = findRow(
+      await queryViewRows(page, incident, timelineViewSchemaId),
+      row.record_id,
+    );
+    const target = collectionItems(before, "timeline.tags").find(
+      (item) => item.display_text === "beta Ω",
+    );
+    if (!target) throw new Error("Missing returned beta item_ref");
+    const patches: unknown[] = [];
+    page.on("request", (request) => {
+      if (
+        request.method() === "PATCH" &&
+        request.url().endsWith(`/records/${row.record_id}`)
+      )
+        patches.push(request.postDataJSON());
+    });
+    await page.goto(`/?incident_id=${incident}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await showTimelineCollectionColumns(page);
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: relationshipItemsTestId(
+        row.record_id,
+        "timeline.tags",
+        "grid",
+      ),
+    });
+    await page
+      .getByTestId(
+        relationshipItemsTestId(row.record_id, "timeline.tags", "grid"),
+      )
+      .getByRole("button", { name: "Inspect tag: alpha" })
+      .click();
+    const inspectorInput = page.getByTestId(
+      timelineCollectionInputTestId(
+        row.record_id,
+        "timeline.tags",
+        "inspector",
+      ),
+    );
+    await expect(inspectorInput).toBeVisible();
+    await inspectorInput.fill("  unsent capture Ω  ");
+    const remove = page.getByRole("button", { name: "Remove tag: beta Ω" });
+    const gridOffset = await page
+      .locator(gridScrollportSelector())
+      .evaluate((element) => ({
+        left: element.scrollLeft,
+        top: element.scrollTop,
+      }));
+    await remove.focus();
+    await page.keyboard.press("Enter");
+    await expect(remove).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Remove tag: gamma" }),
+    ).toBeFocused();
+    await expect(inspectorInput).toHaveValue("  unsent capture Ω  ");
+    expect(
+      await page.locator(gridScrollportSelector()).evaluate((element) => ({
+        left: element.scrollLeft,
+        top: element.scrollTop,
+      })),
+    ).toEqual(gridOffset);
+    const longAction = page.getByRole("button", {
+      name: `Remove tag: ${longLabel}`,
+    });
+    await longAction.scrollIntoViewIfNeeded();
+    expect(
+      await longAction.evaluate((element) => {
+        const button = element.getBoundingClientRect();
+        const chip = element.parentElement?.getBoundingClientRect();
+        return (
+          chip !== undefined &&
+          button.right <= chip.right + 1 &&
+          button.left >= chip.left - 1
+        );
+      }),
+    ).toBe(true);
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toMatchObject({
+      changes: [
+        {
+          field_key: "timeline.tags",
+          action_payload: {
+            kind: "collection_actions_v1",
+            actions: [{ op: "remove_tag", item_ref: target.item_ref }],
+          },
+        },
+      ],
+    });
+    const savedRows = await queryViewRows(page, incident, timelineViewSchemaId);
+    expect(
+      collectionItems(findRow(savedRows, row.record_id), "timeline.tags").map(
+        (item) => item.display_text,
+      ),
+    ).toEqual(["alpha", "gamma", longLabel]);
+    expect(
+      collectionItems(findRow(savedRows, other.record_id), "timeline.tags").map(
+        (item) => item.display_text,
+      ),
+    ).toEqual(["beta Ω"]);
+    await test.info().attach(`saved-tag-removal-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  }
+});
+
+test("Timeline viewer inspects saved tags without a removal action", async ({
+  page,
+  sessionTracker,
+}) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("TSRV"),
+    "Viewer saved tags",
+  );
+  const row = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("tsrv-row"),
+    "timeline.activity_synopsis_text": "Viewer tag inspection",
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [
+        { op: "add_tag", tag_name: "visible" },
+        { op: "add_tag", tag_name: "hidden" },
+      ],
+    },
+  });
+  const viewer = await createIncidentMemberUser(page, incident, {
+    email: uniqueEmail("tsrv-viewer"),
+    display_name: "Tag viewer",
+    initial_password: "ViewerTags1!",
+    role: "viewer",
+    is_deployment_admin: false,
+    mfa_required: false,
+  });
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "timeline-collection-input",
+    email: viewer.email,
+    password: viewer.initial_password,
+    purpose: "Saved tag viewer inspection",
+    userId: viewer.user_id,
+  });
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page);
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: relationshipItemsTestId(
+      row.record_id,
+      "timeline.tags",
+      "grid",
+    ),
+  });
+  await page
+    .getByTestId(
+      relationshipOverflowButtonTestId(row.record_id, "timeline.tags"),
+    )
+    .click();
+  const collection = page.getByRole("group", {
+    name: "Tags collection editor",
+  });
+  await expect(
+    collection.getByRole("note", { name: "Tag: visible" }),
+  ).toBeVisible();
+  await expect(
+    collection.getByRole("note", { name: "Tag: hidden" }),
+  ).toBeVisible();
+  await expect(
+    collection.getByRole("button", { name: /Remove tag:/u }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(
+      timelineCollectionInputTestId(
+        row.record_id,
+        "timeline.tags",
+        "inspector",
+      ),
+    ),
+  ).toHaveAttribute("readonly");
+});
+
+test("Timeline saved tag removal replays uncertainty and refreshes an acknowledged write without resending", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("TSRR"),
+    "Saved tag recovery",
+  );
+  const row = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("tsrr-row"),
+    "timeline.activity_synopsis_text": "Tag recovery source",
+    "timeline.tags": {
+      kind: "collection_actions_v1",
+      actions: [
+        { op: "add_tag", tag_name: "retain" },
+        { op: "add_tag", tag_name: "mistake" },
+      ],
+    },
+  });
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await showTimelineCollectionColumns(page);
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: relationshipItemsTestId(
+      row.record_id,
+      "timeline.tags",
+      "grid",
+    ),
+  });
+  await page
+    .getByTestId(
+      relationshipItemsTestId(row.record_id, "timeline.tags", "grid"),
+    )
+    .getByRole("button", { name: "Inspect tag: mistake" })
+    .click();
+  const inspectorInput = page.getByTestId(
+    timelineCollectionInputTestId(row.record_id, "timeline.tags", "inspector"),
+  );
+  await inspectorInput.fill("unsent recovery text");
+  const bodies: string[] = [];
+  let failRefresh = false;
+  let failedRefreshes = 0;
+  const patchPath = `**/api/v1/records/${row.record_id}`;
+  const queryPath = `**/views/${timelineViewSchemaId}/query`;
+  await page.route(queryPath, async (route) => {
+    if (failRefresh && failedRefreshes++ === 0) {
+      await route.fulfill({ status: 503, body: "unavailable" });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route(patchPath, async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    bodies.push(route.request().postData() ?? "");
+    if (bodies.length === 1) {
+      await route.fulfill({ status: 503, body: "unavailable" });
+      return;
+    }
+    const response = await route.fetch();
+    await route.fulfill({ response });
+    failRefresh = true;
+  });
+  await page.getByRole("button", { name: "Remove tag: mistake" }).click();
+  await expect(
+    page.getByRole("button", { name: "Retry original change" }),
+  ).toBeVisible();
+  await expect(inspectorInput).toHaveValue("unsent recovery text");
+  await page.getByRole("button", { name: "Retry original change" }).click();
+  await expect(
+    page.getByRole("button", { name: "Refresh saved change" }),
+  ).toBeVisible();
+  expect(bodies).toHaveLength(2);
+  expect(bodies[1]).toBe(bodies[0]);
+  expect(failedRefreshes).toBeGreaterThan(0);
+  await test.info().attach("saved-tag-refresh-recovery", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await page.unroute(queryPath);
+  await page.getByRole("button", { name: "Refresh saved change" }).click();
+  await expect(
+    page.getByRole("button", { name: "Refresh saved change" }),
+  ).toHaveCount(0);
+  expect(bodies).toHaveLength(2);
+  await expect(inspectorInput).toHaveValue("unsent recovery text");
+  const saved = findRow(
+    await queryViewRows(page, incident, timelineViewSchemaId),
+    row.record_id,
+  );
+  expect(
+    collectionItems(saved, "timeline.tags").map((item) => item.display_text),
+  ).toEqual(["retain"]);
+  await page.unroute(patchPath);
+});
 
 test("Timeline unsaved cells keep keyboard focus through draft discard", async ({
   page,

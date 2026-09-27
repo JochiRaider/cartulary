@@ -15,6 +15,7 @@ import type { RecordChangedPayload } from "../collaboration/workbookCollaboratio
 import {
   type WorkbookInspectorFeedback,
   type WorkbookInspectorNotice,
+  type WorkbookInspectorNoticeDestination,
   WorkbookInspectorNoticeLedger,
 } from "../inspector/workbookInspectorErrorModel";
 import { workbookSavedFieldEqual } from "../models/workbookSavedValues";
@@ -45,6 +46,9 @@ export type ExplicitPatchIntent = Readonly<{
   authoringRevision?: number;
   presentationIdentity?: string;
   compound?: boolean;
+  /** Source-owned recovery target and label captured with the request. */
+  recoveryDestination?: WorkbookInspectorNoticeDestination;
+  operationLabel?: string;
 }>;
 export type ExplicitPatchOperation = Readonly<{
   id: string;
@@ -137,7 +141,8 @@ export class WorkbookExplicitPatchOwner {
         },
       },
       destination:
-        change && entry.intent.changes.length === 1
+        entry.intent.recoveryDestination ??
+        (change && entry.intent.changes.length === 1
           ? {
               kind: "field",
               panel: "details",
@@ -145,7 +150,7 @@ export class WorkbookExplicitPatchOwner {
               action: entry.intent.purpose,
               revision: entry.intent.authoringRevision ?? 0,
             }
-          : { kind: "panel", panel: "details" },
+          : { kind: "panel", panel: "details" }),
       attemptId: entry.id,
       transitionId: String(this.noticeRevisions.get(entry.id) ?? 0),
       feedback,

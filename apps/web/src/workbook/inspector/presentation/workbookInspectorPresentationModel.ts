@@ -3,6 +3,7 @@ import type {
   InspectorConfig,
   InspectorDisabledCondition,
   InspectorFeatureGroup,
+  InspectorPanelId,
 } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
@@ -21,6 +22,7 @@ export type WorkbookInspectorAttention = {
   readonly workId: string;
   readonly viewSchemaId: string;
   readonly recordId: string;
+  readonly panel?: InspectorPanelId;
   readonly category:
     | "draft"
     | "review"

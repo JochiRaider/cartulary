@@ -8,6 +8,7 @@ import type {
 } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { TimelineCollectionCell } from "./TimelineCollectionCell";
+import type { TimelineInspectorDetailsOwner } from "./TimelineInspectorDetails";
 import type {
   RegisterTimelineInput,
   TimelineCollectionKeyDown,
@@ -24,6 +25,7 @@ export function useTimelineCollectionRenderer({
   handleSelectRow,
   queueCollectionSave,
   readOnly,
+  tagRemovalOwner,
   registerInput,
   timelineBindingLabel,
   updateTimelineSurfaceFocusAnchor,
@@ -40,6 +42,7 @@ export function useTimelineCollectionRenderer({
   readonly handleSelectRow: (recordId: string) => void;
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
+  readonly tagRemovalOwner: TimelineInspectorDetailsOwner;
   readonly registerInput: RegisterTimelineInput;
   readonly timelineBindingLabel: (fieldKey: string) => string;
   readonly updateTimelineSurfaceFocusAnchor: (
@@ -70,6 +73,7 @@ export function useTimelineCollectionRenderer({
         label={timelineBindingLabel(binding.fieldKey)}
         queueCollectionSave={queueCollectionSave}
         readOnly={readOnly}
+        tagRemovalOwner={surface === "inspector" ? tagRemovalOwner : undefined}
         registerInput={registerInput}
         row={row}
         updateTimelineSurfaceFocusAnchor={updateTimelineSurfaceFocusAnchor}
@@ -84,6 +88,7 @@ export function useTimelineCollectionRenderer({
       handleSelectRow,
       queueCollectionSave,
       readOnly,
+      tagRemovalOwner,
       registerInput,
       timelineBindingLabel,
       updateTimelineSurfaceFocusAnchor,

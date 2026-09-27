@@ -16,6 +16,7 @@ import {
   buildCollectionPatchIntent,
   buildFollowOnCapturePatch,
   buildScalarPatchIntent,
+  buildTagRemovalChange,
 } from "./timelineMutationIntents";
 import {
   applyViewRowPatch,
@@ -292,6 +293,14 @@ describe("workbookTimelineModel", () => {
         },
       ],
     });
+    expect(buildTagRemovalChange("record_tag:beta")).toEqual({
+      field_key: "timeline.tags",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "remove_tag", item_ref: "record_tag:beta" }],
+      },
+    });
+    expect(buildTagRemovalChange(" ")).toBeNull();
     const submitted = {
       ...row,
       collectionDrafts: {

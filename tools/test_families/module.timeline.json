@@ -2291,6 +2291,45 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.saved_timeline_tag_removal_preserves_exact_ident_42963ccf0e",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-collection-input.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_saved_tag_removal_exact_identity",
+          "scenario_timeline_saved_tag_removal_uncertain_refresh",
+          "scenario_timeline_saved_tag_removal_viewer_inspection"
+        ],
+        "titles": [
+          "Timeline saved tag removal preserves capture and exact collection identity at supported viewports",
+          "Timeline saved tag removal replays uncertainty and refreshes an acknowledged write without resending",
+          "Timeline viewer inspects saved tags without a removal action"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.scalar_clipboard_characterization",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -3591,10 +3630,19 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/components/TimelineCollectionCell.test.tsx",
         "titles": [
+          "Timeline collection inspection cancels saved-tag focus restoration after newer keyboard or scroll intent",
+          "Timeline collection inspection keeps a same-field tag conflict in collection review and never switches the captured record",
+          "Timeline collection inspection keeps an admitted removal on its original record after inspector navigation",
           "Timeline collection inspection keeps complete mention details readable when management capability is lost",
+          "Timeline collection inspection keeps first and last saved tag keyboard focus in the local collection after removal",
           "Timeline collection inspection keeps recordless draft text local and registers independent editor surfaces",
+          "Timeline collection inspection keeps rejected tags and denies viewer removal without losing inspection",
           "Timeline collection inspection mounts only explicit grid authoring, preserves native selection on refresh, and retains independent detached drafts",
+          "Timeline collection inspection offers exact saved-tag removal in the complete writable inspector collection",
           "Timeline collection inspection publishes one revision for an equal-valued native input and fences older settlement",
+          "Timeline collection inspection rejects a stale saved tag after an earlier collection write without dispatching removal",
+          "Timeline collection inspection removes one exact saved tag after acknowledgement while preserving the unsent input and next focus",
+          "Timeline collection inspection retains an uncertain saved-tag request for exact replay and read-only refresh recovery",
           "Timeline collection inspection targets hidden tags without editing or committing pending text"
         ]
       },

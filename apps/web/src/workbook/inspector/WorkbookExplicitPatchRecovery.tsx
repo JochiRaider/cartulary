@@ -12,11 +12,13 @@ export function WorkbookExplicitPatchRecovery({
   viewSchemaId,
   recordId,
   fieldKey,
+  includeInitialFailures = false,
 }: {
   owner: WorkbookExplicitPatchOwner;
   viewSchemaId: string;
   recordId?: string;
   fieldKey?: string;
+  includeInitialFailures?: boolean;
 }) {
   const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
   const attachment = useId();
@@ -37,6 +39,7 @@ export function WorkbookExplicitPatchRecovery({
       entry.intent.viewSchemaId === viewSchemaId &&
       (recordId !== undefined || !owner.resultIsAttached(entry)) &&
       (recordId === undefined ||
+        includeInitialFailures ||
         owner.hasRecoveryAttempt(entry.id) ||
         (entry.phase !== "rejected" && entry.phase !== "preparation_failed")) &&
       (recordId === undefined ||
@@ -63,12 +66,13 @@ export function WorkbookExplicitPatchRecovery({
         <div key={entry.id}>
           <p style={{ margin: 0 }}>
             {genericInspectorRowLabel(contract, entry.intent.baseline)} —{" "}
-            {entry.intent.changes
-              .map(
-                (change) =>
-                  contract.fieldMap[change.field_key]?.label ?? "Field",
-              )
-              .join(", ")}
+            {entry.intent.operationLabel ??
+              entry.intent.changes
+                .map(
+                  (change) =>
+                    contract.fieldMap[change.field_key]?.label ?? "Field",
+                )
+                .join(", ")}
             :{" "}
             {entry.receipt
               ? `Saved, version ${entry.receipt.row.row_version}.`

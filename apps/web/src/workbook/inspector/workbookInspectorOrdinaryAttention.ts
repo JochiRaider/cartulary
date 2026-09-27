@@ -133,12 +133,30 @@ export function workbookInspectorOrdinaryAttention(
         workId: `explicit-patch:${entry.id}`,
         viewSchemaId,
         recordId: row.record_id,
+        panel:
+          entry.intent.recoveryDestination &&
+          "panel" in entry.intent.recoveryDestination
+            ? entry.intent.recoveryDestination.panel
+            : "details",
         category,
-        label: `${labels[category]}: ${entry.intent.changes.map((change) => contract.fieldMap[change.field_key]?.label ?? "original field").join(", ")}`,
+        label: `${labels[category]}: ${entry.intent.operationLabel ?? entry.intent.changes.map((change) => contract.fieldMap[change.field_key]?.label ?? "original field").join(", ")}`,
         order,
         outcomeIdentity: entry.id,
         isCurrent: () => current() && patchSnapshot.authority !== null,
-        destination: destination(entry.intent.changes[0]?.field_key),
+        destination:
+          entry.intent.recoveryDestination?.kind === "region" &&
+          entry.intent.recoveryDestination.panel === "relationships"
+            ? (section: HTMLElement) =>
+                [
+                  ...section.querySelectorAll<HTMLElement>(
+                    "[data-inspector-collection]",
+                  ),
+                ].find(
+                  (element) =>
+                    element.dataset.inspectorCollection ===
+                    entry.intent.changes[0]?.field_key,
+                ) ?? null
+            : destination(entry.intent.changes[0]?.field_key),
       };
     },
   );

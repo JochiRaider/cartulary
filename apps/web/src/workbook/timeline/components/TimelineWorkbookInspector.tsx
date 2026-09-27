@@ -338,7 +338,9 @@ export function TimelineWorkbookInspector({
                     ),
                   }),
                 ),
-                attention: inspectorAttention ?? [],
+                attention: inspectorAttention.filter(
+                  (entry) => entry.panel !== "relationships",
+                ),
               },
         evidence:
           liveRow === null
@@ -367,13 +369,18 @@ export function TimelineWorkbookInspector({
         relationships:
           liveRow === null
             ? undefined
-            : withSupplement(
-                "relationships",
-                savedInspectorRegion("mentions", {
-                  kind: "populated",
-                  content: relationships,
-                }),
-              ),
+            : {
+                ...withSupplement(
+                  "relationships",
+                  savedInspectorRegion("mentions", {
+                    kind: "populated",
+                    content: relationships,
+                  }),
+                ),
+                attention: inspectorAttention.filter(
+                  (entry) => entry.panel === "relationships",
+                ),
+              },
         workflow:
           liveRow === null
             ? undefined

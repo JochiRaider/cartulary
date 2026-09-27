@@ -56,6 +56,21 @@ export function buildCollectionPatchIntent(
       };
 }
 
+/** A saved tag is addressed by its returned collection identity, never its label. */
+export function buildTagRemovalChange(itemRef: string) {
+  if (itemRef.trim() === "") return null;
+  const actions: [{ op: "remove_tag"; item_ref: string }] = [
+    { op: "remove_tag", item_ref: itemRef },
+  ];
+  return {
+    field_key: "timeline.tags",
+    action_payload: {
+      kind: "collection_actions_v1" as const,
+      actions,
+    },
+  };
+}
+
 export type BuildCreatePayloadOptions = {
   readonly allowZeroFieldCreate?: boolean;
 };

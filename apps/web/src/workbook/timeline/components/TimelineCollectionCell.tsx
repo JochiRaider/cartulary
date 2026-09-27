@@ -17,6 +17,8 @@ import {
   WorkbookRelationshipChip,
   workbookRelationshipChipBaseStyle,
 } from "../../components/WorkbookRelationshipChip";
+import { WorkbookExplicitPatchRecovery } from "../../inspector/WorkbookExplicitPatchRecovery";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { projectTimelineCollectionPresentation } from "../models/timelineCollectionPresentation";
 import {
@@ -25,7 +27,13 @@ import {
   type TimelineCollectionBinding,
   type TimelineScalarEditorSurface,
 } from "../models/timelineFieldRegistry";
-import type { WorkbookRow } from "../models/timelineRowModel";
+import { buildTagRemovalChange } from "../models/timelineMutationIntents";
+import {
+  normalizeTimelineFullRow,
+  readTimelineTagItems,
+  type WorkbookRow,
+} from "../models/timelineRowModel";
+import type { TimelineInspectorDetailsOwner } from "./TimelineInspectorDetails";
 import type {
   RegisterTimelineInput,
   TimelineCollectionKeyDown,
@@ -52,6 +60,7 @@ type TimelineCollectionCellProps = {
   readonly isInspectionControlTarget: (target: EventTarget | null) => boolean;
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
+  readonly tagRemovalOwner?: TimelineInspectorDetailsOwner | undefined;
   readonly registerInput: RegisterTimelineInput;
   readonly registerTrigger: (
     recordId: string,
@@ -86,6 +95,21 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
   const suppressInspectionBlur = useRef(false);
   const composing = useRef(false);
   const focusOnActivation = useRef(false);
+  const removalFocus = useRef<{
+    recordId: string;
+    itemRef: string;
+    source: HTMLButtonElement;
+    order: readonly string[];
+    acknowledged: boolean;
+  } | null>(null);
+  const removalControls = useRef(new Map<string, HTMLButtonElement>());
+  const cancelRemovalFocus = useCallback(() => {
+    removalFocus.current = null;
+  }, []);
+  const patchSnapshot = useSyncExternalStore(
+    props.tagRemovalOwner?.patches.subscribe ?? noopSubscribe,
+    props.tagRemovalOwner?.patches.getSnapshot ?? emptyPatchSnapshot,
+  );
   const registry = props.editorDraftRegistry;
   const focusKey = inputFocusKey(row.key, binding.draftKey, surface);
   useSyncExternalStore(
@@ -116,6 +140,10 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
     row,
   });
   const isInspector = surface === "inspector";
+  const canRemoveTags =
+    !props.readOnly &&
+    (props.tagRemovalOwner === undefined ||
+      props.tagRemovalOwner.patches.canSubmit());
   const draft =
     retainedDraft ??
     (surface === "grid" ? row.collectionDrafts[binding.draftKey] : "");
@@ -201,10 +229,189 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
         ? presentation.items
         : presentation.visibleItems
       : [];
+  useLayoutEffect(() => {
+    const intent = removalFocus.current;
+    if (!intent) return;
+    if (
+      !isInspector ||
+      !canRemoveTags ||
+      row.recordId !== intent.recordId ||
+      !patchSnapshot.authority
+    ) {
+      cancelRemovalFocus();
+      return;
+    }
+    if (
+      !intent.acknowledged ||
+      tagItems.some((item) => item.itemRef === intent.itemRef)
+    )
+      return;
+    if (
+      document.activeElement !== intent.source &&
+      document.activeElement !== document.body
+    ) {
+      cancelRemovalFocus();
+      return;
+    }
+    const index = intent.order.indexOf(intent.itemRef);
+    const surviving = new Set(tagItems.map((item) => item.itemRef));
+    const next = intent.order
+      .slice(index + 1)
+      .find((itemRef) => surviving.has(itemRef));
+    const previous = intent.order
+      .slice(0, index)
+      .reverse()
+      .find((itemRef) => surviving.has(itemRef));
+    const target =
+      (next && removalControls.current.get(next)) ||
+      (previous && removalControls.current.get(previous)) ||
+      inputRef.current ||
+      cellRef.current;
+    cancelRemovalFocus();
+    target?.focus({ preventScroll: true });
+    if (target && cellRef.current?.contains(target)) {
+      const scrollBody = target.closest<HTMLElement>(
+        "[data-inspector-scroll-body]",
+      );
+      if (scrollBody) {
+        const targetBounds = target.getBoundingClientRect();
+        const bodyBounds = scrollBody.getBoundingClientRect();
+        if (targetBounds.top < bodyBounds.top)
+          scrollBody.scrollTop += targetBounds.top - bodyBounds.top;
+        else if (targetBounds.bottom > bodyBounds.bottom)
+          scrollBody.scrollTop += targetBounds.bottom - bodyBounds.bottom;
+      }
+    }
+  }, [
+    isInspector,
+    canRemoveTags,
+    row.recordId,
+    tagItems,
+    patchSnapshot.authority,
+    cancelRemovalFocus,
+  ]);
+  useLayoutEffect(() => {
+    const cancelOnNewIntent = (event: Event) => {
+      const intent = removalFocus.current;
+      if (!intent) return;
+      if (event.type === "scroll") {
+        cancelRemovalFocus();
+        return;
+      }
+      if (event.target !== intent.source) {
+        cancelRemovalFocus();
+        return;
+      }
+      if (
+        event instanceof globalThis.KeyboardEvent &&
+        event.key !== "Enter" &&
+        event.key !== " "
+      )
+        cancelRemovalFocus();
+    };
+    document.addEventListener("pointerdown", cancelOnNewIntent, true);
+    document.addEventListener("keydown", cancelOnNewIntent, true);
+    document.addEventListener("focusin", cancelOnNewIntent, true);
+    document.addEventListener("scroll", cancelOnNewIntent, true);
+    return () => {
+      cancelRemovalFocus();
+      document.removeEventListener("pointerdown", cancelOnNewIntent, true);
+      document.removeEventListener("keydown", cancelOnNewIntent, true);
+      document.removeEventListener("focusin", cancelOnNewIntent, true);
+      document.removeEventListener("scroll", cancelOnNewIntent, true);
+    };
+  }, [cancelRemovalFocus]);
+  const removeTag = (
+    itemRef: string,
+    displayText: string,
+    source: HTMLButtonElement,
+  ) => {
+    const owner = props.tagRemovalOwner;
+    const baseline = row.rawRow;
+    if (
+      !owner ||
+      !baseline ||
+      !row.recordId ||
+      props.readOnly ||
+      !owner.patches.canSubmit() ||
+      owner.patches.blocksRecord(row.recordId) ||
+      removalFocus.current?.itemRef === itemRef ||
+      !tagItems.some((item) => item.itemRef === itemRef)
+    )
+      return;
+    const change = buildTagRemovalChange(itemRef);
+    if (!change) return;
+    const capturedRecordId = row.recordId;
+    const capturedRowKey = row.key;
+    removalFocus.current = {
+      recordId: capturedRecordId,
+      itemRef,
+      source,
+      order: tagItems.map((item) => item.itemRef),
+      acknowledged: false,
+    };
+    void owner.patches
+      .submit(
+        {
+          viewSchemaId: timelineViewSchemaId,
+          baseline,
+          changes: [change],
+          purpose: "timeline-remove-tag",
+          sheetRef: owner.sheetRef,
+          surfaceLabel: "Timeline",
+          operationLabel: `Remove tag: ${displayText}`,
+          recoveryDestination: {
+            kind: "region",
+            panel: "relationships",
+            regionId: "mentions",
+          },
+        },
+        [
+          {
+            validate: (current) =>
+              current.record_id === capturedRecordId &&
+              readTimelineTagItems(current).some(
+                (item) => item.itemRef === itemRef,
+              )
+                ? null
+                : {
+                    kind: "stale_target",
+                    message:
+                      "The saved tag is no longer on this record. Review the current Tags collection.",
+                  },
+            acknowledged: (entry) => {
+              if (!entry.receipt) return;
+              if (
+                removalFocus.current?.recordId === capturedRecordId &&
+                removalFocus.current.itemRef === itemRef
+              )
+                removalFocus.current.acknowledged = true;
+              owner.accepted(capturedRowKey, {
+                row: normalizeTimelineFullRow(
+                  entry.receipt.row,
+                  "Timeline saved tag removal",
+                ),
+                viewSchemaId: timelineViewSchemaId,
+              });
+            },
+          },
+        ],
+      )
+      .then((entry) => {
+        if (
+          !entry ||
+          entry.phase === "rejected" ||
+          entry?.phase === "preparation_failed" ||
+          entry?.phase === "conflict"
+        )
+          cancelRemovalFocus();
+      });
+  };
   return (
     <fieldset
       ref={cellRef}
       tabIndex={isInspector ? -1 : undefined}
+      data-inspector-collection={isInspector ? binding.fieldKey : undefined}
       data-grid-sizing-draft={
         isInputActive || draft !== "" ? "true" : undefined
       }
@@ -255,10 +462,9 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
                   <span
                     key={item.itemRef}
                     role="note"
-                    tabIndex={-1}
                     aria-label={`Tag: ${item.displayText}`}
                     ref={(element) => {
-                      if (row.recordId !== null)
+                      if (!canRemoveTags && row.recordId !== null)
                         props.registerCollectionItem(
                           row.recordId,
                           binding.fieldKey,
@@ -268,11 +474,52 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
                     }}
                     style={{
                       ...tagChipStyle,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
                       whiteSpace: "pre-wrap",
                       overflowWrap: "anywhere",
                     }}
                   >
-                    {item.displayText}
+                    <span style={tagLabelStyle}>{item.displayText}</span>
+                    {canRemoveTags && row.recordId !== null ? (
+                      <button
+                        type="button"
+                        aria-label={`Remove tag: ${item.displayText}`}
+                        aria-disabled={
+                          props.tagRemovalOwner?.patches.blocksRecord(
+                            row.recordId,
+                          ) || undefined
+                        }
+                        style={tagRemoveButtonStyle}
+                        ref={(element) => {
+                          if (element)
+                            removalControls.current.set(item.itemRef, element);
+                          else removalControls.current.delete(item.itemRef);
+                          if (row.recordId !== null)
+                            props.registerCollectionItem(
+                              row.recordId,
+                              binding.fieldKey,
+                              item.itemRef,
+                              element,
+                            );
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeTag(
+                            item.itemRef,
+                            item.displayText,
+                            event.currentTarget,
+                          );
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Tab" && event.key !== "Escape")
+                            event.stopPropagation();
+                        }}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
                   </span>
                 ) : (
                   <button
@@ -463,9 +710,25 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
           }
         />
       ) : null}
+      {isInspector &&
+      binding.fieldKey === "timeline.tags" &&
+      row.recordId &&
+      props.tagRemovalOwner ? (
+        <WorkbookExplicitPatchRecovery
+          owner={props.tagRemovalOwner.patches}
+          viewSchemaId={timelineViewSchemaId}
+          recordId={row.recordId}
+          fieldKey="timeline.tags"
+          includeInitialFailures
+        />
+      ) : null}
     </fieldset>
   );
 }
+
+const noopSubscribe = () => () => {};
+const emptyPatchSnapshot = () => emptySnapshot;
+const emptySnapshot = { revision: 0, authority: null, entries: [] } as const;
 
 const gridCellInputStyle = {
   ...inputStyle,
@@ -498,6 +761,23 @@ const tagChipStyle = {
   background: "var(--ct-component-chip-backgroundColor)",
   color: "var(--ct-component-chip-textColor)",
   textOverflow: "ellipsis",
+};
+const tagRemoveButtonStyle = {
+  appearance: "none" as const,
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-pill)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
+  cursor: "pointer",
+  flex: "0 0 auto",
+  font: "inherit",
+  padding: "0.1rem 0.45rem",
+};
+const tagLabelStyle = {
+  flex: "1 1 auto",
+  minWidth: 0,
+  overflowWrap: "anywhere" as const,
+  whiteSpace: "pre-wrap" as const,
 };
 const emptyRelationshipStyle = {
   display: "inline-block",
