@@ -3203,14 +3203,26 @@ test.describe("browser.entity-linking accessibility readiness", () => {
     await manualMentionItem.click();
     await manualMentionItem.focus();
     const resolveSelect = page.getByTestId(mentionResolveTargetSelectTestId());
-    await expect(resolveSelect).toHaveAccessibleName("Resolve to existing");
+    await expect(resolveSelect).toHaveAccessibleName("Search targets");
     await expectKeyboardFocusReachesTestId(
       page,
       mentionResolveTargetSelectTestId(),
     );
     await expectVisibleFocus(resolveSelect);
     await expect(resolveSelect).toBeEnabled();
-    await resolveSelect.selectOption(manualTarget.record_id);
+    await resolveSelect.fill("a11y.entity-linking Manual Target");
+    await page
+      .getByRole("option", {
+        name: "a11y.entity-linking Manual Target",
+        exact: true,
+      })
+      .waitFor();
+    await resolveSelect.press("ArrowDown");
+    await expect(resolveSelect).toHaveAttribute(
+      "aria-activedescendant",
+      new RegExp(manualTarget.record_id),
+    );
+    await resolveSelect.press("Enter");
     const resolveButton = page.getByTestId(
       mentionResolveExistingButtonTestId(),
     );
@@ -3269,7 +3281,13 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       .click();
     await page
       .getByTestId(mentionResolveTargetSelectTestId())
-      .selectOption(manualTarget.record_id);
+      .fill("a11y.entity-linking Manual Target");
+    await page
+      .getByRole("option", {
+        name: "a11y.entity-linking Manual Target",
+        exact: true,
+      })
+      .click();
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
     await expect(
       page.getByTestId(mentionItemTestId(String(dismissedMention.item_ref))),

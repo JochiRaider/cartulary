@@ -1894,7 +1894,6 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       dismissedRow,
       manualMention,
       manualRow,
-      manualTarget,
       resolvedMention,
       resolvedRow,
       unresolvedRawText,
@@ -1948,7 +1947,13 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       .click();
     await page
       .getByTestId(mentionResolveTargetSelectTestId())
-      .selectOption(manualTarget.record_id);
+      .fill("visual.entity-linking Manual Target");
+    await page
+      .getByRole("option", {
+        name: "visual.entity-linking Manual Target",
+        exact: true,
+      })
+      .click();
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
     await expect(
       page.getByTestId(mentionItemTestId(String(manualMention.item_ref))),
@@ -1982,7 +1987,13 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       .click();
     await page
       .getByTestId(mentionResolveTargetSelectTestId())
-      .selectOption(manualTarget.record_id);
+      .fill("visual.entity-linking Manual Target");
+    await page
+      .getByRole("option", {
+        name: "visual.entity-linking Manual Target",
+        exact: true,
+      })
+      .click();
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
     await expect(
       page.getByTestId(mentionItemTestId(String(dismissedMention.item_ref))),
@@ -3587,7 +3598,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     });
     const inspector = page.getByTestId(timelineInspectorTestId());
     const sectionsChooser = inspector.getByRole("button", {
-      name: "Sections",
+      name: /^Sections:/,
       exact: true,
     });
     if (await sectionsChooser.isVisible()) await sectionsChooser.click();
@@ -3611,7 +3622,12 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     await inspector
       .getByRole("button", { name: "Close editor", exact: true })
       .click();
-    await expect(field).toContainText("Unfinished work retained");
+    await expect(
+      field.getByRole("button", {
+        name: "Resume draft for Activity Synopsis",
+        exact: true,
+      }),
+    ).toBeVisible();
     await field.scrollIntoViewIfNeeded();
     await blurActiveElement(page);
     await assertViewportVisualRegression(

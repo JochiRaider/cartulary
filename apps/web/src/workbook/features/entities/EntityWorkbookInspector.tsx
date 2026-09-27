@@ -11,6 +11,7 @@ import type { InspectorContextualCapability } from "../../inspector/inspectorCap
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import {
+  inspectorCommands,
   inspectorPanel,
   ownedInspectorRegion,
   savedInspectorRegion,
@@ -84,9 +85,13 @@ export function EntityWorkbookInspector({
   };
   const panelContent = (
     panelId: InspectorPanelId,
-    ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
+    ...regions: [] | [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
   ) => ({
-    ...inspectorPanel(...regions),
+    ...(regions[0]
+      ? inspectorPanel(regions[0], ...regions.slice(1))
+      : inspectorCommands(
+          "No workflow commands are available for this record.",
+        )),
     attention: panelId === "details" ? attention : [],
     featureContent: Object.fromEntries(
       config.featureGroups.flatMap((feature) => {
@@ -192,16 +197,7 @@ export function EntityWorkbookInspector({
           subject === null
             ? undefined
             : panelContent("relationships", ...relationshipsContent),
-        workflow:
-          subject === null
-            ? undefined
-            : panelContent(
-                "workflow",
-                savedInspectorRegion("workflow", {
-                  kind: "empty",
-                  message: "Choose an available action for this record.",
-                }),
-              ),
+        workflow: subject === null ? undefined : panelContent("workflow"),
       }}
       onContextualAction={dispatchContextualAction}
     >

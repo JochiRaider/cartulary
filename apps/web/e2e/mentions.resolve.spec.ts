@@ -164,7 +164,13 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
   const resolveResponsePromise = waitForMentionAction(page, hostMention);
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
-    .selectOption(existingHost.record_id);
+    .fill(String(existingHost.cells["host.display_name"]?.value));
+  await page
+    .getByRole("option", {
+      name: String(existingHost.cells["host.display_name"]?.value),
+      exact: true,
+    })
+    .click();
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const resolveResponse = await resolveResponsePromise;
   const resolveEnvelope = await readMentionAction(

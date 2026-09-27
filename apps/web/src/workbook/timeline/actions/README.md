@@ -8,24 +8,31 @@ Capture actions and mention operations retain reviewed subjects, exact attempts,
 and accepted receipts beyond the active inspector. Optional Entity creation and
 mention resolution keep independent recovery state.
 
-Timeline mention target discovery owns an accumulated Host or Identity candidate
-chain separately from the currently displayed Entity sheet. It captures the
-identity of each initial, continuation, or restart read. Retry repeats the
-failed read and its opaque cursor; Restart target discovery starts a new
-cursor-free chain. A failed restart therefore retries without an older cursor.
-Previously authorized targets may remain visible while the new chain is pending
-or failed, but they are marked as awaiting revalidation and cannot be used for
-resolution until accepted into that chain. The selected target ID and filter
-remain in the Inspector through recoverable reads. Current authority loss uses
-the workbook authority owner to conceal targets. Discovery and recovery make
-reads only; explicit mention actions retain their separate operation owner.
+Timeline mention target discovery owns one authorized Entity search page separately
+from the displayed Entity sheet. The adapter supplies the generated policy: one
+page of 100 candidates, ten previous cursor checkpoints, and 250ms settled typing.
+The owner captures each immutable search/read request; composition defers reads,
+replacement aborts the old chain, and late responses cannot enter the new scope.
+Retry repeats the captured failed read. Previous/Next navigate pages; Restart
+reaches history outside the checkpoint window through a cursor-free chain.
 
-The picker keeps the initiating read control mounted and keyboard reachable
-while pending. A disappearing Retry or Load more control transfers focus to the
-picker only while that interaction still owns focus; newer keyboard, pointer,
-focus, or scroll activity leaves the analyst's destination alone. The shared
-candidate service handles single-page navigation, so Timeline retains its own
-accumulated-page owner rather than coupling it to a mismatched retention model.
+The minimal selected observation is retained separately across same-query paging
+and recoverable failures. Editing search invalidates it; Restart marks it stale
+until observed again. Current authority loss conceals targets through the
+workbook authority owner. Selection never resolves a mention: explicit actions
+remain with their mutation and recovery owner.
+
+The controlled combobox owns popup and keyboard presentation only. Read status,
+paging and recovery remain in the labelled chooser region, outside listbox
+options. Disappearing read controls return focus only while that interaction
+still owns focus; newer navigation keeps the analyst's destination. Unrelated
+native pickers and shared single-page candidate services retain their consumers.
+
+The [WAI-ARIA combobox pattern](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/)
+guides manual acceptance: the active option has popup selection semantics while
+the source owner changes its selected identity only after acceptance. DOM focus
+stays in the input through active-descendant navigation. Native text editing and
+Escape dismissal precede outer inspector handling.
 
 Supersession Review preparation reserves its row through the capture owner but
 does not admit a write, create a transaction identity, or appear as action

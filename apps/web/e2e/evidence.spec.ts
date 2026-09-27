@@ -835,7 +835,7 @@ test("recovers each uncertain file stage with exact requests after remount and r
   });
   await expect(recovery).toContainText("Upload preparation is uncertain");
   const attention = page.getByRole("button", {
-    name: "Unfinished work (1)",
+    name: /^View:/,
     exact: true,
   });
   await expect(attention).toBeVisible();

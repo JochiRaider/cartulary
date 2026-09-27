@@ -88,18 +88,30 @@ export type WorkbookInspectorRegion = {
     }
 );
 
-export type WorkbookInspectorPanelModel =
-  | { readonly access: "concealed" }
+type ReadablePanel = {
+  readonly access: "readable";
+  readonly attention?: readonly WorkbookInspectorAttention[];
+  readonly featureContent?: Readonly<Record<string, ReactNode>>;
+  readonly feedback?: ReactNode;
+} & (
   | {
-      readonly access: "readable";
+      readonly kind?: "regions";
       readonly regions: readonly [
         WorkbookInspectorRegion,
         ...WorkbookInspectorRegion[],
       ];
-      readonly attention?: readonly WorkbookInspectorAttention[];
-      readonly featureContent?: Readonly<Record<string, ReactNode>>;
-      readonly feedback?: ReactNode;
-    };
+    }
+  | { readonly kind: "commands_only"; readonly emptyExplanation: string }
+);
+export type WorkbookInspectorPanelModel =
+  | { readonly access: "concealed" }
+  | ReadablePanel;
+
+export function inspectorCommands(emptyExplanation: string): ReadablePanel {
+  if (!emptyExplanation.trim())
+    throw new Error("Commands-only panel requires an owner explanation");
+  return { access: "readable", kind: "commands_only", emptyExplanation };
+}
 
 export function inspectorPanel(
   ...regions: readonly [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
@@ -127,10 +139,19 @@ export function ownedInspectorRegion(
 
 export function WorkbookInspectorPanelContent({
   model,
+  hasCommands = false,
 }: {
   readonly model: WorkbookInspectorPanelModel;
+  readonly hasCommands?: boolean;
 }) {
   if (model.access === "concealed") return null;
+  if (model.kind === "commands_only")
+    return (
+      <>
+        {hasCommands ? null : <p>{model.emptyExplanation}</p>}
+        {model.feedback}
+      </>
+    );
   if (model.regions.length === 0)
     throw new Error("Readable inspector panel requires an owner region");
   const ids = new Set<string>();

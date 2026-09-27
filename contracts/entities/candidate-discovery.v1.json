@@ -1,0 +1,43 @@
+{
+  "schema_id": "cartulary.entity_candidate_discovery.v1",
+  "entity_types": [
+    "host",
+    "identity"
+  ],
+  "eligible_states": [
+    "stub",
+    "canonical"
+  ],
+  "preserved_identifier_classifications": [
+    "exact_match_reuse",
+    "suggestion_only"
+  ],
+  "search_profile": "list_search_v1",
+  "page_size": 100,
+  "previous_cursor_limit": 10,
+  "settled_input_ms": 250,
+  "search_fields": {
+    "host": [
+      "display_name",
+      "hostname",
+      "fqdn",
+      "aad_device_id",
+      "active_aliases",
+      "eligible_preserved_identifiers"
+    ],
+    "identity": [
+      "display_name",
+      "upn",
+      "email",
+      "sam_account_name",
+      "sid",
+      "aad_object_id",
+      "active_aliases",
+      "eligible_preserved_identifiers"
+    ]
+  },
+  "ordering": [
+    "display_name",
+    "record_id"
+  ]
+}

@@ -20,6 +20,7 @@ import {
 } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import {
+  inspectorCommands,
   inspectorPanel,
   savedInspectorRegion,
   type WorkbookInspectorRegion,
@@ -194,9 +195,13 @@ export function TimelineWorkbookInspector({
     ) : null;
   const withSupplement = (
     panelId: InspectorPanelId,
-    region: WorkbookInspectorRegion,
+    region: WorkbookInspectorRegion | null,
   ) => ({
-    ...inspectorPanel(region),
+    ...(region
+      ? inspectorPanel(region)
+      : inspectorCommands(
+          "No workflow commands are available for this record.",
+        )),
     attention: panelId === "workflow" ? relatedEvidenceAttention : [],
     featureContent: Object.fromEntries(
       inspectorContextualCapabilities({
@@ -373,13 +378,7 @@ export function TimelineWorkbookInspector({
           liveRow === null
             ? undefined
             : {
-                ...withSupplement(
-                  "workflow",
-                  savedInspectorRegion("workflow", {
-                    kind: "empty",
-                    message: "Choose an available workflow action.",
-                  }),
-                ),
+                ...withSupplement("workflow", null),
               },
       }}
       onContextualAction={onFeatureAction}

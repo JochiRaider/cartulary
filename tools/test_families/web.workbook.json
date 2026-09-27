@@ -734,7 +734,9 @@
       "row_id": "web.workbook.regression.conflict_completion_preserves_newer_selection_444f6007dd",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
-      "collaborator_ids": ["module.collaboration"],
+      "collaborator_ids": [
+        "module.collaboration"
+      ],
       "verification_ids": [
         "web.workbook.verification.frontend_regression"
       ],
@@ -3249,6 +3251,7 @@
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPanelContent.test.tsx",
         "titles": [
           "Inspector panel states announces each owner transition once across remounts and never carries feedback across subjects",
+          "Inspector panel states commands-only panels do not fabricate an empty dataset and explain absent commands",
           "Inspector panel states distinguishes loading and empty data from retained failure and concealment"
         ]
       },
@@ -3329,7 +3332,8 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
-          "Workbook Inspector presentation renders every semantic History family with complete values and nested disclosure focus"
+          "Workbook Inspector presentation renders every semantic History family with complete values and nested disclosure focus",
+          "Workbook Inspector presentation suppresses only the semantic summary unit heading and stacks unknown historical values"
         ]
       },
       "evidence_class": "unit",
@@ -5161,10 +5165,10 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/actions/timelineMentionCandidates.test.tsx",
         "titles": [
-          "Mention candidate paging retains loaded targets through read failure and retries the missing page",
+          "Mention candidate paging retains the current page through read failure and retries the missing page",
           "Mention candidates query eligible targets independently with contract sorting and explicit cursor pages",
           "Mention contextual authoring seeds only display name and requires reviewed identity fields",
-          "Mention loaded-target filtering preserves selected identity and exposes keyboard reachable unresolved dismissal"
+          "Mention server search invalidates selection and exposes keyboard reachable unresolved dismissal"
         ]
       },
       "evidence_class": "unit",
@@ -5196,10 +5200,11 @@
           "Mention late scope results are fenced and current authority loss conceals candidates",
           "Mention malformed and repeated continuations require an explicit fresh chain",
           "Mention obsolete authority failure cannot affect a replacement entity type",
-          "Mention restart retains selected label and filter without admitting an unvalidated target",
+          "Mention restart retains selected observation and search without admitting an unvalidated target",
           "Mention retry remains connected and focused while its response is held",
           "Mention scope replacement retires pending read focus intent",
-          "Mention server-invalid continuation keeps its typed failed identity for exact retry"
+          "Mention search defers composition fences late results and bounds page checkpoints independently of selection",
+          "Mention server-invalid continuation retains failed identity and requires Restart"
         ]
       },
       "evidence_class": "unit",

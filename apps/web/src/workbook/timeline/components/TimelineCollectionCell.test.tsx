@@ -14,6 +14,7 @@ import {
   mentionWorkbookRow,
 } from "../../../testing/timelineMentionTestSupport";
 import { WorkbookTimelineMentionOperationOwner } from "../actions/WorkbookTimelineMentionOperationOwner";
+import { timelineMentionCandidatePolicy } from "../adapters/createTimelineMentionCandidateReader";
 import { createTimelineMentionResolutionAdapter } from "../adapters/createTimelineMentionResolutionAdapter";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { createTimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
@@ -409,6 +410,7 @@ describe("Timeline collection inspection", () => {
       },
     };
     const candidatePort = {
+      policy: timelineMentionCandidatePolicy,
       page: vi.fn(async () => ({
         kind: "accepted" as const,
         value: { candidates: [], hasMore: false, nextCursor: null },
@@ -473,8 +475,8 @@ describe("Timeline collection inspection", () => {
       "auto_match",
     );
     rerender(<Panel viewer />);
-    expect((screen.getByRole("combobox") as HTMLSelectElement).disabled).toBe(
-      true,
+    expect((screen.getByRole("combobox") as HTMLInputElement).disabled).toBe(
+      false,
     );
     expect(
       (

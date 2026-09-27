@@ -9,6 +9,7 @@ import {
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import {
   workbookFormButtonStyle,
+  workbookQuietCommandStyle,
   workbookTypography,
 } from "../../components/workbookFormStyles";
 import type { WorkbookInspectorActionBinding } from "./workbookInspectorPresentationModel";
@@ -72,7 +73,12 @@ export function WorkbookInspectorContextualAction({
           ].join(" "),
         )}
         disabled={reason !== null}
-        tone="secondary"
+        tone="quiet"
+        style={{
+          inlineSize: "100%",
+          justifyContent: "flex-start",
+          textAlign: "start",
+        }}
         onClick={onInvoke}
       >
         {binding.featureGroup.label}
@@ -102,6 +108,7 @@ export function WorkbookInspectorActionButton({
   ...props
 }: ComponentPropsWithRef<"button"> & {
   readonly tone?:
+    | "quiet"
     | "ordinary"
     | "primary"
     | "secondary"
@@ -111,6 +118,7 @@ export function WorkbookInspectorActionButton({
   return (
     <button
       {...props}
+      data-inspector-action-tone={tone}
       style={{ ...buttonStyleByTone[tone], ...props.style }}
       type={type}
     >
@@ -156,7 +164,7 @@ const actionGroupStyle = {
 const contextualActionStyle = {
   display: "grid",
   gap: "var(--ct-spacing-xs)",
-  justifyItems: "start",
+  justifyItems: "stretch",
   paddingBlock: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
 const outcomeStyle = {
@@ -168,6 +176,7 @@ const baseButtonStyle = {
   ...workbookFormButtonStyle,
 } satisfies CSSProperties;
 const buttonStyleByTone = {
+  quiet: { ...workbookQuietCommandStyle, whiteSpace: "normal" },
   ordinary: {
     ...baseButtonStyle,
   },

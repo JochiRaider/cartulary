@@ -19,6 +19,10 @@ const entitiesRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestEntitiesProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
+		entitiesRepoImportPrefix + "internal/modules/entities/candidates": {
+			"candidate_routes.go": true,
+			"routes.go":           true,
+		},
 		entitiesRepoImportPrefix + "internal/modules/entities/hostidentity/deleterestore": {
 			"revision_provider_contribution.go": true,
 		},
@@ -54,7 +58,8 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 			"incident_bundle_portable_prepare.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/incidents/admission": {
-			"routes.go": true,
+			"candidate_routes.go": true,
+			"routes.go":           true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/records/subtypepresence": {
 			"incident_bundle_subtype_presence.go": true,
@@ -129,6 +134,7 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		IncidentBundleSubtypeContribution NewIncidentBundleSourcePort RecoveryStateContribution
 		RegisterRoutes RevisionProviderContribution RouteOptions
 	`),
+	"candidates": entitiesExportInventory(`Candidate Position Request Page PageReader Reader NewReader Reader.Page`),
 	"entitycontract": entitiesExportInventory(`
 		HostsViewSchemaID IdentitiesViewSchemaID
 	`),
@@ -215,6 +221,7 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 
 var entitiesExportRoles = map[string]string{
 	".":                               "bounded HTTP facade and source-owner contribution assembly",
+	"candidates":                      "authorized entity candidate source reads and bounded keyset pages",
 	"entitycontract":                  "shared Entities-owned semantic identifiers",
 	"hostidentity":                    "Workbook, import, source-fact, and merge application capabilities",
 	"hostidentity/deleterestore":      "Recovery source contribution",

@@ -290,7 +290,8 @@
       "output_order": 17,
       "generated_outputs": [
         "internal/gen/contractentities/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/entity-identifier-unicode.ts"
+        "packages/protocol-ts/src/generated/entity-identifier-unicode.ts",
+        "packages/protocol-ts/src/generated/entity-candidate-discovery.ts"
       ],
       "typescript_projections": [
         {
@@ -298,6 +299,12 @@
           "output_path": "packages/protocol-ts/src/generated/entity-identifier-unicode.ts",
           "identifier": "entityIdentifierUnicode",
           "artifact_path": "contracts/entities/identifier-unicode.v1.json"
+        },
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/entity-candidate-discovery.ts",
+          "identifier": "entityCandidateDiscovery",
+          "artifact_path": "contracts/entities/candidate-discovery.v1.json"
         }
       ],
       "activation_dependency_ids": [],

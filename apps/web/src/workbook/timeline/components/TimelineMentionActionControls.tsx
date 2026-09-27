@@ -8,7 +8,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
-import { WorkbookRecordCandidatePicker } from "../../components/WorkbookRecordCandidatePicker";
+import { WorkbookSearchableCandidateChooser } from "../../components/WorkbookSearchableCandidateChooser";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   type MentionCreationOperation,
@@ -20,7 +20,7 @@ import {
   mentionTransitionAllowed,
 } from "../actions/timelineMentionOperationModel";
 import type { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
-import { inputStyle, labelStyle } from "./TimelineWorkbookStyles";
+import { labelStyle } from "./TimelineWorkbookStyles";
 
 export type TimelineMentionActions = ReturnType<
   typeof useTimelineMentionActions
@@ -31,21 +31,20 @@ export function TimelineMentionActionControls({
   readonly actions: TimelineMentionActions;
 }) {
   const { owner, subject, candidates, snapshot, createReview } = actions;
-  const [filter, setFilter] = useState("");
   const [correcting, setCorrecting] = useState(true);
   const correction = useRef<HTMLDetailsElement>(null);
   const pickerFieldset = useRef<HTMLFieldSetElement>(null);
   const restartButton = useRef<HTMLButtonElement>(null);
   const readActivation = useRef(false);
   const focusIntent = useRef<{
-    kind: "retry" | "loadMore";
+    kind: "retry" | "next";
     key: string;
     trigger: HTMLButtonElement;
     seenPending: boolean;
     interacted: boolean;
   } | null>(null);
   const [settlingControl, setSettlingControl] = useState<
-    "retry" | "loadMore" | null
+    "retry" | "next" | null
   >(null);
   useEffect(() => {
     const interrupt = (event: Event) => {
@@ -106,7 +105,9 @@ export function TimelineMentionActionControls({
       document.activeElement === intent.trigger
     )
       (
-        pickerFieldset.current?.querySelector("select") ?? restartButton.current
+        pickerFieldset.current?.querySelector<HTMLInputElement>(
+          '[role="combobox"]',
+        ) ?? restartButton.current
       )?.focus({ preventScroll: true });
     focusIntent.current = null;
     setSettlingControl(null);
@@ -117,7 +118,7 @@ export function TimelineMentionActionControls({
     candidates.pendingAction,
   ]);
   const invokeRead = (
-    kind: "retry" | "loadMore" | "restart",
+    kind: "retry" | "next" | "restart",
     trigger: HTMLButtonElement,
     run: () => void | Promise<void>,
   ) => {
@@ -126,8 +127,7 @@ export function TimelineMentionActionControls({
       candidates.pendingAction !== null ||
       candidates.failure === "authority" ||
       (kind === "retry" && candidates.failedRead === null) ||
-      (kind === "loadMore" &&
-        (candidates.phase !== "ready" || !candidates.hasMore))
+      (kind === "next" && (candidates.phase !== "ready" || !candidates.hasMore))
     )
       return;
     readActivation.current = true;
@@ -158,49 +158,16 @@ export function TimelineMentionActionControls({
       (entry) => entry.attempt.review.subject.mentionId === subject.mentionId,
     );
   const creation = owner.creationForMention(subject.mentionId);
-  const matches = candidates.candidates.filter((candidate) =>
-    candidate.displayText
-      .toLocaleLowerCase()
-      .includes(filter.toLocaleLowerCase()),
-  );
-  const selected = candidates.candidates.find(
-    (candidate) => candidate.recordId === actions.selectedTargetId,
-  );
-  const stale = candidates.staleCandidates.filter(
-    (candidate) =>
-      !candidates.candidates.some(
-        (current) => current.recordId === candidate.recordId,
-      ),
-  );
-  const staleMatches = stale.filter((candidate) =>
-    candidate.displayText
-      .toLocaleLowerCase()
-      .includes(filter.toLocaleLowerCase()),
-  );
-  const selectedStale = stale.find(
-    (candidate) => candidate.recordId === actions.selectedTargetId,
-  );
-  const eligibleOptions =
-    selected && !matches.includes(selected) ? [selected, ...matches] : matches;
-  const staleOptions =
-    selectedStale && !staleMatches.includes(selectedStale)
-      ? [selectedStale, ...staleMatches]
-      : staleMatches;
-  const options = [
-    ...eligibleOptions,
-    ...staleOptions.map((candidate) => ({
-      ...candidate,
-      displayText: `${candidate.displayText} (awaiting revalidation)`,
-    })),
-  ];
+  const selected = candidates.selected;
   const retryVisible =
-    candidates.failedRead !== null ||
+    (candidates.failedRead !== null &&
+      candidates.failure !== "unusable_continuation") ||
     candidates.pendingAction === "retry" ||
     settlingControl === "retry";
   const loadMoreVisible =
     candidates.hasMore ||
-    candidates.pendingAction === "loadMore" ||
-    settlingControl === "loadMore" ||
+    candidates.pendingAction === "next" ||
+    settlingControl === "next" ||
     candidates.failedRead?.kind === "continuation";
   const allowed = (action: Parameters<typeof owner.canSubmit>[0]) =>
     owner.canSubmit(action) && !blocked;
@@ -252,34 +219,27 @@ export function TimelineMentionActionControls({
                   gap: "var(--ct-spacing-xs)",
                 }}
               >
-                <legend>Choose target</legend>
-                <label style={labelStyle}>
-                  Filter loaded targets
-                  <input
-                    style={inputStyle}
-                    value={filter}
-                    onChange={(event) => setFilter(event.currentTarget.value)}
-                  />
-                </label>
-                <WorkbookRecordCandidatePicker
-                  selection="single"
-                  label={
-                    subject.state === "resolved"
-                      ? "Correct target"
-                      : "Resolve to existing"
-                  }
+                <legend
+                  style={{
+                    position: "absolute",
+                    inlineSize: 1,
+                    blockSize: 1,
+                    overflow: "hidden",
+                    clipPath: "inset(50%)",
+                  }}
+                >
+                  Choose target
+                </legend>
+                <WorkbookSearchableCandidateChooser
                   testId={mentionResolveTargetSelectTestId()}
-                  disabled={!allowed("resolve_item")}
-                  candidates={options}
-                  disabledRecordIds={stale.map(
-                    (candidate) => candidate.recordId,
-                  )}
-                  selectedRecordIds={
-                    actions.selectedTargetId ? [actions.selectedTargetId] : []
-                  }
-                  onSelectedRecordIdsChange={(ids) =>
-                    actions.changeTarget(ids[0] ?? "")
-                  }
+                  disabled={!candidates.canRead}
+                  busy={candidates.phase === "loading"}
+                  search={candidates.search}
+                  candidates={candidates.candidates}
+                  selected={candidates.selectionStale ? null : selected}
+                  onSearch={actions.changeSearch}
+                  onSelect={actions.changeTarget}
+                  onComposition={candidates.setComposing}
                 />
                 <p
                   role={candidates.phase === "failed" ? "alert" : "status"}
@@ -287,28 +247,32 @@ export function TimelineMentionActionControls({
                 >
                   {!candidates.canRead
                     ? "Target discovery is unavailable until access is restored."
-                    : candidates.phase === "loading"
-                      ? candidates.staleCandidates.length > 0
-                        ? "Restarting target discovery. Previously loaded targets await revalidation."
-                        : candidates.candidates.length > 0
-                          ? `${candidates.candidates.length} targets loaded. Loading more targets…`
-                          : "Loading targets…"
-                      : candidates.phase === "idle"
-                        ? "Loading targets…"
-                        : candidates.phase === "failed"
-                          ? `${candidates.error ?? "Target read failed."}${candidates.staleCandidates.length > 0 ? " Previously loaded targets await revalidation." : ""}`
-                          : candidates.candidates.length === 0
-                            ? candidates.hasMore
-                              ? "No targets on the loaded pages. More targets are available."
-                              : "No eligible targets found in this search."
-                            : matches.length === 0
-                              ? "No loaded targets match this filter."
-                              : `${candidates.candidates.length} targets loaded.${candidates.hasMore ? " More targets are available." : " All current pages loaded."}${stale.length > 0 ? ` ${stale.length} previously loaded targets await revalidation.` : ""}`}
+                    : candidates.phase === "failed"
+                      ? candidates.error
+                      : candidates.phase === "loading" ||
+                          candidates.phase === "idle"
+                        ? "Searching targets…"
+                        : candidates.candidates.length === 0
+                          ? "No eligible targets found in this search."
+                          : `${candidates.candidates.length} target${candidates.candidates.length === 1 ? "" : "s"} on this page.${candidates.hasMore ? " More targets are available." : ""}`}
+                  {candidates.selectionStale && candidates.selectedObservation
+                    ? ` ${candidates.selectedObservation.displayText} awaits revalidation.`
+                    : ""}
                 </p>
                 <div style={actionsStyle}>
+                  <WorkbookInspectorActionButton
+                    tone="quiet"
+                    disabled={
+                      candidates.previous.length === 0 ||
+                      candidates.phase !== "ready"
+                    }
+                    onClick={() => void candidates.previousPage()}
+                  >
+                    Previous targets
+                  </WorkbookInspectorActionButton>
                   {retryVisible ? (
                     <WorkbookInspectorActionButton
-                      tone="secondary"
+                      tone="quiet"
                       aria-busy={candidates.pendingAction === "retry"}
                       aria-disabled={
                         candidates.pendingAction !== null || undefined
@@ -326,27 +290,23 @@ export function TimelineMentionActionControls({
                   ) : null}
                   {loadMoreVisible ? (
                     <WorkbookInspectorActionButton
-                      tone="secondary"
-                      aria-busy={candidates.pendingAction === "loadMore"}
+                      tone="quiet"
+                      aria-busy={candidates.pendingAction === "next"}
                       aria-disabled={
                         candidates.pendingAction !== null ||
                         candidates.phase !== "ready" ||
                         undefined
                       }
                       onClick={(event) =>
-                        invokeRead(
-                          "loadMore",
-                          event.currentTarget,
-                          candidates.loadMore,
-                        )
+                        invokeRead("next", event.currentTarget, candidates.next)
                       }
                     >
-                      Load more targets
+                      Next targets
                     </WorkbookInspectorActionButton>
                   ) : null}
                   <WorkbookInspectorActionButton
                     ref={restartButton}
-                    tone="secondary"
+                    tone="quiet"
                     aria-busy={candidates.pendingAction === "restart"}
                     aria-disabled={
                       candidates.pendingAction !== null ||
@@ -367,7 +327,7 @@ export function TimelineMentionActionControls({
               </fieldset>
               <div style={actionsStyle}>
                 <WorkbookInspectorActionButton
-                  tone="secondary"
+                  tone="primary"
                   data-testid={mentionResolveExistingButtonTestId()}
                   disabled={!allowed("resolve_item") || !selected}
                   onClick={() =>
@@ -377,12 +337,10 @@ export function TimelineMentionActionControls({
                     })
                   }
                 >
-                  {subject.state === "resolved"
-                    ? "Correct target"
-                    : "Resolve to existing"}
+                  {subject.state === "resolved" ? "Correct target" : "Resolve"}
                 </WorkbookInspectorActionButton>
                 <WorkbookInspectorActionButton
-                  tone="secondary"
+                  tone="quiet"
                   data-testid={mentionDismissButtonTestId()}
                   disabled={!allowed("dismiss_item")}
                   onClick={() => actions.act({ action: "dismiss_item" })}
@@ -399,7 +357,7 @@ export function TimelineMentionActionControls({
           )}
           {mentionTransitionAllowed(subject.state, "revert_to_unresolved") ? (
             <WorkbookInspectorActionButton
-              tone="secondary"
+              tone="quiet"
               data-testid={mentionRestoreUnresolvedButtonTestId()}
               disabled={!allowed("revert_to_unresolved")}
               onClick={() => actions.act({ action: "revert_to_unresolved" })}
@@ -413,7 +371,7 @@ export function TimelineMentionActionControls({
           !creation?.receipt &&
           !createReview ? (
             <WorkbookInspectorActionButton
-              tone="secondary"
+              tone="quiet"
               data-testid={mentionCreateEntityButtonTestId(subject.entityType)}
               disabled={!owner.canCreate(subject.entityType) || blocked}
               onClick={actions.startCreate}
@@ -582,7 +540,7 @@ function MentionCreateEditor({
         </WorkbookInspectorActionButton>
       </fieldset>
       <WorkbookInspectorActionButton
-        tone="secondary"
+        tone="quiet"
         disabled={disabled}
         onClick={actions.cancelCreate}
       >
@@ -603,7 +561,7 @@ export function MentionCreationRefreshFeedback({
     <section aria-label="Created entity refresh">
       <p role="status">Entity saved; its sheet still needs refreshing.</p>
       <WorkbookInspectorActionButton
-        tone="secondary"
+        tone="quiet"
         disabled={creation.refresh === "refreshing"}
         onClick={refresh}
       >
@@ -646,7 +604,7 @@ export function MentionOperationFeedback({
       ) : null}
       {operation.phase === "uncertain" ? (
         <WorkbookInspectorActionButton
-          tone="secondary"
+          tone="quiet"
           disabled={!canReplay}
           onClick={replay}
         >
@@ -655,7 +613,7 @@ export function MentionOperationFeedback({
       ) : null}
       {operation.receipt && operation.refresh !== "complete" ? (
         <WorkbookInspectorActionButton
-          tone="secondary"
+          tone="quiet"
           disabled={operation.refresh === "refreshing"}
           onClick={refresh}
         >

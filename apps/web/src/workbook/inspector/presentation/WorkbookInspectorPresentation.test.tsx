@@ -101,16 +101,15 @@ describe("Workbook Inspector presentation", () => {
         expect(container.querySelectorAll("li")).toHaveLength(
           capabilities.length,
         );
+        const outcomeCount = new Set(
+          capabilities.map(
+            (capability) =>
+              bindWorkbookInspectorAction(contract.inspectorConfig, capability)
+                .outcome,
+          ),
+        ).size;
         expect(container.querySelectorAll("fieldset > p")).toHaveLength(
-          new Set(
-            capabilities.map(
-              (capability) =>
-                bindWorkbookInspectorAction(
-                  contract.inspectorConfig,
-                  capability,
-                ).outcome,
-            ),
-          ).size,
+          outcomeCount === 1 ? 1 : 0,
         );
         for (const [index, button] of buttons.entries()) {
           const contribution = button.parentElement?.nextElementSibling;
@@ -138,6 +137,64 @@ describe("Workbook Inspector presentation", () => {
     }
     expect(listViewContracts()).toHaveLength(17);
     expect(admitted).toBe(48);
+  });
+  it("suppresses only the semantic summary unit heading and stacks unknown historical values", () => {
+    const item: RecordHistoryItem = {
+      actor_user_id: "actor",
+      committed_at: "2026-09-26T12:00:00Z",
+      history_item_ref: "event",
+      operation: "patch",
+      change_set_id: "change",
+      reversible: false,
+      available_rollback_actions: [],
+      diff_summary: {
+        schema_id: "cartulary.history_diff.v1",
+        summary: "Untrusted",
+        units: [
+          {
+            unit_ref: "unit-a",
+            kind: "field",
+            operation: "update",
+            record_ids: ["record"],
+            changes: [
+              {
+                field_key: "host.display_name",
+                before: { state: "present", value: "Old" },
+                after: { state: "present", value: "New" },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const event = workbookHistoryEventPresentation(item);
+    expect(event.summaryUnitKey).toBe("unit-a");
+    expect(event.units[0]?.changes[0]?.layout).toBe("scalar");
+    const view = render(
+      <WorkbookHistoryList>
+        <WorkbookHistoryEvent event={event} />
+      </WorkbookHistoryList>,
+    );
+    expect(view.container.querySelectorAll("h4")).toHaveLength(0);
+    expect(view.container.textContent).toContain("Before: Old");
+    expect(view.container.textContent).toContain("After: New");
+    const unit = event.units[0];
+    if (!unit) throw new Error("Missing fixture unit");
+    view.rerender(
+      <WorkbookHistoryList>
+        <WorkbookHistoryEvent
+          event={{
+            ...event,
+            summaryUnitKey: null,
+            units: [unit, { ...unit, key: "unit-b" }],
+          }}
+        />
+      </WorkbookHistoryList>,
+    );
+    expect(view.container.querySelectorAll("h4")).toHaveLength(2);
+    expect(
+      view.container.querySelector('[data-history-comparison="stacked"]'),
+    ).not.toBeNull();
   });
   it("renders every semantic History family with complete values and nested disclosure focus", () => {
     const kinds: RecordHistoryItem["diff_summary"]["units"][number]["kind"][] =
@@ -459,7 +516,7 @@ describe("Workbook Inspector presentation", () => {
       body?.contains(screen.getByRole("button", { name: "Close inspector" })),
     ).toBe(false);
     expect(
-      body?.contains(screen.getByRole("button", { name: "Sections" })),
+      body?.contains(screen.getByRole("button", { name: /^Sections:/ })),
     ).toBe(false);
     expect(body?.contains(shell.querySelector("header h2"))).toBe(false);
     expect(
@@ -482,15 +539,15 @@ describe("Workbook Inspector presentation", () => {
     });
     body.scrollTop = 400;
     fireEvent.scroll(body);
-    expect(screen.getByText("Current section: History")).not.toBeNull();
+    expect(screen.getByText("Sections: History")).not.toBeNull();
     expect(document.activeElement).toBe(field);
     scrollHeight = 99;
     body.scrollTop = 0;
     fireEvent.scroll(body);
-    expect(screen.getByText("Current section: Details")).not.toBeNull();
+    expect(screen.getByText("Sections: Details")).not.toBeNull();
     expect(document.activeElement).toBe(field);
     expect(openHistory).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Sections" }));
+    await user.click(screen.getByRole("button", { name: /^Sections:/ }));
     await user.click(screen.getByRole("button", { name: "History" }));
     expect(screen.getByRole("button", { name: "Open history" })).toBe(
       document.activeElement,
@@ -500,25 +557,25 @@ describe("Workbook Inspector presentation", () => {
       screen.getByRole("textbox", { name: "Unfinished field" }),
     );
     expect((field as HTMLInputElement).value).toBe("Retained value plus draft");
-    expect(screen.getByText("Current section: History")).not.toBeNull();
+    expect(screen.getByText("Sections: History")).not.toBeNull();
     if (body) fireEvent.scroll(body);
     expect(openHistory).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Open history" })).toBe(
       document.activeElement,
     );
-    await user.click(screen.getByRole("button", { name: "Sections" }));
+    await user.click(screen.getByRole("button", { name: /^Sections:/ }));
     await user.tab();
     await user.keyboard("{Escape}");
     expect(
       screen.queryByRole("navigation", { name: "Inspector sections" }),
     ).toBeNull();
-    expect(screen.getByRole("button", { name: "Sections" })).toBe(
+    expect(screen.getByRole("button", { name: /^Sections:/ })).toBe(
       document.activeElement,
     );
     expect(close).not.toHaveBeenCalled();
     rerender(view("host-a", false, false));
     rerender(view());
-    expect(screen.getByText("Current section: History")).not.toBeNull();
+    expect(screen.getByText("Sections: History")).not.toBeNull();
     const reopenedField = screen.getByRole("textbox", {
       name: "Unfinished field",
     });
@@ -526,19 +583,19 @@ describe("Workbook Inspector presentation", () => {
     expect(screen.getByRole("textbox", { name: "Unfinished field" })).toBe(
       reopenedField,
     );
-    expect(screen.getByText("Current section: Details")).not.toBeNull();
+    expect(screen.getByText("Sections: Details")).not.toBeNull();
     // An explicit destination wins without going through the navigation control.
     fireEvent.focus(screen.getByRole("button", { name: "Open history" }));
-    expect(screen.getByText("Current section: History")).not.toBeNull();
+    expect(screen.getByText("Sections: History")).not.toBeNull();
     screen.getByRole("button", { name: "Open history" }).focus();
     rerender(view("host-b", true));
     expect(screen.queryByRole("button", { name: "Open history" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Sections" })).toBe(
+    expect(screen.getByRole("button", { name: /^Sections:/ })).toBe(
       document.activeElement,
     );
-    await user.click(screen.getByRole("button", { name: "Sections" }));
+    await user.click(screen.getByRole("button", { name: /^Sections:/ }));
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();
-    expect(screen.getByText("Current section: Details")).not.toBeNull();
+    expect(screen.getByText("Sections: Details")).not.toBeNull();
   });
   it("measures navigation and fences owner attention without invoking commands", async () => {
     const user = userEvent.setup();
@@ -613,26 +670,33 @@ describe("Workbook Inspector presentation", () => {
     );
     try {
       const { rerender } = render(view());
-      expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Sections:/ })).toBeNull();
       expect(
-        screen.getByRole("button", { name: "Unfinished work (1)" }),
+        screen.getByRole("button", { name: "View: Unsaved location" }),
       ).not.toBeNull();
+      await user.click(
+        screen.getByRole("button", { name: "View: Unsaved location" }),
+      );
+      expect(screen.getByRole("textbox", { name: "Original field" })).toBe(
+        document.activeElement,
+      );
+      expect(command).not.toHaveBeenCalled();
       screen.getByRole("button", { name: details.label }).focus();
       width = 299;
       fireEvent(window, new Event("resize"));
-      expect(screen.getByRole("button", { name: "Sections" })).toBe(
+      expect(screen.getByRole("button", { name: /^Sections:/ })).toBe(
         document.activeElement,
       );
-      await user.click(screen.getByRole("button", { name: "Sections" }));
+      await user.click(screen.getByRole("button", { name: /^Sections:/ }));
       width = 400;
       fireEvent(window, new Event("resize"));
       expect(
         screen
-          .getByRole("button", { name: "Sections" })
+          .getByRole("button", { name: /^Sections:/ })
           .getAttribute("aria-expanded"),
       ).toBe("true");
       await user.keyboard("{Escape}");
-      expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Sections:/ })).toBeNull();
       expect(screen.getByRole("button", { name: details.label })).toBe(
         document.activeElement,
       );
@@ -953,7 +1017,7 @@ describe("Workbook Inspector presentation", () => {
       screen.getByText("Select a saved row to inspect its details."),
     ).not.toBeNull();
     expect(screen.queryByText("no_row_selected")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Sections:/ })).toBeNull();
   });
 
   it("consumes panel-read groups without rendering their labels", () => {

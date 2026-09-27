@@ -101,7 +101,7 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   for (const width of [1440, 760, 320]) {
     await page.setViewportSize({ width, height: 900 });
     const chooser = inspector.getByRole("button", {
-      name: "Sections",
+      name: /^Sections:/,
       exact: true,
     });
     await expect(async () => {
@@ -193,6 +193,45 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   expect(
     rows.find((row) => row.record_id === f.second.record_id)?.row_version,
   ).toBe(1);
+  const historySections = inspector.getByRole("button", { name: /^Sections:/ });
+  if (await historySections.isVisible()) await historySections.click();
+  await inspector.getByRole("button", { name: "History", exact: true }).click();
+  await inspector
+    .getByRole("button", { name: "Open history", exact: true })
+    .click();
+  await expect(
+    inspector.getByText("Event details", { exact: true }).first(),
+  ).toBeVisible();
+  for (const summary of await inspector
+    .getByText("Event details", { exact: true })
+    .all())
+    await summary.click();
+  const comparison = inspector
+    .locator("[data-history-comparison]")
+    .filter({ hasText: "Inspected A renamed" })
+    .first();
+  await expect(comparison).toHaveAttribute("data-history-comparison", "paired");
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expect(comparison).toHaveAttribute(
+    "data-history-comparison",
+    "stacked",
+  );
+  await expect(comparison).toContainText("Before: Inspected A");
+  await expect(comparison).toContainText("After: Inspected A renamed");
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(comparison).toHaveAttribute("data-history-comparison", "paired");
+  const spacing = await page.addStyleTag({
+    content:
+      "[data-history-comparison] { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }",
+  });
+  await expect(comparison).toHaveAttribute("data-history-comparison", "paired");
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
   const body = Array.from(
     { length: 20 },
     (_, index) => `Narrative line ${index + 1}: preserve this accepted note.`,
@@ -391,7 +430,7 @@ test("Inspector uncertain recovery replays exact requests without consuming newe
     });
     await expect(retry).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Unfinished work (1)", exact: true }),
+      page.getByRole("button", { name: /^View:/, exact: true }),
     ).toBeVisible();
     await input.fill("Newer unfinished value");
     await expect(

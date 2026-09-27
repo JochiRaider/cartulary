@@ -16,7 +16,10 @@ import {
   mentionWorkbookRow,
 } from "../../../testing/timelineMentionTestSupport";
 import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
-import { createTimelineMentionCandidateReader } from "../adapters/createTimelineMentionCandidateReader";
+import {
+  createTimelineMentionCandidateReader,
+  timelineMentionCandidatePolicy,
+} from "../adapters/createTimelineMentionCandidateReader";
 import { TimelineMentionActionControls } from "../components/TimelineMentionActionControls";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
 import type { TimelineMentionCandidatePort } from "./TimelineMentionCandidatePort";
@@ -31,7 +34,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-it("Mention loaded-target filtering preserves selected identity and exposes keyboard reachable unresolved dismissal", async () => {
+it("Mention server search invalidates selection and exposes keyboard reachable unresolved dismissal", async () => {
   const review = mentionReview(),
     row = mentionWorkbookRow(review);
   const owner = new WorkbookTimelineMentionOperationOwner(
@@ -41,6 +44,7 @@ it("Mention loaded-target filtering preserves selected identity and exposes keyb
   );
   owner.setAuthority(review.authority);
   const port: TimelineMentionCandidatePort = {
+    policy: timelineMentionCandidatePolicy,
     page: async () => ({
       kind: "accepted",
       value: {
@@ -87,44 +91,52 @@ it("Mention loaded-target filtering preserves selected identity and exposes keyb
     return <TimelineMentionActionControls actions={actions} />;
   }
   render(<Panel />);
+  const chooser = screen.getByRole("combobox", {
+    name: "Search targets",
+  }) as HTMLInputElement;
+  fireEvent.focus(chooser);
   await screen.findByRole("option", { name: "Second" });
-  const select = screen.getByRole("combobox", {
-    name: "Resolve to existing",
-  }) as HTMLSelectElement;
-  select.focus();
-  expect(document.activeElement).toBe(select);
-  fireEvent.change(select, { target: { value: "first" } });
-  fireEvent.change(
-    screen.getByRole("textbox", { name: "Filter loaded targets" }),
-    { target: { value: "no match" } },
-  );
-  expect(select.value).toBe("first");
-  expect(screen.queryByRole("option", { name: "Second" })).toBeNull();
-  expect(screen.getByText("No loaded targets match this filter.")).toBeTruthy();
-  fireEvent.keyDown(select, { key: "Escape" });
-  const disclosure = screen.getByText("Correction and resolution");
-  expect(document.activeElement).toBe(disclosure);
-  expect((disclosure.parentElement as HTMLDetailsElement).open).toBe(false);
-  expect(select.isConnected).toBe(true);
-  expect(select.value).toBe("first");
-  fireEvent.click(disclosure);
-  await waitFor(() =>
-    expect((disclosure.parentElement as HTMLDetailsElement).open).toBe(true),
-  );
-  expect(screen.getByRole("combobox", { name: "Resolve to existing" })).toBe(
-    select,
-  );
+  fireEvent.keyDown(chooser, { key: "ArrowDown" });
+  const activeOption = screen.getByRole("option", {
+    name: "First",
+    selected: true,
+  });
+  expect(chooser.getAttribute("aria-activedescendant")).toBe(activeOption.id);
+  expect(screen.queryByText("Selected: First")).toBeNull();
+  expect(
+    (screen.getByRole("button", { name: "Resolve" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  fireEvent.keyDown(chooser, { key: "Enter" });
+  expect(screen.getByText("Selected: First")).toBeTruthy();
+  fireEvent.change(chooser, { target: { value: "no match" } });
+  expect(screen.queryByText("Selected: First")).toBeNull();
+  expect(
+    (screen.getByRole("button", { name: "Resolve" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  fireEvent.keyDown(chooser, { key: "Escape" });
   expect(
     (
-      screen.getByRole("textbox", {
-        name: "Filter loaded targets",
-      }) as HTMLInputElement
-    ).value,
-  ).toBe("no match");
+      screen.getByText("Correction and resolution")
+        .parentElement as HTMLDetailsElement
+    ).open,
+  ).toBe(true);
+  fireEvent.keyDown(chooser, { key: "Escape" });
   expect(
-    (screen.getByRole("button", { name: "Dismiss" }) as HTMLButtonElement)
-      .disabled,
+    (
+      screen.getByText("Correction and resolution")
+        .parentElement as HTMLDetailsElement
+    ).open,
   ).toBe(false);
+  expect(chooser.value).toBe("no match");
+  fireEvent.click(screen.getByText("Correction and resolution"));
+  await waitFor(() =>
+    expect(
+      (screen.getByRole("button", { name: "Dismiss" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false),
+  );
 });
 it("Mention candidates query eligible targets independently with contract sorting and explicit cursor pages", async () => {
   const review = mentionReview();
@@ -138,12 +150,18 @@ it("Mention candidates query eligible targets independently with contract sortin
         JSON.stringify({
           data: {
             incident_id: review.subject.incidentId,
-            view_schema_id: receipt.data.view_schema_id,
-            rows: [receipt.data.row],
+            entity_type: "host",
+            candidates: [
+              {
+                record_id: receipt.data.row.record_id,
+                row_version: receipt.data.row.row_version,
+                entity_type: "host",
+                display_name: "Target",
+              },
+            ],
           },
           meta: {
             request_id: "targets",
-            query: { filters: [], sort: [] },
             paging: { limit: 100, has_more: true, next_cursor: "next-page" },
           },
         }),
@@ -155,27 +173,30 @@ it("Mention candidates query eligible targets independently with contract sortin
     apiBase: "/service",
     incidentId: review.subject.incidentId,
   });
-  const result = await reader.page("host", null, new AbortController().signal);
-  expect(result.kind).toBe("accepted");
-  const request = JSON.parse(fetch.mock.calls[0]?.[1].body);
-  expect(request).toMatchObject({
-    limit: 100,
-    filters: [
-      {
-        field_key: "host.host_state",
-        op: "eq",
-        arg: { values: ["stub", "canonical"] },
-      },
-    ],
-  });
-  expect(request.sort).toBeUndefined(); // Omission requests the contract default sort.
-  expect(request.cursor_token).toBeUndefined();
-  await reader.page("host", "requested-cursor", new AbortController().signal);
-  expect(JSON.parse(fetch.mock.calls[1]?.[1].body).cursor_token).toBe(
-    "requested-cursor",
+  const result = await reader.page(
+    { entityType: "host", search: "ali", cursor: null },
+    new AbortController().signal,
   );
+  expect(result.kind).toBe("accepted");
+  const request = new URL(fetch.mock.calls[0]?.[0], "http://localhost");
+  expect(request.pathname).toBe(
+    `/service/api/v1/incidents/${review.subject.incidentId}/entity-candidates`,
+  );
+  expect(request.searchParams.get("search")).toBe("ali");
+  expect(request.searchParams.get("entity_type")).toBe("host");
+  expect(request.searchParams.get("limit")).toBe("100");
+  expect(fetch.mock.calls[0]?.[1].body).toBeUndefined();
+  await reader.page(
+    { entityType: "host", search: "ali", cursor: "requested-cursor" },
+    new AbortController().signal,
+  );
+  expect(
+    new URL(fetch.mock.calls[1]?.[0], "http://localhost").searchParams.get(
+      "cursor_token",
+    ),
+  ).toBe("requested-cursor");
 });
-it("Mention candidate paging retains loaded targets through read failure and retries the missing page", async () => {
+it("Mention candidate paging retains the current page through read failure and retries the missing page", async () => {
   const first = {
     recordId: "first",
     rowVersion: 1,
@@ -197,20 +218,20 @@ it("Mention candidate paging retains loaded targets through read failure and ret
       kind: "accepted",
       value: { candidates: [second], hasMore: false, nextCursor: null },
     });
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   const hook = renderHook(() =>
     useTimelineMentionCandidates(port, "host", "mention", true),
   );
   await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
-  await act(() => hook.result.current.loadMore());
+  await act(() => hook.result.current.next());
   expect(hook.result.current).toMatchObject({
     phase: "failed",
     candidates: [first],
     error: "Offline",
   });
   await act(() => hook.result.current.retry());
-  expect(hook.result.current.candidates).toEqual([first, second]);
-  expect(page.mock.calls.map((call) => call[1])).toEqual([
+  expect(hook.result.current.candidates).toEqual([second]);
+  expect(page.mock.calls.map((call) => call[0].cursor)).toEqual([
     null,
     "page-2",
     "page-2",
@@ -241,15 +262,15 @@ it("Mention failed cursor-free restart retries the first page rather than the ol
       kind: "accepted",
       value: { candidates: [first], hasMore: false, nextCursor: null },
     });
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   const hook = renderHook(() =>
     useTimelineMentionCandidates(port, "host", "mention", true),
   );
   await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
-  await act(() => hook.result.current.loadMore());
+  await act(() => hook.result.current.next());
   await act(() => hook.result.current.restart());
   await act(() => hook.result.current.retry());
-  expect(page.mock.calls.map((call) => call[1])).toEqual([
+  expect(page.mock.calls.map((call) => call[0].cursor)).toEqual([
     null,
     "page-2",
     null,
@@ -292,7 +313,7 @@ it("Mention retry remains connected and focused while its response is held", asy
       failure: { kind: "retryable", message: "Offline" },
     })
     .mockImplementationOnce(() => held);
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   function Panel() {
     const [selectedTargetId, setSelectedTargetId] = useState("");
     const actions = useTimelineMentionActions({
@@ -317,8 +338,8 @@ it("Mention retry remains connected and focused while its response is held", asy
     return <TimelineMentionActionControls actions={actions} />;
   }
   render(<Panel />);
-  await screen.findByRole("button", { name: "Load more targets" });
-  fireEvent.click(screen.getByRole("button", { name: "Load more targets" }));
+  await screen.findByRole("button", { name: "Next targets" });
+  fireEvent.click(screen.getByRole("button", { name: "Next targets" }));
   const retry = await screen.findByRole("button", {
     name: "Retry target read",
   });
@@ -327,7 +348,7 @@ it("Mention retry remains connected and focused while its response is held", asy
   await waitFor(() => expect(page).toHaveBeenCalledTimes(3));
   expect(retry.isConnected).toBe(true);
   expect(document.activeElement).toBe(retry);
-  const filter = screen.getByRole("textbox", { name: "Filter loaded targets" });
+  const filter = screen.getByRole("combobox", { name: "Search targets" });
   filter.focus();
   fireEvent.scroll(document);
   await act(async () => {
@@ -375,7 +396,7 @@ it("Mention scope replacement retires pending read focus intent", async () => {
       kind: "accepted",
       value: { candidates: [first], hasMore: false, nextCursor: null },
     });
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   function Panel({ scope }: { scope: string }) {
     const [selectedTargetId, setSelectedTargetId] = useState("");
     const actions = useTimelineMentionActions({
@@ -401,13 +422,13 @@ it("Mention scope replacement retires pending read focus intent", async () => {
   }
   const view = render(<Panel scope="old" />);
   const loadMore = await screen.findByRole("button", {
-    name: "Load more targets",
+    name: "Next targets",
   });
   loadMore.focus();
   fireEvent.click(loadMore);
   await waitFor(() => expect(page).toHaveBeenCalledTimes(2));
   const select = screen.getByRole("combobox", {
-    name: "Resolve to existing",
+    name: "Search targets",
   }) as HTMLSelectElement;
   const focusSelect = vi.spyOn(select, "focus");
   view.rerender(<Panel scope="new" />);
@@ -450,7 +471,7 @@ it("Mention initial retry and terminal paging admit one read per activation", as
       value: { candidates: [candidate], hasMore: true, nextCursor: "next" },
     })
     .mockImplementationOnce(() => held);
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   const hook = renderHook(() =>
     useTimelineMentionCandidates(port, "identity", "initial", true),
   );
@@ -462,8 +483,8 @@ it("Mention initial retry and terminal paging admit one read per activation", as
   await act(() => hook.result.current.retry());
   expect(hook.result.current.candidates).toEqual([candidate]);
   await act(async () => {
-    void hook.result.current.loadMore();
-    void hook.result.current.loadMore();
+    void hook.result.current.next();
+    void hook.result.current.next();
   });
   expect(page).toHaveBeenCalledTimes(3);
   expect(hook.result.current.candidates).toEqual([candidate]);
@@ -475,9 +496,13 @@ it("Mention initial retry and terminal paging admit one read per activation", as
     await held;
   });
   expect(hook.result.current.hasMore).toBe(false);
-  await act(() => hook.result.current.loadMore());
+  await act(() => hook.result.current.next());
   expect(page).toHaveBeenCalledTimes(3);
-  expect(page.mock.calls.map((call) => call[1])).toEqual([null, null, "next"]);
+  expect(page.mock.calls.map((call) => call[0].cursor)).toEqual([
+    null,
+    null,
+    "next",
+  ]);
 });
 it("Mention malformed and repeated continuations require an explicit fresh chain", async () => {
   const first = {
@@ -501,24 +526,24 @@ it("Mention malformed and repeated continuations require an explicit fresh chain
       kind: "accepted",
       value: { candidates: [second], hasMore: false, nextCursor: null },
     });
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   const hook = renderHook(() =>
     useTimelineMentionCandidates(port, "host", "chain", true, "first"),
   );
   await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
-  await act(() => hook.result.current.loadMore());
+  await act(() => hook.result.current.next());
   expect(hook.result.current.failure).toBe("unusable_continuation");
   expect(hook.result.current.candidates).toEqual([first]);
   await act(() => hook.result.current.restart());
   expect(hook.result.current.candidates).toEqual([second]);
-  expect(hook.result.current.staleCandidates).toEqual([first]);
-  expect(page.mock.calls.map((call) => call[1])).toEqual([
+  expect(hook.result.current.selected).toBeNull();
+  expect(page.mock.calls.map((call) => call[0].cursor)).toEqual([
     null,
     "page-2",
     null,
   ]);
 });
-it("Mention server-invalid continuation keeps its typed failed identity for exact retry", async () => {
+it("Mention server-invalid continuation retains failed identity and requires Restart", async () => {
   const first = {
     recordId: "first",
     rowVersion: 1,
@@ -530,7 +555,7 @@ it("Mention server-invalid continuation keeps its typed failed identity for exac
     failure: {
       kind: "validation" as const,
       message: "Invalid cursor",
-      publicCode: "invalid_view_query",
+      publicCode: "invalid_pagination_request",
       publicReason: "invalid_cursor_token" as const,
     },
   };
@@ -542,12 +567,12 @@ it("Mention server-invalid continuation keeps its typed failed identity for exac
     })
     .mockResolvedValueOnce(invalid)
     .mockResolvedValueOnce(invalid);
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   const hook = renderHook(() =>
     useTimelineMentionCandidates(port, "host", "invalid", true),
   );
   await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
-  await act(() => hook.result.current.loadMore());
+  await act(() => hook.result.current.next());
   expect(hook.result.current.failure).toBe("unusable_continuation");
   expect(hook.result.current.failedRead).toMatchObject({
     kind: "continuation",
@@ -555,9 +580,8 @@ it("Mention server-invalid continuation keeps its typed failed identity for exac
   });
   await act(() => hook.result.current.retry());
   expect(hook.result.current.failure).toBe("unusable_continuation");
-  expect(page.mock.calls.map((call) => call[1])).toEqual([
+  expect(page.mock.calls.map((call) => call[0].cursor)).toEqual([
     null,
-    "page-2",
     "page-2",
   ]);
 });
@@ -590,7 +614,7 @@ it("Mention late scope results are fenced and current authority loss conceals ca
       kind: "rejected",
       failure: { kind: "authorization_lost", message: "No access" },
     });
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   const onAuthorityFailure = vi.fn();
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <WorkbookCandidateAuthorityContext.Provider
@@ -617,7 +641,7 @@ it("Mention late scope results are fenced and current authority loss conceals ca
     await held;
   });
   expect(hook.result.current.candidates).toEqual([fresh]);
-  await act(() => hook.result.current.loadMore());
+  await act(() => hook.result.current.next());
   expect(hook.result.current.failure).toBe("authority");
   expect(hook.result.current.candidates).toEqual([]);
   expect(hook.result.current.failedRead).toBeNull();
@@ -647,7 +671,7 @@ it("Mention obsolete authority failure cannot affect a replacement entity type",
       kind: "accepted",
       value: { candidates: [identity], hasMore: false, nextCursor: null },
     });
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   const onAuthorityFailure = vi.fn();
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <WorkbookCandidateAuthorityContext.Provider
@@ -675,7 +699,7 @@ it("Mention obsolete authority failure cannot affect a replacement entity type",
   expect(hook.result.current.candidates).toEqual([identity]);
   expect(onAuthorityFailure).not.toHaveBeenCalled();
 });
-it("Mention restart retains selected label and filter without admitting an unvalidated target", async () => {
+it("Mention restart retains selected observation and search without admitting an unvalidated target", async () => {
   const review = mentionReview();
   const row = mentionWorkbookRow(review);
   const create = vi.fn(() => "unused");
@@ -709,7 +733,7 @@ it("Mention restart retains selected label and filter without admitting an unval
       value: { candidates: [first], hasMore: false, nextCursor: null },
     })
     .mockImplementationOnce(() => held);
-  const port = { page };
+  const port = { page, policy: timelineMentionCandidatePolicy };
   function Panel() {
     const [selectedTargetId, setSelectedTargetId] = useState("");
     const actions = useTimelineMentionActions({
@@ -734,33 +758,18 @@ it("Mention restart retains selected label and filter without admitting an unval
     return <TimelineMentionActionControls actions={actions} />;
   }
   render(<Panel />);
-  await screen.findByRole("option", { name: "First" });
-  const select = screen.getByRole("combobox", {
-    name: "Resolve to existing",
-  }) as HTMLSelectElement;
-  fireEvent.change(select, { target: { value: "first" } });
-  const filter = screen.getByRole("textbox", {
-    name: "Filter loaded targets",
+  const chooser = screen.getByRole("combobox", {
+    name: "Search targets",
   }) as HTMLInputElement;
-  fireEvent.change(filter, { target: { value: "Fir" } });
+  fireEvent.focus(chooser);
+  await screen.findByRole("option", { name: "First" });
+  fireEvent.click(screen.getByRole("option", { name: "First" }));
   fireEvent.click(
     screen.getByRole("button", { name: "Restart target discovery" }),
   );
-  expect(select.value).toBe("first");
-  expect(filter.value).toBe("Fir");
   expect(
-    (
-      screen.getByRole("option", {
-        name: /First.*awaiting revalidation/u,
-      }) as HTMLOptionElement
-    ).disabled,
-  ).toBe(true);
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "Resolve to existing",
-      }) as HTMLButtonElement
-    ).disabled,
+    (screen.getByRole("button", { name: "Resolve" }) as HTMLButtonElement)
+      .disabled,
   ).toBe(true);
   expect(create).not.toHaveBeenCalled();
   await act(async () => {
@@ -770,22 +779,15 @@ it("Mention restart retains selected label and filter without admitting an unval
     });
     await held;
   });
-  expect(select.value).toBe("first");
   expect(
-    (
-      screen.getByRole("button", {
-        name: "Resolve to existing",
-      }) as HTMLButtonElement
-    ).disabled,
+    (screen.getByRole("button", { name: "Resolve" }) as HTMLButtonElement)
+      .disabled,
   ).toBe(true);
-  fireEvent.change(filter, { target: { value: "" } });
-  fireEvent.change(select, { target: { value: "second" } });
+  fireEvent.focus(chooser);
+  fireEvent.click(screen.getByRole("option", { name: "Second" }));
   expect(
-    (
-      screen.getByRole("button", {
-        name: "Resolve to existing",
-      }) as HTMLButtonElement
-    ).disabled,
+    (screen.getByRole("button", { name: "Resolve" }) as HTMLButtonElement)
+      .disabled,
   ).toBe(false);
   expect(create).not.toHaveBeenCalled();
 });
@@ -808,4 +810,77 @@ it("Mention contextual authoring seeds only display name and requires reviewed i
     expect(request).not.toBeNull();
     expect(JSON.stringify(request)).not.toContain('"' + entityType + '.fqdn"');
   }
+});
+
+it("Mention search defers composition fences late results and bounds page checkpoints independently of selection", async () => {
+  const page = vi
+    .fn<TimelineMentionCandidatePort["page"]>()
+    .mockImplementation(async (request) => {
+      const n = Number(request.cursor ?? 0);
+      return {
+        kind: "accepted",
+        value: {
+          candidates: [
+            {
+              recordId: `record-${n}`,
+              rowVersion: 1,
+              entityType: "host",
+              displayText: `Page ${n}`,
+            },
+          ],
+          hasMore: true,
+          nextCursor: String(n + 1),
+        },
+      };
+    });
+  const port = { page, policy: timelineMentionCandidatePolicy };
+  const hook = renderHook(() =>
+    useTimelineMentionCandidates(port, "host", "bounded", true, "record-0"),
+  );
+  await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
+  for (let n = 1; n <= 12; n++) await act(() => hook.result.current.next());
+  expect(hook.result.current.candidates).toHaveLength(1);
+  expect(hook.result.current.previous).toHaveLength(10);
+  expect(hook.result.current.selected?.recordId).toBe("record-0");
+  await act(() => hook.result.current.previousPage());
+  expect(hook.result.current.candidates[0]?.recordId).toBe("record-11");
+  act(() => hook.result.current.setComposing(true));
+  act(() => hook.result.current.changeSearch("composed"));
+  const before = page.mock.calls.length;
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 280));
+  });
+  expect(page).toHaveBeenCalledTimes(before);
+  expect(hook.result.current.selected).toBeNull();
+  act(() => hook.result.current.setComposing(false));
+  await waitFor(() =>
+    expect(page.mock.calls.at(-1)?.[0].search).toBe("composed"),
+  );
+  expect(page.mock.calls.at(-1)?.[0].cursor).toBeNull();
+  let completeOld!: (
+    value: Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>,
+  ) => void;
+  const oldRead = new Promise<
+    Awaited<ReturnType<TimelineMentionCandidatePort["page"]>>
+  >((resolve) => {
+    completeOld = resolve;
+  });
+  page.mockImplementationOnce(() => oldRead);
+  act(() => hook.result.current.changeSearch("obsolete"));
+  await waitFor(() =>
+    expect(page.mock.calls.at(-1)?.[0].search).toBe("obsolete"),
+  );
+  const oldSignal = page.mock.calls.at(-1)?.[1];
+  act(() => hook.result.current.changeSearch("replacement"));
+  expect(oldSignal?.aborted).toBe(true);
+  await waitFor(() => expect(hook.result.current.phase).toBe("ready"));
+  await act(async () =>
+    completeOld({
+      kind: "accepted",
+      value: { candidates: [], hasMore: false, nextCursor: null },
+    }),
+  );
+  expect(hook.result.current.search).toBe("replacement");
+  expect(hook.result.current.candidates[0]?.recordId).toBe("record-0");
+  expect(hook.result.current.nextCursor).toBe("1");
 });

@@ -31,6 +31,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/candidates"
 	hostidentityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
@@ -1331,8 +1332,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
 		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationRuntime)},
 		{id: "entities", registrar: entities.RegisterRoutes(entities.RouteOptions{
-			MergeStore:   timelineBundle.EntityMergeStore,
-			MentionStore: timelineBundle.EntityMentionStore,
+			CandidateReader: candidates.NewReader(postgresHandle),
+			MergeStore:      timelineBundle.EntityMergeStore,
+			MentionStore:    timelineBundle.EntityMentionStore,
 		})},
 		{id: "evidence", registrar: evidenceOwner.RouteRegistrar(settingsProjection.Evidence())},
 		{

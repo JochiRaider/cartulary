@@ -137,3 +137,16 @@ identities. The shell admits, orders, deduplicates and navigates; it neither
 classifies operations nor dispatches recovery. Navigation uses one admitted
 section sequence for direct and chooser presentations and never opens lazy
 History. Measurement is clipped independently from the visible scrollport.
+
+The remediation iteration adds quiet shared commands, a navigation-only direct
+attention shortcut for one admitted item, and a single `Sections: current`
+chooser label. Complete field names stay in accessible names; saved values and
+local authoring remain separate. Commands-only panels provide an owner-authored
+explanation when no command is admitted and never fabricate empty data regions.
+Workflow outcomes share copy only when the entire group has the same outcome.
+
+History summaries carry their single-unit identity for heading suppression.
+Known scalar comparisons are measured at half width and pair only within the
+projected two-line limit. Unknown kinds, narratives and collections stack; font,
+width and supported text-spacing changes invalidate measurement. Historical
+values and corrective commands remain source-owned.

@@ -106,7 +106,12 @@ export function WorkbookInspectorDeclaredPanelList({
                   onAction={onContextualAction}
                 />
               )}
-              <WorkbookInspectorPanelContent model={model} />
+              <WorkbookInspectorPanelContent
+                model={model}
+                hasCommands={
+                  subject?.kind === "live" && capabilities.length > 0
+                }
+              />
             </>
           ),
         },

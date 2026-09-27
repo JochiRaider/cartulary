@@ -39,6 +39,7 @@ const operationFamilyByID = {
   getViewSchema: "surface_load",
   issueEvidenceDownloadHandle: "evidence_download",
   issueEvidencePreviewHandle: "evidence_preview",
+  listEntityCandidates: "surface_load",
   listIncidentMemberships: "field_mutation",
   listIncidentSavedViews: "field_mutation",
   listIndicatorObservations: "field_mutation",

@@ -1,4 +1,11 @@
-import { type CSSProperties, type ReactNode, useRef } from "react";
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { workbookTypography } from "../../components/workbookFormStyles";
 import { WorkbookInspectorTechnicalDetails } from "./WorkbookInspectorFeedback";
 import type {
@@ -81,22 +88,12 @@ export function WorkbookHistoryEvent({
           </p>
           {event.units.map((unit) => (
             <section key={unit.key} style={unitStyle} aria-label={unit.title}>
-              <h4 style={unitTitleStyle}>{unit.title}</h4>
+              {event.summaryUnitKey === unit.key ? null : (
+                <h4 style={unitTitleStyle}>{unit.title}</h4>
+              )}
               <dl style={changesStyle}>
                 {unit.changes.map((change) => (
-                  <div key={change.fieldKey} style={changeStyle}>
-                    <dt>
-                      <strong>{change.label}</strong>
-                    </dt>
-                    <dd style={valueStyle}>
-                      <span style={metadataStyle}>Before: </span>
-                      <HistoryValue value={change.before} />
-                    </dd>
-                    <dd style={valueStyle}>
-                      <span style={metadataStyle}>After: </span>
-                      <HistoryValue value={change.after} />
-                    </dd>
-                  </div>
+                  <HistoryChange key={change.fieldKey} change={change} />
                 ))}
               </dl>
             </section>
@@ -121,6 +118,112 @@ export function WorkbookHistoryEvent({
         </div>
       </details>
     </li>
+  );
+}
+
+type Change =
+  WorkbookHistoryEventPresentation["units"][number]["changes"][number];
+function HistoryChange({ change }: { readonly change: Change }) {
+  const root = useRef<HTMLDivElement>(null);
+  const [paired, setPaired] = useState(false);
+  const scalar =
+    change.layout === "scalar" &&
+    [change.before, change.after].every(
+      (value) => value.state !== "present" || !Array.isArray(value.value),
+    );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Historical value changes require remeasuring the rendered DOM.
+  useLayoutEffect(() => {
+    const element = root.current;
+    if (!element || !scalar) {
+      setPaired(false);
+      return;
+    }
+    const measure = () => {
+      const width = element.clientWidth;
+      const gap = Number.parseFloat(getComputedStyle(element).columnGap) || 0;
+      const available = (width - gap) / 2;
+      const values = [
+        ...element.querySelectorAll<HTMLDivElement>(":scope > dd"),
+      ];
+      const fits =
+        available > 0 &&
+        values.length === 2 &&
+        values.every((value) => {
+          const probe = value.cloneNode(true) as HTMLElement;
+          Object.assign(probe.style, {
+            position: "absolute",
+            visibility: "hidden",
+            pointerEvents: "none",
+            inlineSize: `${available}px`,
+          });
+          probe.setAttribute("aria-hidden", "true");
+          element.append(probe);
+          const line = Number.parseFloat(getComputedStyle(probe).lineHeight);
+          const fit =
+            Number.isFinite(line) &&
+            probe.scrollHeight > 0 &&
+            probe.scrollHeight <=
+              line *
+                cartularyDesignPresentation.inspector
+                  .historyScalarPairMaxLines +
+                1;
+          probe.remove();
+          return fit;
+        });
+      setPaired(fits);
+    };
+    measure();
+    const resize =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    resize?.observe(element);
+    const spacing = new MutationObserver(measure);
+    let parent: HTMLElement | null = element.parentElement;
+    while (parent) {
+      spacing.observe(parent, {
+        attributes: true,
+        attributeFilter: ["style", "class", "open"],
+      });
+      parent = parent.parentElement;
+    }
+    spacing.observe(document.head, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+    document.fonts?.addEventListener("loadingdone", measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      resize?.disconnect();
+      spacing.disconnect();
+      document.fonts?.removeEventListener("loadingdone", measure);
+      window.removeEventListener("resize", measure);
+    };
+  }, [change, scalar]);
+  return (
+    <div
+      ref={root}
+      data-history-comparison={paired && scalar ? "paired" : "stacked"}
+      style={{
+        ...changeStyle,
+        position: "relative",
+        gridTemplateColumns:
+          paired && scalar ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+      }}
+    >
+      <dt style={{ gridColumn: "1 / -1" }}>
+        <strong>{change.label}</strong>
+      </dt>
+      <dd style={valueStyle}>
+        <span>Before: </span>
+        <HistoryValue value={change.before} />
+      </dd>
+      <dd style={valueStyle}>
+        <span>After: </span>
+        <HistoryValue value={change.after} />
+      </dd>
+    </div>
   );
 }
 

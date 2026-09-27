@@ -1,51 +1,33 @@
-import { requireViewContract } from "@cartulary/view-contracts";
+import { entityCandidateDiscovery } from "@cartulary/protocol-ts/entities";
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
-import { normalizeWorkbookViewRows } from "../../models/workbookContractRows";
-import {
-  buildQueryRequest,
-  emptyWorkbookQueryState,
-} from "../../models/workbookQuery";
-import {
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-} from "../../models/workbookSurfaceRegistry";
 import type { TimelineMentionCandidatePort } from "../actions/TimelineMentionCandidatePort";
 
-/** Eligible target discovery has no dependency on the currently displayed entity sheet. */
+export const timelineMentionCandidatePolicy: TimelineMentionCandidatePort["policy"] =
+  Object.freeze({
+    pageSize: entityCandidateDiscovery.page_size,
+    previousCursorLimit: entityCandidateDiscovery.previous_cursor_limit,
+    settledInputMs: entityCandidateDiscovery.settled_input_ms,
+  });
+
+/** Authoritative entity discovery is independent of the displayed workbook page. */
 export function createTimelineMentionCandidateReader(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
 }): TimelineMentionCandidatePort {
   const operations = createWorkbookOperationExecutor(options);
   return {
-    async page(entityType, cursor, signal) {
+    policy: timelineMentionCandidatePolicy,
+    async page({ entityType, search, cursor }, signal) {
       if (signal.aborted) return { kind: "aborted" };
       let responseAccepted = false;
-      const viewSchemaId =
-        entityType === "host" ? hostsViewSchemaId : identitiesViewSchemaId;
-      const contract = requireViewContract(viewSchemaId);
-      const stateField = `${entityType}.${entityType}_state`;
       try {
-        if (!contract.fieldMap[stateField]?.filterOps.includes("eq"))
-          throw new Error("Eligible target filter unavailable");
         const result = await operations.execute({
-          operationID: "queryWorkbookView",
-          pathParameters: {
-            incident_id: options.incidentId,
-            view_schema_id: viewSchemaId,
-          },
-          request: {
-            ...buildQueryRequest(contract, {
-              ...emptyWorkbookQueryState(),
-              filters: [
-                {
-                  fieldKey: stateField,
-                  op: "eq",
-                  arg: { values: ["stub", "canonical"] },
-                },
-              ],
-            }),
-            limit: 100,
+          operationID: "listEntityCandidates",
+          pathParameters: { incident_id: options.incidentId },
+          query: {
+            entity_type: entityType,
+            search,
+            limit: entityCandidateDiscovery.page_size,
             ...(cursor === null ? {} : { cursor_token: cursor }),
           },
           signal,
@@ -56,39 +38,27 @@ export function createTimelineMentionCandidateReader(options: {
         const { data, meta } = result.value;
         if (
           data.incident_id !== options.incidentId ||
-          data.view_schema_id !== viewSchemaId ||
-          !meta.paging ||
-          meta.paging.limit !== 100 ||
-          data.rows.length > 100 ||
+          data.entity_type !== entityType ||
+          meta.paging.limit !== entityCandidateDiscovery.page_size ||
+          data.candidates.length > entityCandidateDiscovery.page_size ||
+          data.candidates.some(
+            (candidate) => candidate.entity_type !== entityType,
+          ) ||
+          new Set(data.candidates.map((candidate) => candidate.record_id))
+            .size !== data.candidates.length ||
           (meta.paging.has_more
             ? !meta.paging.next_cursor || meta.paging.next_cursor === cursor
             : meta.paging.next_cursor !== null)
         )
           throw new Error("Invalid target page");
-        const rows = normalizeWorkbookViewRows(
-          contract,
-          data.rows,
-          "Mention targets",
-        );
-        if (
-          rows.some(
-            (row) =>
-              !["stub", "canonical"].includes(
-                String(row.cells[stateField]?.value),
-              ),
-          )
-        )
-          throw new Error("Ineligible target projection");
         return {
           kind: "accepted",
           value: {
-            candidates: rows.map((row) => ({
-              recordId: row.record_id,
-              rowVersion: row.row_version,
-              entityType,
-              displayText: String(
-                row.cells[`${entityType}.display_name`]?.value ?? row.record_id,
-              ),
+            candidates: data.candidates.map((candidate) => ({
+              recordId: candidate.record_id,
+              rowVersion: candidate.row_version,
+              entityType: candidate.entity_type,
+              displayText: candidate.display_name,
             })),
             nextCursor: meta.paging.next_cursor,
             hasMore: meta.paging.has_more,

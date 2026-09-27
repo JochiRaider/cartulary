@@ -1,4 +1,3 @@
-import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import type {
   ViewContract,
   ViewFieldContract,
@@ -113,7 +112,8 @@ export function WorkbookInspectorDetails({
                 retained.map((work) => (
                   <Button
                     key={work.identity.action}
-                    style={fieldActionStyle}
+                    aria-label={`${work.command?.kind === "review" ? "Review" : "Resume"} ${retained.length > 1 ? `${work.identity.action} ` : ""}draft for ${field.label}`}
+                    tone="quiet"
                     data-inspector-edit-field={field.fieldKey}
                     ref={(element) => {
                       if (element)
@@ -128,13 +128,11 @@ export function WorkbookInspectorDetails({
                   >
                     {work.command?.kind === "review" ? "Review" : "Resume"}{" "}
                     {retained.length > 1 ? `${work.identity.action} ` : ""}draft
-                    for {field.label}
                   </Button>
                 ))
               ) : editable && field.fieldKey !== activeField ? (
                 <Button
-                  style={fieldActionStyle}
-                  tone="ordinary"
+                  tone="quiet"
                   aria-label={`${field.readKind === "collection" ? "Manage" : "Edit"} ${field.label}`}
                   data-inspector-edit-field={field.fieldKey}
                   ref={(element) => {
@@ -151,10 +149,11 @@ export function WorkbookInspectorDetails({
                 </Button>
               ) : collectionDestinations?.[field.fieldKey] ? (
                 <Button
-                  style={fieldActionStyle}
+                  tone="quiet"
+                  aria-label={`Manage ${field.label}`}
                   onClick={collectionDestinations[field.fieldKey]}
                 >
-                  Manage {field.label}
+                  Manage
                 </Button>
               ) : null}
             </>
@@ -163,15 +162,16 @@ export function WorkbookInspectorDetails({
             <>
               {field.fieldKey !== activeField && retained.length ? (
                 <dd style={fullRowStyle}>
-                  <span style={workbookTypography("metadata")}>
-                    Unfinished work retained for {field.label}.{" "}
-                  </span>
                   {retained.map((work) => (
                     <span key={work.identity.action}>
-                      <Button onClick={work.discard}>
+                      <Button
+                        tone="quiet"
+                        aria-label={`Discard ${retained.length > 1 ? `${work.identity.action} ` : ""}draft for ${field.label}`}
+                        onClick={work.discard}
+                      >
                         Discard{" "}
                         {retained.length > 1 ? `${work.identity.action} ` : ""}
-                        draft for {field.label}
+                        draft
                       </Button>
                     </span>
                   ))}
@@ -180,6 +180,7 @@ export function WorkbookInspectorDetails({
               {field.fieldKey === activeField ? (
                 <dd style={fullRowStyle}>
                   <fieldset
+                    aria-label={`Unsaved change: ${field.label}`}
                     ref={attachment}
                     style={editorStyle}
                     data-inspector-editor-field={field.fieldKey}
@@ -204,13 +205,11 @@ export function WorkbookInspectorDetails({
                       }
                     }}
                   >
-                    <legend style={labelStyle}>
-                      Unsaved change: {field.label}
-                    </legend>
+                    <legend style={labelStyle}>Unsaved change</legend>
                     {editor.content}
                     <div style={actionsStyle}>
                       {editor.actions}
-                      <Button tone="secondary" onClick={detach}>
+                      <Button tone="quiet" onClick={detach}>
                         Close editor
                       </Button>
                     </div>
@@ -282,13 +281,4 @@ const retentionStyle = {
   ...workbookTypography("metadata"),
   color: "var(--ct-colors-ink-muted)",
   margin: 0,
-} satisfies CSSProperties;
-
-const fieldActionStyle = {
-  minInlineSize: cartularyDesignPresentation.inspector.fieldActionMinSizePx,
-  minBlockSize: cartularyDesignPresentation.inspector.fieldActionMinSizePx,
-  padding: "var(--ct-spacing-xxs) var(--ct-spacing-xs)",
-  background: "transparent",
-  borderColor: "transparent",
-  textDecoration: "underline",
 } satisfies CSSProperties;

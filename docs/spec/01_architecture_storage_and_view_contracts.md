@@ -1299,7 +1299,7 @@ Profiles: base
 Verified by: AC-231, AC-387
 
 **REQ-01-567**
-The current profile defines no generic public discovery route for alias-, mention-, similarity-, or suggestion-based candidate lookup. Any future public discovery surface requires a new operator or a new route family with its own exact contract.
+The current profile defines entity-candidate discovery only through REQ-01-676. It defines no generic mention-, similarity-, or suggestion-based lookup operator. Additional discovery surfaces require their own exact operator or route contract.
 Profiles: base
 Verified by: AC-231, AC-387
 
@@ -3307,6 +3307,42 @@ The base profile defines no separate unmerge route. Reversal of an erroneous mer
 Profiles: base
 Verified by: AC-023, AC-186, AC-187, AC-209, AC-231
 
+
+#### 3.3.5.4A Entity-candidate discovery
+
+**REQ-01-676**
+`GET /api/v1/incidents/{incident_id}/entity-candidates` (`listEntityCandidates`)
+requires `entity_type=host|identity` and accepts only optional `search`, `limit`
+and `cursor_token`. It uses `list_search_v1`, including REQ-01-581–583 normalization,
+validation precedence and errors, and common live-authorized keyset pagination
+(default 100, maximum 500). Omitted/normalized-empty search browses candidates.
+Authorization follows Core 04 REQ-04-162. Authentication and incident read
+admission precede query validation; inaccessible incidents are concealed using
+existing incident errors.
+
+Eligible records are visible, non-deleted, unmerged stub or canonical entities in
+the incident. Search unions display name, active aliases and active preserved
+identifiers classified `exact_match_reuse` or `suggestion_only`. Host sources also
+include hostname, FQDN and AAD device ID; Identity sources also include UPN, email,
+SAM account name, SID and AAD object ID. Null values contribute no tokens. Exclude
+provenance-only identifiers, deleted values, narrative records and external
+enrichment. Search does not change identifier classification or authorize mutation.
+
+The common success envelope contains `data.incident_id`, `data.entity_type`, and
+`data.candidates[]`, each with `record_id`, authoritative positive `row_version`,
+`entity_type` and `display_name`; `meta.paging` has the common limit, has_more and
+next_cursor members. Ordering is display name ascending using entity-view text
+comparison, then record ID ascending; there is no relevance ranking. Cursors bind
+actor, incident, entity type, canonical search, effective limit and ordering.
+Invalid list queries and continuations use the existing list/pagination families.
+
+Read authoritative entity-owned sources in bounded keyset batches; hydrate search
+values per batch and stop at limit + 1 matches or exhaustion. Do not materialize
+the complete result set or report timeout/scan cutoff as successful emptiness.
+Respect cancellation; add no raw search values to telemetry. The read emits no
+record mutations, revisions or collaboration events.
+Profiles: base
+Verified by: AC-570
 
 #### 3.3.5.5 Entity-mention action contract
 

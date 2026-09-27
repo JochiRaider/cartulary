@@ -548,9 +548,9 @@ export function useTimelineMentionActions(input: Input) {
     }
     const target =
       intent.action === "resolve_item"
-        ? candidates.candidates.find(
-            (candidate) => candidate.recordId === intent.resolvedRecordId,
-          )
+        ? candidates.selected?.recordId === intent.resolvedRecordId
+          ? candidates.selected
+          : null
         : null;
     if (
       intent.action === "resolve_item" &&
@@ -823,7 +823,14 @@ export function useTimelineMentionActions(input: Input) {
     candidates,
     createReview,
     selectedTargetId: input.selectedTargetId,
-    changeTarget: input.setSelectedTargetId,
+    changeTarget: (id: string) => {
+      candidates.select(id);
+      input.setSelectedTargetId(id);
+    },
+    changeSearch: (search: string) => {
+      input.setSelectedTargetId("");
+      candidates.changeSearch(search);
+    },
     act,
     startCreate,
     submitCreate,

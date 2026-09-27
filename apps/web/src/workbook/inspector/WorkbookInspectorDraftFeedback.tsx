@@ -19,6 +19,7 @@ export function WorkbookInspectorDraftFeedback({
         Unfinished work for this record is retained.{" "}
         <Button
           type="button"
+          tone="quiet"
           disabled={!edit.canResume}
           onClick={(event) => edit.resume(event.currentTarget)}
         >
@@ -26,6 +27,7 @@ export function WorkbookInspectorDraftFeedback({
         </Button>{" "}
         <Button
           type="button"
+          tone="quiet"
           style={{
             marginBlockStart: "var(--ct-spacing-sm)",
             justifySelf: "start",
@@ -44,6 +46,7 @@ export function WorkbookInspectorDraftFeedback({
           {savedReviewValue(row?.cells[key]?.value)}. Your draft is retained.{" "}
           <Button
             type="button"
+            tone="quiet"
             data-inspector-review-control
             onClick={(event) => edit.review(key, false, event.currentTarget)}
           >
@@ -51,6 +54,7 @@ export function WorkbookInspectorDraftFeedback({
           </Button>{" "}
           <Button
             type="button"
+            tone="quiet"
             data-inspector-review-control
             onClick={(event) => edit.review(key, true, event.currentTarget)}
           >
@@ -64,6 +68,7 @@ export function WorkbookInspectorDraftFeedback({
       {edit.draft ? (
         <Button
           type="button"
+          tone="quiet"
           style={{
             marginBlockStart: "var(--ct-spacing-sm)",
             justifySelf: "start",

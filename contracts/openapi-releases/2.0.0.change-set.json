@@ -1964,6 +1964,30 @@
       "classification": "breaking",
       "owner_id": "module.imports",
       "rationale": "Core 01 REQ-01-473, Core 03 REQ-03-163 and Core 04 AC-262 adopt workbook_import_v1 as the sole current Import assistant profile. This pre-production cutover removes the delivery-history spelling without an alias; deploy server and client together against fresh compatible Import/session/job/idempotency state. Parser provenance is renamed coherently; canonical approved-mapping hashes remain independent."
+    },
+    {
+      "fingerprint": "551550c32b48d7550656177d8277b395f311f27075cc66cbada9c01917d4f6d2",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Publish Core 01 REQ-01-658 authorized entity-candidate search and its closed paged response; existing endpoints remain unchanged."
+    },
+    {
+      "fingerprint": "dc78a6b8271dbd6e490f7d6f65962cef6e0f473f654dbdc6fc58e7b28b819a95",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Publish Core 01 REQ-01-658 authorized entity-candidate search and its closed paged response; existing endpoints remain unchanged."
+    },
+    {
+      "fingerprint": "de9a8c5817904024aff72afe6786a3d017cb124b3cd67b49efe7adc7d9da6cc9",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Publish Core 01 REQ-01-658 authorized entity-candidate search and its closed paged response; existing endpoints remain unchanged."
+    },
+    {
+      "fingerprint": "1ca23e831e4d6e390d303b46dcf7ec79a9d688e06bdb3ddc0de3fbc57da24a2f",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Publish Core 01 REQ-01-658 authorized entity-candidate search and its closed paged response; existing endpoints remain unchanged."
     }
   ]
 }

@@ -580,9 +580,6 @@ it("Batch recovery lets owner pruning remove an obsolete item and use the shell 
   );
   expect(priorOutcome.isConnected).toBe(false);
   expect(t.navigation.getSnapshot().selected).toBeNull();
-  await waitFor(() =>
-    expect(document.activeElement).toBe(
-      screen.getByRole("heading", { name: /^Recovery$/ }),
-    ),
-  );
+  const recoveryHeading = screen.getByRole("heading", { level: 2 });
+  await waitFor(() => expect(document.activeElement).toBe(recoveryHeading));
 });

@@ -93,7 +93,7 @@ export function WorkbookInspectorContextualActions({
   const outcomes = [...new Set(bindings.map((binding) => binding.outcome))];
   return (
     <WorkbookInspectorActionGroup label="Contextual actions">
-      {outcomes.map((outcome) => (
+      {(outcomes.length === 1 ? outcomes : []).map((outcome) => (
         <p
           key={outcome}
           id={`${groupId}-outcome-${outcome}`}
@@ -114,7 +114,11 @@ export function WorkbookInspectorContextualActions({
           >
             <WorkbookInspectorContextualAction
               binding={binding}
-              outcomeDescriptionId={`${groupId}-outcome-${binding.outcome}`}
+              outcomeDescriptionId={
+                outcomes.length === 1
+                  ? `${groupId}-outcome-${binding.outcome}`
+                  : undefined
+              }
               descriptionId={descriptions.get(binding.semanticKey)}
               currentIncidentRole={currentIncidentRole}
               disabledTokens={disabledTokens}

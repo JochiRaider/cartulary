@@ -47,6 +47,7 @@
       "specifier": "@cartulary/protocol-ts/entities",
       "authored_path": "packages/protocol-ts/src/entrypoints/entities.ts",
       "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/entity-candidate-discovery.ts",
         "packages/protocol-ts/src/generated/entity-identifier-unicode.ts"
       ]
     },

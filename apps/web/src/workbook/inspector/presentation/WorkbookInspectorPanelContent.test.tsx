@@ -5,9 +5,30 @@ import {
   WorkbookInspectorNoticeLedger,
 } from "../workbookInspectorErrorModel";
 import { WorkbookInspectorNoticeView } from "./WorkbookInspectorFeedback";
-import { WorkbookInspectorRegionContent } from "./WorkbookInspectorPanelContent";
+import {
+  inspectorCommands,
+  WorkbookInspectorPanelContent,
+  WorkbookInspectorRegionContent,
+} from "./WorkbookInspectorPanelContent";
 
 describe("Inspector panel states", () => {
+  it("commands-only panels do not fabricate an empty dataset and explain absent commands", () => {
+    const model = inspectorCommands("No workflows for this record.");
+    const view = render(
+      <WorkbookInspectorPanelContent model={model} hasCommands />,
+    );
+    expect(view.container.textContent).toBe("");
+    view.rerender(
+      <WorkbookInspectorPanelContent model={model} hasCommands={false} />,
+    );
+    expect(view.container.textContent).toBe("No workflows for this record.");
+    view.rerender(
+      <WorkbookInspectorPanelContent model={{ access: "concealed" }} />,
+    );
+    expect(view.container.textContent).toBe("");
+    expect(() => inspectorCommands("")).toThrow();
+    view.unmount();
+  });
   it("announces each owner transition once across remounts and never carries feedback across subjects", () => {
     const ledger = new WorkbookInspectorNoticeLedger();
     const notice: WorkbookInspectorNotice = {

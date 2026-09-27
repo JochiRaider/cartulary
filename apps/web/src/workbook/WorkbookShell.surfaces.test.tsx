@@ -1692,10 +1692,10 @@ describe("WorkbookShell surface selection", () => {
     const retryBatch = screen.getByRole("button", { name: "Retry fill" });
     retryBatch.focus();
     act(() => runtime.batches.setAuthority({ ...authority, closed: true }));
-    expect(retryBatch).toHaveProperty("disabled", true);
+    expect(retryBatch.getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByRole("button", { name: "Recovery (3)" })).toBeTruthy();
     act(() => runtime.batches.setAuthority({ ...authority, role: "viewer" }));
-    expect(retryBatch).toHaveProperty("disabled", true);
+    expect(retryBatch.getAttribute("aria-disabled")).toBe("true");
     act(() => runtime.batches.setAuthority(authority));
     batchSend.mockResolvedValueOnce({
       kind: "acknowledged",

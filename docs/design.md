@@ -2025,10 +2025,11 @@ Design contract. Menu items that open nested UI MUST state that result in access
 
 Design contract. The bounded record header and Close control MUST remain visible
 above one inspector scroll body. One labelled navigation region renders ordinary
-buttons with `aria-current="location"` on the current destination. All admitted
+quiet location buttons with `aria-current="location"`, an underline and subtle
+surface treatment on the current destination. All admitted
 complete labels, targets, gaps, padding and focus treatment render directly in
 one row when measured capacity permits; equality fits. Otherwise a labelled
-`Sections` chooser exposes the same sequence. Unknown measurements use the
+`Sections: {current section}` chooser exposes the same sequence. Unknown measurements use the
 chooser. The five standard labels MUST fit at 420px with default typography and
 spacing. Labels MUST NOT be abbreviated, text shrunk, or navigation scrolled or
 wrapped to force fit. Reevaluate after size, font, text-spacing or label changes;
@@ -2083,7 +2084,9 @@ missing required implementation is a coverage failure, not an empty result.
 These closed state values are projected through authored design contracts and
 generated facades; executable consumers MUST NOT read this document.
 
-Design contract. A readable panel consists of a shallow ordered sequence of
+Design contract. A commands-only panel explicitly supplies admitted commands and
+an owner-authored explanation when none are admitted. It MUST NOT fabricate an
+empty data region. Other readable panels consist of a shallow ordered sequence of
 owner-supplied regions with stable semantic identities. A region uses the same
 data/access vocabulary; independent reads and recovery targets remain separate.
 Panel concealment suppresses every region, notice, control, count and focus
@@ -2111,7 +2114,9 @@ authoring lifetime. Collection summaries delegate management to existing owners;
 they do not convert action payloads to scalar patches.
 
 Design contract. Short scalar saved values MUST use aligned label/value/action
-rows; narrative values use full-width rows. Classification uses existing semantic
+rows without per-field dividers; narrative values use full-width rows. Section
+and attached-editor boundaries remain visible. Quiet field actions stay visible
+at rest and retain complete contextual accessible names. Classification uses existing semantic
 field contracts, never display labels. Unknown presentation uses a readable
 stacked row. Layout MUST NOT omit or reorder declared readable fields. The following exact
 `cartulary.view.timeline.v2` overrides select presentation, never membership or
@@ -2133,7 +2138,11 @@ required recovery content MUST NOT be truncated.
 Collection navigation exposes only an admitted existing management destination.
 
 Design contract. An ordinary `Unsaved change` region MUST keep the accepted value
-visible and group `Update` with `Close editor`. Close states that unfinished work
+visible and group primary `Update` with `Close editor`. `Discard draft` is a
+quiet local command. Visible `Resume draft`, `Review draft` and `Manage` labels
+use adjacent field context; accessible names include the field and, when multiple
+actions share it, the action identity. One concise explanation covers explicit
+submission and session-local retention. Close states that unfinished work
 is retained. Value-level Clear and `Discard draft` remain distinct. Detached
 unfinished work MUST have an original-field cue and owner-admitted Resume/Discard
 actions derived from the canonical authoring owner. Only Update or the Core-owned
@@ -2160,7 +2169,12 @@ Design contract. Relationship item summaries MUST show raw mention, semantic
 resolution state and the authorized target when known. One selected correction
 region immediately follows its originating item within its source collection,
 including session-observed dismissed items. Target filters, read status, paging
-and retry belong inside the chooser. Collapsing controls MUST preserve visible
+and retry belong inside one labelled searchable chooser. Its scrollable options
+region is bounded to 12rem through the inspector presentation projection, so
+enlarged text scales the region. Paging and read
+recovery remain outside its listbox options. Manual option acceptance selects a stable
+identity; only explicit Resolve or Correct target submits. Create and Dismiss are
+subordinate. Core 01 REQ-01-676 and Core 03 §9 own search and observation behavior. Collapsing controls MUST preserve visible
 pending, uncertain and retained-work cues and their owner-required recovery entry.
 
 Design contract. Evidence sections MUST distinguish accepted authorized
@@ -2185,8 +2199,12 @@ description, operation and absolute UTC date/time with numeric offset. An
 authorized name is used when supplied; otherwise the attributed identifier is
 shown as an identifier. Before/After retains typed historical values through
 rendering, never reconstructed from current rows or display strings. Unavailable
-historical data is not Not set. Narratives stack; scalar pairs may sit beside
-each other only when both fit. Diagnostic field keys and references remain in
+historical data is not Not set. A single-unit summary carries its semantic unit
+identity; omit that unit's redundant inner heading by identity, never text equality.
+Multiple units keep their headings. Narratives, collections and unknown field
+kinds stack. Known scalar pairs sit beside each other only when both fit within
+two rendered lines at the available width; stack until measured. Reevaluate on
+resize, font and supported text-spacing changes. Diagnostic field keys and references remain in
 subordinate technical disclosure unless needed for attribution or safe
 confirmation. Event disclosure exposes complete Core-owned semantic
 units, exact committed timestamp and technical references. Reversal controls
@@ -2195,7 +2213,9 @@ in `Record actions`. Whole-change-set review MUST state that other records can b
 affected. Display text MUST NOT determine action identity or eligibility.
 
 Design contract. Workflow actions MUST appear once in declared order with their
-authored label and explicit outcome: open authoring, review, or navigate. One
+authored label as full-width left-aligned quiet rows and explicit outcome: open
+authoring, review, or navigate. Share one concise explanation when outcomes agree;
+otherwise explain the outcome beside each row. One
 primary affirmative action belongs to each active local decision. A saved subject
 remains the record header while an attached append/create/transition title stays
 local. No-subject creation identifies its creation mode and admitted source
@@ -2215,7 +2235,11 @@ only by owner work identity; order by admitted section, owner local order, then
 stable identity. Older operations and newer drafts remain distinct. Concealment
 withdraws labels, counts, destinations and callbacks together. No unresolved
 work means no attention entry. Detailed attention stays in the body; the compact
-header entry only navigates. Reopening never duplicates operations or notices.
+header entry only navigates. For one admitted item it reads `View: {owner label}`
+and goes directly to its original controls without resuming, submitting or
+retrying. For multiple items `Unfinished work (N)` opens the ordered summary.
+Header text may truncate; its accessible name and body text remain complete.
+Reopening never duplicates operations or notices.
 
 Design contract. Notices render at their captured field, item, region, panel or
 inspector destination. Acknowledged writes followed by failed display refresh

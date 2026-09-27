@@ -196,6 +196,17 @@ API routes, preview or download handle issuance and redemption, job polling, job
 Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255, AC-257, AC-260, AC-261, AC-427
 
+**REQ-04-162**
+`GET /api/v1/incidents/{incident_id}/entity-candidates` MUST require a current
+valid authenticated session and current incident membership with role `viewer`,
+`editor`, `reviewer`, or `admin`. Closed incidents permit this read. Each request,
+including continuation, MUST reauthorize; a cursor grants no access and deployment
+administration alone is insufficient. Candidate visibility does not authorize
+resolution or creation. Core 01 REQ-01-676 owns request validation precedence,
+concealment outcomes and the discovery contract.
+Profiles: base
+Verified by: AC-570
+
 ### 2.0A Evidence route-family authorization and concealment
 
 **REQ-04-156**
@@ -4044,3 +4055,21 @@ neither that path nor file contents. Network Flow's required manifest reference
 has source `explicit`; its omitted resource-limits object has source `default`
 and value `{}`. An explicitly supplied limits object retains source `explicit`.
 This does not change deployment configuration syntax or file resolution.
+
+### Inspector remediation acceptance
+
+- **AC-570**: Entity discovery proves all declared name, alias and identifier
+  sources beyond the first unsearched page; exact list-search normalization and
+  bounds; exclusion of concealed, deleted, merged and provenance-only sources;
+  actor/incident/type/search/limit cursor isolation; per-page admission after
+  authority replacement; bounded batches and browser retention; cancellation;
+  no mutation/revision/collaboration side effects or raw-search telemetry.
+  Combobox evidence covers IME, manual selection, stale/late results, Previous,
+  Next, Retry, Restart and Escape without implicit resolution.
+- **AC-571**: Inspector evidence proves navigation-only single attention, ordered
+  multiple attention, distinct saved/draft values and draft commands, quiet
+  complete section navigation, commands-only Workflow states, semantic History
+  heading suppression and measured scalar pairs, complete values at narrow and
+  enlarged text sizes, unobscured focus and retained source-owner lifetimes.
+  Functional, accessibility and reviewed production-renderer visual evidence
+  support Design §12.7; no measured usability claim is implied.

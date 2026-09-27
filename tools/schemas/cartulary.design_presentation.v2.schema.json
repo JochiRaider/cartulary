@@ -35,8 +35,11 @@
     "inspector": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reference_viewport", "persistent_region_max_height_px", "field_action_min_size_px", "property_stack_below_px", "overlay_min_viewport_width_px", "field_layout_overrides", "data_states", "access_states", "content_states", "header_title_lines", "narrative_preview_lines", "action_outcomes", "unavailable_causes", "announcements"],
+      "required": ["candidate_chooser_max_block_size_rem", "history_scalar_pair_max_lines", "panel_kinds", "reference_viewport", "persistent_region_max_height_px", "field_action_min_size_px", "property_stack_below_px", "overlay_min_viewport_width_px", "field_layout_overrides", "data_states", "access_states", "content_states", "header_title_lines", "narrative_preview_lines", "action_outcomes", "unavailable_causes", "announcements"],
       "properties": {
+        "candidate_chooser_max_block_size_rem": { "const": 12 },
+        "history_scalar_pair_max_lines": { "const": 2 },
+        "panel_kinds": { "const": ["regions", "commands_only"] },
         "reference_viewport": { "const": { "width_px": 1280, "height_px": 720, "inspector_width_px": 420 } },
         "persistent_region_max_height_px": { "const": 128 },
         "field_action_min_size_px": { "const": 28 },

@@ -14,6 +14,7 @@ import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspect
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { MentionReview } from "./actions/timelineMentionOperationModel";
 import { WorkbookTimelineMentionOperationOwner } from "./actions/WorkbookTimelineMentionOperationOwner";
+import { timelineMentionCandidatePolicy } from "./adapters/createTimelineMentionCandidateReader";
 import { createTimelineMentionEntityCreationAdapter } from "./adapters/createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "./adapters/createTimelineMentionResolutionAdapter";
 import { commitTimelineProjection } from "./adapters/timelineProjectionCommitAdapter";
@@ -72,6 +73,7 @@ function setup(review: MentionReview = mentionReview()) {
     presentationKey: "timeline:source",
     presentationActive: true,
     candidatePort: {
+      policy: timelineMentionCandidatePolicy,
       page: vi.fn(async () => ({
         kind: "accepted" as const,
         value: { candidates: [], nextCursor: null, hasMore: false },
@@ -734,6 +736,7 @@ function completionFixture(
   };
   const rowsRef = { current: [mentionWorkbookRow(review)] };
   const candidatePort = {
+    policy: timelineMentionCandidatePolicy,
     page: vi.fn(async () => ({
       kind: "accepted" as const,
       value: {

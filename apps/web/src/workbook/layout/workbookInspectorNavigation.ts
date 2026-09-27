@@ -145,6 +145,14 @@ export function useWorkbookInspectorNavigation(
     const element = elements.current.get(section.panel.panelId);
     if (!element) return;
     const target = destination?.(element) ?? section.focusDestination(element);
+    // Reveal presentation ancestors without invoking an owner command or read.
+    if (destination) {
+      let ancestor = target.parentElement;
+      while (ancestor && ancestor !== element) {
+        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+        ancestor = ancestor.parentElement;
+      }
+    }
     scrollToSection(destination ? target : element);
     target.focus({ preventScroll: true });
   };

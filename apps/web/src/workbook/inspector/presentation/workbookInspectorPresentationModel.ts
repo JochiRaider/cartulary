@@ -57,6 +57,7 @@ export type WorkbookHistoryEventPresentation = {
   readonly key: string;
   readonly operation: string;
   readonly summary: string;
+  readonly summaryUnitKey: string | null;
   readonly units: readonly {
     readonly key: string;
     readonly title: string;
@@ -64,6 +65,7 @@ export type WorkbookHistoryEventPresentation = {
     readonly changes: readonly {
       readonly fieldKey: string;
       readonly label: string;
+      readonly layout: "scalar" | "stacked";
       readonly before: WorkbookHistoryValue;
       readonly after: WorkbookHistoryValue;
     }[];

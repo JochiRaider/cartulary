@@ -757,6 +757,11 @@ Mention resolution is the explicit process of linking a source-bound textual obs
 
 Automatic background matching MAY suggest candidates. Omission behavior: when no owner-defined explicit action or binding mode permits mutation, suggestions remain non-mutating and MUST NOT create stubs or merge entities.
 
+Entity-candidate discovery is a non-mutating authorized search of eligible Hosts
+and Identities, including owner-declared names, aliases and identifiers. Core 01
+REQ-01-676 owns the interface; Core 03 §9 owns selection and observation lifetime.
+A candidate observation is not a resolution or an exact-match reuse decision.
+
 ### 13.3 Auto-resolution
 
 Auto-resolution is a narrow current-profile eligibility path for interactive mention capture on owner-defined Timeline relationship cells. It is not general fuzzy matching. If any required owner-defined condition fails, the ordinary unresolved path applies and the UI MAY present non-mutating suggestions. Omission behavior: if suggestions are not presented, no entity or relationship mutation is implied.

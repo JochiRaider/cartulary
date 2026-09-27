@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/candidates"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
@@ -14,16 +15,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/google/uuid"
 )
 
 type service struct {
-	mergeStore     *merge.Store
-	mentionStore   *mentions.Store
-	incidentAccess incidentAdmissionChecker
-	authStore      *authn.Store
-	keys           authn.MasterKeys
-	now            func() time.Time
+	candidateReader candidates.PageReader
+	cursorCodec     *pagination.Codec
+	mergeStore      *merge.Store
+	mentionStore    *mentions.Store
+	incidentAccess  incidentAdmissionChecker
+	authStore       *authn.Store
+	keys            authn.MasterKeys
+	now             func() time.Time
 }
 
 type incidentAdmissionChecker interface {
@@ -31,8 +35,9 @@ type incidentAdmissionChecker interface {
 }
 
 type RouteOptions struct {
-	MergeStore   *merge.Store
-	MentionStore *mentions.Store
+	CandidateReader candidates.PageReader
+	MergeStore      *merge.Store
+	MentionStore    *mentions.Store
 }
 
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
@@ -42,6 +47,7 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 			return err
 		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.entities", map[string]http.HandlerFunc{
+			"listEntityCandidates": service.handleCandidates,
 			"mergeEntityRecord":    service.handleMerge,
 			"resolveEntityMention": service.handleMentionAction,
 		})
@@ -63,13 +69,23 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*service, err
 	if options.MergeStore == nil {
 		return nil, errors.New("entities route composition requires a merge store")
 	}
+	if options.CandidateReader == nil {
+		return nil, errors.New("entities route composition requires a candidate reader")
+	}
+	cursorCodec := deps.CursorCodec
+	if cursorCodec == nil {
+		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+		cursorCodec = pagination.NewCodec(cursorKey[:])
+	}
 	return &service{
-		mergeStore:     options.MergeStore,
-		mentionStore:   options.MentionStore,
-		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
-		authStore:      authn.NewStore(deps.PostgresHandle()),
-		keys:           keys,
-		now:            now,
+		candidateReader: options.CandidateReader,
+		cursorCodec:     cursorCodec,
+		mergeStore:      options.MergeStore,
+		mentionStore:    options.MentionStore,
+		incidentAccess:  admission.NewChecker(deps.PostgresHandle()),
+		authStore:       authn.NewStore(deps.PostgresHandle()),
+		keys:            keys,
+		now:             now,
 	}, nil
 }
 

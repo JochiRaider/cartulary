@@ -156,7 +156,7 @@ Verified by: AC-453
 **REQ-03-292**
 The workbook client MUST execute inspector feature groups using the deterministic algorithms in this subsection. These algorithms govern client-visible interaction only. Server-side authorization, route validation, mutation legality, and source-state changes remain owned by the route and domain owners.
 Profiles: base
-Verified by: AC-456, AC-457, AC-458
+Verified by: AC-456, AC-457, AC-458, AC-571
 
 Algorithm: `open_inspector(origin, selected_record_id)`.
 
@@ -275,6 +275,9 @@ it MUST NOT inspect draft stores, classify success or construct recovery request
 Separate revisions and operations remain distinct even when they concern the
 same field. Revoking a contribution removes protected labels, counts and pending
 presentation destinations before replacement; stale callbacks grant no authority.
+A single attention entry navigates directly to its original owner controls;
+multiple entries navigate through an ordered summary. Navigation MUST NOT invoke
+Resume, submit, retry, or an unrequested read.
 
 Field feedback shares this canonical edit identity and captured authoring
 revision. An obsolete response MUST NOT invalidate another field or newer draft;
@@ -1754,6 +1757,27 @@ Verified by: AC-006, AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-
 Restoring a dismissed mention MUST create a new attributed change that returns the mention to `unresolved`, preserves the raw mention unchanged, and leaves resolution metadata empty. Ordinary restore MUST NOT silently relink to any prior resolved entity; exact pre-dismiss state recovery belongs to reviewer rollback.
 Profiles: base
 Verified by: AC-006, AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
+
+**REQ-03-310**
+Candidate discovery uses Core 01 REQ-01-676 independently of the active grid.
+The Timeline read owner retains one accepted page of at most 100 candidates, at
+most ten previous cursor checkpoints and a separate minimal selected observation.
+Previous refetches a retained checkpoint; Next follows the accepted continuation;
+Restart begins a cursor-free chain. Results preserve server order.
+
+Typing searches after 250ms of settled input; IME composition defers dispatch.
+Editing search invalidates selection and aborts the old read. Request, search and
+authority identity fence results. Paging and recoverable read errors retain a
+selection for the same search and authority. Restart marks prior observations
+stale until revalidated; stale observations never authorize resolution. Retry
+repeats the captured failed read; invalid continuation offers Restart. Selection
+never submits; Resolve/Correct target remains explicit and server-validated.
+These observations remain memory-local and follow REQ-03-299/100 authority loss.
+The chooser owns only popup/keyboard presentation, supports manual acceptance and
+active-descendant navigation, preserves native editing, and dismisses with Escape
+before outer inspector handling.
+Profiles: base
+Verified by: AC-570
 
 ### 9.1 Source-bound indicator workflow
 

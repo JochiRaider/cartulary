@@ -2,7 +2,7 @@
 
 package openapioperations
 
-const CanonicalSHA256 = "91497d1e9700c1cfdf87f3afb4916221a6b65b99e357ffeb297586e75c7bf9a8"
+const CanonicalSHA256 = "0da75d5682ab07c767cbde41bc2b2f01e745b7815f318fddc815accb29b92dfd"
 const DocumentVersion = "2.0.0"
 
 type Operation struct {
@@ -60,6 +60,7 @@ var catalog = []Operation{
 	{OwnerID: "module.incidents", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}", Pattern: "GET /api/v1/incidents/{incident_id}", OperationID: "getIncident", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.incidents", Method: "PATCH", PathTemplate: "/api/v1/incidents/{incident_id}", Pattern: "PATCH /api/v1/incidents/{incident_id}", OperationID: "patchIncident", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.incidents", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/close", Pattern: "POST /api/v1/incidents/{incident_id}/close", OperationID: "closeIncident", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
+	{OwnerID: "module.entities", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}/entity-candidates", Pattern: "GET /api/v1/incidents/{incident_id}/entity-candidates", OperationID: "listEntityCandidates", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.incidents", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}/membership-audit-events", Pattern: "GET /api/v1/incidents/{incident_id}/membership-audit-events", OperationID: "listIncidentMembershipAuditEvents", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.incidents", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}/memberships", Pattern: "GET /api/v1/incidents/{incident_id}/memberships", OperationID: "listIncidentMemberships", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.incidents", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/memberships", Pattern: "POST /api/v1/incidents/{incident_id}/memberships", OperationID: "createIncidentMembership", Availability: "base", StateChanging: true, SuccessStatuses: []int{200, 201}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},

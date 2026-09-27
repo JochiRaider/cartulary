@@ -57,6 +57,7 @@
     "listDeploymentExtensions",
     "listDeploymentUsers",
     "listEnterpriseAuthProviders",
+    "listEntityCandidates",
     "listImportUnits",
     "listIncidentMembershipAuditEvents",
     "listIncidentMemberships",

@@ -2511,6 +2511,153 @@
         }
       }
     },
+    "/api/v1/incidents/{incident_id}/entity-candidates": {
+      "get": {
+        "operationId": "listEntityCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host",
+                "identity"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "list_search_v1 over declared names, aliases and eligible identifiers; normalized-empty browses.",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Defaults to 100, or reuses the cursor-bound limit.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor_token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityCandidateListEnvelope"
+                }
+              }
+            },
+            "description": "Authorized candidate page"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid list query or pagination",
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ]
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Session required",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Incident unavailable",
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ]
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Credential bootstrap rejected",
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Read dependency failed",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ]
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Search authorized eligible Host or Identity candidates without mutation.",
+        "tags": [
+          "entities"
+        ]
+      }
+    },
     "/api/v1/incidents/{incident_id}/membership-audit-events": {
       "get": {
         "operationId": "listIncidentMembershipAuditEvents",
@@ -11609,6 +11756,81 @@
           "provider_key",
           "provider_type",
           "display_name"
+        ],
+        "type": "object"
+      },
+      "EntityCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "entity_type": {
+            "enum": [
+              "host",
+              "identity"
+            ],
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "row_version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "row_version",
+          "entity_type",
+          "display_name"
+        ],
+        "type": "object"
+      },
+      "EntityCandidateListData": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/EntityCandidate"
+            },
+            "maxItems": 500,
+            "type": "array"
+          },
+          "entity_type": {
+            "enum": [
+              "host",
+              "identity"
+            ],
+            "type": "string"
+          },
+          "incident_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "incident_id",
+          "entity_type",
+          "candidates"
+        ],
+        "type": "object"
+      },
+      "EntityCandidateListEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EntityCandidateListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ],
         "type": "object"
       },

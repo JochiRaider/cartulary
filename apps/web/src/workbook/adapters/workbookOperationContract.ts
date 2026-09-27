@@ -28,6 +28,7 @@ const workbookOperationIDs = [
   "getViewSchema",
   "issueEvidenceDownloadHandle",
   "issueEvidencePreviewHandle",
+  "listEntityCandidates",
   "listIncidentMemberships",
   "listIncidentSavedViews",
   "listIndicatorObservations",

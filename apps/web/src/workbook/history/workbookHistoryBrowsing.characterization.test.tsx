@@ -365,12 +365,13 @@ describe("History browsing characterization", () => {
     expect(result.current.snapshot.browsing?.failure).not.toBeNull();
     rerender({ active: true });
     act(() => result.current.commands.retryRead());
-    await waitFor(() =>
-      expect(result.current.snapshot.browsing?.failure).toBeNull(),
-    );
-    expect(result.current.snapshot.browsing?.accepted?.data.items).toEqual([
-      item,
-    ]);
+    await waitFor(() => {
+      expect(result.current.snapshot.browsing?.pending).toBeNull();
+      expect(result.current.snapshot.browsing?.failure).toBeNull();
+      expect(result.current.snapshot.browsing?.accepted?.data.items).toEqual([
+        item,
+      ]);
+    });
     expect(t.send).not.toHaveBeenCalled();
   });
 });

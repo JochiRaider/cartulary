@@ -396,7 +396,7 @@ test("Inspector header remains reachable while the body scrolls at supported nar
     .getByRole("button", { name: "Close editor", exact: true })
     .click();
   await expect(
-    shell.getByRole("button", { name: "Unfinished work (1)", exact: true }),
+    shell.getByRole("button", { name: /^View:/, exact: true }),
   ).toBeVisible();
   for (const [width, height, zoom, spacing] of [
     [1280, 720, 1, false],
@@ -454,7 +454,7 @@ test("Inspector header remains reachable while the body scrolls at supported nar
         cartularyDesignPresentation.inspector.persistentRegionMaxHeightPx,
       );
       await expect(
-        shell.getByRole("button", { name: "Sections", exact: true }),
+        shell.getByRole("button", { name: /^Sections:/, exact: true }),
       ).toHaveCount(0);
     }
     expect(bounds.outerScroll).toBe(0);

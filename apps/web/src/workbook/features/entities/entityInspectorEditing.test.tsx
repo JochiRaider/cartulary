@@ -161,7 +161,7 @@ it("opens with saved values and submits only explicitly while Escape retains unf
   fireEvent.keyDown(input, { key: "Escape" });
   expect(screen.queryByTestId(genericEditValueTestId(schema))).toBeNull();
   expect(
-    screen.getByText("Unfinished work retained for Location."),
+    screen.getByRole("button", { name: "Resume draft for Location" }),
   ).not.toBeNull();
   fireEvent.click(
     screen.getByRole("button", { name: "Resume draft for Location" }),

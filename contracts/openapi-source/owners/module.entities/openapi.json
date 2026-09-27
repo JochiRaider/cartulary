@@ -203,6 +203,153 @@
           }
         ]
       }
+    },
+    "/api/v1/incidents/{incident_id}/entity-candidates": {
+      "get": {
+        "tags": [
+          "entities"
+        ],
+        "operationId": "listEntityCandidates",
+        "summary": "Search authorized eligible Host or Identity candidates without mutation.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "host",
+                "identity"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "description": "list_search_v1 over declared names, aliases and eligible identifiers; normalized-empty browses."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Defaults to 100, or reuses the cursor-bound limit."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized candidate page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityCandidateListEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid list query or pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ]
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "404": {
+            "description": "Incident unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ]
+          },
+          "409": {
+            "description": "Credential bootstrap rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "description": "Read dependency failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ]
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -604,6 +751,81 @@
           "data",
           "meta"
         ]
+      },
+      "EntityCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_id",
+          "row_version",
+          "entity_type",
+          "display_name"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "identity"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "EntityCandidateListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "incident_id",
+          "entity_type",
+          "candidates"
+        ],
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "identity"
+            ]
+          },
+          "candidates": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/EntityCandidate"
+            }
+          }
+        }
+      },
+      "EntityCandidateListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EntityCandidateListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
+          }
+        }
       }
     }
   }

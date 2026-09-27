@@ -1,3 +1,4 @@
+import { listViewContracts } from "@cartulary/view-contracts";
 import type { RecordHistoryItem } from "../adapters/workbookHistoryResponse";
 import type { RecordHistoryRollbackAction } from "../history/workbookHistoryItem";
 
@@ -17,6 +18,7 @@ export function workbookHistoryEventPresentation(
     changes: unit.changes.map((change) => ({
       fieldKey: change.field_key,
       label: historyFieldLabel(change.field_key),
+      layout: historyValueLayout(change.field_key),
       before: change.before,
       after: change.after,
     })),
@@ -39,6 +41,7 @@ export function workbookHistoryEventPresentation(
       units.length === 1
         ? (units[0]?.title ?? "Record changed")
         : `${units.length} changes: ${[...new Set(item.diff_summary.units.map((unit) => historyKindLabel[unit.kind]))].join(", ")}`,
+    summaryUnitKey: units.length === 1 ? (units[0]?.key ?? null) : null,
     units,
     technicalFields: workbookHistoryTechnicalFields(item),
   };
@@ -127,4 +130,27 @@ function workbookHistoryTechnicalFields(
       ? []
       : [{ label: "Revision", value: String(item.revision_no) }]),
   ];
+}
+
+const historyFields = new Map(
+  listViewContracts().flatMap((contract) =>
+    contract.fields.map((field) => [field.fieldKey, field] as const),
+  ),
+);
+function historyValueLayout(key: string): "scalar" | "stacked" {
+  const field = historyFields.get(key);
+  if (
+    !field ||
+    [
+      "multiline_body_v1",
+      "reason_note_v1",
+      "timeline_visible_text_v1",
+    ].includes(field.stringContractId ?? "")
+  )
+    return "stacked";
+  return ["text", "timestamp", "date", "number", "boolean", "enum"].includes(
+    field.readKind,
+  )
+    ? "scalar"
+    : "stacked";
 }

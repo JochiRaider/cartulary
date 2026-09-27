@@ -239,7 +239,6 @@ const fieldStyle = {
   rowGap: "var(--ct-spacing-xs)",
   minInlineSize: 0,
   paddingBlock: "var(--ct-spacing-xs)",
-  borderBlockEnd: "var(--ct-border-hairline)",
 } satisfies CSSProperties;
 const labelStyle = {
   ...workbookTypography("metadata"),

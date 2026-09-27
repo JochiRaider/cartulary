@@ -2061,6 +2061,7 @@
         "internal/modules/assessments/internal/providers/projection/provider.go",
 		"internal/modules/projections/internal/queryengine/assessment.go",
         "internal/modules/assessments/internal/providers/rollback/provider.go",
+        "internal/modules/entities/candidates/reader.go",
         "internal/modules/entities/hostidentity/exact_match.go",
         "internal/modules/entities/hostidentity/deleterestore/provider.go",
         "internal/modules/entities/hostidentity/patch_store.go",

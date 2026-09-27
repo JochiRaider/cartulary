@@ -5,10 +5,19 @@ export type MentionCandidate = Readonly<{
   displayText: string;
   entityType: "host" | "identity";
 }>;
+export type MentionCandidateRequest = Readonly<{
+  entityType: MentionCandidate["entityType"];
+  search: string;
+  cursor: string | null;
+}>;
 export interface TimelineMentionCandidatePort {
+  readonly policy: Readonly<{
+    pageSize: number;
+    previousCursorLimit: number;
+    settledInputMs: number;
+  }>;
   page(
-    entityType: MentionCandidate["entityType"],
-    cursor: string | null,
+    request: MentionCandidateRequest,
     signal: AbortSignal,
   ): Promise<
     | WorkbookOperationOutcome<

@@ -1053,3 +1053,481 @@ binary acceptance area and digest row A001–A027 is PASS. No applicable blocked
 failed criterion remains, and no required implementation, validation, walkthrough
 or handoff work remains. The reviewable working tree and this tracker are the
 completed handoff; no deployment or publication is part of this effort.
+
+## Inspector remediation iteration — 2026-09-26
+
+Authorized implementation baseline: clean main at c4fe8d5e06f2b0d9501173dad70ea5306b09625f.
+Prior completion records above describe the previous iteration, not this one.
+Scope: G0 specification closure; G1 authorized candidate search; G2 editor
+hierarchy; G3 direct attention; G4 quiet navigation; G5 commands-only Workflow;
+G6 semantic History comparison; G7 quiet Details.
+
+| Stream | Status | Exit evidence |
+| --- | --- | --- |
+| WS0 Owner closure and ledger | DONE | Design §12.7, Core 01 REQ-01-676, Core 03 REQ-03-292/310, Core 04 REQ-04-162 and AC-570/571 and Domain §13.2 amended; no owner contradiction. |
+| WS1 Typed contracts and characterization | DONE | Authored endpoint, release declarations, policy and presentation projections generated; json-shape-check, generated-artifact-policy-check and generate-drift pass. Single-attention characterization updated for the intended contract. |
+| WS2 Details/editor/attention/navigation | DONE | Focused units, typecheck, browser navigation/recovery at 20260927T005205Z-p41221, full a11y at 20260927T005514Z-p60197 pass; presentation reviewed in ordinary visual evidence. |
+| WS3 Entity discovery backend | DONE | Expanded source/search/cursor/authorization integration passed at 20260927T010900Z-p84429; resolution/a11y at 20260927T005205Z-p41206; root boundary separately passed at 20260927T010315Z-p44762. |
+| WS4 Searchable relationship chooser | DONE | Bounded owner, captured retry, IME and selection units passed at 20260927T010447Z-p14092; browser resolution and full a11y passed. This unit run had a separate History test timing failure, repaired and passed at 20260927T010848Z-p83760. |
+| WS5 Workflow and History | DONE | Commands-only producers and semantic History units pass; production-browser scalar fit, 320px stacking, zoom and text-spacing checks pass at 20260927T011538Z-p70845 (11/11 units). |
+| WS6 Integrated validation | DONE | Full check 967/967, final a11y 20/20, measurement 24/24, contract checks and two fresh ordinary visual runs PASS; all 37 final goldens reviewed. |
+| WS7 Retirement and handoff | DONE | No retired consumers remain; inventory, owner/contract maps, deployment/rollback and acceptance ledger complete. Terminal finalizer and Markdown pass at 20260927T020548Z-p63623 and 20260927T020607Z-p67438. |
+
+### Inventory and ownership
+
+| Boundary | Authored source / contracts | Verification |
+| --- | --- | --- |
+| Inspector presentation, Details, drafts, navigation | apps/web/src/workbook/inspector and layout; contracts/design; Design §12.7 | web.workbook, module.workbook, package.ui |
+| Timeline discovery and controls | apps/web/src/workbook/timeline/actions, adapters, hooks, components; Core 03 §9 | web.workbook, module.entities browser rows |
+| Entity candidates and routes | internal/modules/entities; internal/app/server; Core 01 REQ-01-676 | module.entities |
+| Search and pagination | internal/platform/listquery and pagination (reuse) | platform.viewquery, platform.openapi |
+| API/protocol generation | contracts/openapi-source/owners/module.entities; contracts/protocol-ts; route registry | package.protocol_ts, platform.openapi |
+
+The exact changed-file inventory is the working-tree diff. Existing mutation,
+authoring and recovery owners, Evidence semantics, unrelated native candidate
+pickers, and existing workbook query endpoints are explicitly retained. No
+database migration, durable drafts, fuzzy matching or new theme is authorized.
+
+### Retirement ledger
+
+Removed the Timeline local filter, accumulated candidate catalog, select-specific
+focus lookup, redundant action copy, fake Workflow empty region and duplicate
+History unit heading. Timeline, Entity and Assessment command-only producers use
+the explicit variant. No legacy fallback or compatibility adapter remains.
+
+### Validation and session handoff
+
+Baseline and web.workbook/module.entities task guides verified. Implementation
+checks and exceptions are recorded below. Backend route composition preceded the
+WS2 browser exit because those fixtures exercise the full application cutover;
+this dependency exception was recorded before advancing and is now validated. Rollout: backend first or one application release;
+rollback frontend before endpoint removal, with no data rewrite. The final assessment of acceptance rows A001–A027 appears below.
+
+Generation initially failed because four additive OpenAPI declarations were absent;
+those declarations were added to the authored release change set. Generation
+passed at .cartulary/test-results/20260927T003333Z-p82429; schema, artifact-policy
+and drift checks passed at 20260927T003353Z-p85412, 20260927T003400Z-p85845 and
+20260927T003404Z-p86272 respectively. No runtime uses Markdown.
+
+WS2 unit checks passed at 20260927T003630Z-p92366 after replacing obsolete copy
+assertions; the initial run also passed saved-reading, Timeline editing, draft
+binding and ordinary recovery. Typecheck passed at 20260927T003638Z-p93061 after
+adding the new read operation to the exhaustive error-family map. At that checkpoint, browser/visual verification spanned the additive route
+cutover; its dependency on backend composition was explicit. The completed
+application-browser exits are recorded above.
+
+The all-candidate endpoint replaces only Timeline discovery. Public workbook
+query operations and unrelated native pickers remain supported. All known read
+controls now focus the semantic combobox rather than a select element. Errors
+found during this iteration are retained under their run roots; copy assertions,
+operation error mapping, type narrowing and chooser accessibility were repaired
+without weakening product acceptance. The unsupported BIOME_CHECK_FLAGS override
+was rejected by Make input validation; ordinary lint was used instead.
+
+
+### Integrated validation ledger
+
+- Final generated contract checks PASS: generate `20260927T010952Z-p3558`,
+  generate-drift `20260927T011003Z-p6508`, generated-artifact-policy-check
+  `20260927T011019Z-p10716`, json-shape-check `20260927T011024Z-p11366`,
+  openapi-compatibility-check `20260927T011030Z-p12405`.
+- Full accessibility PASS `20260927T005514Z-p60197` (20/20 graph units).
+- First full check `20260927T005533Z-p91898` failed (956/967): new source/entrypoint
+  and Records-read accounting, tuple narrowing, and retired native-selector
+  expectations were corrected. Existing recovery test assertions incorrectly
+  expected native disabled where the focus-preserving control uses aria-disabled;
+  a History test asserted before retry settlement; source ownership missed a
+  preexisting test fixture; a readiness selector violated the repository guard.
+  Those assertions were repaired without changing production recovery semantics.
+  An unrelated Incident Bundles job failed to reach canceled within its timeout;
+  the final full check passed this unchanged scenario.
+- Candidate coverage expansion initially used a nonexistent deletion-attribution
+  column in a fixture. Corrected to the actual alias/identifier deletion schema;
+  expanded integration passed at `20260927T010900Z-p84429`.
+- Agent-finalize PASS `20260927T011114Z-p22757` before the final broad check.
+  Retained-run maintenance skipped because RESULTS_DIR was unset.
+- Ordinary visual run `20260927T005447Z-p24607` exposed two obsolete fixture
+  interactions; corrected before promotion. Ordinary run
+  `20260927T010457Z-p19579` completed all functional assertions and reconciled all
+  255 captures, 255 active goldens, 29 registered fixtures, zero missing,
+  ambiguous, orphan or unresolved mappings. Only 37 intentional screenshot
+  comparisons failed. No viewport, zoom, mask, anchor, crop, tolerance or renderer
+  change is being used to accept the redesign.
+- Two mistaken narrow row names were rejected before execution; owner catalog
+  lookup selected the exact rows. These produced no product evidence.
+
+
+### Reviewed golden refresh — 2026-09-27
+
+The refresh trigger is the adopted Design §12.7 hierarchy and chooser change,
+including its effects on contextual authoring. Ordinary reconciliation
+`20260927T010457Z-p19579` identified the consumers below before promotion.
+`make browser-e2e-visual-update` PASS `20260927T011108Z-p13534` (12/12 units).
+Every one of the 37 changed PNGs was opened and manually reviewed at its native
+capture dimensions. All were accepted: readable saved values, quiet navigation,
+local authoring/recovery, visible focus and destructive confirmation remain
+available. The small destructive-confirmation raster difference preserves its
+warning boundary, focused Cancel and separate destructive affirmative action.
+No tolerance, mask, crop, renderer or capture-profile relaxation was made.
+Two fresh ordinary runs are required after this promotion; the interrupted first
+attempt at `20260927T012003Z-p67624` is not passing evidence.
+
+Paths below are relative to
+`apps/web/e2e/workbook.visual.spec.ts-snapshots/`. Row and fixture/scenario
+identities come from reconciliation, not filename inference. Each listed image
+has manual review result PASS. Scenario IDs are retained where the capture has
+no separately registered visual fixture.
+
+| Golden | Verification row | Fixture or scenario |
+| --- | --- | --- |
+| contextual-decision-authoring-linux.png | module.workbook.visual.contextual_task_decision_creation | scenario_4a08391df78c |
+| contextual-decision-authoring-narrow-linux.png | module.workbook.visual.contextual_task_decision_creation | scenario_4a08391df78c |
+| contextual-decision-references-narrow-linux.png | module.workbook.visual.contextual_task_decision_creation | scenario_4a08391df78c |
+| contextual-task-request-authoring-linux.png | module.workbook.visual.contextual_task_decision_creation | scenario_4a08391df78c |
+| contextual-task-request-authoring-narrow-linux.png | module.workbook.visual.contextual_task_decision_creation | scenario_4a08391df78c |
+| contextual-task-request-references-narrow-linux.png | module.workbook.visual.contextual_task_decision_creation | scenario_4a08391df78c |
+| coordination-comm-log-authoring-linux.png | module.workbook.visual.coordination_create_authoring_recovery | visual.fixture.contextual_coordination_creation |
+| coordination-handoff-authoring-linux.png | module.workbook.visual.coordination_create_authoring_recovery | visual.fixture.contextual_coordination_creation |
+| coordination-lesson-authoring-linux.png | module.workbook.visual.coordination_create_authoring_recovery | visual.fixture.contextual_coordination_creation |
+| coordination-source-narrow-linux.png | module.workbook.visual.coordination_create_authoring_recovery | visual.fixture.contextual_coordination_creation |
+| decision-supersession-review-linux.png | module.workbook.visual.decision_supersession_review_recovery | scenario_d87078727b34 |
+| decision-supersession-review-narrow-linux.png | module.workbook.visual.decision_supersession_review_recovery | scenario_d87078727b34 |
+| entity-mention-chip-states-linux.png | module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7 | visual.fixture.mention_chip_state_matrix |
+| indicator-lifecycle-authoring-linux.png | module.workbook.visual.indicator_lifecycle_authoring | visual.fixture.indicator_lifecycle_authoring |
+| indicator-lifecycle-authoring-narrow-linux.png | module.workbook.visual.indicator_lifecycle_authoring | visual.fixture.indicator_lifecycle_authoring |
+| indicator-observation-authoring-linux.png | module.workbook.visual.indicator_observations_authoring | visual.fixture.indicator_observations_authoring |
+| indicator-observation-authoring-narrow-linux.png | module.workbook.visual.indicator_observations_authoring | visual.fixture.indicator_observations_authoring |
+| linked-note-authoring-linux.png | module.workbook.visual.note_create_authoring_recovery | scenario_e55e1a363e58 |
+| linked-note-authoring-narrow-linux.png | module.workbook.visual.note_create_authoring_recovery | scenario_e55e1a363e58 |
+| linked-note-source-narrow-linux.png | module.workbook.visual.note_create_authoring_recovery | scenario_e55e1a363e58 |
+| record-relationships-mention-chips-linux.png | module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7 | scenario_4447178c020a |
+| timeline-related-evidence-authoring-linux.png | module.workbook.visual.timeline_related_evidence | scenario_46f536da95f0 |
+| timeline-related-evidence-authoring-narrow-linux.png | module.workbook.visual.timeline_related_evidence | scenario_46f536da95f0 |
+| timeline-related-evidence-party-narrow-linux.png | module.workbook.visual.timeline_related_evidence | scenario_46f536da95f0 |
+| timeline-supersession-authoring-linux.png | module.workbook.visual.timeline_capture_actions | scenario_a2fe4114db52 |
+| timeline-supersession-review-linux.png | module.workbook.visual.timeline_capture_actions | scenario_a2fe4114db52 |
+| timeline-supersession-review-narrow-linux.png | module.workbook.visual.timeline_capture_actions | scenario_a2fe4114db52 |
+| workbook-inspector-attached-edit-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.base_inspector |
+| workbook-inspector-compact-actions-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.inspector_compact_actions |
+| workbook-inspector-destructive-confirmation-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.destructive_actions |
+| workbook-inspector-details-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.base_inspector |
+| workbook-inspector-history-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.base_inspector |
+| workbook-inspector-narrow-technical-details-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.inspector_narrow_technical_details |
+| workbook-inspector-public-error-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.base_inspector |
+| workbook-inspector-relationships-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.base_inspector |
+| workbook-inspector-retained-draft-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.base_inspector |
+| workbook-inspector-rollback-preview-linux.png | module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea | visual.fixture.base_inspector |
+
+
+### Final source inventory
+
+This inventory supplements the ownership map above. It excludes PNGs listed in
+the review table and the unrelated concurrently authored
+`docs/research/testing-harness-ui-review-revision-plan.md`, which was not edited
+by this implementation and was subsequently committed separately. Generated files in this list were produced through the
+public Make generators. Existing source-owner mutation boundaries and unrelated
+native pickers were inspected and retained.
+
+```text
+apps/web/e2e/evidence.spec.ts
+apps/web/e2e/mentions.resolve.spec.ts
+apps/web/e2e/note-associations.spec.ts
+apps/web/e2e/workbook-inspector-edit.spec.ts
+apps/web/e2e/workbook.a11y.spec.ts
+apps/web/e2e/workbook.visual.spec.ts
+apps/web/src/testing/sourceOwnershipPolicy.test.ts
+apps/web/src/workbook/WorkbookShell.surfaces.test.tsx
+apps/web/src/workbook/adapters/workbookOperationContract.ts
+apps/web/src/workbook/adapters/workbookOperationErrorPolicy.ts
+apps/web/src/workbook/components/WorkbookBatchRecovery.test.tsx
+apps/web/src/workbook/components/WorkbookSearchableCandidateChooser.tsx
+apps/web/src/workbook/features/assessments/AssessmentWorkbookInspector.tsx
+apps/web/src/workbook/features/entities/EntityWorkbookInspector.tsx
+apps/web/src/workbook/features/entities/entityInspectorEditing.test.tsx
+apps/web/src/workbook/history/workbookHistoryBrowsing.characterization.test.tsx
+apps/web/src/workbook/inspector/WorkbookInspectorContextualActions.tsx
+apps/web/src/workbook/inspector/WorkbookInspectorDeclaredPanelList.tsx
+apps/web/src/workbook/inspector/WorkbookInspectorDetails.tsx
+apps/web/src/workbook/inspector/WorkbookInspectorDraftFeedback.tsx
+apps/web/src/workbook/inspector/WorkbookInspectorSavedDetails.tsx
+apps/web/src/workbook/inspector/presentation/README.md
+apps/web/src/workbook/inspector/presentation/WorkbookHistoryPresentation.tsx
+apps/web/src/workbook/inspector/presentation/WorkbookInspectorActions.tsx
+apps/web/src/workbook/inspector/presentation/WorkbookInspectorPanelContent.test.tsx
+apps/web/src/workbook/inspector/presentation/WorkbookInspectorPanelContent.tsx
+apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx
+apps/web/src/workbook/inspector/presentation/WorkbookInspectorShell.tsx
+apps/web/src/workbook/inspector/presentation/workbookInspectorPresentationModel.ts
+apps/web/src/workbook/inspector/workbookHistoryPresentationModel.ts
+apps/web/src/workbook/layout/workbookInspectorNavigation.ts
+apps/web/src/workbook/timeline/actions/README.md
+apps/web/src/workbook/timeline/actions/TimelineMentionCandidatePort.ts
+apps/web/src/workbook/timeline/actions/timelineMentionCandidates.test.tsx
+apps/web/src/workbook/timeline/actions/useTimelineMentionCandidates.ts
+apps/web/src/workbook/timeline/adapters/createTimelineMentionCandidateReader.ts
+apps/web/src/workbook/timeline/components/TimelineCollectionCell.test.tsx
+apps/web/src/workbook/timeline/components/TimelineMentionActionControls.tsx
+apps/web/src/workbook/timeline/components/TimelineWorkbookInspector.tsx
+apps/web/src/workbook/timeline/hooks/useTimelineMentionActions.ts
+apps/web/src/workbook/timeline/useTimelineMentionActions.test.tsx
+contracts/design/presentation.v2.json
+contracts/entities/candidate-discovery.v1.json
+contracts/index.json
+contracts/openapi-releases/2.0.0.change-set.json
+contracts/openapi-source/owners/module.entities/openapi.json
+contracts/openapi/cartulary.openapi.yaml
+contracts/protocol-ts/frontend-entrypoints.v2.json
+contracts/protocol-ts/http-operations.v2.json
+docs/design.md
+docs/domain.md
+docs/handoffs/ui-ux/workbook-inspector-presentation-redesign-plan.md
+docs/spec/01_architecture_storage_and_view_contracts.md
+docs/spec/03_workbook_interaction_collaboration_and_workflows.md
+docs/spec/04_security_deployment_and_conformance.md
+internal/app/server/runtime_assembly.go
+internal/gen/contractentities/artifacts_gen.go
+internal/gen/contractopenapi/artifacts_gen.go
+internal/gen/openapioperations/catalog_gen.go
+internal/modules/entities/boundary_guard_test.go
+internal/modules/entities/candidate_discovery_integration_test.go
+internal/modules/entities/candidate_routes.go
+internal/modules/entities/candidates/README.md
+internal/modules/entities/candidates/reader.go
+internal/modules/entities/routes.go
+packages/protocol-ts/src/entrypoints/entities.ts
+packages/protocol-ts/src/generated/core-http-types.ts
+packages/protocol-ts/src/generated/core-http-validators.ts
+packages/protocol-ts/src/generated/entity-candidate-discovery.ts
+packages/protocol-ts/src/generated/http-operation-bindings.ts
+packages/ui-contracts/src/generated/design-presentation.ts
+tools/backend_module_boundaries.json
+tools/execution_topology_render_index.json
+tools/frontend_source_ownership.json
+tools/frontend_visual_golden_manifest.json
+tools/harness/generated-artifacts/design-presentation/design-presentation.mjs
+tools/schemas/cartulary.design_presentation.v2.schema.json
+tools/test_families/module.entities.json
+tools/test_families/web.workbook.json
+```
+
+
+### Final owner and boundary review
+
+The common decisions are quiet inspector command presentation, explicit
+commands-only composition, typed History comparison eligibility, and a controlled
+candidate chooser. Request lifetime, mutation legality, permissions, drafts and
+recovery remain source-owned. The Entities service can serve another authorized
+read consumer through its narrow page port without exposing workbook projection
+or inspector internals. The chooser adds no generic mutation or permission
+framework. These changes resolve structural weaknesses; they are not evidence
+of a measured usability improvement.
+
+Manual owner review corrected initially reused requirement/acceptance identifiers
+before handoff. The final discovery owner is Core 01 §3.3.5.4A REQ-01-676;
+Core 03 REQ-03-310 owns its client observation lifetime; Core 04 REQ-04-162 owns
+read authorization; AC-570/571 cover this iteration. Existing REQ-01-658 and
+AC-543/544 retain their original owners and meanings. Design §§7.3/12.4 retain
+the existing quiet-command and continuous-panel direction; §12.7 specializes
+those rules without adding another theme or behavioral authority. Domain §13.2
+links the discovery vocabulary to its owners. No executable check depends on
+these Markdown amendments.
+
+The final full `make check` PASS is `20260927T012030Z-p1906` (967/967 units).
+The preceding attempt `20260927T011135Z-p51527` was interrupted after 799 units;
+its browser-test TypeScript `Node.remove` diagnostic was repaired before the
+passing run. It is not passing aggregate evidence. Finalization before the passing
+full run passed at `20260927T012010Z-p75515`.
+
+After the aggregate pass, the candidate integration assertion was strengthened
+so foreign-incident data exists before testing exclusion, and to check no new
+Collaboration event intents as well as no change sets. This test-only amendment
+PASSes `make service-backed-test-slice OWNER=module.entities
+ROWS=module.entities.integration.candidate_discovery` at
+`20260927T013053Z-p79275` (3/3 units). Final format PASS
+`20260927T013047Z-p74885`; Biome PASS `20260927T013142Z-p97519`.
+The singular candidate-count copy is also included in final browser validation.
+
+Final candidate owner tests, including IME, late-query response fencing and the
+ten-checkpoint retention bound, PASS `20260927T012000Z-p67303` (3/3 units).
+Final History/browser subject-retention PASS `20260927T011538Z-p70845` (11/11):
+short scalar pairs at wide width, safe stacking at 320px/200% zoom, supported
+text-spacing remeasurement, exact before/after values, and prior source/draft
+continuity. Existing data-region consumers and native pickers remain supported;
+no old Timeline discovery implementation or accumulated catalog remains.
+
+
+### Acceptance evidence map for this iteration
+
+Evidence keys below name current implementation runs, not historical completion
+records or specification authority. All run roots are under
+`.cartulary/test-results/`.
+
+| Key | Command or evidence | Result |
+| --- | --- | --- |
+| E1 | `make check`, `20260927T012030Z-p1906` | PASS, 967/967 units. |
+| E2 | Entities candidate integration, `20260927T013053Z-p79275` | PASS, 3/3 units, including final cross-incident and event-intent assertions. |
+| E3 | Candidate creation/recovery units, `20260927T013532Z-p55376` | PASS, 3/3 units, including active-descendant/popup selection without target acceptance. |
+| E4 | Workbook inspector subject retention browser row, `20260927T011538Z-p70845` | PASS, 11/11 units, including History fit/zoom/spacing. |
+| E5 | `make browser-e2e-measurement`, `20260927T013216Z-p98046` | PASS, 24/24 units. |
+| E6 | `make browser-e2e-a11y`, `20260927T013914Z-p68528` | PASS, 20/20 units, after the final popup semantics refinement. |
+| E7 | Reviewed golden table; ordinary runs `20260927T015424Z-p85750` and `20260927T020011Z-p27146` | PASS, 12/12 units each; 255 captures each; identical final promoted manifest. All 37 changed PNGs reviewed. |
+| E8 | Final generate-drift `20260927T015450Z-p16073`, generated policy `20260927T015505Z-p20790`, JSON shape `20260927T015509Z-p22381`, OpenAPI compatibility `20260927T013420Z-p45212` | All PASS. |
+| E9 | Final frontend typecheck `20260927T013541Z-p56351`, Biome `20260927T013606Z-p59161`, format `20260927T013525Z-p50692` | All PASS. |
+| E10 | Terminal agent-finalize `20260927T020548Z-p63623`, Markdown `20260927T020607Z-p67438`, retirement scan and `git diff --check` | PASS. Final status-only ledger amendments are linted once more before returning the handoff. |
+
+The popup semantics refinement changes assistive-technology selection to follow
+the active option; source-owner target selection still requires acceptance.
+The active descendant is absent when the popup is disabled. These small changes
+after E1 are covered by E3, E9 and the final E6/E7 runs; no broader product change
+followed the aggregate pass.
+
+| Digest row | Assessment | Evidence and scoped rationale |
+| --- | --- | --- |
+| A001 Authority | PASS | Final owner map: REQ-01-676, REQ-03-292/310, REQ-04-162, AC-570/571, Design §12.7 and Domain §13.2; source and verification owners remain separate. |
+| A002 Scope | PASS | Common presentation decisions and narrow read port documented above; all affected callers migrated, retired paths scanned, no new workflow engine or unrelated rewrite. |
+| A003 Repository state | PASS | Clean main c4fe8d5 baseline; terminal main 641439e includes only the separate documentation commit. Authored manifests/source guides and generated policy inspected; final scoped inventory is above. No direct grid-vendor import added. |
+| A004 Tokens | PASS | Quiet commands reuse existing tokens; chooser height and History fit limit are authored presentation projections, with E8/E9 validation. |
+| A005 Theme | PASS | Existing dark_graphite remains the sole product theme; E1 and reviewed E7 fixtures. |
+| A006 Density | PASS | Existing shared density remains authoritative; E5/E7 confirm geometry and appearance. |
+| A007 Creation | PASS | E1, E3 and contextual authoring fixtures retain declared capabilities, source identities, separate create/resolve operations and permission gates. |
+| A008 Responsive | PASS | E4 covers narrow/zoom/spacing comparisons; E5/E6/E7 cover shell bounds, focus and navigation fit. |
+| A009 Overflow | PASS | E4 and E5/E7 cover independent scroll ownership and reachable controls. |
+| A010 Inspector | PASS | E1/E3/E4: semantic dispatcher, commands-only admission, review invalidation and retained source-owner lifetimes. |
+| A011 Continuity | PASS | E1/E3/E4 plus workbook browser recovery `20260927T005205Z-p41221`: navigation/detachment, late reads, subject retention, no implicit attention commands. |
+| A012 Transactions | PASS | E1 and workbook exact-replay browser rows at `20260927T005205Z-p41221`; presentation and discovery introduce no transaction owner or mutation retry. |
+| A013 Acknowledgement/recovery | PASS | E1/E3 and workbook accepted-write/failed-refresh browser rows at `20260927T005205Z-p41221`; captured replay and read-only recovery remain separate. |
+| A014 Editing | PASS | E1/E4: Update, Close, Clear, Discard, Resume and Review retain raw authoring and distinct semantics; no durable persistence introduced. |
+| A015 Conflict | PASS | E1 and reviewed public-error/retained-draft E7 images preserve saved values beside drafts and local recovery. |
+| A016 Data/interaction | PASS | E1/E2/E3: commands-only is explicit; remaining panels keep real data regions; read access never implies mutation permission. |
+| A017 Authorization scope | PASS | E1/E2/E3: session/membership revocation, concealed incidents, cursor-bound identity, stale-response rejection and owner-scoped retained work. |
+| A018 Evidence | PASS | E1 and reviewed Evidence/contextual E7 fixtures retain independent information/file/attachment states; no Evidence mutation semantics changed. |
+| A019 Accessibility | PASS | E3 verifies popup semantics/manual acceptance; final E6 covers keyboard, names, focus, contrast and recovery after the last refinement. |
+| A020 Components | PASS | E1/E4 and E5/E6/E7 cover typed variants, long values, zoom/spacing, disclosures and available recovery. |
+| A021 Virtualization | PASS | Grid ownership and row identity unchanged; E1 and E5 cover production continuity. No new benchmark/publication claim. |
+| A022 Visual fixtures | PASS | All 37 final production-renderer images reviewed; both fresh ordinary E7 runs passed with the same promoted manifest. |
+| A023 Selectors | PASS | E1 includes package.ui/source-ownership/readiness selector guards; semantic selectors retained in changed browser and unit tests. |
+| A024 Test authority | PASS | E1/E8 plus dependency diff review: no executable reads/stats/hashes of Markdown; manual owner review is documentation work only. |
+| A025 Generated artifacts | PASS | Authored OpenAPI, release/operation inputs, policy, schema/generator and catalog precede their generated outputs; E8 clean. |
+| A026 Compatibility | PASS | Additive route, coordinated internal model cutover, explicit native-picker/query-consumer retention; no database or durable-draft migration. Rollout/rollback below. |
+| A027 Handoff | PASS | E10 and all final phase exits are complete; owners, inventory, commands, failures, limits, retirement and rollback are recorded. The validation sequencing departures are disclosed above. |
+
+
+Final pre-browser `make agent-finalize` PASS
+`20260927T013710Z-p62649` (1/1 unit), after the final popup semantics amendment.
+RESULTS_DIR remains unset; retained-run maintenance is explicitly skipped.
+Measurement PASS `20260927T013216Z-p98046` (24/24 units). This is regression
+support under the existing measurement profile, not a measured usability claim.
+
+
+Final accessibility PASS `20260927T013914Z-p68528` (20/20 units) after the popup
+semantics refinement. Markdown PASS `20260927T013915Z-p68662`; the final ledger
+amendments will be linted again at terminal handoff. No a11y limitation or product
+failure remains open. The two ordinary visual runs are the remaining WS6 gate.
+
+
+The next ordinary visual run, `20260927T014331Z-p11387`, detected the final
+singular/plural status correction in `record-relationships-mention-chips-linux.png`.
+The inspected diff changes only “1 targets” to “1 target”; this is an intentional
+copy correction, not an interaction or geometry regression. Its existing
+module.entities capture mapping is in the review table. Public target discovery
+confirms `browser-e2e-visual-update` has no row selector, so the supported update
+runs the complete capture set. The final promoted manifest and two subsequent
+ordinary passes will supersede the earlier promotion for closure.
+
+
+During validation, a concurrent documentation-only commit advanced main to
+`641439e14dcbdfd50ecc947754d4c3948ace69e1`. Its sole changed path is the unrelated
+`docs/research/testing-harness-ui-review-revision-plan.md`; it was preserved.
+The original implementation baseline remains c4fe8d5. No product, generated or
+verification input changed in that concurrent commit, so it does not invalidate
+the recorded product runs. This inspector implementation remains uncommitted.
+
+
+Final promotion PASS `20260927T014826Z-p49491` (12/12 units). Reconciliation
+accounts for 255 captures, 255 active goldens and 29 registered fixtures, with
+zero missing/orphan/ambiguous/unresolved entries. Compared with the first
+promotion, exactly one PNG changed: `record-relationships-mention-chips-linux.png`.
+The final PNG was opened and reviewed again; only the corrected singular status
+text differs. All 37 changed golden files have therefore been reviewed in their
+final versions. Final promoted manifest SHA-256:
+`a2fc589a0d4204f500c2e21974876f31c48b4ed06a5a10223c0d9687b6a5688b`.
+
+The preceding ordinary run `20260927T014331Z-p11387` completed all 255 captures.
+Its sole failed screenshot assertion was the 371-pixel text correction; there
+were no functional assertion failures or unresolved capture mappings. The full
+supported update target was used without changing capture policy or tolerance.
+
+
+### Deployment, rollback and operational limits
+
+Ship the additive Entity-candidate endpoint before its frontend consumer, or ship
+both in one application release. Older frontend consumers can continue using the
+existing workbook query routes; the new Timeline chooser intentionally has no
+fallback to local filtering. Revert the frontend before removing the endpoint.
+Revert presentation models, producers, contracts and their generated projections
+as coherent slices, preserving source-owned draft/request/receipt lifetimes.
+No database migration, history backfill, search index, durable-draft migration or
+data rollback is needed.
+
+The read scans bounded authoritative source batches to exhaustion or limit + 1
+matches. Sparse searches can require many batches; cancellation and honest read
+failure are retained, and no latency/SLA or usability improvement is claimed.
+An indexed implementation can replace this read service later while preserving
+its public matching, ordering, authorization and continuation contract. There is
+no external enrichment, relevance ranking, fuzzy matching or automatic resolution.
+
+Public `ci`, release publication and deployment were not run: this assignment is
+an implementation and verification handoff, not a release. A participant study
+is explicitly not a completion gate. Retained-run maintenance was skipped because
+RESULTS_DIR was unset; ordinary successful run evidence is recorded directly.
+The testing-harness documentation commit is outside this implementation and was
+preserved. Product/source files remain reviewable as uncommitted changes.
+
+The sequencing exception is explicit: WS2 browser validation waited for the
+additive route composition, and final WS5 scalar-fit browser assertions were
+completed during integration. These are departures from strict phase ordering,
+not missing product gates. Their final exits are backed by the recorded focused,
+aggregate and browser runs; no phase is treated as complete solely because a
+later visual refresh succeeded.
+
+
+First fresh ordinary visual PASS `20260927T015424Z-p85750` (12/12 units), after
+the final promotion and final source changes. All 255 captures reconcile against
+final manifest `a2fc589a0d4204f500c2e21974876f31c48b4ed06a5a10223c0d9687b6a5688b`.
+The second fresh ordinary run is required before WS6 exits.
+
+
+### WS6 exit and terminal handoff — 2026-09-27
+
+The second fresh ordinary visual run PASSes at `20260927T020011Z-p27146`
+(12/12 units). Both final runs reconcile all 255 captures and the same final
+promoted manifest SHA-256, with zero unresolved mappings. Every required product
+validation gate is satisfied. There are 116 scoped changed/new paths, including
+37 reviewed PNGs; the exact inventory above excludes the separately committed
+harness review document. No production edits followed the final popup semantics
+refinement; its unit, type, lint and full a11y checks passed before these visual
+runs. Final projection drift, generated-artifact policy and JSON shape checks
+also pass after the last golden promotion.
+
+All G0–G7 remediations are implemented. Existing mutation/recovery owners,
+Evidence semantics, historical data, unrelated native pickers and genuine
+workbook-query consumers remain intact. Removed Timeline discovery and artificial
+Workflow presentation paths have no remaining consumers. No required feature is
+left behind a fallback or deferred to a future implementation phase. Terminal documentation validation closes WS7; the reviewable working tree and this
+ledger are the handoff. No commit, push, deployment or publication is performed
+by this implementation.
+
+
+### WS7 exit
+
+Terminal finalizer PASS `20260927T020548Z-p63623`; Markdown PASS
+`20260927T020607Z-p67438`; final diff whitespace and retirement checks PASS.
+Retained-run maintenance was skipped because RESULTS_DIR was unset. All WS0–WS7
+exits and G0–G7 remediations are complete, with all applicable A001–A027 rows
+assessed PASS and no applicable BLOCKED item. The disclosed sequencing departures
+remain part of the process record; no failed or unverified product gate is being
+waived. The final status text is checked once more with the public Markdown target.
+
+Next action: review the uncommitted implementation and handoff; deploy the additive
+backend before the frontend or as one application release when release is desired.
+No implementation, data migration or required validation work is deferred.

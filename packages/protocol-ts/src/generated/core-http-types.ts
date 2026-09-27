@@ -100,6 +100,14 @@ export type SheetRef = ViewSchemaSheetRef | SavedViewSheetRef | ExtensionWorkspa
 export type DisableReferencePackVersionSuccessBody = ReferencePackActionEnvelope | JobEnvelope;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PagedEnvelopeMeta".
+ */
+export type PagedEnvelopeMeta = EnvelopeMeta & {
+  paging: PagingMeta;
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "EvidenceAttachBlobData".
  */
 export type EvidenceAttachBlobData = ViewMutationDataFields & {
@@ -139,14 +147,6 @@ export type ApprovedImportMapping1 = {
  * via the `definition` "ImportUnitMappingRequest".
  */
 export type ImportUnitMappingRequest = {
-  [k: string]: unknown;
-};
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "PagedEnvelopeMeta".
- */
-export type PagedEnvelopeMeta = EnvelopeMeta & {
-  paging: PagingMeta;
   [k: string]: unknown;
 };
 /**
@@ -1186,6 +1186,36 @@ export interface EnterpriseAuthProviderResource {
   display_name: string;
   provider_key: string;
   provider_type: "oidc" | "saml";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EntityCandidateListEnvelope".
+ */
+export interface EntityCandidateListEnvelope {
+  data: EntityCandidateListData;
+  meta: PagedEnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EntityCandidateListData".
+ */
+export interface EntityCandidateListData {
+  /**
+   * @maxItems 500
+   */
+  candidates: EntityCandidate[];
+  entity_type: "host" | "identity";
+  incident_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EntityCandidate".
+ */
+export interface EntityCandidate {
+  display_name: string;
+  entity_type: "host" | "identity";
+  record_id: string;
+  row_version: number;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

@@ -175,7 +175,7 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
           outline: var(--ct-component-focus-ring-border);
           outline-offset: var(--ct-component-focus-ring-offset);
         }
-        [data-inspector-state] :is(button,input,select,textarea):disabled {
+        [data-inspector-state] :is(button:not([data-inspector-action-tone="quiet"]),input,select,textarea):disabled {
           color: var(--ct-colors-ink-subtle) !important;
           background: var(--ct-colors-surface-3) !important;
           cursor: not-allowed;
@@ -184,8 +184,7 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
           border-color: var(--ct-colors-ink-muted);
         }
         [data-inspector-state] button[aria-current="location"] {
-          background: var(--ct-colors-surface-3);
-          border-color: var(--ct-colors-ink-muted);
+          --ct-command-background: var(--ct-colors-surface-3);
           text-decoration: underline;
         }
       `}</style>
@@ -289,16 +288,14 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
             ) : (
               <>
                 <WorkbookInspectorActionButton
+                  tone="quiet"
                   ref={triggerRef}
                   aria-controls={navigationId}
                   aria-expanded={menuOpen}
                   onClick={toggleMenu}
                 >
-                  Sections
+                  Sections: {active.panel.label}
                 </WorkbookInspectorActionButton>
-                <span style={currentSectionStyle}>
-                  Current section: {active.panel.label}
-                </span>
                 {menuOpen ? (
                   <nav
                     id={navigationId}
@@ -327,13 +324,26 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
         {attention.length ? (
           <button
             type="button"
-            style={attentionButtonStyle}
+            style={{
+              ...attentionButtonStyle,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
             onClick={() => {
+              const single = attention.length === 1 ? attention[0] : undefined;
+              if (single) {
+                if (admitsAttention(single.entry))
+                  choose(single.section, single.entry.destination);
+                return;
+              }
               if (attentionRef.current) reveal(attentionRef.current);
               attentionRef.current?.focus({ preventScroll: true });
             }}
           >
-            Unfinished work ({attention.length})
+            {attention.length === 1
+              ? `View: ${attention[0]?.entry.label}`
+              : `Unfinished work (${attention.length})`}
           </button>
         ) : null}
       </header>
@@ -535,8 +545,8 @@ const navigationButtonStyle = {
   boxSizing: "border-box",
   flexShrink: 0,
   color: "var(--ct-colors-ink)",
-  background: "transparent",
-  border: "var(--ct-border-hairline)",
+  background: "var(--ct-command-background, transparent)",
+  border: "1px solid transparent",
   borderRadius: "var(--ct-rounded-sm)",
   cursor: "pointer",
 } satisfies CSSProperties;
@@ -585,10 +595,6 @@ const navigationStyle = {
   alignItems: "center",
   gap: "var(--ct-spacing-sm)",
   minWidth: 0,
-} satisfies CSSProperties;
-const currentSectionStyle = {
-  ...workbookTypography("metadata"),
-  overflowWrap: "anywhere",
 } satisfies CSSProperties;
 const navigationMenuStyle = {
   maxBlockSize: "50vh",

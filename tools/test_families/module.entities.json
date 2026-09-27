@@ -494,6 +494,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.entities.integration.candidate_discovery",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract",
+        "module.entities.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntityCandidateDiscovery_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.entities.integration.host_and_identity_create_routes_reuse_exact_matc_f443e2591f",
       "owner_id": "module.entities",
       "family_id": "module.entities.integration",

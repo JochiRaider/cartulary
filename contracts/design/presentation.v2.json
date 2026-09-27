@@ -7,6 +7,9 @@
     "saved_view_startup_initially_open": false
   },
   "inspector": {
+    "history_scalar_pair_max_lines": 2,
+    "candidate_chooser_max_block_size_rem": 12,
+    "panel_kinds": ["regions", "commands_only"],
     "data_states": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"],
     "access_states": ["readable", "concealed"],
     "content_states": ["empty", "populated"],

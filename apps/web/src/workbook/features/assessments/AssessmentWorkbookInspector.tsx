@@ -17,6 +17,7 @@ import type { InspectorContextualCapability } from "../../inspector/inspectorCap
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import {
+  inspectorCommands,
   inspectorPanel,
   ownedInspectorRegion,
   savedInspectorRegion,
@@ -115,9 +116,13 @@ export function AssessmentWorkbookInspector({
   );
   const panelContent = (
     panelId: InspectorPanelId,
-    ...regions: [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
+    ...regions: [] | [WorkbookInspectorRegion, ...WorkbookInspectorRegion[]]
   ) => ({
-    ...inspectorPanel(...regions),
+    ...(regions[0]
+      ? inspectorPanel(regions[0], ...regions.slice(1))
+      : inspectorCommands(
+          "No workflow commands are available for this record.",
+        )),
     featureContent: Object.fromEntries(
       config.featureGroups.flatMap((feature) => {
         if (feature.panelId !== panelId || subject?.kind !== "live") return [];
@@ -209,16 +214,16 @@ export function AssessmentWorkbookInspector({
                   content: relationshipsContent,
                 }),
               ),
-        workflow: panelContent(
-          "workflow",
-          savedInspectorRegion("assessment-authoring", {
-            kind: "populated",
-            content:
-              subject?.kind === "live" && draftMode === "follow_on"
-                ? null
-                : assessmentAuthoring,
-          }),
-        ),
+        workflow:
+          subject?.kind === "live" && draftMode === "follow_on"
+            ? panelContent("workflow")
+            : panelContent(
+                "workflow",
+                savedInspectorRegion("assessment-authoring", {
+                  kind: "populated",
+                  content: assessmentAuthoring,
+                }),
+              ),
       }}
       onContextualAction={dispatchContextualAction}
     >
