@@ -384,10 +384,15 @@
           "authoring candidate presentation applies query edits explicitly without clearing selection and rejects over-limit changes",
           "authoring candidate presentation cancels unapplied staging restores invoking focus and reopens with parent selection",
           "authoring candidate presentation conceals typed authorization failures and fences obsolete authority callbacks on target replacement",
+          "authoring candidate presentation keeps parent-list removal local without opening discovery or changing survivor metadata",
           "authoring candidate presentation permits accepted-page selection and Apply during delayed and failed continuation then retries exactly once",
+          "authoring candidate presentation restores focused selected-reference removal to the next surviving identity",
           "authoring candidate presentation retains a reviewed source version and captures only source identity metadata for explicit replacement",
           "authoring candidate presentation retains selected identities across twelve evicted pages with bounded options and reduced payloads",
-          "authoring candidate presentation starts and cleans up scoped reads under StrictMode without requesting record filters for membership"
+          "authoring candidate presentation starts and cleans up scoped reads under StrictMode without requesting record filters for membership",
+          "authoring candidate presentation uses an accessible field fallback when the sole candidate selector is disabled",
+          "authoring candidate presentation uses prior identity order for first middle last and sole removals",
+          "authoring candidate presentation waits for a controlled parent and retires obsolete or external focus intentions"
         ]
       },
       "evidence_class": "unit",

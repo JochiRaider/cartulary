@@ -549,6 +549,7 @@
         "apps/web/src/workbook/components/WorkbookSurfaceRefreshNotice.tsx",
         "apps/web/src/workbook/components/WorkbookViewBar.tsx",
         "apps/web/src/workbook/components/genericMutationControlModel.ts",
+        "apps/web/src/workbook/components/useSelectedReferenceRemovalFocus.ts",
         "apps/web/src/workbook/components/workbookFocusFallback.ts",
         "apps/web/src/workbook/components/workbookFormStyles.ts",
         "apps/web/src/workbook/components/workbookGridControlStyles.ts",

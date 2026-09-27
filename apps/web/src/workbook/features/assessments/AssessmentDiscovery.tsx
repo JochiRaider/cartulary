@@ -261,6 +261,7 @@ function CandidateList({
         }))}
         label={label}
         testId={testId}
+        scopeKey={`assessment:${view}:${multiple}`}
         multiple={multiple}
         maximum={multiple ? 64 : 1}
         disabled={disabled}

@@ -1,15 +1,18 @@
 import {
   type RefCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { WorkbookCandidateAuthorityContext } from "../hooks/useWorkbookCandidateDiscovery";
 import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
 import type {
   WorkbookAuthoringReadPort,
   WorkbookAuthoringSelection,
 } from "../ports/WorkbookAuthoringReadPort";
+import { useSelectedReferenceRemovalFocus } from "./useSelectedReferenceRemovalFocus";
 import { WorkbookAuthoringReferencePicker } from "./WorkbookAuthoringReferencePicker";
 import { menuStyle } from "./workbookGridControlStyles";
 
@@ -50,7 +53,16 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
     if (props.disabled) setOpenTarget(null);
   }, [props.disabled]);
   const trigger = useRef<HTMLButtonElement>(null);
+  const group = useRef<HTMLFieldSetElement>(null);
   const popover = useRef<HTMLDivElement>(null);
+  const authority = useContext(WorkbookCandidateAuthorityContext);
+  const removalFocus = useSelectedReferenceRemovalFocus({
+    ids: props.selected.map((item) => item.recordId),
+    scopeKey: `${props.targetKey}:${authority.identity}:${props.compact}`,
+    disabled: props.disabled || !authority.canRead,
+    fallback: () => trigger.current,
+    groupRef: group,
+  });
   useLayoutEffect(() => {
     if (!open || !props.compact || !popover.current || !trigger.current) return;
     const panel = popover.current;
@@ -98,7 +110,13 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
     trigger.current?.focus({ preventScroll: true });
   };
   return (
-    <div style={groupStyle}>
+    <fieldset
+      ref={group}
+      aria-label={`${props.label} selected references`}
+      data-reference-focus-fallback
+      tabIndex={-1}
+      style={groupStyle}
+    >
       {!props.compact ? <span>{props.label}</span> : null}
       {props.compact ? null : props.selected.length ? (
         <ul style={{ margin: 0, paddingInlineStart: "var(--ct-spacing-lg)" }}>
@@ -106,13 +124,18 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
             <li key={item.recordId} style={{ overflowWrap: "anywhere" }}>
               {item.displayText || "Selected reference"}{" "}
               <Button
+                ref={removalFocus.buttonRef(item.recordId)}
                 tone="secondary"
                 type="button"
-                disabled={props.disabled}
-                aria-label={`Remove ${props.label} ${item.displayText || "reference"}`}
-                onClick={() =>
-                  props.onApply(
-                    props.selected.filter((i) => i.recordId !== item.recordId),
+                disabled={props.disabled || !authority.canRead}
+                aria-label={`Remove ${props.label} ${item.displayText || "reference"}${props.selected.filter((value) => value.displayText === item.displayText).length > 1 ? ` (${item.recordId})` : ""}`}
+                onClick={(event) =>
+                  removalFocus.remove(item.recordId, event.currentTarget, () =>
+                    props.onApply(
+                      props.selected.filter(
+                        (i) => i.recordId !== item.recordId,
+                      ),
+                    ),
                   )
                 }
               >
@@ -153,7 +176,7 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
         aria-describedby={props.errorId}
         tone="secondary"
         type="button"
-        disabled={props.disabled}
+        disabled={props.disabled || !authority.canRead}
         onClick={() => setOpen(true)}
       >
         {props.compact && props.selected.length
@@ -181,11 +204,14 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
           />
         </div>
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 const groupStyle = {
   display: "grid",
   gap: "var(--ct-spacing-sm)",
   minWidth: 0,
+  border: 0,
+  margin: 0,
+  padding: 0,
 } as const;

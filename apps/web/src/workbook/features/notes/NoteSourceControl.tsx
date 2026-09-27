@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { useSelectedReferenceRemovalFocus } from "../../components/useSelectedReferenceRemovalFocus";
 import { WorkbookAuthoringReferencePicker } from "../../components/WorkbookAuthoringReferencePicker";
 import { workbookFormFieldsStyle } from "../../components/workbookFormStyles";
+import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   type NoteCreateReader,
@@ -31,12 +33,27 @@ export function NoteSourceControl({
     if (disabled) setOpenTarget(null);
   }, [disabled]);
   const trigger = useRef<HTMLButtonElement>(null);
+  const group = useRef<HTMLFieldSetElement>(null);
+  const authority = useContext(WorkbookCandidateAuthorityContext);
+  const removalFocus = useSelectedReferenceRemovalFocus({
+    ids: source ? [source.recordId] : [],
+    scopeKey: `${targetKey}:${authority.identity}`,
+    disabled: disabled || !authority.canRead,
+    fallback: () => trigger.current,
+    groupRef: group,
+  });
   const close = () => {
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
   };
   return (
-    <div style={workbookFormFieldsStyle}>
+    <fieldset
+      ref={group}
+      aria-label="Note source selected reference"
+      data-reference-focus-fallback
+      tabIndex={-1}
+      style={{ ...workbookFormFieldsStyle, border: 0, margin: 0, padding: 0 }}
+    >
       <span style={{ overflowWrap: "anywhere" }}>
         Source:{" "}
         {source ? source.label || source.recordId : "None (unlinked Note)"}
@@ -45,17 +62,22 @@ export function NoteSourceControl({
         type="button"
         tone="secondary"
         ref={trigger}
-        disabled={disabled}
+        disabled={disabled || !authority.canRead}
         onClick={() => setOpen(true)}
       >
         Choose source
       </Button>
       {source ? (
         <Button
+          ref={removalFocus.buttonRef(source.recordId)}
           type="button"
           tone="secondary"
-          disabled={disabled}
-          onClick={() => onChange(null)}
+          disabled={disabled || !authority.canRead}
+          onClick={(event) =>
+            removalFocus.remove(source.recordId, event.currentTarget, () =>
+              onChange(null),
+            )
+          }
         >
           Clear source
         </Button>
@@ -74,7 +96,7 @@ export function NoteSourceControl({
           }}
         />
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 function SourcePicker({

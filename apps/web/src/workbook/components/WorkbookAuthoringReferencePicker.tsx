@@ -183,6 +183,7 @@ export function WorkbookAuthoringReferencePicker(
         maximum={props.maximum}
         label={props.label}
         testId={props.testId}
+        scopeKey={`${props.targetKey}:${view}`}
         disabled={props.disabled || concealed}
         concealed={concealed}
         onChange={(items) => setStaged({ freshness, items })}

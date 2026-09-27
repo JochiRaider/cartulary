@@ -4,8 +4,10 @@ import {
   partiesViewSchemaId,
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { useSelectedReferenceRemovalFocus } from "../../components/useSelectedReferenceRemovalFocus";
 import { WorkbookAuthoringReferencePicker } from "../../components/WorkbookAuthoringReferencePicker";
+import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   type ContextualCreateDraft,
@@ -37,13 +39,35 @@ export function ContextualReferenceControl({
     if (disabled) setOpen(false);
   }, [disabled]);
   const trigger = useRef<HTMLButtonElement>(null);
+  const group = useRef<HTMLFieldSetElement>(null);
   const ids = contextualReferenceIds(draft.values[field.fieldKey] ?? "");
+  const authority = useContext(WorkbookCandidateAuthorityContext);
+  const removalFocus = useSelectedReferenceRemovalFocus({
+    ids,
+    scopeKey: `${draft.id}:${field.fieldKey}:${authority.identity}`,
+    disabled: disabled || !authority.canRead,
+    fallback: () => trigger.current,
+    groupRef: group,
+  });
   const close = () => {
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
   };
   return (
-    <div style={{ display: "grid", gap: "0.5rem", minWidth: 0 }}>
+    <fieldset
+      ref={group}
+      aria-label={`${field.label} selected references`}
+      data-reference-focus-fallback
+      tabIndex={-1}
+      style={{
+        display: "grid",
+        gap: "0.5rem",
+        minWidth: 0,
+        border: 0,
+        margin: 0,
+        padding: 0,
+      }}
+    >
       <span>{field.label}</span>
       {ids.length ? (
         <ul>
@@ -58,11 +82,15 @@ export function ContextualReferenceControl({
                 ? " (source context)"
                 : ""}{" "}
               <WorkbookInspectorActionButton
+                ref={removalFocus.buttonRef(id)}
                 tone="secondary"
                 type="button"
-                aria-label={`Remove ${field.label} ${draft.labels[id] ?? id}`}
-                onClick={() =>
-                  onChange(ids.filter((item) => item !== id).join("\n"), {})
+                disabled={disabled || !authority.canRead}
+                aria-label={`Remove ${field.label} ${draft.labels[id] ?? id}${ids.filter((item) => (draft.labels[item] ?? item) === (draft.labels[id] ?? id)).length > 1 ? ` (${id})` : ""}`}
+                onClick={(event) =>
+                  removalFocus.remove(id, event.currentTarget, () =>
+                    onChange(ids.filter((item) => item !== id).join("\n"), {}),
+                  )
                 }
               >
                 Remove
@@ -85,7 +113,7 @@ export function ContextualReferenceControl({
         tone="secondary"
         ref={trigger}
         type="button"
-        disabled={disabled}
+        disabled={disabled || !authority.canRead}
         onClick={() => setOpen(true)}
       >
         Choose {field.label}
@@ -104,7 +132,7 @@ export function ContextualReferenceControl({
           }}
         />
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 function ReferencePicker({

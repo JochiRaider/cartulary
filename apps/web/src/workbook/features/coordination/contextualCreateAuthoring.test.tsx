@@ -302,11 +302,16 @@ describe("contextual Task and Decision authoring", () => {
     expect(owner.getSnapshot().draft?.values["task.linked_record_ids"]).toBe(
       sourceId,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: `Remove ${label} Original source` }),
-    );
+    const removeSource = screen.getByRole("button", {
+      name: `Remove ${label} Original source`,
+    });
+    removeSource.focus();
+    fireEvent.click(removeSource);
     expect(owner.getSnapshot().draft?.values["task.linked_record_ids"]).toBe(
       "",
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: `Choose ${label}` }),
     );
   });
   it("hides protected state on suspension and retires it on account replacement", () => {

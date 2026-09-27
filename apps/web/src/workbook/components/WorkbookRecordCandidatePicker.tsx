@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, Ref } from "react";
 
 type WorkbookRecordCandidate = {
   readonly displayText: string;
@@ -13,6 +13,7 @@ export function WorkbookRecordCandidatePicker({
   selection = "multiple",
   onSelectedRecordIdsChange,
   selectedRecordIds,
+  selectorRef,
   testId,
 }: {
   readonly candidates: readonly WorkbookRecordCandidate[];
@@ -22,12 +23,14 @@ export function WorkbookRecordCandidatePicker({
   readonly selection?: "single" | "multiple";
   readonly onSelectedRecordIdsChange: (recordIds: string[]) => void;
   readonly selectedRecordIds: readonly string[];
+  readonly selectorRef?: Ref<HTMLSelectElement>;
   readonly testId: string;
 }) {
   return (
     <label style={labelStyle}>
       {label}
       <select
+        ref={selectorRef}
         data-testid={testId}
         disabled={disabled}
         multiple={selection === "multiple"}

@@ -57,6 +57,10 @@ export const workbookCommandStateStyles = `
   outline: var(--ct-component-focus-ring-border);
   outline-offset: var(--ct-component-focus-ring-offset);
 }
+.cartulary-shell [data-reference-focus-fallback]:focus {
+  outline: var(--ct-component-focus-ring-border);
+  outline-offset: var(--ct-component-focus-ring-offset);
+}
 `;
 
 // Form controls share authored component states; grid sizing remains with the grid.

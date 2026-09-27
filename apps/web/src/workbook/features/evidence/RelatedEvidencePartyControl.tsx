@@ -2,8 +2,10 @@ import {
   partiesViewSchemaId,
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { useSelectedReferenceRemovalFocus } from "../../components/useSelectedReferenceRemovalFocus";
 import { WorkbookAuthoringReferencePicker } from "../../components/WorkbookAuthoringReferencePicker";
+import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { WorkbookAuthoringReadPort } from "../../ports/WorkbookAuthoringReadPort";
 
@@ -39,12 +41,34 @@ export function RelatedEvidencePartyControl({
     if (disabled) setOpenTarget(null);
   }, [disabled]);
   const trigger = useRef<HTMLButtonElement>(null);
+  const group = useRef<HTMLFieldSetElement>(null);
+  const authority = useContext(WorkbookCandidateAuthorityContext);
+  const removalFocus = useSelectedReferenceRemovalFocus({
+    ids: value ? [value] : [],
+    scopeKey: `${targetKey}:${field.fieldKey}:${authority.identity}`,
+    disabled: disabled || !authority.canRead,
+    fallback: () => trigger.current,
+    groupRef: group,
+  });
   const close = () => {
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
   };
   return (
-    <div style={{ display: "grid", gap: "var(--ct-spacing-xs)" }}>
+    <fieldset
+      ref={group}
+      aria-label={`${field.label} selected reference`}
+      data-reference-focus-fallback
+      tabIndex={-1}
+      style={{
+        display: "grid",
+        gap: "var(--ct-spacing-xs)",
+        minWidth: 0,
+        border: 0,
+        margin: 0,
+        padding: 0,
+      }}
+    >
       <span>
         {field.label}:{" "}
         {value
@@ -52,7 +76,17 @@ export function RelatedEvidencePartyControl({
           : "None selected"}
       </span>
       {value ? (
-        <Button type="button" tone="secondary" onClick={() => onChange("", {})}>
+        <Button
+          ref={removalFocus.buttonRef(value)}
+          type="button"
+          tone="secondary"
+          disabled={disabled || !authority.canRead}
+          onClick={(event) =>
+            removalFocus.remove(value, event.currentTarget, () =>
+              onChange("", {}),
+            )
+          }
+        >
           Remove {field.label}
         </Button>
       ) : null}
@@ -61,7 +95,7 @@ export function RelatedEvidencePartyControl({
         aria-describedby={errorId}
         type="button"
         tone="secondary"
-        disabled={disabled}
+        disabled={disabled || !authority.canRead}
         onClick={() => setOpen(true)}
       >
         Choose {field.label}
@@ -83,7 +117,7 @@ export function RelatedEvidencePartyControl({
           }}
         />
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 function PartyPicker({

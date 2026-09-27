@@ -113,6 +113,15 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
       genericCreateFieldTestId("evidence.collector_party_text"),
     ),
   ).toHaveValue("Response team collection log");
+  const parentCollectorRemove = button(f.form, "Remove Collector Party");
+  await parentCollectorRemove.focus();
+  await page.keyboard.press("Enter");
+  await expect(button(f.form, "Choose Collector Party")).toBeFocused();
+  await expect(
+    f.form.getByTestId(
+      genericCreateFieldTestId("evidence.collector_party_text"),
+    ),
+  ).toHaveValue("Response team collection log");
   await button(f.form, "Choose Source Party").click();
   const source = f.form.getByRole("region", {
     name: "Choose Source Party",
@@ -193,6 +202,19 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     exact: true,
   });
   await expect(ordinaryCandidates.getByRole("option")).toHaveCount(101);
+  const compactRemove = ordinary.getByRole("button", {
+    name: /^Remove selected Collector Party /,
+  });
+  await expect(compactRemove).toHaveCount(1);
+  await ordinaryCandidates.focus();
+  await page.keyboard.press("Tab");
+  await expect(compactRemove).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(ordinaryCandidates).toBeFocused();
+  await button(ordinary, "Cancel references").click();
+  await expect(raw).toHaveValue(selected);
+  await trigger.click();
+  await expect(ordinaryCandidates.getByRole("option")).toHaveCount(101);
   await button(ordinary, "Next candidates").click();
   await expect(ordinaryCandidates.getByRole("option")).toHaveCount(7);
   await button(ordinary, "Apply references").click();
@@ -205,6 +227,169 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     body: await page.screenshot(),
     contentType: "image/png",
   });
+});
+
+test("Timeline contextual reference removal keeps keyboard focus in the reference field", async ({
+  page,
+}, info) => {
+  const f = await openTimelineEvidenceFixture(page);
+  await seed(page, f.incident, partiesViewSchemaId, "party.display_name");
+  await button(f.form, "Keep draft and close").click();
+  await page
+    .getByTestId(
+      workbookInspectorFeatureActionTestId(
+        timelineViewSchemaId,
+        "create_related.task_request",
+      ),
+    )
+    .click();
+  const task = page.getByRole("region", {
+    name: "Create task request",
+    exact: true,
+  });
+  const title = task.getByTestId(genericCreateFieldTestId("task.title"));
+  await title.fill("Retained keyboard authoring");
+  await page.setViewportSize({ width: 430, height: 700 });
+  const choose = button(task, "Choose Linked Records");
+  const parentRemove = task.getByRole("button", {
+    name: /^Remove Linked Records /,
+  });
+  await expect(parentRemove).toHaveCount(1);
+  await choose.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(parentRemove).toBeFocused();
+  await page.keyboard.press("Enter");
+  const parentFocus = await page.evaluate(() =>
+    document.activeElement?.tagName === "BUTTON"
+      ? document.activeElement.textContent?.trim()
+      : document.activeElement?.tagName,
+  );
+
+  await choose.click();
+  const picker = task.getByRole("region", {
+    name: "Choose Linked Records",
+    exact: true,
+  });
+  await picker
+    .getByRole("combobox", { name: "Reference surface", exact: true })
+    .selectOption(partiesViewSchemaId);
+  const select = picker.getByRole("listbox", {
+    name: "Linked Records",
+    exact: true,
+  });
+  const firstPageIds = await select
+    .getByRole("option")
+    .evaluateAll((options) =>
+      options.slice(0, 3).map((option) => (option as HTMLOptionElement).value),
+    );
+  await select.selectOption(firstPageIds);
+  const remove = picker.getByRole("button", {
+    name: /^Remove selected Linked Records /,
+  });
+  await expect(remove).toHaveCount(3);
+  await button(picker, "Next candidates").click();
+  await expect(select.getByRole("option")).toHaveCount(6);
+  await expect(remove).toHaveCount(3);
+  const lastId = await select.getByRole("option").first().getAttribute("value");
+  if (!lastId) throw new Error("Missing off-page candidate identity");
+  await select.selectOption(lastId);
+  await expect(remove).toHaveCount(4);
+  const scrollOffsets = async () => ({
+    ...(await page.evaluate(() => ({
+      page: document.scrollingElement?.scrollTop ?? 0,
+      grid: document.querySelector('[role="grid"]')?.scrollTop ?? 0,
+    }))),
+    inspector: await task.evaluate((element) => {
+      for (
+        let parent = element.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        const style = getComputedStyle(parent);
+        if (
+          /(auto|scroll)/.test(style.overflowY) &&
+          parent.scrollHeight > parent.clientHeight
+        )
+          return parent.scrollTop;
+      }
+      return null;
+    }),
+  });
+  const observations: {
+    position: string;
+    focus: string | null;
+    scroll: unknown;
+  }[] = [];
+  for (const [position, tabCount, expected] of [
+    ["first", 1, 3],
+    ["middle", 2, 2],
+    ["last", 2, 1],
+    ["sole", 1, 0],
+  ] as const) {
+    await select.focus();
+    for (let index = 0; index < tabCount; index++)
+      await page.keyboard.press("Tab");
+    await expect(remove.nth(tabCount - 1)).toBeFocused();
+    const before = await scrollOffsets();
+    await page.keyboard.press(position === "middle" ? "Space" : "Enter");
+    const focus = await page.evaluate(
+      () =>
+        document.activeElement?.getAttribute("aria-label") ??
+        document.activeElement?.tagName ??
+        null,
+    );
+    const after = await scrollOffsets();
+    observations.push({ position, focus, scroll: { before, after } });
+    await expect(remove).toHaveCount(expected);
+    await expect(page.locator(":focus")).toBeInViewport();
+    expect(after.page).toBe(before.page);
+    expect(after.grid).toBe(before.grid);
+  }
+  await info.attach("selected-reference-removal-observations", {
+    body: Buffer.from(JSON.stringify({ parentFocus, observations }, null, 2)),
+    contentType: "application/json",
+  });
+  expect(parentFocus).toBe("Choose Linked Records");
+  expect(observations.map((item) => item.focus)).toEqual([
+    expect.stringMatching(/^Remove selected Linked Records /),
+    expect.stringMatching(/^Remove selected Linked Records /),
+    expect.stringMatching(/^Remove selected Linked Records /),
+    "SELECT",
+  ]);
+  await button(picker, "Apply references").click();
+  await expect(title).toHaveValue("Retained keyboard authoring");
+  await expect(parentRemove).toHaveCount(0);
+
+  await choose.click();
+  await picker
+    .getByRole("combobox", { name: "Reference surface", exact: true })
+    .selectOption(partiesViewSchemaId);
+  await select.selectOption(firstPageIds.slice(0, 2));
+  await expect(remove).toHaveCount(2);
+  await button(picker, "Cancel references").click();
+  await expect(parentRemove).toHaveCount(0);
+  await expect(title).toHaveValue("Retained keyboard authoring");
+
+  await choose.click();
+  await picker
+    .getByRole("combobox", { name: "Reference surface", exact: true })
+    .selectOption(partiesViewSchemaId);
+  await select.selectOption(firstPageIds.slice(0, 2));
+  await button(picker, "Apply references").click();
+  await expect(parentRemove).toHaveCount(2);
+  await choose.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(parentRemove.last()).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(parentRemove).toHaveCount(1);
+  await expect(parentRemove).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(parentRemove).toHaveCount(0);
+  await expect(choose).toBeFocused();
+  await expect(choose).toBeInViewport();
+  await expect(title).toHaveValue("Retained keyboard authoring");
 });
 
 test("Note source browsing preserves reviewed identity and text across delayed replacement and cancellation", async ({
@@ -282,6 +467,14 @@ test("Note source browsing preserves reviewed identity and text across delayed r
     contentType: "image/png",
   });
   await button(picker, "Cancel source").click();
+  const clearSource = button(f.form, "Clear source");
+  await clearSource.focus();
+  await page.keyboard.press("Space");
+  await expect(button(f.form, "Choose source")).toBeFocused();
+  await expect(button(f.form, "Choose source")).toBeInViewport();
+  await expect(
+    f.form.getByRole("textbox", { name: "Title", exact: true }),
+  ).toHaveValue("Retained Note text");
 });
 
 test("Assessment subjects and Timeline support retain deliberate identities through page eviction and explicit filtering", async ({
@@ -326,6 +519,15 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
   await expect(
     page.getByRole("button", { name: /^Remove selected Subject / }),
   ).toHaveCount(1);
+  await subject.focus();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: /^Remove selected Subject / }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(subject).toBeFocused();
+  await chooseFirst(subject);
+  await expect(rationale).toHaveValue("Retained assessment rationale");
   await page.getByText("Subject ordering and filters", { exact: true }).click();
   await page
     .getByRole("combobox", { name: "Subject filter field", exact: true })
@@ -363,6 +565,25 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
       name: /^Remove selected Timeline support candidates /,
     }),
   ).toHaveCount(2);
+  const supportRemove = support.getByRole("button", {
+    name: /^Remove selected Timeline support candidates /,
+  });
+  await candidates.focus();
+  await page.keyboard.press("Tab");
+  await expect(supportRemove.first()).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(supportRemove).toHaveCount(1);
+  await expect(supportRemove).toBeFocused();
+  await button(support, "Cancel support selection").click();
+  await expect(button(page, "Choose support")).toBeFocused();
+  await button(page, "Choose support").click();
+  await expect(candidates.getByRole("option")).toHaveCount(100);
+  const retainedSupport = await candidates
+    .getByRole("option")
+    .evaluateAll((options) =>
+      options.slice(0, 2).map((option) => (option as HTMLOptionElement).value),
+    );
+  await candidates.selectOption(retainedSupport);
   await button(support, "Apply support selection").click();
   await expect(
     page.getByRole("region", {

@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkbookCandidateAuthorityContext } from "../hooks/useWorkbookCandidateDiscovery";
 import type {
@@ -16,6 +16,7 @@ import type {
 } from "../ports/WorkbookAuthoringReadPort";
 import { WorkbookAuthoringReferenceControl } from "./WorkbookAuthoringReferenceControl";
 import { WorkbookAuthoringReferencePicker } from "./WorkbookAuthoringReferencePicker";
+import { WorkbookCandidateSelection } from "./WorkbookCandidateSelection";
 
 afterEach(cleanup);
 const view = partiesViewSchemaId;
@@ -82,8 +83,245 @@ const select = (...ids: string[]) => {
 const click = (name: string) =>
   fireEvent.click(screen.getByRole("button", { name }));
 describe("authoring candidate presentation", () => {
+  it("restores focused selected-reference removal to the next surviving identity", () => {
+    function Selection() {
+      const [selected, setSelected] = useState([
+        { recordId: "one", displayText: "Duplicate" },
+        { recordId: "two", displayText: "Duplicate" },
+      ]);
+      return (
+        <WorkbookCandidateSelection
+          candidates={[]}
+          selected={selected}
+          label="Linked Records"
+          testId="focus-candidates"
+          multiple
+          maximum={64}
+          disabled={false}
+          onChange={(items) => setSelected([...items])}
+        />
+      );
+    }
+    render(<Selection />);
+    const buttons = screen.getAllByRole("button", {
+      name: /^Remove selected Linked Records Duplicate/,
+    });
+    const first = buttons[0];
+    if (!first) throw new Error("Missing first Remove control");
+    first.focus();
+    fireEvent.click(first);
+    expect(document.activeElement).toBe(buttons[1]);
+  });
+  it("uses prior identity order for first middle last and sole removals", () => {
+    const values = ["a", "b", "c", "d"].map((recordId) => ({
+      recordId,
+      displayText: `Reference ${recordId}`,
+    }));
+    for (const [removed, expected] of [
+      ["a", "b"],
+      ["b", "c"],
+      ["d", "c"],
+      ["a", "selector"],
+    ] as const) {
+      const initial = expected === "selector" ? values.slice(0, 1) : values;
+      function Selection() {
+        const [selected, setSelected] = useState(initial);
+        return (
+          <WorkbookCandidateSelection
+            candidates={[{ recordId: "page", displayText: "Current page" }]}
+            selected={selected}
+            label="Records"
+            testId="records-selector"
+            multiple
+            maximum={64}
+            disabled={false}
+            onChange={(items) => setSelected([...items])}
+          />
+        );
+      }
+      render(<Selection />);
+      const source = screen.getByRole("button", {
+        name: `Remove selected Records Reference ${removed}`,
+      });
+      source.focus();
+      fireEvent.click(source);
+      expect(document.activeElement).toBe(
+        expected === "selector"
+          ? screen.getByTestId("records-selector")
+          : screen.getByRole("button", {
+              name: `Remove selected Records Reference ${expected}`,
+            }),
+      );
+      cleanup();
+    }
+  });
+  it("uses an accessible field fallback when the sole candidate selector is disabled", () => {
+    function Selection() {
+      const [selected, setSelected] = useState([
+        { recordId: "off-page", displayText: "Retained" },
+      ]);
+      return (
+        <WorkbookCandidateSelection
+          candidates={[]}
+          selected={selected}
+          label="Records"
+          testId="empty-records"
+          multiple
+          maximum={64}
+          disabled={false}
+          onChange={(items) => setSelected([...items])}
+        />
+      );
+    }
+    render(<Selection />);
+    const remove = screen.getByRole("button", {
+      name: "Remove selected Records Retained",
+    });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(screen.getByTestId("empty-records")).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("group", { name: "Records selected references" }),
+    );
+  });
+  it("waits for a controlled parent and retires obsolete or external focus intentions", () => {
+    const first = { recordId: "first", displayText: "First", rowVersion: 4 };
+    const second = { recordId: "second", displayText: "Second", rowVersion: 9 };
+    const onChange = vi.fn();
+    const external = render(<button type="button">Elsewhere</button>).getByRole(
+      "button",
+    );
+    const selection = (
+      selected: readonly (typeof first)[],
+      scopeKey = "field-a",
+      candidates: readonly { recordId: string; displayText: string }[] = [],
+      disabled = false,
+    ) => (
+      <WorkbookCandidateSelection
+        candidates={candidates}
+        selected={selected}
+        label="Records"
+        testId="controlled-records"
+        scopeKey={scopeKey}
+        multiple
+        maximum={64}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    );
+    const rendered = render(selection([first, second]));
+    const source = screen.getByRole("button", {
+      name: "Remove selected Records First",
+    });
+    source.focus();
+    fireEvent.click(source);
+    expect(onChange).toHaveBeenCalledWith([second]);
+    expect(document.activeElement).toBe(source);
+    rendered.rerender(
+      selection([first, second], "field-a", [
+        { recordId: "page", displayText: "Page" },
+      ]),
+    );
+    expect(document.activeElement).toBe(source);
+    rendered.rerender(selection([second]));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Remove selected Records Second" }),
+    );
+    rendered.rerender(
+      selection([second], "field-a", [
+        { recordId: "new-page", displayText: "New page" },
+      ]),
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Remove selected Records Second" }),
+    );
+
+    rendered.rerender(selection([first, second]));
+    const again = screen.getByRole("button", {
+      name: "Remove selected Records First",
+    });
+    again.focus();
+    fireEvent.click(again);
+    external.focus();
+    rendered.rerender(selection([second]));
+    expect(document.activeElement).toBe(external);
+
+    rendered.rerender(selection([first, second]));
+    const rejected = screen.getByRole("button", {
+      name: "Remove selected Records First",
+    });
+    rejected.focus();
+    fireEvent.click(rejected);
+    rendered.rerender(selection([first, second], "field-b"));
+    expect(document.activeElement).toBe(rejected);
+    rendered.rerender(selection([second], "field-b"));
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("button", { name: "Remove selected Records Second" }),
+    );
+    rendered.rerender(selection([first, second], "field-c"));
+    const beforeDisable = screen.getByRole("button", {
+      name: "Remove selected Records First",
+    });
+    beforeDisable.focus();
+    fireEvent.click(beforeDisable);
+    rendered.rerender(selection([first, second], "field-c", [], true));
+    rendered.rerender(selection([second], "field-c"));
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("button", { name: "Remove selected Records Second" }),
+    );
+  });
+  it("keeps parent-list removal local without opening discovery or changing survivor metadata", () => {
+    const { props, reader } = setup();
+    const retained: WorkbookAuthoringSelection[] = [
+      {
+        recordId: "off-page-a",
+        displayText: "First",
+        viewSchemaId: view,
+        rowVersion: 4,
+      },
+      {
+        recordId: "off-page-b",
+        displayText: "Last",
+        viewSchemaId: view,
+        rowVersion: 9,
+      },
+    ];
+    const applied = vi.fn();
+    function Control() {
+      const [selected, setSelected] = useState(retained);
+      return (
+        <WorkbookAuthoringReferenceControl
+          {...props}
+          selected={selected}
+          onApply={(items) => {
+            applied(items);
+            setSelected([...items]);
+          }}
+        />
+      );
+    }
+    render(<Control />);
+    const last = screen.getByRole("button", { name: "Remove Parties Last" });
+    last.focus();
+    fireEvent.click(last);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Remove Parties First" }),
+    );
+    expect(applied).toHaveBeenCalledWith([retained[0]]);
+    const first = screen.getByRole("button", { name: "Remove Parties First" });
+    first.focus();
+    fireEvent.click(first);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Choose parties" }),
+    );
+    expect(reader.page).not.toHaveBeenCalled();
+    expect(reader.availableViews).not.toHaveBeenCalled();
+  });
   it("retains selected identities across twelve evicted pages with bounded options and reduced payloads", async () => {
-    const { props, onApply } = setup();
+    const { props, reader, onApply } = setup();
     render(<WorkbookAuthoringReferencePicker {...props} />);
     await screen.findByRole("option", { name: "Party 1-0" });
     select("1-0");
@@ -118,7 +356,10 @@ describe("authoring candidate presentation", () => {
         viewSchemaId: view,
       },
     ]);
+    const readsBeforeRemoval = vi.mocked(reader.page).mock.calls.length;
     click("Remove selected Parties Party 1-0");
+    expect(reader.page).toHaveBeenCalledTimes(readsBeforeRemoval);
+    expect(onApply).toHaveBeenCalledTimes(1);
     click("Apply references");
     expect(onApply.mock.calls.at(-1)?.[0]).toHaveLength(1);
   });

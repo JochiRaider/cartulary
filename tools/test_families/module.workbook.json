@@ -983,10 +983,12 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_authoring_candidates_parties"
+          "scenario_authoring_candidates_parties",
+          "scenario_selected_reference_removal_timeline"
         ],
         "titles": [
-          "Authoring Party pages retain ordinary contextual and related Evidence selections through failed continuation"
+          "Authoring Party pages retain ordinary contextual and related Evidence selections through failed continuation",
+          "Timeline contextual reference removal keeps keyboard focus in the reference field"
         ]
       },
       "evidence_class": "browser",
