@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { useLayoutEffect, useRef } from "react";
@@ -31,6 +32,9 @@ it("restores the resolved cell only for the current recovery activation", async 
     "closed",
     "retargeted",
     "newer-focus",
+    "delayed-newer-input",
+    "surface-departure",
+    "authority-change",
   ] as const) {
     const { runtime } = fixture();
     const navigation = new WorkbookRecoveryNavigation();
@@ -63,25 +67,36 @@ it("restores the resolved cell only for the current recovery activation", async 
         attention: "attention",
       })),
     );
-    let complete!: (result: string | null) => void;
-    vi.spyOn(runtime, "resolveConflict").mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          complete = resolve;
-        }),
-    );
+    let complete!: (result: { kind: "resolved" }) => void;
+    vi.spyOn(runtime, "beginConflictResolution").mockImplementation(() => ({
+      kind: "admitted",
+      conflictToken: "token",
+      completion: new Promise((resolve) => {
+        complete = resolve;
+      }),
+    }));
     const gridRef: { current: GridHandle | null } = { current: null };
-    const requestFocus = vi.fn<GridHandle["requestFocus"]>(async () => {
-      const cell = screen.getByRole("button", { name: "Original cell" });
-      const viewport = cell.parentElement;
-      if (!viewport) throw new Error("Missing viewport");
-      viewport.scrollTop = 100;
-      viewport.scrollLeft = 300;
-      // Selecting a cell republishes the handle while retaining the viewport.
-      if (gridRef.current) gridRef.current = { ...gridRef.current };
-      cell.focus();
-      return "focused";
+    let releaseGridFocus: () => void = () => {};
+    const gridFocusGate = new Promise<void>((resolve) => {
+      releaseGridFocus = resolve;
     });
+    const requestFocus = vi.fn<GridHandle["requestFocus"]>(
+      async (_target, options) => {
+        if (continuation === "delayed-newer-input") {
+          await gridFocusGate;
+          if (options?.signal?.aborted) return "unavailable";
+        }
+        const cell = screen.getByRole("button", { name: "Original cell" });
+        const viewport = cell.parentElement;
+        if (!viewport) throw new Error("Missing viewport");
+        viewport.scrollTop = 100;
+        viewport.scrollLeft = 300;
+        // Selecting a cell republishes the handle while retaining the viewport.
+        if (gridRef.current) gridRef.current = { ...gridRef.current };
+        cell.focus();
+        return "focused";
+      },
+    );
     function Content() {
       const registry = useWorkbookBrowsingRegistry();
       const root = useRef<HTMLDivElement>(null);
@@ -146,6 +161,16 @@ it("restores the resolved cell only for the current recovery activation", async 
       fireEvent.click(screen.getByRole("button", { name: "other · Timeline" }));
     } else if (continuation === "newer-focus") {
       screen.getByRole("button", { name: "Newer work" }).focus();
+    } else if (continuation === "surface-departure") {
+      rendered.unmount();
+    } else if (continuation === "authority-change") {
+      runtime.setAuthority({
+        incidentId: "40000000-0000-4000-8000-000000000004",
+        actorId: "10000000-0000-4000-8000-000000000001",
+        sessionIdentity: "changed-session",
+        role: "editor",
+        closed: false,
+      });
     }
     if (continuation === "current") {
       // The runtime may retire the conflict before the awaited submit returns.
@@ -158,23 +183,38 @@ it("restores the resolved cell only for the current recovery activation", async 
       );
     }
     const previousFocus = document.activeElement;
-    await act(async () => {
-      complete(null);
-    });
-    if (continuation === "current") {
-      expect(requestFocus).toHaveBeenCalledWith({
-        kind: "cell",
-        anchor: {
-          surface: { kind: "view_schema", viewSchemaId: view },
-          rowIdentity: { kind: "core_record", recordId: "row-1" },
-          fieldKey: "timeline.activity_synopsis_text",
-        },
+    if (continuation === "delayed-newer-input") {
+      act(() => complete({ kind: "resolved" }));
+      await waitFor(() => expect(requestFocus).toHaveBeenCalledTimes(1));
+      fireEvent.pointerDown(screen.getByRole("button", { name: "Newer work" }));
+      screen.getByRole("button", { name: "Newer work" }).focus();
+      await act(async () => releaseGridFocus());
+      expect(navigation.getSnapshot().open).toBe(true);
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Newer work" }),
+      );
+    } else {
+      await act(async () => {
+        complete({ kind: "resolved" });
       });
+    }
+    if (continuation === "current") {
+      expect(requestFocus).toHaveBeenCalledWith(
+        {
+          kind: "cell",
+          anchor: {
+            surface: { kind: "view_schema", viewSchemaId: view },
+            rowIdentity: { kind: "core_record", recordId: "row-1" },
+            fieldKey: "timeline.activity_synopsis_text",
+          },
+        },
+        { signal: expect.any(AbortSignal) },
+      );
       expect(navigation.getSnapshot().open).toBe(false);
       expect(document.activeElement).toBe(
         screen.getByRole("button", { name: "Original cell" }),
       );
-    } else {
+    } else if (continuation !== "delayed-newer-input") {
       expect(requestFocus).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(previousFocus);
       expect(navigation.getSnapshot().open).toBe(continuation !== "closed");

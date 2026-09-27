@@ -14,11 +14,110 @@ import {
   useState,
 } from "react";
 import { useWorkbookRecoveryNavigation } from "../../shared/WorkbookRecoveryBoundary";
+import type { WorkbookRecoveryNavigation } from "../../shared/workbookRecoveryNavigation";
 import { useWorkbookBrowsingRegistry } from "../query/WorkbookQueryBrowsingContext";
 import type {
+  WorkbookConflictResolutionSettlement,
   WorkbookMutationRuntime,
   WorkbookMutationSnapshot,
 } from "../runtime/WorkbookMutationRuntime";
+
+type ResolutionIntent = {
+  readonly id: number;
+  readonly key: string;
+  readonly token: string;
+  readonly selectionGeneration: number;
+  readonly activation: number;
+  readonly attachment: string | null;
+  readonly authorityEpoch: number;
+  readonly controller: AbortController;
+  readonly panel: HTMLElement | null;
+  readonly scrollElement: HTMLElement | null;
+  readonly viewport: { top: number; left: number } | null;
+  readonly view: string;
+  readonly recordId: string;
+  readonly fieldKey: string;
+  eligible: boolean;
+  focusing: boolean;
+  releaseRetirement: (() => void) | null;
+};
+
+type ResolutionAttempt = {
+  readonly id: number;
+  readonly token: string;
+  readonly intent: ResolutionIntent;
+};
+
+function attachmentStillCurrent(
+  navigation: WorkbookRecoveryNavigation | null,
+  intent: ResolutionIntent,
+  allowRemovedSelection: boolean,
+): boolean {
+  const current = navigation?.getSnapshot();
+  return (
+    current?.open === true &&
+    current.activation === intent.activation &&
+    (current.selected === intent.attachment ||
+      (allowRemovedSelection && current.selected === null))
+  );
+}
+
+function retireIntent(intent: ResolutionIntent): void {
+  intent.eligible = false;
+  intent.controller.abort();
+}
+
+function bindIntentRetirement(
+  intent: ResolutionIntent,
+  navigation: WorkbookRecoveryNavigation | null,
+  mutationRuntime: WorkbookMutationRuntime,
+): () => void {
+  const onFocus = (event: FocusEvent) => {
+    if (
+      intent.focusing &&
+      event.target instanceof Node &&
+      intent.scrollElement?.contains(event.target)
+    )
+      return;
+    if (!intent.panel?.contains(event.target as Node)) retireIntent(intent);
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (!["Shift", "Control", "Alt"].includes(event.key)) retireIntent(intent);
+  };
+  const onPointer = () => retireIntent(intent);
+  const onScroll = () => {
+    if (!intent.focusing) retireIntent(intent);
+  };
+  const onNavigation = () => {
+    const removed = mutationRuntime
+      .getSnapshot()
+      .conflicts.every(
+        (entry) =>
+          entry.key !== intent.key ||
+          entry.conflict.conflict_token !== intent.token,
+      );
+    if (!attachmentStillCurrent(navigation, intent, removed))
+      retireIntent(intent);
+  };
+  const onRuntime = () => {
+    if (mutationRuntime.authorizationEpoch !== intent.authorityEpoch)
+      retireIntent(intent);
+  };
+  document.addEventListener("keydown", onKey, true);
+  document.addEventListener("focusin", onFocus, true);
+  document.addEventListener("pointerdown", onPointer, true);
+  document.addEventListener("wheel", onScroll, true);
+  const unsubscribeNavigation = navigation?.subscribe(onNavigation);
+  const unsubscribeRuntime = mutationRuntime.subscribe(onRuntime);
+  return () => {
+    document.removeEventListener("keydown", onKey, true);
+    document.removeEventListener("focusin", onFocus, true);
+    document.removeEventListener("pointerdown", onPointer, true);
+    document.removeEventListener("wheel", onScroll, true);
+    unsubscribeNavigation?.();
+    unsubscribeRuntime();
+  };
+}
 
 function displayConflictValue(value: unknown): string {
   if (typeof value === "string") return value;
@@ -96,15 +195,75 @@ export function WorkbookSameFieldConflictResolver({
   const [activeKey, setActiveKey] = useState<string | null>(
     activation?.conflictKey ?? snapshot.conflicts[0]?.key ?? null,
   );
+  const selectedKey = useRef(activeKey);
+  selectedKey.current = activeKey;
+  const selectionGeneration = useRef(0);
+  const nextSubmissionId = useRef(0);
+  const attempts = useRef(new Map<string, ResolutionAttempt>());
+  const feedback = useRef(
+    new Map<string, { token: string; message: string }>(),
+  );
+  const [, renderPresentation] = useState(0);
+  const publishPresentation = () => renderPresentation((value) => value + 1);
+  const selectConflict = (key: string) => {
+    if (selectedKey.current === key) return;
+    selectedKey.current = key;
+    selectionGeneration.current += 1;
+    for (const attempt of attempts.current.values())
+      retireIntent(attempt.intent);
+    setActiveKey(key);
+  };
   useEffect(() => {
-    if (activation !== undefined && activation !== null)
-      setActiveKey(activation.conflictKey);
+    if (activation === undefined || activation === null) return;
+    if (selectedKey.current === activation.conflictKey) return;
+    selectedKey.current = activation.conflictKey;
+    selectionGeneration.current += 1;
+    for (const attempt of attempts.current.values())
+      retireIntent(attempt.intent);
+    setActiveKey(activation.conflictKey);
   }, [activation]);
   const conflict =
     snapshot.conflicts.find((entry) => entry.key === activeKey) ?? null;
+  useEffect(() => {
+    if (activeKey === null || conflict !== null) return;
+    const state = navigation?.getSnapshot();
+    if (!state?.open || state.selected === null) return;
+    if (attempts.current.get(activeKey)?.intent.eligible) return;
+    navigation?.openList();
+  }, [activeKey, conflict, navigation]);
   const resolverRef = useRef<HTMLElement | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    return () => {
+      // The selected entry may be removed by this admitted resolution. Its
+      // continuation may still return focus while the source grid remains.
+      for (const attempt of attempts.current.values()) {
+        const intent = attempt.intent;
+        const removedBySettlement =
+          navigation?.getSnapshot().open &&
+          navigation.getSnapshot().selected === null &&
+          mutationRuntime
+            .getSnapshot()
+            .conflicts.every(
+              (entry) =>
+                entry.key !== intent.key ||
+                entry.conflict.conflict_token !== intent.token,
+            );
+        if (!removedBySettlement) retireIntent(intent);
+      }
+    };
+  }, [navigation, mutationRuntime]);
+
+  const currentAttempt = conflict && attempts.current.get(conflict.key);
+  const submitting =
+    conflict !== null &&
+    currentAttempt?.token === conflict.conflict.conflict_token;
+  const currentFeedback = conflict
+    ? feedback.current.get(conflict.key)
+    : undefined;
+  const message =
+    conflict && currentFeedback?.token === conflict.conflict.conflict_token
+      ? currentFeedback.message
+      : null;
 
   if (conflict === null)
     return (
@@ -114,74 +273,172 @@ export function WorkbookSameFieldConflictResolver({
       </p>
     );
 
-  const submit = async (
+  const submit = (
     resolutionKind: "keep_saved" | "merged_value" | "use_unsaved",
   ) => {
-    const activation = navigation?.getSnapshot().activation;
+    const previous = attempts.current.get(conflict.key);
+    if (previous?.token === conflict.conflict.conflict_token) return;
+    if (previous) {
+      retireIntent(previous.intent);
+      previous.intent.releaseRetirement?.();
+      previous.intent.releaseRetirement = null;
+      attempts.current.delete(conflict.key);
+    }
+    const current = navigation?.getSnapshot();
     const panel = resolverRef.current?.closest(
       '[aria-label="Recovery navigation"]',
-    );
+    ) as HTMLElement | null;
     const view = conflict.origin.viewSchemaId;
     const grid = browsing.grid(view);
-    const scrollElement = grid?.getScrollElement();
+    const scrollElement = grid?.getScrollElement() ?? null;
     const viewport = scrollElement
       ? { top: scrollElement.scrollTop, left: scrollElement.scrollLeft }
       : null;
-    setSubmitting(true);
-    setMessage(null);
-    try {
-      const nextMessage = await mutationRuntime.resolveConflict({
-        apiBase,
-        key: conflict.key,
-        resolutionKind,
+    const start = mutationRuntime.beginConflictResolution({
+      apiBase,
+      key: conflict.key,
+      resolutionKind,
+    });
+    if (start.kind === "rejected") {
+      feedback.current.set(conflict.key, {
+        token: conflict.conflict.conflict_token,
+        message: start.message,
       });
-      setMessage(nextMessage);
-      const current = navigation?.getSnapshot();
-      if (
-        nextMessage === null &&
-        current?.open &&
-        current.activation === activation &&
-        panel?.contains(document.activeElement)
-      ) {
-        // Only this explicit activation may continue to the original cell.
-        // A detached/retargeted resolver or newer work must keep its own focus.
-        navigation?.close();
-        const handoffActivation = navigation?.getSnapshot().activation;
-        const currentGrid = browsing.grid(view);
-        if (
-          currentGrid &&
-          scrollElement?.isConnected &&
-          currentGrid.getScrollElement() === scrollElement
-        ) {
-          const result = await currentGrid.requestFocus({
-            kind: "cell",
-            anchor: {
-              surface: { kind: "view_schema", viewSchemaId: view },
-              rowIdentity: {
-                kind: "core_record",
-                recordId: conflict.conflict.record_id,
-              },
-              fieldKey: conflict.conflict.field_key,
-            },
-          });
-          // Semantic focus may scroll a rendered cell fully into view. This
-          // explicit resolution owns the captured viewport as well as the cell.
-          if (
-            result === "focused" &&
-            viewport &&
-            scrollElement?.isConnected &&
-            browsing.grid(view)?.getScrollElement() === scrollElement &&
-            navigation?.getSnapshot().activation === handoffActivation &&
-            !navigation?.getSnapshot().open
-          ) {
-            scrollElement.scrollTop = viewport.top;
-            scrollElement.scrollLeft = viewport.left;
-          }
-        }
-      }
-    } finally {
-      setSubmitting(false);
+      publishPresentation();
+      return;
     }
+    const id = ++nextSubmissionId.current;
+    const intent: ResolutionIntent = {
+      id,
+      key: conflict.key,
+      token: start.conflictToken,
+      selectionGeneration: selectionGeneration.current,
+      activation: current?.activation ?? -1,
+      attachment: current?.selected ?? null,
+      authorityEpoch: mutationRuntime.authorizationEpoch,
+      controller: new AbortController(),
+      panel,
+      scrollElement,
+      viewport,
+      view,
+      recordId: conflict.conflict.record_id,
+      fieldKey: conflict.conflict.field_key,
+      eligible: true,
+      focusing: false,
+      releaseRetirement: null,
+    };
+    intent.releaseRetirement = bindIntentRetirement(
+      intent,
+      navigation,
+      mutationRuntime,
+    );
+    attempts.current.set(conflict.key, {
+      id,
+      token: start.conflictToken,
+      intent,
+    });
+    feedback.current.delete(conflict.key);
+    publishPresentation();
+    const eligible = (allowRemovedSelection: boolean) =>
+      intent.eligible &&
+      selectedKey.current === intent.key &&
+      selectionGeneration.current === intent.selectionGeneration &&
+      mutationRuntime.authorizationEpoch === intent.authorityEpoch &&
+      attachmentStillCurrent(
+        navigation,
+        intent,
+        allowRemovedSelection &&
+          mutationRuntime
+            .getSnapshot()
+            .conflicts.every(
+              (entry) =>
+                entry.key !== intent.key ||
+                entry.conflict.conflict_token !== intent.token,
+            ),
+      ) &&
+      intent.panel?.isConnected === true;
+    void start.completion
+      .then(async (outcome: WorkbookConflictResolutionSettlement) => {
+        if (attempts.current.get(intent.key)?.id !== id) return;
+        const finish = () => {
+          intent.releaseRetirement?.();
+          intent.releaseRetirement = null;
+          if (attempts.current.get(intent.key)?.id === id)
+            attempts.current.delete(intent.key);
+          publishPresentation();
+        };
+        if (outcome.kind === "failed" || outcome.kind === "refreshed") {
+          const currentEntry = mutationRuntime
+            .getSnapshot()
+            .conflicts.find((entry) => entry.key === intent.key);
+          if (currentEntry?.conflict.conflict_token === outcome.conflictToken)
+            feedback.current.set(intent.key, {
+              token: outcome.conflictToken,
+              message: outcome.message,
+            });
+        }
+        try {
+          if (outcome.kind !== "resolved" || !eligible(true)) return;
+          if (
+            !intent.panel?.contains(document.activeElement) &&
+            document.activeElement !== document.body
+          )
+            return;
+          const currentGrid = browsing.grid(intent.view);
+          if (
+            !currentGrid ||
+            !intent.scrollElement?.isConnected ||
+            currentGrid.getScrollElement() !== intent.scrollElement
+          )
+            return;
+          intent.focusing = true;
+          const result = await currentGrid.requestFocus(
+            {
+              kind: "cell",
+              anchor: {
+                surface: { kind: "view_schema", viewSchemaId: intent.view },
+                rowIdentity: { kind: "core_record", recordId: intent.recordId },
+                fieldKey: intent.fieldKey,
+              },
+            },
+            { signal: intent.controller.signal },
+          );
+          intent.focusing = false;
+          if (!eligible(true) || result !== "focused") return;
+          if (
+            intent.viewport &&
+            browsing.grid(intent.view)?.getScrollElement() ===
+              intent.scrollElement
+          ) {
+            intent.scrollElement.scrollTop = intent.viewport.top;
+            intent.scrollElement.scrollLeft = intent.viewport.left;
+          }
+          navigation?.close();
+        } finally {
+          finish();
+        }
+      })
+      .catch(() => {
+        if (attempts.current.get(intent.key)?.id !== id) return;
+        intent.releaseRetirement?.();
+        intent.releaseRetirement = null;
+        attempts.current.delete(intent.key);
+        if (
+          mutationRuntime
+            .getSnapshot()
+            .conflicts.some(
+              (entry) =>
+                entry.key === intent.key &&
+                entry.conflict.conflict_token === intent.token,
+            )
+        )
+          feedback.current.set(intent.key, {
+            token: intent.token,
+            message:
+              "The resolution could not complete. Review the conflict and retry.",
+          });
+        publishPresentation();
+      });
   };
   const isText = conflict.resolutionClass === "text_compare_merge";
   const isCollection = conflict.resolutionClass === "collection_review";
@@ -267,7 +524,7 @@ export function WorkbookSameFieldConflictResolver({
               disabled={activeConflictIndex <= 0}
               onClick={() => {
                 const previous = groupedConflicts[activeConflictIndex - 1];
-                if (previous !== undefined) setActiveKey(previous.key);
+                if (previous !== undefined) selectConflict(previous.key);
               }}
               style={secondaryButtonStyle}
               type="button"
@@ -279,7 +536,7 @@ export function WorkbookSameFieldConflictResolver({
               disabled={activeConflictIndex >= groupedConflicts.length - 1}
               onClick={() => {
                 const next = groupedConflicts[activeConflictIndex + 1];
-                if (next !== undefined) setActiveKey(next.key);
+                if (next !== undefined) selectConflict(next.key);
               }}
               style={secondaryButtonStyle}
               type="button"
@@ -293,7 +550,7 @@ export function WorkbookSameFieldConflictResolver({
                 aria-current={entry.key === conflict.key ? "true" : undefined}
                 data-testid={pasteConflictItemTestId(entry.key)}
                 key={entry.key}
-                onClick={() => setActiveKey(entry.key)}
+                onClick={() => selectConflict(entry.key)}
                 style={
                   entry.key === conflict.key
                     ? selectedConflictButtonStyle
@@ -330,6 +587,7 @@ export function WorkbookSameFieldConflictResolver({
             Merged value
             <textarea
               data-testid={workbookConflictControlTestId("merged-value")}
+              readOnly={submitting}
               onChange={(event) =>
                 mutationRuntime.updateConflictDraft(
                   conflict.key,
@@ -345,13 +603,14 @@ export function WorkbookSameFieldConflictResolver({
               data-testid={workbookConflictControlTestId(
                 "use-server-suggestion",
               )}
-              disabled={submitting || !!conflict.compoundOperationId}
-              onClick={() =>
+              aria-disabled={submitting || !!conflict.compoundOperationId}
+              onClick={() => {
+                if (submitting || conflict.compoundOperationId) return;
                 mutationRuntime.updateConflictDraft(
                   conflict.key,
                   displayConflictValue(suggestion),
-                )
-              }
+                );
+              }}
               style={secondaryButtonStyle}
               type="button"
             >
@@ -383,6 +642,11 @@ export function WorkbookSameFieldConflictResolver({
         </div>
       )}
 
+      {submitting ? (
+        <p role="status" aria-live="polite">
+          Resolving this conflict…
+        </p>
+      ) : null}
       {message ? (
         <p aria-live="polite" role="status" style={errorStyle}>
           {message}
@@ -398,8 +662,9 @@ export function WorkbookSameFieldConflictResolver({
       <div style={buttonRowStyle}>
         <button
           data-testid={workbookConflictControlTestId("keep-saved")}
-          disabled={submitting}
-          onClick={() => void submit("keep_saved")}
+          aria-busy={submitting}
+          aria-disabled={submitting}
+          onClick={() => submit("keep_saved")}
           style={destructiveButtonStyle}
           type="button"
         >
@@ -408,8 +673,11 @@ export function WorkbookSameFieldConflictResolver({
         {isCollection ? (
           <button
             data-testid={workbookConflictControlTestId("apply-collection")}
-            disabled={submitting || !!conflict.compoundOperationId}
-            onClick={() => void submit("merged_value")}
+            aria-busy={submitting}
+            aria-disabled={submitting || !!conflict.compoundOperationId}
+            onClick={() => {
+              if (!conflict.compoundOperationId) submit("merged_value");
+            }}
             style={secondaryButtonStyle}
             type="button"
           >
@@ -419,8 +687,11 @@ export function WorkbookSameFieldConflictResolver({
           <>
             <button
               data-testid={workbookConflictControlTestId("use-unsaved")}
-              disabled={submitting || !!conflict.compoundOperationId}
-              onClick={() => void submit("use_unsaved")}
+              aria-busy={submitting}
+              aria-disabled={submitting || !!conflict.compoundOperationId}
+              onClick={() => {
+                if (!conflict.compoundOperationId) submit("use_unsaved");
+              }}
               style={secondaryButtonStyle}
               type="button"
             >
@@ -428,8 +699,11 @@ export function WorkbookSameFieldConflictResolver({
             </button>
             <button
               data-testid={workbookConflictControlTestId("use-merged")}
-              disabled={submitting || !!conflict.compoundOperationId}
-              onClick={() => void submit("merged_value")}
+              aria-busy={submitting}
+              aria-disabled={submitting || !!conflict.compoundOperationId}
+              onClick={() => {
+                if (!conflict.compoundOperationId) submit("merged_value");
+              }}
               style={secondaryButtonStyle}
               type="button"
             >
@@ -439,8 +713,11 @@ export function WorkbookSameFieldConflictResolver({
         ) : (
           <button
             data-testid={workbookConflictControlTestId("use-unsaved")}
-            disabled={submitting || !!conflict.compoundOperationId}
-            onClick={() => void submit("use_unsaved")}
+            aria-busy={submitting}
+            aria-disabled={submitting || !!conflict.compoundOperationId}
+            onClick={() => {
+              if (!conflict.compoundOperationId) submit("use_unsaved");
+            }}
             style={secondaryButtonStyle}
             type="button"
           >

@@ -134,6 +134,28 @@ export type WorkbookEditRecoveryActionResult =
         | "secure_id_unavailable";
     };
 
+export type WorkbookConflictResolutionSettlement =
+  | { readonly kind: "resolved" }
+  | {
+      readonly kind: "refreshed";
+      readonly conflictToken: string;
+      readonly message: string;
+    }
+  | {
+      readonly kind: "failed";
+      readonly conflictToken: string;
+      readonly message: string;
+    }
+  | { readonly kind: "superseded" };
+
+export type WorkbookConflictResolutionStart =
+  | { readonly kind: "rejected"; readonly message: string }
+  | {
+      readonly kind: "admitted";
+      readonly conflictToken: string;
+      readonly completion: Promise<WorkbookConflictResolutionSettlement>;
+    };
+
 const emptyRefreshDebts: readonly string[] = Object.freeze([]);
 
 /**
@@ -1172,7 +1194,7 @@ export class WorkbookMutationRuntime {
     return { ok: true };
   }
 
-  async resolveConflict({
+  beginConflictResolution({
     apiBase,
     key,
     resolutionKind,
@@ -1180,11 +1202,19 @@ export class WorkbookMutationRuntime {
     readonly apiBase?: string | undefined;
     readonly key: string;
     readonly resolutionKind: WorkbookConflictResolutionKind;
-  }): Promise<string | null> {
+  }): WorkbookConflictResolutionStart {
     const entry = this.conflicts.get(key);
-    if (entry === undefined) return "The conflict is no longer available.";
+    if (entry === undefined)
+      return {
+        kind: "rejected",
+        message: "The conflict is no longer available.",
+      };
     if (entry.compoundOperationId && resolutionKind !== "keep_saved")
-      return "Keep saved, then review and submit the complete retained action. Partial conflict application is unavailable.";
+      return {
+        kind: "rejected",
+        message:
+          "Keep saved, then review and submit the complete retained action. Partial conflict application is unavailable.",
+      };
     const releaseRecord =
       entry.origin.viewSchemaId === decisionViewId
         ? this.beginDecisionWrite([entry.conflict.record_id])
@@ -1193,7 +1223,11 @@ export class WorkbookMutationRuntime {
             entry.batchOperationId,
           );
     if (releaseRecord === null)
-      return "Finish the earlier batch or merge before resolving this edit.";
+      return {
+        kind: "rejected",
+        message:
+          "Finish the earlier batch or merge before resolving this edit.",
+      };
     let transactionId: string;
     try {
       transactionId = this.transactionIds.create(
@@ -1201,7 +1235,11 @@ export class WorkbookMutationRuntime {
       );
     } catch {
       releaseRecord();
-      return "A secure transaction ID could not be created. No resolution was sent.";
+      return {
+        kind: "rejected",
+        message:
+          "A secure transaction ID could not be created. No resolution was sent.",
+      };
     }
     const body = buildWorkbookConflictResolutionPayload({
       clientTxnId: transactionId,
@@ -1210,9 +1248,47 @@ export class WorkbookMutationRuntime {
     });
     if (body === null) {
       releaseRecord();
-      return "The reviewed collection contains a change that cannot be represented safely.";
+      return {
+        kind: "rejected",
+        message:
+          "The reviewed collection contains a change that cannot be represented safely.",
+      };
     }
     const finishMutation = this.beginConflictSubmission();
+    return {
+      kind: "admitted",
+      conflictToken: entry.conflict.conflict_token,
+      completion: this.settleConflictResolution({
+        apiBase,
+        body,
+        entry,
+        finishMutation,
+        key,
+        releaseRecord,
+        resolutionKind,
+      }),
+    };
+  }
+
+  private async settleConflictResolution({
+    apiBase,
+    body,
+    entry,
+    finishMutation,
+    key,
+    releaseRecord,
+    resolutionKind,
+  }: {
+    readonly apiBase: string | undefined;
+    readonly body: NonNullable<
+      ReturnType<typeof buildWorkbookConflictResolutionPayload>
+    >;
+    readonly entry: WorkbookConflictEntry;
+    readonly finishMutation: () => void;
+    readonly key: string;
+    readonly releaseRecord: () => void;
+    readonly resolutionKind: WorkbookConflictResolutionKind;
+  }): Promise<WorkbookConflictResolutionSettlement> {
     try {
       const outcome = await executeWorkbookConflictResolution({
         apiBase,
@@ -1223,11 +1299,12 @@ export class WorkbookMutationRuntime {
       // The transport outcome settles submission; subsequent observation is read work.
       finishMutation();
       if (
-        this.conflicts.get(key) !== entry ||
+        this.conflicts.get(key)?.conflict.conflict_token !==
+          entry.conflict.conflict_token ||
         this.entityLifetimeRetired ||
         this.lifecycle.disposed
       )
-        return "This conflict is no longer available.";
+        return { kind: "superseded" };
       if (outcome.kind === "rejected") {
         if (outcome.failure.kind === "same_field_conflict") {
           this.timelineRelatedEvidence.conflictChanged(
@@ -1251,7 +1328,12 @@ export class WorkbookMutationRuntime {
             mergedDraft: entry.mergedDraft,
           });
           this.emit();
-          return "The saved value changed again. Review the refreshed conflict.";
+          return {
+            kind: "refreshed",
+            conflictToken: refreshedEntry.conflict.conflict_token,
+            message:
+              "The saved value changed again. Review the refreshed conflict.",
+          };
         }
         if (
           outcome.failure.kind === "validation" &&
@@ -1259,7 +1341,11 @@ export class WorkbookMutationRuntime {
         ) {
           return await this.refreshInvalidConflictToken(key, entry);
         }
-        return outcome.failure.message;
+        return {
+          kind: "failed",
+          conflictToken: entry.conflict.conflict_token,
+          message: outcome.failure.message,
+        };
       }
       const resolvedRow = outcome.value.row;
       const committed = normalizeRecordMutationRow(
@@ -1334,18 +1420,27 @@ export class WorkbookMutationRuntime {
       const applyResolvedMutation = this.surfaces.applyResolvedMutation(
         entry.origin.viewSchemaId,
       );
+      let stillCurrent = false;
       try {
         if (applyResolvedMutation === null) {
           await this.surfaces.refresh(entry.origin.viewSchemaId);
         } else {
           await applyResolvedMutation(outcome.value, entry);
         }
+      } catch {
+        // The write is acknowledged. A failed projection read is read debt,
+        // never a reason to resend the resolution.
+        this.surfaces.invalidate(entry.origin.viewSchemaId);
+        this.emit();
       } finally {
         // Mounted source presentation first observes which captured revisions
         // it owns. Retirement then clears any detached remainder exactly once.
-        this.clearConflict(key);
+        stillCurrent =
+          this.conflicts.get(key)?.conflict.conflict_token ===
+          entry.conflict.conflict_token;
+        if (stillCurrent) this.clearConflict(key);
       }
-      return null;
+      return stillCurrent ? { kind: "resolved" } : { kind: "superseded" };
     } finally {
       releaseRecord();
       finishMutation();
@@ -1537,32 +1632,61 @@ export class WorkbookMutationRuntime {
   private async refreshInvalidConflictToken(
     key: string,
     entry: WorkbookConflictEntry,
-  ): Promise<string | null> {
+  ): Promise<WorkbookConflictResolutionSettlement> {
     if (entry.compoundOperationId) {
       try {
         await this.surfaces.refreshRequired(entry.origin.viewSchemaId);
       } catch {
-        return "The expired conflict needs a current query. Your complete Task draft is retained.";
+        return {
+          kind: "failed",
+          conflictToken: entry.conflict.conflict_token,
+          message:
+            "The expired conflict needs a current query. Your complete Task draft is retained.",
+        };
       }
+      if (
+        this.conflicts.get(key)?.conflict.conflict_token !==
+        entry.conflict.conflict_token
+      )
+        return { kind: "superseded" };
       this.clearConflict(key);
       this.explicitPatches.conflictResolved(entry.conflict.record_id);
-      return null;
+      return { kind: "resolved" };
     }
     const refresh = this.conflicts.refresh(key);
-    if (refresh === undefined) return "invalid_mutation_payload";
+    if (refresh === undefined)
+      return {
+        kind: "failed",
+        conflictToken: entry.conflict.conflict_token,
+        message: "invalid_mutation_payload",
+      };
     let outcome: WorkbookOperationOutcome<unknown>;
     try {
       outcome = await refresh();
     } catch {
-      return "The conflict could not be refreshed. Your draft is still available.";
+      return {
+        kind: "failed",
+        conflictToken: entry.conflict.conflict_token,
+        message:
+          "The conflict could not be refreshed. Your draft is still available.",
+      };
     }
+    if (
+      this.conflicts.get(key)?.conflict.conflict_token !==
+      entry.conflict.conflict_token
+    )
+      return { kind: "superseded" };
     if (outcome.kind === "accepted") {
       this.clearConflict(key);
       await this.surfaces.refresh(entry.origin.viewSchemaId);
-      return null;
+      return { kind: "resolved" };
     }
     if (outcome.failure.kind !== "same_field_conflict") {
-      return `${outcome.failure.message} Your draft is still available.`;
+      return {
+        kind: "failed",
+        conflictToken: entry.conflict.conflict_token,
+        message: `${outcome.failure.message} Your draft is still available.`,
+      };
     }
     const refreshedEntry = workbookConflictEntry({
       conflict: outcome.failure.conflict,
@@ -1581,6 +1705,11 @@ export class WorkbookMutationRuntime {
       mergedDraft: entry.mergedDraft,
     });
     this.emit();
-    return "The conflict token expired. Review the refreshed conflict; your draft was preserved.";
+    return {
+      kind: "refreshed",
+      conflictToken: refreshedEntry.conflict.conflict_token,
+      message:
+        "The conflict token expired. Review the refreshed conflict; your draft was preserved.",
+    };
   }
 }

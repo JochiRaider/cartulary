@@ -1167,6 +1167,41 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.conflict_completion_preserves_newer_grouped_draf_caa2cd651a",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-grid-entry.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_conflict_completion_continuity"
+        ],
+        "titles": [
+          "Timeline conflict completion preserves a newer grouped draft and focus"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.deferred_continuity",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -2027,6 +2062,41 @@
         ],
         "titles": [
           "uses public history and visible state to prove replay avoids duplicate mutation effects"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser.refreshed_conflict_preserves_newer_grouped_draft_2db53472fd",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline-grid-entry.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_refreshed_conflict_continuity"
+        ],
+        "titles": [
+          "Timeline refreshed conflict stays with A while B keeps its grouped draft and focus"
         ]
       },
       "evidence_class": "browser",

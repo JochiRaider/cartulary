@@ -25,6 +25,8 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineRowSupersedeButtonTestId,
   timelineScalarEditorTestId,
+  workbookConflictControlTestId,
+  workbookConflictSavedValueTestId,
   workbookEditRecoveryDiscardButtonTestId,
   workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
@@ -1890,6 +1892,156 @@ test("Timeline paste keeps ordered grouped conflicts and per-cell attributed cor
     ).toHaveCount(0);
   } finally {
     await held.dispose();
+  }
+});
+
+test("Timeline conflict completion preserves a newer grouped draft and focus", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 768, height: 640 });
+  const { incidentId, rows } = await seedTimeline(page, 2);
+  const first = required(rows[0]).record_id;
+  const second = required(rows[1]).record_id;
+  const pastePath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
+  const paste = await holdBrowserRequest(page, {
+    method: "POST",
+    path: pastePath,
+  });
+  let resolution: Awaited<ReturnType<typeof holdBrowserRequest>> | null = null;
+  try {
+    await selectCell(page, first);
+    await clipboard(page, "Client first\nClient second");
+    await paste.waitForHit;
+    await externalPatch(page, incidentId, first, synopsis, "Server first");
+    await externalPatch(page, incidentId, second, synopsis, "Server second");
+    paste.release();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await page
+      .getByRole("button", { name: "Open conflict recovery", exact: true })
+      .click();
+    await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
+    resolution = await holdBrowserRequest(page, {
+      method: "POST",
+      path: `/api/v1/records/${first}/conflicts/*/resolve`,
+    });
+    await page
+      .getByTestId(workbookConflictControlTestId("merged-value"))
+      .fill("Explicit A merge");
+    await page.getByTestId(workbookConflictControlTestId("use-merged")).click();
+    await resolution.waitForHit;
+    const nextConflict = page.getByTestId(
+      workbookConflictControlTestId("paste-next"),
+    );
+    await nextConflict.focus();
+    await nextConflict.press("Enter");
+    const secondDraft = page.getByTestId(
+      workbookConflictControlTestId("merged-value"),
+    );
+    await secondDraft.fill("  Exact B merge  ");
+    await expect(secondDraft).toBeFocused();
+    resolution.release();
+    await waitForViewRowByCell(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      synopsis,
+      "Explicit A merge",
+    );
+    await expect(
+      page.getByRole("region", { name: "Workbook conflict recovery" }),
+    ).toBeVisible();
+    await expect(secondDraft).toHaveValue("  Exact B merge  ");
+    await expect(secondDraft).toBeFocused();
+    expect(await fetchRecordHistoryCount(page, first)).toBe(3);
+    expect(await fetchRecordHistoryCount(page, second)).toBe(2);
+    const saved = await queryViewRows(page, incidentId, timelineViewSchemaId);
+    expect(
+      saved.find((row) => row.record_id === second)?.cells[synopsis]?.value,
+    ).toBe("Server second");
+  } finally {
+    await resolution?.dispose();
+    await paste.dispose();
+  }
+});
+
+test("Timeline refreshed conflict stays with A while B keeps its grouped draft and focus", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 768, height: 640 });
+  const { incidentId, rows } = await seedTimeline(page, 2);
+  const first = required(rows[0]).record_id;
+  const second = required(rows[1]).record_id;
+  const paste = await holdBrowserRequest(page, {
+    method: "POST",
+    path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+  });
+  let resolution: Awaited<ReturnType<typeof holdBrowserRequest>> | null = null;
+  try {
+    await selectCell(page, first);
+    await clipboard(page, "Client first\nClient second");
+    await paste.waitForHit;
+    await externalPatch(page, incidentId, first, synopsis, "Server first");
+    await externalPatch(page, incidentId, second, synopsis, "Server second");
+    paste.release();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await page
+      .getByRole("button", { name: "Open conflict recovery", exact: true })
+      .click();
+    await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
+    resolution = await holdBrowserRequest(page, {
+      method: "POST",
+      path: `/api/v1/records/${first}/conflicts/*/resolve`,
+    });
+    await page
+      .getByTestId(workbookConflictControlTestId("merged-value"))
+      .fill("  Exact A merge  ");
+    await page.getByTestId(workbookConflictControlTestId("use-merged")).click();
+    await resolution.waitForHit;
+    await externalPatch(page, incidentId, first, synopsis, "Server again");
+    await page.getByTestId(workbookConflictControlTestId("paste-next")).click();
+    const secondDraft = page.getByTestId(
+      workbookConflictControlTestId("merged-value"),
+    );
+    await secondDraft.fill("  Exact B merge  ");
+    await expect(secondDraft).toBeFocused();
+    const rejected = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes(`/api/v1/records/${first}/conflicts/`) &&
+        response.url().endsWith("/resolve") &&
+        response.status() === 409,
+    );
+    resolution.release();
+    await rejected;
+    await expect(
+      page.getByRole("region", { name: "Workbook conflict recovery" }),
+    ).toBeVisible();
+    await expect(secondDraft).toHaveValue("  Exact B merge  ");
+    await expect(secondDraft).toBeFocused();
+    expect(resolution.hitCount()).toBe(1);
+    await page
+      .getByTestId(workbookConflictControlTestId("paste-previous"))
+      .click();
+    await expect(
+      page.getByText(
+        "The saved value changed again. Review the refreshed conflict.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(workbookConflictControlTestId("merged-value")),
+    ).toHaveValue("  Exact A merge  ");
+    await expect(
+      page.getByTestId(workbookConflictSavedValueTestId()),
+    ).toHaveValue("Server again");
+    await page.getByTestId(workbookConflictControlTestId("paste-next")).click();
+    await expect(
+      page.getByTestId(workbookConflictControlTestId("merged-value")),
+    ).toHaveValue("  Exact B merge  ");
+    expect(await fetchRecordHistoryCount(page, first)).toBe(3);
+    expect(await fetchRecordHistoryCount(page, second)).toBe(2);
+  } finally {
+    await resolution?.dispose();
+    await paste.dispose();
   }
 });
 

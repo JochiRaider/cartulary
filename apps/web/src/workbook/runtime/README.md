@@ -42,6 +42,13 @@ conflict-submission accounting covers its real request only and ends before read
 recovery. Timeline History reads retain source-write ordering without contributing
 another mutation to the status strip.
 
+`beginConflictResolution` reports synchronous admission or a safe rejection
+reason, then settles an admitted request as resolved, refreshed, failed or
+superseded. The write coordinator, captured transaction and source-specific
+projection remain authoritative. Settlement clears the captured conflict only
+if its token still owns the queue key after any awaited projection refresh; a
+newer incarnation keeps its draft and explicit review obligation.
+
 `WorkbookFeatureLifecycle` requires lifecycle, subscription and unsettled-write
 participation for every fixed feature. Aggregate status reads that same membership;
 the shared queue and private conflict submission remain separate contributions.

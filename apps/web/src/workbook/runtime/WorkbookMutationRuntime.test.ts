@@ -344,7 +344,7 @@ describe("WorkbookMutationRuntime", () => {
       conflict_token: token,
       record_id: recordId,
       field_key: "timeline.activity_synopsis_text",
-      conflict_resolution_class: "text_compare_merge",
+      conflict_resolution_class: "text_compare_merge" as const,
       base_row_version: 1,
       current_row_version: 2,
       base_value: "Base",
@@ -400,12 +400,16 @@ describe("WorkbookMutationRuntime", () => {
     if (original === undefined) throw new Error("missing original conflict");
     runtime.updateConflictDraft(original.key, "Reviewed merged draft");
 
-    await expect(
-      runtime.resolveConflict({
-        key: original.key,
-        resolutionKind: "merged_value",
-      }),
-    ).resolves.toContain("draft was preserved");
+    const started = runtime.beginConflictResolution({
+      key: original.key,
+      resolutionKind: "merged_value",
+    });
+    expect(started.kind).toBe("admitted");
+    if (started.kind !== "admitted") throw new Error("resolution was rejected");
+    await expect(started.completion).resolves.toMatchObject({
+      kind: "refreshed",
+      message: expect.stringContaining("draft was preserved"),
+    });
 
     const refreshed = runtime.getSnapshot().conflicts[0];
     expect(refreshed?.conflict.conflict_token).toBe("cft3.active.fresh-token");
@@ -425,6 +429,68 @@ describe("WorkbookMutationRuntime", () => {
         },
       ],
     });
+  });
+
+  it("keeps a replacement conflict when an older resolution settles after refresh", async () => {
+    let releaseRefresh: () => void = () => {};
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    let refreshStarted: () => void = () => {};
+    const refreshHit = new Promise<void>((resolve) => {
+      refreshStarted = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => successResponse(3)),
+    );
+    const runtime = createWorkbookMutationRuntime(
+      { clientInstanceId: "client-1", incidentId },
+      transactionIds,
+      createWorkbookPendingMutationAdapter({ apiBase: undefined, incidentId }),
+    );
+    runtime.registerSurface(timelineViewSchemaId, async () => {
+      refreshStarted();
+      await refreshGate;
+    });
+    const conflict = (token: string) => ({
+      conflict_token: token,
+      record_id: recordId,
+      field_key: "timeline.activity_synopsis_text",
+      conflict_resolution_class: "text_compare_merge" as const,
+      base_row_version: 1,
+      current_row_version: 2,
+      base_value: "Base",
+      client_value: "Local draft",
+      server_value: "Saved draft",
+    });
+    const first = runtime.registerConflict({
+      conflict: conflict("first-token"),
+      rowLabel: "Row",
+      surfaceLabel: "Timeline",
+      viewSchemaId: timelineViewSchemaId,
+    });
+    const started = runtime.beginConflictResolution({
+      key: first.key,
+      resolutionKind: "keep_saved",
+    });
+    if (started.kind !== "admitted") throw new Error("resolution was rejected");
+    await refreshHit;
+    runtime.registerConflict({
+      conflict: conflict("replacement-token"),
+      rowLabel: "Row",
+      surfaceLabel: "Timeline",
+      viewSchemaId: timelineViewSchemaId,
+    });
+    runtime.updateConflictDraft(first.key, "  Replacement draft  ");
+    releaseRefresh();
+    await expect(started.completion).resolves.toEqual({ kind: "superseded" });
+    expect(runtime.getSnapshot().conflicts[0]?.conflict.conflict_token).toBe(
+      "replacement-token",
+    );
+    expect(runtime.getSnapshot().conflicts[0]?.mergedDraft).toBe(
+      "  Replacement draft  ",
+    );
   });
 });
 

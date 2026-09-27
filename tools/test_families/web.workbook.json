@@ -731,6 +731,37 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.conflict_completion_preserves_newer_selection_444f6007dd",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": ["module.collaboration"],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookActiveSurfaceFrame.test.tsx",
+        "titles": [
+          "keeps the selected conflict draft and focus when an earlier resolution is blocked admission",
+          "keeps the selected conflict draft and focus when an earlier resolution is during refresh",
+          "keeps the selected conflict draft and focus when an earlier resolution is failed",
+          "keeps the selected conflict draft and focus when an earlier resolution is newer submission",
+          "keeps the selected conflict draft and focus when an earlier resolution is refreshed",
+          "keeps the selected conflict draft and focus when an earlier resolution is replacement",
+          "keeps the selected conflict draft and focus when an earlier resolution is resolved",
+          "keeps the selected conflict draft and focus when an earlier resolution is returned"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.conflict_editor_accessibility",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

@@ -38,7 +38,7 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [IncidentControlsDrawer.tsx](IncidentControlsDrawer.tsx) | Shell-level incident controls drawer presentation and focus boundary. |
 | [SystemViewSwitcher.tsx](SystemViewSwitcher.tsx) | System-view switcher UI and grouped surface navigation. |
 | [WorkbookActiveSurfaceFrame.tsx](WorkbookActiveSurfaceFrame.tsx) | Active-surface recovery boundary and mutually exclusive blocked/overflow/conflict presentation, preserving rejected editors' accessibility. |
-| [WorkbookActiveSurfaceFrame.test.tsx](WorkbookActiveSurfaceFrame.test.tsx) | Keeps the original draft editor focusable and accessible as conflict recovery opens and closes. |
+| [WorkbookActiveSurfaceFrame.test.tsx](WorkbookActiveSurfaceFrame.test.tsx) | Keeps the original editor accessible and checks grouped conflict selection, drafts, feedback and focus through delayed resolution and projection refresh. |
 | [WorkbookActiveSurfacePresentation.tsx](WorkbookActiveSurfacePresentation.tsx) | Exact built-in or extension renderer selection with lazy extension lifecycle binding. |
 | [WorkbookIncidentControlsPresentation.tsx](WorkbookIncidentControlsPresentation.tsx) | Incident-controls drawer content and lazy Import Assistant renderer selection. |
 | [WorkbookPresenceMarkers.tsx](WorkbookPresenceMarkers.tsx) | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
@@ -74,7 +74,7 @@ confirmation remain in their existing controllers.
 | [SavedViewRecovery.tsx](SavedViewRecovery.tsx) | Saved-view operation recovery presentation with stable recovery identities. |
 | [WorkbookEditRecoveryPanel.tsx](WorkbookEditRecoveryPanel.tsx) | Workbook edit recovery panel for retained pending work and explicit recovery actions. |
 | [WorkbookQueueOverflowNotice.tsx](WorkbookQueueOverflowNotice.tsx) | Pending mutation queue overflow feedback and recovery affordances. |
-| [WorkbookSameFieldConflictResolver.tsx](WorkbookSameFieldConflictResolver.tsx) | Same-field conflict comparison and explicit resolution controls. |
+| [WorkbookSameFieldConflictResolver.tsx](WorkbookSameFieldConflictResolver.tsx) | Same-field comparison, grouped navigation and explicit resolution controls with conflict-specific pending/feedback and revocable focus intent. |
 | [WorkbookSaveAnnouncements.tsx](WorkbookSaveAnnouncements.tsx) | Accessible announcements derived from workbook save and recovery state. |
 | [WorkbookStatusStrip.tsx](WorkbookStatusStrip.tsx) | Status strip presentation for save/load/selection state. |
 
@@ -93,6 +93,16 @@ focus on a settled control, or Shift+Tab leaves focus on original input, that
 focused presentation remains until focus departs so the shell's removed-focus
 fallback does not reset the panel scroll or replace newer keyboard movement. Genuine
 item pruning and authority withdrawal still use that fallback.
+
+Conflict resolution admission remains with `WorkbookMutationRuntime`; the resolver
+retains only attachment-local pending and feedback by conflict key and token.
+Moving to another conflict retires the former submission's focus/scroll intent
+without canceling its write. A delayed outcome may update its own conflict and
+draft through the runtime, but cannot close Recovery or reclaim a newer editor.
+An eligible selected resolution returns to its originating cell only after
+semantic focus completes and its activation, authority and interaction intent
+remain current. Explicit Close and ordinary Recovery-list fallback retain their
+own focus behavior.
 
 The presentation subscribes to retained runtime state. Opening batch recovery
 attaches one batch identity; reviewing its conflicts uses the existing resolver
