@@ -1,5 +1,6 @@
 import type { GridColumn, GridHandle } from "@cartulary/grid-adapter";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { createTimelineRowMutationEditorAdapter } from "../adapters/createTimelineRowMutationEditorAdapter";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
@@ -30,7 +31,7 @@ export function useTimelineGridEnvironment({
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly rowsRef: TimelineRowsRef;
 }) {
-  const workbookFocusAnchorRef = useRef(null);
+  const workbookFocusAnchorRef = useRef<WorkbookContinuityAnchor | null>(null);
   const timelineAnchorColumnsRef = useRef<readonly GridColumn<WorkbookRow>[]>(
     [],
   );

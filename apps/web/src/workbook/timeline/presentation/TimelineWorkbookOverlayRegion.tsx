@@ -8,6 +8,7 @@ export function TimelineWorkbookOverlayRegion({
 }) {
   return (
     <>
+      {model.evidencePreview}
       {model.contextMenu === null ? null : (
         <TimelineRowContextMenu {...model.contextMenu} />
       )}

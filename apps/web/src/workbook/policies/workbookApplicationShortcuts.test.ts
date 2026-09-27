@@ -12,7 +12,6 @@ const eligibleContext: WorkbookApplicationShortcutContext = {
     quickLink: true,
   },
   focusOwner: "grid_navigation",
-  previewableEvidenceCount: 1,
   rowKind: "committed",
   selectionIdentity: "record-1",
 };
@@ -66,7 +65,6 @@ describe("Workbook application shortcuts", () => {
     expect(
       decideWorkbookApplicationShortcut({ key: " " }, eligibleContext),
     ).toEqual({
-      destination: "sole_previewable_item",
       kind: "preview_linked_evidence",
       preventDefault: true,
       stopPropagation: true,

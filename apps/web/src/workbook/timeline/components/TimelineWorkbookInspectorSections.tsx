@@ -9,6 +9,8 @@ import type { HistoryBrowsingControls } from "../../inspector/WorkbookInspectorR
 import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
+import type { useTimelineLinkedEvidenceReview } from "../hooks/useTimelineLinkedEvidenceReview";
 import {
   type CollectionFieldKey,
   timelineCollectionBindings,
@@ -39,6 +41,8 @@ export function useTimelineWorkbookInspectorSections({
   renderTimelineCollectionInput,
   detailsOwner,
   rowHistory,
+  linkedEvidenceReview,
+  elementRegistry,
 }: {
   readonly cancelRowHistoryPendingAction: () => void;
   readonly canMutateHistory: boolean;
@@ -61,6 +65,10 @@ export function useTimelineWorkbookInspectorSections({
   readonly detailsOwner: TimelineInspectorDetailsOwner;
   readonly historyBrowsingControls: HistoryBrowsingControls;
   readonly rowHistory: WorkbookRecordHistoryState;
+  readonly linkedEvidenceReview: ReturnType<
+    typeof useTimelineLinkedEvidenceReview
+  >;
+  readonly elementRegistry: TimelineInspectorElementRegistry;
 }) {
   const renderInspectorFieldEditors = useCallback(
     (
@@ -115,11 +123,13 @@ export function useTimelineWorkbookInspectorSections({
           countDisplay={countDisplay}
           elementRef={elementRef}
           row={row}
+          review={linkedEvidenceReview}
+          registerList={elementRegistry.registerEvidenceList}
           onFilesSelected={handleTimelineEvidenceFiles}
         />
       );
     },
-    [handleTimelineEvidenceFiles],
+    [handleTimelineEvidenceFiles, linkedEvidenceReview, elementRegistry],
   );
 
   const renderFeatureWorkflow = useCallback(

@@ -91,6 +91,8 @@ function controller(
       containsActiveElement: vi.fn(() => false),
       focusMention: vi.fn(() => true),
       focusPanel: vi.fn(() => true),
+      focusEvidenceList: vi.fn(() => true),
+      cancelPendingFocus: vi.fn(),
       registerMention: vi.fn(),
       registerPanel: vi.fn(),
       registerRoot: vi.fn(),
@@ -104,6 +106,7 @@ function controller(
       calls.push(`navigate-${intent.key}-${intent.shiftKey}`),
     ),
     openRowHistory: vi.fn(() => calls.push("open-history")),
+    onSpaceEvidence: vi.fn(() => calls.push("space-evidence")),
     prepareTimelineCollectionNavigation: vi.fn(
       () => () => calls.push("collection-navigate"),
     ),
@@ -399,6 +402,23 @@ describe("useTimelineKeyboardController", () => {
       "inspector-true",
       "message-No unresolved mention is available for quick link.",
     ]);
+
+    calls.length = 0;
+    const space = keyboardEvent({ currentTarget: target, key: " " });
+    act(() => result.current.commands.onWorkAreaKeyDown(space));
+    expect(space.preventDefault).toHaveBeenCalledOnce();
+    expect(space.stopPropagation).toHaveBeenCalledOnce();
+    expect(calls).toEqual([
+      `row-${recordId}`,
+      "inspector-true",
+      "message-null",
+      "space-evidence",
+    ]);
+    expect(mocks.elementRegistry.focusEvidenceList).toHaveBeenCalledWith({
+      recordId,
+      rowVersion: 3,
+      viewSchemaId: timelineViewSchemaId,
+    });
 
     calls.length = 0;
     const history = keyboardEvent({

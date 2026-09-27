@@ -13,8 +13,10 @@ import {
   draftTimelineCollectionInputTestId,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
+  evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
+  evidencePreviewPanelTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   gridRowTestId,
@@ -25,7 +27,9 @@ import {
   timelineCollectionInputTestId,
   timelineDraftEvidenceFileInputTestId,
   timelineEvidenceFileInputTestId,
+  timelineInspectorSectionTestId,
   timelineScalarEditorTestId,
+  workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookSurfacesMenuOptionTestId,
   workbookSurfacesMenuTriggerTestId,
@@ -34,7 +38,7 @@ import {
   evidenceViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { collectionItems } from "./support/entities/mentions";
@@ -228,6 +232,309 @@ test("redeems inline-safe previews and shows explicit blocked-preview outcomes",
   await expect(
     page.getByTestId(evidenceAccessMessageTestId(unsafe.record_id)),
   ).toHaveText("No preview");
+});
+
+test("reviews linked text Evidence from Timeline with Space and fresh explicit actions", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TIMELINE-LINKED-REVIEW"),
+    "Timeline linked Evidence review",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-linked-source"),
+    "timeline.activity_synopsis_text": "Linked text review source",
+  });
+  const title =
+    "Synthetic acquisition notes with a long but meaningful original Evidence title";
+  const evidence = await createUploadedEvidence(page, incidentId, {
+    title,
+    filename: "acquisition-notes.txt",
+    contentType: "text/plain",
+    body: Buffer.from("linked timeline preview body", "utf8"),
+  });
+  await linkEvidenceToTimeline(page, source.record_id, source.row_version, [
+    evidence.record_id,
+  ]);
+  const requests: Array<{ path: string; body: string | null }> = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/evidence-records\/[^/]+\/(preview|download)-handle$/u.test(
+        new URL(request.url()).pathname,
+      )
+    )
+      requests.push({
+        path: new URL(request.url()).pathname,
+        body: request.postData(),
+      });
+  });
+  await openTimelineSurface(page, incidentId);
+  const cell = page.getByTestId(
+    rowCellTestId(source.record_id, "timeline.activity_synopsis_text"),
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: rowCellTestId(
+      source.record_id,
+      "timeline.activity_synopsis_text",
+    ),
+  });
+  await focusTimelineGridCell(cell);
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByRole("list", { name: "Linked Evidence" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId(timelineInspectorSectionTestId("evidence"))
+      .getByText(title, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(evidencePreviewFrameTestId(evidence.record_id)),
+  ).toBeVisible();
+  await expect(
+    page
+      .frameLocator(
+        dataTestIdSelector(evidencePreviewFrameTestId(evidence.record_id)),
+      )
+      .locator("body"),
+  ).toContainText("linked timeline preview body");
+  expect(requests.map((entry) => entry.path)).toEqual([
+    `/api/v1/evidence-records/${evidence.record_id}/preview-handle`,
+  ]);
+  expect(requests[0]?.body).toBe("{}");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(evidencePreviewPanelTestId())).toHaveCount(0);
+  await expect(
+    page.getByRole("list", { name: "Linked Evidence" }),
+  ).toBeFocused();
+  const previewButton = page.getByTestId(
+    evidencePreviewButtonTestId(evidence.record_id, "inspector"),
+  );
+  await page.getByRole("button", { name: "Edit Activity Synopsis" }).click();
+  const rawEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: source.record_id,
+      surface: "inspector",
+    }),
+  );
+  await rawEditor.fill("  unfinished review note Ω  ");
+  await previewButton.click();
+  await expect(
+    page.getByTestId(evidencePreviewFrameTestId(evidence.record_id)),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(previewButton).toBeFocused();
+  await expect(rawEditor).toHaveValue("  unfinished review note Ω  ");
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
+  await openTimelineInspector(page, source.record_id);
+  if (!(await rawEditor.count()))
+    await page
+      .getByRole("button", { name: "Resume draft for Activity Synopsis" })
+      .click();
+  await expect(rawEditor).toHaveValue("  unfinished review note Ω  ");
+  const downloadButton = page.getByTestId(
+    evidenceDownloadButtonTestId(evidence.record_id, "inspector"),
+  );
+  await downloadButton.click();
+  await expect
+    .poll(
+      () =>
+        requests.filter((entry) => entry.path.endsWith("/download-handle"))
+          .length,
+    )
+    .toBe(1);
+  await downloadButton.click();
+  await expect
+    .poll(
+      () =>
+        requests.filter((entry) => entry.path.endsWith("/download-handle"))
+          .length,
+    )
+    .toBe(2);
+  expect(
+    requests
+      .filter((entry) => entry.path.endsWith("/download-handle"))
+      .every((entry) => entry.body === "{}"),
+  ).toBe(true);
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  const preferencesURL = `${apiBase}/api/v1/account/preferences`;
+  const originalPreferences = (
+    await (await page.request.get(preferencesURL)).json()
+  ).data;
+  try {
+    for (const profile of [
+      { density: "compact", width: 1024, height: 720 },
+      { density: "comfortable", width: 1440, height: 900 },
+    ]) {
+      const current = (await (await page.request.get(preferencesURL)).json())
+        .data;
+      const updated = await page.request.put(preferencesURL, {
+        headers: await csrfHeaders(page),
+        data: {
+          base_preferences_version: current.preferences_version,
+          client_txn_id: uniqueTxn("timeline-review-density"),
+          density_mode: profile.density,
+        },
+      });
+      expect(updated.ok()).toBe(true);
+      await page.setViewportSize({
+        width: profile.width,
+        height: profile.height,
+      });
+      await page.reload();
+      await openTimelineInspector(page, source.record_id);
+      const section = page.getByTestId(
+        timelineInspectorSectionTestId("evidence"),
+      );
+      await section.getByText(title, { exact: true }).scrollIntoViewIfNeeded();
+      await expect(section.getByText(title, { exact: true })).toBeVisible();
+      const action = section.getByTestId(
+        evidencePreviewButtonTestId(evidence.record_id, "inspector"),
+      );
+      await action.scrollIntoViewIfNeeded();
+      await expect(action).toBeInViewport();
+      await action.click();
+      const frame = page.getByTestId(
+        evidencePreviewFrameTestId(evidence.record_id),
+      );
+      await expect(frame).toBeVisible();
+      await expect(frame).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await page.keyboard.press("Escape");
+      await expect(action).toBeFocused();
+      await expect(action).toBeInViewport();
+      const width = await section.evaluate((element) => ({
+        client: element.clientWidth,
+        scroll: element.scrollWidth,
+      }));
+      expect(width.scroll).toBeLessThanOrEqual(width.client + 1);
+    }
+  } finally {
+    const current = (await (await page.request.get(preferencesURL)).json())
+      .data;
+    await page.request.put(preferencesURL, {
+      headers: await csrfHeaders(page),
+      data: {
+        base_preferences_version: current.preferences_version,
+        client_txn_id: uniqueTxn("timeline-review-density-restore"),
+        density_mode: originalPreferences.density_mode,
+      },
+    });
+  }
+});
+
+test("keeps a blocked linked preview local and checks a mixed Space selection", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TIMELINE-MIXED-REVIEW"),
+    "Timeline mixed Evidence review",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-mixed-source"),
+    "timeline.activity_synopsis_text": "Mixed linked Evidence source",
+  });
+  const safe = await createUploadedEvidence(page, incidentId, {
+    title: "Plain text notes",
+    filename: "plain.txt",
+    contentType: "text/plain",
+    body: Buffer.from("mixed safe body", "utf8"),
+  });
+  const blocked = await createUploadedEvidence(page, incidentId, {
+    title: "HTML evidence that cannot be previewed",
+    filename: "blocked.html",
+    contentType: "text/html",
+    body: Buffer.from("<p>blocked</p>", "utf8"),
+  });
+  await linkEvidenceToTimeline(page, source.record_id, source.row_version, [
+    safe.record_id,
+    blocked.record_id,
+  ]);
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/evidence-records\/[^/]+\/(preview|download)-handle$/u.test(
+        new URL(request.url()).pathname,
+      )
+    )
+      requests.push(new URL(request.url()).pathname);
+  });
+  await openTimelineSurface(page, incidentId);
+  await openTimelineInspector(page, source.record_id);
+  await expect(
+    page
+      .getByTestId(timelineInspectorSectionTestId("evidence"))
+      .getByText("Plain text notes", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId(timelineInspectorSectionTestId("evidence"))
+      .getByText("HTML evidence that cannot be previewed", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByTestId(evidencePreviewButtonTestId(blocked.record_id, "inspector"))
+    .click();
+  await expect(
+    page.getByText("This file type cannot be previewed."),
+  ).toBeVisible();
+  await expect(page.getByTestId(evidencePreviewPanelTestId())).toHaveCount(0);
+  expect(
+    requests.filter((entry) => entry.endsWith("/download-handle")),
+  ).toHaveLength(0);
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
+  const cell = page.getByTestId(
+    rowCellTestId(source.record_id, "timeline.activity_synopsis_text"),
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: rowCellTestId(
+      source.record_id,
+      "timeline.activity_synopsis_text",
+    ),
+  });
+  await focusTimelineGridCell(cell);
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByTestId(evidencePreviewFrameTestId(safe.record_id)),
+  ).toBeVisible();
+  await expect(
+    page
+      .frameLocator(
+        dataTestIdSelector(evidencePreviewFrameTestId(safe.record_id)),
+      )
+      .locator("body"),
+  ).toContainText("mixed safe body");
+  expect(
+    requests.filter(
+      (entry) =>
+        entry === `/api/v1/evidence-records/${safe.record_id}/preview-handle`,
+    ).length,
+  ).toBe(2);
+  expect(
+    requests.filter(
+      (entry) =>
+        entry ===
+        `/api/v1/evidence-records/${blocked.record_id}/preview-handle`,
+    ).length,
+  ).toBe(2);
+  expect(
+    requests.filter((entry) => entry.endsWith("/download-handle")),
+  ).toHaveLength(0);
 });
 
 test("tracks requested evidence before a blob exists and later advances it", async ({
@@ -528,6 +835,17 @@ async function openTimelineSurface(page: Page, incidentId: string) {
   ).toBeVisible();
 }
 
+async function focusTimelineGridCell(cell: Locator) {
+  await cell.evaluate((element) => {
+    const gridCell = element.closest<HTMLElement>('[role="gridcell"]');
+    if (!gridCell) throw new Error("Missing committed grid cell");
+    gridCell.focus();
+  });
+  await expect(
+    cell.locator('xpath=ancestor::*[@role="gridcell"]'),
+  ).toBeFocused();
+}
+
 async function setGenericCreateField(
   page: Page,
   fieldKey: string,
@@ -732,6 +1050,35 @@ async function createUploadedEvidence(
     base_row_version: attachEnvelope.data.row.row_version,
     client_txn_id: uniqueTxn("e5-preview-available"),
     changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+  });
+}
+
+async function linkEvidenceToTimeline(
+  page: Page,
+  sourceRecordId: string,
+  rowVersion: number,
+  evidenceRecordIds: readonly [string, ...string[]],
+) {
+  const [firstRecordId, ...restRecordIds] = evidenceRecordIds;
+  return patchRecord(page, sourceRecordId, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: rowVersion,
+    client_txn_id: uniqueTxn("timeline-linked-evidence"),
+    changes: [
+      {
+        field_key: "timeline.attached_evidence_ids",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [
+            { op: "add_record_ref", linked_record_id: firstRecordId },
+            ...restRecordIds.map((recordId) => ({
+              op: "add_record_ref" as const,
+              linked_record_id: recordId,
+            })),
+          ],
+        },
+      },
+    ],
   });
 }
 

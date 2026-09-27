@@ -4986,6 +4986,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_first_open_evidence_focus_78b3aba0fd",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
+        "titles": [
+          "browser.inspector-history inspector and row-local action coverage focuses the empty linked Evidence state on first Space open",
+          "browser.inspector-history inspector and row-local action coverage keeps linked Evidence read actions available to a viewer in a closed incident"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_grid_environment_owns_rounded_measureme_98b38c69d0",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -5103,6 +5131,37 @@
           "useTimelineKeyboardController owns scalar commit, navigation, range, draft, unavailable, and inspector focus order",
           "useTimelineKeyboardController owns work-area shortcuts and leaves controls, menus, dialogs, and unavailable actions unconsumed",
           "useTimelineKeyboardController rejects modified scalar departure with production draft navigation wired"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_linked_evidence_preview_resolution_975344b0d0",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/evidence/resolveSolePreviewableEvidence.test.ts",
+        "titles": [
+          "Timeline linked Evidence preview resolution distinguishes zero, one, multiple, and mixed blocked and previewable links",
+          "Timeline linked Evidence preview resolution does not infer a sole item from failed or incomplete observation",
+          "Timeline linked Evidence review intent discards a late probe after a row observation or authority change",
+          "Timeline linked Evidence review intent leaves the list in place when capability observation is indeterminate",
+          "Timeline linked Evidence review intent uses the returned target ID and a fresh handle after bounded Space probes"
         ]
       },
       "evidence_class": "unit",

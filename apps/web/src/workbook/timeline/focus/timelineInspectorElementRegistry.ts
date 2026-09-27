@@ -34,6 +34,30 @@ export function createTimelineInspectorElementRegistry(
   let scope = initialScope;
   let root: HTMLElement | null = null;
   const panels = new Map<InspectorPanelId, TimelineInspectorElement>();
+  let evidenceList: { recordId: string; element: HTMLElement } | null = null;
+  let pendingFocus: {
+    identity: TimelineInspectorFocusIdentity;
+    target: InspectorPanelId | "evidence_list";
+  } | null = null;
+  const attemptPendingFocus = () => {
+    if (
+      pendingFocus === null ||
+      !scopeMatchesIdentity(scope, pendingFocus.identity)
+    )
+      return false;
+    const element =
+      pendingFocus.target === "evidence_list"
+        ? evidenceList?.recordId === pendingFocus.identity.recordId
+          ? evidenceList.element
+          : undefined
+        : panels.get(pendingFocus.target);
+    if (!isUsableInspectorElement(element)) return false;
+    element.focus({ preventScroll: true });
+    element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    if (document.activeElement !== element) return false;
+    pendingFocus = null;
+    return true;
+  };
   const triggers = new Map<string, HTMLElement>();
   let returnTarget: { readonly recordId: string; readonly key: string } | null =
     null;
@@ -47,6 +71,8 @@ export function createTimelineInspectorElementRegistry(
 
   const clear = () => {
     panels.clear();
+    evidenceList = null;
+    pendingFocus = null;
     mentions.clear();
     collections.clear();
     root = null;
@@ -152,12 +178,21 @@ export function createTimelineInspectorElementRegistry(
       identity: TimelineInspectorFocusIdentity,
       panelId: InspectorPanelId,
     ) {
-      if (!scopeMatchesIdentity(scope, identity)) return false;
-      const element = panels.get(panelId);
-      if (!isUsableInspectorElement(element)) return false;
-      element.focus({ preventScroll: true });
-      element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-      return document.activeElement === element;
+      pendingFocus = { identity, target: panelId };
+      return attemptPendingFocus();
+    },
+    focusEvidenceList(identity: TimelineInspectorFocusIdentity) {
+      pendingFocus = { identity, target: "evidence_list" };
+      return attemptPendingFocus();
+    },
+    registerEvidenceList(recordId: string, element: HTMLElement | null) {
+      if (element === null) {
+        if (evidenceList?.recordId === recordId) evidenceList = null;
+      } else evidenceList = { recordId, element };
+      attemptPendingFocus();
+    },
+    cancelPendingFocus() {
+      pendingFocus = null;
     },
     registerMention(
       sourceRecordId: string,
@@ -187,7 +222,8 @@ export function createTimelineInspectorElementRegistry(
         panels.delete(panelId);
         return;
       }
-      if (scope.subject !== null) panels.set(panelId, element);
+      panels.set(panelId, element);
+      attemptPendingFocus();
     },
     registerRoot(element: HTMLElement | null) {
       root = scope.subject === null ? null : element;
@@ -203,14 +239,27 @@ export function createTimelineInspectorElementRegistry(
         nextScope.subject.recordId !== returnTarget.recordId
       )
         returnTarget = null;
+      const firstOpen =
+        scope.subject === null &&
+        nextScope.subject?.kind === "live" &&
+        scope.lifecycleKey === nextScope.lifecycleKey;
       if (
         scope.lifecycleKey !== nextScope.lifecycleKey ||
         scope.reviewGeneration !== nextScope.reviewGeneration ||
         !workbookInspectorSubjectsEqual(scope.subject, nextScope.subject)
       ) {
-        clear();
+        if (!firstOpen) {
+          const requested = pendingFocus;
+          clear();
+          if (
+            requested?.identity.recordId === nextScope.subject?.recordId &&
+            scope.lifecycleKey === nextScope.lifecycleKey
+          )
+            pendingFocus = requested;
+        }
       }
       scope = nextScope;
+      attemptPendingFocus();
     },
   };
 }

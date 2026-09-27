@@ -12,7 +12,6 @@ import {
   useCallback,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
 import {
@@ -178,6 +177,7 @@ export function useTimelineKeyboardController({
   clearRowHistory,
   currentTimelineAnchorFor,
   elementRegistry,
+  onSpaceEvidence,
   handleTimelineGridContextKeyDown,
   navigateTimelineFocusAnchor,
   openRowHistory,
@@ -212,8 +212,9 @@ export function useTimelineKeyboardController({
   ) => GridCellAnchor | null;
   readonly elementRegistry: Pick<
     TimelineInspectorElementRegistry,
-    "focusPanel"
+    "focusPanel" | "focusEvidenceList" | "cancelPendingFocus"
   >;
+  readonly onSpaceEvidence: (row: WorkbookRow) => void;
   readonly handleTimelineGridContextKeyDown: (
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => void;
@@ -249,6 +250,7 @@ export function useTimelineKeyboardController({
   useLayoutEffect(() => {
     const advance = () => {
       interactionSequence.current += 1;
+      elementRegistry.cancelPendingFocus();
     };
     document.addEventListener("keydown", advance, true);
     document.addEventListener("pointerdown", advance, true);
@@ -259,15 +261,7 @@ export function useTimelineKeyboardController({
       document.removeEventListener("pointerdown", advance, true);
       document.removeEventListener("wheel", advance, true);
     };
-  }, []);
-  const [pendingInspectorFocus, setPendingInspectorFocus] = useState<{
-    readonly identity: {
-      readonly recordId: string;
-      readonly rowVersion: number;
-      readonly viewSchemaId: string;
-    };
-    readonly section: "evidence" | "history";
-  } | null>(null);
+  }, [elementRegistry]);
   const closeInspectorFromEditor = useCallback(
     (anchor: GridCellAnchor | null) => {
       if (anchor === null) return false;
@@ -521,19 +515,11 @@ export function useTimelineKeyboardController({
         rowVersion: row.rowVersion,
         viewSchemaId: timelineViewSchemaId,
       };
-      setPendingInspectorFocus({ identity, section });
+      if (section === "evidence") elementRegistry.focusEvidenceList(identity);
+      else elementRegistry.focusPanel(identity, section);
     },
-    [],
+    [elementRegistry],
   );
-
-  useLayoutEffect(() => {
-    if (pendingInspectorFocus === null) return;
-    elementRegistry.focusPanel(
-      pendingInspectorFocus.identity,
-      pendingInspectorFocus.section,
-    );
-    setPendingInspectorFocus(null);
-  }, [elementRegistry, pendingInspectorFocus]);
 
   const onWorkAreaKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -573,6 +559,7 @@ export function useTimelineKeyboardController({
         setIsInspectorOpen(true);
         setInspectorMessage(null);
         focusInspectorSection("evidence", intent.row);
+        onSpaceEvidence(intent.row);
         return;
       }
 
@@ -596,6 +583,7 @@ export function useTimelineKeyboardController({
       focusInspectorSection,
       handleTimelineGridContextKeyDown,
       openRowHistory,
+      onSpaceEvidence,
       setInspectorMessage,
       setIsInspectorOpen,
       setSelectedMentionRef,

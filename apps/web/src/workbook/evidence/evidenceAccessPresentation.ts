@@ -109,6 +109,12 @@ function accessBlocker(failure: WorkbookOperationFailure) {
   );
 }
 
+export function evidenceAccessFailureIsDefinitiveBlocker(
+  failure: WorkbookOperationFailure,
+): boolean {
+  return accessBlocker(failure) !== null;
+}
+
 /** All Evidence copy is authored here; no server prose or exception text is rendered. */
 export function evidenceOperationFeedback(
   state: EvidenceOperationState,

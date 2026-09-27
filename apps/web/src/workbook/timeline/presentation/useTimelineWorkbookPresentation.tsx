@@ -398,6 +398,8 @@ export function useTimelineWorkbookPresentation({
       renderTimelineCollectionInput,
       detailsOwner: composition.inspectorDetails,
       rowHistory,
+      linkedEvidenceReview: composition.linkedEvidenceReview,
+      elementRegistry: inspector.ports.elements,
     },
   });
 
@@ -548,6 +550,8 @@ export function useTimelineWorkbookPresentation({
     layout: {
       chromeMode,
       onRequestInspectorClose: closeInspector,
+      onRequestPreviewClose:
+        composition.linkedEvidenceReview.access.closePreview,
       restoreInspectorFocus: inspector.ports.restoreFocus,
       onWorkAreaContextMenu: handleTimelineGridContextMenu,
       onWorkAreaPointerDown: handleTimelineGridPointerDown,
@@ -557,6 +561,7 @@ export function useTimelineWorkbookPresentation({
       workAreaAriaLabel: "Timeline row interaction layer",
     },
     overlays: {
+      evidencePreview: composition.linkedEvidenceReview.access.overlay,
       contextMenu:
         rowContextMenu === null
           ? null

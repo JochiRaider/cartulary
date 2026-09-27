@@ -66,6 +66,7 @@ export interface EvidenceCapabilityPort {
   issueHandle(input: {
     readonly evidenceRecordId: string;
     readonly kind: "download" | "preview";
+    readonly signal?: AbortSignal;
   }): Promise<EvidenceHandleOutcome>;
 }
 

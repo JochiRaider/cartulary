@@ -103,7 +103,6 @@ export function mapTimelineScalarEditorIntent({
       quickLink: false,
     },
     focusOwner: "editor",
-    previewableEvidenceCount: 0,
     rowKind: hasCommittedAnchor ? "committed" : "draft",
     selectionIdentity: hasCommittedAnchor ? "timeline-editor-row" : null,
   });
@@ -231,7 +230,6 @@ export function mapTimelineWorkAreaInspectorIntent<
         fieldKey === "timeline.identity_refs",
     },
     focusOwner: "grid_navigation",
-    previewableEvidenceCount: 0,
     rowKind: recordId === null ? "none" : "committed",
     selectionIdentity: recordId,
   });

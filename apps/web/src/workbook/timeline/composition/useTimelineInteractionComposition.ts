@@ -84,6 +84,7 @@ type TimelineInteractionCompositionInput = {
   };
   readonly queryState: WorkbookQueryState;
   readonly role: TimelineWorkbookSurfaceRuntime["incident"]["currentRole"];
+  readonly onSpaceEvidence: KeyboardInput["onSpaceEvidence"];
   readonly workflow: {
     readonly handleTimelineGridContextKeyDown: KeyboardInput["handleTimelineGridContextKeyDown"];
     readonly openRowHistory: KeyboardInput["openRowHistory"];
@@ -108,6 +109,7 @@ export function useTimelineInteractionComposition({
   mutation,
   queryState,
   role,
+  onSpaceEvidence,
   workflow,
 }: TimelineInteractionCompositionInput) {
   const canEdit =
@@ -157,6 +159,7 @@ export function useTimelineInteractionComposition({
     handleTimelineGridContextKeyDown: workflow.handleTimelineGridContextKeyDown,
     navigateTimelineFocusAnchor: grid.navigateTimelineFocusAnchor,
     openRowHistory: workflow.openRowHistory,
+    onSpaceEvidence,
     queueCollectionSave: mutation.queueCollectionSave,
     queueScalarSave: mutation.queueScalarSave,
     recordTiming: foundation.recordTiming,

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../../testing/taskWorkbookTestSupport";
 import { TimelineFileContext } from "../../features/evidence/EvidenceAttachmentContext";
 import { WorkbookTimelineFileOwner } from "../../features/evidence/WorkbookTimelineFileOwner";
+import { readTimelineEvidenceLinks } from "../models/timelineEvidenceLinks";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 
@@ -129,5 +130,123 @@ describe("TimelineEvidencePanel", () => {
     expect(
       screen.getByRole("region", { name: "Evidence information" }).textContent,
     ).toContain("Attached evidence count: 1");
+  });
+
+  it("lists a saved linked record with explicit file actions", () => {
+    const row = workbookRow("record-1");
+    render(
+      <TimelineEvidencePanel
+        countDisplay={{ displayCount: "1", stateKey: "available" }}
+        row={{
+          ...row,
+          rawRow: {
+            record_id: "record-1",
+            row_version: 1,
+            view_schema_id: "cartulary.view.timeline.v2",
+            cells: {
+              "timeline.attached_evidence_ids": {
+                value: {
+                  items: [
+                    {
+                      item_ref: "record_ref:link-1",
+                      item_kind: "record_ref",
+                      display_text: "Synthetic acquisition notes",
+                      linked_record_id: "evidence-1",
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        }}
+        onFilesSelected={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Synthetic acquisition notes")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: /Preview.*Synthetic acquisition notes/u,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: /Download.*Synthetic acquisition notes/u,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("keeps collection identity and count separate from unavailable observation", () => {
+    const row = workbookRow("record-1");
+    expect(readTimelineEvidenceLinks(row).kind).toBe("unavailable");
+    const empty = {
+      ...row,
+      rawRow: {
+        view_schema_id: "cartulary.view.timeline.v2",
+        record_id: "record-1",
+        row_version: 1,
+        cells: { "timeline.attached_evidence_ids": { value: { items: [] } } },
+      },
+    };
+    expect(readTimelineEvidenceLinks(empty)).toEqual({
+      kind: "empty",
+      items: [],
+    });
+    const linked = {
+      ...empty,
+      rawRow: {
+        ...empty.rawRow,
+        cells: {
+          "timeline.attached_evidence_ids": {
+            value: {
+              items: [
+                {
+                  item_ref: "record_ref:opaque-link",
+                  item_kind: "record_ref",
+                  display_text: "Long original title",
+                  linked_record_id: "evidence-target-id",
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+    expect(readTimelineEvidenceLinks(linked)).toEqual({
+      kind: "available",
+      items: [
+        {
+          itemRef: "record_ref:opaque-link",
+          evidenceRecordId: "evidence-target-id",
+          title: "Long original title",
+        },
+      ],
+    });
+    render(
+      <TimelineEvidencePanel
+        countDisplay={{ displayCount: "3", stateKey: "available" }}
+        row={linked}
+        onFilesSelected={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Attached evidence count: 3/u)).toBeTruthy();
+    expect(screen.getByText("Long original title")).toBeTruthy();
+    cleanup();
+    render(
+      <TimelineEvidencePanel
+        countDisplay={{ displayCount: "0", stateKey: "empty" }}
+        row={row}
+        onFilesSelected={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Linked Evidence is unavailable.")).toBeTruthy();
+    cleanup();
+    render(
+      <TimelineEvidencePanel
+        countDisplay={{ displayCount: "0", stateKey: "empty" }}
+        row={empty}
+        onFilesSelected={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("No linked Evidence records.")).toBeTruthy();
   });
 });

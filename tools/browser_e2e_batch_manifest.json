@@ -351,7 +351,9 @@
             "module.evidence.browser.file_picker_targeting",
             "module.evidence.browser.file_row_targeting",
             "module.evidence.browser.file_stage_recovery",
-            "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd"
+            "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd",
+            "module.evidence.browser.timeline_linked_blocked_preview_87b7079b89",
+            "module.evidence.browser.timeline_linked_text_review_3f18dc6414"
           ],
           "specs": [
             "apps/web/e2e/evidence.spec.ts"

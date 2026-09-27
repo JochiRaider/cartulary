@@ -6196,6 +6196,8 @@
         "file": "apps/web/src/workbook/timeline/components/TimelineEvidencePanel.test.tsx",
         "titles": [
           "does not render draft rows as row-bound inspector evidence",
+          "keeps collection identity and count separate from unavailable observation",
+          "lists a saved linked record with explicit file actions",
           "uses row-specific file inputs for committed row evidence"
         ]
       },

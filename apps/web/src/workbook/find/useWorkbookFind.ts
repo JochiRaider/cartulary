@@ -296,7 +296,6 @@ export function useWorkbookFind(input: WorkbookFindInput) {
             : "editor",
         rowKind: "none",
         selectionIdentity: null,
-        previewableEvidenceCount: 0,
       });
       if (decision.kind !== "open_find") return;
       event.preventDefault();

@@ -355,6 +355,7 @@ export function TimelineWorkbookRuntimeFixture({
                   collaborationProjection,
                   mutationRuntime,
                   mutationCommands: mutationCommands.timeline,
+                  evidenceAccess: mutationCommands.evidence,
                   gridEntryFocus: idleGridEntryFocus,
                   incident: {
                     id: incidentId,

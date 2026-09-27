@@ -39,9 +39,6 @@ export function EvidenceAccessActions({
 }) {
   const compact = context === "row";
   const messageId = evidenceAccessMessageTestId(recordId, context);
-  const controlStyle = compact
-    ? workbookGridActionButtonStyle
-    : evidenceButtonStyle;
   return (
     <div
       data-testid={evidenceAccessStateTestId(recordId, context)}
@@ -49,44 +46,15 @@ export function EvidenceAccessActions({
       style={compact ? rowStyle : inspectorStyle}
     >
       {compact ? null : <p style={accessHeadingStyle}>File access</p>}
-      <div style={compact ? rowStyle : buttonRowStyle}>
-        <button
-          type="button"
-          data-testid={evidencePreviewButtonTestId(recordId, context)}
-          disabled={!canRead}
-          aria-disabled={!access.canPreview}
-          aria-describedby={messageId}
-          style={{
-            ...controlStyle,
-            ...(!access.canPreview ? unavailableControlStyle : {}),
-          }}
-          onClick={(event) =>
-            access.canPreview &&
-            canRead &&
-            onIssue("preview", event.currentTarget)
-          }
-        >
-          Preview
-        </button>
-        <button
-          type="button"
-          data-testid={evidenceDownloadButtonTestId(recordId, context)}
-          disabled={!canRead}
-          aria-disabled={!access.canDownload}
-          aria-describedby={messageId}
-          style={{
-            ...controlStyle,
-            ...(!access.canDownload ? unavailableControlStyle : {}),
-          }}
-          onClick={(event) =>
-            access.canDownload &&
-            canRead &&
-            onIssue("download", event.currentTarget)
-          }
-        >
-          Download
-        </button>
-      </div>
+      <EvidenceHandleButtons
+        canRead={canRead}
+        canPreview={access.canPreview}
+        canDownload={access.canDownload}
+        context={context}
+        descriptionId={messageId}
+        recordId={recordId}
+        onIssue={onIssue}
+      />
       {compact ? (
         <button
           id={messageId}
@@ -99,6 +67,65 @@ export function EvidenceAccessActions({
           {access.label}
         </button>
       ) : null}
+    </div>
+  );
+}
+
+/** Evidence-owned access affordances shared with linked-record presentations. */
+export function EvidenceHandleButtons({
+  canRead,
+  canPreview,
+  canDownload,
+  context,
+  descriptionId,
+  labelSuffix,
+  recordId,
+  onIssue,
+}: {
+  readonly canRead: boolean;
+  readonly canPreview: boolean;
+  readonly canDownload: boolean;
+  readonly context: EvidenceAccessContext;
+  readonly descriptionId?: string;
+  readonly labelSuffix?: string;
+  readonly recordId: string;
+  readonly onIssue: (
+    kind: Exclude<EvidenceOperationKind, "attach">,
+    invoker: HTMLButtonElement,
+  ) => void;
+}) {
+  const controlStyle =
+    context === "row" ? workbookGridActionButtonStyle : evidenceButtonStyle;
+  return (
+    <div style={context === "row" ? rowStyle : buttonRowStyle}>
+      {(["preview", "download"] as const).map((kind) => {
+        const allowed = kind === "preview" ? canPreview : canDownload;
+        const label = kind === "preview" ? "Preview" : "Download";
+        return (
+          <button
+            key={kind}
+            type="button"
+            data-testid={
+              kind === "preview"
+                ? evidencePreviewButtonTestId(recordId, context)
+                : evidenceDownloadButtonTestId(recordId, context)
+            }
+            disabled={!canRead}
+            aria-disabled={!allowed}
+            aria-describedby={descriptionId}
+            aria-label={labelSuffix ? `${label} ${labelSuffix}` : undefined}
+            style={{
+              ...controlStyle,
+              ...(!allowed ? unavailableControlStyle : {}),
+            }}
+            onClick={(event) => {
+              if (canRead && allowed) onIssue(kind, event.currentTarget);
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }

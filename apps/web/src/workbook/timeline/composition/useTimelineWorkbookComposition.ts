@@ -3,6 +3,7 @@ import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorMode
 import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
 import { useTimelineFindSource } from "../hooks/useTimelineFindSource";
+import { useTimelineLinkedEvidenceReview } from "../hooks/useTimelineLinkedEvidenceReview";
 import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
 import { useTimelineSourceWriteCoordination } from "../hooks/useTimelineSourceWriteCoordination";
 import type { TimelineViewportContinuityScope } from "../hooks/useTimelineViewportContinuityController";
@@ -198,6 +199,35 @@ export function useTimelineWorkbookComposition({
     },
     onAuthorityUncertain: runtime.onAuthorityUncertain,
   });
+  const linkedEvidenceReview = useTimelineLinkedEvidenceReview({
+    port: runtime.evidenceAccess,
+    rowsRef: foundation.refs.rows,
+    selectedRowId: inspector.snapshot.selection.selectedRowId,
+    inspectorOpen: workbookInspectorStateIsOpen(inspector.snapshot.lifecycle),
+    readScope:
+      runtime.mutationRuntime.recordReadScope?.actorId ===
+      runtime.incident.currentUserId
+        ? runtime.mutationRuntime.recordReadScope
+        : null,
+    canRead:
+      runtime.collaborationProjection.getReadAuthorization() &&
+      !!runtime.incident.currentRole &&
+      !foundation.snapshot.lifecycle.loadAccessLost,
+    scopeKey: JSON.stringify([
+      runtime.incident.continuityResetKey,
+      runtime.incident.inspectorResetKey,
+      runtime.mutationRuntime.authorizationEpoch,
+      runtime.mutationRuntime.recordReadScope,
+      runtime.incident.currentRole,
+    ]),
+    elementRegistry: inspector.ports.elements,
+    onAccessFailure: () => runtime.onAuthorityUncertain?.(),
+    onRestoreGridFocus: (recordId) => {
+      const anchor = grid.refs.workbookFocusAnchor.current;
+      if (anchor?.recordId === recordId)
+        void grid.commands.anchors.restoreTimelineFocusAnchor(anchor);
+    },
+  });
   const interaction = useTimelineInteractionComposition({
     foundation: {
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
@@ -249,6 +279,7 @@ export function useTimelineWorkbookComposition({
     },
     queryState: foundation.snapshot.query.queryState,
     role: runtime.incident.currentRole,
+    onSpaceEvidence: linkedEvidenceReview.startSpace,
     workflow: {
       handleTimelineGridContextKeyDown:
         workflow.commands.rowMenu.handleTimelineGridContextKeyDown,
@@ -378,6 +409,7 @@ export function useTimelineWorkbookComposition({
     queueCollectionSave: mutation.commands.mutation.queueCollectionSave,
   });
   const presentation = {
+    linkedEvidenceReview,
     find,
     observationSource,
     captureActions,

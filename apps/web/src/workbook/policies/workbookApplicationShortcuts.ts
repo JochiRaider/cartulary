@@ -21,7 +21,6 @@ export type WorkbookApplicationShortcutContext = {
     | "inspector"
     | "menu"
     | "overlay";
-  readonly previewableEvidenceCount: number;
   readonly rowKind: "committed" | "draft" | "group" | "none";
   readonly selectionIdentity: string | null;
 };
@@ -34,10 +33,7 @@ type ConsumedApplicationShortcut = {
 export type WorkbookApplicationShortcutDecision =
   | ({ readonly kind: "open_find" } & ConsumedApplicationShortcut)
   | ({ readonly kind: "quick_link" } & ConsumedApplicationShortcut)
-  | ({
-      readonly destination: "list_or_empty" | "sole_previewable_item";
-      readonly kind: "preview_linked_evidence";
-    } & ConsumedApplicationShortcut)
+  | ({ readonly kind: "preview_linked_evidence" } & ConsumedApplicationShortcut)
   | ({ readonly kind: "open_history" } & ConsumedApplicationShortcut)
   | ({ readonly kind: "close_inspector" } & ConsumedApplicationShortcut)
   | {
@@ -122,10 +118,6 @@ export function decideWorkbookApplicationShortcut(
     context.capabilities.linkedEvidence
   ) {
     return {
-      destination:
-        context.previewableEvidenceCount === 1
-          ? "sole_previewable_item"
-          : "list_or_empty",
       kind: "preview_linked_evidence",
       preventDefault: true,
       stopPropagation: true,

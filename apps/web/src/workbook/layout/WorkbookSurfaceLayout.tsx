@@ -165,18 +165,27 @@ export function WorkbookSurfaceLayout({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   };
-  const closeInspectorFromEscape: KeyboardEventHandler<HTMLElement> = (
-    event,
-  ) => {
+  const closePreviewFromEscape: KeyboardEventHandler<HTMLElement> = (event) => {
     if (
       event.key === "Escape" &&
       !event.defaultPrevented &&
-      onRequestPreviewClose
+      !event.nativeEvent.isComposing &&
+      onRequestPreviewClose &&
+      !(
+        event.target instanceof Element &&
+        event.target.closest(
+          "input, textarea, select, [contenteditable='true'], [role='menu'], [role='dialog'], [role='alertdialog'], [role='listbox']",
+        )
+      )
     ) {
       event.preventDefault();
+      event.stopPropagation();
       onRequestPreviewClose();
-      return;
     }
+  };
+  const closeInspectorFromEscape: KeyboardEventHandler<HTMLElement> = (
+    event,
+  ) => {
     if (
       event.key === "Escape" &&
       !event.defaultPrevented &&
@@ -227,6 +236,7 @@ export function WorkbookSurfaceLayout({
         data-testid={testId}
         data-workbook-responsive-band={chromeMode}
         style={workbookSurfaceFrameStyle}
+        onKeyDownCapture={closePreviewFromEscape}
         onKeyDown={closeInspectorFromEscape}
       >
         {workAreaAnnouncements}

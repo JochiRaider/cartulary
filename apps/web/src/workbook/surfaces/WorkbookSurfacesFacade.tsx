@@ -171,6 +171,7 @@ export function WorkbookSurfacesFacade({
           mutationRuntime,
           clipboardPaste: mutations.clipboardPaste,
           mutationCommands: mutationCommands.timeline,
+          evidenceAccess: mutationCommands.evidence,
           incident: {
             id: incidentId,
             apiBase,

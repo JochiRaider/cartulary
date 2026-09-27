@@ -1,4 +1,5 @@
 import {
+  evidencePreviewButtonTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   gridScrollportSelector,
@@ -17,6 +18,7 @@ import {
   timelineCollectionInputTestId,
   timelineDraftEvidenceAttachSectionTestId,
   timelineDraftEvidenceFileInputTestId,
+  timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
@@ -116,6 +118,106 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
   afterEach(() => {
     cleanup();
     cleanupTimelineWorkbookTestGlobals();
+  });
+
+  it("focuses the empty linked Evidence state on first Space open", async () => {
+    const recordId = "20000000-0000-4000-8000-000000000001";
+    fetchMock.mockResolvedValueOnce(
+      timelineRowsEnvelope([
+        timelineRow({
+          recordId,
+          rowVersion: 1,
+          summary: "Space source",
+          captureState: "rough",
+        }),
+      ]),
+    );
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
+    await waitForVisibleGridRowRecordIds(container, [recordId]);
+    const cell = screen
+      .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
+      .closest<HTMLElement>('[role="gridcell"]');
+    expect(cell).not.toBeNull();
+    cell?.focus();
+    fireEvent.keyDown(cell as HTMLElement, { key: " " });
+    await waitFor(() => {
+      expect(screen.getByTestId(timelineInspectorTestId())).toBeTruthy();
+      expect(document.activeElement).toBe(
+        screen.getByText("No linked Evidence records."),
+      );
+    });
+  });
+
+  it("keeps linked Evidence read actions available to a viewer in a closed incident", async () => {
+    const recordId = "20000000-0000-4000-8000-000000000001";
+    const evidenceId = "20000000-0000-4000-8000-000000000002";
+    const base = timelineRow({
+      recordId,
+      rowVersion: 1,
+      summary: "Read-only link",
+      captureState: "rough",
+    });
+    fetchMock.mockResolvedValueOnce(
+      timelineRowsEnvelope([
+        {
+          ...base,
+          cells: {
+            ...base.cells,
+            "timeline.attached_evidence_ids": {
+              value: {
+                kind: "collection_value_v1",
+                ordered: false,
+                items: [
+                  {
+                    item_ref: "record_ref:link-1",
+                    item_kind: "record_ref",
+                    display_text: "Viewer notes",
+                    linked_record_id: evidenceId,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    );
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture
+        incidentId="10000000-0000-4000-8000-000000000001"
+        currentIncidentRole="viewer"
+        incidentClosed
+      />,
+    );
+    await waitForVisibleGridRowRecordIds(container, [recordId]);
+    fireEvent.contextMenu(
+      screen.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
+      { clientX: 32, clientY: 48 },
+    );
+    fireEvent.click(screen.getByTestId(rowInspectButtonTestId(recordId)));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(timelineInspectorSectionTestId("evidence"))
+          .textContent,
+      ).toContain("Viewer notes"),
+    );
+    expect(
+      (
+        screen.getByTestId(
+          evidencePreviewButtonTestId(evidenceId, "inspector"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          timelineEvidenceFileInputTestId(recordId),
+        ) as HTMLInputElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("keeps the Timeline inspector unmounted until explicit activation", async () => {

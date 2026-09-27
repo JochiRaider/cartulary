@@ -147,6 +147,7 @@ export function createWorkbookMutationCommandPorts(
         const outcome = await operations.execute({
           operationID,
           pathParameters: { record_id: input.evidenceRecordId },
+          ...(input.signal ? { signal: input.signal } : {}),
           request: {} satisfies IssueEvidencePreviewHandleRequest &
             IssueEvidenceDownloadHandleRequest,
         });

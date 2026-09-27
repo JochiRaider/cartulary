@@ -26,6 +26,26 @@ afterEach(() => {
 });
 
 describe("timeline inspector element registry", () => {
+  it("fulfills first-open Evidence list focus only when the matching element registers", () => {
+    const registry = createTimelineInspectorElementRegistry(scope(null));
+    const identity = { recordId: "record-1", rowVersion: 3, viewSchemaId };
+    const list = document.createElement("ul");
+    list.tabIndex = -1;
+    document.body.append(list);
+    expect(registry.focusEvidenceList(identity)).toBe(false);
+    registry.updateScope(scope(subject("record-1", 3)));
+    expect(document.activeElement).not.toBe(list);
+    registry.registerEvidenceList("record-1", list);
+    expect(document.activeElement).toBe(list);
+    list.blur();
+    expect(registry.focusEvidenceList(identity)).toBe(true);
+    registry.cancelPendingFocus();
+    list.blur();
+    registry.focusEvidenceList({ ...identity, rowVersion: 4 });
+    registry.registerEvidenceList("record-1", list);
+    expect(document.activeElement).not.toBe(list);
+  });
+
   it("focuses only panels and mentions for the captured canonical subject", () => {
     const activeSubject = subject("record-1", 3);
     const registry = createTimelineInspectorElementRegistry(
