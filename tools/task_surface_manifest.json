@@ -139,6 +139,41 @@
         "target": "browser-design-review-smoke",
         "owner_section": "Section 4",
         "reason": "Review setup smoke is helper-only lifecycle evidence, not product verification."
+      },
+      {
+        "target": "ui-review",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "ui-review-status",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "ui-browser",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "ui-capture",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "ui-analyze",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "ui-review-report",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "ui-review-stop",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
       }
     ],
     "out_of_scope_targets": [
@@ -824,6 +859,41 @@
         {
           "target": "browser-design-review-smoke",
           "description": "prepare and smoke a seeded review, then clean up without waiting"
+        },
+        {
+          "target": "ui-review",
+          "usage": "UI_MODE=seeded|dev|artifacts [UI_ORIGIN=<origin>]",
+          "description": "operate a private local UI review session"
+        },
+        {
+          "target": "ui-review-status",
+          "usage": "UI_SESSION=<locator>",
+          "description": "operate a private local UI review session"
+        },
+        {
+          "target": "ui-browser",
+          "usage": "UI_SESSION=<locator> UI_REQUEST=<private-json>",
+          "description": "operate a private local UI review session"
+        },
+        {
+          "target": "ui-capture",
+          "usage": "UI_SESSION=<locator> UI_REQUEST=<private-json>",
+          "description": "operate a private local UI review session"
+        },
+        {
+          "target": "ui-analyze",
+          "usage": "UI_SESSION=<locator> UI_REQUEST=<private-json>",
+          "description": "operate a private local UI review session"
+        },
+        {
+          "target": "ui-review-report",
+          "usage": "UI_SESSION=<locator> UI_BUNDLE=<bundle-id>",
+          "description": "operate a private local UI review session"
+        },
+        {
+          "target": "ui-review-stop",
+          "usage": "UI_SESSION=<locator>",
+          "description": "operate a private local UI review session"
         }
       ]
     },
@@ -3059,6 +3129,59 @@
         "./tools/harness/browser/design-review.mjs",
         "--smoke"
       ]
+    },
+    "ui-review": {
+      "prerequisites": [],
+      "type": "ui_review",
+      "test_target": "self"
+    },
+    "ui-review-status": {
+      "prerequisites": [],
+      "type": "ui_review",
+      "test_target": "self"
+    },
+    "ui-browser": {
+      "prerequisites": [],
+      "type": "ui_review",
+      "test_target": "self"
+    },
+    "ui-capture": {
+      "prerequisites": [],
+      "type": "ui_review",
+      "test_target": "self"
+    },
+    "ui-analyze": {
+      "prerequisites": [],
+      "type": "ui_review",
+      "test_target": "self"
+    },
+    "ui-review-report": {
+      "prerequisites": [],
+      "type": "ui_review",
+      "test_target": "self"
+    },
+    "ui-review-stop": {
+      "prerequisites": [],
+      "type": "ui_review",
+      "test_target": "self"
+    },
+    "harness-ui-review-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-ui-review-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "./tools/harness/browser/tests/test-ui-review-lifecycle.mjs",
+        "./tools/harness/browser/tests/test-ui-review-bundles.mjs",
+        "./tools/harness/browser/tests/test-ui-review-analysis.mjs",
+        "./tools/harness/browser/tests/test-ui-review-workflow.mjs"
+      ],
+      "test_target": "self"
     }
   },
   "targets": [
@@ -4548,9 +4671,10 @@
     {
       "name": "browser-design-review",
       "backing_scripts": [
-        "tools/harness/browser/design-review.mjs",
+        "tools/harness/browser/design-review-samples.mjs",
         "tools/harness/browser/design-review-seed.mjs",
-        "tools/harness/browser/design-review-samples.mjs"
+        "tools/harness/browser/design-review.mjs",
+        "tools/harness/browser/review-preparation.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -10218,7 +10342,8 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harness/browser/tests/test-ui-review-contract.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_test_catalog_tests.v2",
       "target_class": "check_internal",
@@ -10244,7 +10369,8 @@
         "tools/harness/tests/test-command-failure.mjs",
         "tools/harness/tests/test-frontend-producer-graph.mjs",
         "tools/harness/tests/test-frontend-producer-lifecycle.mjs",
-        "tools/harness/tests/test-harness-command-surface-contracts.mjs"
+        "tools/harness/tests/test-harness-command-surface-contracts.mjs",
+        "tools/harness/browser/tests/test-ui-review-contract.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_command_surface_contract.v2",
       "target_class": "check_internal",
@@ -10291,7 +10417,8 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harness/browser/tests/test-ui-review-contract.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13963,9 +14090,10 @@
     {
       "name": "browser-design-review-smoke",
       "backing_scripts": [
-        "tools/harness/browser/design-review.mjs",
+        "tools/harness/browser/design-review-samples.mjs",
         "tools/harness/browser/design-review-seed.mjs",
-        "tools/harness/browser/design-review-samples.mjs"
+        "tools/harness/browser/design-review.mjs",
+        "tools/harness/browser/review-preparation.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -14033,6 +14161,779 @@
           }
         ]
       }
+    },
+    {
+      "name": "ui-review",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.ui_review.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "isolated_review",
+          "lifecycle_machine": "UI review owned lifecycle"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "UI_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "internal_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "default": "seeded",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "values": [
+              "seeded",
+              "dev",
+              "artifacts"
+            ]
+          },
+          {
+            "name": "REVIEW_PROFILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "default": "network_flow_claimed",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "values": [
+              "default",
+              "network_flow_claimed"
+            ]
+          },
+          {
+            "name": "UI_ORIGIN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "url",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "interactive_raw",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 0,
+          "stdout_bytes": 0,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 0,
+          "stderr_bytes": 0,
+          "excerpt_lines": 0,
+          "excerpt_bytes": 0
+        },
+        "raw_stream_policy": "interactive",
+        "summary_schema": null
+      }
+    },
+    {
+      "name": "ui-review-status",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.ui_review_status.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "configuration_resolution",
+          "owner_section": "Section 5"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "UI_SESSION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "ui_review_receipts",
+        "success_budget": {
+          "stdout_lines": 12,
+          "stdout_bytes": 65536,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 0,
+          "stderr_bytes": 0,
+          "excerpt_lines": 0,
+          "excerpt_bytes": 0
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": "cartulary.ui_review_command_result.v1"
+      }
+    },
+    {
+      "name": "ui-browser",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.ui_browser.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "configuration_resolution",
+          "owner_section": "Section 5"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "ui_review_receipts"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "UI_SESSION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "UI_REQUEST",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "ui_review_receipts",
+        "success_budget": {
+          "stdout_lines": 12,
+          "stdout_bytes": 65536,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 0,
+          "stderr_bytes": 0,
+          "excerpt_lines": 0,
+          "excerpt_bytes": 0
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": "cartulary.ui_review_command_result.v1"
+      }
+    },
+    {
+      "name": "ui-capture",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.ui_capture.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "configuration_resolution",
+          "owner_section": "Section 5"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "ui_review_receipts"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "UI_SESSION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "UI_REQUEST",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "ui_review_receipts",
+        "success_budget": {
+          "stdout_lines": 12,
+          "stdout_bytes": 65536,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 0,
+          "stderr_bytes": 0,
+          "excerpt_lines": 0,
+          "excerpt_bytes": 0
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": "cartulary.ui_review_command_result.v1"
+      }
+    },
+    {
+      "name": "ui-analyze",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.ui_analyze.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "configuration_resolution",
+          "owner_section": "Section 5"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "ui_review_receipts"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "UI_SESSION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "UI_REQUEST",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "ui_review_receipts",
+        "success_budget": {
+          "stdout_lines": 12,
+          "stdout_bytes": 65536,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 0,
+          "stderr_bytes": 0,
+          "excerpt_lines": 0,
+          "excerpt_bytes": 0
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": "cartulary.ui_review_command_result.v1"
+      }
+    },
+    {
+      "name": "ui-review-report",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.ui_review_report.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "configuration_resolution",
+          "owner_section": "Section 5"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "ui_review_receipts"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "UI_SESSION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "UI_BUNDLE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "semantic_text",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "ui_review_receipts",
+        "success_budget": {
+          "stdout_lines": 12,
+          "stdout_bytes": 65536,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 0,
+          "stderr_bytes": 0,
+          "excerpt_lines": 0,
+          "excerpt_bytes": 0
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": "cartulary.ui_review_command_result.v1"
+      }
+    },
+    {
+      "name": "ui-review-stop",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.ui_review_stop.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 5"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "ui_review_receipts"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "UI_SESSION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "ui_review_receipts",
+        "success_budget": {
+          "stdout_lines": 12,
+          "stdout_bytes": 65536,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 0,
+          "stderr_bytes": 0,
+          "excerpt_lines": 0,
+          "excerpt_bytes": 0
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": "cartulary.ui_review_command_result.v1"
+      }
+    },
+    {
+      "name": "harness-ui-review-contract",
+      "backing_scripts": [
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/browser/tests/test-ui-review-analysis.mjs",
+        "tools/harness/browser/tests/test-ui-review-bundles.mjs",
+        "tools/harness/browser/tests/test-ui-review-lifecycle.mjs",
+        "tools/harness/browser/tests/test-ui-review-workflow.mjs",
+        "tools/harness/browser/tests/ui-review-import-fixture.mjs",
+        "tools/harness/browser/tests/ui-review-public-workflow.mjs",
+        "tools/harness/browser/ui-review/analysis.mjs",
+        "tools/harness/browser/ui-review/axe.mjs",
+        "tools/harness/browser/ui-review/browser.mjs",
+        "tools/harness/browser/ui-review/bundles.mjs",
+        "tools/harness/browser/ui-review/canonical-import.mjs",
+        "tools/harness/browser/ui-review/capture.mjs",
+        "tools/harness/browser/ui-review/cli.mjs",
+        "tools/harness/browser/ui-review/contract.mjs",
+        "tools/harness/browser/ui-review/controller.mjs",
+        "tools/harness/browser/ui-review/failure.mjs",
+        "tools/harness/browser/ui-review/image-algorithms.mjs",
+        "tools/harness/browser/ui-review/image-worker.mjs",
+        "tools/harness/browser/ui-review/inputs.mjs",
+        "tools/harness/browser/ui-review/launch.sh",
+        "tools/harness/browser/ui-review/output.mjs",
+        "tools/harness/browser/ui-review/png.mjs",
+        "tools/harness/browser/ui-review/recovery.mjs",
+        "tools/harness/browser/ui-review/report.mjs",
+        "tools/harness/browser/ui-review/session-files.mjs",
+        "tools/harness/browser/ui-review/session.mjs",
+        "tools/harness/browser/ui-review/source.mjs",
+        "tools/harness/browser/ui-review/toolchain.mjs",
+        "tools/harness/runtime/host-admission.mjs",
+        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harness/runtime/secure-local-files.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_ui_review_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
     }
   ],
   "harness_tiers": {

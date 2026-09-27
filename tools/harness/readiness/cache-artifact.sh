@@ -277,6 +277,12 @@ if [[ "$disabled" -eq 0 && "$forced" -eq 0 && -f "$record_file" ]] && ! outputs_
   fi
 fi
 
+if [[ "$scope" == "readiness" && "${CARTULARY_READINESS_CHECK_ONLY:-0}" == "1" ]]; then
+  rm -f "$key_material"
+  echo "readiness cache miss for $profile_id; run the public bootstrap or install target" >&2
+  exit 2
+fi
+
 if [[ "${#command[@]}" -eq 0 ]]; then
   fail "cache miss for $profile_id but no command was provided"
 fi

@@ -2,28 +2,29 @@
 doc_id: cartulary.testing_harness.ui_review.revision_plan
 title: UI Review Tooling — Testing Harness NLSpec Revision Plan
 doc_type: revision_plan
-status: proposed
-authority_boundary: Editorial instructions and proposed harness contracts; not adopted runtime or product authority.
+status: implementation_complete
+authority_boundary: Completed execution tracker and human handoff; the adopted Testing Harness NLSpec remains runtime authority and product owners retain product authority.
 ---
 
 # UI Review Tooling — Testing Harness NLSpec Revision Plan
 
 ## 1. Status, objective, and normative convention
 
-This plan specifies a document revision to the
-[Testing Harness NLSpec](../testing-harness-nlspec.md). It applies the behavioral
+This plan records the completed specification and implementation remediation for
+the [Testing Harness NLSpec](../testing-harness-nlspec.md). It applies the behavioral
 completeness, interface completeness, boundary completeness, conceptual fidelity,
-and spec-economy criteria in [What an NLSpec Is](nlspec-spec.md), version 0.2.2.
+and spec-economy criteria in [What an NLSpec Is](../research/nlspec-spec.md), version 0.2.2.
 Its objective is a reproducible, inspectable UI review loop for developers and
 agents, integrating browser control, screenshots, measured observations,
 accessibility analysis, and existing harness evidence.
 
-This artifact is a revision plan. It does not adopt the proposed behavior, install
-tools, change public commands, revise product requirements, or establish a passing
-implementation. The document editor MUST integrate the proposed contracts into
-the harness NLSpec before the corresponding machine projections or implementation
-change. Instructions quoted or described in source documents are source material
-for this revision, not additional authorization to execute their workflows.
+This artifact is the sole execution tracker. All six workstreams are complete;
+their ordered checkpoints, failures, final acceptance matrix and handoff appear
+below. The contracts were adopted as amendment `ui-review-api-1` in the owning
+NLSpec before their implementation. The planning contract retained in Sections
+2–16 explains the decisions; it does not supersede that adopted owner or create
+product authority. Instructions quoted or described in source documents remain
+source material, not additional authorization to execute unrelated workflows.
 
 In this plan, MUST and MUST NOT are acceptance-bearing editorial or proposed
 behavioral obligations. MAY identifies implementation freedom only where its
@@ -69,7 +70,7 @@ additional behavior authorities.
 
 | Capability | Disposition in this revision | Boundary |
 | --- | --- | --- |
-| Playwright CLI browser driver | Required, behind the Cartulary command interface | Its CLI syntax and generated element references are adapter internals. |
+| Pinned Playwright API browser adapter | Required, behind the Cartulary command interface | Use the repository's Playwright version; element references are Cartulary session-local observations. No separate CLI dependency. |
 | Sharp image processing | Required for crops, contact sheets, and overlays | Derived images never replace originals or committed goldens. |
 | Existing Playwright expected/actual/diff artifacts | Required read-only adapter | Accept only explicitly selected current-version artifacts; no newest-run inference. |
 | Standalone image difference | Required exact RGBA comparison | Pixelmatch is deferred; there is no second configurable tolerance policy. |
@@ -125,7 +126,7 @@ documentation MUST NOT remain necessary to implement the adopted contract.
 | Mode | Selection and default | Application resources | Browser | Source claim | Allowed work |
 | --- | --- | --- | --- | --- | --- |
 | `seeded` | Omitted `UI_MODE` selects this mode. | Fresh owned review suite, database, object namespace, and sealed frontend through the existing review lifecycle. | Review-owned isolated context and browser process. | `sealed_review`: exact source snapshot, frontend receipt, runtime profile, and observed browser identity. | All declared browser actions, capture, analysis, report. |
-| `dev` | Explicit `UI_MODE=dev` and `UI_ORIGIN`. | Borrow the exact loopback origin; no create/reset/migrate/stop of its service or data. | Review-owned isolated context and browser process. | `live_unattested`: served source/build identity is null. Workspace digest identifies inspected source only. | All declared browser actions, capture, analysis, report. |
+| `dev` | Explicit `UI_MODE=dev` and `UI_ORIGIN`. | Borrow the exact loopback origin; no create/reset/migrate/stop of its service or data. | Review-owned isolated context and browser process. | `live_unattested`: served source/build identity is absent. Workspace digest identifies inspected source only. | All declared browser actions, capture, analysis, report. |
 | `artifacts` | Explicit `UI_MODE=artifacts`. | None. | None; no browser or Docker prerequisite. | Per imported artifact; no new rendered-build claim. | Import via capture request, analysis, report. Browser actions fail before execution. |
 
 Seeded sessions MUST validate the current browser-stack attachment and build
@@ -277,7 +278,7 @@ stalled capture. Concurrent sessions have separate contexts, files, and leases.
 
 | Deadline or bound | Value | Consequence |
 | --- | --- | --- |
-| Session lifetime after ready | 8 hours, monotonic, not extended by requests | Stop and clean; receipt records `lifetime_expired`, with normal closure if cleanup succeeds. |
+| Session lifetime after ready | 8 hours, monotonic, not extended by requests | Stop and clean; normal closure if cleanup succeeds. |
 | Dev-origin readiness | 30 seconds; probe every 250 ms | `service_readiness_timeout`; do not stop borrowed service. |
 | Browser action | 10 seconds; navigation 30 seconds | `timeout_failure`; no replay; reobserve before another mutation. |
 | Capture, including settling and axe when requested | 30 seconds | No successful bundle; preserve bounded stage diagnostic. |
@@ -315,7 +316,7 @@ never authorizes stopping another process or deleting another session.
 `configuration_error` before admission; callers MUST take a new snapshot after
 another actor changes the session. `parameters` is the closed variant selected
 by `action` below. A browser adapter MUST translate these operations to the
-pinned Playwright driver and MUST NOT expose the driver's arbitrary-code or
+pinned Playwright API adapter and MUST NOT expose the driver's arbitrary-code or
 arbitrary-endpoint entry points.
 
 | Action | Exact parameters | Observable behavior |
@@ -535,7 +536,7 @@ zeros. It is unique within its session. A bundle contains exactly:
 | `limitations` | Unique sorted tokens: `live_unattested`, `no_actual`, `no_dom`, `no_axe`, `no_trace`, `reference_only`, `rendered_nodes_only`, `truncated_console`, `truncated_network`, `cross_source_comparison`. |
 
 `tool_profile` contains exactly `pins_sha256`, `lock_sha256`, `node_version`,
-`playwright_version`, `driver_version`, `sharp_version`, and `axe_version`.
+`playwright_version`, `sharp_version`, and `axe_version`.
 Digests identify the qualified toolchain projection and package lock bytes;
 versions are nonempty exact installed-version strings. Core package versions
 remain available in artifacts mode even though no browser executable is required.
@@ -544,7 +545,8 @@ profile through the immutable parent reference.
 
 `source` has exactly `kind`, `workspace_digest`, `served_source_digest`,
 `frontend_receipt`, `renderer_profile_id`, `browser_version`, `runtime_profile_id`,
-and `import_ref`. Kind is `sealed_review`, `live_unattested`, `canonical_visual`,
+and `import_ref`. Source schemas use a closed variant per kind; non-applicable
+fields are absent rather than nullable placeholders. Kind is `sealed_review`, `live_unattested`, `canonical_visual`,
 or `reference_image`. Seeded source has non-null workspace/served digests, a
 digested frontend receipt, browser version and runtime profile; its canonical
 renderer profile is null. Dev source has non-null workspace digest and browser
@@ -556,8 +558,7 @@ kind and import ref non-null. An import ref is exactly
 path, input digest identifies the selected PNG or reconciliation JSON bytes,
 and metadata is null for a reference PNG. Canonical metadata is the closed object
 `{reconciliation,capture_intent,source_identity,fixture}`: a copied validated
-reconciliation v3 object, its exact capture-intent record, source identity from
-the matching current-schema run manifest, and the exact registry fixture or null
+reconciliation v3 object, its exact capture-intent record, the matching current-schema run manifest, and the exact registry fixture or null
 for an unregistered capture. These nested values retain their existing adopted
 schemas. They are frozen in the private bundle; later analysis does not reread a
 mutable source root. Import refs never enter structural receipts.
@@ -859,7 +860,7 @@ can differ; consumers use the result/receipt or compact classified output.
 | Action/capture/analysis/report watchdog expires | `operation_expired` | `timing / timeout_failure` | 13 | Cancel/reap owned child; do not retry. |
 | Browser/controller dies after ready | `session_lost` | `infra / service_start_error` | 3 | End session and clean; no transparent browser restart. |
 | Redaction, permissions, secure publication, or retained scan fails | `unsafe_artifact` | `artifact / artifact_error` | 11 | Reject success and attempt remaining cleanup. |
-| Private input boundary violation detected | `input_boundary` | `harness / boundary_policy_violation` | 11 | No restricted document read; report normalized location only. |
+| Private input boundary violation detected | `input_boundary` | `artifact / artifact_error` | 11 | No restricted document read; report normalized location only. |
 | Cleanup fails without earlier primary failure | `cleanup_failed` | `harness / cleanup_error` | 12 | Retain failed cleanup outcome and exact ownership proof. |
 | Signal/cancellation | `interrupted` | `interrupted / cancelled_or_interrupted` | 130/143/15 | Cancel dependent work; close owned resources. |
 
@@ -885,7 +886,7 @@ commands; no new review command emits that class or passing product-row evidence
 ## 12. Toolchain, compatibility, and migration
 
 **UIR-12 — Toolchain and cutover.** The editor MUST add a closed core tool profile
-covering the Playwright driver, Sharp, axe integration/engine, and their locked
+covering the Playwright API adapter, Sharp, axe integration/engine, and their locked
 transitive dependencies. The existing Node/pnpm/Playwright/browser pins remain
 the starting compatibility baseline. The revision MUST NOT adopt a silently
 newer browser merely to use a newer driver.
@@ -898,7 +899,7 @@ qualification outcomes in UIA-02. Package releases are selected from official
 upstream distributions. A pin that cannot satisfy the interface blocks adoption
 of the adapter; it is not permission to weaken the interface or fall back to PATH.
 This plan does not assert that the newest CLI release is compatible with the
-repo's Playwright 1.59.1 renderer.
+repo's Playwright 1.59.1 renderer. The execution decision uses its API directly.
 
 After adoption, `tools/toolchain_pins.json` and package-manager lock state project
 the qualified exact versions through the existing Make-owned bootstrap and drift
@@ -1076,7 +1077,43 @@ and skipped checks with reasons. Completion of this plan means the planning
 artifact is written and reviewed; completion of the amendment and implementation
 requires their separate exits above.
 
-## 16. Rationale and external references — non-normative
+## 16. Execution tracker
+
+This is the sole execution tracker for the user-authorized remediation. The
+implementation baseline is `ce3ef227c`, initially clean, inspected on 2026-09-27
+(UTC). Section 2's older baseline is historical evidence. The user selected the
+pinned Playwright API in place of the proposed standalone CLI. Implementation
+proceeds strictly WS1 → WS2 → WS3 → WS4 → WS5 → WS6, with a recorded completion
+checkpoint before the next workstream starts. Documents are human authority and
+never executable inputs.
+
+| Workstream | Status | Dependency | Required exit |
+| --- | --- | --- | --- |
+| WS1 — Specification integration and dependency qualification | DONE | Baseline inspection | Adopted amendment, qualified exact dependencies, editorial review and Markdown lint. |
+| WS2 — Schemas, commands, dependencies, and output projections | DONE | WS1 | Closed schemas, helper-only bindings, private output separation, generated/drift checks. |
+| WS3 — Session controller and browser adapter | DONE | WS2 | Ownership, mode separation, strict actions, deadlines, cancellation and cleanup verified. |
+| WS4 — Capture, artifact imports, and immutable bundles | DONE | WS3 | Exact source joins, stable bounded capture, secure immutable publication verified. |
+| WS5 — Image analysis, axe, and local reports | DONE | WS4 | Image algorithms, advisory axe, safe offline reports verified. |
+| WS6 — Validation and handoff completion | DONE | WS5 | Applicable UIA-01–UIA-28 complete, guides updated, cleanup and final evidence recorded. |
+
+### Session log
+
+| Date (UTC) | Workstream | Changes and evidence | Validation / next action |
+| --- | --- | --- | --- |
+| 2026-09-27 | WS1 | Rechecked clean baseline, existing lifecycle, pinned Make runtime and installed Chromium 1217; corrected the research link and driver decision. | Qualify dependencies in disposable storage before adopting the amendment. No implementation pass claimed. |
+
+### Outstanding risks
+
+- Qualification candidates are Playwright 1.59.1, Sharp 0.35.4, axe integration
+  4.13.0 and axe engine 4.13.0; package metadata alone is not qualification.
+- Existing step output tees stdout into retained logs. New transient results must
+  bypass that retention path through an explicit structural projection.
+- Current canonical artifact joins must reject ambiguity without broadening
+  third-party format compatibility or inventing missing observations.
+- No eligible successful full warm `RESULTS_DIR` has been supplied; retained-run
+  maintenance is not yet applicable.
+
+## 17. Rationale and external references — non-normative
 
 TypeScript/JavaScript is the initial integration language because the repo already
 owns browser fixtures, schema validation, lifecycle orchestration, and frontend
@@ -1093,7 +1130,7 @@ that tradeoff. Existing canonical screenshot retention remains separately owned.
 Official documentation informs adapter selection only; it does not supply default
 behavior missing from the main contract:
 
-- [Playwright CLI](https://github.com/microsoft/playwright-cli): browser actions,
+- [Playwright API](https://playwright.dev/docs/api/class-playwright): browser actions,
   snapshots, sessions, screenshots, and human observation of a session.
 - [Sharp extraction](https://sharp.pixelplumbing.com/api-resize/) and
   [compositing](https://sharp.pixelplumbing.com/api-composite/): deterministic
@@ -1108,3 +1145,542 @@ behavior missing from the main contract:
   [OpenCV](https://docs.opencv.org/4.x/d4/d73/tutorial_py_contours_begin.html),
   [Tesseract](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html), and
   [FFmpeg](https://ffmpeg.org/ffmpeg.html): deferred analysis capabilities.
+
+### WS1 qualification evidence
+
+Qualification ran on Linux amd64, WSL2 kernel 6.6.114.1, Node 24.15.0 and
+pnpm 10.33.0. The pinned Chromium 1217 reported 147.0.7727.15. No separate
+native-Linux kernel host was exercised; Linux userland behavior was exercised
+on WSL2. Sharp used libvips 8.18.6 and libpng 1.6.58.
+
+| Package | Exact version | Published integrity |
+| --- | --- | --- |
+| playwright | 1.59.1 | SHA-512: `C8oWjPR3F81yljW9o5OxcWzfh6avkVwDD2VYdwIGqTkl+OGFISgypqzfu7dOe4QNLL2aqcWBmI3PMtLIK233lw==` |
+| playwright-core | 1.59.1 | SHA-512: `HBV/RJg81z5BiiZ9yPzIiClYV/QMsDCKUyogwH9p3MCP6IYjUFu/MActgYAvK0oWyV9NlwM3GLBjADyWgydVyg==` |
+| sharp | 0.35.4 | SHA-512: `n++8XWcj+jCOr2IOl7h8LbKnGBDY4aPbmprMONBNFdn0ImXqpGVv5zliDs0V9HbmbCQLpbuo2ej9rAoOQTvMDA==` |
+| @axe-core/playwright | 4.13.0 | SHA-512: `6YLx+kxXu5GJceG4ozFg+33a2EMTdjYwWGloJ3sb9Kta5pp+ZNS53uxGVog5JetIY8s++P5UrtX+cri+u0VAVg==` |
+| axe-core | 4.13.0 | SHA-512: `UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A==` |
+
+The disposable qualification lock SHA-256 is
+`b1252aba996348202700dc4f766217c0b7f63a80f12c14be4c95ee89103e69cf`.
+The Make-owned installation succeeded with a disposable Make composition invoking
+`frontend-install`. `make -f /tmp/cartulary-ui-qualification/qualification.mk
+qualify-ui-review` passed browser launch, strict role/test-ID actions, literal
+shell-like input, ARIA snapshots, screenshots, PNG decoding, transparent RGBA
+preservation, exact cropping, Lanczos3, and main-document axe with an empty
+ambient PATH. This is dependency qualification, not product-row evidence.
+
+Two setup attempts failed before qualification: public `frontend-install` rejected
+private stamp overrides as unknown command-line inputs (configuration, exit 2);
+the initial scratch Make composition did not propagate its stamp rule to recursive
+Make. A probe then failed because Sharp does not export its package.json subpath;
+reading installed package metadata by its explicit path repaired the probe. None
+changed the canonical browser pin or installed a global tool.
+
+### WS1 completion checkpoint
+
+Adopted amendment: `ui-review-api-1` in `cartulary.testing_harness.v3`.
+Changed only this tracker and the Testing Harness NLSpec. Contracts were placed
+in their owning Sections 1–16, with 28 acceptance obligations (AC-102–AC-129) and
+human traceability in Section 17. The reconciliation refresh reference is v3.
+Source variants, observation scope, snapshot references, stop identity and unsafe
+terminal publication have explicit behavior. The API decision avoids a second
+browser driver. A second editorial review repaired copied section references and
+removed the flat nullable source encoding. No executable registry consumes IDs.
+
+`make lint-markdown` passed: retained root
+`.cartulary/test-results/20260927T030808Z-p92304`, summary
+`adhoc/lint-markdown/tool-run-summary.json`. `git diff --check` passed. Dependency
+qualification passed as recorded above. Product/generation/release checks were
+skipped for this documentation-only slice. WS1 is complete; WS2 may now begin.
+
+### WS2 completion checkpoint
+
+Added the eight v1 schema attachments, closed source/request variants, semantic
+validators and positive/negative contract fixtures. Registered all seven commands
+as helper-only with a dedicated `ui_review` Make binding and `ui_review_receipts`
+policy. Transient results bypass generic preflight capture, step stdout tee,
+command metadata and observability. Raw Make inputs use literal shell transport;
+unknown inputs and malformed requests fail before controller acquisition.
+
+Qualified dependencies are now exact root dev dependencies and toolchain pins;
+the root lock was updated by Make-owned pnpm installation, never by hand.
+Doctor checks installed package and Node pins without installing. A single
+Playwright/core version is required. Schema references use the actual run-manifest
+v1 identity. Existing artifact-error taxonomy carries restricted-input failures;
+no new generic failure reason was invented. Editorial follow-up removed a stale
+nullable-source phrase and an unrepresentable lifetime diagnostic token: lifetime
+expiry closes normally when cleanup succeeds.
+
+Changed areas: root package/lock, toolchain pins/checker/doctor, schema attachments,
+authored task surface and its validation/renderer, eight schemas, the ui-review
+contract/input/output/bootstrap modules, and command-surface test registration.
+Generated task-surface Make/runtime/JSON and topology render index were regenerated.
+
+Validation (all roots below are under `.cartulary/test-results/`):
+
+| Command | Result and exact retained root |
+| --- | --- |
+| Make-owned `frontend-install` via scratch Make composition | PASS `20260927T031309Z-p95503` |
+| `make generate` after final backing-script changes | PASS `20260927T032919Z-p41376` |
+| `make json-shape-check` | PASS `20260927T032543Z-p21664` |
+| `make toolchain-drift` | PASS `20260927T032403Z-p10163` |
+| `make test-slice OWNER=harness.command_surface` | PASS `20260927T032656Z-p25626` |
+| `make generated-artifact-policy-check` | PASS `20260927T032437Z-p15557` |
+| `make generate-drift` before subsequent test edits | PASS `20260927T032451Z-p16239` |
+| `make test-slice OWNER=harness.generated_artifacts` (includes current drift) | PASS 5/5 `20260927T032937Z-p44375` |
+| `make lint-scripts` | PASS `20260927T032452Z-p16501` |
+| `make lint-shell` | PASS `20260927T032453Z-p16901` |
+| `git diff --check` | PASS |
+
+Related failures were repaired, not waived. Generation initially rejected missing
+observability exclusions (`20260927T031837Z-p975`); schema checks rejected missing
+top-level identity/closure (`20260927T032403Z-p10137`,
+`20260927T032436Z-p15347`). The generated-artifact owner and later direct drift
+checks failed on the topology render index after backing-script test edits
+(`20260927T032702Z-p26561`, `20260927T032823Z-p33297`,
+`20260927T032846Z-p37355`); regeneration repaired the stale hash. The runner
+normalized that drift failure as product/test_assertion_failure, not a product
+behavior regression. An output-mode command-line attempt was rejected because
+that existing selector is environment-owned. No browser/product success is claimed.
+Controller execution, resource acquisition and end-to-end privacy remain WS3–WS6
+obligations. WS2 is complete; WS3 may begin.
+
+### WS3 start
+
+WS2 checkpoint recorded before starting controller work. Inspection found that
+current work-graph resource admission is process-local. Cross-process review and
+quiet-measurement exclusion therefore requires a shared host-admission owner used
+by both graph execution and review, rather than a review-only lock. This structural
+fix is within G1/G3 ownership scope; existing graph-local fairness remains intact.
+
+### WS3 progress — not a completion checkpoint
+
+Shared preparation now lives in `tools/harness/browser/review-preparation.mjs`;
+the legacy design-review wrapper delegates to it. Added secure anchored file
+operations, host admission, local authenticated IPC, session/terminal receipts,
+strict Playwright actions and controller-death recovery. Managed-suite cleanup
+now retains its ownership lease after failed termination. A new shell verification
+kind and semantic browser-support row route the lifecycle contract tests.
+
+The closed result and receipt now include `exit_code`, adopted in Section 8.5
+before projection, to preserve 130/143 through terminal reads. Host admission now
+also coordinates independent graph processes; this repairs the process-local
+assumption found at WS3 entry. Literal Make transport was corrected to avoid
+passing unevaluated authored default expressions as run identity inputs.
+
+A public artifacts session at
+`.cartulary/test-results/20260927T034749Z-p57821` started, returned live status,
+stopped cleanly, and repeated stop returned the same terminal digest. Initial
+four-case lifecycle suite passed via the public owner slice at
+`.cartulary/test-results/20260927T035242Z-p68558`. These are partial results only;
+controller-death and busy-stop tests are now being exercised. A flock argument
+error created an empty task-owned `3` file; the invocation was corrected to use
+the inherited descriptor path and that scratch file was removed.
+
+Generation first rejected the new shell row because the browser verification
+projection omitted shell evidence (`20260927T035034Z-p59370`); the owner projection
+was extended and generation passed at `20260927T035104Z-p62733`. A subsequent
+JSON-shape run at `20260927T035204Z-p66588` correctly rejected backing-script hashes
+made stale by continuing edits. Regeneration and full WS3 exits remain pending.
+
+### WS3 additional validation and open issues
+
+The six-case lifecycle owner slice passed at
+`.cartulary/test-results/20260927T035507Z-p72674`, including exact terminal digest,
+controller-death recovery, private-tree removal, cancellation of a busy dev action
+and borrowed-origin survival. `make browser-design-review-smoke` passed, including
+its sample/role checks, at
+`.cartulary/test-results/design-review-1790481365486-bd73433c`; the build emitted an
+existing chunk-size advisory and the Playwright installer reported the configured
+Ubuntu compatibility build on this host. The UI helper itself never calls that
+installer. `make run-harness-smoke-lifecycle` also passed (internal target emitted
+no run-root pointer).
+
+Seeded controller starts currently fail with normalized startup_failed and
+complete cleanup; required WS3 exit remains open. Exact failed roots include
+`20260927T035921Z-p4308`, `20260927T040132Z-p12751`, and
+`20260927T040350Z-p17662` under `.cartulary/test-results/`. Shared preparation
+succeeds in a disposable Make-owned probe, so the process environment is being
+isolated. A fresh run-owned frontend seal is now built even in inspect-only review;
+the generic readiness cache refuses installation on a cold prerequisite when that
+internal policy is selected. This guard has positive/miss test cases pending their
+broader routed run.
+
+The extended smoke run at `.cartulary/test-results/20260927T040210Z-p15160` failed
+with harness/unknown_failure. It exposed an outdated retained-run-identity assertion
+for the new locator-bound commands, plus run-step/Vitest diagnostics requiring
+investigation. The new test assertion is to be repaired around the explicit
+ui_review_receipts policy, not by reintroducing generic output capture. Attempts
+to invoke individual smoke-check names and a guessed scheduler target were rejected
+by Make; these are registry check names, not standalone public commands.
+
+
+### WS3 completion checkpoint
+
+The seeded startup discrepancy was missing `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`
+and `GO_TMP_DIR` after public-input stripping. The generated review recipe now
+forwards the existing machine-state projection. A private disposable diagnostic
+identified this cause; all production diagnostic instrumentation was removed.
+No private diagnostic was copied into a retained review receipt.
+
+Public seeded review at `.cartulary/test-results/20260927T041657Z-p43491`
+started successfully, authenticated editor then viewer through the normal API,
+and stopped with cleanup complete. Its terminal receipt SHA-256 is
+`3bfe9043aa86db02423fa60c3ebeca84d8ecf636d993155386c94b04480b038e`.
+A subsequent public stop during preparation at
+`.cartulary/test-results/20260927T042311Z-p90188` also completed cleanup;
+terminal SHA-256 `d9a4b21f2b1134bfb716c18f890b311e2aee8c0dc05438905a7159087421c88c`.
+Owned browser startup now yields to cancellation. Failed release retains its
+ownership record, remaining release owners are attempted, and a failed terminal
+publication cannot report success or overwrite existing bytes.
+
+The new redirect fixture found that Playwright routing alone does not intercept
+every server redirect hop. The pinned adapter now also guards each document
+request through a private Playwright CDP session. No driver details enter the
+public interface. Ordinary action timeouts require a new snapshot; the adopted
+30-second watchdog closes an undrainable browser operation before another can
+start. The controller validates requests again at the IPC boundary. Session
+output reservations enforce the total byte budget before snapshot publication.
+
+The shared host arbiter validates closed state, reclaims dead/zombie process
+identities, observes browser capacity and quiet-waiter priority, and participates
+in scheduled work. Direct browser contract fixtures also acquire that owner.
+The smoke runner now forwards the pinned Node directory to fixture descendants;
+its previous ambient-node failures are repaired.
+
+Validation (roots under `.cartulary/test-results/` unless stated otherwise):
+
+| Command | Result / evidence |
+| --- | --- |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4` | PASS nine cases, `20260927T042506Z-p3098` |
+| `make harness-contract` | PASS 2/2 units, `20260927T042312Z-p90373` |
+| `make run-harness-smoke-extended` | PASS; internal entry emitted no final run-root pointer |
+| `make browser-design-review-smoke` after shared asynchronous acquisition change | PASS `design-review-1790483148475-7b906cfd`; owned runtime removed; existing chunk/platform advisories only |
+| `make generate` | PASS `20260927T042534Z-p5370` |
+| `make json-shape-check` | PASS `20260927T042549Z-p8998` |
+| `make lint-scripts` | PASS `20260927T042323Z-p93799` |
+| `make lint-shell` | PASS `20260927T042323Z-p93828` |
+| `git diff --check` | PASS |
+
+Related failed evidence remains explicit: the redirect test failed at
+`20260927T042054Z-p75896` before the guard repair; harness-contract at
+`20260927T042055Z-p76379` rejected a render-index hash made stale by an edit and
+passed after regeneration. A concurrent lifecycle run at
+`20260927T042313Z-p90725` was interrupted after capacity contention exposed a
+fixture server left open on failed admission. The fixture now closes on that
+path and uses detected capacity; its routed rerun passed. Seeded failures before
+the machine-state fix were infrastructure/service_start_error, unrelated to
+product assertions. Full capture/import/analysis/report and complete acceptance
+closure remain assigned to WS4–WS6. WS3 has no remaining slice blocker and is
+complete; WS4 may begin.
+
+
+### WS4 start
+
+WS3 completion was recorded before capture/import implementation began. The
+publication boundary will be the exclusive immutable manifest after every local
+component has been validated; unpublished trees are private and inaccessible
+through bundle lookup. Canonical imports use exact current target/group/result
+references and preserve unavailable channels explicitly.
+
+
+### WS4 completion checkpoint
+
+Added `png.mjs`, `bundles.mjs`, `source.mjs`, `capture.mjs`, and
+`canonical-import.mjs` under the private UI-review owner, plus bundle/import
+fixtures and routed tests. The manifest is the exclusive publication commit
+point. Every component is validated before publication; existing bundles and
+borrowed files are never overwritten. Reads reject links, multiple hard links,
+foreign ownership, group/world writes, restricted roots and unsupported formats.
+Reservations precede publication, and failed publication releases the reservation.
+
+PNG validation closes chunk integrity, dimensions, decoded pixel count, encoding,
+color-profile and animation rules before bounded Sharp decoding. Captures wait for
+fonts and three stable animation frames, retain full-precision rectangles for
+pixel transforms, compare stability at 1/64 CSS pixel precision, preserve focus
+and scrolling, and reject post-screenshot changes. Dynamic pixels do not acquire
+a stability claim. The specification and observation v1 projection were amended
+together to add the previously unrepresented bounded font-face record. No existing
+released schema was changed.
+
+The canonical adapter uses current manifest/target v4/group v6/reconciliation v3,
+exact capture-intent v2 and pinned report joins. It checks capture-ID derivation,
+renderer, row/scenario/profile, source/receipt digests and registry metadata.
+Expected attachments outside the run root are admitted only at the exact declared
+golden path with the declared digest. Actual/diff/trace attachments remain within
+the selected run and exact test result. Expected-only and unregistered captures
+remain valid without fabricated actual pixels, fixture IDs, DOM or epochs.
+
+Validation and evidence:
+
+| Command / workflow | Result / retained root |
+| --- | --- |
+| `make harness-ui-review-contract` | PASS 16 cases, including transparent RGB channels, PNG limits/corruption, crop transforms, font delay, dynamic text, immutable imports, publication/storage bounds, failed-run imports and exact negative joins; latest routed execution below |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4` | PASS `20260927T045014Z-p7489` |
+| `make service-backed-test-slice OWNER=module.auth ROWS=module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99` | PASS 11/11 units; canonical visual row passed; `20260927T043943Z-p48220` |
+| Public artifacts start / exact canonical capture / stop | PASS `20260927T044146Z-p81903`; capture `visual.capture.00320cb9a9b33f98be2b`, expected-only bundle; terminal `15989317918af6cef44af0c40290e1cdbe374cbf4f0edc57e7fc8d61cb071797` |
+| Public seeded start / viewport capture with axe explicitly disabled / stop | PASS `20260927T044620Z-p88765`; sealed receipt and image joined; terminal `7e539c15ca1201352a9cbdae5181f05d172aa002640f66d5e66a05171200d392` |
+| `make test-slice OWNER=harness.command_surface` | PASS `20260927T044835Z-p98087` |
+| `make generate` | PASS `20260927T044941Z-p4200` |
+| `make json-shape-check` | PASS `20260927T045042Z-p9638` |
+| `git diff --check` | PASS |
+
+All listed run roots are under `.cartulary/test-results/`. The first synthetic
+import fixture incorrectly required a registry entry for the unregistered auth
+capture (`20260927T044453Z-p83869`); it was corrected to represent the supported
+null-fixture variant and rerun successfully. This was a test-fixture failure,
+not permission to invent registry membership. The exact public review sessions
+closed with cleanup complete and private roots removed. No golden was refreshed.
+Axe execution, analysis derivations and reports remain WS5 obligations; the full
+end-to-end acceptance audit remains WS6. WS4 is complete before WS5 begins.
+
+
+### WS5 start
+
+WS4 completion was recorded before beginning image derivations, axe normalization
+and offline reports. Numerical algorithms and missing-data semantics remain those
+adopted in Sections 8.6–8.8; findings do not become product assertions.
+
+
+### WS5 completion checkpoint
+
+Implemented `analysis.mjs`, `image-algorithms.mjs`, cancellation-owned
+`image-worker.mjs`, `axe.mjs`, and `report.mjs`. New analysis bundles copy required
+inputs, preserve parent manifest digests, and record ordered derivation inputs.
+Exact RGBA differences include hidden transparent channels; rounding uses integer
+arithmetic. Crops never resample; overlays use the recorded transform. Contact
+sheets use source expected/primary/diff channels and requested crops, with four
+columns, no outer gutter, floor-centered thumbnails and white compositing. These
+layout details were adopted in the NLSpec before implementation.
+
+Axe uses the qualified engine and tags with iframe traversal explicitly excluded;
+normalized records omit vendor HTML/help URLs. Snapshot is explicitly disabled,
+imported missing data remains unavailable, and malformed/failed scans fail the
+operation. Reports copy local assets, validate all bundle digests, escape observed
+content, block network resources through CSP, support native-resolution zoom and
+eligible comparisons, and cache only within the session. Cache tampering fails.
+
+Validation (roots under `.cartulary/test-results/`):
+
+| Command | Result / evidence |
+| --- | --- |
+| `make harness-ui-review-contract` | PASS 22 cases, `20260927T050551Z-p18664` |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4` | PASS `20260927T050618Z-p21399` |
+| `make generate` | PASS `20260927T050536Z-p15439` |
+| `make json-shape-check` | PASS `20260927T050618Z-p21384` |
+| `make lint-scripts` | PASS `20260927T050552Z-p19037` |
+| `git diff --check` | PASS |
+
+The six new analysis tests cover exact math, crop/overlay/contact-sheet pixels,
+matched/reference compatibility, immutable parents, cancellation, expected-only
+reports, report limits and cache tampering, all axe result classes, iframe
+exclusion, escaped injection, offline image loading and working zoom. A real
+pinned browser opened the generated local report with zero HTTP(S) requests.
+No WS5 acceptance blocker remains. Full public-mode workflows, remaining
+adversarial acceptance coverage, documentation and final checks belong to WS6.
+
+
+### WS6 start
+
+WS5 completion was recorded before starting final acceptance validation. Audit
+the complete UIA matrix against implementation and current tests, close uncovered
+cases, exercise the public commands in all modes, update the existing workflow
+guide, then run finalize and final drift/owner checks. Qualification remains
+limited to the observed Linux x64 WSL2 environment; no untested host is claimed.
+
+
+### WS6 acceptance audit and validation record
+
+The final audit added public dev/artifacts workflows with private sentinels,
+current-engine/native readiness checks, complete normalized-failure/cleanup
+pairing, rendered-row reveal, real 30-second readiness/geometry deadlines,
+exact encoded-byte boundaries, serialization and lifetime tests. The existing
+workflow guide now describes the seven commands, closed modes, exact selection,
+current schemas, advisory findings and private-link expiry. Editorial subsection
+numbers were reconciled without adding executable Markdown dependencies.
+
+Broader concurrency exposed a real admission defect: a flock helper waited on its
+scheduler parent's event loop while synchronous fixture preparation blocked that
+loop. This produced `infra/resource_conflict` even after assertions passed. The
+complete bounded transaction now executes and publishes within the helper; its
+closed structural input is supplied at spawn, so even pipe EOF delivery cannot
+extend lock ownership. A regression freezes the parent for six seconds while an
+independent process acquires/releases admission in less than four seconds. The
+full browser owner and harness contract subsequently passed concurrently with a
+canonical accessibility run. Failed offline releases remain owned for teardown
+retry, and primary failures retain their ordering.
+
+Failed evidence is retained and superseded, not hidden:
+
+- `20260927T051442Z-p53481` (`test-slice OWNER=harness.command_surface`) and
+  `20260927T051453Z-p64032` (`harness-contract`) failed with
+  `infra/resource_conflict`; related to the admission defect above.
+- `20260927T051442Z-p53538` (`test-slice OWNER=harness.browser`) was deliberately
+  interrupted after the same defect delayed completion; 37/40 units had passed.
+  Its final classification is interrupted, exit 130.
+- `20260927T051932Z-p17078` (`harness-ui-review-contract`) passed 25/26 cases;
+  the new parent-stall regression exposed the remaining stdin-EOF dependency.
+  Supplying the closed transaction at spawn repaired it; the isolated Make-owned
+  regression and subsequent full owner run passed.
+- An `explain-target` invocation mistakenly supplied undeclared `OWNER` and was
+  rejected as configuration/usage_error before execution. Guidance was read via
+  `explain-test-owner`; this was an invocation error, not a product defect.
+
+All roots below are under `.cartulary/test-results/` unless absolute.
+
+| Final or applicable check | Result / root |
+| --- | --- |
+| `make test-slice OWNER=harness.command_surface` | PASS `20260927T051933Z-p17520`; request/pin/output and existing command contracts |
+| `make test-slice OWNER=harness.generated_artifacts` | PASS 5/5 `20260927T051442Z-p53506` |
+| `make test-slice OWNER=harness.browser` | PASS 40/40 `20260927T052326Z-p43748`; includes new review contract tests and existing browser support/integration owners |
+| `make service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.integration.postgres_cleanup_target_scoped_coordination` | PASS 3/3 `20260927T052525Z-p29964` |
+| `make service-backed-test-slice OWNER=module.auth ROWS=module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9` | PASS 11/11 `20260927T052326Z-p43808` |
+| `make harness-contract` | PASS 2/2 `20260927T052326Z-p43927` |
+| `make generate-drift` | PASS 4/4 `20260927T052457Z-p23328` |
+| `make generated-artifact-policy-check` | PASS 3/3 `20260927T052457Z-p23439` |
+| `make toolchain-drift` | PASS 2/2 `20260927T052457Z-p23405` |
+| `make json-shape-check` | PASS 3/3 `20260927T052526Z-p30169` |
+| `make lint-scripts` / `make lint-shell` | PASS `20260927T052457Z-p23919` / `20260927T052457Z-p23987` |
+| `make lint-markdown` | PASS `20260927T051117Z-p30482`; final handoff lint follows below |
+| `make agent-finalize` before broader verification | PASS `20260927T052301Z-p39423`; no generated changes; retained-run maintenance skipped because `RESULTS_DIR` was unset |
+
+The public seeded editor/viewer workflow used the seven commands through a
+Make-owned disposable composition. It authenticated both actors, navigated,
+snapshotted, captured with axe, created crops/contact sheets, rendered reports,
+reimported the same PNG twice in browser-free artifacts mode, compared exactly,
+and stopped. Retained roots and terminal digests:
+
+- `ui-review-final-1790485910454`:
+  `cafb61d8e63a23529e777170f9c9eb1982aeab8650d1cf58bb594ff6cf102511`.
+- `ui-review-final-1790485910454-artifacts`:
+  `ba3de129d3b30372bc8f3699cdaad5217a73a496bb14f9b7e20cc6338a8f80e7`.
+
+Both terminal receipts record complete cleanup. The public workflow fixture
+checks every returned private reference disappears, borrowed input bytes remain
+unchanged, and retained trees contain only locators/receipts with no page,
+console, URL, typed-text, private-path or telemetry sentinel. Dev and artifacts
+versions run in the routed review suite. Local report inspection uses the pinned
+browser: native image dimensions, zoom, escaped markup, missing channels and zero
+HTTP(S) requests are checked. It is interface validation, not a human aesthetic
+approval or product publication claim.
+
+| Obligation | Evidence and disposition |
+| --- | --- |
+| UIA-01 | PASS — authored helper-only commands, task-surface/graph tests, owner parity and existing design-review smoke; no helper product-row closure. |
+| UIA-02 | PASS — disposable qualification with empty ambient PATH; missing pins rejected; installed native Sharp and nested engine pins inspected before acquisition; browser-free workflow uses absent browser path and unusable Docker endpoint. |
+| UIA-03 | PASS — omitted seeded mode in public editor/viewer workflow, both retained design-review profiles, invalid/blank/cross-mode requests rejected by contract fixtures. |
+| UIA-04 | PASS — exact dev origin, live_unattested bundles, external redirect guard, real readiness expiry, borrowed server survives stop. |
+| UIA-05 | PASS — browser-free import, reimport, exact analysis and report with absent browser installation; no borrowed mutation. |
+| UIA-06 | PASS — all finite public command JSON projections validated, machine start/preflight rejection, isolated transient output and structural retained receipts. |
+| UIA-07 | PASS — serialized controller admission, bounded lock wait, separate public sessions, shared/exclusive fairness and parent-stall regression. |
+| UIA-08 | PASS — stale epoch/ref, detached, zero/multiple/disabled targets, literal shell-like fill text and no action replay. |
+| UIA-09 | PASS — busy stop, repeated terminal digest, signal/preparation interruption, browser/controller death and exact recovery ownership. |
+| UIA-10 | PASS — partial acquisition/release paths, retained failed ownership, every normalized failure paired with cleanup, unsafe terminal publication, existing atomic-state and cleanup owner tests. |
+| UIA-11 | PASS — delayed fonts, real geometry deadline, post-screenshot mutation rejection and stable-geometry dynamic text. |
+| UIA-12 | PASS — missing rendered row then explicit scroll/reveal; focus and scroll preserved during capture. |
+| UIA-13 | PASS — exact current synthetic failed evidence and actual canonical auth import; unregistered/null fixture and expected-only reporting preserved. |
+| UIA-14 | PASS — unsupported reconciliation/report version, divergent renderer/runtime/registry, tampered bytes and duplicate attachment joins rejected. |
+| UIA-15 | PASS — viewport/element/region scope math, outward rounding, asymmetric nonunit scales, clipping and no repeated zoom application. |
+| UIA-16 | PASS — secure anchored reads/publication, links/permissions/digests/counts, exclusive manifest commit, existing bundles unchanged after failure. |
+| UIA-17 | PASS — request, PNG byte/dimension/pixel, component/file/bundle/storage/count bounds, schema limits and explicit channel truncation; required data never silently truncated. |
+| UIA-18 | PASS — zero/full/one-pixel, hidden transparent RGB and alpha-only differences, exact magenta output, unequal dimensions and integer ties-up rounding. |
+| UIA-19 | PASS — exact crop pixels/order, two-pixel overlay transform, source-channel contact sheet, complete matched metadata and explicit reference comparison. |
+| UIA-20 | PASS — completed violations/incomplete/empty, disabled snapshot/capture and unavailable imports remain distinct; findings do not fail commands. |
+| UIA-21 | PASS — engine failure/timeout, wrong version, malformed targets and occurrence/string overflow fail without a partial bundle; live iframe contents excluded. |
+| UIA-22 | PASS — real offline report open, escaped script/URL probes, CSP, native dimensions/zoom, missing data and cache tampering. |
+| UIA-23 | PASS — exact image bytes/manifest digests and local report inspection agree; public workflow proves all private links expire and structural receipts persist. |
+| UIA-24 | PASS — sentinel page/console/URL/fill and inherited telemetry remain private; generic tee/preflight/output metadata are bypassed by the dedicated recipe. |
+| UIA-25 | PASS — restricted path checks precede filesystem access; README/Markdown aliases, links and neutral policy fixtures; source-boundary owner checks remain intact. |
+| UIA-26 | PASS — complete failure mapping, each primary plus cleanup, repeated stop, and operation failure distinct from normal terminal lifecycle. |
+| UIA-27 | PASS — human editorial cross-reference review, current reconciliation-v3 adapter rejection of v2, existing contracts and Markdown lint. |
+| UIA-28 | PASS — public seeded editor/viewer, separate dev, browser-free import/reimport/analysis/report/stop; canonical visual and accessibility rows plus design-review compatibility evidence. |
+
+Final serialization/lifetime additions and handoff lint are recorded in the
+completion checkpoint after their results, rather than inferred from this matrix.
+
+Qualification archive before disposable storage removal: resolved Linux x64 native packages are `@img/sharp-linux-x64@0.35.4` and `@img/sharp-libvips-linux-x64@1.3.3`; their exact integrities remain in the package-manager-owned `pnpm-lock.yaml`. Sharp requires Node >=20.9.0 and Playwright >=18; the selected Node 24.15.0 satisfies both. Resolved native library versions: `{"aom":"3.15.0","archive":"3.8.9","cairo":"1.18.4","cgif":"0.5.3","exif":"0.6.26","expat":"2.8.3","ffi":"3.8.0","fontconfig":"2.18.3","freetype":"2.14.3","fribidi":"1.0.16","glib":"2.89.4","harfbuzz":"14.3.1","heif":"1.23.2","highway":"1.4.0","imagequant":"2.4.1","lcms":"2.19.1","mozjpeg":"0826579","pango":"1.58.2","pixman":"0.46.4","png":"1.6.58","proxy-libintl":"0.5","rsvg":"2.62.91","sharp":"0.35.4","tiff":"4.7.2","uhdr":"2.0.2","vips":"8.18.6","webp":"1.6.0","xml2":"2.15.3","zlib-ng":"2.3.3"}`. The current repository lock SHA-256 is `e1db2a82e1433557a34ec6509d802cc6adb5ad254993f5fde87a29698c50fb31`.
+
+
+### WS6 completion checkpoint and final handoff
+
+**Status: DONE.** All six workstreams completed in dependency order; each prior
+completion checkpoint was recorded before its successor began. All UIA-01–UIA-28
+obligations are satisfied by the evidence above and the final checks below. No
+required acceptance blocker or implementation slice remains.
+
+The last coverage additions prove that a second operation cannot overlap the
+first, contention fails after the adopted wait, and expiry closes exactly at the
+eight-hour boundary using a controlled clock. The final routed suite contains 29
+review cases, with the request/command cases additionally routed through the
+command-surface owner.
+
+| Final checkpoint check | Result / retained root |
+| --- | --- |
+| `make generate` after the final test additions | PASS `20260927T052655Z-p48490` |
+| `make agent-finalize` before final owner verification | PASS `20260927T052839Z-p51818`; generated structure unchanged; schema, catalog, tier and drift checks passed |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4` | PASS `20260927T052924Z-p55854`; all 29 review cases |
+| `make test-slice OWNER=harness.generated_artifacts` | PASS 5/5 `20260927T052949Z-p62216` |
+| `make test-slice OWNER=harness.command_surface` | PASS `20260927T052950Z-p62435` |
+| `make lint-markdown` for the guide and acceptance handoff | PASS `20260927T053151Z-p70912` |
+| `git diff --check` | PASS |
+| Exact review registry / host admission registry | Zero live records / zero leases after all checks |
+| Disposable qualification storage | Removed after archiving structural package/native qualification above |
+| Public session terminal receipts | Seeded, dev/artifact test workflows, canonical import and capture sessions closed with cleanup complete; all returned private links removed |
+
+Adopted owner: `cartulary.testing_harness.v3`, amendment `ui-review-api-1`,
+requirements and AC-102–AC-129 integrated into their existing owner sections.
+Machine projections are the eight `cartulary.ui_review_*.v1` schemas and seven
+`cartulary.harness.command.ui_*.v1` public command identities. The commands are
+`ui-review`, `ui-review-status`, `ui-browser`, `ui-capture`, `ui-analyze`,
+`ui-review-report`, and `ui-review-stop`. Their authored recipes, helper-only
+classification, input/output policies and backing inventory live in
+`tools/task_surface_owner.json`; generated projections were produced through Make.
+
+Implementation ownership is split among shared review preparation, private
+session/controller and Playwright adapter, source/PNG/bundle validation, image and
+axe analysis, offline report rendering, secure local publication and shared host
+admission. The changed scheduler/provider seams retain existing service owners;
+the canonical auth visual and accessibility rows and existing design-review smoke
+passed. No product database migration, golden refresh or product-row requirement
+change was made. The added harness row verifies helper mechanics only.
+
+Dependencies are exactly the qualified Node/Playwright/Sharp/axe combination above,
+with one Playwright/core version and Linux x64 native packages. Qualification is
+limited to the observed WSL2 Linux environment; a separate native-Linux host,
+Windows-native and macOS are not claimed tested. Existing interactive design-review
+commands remain supported through the same preparation/teardown owner. There is
+no standalone CLI dependency, legacy schema reader, conversion, compatibility
+alias, newest-artifact selection, alternate browser fallback or durable export.
+
+Privacy/lifetime limits remain eight hours, 100 bundles and 512 MiB private
+outputs, with the per-request/component/image/bundle/report bounds adopted in the
+NLSpec. Original bytes, observations and reports are session-private; only closed
+structural receipts/locators persist. Repeated stop preserves the terminal outcome.
+Expected-only imports and unavailable accessibility/DOM channels remain visibly
+unavailable. Command success and diagnostic findings never imply product,
+canonical visual, accessibility-complete, release or Core 05 publication success.
+
+Inspected authorities were the domain vocabulary/owner navigation, NLSpec
+standard, adopted Testing Harness NLSpec and this controlling artifact. Substantive
+changes include that NLSpec and tracker, the existing browser design-readiness
+guide, package/pin/lock inputs, task/schema/test routing inputs and generated
+projections, shared review lifecycle/provider/runtime seams, new UI-review modules
+and their contract/lifecycle/bundle/analysis/public-workflow tests. No competing
+plan was introduced.
+
+Full repository `check`, CI and release gates were not run: owner-scoped checks,
+full browser owner, selected canonical visual/accessibility rows and explicit
+public workflows cover the changed boundaries without asserting a release.
+Retained warm-run maintenance was skipped because no eligible full warm run was
+supplied as `RESULTS_DIR`. Optional OCR, Python, video, MCP/hosted analysis and
+future product promotion of axe rules remain explicitly outside this completed
+scope. Further host qualification is additional platform evidence, not an implied
+passing result.
+
+Rollback before public acceptance is to stop owned review sessions, revert the
+new authored additions/changes and regenerate downstream outputs through Make;
+borrowed development data and canonical artifacts remain untouched. After public
+adoption, retiring these versioned interfaces requires a superseding amendment.
+The next action is ordinary code review of this completed change; no pending
+implementation work is required for this plan.

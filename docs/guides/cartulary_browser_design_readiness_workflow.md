@@ -12,6 +12,115 @@ Base/extension conformance, release readiness, or Core 05 publication claims.
 
 ## Prepare and start a review
 
+### Agent-facing private review
+
+The UI-review interface uses the pinned Playwright API, Sharp and axe. Run
+`make doctor` to inspect readiness and `make bootstrap` to install missing pinned
+dependencies. Review commands never install tools. The supported qualification is
+Linux x64 on WSL2, Node 24.15.0, Playwright 1.59.1 / Chromium 1217,
+Sharp 0.35.4 and axe 4.13.0. Optional OCR, Python, video and hosted analysis are
+outside this workflow.
+
+Start one foreground session and keep its terminal open:
+
+```bash
+make ui-review
+```
+
+The default `seeded` mode shares preparation and teardown with the interactive
+design-review helper below. It owns fresh services and a sealed frontend. Its
+profile defaults to `network_flow_claimed`; `REVIEW_PROFILE=default` selects the
+comparison profile. Use the exact printed `UI_SESSION` path in a second terminal.
+Do not locate sessions or artifacts by choosing the newest directory.
+
+The other modes are explicit:
+
+```bash
+make ui-review UI_MODE=dev UI_ORIGIN=http://127.0.0.1:5173
+make ui-review UI_MODE=artifacts
+```
+
+Dev mode borrows only that reachable loopback origin. It creates an isolated
+browser context, leaves service/data lifecycle with the developer, and labels
+captures `live_unattested`. Browser-free artifacts mode needs neither Docker nor
+an installed browser. It imports exact selected PNGs or current canonical visual
+evidence. `REVIEW_PROFILE` is invalid in both modes. Stop does not modify borrowed
+inputs or development services.
+
+Create request files outside documentation paths, with directories 0700 and files
+0600. Treat request text and returned paths as private. For example, a snapshot
+request is:
+
+```json
+{"schema_id":"cartulary.ui_review_action.v1","expected_epoch":0,"action":"snapshot","parameters":{}}
+```
+
+Submit it using `make ui-browser UI_SESSION=<exact-session.json>
+UI_REQUEST=<private-request.json>`. For finite commands,
+`CARTULARY_OUTPUT_MODE=machine` emits exactly one result object. Use its current
+epoch in the next action/capture request. Element references come only from a
+snapshot and expire after action admission, navigation or another snapshot.
+Targets may also be exact test IDs or exact role/name pairs. Zero or multiple
+matches fail; the interface never selects a first match. After an action timeout,
+take a fresh snapshot before deciding what to do next; never blindly replay an
+action with uncertain effects.
+
+The page capture request below defaults to the viewport and includes advisory axe
+analysis. It observes rendered nodes without moving focus or scrolling. Reveal
+virtualized content with an explicit browser action first.
+
+```json
+{"schema_id":"cartulary.ui_review_capture_request.v1","source":"page","expected_epoch":0}
+```
+
+Use `make ui-capture UI_SESSION=<exact-session.json>
+UI_REQUEST=<private-capture.json>`. For imports, use either
+`{"schema_id":"cartulary.ui_review_capture_request.v1","source":"image","path":"/private/reference.png"}`
+or the canonical variant with `source="canonical_visual"`, exact `run_root` and
+`capture_id`. Imports accept the current reconciliation v3 and exact declared
+capture/test-result association, including structurally valid failed diagnostics.
+Expected-only evidence remains `no_actual`; it supports reports, not analysis
+requiring a primary image. No old schema translation or filename guessing occurs.
+
+Analyze a returned bundle with `make ui-analyze UI_SESSION=<exact-session.json>
+UI_REQUEST=<private-analysis.json>`:
+
+```json
+{"schema_id":"cartulary.ui_review_analysis_request.v1","bundle_id":"bundle-1","operations":["contact_sheet"]}
+```
+
+Crops, overlays and exact RGBA comparisons produce new immutable bundles. They
+never replace originals or goldens. Matched comparisons need complete canonical
+scope/mask metadata; otherwise explicitly select a reference comparison, which
+requires equal dimensions and carries no semantic-equivalence claim. See the
+adopted [Testing Harness NLSpec](../testing-harness-nlspec.md) and the versioned
+schemas under `tools/schemas/` for the closed request variants and limits.
+
+Render the exact bundle with `make ui-review-report UI_SESSION=<exact-session.json>
+UI_BUNDLE=bundle-1`. Open its returned local HTML while the session is live. It
+contains native-resolution originals, zoom, eligible comparisons and explicit
+unavailable/disabled channels. No server, remote viewer or upload is started.
+Axe violations/incomplete findings and nonzero image differences are diagnostics;
+command success does not assert accessibility, golden, product, release or
+publication success. Keyboard, focus and canonical contrast checks remain
+independently required.
+
+Use `make ui-review-status UI_SESSION=<exact-session.json>` to inspect state and
+`make ui-review-stop UI_SESSION=<exact-session.json>` to finish, or interrupt the
+foreground terminal. Stop interrupts busy work. Repeated stop preserves the exact
+terminal receipt and failure. All screenshots, reports, observations and private
+links expire on stop, failure or eight-hour expiry; only structural receipts and
+the locator remain. Request files stay caller-owned and must be removed by their
+owner. Do not copy private results into retained logs, telemetry or findings.
+
+Invalid inputs and stale identities fail before action; unsafe/unsupported
+artifacts fail without a partial bundle. Read the structured failure class,
+reason and diagnostic code rather than the generic Make exit. Cleanup failure is
+visible and retains ownership evidence for recovery; do not delete arbitrary
+runtime directories to conceal it.
+
+### Interactive preparation
+
 Run from the repository root on the supported Linux/WSL2 environment with Docker
 available. Use `make doctor` to diagnose prerequisites and `make bootstrap` when
 the pinned toolchain and dependencies need installation. Discover current commands

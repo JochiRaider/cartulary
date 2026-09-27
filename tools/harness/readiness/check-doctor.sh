@@ -71,6 +71,9 @@ else
 fi
 
 if [[ -n "$node_path" ]]; then
+  if ! "$node_path" "$ROOT_DIR/tools/harness/browser/ui-review/toolchain.mjs" --doctor; then
+    fail=2
+  fi
   if ! "$node_path" "$ROOT_DIR/tools/harness/readiness/diagnose-inotify.mjs" --advisory; then
     fail=2
   fi

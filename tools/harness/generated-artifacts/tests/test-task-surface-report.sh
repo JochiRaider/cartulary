@@ -250,13 +250,18 @@ assert.match(
   "work-graph recipes must restore resolved machine-state paths after stripping public inputs",
 );
 for (const target of manifest.targets.filter((entry) =>
-  entry.target_class === "public" && entry.output_policy.artifact_policy !== "none")) {
+  entry.target_class === "public" && !["none", "ui_review_receipts"].includes(entry.output_policy.artifact_policy))) {
   const escapedTarget = target.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
   assert.match(
     renderedMake,
     new RegExp(`^${escapedTarget}: export CARTULARY_TEST_RUN_ID := \\$\\(CARTULARY_TEST_RUN_ID\\)$`, "mu"),
     `${target.name} must freeze its public retained run identity at target scope`,
   );
+}
+for (const target of manifest.targets.filter((entry) => entry.output_policy?.artifact_policy === "ui_review_receipts")) {
+  const recipe = manifest.make_recipes[target.name];
+  assert.equal(recipe.type, "ui_review", "private review uses its explicit output projection");
+  assert.ok(target.input_contract.inputs.some((input) => input.name === "UI_SESSION" && input.required), "finite review commands bind an exact existing locator");
 }
 assert.match(
   renderedMake,

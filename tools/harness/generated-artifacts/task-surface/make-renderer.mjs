@@ -189,6 +189,13 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   const entry = targetEntryMap(manifest).get(recipe.target);
+  if (recipe.type === "ui_review") {
+    const inputs = (entry.input_contract?.inputs ?? []).map((input) => `${input.name}=$(call task_surface_shell_quote_raw,${input.name})`);
+    return [
+      `${recipe.target}:`,
+      `\t$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ${inputs.join(" ")} CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ${recipe.target}`,
+    ];
+  }
   const nodeReadinessPrelude = renderNodeReadinessPrelude(recipe, entry);
   const prerequisitePrelude = renderPrerequisitePrelude(
     recipe,
@@ -436,6 +443,7 @@ function publicMakeInputNames(manifest) {
 }
 
 function requiresLiteralMakeTransport(input) {
+  if (input?.name?.startsWith("UI_")) return true;
   return (
     input?.binding === "make_variable" &&
     input?.required === true &&

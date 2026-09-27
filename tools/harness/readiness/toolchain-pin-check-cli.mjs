@@ -55,6 +55,7 @@ function loadExpected(root) {
   }
   const tools = requireObject(pins, "tools", file);
   return {
+    uiReview: requireObject(pins, "ui_review", file),
     modulePath: requireString(pins, "module_path", file),
     goVersion: requireString(pins, "go_version", file),
     goToolchain: requireString(pins, "go_toolchain", file),
@@ -196,6 +197,9 @@ function checkMakefile(root, mismatches, expected) {
 function checkPackageJson(root, mismatches, expected) {
   const file = "package.json";
   const packageJson = JSON.parse(readRepoFile(root, file));
+  for (const [name, version] of Object.entries(expected.uiReview)) {
+    checkEqual(mismatches, file, `devDependencies.${name}`, version, packageJson.devDependencies?.[name]);
+  }
   checkEqual(
     mismatches,
     file,

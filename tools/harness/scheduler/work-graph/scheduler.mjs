@@ -371,6 +371,7 @@ export async function runWorkGraph({
   cwd,
   environment,
   executeUnit = executeUnitProcess,
+  hostAdmission,
   fixtureBroker,
   cache,
   signal,
@@ -581,6 +582,8 @@ export async function runWorkGraph({
           ]);
           const promise = Promise.resolve()
             .then(async () => {
+              const hostLease = await hostAdmission?.(unit, controller.signal);
+              try {
               const lease = fixtureBroker && unit.fixture_lease !== "none"
                 ? await fixtureBroker.acquire(unit.fixture_lease, {
                     affinityKey: unit.affinity_key ?? unit.owner_id,
@@ -643,6 +646,7 @@ export async function runWorkGraph({
                 }
               }
               return result;
+              } finally { await hostLease?.release(); }
             })
             .then((result) => ({ unit_id: unit.unit_id, result }))
             .catch((error) => ({

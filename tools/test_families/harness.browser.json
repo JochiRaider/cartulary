@@ -378,6 +378,29 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.boundary_support.publicjsonclient_suite_a3aedb76f9",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",

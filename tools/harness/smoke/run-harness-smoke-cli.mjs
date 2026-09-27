@@ -69,7 +69,7 @@ function runCommand(command, args, env = process.env) {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: repoRoot,
-      env,
+      env: { ...env, PATH: `${path.dirname(process.execPath)}:${env.PATH ?? ""}` },
       stdio: "inherit",
     });
     child.on("error", (error) => {

@@ -153,7 +153,15 @@
   goose-toolchain \
   release-inventory-artifacts \
   frontend-artifact-consumer-check \
-  browser-design-review-smoke
+  browser-design-review-smoke \
+  ui-review \
+  ui-review-status \
+  ui-browser \
+  ui-capture \
+  ui-analyze \
+  ui-review-report \
+  ui-review-stop \
+  harness-ui-review-contract
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -216,6 +224,20 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make browser-design-review' \
 	'                                      REVIEW_PROFILE=network_flow_claimed|default start a disposable seeded browser review; Ctrl-C removes owned data' \
 	'  make browser-design-review-smoke    prepare and smoke a seeded review, then clean up without waiting' \
+	'  make ui-review' \
+	'                                      UI_MODE=seeded|dev|artifacts [UI_ORIGIN=<origin>] operate a private local UI review session' \
+	'  make ui-review-status' \
+	'                                      UI_SESSION=<locator> operate a private local UI review session' \
+	'  make ui-browser' \
+	'                                      UI_SESSION=<locator> UI_REQUEST=<private-json> operate a private local UI review session' \
+	'  make ui-capture' \
+	'                                      UI_SESSION=<locator> UI_REQUEST=<private-json> operate a private local UI review session' \
+	'  make ui-analyze' \
+	'                                      UI_SESSION=<locator> UI_REQUEST=<private-json> operate a private local UI review session' \
+	'  make ui-review-report' \
+	'                                      UI_SESSION=<locator> UI_BUNDLE=<bundle-id> operate a private local UI review session' \
+	'  make ui-review-stop' \
+	'                                      UI_SESSION=<locator> operate a private local UI review session' \
 	'' \
 	'fast verification:' \
 	'  make test-fast                      run the narrower local verification loop' \
@@ -1706,4 +1728,37 @@ browser-design-review-smoke:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-design-review-smoke)
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) REVIEW_PROFILE="$(REVIEW_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,REVIEW_PROFILE)" REVIEW_PROFILE="$(REVIEW_PROFILE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" $(NODE_BIN) ./tools/harness/browser/design-review.mjs --smoke
+
+ui-review:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_MODE=$(call task_surface_shell_quote_raw,UI_MODE) REVIEW_PROFILE=$(call task_surface_shell_quote_raw,REVIEW_PROFILE) UI_ORIGIN=$(call task_surface_shell_quote_raw,UI_ORIGIN) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command \
+	  environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review
+
+ui-review-status:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call \
+	  task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review-status
+
+ui-browser:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_REQUEST=$(call task_surface_shell_quote_raw,UI_REQUEST) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin \
+	  CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-browser
+
+ui-capture:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_REQUEST=$(call task_surface_shell_quote_raw,UI_REQUEST) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin \
+	  CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-capture
+
+ui-analyze:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_REQUEST=$(call task_surface_shell_quote_raw,UI_REQUEST) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin \
+	  CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-analyze
+
+ui-review-report:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) UI_BUNDLE=$(call task_surface_shell_quote_raw,UI_BUNDLE) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call \
+	  task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review-report
+
+ui-review-stop:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call \
+	  task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review-stop
+
+harness-ui-review-contract: export CARTULARY_TEST_TARGET ?= harness-ui-review-contract
+harness-ui-review-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-lifecycle.mjs ./tools/harness/browser/tests/test-ui-review-bundles.mjs ./tools/harness/browser/tests/test-ui-review-analysis.mjs ./tools/harness/browser/tests/test-ui-review-workflow.mjs
 

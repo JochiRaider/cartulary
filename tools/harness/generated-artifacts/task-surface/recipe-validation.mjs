@@ -25,6 +25,7 @@ const ownerCommandTargets = new Set([
 ]);
 
 const makeRecipeValidators = Object.freeze({
+  ui_review: validateUIReviewRecipe,
   artifact_binding: validateArtifactBindingRecipe,
   aggregate: validateAggregateRecipe,
   readiness_projection: validateReadinessProjectionRecipe,
@@ -38,6 +39,7 @@ const makeRecipeValidators = Object.freeze({
 });
 const validMakeRecipeTypes = new Set(Object.keys(makeRecipeValidators));
 function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
+  if (artifactPolicy === "ui_review_receipts") return recipe?.type === "ui_review";
   if (artifactPolicy === "none") {
     return true;
   }
@@ -805,5 +807,11 @@ function validateHelpEntryText(errors, helpEntry, label) {
     } else if (helpEntry.usage.includes("\n")) {
       errors.push(`${label}.usage must be a single line`);
     }
+  }
+}
+
+function validateUIReviewRecipe({ errors, target, recipe, label }) {
+  if (!["ui-review", "ui-review-status", "ui-browser", "ui-capture", "ui-analyze", "ui-review-report", "ui-review-stop"].includes(target) || recipe.prerequisites.length !== 0) {
+    errors.push(`${label} must be an explicitly registered UI review command without implicit installation`);
   }
 }

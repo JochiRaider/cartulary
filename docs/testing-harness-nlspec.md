@@ -100,6 +100,19 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 Direct package scripts, raw scripts, raw Go/Vitest/Playwright/Biome/Vite/pnpm commands, and tool-specific reports are developer conveniences or child commands unless a public Make target invokes them. Direct invocation of those surfaces MUST NOT be treated as equivalent to a canonical harness run.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-005
 
+
+### 1.1 UI review authority
+
+**TH-HARNESS-REQ-022**
+UI review is helper-only diagnostic tooling. Its operation success, findings,
+product assertions and publication are distinct. This amendment adds no product
+or test HTTP route, authentication bypass, product requirement, visual comparator,
+or golden promotion path. Presentation remains design/product owned. Executable
+inputs never include Markdown or documentation. The adopted amendment identifier
+is `ui-review-api-1`; the harness document and conformance profile remain v3.
+
+Verified by: TH-HARNESS-AC-102, TH-HARNESS-AC-125, TH-HARNESS-AC-126, TH-HARNESS-AC-128, TH-HARNESS-AC-129
+
 ## 2. Purpose, Non-Goals, and Conformance Boundary
 
 The testing harness exists to provide a reproducible repository command surface for local developers, CI entrypoints, coding agents, and release verification. It provides deterministic target selection, bounded output, structured artifacts, explicit service ownership, controlled fixture lifecycle, stable failure classification, and destructive cleanup gates.
@@ -1066,6 +1079,17 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-066
 Internal module layout, in-memory data structures, adapter function signatures, human diagnostic prose, and scheduling order among simultaneously ready independent work units remain intentionally unspecified when Sections 4 through 17 are preserved. Implementations MUST remain interchangeable at the public command, schema, artifact, failure, security, and cleanup boundaries.
 Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-071
 
+
+### 3.7 UI review terminology
+
+A review session is one owned diagnostic lifetime in seeded, dev or artifacts
+mode. An observation epoch invalidates prior action references. A bundle is an
+immutable private observation/analysis unit. A structural receipt is retained
+allowlisted execution metadata without page detail. A binding records intended
+catalog context without asserting execution. Comparison compatibility is proved
+metadata equality, not an aesthetic or product verdict. These terms are harness
+implementation-support vocabulary, not Cartulary domain concepts.
+
 ## 4. Public Command Surface
 
 **TH-HARNESS-REQ-050**
@@ -2014,6 +2038,33 @@ A target has one of these public-lifecycle states:
 
 A target may move to `public_active` only when it passes the semantic-value test from TH-HARNESS-REQ-058. A pre-release target may move to `removed` by revising the registry and generated mirrors in one change set. `removed` is represented by absence from the public registry, not by a retained registry row.
 
+
+### 4.7 UI review commands
+
+**TH-HARNESS-REQ-081**
+The harness provides exactly these helper-only bindings. The command ID is
+`cartulary.harness.command.` followed by the listed suffix. All are excluded from
+product, default verification, CI, release, and owner-slice selection. Tests of
+their contracts can be selected by existing harness verification routing.
+
+| Make target | Command-ID suffix | Required target inputs | Other target inputs | Result | Side effects |
+| --- | --- | --- | --- | --- | --- |
+| `ui-review` | `ui_review.v1` | None | `UI_MODE`, `REVIEW_PROFILE`, `UI_ORIGIN` | Interactive session, retained locator and lifecycle receipt | Acquire mode-specific resources; stay alive until stop, signal, failure, or lifetime expiry. |
+| `ui-review-status` | `ui_review_status.v1` | `UI_SESSION` | None | One command result | Read exact session state; no acquisition, touch, reset, or liveness extension. |
+| `ui-browser` | `ui_browser.v1` | `UI_SESSION`, `UI_REQUEST` | None | One command result and private observation | Execute exactly one declared action. |
+| `ui-capture` | `ui_capture.v1` | `UI_SESSION`, `UI_REQUEST` | None | One command result and immutable private bundle | Capture current page or import exact existing artifacts. |
+| `ui-analyze` | `ui_analyze.v1` | `UI_SESSION`, `UI_REQUEST` | None | One command result and new immutable private bundle | Derive selected analyses from exact inputs. |
+| `ui-review-report` | `ui_review_report.v1` | `UI_SESSION`, `UI_BUNDLE` | None | One command result and private HTML | Render the exact bundle; no server startup or automatic browser launch. |
+| `ui-review-stop` | `ui_review_stop.v1` | `UI_SESSION` | None | One command result and terminal receipt | Stop only resources owned by this session. |
+
+The existing `browser-design-review` and smoke command retain their v1 invocation
+and output contracts. `ui-review` reuses their preparation and teardown owner; it
+MUST NOT copy a second implementation of seeding, service startup, or cleanup.
+No raw Playwright, arbitrary JavaScript, shell argument string, alternate CDP URL,
+or user-supplied canonical-renderer endpoint is a new public binding.
+
+Verified by: TH-HARNESS-AC-102, TH-HARNESS-AC-107, TH-HARNESS-AC-129
+
 ## 5. Configuration Resolution Contract
 
 **TH-HARNESS-REQ-100**
@@ -2382,6 +2433,36 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | `GOVULNCHECK_DB`                                                                                 | security                | optional Govulncheck vulnerability DB path or endpoint token                                                          | omitted; Govulncheck default DB                                                           | Make variable, env, default                     | omitted                                                 | path-token validation                                                                                         | invalid value is `usage_error`, exit `2`                                           | value                                              |
 | `GOVULNCHECK_FLAGS`, `GOVULNCHECK_PATTERNS`                                                      | security                | closed; not public Make target inputs                                                                                 | `-test -json` flags and authored package roots fixed by the public target row and wrapper | raw script only                                  | not applicable                                           | none                                                                                                          | Make command-line use is `usage_error`, exit `2`                                  | none                                               |
 
+
+### 5.6 UI review input contract
+
+**TH-HARNESS-REQ-104**
+For the following target-local inputs, `binding=make_variable`, sources are
+`make_command_line` and `internal_default` where a default exists,
+`empty_string=invalid`, `invalid_reason=usage_error`, and `child_forwarding=argv`.
+Inherited environment variables of these names are ignored. Undeclared command-line
+inputs fail before acquisition. Existing global input contracts still apply.
+`REVIEW_PROFILE` alone keeps its existing allowed sources and normalization.
+
+| Input | Targets | Type and normalization | Default / omission | Bounds and cross-field rules | Retained summary |
+| --- | --- | --- | --- | --- | --- |
+| `UI_MODE` | `ui-review` | Enum; trim | `seeded` | `seeded`, `dev`, `artifacts` only | Value |
+| `REVIEW_PROFILE` | `ui-review` | Existing adopted enum contract | Existing default in seeded mode; absent otherwise | Explicit use outside seeded mode is invalid | Value when applicable |
+| `UI_ORIGIN` | `ui-review` | URL; trim, normalize as Section 11.9 | Required for dev; absent otherwise | Explicit use outside dev mode is invalid | No URL; mode only |
+| `UI_SESSION` | Every finite command | Path token | Required | Exact retained session-locator file; Section 6 path checks | Opaque session ID only |
+| `UI_REQUEST` | Browser/capture/analyze | Path token | Required | Regular non-symlink owner-only UTF-8 JSON file, 1–65536 bytes; snapshot bytes once before validation | No path or request content |
+| `UI_BUNDLE` | Report | ID; trim | Required | Exact session-local bundle ID defined in Section 8.5; no `latest` alias | ID only |
+
+Request files MUST be outside documentation roots and Markdown, validated before
+opening, and passed without shell evaluation. Their contents can include typed
+text; they are private caller material. A command borrows its request file and
+MUST NOT delete or rewrite it. The copied in-memory request and any private staging
+copy die after the operation. Duplicate JSON object keys, invalid UTF-8, non-finite
+numbers, unknown fields, null where not allowed, and unsupported schemas fail
+before page mutation or image decoding.
+
+Verified by: TH-HARNESS-AC-104, TH-HARNESS-AC-107, TH-HARNESS-AC-126
+
 ## 6. Result Roots, Run IDs, and Artifact Identity
 
 **TH-HARNESS-REQ-150**
@@ -2529,6 +2610,57 @@ summaries, or cleanup evidence, and MUST NOT substitute for the parent's row-bea
 evidence.
 Verified by: TH-HARNESS-AC-003, TH-HARNESS-AC-015, TH-HARNESS-AC-064, TH-HARNESS-AC-071
 
+
+### 6.5 UI review identity
+
+**TH-HARNESS-REQ-159**
+A session ID is `uireview-` plus 32 lowercase hexadecimal
+digits generated from 128 bits of cryptographic randomness. Collisions are
+configuration failures; an existing session is never replaced. Session operations
+receive sequential positive integers starting at 1 under the session controller.
+An observation epoch starts at 0 and increases once before each browser action
+other than a pure snapshot. An action that fails after admission still consumes
+its epoch. Capture and analysis do not silently repeat an action.
+
+The adapter validates and resolves a request's target against the old epoch before
+advancing it. The response reports the new epoch. It never invalidates a supplied
+reference before resolving the action that consumes it. An action deadline begins
+after lock acquisition; the lock has its separate five-second budget. After an
+action timeout, only snapshot or stop is admitted until a fresh snapshot
+reestablishes observations; the action's product effect can be uncertain.
+If a protocol operation cannot drain within the 30-second operation watchdog,
+the controller MUST terminate the owned browser and fail the session with
+`operation_expired`; it MUST NOT admit another operation while an earlier effect
+can still complete. This terminal recovery differs from an ordinary action
+timeout, which leaves the browser available for a fresh snapshot.
+
+The session locator is `<run_root>/ui-review/session.json`, using existing result
+root and run-ID normalization. It contains exactly `schema_id`, `session_id`,
+`run_id`, `mode`, `state`, `created_at`, `updated_at`, and `terminal_receipt`.
+The schema is `cartulary.ui_review_session.v1`; timestamps use Section 6.4's UTC
+format; `terminal_receipt` is null before terminal state and a run-relative
+digested reference afterward, except that failed safe publication leaves null
+and requires the artifact failure handling in Section 13.1. Its state changes by secure atomic replacement.
+Private controller handles and origin/credential details are absent.
+
+The controller resolves the exact session ID through its owned private lease.
+Transport, internal registry layout, and process factoring are implementation
+choices. Resolution MUST NOT scan for a newest session or trust a PID alone.
+Cross-user, replaced, symlinked, malformed, incompatible, or differently owned
+locators fail before connection. A terminal locator remains readable for status
+and idempotent stop after private material has been removed.
+
+Snapshot allocates opaque element references for rendered accessible elements up to
+the 64-element bound. References identify exact element handles, session, epoch,
+and document generation; each new snapshot replaces the previous reference set.
+Detached handles are unavailable, never rebound to a replacement node. Role and
+test-ID targets resolve strictly at execution. Status supplies the current epoch
+when a caller needs to reobserve. Stop is lifecycle control, receives no operation
+ID, and always references the lifecycle terminal receipt.
+
+
+Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-109, TH-HARNESS-AC-110, TH-HARNESS-AC-124
+
 ## 7. Output Modes and Machine Output
 
 **TH-HARNESS-REQ-200**
@@ -2597,6 +2729,34 @@ NOT contain a historical delivery or phase selector, documentation-derived
 activation, unresolved executable, ambient shell, inline port allocation, or
 implicit fixture path. Unknown `TARGET` is `usage_error`, exit `2`, empty
 stdout, and no partial JSON.
+
+
+### 7.5 UI review output projections
+
+**TH-HARNESS-REQ-203**
+`ui-review` uses `interactive_raw` and rejects machine mode before acquisition.
+Its ready output identifies the exact retained session-locator path. It MUST NOT
+print credentials, a private endpoint, storage state, or request content.
+
+The six finite commands use `summary_with_artifacts` with stable machine stdout
+schema `cartulary.ui_review_command_result.v1`. Machine output is one JSON object
+plus LF; stderr is empty after the wrapper starts. Human modes obey Section 7's
+existing budgets. Browser text, images, raw logs, and full accessibility trees
+MUST NOT be streamed into ordinary stdout.
+
+UI review commands are excluded from automatic harness execution observability.
+Their retained artifact policy is `ui_review_receipts`: only the locator and
+structural receipts are retained. The `ui_review` Make binding invokes its terminal
+projection directly without generic step capture or implicit tool installation.
+
+The transient command result and durable receipt are distinct schemas. A
+successful content-producing command returns explicit absolute private file paths
+for the local agent/viewer. Those paths MUST NOT enter retained logs, receipts,
+OTLP, or aggregate output. The public wrapper MUST project the receipt before
+retention instead of retaining a byte copy of transient stdout. Raw child output
+remains private and redacted according to Section 15.
+
+Verified by: TH-HARNESS-AC-107, TH-HARNESS-AC-125, TH-HARNESS-AC-127
 
 ## 8. Artifact and Schema Contract
 
@@ -2853,7 +3013,7 @@ Reconciliation MUST fail with `status=fail` when an active intent has no committ
 
 The one executable visual renderer profile is image `mcr.microsoft.com/playwright@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645` on `linux/amd64`, Playwright `1.59.1`, Chromium revision `1217` and version `147.0.7727.15`, vendored-font manifest SHA-256 `c21f8663e6c8fe72681b2be644aa8398538afc59a0f0cda06b94d46d5fbba5fe`, locale `en-US`, device scale factor `1`, and default color scheme `light`. Existing per-capture viewport, zoom, and reduced-motion settings remain capture-owned. Visual validation and refresh MUST use a harness-owned Playwright server from that digest-pinned container. The server MUST run non-root without a repository mount, publish only its unguessable endpoint on host loopback, expose the client loopback through Playwright's remote-network forwarding only for the harness-owned local services, retain no server log containing page data, and be stopped on success, failure, cancellation, or signal. The observed image architecture, Playwright/Chromium identity, and font manifest MUST match the profile before a test begins. Docker/image absence, renderer death, profile mismatch, or user-supplied endpoint/profile input is a fail-closed harness error. Nonvisual browser targets retain the host Playwright browser.
 
-`browser-e2e-visual-update` MUST use the same visual row selection, runtime-profile session grouping, renderer profile, and service lifecycle as direct `browser-e2e-visual`, with Playwright snapshot update mode enabled for every selected group. Other renderer profiles are unsupported for committed refreshes. The target MUST remain helper-only, MUST NOT be selected by `check`, `test`, `ci`, release gates, or either owner-slice command, and MUST NOT emit passing `browser-e2e-visual` target or owner-accounting evidence. An update MUST copy the complete committed snapshot directory into run-scoped scratch space and write only there while groups execute. The harness MUST validate all selected groups, reconciliation v2, the complete candidate golden manifest, schema shape, and renderer identity before atomically promoting the candidate snapshot directory and manifest. Failure at any earlier point MUST leave tracked bytes unchanged; promotion failure MUST restore the prior directory and manifest. Its authored writes are limited to committed Playwright visual goldens under `apps/web/e2e/workbook.visual.spec.ts-snapshots/` and `tools/frontend_visual_golden_manifest.json`. A refresh record MUST name its accepted trigger, affected row and fixture IDs, changed golden paths, capture-contract changes or their explicit absence, reviewer outcome, and the later ordinary visual validation root. A refresh is complete only after changed images are reviewed and two fresh later `browser-e2e-visual` runs pass with screenshot comparisons active against the same manifest. Refresh artifacts remain implementation-readiness evidence and MUST NOT satisfy product conformance, design conformance, release, or Core 05 publication gates.
+`browser-e2e-visual-update` MUST use the same visual row selection, runtime-profile session grouping, renderer profile, and service lifecycle as direct `browser-e2e-visual`, with Playwright snapshot update mode enabled for every selected group. Other renderer profiles are unsupported for committed refreshes. The target MUST remain helper-only, MUST NOT be selected by `check`, `test`, `ci`, release gates, or either owner-slice command, and MUST NOT emit passing `browser-e2e-visual` target or owner-accounting evidence. An update MUST copy the complete committed snapshot directory into run-scoped scratch space and write only there while groups execute. The harness MUST validate all selected groups, reconciliation v3, the complete candidate golden manifest, schema shape, and renderer identity before atomically promoting the candidate snapshot directory and manifest. Failure at any earlier point MUST leave tracked bytes unchanged; promotion failure MUST restore the prior directory and manifest. Its authored writes are limited to committed Playwright visual goldens under `apps/web/e2e/workbook.visual.spec.ts-snapshots/` and `tools/frontend_visual_golden_manifest.json`. A refresh record MUST name its accepted trigger, affected row and fixture IDs, changed golden paths, capture-contract changes or their explicit absence, reviewer outcome, and the later ordinary visual validation root. A refresh is complete only after changed images are reviewed and two fresh later `browser-e2e-visual` runs pass with screenshot comparisons active against the same manifest. Refresh artifacts remain implementation-readiness evidence and MUST NOT satisfy product conformance, design conformance, release, or Core 05 publication gates.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-022
 
 Frontend visual fixture identity MUST be semantic, immutable, and local to the active owner-catalog row and exact Playwright scenario that uses it. When a retained support contract names a fixture, its ID MUST match `visual.fixture.<semantic_name>` and MUST NOT encode a frontend namespace, delivery phase, ordinal, or legacy row ID. Fixture-support metadata MUST declare `capture_scope` as `full_viewport`, `selector`, or `region`; selector captures MUST use a stable data-attribute selector. Selector-only non-grid specimens MAY declare `scroll_normalization.kind="not_applicable"` with a reason instead of a workbook-grid anchor. A fixture with `no_dynamic_regions=true` MUST keep `dynamic_masks=[]`. Missing, retired, placeholder, or ambiguous declared fixtures MUST NOT remain in the active fixture population and MUST NOT close an owner row from generic text, inferred snapshot names, or ad hoc scenario titles. Visual selection and accounting MUST come only from catalog rows; the fixture registry may enrich declared semantic fixtures but is not a second selection inventory.
@@ -3296,6 +3456,480 @@ Check scheduler summaries that include service sessions MUST report service-suit
 
 Scheduler-owned service-session startup MUST retain a minimal redacted service-session environment diagnostic before Docker preflight or managed-service startup begins. If startup fails before a lease can be written, the service-session summary MAY report no lease path only when service cleanup is explicitly recorded as `skipped_no_lease` and the failure artifact points to the current-run `service-scope.json`. Summary artifact references MUST NOT point investigators only at paths that cannot exist for the observed startup stage.
 
+
+### 8.4 UI review capture
+
+**TH-HARNESS-REQ-284**
+A capture request is a closed tagged union with
+`schema_id="cartulary.ui_review_capture_request.v1"`, `source`, and the fields
+selected below. No field is inherited from a previous request.
+
+| Source | Fields | Defaults and meaning |
+| --- | --- | --- |
+| `page` | `expected_epoch`, `binding`, `scope`, `targets`, `include_axe` | Browser modes only. `expected_epoch` required; `binding` defaults null; `scope` defaults `{kind:"viewport"}`; `targets` defaults `[]`; `include_axe` defaults true. |
+| `canonical_visual` | `run_root`, `capture_id` | Both required; import the exact current reconciliation/capture identity and its declared artifact references. No browser work and no inference from filenames. |
+| `image` | `path` | Required local PNG path; class `reference_image`; renderer, scenario, and served-source claims are null. |
+
+`scope` is `{kind:"viewport"}`, `{kind:"element",target:Target}`, or
+`{kind:"region",x:integer,y:integer,width:integer,height:integer}`. Region
+coordinates are screenshot pixels, with nonnegative origin and positive dimensions,
+entirely inside the viewport screenshot. Element scope is the outward-rounded
+bounding rectangle of the visible viewport intersection; an empty intersection is
+an error. Full-document stitching is excluded because virtualization does not make
+offscreen records observable. `targets` contains at most 64 unique Targets.
+
+`binding` is null or the closed object `{owner_id,row_id,scenario_id,capture_id}`
+with nonempty exact identifiers from current catalog/capture projections. It
+records intended context, not execution of that row. Seeded page binding MUST
+resolve to the same served source and runtime profile; dev page binding is invalid.
+A null binding is a valid exploratory observation. Declared fixture IDs are joined
+from the registry when present; registry absence does not invent or require one.
+
+Image files MUST be local non-symlink regular files. Explicit run roots use Section
+6's containment and compatibility rules. The input boundary rejects documentation
+and Markdown paths before filesystem access, including image files under `docs/`.
+Manual design references MUST first be supplied outside restricted executable-input
+roots; the command does not copy from or inspect a restricted root. Input files are
+borrowed and never modified. Remote URLs, data URLs, directory globbing, and implicit
+artifact discovery are unsupported.
+
+#### 8.4.1 Preparation and observation algorithm
+
+A page capture MUST execute these steps in order under one session lock:
+
+1. Validate request, epoch, source identity, budget, and target resolution before
+   capturing. Apply no navigation, authentication, preference write, scroll,
+   focus change, masking, or viewport normalization implicitly.
+2. Wait for `document.fonts.ready` and record the active expected font faces. A
+   bound seeded scenario additionally verifies the readiness and presentation
+   declarations of its current owner projections. This imports the existing
+   capture preparation contract; it does not duplicate the fixture registry.
+3. Observe viewport, page URL privately, document identity, epoch, active element,
+   target bounds, selected scroll containers, and presentation values for three
+   consecutive animation frames. Rectangles and offsets are compared at 1/64 CSS
+   pixel precision. Changes reset the consecutive-frame count within the same
+   deadline; no additional capture attempt is created.
+4. Collect DOM/ARIA observations and, when selected, axe observations. Capture the
+   screenshot. Recheck the document, epoch, viewport, target rectangles, and scroll
+   offsets immediately afterward. A mismatch discards the candidate bundle and
+   reports unstable capture as `artifact_error`; it does not realign pixels.
+5. Record monotonic observation start/end, native pixel dimensions, and the exact
+   coordinate transform. Validate every component and atomically publish a bundle.
+
+Dynamic pixel content can remain in an unbound review screenshot. Geometry stability
+does not assert pixel stability or application idleness. A bound canonical visual
+test keeps its existing stricter preparation and masks; this helper cannot relax
+those rules or grant a visual-test pass. Live dev captures record the document's
+observed reload generation but do not claim to detect every in-place HMR update.
+Their source is always `live_unattested`.
+
+Virtualized targets MUST be explicitly revealed by a browser action before capture.
+The observer MUST report only rendered nodes; an absent row is not evidence that a
+record does not exist. Pixel coordinates, visual order, and DOM indexes MUST NOT
+be converted into product record identity.
+
+Verified by: TH-HARNESS-AC-112, TH-HARNESS-AC-113, TH-HARNESS-AC-114, TH-HARNESS-AC-115, TH-HARNESS-AC-116
+
+
+### 8.5 UI review wrapper schemas
+
+**TH-HARNESS-REQ-285**
+The following schema attachments define UI review. Every JSON
+object is closed; unknown fields are rejected. All integer counts are nonnegative
+unless a stricter bound is stated. All JSON strings use UTF-8. IDs and digests are
+not nullable unless explicitly stated. Arrays that represent sets are unique and
+ASCII-sorted; observations retain sequence order. This NLSpec owns these
+rules; schema files are projections.
+
+| Schema ID | Role and lifetime |
+| --- | --- |
+| `cartulary.ui_review_session.v1` | Retained mutable locator from Section 6. |
+| `cartulary.ui_review_action.v1` | Private caller request from Section 11.11. |
+| `cartulary.ui_review_capture_request.v1` | Private caller request from Section 8.4. |
+| `cartulary.ui_review_analysis_request.v1` | Private caller request from Section 8.6. |
+| `cartulary.ui_review_command_result.v1` | Transient finite-command stdout/result; contains local private references. |
+| `cartulary.ui_review_receipt.v1` | Immutable retained structural operation or terminal receipt. |
+| `cartulary.ui_review_bundle.v1` | Private immutable observations, analyses, and artifact references. |
+| `cartulary.ui_review_observations.v1` | Private DOM, accessibility, axe, console, and network component. |
+
+The schema path for each is `tools/schemas/<schema_id>.schema.json` and the schema
+ID is the table's literal value, not a URI inferred from the filename. All are listed in
+the authored schema-attachment registry with `validation=json-shape-check`.
+Classify action/capture/analysis requests as `owner_input`, observation components
+as `shared_component`, and session/result/receipt/bundle schemas as
+`public_contract`. Classification describes the interface, not permission to
+retain or publish its data; private bundles remain private.
+
+`Digest` is exactly 64 lowercase SHA-256 hexadecimal characters. `ArtifactRef`
+contains exactly `path`, `sha256`, `bytes`, and `media_type`: a nonempty normalized
+POSIX-relative path under its declared containing root, a Digest, a byte count,
+and one of `image/png`, `application/json`, `text/html`, `text/plain`,
+`application/zip`. Absolute paths, `..`, backslashes, NUL, symlink traversal, and
+duplicate paths are invalid. Existing canonical source refs retain their adopted
+schemas and are translated only at the adapter boundary.
+
+`Failure` contains exactly `failure_class`, `failure_reason`, and
+`diagnostic_code`. Class/reason use Section 9's existing pairings. Diagnostic code
+is a closed token from Section 9.2. There is no arbitrary retained message string.
+`PrivateRef` is `{kind, absolute_path}` with kind `bundle`, `image`, `observations`,
+or `report`; the path is validated beneath this session's private root.
+
+| Command-result field | Type and rule |
+| --- | --- |
+| `schema_id` | Literal command-result schema ID. |
+| `command_id` | Exact invoked ID from Section 4.7. |
+| `session_id` | Session ID, or null only when input validation cannot identify a session. |
+| `operation_id` | Positive integer after admission; null for status, idempotent terminal stop, or pre-admission rejection. |
+| `state` | Session state; null only when no validated locator is available. |
+| `epoch` | Current nonnegative epoch; null in artifact mode or without a live browser observation. |
+| `status` | `ok` or `error`; describes command execution only. |
+| `exit_code` | Normalized command exit: 0 on `ok`; otherwise Section 9.2 code, retaining 130/143 for signals. GNU Make may itself return 2. |
+| `failures` | Empty on `ok`; otherwise 1–32 distinct Failures in primary-failure order; repeated identical triples are deduplicated. |
+| `receipt` | Digested run-relative ArtifactRef; null for live status, pre-admission rejection, or failed safe receipt publication. |
+| `bundle_id` | Exact produced/selected bundle ID or null. |
+| `private_refs` | 0–8 PrivateRefs; empty on error or terminal state. |
+
+Status is observational: it returns `status=ok` when it successfully reads a
+failed session, with `state=failed`; terminal lifecycle failures are available
+through the terminal receipt. Stop reports the terminal lifecycle outcome, so a
+previous cleanup failure is not converted into success by a repeated stop.
+
+A receipt contains exactly `schema_id`, `command_id`, `session_id`, `operation_id`,
+`mode`, `state`, `status`, `exit_code`, `started_at`, `finished_at`, `duration_ms`, `failures`,
+`counts`, `bundle_id`, and `cleanup`. Counts are the closed object
+`{images,observed_elements,axe_violations,axe_incomplete,console_errors,failed_requests}`.
+`cleanup` is `not_terminal`, `complete`, or `failed`. Status, identity, failure,
+and null rules match the result. Terminal receipts have command ID `ui_review.v1`
+under the full prefix, operation ID null, and counts summed over successful
+observations, not inferred from absent files. Receipts contain no page text,
+private artifact digests/paths, URLs, account identity, selectors, or credential data.
+
+Validation errors that occur before identity allocation emit the closed error
+result with null identity/receipt fields and create no files. Other receipts are
+written at `<run_root>/ui-review/operations/<operation_id>/receipt.json`;
+terminal receipt is `<run_root>/ui-review/terminal.json`. Status returns the latest
+explicit terminal receipt when terminal; while live its receipt is null and it
+does not create a synthetic operation. This live-status null is an explicit
+additional null case for `receipt`.
+
+Stop's result references the terminal receipt owned by `ui-review`; that receipt's
+command ID identifies the session lifecycle rather than the stop wrapper. A
+repeated stop returns the same terminal receipt digest. Status reads the exact
+locator's terminal reference, never a directory's newest receipt. Failure to
+publish a terminal receipt leaves the session non-successful; it does not invent
+proof of cleanup. Counts in a terminal receipt are operation totals, so repeated
+successful captures are counted as separate observations, not unique UI states.
+
+#### 8.5.1 Bundle contract
+
+A bundle ID is `bundle-` plus the positive decimal operation ID, without leading
+zeros. It is unique within its session. A bundle contains exactly:
+
+| Field | Type and semantics |
+| --- | --- |
+| `schema_id`, `bundle_id`, `session_id` | Exact schema and identities. |
+| `classification` | Always `private_diagnostic`; never a conformance or publication class. |
+| `tool_profile` | Closed effective tool-version/digest record defined below; describes this bundle's producer, not an imported image's original producer. |
+| `parents` | 0–2 exact `{session_id,bundle_id,sha256}` references to input bundle manifests; captures have none. |
+| `source` | Tagged source record defined below. |
+| `observation` | Null for image-only input; otherwise the closed observation context below. |
+| `binding` | Null or exact current catalog/capture binding from Section 8.4, plus resolved `fixture_ids` array, which can be empty. |
+| `components` | Closed object with nullable ArtifactRefs `original`, `expected`, `actual`, `diff`, `observations`, `trace`; no file is claimed when null. |
+| `derived` | Ordered array of records `{kind,ref,source_refs,rectangle}`; kinds `crop`, `overlay`, `contact_sheet`, `exact_diff`; source_refs is a nonempty ordered ArtifactRef array; rectangle null except for crop. |
+| `analysis` | Null or closed analysis result from Section 8.6. |
+| `limitations` | Unique sorted tokens: `live_unattested`, `no_actual`, `no_dom`, `no_axe`, `no_trace`, `reference_only`, `rendered_nodes_only`, `truncated_console`, `truncated_network`, `cross_source_comparison`. |
+
+`tool_profile` contains exactly `pins_sha256`, `lock_sha256`, `node_version`,
+`playwright_version`, `sharp_version`, and `axe_version`.
+Digests identify the qualified toolchain projection and package lock bytes;
+versions are nonempty exact installed-version strings. Seeded review creates its run-owned frontend seal using already-ready tools;
+readiness-cache misses under its internal inspect-only policy fail before an
+installer executes. OS advisory locking uses the supported Linux/WSL2 host
+primitive; missing host support fails readiness. Core package versions
+remain available in artifacts mode even though no browser executable is required.
+An analysis bundle records its own producing profile and preserves each parent's
+profile through the immutable parent reference.
+
+`source` is a closed tagged union with these exact fields. All listed digests,
+versions, and identities are non-null. Fields from other variants are absent.
+
+| Kind | Fields in addition to `kind` |
+| --- | --- |
+| `sealed_review` | `workspace_digest`, `served_source_digest`, `frontend_receipt`, `browser_version`, `runtime_profile_id` |
+| `live_unattested` | `workspace_digest`, `browser_version` |
+| `canonical_visual` | `workspace_digest`, `served_source_digest`, `renderer_profile_id`, `browser_version`, `runtime_profile_id`, `import_ref` |
+| `reference_image` | `import_ref` |
+
+Seeded frontend receipts are digested artifact references. Canonical source
+identities come from exact validated run and group evidence; imported pixels do
+not attest the current workspace. An import ref is exactly
+`{input_path,input_sha256,metadata}`. Input path is the validated private input
+path, input digest identifies the selected PNG or reconciliation JSON bytes,
+and metadata is null for a reference PNG. Canonical metadata is the closed object
+`{reconciliation,capture_intent,source_identity,fixture}`: a copied validated
+reconciliation v3 object, its exact capture-intent record, the matching current-schema run manifest, and the exact registry fixture or null
+for an unregistered capture. These nested values retain their existing adopted
+schemas. They are frozen in the private bundle; later analysis does not reread a
+mutable source root. Import refs never enter structural receipts.
+
+The observation context has exactly `epoch`, `started_at`, `finished_at`,
+`duration_ms`, `viewport`, `image_dimensions`, `device_scale_factor`,
+`visual_viewport_scale`, `css_zoom`, `theme`, `density`, `document_generation`, `scope`,
+and `coordinate_transform`. Viewport and image dimensions are `{width,height}`;
+all dimensions are positive integers. Browser scale and CSS zoom are finite
+positive numbers; unavailable CSS zoom is null, never inferred from image size.
+Theme and density are observed owner values or null when unavailable; null makes
+an unbound review incomplete for that property but fails a binding that requires
+it. Document generation is a session-local nonnegative integer advanced on each
+main-frame navigation, not a product revision.
+
+`coordinate_transform` is `{origin_x,origin_y,scale_x,scale_y}` mapping CSS
+viewport coordinates to image pixels by `px=(x-origin_x)*scale_x`,
+`py=(y-origin_y)*scale_y`. Origins describe the selected crop; scale values are
+derived from the actual viewport screenshot and viewport dimensions. They MUST
+NOT be guessed from device scale factor alone. CSS zoom is already represented
+in measured DOM rectangles and MUST NOT be applied again.
+
+An imported canonical capture lacking actual pixels, DOM observations, or trace
+remains a valid bundle with the corresponding components null and limitation
+tokens set. An expected-only bundle is labeled `no_actual`; it can be reported
+but cannot satisfy an operation requiring a primary image. Expected pixels are
+never relabeled as an actual capture.
+The adapter MUST NOT fabricate a browser epoch or current DOM snapshot for a
+historical capture. For imported evidence, the observation context is null unless
+its complete fields can be proven from the exact source; available capture
+metadata remains in the validated private import reference.
+
+#### 8.5.2 Private observation component
+
+`cartulary.ui_review_observations.v1` contains exactly `schema_id`, `elements`,
+`accessibility_snapshot`, `axe`, `console`, `network`, and `fonts`.
+`fonts` records at most 128 active document font faces as closed
+`{family,style,weight,status}` string records, each string bounded to 1024 UTF-8
+bytes. Required font-list overflow fails capture instead of omitting faces.
+
+Each element record has exactly `target`, `resolved_ref`, `role`, `name`, `text`,
+`text_truncated`, `rect`, `visible_rect`, `focused`, `disabled`, `scroll`, `style`,
+and `overflow_candidate`. Role/name/text are strings or null when unavailable;
+text is capped at 4096 UTF-8 bytes with an explicit `text_truncated` boolean.
+Rectangles are `{x,y,width,height}` finite CSS numbers;
+visible rectangle can be null. Scroll is `{left,top,client_width,client_height,
+scroll_width,scroll_height}` or null. Style contains exactly `font_family`,
+`font_size`, `font_weight`, `line_height`, `color`, `background_color`,
+`padding`, `gap`, `overflow_x`, and `overflow_y`; values are computed-style
+strings. Computed style is evidence of browser
+rendering, not a token-authority registry.
+
+`overflow_candidate` is true when `scrollWidth>clientWidth+1` or
+`scrollHeight>clientHeight+1` on the observed element. It is a review hint,
+not a defect verdict: intended scrolling can satisfy that predicate. `focused`
+compares against the observed active element. `disabled` is the browser-observed
+native/ARIA state; absence is false. Bounding-box intersection does not establish
+occlusion, clickability, sufficient contrast, or keyboard reachability.
+
+The accessibility snapshot is a nullable string capped at 1048576 UTF-8 bytes.
+Exceeding that bound fails required snapshot capture rather than silently dropping
+nodes. The element count is bounded by the request's 64 targets; no whole-DOM
+dump is implicit. Axe has the exact fields defined in Section 8.7.
+
+Console and network are each `{records,truncated}`. Console records have
+`sequence`, `level`, and `text`; level is `error`, `warning`, `info`, or `debug`.
+Network records have `sequence`, `method`, `url`, `status`, `outcome`;
+status is an HTTP integer or null, outcome is `response` or `failed`.
+Capture at most the most recent 200 records per channel since the last main-frame
+navigation, retaining sequence order; each text/URL is capped at 4096 UTF-8 bytes.
+Truncation is explicit for either count or string truncation. Request/response
+bodies, headers, cookies, and browser storage are excluded. Raw private channel
+content is never copied into receipts or report URLs.
+
+#### 8.5.3 Atomicity and limits
+
+The private bundle root has an immutable `bundle.json` plus relative component
+files. All referenced files MUST exist, match byte count and digest, and validate
+before an exclusive atomic publication makes the bundle visible. A failure removes
+the unpublished staging tree. An existing bundle is never overwritten. Analyses
+create new bundles referencing the originals; report generation does not edit them.
+
+Component and derived refs in a bundle resolve relative to that bundle's directory.
+An analysis copies required parent image/component bytes into its own tree before
+publication, preserving their digests; a cross-bundle `..` reference is invalid.
+The parent-manifest references preserve provenance separately. Logical copied
+bytes count against all limits even if the filesystem shares physical storage.
+The exact-diff derivation names both copied inputs in left/right order; contact
+sheets name every input in display order.
+
+| Resource | Closed limit and consequence |
+| --- | --- |
+| PNG input | 32 MiB encoded; 16777216 pixels decoded; width/height at most 8192 each. Reject before or during bounded decoding. |
+| Image encoding | Single-frame PNG, 8-bit RGB/RGBA, sRGB or no color-profile metadata; reject unsupported color profiles, animation, depth, or corrupt/truncated data. |
+| Bundle | At most 64 files and 128 MiB total referenced local bytes. Reject publication when exceeded; no implicit truncation of required components. |
+| Session private outputs | At most 512 MiB and 100 published bundles. New work fails `resource_conflict` before exceeding either cap; no automatic eviction. |
+| Private JSON component | At most 8 MiB encoded. Required component overflow is `artifact_error`. |
+| Report | At most 32 MiB HTML; generated assets count against session storage. Oversize report is `artifact_error`. |
+
+Media encoders' metadata MUST NOT inject filesystem paths or timestamps into
+derived images. Pixel content and recorded geometry, rather than incidental PNG
+compression bytes, determine image-analysis acceptance. Decoder and encoder
+versions are pinned for repeatability.
+
+Capture scope records the exact request scope; imported observations are absent
+unless every field is proved by the selected evidence. Canonical source bytes and
+metadata are frozen at import and never refreshed from a changing workspace during
+analysis. Snapshot references are described by Section 6.5.
+
+Verified by: TH-HARNESS-AC-107, TH-HARNESS-AC-114, TH-HARNESS-AC-116, TH-HARNESS-AC-117, TH-HARNESS-AC-118, TH-HARNESS-AC-124, TH-HARNESS-AC-125
+
+
+### 8.6 UI image analysis
+
+**TH-HARNESS-REQ-286**
+The request has exactly
+`schema_id="cartulary.ui_review_analysis_request.v1"`, `bundle_id`, `operations`,
+`comparison`, and `crops`. Bundle ID is required. Operations defaults to
+`["contact_sheet"]`; allowed operations are `contact_sheet`, `crop`, `overlay`,
+and `exact_diff`, unique and ASCII-sorted after parsing. An empty operation set
+is invalid. Comparison defaults null; crops defaults `[]`.
+
+`comparison` is null or `{bundle_id,kind}` where kind is `matched_capture` or
+`reference`. It is required exactly when `exact_diff` is selected and otherwise
+invalid. Both bundles MUST belong to the current session. `crops` has 1–16
+rectangles when `crop` is selected and MUST be empty otherwise; each rectangle
+is `{x,y,width,height}` in original screenshot pixels, entirely within the image.
+Duplicate rectangles are invalid. Overlay requires an observation component
+with at least one non-null visible element rectangle.
+
+Evaluation order is crop, overlay, exact_diff, then contact_sheet, omitting
+unselected operations. The sorted request array describes selection, not execution
+order. Derived records use that evaluation order, with crops in request order.
+
+The primary image is `actual` when present, otherwise `original`. Missing both
+is `artifact_error`. A request MUST NOT silently select `expected`, a thumbnail,
+or a previously derived image as the primary image.
+
+| Operation | Required algorithm | Meaning of result |
+| --- | --- | --- |
+| `crop` | Copy exact source pixels from the requested rectangles; preserve order and record source image digest and rectangle. | Magnified inspection uses the report viewer; crop creation never resamples. |
+| `overlay` | Create a separate RGBA image the same size as the primary image. Map visible rectangles with the recorded transform, round outward, clip to image bounds, and draw a two-pixel opaque magenta inside border. Composite over a copy of the primary. | Shows observed bounds only. It does not prove overlap is a defect. |
+| `contact_sheet` | Use available expected, primary, diff, then newly requested crops in that order; omit duplicate image refs. Fit each into a 320×240 cell preserving aspect ratio, never upscale, white opaque cell background, four columns, eight-pixel gutters, row-major order. Sharp's pinned Lanczos3 downsampling is the only resize. | An overview; originals remain available at native resolution. Labels appear in HTML, not rasterized into images. |
+| `exact_diff` | Decode both inputs to straight 8-bit RGBA, adding alpha 255 to RGB. No alignment, scaling, color conversion, threshold, blur, or antialias suppression. A pixel differs if any channel differs. Emit transparent black for equal pixels and opaque magenta for differing pixels. | Diagnostic exact difference; never a replacement for Playwright's golden comparator. |
+
+Contact sheets have four columns, including when fewer than four images exist,
+and no outer gutter. Each image is centered within its cell using
+`floor((cell_dimension-image_dimension)/2)` offsets. Transparency is composited
+over the white cell; this presentation operation never changes original bytes.
+
+Matched-capture comparison requires equal dimensions, canonical renderer profile,
+served source identity class, viewport, zoom, density/theme, scope, scenario,
+capture ID, and mask declaration. Source content digests may differ intentionally
+and are recorded as the compared revisions. Both inputs MUST carry sufficient
+validated canonical metadata; absent metadata is incompatibility. Host captures,
+dev captures, and bare reference images cannot satisfy this comparison kind.
+Reference comparison requires only equal pixel dimensions; it MUST record
+`cross_source_comparison`, and all semantic equivalence claims remain absent.
+Unequal dimensions produce `artifact_error`; resizing is never an implicit fix.
+
+Current-schema captures from different source snapshots can be imported for
+diagnostic comparison; Section 6's current-evidence compatibility rules still
+prevent those artifacts from closing a current product gate. Scope and mask
+declarations MUST be present in the exact imported machine evidence or registered
+fixture. If either is unavailable, matched_capture is rejected and an explicitly
+requested reference comparison is the only pixel comparison available. The
+adapter does not reconstruct those declarations from test code or Markdown.
+
+The analysis result is exactly `{operations,comparison,findings}`. Comparison is
+null without exact diff; otherwise it contains `kind`, `left_bundle_id`,
+`right_bundle_id`, `width`, `height`, `different_pixels`, `total_pixels`, and
+`different_fraction`. The fraction is `different_pixels/total_pixels` rounded
+to six decimal places with ties upward. A zero difference is an observation,
+not an approval. Findings are zero or more closed records
+`{code,element_ref,artifact_ref}` where code is `overflow_candidate`,
+`different_pixels`, or `accessibility_incomplete`; refs are nullable according
+to the finding's available source. The wrapper emits no aesthetic score,
+similarity pass threshold, automatic alignment repair, or golden-update request.
+
+Verified by: TH-HARNESS-AC-119, TH-HARNESS-AC-120
+
+
+### 8.7 UI accessibility observations
+
+**TH-HARNESS-REQ-287**
+Page capture with `include_axe=true`
+MUST run the pinned axe engine against the current main document after preparation.
+The explicit tag set is `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, and
+`best-practice`. The wrapper accepts no caller rule exclusions or implicit
+baseline suppression. Iframe contents and browser chrome are outside v1 scan
+scope and MUST be counted as unassessed when present. The adapter disables
+axe iframe traversal explicitly. Open shadow roots within the main document
+remain in scope; closed shadow-root contents are not observable. Existing keyboard and
+focus-continuity checks remain independent obligations.
+
+The `axe` object has exactly `status`, `engine_version`, `scope`, `violations`,
+`incomplete`, and `unassessed_frames`. Status is `completed`, `disabled`, or
+`unavailable`; scope is `main_document`. Engine version is nonempty for completed
+analysis and null otherwise. Disabled means the caller explicitly selected false,
+or the operation is `snapshot`, whose contract does not request an axe scan.
+Unavailable means an imported source supplied no axe data; live requested analysis
+failure fails capture instead of returning unavailable.
+
+`unassessed_frames` is the nonnegative count of main-document iframe elements.
+For disabled/unavailable analysis both result arrays are empty; the frame count
+is observed when a live main document exists and is null for imported image-only
+data. Snapshot otherwise uses the same observation component without an image.
+
+Violations and incomplete arrays contain `{rule_id,impact,node_refs}`. Rule ID is
+the exact pinned-engine rule ID. Impact is `minor`, `moderate`, `serious`,
+`critical`, or null; node refs are private normalized element references or
+engine target strings when no DOM target can be resolved. Retain at most 1000
+combined rule/node occurrences; overflow fails required analysis as `artifact_error`.
+Do not retain engine HTML snippets or help URLs as machine requirement authority.
+
+| Engine outcome | Wrapper outcome | Command effect |
+| --- | --- | --- |
+| Violations | Preserve rule ID, impact, affected nodes | Command can succeed; findings are advisory. |
+| Incomplete | Preserve separate incomplete records and finding | Command can succeed; no accessibility-complete claim. |
+| Passes / inapplicable | No violation record | Does not establish keyboard or screen-reader usability. |
+| Unsupported or malformed result | No valid axe component | `artifact_error`; no complete bundle. |
+| Engine execution error | No valid axe component | `tool_diagnostic_failure`; no complete bundle. |
+| Engine timeout | No valid axe component | `timeout_failure`; no retry. |
+| Scan disabled | Empty arrays, status disabled, `no_axe` limitation | Command can succeed. |
+
+The harness MUST distinguish this channel from
+`cartulary.frontend_accessibility_summary.v4`. V1 review does not change that
+summary schema or add product rows. Promoting an axe rule into blocking product
+verification requires a separately owner-grounded catalog change; that promotion
+is outside this revision.
+
+Verified by: TH-HARNESS-AC-121, TH-HARNESS-AC-122
+
+
+### 8.8 UI review reports
+
+**TH-HARNESS-REQ-288**
+The report command MUST validate the selected manifest and every referenced digest
+before rendering. It MUST generate a standalone local HTML report referencing only
+files in its private report tree. The report contains source classification,
+capture identity, limitations, originals, derived contact sheet/crops, exact diff
+counts, geometry observations, accessibility findings, and bounded console/network
+observations when present. Missing optional data is visibly labeled unavailable
+or disabled; an empty finding array is not used to imply missing work passed.
+
+Images open at native size; the viewer supports zoom and side-by-side comparison.
+A before/after slider is available only for equal-size compared images. Viewer
+layout, colors, and implementation library are free choices; displayed values,
+labels of evidence class, source identities, and missing-state behavior are fixed.
+An imported trace is linked as a local diagnostic file without parsing its
+third-party internals or launching a remote viewer.
+
+Repeated rendering of a bundle MUST preserve its manifest digest and numerical
+results. Reports are cached only within the private session by bundle digest and
+report implementation version; they are never evidence cache hits. No browser
+server, remote resource, analytics request, CDN asset, web font, or upload occurs.
+The report is inspectable by a human and its underlying JSON by an agent. Model
+interpretations belong in the review conversation or a separately authored finding
+record; the harness does not present them as measured observations.
+
+Verified by: TH-HARNESS-AC-123, TH-HARNESS-AC-124
+
 ## 9. Failure Classes and Exit Codes
 
 **TH-HARNESS-REQ-300**
@@ -3511,6 +4145,57 @@ Primary-failure precedence is closed. Failure-class precedence is exactly: `prod
 
 When class and lifecycle step tie, scheduler-owned failures order by scheduler event sequence; aggregate-owned child failures order by public child target registry order; artifact failures order by normalized artifact path lexical order; remaining ties order by `failure_reason` lexical order. A cleanup or finalizer failure MUST NOT override an earlier non-cleanup primary failure.
 Verified by: TH-HARNESS-AC-014, TH-HARNESS-AC-032
+
+
+### 9.2 UI review failure mapping
+
+**TH-HARNESS-REQ-311**
+The following diagnostic codes are closed for v1.
+Use the existing normalized class/reason and public code. The outer GNU Make exit
+can differ; consumers use the result/receipt or compact classified output.
+
+| Condition | Diagnostic code | Class / reason | Normalized exit | Required consequence |
+| --- | --- | --- | ---: | --- |
+| Unknown/blank input, invalid enum, unsupported action, bad JSON request, wrong request variant | `invalid_request` | `config / usage_error` | 2 | No page mutation, service acquisition, or partial output publication. |
+| Missing required tool, wrong pin, invalid owned configuration | `tool_configuration` | `config / configuration_error` | 2 | No adapter fallback or network install. |
+| Wrong session owner, stale epoch/ref, terminal session, invalid locator | `session_mismatch` | `config / configuration_error` | 2 | No action replay or other-session search. |
+| Zero/multiple/unavailable target matches, disabled/non-actionable target | `target_unavailable` | `harness / tool_diagnostic_failure` | 1 | No forced action or first-match selection. |
+| Unexpected dialog/tab or rejected navigation origin | `navigation_boundary` | `harness / tool_diagnostic_failure` | 1 | No automatic acceptance, tab switch, or origin fallback. |
+| Docker/platform preflight failure in seeded mode | `environment_unavailable` | `infra / preflight_error` | 3 | Attempt partial owned cleanup. |
+| Owned browser or service launch fails | `startup_failed` | `infra / service_start_error` | 3 | Stop dependent work; clean acquired resources. |
+| Selected dev origin or owned service misses readiness deadline | `readiness_expired` | `infra / service_readiness_timeout` | 3 | No switch to another listener or mode. |
+| Lock contention, storage cap, confirmed ENOSPC | `capacity_exceeded` | `infra / resource_conflict` | 4 | Preserve published bundles; remove only unpublished owned output. |
+| Wrong/missing artifact, digest mismatch, unsupported imported schema, invalid image, incompatible comparison | `invalid_artifact` | `artifact / artifact_error` | 11 | No substituted/latest artifact; no successful bundle. |
+| Document/geometry changes across capture boundary | `unstable_capture` | `artifact / artifact_error` | 11 | Discard candidate; no tolerance change, registration, or recapture. |
+| Required snapshot/axe/component size limit exceeded | `observation_limit` | `artifact / artifact_error` | 11 | No silent truncation of required observations. |
+| Axe execution fails | `analysis_failed` | `harness / tool_diagnostic_failure` | 1 | No complete bundle. |
+| Action/capture/analysis/report watchdog expires | `operation_expired` | `timing / timeout_failure` | 13 | Cancel/reap owned child; do not retry. |
+| Browser/controller dies after ready | `session_lost` | `infra / service_start_error` | 3 | End session and clean; no transparent browser restart. |
+| Redaction, permissions, secure publication, or retained scan fails | `unsafe_artifact` | `artifact / artifact_error` | 11 | Reject success and attempt remaining cleanup. |
+| Private input boundary violation detected | `input_boundary` | `artifact / artifact_error` | 11 | No restricted document read; report normalized location only. |
+| Cleanup fails without earlier primary failure | `cleanup_failed` | `harness / cleanup_error` | 12 | Retain failed cleanup outcome and exact ownership proof. |
+| Signal/cancellation | `interrupted` | `interrupted / cancelled_or_interrupted` | 130/143/15 | Cancel dependent work; close owned resources. |
+
+Literal malformed path syntax is `invalid_request`; syntactically valid imported
+artifacts with unsafe containment or contents are `invalid_artifact`. Borrowed
+request-file ownership/mode violations are `tool_configuration`. Missing private
+files after a terminal session are `session_mismatch`, not a request to recreate
+them. A malformed producer result is `invalid_artifact`.
+
+Primary and secondary failures follow existing Section 9.1 ordering. A finite
+operation failure is recorded in that operation's receipt; it does not make the
+session's later normal stop fail unless session integrity was lost. Session
+lifecycle failures and cleanup failures determine terminal status. Status/stop
+MUST NOT erase previously recorded operation failures.
+
+Nonzero pixel difference, an overflow candidate, axe violations, console errors,
+or failed application requests are findings, not command failures. A command
+succeeds when it faithfully produces its specified observations and cleans its
+temporary resources. It does not declare the UI correct. Product test assertions
+retain `product/test_assertion_failure` only in their existing canonical test
+commands; no new review command emits that class or passing product-row evidence.
+
+Verified by: TH-HARNESS-AC-107, TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-122, TH-HARNESS-AC-127
 
 ## 10. Scheduler Contract
 
@@ -4161,6 +4846,28 @@ Dependency skips are propagation records, not additional root failures.
 | Artifact ordering       | Lexicographic by normalized artifact path.                                   |
 | Resource ordering       | Registry display order, then lexicographic fallback.                         |
 
+
+### 10.6 UI review resource admission
+
+**TH-HARNESS-REQ-381**
+Browser-bearing sessions hold declared shared `host_activity` and browser
+capacity for their lifetime. Image analysis holds shared `host_activity` while
+executing and releases it afterward; a waiting quiet measurement retains existing
+fairness. Host admission is shared across independent repository processes,
+including scheduled work and review controllers. The admission owner validates
+process lifetime using boot identity and process start time, reclaims only proven
+dead leases, and applies the authored browser-capacity bound across its live
+leases. Queue records contain structural ownership only. Graph-local admission
+continues to order its own work; host contention is bounded preparation, never
+a browser action or capture retry. Resource acquisition cannot bypass the shared host arbiter merely
+because the command is helper-only. Review outputs and results are never reusable
+verification cache entries. Existing sealed frontend build reuse remains governed
+by its current receipt/cache contract.
+
+
+
+Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-111
+
 ## 11. Service and Fixture Lifecycle
 
 **TH-HARNESS-REQ-400**
@@ -4745,6 +5452,142 @@ fingerprints include only canonical nonsecret values. Development proxy health
 is loopback-only implementation support and MUST NOT become a product API,
 production deployment surface, browser attachment input, or product evidence.
 Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-010
+
+
+### 11.9 UI review modes
+
+**TH-HARNESS-REQ-415**
+A session has exactly one immutable mode:
+
+| Mode | Selection and default | Application resources | Browser | Source claim | Allowed work |
+| --- | --- | --- | --- | --- | --- |
+| `seeded` | Omitted `UI_MODE` selects this mode. | Fresh owned review suite, database, object namespace, and sealed frontend through the existing review lifecycle. | Review-owned isolated context and browser process. | `sealed_review`: exact source snapshot, frontend receipt, runtime profile, and observed browser identity. | All declared browser actions, capture, analysis, report. |
+| `dev` | Explicit `UI_MODE=dev` and `UI_ORIGIN`. | Borrow the exact loopback origin; no create/reset/migrate/stop of its service or data. | Review-owned isolated context and browser process. | `live_unattested`: served source/build identity is absent. Workspace digest identifies inspected source only. | All declared browser actions, capture, analysis, report. |
+| `artifacts` | Explicit `UI_MODE=artifacts`. | None. | None; no browser or Docker prerequisite. | Per imported artifact; no new rendered-build claim. | Import via capture request, analysis, report. Browser actions fail before execution. |
+
+Seeded sessions MUST validate the current browser-stack attachment and build
+receipt before seeding or navigation. `REVIEW_PROFILE` retains exactly the two
+adopted profile values and its existing seeded default. It is invalid in the other
+modes. The new commands MUST NOT infer a mode from an existing server, URL,
+descriptor, environment variable, Docker state, or installed browser.
+
+Dev origin syntax is exactly `http://127.0.0.1:<port>` or
+`http://[::1]:<port>`, with integer port 1–65535 and no userinfo, path other than
+optional `/`, query, or fragment. Normalize the optional trailing slash away.
+Hostnames, redirects to another origin, and non-loopback origins are rejected.
+Failure to reach the selected origin does not permit switching origin or mode.
+Dev mode MUST NOT set harness-only server flags or enable test routes.
+
+The default browser context is headless, locale `en-US`, device scale factor 1,
+viewport 1440×900 CSS pixels, browser color scheme `light`, and service workers
+disabled so navigation interception remains enforceable. These are review
+mechanics, not the product theme. Seeded scenario presentation comes from the
+existing product-owned preference fixture; dev captures observe actual presentation.
+Review capture MUST NOT switch product theme or persist account settings implicitly.
+
+Browser review uses the host browser installed for the pinned repo Playwright.
+It does not attach the private canonical visual-renderer endpoint. A host review
+screenshot MUST NOT be labeled canonical or used to refresh a golden. Canonical
+comparison and refresh remain exclusive to their existing public targets.
+
+Verified by: TH-HARNESS-AC-104, TH-HARNESS-AC-105, TH-HARNESS-AC-106, TH-HARNESS-AC-129
+
+
+### 11.10 UI review lifecycle
+
+**TH-HARNESS-REQ-416**
+The state set and transitions are closed:
+
+| State | Event | Next state and required effect |
+| --- | --- | --- |
+| `preparing` | All mode-specific readiness predicates hold | `ready`; publish the locator before admitting commands. |
+| `preparing` | Preparation fails, signal, or stop | `stopping`; preserve primary cause and release every acquired resource. |
+| `ready` | Valid finite operation obtains session lock | `busy`; assign operation ID; execute once. |
+| `busy` | Operation succeeds or fails without losing session integrity | `ready`; publish its result/receipt; release lock. |
+| `busy` | Browser/controller integrity lost | `stopping`; reject further operations and preserve cause. |
+| `ready` or `busy` | Stop, SIGINT, SIGTERM, owner death, or lifetime expiry | `stopping`; reject new work, cancel/reap in-flight children, then clean. |
+| `stopping` | All owned cleanup succeeds and no non-cleanup failure exists | `closed`; publish terminal receipt. |
+| `stopping` | Primary failure or cleanup failure exists | `failed`; publish primary and secondary normalized failures. |
+| `closed` or `failed` | Status or stop | Same state; return existing cleanup outcome without touching other resources. |
+| `closed` or `failed` | Browser/capture/analyze/report | Reject as `configuration_error`; never revive the session. |
+
+At most one operation that accesses page state or creates a bundle runs per
+session. A competing operation waits at most five seconds for the session lock,
+then returns `infra/resource_conflict` without admission. Status does not take
+that exclusive lock. Stop has cancellation priority and cannot wait behind a
+stalled capture. Concurrent sessions have separate contexts, files, and leases.
+
+| Deadline or bound | Value | Consequence |
+| --- | --- | --- |
+| Session lifetime after ready | 8 hours, monotonic, not extended by requests | Stop and clean; normal closure if cleanup succeeds. |
+| Dev-origin readiness | 30 seconds; probe every 250 ms | `service_readiness_timeout`; do not stop borrowed service. |
+| Browser action | 10 seconds; navigation 30 seconds | `timeout_failure`; no replay; reobserve before another mutation. |
+| Capture, including settling and axe when requested | 30 seconds | No successful bundle; preserve bounded stage diagnostic. |
+| Offline analysis or report | 30 seconds each | Discard unpublished outputs; return `timeout_failure`. |
+| Stop | Existing owned-resource teardown deadlines, each applied once | Preserve earlier cause; cleanup-only failure is `cleanup_error`. |
+
+Seeded preparation inherits the exact prerequisite and service deadlines already
+owned by Section 11; the new session lifetime starts after preparation completes.
+There is no automatic action retry, capture retry, fallback browser, or background
+fixture reset. Browser death ends a browser-bearing session; artifact mode does
+not acquire browser resources.
+
+
+
+Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-127
+
+
+### 11.11 UI browser actions
+
+**TH-HARNESS-REQ-417**
+The request is a closed object with exactly
+`schema_id="cartulary.ui_review_action.v1"`, `expected_epoch`, `action`, and
+`parameters`. `expected_epoch` is a nonnegative integer. A mismatch fails with
+`configuration_error` before admission; callers MUST take a new snapshot after
+another actor changes the session. `parameters` is the closed variant selected
+by `action` below. A browser adapter MUST translate these operations to the
+pinned Playwright API adapter and MUST NOT expose the driver's arbitrary-code or
+arbitrary-endpoint entry points.
+
+| Action | Exact parameters | Observable behavior |
+| --- | --- | --- |
+| `snapshot` | `{}` | Observe the current page; return epoch and private accessibility/element observations without changing viewport, scroll, or focus. |
+| `navigate` | `path: string` | Navigate within the selected origin to a path starting with one `/`; reject `//`, backslash, fragment, credentials, and origin changes. Length 1–2048 UTF-8 bytes. Query text remains private. |
+| `click` | `target: Target` | Perform one primary-button click after Playwright actionability checks. No force option. |
+| `fill` | `target: Target`, `text: string` | Fill one editable target; allow empty text; maximum 16384 UTF-8 bytes. The text is never retained. |
+| `press` | `target: Target` or null, `key: Key` | Send one supported key/chord to the target, or current focused element when null. |
+| `select` | `target: Target`, `values: string[]` | Select 1–32 exact option values, each at most 1024 UTF-8 bytes, no duplicates. |
+| `scroll` | `target: Target` or null, `x: integer`, `y: integer` | Set absolute CSS-pixel offsets in the target or document, clamped by the browser to legal offsets; return observed offsets. Range 0–1000000. |
+| `resize` | `width: integer`, `height: integer` | Set viewport; each dimension 320–3840 inclusive; maximum area 8294400 CSS pixels. |
+| `focus` | `target: Target` | Focus the uniquely resolved focusable target and return the observed active-element identity. |
+| `authenticate` | `actor: enum` | Seeded mode only; actors `admin`, `editor`, `viewer`, `empty` resolve through the private seed owner. Use ordinary application authentication; no credential output or authorization bypass. |
+
+`Target` is a tagged union: `{kind:"test_id", value:string}`,
+`{kind:"role", role:string, name:string}`, or
+`{kind:"element_ref", value:string, epoch:integer}`. Test IDs are exact stable
+test-ID values through the repo's configured attribute (`data-testid` by default);
+roles use Playwright's pinned supported ARIA-role enumeration and exact accessible-name
+matching. String fields are nonempty and at most 1024 UTF-8 bytes. Arbitrary CSS,
+XPath, regular expressions, DOM source, and JavaScript expressions are unsupported.
+Zero or multiple matches fail without selecting the first match. Element references
+are private, session-local, and valid only for their exact epoch and current document;
+navigation or a new browser action invalidates them.
+
+`Key` is one of `Tab`, `Shift+Tab`, `Enter`, `Escape`, `Space`, `ArrowUp`,
+`ArrowDown`, `ArrowLeft`, `ArrowRight`, `Home`, `End`, `PageUp`, `PageDown`,
+`Backspace`, `Delete`, `Control+A`, `Control+C`, or `Control+V`. Clipboard content
+remains private. Other keys require a later interface revision. Uploads, downloads,
+new tabs, popup control, network mocking, browser storage mutation, and direct API
+seeding are not v1 actions. An unexpected dialog or new tab fails the action;
+the adapter does not accept a dialog, switch tab, or retry implicitly.
+
+Dev authentication occurs through the same explicit UI actions as ordinary use;
+the review controller MUST NOT read an existing user browser profile or borrow
+ambient cookies. Seeded authentication is fixture preparation only. It advances
+the epoch and clears the prior private context before establishing the requested
+actor, so roles never share storage accidentally.
+
+Verified by: TH-HARNESS-AC-109, TH-HARNESS-AC-113, TH-HARNESS-AC-129
 
 ## 12. Test-Only Harness Routes
 
@@ -5357,6 +6200,26 @@ Immediate cleanup after parent death is not guaranteed. The conformance guarante
 - detached reaper scheduling is optional unless the command declares it;
 - if a detached reaper is scheduled, it writes `reaper-scheduled.json` with lease ID, started-at timestamp, target resources, and timeout.
 
+
+### 13.6 UI review cleanup
+
+**TH-HARNESS-REQ-502**
+Cleanup order is: stop admission, cancel/reap operation children, stop owned browser
+and close handles, release owned application leases, delete private artifacts and
+controller material, then publish the structural terminal receipt and scan retained
+boundaries. Borrowed dev services and caller input files are never deleted. Reaper
+and stale cleanup use the existing exact-ownership/parent-death rules; age alone
+never authorizes stopping another process or deleting another session.
+
+A failed terminal receipt publication never proves successful closure. The controller
+attempts a failed locator publication with a null terminal reference, reports
+`unsafe_artifact`, preserves exact ownership proof for recovery, and attempts all
+remaining cleanup. Terminal status without a valid terminal receipt is an artifact
+failure; it does not fabricate a successful receipt.
+
+
+Verified by: TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-125, TH-HARNESS-AC-127
+
 ## 14. Platform and CI Support
 
 **TH-HARNESS-REQ-550**
@@ -5409,6 +6272,47 @@ Verified by: TH-HARNESS-AC-092
 | Linux inotify capacity                             | required only for Vite dev surfaces        | Low watcher limits or exhausted watcher usage MUST be diagnosed before Vite dev startup; release/browser E2E preview paths MUST NOT require this preflight. |
 
 Harness diagnostics MAY report Linux inotify `max_user_watches`, `max_user_instances`, best-effort current watcher usage, and bounded operator diagnostics. The harness MUST NOT mutate host sysctl settings.
+
+
+### 14.1 UI review toolchain
+
+**TH-HARNESS-REQ-552**
+The core UI review profile uses Node 24.15.0, pnpm 10.33.0, Playwright and
+playwright-core 1.59.1, Sharp 0.35.4, @axe-core/playwright 4.13.0, and axe-core
+4.13.0. Package lock integrity fixes native and transitive dependencies. The
+browser is the repository-installed Chromium 1217 (147.0.7727.15). No standalone
+Playwright CLI is installed. The API adapter owns private browser interactions.
+
+Bootstrap installs the profile through repository-pinned package tooling; doctor
+checks installed versions without installing. Review commands fail before
+acquisition for a missing/wrong core dependency. Artifact mode needs the Node
+packages but neither a browser executable nor Docker. Ambient PATH tools do not
+select package or browser versions. Optional Python, OCR, video and MCP tools are
+outside required readiness. No ordinary review command downloads or upgrades tools.
+
+Supported execution remains Linux/WSL2 amd64. Package updates require explicit
+qualification of action, PNG, transparency, accessibility, privacy, and lifecycle
+contracts before changing pins. The canonical renderer profile is unchanged.
+Legacy/unversioned review files and superseded canonical schemas have no reader,
+alias, translation, or newest-file fallback. Current capture intent v2,
+reconciliation v3, fixture registry v6, browser group v6 and target v4 are the
+only canonical import forms. Generic third-party report and ZIP parsing is not
+public conformance.
+
+The artifact adapter resolves the exact selected run manifest, target result,
+group result, reconciliation capture ID and matching project/file/test result.
+It accepts one unambiguous result per capture, maps attachment names only within
+that exact result using the pinned adapter, and never derives owner/row/scenario
+identity from filenames. Missing optional actual pixels produce no_actual;
+ambiguous mappings fail. Structurally valid failed runs remain diagnostic imports.
+Expected PNG bytes must match the reconciliation golden digest. Current schema
+source snapshots may differ for diagnostic comparisons but cannot close current
+verification gates. Matched comparison additionally requires proved scope and
+mask declarations; absent declarations allow only an explicitly requested reference
+comparison. All borrowed input bytes are snapshotted into the private bundle.
+
+
+Verified by: TH-HARNESS-AC-103, TH-HARNESS-AC-114, TH-HARNESS-AC-115, TH-HARNESS-AC-128
 
 ## 15. Security and Redaction
 
@@ -5688,6 +6592,50 @@ Verified by: TH-HARNESS-AC-076
 | Playwright HTML reports             | Diagnostic secret-bearing; not safe for publication.                                                                       |
 | CI logs                             | Redact using the same token rules before harness-controlled emission.                                                      |
 
+
+### 15.3 UI review data lifetimes
+
+**TH-HARNESS-REQ-616**
+New UI review commands MUST apply this closed
+disposition. This is an intentionally conservative default for the new interface;
+it does not retroactively relocate existing canonical visual artifacts.
+
+| Material | Location and permissions | Lifetime | Permitted consumers |
+| --- | --- | --- | --- |
+| Credentials, browser storage, controller handles, raw child capture | Existing external suite-private runtime, directories 0700/files 0600 | Delete after last consumer or session termination | Exact owning process/adapter only. |
+| UI screenshots, crops, overlays, DOM/ARIA text, axe nodes, URLs, console text, HTML | Session-private review tree with the same secure creation policy | Until session stop/expiry/failure; no automatic retained copy | Explicit local human/agent inspection through returned PrivateRefs. |
+| Borrowed canonical images/traces or supplied reference files | Original location, validated read-only | Controlled by their original owner | Import exact selected bytes into private review tree; never modify source. |
+| Session locator and structural receipts | Normalized retained run root, 0700/0600 | Existing result-root cleanup policy | Harness diagnostics, status, and exact session lookup. |
+| Request input file | Caller-owned private location | Caller-owned | Read validated snapshot only; no retention or deletion. |
+
+The agent-visible private file path is a transient local inspection reference,
+not an export capability or publication approval. On session closure the report
+and image links expire; the structural receipt remains. Durable image export is
+not part of v1. A caller needing to inspect the images MUST keep the review session
+alive or reimport the original canonical files into a new artifact session.
+
+All private and retained writes MUST establish permissions before writing, reject
+symlinks/ownership mismatches, and use the existing private-state publication
+primitive where applicable. Every retained receipt is a schema allowlist
+projection, followed by existing redaction and retained-boundary scans. It MUST
+NOT contain private image hashes, page text, selectors, screenshots encoded as
+strings, user identifiers, private paths, or raw engine errors. A scan failure
+prevents success but does not skip cleanup.
+
+HTML rendering MUST escape all page-authored strings and attribute values. It
+MUST NOT insert observed HTML as markup, execute page-provided scripts, or turn
+observed URLs into active links. Its content policy denies network connections,
+forms, embedding, and external assets; the renderer supplies only its own local
+viewer code and local images. Directories and files returned in PrivateRefs MUST
+be validated again at consumption, not trusted because they were once valid.
+
+These commands MUST NOT read Markdown to discover scenarios, rules, thresholds,
+selectors, test ownership, or tool versions. Human editorial review links
+requirements to machine projections. No parser or conformance test consumes this
+plan or the target NLSpec as a requirement registry.
+
+Verified by: TH-HARNESS-AC-107, TH-HARNESS-AC-111, TH-HARNESS-AC-117, TH-HARNESS-AC-123, TH-HARNESS-AC-124, TH-HARNESS-AC-125, TH-HARNESS-AC-126
+
 ## 16. Integration with Product Specifications
 
 **TH-HARNESS-REQ-650**
@@ -5940,6 +6888,18 @@ MUST NOT be combined inside one target window, although independently
 qualified target windows may retain their own exact source provenance.
 Verified by: TH-HARNESS-AC-066, TH-HARNESS-AC-071, TH-HARNESS-AC-081
 
+
+### 16.1 UI review evidence boundary
+
+**TH-HARNESS-REQ-679**
+UI review findings do not define correct density, focus, workflow, authorization,
+colors, or accessibility. They never produce passing product rows or publication
+claims. Virtualized observations describe rendered nodes only. Core 00–04, Core
+05, and presentation owners retain their existing boundaries. Human manual
+accessibility assessment remains independent of axe observations.
+
+Verified by: TH-HARNESS-AC-102, TH-HARNESS-AC-113, TH-HARNESS-AC-121, TH-HARNESS-AC-129
+
 ## 17. Acceptance Criteria / Definition of Done
 
 The acceptance matrix is the harness Definition of Done: it defines what must
@@ -6076,6 +7036,51 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-100 | Sections 2.1, 4, 11 | Explicit local service sessions | Missing, malformed, stale, expired, wrong-owner, wrong-digest, dead-container, symlink, concurrent attach, live-borrower, repeated-down, and owned-only target fixtures | Session lifecycle commands, task-surface validation, graph runner, testservices, and one small attached service-backed owner slice | Attachment is explicit and redacted; borrowers and run resources are unique; down refuses live borrowers and deletes only exact proven session resources; owned-only targets reject attach before setup | Redacted typed session status | Usage, configuration, ownership, expiry, borrower, or cleanup diagnostic | Session descriptor, borrower leases, per-run service scope, lifecycle events, and exact cleanup proof | Descriptor presence auto-attaches, a caller sets internal active state, CI/release borrows, unrelated containers are removed, secrets print, or a live borrower loses its session | Run-owned resources clean after each borrower; session resources clean only after exclusive down |
 | TH-HARNESS-AC-101 | Sections 2.1, 8, 10 | Deterministic cached release inventory | Cold and warm paired-producer runs plus source, manifest, lockfile, package, toolchain, scanner, schema, container, generator, partial, surplus, corruption, traversal, link, mode, producer, destination, concurrency, and missing-output fixtures | Release inventory generator and validators, graph compiler, cache-v2 contract fixtures, schema validation, and downstream release-readiness consumption | The real cold producer executes once and publishes one deterministic current pair; a warm hit invokes no producer scanner, restores both files transactionally, and both non-cacheable consumers emit fresh evidence | Existing bounded release summaries | Exact generation, validation, schema, cache, or artifact diagnostic | CycloneDX SBOM, `cartulary.license_report.v2`, cache-v2 record with the exact typed pair, and fresh validator unit evidence | Either consumer regenerates, canonical bytes contain volatile identity, v1 is accepted, the output set is incomplete, an unsafe cache entry publishes bytes, or downstream readiness consumes stale/unvalidated inventory | temporary scanner work is removed; invalid cache entry quarantined; canonical pair follows release-artifact cleanup policy |
 
+### 17.0 UI review acceptance
+
+The following observable obligations are required for UI review acceptance.
+Section 17.1 records their human requirement traceability.
+The acceptance IDs below are human traceability references only. A test count, screenshot
+count, clean linter result, or empty axe result does not substitute for a row's
+expected behavior. Failure codes below are normalized wrapper codes.
+
+| ID | Contract | Fixture or boundary condition | Required observable result | Failure/cleanup obligation |
+| --- | --- | --- | --- | --- |
+| TH-HARNESS-AC-102 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-081, TH-HARNESS-REQ-552 | Inspect default, CI, release, owner-slice, and direct review plans | Seven helper commands have exact IDs/contracts; no review command closes or is selected as product-row work; existing design-review commands retain their interface. | Unexpected row evidence or aggregate selection blocks acceptance. |
+| TH-HARNESS-AC-103 | TH-HARNESS-REQ-552 | Empty ambient Node/pnpm PATH; conflicting global browser/image tools; missing/wrong core pin; absent optional tools | Qualified pinned core runs identically with conflicting ambient tools; missing core fails before acquisition; absent optional tools do not fail core readiness. | Exit 2 for core mismatch; no implicit install, browser upgrade, or fallback. |
+| TH-HARNESS-AC-104 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-416 | Omitted mode; explicit seeded profiles; invalid/blank mode; profile in dev/artifacts | Omission creates a fresh claimed seeded session; valid profile changes only its adopted claim set; invalid combinations fail before startup. | Exit 2; no service/data side effects on rejection. |
+| TH-HARNESS-AC-105 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-416 | Borrowed dev origin; other loopback service; unavailable origin; external redirect | Only explicit selected origin is used; source remains live_unattested; stop leaves borrowed service and data intact; redirect is not followed. | Readiness 3 or navigation 1; no fallback/reset/migrate/borrowed teardown. |
+| TH-HARNESS-AC-106 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-416 | Artifact mode with no Docker/browser installation | Exact imported files can be analyzed/reported; no services/browser are started. Browser operation is rejected. | Unsupported browser work exits 2; borrowed input files unchanged. |
+| TH-HARNESS-AC-107 | TH-HARNESS-REQ-081, TH-HARNESS-REQ-285, TH-HARNESS-REQ-616 | Every finite command in machine mode; start in machine mode; invalid preflight | Finite result is one schema-valid JSON object plus LF, no page data; start rejects machine mode; private refs appear only in transient results. | Exit 2 before child work for unsupported mode; stderr/receipt behavior matches contract. |
+| TH-HARNESS-AC-108 | TH-HARNESS-REQ-159, TH-HARNESS-REQ-416 | Two concurrent commands; two concurrent sessions; competing quiet measurement | One operation per session; independent sessions remain isolated; declared resource fairness applies; contention is bounded. | Lock failure 4; no browser capacity or host-activity bypass. |
+| TH-HARNESS-AC-109 | TH-HARNESS-REQ-159, TH-HARNESS-REQ-417 | Action followed by stale ref/epoch; zero/two matching controls; disabled control; text containing shell metacharacters | Stale/ambiguous target is not acted on; text is passed as data; exact action is executed no more than once. | Stale exit 2, non-actionable exit 1; no forced/first-match action. |
+| TH-HARNESS-AC-110 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311 | Stop while busy; repeated stop; SIGINT/SIGTERM; owner/browser death; preparation failure | Session reaches closed/failed with exact primary cause; owned resources and private tree are removed where cleanup succeeds; status survives through retained locator. | Signal codes retained; cleanup-only 12; earlier failure stays primary. |
+| TH-HARNESS-AC-111 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-616 | Inject each partial-acquisition, file-open, close, cleanup, and terminal-publication failure | Remaining owned releases are attempted; failed ownership/cleanup remains visible; no unrelated session or borrowed file is removed. | No success after unsafe production or incomplete cleanup. |
+| TH-HARNESS-AC-112 | TH-HARNESS-REQ-284 | Font delay; geometry changing until timeout; geometry changes after screenshot; stable geometry with dynamic text | Stable case publishes one bundle; unstable candidate is discarded; dynamic text is labeled ordinary review without invented pixel stability. | Timeout 13 or unstable artifact 11; no action replay, tolerance adjustment, or recapture. |
+| TH-HARNESS-AC-113 | TH-HARNESS-REQ-417, TH-HARNESS-REQ-284 | Virtualized row absent, then explicitly scrolled into view; focus before/after capture | Absent rendered target is reported; explicit reveal enables observation; capture does not move focus/scroll or infer offscreen record absence. | Unavailable target 1; no hidden data mutation. |
+| TH-HARNESS-AC-114 | TH-HARNESS-REQ-284, TH-HARNESS-REQ-285 | Active registered/unregistered canonical capture; expected-only passing capture; wrong catalog join | Exact current joins import; fixture IDs may be empty; expected-only report shows no_actual; invalid join fails. | Invalid artifact 11; no filename-derived owner or fake actual pixels. |
+| TH-HARNESS-AC-115 | TH-HARNESS-REQ-284, TH-HARNESS-REQ-552 | Old reconciliation/group schema, different renderer, user endpoint, modified imported bytes | Current selected adapter only; old/tampered/incompatible inputs rejected; canonical renderer endpoint is never reused by review. | Exit 11 or input 2; no translation, newest-run fallback, or reclassification. |
+| TH-HARNESS-AC-116 | TH-HARNESS-REQ-284, TH-HARNESS-REQ-285 | Viewport vs element vs region capture; nonunit scale; CSS zoom; partial viewport intersection | Coordinate transform maps observed CSS bounds to correct native pixels once; scopes retain originals and exact offsets. | Invalid/empty region rejected; no double zoom, silent clamp of explicit region, or full-page virtualization claim. |
+| TH-HARNESS-AC-117 | TH-HARNESS-REQ-285, TH-HARNESS-REQ-616 | Missing component, digest mismatch, duplicate path, symlink swap, interrupted publication | No complete bundle becomes visible until every ref validates; previous bundles remain byte-identical. | Artifact 11; only unpublished owned staging removed. |
+| TH-HARNESS-AC-118 | TH-HARNESS-REQ-285 | At/below/above each byte/pixel/count/storage bound; corrupt PNG; unsupported profile/depth/animation | Boundary values accepted exactly; over-limit required data fails; allowed console/network truncation is explicit. | Cap 4 or artifact 11 per table; no unbounded decode or silent required-data loss. |
+| TH-HARNESS-AC-119 | TH-HARNESS-REQ-286 | Equal images; one RGBA-channel change; all pixels changed; unequal dimensions | Exact counts/fraction/diff pixels follow the algorithm; originals and canonical comparator unchanged. | Unequal dimensions 11; nonzero difference alone exits 0. |
+| TH-HARNESS-AC-120 | TH-HARNESS-REQ-286 | Requested crops, out-of-bounds crop, overlay with/without geometry, canonical vs reference comparison | Exact pixels and recorded source rectangle; no hidden alignment; matched_capture requires full compatibility; reference comparison is visibly non-equivalent. | Invalid request 2 or artifact 11; no automatic resize or baseline update. |
+| TH-HARNESS-AC-121 | TH-HARNESS-REQ-287 | Axe violation, incomplete, no finding, disabled scan, missing imported axe data | Each outcome maps to its distinct state/array; no accessibility-complete or product-pass claim. | Findings alone exit 0; existing keyboard/contrast assertions remain independent. |
+| TH-HARNESS-AC-122 | TH-HARNESS-REQ-287, TH-HARNESS-REQ-311 | Axe engine throws, times out, returns malformed/oversize output | No successful partial bundle substitutes for requested analysis. | Tool 1, timeout 13, malformed/limit 11; no suppressed rules or automatic retry. |
+| TH-HARNESS-AC-123 | TH-HARNESS-REQ-286, TH-HARNESS-REQ-616 | HTML-like page text, malicious URL, absent optional artifact, report opened offline | Text escaped; no observed script/URL executes; report is self-contained and correctly labels unavailable channels. | No network/export activity; source bundle digest unchanged. |
+| TH-HARNESS-AC-124 | TH-HARNESS-REQ-285, TH-HARNESS-REQ-616 | Local agent opens returned image and human opens report; session then stops | Both see the same exact bundle; native-resolution originals available while live; links expire after cleanup, structural receipt remains. | No retained raw-detail copy or promise of post-stop image availability. |
+| TH-HARNESS-AC-125 | TH-HARNESS-REQ-616 | Credentials in typed text, page content, console, URL, and binary screenshot; inherited telemetry settings | Detail remains private; retained records contain only closed structural fields; no automatic export or telemetry capture of detail. | Unsafe retention fails 11 and still attempts private cleanup. |
+| TH-HARNESS-AC-126 | TH-HARNESS-REQ-616 | Documentation-path input, disguised Markdown input, symlink escape; neutral policy fixtures | Restricted input is rejected before read/stat/hash; executable validation itself does not consume documents. | Boundary 11; no document content included in diagnostics. |
+| TH-HARNESS-AC-127 | TH-HARNESS-REQ-311 | Each mapped failure alone and paired with cleanup failure; operation failure followed by normal session stop | Correct class/reason/code; secondary cleanup visible; operation and session outcomes remain distinct. | Generic Make failure does not overwrite the normalized cause. |
+| TH-HARNESS-AC-128 | TH-HARNESS-REQ-552 | Visual-update editorial contract and current machine projections | Refresh requires reconciliation v3 everywhere; old v2 cannot qualify; existing ordinary validation and human golden review remain required. | Incompatible reference or acceptance drift blocks adoption/implementation completion. |
+| TH-HARNESS-AC-129 | All UI review requirements listed in Section 17.1 | Full seeded editor/viewer review and artifact reimport; separate dev capture | Navigate, act, capture, analyze, inspect report, and stop through public Make; source and lifecycle claims agree in all three modes. | No catalog accounting, committed goldens, or unrelated worktree files changed; dev data changes only through explicit requested UI actions, never lifecycle reset/cleanup. |
+
+The numerical image cases MUST include transparent pixels, alpha-only differences,
+one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
+omitted vs null vs empty values, unknown fields, duplicate JSON keys, non-finite
+numbers, wrong schema IDs, duplicate refs, and each allowed enum boundary. These
+are independent obligations even if several are covered by one implementation test.
+
 ### 17.1 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
@@ -6095,6 +7100,9 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067, TH-HARNESS-AC-075, TH-HARNESS-AC-076 |
 | `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-039, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056, TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-068, TH-HARNESS-AC-069, TH-HARNESS-AC-070, TH-HARNESS-AC-071, TH-HARNESS-AC-080, TH-HARNESS-AC-081, TH-HARNESS-AC-082 |
 | `TH-HARNESS-REQ-800..817` | V3 execution control               | TH-HARNESS-AC-082, TH-HARNESS-AC-083, TH-HARNESS-AC-084, TH-HARNESS-AC-085, TH-HARNESS-AC-086, TH-HARNESS-AC-087, TH-HARNESS-AC-088, TH-HARNESS-AC-089, TH-HARNESS-AC-090, TH-HARNESS-AC-091, TH-HARNESS-AC-094, TH-HARNESS-AC-095, TH-HARNESS-AC-096, TH-HARNESS-AC-097, TH-HARNESS-AC-098, TH-HARNESS-AC-099, TH-HARNESS-AC-100, TH-HARNESS-AC-101 |
+
+
+| UI review requirements: 022, 081, 104, 159, 203, 284–288, 311, 381, 415–417, 502, 552, 616, 679 | UI review amendment in Sections 1–16 | TH-HARNESS-AC-102 through TH-HARNESS-AC-129; individual Verified by clauses and Section 17.0 provide exact mapping. |
 
 ## 18. Sources and Evidence Limits
 
@@ -6142,3 +7150,7 @@ Adoption of `cartulary.testing_harness.current.v3` adopts only Sections 1 throug
 | Hosted CI annotations/uploads/artifact-retention dashboards | Provider-neutral `make ci` only.     | Add provider workflow source and provider-specific contract.                                 |
 | Playwright report/trace/video/screenshot and visual-geometry diagnostic schemas | Diagnostic-only.                     | Adopt exact Playwright version/schema family or wrapper schema.                              |
 | Benchmark-publication harness integration                   | Not part of harness conformance.     | Add Core 05-compatible benchmark manifest and claim-publication profile.                     |
+
+The general third-party diagnostic format exclusion does not exclude the UI review
+Cartulary wrapper schemas adopted in Sections 8.4–8.8. Python analysis, OCR, video,
+alternate MCP adapters, and hosted review/export remain outside this amendment.

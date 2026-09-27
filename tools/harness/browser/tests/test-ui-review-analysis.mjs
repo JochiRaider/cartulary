@@ -1,0 +1,130 @@
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import os from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import test from "node:test";
+import { chromium } from "playwright";
+import { encodePNG, decodePNG } from "../ui-review/png.mjs";
+import { exactDifference, cropImage, overlayImage, contactSheet, fraction } from "../ui-review/image-algorithms.mjs";
+import { normalizeAxe, observeAxe } from "../ui-review/axe.mjs";
+import { execute as capture } from "../ui-review/capture.mjs";
+import { execute as analyze, compatible } from "../ui-review/analysis.mjs";
+import { execute as report, renderReport } from "../ui-review/report.mjs";
+import { runImageWork } from "../ui-review/image-worker.mjs";
+import { loadBundle, publishBundle, artifact } from "../ui-review/bundles.mjs";
+import { ReviewSession } from "../ui-review/session.mjs";
+import { ReviewBrowser } from "../ui-review/browser.mjs";
+import { toolProfile, repoRoot } from "../ui-review/toolchain.mjs";
+import { limits, parseRequest, schemaID, ReviewFailure } from "../ui-review/contract.mjs";
+import { acquireHostAdmission } from "../../runtime/host-admission.mjs";
+import { captureCapabilitySnapshot } from "../../scheduler/work-graph/capability.mjs";
+
+const pixels = (width, height, rgba = [10, 20, 30, 255]) => ({ width, height, data: Buffer.from(Array.from({ length: width * height }, () => rgba).flat()) });
+const parsed = (value) => parseRequest(Buffer.from(JSON.stringify({ schema_id: schemaID("analysis_request"), ...value })), "analysis_request");
+const capacity = () => captureCapabilitySnapshot({ root: repoRoot }).port_lanes;
+const sessionAt = (root) => Object.assign(new ReviewSession({ UI_MODE: "artifacts" }, toolProfile()), { capacity: capacity(), runtime: { privatePath: (...parts) => path.join(root, ...parts) }, workspaceDigest: "a".repeat(64) });
+
+test("exact RGBA math includes transparent RGB and rounds ties upward without tolerances", () => {
+  const left = pixels(2, 1, [0, 0, 0, 0]), right = pixels(2, 1, [0, 0, 0, 0]); right.data[0] = 1;
+  const diff = exactDifference(left, right);
+  assert.equal(diff.different_pixels, 1); assert.equal(diff.different_fraction, 0.5);
+  assert.deepEqual([...diff.image.data], [255, 0, 255, 255, 0, 0, 0, 0]);
+  assert.deepEqual([...left.data], Array(8).fill(0));
+  assert.equal(fraction(1, 2000000), 0.000001); assert.equal(fraction(1, 3000000), 0); assert.equal(fraction(2, 3), 0.666667);
+  assert.equal(exactDifference(left, left).different_pixels, 0);
+  const alpha = structuredClone(left); alpha.data = Buffer.from(left.data); alpha.data[3] = 1; assert.equal(exactDifference(left, alpha).different_pixels, 1);
+  assert.throws(() => exactDifference(left, pixels(1, 1)), /invalid_artifact/u);
+});
+test("crop, overlay and contact sheet preserve the declared coordinate and raster rules", async () => {
+  const image = pixels(10, 10), before = Buffer.from(image.data);
+  assert.deepEqual(cropImage(image, { x: 2, y: 3, width: 4, height: 2 }).data, pixels(4, 2).data);
+  for (const rect of [{ x: -1, y: 0, width: 1, height: 1 }, { x: 9, y: 0, width: 2, height: 1 }, { x: 0.5, y: 0, width: 1, height: 1 }]) assert.throws(() => cropImage(image, rect));
+  const overlay = overlayImage(image, [{ x: 10.1, y: 20.1, width: 3.8, height: 3.8 }], { origin_x: 10, origin_y: 20, scale_x: 2, scale_y: 2 });
+  const at = (data, x, y, width = 10) => [...data.subarray((y * width + x) * 4, (y * width + x + 1) * 4)];
+  assert.deepEqual(at(overlay.data, 1, 1), [255, 0, 255, 255]); assert.deepEqual(at(overlay.data, 2, 2), [10, 20, 30, 255]); assert.deepEqual(at(overlay.data, 7, 7), [255, 0, 255, 255]); assert.deepEqual(at(overlay.data, 8, 8), [10, 20, 30, 255]); assert.deepEqual(image.data, before);
+  const png = await encodePNG(pixels(2, 1, [80, 90, 100, 255]));
+  const sheet = await contactSheet([png, await encodePNG(pixels(1, 1, [0, 0, 0, 0])), png, png, png]);
+  assert.equal(sheet.width, 1304); assert.equal(sheet.height, 488);
+  assert.deepEqual(at(sheet.data, 159, 119, 1304), [80, 90, 100, 255]);
+  assert.deepEqual(at(sheet.data, 158, 119, 1304), [255, 255, 255, 255]);
+  assert.deepEqual(at(sheet.data, 487, 119, 1304), [255, 255, 255, 255]);
+  const large = await contactSheet([await encodePNG(pixels(640, 480, [80, 90, 100, 255]))]);
+  assert.deepEqual(at(large.data, 319, 239, 1304), [80, 90, 100, 255]);
+});
+test("axe normalization distinguishes findings, incomplete work, malformed output and overflow", () => {
+  const raw = { testEngine: { version: "4.13.0" }, violations: [{ id: "image-alt", impact: "critical", nodes: [{ target: ["img"], html: "private-secret" }] }], incomplete: [{ id: "color-contrast", impact: null, nodes: [{ target: [["shadow", "button"]] }] }] };
+  const value = normalizeAxe(raw, 2); assert.equal(value.status, "completed"); assert.equal(value.unassessed_frames, 2); assert.equal(value.incomplete.length, 1); assert.ok(!JSON.stringify(value).includes("private-secret"));
+  assert.deepEqual(normalizeAxe({ ...raw, violations: [], incomplete: [] }, 0).violations, []);
+  for (const value of [{ ...raw, testEngine: { version: "4.12.0" } }, { ...raw, violations: null }, { ...raw, violations: [{ id: "a", impact: null, nodes: [{ target: [] }] }] }]) assert.throws(() => normalizeAxe(value, 0), /invalid_artifact/u);
+  assert.throws(() => normalizeAxe({ ...raw, violations: [{ ...raw.violations[0], nodes: Array(1001).fill({ target: ["img"] }) }] }, 0), /observation_limit/u);
+  assert.throws(() => normalizeAxe({ ...raw, violations: [{ ...raw.violations[0], nodes: [{ target: ["x".repeat(4097)] }] }] }, 0), /observation_limit/u);
+});
+test("matched comparisons require complete scope and masks but permit different source revisions", () => {
+  const bundle = { source: { kind: "canonical_visual", renderer_profile_id: "renderer", runtime_profile_id: "profile", import_ref: { metadata: { fixture: { capture_scope: "viewport", dynamic_masks: [], no_dynamic_regions: true }, capture_intent: { capture_profile: { viewport: "10x10" }, capture_id: "capture", scenario_id: "scenario" } } } } };
+  compatible(bundle, structuredClone(bundle), "matched_capture");
+  const changed = structuredClone(bundle); changed.source.source_digest = "new revision"; compatible(bundle, changed, "matched_capture");
+  changed.source.import_ref.metadata.fixture.dynamic_masks = ["mask"]; assert.throws(() => compatible(bundle, changed, "matched_capture"));
+  delete changed.source.import_ref.metadata.fixture; assert.throws(() => compatible(bundle, changed, "matched_capture"));
+  compatible(bundle, { source: { kind: "reference_image" } }, "reference");
+});
+test("analysis publishes immutable provenance and report cache rejects tampering and missing actual", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-analysis-")), session = sessionAt(root);
+  try {
+    const file = path.join(root, "input.png"); writeFileSync(file, await encodePNG(pixels(2, 1)), { mode: 0o600 });
+    await capture(session, { source: "image", path: file }, 1);
+    writeFileSync(file, await encodePNG(pixels(2, 1, [11, 20, 30, 255]))); await capture(session, { source: "image", path: file }, 2);
+    const parent = await loadBundle(session, "bundle-1");
+    await analyze(session, parsed({ bundle_id: "bundle-1", operations: ["exact_diff", "crop", "contact_sheet"], comparison: { kind: "reference", bundle_id: "bundle-2" }, crops: [{ x: 1, y: 0, width: 1, height: 1 }] }), 3);
+    const entry = await loadBundle(session, "bundle-3");
+    assert.equal(entry.bundle.analysis.comparison.different_pixels, 2); assert.deepEqual(entry.bundle.derived.map((item) => item.kind), ["crop", "exact_diff", "contact_sheet"]);
+    assert.equal(entry.bundle.parents[0].sha256, parent.sha256); assert.ok(entry.bundle.limitations.includes("cross_source_comparison"));
+    assert.equal((await loadBundle(session, "bundle-1")).sha256, parent.sha256);
+    const first = await report(session, "bundle-3"), size = session.privateBytes;
+    assert.deepEqual(await report(session, "bundle-3"), first); assert.equal(session.privateBytes, size);
+    assert.match(readFileSync(first.private_refs[0].absolute_path, "utf8"), /before\/after slider/u);
+    writeFileSync(first.private_refs[0].absolute_path, "tampered"); await assert.rejects(report(session, "bundle-3"), /invalid_artifact/u);
+    const expected = structuredClone(parent.bundle); expected.bundle_id = "bundle-4"; expected.components.expected = expected.components.original; expected.components.original = null;
+    await publishBundle(session, expected, parent.files);
+    await assert.rejects(analyze(session, parsed({ bundle_id: "bundle-4" }), 5), /invalid_artifact/u);
+    assert.ok((await report(session, "bundle-4")).private_refs.length);
+    await assert.rejects(analyze(session, parsed({ bundle_id: "bundle-1", operations: ["overlay"] }), 6), /invalid_artifact/u);
+    const aborted = new AbortController(); aborted.abort(new ReviewFailure("interrupted")); assert.throws(() => runImageWork({}, aborted.signal), /interrupted/u);
+    const active = new AbortController(), work = runImageWork({ primary: await encodePNG(pixels(640, 480)), operations: ["contact_sheet"], contactInputs: [] }, active.signal); active.abort(new ReviewFailure("interrupted")); await assert.rejects(work, /interrupted/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+test("live axe excludes iframe contents; offline reports escape observed markup and perform no network requests", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-axe-report-")), session = sessionAt(root);
+  const server = createServer((_request, response) => { response.setHeader("content-type", "text/html"); response.end('<html lang="en"><title>Observation</title><body><main><h1>Review</h1><img src="data:image/png;base64," width="2" height="2"><iframe title="Excluded" srcdoc="<button></button>"></iframe></main></body></html>'); });
+  let admission, browser, viewer;
+  try {
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    admission = await acquireHostAdmission({ browsers: 1, browserCapacity: capacity() });
+    browser = await new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" }).start();
+    const axe = await observeAxe(browser.page); assert.equal(axe.unassessed_frames, 1); assert.ok(axe.violations.some((entry) => entry.rule_id === "image-alt")); assert.ok(!axe.violations.some((entry) => entry.rule_id === "button-name"));
+    const snapshot = await browser.observe([]); assert.equal(snapshot.axe.status, "disabled"); assert.equal(snapshot.axe.unassessed_frames, 1);
+    session.mode = "dev"; session.browser = browser; session.hostLease = admission;
+    await capture(session, { source: "page", expected_epoch: 0, binding: null, scope: { kind: "viewport" }, targets: [], include_axe: true }, 1);
+    const entry = await loadBundle(session, "bundle-1"); assert.equal(JSON.parse(entry.files.get("observations.json")).axe.status, "completed");
+    const observed = JSON.parse(entry.files.get("observations.json")); observed.accessibility_snapshot = '</pre><script>globalThis.observedInjection=1</script><img src="https://private.invalid/secret">';
+    const bytes = Buffer.from(JSON.stringify(observed)); entry.files.set("observations.json", bytes); entry.bundle.bundle_id = "bundle-2"; entry.bundle.components.observations = artifact("observations.json", bytes, "application/json");
+    await publishBundle(session, entry.bundle, entry.files);
+    const result = await report(session, "bundle-2"), html = readFileSync(result.private_refs[0].absolute_path, "utf8");
+    assert.ok(html.includes("&lt;script&gt;")); assert.ok(!html.includes('<img src="https://private.invalid'));
+    await browser.close(); browser = null;
+    viewer = await chromium.launch({ headless: true }); const page = await viewer.newPage(), network = [];
+    page.on("request", (request) => { if (/^https?:/u.test(request.url())) network.push(request.url()); });
+    await page.goto(pathToFileURL(result.private_refs[0].absolute_path).href);
+    assert.equal(await page.evaluate(() => globalThis.observedInjection), undefined);
+    assert.equal(await page.locator("img").first().evaluate((node) => node.naturalWidth), 1440);
+    await page.locator("[data-zoom]").first().evaluate((node) => { node.value = "200"; node.dispatchEvent(new Event("input")); });
+    assert.equal(await page.locator("img").first().evaluate((node) => node.style.width), "2880px"); assert.deepEqual(network, []);
+    const huge = structuredClone(entry.bundle); huge.source.import_ref = { metadata: "<".repeat(limits.report / 4), input_path: "input", input_sha256: "a".repeat(64) };
+    assert.throws(() => renderReport({ ...entry, bundle: huge }), /observation_limit/u);
+    const failedPage = { evaluate: async () => { throw new Error("engine failed"); } };
+    await assert.rejects(observeAxe(failedPage), /analysis_failed/u);
+    failedPage.evaluate = async () => { const error = new Error("expired"); error.name = "TimeoutError"; throw error; };
+    await assert.rejects(observeAxe(failedPage), /operation_expired/u);
+  } finally { await viewer?.close(); await browser?.close(); await admission?.release(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+});

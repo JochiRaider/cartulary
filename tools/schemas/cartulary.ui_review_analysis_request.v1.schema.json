@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.ui_review_analysis_request.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.ui_review_analysis_request.v1"
+    },
+    "bundle_id": {
+      "type": "string",
+      "pattern": "^bundle-[1-9][0-9]*$"
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "contact_sheet",
+          "crop",
+          "overlay",
+          "exact_diff"
+        ]
+      },
+      "maxItems": 4,
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "comparison": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bundle_id": {
+              "type": "string",
+              "pattern": "^bundle-[1-9][0-9]*$"
+            },
+            "kind": {
+              "enum": [
+                "matched_capture",
+                "reference"
+              ]
+            }
+          },
+          "required": [
+            "bundle_id",
+            "kind"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "crops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height"
+        ]
+      },
+      "maxItems": 16,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema_id",
+    "bundle_id"
+  ]
+}

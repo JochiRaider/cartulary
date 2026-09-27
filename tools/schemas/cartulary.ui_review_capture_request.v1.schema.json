@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.ui_review_capture_request.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.ui_review_capture_request.v1"
+        },
+        "source": {
+          "const": "page"
+        },
+        "expected_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "binding": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "owner_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "row_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "scenario_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "capture_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                }
+              },
+              "required": [
+                "owner_id",
+                "row_id",
+                "scenario_id",
+                "capture_id"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "viewport"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "element"
+                },
+                "target": {
+                  "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+                }
+              },
+              "required": [
+                "kind",
+                "target"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "region"
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "x",
+                "y",
+                "width",
+                "height"
+              ]
+            }
+          ]
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+          },
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "include_axe": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schema_id",
+        "source",
+        "expected_epoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.ui_review_capture_request.v1"
+        },
+        "source": {
+          "const": "canonical_visual"
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "capture_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "schema_id",
+        "source",
+        "run_root",
+        "capture_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.ui_review_capture_request.v1"
+        },
+        "source": {
+          "const": "image"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "schema_id",
+        "source",
+        "path"
+      ]
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.ui_review_capture_request.v1"
+    },
+    "source": {},
+    "expected_epoch": {},
+    "binding": {},
+    "scope": {},
+    "targets": {},
+    "include_axe": {},
+    "run_root": {},
+    "capture_id": {},
+    "path": {}
+  },
+  "required": [
+    "schema_id"
+  ],
+  "additionalProperties": false
+}

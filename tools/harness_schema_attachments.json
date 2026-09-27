@@ -983,6 +983,62 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.ui_review_action.v1",
+      "path": "tools/schemas/cartulary.ui_review_action.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.ui_review_analysis_request.v1",
+      "path": "tools/schemas/cartulary.ui_review_analysis_request.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.ui_review_bundle.v1",
+      "path": "tools/schemas/cartulary.ui_review_bundle.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.ui_review_capture_request.v1",
+      "path": "tools/schemas/cartulary.ui_review_capture_request.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.ui_review_command_result.v1",
+      "path": "tools/schemas/cartulary.ui_review_command_result.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.ui_review_observations.v1",
+      "path": "tools/schemas/cartulary.ui_review_observations.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.ui_review_receipt.v1",
+      "path": "tools/schemas/cartulary.ui_review_receipt.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.ui_review_session.v1",
+      "path": "tools/schemas/cartulary.ui_review_session.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "UI review harness",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.verification_contract.v3",
       "path": "tools/schemas/cartulary.verification_contract.v3.schema.json",
       "classification": "owner_input",

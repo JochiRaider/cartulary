@@ -66,6 +66,7 @@ const validOutputClasses = new Set([
   "summary_with_artifacts",
 ]);
 const validArtifactPolicies = new Set([
+  "ui_review_receipts",
   "none",
   "run_and_target_summaries",
   "scheduler_and_tool_run_summaries",
@@ -73,6 +74,7 @@ const validArtifactPolicies = new Set([
   "tool_run_summary",
 ]);
 const validSummarySchemas = new Set([
+  "cartulary.ui_review_command_result.v1",
   "cartulary.tool_run_summary.v5",
   "cartulary.harness_run_summary.v1",
   "cartulary.otel_conformance_summary.v1",

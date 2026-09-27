@@ -73,7 +73,7 @@ run_cache() {
   COMMAND_LOG="$command_log" \
     "$SCRIPT" \
       \
-      --scope build-artifact \
+      --scope "${fixture_scope:-build-artifact}" \
       --profile fixture-build \
       --cache-dir "$cache_dir" \
       --disable-env CARTULARY_BUILD_CACHE_DISABLE \
@@ -127,6 +127,18 @@ assert_equals "$(grep -c '^run$' "$command_log")" "5" "force rebuild executes co
 rm -f "$output_file"
 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "6" "missing output executes command"
+
+fixture_scope=readiness
+set +e
+CARTULARY_READINESS_CHECK_ONLY=1 run_cache >"$TMP_DIR/readiness.log" 2>&1
+readiness_status=$?
+set -e
+assert_equals "$readiness_status" "2" "inspect-only readiness rejects a cold cache"
+assert_equals "$(grep -c '^run$' "$command_log")" "6" "inspect-only readiness never invokes installation"
+run_cache
+CARTULARY_READINESS_CHECK_ONLY=1 run_cache
+assert_equals "$(grep -c '^run$' "$command_log")" "7" "inspect-only readiness accepts the exact warm cache"
+unset fixture_scope
 
 bash "$ROOT_DIR/tools/harness/backend/tests/test-build-go-artifact.sh"
 

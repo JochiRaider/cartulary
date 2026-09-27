@@ -47,6 +47,22 @@ function run(command, args, { cwd, environment }) {
   }
 }
 
+function acquireProcess(command, args, { cwd, environment, signal }) {
+  return new Promise((resolve, reject) => {
+    signal?.throwIfAborted();
+    const child = spawn(command, args, { cwd, env: { ...process.env, ...environment }, stdio: "ignore", detached: true });
+    const abort = () => { try { process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") reject(error); } };
+    signal?.addEventListener("abort", abort, { once: true });
+    child.once("error", (error) => { signal?.removeEventListener("abort", abort); reject(error); });
+    child.once("close", (status) => {
+      signal?.removeEventListener("abort", abort);
+      if (signal?.aborted) reject(signal.reason);
+      else if (status === 0) resolve();
+      else reject(new Error(`${path.basename(command)} acquisition failed`));
+    });
+  });
+}
+
 function readEnvironmentFile(file) {
   const environment = JSON.parse(readFileSync(file, "utf8"));
   if (!environment || typeof environment !== "object" || Array.isArray(environment)) {
@@ -246,6 +262,17 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
   };
 }
 
+export function terminateManagedSuiteLease({ root, executable, leaseFile, environment }) {
+  requireOwnerOnlyRegularFile(leaseFile, "managed suite recovery lease");
+  run(executable, ["terminate-suite", "--lease", leaseFile], { cwd: root, environment });
+  rmSync(leaseFile, { force: true });
+}
+
+export function terminateBrowserStackLease({ root, leaseFile, environment }) {
+  requireOwnerOnlyRegularFile(leaseFile, "browser stack recovery lease");
+  run(path.join(root, "tools/harness/browser/start-web-e2e.sh"), ["--session-stop", "--lease-file", leaseFile], { cwd: root, environment });
+}
+
 export function startManagedSuite({
   root,
   target,
@@ -326,14 +353,15 @@ export function startManagedSuite({
       throw new Error("test-services start result and service scope identities disagree");
     }
   } catch (error) {
+    const cleanupFailures = [];
     if (existsSync(leaseFile)) {
       try {
         run(executable, ["terminate-suite", "--lease", leaseFile], {
           cwd: root,
           environment: startEnvironment,
         });
-      } catch {
-        // The malformed evidence remains primary; cleanup is best effort here.
+      } catch (cleanupError) {
+        cleanupFailures.push(cleanupError);
       }
     }
     if (!existsSync(resultFile) && start.status === 2) {
@@ -343,11 +371,11 @@ export function startManagedSuite({
         "configuration_error",
       );
     }
-    throw acquisitionError(
+    throw Object.assign(acquisitionError(
       `test-services start evidence is invalid after helper exit ${start.status ?? "unknown"}: ${error.message}`,
       "artifact",
       "artifact_error",
-    );
+    ), { cleanupFailures });
   } finally {
     rmSync(resultFile, { force: true });
   }
@@ -393,15 +421,8 @@ export function startManagedSuite({
     executable,
     close() {
       if (closed) return;
+      terminateManagedSuiteLease({ root, executable, leaseFile, environment: { ...environment, ...suiteEnvironment } });
       closed = true;
-      try {
-        run(executable, ["terminate-suite", "--lease", leaseFile], {
-          cwd: root,
-          environment: { ...environment, ...suiteEnvironment },
-        });
-      } finally {
-        rmSync(leaseFile, { force: true });
-      }
     },
   };
 }
@@ -443,6 +464,7 @@ export function productionFixtureProviders({
   runtimeEnvironment = {},
   suiteController,
   suiteRuntime,
+  signal,
 }) {
   const cloneOrdinals = new Map();
   const browserAllocationOrdinals = new Map();
@@ -518,10 +540,15 @@ export function productionFixtureProviders({
               }
             : {}),
         };
-        run(lifecycle, ["--session-start", "--env-file", envFile, "--lease-file", leaseFile], {
-          cwd: root,
-          environment,
-        });
+        try {
+          await acquireProcess(lifecycle, ["--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal });
+        } catch (error) {
+          if (existsSync(leaseFile)) {
+            try { terminateBrowserStackLease({ root, leaseFile, environment }); }
+            catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
+          }
+          throw error;
+        }
         let stackEnvironment;
         try {
           stackEnvironment = readEnvironmentFile(envFile);
@@ -558,11 +585,7 @@ export function productionFixtureProviders({
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
           CARTULARY_WEB_E2E_SESSION_LEASE_FILE: leaseFile,
         };
-        const close = () =>
-          run(lifecycle, ["--session-stop", "--lease-file", leaseFile], {
-            cwd: root,
-            environment: { ...environment, ...unitEnvironment },
-          });
+        const close = () => terminateBrowserStackLease({ root, leaseFile, environment: { ...environment, ...unitEnvironment } });
         return {
           ownership: "owned",
           resource_ids: [
