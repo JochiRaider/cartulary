@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cartulary UI Review"
+  short_description: "Inspect Cartulary UI with the private review harness"
+  default_prompt: "Use $cartulary-ui-review to inspect the requested UI state and report evidence-backed findings."

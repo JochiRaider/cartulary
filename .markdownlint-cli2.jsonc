@@ -4,6 +4,7 @@
   "gitignore": true,
   "globs": [
     "*.md",
+    ".agents/skills/**/*.md",
     "docs/*.md",
     "docs/spec/**/*.md",
     "docs/guides/**/*.md",
