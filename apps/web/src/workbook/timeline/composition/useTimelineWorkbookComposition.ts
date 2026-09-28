@@ -283,7 +283,6 @@ export function useTimelineWorkbookComposition({
     workflow: {
       handleTimelineGridContextKeyDown:
         workflow.commands.rowMenu.handleTimelineGridContextKeyDown,
-      openRowHistory: workflow.commands.history.openRowHistory,
       timelineRowForEventTarget:
         workflow.commands.rowInteractions.timelineRowForEventTarget,
     },

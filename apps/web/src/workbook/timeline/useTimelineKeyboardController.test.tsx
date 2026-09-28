@@ -105,7 +105,6 @@ function controller(
     navigateTimelineDraftFocus: vi.fn((_rowKey, _fieldKey, intent) =>
       calls.push(`navigate-${intent.key}-${intent.shiftKey}`),
     ),
-    openRowHistory: vi.fn(() => calls.push("open-history")),
     onSpaceEvidence: vi.fn(() => calls.push("space-evidence")),
     prepareTimelineCollectionNavigation: vi.fn(
       () => () => calls.push("collection-navigate"),
@@ -429,7 +428,11 @@ describe("useTimelineKeyboardController", () => {
     act(() => result.current.commands.onWorkAreaKeyDown(history));
     expect(history.preventDefault).toHaveBeenCalledOnce();
     expect(history.stopPropagation).toHaveBeenCalledOnce();
-    expect(calls).toEqual(["open-history"]);
+    expect(calls).toEqual([
+      `row-${recordId}`,
+      "inspector-true",
+      "message-null",
+    ]);
     expect(mocks.elementRegistry.focusPanel).toHaveBeenCalledWith(
       {
         recordId,

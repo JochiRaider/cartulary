@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
-import { createTimelineInspectorElementRegistry } from "./timelineInspectorElementRegistry";
+import {
+  createTimelineInspectorElementRegistry,
+  type TimelineInspectorElementRegistry,
+} from "./timelineInspectorElementRegistry";
 
 const viewSchemaId = "workbook.timeline";
 const subject = (recordId: string, rowVersion: number) =>
@@ -21,6 +24,19 @@ function scope(activeSubject: WorkbookRecordSubject | null) {
   };
 }
 
+function attachNavigator(
+  registry: TimelineInspectorElementRegistry,
+  defaults: Partial<Record<string, HTMLElement>> = {},
+) {
+  registry.registerDestinationNavigator((panelId, target) => {
+    if (target === null) return "pending";
+    const destination = target ?? defaults[panelId];
+    if (!destination?.isConnected) return "pending";
+    destination.focus({ preventScroll: true });
+    return document.activeElement === destination ? "applied" : "pending";
+  });
+}
+
 afterEach(() => {
   document.body.replaceChildren();
 });
@@ -28,6 +44,7 @@ afterEach(() => {
 describe("timeline inspector element registry", () => {
   it("fulfills first-open Evidence list focus only when the matching element registers", () => {
     const registry = createTimelineInspectorElementRegistry(scope(null));
+    attachNavigator(registry);
     const identity = { recordId: "record-1", rowVersion: 3, viewSchemaId };
     const list = document.createElement("ul");
     list.tabIndex = -1;
@@ -59,6 +76,7 @@ describe("timeline inspector element registry", () => {
     document.body.append(panel, mention);
     registry.registerPanel("history", panel);
     registry.registerMention("record-1", "mention-1", mention);
+    attachNavigator(registry, { history: panel });
     const identity = {
       recordId: "record-1",
       rowVersion: 3,
@@ -88,6 +106,7 @@ describe("timeline inspector element registry", () => {
     target.tabIndex = -1;
     const trigger = document.createElement("button");
     document.body.append(target, trigger);
+    attachNavigator(registry);
     const identity = { recordId: "record-1", rowVersion: 3, viewSchemaId };
     registry.registerCollectionItem(
       "record-1",
@@ -134,6 +153,7 @@ describe("timeline inspector element registry", () => {
     const panel = document.createElement("section");
     panel.tabIndex = -1;
     document.body.append(panel);
+    attachNavigator(registry);
     registry.registerPanel("evidence", panel);
 
     registry.updateScope({
@@ -179,6 +199,7 @@ describe("timeline inspector element registry", () => {
       rowVersion: 3,
       viewSchemaId,
     };
+    attachNavigator(registry);
     const disconnectedPanel = document.createElement("section");
     registry.registerPanel("history", disconnectedPanel);
     expect(registry.focusPanel(identity, "history")).toBe(false);
@@ -196,5 +217,71 @@ describe("timeline inspector element registry", () => {
     expect(registry.focusMention(identity, "record-1", "mention-1")).toBe(
       false,
     );
+  });
+
+  it("does not fulfill superseded, invalidated, closed, or unavailable focus after late registration", () => {
+    const identity = { recordId: "record-1", rowVersion: 3, viewSchemaId };
+    const registry = createTimelineInspectorElementRegistry(scope(null));
+    const evidence = document.createElement("ul");
+    evidence.tabIndex = -1;
+    const relationships = document.createElement("section");
+    relationships.tabIndex = -1;
+    document.body.append(evidence, relationships);
+    attachNavigator(registry);
+    expect(registry.focusEvidenceList(identity)).toBe(false);
+    expect(registry.focusPanel(identity, "relationships")).toBe(false);
+    registry.updateScope(scope(subject("record-1", 3)));
+    registry.registerEvidenceList("record-1", evidence);
+    expect(document.activeElement).not.toBe(evidence);
+    registry.registerPanel("relationships", relationships);
+    expect(document.activeElement).toBe(relationships);
+
+    relationships.blur();
+    registry.focusEvidenceList(identity);
+    registry.cancelPendingFocus();
+    evidence.blur();
+    registry.registerEvidenceList("record-1", evidence);
+    expect(document.activeElement).not.toBe(evidence);
+
+    registry.focusPanel(identity, "history");
+    registry.updateScope(scope(subject("record-1", 4)));
+    const history = document.createElement("section");
+    history.tabIndex = -1;
+    document.body.append(history);
+    registry.registerPanel("history", history);
+    expect(document.activeElement).not.toBe(history);
+
+    const nextIdentity = { ...identity, rowVersion: 4 };
+    registry.focusEvidenceList(nextIdentity);
+    registry.updateScope(scope(null));
+    registry.registerEvidenceList("record-1", evidence);
+    expect(document.activeElement).not.toBe(evidence);
+
+    registry.updateScope(scope(subject("record-1", 4)));
+    registry.registerDestinationNavigator((panelId) =>
+      panelId === "evidence" ? "unavailable" : "pending",
+    );
+    registry.focusEvidenceList(nextIdentity);
+    registry.registerDestinationNavigator((_panelId, target) => {
+      if (target instanceof HTMLElement) target.focus();
+      return "applied";
+    });
+    registry.registerEvidenceList("record-1", evidence);
+    expect(document.activeElement).not.toBe(evidence);
+
+    registry.updateScope({
+      ...scope(subject("record-1", 4)),
+      authorityKey: "editor:session-1",
+    });
+    attachNavigator(registry);
+    registry.registerPanel("relationships", null);
+    relationships.blur();
+    registry.focusPanel(nextIdentity, "relationships");
+    registry.updateScope({
+      ...scope(subject("record-1", 4)),
+      authorityKey: "viewer:session-1",
+    });
+    registry.registerPanel("relationships", relationships);
+    expect(document.activeElement).not.toBe(relationships);
   });
 });

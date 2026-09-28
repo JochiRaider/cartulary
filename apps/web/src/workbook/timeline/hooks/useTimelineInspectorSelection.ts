@@ -129,6 +129,8 @@ export function useTimelineInspectorSelection({
 export function useTimelineInspectorRowInteractions({
   currentCommittedRow,
   elementRegistry,
+  focusScopeKey,
+  inspectorOpen,
   publishViewingPresence,
   rowsRef,
   selectedRowId,
@@ -139,6 +141,8 @@ export function useTimelineInspectorRowInteractions({
 }: {
   readonly currentCommittedRow: (recordId: string) => WorkbookRow | null;
   readonly elementRegistry: TimelineInspectorElementRegistry;
+  readonly focusScopeKey: string;
+  readonly inspectorOpen: boolean;
   readonly publishViewingPresence: (recordId: string) => void;
   readonly rowsRef: TimelineRowsRef;
   readonly selectedRowId: string | null;
@@ -172,27 +176,27 @@ export function useTimelineInspectorRowInteractions({
       setPendingPanelFocus(null);
       return;
     }
-    if (
-      elementRegistry.focusPanel(
-        {
-          recordId: pendingPanelFocus.recordId,
-          rowVersion: row.rowVersion,
-          viewSchemaId: timelineViewSchemaId,
-        },
-        pendingPanelFocus.panel,
-      )
-    )
-      setPendingPanelFocus(null);
+    elementRegistry.focusPanel(
+      {
+        recordId: pendingPanelFocus.recordId,
+        rowVersion: row.rowVersion,
+        viewSchemaId: timelineViewSchemaId,
+      },
+      pendingPanelFocus.panel,
+    );
+    setPendingPanelFocus(null);
   });
   useEffect(() => {
     if (!pendingPanelFocus) return;
     const cancel = () => setPendingPanelFocus(null);
     document.addEventListener("pointerdown", cancel, true);
     document.addEventListener("keydown", cancel, true);
+    document.addEventListener("wheel", cancel, true);
     document.addEventListener("focusin", cancel, true);
     return () => {
       document.removeEventListener("pointerdown", cancel, true);
       document.removeEventListener("keydown", cancel, true);
+      document.removeEventListener("wheel", cancel, true);
       document.removeEventListener("focusin", cancel, true);
     };
   }, [pendingPanelFocus]);
@@ -206,7 +210,23 @@ export function useTimelineInspectorRowInteractions({
     readonly sourceRecordId: string;
     readonly fieldKey?: CollectionFieldKey;
     readonly reviewScope?: DisclosureReviewNavigationScope;
+    readonly focusScopeKey: string;
   } | null>(null);
+  useEffect(() => {
+    if (pendingMentionFocus === null) return;
+    const cancel = () => {
+      setPendingMentionFocus(null);
+      pendingMentionFocus.reviewScope?.settle(false);
+    };
+    document.addEventListener("pointerdown", cancel, true);
+    document.addEventListener("keydown", cancel, true);
+    document.addEventListener("wheel", cancel, true);
+    return () => {
+      document.removeEventListener("pointerdown", cancel, true);
+      document.removeEventListener("keydown", cancel, true);
+      document.removeEventListener("wheel", cancel, true);
+    };
+  }, [pendingMentionFocus]);
 
   const handleSelectRow = useCallback(
     (recordId: string) => {
@@ -267,12 +287,14 @@ export function useTimelineInspectorRowInteractions({
           },
           itemRef,
           sourceRecordId: rowRecordId,
+          focusScopeKey,
           ...(reviewScope ? { reviewScope } : {}),
         });
       } else reviewScope?.settle(false);
     },
     [
       currentCommittedRow,
+      focusScopeKey,
       rowsRef,
       setInspectorMessage,
       setIsInspectorOpen,
@@ -307,10 +329,12 @@ export function useTimelineInspectorRowInteractions({
         itemRef,
         sourceRecordId: recordId,
         fieldKey,
+        focusScopeKey,
       });
     },
     [
       rowsRef,
+      focusScopeKey,
       setSelectedRowId,
       setSelectedMentionRef,
       setInspectorMessage,
@@ -321,6 +345,11 @@ export function useTimelineInspectorRowInteractions({
   useLayoutEffect(() => {
     if (pendingMentionFocus === null) return;
     const { reviewScope } = pendingMentionFocus;
+    if (!inspectorOpen || pendingMentionFocus.focusScopeKey !== focusScopeKey) {
+      setPendingMentionFocus(null);
+      reviewScope?.settle(false);
+      return;
+    }
     if (reviewScope && !reviewScope.isCurrent()) {
       setPendingMentionFocus(null);
       reviewScope.settle(false);

@@ -28,6 +28,11 @@ type NavigationSection = {
   readonly focusDestination: (section: HTMLElement) => HTMLElement;
 };
 
+export type WorkbookInspectorExplicitNavigation = (
+  panelId: InspectorPanelId,
+  target?: HTMLElement | null,
+) => "applied" | "pending" | "unavailable";
+
 export function workbookInspectorSectionFocusDestination(
   section: HTMLElement,
 ): HTMLElement {
@@ -131,6 +136,45 @@ export function useWorkbookInspectorNavigation(
     );
     positionedScroll.current = body.scrollTop;
   };
+  const activate = (
+    section: NavigationSection,
+    element: HTMLElement,
+    destination: HTMLElement,
+    scrollTarget: HTMLElement,
+  ) => {
+    if (!destination.isConnected || !scrollTarget.isConnected) return "pending";
+    if (
+      destination.hidden ||
+      destination.closest("[hidden], [aria-hidden='true']") !== null ||
+      ("disabled" in destination && destination.disabled === true)
+    )
+      return "pending";
+    let ancestor = destination.parentElement;
+    while (ancestor && ancestor !== element) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+      ancestor = ancestor.parentElement;
+    }
+    setMenuScope(null);
+    remember(section.panel.panelId);
+    scrollToSection(scrollTarget);
+    destination.focus({ preventScroll: true });
+    return document.activeElement === destination ? "applied" : "pending";
+  };
+  const navigateExplicit: WorkbookInspectorExplicitNavigation = (
+    panelId,
+    target,
+  ) => {
+    if (currentNavigation.current.scope !== scope) return "unavailable";
+    const section = currentNavigation.current.sections.find(
+      ({ panel }) => panel.panelId === panelId,
+    );
+    if (!section) return "unavailable";
+    const element = elements.current.get(panelId);
+    if (!element || target === null) return "pending";
+    const destination = target ?? section.focusDestination(element);
+    if (!element.contains(destination)) return "pending";
+    return activate(section, element, destination, destination);
+  };
   const choose = (
     section: NavigationSection,
     destination?: (element: HTMLElement) => HTMLElement | null,
@@ -140,30 +184,23 @@ export function useWorkbookInspectorNavigation(
       !currentNavigation.current.sections.includes(section)
     )
       return;
-    setMenuScope(null);
-    remember(section.panel.panelId);
     const element = elements.current.get(section.panel.panelId);
     if (!element) return;
     const target = destination?.(element) ?? section.focusDestination(element);
-    // Reveal presentation ancestors without invoking an owner command or read.
-    if (destination) {
-      let ancestor = target.parentElement;
-      while (ancestor && ancestor !== element) {
-        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
-        ancestor = ancestor.parentElement;
-      }
-    }
-    scrollToSection(destination ? target : element);
-    target.focus({ preventScroll: true });
+    if (element.contains(target))
+      activate(section, element, target, destination ? target : element);
   };
   const observeScroll = () => {
     const body = bodyRef.current;
-    if (!body || !sections.length) return;
-    if (positionedScroll.current === body.scrollTop) return;
+    if (!body || !sections.length) return false;
+    if (positionedScroll.current === body.scrollTop) {
+      positionedScroll.current = null;
+      return false;
+    }
     positionedScroll.current = null;
     if (body.scrollHeight <= body.clientHeight) {
       if (sections[0]) remember(sections[0].panel.panelId);
-      return;
+      return true;
     }
     const top = body.getBoundingClientRect().top;
     const preceding = sections.filter(
@@ -177,6 +214,7 @@ export function useWorkbookInspectorNavigation(
         ? sections.at(-1)
         : (preceding.at(-1) ?? sections[0]);
     if (current) remember(current.panel.panelId);
+    return true;
   };
   const admittedIds = sections.map(({ panel }) => panel.panelId).join(",");
   useLayoutEffect(() => {
@@ -253,6 +291,7 @@ export function useWorkbookInspectorNavigation(
     triggerRef,
     closeRef,
     choose,
+    navigateExplicit,
     reveal: scrollToSection,
     observeScroll,
     toggleMenu: () => setMenuScope(menuOpen ? null : scope),

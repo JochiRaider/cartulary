@@ -94,9 +94,15 @@ test("Inspector edits bind the selected record and retain dirty fields through s
   await expect(input).toHaveValue("  unfinished location  ");
   const inspector = page.getByTestId(entityInspectorTestId("host"));
   let historyReads = 0;
+  let inspectorWrites = 0;
   page.on("request", (request) => {
     if (request.url().includes(`/records/${f.first.record_id}/history`))
       historyReads++;
+    if (
+      request.method() === "PATCH" &&
+      new URL(request.url()).pathname.endsWith(`/records/${f.first.record_id}`)
+    )
+      inspectorWrites++;
   });
   for (const width of [1440, 760, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -117,12 +123,22 @@ test("Inspector edits bind the selected record and retain dirty fields through s
     await expect(
       inspector.getByRole("button", { name: "Open history", exact: true }),
     ).toBeFocused();
+    if (await chooser.isVisible()) {
+      await expect(chooser).toContainText("History");
+    } else {
+      await expect(
+        inspector.locator('[data-inspector-navigation-panel="history"]'),
+      ).toHaveAttribute("aria-current", "location");
+    }
     await expect(
       inspector.getByRole("button", { name: "Close inspector" }),
     ).toBeInViewport();
     await expect(input).toHaveValue("  unfinished location  ");
     if (await chooser.isVisible()) {
       await chooser.click();
+      await expect(
+        inspector.getByRole("button", { name: "History", exact: true }),
+      ).toHaveAttribute("aria-current", "location");
       await inspector
         .getByRole("button", { name: "Details", exact: true })
         .focus();
@@ -141,6 +157,7 @@ test("Inspector edits bind the selected record and retain dirty fields through s
     });
   }
   expect(historyReads).toBe(0);
+  expect(inspectorWrites).toBe(0);
   await page.setViewportSize({ width: 1440, height: 900 });
   await patchRecord(page, f.first.record_id, {
     view_schema_id: f.view,

@@ -87,7 +87,6 @@ type TimelineInteractionCompositionInput = {
   readonly onSpaceEvidence: KeyboardInput["onSpaceEvidence"];
   readonly workflow: {
     readonly handleTimelineGridContextKeyDown: KeyboardInput["handleTimelineGridContextKeyDown"];
-    readonly openRowHistory: KeyboardInput["openRowHistory"];
     readonly timelineRowForEventTarget: KeyboardInput["timelineRowForEventTarget"];
   };
 };
@@ -158,7 +157,6 @@ export function useTimelineInteractionComposition({
     elementRegistry: inspector.elementRegistry,
     handleTimelineGridContextKeyDown: workflow.handleTimelineGridContextKeyDown,
     navigateTimelineFocusAnchor: grid.navigateTimelineFocusAnchor,
-    openRowHistory: workflow.openRowHistory,
     onSpaceEvidence,
     queueCollectionSave: mutation.queueCollectionSave,
     queueScalarSave: mutation.queueScalarSave,

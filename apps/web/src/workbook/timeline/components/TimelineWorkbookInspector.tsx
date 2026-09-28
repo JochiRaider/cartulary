@@ -395,6 +395,8 @@ export function TimelineWorkbookInspector({
           accessibleLabel="Timeline inspector"
           config={inspectorConfig}
           elementRef={elementRegistry.registerRoot}
+          explicitNavigationRef={elementRegistry.registerDestinationNavigator}
+          onDeliberateNavigation={elementRegistry.cancelPendingFocus}
           testId={timelineInspectorTestId()}
           onClose={onClose}
           {...(subject

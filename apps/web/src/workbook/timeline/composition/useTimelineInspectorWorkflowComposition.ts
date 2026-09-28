@@ -154,6 +154,12 @@ export function useTimelineInspectorWorkflowComposition({
   const rowInteractions = useTimelineInspectorRowInteractions({
     currentCommittedRow: foundation.currentCommittedRow,
     elementRegistry: inspector.elementRegistry,
+    focusScopeKey: JSON.stringify([
+      inspector.lifecycle.lifecycleKey,
+      incident.currentRole,
+      foundation.loadAccessLost,
+    ]),
+    inspectorOpen: workbookInspectorStateIsOpen(inspector.lifecycle),
     publishViewingPresence: mutation.publishViewingPresence,
     rowsRef: foundation.rowsRef,
     selectedRowId: inspector.selection.selectedRowId,

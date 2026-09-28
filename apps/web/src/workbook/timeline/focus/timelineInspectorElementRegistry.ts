@@ -1,6 +1,7 @@
 import type { InspectorPanelId } from "@cartulary/view-contracts";
 import { useRef } from "react";
 import { workbookInspectorSubjectsEqual } from "../../inspector/workbookInspectorSubject";
+import type { WorkbookInspectorExplicitNavigation } from "../../layout/workbookInspectorNavigation";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 
@@ -9,6 +10,7 @@ type TimelineInspectorElement = HTMLElement;
 type TimelineInspectorElementScope = {
   readonly reviewGeneration: number;
   readonly lifecycleKey: string;
+  readonly authorityKey?: string;
   readonly subject: WorkbookRecordSubject | null;
 };
 
@@ -33,6 +35,7 @@ export function createTimelineInspectorElementRegistry(
 ) {
   let scope = initialScope;
   let root: HTMLElement | null = null;
+  let destinationNavigator: WorkbookInspectorExplicitNavigation | null = null;
   const panels = new Map<InspectorPanelId, TimelineInspectorElement>();
   let evidenceList: { recordId: string; element: HTMLElement } | null = null;
   let pendingFocus: {
@@ -45,18 +48,27 @@ export function createTimelineInspectorElementRegistry(
       !scopeMatchesIdentity(scope, pendingFocus.identity)
     )
       return false;
+    const panelId =
+      pendingFocus.target === "evidence_list"
+        ? "evidence"
+        : pendingFocus.target;
     const element =
       pendingFocus.target === "evidence_list"
         ? evidenceList?.recordId === pendingFocus.identity.recordId
           ? evidenceList.element
           : undefined
         : panels.get(pendingFocus.target);
-    if (!isUsableInspectorElement(element)) return false;
-    element.focus({ preventScroll: true });
-    element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-    if (document.activeElement !== element) return false;
-    pendingFocus = null;
-    return true;
+    if (!isUsableInspectorElement(element)) {
+      if (destinationNavigator?.(panelId, null) === "unavailable")
+        pendingFocus = null;
+      return false;
+    }
+    const result = destinationNavigator?.(
+      panelId,
+      panelId === "history" ? undefined : element,
+    );
+    if (result === "applied" || result === "unavailable") pendingFocus = null;
+    return result === "applied";
   };
   const triggers = new Map<string, HTMLElement>();
   let returnTarget: { readonly recordId: string; readonly key: string } | null =
@@ -149,9 +161,7 @@ export function createTimelineInspectorElementRegistry(
         collectionKey(identity.recordId, fieldKey, itemRef),
       );
       if (!isUsableInspectorElement(element)) return false;
-      element.focus({ preventScroll: true });
-      element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-      return document.activeElement === element;
+      return destinationNavigator?.("relationships", element) === "applied";
     },
     focusMention(
       identity: TimelineInspectorFocusIdentity,
@@ -167,12 +177,10 @@ export function createTimelineInspectorElementRegistry(
       ) {
         return false;
       }
-      registration.element.focus({ preventScroll: true });
-      registration.element.scrollIntoView?.({
-        block: "nearest",
-        inline: "nearest",
-      });
-      return document.activeElement === registration.element;
+      return (
+        destinationNavigator?.("relationships", registration.element) ===
+        "applied"
+      );
     },
     focusPanel(
       identity: TimelineInspectorFocusIdentity,
@@ -184,6 +192,12 @@ export function createTimelineInspectorElementRegistry(
     focusEvidenceList(identity: TimelineInspectorFocusIdentity) {
       pendingFocus = { identity, target: "evidence_list" };
       return attemptPendingFocus();
+    },
+    registerDestinationNavigator(
+      navigate: WorkbookInspectorExplicitNavigation | null,
+    ) {
+      destinationNavigator = navigate;
+      attemptPendingFocus();
     },
     registerEvidenceList(recordId: string, element: HTMLElement | null) {
       if (element === null) {
@@ -229,6 +243,7 @@ export function createTimelineInspectorElementRegistry(
       root = scope.subject === null ? null : element;
     },
     updateScope(nextScope: TimelineInspectorElementScope) {
+      if (scope.authorityKey !== nextScope.authorityKey) pendingFocus = null;
       if (scope.lifecycleKey !== nextScope.lifecycleKey) {
         triggers.clear();
         returnTarget = null;
@@ -252,8 +267,9 @@ export function createTimelineInspectorElementRegistry(
           const requested = pendingFocus;
           clear();
           if (
-            requested?.identity.recordId === nextScope.subject?.recordId &&
-            scope.lifecycleKey === nextScope.lifecycleKey
+            requested &&
+            scope.lifecycleKey === nextScope.lifecycleKey &&
+            scopeMatchesIdentity(nextScope, requested.identity)
           )
             pendingFocus = requested;
         }
@@ -266,16 +282,19 @@ export function createTimelineInspectorElementRegistry(
 
 export function useTimelineInspectorElementRegistry(
   lifecycle: WorkbookInspectorState,
+  authorityKey: string,
 ): TimelineInspectorElementRegistry {
   const registryRef = useRef<TimelineInspectorElementRegistry | null>(null);
   registryRef.current ??= createTimelineInspectorElementRegistry({
     reviewGeneration: lifecycle.reviewGeneration,
     lifecycleKey: lifecycle.lifecycleKey,
+    authorityKey,
     subject: lifecycle.phase === "open_ready" ? lifecycle.subject : null,
   });
   registryRef.current.updateScope({
     reviewGeneration: lifecycle.reviewGeneration,
     lifecycleKey: lifecycle.lifecycleKey,
+    authorityKey,
     subject: lifecycle.phase === "open_ready" ? lifecycle.subject : null,
   });
   return registryRef.current;

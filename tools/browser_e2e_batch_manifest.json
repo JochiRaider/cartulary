@@ -357,7 +357,8 @@
             "module.evidence.browser.sheet_handle_recovery_80d353a1f0",
             "module.evidence.browser.space_discovery_deadline_dcc019ff11",
             "module.evidence.browser.timeline_linked_blocked_preview_87b7079b89",
-            "module.evidence.browser.timeline_linked_text_review_3f18dc6414"
+            "module.evidence.browser.timeline_linked_text_review_3f18dc6414",
+            "module.timeline.browser.timeline_manage_tags_makes_relationships_current_3cb930689d"
           ],
           "specs": [
             "apps/web/e2e/evidence.spec.ts"

@@ -180,7 +180,6 @@ export function useTimelineKeyboardController({
   onSpaceEvidence,
   handleTimelineGridContextKeyDown,
   navigateTimelineFocusAnchor,
-  openRowHistory,
   queueCollectionSave,
   queueScalarSave,
   recordTiming,
@@ -222,7 +221,6 @@ export function useTimelineKeyboardController({
     anchor: GridCellAnchor,
     intent: GridNavigationIntent,
   ) => void;
-  readonly openRowHistory: (recordId: string) => void;
   readonly queueCollectionSave: QueueCollectionSave;
   readonly queueScalarSave: QueueScalarSave;
   readonly recordTiming: (
@@ -550,7 +548,9 @@ export function useTimelineKeyboardController({
       const recordId = intent.row.recordId;
       if (recordId === null) return;
       if (intent.kind === "open_panel" && intent.panelId === "history") {
-        openRowHistory(recordId);
+        setSelectedRowId(recordId);
+        setIsInspectorOpen(true);
+        setInspectorMessage(null);
         focusInspectorSection("history", intent.row);
         return;
       }
@@ -582,7 +582,6 @@ export function useTimelineKeyboardController({
     [
       focusInspectorSection,
       handleTimelineGridContextKeyDown,
-      openRowHistory,
       onSpaceEvidence,
       setInspectorMessage,
       setIsInspectorOpen,

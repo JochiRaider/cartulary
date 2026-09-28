@@ -92,11 +92,13 @@ export function useTimelineInspectorStateComposition({
   const isOpen = workbookInspectorStateIsOpen(coordinator.snapshot);
   const elementRegistry = useTimelineInspectorElementRegistry(
     coordinator.snapshot,
+    JSON.stringify([currentIncidentRole, readScope]),
   );
   const setCoordinatorOpen = coordinator.commands.setOpen;
   const setOpen = useCallback(
     (next: SetStateAction<boolean>) => {
       const nextOpen = typeof next === "function" ? next(isOpen) : next;
+      if (!nextOpen) elementRegistry.cancelPendingFocus();
       if (nextOpen && !isOpen) {
         inspectorContinuityTokenRef.current = continuity.capture();
       } else if (!nextOpen && isOpen) {
@@ -106,7 +108,13 @@ export function useTimelineInspectorStateComposition({
       }
       setCoordinatorOpen(next);
     },
-    [continuity, setCoordinatorOpen, isOpen, workbookFocusAnchorRef],
+    [
+      continuity,
+      elementRegistry,
+      setCoordinatorOpen,
+      isOpen,
+      workbookFocusAnchorRef,
+    ],
   );
   return {
     commands: {

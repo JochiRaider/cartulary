@@ -27,7 +27,6 @@ import {
   surfaceTabTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
-  timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
@@ -717,20 +716,36 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
 
+  let historyReads = 0;
+  page.on("request", (request) => {
+    if (request.url().includes(`/records/${alpha.record_id}/history`))
+      historyReads++;
+  });
   await page.keyboard.press("Alt+H");
   await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
     String(alpha.record_id),
   );
   await expect(
-    page.getByTestId(timelineInspectorSectionTestId("history")),
+    page.getByRole("button", { name: "Open history", exact: true }),
   ).toBeFocused();
+  await expect(
+    page
+      .getByTestId(timelineInspectorTestId())
+      .locator('[data-inspector-navigation-panel="history"]'),
+  ).toHaveAttribute("aria-current", "location");
+  expect(historyReads).toBe(0);
   expect(page.url()).toBe(initialURL);
 
   await alphaSummaryCell.focus();
   await page.keyboard.press("Space");
   await expect(
-    page.getByTestId(timelineInspectorSectionTestId("evidence")),
+    page.getByText("No linked Evidence records.", { exact: true }),
   ).toBeFocused();
+  await expect(
+    page
+      .getByTestId(timelineInspectorTestId())
+      .locator('[data-inspector-navigation-panel="evidence"]'),
+  ).toHaveAttribute("aria-current", "location");
 
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))

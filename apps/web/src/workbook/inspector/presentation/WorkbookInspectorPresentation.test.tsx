@@ -1,17 +1,25 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { workbookInspectorPanelTestId } from "@cartulary/ui-contracts";
 import {
   type InspectorDisabledCondition,
   type InspectorFeatureGroup,
   listViewContracts,
   requireViewContract,
 } from "@cartulary/view-contracts";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { RecordHistoryItem } from "../../adapters/workbookHistoryResponse";
 
 import {
+  type WorkbookInspectorExplicitNavigation,
   WorkbookInspectorNavigationContext,
   type WorkbookInspectorNavigationSelection,
   workbookInspectorSectionFocusDestination,
@@ -596,6 +604,140 @@ describe("Workbook Inspector presentation", () => {
     await user.click(screen.getByRole("button", { name: /^Sections:/ }));
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();
     expect(screen.getByText("Sections: Details")).not.toBeNull();
+  });
+  it("keeps an explicit destination current through its body scroll, then resumes passive selection", () => {
+    const details = hosts.inspectorConfig.panels.find(
+      (panel) => panel.panelId === "details",
+    );
+    const history = hosts.inspectorConfig.panels.find(
+      (panel) => panel.panelId === "history",
+    );
+    if (!details || !history) throw new Error("Missing declared sections");
+    const navigation = {
+      current: null as WorkbookInspectorExplicitNavigation | null,
+    };
+    const cancelPending = vi.fn();
+    const view = (showHistory: boolean) => (
+      <WorkbookInspectorShell
+        accessibleLabel="Hosts inspector"
+        config={hosts.inspectorConfig}
+        mode="saved"
+        subject={required(
+          buildWorkbookInspectorSubject({
+            config: hosts.inspectorConfig,
+            kind: "live",
+            label: "Host",
+            recordId: "host-a",
+            rowVersion: 3,
+            surfaceLabel: "Hosts",
+          }),
+        )}
+        onClose={vi.fn()}
+        onDeliberateNavigation={cancelPending}
+        explicitNavigationRef={(current) => {
+          navigation.current = current;
+        }}
+        sections={[
+          {
+            panel: details,
+            content: (
+              <input aria-label="Retained Details draft" defaultValue="raw" />
+            ),
+            focusDestination: workbookInspectorSectionFocusDestination,
+          },
+          ...(showHistory
+            ? [
+                {
+                  panel: history,
+                  content: (
+                    <button data-inspector-section-entry type="button">
+                      Open history
+                    </button>
+                  ),
+                  focusDestination: workbookInspectorSectionFocusDestination,
+                },
+              ]
+            : []),
+        ]}
+      />
+    );
+    const { rerender } = render(view(true));
+    const body = document.querySelector<HTMLElement>(
+      "[data-inspector-scroll-body]",
+    );
+    const detailsSection = screen.getByTestId(
+      workbookInspectorPanelTestId(hosts.viewSchemaId, "details"),
+    );
+    const historySection = screen.getByTestId(
+      workbookInspectorPanelTestId(hosts.viewSchemaId, "history"),
+    );
+    const openHistory = screen.getByRole("button", { name: "Open history" });
+    if (!body) throw new Error("Missing inspector body");
+    Object.defineProperties(body, {
+      clientHeight: { configurable: true, value: 100 },
+      offsetHeight: { configurable: true, value: 20 },
+      scrollHeight: { configurable: true, value: 500 },
+    });
+    const rect = (top: number) =>
+      ({
+        top,
+        bottom: top + 20,
+        left: 0,
+        right: 100,
+        x: 0,
+        y: top,
+        width: 100,
+        height: 20,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    vi.spyOn(body, "getBoundingClientRect").mockReturnValue(rect(0));
+    vi.spyOn(detailsSection, "getBoundingClientRect").mockImplementation(() =>
+      rect(-body.scrollTop),
+    );
+    vi.spyOn(historySection, "getBoundingClientRect").mockImplementation(() =>
+      rect(220 - body.scrollTop),
+    );
+    vi.spyOn(openHistory, "getBoundingClientRect").mockImplementation(() =>
+      rect(220 - body.scrollTop),
+    );
+    body.scrollTop = 0;
+    const documentTop = window.scrollY;
+    act(() => {
+      expect(navigation.current?.("history", openHistory)).toBe("applied");
+    });
+    expect(body.scrollTop).toBe(220);
+    expect(window.scrollY).toBe(documentTop);
+    expect(openHistory).toBe(document.activeElement);
+    expect(
+      screen
+        .getByRole("button", { name: "History" })
+        .getAttribute("aria-current"),
+    ).toBe("location");
+    fireEvent.scroll(body);
+    expect(cancelPending).not.toHaveBeenCalled();
+    expect(
+      screen
+        .getByRole("button", { name: "History" })
+        .getAttribute("aria-current"),
+    ).toBe("location");
+    body.scrollTop = 0;
+    fireEvent.scroll(body);
+    expect(cancelPending).toHaveBeenCalledTimes(1);
+    expect(
+      screen
+        .getByRole("button", { name: "Details" })
+        .getAttribute("aria-current"),
+    ).toBe("location");
+    expect(openHistory).toBe(document.activeElement);
+    rerender(view(false));
+    expect(navigation.current?.("history", null)).toBe("unavailable");
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Retained Details draft",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("raw");
   });
   it("measures navigation and fences owner attention without invoking commands", async () => {
     const user = userEvent.setup();

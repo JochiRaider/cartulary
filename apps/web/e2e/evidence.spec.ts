@@ -28,8 +28,10 @@ import {
   timelineDraftEvidenceFileInputTestId,
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   timelineScalarEditorTestId,
   workbookInspectorCloseButtonTestId,
+  workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookSurfacesMenuOptionTestId,
   workbookSurfacesMenuTriggerTestId,
@@ -297,6 +299,12 @@ test("reviews linked text Evidence from Timeline with Space and fresh explicit a
     ),
   });
   await focusTimelineGridCell(cell);
+  const gridShell = page.getByTestId(gridShellTestId(timelineViewSchemaId));
+  const gridScrollBefore = await gridShell.evaluate((element) => ({
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }));
+  const documentScrollBefore = await page.evaluate(() => window.scrollY);
   await page.keyboard.press("Space");
   await expect(
     page.getByRole("list", { name: "Linked Evidence" }),
@@ -325,6 +333,26 @@ test("reviews linked text Evidence from Timeline with Space and fresh explicit a
   await expect(
     page.getByRole("list", { name: "Linked Evidence" }),
   ).toBeFocused();
+  const timelineInspector = page.getByTestId(timelineInspectorTestId());
+  await expect(
+    timelineInspector.locator('[data-inspector-navigation-panel="evidence"]'),
+  ).toHaveAttribute("aria-current", "location");
+  await expect(
+    page.getByRole("list", { name: "Linked Evidence" }),
+  ).toBeInViewport();
+  await expectRevealedInInspectorBody(
+    page.getByRole("list", { name: "Linked Evidence" }),
+  );
+  await expect(
+    timelineInspector.getByRole("button", { name: "Close inspector" }),
+  ).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(documentScrollBefore);
+  expect(
+    await gridShell.evaluate((element) => ({
+      left: element.scrollLeft,
+      top: element.scrollTop,
+    })),
+  ).toEqual(gridScrollBefore);
   const previewButton = page.getByTestId(
     evidencePreviewButtonTestId(evidence.record_id, "inspector"),
   );
@@ -343,6 +371,10 @@ test("reviews linked text Evidence from Timeline with Space and fresh explicit a
   ).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(previewButton).toBeFocused();
+  await expect(
+    timelineInspector.locator('[data-inspector-navigation-panel="evidence"]'),
+  ).toHaveAttribute("aria-current", "location");
+  await expectRevealedInInspectorBody(previewButton);
   await expect(rawEditor).toHaveValue("  unfinished review note Ω  ");
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
@@ -425,6 +457,11 @@ test("reviews linked text Evidence from Timeline with Space and fresh explicit a
       await page.keyboard.press("Escape");
       await expect(action).toBeFocused();
       await expect(action).toBeInViewport();
+      await expect(
+        page
+          .getByTestId(timelineInspectorTestId())
+          .locator('[data-inspector-navigation-panel="evidence"]'),
+      ).toHaveAttribute("aria-current", "location");
       const width = await section.evaluate((element) => ({
         client: element.clientWidth,
         scroll: element.scrollWidth,
@@ -443,6 +480,53 @@ test("reviews linked text Evidence from Timeline with Space and fresh explicit a
       },
     });
   }
+});
+
+test("Timeline Manage Tags makes Relationships current without scrolling the grid", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TIMELINE-MANAGE-TAGS"),
+    "Timeline Manage Tags destination",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-manage-tags"),
+    "timeline.activity_synopsis_text": "Manage Tags source",
+  });
+  await openTimelineSurface(page, incidentId);
+  await openTimelineInspector(page, source.record_id);
+  const inspector = page.getByTestId(timelineInspectorTestId());
+  await expect(
+    inspector.locator('[data-inspector-navigation-panel="details"]'),
+  ).toHaveAttribute("aria-current", "location");
+  const gridShell = page.getByTestId(gridShellTestId(timelineViewSchemaId));
+  const gridScrollBefore = await gridShell.evaluate((element) => ({
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }));
+  const documentScrollBefore = await page.evaluate(() => window.scrollY);
+  await inspector.getByRole("button", { name: "Manage Tags" }).click();
+  const relationships = page.getByTestId(
+    workbookInspectorPanelTestId(timelineViewSchemaId, "relationships"),
+  );
+  await expect(relationships).toBeFocused();
+  await expect(
+    inspector.locator('[data-inspector-navigation-panel="relationships"]'),
+  ).toHaveAttribute("aria-current", "location");
+  await expect(relationships).toBeInViewport();
+  await expectRevealedInInspectorBody(relationships);
+  await expect(
+    inspector.getByRole("button", { name: "Close inspector" }),
+  ).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(documentScrollBefore);
+  expect(
+    await gridShell.evaluate((element) => ({
+      left: element.scrollLeft,
+      top: element.scrollTop,
+    })),
+  ).toEqual(gridScrollBefore);
 });
 
 test("keeps a blocked linked preview local and checks a mixed Space selection", async ({
@@ -1191,6 +1275,23 @@ async function openEvidenceSurface(page: Page, incidentId: string) {
   await expect(
     page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
   ).toBeVisible();
+}
+
+async function expectRevealedInInspectorBody(target: Locator) {
+  await expect
+    .poll(() =>
+      target.evaluate((element) => {
+        const body = element.closest("[data-inspector-scroll-body]");
+        if (!(body instanceof HTMLElement)) return false;
+        const bodyRect = body.getBoundingClientRect();
+        const targetRect = element.getBoundingClientRect();
+        return (
+          targetRect.bottom > bodyRect.top + 1 &&
+          targetRect.top < bodyRect.bottom - 1
+        );
+      }),
+    )
+    .toBe(true);
 }
 
 async function openTimelineSurface(page: Page, incidentId: string) {

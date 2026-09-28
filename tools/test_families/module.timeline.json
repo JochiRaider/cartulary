@@ -3036,6 +3036,41 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.timeline_manage_tags_makes_relationships_current_3cb930689d",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_manage_tags_destination"
+        ],
+        "titles": [
+          "Timeline Manage Tags makes Relationships current without scrolling the grid"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.timeline_review_read_preserves_newer_editing_449509d125",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -3601,6 +3636,7 @@
         "file": "apps/web/src/workbook/timeline/focus/timelineInspectorElementRegistry.test.ts",
         "titles": [
           "timeline inspector element registry clears registrations on lifecycle, generation, subject, and version changes",
+          "timeline inspector element registry does not fulfill superseded, invalidated, closed, or unavailable focus after late registration",
           "timeline inspector element registry focuses only panels and mentions for the captured canonical subject",
           "timeline inspector element registry fulfills first-open Evidence list focus only when the matching element registers",
           "timeline inspector element registry rejects disconnected, hidden, and disabled elements",

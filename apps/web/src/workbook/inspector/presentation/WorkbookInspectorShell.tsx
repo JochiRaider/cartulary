@@ -8,10 +8,19 @@ import type {
   InspectorPanel,
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
-import { type CSSProperties, type ReactNode, useId, useRef } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { workbookTypography } from "../../components/workbookFormStyles";
 import { workbookSurfaceInspectorPanelStyle } from "../../layout/WorkbookSurfaceLayout";
-import { useWorkbookInspectorNavigation } from "../../layout/workbookInspectorNavigation";
+import {
+  useWorkbookInspectorNavigation,
+  type WorkbookInspectorExplicitNavigation,
+} from "../../layout/workbookInspectorNavigation";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import { WorkbookInspectorActionButton } from "./WorkbookInspectorActions";
 import {
@@ -38,6 +47,10 @@ type ShellCommon = {
   readonly config: InspectorConfig;
   readonly elementRef?: ((element: HTMLElement | null) => void) | undefined;
   readonly onClose: () => void;
+  readonly explicitNavigationRef?:
+    | ((navigate: WorkbookInspectorExplicitNavigation | null) => void)
+    | undefined;
+  readonly onDeliberateNavigation?: (() => void) | undefined;
   readonly testId?: string | undefined;
 };
 
@@ -134,6 +147,7 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
     triggerRef,
     closeRef,
     choose,
+    navigateExplicit,
     reveal,
     observeScroll,
     toggleMenu,
@@ -141,6 +155,14 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
     remember,
     registerSection,
   } = useWorkbookInspectorNavigation(scope, sections);
+  useLayoutEffect(() => {
+    props.explicitNavigationRef?.(navigateExplicit);
+    return () => props.explicitNavigationRef?.(null);
+  }, [props.explicitNavigationRef, navigateExplicit]);
+  const chooseDeliberately: typeof choose = (section, destination) => {
+    props.onDeliberateNavigation?.();
+    choose(section, destination);
+  };
   return (
     <aside
       aria-label={accessibleLabel}
@@ -279,7 +301,7 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
                         ? "location"
                         : undefined
                     }
-                    onClick={() => choose(section)}
+                    onClick={() => chooseDeliberately(section)}
                   >
                     {section.panel.label}
                   </button>
@@ -310,7 +332,7 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
                             ? "location"
                             : undefined
                         }
-                        onClick={() => choose(section)}
+                        onClick={() => chooseDeliberately(section)}
                       >
                         {section.panel.label}
                       </WorkbookInspectorActionButton>
@@ -334,7 +356,7 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
               const single = attention.length === 1 ? attention[0] : undefined;
               if (single) {
                 if (admitsAttention(single.entry))
-                  choose(single.section, single.entry.destination);
+                  chooseDeliberately(single.section, single.entry.destination);
                 return;
               }
               if (attentionRef.current) reveal(attentionRef.current);
@@ -351,7 +373,9 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
         data-inspector-scroll-body
         style={bodyStyle}
         ref={bodyRef}
-        onScroll={observeScroll}
+        onScroll={() => {
+          if (observeScroll()) props.onDeliberateNavigation?.();
+        }}
       >
         {subject ? (
           <details>
@@ -375,7 +399,7 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
                   style={attentionButtonStyle}
                   onClick={() => {
                     if (admitsAttention(entry))
-                      choose(section, entry.destination);
+                      chooseDeliberately(section, entry.destination);
                   }}
                 >
                   {entry.label}
