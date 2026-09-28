@@ -10,6 +10,10 @@ import {
   useState,
 } from "react";
 import {
+  boundedRead,
+  ObservationStopped,
+} from "../../../services/asyncObservation";
+import {
   type EvidenceOperationState,
   evidenceOperationFeedback,
 } from "../../evidence/evidenceAccessPresentation";
@@ -89,6 +93,7 @@ export function useEvidenceHandleAccess(input: {
   const pending = useRef(new Map<string, Ticket>());
   const latestFeedback = useRef(new Map<string, number>());
   const previewRef = useRef<Preview | null>(null);
+  const previewPanelRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [operations, setOperations] = useState<Record<string, Operation>>({});
@@ -110,11 +115,17 @@ export function useEvidenceHandleAccess(input: {
 
   const clearPreview = useCallback((restore = false) => {
     const old = previewRef.current;
+    const ownsFocus =
+      previewPanelRef.current?.contains(document.activeElement) ?? false;
     previewRef.current = null;
     setPreview(null);
     if (old === null) return;
     old.ticket.controller.abort();
-    pending.current.delete(`preview:${old.ticket.target.recordId}`);
+    if (
+      pending.current.get(old.ticket.target.recordId)?.sequence ===
+      old.ticket.sequence
+    )
+      pending.current.delete(old.ticket.target.recordId);
     setOperations((current) => {
       if (current[old.ticket.target.recordId]?.sequence !== old.ticket.sequence)
         return current;
@@ -127,7 +138,7 @@ export function useEvidenceHandleAccess(input: {
       old.ticket.sequence
     )
       latestFeedback.current.delete(old.ticket.target.recordId);
-    if (restore) {
+    if (restore && ownsFocus) {
       if (usableInvoker(old.invoker)) old.invoker.focus();
       else inputRef.current.onRestoreFocus(old.ticket.target);
     }
@@ -223,9 +234,21 @@ export function useEvidenceHandleAccess(input: {
         !inputRef.current.isCurrent(target)
       )
         return null;
-      const key = `${kind}:${target.recordId}`;
-      pending.current.get(key)?.controller.abort();
+      const key = target.recordId;
+      const prior = pending.current.get(key);
+      if (
+        prior &&
+        prior.kind === kind &&
+        prior.target.identity === target.identity
+      )
+        return null;
+      prior?.controller.abort();
       pending.current.delete(key);
+      if (
+        prior?.kind === "preview" &&
+        previewRef.current?.ticket.sequence === prior.sequence
+      )
+        clearPreview();
       if (kind === "preview") clearPreview();
       const ticket: Ticket = {
         target,
@@ -242,15 +265,23 @@ export function useEvidenceHandleAccess(input: {
         setPreview(value);
       }
       publish(ticket, { kind: "pending", operation: kind });
-      let outcome: EvidenceHandleOutcome;
+      let outcome: EvidenceHandleOutcome | null = null;
+      let deadline = false;
       try {
-        outcome = await inputRef.current.port.issueHandle({
-          evidenceRecordId: target.recordId,
-          kind,
-          signal: ticket.controller.signal,
-        });
-      } catch {
-        outcome = { kind: "rejected", failure: unknownFailure };
+        outcome = await boundedRead(
+          (signal) =>
+            inputRef.current.port.issueHandle({
+              evidenceRecordId: target.recordId,
+              kind,
+              signal,
+            }),
+          ticket.controller.signal,
+        );
+      } catch (error) {
+        if (error instanceof ObservationStopped) {
+          if (error.reason === "aborted") return null;
+          deadline = true;
+        } else outcome = { kind: "rejected", failure: unknownFailure };
       }
       if (
         !targetCurrent(ticket) ||
@@ -258,10 +289,25 @@ export function useEvidenceHandleAccess(input: {
       )
         return null;
       pending.current.delete(key);
+      if (deadline) {
+        if (kind === "preview") {
+          const ownsFocus =
+            previewPanelRef.current?.contains(document.activeElement) ?? false;
+          previewRef.current = null;
+          setPreview(null);
+          if (ownsFocus) {
+            if (usableInvoker(invoker)) invoker.focus();
+            else inputRef.current.onRestoreFocus(target);
+          }
+        }
+        publish(ticket, { kind: "deadline", operation: kind });
+        return null;
+      }
+      if (outcome === null) return null;
       if (outcome.kind === "rejected") {
         if (kind === "preview") {
           const restoreFocus =
-            document.activeElement === closeButtonRef.current;
+            previewPanelRef.current?.contains(document.activeElement) ?? false;
           previewRef.current = null;
           setPreview(null);
           if (restoreFocus) {
@@ -317,6 +363,7 @@ export function useEvidenceHandleAccess(input: {
   }, [visiblePreviewSequence]);
   const overlay = visiblePreview ? (
     <section
+      ref={previewPanelRef}
       data-testid={evidencePreviewPanelTestId()}
       aria-label={`Evidence preview: ${preview.ticket.target.title}`}
       style={previewPanelStyle}

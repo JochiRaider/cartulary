@@ -35,6 +35,83 @@ function failure(
 }
 
 describe("evidenceAccessPresentation", () => {
+  it("keeps transient recovery separate from lifecycle and action blockers", () => {
+    const transient = classifyWorkbookOperationFailure(
+      503,
+      {
+        error: {
+          code: "object_store_unavailable",
+          status: 503,
+          retryable: true,
+          request_id: "request-2",
+          message: "private",
+          details: { reason_code: "endpoint_unreachable" },
+        },
+      },
+      "issueEvidencePreviewHandle",
+    );
+    const retry = buildEvidenceAccessPresentation(lifecycle, {
+      kind: "rejected",
+      operation: "preview",
+      failure: transient,
+    });
+    expect(retry).toMatchObject({
+      stateKey: "available",
+      canPreview: true,
+      canDownload: true,
+      retryKind: "preview",
+      busyKind: null,
+    });
+    expect(retry.message).toContain("Retry Preview");
+    expect(retry.message).not.toContain("private");
+    expect(
+      buildEvidenceAccessPresentation(lifecycle, {
+        kind: "deadline",
+        operation: "download",
+      }),
+    ).toMatchObject({
+      stateKey: "available",
+      canPreview: true,
+      canDownload: true,
+      retryKind: "download",
+    });
+    expect(
+      buildEvidenceAccessPresentation(lifecycle, {
+        kind: "rejected",
+        operation: "preview",
+        failure: failure("unsupported_preview"),
+      }),
+    ).toMatchObject({ canPreview: false, canDownload: true, retryKind: null });
+    expect(
+      buildEvidenceAccessPresentation(lifecycle, {
+        kind: "rejected",
+        operation: "preview",
+        failure: failure("evidence_quarantined"),
+      }),
+    ).toMatchObject({ canPreview: false, canDownload: false, retryKind: null });
+    const unknown = classifyWorkbookOperationFailure(
+      503,
+      {
+        error: {
+          code: "future_error",
+          status: 503,
+          retryable: true,
+          request_id: "request-3",
+          message: "private",
+          details: {},
+        },
+      },
+      "issueEvidencePreviewHandle",
+    );
+    expect(
+      buildEvidenceAccessPresentation(lifecycle, {
+        kind: "rejected",
+        operation: "preview",
+        failure: unknown,
+      }),
+    ).toMatchObject({ canPreview: false, canDownload: true, retryKind: null });
+  });
+
   it("derives polite preview blockers and distinct operation announcements from typed outcomes", () => {
     for (const reason of [
       "unsupported_preview",

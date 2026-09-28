@@ -210,6 +210,42 @@ function classifyDecodedError(
 ): WorkbookOperationFailure {
   const error = envelope.error;
   const message = publicMessage(envelope, operationID, status);
+  if (
+    operationID === "issueEvidencePreviewHandle" ||
+    operationID === "issueEvidenceDownloadHandle"
+  ) {
+    const reason = validatedPublicErrorReason(
+      error.code,
+      error.details.reason_code,
+    );
+    const invalid: WorkbookOperationFailure = {
+      kind: "invalid_contract",
+      message: "The server returned an invalid Evidence access response.",
+    };
+    if (error.code === "object_store_unavailable")
+      return status === 503 && error.status === 503 && error.retryable && reason
+        ? { kind: "retryable", message }
+        : invalid;
+    if (error.code === "object_store_access_rejected")
+      return status === 503 &&
+        error.status === 503 &&
+        !error.retryable &&
+        reason
+        ? { kind: "terminal", message }
+        : invalid;
+    if (error.code === "evidence_access_unavailable")
+      return status === 409 &&
+        error.status === 409 &&
+        !error.retryable &&
+        reason &&
+        (operationID === "issueEvidencePreviewHandle" ||
+          (reason !== "unsupported_preview" &&
+            reason !== "preview_payload_too_large"))
+        ? { kind: "terminal", message }
+        : invalid;
+    if (status >= 500 && error.code !== "session_required")
+      return { kind: "terminal", message };
+  }
   if (error.code === "same_field_conflict") {
     return conflictFailure(envelope, message);
   }
@@ -243,10 +279,18 @@ export function classifyWorkbookOperationFailure(
           decoded.envelope.error.details.reason_code,
         )
       : undefined;
+  const invalidEvidenceHandle =
+    classified.kind === "invalid_contract" &&
+    (operationID === "issueEvidencePreviewHandle" ||
+      operationID === "issueEvidenceDownloadHandle");
   return {
     ...classified,
-    ...(publicReason === undefined ? {} : { publicReason }),
-    ...(decoded.kind === "decoded" ? { publicCode: code } : {}),
+    ...(invalidEvidenceHandle || publicReason === undefined
+      ? {}
+      : { publicReason }),
+    ...(decoded.kind === "decoded" && !invalidEvidenceHandle
+      ? { publicCode: code }
+      : {}),
     presentation: resolvePublicErrorPresentation({
       code,
       hasAuthorizedMaterialization: false,

@@ -48,6 +48,7 @@ Hooks execute owner-local effects over semantic capabilities and pure
 | --- | --- |
 | [useTimelineCreateRelatedWorkflow.ts](useTimelineCreateRelatedWorkflow.ts) | Coordinates Timeline inspector related-row workflow state, draft values, semantic creation, and Evidence linking. |
 | [useTimelineEvidenceAttach.ts](useTimelineEvidenceAttach.ts) | Coordinates semantic Timeline Evidence attachment, validation feedback, and save/continuity handoff. |
+| [useTimelineLinkedEvidenceReview.tsx](useTimelineLinkedEvidenceReview.tsx) | Binds linked Evidence actions and Space intent to current Timeline row, link, inspector, and authority identity. |
 | [useTimelineHistoryActions.ts](useTimelineHistoryActions.ts) | Coordinates semantic Timeline history load, rollback, delete, restore, preview, and confirmation actions. |
 | [useTimelineHistoryState.ts](useTimelineHistoryState.ts) | Coordinates Timeline history panel and row-history state. |
 | [useTimelineInspectorFeatureController.ts](useTimelineInspectorFeatureController.ts) | Owns fail-closed Timeline inspector feature routing, mutually exclusive workflow activation, cancellation, and lifecycle invalidation. |

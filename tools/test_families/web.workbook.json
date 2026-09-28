@@ -1498,6 +1498,7 @@
       "selector": {
         "file": "apps/web/src/workbook/adapters/workbookOperationErrorPolicy.test.ts",
         "titles": [
+          "Workbook operation error policy accepts only canonical transient Evidence handle error identity",
           "Workbook operation error policy classifies exact conflicts, authentication, authorization, and stale targets",
           "Workbook operation error policy classifies validation, merge preconditions, and retryability exactly",
           "Workbook operation error policy fails malformed success, error, and conflict envelopes closed",
@@ -1527,7 +1528,8 @@
       "selector": {
         "file": "apps/web/src/workbook/evidence/evidenceAccessPresentation.test.ts",
         "titles": [
-          "evidenceAccessPresentation derives polite preview blockers and distinct operation announcements from typed outcomes"
+          "evidenceAccessPresentation derives polite preview blockers and distinct operation announcements from typed outcomes",
+          "evidenceAccessPresentation keeps transient recovery separate from lifecycle and action blockers"
         ]
       },
       "evidence_class": "unit",
@@ -1555,8 +1557,13 @@
         "titles": [
           "Evidence workbook bindings delegates file admission from both presentations to the retained owner",
           "Evidence workbook bindings discards pending preview completions after close retarget replacement deletion surface or access changes",
+          "Evidence workbook bindings does not restore focus from a disappearing Preview after focus moved elsewhere",
+          "Evidence workbook bindings ignores duplicate pending activation and fences a superseded Preview",
           "Evidence workbook bindings keeps the latest preview intent and does not claim loaded bytes on issuance",
+          "Evidence workbook bindings offers a fresh Preview after canonical transient object-store failure",
           "Evidence workbook bindings orders record feedback and download effects and discards completions after unmount or access loss",
+          "Evidence workbook bindings settles a stalled Download and keeps a late obsolete handle inert",
+          "Evidence workbook bindings settles a stalled Preview and permits a fresh attempt despite ignored abort",
           "Evidence workbook bindings shares safe feedback across distinct row and inspector views and announces each outcome once"
         ]
       },
@@ -5159,7 +5166,9 @@
         "titles": [
           "Timeline linked Evidence preview resolution distinguishes zero, one, multiple, and mixed blocked and previewable links",
           "Timeline linked Evidence preview resolution does not infer a sole item from failed or incomplete observation",
+          "Timeline linked Evidence preview resolution uses one deadline for the complete sequential discovery",
           "Timeline linked Evidence review intent discards a late probe after a row observation or authority change",
+          "Timeline linked Evidence review intent ends a stalled multi-link Space check without inferring a sole preview",
           "Timeline linked Evidence review intent leaves the list in place when capability observation is indeterminate",
           "Timeline linked Evidence review intent uses the returned target ID and a fresh handle after bounded Space probes"
         ]

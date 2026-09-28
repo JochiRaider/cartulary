@@ -50,6 +50,8 @@ export function EvidenceAccessActions({
         canRead={canRead}
         canPreview={access.canPreview}
         canDownload={access.canDownload}
+        retryKind={access.retryKind}
+        busyKind={access.busyKind}
         context={context}
         descriptionId={messageId}
         recordId={recordId}
@@ -76,6 +78,8 @@ export function EvidenceHandleButtons({
   canRead,
   canPreview,
   canDownload,
+  retryKind,
+  busyKind,
   context,
   descriptionId,
   labelSuffix,
@@ -85,6 +89,8 @@ export function EvidenceHandleButtons({
   readonly canRead: boolean;
   readonly canPreview: boolean;
   readonly canDownload: boolean;
+  readonly retryKind?: "preview" | "download" | null;
+  readonly busyKind?: "preview" | "download" | null;
   readonly context: EvidenceAccessContext;
   readonly descriptionId?: string;
   readonly labelSuffix?: string;
@@ -100,7 +106,7 @@ export function EvidenceHandleButtons({
     <div style={context === "row" ? rowStyle : buttonRowStyle}>
       {(["preview", "download"] as const).map((kind) => {
         const allowed = kind === "preview" ? canPreview : canDownload;
-        const label = kind === "preview" ? "Preview" : "Download";
+        const label = `${retryKind === kind ? "Retry " : ""}${kind === "preview" ? "Preview" : "Download"}`;
         return (
           <button
             key={kind}
@@ -112,6 +118,7 @@ export function EvidenceHandleButtons({
             }
             disabled={!canRead}
             aria-disabled={!allowed}
+            aria-busy={busyKind === kind ? true : undefined}
             aria-describedby={descriptionId}
             aria-label={labelSuffix ? `${label} ${labelSuffix}` : undefined}
             style={{

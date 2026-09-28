@@ -9,6 +9,7 @@ import type { WorkbookOperationFailure } from "../mutations/workbookOperationOut
 export type EvidenceOperationKind = "preview" | "download" | "attach";
 export type EvidenceOperationState =
   | { readonly kind: "pending"; readonly operation: EvidenceOperationKind }
+  | { readonly kind: "deadline"; readonly operation: "preview" | "download" }
   | { readonly kind: "accepted"; readonly operation: EvidenceOperationKind }
   | {
       readonly kind: "rejected";
@@ -35,6 +36,8 @@ export type EvidenceAccessPresentation = EvidenceFeedback & {
   readonly uploadLabel: string;
   readonly canPreview: boolean;
   readonly canDownload: boolean;
+  readonly retryKind: "preview" | "download" | null;
+  readonly busyKind: "preview" | "download" | null;
 };
 
 const lifecycleLabels = {
@@ -109,6 +112,73 @@ function accessBlocker(failure: WorkbookOperationFailure) {
   );
 }
 
+function operationBlocker(
+  failure: WorkbookOperationFailure,
+  operation: EvidenceOperationKind,
+) {
+  const blocked = accessBlocker(failure);
+  return operation === "download" && blocked?.stateKey === "preview_blocked"
+    ? null
+    : blocked;
+}
+
+function transientAccessFailure(failure: WorkbookOperationFailure): boolean {
+  return (
+    failure.kind === "retryable" &&
+    failure.publicCode === "object_store_unavailable" &&
+    failure.publicReason !== undefined &&
+    ["endpoint_unreachable", "bucket_missing", "retry_exhausted"].includes(
+      failure.publicReason,
+    )
+  );
+}
+
+export function evidenceAccessActionAvailability(
+  operation: EvidenceOperationState | null,
+  lifecycleEligible: boolean,
+): {
+  readonly canPreview: boolean;
+  readonly canDownload: boolean;
+  readonly retryKind: "preview" | "download" | null;
+  readonly busyKind: "preview" | "download" | null;
+} {
+  let canPreview = lifecycleEligible;
+  let canDownload = lifecycleEligible;
+  let retryKind: "preview" | "download" | null = null;
+  let busyKind: "preview" | "download" | null = null;
+  if (operation?.kind === "pending" && operation.operation !== "attach") {
+    busyKind = operation.operation;
+    if (busyKind === "preview") canPreview = false;
+    else canDownload = false;
+  } else if (operation?.kind === "deadline") {
+    retryKind = lifecycleEligible ? operation.operation : null;
+  } else if (
+    operation?.kind === "rejected" &&
+    operation.operation !== "attach"
+  ) {
+    const blocked = operationBlocker(operation.failure, operation.operation);
+    if (blocked !== null) {
+      if (blocked.stateKey === "preview_blocked") canPreview = false;
+      else {
+        canPreview = false;
+        canDownload = false;
+      }
+    } else if (transientAccessFailure(operation.failure)) {
+      retryKind = lifecycleEligible ? operation.operation : null;
+    } else if (
+      operation.failure.kind === "authentication_required" ||
+      operation.failure.kind === "authorization_lost" ||
+      operation.failure.presentation?.family ===
+        "permission_or_incident_access_loss"
+    ) {
+      canPreview = false;
+      canDownload = false;
+    } else if (operation.operation === "preview") canPreview = false;
+    else canDownload = false;
+  }
+  return { canPreview, canDownload, retryKind, busyKind };
+}
+
 export function evidenceAccessFailureIsDefinitiveBlocker(
   failure: WorkbookOperationFailure,
 ): boolean {
@@ -119,6 +189,16 @@ export function evidenceAccessFailureIsDefinitiveBlocker(
 export function evidenceOperationFeedback(
   state: EvidenceOperationState,
 ): EvidenceFeedback {
+  if (state.kind === "deadline") {
+    const label =
+      state.operation === "preview" ? "Retry Preview" : "Retry Download";
+    return {
+      label,
+      message: `The ${state.operation} request took too long to confirm. Choose ${label} to try again.`,
+      tone: "warning",
+      announcement: "assertive",
+    };
+  }
   if (state.kind === "pending") {
     const message =
       state.operation === "preview"
@@ -156,8 +236,18 @@ export function evidenceOperationFeedback(
   const presentation =
     failure.presentation ?? cartularyErrorPresentation("unknown_future_error");
   const announcement = presentation.live === "polite" ? "polite" : "assertive";
-  const blocked = accessBlocker(failure);
+  const blocked = operationBlocker(failure, state.operation);
   if (blocked !== null) return { ...blocked, tone: "warning", announcement };
+  if (state.operation !== "attach" && transientAccessFailure(failure)) {
+    const label =
+      state.operation === "preview" ? "Retry Preview" : "Retry Download";
+    return {
+      label,
+      message: `Object storage is temporarily unavailable. Choose ${label} to try again.`,
+      tone: "warning",
+      announcement: "assertive",
+    };
+  }
   let message: string;
   if (failure.kind === "authentication_required")
     message = "Sign in again to access evidence.";
@@ -253,8 +343,10 @@ export function buildEvidenceAccessPresentation(
     label = "Upload pending";
     message = accessBlockers.blob_pending.message;
   }
-  let canPreview = lifecycle.accessEligible;
-  let canDownload = lifecycle.accessEligible;
+  const availability = evidenceAccessActionAvailability(
+    operation,
+    lifecycle.accessEligible,
+  );
   let feedback: EvidenceFeedback = {
     label,
     message,
@@ -263,23 +355,20 @@ export function buildEvidenceAccessPresentation(
   };
   if (operation !== null) {
     feedback = evidenceOperationFeedback(operation);
-    if (operation.kind === "rejected" && operation.operation !== "attach") {
-      const blocked = accessBlocker(operation.failure);
-      stateKey = blocked?.stateKey ?? "public_error";
-      canPreview = false;
-      // Preview limitations do not grant download permission; retain only independent eligibility.
-      canDownload =
-        lifecycle.accessEligible &&
-        operation.operation === "preview" &&
-        blocked?.stateKey === "preview_blocked";
-    }
+    if (
+      operation.kind === "rejected" &&
+      operation.operation !== "attach" &&
+      !transientAccessFailure(operation.failure)
+    )
+      stateKey =
+        operationBlocker(operation.failure, operation.operation)?.stateKey ??
+        "public_error";
   }
   return {
     ...feedback,
     stateKey,
     lifecycleLabel,
     uploadLabel,
-    canPreview,
-    canDownload,
+    ...availability,
   };
 }

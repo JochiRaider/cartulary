@@ -30,6 +30,8 @@ recreated. Session-observation supersession remains with the session owner.
 | [EvidenceAttachmentContext.ts](EvidenceAttachmentContext.ts) | Supplies both incident-retained file owners to grid and inspector presentations. |
 | [EvidenceFileRecovery.tsx](EvidenceFileRecovery.tsx) | Compact local stage feedback and explicit review, resume, fresh upload, discard and refresh controls. |
 | [EvidenceAccessActions.tsx](EvidenceAccessActions.tsx) | Evidence preview/download actions with access feedback and shared control styles. |
+| [resolveSolePreviewableEvidence.ts](resolveSolePreviewableEvidence.ts) | One bounded sequential Space discovery, returning an exact sole item only after complete observations. |
+| [useEvidenceHandleAccess.tsx](useEvidenceHandleAccess.tsx) | Shared bounded handle issuance, current-identity admission, preview/download effects, and focus-safe recovery. |
 | [EvidenceAttachmentEntry.tsx](EvidenceAttachmentEntry.tsx) | Shared chooser captures its invoking callback until completion/cancellation, including presentation detachment. Named drop/paste regions delegate once to their source owner; external actions borrow editor focus. |
 | [RelatedEvidencePartyControl.tsx](RelatedEvidencePartyControl.tsx) | Party selection and linking controls for Timeline-related Evidence authoring. |
 | [TimelineRelatedEvidenceContext.ts](TimelineRelatedEvidenceContext.ts) | React context exposing Timeline-related Evidence operation ownership. |
@@ -54,7 +56,8 @@ recreated. Session-observation supersession remains with the session owner.
 | [evidenceFileRecovery.test.ts](evidenceFileRecovery.test.ts) | Stage uncertainty, complete receipts, source identity, retirement and current-authority recovery. |
 | [timelineRelatedEvidenceAuthoring.test.tsx](timelineRelatedEvidenceAuthoring.test.tsx) | Tests source-bound Evidence drafts, authoring minima, exact omission, and presentation detachment. |
 | [timelineRelatedEvidenceRecovery.test.tsx](timelineRelatedEvidenceRecovery.test.tsx) | Tests duplicate reservation, independent creation/link receipts, and link-only recovery. |
-| [useEvidenceWorkbookBindings.test.tsx](useEvidenceWorkbookBindings.test.tsx) | Tests latest preview intent and stale preview rejection across subject and authority changes. |
+| [resolveSolePreviewableEvidence.test.ts](resolveSolePreviewableEvidence.test.ts) | Tests exact Space discovery, deadline indeterminacy, fresh display issuance, and stale-result fences. |
+| [useEvidenceWorkbookBindings.test.tsx](useEvidenceWorkbookBindings.test.tsx) | Tests bounded Preview/Download, explicit transient recovery, current identity, and stale-result fences. |
 
 ## Ordinary creation seam
 

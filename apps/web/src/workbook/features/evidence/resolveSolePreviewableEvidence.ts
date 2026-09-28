@@ -1,3 +1,7 @@
+import {
+  boundedRead,
+  ObservationStopped,
+} from "../../../services/asyncObservation";
 import { evidenceAccessFailureIsDefinitiveBlocker } from "../../evidence/evidenceAccessPresentation";
 import type {
   EvidenceCapabilityPort,
@@ -26,26 +30,35 @@ export async function resolveSolePreviewableEvidence(
   signal: AbortSignal,
   isCurrent: () => boolean,
 ): Promise<SolePreviewResult> {
-  let sole: string | null = null;
-  for (const recordId of recordIds) {
-    if (signal.aborted || !isCurrent()) return { kind: "indeterminate" };
-    let outcome: EvidenceHandleOutcome;
-    try {
-      outcome = await port.issueHandle({
-        evidenceRecordId: recordId,
-        kind: "preview",
-        signal,
-      });
-    } catch {
-      return { kind: "indeterminate" };
-    }
-    if (signal.aborted || !isCurrent()) return { kind: "indeterminate" };
-    const result = classifyPreviewProbe(outcome);
-    if (result === "indeterminate") return { kind: "indeterminate" };
-    if (result === "previewable") {
-      if (sole !== null) return { kind: "multiple" };
-      sole = recordId;
-    }
+  try {
+    return await boundedRead(
+      async (boundedSignal): Promise<SolePreviewResult> => {
+        let sole: string | null = null;
+        for (const recordId of recordIds) {
+          if (boundedSignal.aborted || !isCurrent())
+            return { kind: "indeterminate" };
+          const outcome = await port.issueHandle({
+            evidenceRecordId: recordId,
+            kind: "preview",
+            signal: boundedSignal,
+          });
+          if (boundedSignal.aborted || !isCurrent())
+            return { kind: "indeterminate" };
+          const result = classifyPreviewProbe(outcome);
+          if (result === "indeterminate") return { kind: "indeterminate" };
+          if (result === "previewable") {
+            if (sole !== null) return { kind: "multiple" };
+            sole = recordId;
+          }
+        }
+        return sole === null
+          ? { kind: "none" }
+          : { kind: "sole", recordId: sole };
+      },
+      signal,
+    );
+  } catch (error) {
+    if (error instanceof ObservationStopped) return { kind: "indeterminate" };
+    return { kind: "indeterminate" };
   }
-  return sole === null ? { kind: "none" } : { kind: "sole", recordId: sole };
 }

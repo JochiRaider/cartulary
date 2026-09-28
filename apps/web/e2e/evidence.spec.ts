@@ -70,6 +70,19 @@ test.beforeEach(({ page }) => {
   failOnUnexpectedPageError(page);
 });
 
+function evidenceTransientResponse() {
+  return JSON.stringify({
+    error: {
+      code: "object_store_unavailable",
+      status: 503,
+      retryable: true,
+      request_id: "request-object-store",
+      message: "private",
+      details: { reason_code: "endpoint_unreachable" },
+    },
+  });
+}
+
 test("attaches a screenshot to a selected Timeline row without leaving the workbook surface", async ({
   page,
 }) => {
@@ -535,6 +548,362 @@ test("keeps a blocked linked preview local and checks a mixed Space selection", 
   expect(
     requests.filter((entry) => entry.endsWith("/download-handle")),
   ).toHaveLength(0);
+});
+
+test("recovers linked Preview after transient storage failure without submitting an inspector draft", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("EVIDENCE-LINK-RETRY"),
+    "Linked Evidence retry",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("linked-retry-source"),
+    "timeline.activity_synopsis_text": "Source with unfinished review",
+  });
+  const evidence = await createUploadedEvidence(page, incidentId, {
+    title: "Recoverable linked notes",
+    filename: "retry.txt",
+    contentType: "text/plain",
+    body: Buffer.from("fresh linked preview", "utf8"),
+  });
+  await linkEvidenceToTimeline(page, source.record_id, source.row_version, [
+    evidence.record_id,
+  ]);
+  const path = `**/evidence-records/${evidence.record_id}/preview-handle`;
+  const bodies: string[] = [];
+  let attempts = 0;
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      new URL(request.url()).pathname.endsWith(`/records/${source.record_id}`)
+    )
+      writes++;
+  });
+  await page.route(path, async (route) => {
+    bodies.push(route.request().postData() ?? "");
+    if (attempts++ === 0)
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: evidenceTransientResponse(),
+      });
+    else await route.continue();
+  });
+  await openTimelineSurface(page, incidentId);
+  await openTimelineInspector(page, source.record_id);
+  await page.getByRole("button", { name: "Edit Activity Synopsis" }).click();
+  const editor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: source.record_id,
+      surface: "inspector",
+    }),
+  );
+  await editor.fill("  unfinished review note Ω  ");
+  await editor.evaluate((element: HTMLInputElement | HTMLTextAreaElement) =>
+    element.setSelectionRange(3, 10),
+  );
+  const caret = await editor.evaluate(
+    (element: HTMLInputElement | HTMLTextAreaElement) => ({
+      start: element.selectionStart,
+      end: element.selectionEnd,
+    }),
+  );
+  const grid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
+  const scroll = await grid.evaluate((element) => ({
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }));
+  const preview = page.getByTestId(
+    evidencePreviewButtonTestId(evidence.record_id, "inspector"),
+  );
+  await preview.click();
+  await expect(preview).toHaveText("Retry Preview");
+  await expect(
+    page.getByText(/Object storage is temporarily unavailable/u),
+  ).toBeVisible();
+  await preview.click();
+  await expect(
+    page.getByTestId(evidencePreviewFrameTestId(evidence.record_id)),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(preview).toBeFocused();
+  await expect(editor).toHaveValue("  unfinished review note Ω  ");
+  expect(
+    await editor.evaluate(
+      (element: HTMLInputElement | HTMLTextAreaElement) => ({
+        start: element.selectionStart,
+        end: element.selectionEnd,
+      }),
+    ),
+  ).toEqual(caret);
+  expect(
+    await grid.evaluate((element) => ({
+      left: element.scrollLeft,
+      top: element.scrollTop,
+    })),
+  ).toEqual(scroll);
+  await expect(
+    page
+      .getByTestId(timelineInspectorSectionTestId("evidence"))
+      .getByText("Recoverable linked notes", { exact: true }),
+  ).toBeVisible();
+  expect(bodies).toEqual(["{}", "{}"]);
+  expect(writes).toBe(0);
+});
+
+test("bounds mixed-link Space discovery and leaves explicit linked actions usable", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("EVIDENCE-SPACE-BOUND"),
+    "Bounded Space discovery",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("space-bound-source"),
+    "timeline.activity_synopsis_text": "Mixed preview source",
+  });
+  const safe = await createUploadedEvidence(page, incidentId, {
+    title: "Available text",
+    filename: "available.txt",
+    contentType: "text/plain",
+    body: Buffer.from("available preview", "utf8"),
+  });
+  const other = await createUploadedEvidence(page, incidentId, {
+    title: "Held text",
+    filename: "held.txt",
+    contentType: "text/plain",
+    body: Buffer.from("held preview", "utf8"),
+  });
+  await linkEvidenceToTimeline(page, source.record_id, source.row_version, [
+    safe.record_id,
+    other.record_id,
+  ]);
+  await page.clock.install();
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let observeHeld = () => {};
+  const heldObserved = new Promise<void>((resolve) => {
+    observeHeld = resolve;
+  });
+  let settleHeld = () => {};
+  const heldSettled = new Promise<void>((resolve) => {
+    settleHeld = resolve;
+  });
+  const heldPath = `**/evidence-records/${other.record_id}/preview-handle`;
+  await page.route(heldPath, async (route) => {
+    observeHeld();
+    await gate;
+    try {
+      await route.continue();
+    } catch {
+      /* The local deadline may abort this request. */
+    } finally {
+      settleHeld();
+    }
+  });
+  try {
+    await openTimelineSurface(page, incidentId);
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: rowCellTestId(
+        source.record_id,
+        "timeline.activity_synopsis_text",
+      ),
+    });
+    const cell = page.getByTestId(
+      rowCellTestId(source.record_id, "timeline.activity_synopsis_text"),
+    );
+    await focusTimelineGridCell(cell);
+    await page.keyboard.press("Space");
+    await expect(page.getByText("Checking linked previews…")).toBeVisible();
+    await heldObserved;
+    await page.clock.fastForward(30_000);
+    await expect(
+      page.getByText(/Preview availability could not be fully checked/u),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Linked Evidence" }),
+    ).toBeVisible();
+    await expect(page.getByTestId(evidencePreviewPanelTestId())).toHaveCount(0);
+    const direct = page.getByTestId(
+      evidencePreviewButtonTestId(safe.record_id, "inspector"),
+    );
+    await direct.click();
+    await expect(
+      page.getByTestId(evidencePreviewFrameTestId(safe.record_id)),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    release();
+    await heldSettled;
+    await page.clock.fastForward(1);
+    await expect(page.getByTestId(evidencePreviewPanelTestId())).toHaveCount(0);
+  } finally {
+    release();
+    await page.unroute(heldPath);
+  }
+});
+
+test("recovers Evidence sheet Preview and Download with fresh handle requests", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("EVIDENCE-SHEET-RETRY"),
+    "Evidence sheet retry",
+  );
+  const evidence = await createUploadedEvidence(page, incidentId, {
+    title: "Recoverable sheet file",
+    filename: "sheet.txt",
+    contentType: "text/plain",
+    body: Buffer.from("sheet preview", "utf8"),
+  });
+  const bodies: string[] = [];
+  const attempts = { preview: 0, download: 0 };
+  for (const kind of ["preview", "download"] as const) {
+    await page.route(
+      `**/evidence-records/${evidence.record_id}/${kind}-handle`,
+      async (route) => {
+        bodies.push(route.request().postData() ?? "");
+        if (attempts[kind]++ === 0)
+          await route.fulfill({
+            status: 503,
+            contentType: "application/json",
+            body: evidenceTransientResponse(),
+          });
+        else await route.continue();
+      },
+    );
+  }
+  await openEvidenceSurface(page, incidentId);
+  const preview = page.getByTestId(
+    evidencePreviewButtonTestId(evidence.record_id),
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: evidencePreviewButtonTestId(evidence.record_id),
+  });
+  await preview.click();
+  await expect(preview).toHaveText("Retry Preview");
+  await preview.click();
+  await expect(
+    page.getByTestId(evidencePreviewFrameTestId(evidence.record_id)),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  const download = page.getByTestId(
+    evidenceDownloadButtonTestId(evidence.record_id),
+  );
+  await download.click();
+  await expect(download).toHaveText("Retry Download");
+  await download.click();
+  await expect(
+    page.getByTestId(evidenceAccessMessageTestId(evidence.record_id)),
+  ).toHaveText("Download requested");
+  expect(attempts).toEqual({ preview: 2, download: 2 });
+  expect(bodies).toEqual(["{}", "{}", "{}", "{}"]);
+});
+
+test("fences a pending linked Download when newer Preview loses current authorization", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("EVIDENCE-AUTH-FENCE"),
+    "Evidence authority fence",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("auth-fence-source"),
+    "timeline.activity_synopsis_text": "Authority fence source",
+  });
+  const evidence = await createUploadedEvidence(page, incidentId, {
+    title: "Authority fence file",
+    filename: "fence.txt",
+    contentType: "text/plain",
+    body: Buffer.from("fence preview", "utf8"),
+  });
+  await linkEvidenceToTimeline(page, source.record_id, source.row_version, [
+    evidence.record_id,
+  ]);
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let observeHeld = () => {};
+  const heldObserved = new Promise<void>((resolve) => {
+    observeHeld = resolve;
+  });
+  let settleHeld = () => {};
+  const heldSettled = new Promise<void>((resolve) => {
+    settleHeld = resolve;
+  });
+  let downloads = 0;
+  page.on("download", () => {
+    downloads++;
+  });
+  const heldPath = `**/evidence-records/${evidence.record_id}/download-handle`;
+  await page.route(heldPath, async (route) => {
+    observeHeld();
+    await gate;
+    try {
+      await route.continue();
+    } catch {
+      /* Superseded intent may abort transport. */
+    } finally {
+      settleHeld();
+    }
+  });
+  await page.route(
+    `**/evidence-records/${evidence.record_id}/preview-handle`,
+    async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "authorization_denied",
+            status: 403,
+            retryable: false,
+            request_id: "request-authority",
+            message: "private",
+            details: {},
+          },
+        }),
+      });
+    },
+  );
+  try {
+    await openTimelineSurface(page, incidentId);
+    await openTimelineInspector(page, source.record_id);
+    await page
+      .getByTestId(
+        evidenceDownloadButtonTestId(evidence.record_id, "inspector"),
+      )
+      .click();
+    await heldObserved;
+    await page
+      .getByTestId(evidencePreviewButtonTestId(evidence.record_id, "inspector"))
+      .click();
+    await expect(
+      page.getByTestId(
+        evidencePreviewButtonTestId(evidence.record_id, "inspector"),
+      ),
+    ).toBeDisabled();
+    release();
+    await heldSettled;
+    await expect(page.getByTestId(evidencePreviewPanelTestId())).toHaveCount(0);
+    expect(downloads).toBe(0);
+  } finally {
+    release();
+    await page.unroute(heldPath);
+  }
 });
 
 test("tracks requested evidence before a blob exists and later advances it", async ({

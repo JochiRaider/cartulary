@@ -351,7 +351,11 @@
             "module.evidence.browser.file_picker_targeting",
             "module.evidence.browser.file_row_targeting",
             "module.evidence.browser.file_stage_recovery",
+            "module.evidence.browser.linked_authority_fence_1ac7e5b680",
+            "module.evidence.browser.linked_preview_recovery_6065aad8d8",
             "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd",
+            "module.evidence.browser.sheet_handle_recovery_80d353a1f0",
+            "module.evidence.browser.space_discovery_deadline_dcc019ff11",
             "module.evidence.browser.timeline_linked_blocked_preview_87b7079b89",
             "module.evidence.browser.timeline_linked_text_review_3f18dc6414"
           ],

@@ -24,6 +24,57 @@ function publicError(
 }
 
 describe("Workbook operation error policy", () => {
+  it("accepts only canonical transient Evidence handle error identity", () => {
+    const operation = "issueEvidencePreviewHandle";
+    expect(
+      classifyWorkbookOperationFailure(
+        503,
+        publicError("object_store_unavailable", 503, {
+          retryable: true,
+          details: { reason_code: "endpoint_unreachable" },
+        }),
+        operation,
+      ),
+    ).toMatchObject({
+      kind: "retryable",
+      publicCode: "object_store_unavailable",
+      publicReason: "endpoint_unreachable",
+    });
+    for (const [status, payload] of [
+      [
+        503,
+        publicError("object_store_unavailable", 503, {
+          details: { reason_code: "endpoint_unreachable" },
+        }),
+      ],
+      [
+        502,
+        publicError("object_store_unavailable", 503, {
+          retryable: true,
+          details: { reason_code: "endpoint_unreachable" },
+        }),
+      ],
+      [
+        503,
+        publicError("object_store_unavailable", 503, {
+          retryable: true,
+          details: { reason_code: "future_reason" },
+        }),
+      ],
+      [
+        503,
+        publicError("object_store_access_rejected", 503, {
+          details: { reason_code: "credential_denied" },
+        }),
+      ],
+      [503, publicError("future_retryable_error", 503, { retryable: true })],
+    ] as const) {
+      expect(
+        classifyWorkbookOperationFailure(status, payload, operation).kind,
+      ).not.toBe("retryable");
+    }
+  });
+
   it("fails malformed success, error, and conflict envelopes closed", () => {
     expect(
       classifyWorkbookOperationFailure(

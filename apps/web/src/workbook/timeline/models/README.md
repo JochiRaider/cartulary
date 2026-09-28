@@ -68,6 +68,7 @@ Settlement uses that capture to preserve newer authoring.
 | --- | --- |
 | [timelineEvidenceAttachmentPlan.test.ts](timelineEvidenceAttachmentPlan.test.ts) | Covers explicit record/draft source capture, accepted draft aliases, missing/unavailable/ambiguous rejection, and pending-creation ownership. |
 | [timelineEvidenceAttachmentPlan.ts](timelineEvidenceAttachmentPlan.ts) | Pure file-gesture target resolution and source snapshots; never takes Inspector selection or visual row coordinates. |
+| [timelineEvidenceLinks.ts](timelineEvidenceLinks.ts) | Validates current linked Evidence identities and keys link observations for review fences. |
 | [timelineHistoryModel.ts](timelineHistoryModel.ts) | Selects the canonical live/deleted Timeline History subject across selection, deletion, and restore. |
 | [timelineMentionActionPlan.test.ts](timelineMentionActionPlan.test.ts) | Covers Mention source/version refresh, typed target validation, access loss, surface changes, and entity-create admission. |
 | [timelineMentionActionPlan.ts](timelineMentionActionPlan.ts) | Builds an exact mention-action subject from a committed Timeline row and public mention identity. |

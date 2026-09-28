@@ -128,9 +128,39 @@ function review(row: WorkbookRow, evidence: EvidenceCapabilityPort) {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("Timeline linked Evidence preview resolution", () => {
+  it("uses one deadline for the complete sequential discovery", async () => {
+    vi.useFakeTimers();
+    let finishFirst!: (value: EvidenceHandleOutcome) => void;
+    const first = new Promise<EvidenceHandleOutcome>((resolve) => {
+      finishFirst = resolve;
+    });
+    const unresolved = new Promise<EvidenceHandleOutcome>(() => undefined);
+    const source: EvidenceCapabilityPort = {
+      issueHandle: vi
+        .fn()
+        .mockReturnValueOnce(first)
+        .mockReturnValueOnce(unresolved),
+    };
+    const resolving = resolveSolePreviewableEvidence(
+      ["one", "two", "three"],
+      source,
+      new AbortController().signal,
+      () => true,
+    );
+    expect(source.issueHandle).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(20_000);
+    finishFirst(accepted);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(source.issueHandle).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await resolving).toEqual({ kind: "indeterminate" });
+    expect(source.issueHandle).toHaveBeenCalledTimes(2);
+  });
+
   it("distinguishes zero, one, multiple, and mixed blocked and previewable links", async () => {
     const signal = new AbortController().signal;
     const current = () => true;
@@ -144,7 +174,7 @@ describe("Timeline linked Evidence preview resolution", () => {
     expect(single.issueHandle).toHaveBeenCalledWith({
       evidenceRecordId: "one",
       kind: "preview",
-      signal,
+      signal: expect.any(AbortSignal),
     });
     const multiple = port({ one: accepted, two: accepted, three: accepted });
     expect(
@@ -212,6 +242,30 @@ describe("Timeline linked Evidence preview resolution", () => {
 });
 
 describe("Timeline linked Evidence review intent", () => {
+  it("ends a stalled multi-link Space check without inferring a sole preview", async () => {
+    vi.useFakeTimers();
+    let settle!: (value: EvidenceHandleOutcome) => void;
+    const pending = new Promise<EvidenceHandleOutcome>((resolve) => {
+      settle = resolve;
+    });
+    const source: EvidenceCapabilityPort = {
+      issueHandle: vi
+        .fn()
+        .mockResolvedValueOnce(accepted)
+        .mockReturnValueOnce(pending),
+    };
+    const row = timelineRow(["one", "two", "three"]);
+    const view = review(row, source);
+    await act(async () => view.result.current.startSpace(row));
+    expect(view.result.current.spaceStatus).toBe("checking");
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(view.result.current.spaceStatus).toBe("indeterminate");
+    expect(view.result.current.access.overlay).toBeNull();
+    await act(async () => settle(accepted));
+    expect(view.result.current.access.overlay).toBeNull();
+    view.unmount();
+  });
+
   it("uses the returned target ID and a fresh handle after bounded Space probes", async () => {
     const row = timelineRow(["blocked", "target", "blocked-again"]);
     const source = port({

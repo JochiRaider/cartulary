@@ -15,6 +15,7 @@ import {
 } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
 import {
   inspectorPanel,
   WorkbookInspectorPanelContent,
@@ -94,9 +95,148 @@ function clickDownload(id = row.record_id) {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("Evidence workbook bindings", () => {
+  it("ignores duplicate pending activation and fences a superseded Preview", async () => {
+    const oldPreview = deferred();
+    const newDownload = deferred();
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    const props = defaults();
+    props.mutationCommands.issueHandle
+      .mockReturnValueOnce(oldPreview.promise)
+      .mockReturnValueOnce(newDownload.promise);
+    render(<Harness {...props} />);
+    clickPreview();
+    clickPreview();
+    expect(props.mutationCommands.issueHandle).toHaveBeenCalledTimes(1);
+    expect(
+      screen
+        .getByTestId(evidencePreviewButtonTestId(row.record_id))
+        .getAttribute("aria-busy"),
+    ).toBe("true");
+    clickDownload();
+    expect(props.mutationCommands.issueHandle).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId(evidencePreviewPanelTestId())).toBeNull();
+    await act(async () => oldPreview.resolve(accepted("superseded")));
+    expect(screen.queryByTestId(evidencePreviewPanelTestId())).toBeNull();
+    await act(async () => newDownload.resolve(accepted("current-download")));
+    expect(anchorClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not restore focus from a disappearing Preview after focus moved elsewhere", async () => {
+    const pending = deferred();
+    const props = defaults();
+    props.mutationCommands.issueHandle.mockReturnValue(pending.promise);
+    render(<Harness {...props} />);
+    clickPreview();
+    const destination = screen.getByTestId(
+      evidenceDownloadButtonTestId(otherRow.record_id),
+    );
+    destination.focus();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(document.activeElement).toBe(destination);
+    expect(props.onRestoreFocus).not.toHaveBeenCalled();
+    await act(async () => pending.resolve(accepted("closed")));
+    expect(document.activeElement).toBe(destination);
+  });
+
+  it("settles a stalled Preview and permits a fresh attempt despite ignored abort", async () => {
+    vi.useFakeTimers();
+    const stalled = deferred();
+    const props = defaults();
+    props.mutationCommands.issueHandle
+      .mockReturnValueOnce(stalled.promise)
+      .mockResolvedValueOnce(accepted("fresh-preview"));
+    render(<Harness {...props} />);
+    clickPreview();
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(screen.queryByTestId(evidencePreviewPanelTestId())).toBeNull();
+    expect(
+      screen.getByTestId(evidencePreviewButtonTestId(row.record_id))
+        .textContent,
+    ).toBe("Retry Preview");
+    clickPreview();
+    await act(async () => undefined);
+    expect(props.mutationCommands.issueHandle).toHaveBeenCalledTimes(2);
+    expect(
+      screen
+        .getByTestId(evidencePreviewFrameTestId(row.record_id))
+        .getAttribute("src"),
+    ).toContain("fresh-preview");
+    await act(async () => stalled.resolve(accepted("obsolete-preview")));
+    expect(
+      screen
+        .getByTestId(evidencePreviewFrameTestId(row.record_id))
+        .getAttribute("src"),
+    ).toContain("fresh-preview");
+  });
+
+  it("settles a stalled Download and keeps a late obsolete handle inert", async () => {
+    vi.useFakeTimers();
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    const stalled = deferred();
+    const props = defaults();
+    props.mutationCommands.issueHandle
+      .mockReturnValueOnce(stalled.promise)
+      .mockResolvedValueOnce(accepted("fresh-download"));
+    render(<Harness {...props} />);
+    clickDownload();
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(
+      screen.getByTestId(evidenceDownloadButtonTestId(row.record_id))
+        .textContent,
+    ).toBe("Retry Download");
+    clickDownload();
+    await act(async () => undefined);
+    expect(anchorClick).toHaveBeenCalledTimes(1);
+    await act(async () => stalled.resolve(accepted("obsolete-download")));
+    expect(anchorClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers a fresh Preview after canonical transient object-store failure", async () => {
+    const props = defaults();
+    props.mutationCommands.issueHandle
+      .mockResolvedValueOnce({
+        kind: "rejected",
+        failure: classifyWorkbookOperationFailure(
+          503,
+          {
+            error: {
+              code: "object_store_unavailable",
+              status: 503,
+              retryable: true,
+              request_id: "request-1",
+              message: "private",
+              details: { reason_code: "endpoint_unreachable" },
+            },
+          },
+          "issueEvidencePreviewHandle",
+        ),
+      })
+      .mockResolvedValueOnce(accepted("fresh-transient"));
+    render(<Harness {...props} />);
+    clickPreview();
+    await act(async () => undefined);
+    expect(
+      screen.getByTestId(evidencePreviewButtonTestId(row.record_id))
+        .textContent,
+    ).toBe("Retry Preview");
+    clickPreview();
+    await act(async () => undefined);
+    expect(
+      screen
+        .getByTestId(evidencePreviewFrameTestId(row.record_id))
+        .getAttribute("src"),
+    ).toContain("fresh-transient");
+    expect(screen.queryByText("private")).toBeNull();
+  });
+
   it("keeps the latest preview intent and does not claim loaded bytes on issuance", async () => {
     const first = deferred();
     const second = deferred();
@@ -171,26 +311,24 @@ describe("Evidence workbook bindings", () => {
       .mockImplementation(() => undefined);
     const older = deferred();
     const newer = deferred();
-    const preview = deferred();
     const props = defaults();
     props.mutationCommands.issueHandle
       .mockReturnValueOnce(older.promise)
-      .mockReturnValueOnce(newer.promise)
-      .mockReturnValueOnce(preview.promise);
+      .mockReturnValueOnce(newer.promise);
     const view = render(<Harness {...props} />);
     clickDownload();
     clickDownload();
     clickPreview();
-    await act(async () => newer.resolve(accepted("download")));
-    expect(anchorClick).toHaveBeenCalledTimes(1);
+    expect(props.mutationCommands.issueHandle).toHaveBeenCalledTimes(2);
+    await act(async () => newer.resolve(accepted("preview")));
+    expect(anchorClick).toHaveBeenCalledTimes(0);
     expect(
       screen.getByTestId(evidenceAccessMessageTestId(row.record_id))
         .textContent,
-    ).toBe("Pending");
+    ).toBe("Preview open");
     await act(async () => older.resolve(accepted("obsolete")));
-    expect(anchorClick).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalledTimes(0);
     view.unmount();
-    await act(async () => preview.resolve(accepted("unmounted")));
     const download = deferred();
     const denied = deferred();
     const secured = defaults();
@@ -207,7 +345,7 @@ describe("Evidence workbook bindings", () => {
       }),
     );
     await act(async () => download.resolve(accepted("revoked")));
-    expect(anchorClick).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalledTimes(0);
     expect(screen.queryByTestId(evidencePreviewPanelTestId())).toBeNull();
     expect(secured.onRefresh).toHaveBeenCalledTimes(1);
     expect(
@@ -229,7 +367,7 @@ describe("Evidence workbook bindings", () => {
       <Harness {...retargeted} subjectRecordId={otherRow.record_id} />,
     );
     await act(async () => retargetedDownload.resolve(accepted("retargeted")));
-    expect(anchorClick).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalledTimes(0);
     expect(
       screen.getByTestId(evidenceAccessMessageTestId(row.record_id))
         .textContent,
@@ -263,7 +401,7 @@ describe("Evidence workbook bindings", () => {
     await act(async () =>
       invalidatedDownload.resolve(accepted("invalidated-blob")),
     );
-    expect(anchorClick).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalledTimes(0);
     expect(
       screen.getByTestId(evidenceAccessMessageTestId(row.record_id))
         .textContent,

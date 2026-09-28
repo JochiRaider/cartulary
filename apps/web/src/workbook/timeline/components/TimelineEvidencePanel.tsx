@@ -10,7 +10,10 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import { evidenceOperationFeedback } from "../../evidence/evidenceAccessPresentation";
+import {
+  evidenceAccessActionAvailability,
+  evidenceOperationFeedback,
+} from "../../evidence/evidenceAccessPresentation";
 import {
   EvidenceHandleButtons,
   evidenceMessageStyle,
@@ -122,6 +125,10 @@ export function TimelineEvidencePanel({
             const state =
               review?.access.operations[link.evidenceRecordId]?.state;
             const feedback = state ? evidenceOperationFeedback(state) : null;
+            const availability = evidenceAccessActionAvailability(
+              state ?? null,
+              true,
+            );
             return (
               <li
                 key={link.itemRef}
@@ -130,8 +137,10 @@ export function TimelineEvidencePanel({
                 <p style={bodyStyle}>{link.title}</p>
                 <EvidenceHandleButtons
                   canRead={!!review && !review.access.accessLost}
-                  canPreview
-                  canDownload
+                  canPreview={availability.canPreview}
+                  canDownload={availability.canDownload}
+                  retryKind={availability.retryKind}
+                  busyKind={availability.busyKind}
                   context="inspector"
                   labelSuffix={link.title}
                   recordId={link.evidenceRecordId}
@@ -141,7 +150,11 @@ export function TimelineEvidencePanel({
                 />
                 {feedback ? (
                   <p
-                    role={state?.kind === "rejected" ? "alert" : "status"}
+                    role={
+                      state?.kind === "rejected" || state?.kind === "deadline"
+                        ? "alert"
+                        : "status"
+                    }
                     style={evidenceMessageStyle}
                   >
                     {feedback.message}
