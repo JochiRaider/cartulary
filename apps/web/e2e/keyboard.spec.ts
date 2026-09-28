@@ -1539,9 +1539,10 @@ test("Timeline keyboard fill-down preserves the selected range and current endpo
   const fillSourceCell = await activateSemanticGridCell(fillSourceDisplay);
   const fillPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`;
   const fillHandle = page.locator(gridFillHandleSelector());
-  await expect(fillHandle).toHaveAttribute(
-    "aria-label",
-    "Drag to fill this value",
+  await expect(fillHandle).toHaveAttribute("aria-hidden", "true");
+  await expect(fillSourceCell).toHaveAttribute(
+    "aria-description",
+    /Drag to fill this value/,
   );
   const doubleClickRequests = await countPostRequestsDuring({
     action: async () => {

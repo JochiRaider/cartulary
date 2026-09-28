@@ -174,22 +174,77 @@ function useGridDomPresentation(
     if (accessibleLabel === undefined) element.removeAttribute("aria-label");
     else element.setAttribute("aria-label", accessibleLabel);
   }, [accessibleLabel, busy, editable, vendorHandle]);
-  useEffect(() => {
-    const element = vendorHandle.current?.element;
-    if (element === null || element === undefined) return;
-    const labelFillHandles = () => {
-      for (const handle of element.querySelectorAll(".rdg-cell-drag-handle")) {
-        handle.setAttribute("aria-label", "Drag to fill this value");
-        handle.setAttribute("data-cartulary-fill-handle", "true");
-        handle.setAttribute("role", "img");
-        handle.setAttribute("title", "Drag to fill this value");
+}
+
+const fillAffordanceLabel = "Drag to fill this value";
+
+function useGridFillAccessiblePresentation(
+  vendorHandle: MutableRefObject<DataGridHandle | null>,
+  activeCell: GridCellAnchor | null,
+  cellElementsRef: MutableRefObject<Map<string, SemanticCellRegistration>>,
+): void {
+  // RDG renders its pointer handle at the grid root. Keep that React-owned node
+  // and its pointer handlers in place; the registered semantic cell owns its
+  // accessible instruction for precisely the handle's mounted lifetime.
+  useLayoutEffect(() => {
+    const grid = vendorHandle.current?.element;
+    if (!grid) return;
+    let described:
+      | {
+          cell: HTMLElement;
+          base: string | null;
+          composed: string;
+        }
+      | undefined;
+    const clearDescription = () => {
+      if (!described) return;
+      if (
+        described.cell.getAttribute("aria-description") === described.composed
+      ) {
+        if (described.base === null)
+          described.cell.removeAttribute("aria-description");
+        else described.cell.setAttribute("aria-description", described.base);
       }
+      described = undefined;
     };
-    labelFillHandles();
-    const observer = new MutationObserver(labelFillHandles);
-    observer.observe(element, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [vendorHandle]);
+    const reconcile = () => {
+      const handle = grid.querySelector<HTMLElement>(".rdg-cell-drag-handle");
+      if (handle) {
+        handle.setAttribute("aria-hidden", "true");
+        handle.removeAttribute("aria-label");
+        handle.removeAttribute("role");
+        handle.setAttribute("data-cartulary-fill-handle", "true");
+        handle.setAttribute("title", fillAffordanceLabel);
+      }
+      const cell =
+        handle && activeCell
+          ? cellElementsRef.current.get(gridAnchorKey(activeCell))?.cell
+          : undefined;
+      if (!cell || !grid.contains(cell)) {
+        clearDescription();
+        return;
+      }
+      if (
+        described?.cell === cell &&
+        cell.getAttribute("aria-description") === described.composed
+      )
+        return;
+      clearDescription();
+      const base = cell.getAttribute("aria-description");
+      const composed = base
+        ? `${base}. ${fillAffordanceLabel}`
+        : fillAffordanceLabel;
+      cell.setAttribute("aria-description", composed);
+      described = { cell, base, composed };
+    };
+    reconcile();
+    const observer = new MutationObserver(reconcile);
+    observer.observe(grid, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      clearDescription();
+    };
+  });
 }
 
 function useGridRangeController(
@@ -854,6 +909,11 @@ function useSemanticDataGrid<Row>(
     vendorHandle,
     draftFieldKeysRef,
     editable,
+  );
+  useGridFillAccessiblePresentation(
+    vendorHandle,
+    activeCellAnchor,
+    semanticCellElementsRef,
   );
   const cancelInteractionRef = useRef<() => void>(() => {});
   const requestFocus = useCallback<GridHandle["requestFocus"]>(

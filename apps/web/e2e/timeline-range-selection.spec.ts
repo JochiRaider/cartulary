@@ -498,8 +498,26 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
   // Completed vertical cycles reveal the unmounted first member without fetching.
   await page.keyboard.press("Enter");
   await expect(cell(page, first)).toBeFocused();
+  await expect(cell(page, first)).toHaveAttribute(
+    "aria-description",
+    /Drag to fill this value/,
+  );
+  await expect(
+    port.locator(
+      '[role="gridcell"][aria-description*="Drag to fill this value"]',
+    ),
+  ).toHaveCount(1);
   await page.keyboard.press("Shift+Enter");
   await expect(cell(page, required(f.ids[99]))).toBeFocused();
+  await expect(cell(page, required(f.ids[99]))).toHaveAttribute(
+    "aria-description",
+    /Drag to fill this value/,
+  );
+  await expect(
+    port.locator(
+      '[role="gridcell"][aria-description*="Drag to fill this value"]',
+    ),
+  ).toHaveCount(1);
   expect(queries).toHaveLength(0);
   // Horizontal virtualization uses the same mounted semantic-cell registry.
   await reveal(page, first);

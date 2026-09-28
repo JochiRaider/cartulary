@@ -2319,27 +2319,29 @@ describe("grid-adapter", () => {
         ),
       },
     ];
-    render(
+    const fillRows: GridDataRow<HarnessRow>[] = [
+      {
+        data: { label: "Alpha", state: "open" },
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
+      },
+      {
+        data: { label: "Beta", state: "open" },
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+        rowIdentity: { kind: "core_record", recordId: "record-2" },
+      },
+    ];
+    const grid = (dataRows: readonly GridDataRow<HarnessRow>[]) => (
       <SemanticDataGrid
         columns={fillColumns}
         onFillCells={onFillCells}
-        dataRows={[
-          {
-            data: { label: "Alpha", state: "open" },
-            kind: "data",
-            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
-            rowIdentity: { kind: "core_record", recordId: "record-1" },
-          },
-          {
-            data: { label: "Beta", state: "open" },
-            kind: "data",
-            mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
-            rowIdentity: { kind: "core_record", recordId: "record-2" },
-          },
-        ]}
+        dataRows={dataRows}
         surface={testSurface}
-      />,
+      />
     );
+    const view = render(grid(fillRows));
 
     fireEvent.click(
       screen.getAllByRole("button", { name: "Inspect open" })[0] as HTMLElement,
@@ -2365,7 +2367,9 @@ describe("grid-adapter", () => {
         ".rdg-cell-drag-handle",
       );
       expect(handle).toBeTruthy();
-      expect(handle?.getAttribute("aria-label")).toBe(
+      expect(handle?.getAttribute("aria-hidden")).toBe("true");
+      expect(handle?.getAttribute("data-cartulary-fill-handle")).toBe("true");
+      expect(alphaCell?.getAttribute("aria-description")).toContain(
         "Drag to fill this value",
       );
       return handle as HTMLElement;
@@ -2400,6 +2404,44 @@ describe("grid-adapter", () => {
         },
       ],
     });
+    view.rerender(
+      grid(fillRows.map((row) => ({ ...row, data: { ...row.data } }))),
+    );
+    await waitFor(() =>
+      expect(betaCell.getAttribute("aria-description")).toContain(
+        "Drag to fill this value",
+      ),
+    );
+    expect(alphaCell.getAttribute("aria-description") ?? "").not.toContain(
+      "Drag to fill this value",
+    );
+    view.rerender(grid(fillRows.slice(0, 1)));
+    await waitFor(() => expect(betaCell.isConnected).toBe(false));
+    expect(betaCell.getAttribute("aria-description") ?? "").not.toContain(
+      "Drag to fill this value",
+    );
+    let remainingCell = screen
+      .getByTestId("fill-Alpha")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (!remainingCell) throw new Error("Missing remaining fill cell");
+    fireEvent.click(remainingCell);
+    fireEvent.keyDown(
+      await screen.findByRole("textbox", { name: "Fill editor" }),
+      { key: "Escape" },
+    );
+    remainingCell = screen
+      .getByTestId("fill-Alpha")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (!remainingCell) throw new Error("Missing restored fill cell");
+    await waitFor(() =>
+      expect(remainingCell.getAttribute("aria-description")).toContain(
+        "Drag to fill this value",
+      ),
+    );
+    view.unmount();
+    expect(remainingCell.getAttribute("aria-description") ?? "").not.toContain(
+      "Drag to fill this value",
+    );
   });
 
   it("does not republish an unchanged semantic anchor when the active record updates", async () => {

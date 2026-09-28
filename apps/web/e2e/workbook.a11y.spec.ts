@@ -1,6 +1,8 @@
 import { Buffer } from "node:buffer";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+// biome-ignore lint/correctness/noUndeclaredDependencies: the workspace root pins the browser accessibility engine used by the Make-owned harness.
+import AxeBuilder from "@axe-core/playwright";
 import type {
   CollectionActionsV1,
   EvidenceCreateRequest,
@@ -38,6 +40,7 @@ import {
   evidencePreviewPanelTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
+  gridFillHandleSelector,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
@@ -2584,134 +2587,245 @@ if (
 }
 
 test.describe("browser.grid-interaction accessibility readiness", () => {
-  test(gridInteractionAccessibilityScenarioTitles[0], async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("A11YGRIDINTERACTION"),
-      "a11y.grid-interaction.row-01 grid adapter",
-    );
-    const alphaRow = await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("a11y.grid-interaction-01-alpha"),
-        "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
-        "timeline.activity_synopsis_text": "Alpha accessibility row",
-        "timeline.raw_activity_text": "Keyboard grid coverage",
-      },
-    );
-    const betaRow = await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("a11y.grid-interaction-01-beta"),
-        "timeline.activity_utc_text": "2026-05-31T10:05:00Z",
-        "timeline.activity_synopsis_text": "Beta accessibility row",
-        "timeline.raw_activity_text": "Grouped grid coverage",
-      },
-    );
+  test(
+    gridInteractionAccessibilityScenarioTitles[0],
+    async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const incidentId = await createIncident(
+        page,
+        uniqueIncidentKey("A11YGRIDINTERACTION"),
+        "a11y.grid-interaction.row-01 grid adapter",
+      );
+      const alphaRow = await createViewRow(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+        {
+          client_txn_id: uniqueTxn("a11y.grid-interaction-01-alpha"),
+          "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
+          "timeline.activity_synopsis_text": "Alpha accessibility row",
+          "timeline.raw_activity_text": "Keyboard grid coverage",
+        },
+      );
+      const betaRow = await createViewRow(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+        {
+          client_txn_id: uniqueTxn("a11y.grid-interaction-01-beta"),
+          "timeline.activity_utc_text": "2026-05-31T10:05:00Z",
+          "timeline.activity_synopsis_text": "Beta accessibility row",
+          "timeline.raw_activity_text": "Grouped grid coverage",
+        },
+      );
 
-    await page.goto(`/?incident_id=${incidentId}`);
-    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expect(
-      await mountedGridCell(
+      await page.goto(`/?incident_id=${incidentId}`);
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+      await expect(
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          alphaRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
+      ).toHaveText("Alpha accessibility row");
+
+      const grid = page.locator(gridScrollportSelector());
+      const fillLabel = "Drag to fill this value";
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Accessibility.enable");
+      const inspectFillAccessibility = async (state: string) => {
+        const result = await new AxeBuilder({ page })
+          .include(gridScrollportSelector())
+          .withRules(["aria-required-children"])
+          .analyze();
+        const handle = page.locator(gridFillHandleSelector());
+        const accessibleCells = (
+          await cdp.send("Accessibility.getFullAXTree")
+        ).nodes
+          .filter(
+            (node) =>
+              node.role?.value === "gridcell" &&
+              node.description?.value?.includes(fillLabel),
+          )
+          .map((node) => ({
+            backendDOMNodeId: node.backendDOMNodeId,
+            description: node.description?.value,
+            name: node.name?.value,
+          }));
+        const observation = {
+          state,
+          accessibilitySnapshot: await grid.ariaSnapshot(),
+          accessibleCells,
+          handle:
+            (await handle.count()) === 0
+              ? null
+              : await handle.first().evaluate((element) => ({
+                  html: element.outerHTML,
+                  ownerRole: element.parentElement?.getAttribute("role"),
+                })),
+          violations: result.violations.filter(
+            (violation) => violation.id === "aria-required-children",
+          ),
+        };
+        await testInfo.attach(`timeline-fill-${state}`, {
+          body: Buffer.from(JSON.stringify(observation, null, 2)),
+          contentType: "application/json",
+        });
+        return observation;
+      };
+      const alphaSummaryControl = await mountedGridCell(
         page,
         timelineViewSchemaId,
         alphaRow.record_id,
         "timeline.activity_synopsis_text",
-      ),
-    ).toHaveText("Alpha accessibility row");
+      );
+      const alphaCell =
+        await expectVisibleSemanticGridCellFocus(alphaSummaryControl);
+      const navigation = await inspectFillAccessibility("navigation");
+      await expect(page.locator(gridFillHandleSelector())).toHaveCount(1);
+      await expect(alphaCell).toHaveAttribute(
+        "aria-description",
+        /Drag to fill this value/,
+      );
+      const alphaEditor = await activateTimelineGridEditor(
+        page,
+        alphaRow.record_id,
+        "timeline.activity_synopsis_text",
+      );
+      const editing = await inspectFillAccessibility("editing");
+      await expect(page.locator(gridFillHandleSelector())).toHaveCount(0);
+      await alphaEditor.press("Escape");
+      await expect(alphaCell).toBeFocused();
+      const restored = await inspectFillAccessibility("restored");
+      await expect(page.locator(gridFillHandleSelector())).toHaveCount(1);
+      const betaCell = await expectVisibleSemanticGridCellFocus(
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          betaRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
+      );
+      const moved = await inspectFillAccessibility("moved");
+      await expect(betaCell).toHaveAttribute(
+        "aria-description",
+        /Drag to fill this value/,
+      );
+      await expect(alphaCell).not.toHaveAttribute(
+        "aria-description",
+        /Drag to fill this value/,
+      );
 
-    const betaMarkReviewed = page.getByTestId(
-      timelineRowMarkReviewedButtonTestId(betaRow.record_id),
-    );
-    const betaSummaryControl = await mountedGridCell(
-      page,
-      timelineViewSchemaId,
-      betaRow.record_id,
-      "timeline.activity_synopsis_text",
-    );
-    await expectVisibleSemanticGridCellFocus(betaSummaryControl);
-    await page.keyboard.press("Shift+F10");
-    await expectVisibleFocus(betaMarkReviewed);
-    await betaMarkReviewed.click();
-    await expect(
+      const betaMarkReviewed = page.getByTestId(
+        timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+      );
+      const betaSummaryControl = await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        betaRow.record_id,
+        "timeline.activity_synopsis_text",
+      );
+      await expectVisibleSemanticGridCellFocus(betaSummaryControl);
+      await page.keyboard.press("Shift+F10");
+      await expectVisibleFocus(betaMarkReviewed);
+      await betaMarkReviewed.click();
+      await expect(
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          betaRow.record_id,
+          "timeline.capture_state",
+        ),
+      ).toHaveText("reviewed");
       await mountedGridCell(
         page,
         timelineViewSchemaId,
         betaRow.record_id,
-        "timeline.capture_state",
-      ),
-    ).toHaveText("reviewed");
-    await mountedGridCell(
-      page,
-      timelineViewSchemaId,
-      betaRow.record_id,
-      "timeline.activity_synopsis_text",
-    );
-    await expectVisibleSemanticGridCellFocus(betaSummaryControl);
-    await page.keyboard.press("Shift+F10");
-    await expect(
-      page.getByTestId(timelineRowMarkReviewedButtonTestId(betaRow.record_id)),
-    ).toBeDisabled();
-    await page.keyboard.press("Escape");
+        "timeline.activity_synopsis_text",
+      );
+      await expectVisibleSemanticGridCellFocus(betaSummaryControl);
+      await page.keyboard.press("Shift+F10");
+      await expect(
+        page.getByTestId(
+          timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+        ),
+      ).toBeDisabled();
+      await page.keyboard.press("Escape");
 
-    await page
-      .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
-      .selectOption("timeline.capture_state");
-    const reviewedGroup = page.getByTestId(
-      gridGroupRowTestId(
-        timelineViewSchemaId,
-        "timeline.capture_state",
-        "reviewed",
-      ),
-    );
-    await expect(reviewedGroup).toBeVisible();
-    await expect(reviewedGroup).toContainText("reviewed");
+      await page
+        .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
+        .selectOption("timeline.capture_state");
+      const reviewedGroup = page.getByTestId(
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          "reviewed",
+        ),
+      );
+      await expect(reviewedGroup).toBeVisible();
+      await expect(reviewedGroup).toContainText("reviewed");
+      const grouped = await inspectFillAccessibility("grouped");
+      await expect(page.locator(gridFillHandleSelector())).toHaveCount(0);
 
-    const betaSummary = await activateTimelineGridEditor(
-      page,
-      betaRow.record_id,
-      "timeline.activity_synopsis_text",
-    );
-    await expect(betaSummary).toHaveAttribute(
-      "aria-label",
-      `Activity Synopsis ${betaRow.record_id}`,
-    );
-    await betaSummary.fill("Beta accessibility active edit");
-    await expect(betaSummary).toHaveValue("Beta accessibility active edit");
-    await expectWorkbookSavePresentation(page);
+      for (const observation of [navigation, editing, restored, moved]) {
+        expect(observation.violations, observation.state).toEqual([]);
+      }
+      expect(navigation.accessibleCells).toHaveLength(1);
+      expect(editing.accessibleCells).toHaveLength(0);
+      expect(restored.accessibleCells).toHaveLength(1);
+      expect(moved.accessibleCells).toHaveLength(1);
+      expect(grouped.accessibleCells).toHaveLength(0);
+      await expect(alphaCell).not.toHaveAttribute(
+        "aria-description",
+        new RegExp(fillLabel),
+      );
+      await expect(betaCell).not.toHaveAttribute(
+        "aria-description",
+        new RegExp(fillLabel),
+      );
 
-    await expect(
-      await mountedGridTarget(
+      const betaSummary = await activateTimelineGridEditor(
         page,
-        timelineViewSchemaId,
+        betaRow.record_id,
+        "timeline.activity_synopsis_text",
+      );
+      await expect(betaSummary).toHaveAttribute(
+        "aria-label",
+        `Activity Synopsis ${betaRow.record_id}`,
+      );
+      await betaSummary.fill("Beta accessibility active edit");
+      await expect(betaSummary).toHaveValue("Beta accessibility active edit");
+      await expectWorkbookSavePresentation(page);
+
+      await expect(
+        await mountedGridTarget(
+          page,
+          timelineViewSchemaId,
+          gridSortHeaderTestId(
+            timelineViewSchemaId,
+            "timeline.activity_synopsis_text",
+          ),
+        ),
+      ).toContainText("Activity Synopsis");
+      await expectAllInteractiveControlsNamed(page);
+      await expectNoFocusTrap(page);
+      await expectAndRecordContrast(page, [
+        gridGroupingSelectTestId(timelineViewSchemaId),
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          "reviewed",
+        ),
         gridSortHeaderTestId(
           timelineViewSchemaId,
           "timeline.activity_synopsis_text",
         ),
-      ),
-    ).toContainText("Activity Synopsis");
-    await expectAllInteractiveControlsNamed(page);
-    await expectNoFocusTrap(page);
-    await expectAndRecordContrast(page, [
-      gridGroupingSelectTestId(timelineViewSchemaId),
-      gridGroupRowTestId(
-        timelineViewSchemaId,
-        "timeline.capture_state",
-        "reviewed",
-      ),
-      gridSortHeaderTestId(
-        timelineViewSchemaId,
-        "timeline.activity_synopsis_text",
-      ),
-      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
-      saveStateTestId(),
-    ]);
-  });
+        rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
+        saveStateTestId(),
+      ]);
+    },
+  );
 });
 
 test.describe("browser.mutation-lifecycle accessibility readiness", () => {

@@ -809,7 +809,11 @@ test("Timeline rectangle paste keyboard fill and pointer fill preserve targets",
   await expect(cell(page, second, source)).toBeFocused();
   await selectCell(page, first, source);
   const handle = page.locator(gridFillHandleSelector());
-  await expect(handle).toHaveAttribute("aria-label", "Drag to fill this value");
+  await expect(handle).toHaveAttribute("aria-hidden", "true");
+  await expect(cell(page, first, source)).toHaveAttribute(
+    "aria-description",
+    /Drag to fill this value/,
+  );
   await handle.scrollIntoViewIfNeeded();
   const start = required(await handle.boundingBox());
   const end = required(await cell(page, third, source).boundingBox());
