@@ -8,9 +8,9 @@ import type {
   EvidenceHandleOutcome,
 } from "../../mutations/workbookMutationCommandPorts";
 
-export type PreviewProbeResult = "previewable" | "blocked" | "indeterminate";
+type PreviewProbeResult = "previewable" | "blocked" | "indeterminate";
 
-export function classifyPreviewProbe(
+function classifyPreviewProbe(
   outcome: EvidenceHandleOutcome,
 ): PreviewProbeResult {
   if (outcome.kind === "accepted") return "previewable";

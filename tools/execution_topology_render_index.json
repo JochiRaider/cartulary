@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:40aa0542562877104ebbd2d70e4de24b24a2f5d6753d115dc9bfb7c13bcae80e",
+  "input_digest": "sha256:0cbffb971b26b5adcf0e5fbf9fb99339fa3b38e12f5dd2af4a1ee94ab98e56a0",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -222,7 +222,7 @@
     {
       "path": "contracts/verification/owners/package.grid_adapter.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:dc90fe6ae33fb6bd228d554c5b5c67d445f05072c8a354bcde56248db8ca92f5"
+      "hash": "sha256:8646de801d0b249f939e4880f8252a2aaf17f1bb916d6f14f8fadf5027d83bc1"
     },
     {
       "path": "contracts/verification/owners/package.protocol_ts.json",
@@ -1112,7 +1112,7 @@
     {
       "path": "tools/test_families/module.collaboration.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d667c50cc37de78a551a279c166f9a6cc4705fa4ceed8caa6711f7b76331ccf3"
+      "hash": "sha256:c0578a4d34fdbe76252b993772e91a33307ff0570c0b6e8fff6bd20d82b9ebff"
     },
     {
       "path": "tools/test_families/module.crossownertransaction.json",
@@ -1247,12 +1247,12 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d4f7369872755a6d94fac16fa9545c9fc58df8bd2a26ec16becd5e3287c6aec0"
+      "hash": "sha256:93f70285e06d05ded6846e4b1cebc299b080be5eb84ba858c6f559f89d36bd7e"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d696872d56f723a70f596f8147950a635124c6efd9e9e4e8bb21581b50d675a5"
+      "hash": "sha256:b8629dd4477c0040661cc4aa02e45c2936db47345cf644c39358d92b0e12c701"
     },
     {
       "path": "tools/test_families/package.protocol_ts.json",
@@ -1367,7 +1367,7 @@
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:0bfce5cce1e5178ae943ad22a8f4c7553ca3175817be3e0177fc967ae140facc"
+      "hash": "sha256:129a6a8846d5a9b3fca6a4185a68a31aa9d52643afa78d78f371b91058a506c6"
     },
     {
       "path": "tools/test_runner_registry.json",

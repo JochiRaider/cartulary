@@ -13,6 +13,7 @@ import {
   boundedRead,
   ObservationStopped,
 } from "../../../services/asyncObservation";
+import { resolvePublicEvidenceHandleHref } from "../../../services/workbookEvidence";
 import {
   type EvidenceOperationState,
   evidenceOperationFeedback,
@@ -32,7 +33,8 @@ export type EvidenceAccessTarget = Readonly<{
   recordId: string;
   identity: string;
   title: string;
-  sourceRecordId?: string;
+  sourceRecordId?: string | null;
+  context?: "row" | "inspector";
 }>;
 
 type Ticket = Readonly<{
@@ -49,6 +51,8 @@ type Preview = Readonly<{
 }>;
 type Operation = Readonly<{
   identity: string;
+  sourceRecordId?: string | null;
+  context?: "row" | "inspector";
   sequence: number;
   state: EvidenceOperationState;
 }>;
@@ -179,7 +183,15 @@ export function useEvidenceHandleAccess(input: {
     }
     setOperations((current) => {
       const kept = Object.entries(current).filter(([recordId, operation]) =>
-        input.isCurrent({ recordId, identity: operation.identity, title: "" }),
+        input.isCurrent({
+          recordId,
+          identity: operation.identity,
+          title: "",
+          ...(operation.sourceRecordId !== undefined
+            ? { sourceRecordId: operation.sourceRecordId }
+            : {}),
+          ...(operation.context ? { context: operation.context } : {}),
+        }),
       );
       return kept.length === Object.keys(current).length
         ? current
@@ -207,6 +219,10 @@ export function useEvidenceHandleAccess(input: {
         ...current,
         [ticket.target.recordId]: {
           identity: ticket.target.identity,
+          ...(ticket.target.sourceRecordId !== undefined
+            ? { sourceRecordId: ticket.target.sourceRecordId }
+            : {}),
+          ...(ticket.target.context ? { context: ticket.target.context } : {}),
           sequence: ticket.sequence,
           state,
         },
@@ -304,6 +320,19 @@ export function useEvidenceHandleAccess(input: {
         return null;
       }
       if (outcome === null) return null;
+      if (outcome.kind === "accepted") {
+        const href = resolvePublicEvidenceHandleHref(outcome.value.href);
+        outcome =
+          href === null
+            ? {
+                kind: "rejected",
+                failure: {
+                  kind: "invalid_contract",
+                  message: "Evidence handle is unavailable.",
+                },
+              }
+            : { ...outcome, value: { ...outcome.value, href } };
+      }
       if (outcome.kind === "rejected") {
         if (kind === "preview") {
           const restoreFocus =

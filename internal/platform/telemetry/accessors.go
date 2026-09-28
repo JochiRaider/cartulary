@@ -144,14 +144,14 @@ func (l LoggerHandle) Emit(ctx context.Context, record LogRecord) {
 	if record.SeverityText != "" {
 		otelRecord.SetSeverityText(record.SeverityText)
 	}
-	otelRecord.SetBody(otellog.StringValue(record.Body))
+	otelRecord.SetBody(attribute.StringValue(record.Body))
 	if len(record.Attributes) > 0 {
-		attrs := make([]otellog.KeyValue, 0, len(record.Attributes))
+		attrs := make([]attribute.KeyValue, 0, len(record.Attributes))
 		for key, value := range record.Attributes {
 			if key == "" || value == "" {
 				continue
 			}
-			attrs = append(attrs, otellog.String(key, value))
+			attrs = append(attrs, attribute.String(key, value))
 		}
 		otelRecord.AddAttributes(attrs...)
 	}

@@ -4085,6 +4085,15 @@ describe("WorkbookShell surface selection", () => {
     );
     await waitFor(() => {
       expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).endsWith(
+            "/api/v1/evidence-records/00000000-0000-4000-8000-000000004014/preview-handle",
+          ),
+        ),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(
         screen.getByTestId(
           evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004014"),
         ).textContent,

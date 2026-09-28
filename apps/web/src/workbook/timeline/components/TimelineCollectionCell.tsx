@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -106,9 +107,23 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
   const cancelRemovalFocus = useCallback(() => {
     removalFocus.current = null;
   }, []);
-  const patchSnapshot = useSyncExternalStore(
-    props.tagRemovalOwner?.patches.subscribe ?? noopSubscribe,
-    props.tagRemovalOwner?.patches.getSnapshot ?? emptyPatchSnapshot,
+  const patchOwner = props.tagRemovalOwner?.patches;
+  const readPatchState = useMemo(() => {
+    let previous: { canSubmit: boolean; blocked: boolean } | undefined;
+    return () => {
+      const canSubmit = patchOwner?.canSubmit() ?? false;
+      const blocked = row.recordId
+        ? (patchOwner?.blocksRecord(row.recordId) ?? false)
+        : false;
+      if (previous?.canSubmit === canSubmit && previous.blocked === blocked)
+        return previous;
+      previous = { canSubmit, blocked };
+      return previous;
+    };
+  }, [patchOwner, row.recordId]);
+  const patchState = useSyncExternalStore(
+    patchOwner?.subscribe ?? noopSubscribe,
+    readPatchState,
   );
   const registry = props.editorDraftRegistry;
   const focusKey = inputFocusKey(row.key, binding.draftKey, surface);
@@ -142,8 +157,7 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
   const isInspector = surface === "inspector";
   const canRemoveTags =
     !props.readOnly &&
-    (props.tagRemovalOwner === undefined ||
-      props.tagRemovalOwner.patches.canSubmit());
+    (props.tagRemovalOwner === undefined || patchState.canSubmit);
   const draft =
     retainedDraft ??
     (surface === "grid" ? row.collectionDrafts[binding.draftKey] : "");
@@ -236,7 +250,7 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
       !isInspector ||
       !canRemoveTags ||
       row.recordId !== intent.recordId ||
-      !patchSnapshot.authority
+      !patchState.canSubmit
     ) {
       cancelRemovalFocus();
       return;
@@ -287,7 +301,7 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
     canRemoveTags,
     row.recordId,
     tagItems,
-    patchSnapshot.authority,
+    patchState.canSubmit,
     cancelRemovalFocus,
   ]);
   useLayoutEffect(() => {
@@ -486,11 +500,7 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
                       <button
                         type="button"
                         aria-label={`Remove tag: ${item.displayText}`}
-                        aria-disabled={
-                          props.tagRemovalOwner?.patches.blocksRecord(
-                            row.recordId,
-                          ) || undefined
-                        }
+                        aria-disabled={patchState.blocked || undefined}
                         style={tagRemoveButtonStyle}
                         ref={(element) => {
                           if (element)
@@ -727,8 +737,6 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
 }
 
 const noopSubscribe = () => () => {};
-const emptyPatchSnapshot = () => emptySnapshot;
-const emptySnapshot = { revision: 0, authority: null, entries: [] } as const;
 
 const gridCellInputStyle = {
   ...inputStyle,

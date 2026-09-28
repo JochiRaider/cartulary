@@ -3,7 +3,7 @@ import {
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useMemo, useState, useSyncExternalStore } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
@@ -52,11 +52,37 @@ export function TimelineInspectorDetails({
     | undefined;
 }) {
   const [fieldKey, setFieldKey] = useState("");
-  const snapshot = useSyncExternalStore(
+  const readPatchState = useMemo(() => {
+    let previous:
+      | {
+          authority: ReturnType<typeof owner.patches.getSnapshot>["authority"];
+          latest: ReturnType<typeof owner.patches.latestRow>;
+          blocked: boolean;
+        }
+      | undefined;
+    return () => {
+      const authority = owner.patches.getSnapshot().authority;
+      const latest = row.recordId
+        ? owner.patches.latestRow(row.recordId)
+        : null;
+      const blocked = row.recordId
+        ? owner.patches.blocksRecord(row.recordId)
+        : false;
+      if (
+        previous?.authority === authority &&
+        previous.latest === latest &&
+        previous.blocked === blocked
+      )
+        return previous;
+      previous = { authority, latest, blocked };
+      return previous;
+    };
+  }, [owner.patches, row.recordId]);
+  const patchState = useSyncExternalStore(
     owner.patches.subscribe,
-    owner.patches.getSnapshot,
+    readPatchState,
   );
-  const latest = row.recordId ? owner.patches.latestRow(row.recordId) : null;
+  const latest = patchState.latest;
   const saved =
     latest && latest.row_version > (row.rawRow?.row_version ?? 0)
       ? latest
@@ -77,8 +103,8 @@ export function TimelineInspectorDetails({
   });
   const feedback = useWorkbookInspectorFieldFeedback(edit);
   const feedbackId = useId();
-  if (!saved || !snapshot.authority || !owner.drafts.canRead()) return null;
-  const blocked = owner.patches.blocksRecord(saved.record_id);
+  if (!saved || !patchState.authority || !owner.drafts.canRead()) return null;
+  const blocked = patchState.blocked;
   const canSubmit = edit.canSubmit && !blocked;
   const submit = async () => {
     if (

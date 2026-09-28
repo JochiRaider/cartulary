@@ -99,6 +99,42 @@ afterEach(() => {
 });
 
 describe("Evidence workbook bindings", () => {
+  it("rejects an alternate port's external handle before rendering a preview", async () => {
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    for (const href of [
+      "https://object-store.example.test/private-object",
+      "/api/v1/object-blobs/private-object",
+      "/api/v1/evidence-handles/%2fprivate-object",
+    ]) {
+      const props = defaults();
+      props.mutationCommands.issueHandle.mockResolvedValue({
+        kind: "accepted",
+        value: { href, filename: "private.txt", previewKind: "text_inline" },
+      });
+      render(<Harness {...props} />);
+      clickPreview();
+      await act(async () => undefined);
+      expect(
+        screen.getByTestId(evidenceAccessMessageTestId(row.record_id))
+          .textContent,
+      ).toBe("Preview unavailable");
+      expect(
+        screen.queryByTestId(evidencePreviewFrameTestId(row.record_id)),
+      ).toBeNull();
+      clickDownload();
+      await act(async () => undefined);
+      expect(
+        screen.getByTestId(evidenceAccessMessageTestId(row.record_id))
+          .textContent,
+      ).toBe("Download unavailable");
+      expect(props.mutationCommands.issueHandle).toHaveBeenCalledTimes(2);
+      expect(anchorClick).not.toHaveBeenCalled();
+      cleanup();
+    }
+  });
+
   it("ignores duplicate pending activation and fences a superseded Preview", async () => {
     const oldPreview = deferred();
     const newDownload = deferred();

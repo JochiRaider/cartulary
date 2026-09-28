@@ -1789,6 +1789,33 @@ test("Task lifecycle binds selected rows and atomically blocks completes and reo
     "task-lifecycle-owner",
     workerAdmin.user_id,
   );
+  const ownerValue = page.getByLabel("Task lifecycle owner value", {
+    exact: true,
+  });
+  const ownerPickerTrigger = page.getByRole("button", {
+    name: "Choose task lifecycle owner",
+    exact: true,
+  });
+  await ownerPickerTrigger.focus();
+  await ownerPickerTrigger.press("Enter");
+  const ownerPicker = page.getByRole("dialog", {
+    name: "Choose task lifecycle owner",
+    exact: true,
+  });
+  const ownerCandidates = ownerPicker.getByRole("listbox", {
+    name: "Task lifecycle owner candidates",
+  });
+  const removeOwner = ownerPicker.getByRole("button", {
+    name: /^Remove selected /,
+  });
+  await removeOwner.focus();
+  await removeOwner.press("Space");
+  await expect(removeOwner).toHaveCount(0);
+  await expect(ownerCandidates).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(ownerPicker).toHaveCount(0);
+  await expect(ownerValue).toBeFocused();
+  await expect(ownerValue).toHaveValue(workerAdmin.user_id);
   await status.focus();
   await page.keyboard.press("Tab");
   await expect(

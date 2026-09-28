@@ -218,9 +218,11 @@ export class WorkbookExplicitPatchOwner {
       signal: AbortSignal,
     ) => Promise<WorkbookQueryRow | null>,
   ) {
+    const wasAvailable = this.canSubmit();
     this.transport = transport;
     this.authorityUncertain = authorityUncertain;
     this.readSource = readSource;
+    if (this.canSubmit() !== wasAvailable) this.emit();
   }
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);

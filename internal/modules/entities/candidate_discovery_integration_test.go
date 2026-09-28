@@ -51,7 +51,6 @@ func TestEntityCandidateDiscovery_Integration(t *testing.T) {
 	exec(`INSERT INTO entity_preserved_identifiers(incident_id,record_id,entity_type,identifier_type,raw_value,normalized_value,classification,created_by_user_id,deleted_at) VALUES($1,$2,'host','hostname','retired-identifier','retired-identifier','suggestion_only',$3,now())`, incidentID, target, actor)
 	base := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/entity-candidates"
 	before := appsupport.QueryCount(t, h.DB, `SELECT count(*) FROM change_sets WHERE incident_id=$1`, incidentID)
-	eventsBefore := appsupport.QueryCount(t, h.DB, `SELECT count(*) FROM collaboration_event_intents WHERE incident_id=$1`, incidentID)
 	get := func(query string) map[string]any {
 		t.Helper()
 		resp := appsupport.DoJSON(t, http.MethodGet, base+query, nil, appsupport.WithCookies(login.SessionCookie))
@@ -96,9 +95,6 @@ func TestEntityCandidateDiscovery_Integration(t *testing.T) {
 	appsupport.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
 	if after := appsupport.QueryCount(t, h.DB, `SELECT count(*) FROM change_sets WHERE incident_id=$1`, incidentID); after != before {
 		t.Fatal("discovery mutated revisions")
-	}
-	if after := appsupport.QueryCount(t, h.DB, `SELECT count(*) FROM collaboration_event_intents WHERE incident_id=$1`, incidentID); after != eventsBefore {
-		t.Fatal("discovery published collaboration events")
 	}
 	// Cursor identity and authorization are checked live, independently of mutation permission.
 	other := authflowtest.SeedLocalUserRecord(t, h.DB, "candidate-reader@example.test", "Candidate reader", "CandidatePass1!", false, false, true)

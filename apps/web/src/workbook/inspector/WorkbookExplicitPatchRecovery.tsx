@@ -1,5 +1,5 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useId, useLayoutEffect, useSyncExternalStore } from "react";
+import { useId, useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 import { genericInspectorRowLabel } from "../models/genericWorkbookModel";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
@@ -20,7 +20,44 @@ export function WorkbookExplicitPatchRecovery({
   fieldKey?: string;
   includeInitialFailures?: boolean;
 }) {
-  const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const read = useMemo(() => {
+    let previous:
+      | {
+          authority: ReturnType<typeof owner.getSnapshot>["authority"];
+          entries: ReturnType<typeof owner.getSnapshot>["entries"];
+        }
+      | undefined;
+    return () => {
+      const snapshot = owner.getSnapshot();
+      const entries = snapshot.entries.filter(
+        (entry) =>
+          entry.intent.viewSchemaId === viewSchemaId &&
+          (recordId !== undefined || !owner.resultIsAttached(entry)) &&
+          (recordId === undefined ||
+            includeInitialFailures ||
+            owner.hasRecoveryAttempt(entry.id) ||
+            (entry.phase !== "rejected" &&
+              entry.phase !== "preparation_failed")) &&
+          (recordId === undefined ||
+            entry.intent.baseline.record_id === recordId) &&
+          (fieldKey === undefined ||
+            entry.intent.changes.some(
+              (change) => change.field_key === fieldKey,
+            )) &&
+          entry.intent.owner !== "party_link" &&
+          entry.intent.purpose !== "task-lifecycle",
+      );
+      if (
+        previous?.authority === snapshot.authority &&
+        previous.entries.length === entries.length &&
+        entries.every((entry, index) => entry === previous?.entries[index])
+      )
+        return previous;
+      previous = { authority: snapshot.authority, entries };
+      return previous;
+    };
+  }, [owner, viewSchemaId, recordId, fieldKey, includeInitialFailures]);
+  const snapshot = useSyncExternalStore(owner.subscribe, read);
   const attachment = useId();
   useLayoutEffect(
     () =>
@@ -34,21 +71,7 @@ export function WorkbookExplicitPatchRecovery({
         : undefined,
     [owner, attachment, viewSchemaId, recordId, fieldKey],
   );
-  const entries = snapshot.entries.filter(
-    (entry) =>
-      entry.intent.viewSchemaId === viewSchemaId &&
-      (recordId !== undefined || !owner.resultIsAttached(entry)) &&
-      (recordId === undefined ||
-        includeInitialFailures ||
-        owner.hasRecoveryAttempt(entry.id) ||
-        (entry.phase !== "rejected" && entry.phase !== "preparation_failed")) &&
-      (recordId === undefined ||
-        entry.intent.baseline.record_id === recordId) &&
-      (fieldKey === undefined ||
-        entry.intent.changes.some((change) => change.field_key === fieldKey)) &&
-      entry.intent.owner !== "party_link" &&
-      entry.intent.purpose !== "task-lifecycle",
-  );
+  const entries = snapshot.entries;
   if (!snapshot.authority || !entries.length) return null;
   const contract = requireViewContract(viewSchemaId);
   return (

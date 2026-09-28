@@ -1829,7 +1829,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `frontend-unit` | `cartulary.harness.command.frontend_unit.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `frontend-import-boundary-check` | `cartulary.harness.command.frontend_import_boundary_check.v2` | `backend_frontend_leaf_tests` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `backend-module-boundary-check` | `cartulary.harness.command.backend_module_boundary_check.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 8), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Enforces backend module ownership boundaries from `tools/backend_module_boundaries.json` and emits `cartulary.backend_module_boundary_summary.v1`. |
-| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Current helper-only Fallow static profile. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. |
+| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. |
 | `lint-biome` | `cartulary.harness.command.lint_biome.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `lint-scripts` | `cartulary.harness.command.lint_scripts.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `lint-markdown` | `cartulary.harness.command.lint_markdown.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Structural Markdown lint over authored active docs; generated ledgers remain generator-owned. |
@@ -4330,9 +4330,9 @@ artifact or capability. Work that does not require frontend packages MUST NOT
 depend on the frontend install stamp.
 Verified by: TH-HARNESS-AC-006
 
-If a later profile promotes `frontend-fallow-static` into `check`, it MUST be a
-direct graph unit with `frontend-install` readiness and the static Node resource
-shape, not a hidden prerequisite of another target.
+`frontend-fallow-static` MUST be a direct `check` graph unit with
+`frontend-install` readiness and the static Node resource shape. A package
+test row MUST NOT stand in for this global gate.
 
 The public `check` binding MUST NOT run material install, build, service-image,
 fixture, or browser readiness outside graph accounting. It may perform only the

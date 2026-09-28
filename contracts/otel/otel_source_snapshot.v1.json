@@ -26,7 +26,7 @@
       "status": "present",
       "language": "go",
       "package_path": "go.opentelemetry.io/otel",
-      "version": "v1.41.0",
+      "version": "v1.45.0",
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -34,7 +34,7 @@
       "status": "present",
       "language": "go",
       "package_path": "go.opentelemetry.io/otel/metric",
-      "version": "v1.41.0",
+      "version": "v1.45.0",
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -42,7 +42,7 @@
       "status": "present",
       "language": "go",
       "package_path": "go.opentelemetry.io/otel/trace",
-      "version": "v1.41.0",
+      "version": "v1.45.0",
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -50,7 +50,7 @@
       "status": "present",
       "language": "go",
       "package_path": "go.opentelemetry.io/otel/sdk",
-      "version": "v1.41.0",
+      "version": "v1.45.0",
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -58,7 +58,7 @@
       "status": "present",
       "language": "go",
       "package_path": "go.opentelemetry.io/otel/sdk/trace",
-      "version": "v1.41.0",
+      "version": "v1.45.0",
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -66,7 +66,7 @@
       "status": "present",
       "language": "go",
       "package_path": "go.opentelemetry.io/otel/sdk/metric",
-      "version": "v1.41.0",
+      "version": "v1.45.0",
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -74,7 +74,7 @@
       "status": "present",
       "language": "go",
       "package_path": "go.opentelemetry.io/otel/sdk/log",
-      "version": "v0.17.0",
+      "version": "v0.21.0",
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -87,9 +87,9 @@
         "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
       ],
       "versions": [
-        "v1.41.0",
-        "v1.41.0",
-        "v0.17.0"
+        "v1.45.0",
+        "v1.45.0",
+        "v0.21.0"
       ],
       "module_or_lockfile_source": "go.mod"
     },
@@ -103,9 +103,9 @@
         "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
       ],
       "versions": [
-        "v1.41.0",
-        "v1.41.0",
-        "v0.17.0"
+        "v1.45.0",
+        "v1.45.0",
+        "v0.21.0"
       ],
       "module_or_lockfile_source": "go.mod"
     },

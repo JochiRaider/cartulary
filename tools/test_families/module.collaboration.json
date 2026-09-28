@@ -540,6 +540,36 @@
       ]
     },
     {
+      "row_id": "module.collaboration.integration.entity_candidate_discovery_does_not_publish",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.entities"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestEntityCandidateDiscoveryDoesNotPublish_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.integration",

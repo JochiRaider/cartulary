@@ -19,7 +19,7 @@ for (const target of ["test-fast", "check", "ci", "release-check"]) {
   assert.ok(plan.units.length > 0);
   assert.ok(plan.projections[target].length > 0);
   if (["check", "ci", "release-check"].includes(target)) {
-    const gateID = "row:package.grid_adapter.boundary_support.manual_package_surface_reachability";
+    const gateID = "target:frontend-fallow-static";
     assert.ok(plan.projections["frontend-fallow-static"].includes(gateID));
     assert.ok(plan.projections[target].includes(gateID));
     assert.equal(plan.units.filter((unit) => unit.unit_id === gateID).length, 1,

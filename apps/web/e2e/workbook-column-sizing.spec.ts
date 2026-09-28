@@ -5,6 +5,7 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  dataTestIdSelector,
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridScrollportSelector,
@@ -1041,12 +1042,10 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
   const scrollingCell = page.getByTestId(rowCellTestId(recordId, summary));
   const gutter = page.getByTestId(gridRowGutterTestId(surface, recordId));
   await scrollingCell.evaluate(
-    (content, gutterTestId) => {
+    (content, gutterSelector) => {
       const root = content.closest<HTMLElement>('[role="grid"]');
       const cell = content.closest<HTMLElement>('[role="gridcell"]');
-      const cover = root?.querySelector<HTMLElement>(
-        `[data-testid="${CSS.escape(gutterTestId)}"]`,
-      );
+      const cover = root?.querySelector<HTMLElement>(gutterSelector);
       if (!root || !cell || !cover)
         throw new Error("Expected mounted source, gutter, and grid");
       const gutterBounds = cover.getBoundingClientRect();
@@ -1054,7 +1053,7 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
         cell.getBoundingClientRect().left -
         (gutterBounds.left + gutterBounds.width / 4);
     },
-    gridRowGutterTestId(surface, recordId),
+    dataTestIdSelector(gridRowGutterTestId(surface, recordId)),
   );
   await expect
     .poll(() => grid.evaluate((node) => node.scrollLeft))
@@ -1150,19 +1149,17 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
   await editor.press("Home");
   for (let i = 0; i < 4; i += 1) await editor.press("ArrowRight");
   await editor.evaluate(
-    (node, gutterTestId) => {
+    (node, gutterSelector) => {
       const root = node.closest<HTMLElement>('[role="grid"]');
       const cell = node.closest<HTMLElement>('[role="gridcell"]');
-      const cover = root?.querySelector<HTMLElement>(
-        `[data-testid="${CSS.escape(gutterTestId)}"]`,
-      );
+      const cover = root?.querySelector<HTMLElement>(gutterSelector);
       if (!root || !cell || !cover)
         throw new Error("Expected mounted scrolling editor and gutter");
       const bounds = cover.getBoundingClientRect();
       root.scrollLeft +=
         cell.getBoundingClientRect().left - (bounds.left + bounds.width / 4);
     },
-    gridRowGutterTestId(surface, recordId),
+    dataTestIdSelector(gridRowGutterTestId(surface, recordId)),
   );
   const editingPaint = await gutter.screenshot();
   const editingHit = await gutter.evaluate((node) => {
@@ -1191,12 +1188,10 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
   });
   await page.keyboard.press("Escape");
   await scrollingCell.evaluate(
-    (content, gutterTestId) => {
+    (content, gutterSelector) => {
       const root = content.closest<HTMLElement>('[role="grid"]');
       const cell = content.closest<HTMLElement>('[role="gridcell"]');
-      const cover = root?.querySelector<HTMLElement>(
-        `[data-testid="${CSS.escape(gutterTestId)}"]`,
-      );
+      const cover = root?.querySelector<HTMLElement>(gutterSelector);
       if (!root || !cell || !cover)
         throw new Error("Expected mounted active source and gutter");
       const gutterBounds = cover.getBoundingClientRect();
@@ -1204,7 +1199,7 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
         cell.getBoundingClientRect().left -
         (gutterBounds.left + gutterBounds.width / 4);
     },
-    gridRowGutterTestId(surface, recordId),
+    dataTestIdSelector(gridRowGutterTestId(surface, recordId)),
   );
   const activeStyles = await scrollingCell.evaluate((content) => {
     const cell = content.closest<HTMLElement>('[role="gridcell"]');
@@ -1304,19 +1299,17 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
     gridRowGutterTestId(hostsViewSchemaId, host.record_id),
   );
   await hostSource.evaluate(
-    (content, gutterTestId) => {
+    (content, gutterSelector) => {
       const root = content.closest<HTMLElement>('[role="grid"]');
       const source = content.closest<HTMLElement>('[role="gridcell"]');
-      const cover = root?.querySelector<HTMLElement>(
-        `[data-testid="${CSS.escape(gutterTestId)}"]`,
-      );
+      const cover = root?.querySelector<HTMLElement>(gutterSelector);
       if (!root || !source || !cover)
         throw new Error("Expected mounted Hosts source and gutter");
       const bounds = cover.getBoundingClientRect();
       root.scrollLeft +=
         source.getBoundingClientRect().left - (bounds.left + bounds.width / 4);
     },
-    gridRowGutterTestId(hostsViewSchemaId, host.record_id),
+    dataTestIdSelector(gridRowGutterTestId(hostsViewSchemaId, host.record_id)),
   );
   const hostWithSource = await hostGutter.screenshot();
   await hostSource.evaluate((content) => {
@@ -1362,12 +1355,10 @@ test("Workbook frozen data cell occludes scrolling paint at the effective bounda
     'xpath=ancestor::*[@role="gridcell"][1]',
   );
   await scrolling.evaluate(
-    (content, frozenTestId) => {
+    (content, frozenSelector) => {
       const root = content.closest<HTMLElement>('[role="grid"]');
       const source = content.closest<HTMLElement>('[role="gridcell"]');
-      const cover = root?.querySelector<HTMLElement>(
-        `[data-testid="${CSS.escape(frozenTestId)}"]`,
-      );
+      const cover = root?.querySelector<HTMLElement>(frozenSelector);
       if (!root || !source || !cover)
         throw new Error("Expected mounted frozen and scrolling cells");
       const coverBounds = cover.getBoundingClientRect();
@@ -1375,7 +1366,7 @@ test("Workbook frozen data cell occludes scrolling paint at the effective bounda
         source.getBoundingClientRect().left -
         (coverBounds.left + coverBounds.width / 2);
     },
-    rowCellTestId(recordId, frozenField),
+    dataTestIdSelector(rowCellTestId(recordId, frozenField)),
   );
   const sourceBounds = await scrollingGridCell.boundingBox();
   const coverBounds = await frozenCell.boundingBox();
@@ -1437,12 +1428,10 @@ test("Workbook frozen data cell occludes scrolling paint at the effective bounda
     document.documentElement.style.zoom = "2";
   });
   await scrolling.evaluate(
-    (content, frozenTestId) => {
+    (content, frozenSelector) => {
       const root = content.closest<HTMLElement>('[role="grid"]');
       const source = content.closest<HTMLElement>('[role="gridcell"]');
-      const cover = root?.querySelector<HTMLElement>(
-        `[data-testid="${CSS.escape(frozenTestId)}"]`,
-      );
+      const cover = root?.querySelector<HTMLElement>(frozenSelector);
       if (!root || !source || !cover)
         throw new Error("Expected zoomed frozen and scrolling cells");
       const bounds = cover.getBoundingClientRect();
@@ -1451,7 +1440,7 @@ test("Workbook frozen data cell occludes scrolling paint at the effective bounda
           (bounds.left + bounds.width / 2)) /
         2;
     },
-    rowCellTestId(recordId, frozenField),
+    dataTestIdSelector(rowCellTestId(recordId, frozenField)),
   );
   const zoomedSourceBounds = await scrollingGridCell.boundingBox();
   const zoomedCoverBounds = await frozenCell.boundingBox();

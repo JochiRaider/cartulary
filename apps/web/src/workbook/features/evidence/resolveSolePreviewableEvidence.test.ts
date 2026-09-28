@@ -14,7 +14,7 @@ import { resolveSolePreviewableEvidence } from "./resolveSolePreviewableEvidence
 const accepted: EvidenceHandleOutcome = {
   kind: "accepted",
   value: {
-    href: "/opaque/unused",
+    href: "/api/v1/evidence-handles/unused",
     filename: "notes.txt",
     previewKind: "text_inline",
   },

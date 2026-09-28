@@ -4,6 +4,7 @@ import {
   entityInspectorTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
+  gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
   timelineInspectorTestId,
@@ -687,15 +688,23 @@ test("Reference selection reaches later real targets and retains staged choices 
       ),
     );
   await list.selectOption([...(await selectedOnPage()), first]);
-  await popup.getByRole("button", { name: "Next", exact: true }).click();
+  const next = popup.getByRole("button", { name: "Next", exact: true });
+  await next.focus();
+  await next.press("Enter");
   await expect(popup.getByRole("alert")).toContainText(
     "accepted page is retained",
   );
+  await expect(next).toBeFocused();
   await expect(list.locator("option")).toHaveCount(100);
-  await popup
-    .getByRole("button", { name: "Retry references", exact: true })
-    .click();
+  const retry = popup.getByRole("button", {
+    name: "Retry references",
+    exact: true,
+  });
+  await retry.focus();
+  await retry.press("Space");
   await expect(popup).toContainText("Page 2: 5 candidates; end of this source");
+  await expect(retry).toBeFocused();
+  await expect(retry).toHaveAttribute("aria-disabled", "true");
   const later = await list.locator("option").last().getAttribute("value");
   if (!later) throw new Error("Missing later candidate");
   await list.selectOption([...(await selectedOnPage()), later]);
@@ -717,7 +726,10 @@ test("Reference selection reaches later real targets and retains staged choices 
     .click();
   await expect(popup).toContainText("Page 1: 100 candidates; more available");
   await expect(list.locator("option")).toHaveCount(100);
-  await popup.getByLabel("Reference surface").selectOption(indicatorView);
+  const surface = popup.getByLabel("Reference surface");
+  await surface.focus();
+  await surface.selectOption(indicatorView);
+  await expect(surface).toBeFocused();
   await expect(list.locator("option")).toHaveCount(1);
   await list.selectOption(`record:${indicator.record_id}`);
   expect(writes).toHaveLength(0);
@@ -876,6 +888,103 @@ test("a11y.references native popup preserves keyboard focus and fits narrow zoom
     await page.keyboard.press("Escape");
     await expect(popup).toHaveCount(0);
     await expect(input).toBeFocused();
+  }
+});
+
+test("Ordinary reference picker restores focus after keyboard removal of its sole staged Party", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("RKR"),
+    "Reference keyboard removal",
+  );
+  const evidence = await createViewRow(page, incident, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("rkr-evidence"),
+    "evidence.title": "Collector focus evidence",
+  });
+  await createViewRow(page, incident, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("rkr-party"),
+    "party.display_name": "Collector focus Party",
+    "party.party_kind": "person",
+  });
+  const writes: Record<string, unknown>[] = [];
+  await page.route(`**/api/v1/records/${evidence.record_id}`, (route) => {
+    if (route.request().method() === "PATCH")
+      writes.push(route.request().postDataJSON());
+    return route.continue();
+  });
+  for (const [width, key] of [
+    [1440, "Enter"],
+    [1024, "Space"],
+  ] as const) {
+    await page.setViewportSize({ width, height: width === 1440 ? 900 : 720 });
+    await page.goto(
+      `/?incident_id=${incident}&view_schema_id=${evidenceViewSchemaId}`,
+    );
+    await openGenericInspectorForRecord(
+      page,
+      evidenceViewSchemaId,
+      evidence.record_id,
+    );
+    const input = await editField(
+      page,
+      evidenceViewSchemaId,
+      "evidence.collector_party_id",
+    );
+    const trigger = page
+      .getByTestId(
+        workbookInspectorPanelTestId(evidenceViewSchemaId, "details"),
+      )
+      .getByRole("button", {
+        name: "Choose collector party",
+        exact: true,
+      });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const popup = page.getByRole("dialog", {
+      name: "Choose collector party",
+      exact: true,
+    });
+    const candidates = popup.getByRole("listbox", {
+      name: "Collector Party candidates",
+    });
+    await expect(candidates).toBeVisible();
+    await candidates.focus();
+    await page.keyboard.press("ArrowDown");
+    const remove = popup.getByRole("button", { name: /^Remove selected / });
+    await expect(remove).toHaveCount(1);
+    await page.keyboard.press("Tab");
+    await expect(remove).toBeFocused();
+    const scrollBefore = await page.evaluate((selector) => {
+      const grid = document.querySelector<HTMLElement>(selector);
+      return {
+        pageX: window.scrollX,
+        pageY: window.scrollY,
+        gridX: grid?.scrollLeft ?? 0,
+        gridY: grid?.scrollTop ?? 0,
+      };
+    }, gridScrollportSelector());
+    await page.keyboard.press(key);
+    await expect(remove).toHaveCount(0);
+    await expect(candidates).toBeFocused();
+    await expect(input).toHaveValue("");
+    expect(
+      await page.evaluate((selector) => {
+        const grid = document.querySelector<HTMLElement>(selector);
+        return {
+          pageX: window.scrollX,
+          pageY: window.scrollY,
+          gridX: grid?.scrollLeft ?? 0,
+          gridY: grid?.scrollTop ?? 0,
+        };
+      }, gridScrollportSelector()),
+    ).toEqual(scrollBefore);
+    expect(writes).toHaveLength(0);
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    await expect(input).toBeFocused();
+    expect(writes).toHaveLength(0);
   }
 });
 

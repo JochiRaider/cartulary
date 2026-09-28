@@ -77,17 +77,24 @@ export function useEvidenceWorkbookBindings(input: {
       input.rows.some(
         (row) =>
           row.record_id === target.recordId &&
-          target.identity ===
-            JSON.stringify([row.row_version, input.subjectRecordId]) &&
+          target.identity === String(row.row_version) &&
+          (target.sourceRecordId === input.subjectRecordId ||
+            (target.context === "row" &&
+              input.subjectRecordId === target.recordId)) &&
           rowLifecycle(row).accessEligible,
       ),
     onAccessFailure: input.onRefresh,
     onRestoreFocus: (target) => input.onRestoreFocus(target.recordId),
   });
-  const targetFor = (row: WorkbookQueryRow) => ({
+  const targetFor = (
+    row: WorkbookQueryRow,
+    context: EvidenceAccessContext,
+  ) => ({
     recordId: row.record_id,
-    identity: JSON.stringify([row.row_version, input.subjectRecordId]),
+    identity: String(row.row_version),
     title: titleFor(row),
+    sourceRecordId: input.subjectRecordId,
+    context,
   });
   useLayoutEffect(() => {
     if (!owner || !active || !input.canRead) return;
@@ -125,7 +132,7 @@ export function useEvidenceWorkbookBindings(input: {
         title={titleFor(row)}
         onInspect={() => input.onInspect(row.record_id)}
         onIssue={(kind, invoker) =>
-          void access.issue(targetFor(row), kind, invoker)
+          void access.issue(targetFor(row, context), kind, invoker)
         }
       />
     ) : null;
@@ -207,7 +214,8 @@ export function useEvidenceWorkbookBindings(input: {
         },
       ];
     const operation =
-      access.operations[row.record_id]?.identity === targetFor(row).identity
+      access.operations[row.record_id]?.identity ===
+      targetFor(row, "inspector").identity
         ? access.operations[row.record_id]?.state
         : null;
     const presentation = buildEvidenceAccessPresentation(

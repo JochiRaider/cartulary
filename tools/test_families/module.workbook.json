@@ -4166,9 +4166,11 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
+          "scenario_reference_keyboard_removal",
           "scenario_reference_selection_recovery"
         ],
         "titles": [
+          "Ordinary reference picker restores focus after keyboard removal of its sole staged Party",
           "Reference selection reaches later real targets and retains staged choices through source and refresh failures"
         ]
       },

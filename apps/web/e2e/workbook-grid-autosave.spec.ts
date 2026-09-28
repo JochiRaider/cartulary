@@ -1899,6 +1899,8 @@ test("Existing reference cell picker keeps keyboard browsing local and commits e
   await next.focus();
   await next.press("Enter");
   await expect(popup).toContainText("Page 2: 5 candidates; end of this source");
+  await expect(next).toBeFocused();
+  await expect(next).toHaveAttribute("aria-disabled", "true");
   const list = popup.getByRole("listbox", { name: "Source Party candidates" });
   await list.focus();
   await list.press("ArrowDown");

@@ -367,7 +367,7 @@ describe("authoring candidate presentation", () => {
       fireEvent.click(source);
       expect(document.activeElement).toBe(
         expected === "selector"
-          ? screen.getByTestId("records-selector")
+          ? screen.getByRole("listbox", { name: "Records" })
           : screen.getByRole("button", {
               name: `Remove selected Records Reference ${expected}`,
             }),
@@ -399,7 +399,7 @@ describe("authoring candidate presentation", () => {
     });
     remove.focus();
     fireEvent.click(remove);
-    expect(screen.getByTestId("empty-records")).toHaveProperty(
+    expect(screen.getByRole("listbox", { name: "Records" })).toHaveProperty(
       "disabled",
       true,
     );

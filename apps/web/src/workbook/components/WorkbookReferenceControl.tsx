@@ -27,6 +27,7 @@ import {
 } from "../ports/WorkbookReferenceReadPort";
 import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import { WorkbookReferenceSelection } from "../services/WorkbookReferenceSelection";
+import { useSelectedReferenceRemovalFocus } from "./useSelectedReferenceRemovalFocus";
 import { menuStyle } from "./workbookGridControlStyles";
 
 export const WorkbookReferenceContext = createContext<{
@@ -315,7 +316,7 @@ export function WorkbookReferenceControl(props: Props) {
                 document.activeElement as HTMLElement,
               );
               if (
-                (event.shiftKey && index <= 0) ||
+                (event.shiftKey && index === 0) ||
                 (!event.shiftKey && index === controls.length - 1)
               ) {
                 event.preventDefault();
@@ -340,6 +341,160 @@ export function WorkbookReferenceControl(props: Props) {
       ) : null}
     </div>
   );
+}
+
+type ReadAction = "first" | "previous" | "next" | "retry";
+type ReadIntent = {
+  readonly action: ReadAction;
+  readonly controller: WorkbookReferenceSelection;
+  readonly scopeKey: string;
+  readonly trigger: HTMLButtonElement;
+  owned: boolean;
+};
+
+/** Only the focused initiating control is retained; reads stay with the controller. */
+function useReferenceReadControls(
+  controller: WorkbookReferenceSelection,
+  snapshot: ReturnType<WorkbookReferenceSelection["getSnapshot"]>,
+  scopeKey: string,
+) {
+  const intentRef = useRef<ReadIntent | null>(null);
+  const admissionRef = useRef<WorkbookReferenceSelection | null>(null);
+  const [shownIntent, setShownIntent] = useState<ReadIntent | null>(null);
+  const intent =
+    shownIntent === intentRef.current &&
+    shownIntent?.controller === controller &&
+    shownIntent.scopeKey === scopeKey &&
+    !snapshot.concealed
+      ? shownIntent
+      : null;
+  const focusedIntent =
+    intent?.owned &&
+    intent.trigger.isConnected &&
+    document.activeElement === intent.trigger;
+  const retire = () => {
+    intentRef.current = null;
+    admissionRef.current = null;
+    setShownIntent(null);
+  };
+  const capable = (action: ReadAction) =>
+    action === "first"
+      ? snapshot.pageNumber > 1
+      : action === "previous"
+        ? snapshot.previousCount > 0
+        : action === "next"
+          ? Boolean(snapshot.page?.paging.hasMore)
+          : Boolean(snapshot.failure);
+
+  useEffect(() => {
+    if (!shownIntent) return;
+    const leave = (event: Event) => {
+      const current = intentRef.current;
+      if (!current) return;
+      if (
+        document.activeElement === current.trigger &&
+        (event.target === current.trigger ||
+          event.type === "wheel" ||
+          event.type === "scroll")
+      )
+        return;
+      current.owned = false;
+    };
+    const events = [
+      "focusin",
+      "keydown",
+      "pointerdown",
+      "input",
+      "wheel",
+      "scroll",
+      "touchstart",
+    ] as const;
+    for (const type of events) document.addEventListener(type, leave, true);
+    return () => {
+      for (const type of events)
+        document.removeEventListener(type, leave, true);
+    };
+  }, [shownIntent]);
+  useEffect(
+    () => () => {
+      intentRef.current = null;
+      admissionRef.current = null;
+    },
+    [],
+  );
+  useLayoutEffect(() => {
+    const current = intentRef.current;
+    if (!current) return;
+    const sameScope =
+      current.controller === controller &&
+      current.scopeKey === scopeKey &&
+      !snapshot.concealed;
+    const available = capable(current.action);
+    if (
+      !sameScope ||
+      (!snapshot.loading &&
+        (available ||
+          !current.owned ||
+          !current.trigger.isConnected ||
+          document.activeElement !== current.trigger))
+    ) {
+      intentRef.current = null;
+      setShownIntent(null);
+    }
+  });
+
+  const control = (action: ReadAction) => {
+    const available = capable(action);
+    const initiating = intent?.action === action;
+    return {
+      disabled:
+        !available && !(initiating && (snapshot.loading || focusedIntent)),
+      "aria-disabled": snapshot.loading || !available,
+      "aria-busy": snapshot.loading && initiating,
+      onBlur: (event: React.FocusEvent<HTMLButtonElement>) => {
+        const current = intentRef.current;
+        if (current?.trigger !== event.currentTarget) return;
+        current.owned = false;
+        if (!snapshot.loading) {
+          intentRef.current = null;
+          setShownIntent(null);
+        }
+      },
+    };
+  };
+  const invoke = (action: ReadAction, trigger: HTMLButtonElement) => {
+    if (
+      !capable(action) ||
+      snapshot.loading ||
+      snapshot.concealed ||
+      controller.getSnapshot().loading ||
+      controller.getSnapshot().concealed ||
+      admissionRef.current === controller
+    )
+      return;
+    admissionRef.current = controller;
+    const read = controller[action]();
+    if (controller.getSnapshot().loading) {
+      const next = {
+        action,
+        controller,
+        scopeKey,
+        trigger,
+        owned: document.activeElement === trigger,
+      } satisfies ReadIntent;
+      intentRef.current = next;
+      setShownIntent(next);
+    }
+    void read.then(
+      () => {
+        if (admissionRef.current === controller) admissionRef.current = null;
+      },
+      () => {
+        if (admissionRef.current === controller) admissionRef.current = null;
+      },
+    );
+  };
+  return { control, invoke, intent, retire };
 }
 
 function ReferencePicker(
@@ -407,6 +562,19 @@ function ReferencePicker(
     (op) => op === "prefix" || op === "full_text" || op === "eq",
   );
   const selectedKeys = snapshot.selected.map(workbookReferenceKey);
+  const presentedSelected = snapshot.selected.map(props.present);
+  const pickerId = useId();
+  const selector = useRef<HTMLSelectElement>(null);
+  const selectionGroup = useRef<HTMLFieldSetElement>(null);
+  const scopeKey = `${pickerId}:${props.field.viewSchemaId}:${props.field.fieldKey}:${props.sourceRecordId ?? ""}:${snapshot.source}:${JSON.stringify(snapshot.queryState)}`;
+  const removalFocus = useSelectedReferenceRemovalFocus({
+    ids: selectedKeys,
+    scopeKey,
+    disabled: Boolean(props.disabled || snapshot.concealed),
+    fallback: () => selector.current,
+    groupRef: selectionGroup,
+  });
+  const reads = useReferenceReadControls(controller, snapshot, scopeKey);
   if (snapshot.concealed)
     return (
       <div role="status">
@@ -427,6 +595,7 @@ function ReferencePicker(
             style={fieldStyle}
             value={snapshot.source}
             onChange={(event) => {
+              reads.retire();
               setFilterField("");
               setFilterValue("");
               void controller.replace(event.currentTarget.value);
@@ -477,7 +646,8 @@ function ReferencePicker(
             type="button"
             tone="secondary"
             disabled={!!filter && !filterValue}
-            onClick={() =>
+            onClick={() => {
+              reads.retire();
               void controller.replace(snapshot.source, {
                 ...emptyWorkbookQueryState(),
                 filters:
@@ -493,8 +663,8 @@ function ReferencePicker(
                         },
                       ]
                     : [],
-              })
-            }
+              });
+            }}
           >
             Apply filter
           </Button>
@@ -507,23 +677,27 @@ function ReferencePicker(
             ? "Could not load another page. The accepted page is retained. "
             : "This source could not be loaded. "}
           {snapshot.failure.detail.message}
-          <Button
-            type="button"
-            tone="secondary"
-            disabled={snapshot.loading}
-            onClick={() => void controller.retry()}
-          >
-            Retry references
-          </Button>
         </p>
+      ) : null}
+      {snapshot.failure || reads.intent?.action === "retry" ? (
+        <Button
+          type="button"
+          tone="secondary"
+          {...reads.control("retry")}
+          onClick={(event) => reads.invoke("retry", event.currentTarget)}
+        >
+          Retry references
+        </Button>
       ) : null}
       {snapshot.page ? (
         <>
           <label>
             {props.label}
             <select
+              ref={selector}
               aria-label={`${props.label} candidates`}
               style={fieldStyle}
+              disabled={!snapshot.page.candidates.length}
               multiple={props.field.kind === "collection"}
               size={Math.min(6, Math.max(2, snapshot.page.candidates.length))}
               value={
@@ -573,54 +747,69 @@ function ReferencePicker(
         <Button
           type="button"
           tone="secondary"
-          disabled={snapshot.loading || snapshot.pageNumber <= 1}
-          onClick={() => void controller.first()}
+          {...reads.control("first")}
+          onClick={(event) => reads.invoke("first", event.currentTarget)}
         >
           First
         </Button>
         <Button
           type="button"
           tone="secondary"
-          disabled={snapshot.loading || !snapshot.previousCount}
-          onClick={() => void controller.previous()}
+          {...reads.control("previous")}
+          onClick={(event) => reads.invoke("previous", event.currentTarget)}
         >
           Previous
         </Button>
         <Button
           type="button"
           tone="secondary"
-          disabled={snapshot.loading || !snapshot.page?.paging.hasMore}
-          onClick={() => void controller.next()}
+          {...reads.control("next")}
+          onClick={(event) => reads.invoke("next", event.currentTarget)}
         >
           Next
         </Button>
       </div>
-      <p>
-        Selected for this edit: {snapshot.selected.length}. Selection is
-        retained across pages and sources.
-      </p>
-      <ul
-        style={{
-          margin: 0,
-          paddingInlineStart: "var(--ct-spacing-lg)",
-          overflowWrap: "anywhere",
-        }}
+      <fieldset
+        ref={selectionGroup}
+        aria-label={`${props.label} selected references`}
+        tabIndex={-1}
+        data-reference-focus-fallback
+        style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}
       >
-        {snapshot.selected.map(props.present).map((item) => (
-          <li key={workbookReferenceKey(item)}>
-            {item.displayText}
-            {item.presentation === "unresolved" ? " (label not loaded)" : ""}
-            <Button
-              type="button"
-              tone="secondary"
-              aria-label={`Remove selected ${item.displayText}`}
-              onClick={() => controller.remove(workbookReferenceKey(item))}
-            >
-              Remove
-            </Button>
-          </li>
-        ))}
-      </ul>
+        <p>
+          Selected for this edit: {snapshot.selected.length}. Selection is
+          retained across pages and sources.
+        </p>
+        <ul
+          style={{
+            margin: 0,
+            paddingInlineStart: "var(--ct-spacing-lg)",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {presentedSelected.map((item) => (
+            <li key={workbookReferenceKey(item)}>
+              {item.displayText}
+              {item.presentation === "unresolved" ? " (label not loaded)" : ""}
+              <Button
+                ref={removalFocus.buttonRef(workbookReferenceKey(item))}
+                type="button"
+                tone="secondary"
+                aria-label={`Remove selected ${item.displayText}${presentedSelected.filter((selected) => selected.displayText === item.displayText).length > 1 ? ` (${item.identity.id})` : ""}`}
+                onClick={(event) =>
+                  removalFocus.remove(
+                    workbookReferenceKey(item),
+                    event.currentTarget,
+                    () => controller.remove(workbookReferenceKey(item)),
+                  )
+                }
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </fieldset>
       {snapshot.selectionError ? (
         <p role="alert">{snapshot.selectionError}</p>
       ) : null}

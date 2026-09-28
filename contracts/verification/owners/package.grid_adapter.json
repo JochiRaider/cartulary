@@ -18,14 +18,6 @@
         "playwright",
         "vitest"
       ]
-    },
-    {
-      "verification_id": "package.grid_adapter.verification.manual_surface_reachability",
-      "behavior_class": "architecture",
-      "profile": "base",
-      "evidence_kinds": [
-        "shell"
-      ]
     }
   ]
 }

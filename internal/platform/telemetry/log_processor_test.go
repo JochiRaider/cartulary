@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/attribute"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 )
 
@@ -32,9 +32,9 @@ func TestDropNewLogProcessorRetainsQueuedRecord(t *testing.T) {
 	}()
 
 	first := sdklog.Record{}
-	first.SetBody(otellog.StringValue("first"))
+	first.SetBody(attribute.StringValue("first"))
 	second := sdklog.Record{}
-	second.SetBody(otellog.StringValue("second"))
+	second.SetBody(attribute.StringValue("second"))
 
 	if err := processor.OnEmit(context.Background(), &first); err != nil {
 		t.Fatalf("emit first record: %v", err)
