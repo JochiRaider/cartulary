@@ -174,7 +174,6 @@
    neighboring cells without changing the spreadsheet's row geometry. */
 .cartulary-grid .rdg-cell:has([data-grid-editing="true"]) {
   overflow: visible;
-  z-index: 4;
 }
 
 .cartulary-grid-cell-content [data-grid-editor-toolbar="true"] {
@@ -298,23 +297,25 @@
 }
 
 .cartulary-grid-row-is-pending {
-  background-image: repeating-linear-gradient(
+  --cartulary-grid-row-image: repeating-linear-gradient(
     -45deg,
     transparent,
     transparent 6px,
     color-mix(in srgb, var(--ct-colors-semantic-caution) 12%, transparent) 6px,
     color-mix(in srgb, var(--ct-colors-semantic-caution) 12%, transparent) 12px
   );
+  background-image: var(--cartulary-grid-row-image);
 }
 
 .cartulary-grid-row-is-stale {
-  background-image: repeating-linear-gradient(
+  --cartulary-grid-row-image: repeating-linear-gradient(
     45deg,
     transparent,
     transparent 8px,
     color-mix(in srgb, var(--ct-colors-semantic-caution) 10%, transparent) 8px,
     color-mix(in srgb, var(--ct-colors-semantic-caution) 10%, transparent) 10px
   );
+  background-image: var(--cartulary-grid-row-image);
 }
 
 .cartulary-grid-cell-state-conflicted {
@@ -333,11 +334,10 @@
 .cartulary-grid-cell-is-active {
   outline: var(--ct-component-focus-ring-border);
   outline-offset: calc(-1 * var(--ct-component-focus-ring-offset));
-  z-index: 2;
 }
 
 .cartulary-grid-cell-is-range-selected {
-  background-image: repeating-linear-gradient(
+  --cartulary-grid-cell-image: repeating-linear-gradient(
     135deg,
     transparent,
     transparent 7px,
@@ -362,7 +362,7 @@
 }
 
 .cartulary-grid-cell-state-read-only {
-  background-image: repeating-linear-gradient(
+  --cartulary-grid-cell-image: repeating-linear-gradient(
     -45deg,
     transparent,
     transparent 10px,
@@ -428,13 +428,14 @@
 
 .cartulary-grid-draft-row,
 .cartulary-grid [data-cartulary-grid-draft-row="true"] {
-  background-image: repeating-linear-gradient(
+  --cartulary-grid-row-image: repeating-linear-gradient(
     -45deg,
     transparent,
     transparent 10px,
     color-mix(in srgb, var(--ct-colors-accent) 5%, transparent) 10px,
     color-mix(in srgb, var(--ct-colors-accent) 5%, transparent) 11px
   );
+  background-image: var(--cartulary-grid-row-image);
   border-block-start: 1px dashed var(--ct-colors-hairline-strong);
   color: var(--ct-colors-ink);
 }
@@ -475,4 +476,85 @@
   inset-inline-end: 0;
   border-inline-end: 3px double currentColor;
   pointer-events: none;
+}
+
+/* Frozen cells need their own painted surface: RDG's inherited body/summary
+   backgrounds are transparent in the production row renderer. Compose row and
+   cell state images over that surface so the existing cues stay visible. */
+.cartulary-grid .rdg-cell {
+  background-image: var(--cartulary-grid-cell-image, none);
+}
+
+.cartulary-grid
+  .rdg-cell:is(
+    .cartulary-grid-selection-cell,
+    .cartulary-grid-gutter-cell,
+    .cartulary-grid-frozen-data
+  ):not([role="columnheader"]),
+.cartulary-grid [data-cartulary-grid-draft-row="true"] > [role="gridcell"] {
+  background-color: var(--ct-colors-surface-1);
+  background-image:
+    var(--cartulary-grid-cell-image, none),
+    var(--cartulary-grid-row-image, none);
+}
+
+.cartulary-grid [role="row"][aria-level="1"][aria-expanded] > .rdg-cell-frozen {
+  background-color: var(--ct-colors-surface-3);
+  z-index: 5;
+}
+
+.cartulary-grid
+  .cartulary-grid-row-is-bulk-selected
+  > .cartulary-grid-selection-cell {
+  box-shadow: inset 3px 0 0 var(--ct-colors-accent);
+}
+
+/* Grid-local paint order, from scrolling focus and editor through frozen cells
+   to sticky header/creation intersections. Editor overflow stays available in
+   its owned work area; the obscured part of a scrolling cell cannot take hits. */
+.cartulary-grid .cartulary-grid-cell-is-active {
+  z-index: 2;
+}
+
+.cartulary-grid .rdg-cell:has([data-grid-editing="true"]) {
+  z-index: 4;
+}
+
+.cartulary-grid
+  .rdg-cell:is(
+    .cartulary-grid-selection-cell,
+    .cartulary-grid-gutter-cell,
+    .cartulary-grid-frozen-data
+  ) {
+  z-index: 5;
+}
+
+.cartulary-grid
+  .rdg-cell:is(
+    .cartulary-grid-selection-cell,
+    .cartulary-grid-gutter-cell,
+    .cartulary-grid-frozen-data
+  ):has([data-grid-editing="true"]) {
+  z-index: 6;
+}
+
+.cartulary-grid [role="columnheader"],
+.cartulary-grid [data-cartulary-grid-draft-row="true"] > [role="gridcell"] {
+  z-index: 7;
+}
+
+.cartulary-grid
+  [role="columnheader"]:is(
+    .cartulary-grid-selection-header-cell,
+    .cartulary-grid-gutter-header-cell,
+    .cartulary-grid-frozen-data
+  ),
+.cartulary-grid
+  [data-cartulary-grid-draft-row="true"]
+  > [role="gridcell"]:is(
+    .cartulary-grid-selection-cell,
+    .cartulary-grid-gutter-cell,
+    .cartulary-grid-frozen-data
+  ) {
+  z-index: 8;
 }

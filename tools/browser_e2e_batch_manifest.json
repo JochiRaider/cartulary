@@ -1482,7 +1482,9 @@
             "module.workbook.browser.column_sizing_surfaces",
             "module.workbook.browser.column_sizing_viewport",
             "module.workbook.browser.frozen_columns_layout",
-            "module.workbook.browser.frozen_columns_threshold"
+            "module.workbook.browser.frozen_columns_threshold",
+            "module.workbook.browser.frozen_data_region_paint_ea8329bf5c",
+            "module.workbook.browser.frozen_region_paint_01360d5734"
           ],
           "specs": [
             "apps/web/e2e/workbook-column-sizing.spec.ts"

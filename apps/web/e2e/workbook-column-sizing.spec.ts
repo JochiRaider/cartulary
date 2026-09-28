@@ -6,6 +6,7 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   gridGroupRowTestId,
+  gridRowGutterTestId,
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
@@ -1020,6 +1021,490 @@ test("a11y.column-sizing native controls retain keyboard focus at narrow width z
   ).toBe(true);
 });
 
+test("Workbook frozen gutter occludes crossing cell paint and owns its pointer target", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const fixture = await seed(page);
+  const recordId = fixture.rows[0]?.record_id;
+  if (!recordId) throw new Error("Missing committed Timeline row");
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/(records|rows)(\/|$)/.test(new URL(request.url()).pathname)
+    )
+      writes += 1;
+  });
+
+  const grid = page.locator(gridScrollportSelector());
+  const scrollingCell = page.getByTestId(rowCellTestId(recordId, summary));
+  const gutter = page.getByTestId(gridRowGutterTestId(surface, recordId));
+  await scrollingCell.evaluate(
+    (content, gutterTestId) => {
+      const root = content.closest<HTMLElement>('[role="grid"]');
+      const cell = content.closest<HTMLElement>('[role="gridcell"]');
+      const cover = root?.querySelector<HTMLElement>(
+        `[data-testid="${CSS.escape(gutterTestId)}"]`,
+      );
+      if (!root || !cell || !cover)
+        throw new Error("Expected mounted source, gutter, and grid");
+      const gutterBounds = cover.getBoundingClientRect();
+      root.scrollLeft +=
+        cell.getBoundingClientRect().left -
+        (gutterBounds.left + gutterBounds.width / 4);
+    },
+    gridRowGutterTestId(surface, recordId),
+  );
+  await expect
+    .poll(() => grid.evaluate((node) => node.scrollLeft))
+    .toBeGreaterThan(0);
+  const sourceBounds = await scrollingCell.boundingBox();
+  const gutterBounds = await gutter.boundingBox();
+  if (!sourceBounds || !gutterBounds)
+    throw new Error("Expected visible crossing geometry");
+  expect(sourceBounds.x).toBeLessThan(gutterBounds.x + gutterBounds.width);
+  expect(sourceBounds.x + sourceBounds.width).toBeGreaterThan(gutterBounds.x);
+
+  const painted = await gutter.screenshot();
+  await scrollingCell.evaluate((content) => {
+    const cell = content.closest<HTMLElement>('[role="gridcell"]');
+    if (!cell) throw new Error("Expected mounted source cell");
+    cell.style.visibility = "hidden";
+  });
+  let occluded: Buffer;
+  try {
+    occluded = await gutter.screenshot();
+  } finally {
+    await scrollingCell.evaluate((content) => {
+      const cell = content.closest<HTMLElement>('[role="gridcell"]');
+      if (cell) cell.style.visibility = "";
+    });
+  }
+  await info.attach("frozen-gutter-crossing-before", {
+    body: painted,
+    contentType: "image/png",
+  });
+  await info.attach("frozen-gutter-crossing-source-hidden", {
+    body: occluded,
+    contentType: "image/png",
+  });
+  const ordinaryHit = await gutter.evaluate((node) => {
+    const bounds = node.getBoundingClientRect();
+    const target = document.elementFromPoint(
+      bounds.left + bounds.width / 2,
+      bounds.top + bounds.height / 2,
+    );
+    return (
+      target?.closest('[role="gridcell"]') === node.closest('[role="gridcell"]')
+    );
+  });
+  const ordinaryStyles = await grid.evaluate((root) => {
+    const firstRow = root.querySelector(
+      '[data-cartulary-grid-row-kind="data"]',
+    );
+    const cells = firstRow?.querySelectorAll<HTMLElement>('[role="gridcell"]');
+    const header = root.querySelector<HTMLElement>('[role="columnheader"]');
+    const draft = root.querySelector<HTMLElement>(
+      '[data-cartulary-grid-draft-row="true"] [role="gridcell"]',
+    );
+    const style = (node: HTMLElement | null | undefined) => {
+      if (!node) return null;
+      const value = getComputedStyle(node);
+      return {
+        backgroundColor: value.backgroundColor,
+        backgroundImage: value.backgroundImage,
+        overflow: value.overflow,
+        position: value.position,
+        zIndex: value.zIndex,
+      };
+    };
+    return {
+      row: style(firstRow as HTMLElement | null),
+      selection: style(cells?.[0]),
+      gutter: style(cells?.[1]),
+      scrolling: style(cells?.[2]),
+      header: style(header),
+      draft: style(draft),
+    };
+  });
+  await scrollingCell.click();
+  const editor = page.getByTestId(
+    timelineScalarEditorTestId({
+      recordId,
+      fieldKey: summary,
+      surface: "grid",
+    }),
+  );
+  await expect(editor).toBeVisible();
+  const editorStyles = await editor.evaluate((node) => {
+    const cell = node.closest<HTMLElement>('[role="gridcell"]');
+    const value = cell && getComputedStyle(cell);
+    return {
+      backgroundColor: value?.backgroundColor,
+      overflow: value?.overflow,
+      zIndex: value?.zIndex,
+    };
+  });
+  await editor.fill("Retained scrolling draft");
+  await editor.press("Home");
+  for (let i = 0; i < 4; i += 1) await editor.press("ArrowRight");
+  await editor.evaluate(
+    (node, gutterTestId) => {
+      const root = node.closest<HTMLElement>('[role="grid"]');
+      const cell = node.closest<HTMLElement>('[role="gridcell"]');
+      const cover = root?.querySelector<HTMLElement>(
+        `[data-testid="${CSS.escape(gutterTestId)}"]`,
+      );
+      if (!root || !cell || !cover)
+        throw new Error("Expected mounted scrolling editor and gutter");
+      const bounds = cover.getBoundingClientRect();
+      root.scrollLeft +=
+        cell.getBoundingClientRect().left - (bounds.left + bounds.width / 4);
+    },
+    gridRowGutterTestId(surface, recordId),
+  );
+  const editingPaint = await gutter.screenshot();
+  const editingHit = await gutter.evaluate((node) => {
+    const bounds = node.getBoundingClientRect();
+    return (
+      document
+        .elementFromPoint(
+          bounds.left + bounds.width / 2,
+          bounds.top + bounds.height / 2,
+        )
+        ?.closest('[role="gridcell"]') === node.closest('[role="gridcell"]')
+    );
+  });
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveValue("Retained scrolling draft");
+  expect(
+    await editor.evaluate(
+      (node) => (node as HTMLInputElement | HTMLTextAreaElement).selectionStart,
+    ),
+  ).toBe(4);
+  expect(editingPaint.equals(painted)).toBe(true);
+  expect(editingHit).toBe(true);
+  await info.attach("frozen-gutter-crossing-editor-active", {
+    body: editingPaint,
+    contentType: "image/png",
+  });
+  await page.keyboard.press("Escape");
+  await scrollingCell.evaluate(
+    (content, gutterTestId) => {
+      const root = content.closest<HTMLElement>('[role="grid"]');
+      const cell = content.closest<HTMLElement>('[role="gridcell"]');
+      const cover = root?.querySelector<HTMLElement>(
+        `[data-testid="${CSS.escape(gutterTestId)}"]`,
+      );
+      if (!root || !cell || !cover)
+        throw new Error("Expected mounted active source and gutter");
+      const gutterBounds = cover.getBoundingClientRect();
+      root.scrollLeft +=
+        cell.getBoundingClientRect().left -
+        (gutterBounds.left + gutterBounds.width / 4);
+    },
+    gridRowGutterTestId(surface, recordId),
+  );
+  const activeStyles = await scrollingCell.evaluate((content) => {
+    const cell = content.closest<HTMLElement>('[role="gridcell"]');
+    if (!cell) throw new Error("Expected mounted active source cell");
+    const value = getComputedStyle(cell);
+    return {
+      className: cell.className,
+      backgroundColor: value.backgroundColor,
+      zIndex: value.zIndex,
+    };
+  });
+  const hit = await gutter.evaluate((node) => {
+    const bounds = node.getBoundingClientRect();
+    const target = document.elementFromPoint(
+      bounds.left + bounds.width / 2,
+      bounds.top + bounds.height / 2,
+    );
+    return (
+      target?.closest('[role="gridcell"]') === node.closest('[role="gridcell"]')
+    );
+  });
+  await info.attach("frozen-gutter-render-characterization", {
+    body: JSON.stringify({
+      ordinaryHit,
+      ordinaryStyles,
+      editorStyles,
+      activeStyles,
+      activeHit: hit,
+    }),
+    contentType: "application/json",
+  });
+  expect(painted.equals(occluded)).toBe(true);
+  expect(ordinaryStyles.gutter?.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  expect(ordinaryStyles.selection?.backgroundColor).not.toBe(
+    "rgba(0, 0, 0, 0)",
+  );
+  expect(ordinaryStyles.draft?.backgroundImage).not.toBe("none");
+  expect(ordinaryHit).toBe(true);
+  expect(hit).toBe(true);
+  const selection = page.getByRole("checkbox", {
+    name: `Select record ${recordId}`,
+    exact: true,
+  });
+  await scrollingCell.evaluate((content, selectionName) => {
+    const root = content.closest<HTMLElement>('[role="grid"]');
+    const cell = content.closest<HTMLElement>('[role="gridcell"]');
+    const checkbox = root?.querySelector<HTMLInputElement>(
+      `input[aria-label="${CSS.escape(selectionName)}"]`,
+    );
+    if (!root || !cell || !checkbox)
+      throw new Error("Expected scrolling cell and frozen selection control");
+    const box = checkbox.getBoundingClientRect();
+    root.scrollLeft +=
+      cell.getBoundingClientRect().left - (box.left + box.width / 2);
+  }, `Select record ${recordId}`);
+  const selectionHit = await selection.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    return (
+      document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2,
+      ) === node
+    );
+  });
+  expect(selectionHit).toBe(true);
+  await selection.click();
+  await expect(selection).toBeChecked();
+  const selectedCell = selection.locator(
+    'xpath=ancestor::*[@role="gridcell"][1]',
+  );
+  await expect
+    .poll(() =>
+      selectedCell.evaluate((node) => getComputedStyle(node).boxShadow),
+    )
+    .not.toBe("none");
+  await info.attach("frozen-selected-row-control", {
+    body: await selectedCell.screenshot(),
+    contentType: "image/png",
+  });
+  expect(writes).toBe(0);
+
+  const host = await createViewRow(page, fixture.incident, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("frozen-host"),
+    "host.display_name": "Host cell crossing the frozen gutter",
+    "host.hostname": "frozen-gutter.example.test",
+  });
+  await page.goto(
+    `/?incident_id=${fixture.incident}&view_schema_id=${hostsViewSchemaId}`,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(hostsViewSchemaId)),
+  ).toBeVisible();
+  const hostSource = page.getByTestId(
+    rowCellTestId(host.record_id, "host.display_name"),
+  );
+  const hostGutter = page.getByTestId(
+    gridRowGutterTestId(hostsViewSchemaId, host.record_id),
+  );
+  await hostSource.evaluate(
+    (content, gutterTestId) => {
+      const root = content.closest<HTMLElement>('[role="grid"]');
+      const source = content.closest<HTMLElement>('[role="gridcell"]');
+      const cover = root?.querySelector<HTMLElement>(
+        `[data-testid="${CSS.escape(gutterTestId)}"]`,
+      );
+      if (!root || !source || !cover)
+        throw new Error("Expected mounted Hosts source and gutter");
+      const bounds = cover.getBoundingClientRect();
+      root.scrollLeft +=
+        source.getBoundingClientRect().left - (bounds.left + bounds.width / 4);
+    },
+    gridRowGutterTestId(hostsViewSchemaId, host.record_id),
+  );
+  const hostWithSource = await hostGutter.screenshot();
+  await hostSource.evaluate((content) => {
+    const cell = content.closest<HTMLElement>('[role="gridcell"]');
+    if (cell) cell.style.visibility = "hidden";
+  });
+  let hostWithoutSource: Buffer;
+  try {
+    hostWithoutSource = await hostGutter.screenshot();
+  } finally {
+    await hostSource.evaluate((content) => {
+      const cell = content.closest<HTMLElement>('[role="gridcell"]');
+      if (cell) cell.style.visibility = "";
+    });
+  }
+  expect(hostWithSource.equals(hostWithoutSource)).toBe(true);
+  await info.attach("hosts-frozen-gutter-crossing", {
+    body: hostWithSource,
+    contentType: "image/png",
+  });
+});
+
+test("Workbook frozen data cell occludes scrolling paint at the effective boundary", async ({
+  page,
+  workerAdmin,
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  preferences.select("comfortable");
+  const fixture = await seed(page);
+  const recordId = fixture.rows[0]?.record_id;
+  if (!recordId) throw new Error("Missing committed Timeline row");
+  const frozenField = "timeline.date_entered_text";
+  await firstColumn(page, frozenField);
+  await setFreeze(page, frozenField);
+
+  const grid = page.locator(gridScrollportSelector());
+  await expect(grid).toHaveAttribute("data-grid-freeze-state", "active");
+  const frozen = page.getByTestId(rowCellTestId(recordId, frozenField));
+  const scrolling = page.getByTestId(rowCellTestId(recordId, summary));
+  const frozenCell = frozen.locator('xpath=ancestor::*[@role="gridcell"][1]');
+  const scrollingGridCell = scrolling.locator(
+    'xpath=ancestor::*[@role="gridcell"][1]',
+  );
+  await scrolling.evaluate(
+    (content, frozenTestId) => {
+      const root = content.closest<HTMLElement>('[role="grid"]');
+      const source = content.closest<HTMLElement>('[role="gridcell"]');
+      const cover = root?.querySelector<HTMLElement>(
+        `[data-testid="${CSS.escape(frozenTestId)}"]`,
+      );
+      if (!root || !source || !cover)
+        throw new Error("Expected mounted frozen and scrolling cells");
+      const coverBounds = cover.getBoundingClientRect();
+      root.scrollLeft +=
+        source.getBoundingClientRect().left -
+        (coverBounds.left + coverBounds.width / 2);
+    },
+    rowCellTestId(recordId, frozenField),
+  );
+  const sourceBounds = await scrollingGridCell.boundingBox();
+  const coverBounds = await frozenCell.boundingBox();
+  if (!sourceBounds || !coverBounds)
+    throw new Error("Expected crossing frozen-data geometry");
+  expect(sourceBounds.x).toBeLessThan(coverBounds.x + coverBounds.width);
+  expect(sourceBounds.x + sourceBounds.width).toBeGreaterThan(coverBounds.x);
+
+  const withSource = await frozenCell.screenshot();
+  await scrolling.evaluate((content) => {
+    const cell = content.closest<HTMLElement>('[role="gridcell"]');
+    if (!cell) throw new Error("Expected mounted scrolling cell");
+    cell.style.visibility = "hidden";
+  });
+  let withoutSource: Buffer;
+  try {
+    withoutSource = await frozenCell.screenshot();
+  } finally {
+    await scrolling.evaluate((content) => {
+      const cell = content.closest<HTMLElement>('[role="gridcell"]');
+      if (cell) cell.style.visibility = "";
+    });
+  }
+  const styles = await frozen.evaluate((content) => {
+    const cell = content.closest<HTMLElement>('[role="gridcell"]');
+    if (!cell) throw new Error("Expected mounted frozen data cell");
+    const value = getComputedStyle(cell);
+    const rect = cell.getBoundingClientRect();
+    return {
+      backgroundColor: value.backgroundColor,
+      backgroundImage: value.backgroundImage,
+      zIndex: value.zIndex,
+      hit:
+        document
+          .elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          )
+          ?.closest('[role="gridcell"]') === cell,
+    };
+  });
+  await info.attach("frozen-data-crossing-before", {
+    body: withSource,
+    contentType: "image/png",
+  });
+  await info.attach("frozen-data-crossing-source-hidden", {
+    body: withoutSource,
+    contentType: "image/png",
+  });
+  await info.attach("frozen-data-render-characterization", {
+    body: JSON.stringify(styles),
+    contentType: "application/json",
+  });
+  expect(withSource.equals(withoutSource)).toBe(true);
+  expect(styles.hit).toBe(true);
+
+  await page.setViewportSize({ width: 2048, height: 1440 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "2";
+  });
+  await scrolling.evaluate(
+    (content, frozenTestId) => {
+      const root = content.closest<HTMLElement>('[role="grid"]');
+      const source = content.closest<HTMLElement>('[role="gridcell"]');
+      const cover = root?.querySelector<HTMLElement>(
+        `[data-testid="${CSS.escape(frozenTestId)}"]`,
+      );
+      if (!root || !source || !cover)
+        throw new Error("Expected zoomed frozen and scrolling cells");
+      const bounds = cover.getBoundingClientRect();
+      root.scrollLeft +=
+        (source.getBoundingClientRect().left -
+          (bounds.left + bounds.width / 2)) /
+        2;
+    },
+    rowCellTestId(recordId, frozenField),
+  );
+  const zoomedSourceBounds = await scrollingGridCell.boundingBox();
+  const zoomedCoverBounds = await frozenCell.boundingBox();
+  if (!zoomedSourceBounds || !zoomedCoverBounds)
+    throw new Error("Expected zoomed crossing geometry");
+  expect(zoomedSourceBounds.x).toBeLessThan(
+    zoomedCoverBounds.x + zoomedCoverBounds.width,
+  );
+  expect(zoomedSourceBounds.x + zoomedSourceBounds.width).toBeGreaterThan(
+    zoomedCoverBounds.x,
+  );
+  const zoomedWithSource = await frozenCell.screenshot();
+  await scrollingGridCell.evaluate((node) => {
+    (node as HTMLElement).style.visibility = "hidden";
+  });
+  let zoomedWithoutSource: Buffer;
+  try {
+    zoomedWithoutSource = await frozenCell.screenshot();
+  } finally {
+    await scrollingGridCell.evaluate((node) => {
+      (node as HTMLElement).style.visibility = "";
+    });
+  }
+  expect(zoomedWithSource.equals(zoomedWithoutSource)).toBe(true);
+  await info.attach("frozen-data-zoom-two-crossing", {
+    body: zoomedWithSource,
+    contentType: "image/png",
+  });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await changeGrouping(page, surface, "timeline.capture_state");
+  const groupValue = String(
+    fixture.rows[0]?.cells["timeline.capture_state"]?.value,
+  );
+  const group = page.getByTestId(
+    gridGroupRowTestId(surface, "timeline.capture_state", groupValue),
+  );
+  await expect(group).toBeVisible();
+  const groupSurfaces = await group.evaluate((button) => {
+    const row = button.closest<HTMLElement>('[role="row"]');
+    const frozen = button.closest<HTMLElement>('[role="gridcell"]');
+    if (!row || !frozen) throw new Error("Expected grouped frozen gutter");
+    return {
+      row: getComputedStyle(row).backgroundColor,
+      frozen: getComputedStyle(frozen).backgroundColor,
+      position: getComputedStyle(frozen).position,
+    };
+  });
+  expect(groupSurfaces.frozen).toBe(groupSurfaces.row);
+  expect(groupSurfaces.position).toBe("sticky");
+});
+
 test("Workbook frozen columns retain semantic placement saved bytes and drafts through suspension", async ({
   page,
 }, info) => {
@@ -1079,9 +1564,22 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
     }),
   );
   await editor.fill("Retained frozen draft");
+  await editor.press("Home");
+  for (let i = 0; i < 4; i += 1) await editor.press("ArrowRight");
   await editor.evaluate((node) => {
     (window as unknown as { frozenEditor: Element }).frozenEditor = node;
   });
+  const caretSamples: { stage: string; start: number | null }[] = [];
+  const sampleCaret = async (stage: string) => {
+    caretSamples.push({
+      stage,
+      start: await editor.evaluate(
+        (node) =>
+          (node as HTMLInputElement | HTMLTextAreaElement).selectionStart,
+      ),
+    });
+  };
+  await sampleCaret("after-set");
   let writes = 0;
   page.on("request", (r) => {
     if (
@@ -1091,10 +1589,12 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
       writes += 1;
   });
   await showColumns(page);
+  await sampleCaret("after-open-columns");
   // Layout commands borrow focus without submitting the unrelated draft.
   await columns(page)
     .getByRole("button", { name: "Unfreeze columns", exact: true })
     .click();
+  await sampleCaret("after-unfreeze");
   await expect(editor).toHaveValue("Retained frozen draft");
   await columns(page)
     .getByRole("button", {
@@ -1102,6 +1602,7 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
       exact: true,
     })
     .click();
+  await sampleCaret("after-refreeze");
   expect(
     await editor.evaluate(
       (node) =>
@@ -1161,6 +1662,7 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
     .click();
   await page.setViewportSize({ width: 390, height: 900 });
   await expect(grid).toHaveAttribute("data-grid-freeze-state", "suspended");
+  await sampleCaret("after-suspend");
   await expect(grid.locator(".cartulary-grid-frozen-data")).toHaveCount(0);
   await info.attach("frozen-layout-suspended", {
     body: await page.screenshot(),
@@ -1175,6 +1677,16 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(grid).toHaveAttribute("data-grid-freeze-state", "active");
   await expect(editor).toHaveValue("Retained frozen draft");
+  await sampleCaret("after-resume");
+  await info.attach("frozen-layout-caret-samples", {
+    body: JSON.stringify(caretSamples),
+    contentType: "application/json",
+  });
+  expect(
+    await editor.evaluate(
+      (node) => (node as HTMLInputElement | HTMLTextAreaElement).selectionStart,
+    ),
+  ).toBe(4);
   expect(
     await editor.evaluate(
       (node) =>

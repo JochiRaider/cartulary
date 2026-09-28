@@ -1727,6 +1727,13 @@ test("Timeline virtualization reaches off-screen rows with a frozen gutter", asy
     page,
     surface: timelineViewSchemaId,
   });
+  await page
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator(gridScrollportSelector())
+    .evaluate((element) => {
+      element.scrollLeft = 480;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
   const virtualTargetTestId = rowCellTestId(
     virtualTarget.record_id,
     "timeline.activity_synopsis_text",
